@@ -56,7 +56,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var rig = installerObject.GetComponent<GameplayCameraRig>();
                 Assert.That(rig, Is.Not.Null);
-                AssertCameraSettings(rig, expectedCameraSettings);
 
                 var boardRoot = installerObject.GetComponentInChildren<GameplayBoardRoot>();
                 Assert.That(boardRoot, Is.Not.Null);
@@ -74,15 +73,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(cinemachineCamera.Target.TrackingTarget, Is.EqualTo(boardRoot.CameraTargetRoot));
                 Assert.That(cinemachineCamera.Target.LookAtTarget, Is.EqualTo(boardRoot.CameraTargetRoot));
                 Assert.That(cinemachineCamera.Target.CustomLookAtTarget, Is.True);
-                Assert.That(
-                    cinemachineCamera.Lens.FieldOfView,
-                    Is.EqualTo(expectedCameraSettings.PerspectiveFieldOfView).Within(0.0001f));
-                Assert.That(
-                    cinemachineCamera.Lens.NearClipPlane,
-                    Is.EqualTo(expectedCameraSettings.NearClipPlane).Within(0.0001f));
-                Assert.That(
-                    cinemachineCamera.Lens.FarClipPlane,
-                    Is.EqualTo(expectedCameraSettings.FarClipPlane).Within(0.0001f));
                 Assert.That(brain.DefaultBlend.Style, Is.EqualTo(CinemachineBlendDefinition.Styles.Cut));
                 Assert.That(brain.DefaultBlend.BlendTime, Is.EqualTo(0f).Within(0.0001f));
 
@@ -186,7 +176,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void GameplayShowcaseSceneScaffold_EnsureInstallerScaffold_UsesConfiguredLens_WhenBaselinePolicyDisablesAuthoredLens()
+        public void GameplaySceneHost_Initialize_UsesResolvedStartupLens_WhenHierarchyBootstrapDisablesAuthoredLens()
         {
             var scene = CreateIsolatedTestScene();
 
@@ -194,8 +184,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var installerObject = new GameObject("GameplayShowcaseInstaller");
                 SceneManager.MoveGameObjectToScene(installerObject, scene);
+                var host = installerObject.AddComponent<GameplaySceneHost>();
 
                 var mainCameraObject = new GameObject("Main Camera");
+                mainCameraObject.tag = "MainCamera";
                 mainCameraObject.AddComponent<Camera>();
                 mainCameraObject.AddComponent<CinemachineBrain>();
                 SceneManager.MoveGameObjectToScene(mainCameraObject, scene);
@@ -238,22 +230,44 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var rig = installerObject.GetComponent<GameplayCameraRig>();
                 Assert.That(rig, Is.Not.Null);
-                var resolvedCameraSettings = rig.ResolveConfiguredSettings(
-                    baseCameraSettings,
-                    baselineAuthoringPolicy,
-                    Vector3.zero,
-                    new CubeTopologyState(FaceId.Floor),
-                    TopologyRotationVisualMapping.ForwardUsesPositiveX);
-                var boardRoot = installerObject.GetComponentInChildren<GameplayBoardRoot>();
-                rig.ApplySettings(resolvedCameraSettings);
-                rig.Initialize(null, boardRoot.CameraTargetRoot, new Bounds(Vector3.zero, Vector3.one));
+                host.Initialize(
+                    new GameplaySceneHostConfiguration
+                    {
+                        AutoAdvanceTicks = false,
+                        AutoCreateViews = false,
+                        CameraBaselineAuthoringPolicy = baselineAuthoringPolicy,
+                        CameraSettings = baseCameraSettings,
+                        CellSize = 1f,
+                        InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                        InitialEntities = new[]
+                        {
+                            new EntityState
+                            {
+                                entityId = 10,
+                                position = new SurfaceCell(FaceId.Floor, 0, 0),
+                                hp = 3,
+                                maxHp = 3,
+                                teamId = 1,
+                                type = EntityType.Unit,
+                                state = EntityPhaseState.Idle,
+                                facing = Direction.Right,
+                            },
+                        },
+                        InitialTopology = new CubeTopologyState(FaceId.Floor),
+                        PlayerEntityId = 10,
+                        SnapViewCameraToTarget = false,
+                        StaticEntityLogics = Array.Empty<IEntityLogic>(),
+                        TopologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesPositiveX,
+                    });
 
-                Assert.That(resolvedCameraSettings.PerspectiveFieldOfView, Is.EqualTo(60f).Within(0.0001f));
-                Assert.That(resolvedCameraSettings.NearClipPlane, Is.EqualTo(0.03f).Within(0.0001f));
-                Assert.That(resolvedCameraSettings.FarClipPlane, Is.EqualTo(100f).Within(0.0001f));
+                var boardRoot = installerObject.GetComponentInChildren<GameplayBoardRoot>();
+                Assert.That(rig.PerspectiveFieldOfView, Is.EqualTo(60f).Within(0.0001f));
+                Assert.That(rig.NearClipPlane, Is.EqualTo(0.03f).Within(0.0001f));
+                Assert.That(rig.FarClipPlane, Is.EqualTo(100f).Within(0.0001f));
                 Assert.That(cinemachineCamera.Lens.FieldOfView, Is.EqualTo(60f).Within(0.0001f));
                 Assert.That(cinemachineCamera.Lens.NearClipPlane, Is.EqualTo(0.03f).Within(0.0001f));
                 Assert.That(cinemachineCamera.Lens.FarClipPlane, Is.EqualTo(100f).Within(0.0001f));
+                Assert.That(cinemachineCamera.transform.parent, Is.EqualTo(boardRoot.CameraEffectsRoot));
                 Assert.That(
                     Vector3.Distance(boardRoot.CameraEffectsRoot.position, authoredWorldPosition),
                     Is.LessThan(0.001f));
@@ -269,7 +283,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void GameplayShowcaseSceneScaffold_EnsureInstallerScaffold_AppliesProvidedShakeProfileToRig()
+        public void GameplaySceneHost_Initialize_AppliesConfiguredStartupShakeProfileOnce()
         {
             var scene = CreateIsolatedTestScene();
 
@@ -277,6 +291,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var installerObject = new GameObject("GameplayShowcaseInstaller");
                 SceneManager.MoveGameObjectToScene(installerObject, scene);
+                var host = installerObject.AddComponent<GameplaySceneHost>();
 
                 var shakeProfile = TopologyTransitionCameraShakeProfile.CreateDefault();
                 shakeProfile.ImpactLocalPositionAmplitude = Vector3.zero;
@@ -291,6 +306,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var rig = installerObject.GetComponent<GameplayCameraRig>();
                 Assert.That(rig, Is.Not.Null);
+                host.Initialize(
+                    new GameplaySceneHostConfiguration
+                    {
+                        AutoAdvanceTicks = false,
+                        AutoCreateViews = false,
+                        CameraSettings = GameplayCameraSettings.CreateShowcaseDefault(),
+                        CellSize = 1f,
+                        InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                        InitialEntities = new[]
+                        {
+                            new EntityState
+                            {
+                                entityId = 10,
+                                position = new SurfaceCell(FaceId.Floor, 0, 0),
+                                hp = 3,
+                                maxHp = 3,
+                                teamId = 1,
+                                type = EntityType.Unit,
+                                state = EntityPhaseState.Idle,
+                                facing = Direction.Right,
+                            },
+                        },
+                        InitialTopology = new CubeTopologyState(FaceId.Floor),
+                        PlayerEntityId = 10,
+                        SnapViewCameraToTarget = false,
+                        StaticEntityLogics = Array.Empty<IEntityLogic>(),
+                        TopologyTransitionCameraShakeProfile = shakeProfile,
+                    });
 
                 rig.ApplyTopologyTransitionVisualState(
                     new TopologyTransitionVisualState(

@@ -21,6 +21,7 @@ using NUnit.Framework;
 using UnityEditor;
 using Unity.Cinemachine;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
@@ -5082,6 +5083,96 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 UnityEngine.Object.DestroyImmediate(hostObject);
                 UnityEngine.Object.DestroyImmediate(cameraObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void GameplaySceneHost_Initialize_WithCinemachineBrain_AppliesResolvedStartupLensToSceneCinemachineCamera()
+        {
+            var hostObject =
+                new GameObject("GameplaySceneHost_Initialize_WithCinemachineBrain_AppliesResolvedStartupLensToSceneCinemachineCamera");
+            var outputCameraObject = new GameObject("Main Camera");
+            var cinemachineCameraObject = new GameObject("StartupLensCinemachineCamera");
+
+            try
+            {
+                outputCameraObject.tag = "MainCamera";
+                var outputCamera = outputCameraObject.AddComponent<Camera>();
+                var brain = outputCameraObject.AddComponent<CinemachineBrain>();
+                var cinemachineCamera = cinemachineCameraObject.AddComponent<CinemachineCamera>();
+                var authoredLens = cinemachineCamera.Lens;
+                authoredLens.FieldOfView = 44f;
+                authoredLens.NearClipPlane = 0.2f;
+                authoredLens.FarClipPlane = 88f;
+                cinemachineCamera.Lens = authoredLens;
+                var authoredWorldPosition = new Vector3(3f, 4f, -7f);
+                var authoredWorldRotation =
+                    Quaternion.LookRotation((-authoredWorldPosition).normalized, Vector3.up);
+                cinemachineCamera.transform.SetPositionAndRotation(authoredWorldPosition, authoredWorldRotation);
+
+                var rig = hostObject.AddComponent<GameplayCameraRig>();
+                rig.CaptureAuthoredSceneCameraPose(
+                    cinemachineCamera.transform,
+                    authoredLens.FieldOfView,
+                    authoredLens.NearClipPlane,
+                    authoredLens.FarClipPlane);
+
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab(
+                    "GameplaySceneHost_Initialize_WithCinemachineBrain_AppliesResolvedStartupLens_PlayerPrefab");
+                playerViewPrefab.transform.SetParent(hostObject.transform, worldPositionStays: false);
+                var expectedCameraSettings = new GameplayCameraSettings
+                {
+                    PitchDegrees = 10f,
+                    YawDegrees = 15f,
+                    DistanceMode = CameraDistanceMode.AutoFit,
+                    ManualDistance = 2f,
+                    FramingPadding = 1.2f,
+                    PerspectiveFieldOfView = 60f,
+                    NearClipPlane = 0.03f,
+                    FarClipPlane = 100f,
+                };
+
+                host.Initialize(
+                    new GameplaySceneHostConfiguration
+                    {
+                        AutoAdvanceTicks = false,
+                        AutoCreateViews = true,
+                        CameraBaselineAuthoringPolicy = new GameplayCameraBaselineAuthoringPolicy
+                        {
+                            UseAuthoredSceneCameraPose = true,
+                            UseAuthoredSceneCameraLens = false,
+                        },
+                        CameraSettings = expectedCameraSettings,
+                        CellSize = 1f,
+                        InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                        InitialEntities = new[]
+                        {
+                            CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)),
+                        },
+                        InitialTopology = new CubeTopologyState(FaceId.Floor),
+                        PlayerEntityId = 10,
+                        PlayerViewPrefab = playerViewPrefab,
+                        SnapViewCameraToTarget = false,
+                        StaticEntityLogics = Array.Empty<IEntityLogic>(),
+                        TopologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesPositiveX,
+                    });
+
+                Assert.That(rig.PerspectiveFieldOfView, Is.EqualTo(expectedCameraSettings.PerspectiveFieldOfView).Within(0.0001f));
+                Assert.That(rig.NearClipPlane, Is.EqualTo(expectedCameraSettings.NearClipPlane).Within(0.0001f));
+                Assert.That(rig.FarClipPlane, Is.EqualTo(expectedCameraSettings.FarClipPlane).Within(0.0001f));
+                Assert.That(cinemachineCamera.Lens.FieldOfView, Is.EqualTo(expectedCameraSettings.PerspectiveFieldOfView).Within(0.0001f));
+                Assert.That(cinemachineCamera.Lens.NearClipPlane, Is.EqualTo(expectedCameraSettings.NearClipPlane).Within(0.0001f));
+                Assert.That(cinemachineCamera.Lens.FarClipPlane, Is.EqualTo(expectedCameraSettings.FarClipPlane).Within(0.0001f));
+                Assert.That(outputCamera.GetUniversalAdditionalCameraData().renderPostProcessing, Is.True);
+                Assert.That(brain.UpdateMethod, Is.EqualTo(CinemachineBrain.UpdateMethods.ManualUpdate));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+                UnityEngine.Object.DestroyImmediate(outputCameraObject);
+                UnityEngine.Object.DestroyImmediate(cinemachineCameraObject);
             }
         }
 

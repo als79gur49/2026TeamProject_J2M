@@ -9,6 +9,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         private const string GameplayCameraRigRelativePath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayCameraRig.cs";
+        private const string StartupPlanComposerRelativePath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/Bootstrap/GameplayCameraStartupPlanComposer.cs";
+        private const string HostBootstrapRelativePath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/Bootstrap/GameplayHostTopologyVisualRuntimeBootstrap.cs";
+        private const string SceneBootstrapRelativePath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/Bootstrap/GameplayShowcaseSceneCameraBootstrap.cs";
 
         private static readonly string[] ForbiddenFragments =
         {
@@ -58,6 +64,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(source, Does.Contain("PrepareAuthoredSceneCameraBaseline("));
             Assert.That(source, Does.Contain("ApplyAuthoredSceneCameraLens("));
             Assert.That(source, Does.Contain("ResolveAuthoredSceneCameraBaselinePose()"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayCameraRig_ResolveConfiguredSettings_RemainsSingleRuntimeStartupInterpreter()
+        {
+            var rigSource = ReadRepoFile(GameplayCameraRigRelativePath);
+            var startupPlanComposerSource = ReadRepoFile(StartupPlanComposerRelativePath);
+            var hostBootstrapSource = ReadRepoFile(HostBootstrapRelativePath);
+            var sceneBootstrapSource = ReadRepoFile(SceneBootstrapRelativePath);
+
+            Assert.That(rigSource, Does.Contain("internal GameplayCameraSettings ResolveConfiguredSettings("));
+            Assert.That(startupPlanComposerSource, Does.Contain("cameraRig.ResolveConfiguredSettings("));
+            Assert.That(hostBootstrapSource, Does.Not.Contain("ResolveConfiguredSettings("));
+            Assert.That(sceneBootstrapSource, Does.Not.Contain("ResolveConfiguredSettings("));
         }
 
         [Test]

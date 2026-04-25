@@ -8,7 +8,7 @@ namespace Game.Feature.Gameplay.Host
         internal static void ApplyTo(
             GameplaySceneHostConfiguration configuration,
             in GameplayCameraTopologyAuthoringSnapshot snapshot,
-            GameplayCameraSettings resolvedCameraSettings,
+            GameplayCameraSettings cameraSettings,
             Camera viewCamera)
         {
             if (configuration == null)
@@ -22,7 +22,7 @@ namespace Game.Feature.Gameplay.Host
             configuration.TopologyRotationVisualMapping = sharedTuning.TopologyRotationVisualMapping;
             configuration.TopologyRotationTween = sharedTuning.TopologyRotationTweenSettings;
             configuration.CameraSettings =
-                resolvedCameraSettings?.Clone() ??
+                cameraSettings?.Clone() ??
                 sharedTuning.CameraSettings?.Clone() ??
                 GameplayCameraSettings.CreateShowcaseDefault();
             configuration.TopologyTransitionCameraShakeProfile =

@@ -106,6 +106,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var factorySource = ReadRepoFile(FactoryRelativePath);
 
+            Assert.That(factorySource, Does.Contain("GameplayCameraStartupPlanComposer.Compose("));
+            Assert.That(factorySource, Does.Contain("GameplayShowcaseSceneCameraBootstrap.ApplyResolvedStartupLens("));
             Assert.That(factorySource, Does.Contain("GameplayHostTopologyVisualRuntimeBootstrap.Attach("));
 
             foreach (var forbiddenFragment in ForbiddenFactoryFragments)
@@ -123,14 +125,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var helperSource = ReadRepoFile(HelperRelativePath);
 
-            Assert.That(helperSource, Does.Contain("presenter.AttachOutputCamera(outputCamera);"));
-            Assert.That(helperSource, Does.Contain("cameraRig.ConfigureTopologyTransitionCameraShake(configuration.TopologyTransitionCameraShakeProfile);"));
-            Assert.That(helperSource, Does.Contain("cameraRig.ResolveConfiguredSettings("));
-            Assert.That(helperSource, Does.Contain("configuration.CameraBaselineAuthoringPolicy"));
-            Assert.That(helperSource, Does.Contain("cameraRig.ApplySettings(resolvedCameraSettings);"));
+            Assert.That(helperSource, Does.Contain("presenter.AttachOutputCamera(startupPlan.OutputCamera);"));
+            Assert.That(helperSource, Does.Contain("cameraRig.ConfigureTopologyTransitionCameraShake(startupPlan.TopologyTransitionCameraShakeProfile);"));
+            Assert.That(helperSource, Does.Not.Contain("cameraRig.ResolveConfiguredSettings("));
+            Assert.That(helperSource, Does.Not.Contain("configuration.CameraBaselineAuthoringPolicy"));
+            Assert.That(helperSource, Does.Contain("cameraRig.ApplySettings(startupPlan.ResolvedCameraSettings);"));
             Assert.That(helperSource, Does.Contain("cameraRig.Initialize("));
-            Assert.That(helperSource, Does.Contain("topologyTransitionPostFxController.Initialize(configuration.TopologyTransitionPostFxProfile, outputCamera);"));
-            Assert.That(helperSource, Does.Contain("presenter.AttachCameraRuntime(viewCameraRig, outputCameraBrain);"));
+            Assert.That(helperSource, Does.Contain("topologyTransitionPostFxController.Initialize("));
+            Assert.That(helperSource, Does.Contain("startupPlan.TopologyTransitionPostFxProfile"));
+            Assert.That(helperSource, Does.Contain("startupPlan.OutputCamera"));
+            Assert.That(helperSource, Does.Contain("presenter.AttachCameraRuntime(viewCameraRig, startupPlan.OutputCameraBrain);"));
             Assert.That(helperSource, Does.Contain("presenter.AttachTopologyTransitionPostFxController(topologyTransitionPostFxController);"));
 
             foreach (var forbiddenFragment in ForbiddenHelperFragments)

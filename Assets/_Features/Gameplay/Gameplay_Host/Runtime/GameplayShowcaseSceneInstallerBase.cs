@@ -111,21 +111,8 @@ namespace Game.Feature.Gameplay.Host
                 baseCameraSettings,
                 baselineAuthoringPolicy,
                 sharedTuning.TopologyTransitionCameraShakeProfile);
-            var resolvedCameraSettings = ResolveEffectiveCameraSettings(
-                initialState,
-                baseCameraSettings,
-                baselineAuthoringPolicy,
-                sharedTuning.TopologyRotationVisualMapping);
-            var rig = GetComponent<GameplayCameraRig>();
-            rig?.ApplySettings(resolvedCameraSettings);
-
-            if (cameraTopologyAuthoring.ConfigureMainCamera)
-            {
-                ConfigureCamera(initialState, resolvedCameraSettings);
-            }
-
             var host = GetComponent<GameplaySceneHost>() ?? gameObject.AddComponent<GameplaySceneHost>();
-            host.Initialize(CreateConfiguration(initialState, resolvedCameraSettings));
+            host.Initialize(CreateConfiguration(initialState, baseCameraSettings));
         }
 
         protected virtual GameplayCameraSettings CreateCameraSettings()
@@ -220,18 +207,6 @@ namespace Game.Feature.Gameplay.Host
                     sharedTuning.CameraSettings,
                     cameraTopologyAuthoring.BaselineAuthoringPolicy,
                     sharedTuning.TopologyRotationVisualMapping),
-                initialState.InitialTopology);
-        }
-
-        private void ConfigureCamera(
-            InitialGameplayState initialState,
-            GameplayCameraSettings resolvedCameraSettings)
-        {
-            var camera = Camera.main;
-            ConfigureSceneCamera(
-                camera,
-                initialState.BoardBounds,
-                resolvedCameraSettings,
                 initialState.InitialTopology);
         }
 

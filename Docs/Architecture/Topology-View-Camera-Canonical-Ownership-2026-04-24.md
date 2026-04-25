@@ -23,8 +23,10 @@ This document is the slice-local supporting truth-source for the current topolog
 | `TopologyTransitionPostFxProfile` | post-fx runtime | pure authored post-fx profile |
 | `TopologyTransitionDistortionProfile` | post-fx runtime | co-located authored distortion profile |
 | `TopologyTransitionPostFxController` | post-fx runtime | URP runtime adapter, runtime volume clone owner, and authoritative source-profile immutability owner |
-| `GameplayHostTopologyVisualRuntimeBootstrap` | bootstrap/helper lane | host-side attach/wiring glue |
-| `GameplayShowcaseSceneCameraBootstrap` | bootstrap/helper lane | scene camera bootstrap glue |
+| `GameplayResolvedCameraStartupPlan` | startup-plan lane | internal resolved startup meaning payload |
+| `GameplayCameraStartupPlanComposer` | startup-plan lane | one-time startup resolution composer |
+| `GameplayHostTopologyVisualRuntimeBootstrap` | bootstrap/helper lane | host-side attach/wiring glue that consumes resolved startup data |
+| `GameplayShowcaseSceneCameraBootstrap` | bootstrap/helper lane | scene camera bootstrap glue for capture/wiring only |
 | `GameplayShowcaseSceneScaffold` | remaining scaffold | scene orchestration, board-root ensure/find, legacy-label cleanup, and wrapper-only `ConfigureDefaultSceneCamera(...)` |
 
 ## Runtime slices
@@ -52,9 +54,18 @@ This document is the slice-local supporting truth-source for the current topolog
 
 ## Bootstrap/helper lanes
 
-- `GameplayHostTopologyVisualRuntimeBootstrap` is the host-side glue owner only. It wires the view camera, camera rig, presenter camera runtime attachment, and post-fx controller attachment without reclaiming shake math or post-fx tuning behavior.
-- `GameplayShowcaseSceneCameraBootstrap` is the showcase-scene glue owner only. It wires scene output cameras, Cinemachine path setup, authored scene camera pose capture, and default blend/bootstrap behavior without reclaiming runtime evaluation behavior.
+- `GameplayHostTopologyVisualRuntimeBootstrap` is the host-side glue owner only. It consumes `GameplayResolvedCameraStartupPlan`, wires the camera rig, presenter camera runtime attachment, and post-fx controller attachment, and does not perform a second startup resolution pass.
+- `GameplayShowcaseSceneCameraBootstrap` is the showcase-scene glue owner only. It wires the Cinemachine path, captures authored scene camera pose, applies cut-blend defaults, and does not own startup settings application, shake handoff, or output-camera post-processing enablement.
 - `GameplayShowcaseSceneScaffold` remains above both helpers as the scene orchestrator. Its responsibilities are limited to installer-scaffold orchestration, board-root ensure/find, legacy world-label cleanup, and wrapper-only `ConfigureDefaultSceneCamera(...)`.
+
+## Startup Path
+
+- Startup meaning is resolved once through the internal `GameplayResolvedCameraStartupPlan`.
+- `GameplayCameraStartupPlanComposer` in `GameplayHostRuntimeFactory` is the canonical startup composition point for both installer-driven startup and direct `GameplaySceneHost.Initialize(...)` callers.
+- `GameplayShowcaseSceneCameraBootstrap` captures and wires scene camera state only.
+- `GameplayHostTopologyVisualRuntimeBootstrap` consumes resolved startup data only.
+- `GameplayCameraRig` remains the final apply owner.
+- Startup sign-off stays touched-cluster no-new-regression against same-revision baseline context, not full-suite green.
 
 ## Authoring And Preset Authority
 

@@ -1073,7 +1073,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(source, Does.Contain("var sharedTuning = snapshot.SharedTuning ?? GameplayCameraTopologySharedTuning.CreateShowcaseDefault();"));
             Assert.That(source, Does.Contain("configuration.TopologyRotationVisualMapping = sharedTuning.TopologyRotationVisualMapping;"));
             Assert.That(source, Does.Contain("configuration.TopologyRotationTween = sharedTuning.TopologyRotationTweenSettings;"));
-            Assert.That(source, Does.Contain("resolvedCameraSettings?.Clone()"));
+            Assert.That(source, Does.Contain("cameraSettings?.Clone()"));
+            Assert.That(source, Does.Not.Contain("resolvedCameraSettings?.Clone()"));
             Assert.That(source, Does.Contain("sharedTuning.CameraSettings?.Clone()"));
             Assert.That(source, Does.Contain("configuration.TopologyTransitionCameraShakeProfile ="));
             Assert.That(source, Does.Contain("configuration.TopologyTransitionPostFxProfile ="));
@@ -1398,16 +1399,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var doc = ReadRepoFile(AuthorityDocRelativePath);
 
-            Assert.That(doc, Does.Contain("GameplayCameraTopologyAuthoring is the scene-local authority entrypoint."));
-            Assert.That(doc, Does.Contain("GameplayCameraTopologyPreset owns stage-scoped shared tuning only."));
-            Assert.That(doc, Does.Contain("GameplayCameraSettings is shared tuning only."));
-            Assert.That(doc, Does.Contain("GameplayCameraBaselineAuthoringPolicy is the dedicated scene-local authored-baseline policy type."));
-            Assert.That(doc, Does.Contain("configureMainCamera remains local."));
-            Assert.That(doc, Does.Contain("UseAuthoredSceneCameraPose/Lens live in scene-local baseline policy, not GameplayCameraSettings."));
-            Assert.That(doc, Does.Contain("Preset mode ignores inline shared-tuning values for runtime snapshot resolution."));
-            Assert.That(doc, Does.Contain("inline shared-tuning persistence in Preset mode is transitional fallback, not canonical source-of-truth."));
+            Assert.That(doc, Does.Contain("`GameplayCameraTopologyAuthoring` is the scene-local authority entrypoint."));
+            Assert.That(doc, Does.Contain("`GameplayCameraTopologyPreset` owns stage-scoped shared tuning only."));
+            Assert.That(doc, Does.Contain("`GameplayCameraSettings` is shared tuning only."));
+            Assert.That(doc, Does.Contain("`GameplayCameraBaselineAuthoringPolicy` is the dedicated scene-local authored-baseline policy type."));
+            Assert.That(doc, Does.Contain("`inlineSharedTuning` on `GameplayCameraTopologyAuthoring` is the explicit inline-mode field using the canonical shared-tuning schema."));
+            Assert.That(doc, Does.Contain("`configureMainCamera` remains local."));
+            Assert.That(doc, Does.Contain("`UseAuthoredSceneCameraPose/Lens` live in scene-local baseline policy, not `GameplayCameraSettings`."));
+            Assert.That(doc, Does.Contain("`Preset` mode ignores inline shared-tuning values for runtime snapshot resolution."));
             Assert.That(doc, Does.Not.Contain("future cleanup candidate A"));
-            Assert.That(doc, Does.Contain("candidate B"));
+            Assert.That(doc, Does.Contain("Candidate A is complete:"));
+            Assert.That(doc, Does.Contain("Candidate B is complete:"));
         }
 
         private static string ReadRepoFile(string relativePath)

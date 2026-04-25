@@ -23,7 +23,7 @@ namespace Game.Feature.Gameplay.Host
     {
         internal static GameplayHostTopologyVisualRuntimeBootstrapResult Attach(
             GameObject hostObject,
-            GameplaySceneHostConfiguration configuration,
+            GameplayResolvedCameraStartupPlan startupPlan,
             GameplayTickViewPresenter presenter,
             Transform viewCameraTarget,
             Bounds visibleCubeBounds)
@@ -33,45 +33,33 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentNullException(nameof(hostObject));
             }
 
-            if (configuration == null)
-            {
-                throw new ArgumentNullException(nameof(configuration));
-            }
-
             if (presenter == null)
             {
                 throw new ArgumentNullException(nameof(presenter));
             }
 
-            var viewCamera = configuration.ViewCamera ?? (configuration.SnapViewCameraToTarget ? Camera.main : null);
-            var outputCamera = configuration.ViewCamera ?? Camera.main;
-            var outputCameraBrain = outputCamera != null
-                ? outputCamera.GetComponent<CinemachineBrain>()
-                : null;
-            presenter.AttachOutputCamera(outputCamera);
+            presenter.AttachOutputCamera(startupPlan.OutputCamera);
 
             var viewCameraRig = AttachViewCameraRig(
                 hostObject,
-                configuration,
-                viewCamera,
-                outputCameraBrain,
+                startupPlan,
                 viewCameraTarget,
                 visibleCubeBounds);
-            presenter.AttachCameraRuntime(viewCameraRig, outputCameraBrain);
+            presenter.AttachCameraRuntime(viewCameraRig, startupPlan.OutputCameraBrain);
 
             var topologyTransitionPostFxController = hostObject.GetComponent<TopologyTransitionPostFxController>() ??
                                                      hostObject.AddComponent<TopologyTransitionPostFxController>();
-            topologyTransitionPostFxController.Initialize(configuration.TopologyTransitionPostFxProfile, outputCamera);
+            topologyTransitionPostFxController.Initialize(
+                startupPlan.TopologyTransitionPostFxProfile,
+                startupPlan.OutputCamera);
             presenter.AttachTopologyTransitionPostFxController(topologyTransitionPostFxController);
 
-            return new GameplayHostTopologyVisualRuntimeBootstrapResult(viewCamera, viewCameraRig);
+            return new GameplayHostTopologyVisualRuntimeBootstrapResult(startupPlan.ViewCamera, viewCameraRig);
         }
 
         private static GameplayCameraRig AttachViewCameraRig(
             GameObject hostObject,
-            GameplaySceneHostConfiguration configuration,
-            Camera viewCamera,
-            CinemachineBrain outputCameraBrain,
+            GameplayResolvedCameraStartupPlan startupPlan,
             Transform viewCameraTarget,
             Bounds visibleCubeBounds)
         {
@@ -88,16 +76,10 @@ namespace Game.Feature.Gameplay.Host
 
             var cameraRig = hostObject.GetComponent<GameplayCameraRig>() ?? hostObject.AddComponent<GameplayCameraRig>();
             cameraRig.enabled = true;
-            cameraRig.ConfigureTopologyTransitionCameraShake(configuration.TopologyTransitionCameraShakeProfile);
-            var resolvedCameraSettings = cameraRig.ResolveConfiguredSettings(
-                configuration.CameraSettings ?? GameplayCameraSettings.CreateRuntimeDefault(),
-                configuration.CameraBaselineAuthoringPolicy,
-                viewCameraTarget.position,
-                configuration.InitialTopology,
-                configuration.TopologyRotationVisualMapping);
-            cameraRig.ApplySettings(resolvedCameraSettings);
+            cameraRig.ConfigureTopologyTransitionCameraShake(startupPlan.TopologyTransitionCameraShakeProfile);
+            cameraRig.ApplySettings(startupPlan.ResolvedCameraSettings);
             cameraRig.Initialize(
-                outputCameraBrain == null ? viewCamera : null,
+                startupPlan.UsesDirectCameraPath ? startupPlan.ViewCamera : null,
                 viewCameraTarget,
                 visibleCubeBounds);
             return cameraRig;

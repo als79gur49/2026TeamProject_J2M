@@ -115,14 +115,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var helperSource = ReadRepoFile(HelperRelativePath);
 
-            Assert.That(helperSource, Does.Contain("rig.ApplySettings(resolvedCameraSettings);"));
-            Assert.That(helperSource, Does.Contain("rig.ConfigureTopologyTransitionCameraShake("));
-            Assert.That(helperSource, Does.Contain("GameplayCameraBaselineAuthoringPolicy baselineAuthoringPolicy"));
-            Assert.That(helperSource, Does.Contain("camera.GetUniversalAdditionalCameraData().renderPostProcessing = true;"));
+            Assert.That(helperSource, Does.Not.Contain("rig.ApplySettings("));
+            Assert.That(helperSource, Does.Not.Contain("rig.ConfigureTopologyTransitionCameraShake("));
+            Assert.That(helperSource, Does.Contain("internal static void ApplyResolvedStartupLens("));
             Assert.That(helperSource, Does.Contain("rig?.CaptureAuthoredSceneCameraPose("));
-            Assert.That(helperSource, Does.Contain("if (!baselineAuthoringPolicy.UseAuthoredSceneCameraLens)"));
+            Assert.That(helperSource, Does.Contain("ApplyResolvedStartupLens(cinemachineCameras[j], startupPlan.ResolvedCameraSettings);"));
+            Assert.That(helperSource, Does.Not.Contain("if (!baselineAuthoringPolicy.UseAuthoredSceneCameraLens)"));
             Assert.That(helperSource, Does.Contain("brains[j].DefaultBlend ="));
             Assert.That(helperSource, Does.Contain("cinemachineCamera.Target = new CameraTarget"));
+            Assert.That(helperSource, Does.Not.Contain("camera.GetUniversalAdditionalCameraData().renderPostProcessing = true;"));
 
             foreach (var forbiddenFragment in ForbiddenHelperFragments)
             {

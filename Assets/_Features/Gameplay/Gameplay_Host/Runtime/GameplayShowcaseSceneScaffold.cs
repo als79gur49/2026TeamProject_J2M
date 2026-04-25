@@ -66,12 +66,7 @@ namespace Game.Feature.Gameplay.Host
 
             DestroyLegacyWorldLabels(installerRoot.scene);
             var boardRoot = EnsureBoardRoot(installerRoot.transform);
-            GameplayShowcaseSceneCameraBootstrap.Bootstrap(
-                installerRoot,
-                boardRoot,
-                cameraSettings,
-                baselineAuthoringPolicy,
-                topologyTransitionCameraShakeProfile);
+            GameplayShowcaseSceneCameraBootstrap.Bootstrap(installerRoot, boardRoot);
         }
 
         public static void ConfigureDefaultSceneCamera(Camera camera)

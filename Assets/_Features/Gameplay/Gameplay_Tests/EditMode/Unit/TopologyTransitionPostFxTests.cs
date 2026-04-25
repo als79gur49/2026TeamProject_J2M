@@ -1,7 +1,9 @@
+using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -362,13 +364,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void ShowcaseScenes_Scaffold_EnablesPostProcessingOnOutputCamera()
+        public void ShowcaseScenes_HostStartup_EnablesPostProcessingOnOutputCamera()
         {
-            AssertSceneScaffoldEnablesOutputCameraPostProcessing(CombinedScenePath);
-            AssertSceneScaffoldEnablesOutputCameraPostProcessing(TutorialScenePath);
+            AssertSceneHostStartupEnablesOutputCameraPostProcessing(CombinedScenePath, "combined-gameplay-showcase");
+            AssertSceneHostStartupEnablesOutputCameraPostProcessing(TutorialScenePath, "tutorial-scene");
         }
 
-        private static void AssertSceneScaffoldEnablesOutputCameraPostProcessing(string scenePath)
+        private static void AssertSceneHostStartupEnablesOutputCameraPostProcessing(string scenePath, string stageIdValue)
         {
             var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
 
@@ -376,11 +378,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var installer = Object.FindFirstObjectByType<CombinedGameplayShowcaseInstaller>();
                 Assert.That(installer, Is.Not.Null, $"Missing installer in '{scenePath}'.");
+                var host = installer.GetComponent<GameplaySceneHost>();
+                Assert.That(host, Is.Not.Null, $"Missing {nameof(GameplaySceneHost)} in '{scenePath}'.");
 
                 GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(
                     installer.gameObject,
                     installer.GetCameraSettings(),
+                    installer.GetBaselineAuthoringPolicy(),
                     installer.GetTopologyTransitionCameraShakeProfile());
+                host.Initialize(BuildConfiguration(installer, stageIdValue));
 
                 var outputCamera = Camera.main;
                 Assert.That(outputCamera, Is.Not.Null, $"Missing Main Camera in '{scenePath}'.");
@@ -398,6 +404,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 System.IO.Directory.GetParent(Application.dataPath)?.FullName ?? string.Empty,
                 assetPath.Replace('/', System.IO.Path.DirectorySeparatorChar));
             return System.IO.File.ReadAllText(fullPath).Replace("\r\n", "\n");
+        }
+
+        private static GameplaySceneHostConfiguration BuildConfiguration(
+            CombinedGameplayShowcaseInstaller installer,
+            string stageIdValue)
+        {
+            var buildInitialGameplayState = typeof(GameplayShowcaseSceneInstallerBase).GetMethod(
+                "BuildInitialGameplayState",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            var createConfiguration = typeof(GameplayShowcaseSceneInstallerBase).GetMethod(
+                "CreateConfiguration",
+                BindingFlags.Instance | BindingFlags.NonPublic,
+                binder: null,
+                types: new[] { buildInitialGameplayState?.ReturnType, typeof(GameplayCameraSettings) },
+                modifiers: null);
+
+            Assert.That(buildInitialGameplayState, Is.Not.Null);
+            Assert.That(createConfiguration, Is.Not.Null);
+
+            StageLaunchContextStore.Clear();
+            StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow(stageIdValue));
+
+            try
+            {
+                var initialGameplayState = buildInitialGameplayState.Invoke(installer, null);
+                return (GameplaySceneHostConfiguration)createConfiguration.Invoke(
+                    installer,
+                    new[] { initialGameplayState, installer.GetCameraSettings() });
+            }
+            finally
+            {
+                StageLaunchContextStore.Clear();
+            }
         }
 
         private static TopologyTransitionVisualState CreateActiveVisualState(float progress01, float angularVelocityNormalized)

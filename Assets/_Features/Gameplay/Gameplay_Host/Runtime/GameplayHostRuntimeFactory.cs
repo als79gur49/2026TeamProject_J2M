@@ -126,9 +126,14 @@ namespace Game.Feature.Gameplay.Host
                 configuration.BoardSurfaceTexture);
 
             var viewCameraTarget = boardRoot.CameraTargetRoot;
-            var visualRuntime = GameplayHostTopologyVisualRuntimeBootstrap.Attach(
+            var startupPlan = GameplayCameraStartupPlanComposer.Compose(
                 hostObject,
                 configuration,
+                viewCameraTarget);
+            GameplayShowcaseSceneCameraBootstrap.ApplyResolvedStartupLens(hostObject.scene, startupPlan);
+            var visualRuntime = GameplayHostTopologyVisualRuntimeBootstrap.Attach(
+                hostObject,
+                startupPlan,
                 presenter,
                 viewCameraTarget,
                 presenter.VisibleCubeBounds);
