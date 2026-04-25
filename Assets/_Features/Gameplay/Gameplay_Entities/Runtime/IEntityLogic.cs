@@ -83,6 +83,14 @@ namespace Game.Feature.Gameplay.Entities
             List<string> transitions);
     }
 
+    public interface IFrontFaceSupportLogic : IEntityLogic
+    {
+        void CollectFrontFaceSupportContributors(
+            WorldSnapshot snapshot,
+            in TickInput input,
+            List<FrontFaceSupportContributor> buffer);
+    }
+
     public interface IEntityLogicSourceBinding
     {
         int ControlledEntityId { get; }
@@ -105,6 +113,7 @@ namespace Game.Feature.Gameplay.Entities
                 preMovementStateLogics,
                 aiStateLogics,
                 System.Array.Empty<IEnemyActionStateLogic>(),
+                System.Array.Empty<IFrontFaceSupportLogic>(),
                 movementLogics,
                 attackLogics)
         {
@@ -116,10 +125,28 @@ namespace Game.Feature.Gameplay.Entities
             IReadOnlyList<IEnemyActionStateLogic> enemyActionStateLogics,
             IReadOnlyList<IMovementEntityLogic> movementLogics,
             IReadOnlyList<IAttackEntityLogic> attackLogics)
+            : this(
+                preMovementStateLogics,
+                aiStateLogics,
+                enemyActionStateLogics,
+                System.Array.Empty<IFrontFaceSupportLogic>(),
+                movementLogics,
+                attackLogics)
+        {
+        }
+
+        public EntityLogicSet(
+            IReadOnlyList<IPreMovementStateLogic> preMovementStateLogics,
+            IReadOnlyList<IEnemyAiStateLogic> aiStateLogics,
+            IReadOnlyList<IEnemyActionStateLogic> enemyActionStateLogics,
+            IReadOnlyList<IFrontFaceSupportLogic> frontFaceSupportLogics,
+            IReadOnlyList<IMovementEntityLogic> movementLogics,
+            IReadOnlyList<IAttackEntityLogic> attackLogics)
         {
             PreMovementStateLogics = preMovementStateLogics ?? throw new System.ArgumentNullException(nameof(preMovementStateLogics));
             AiStateLogics = aiStateLogics ?? throw new System.ArgumentNullException(nameof(aiStateLogics));
             EnemyActionStateLogics = enemyActionStateLogics ?? throw new System.ArgumentNullException(nameof(enemyActionStateLogics));
+            FrontFaceSupportLogics = frontFaceSupportLogics ?? throw new System.ArgumentNullException(nameof(frontFaceSupportLogics));
             MovementLogics = movementLogics ?? throw new System.ArgumentNullException(nameof(movementLogics));
             AttackLogics = attackLogics ?? throw new System.ArgumentNullException(nameof(attackLogics));
         }
@@ -129,6 +156,8 @@ namespace Game.Feature.Gameplay.Entities
         public IReadOnlyList<IEnemyAiStateLogic> AiStateLogics { get; }
 
         public IReadOnlyList<IEnemyActionStateLogic> EnemyActionStateLogics { get; }
+
+        public IReadOnlyList<IFrontFaceSupportLogic> FrontFaceSupportLogics { get; }
 
         public IReadOnlyList<IMovementEntityLogic> MovementLogics { get; }
 

@@ -320,4 +320,62 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
+    [Serializable]
+    public sealed class BoxSlideShieldAuthoring
+    {
+        [SerializeField] private int radius = 1;
+        [SerializeField] private bool includeSourceCell;
+        [SerializeField] private FrontFaceShieldTargetPattern targetPattern = FrontFaceShieldTargetPattern.ManhattanRadius;
+
+        public int Radius => radius;
+
+        public bool IncludeSourceCell => includeSourceCell;
+
+        public FrontFaceShieldTargetPattern TargetPattern => targetPattern;
+
+        internal BoxSlideShieldRuntime Compile()
+        {
+            if (radius <= 0)
+            {
+                throw new ArgumentException("Box slide shield authoring requires a positive radius.", nameof(radius));
+            }
+
+            switch (targetPattern)
+            {
+                case FrontFaceShieldTargetPattern.OrthogonalAdjacent4:
+                case FrontFaceShieldTargetPattern.ManhattanRadius:
+                    break;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(targetPattern), targetPattern, "Unsupported front-face shield target pattern.");
+            }
+
+            return new BoxSlideShieldRuntime(radius, includeSourceCell, targetPattern);
+        }
+    }
+
+    [Serializable]
+    public sealed class EnemyFrontFaceSupportEffectAuthoring
+    {
+        [SerializeField] private EnemyFrontFaceSupportEffectKind kind = EnemyFrontFaceSupportEffectKind.BoxSlideShield;
+        [SerializeField] private BoxSlideShieldAuthoring boxSlideShield = new();
+
+        public EnemyFrontFaceSupportEffectKind Kind => kind;
+
+        public BoxSlideShieldAuthoring BoxSlideShield => boxSlideShield;
+
+        internal EnemyFrontFaceSupportEffectRuntime Compile(int simulationTicksPerSecond)
+        {
+            _ = simulationTicksPerSecond;
+
+            return kind switch
+            {
+                EnemyFrontFaceSupportEffectKind.BoxSlideShield => new EnemyFrontFaceSupportEffectRuntime(
+                    kind,
+                    boxSlideShield: (boxSlideShield ?? throw new ArgumentException("Box slide shield support effect requires authoring data.", nameof(boxSlideShield))).Compile()),
+                _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unsupported front-face support effect kind."),
+            };
+        }
+    }
+
 }

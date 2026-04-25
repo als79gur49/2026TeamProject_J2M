@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using Game.Feature.Gameplay.BoardState;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Entities
@@ -79,6 +80,7 @@ namespace Game.Feature.Gameplay.Entities
         MovementSkill = 1,
         PassiveContact = 2,
         Utility = 3,
+        FrontFaceSupport = 4,
     }
 
     public enum EnemyUtilityEffectKind
@@ -93,6 +95,17 @@ namespace Game.Feature.Gameplay.Entities
     }
 
     public enum BoxLockTargetPattern
+    {
+        OrthogonalAdjacent4 = 0,
+        ManhattanRadius = 1,
+    }
+
+    public enum EnemyFrontFaceSupportEffectKind
+    {
+        BoxSlideShield = 0,
+    }
+
+    public enum FrontFaceShieldTargetPattern
     {
         OrthogonalAdjacent4 = 0,
         ManhattanRadius = 1,
@@ -613,18 +626,184 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
+    public readonly struct BoxSlideShieldRuntime
+    {
+        public BoxSlideShieldRuntime(
+            int radius,
+            bool includeSourceCell,
+            FrontFaceShieldTargetPattern targetPattern)
+        {
+            Radius = radius;
+            IncludeSourceCell = includeSourceCell;
+            TargetPattern = targetPattern;
+            Validate(nameof(BoxSlideShieldRuntime));
+        }
+
+        public int Radius { get; }
+
+        public bool IncludeSourceCell { get; }
+
+        public FrontFaceShieldTargetPattern TargetPattern { get; }
+
+        public void Validate(string paramName)
+        {
+            if (Radius <= 0)
+            {
+                throw new ArgumentException("Box slide shield runtime requires a positive radius.", paramName);
+            }
+
+            switch (TargetPattern)
+            {
+                case FrontFaceShieldTargetPattern.OrthogonalAdjacent4:
+                case FrontFaceShieldTargetPattern.ManhattanRadius:
+                    return;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(TargetPattern), TargetPattern, "Unsupported front-face shield target pattern.");
+            }
+        }
+    }
+
+    public sealed class EnemyFrontFaceSupportEffectRuntime
+    {
+        public EnemyFrontFaceSupportEffectRuntime(
+            EnemyFrontFaceSupportEffectKind kind,
+            BoxSlideShieldRuntime boxSlideShield = default)
+        {
+            Kind = kind;
+            BoxSlideShield = boxSlideShield;
+            Validate(nameof(EnemyFrontFaceSupportEffectRuntime));
+        }
+
+        public EnemyFrontFaceSupportEffectKind Kind { get; }
+
+        public BoxSlideShieldRuntime BoxSlideShield { get; }
+
+        public void Validate(string paramName)
+        {
+            switch (Kind)
+            {
+                case EnemyFrontFaceSupportEffectKind.BoxSlideShield:
+                    BoxSlideShield.Validate(paramName);
+                    break;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(Kind), Kind, "Unknown front-face support effect kind.");
+            }
+        }
+    }
+
+    public sealed class EnemyFrontFaceSupportCapabilityRuntime : EnemyCapabilityRuntime
+    {
+        private readonly ReadOnlyCollection<EnemyFrontFaceSupportEffectRuntime> _effects;
+
+        public EnemyFrontFaceSupportCapabilityRuntime(
+            IEnumerable<EnemyFrontFaceSupportEffectRuntime> effects)
+        {
+            if (effects == null)
+            {
+                throw new ArgumentNullException(nameof(effects));
+            }
+
+            var compiledEffects = new List<EnemyFrontFaceSupportEffectRuntime>();
+            foreach (var effect in effects)
+            {
+                if (effect == null)
+                {
+                    throw new ArgumentException("Front-face support capability runtime cannot contain null effects.", nameof(effects));
+                }
+
+                compiledEffects.Add(effect);
+            }
+
+            _effects = new ReadOnlyCollection<EnemyFrontFaceSupportEffectRuntime>(compiledEffects);
+            Validate(nameof(EnemyFrontFaceSupportCapabilityRuntime));
+        }
+
+        public override EnemyCapabilityFamily Family => EnemyCapabilityFamily.FrontFaceSupport;
+
+        public IReadOnlyList<EnemyFrontFaceSupportEffectRuntime> Effects => _effects;
+
+        public override void Validate(string paramName)
+        {
+            for (var i = 0; i < _effects.Count; i++)
+            {
+                _effects[i].Validate(paramName);
+            }
+        }
+    }
+
+    public readonly struct FrontFaceSupportContributor
+    {
+        public FrontFaceSupportContributor(
+            int sourceEntityId,
+            SurfaceCell sourceCell,
+            int effectIndex,
+            EnemyFrontFaceSupportEffectRuntime effectRuntime)
+        {
+            SourceEntityId = sourceEntityId;
+            SourceCell = sourceCell;
+            EffectIndex = effectIndex;
+            EffectRuntime = effectRuntime ?? throw new ArgumentNullException(nameof(effectRuntime));
+        }
+
+        public int SourceEntityId { get; }
+
+        public SurfaceCell SourceCell { get; }
+
+        public int EffectIndex { get; }
+
+        public EnemyFrontFaceSupportEffectRuntime EffectRuntime { get; }
+    }
+
+    internal sealed class FrontFaceSupportContributorComparer : IComparer<FrontFaceSupportContributor>
+    {
+        internal static readonly FrontFaceSupportContributorComparer Instance = new();
+
+        public int Compare(FrontFaceSupportContributor left, FrontFaceSupportContributor right)
+        {
+            var sourceComparison = left.SourceEntityId.CompareTo(right.SourceEntityId);
+            if (sourceComparison != 0)
+            {
+                return sourceComparison;
+            }
+
+            var effectComparison = left.EffectIndex.CompareTo(right.EffectIndex);
+            if (effectComparison != 0)
+            {
+                return effectComparison;
+            }
+
+            var faceComparison = left.SourceCell.face.CompareTo(right.SourceCell.face);
+            if (faceComparison != 0)
+            {
+                return faceComparison;
+            }
+
+            var xComparison = left.SourceCell.x.CompareTo(right.SourceCell.x);
+            if (xComparison != 0)
+            {
+                return xComparison;
+            }
+
+            return left.SourceCell.y.CompareTo(right.SourceCell.y);
+        }
+    }
+
     public readonly struct EnemyCapabilityRuntimeSet
     {
         public EnemyCapabilityRuntimeSet(
             EnemyCombatCapabilityRuntime combat,
             EnemyMovementSkillCapabilityRuntime movementSkill,
             EnemyPassiveContactCapabilityRuntime passiveContact,
-            EnemyUtilityCapabilityRuntime utility)
+            EnemyUtilityCapabilityRuntime utility,
+            EnemyFrontFaceSupportCapabilityRuntime frontFaceSupport)
         {
             Combat = combat;
             MovementSkill = movementSkill;
             PassiveContact = passiveContact;
             Utility = utility;
+            FrontFaceSupport = frontFaceSupport;
             Validate(nameof(EnemyCapabilityRuntimeSet));
         }
 
@@ -635,6 +814,8 @@ namespace Game.Feature.Gameplay.Entities
         public EnemyPassiveContactCapabilityRuntime PassiveContact { get; }
 
         public EnemyUtilityCapabilityRuntime Utility { get; }
+
+        public EnemyFrontFaceSupportCapabilityRuntime FrontFaceSupport { get; }
 
         public bool TryGetCombat(out EnemyCombatCapabilityRuntime combat)
         {
@@ -660,12 +841,19 @@ namespace Game.Feature.Gameplay.Entities
             return utility != null;
         }
 
+        public bool TryGetFrontFaceSupport(out EnemyFrontFaceSupportCapabilityRuntime frontFaceSupport)
+        {
+            frontFaceSupport = FrontFaceSupport;
+            return frontFaceSupport != null;
+        }
+
         public void Validate(string paramName)
         {
             Combat?.Validate(paramName);
             MovementSkill?.Validate(paramName);
             PassiveContact?.Validate(paramName);
             Utility?.Validate(paramName);
+            FrontFaceSupport?.Validate(paramName);
         }
     }
 

@@ -108,6 +108,7 @@ namespace Game.Feature.Gameplay.Entities
             var preMovementStateLogics = new List<IPreMovementStateLogic>(entityLogics.Count);
             var aiStateLogics = new List<IEnemyAiStateLogic>(entityLogics.Count);
             var enemyActionStateLogics = new List<IEnemyActionStateLogic>(entityLogics.Count);
+            var frontFaceSupportLogics = new List<IFrontFaceSupportLogic>(entityLogics.Count);
             var movementLogics = new List<IMovementEntityLogic>(entityLogics.Count);
             var attackLogics = new List<IAttackEntityLogic>(entityLogics.Count);
             var playerControlLogicSourceIds = new HashSet<int>();
@@ -127,6 +128,11 @@ namespace Game.Feature.Gameplay.Entities
                 if (entityLogics[i] is IEnemyActionStateLogic enemyActionStateLogic)
                 {
                     enemyActionStateLogics.Add(enemyActionStateLogic);
+                }
+
+                if (entityLogics[i] is IFrontFaceSupportLogic frontFaceSupportLogic)
+                {
+                    frontFaceSupportLogics.Add(frontFaceSupportLogic);
                 }
 
                 if (entityLogics[i] is IMovementEntityLogic movementLogic)
@@ -157,6 +163,7 @@ namespace Game.Feature.Gameplay.Entities
                 preMovementStateLogics.AsReadOnly(),
                 aiStateLogics.AsReadOnly(),
                 enemyActionStateLogics.AsReadOnly(),
+                frontFaceSupportLogics.AsReadOnly(),
                 movementLogics.AsReadOnly(),
                 attackLogics.AsReadOnly());
         }
@@ -174,6 +181,7 @@ namespace Game.Feature.Gameplay.Entities
                 || HasPhaseOwnershipConflict<IPreMovementStateLogic>(candidate, candidateBinding, existingEntityLogics)
                 || HasPhaseOwnershipConflict<IEnemyAiStateLogic>(candidate, candidateBinding, existingEntityLogics)
                 || HasPhaseOwnershipConflict<IEnemyActionStateLogic>(candidate, candidateBinding, existingEntityLogics)
+                || HasPhaseOwnershipConflict<IFrontFaceSupportLogic>(candidate, candidateBinding, existingEntityLogics)
                 || HasPhaseOwnershipConflict<IAttackEntityLogic>(candidate, candidateBinding, existingEntityLogics);
         }
 

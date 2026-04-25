@@ -116,6 +116,41 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
+    internal sealed class EnemyFrontFaceSupportEntityLogicFactory : IEntityLogicFactory
+    {
+        private readonly EnemyEntityLogicFactory _enemyLogicFactory;
+
+        public EnemyFrontFaceSupportEntityLogicFactory()
+            : this(EnemyAiRuntimeDefinition.CreateDefaultMelee())
+        {
+        }
+
+        public EnemyFrontFaceSupportEntityLogicFactory(
+            EnemyAiRuntimeDefinition defaultDefinition,
+            IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> definitionsByEntityId = null,
+            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyAiRuntimeDefinition> definitionsByArchetypeId = null)
+        {
+            _enemyLogicFactory = new EnemyEntityLogicFactory(defaultDefinition, definitionsByEntityId, definitionsByArchetypeId);
+        }
+
+        public bool CanCreate(in EntityLogicCreationContext context)
+        {
+            if (!_enemyLogicFactory.CanCreate(context))
+            {
+                return false;
+            }
+
+            var definition = _enemyLogicFactory.ResolveDefinition(context.Snapshot, context.Entity);
+            return definition.Capabilities.TryGetFrontFaceSupport(out _);
+        }
+
+        public IEntityLogic Create(in EntityLogicCreationContext context)
+        {
+            var entity = context.Entity;
+            return new EnemyFrontFaceSupportLogicAdapter(entity.entityId, _enemyLogicFactory.ResolveDefinition(context.Snapshot, entity));
+        }
+    }
+
     internal sealed class EnemyCoreLogicAdapter : IEnemyAiStateLogic, IPreMovementStateLogic, IMovementEntityLogic, IEnemyJumpTimingBinding
     {
         private readonly EnemyLogic _logic;
@@ -181,6 +216,50 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
+    internal sealed class EnemyFrontFaceSupportLogicAdapter : IFrontFaceSupportLogic, IEntityLogicSourceBinding
+    {
+        private readonly int _entityId;
+        private readonly EnemyFrontFaceSupportCapabilityRuntime _capability;
+
+        public EnemyFrontFaceSupportLogicAdapter(int entityId, in EnemyAiRuntimeDefinition definition)
+        {
+            _entityId = entityId;
+            definition.Capabilities.TryGetFrontFaceSupport(out _capability);
+        }
+
+        public int ControlledEntityId => _entityId;
+
+        public void CollectFrontFaceSupportContributors(
+            WorldSnapshot snapshot,
+            in TickInput input,
+            List<FrontFaceSupportContributor> buffer)
+        {
+            _ = input;
+
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            if (_capability == null ||
+                !EnemyParticipationPolicy.TryGetEnemyLogicEntity(snapshot, _entityId, out var source) ||
+                !EnemyFrontFaceSupportPolicy.IsActiveFrontFaceSupportSource(snapshot, source))
+            {
+                return;
+            }
+
+            for (var i = 0; i < _capability.Effects.Count; i++)
+            {
+                buffer.Add(new FrontFaceSupportContributor(_entityId, source.position, i, _capability.Effects[i]));
+            }
+        }
+    }
+
     internal static class EnemyParticipationPolicy
     {
         public static bool TryGetEnemyLogicEntity(
@@ -225,6 +304,26 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState entity)
         {
             return CanParticipateOnCurrentTopology(snapshot, entity) &&
+                   entity.hp > 0 &&
+                   !entity.markedForDeath &&
+                   entity.boardPresence == EntityBoardPresence.Occupying &&
+                   entity.aiMode != EnemyAiMode.Dead;
+        }
+    }
+
+    internal static class EnemyFrontFaceSupportPolicy
+    {
+        public static bool IsActiveFrontFaceSupportSource(
+            WorldSnapshot snapshot,
+            in EntityState entity)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            return EnemyParticipationPolicy.IsEnemyLogicEntity(entity) &&
+                   entity.position.face == snapshot.Topology.FrontFace &&
                    entity.hp > 0 &&
                    !entity.markedForDeath &&
                    entity.boardPresence == EntityBoardPresence.Occupying &&
