@@ -169,6 +169,11 @@ namespace Game.Feature.Gameplay.Host
             return null;
         }
 
+        protected virtual EnemyUnitArchetypeCatalog ResolveEnemyUnitArchetypeCatalog()
+        {
+            return null;
+        }
+
         protected virtual StaticEntityPresentationCatalog ResolveStaticEntityPresentationCatalog()
         {
             return null;
@@ -242,6 +247,7 @@ namespace Game.Feature.Gameplay.Host
                 DefaultEnemyAiProfile = ResolveDefaultEnemyAiProfile(),
                 DirectionChangeConsumesDelay = directionChangeConsumesDelay,
                 EnemyAiProfileOverrides = initialState.EnemyAiProfileOverrides,
+                EnemyUnitArchetypeCatalog = ResolveEnemyUnitArchetypeCatalog(),
                 StageContentEntry = initialState.StageContentEntry,
                 EnemyPresentationBindings = initialState.EnemyPresentationBindings,
                 EnemyPresentationCatalog = initialState.EnemyPresentationCatalog ?? ResolveEnemyPresentationCatalog(),

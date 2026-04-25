@@ -8,6 +8,7 @@ namespace Game.Feature.Gameplay.Host
     {
         [SerializeField] private GameplayEntityView playerViewPrefab;
         [SerializeField] private EnemyPresentationCatalog enemyPresentationCatalog;
+        [SerializeField] private EnemyUnitArchetypeCatalog enemyUnitArchetypeCatalog;
         [SerializeField] private StaticEntityPresentationCatalog staticEntityPresentationCatalog;
 
         protected override IGameplayEntityViewFactory CreateViewFactory(
@@ -40,6 +41,11 @@ namespace Game.Feature.Gameplay.Host
         protected override EnemyPresentationCatalog ResolveEnemyPresentationCatalog()
         {
             return enemyPresentationCatalog;
+        }
+
+        protected override EnemyUnitArchetypeCatalog ResolveEnemyUnitArchetypeCatalog()
+        {
+            return enemyUnitArchetypeCatalog;
         }
 
         protected override StaticEntityPresentationCatalog ResolveStaticEntityPresentationCatalog()
