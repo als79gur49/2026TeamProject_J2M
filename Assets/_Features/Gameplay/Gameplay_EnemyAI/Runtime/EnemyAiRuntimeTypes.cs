@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Game.Feature.Gameplay.Entities
 {
     [Serializable]
-    public readonly struct EnemyUnitArchetypeId : IEquatable<EnemyUnitArchetypeId>
+    public struct EnemyUnitArchetypeId : IEquatable<EnemyUnitArchetypeId>
     {
         private sealed class OrdinalComparerImpl : IEqualityComparer<EnemyUnitArchetypeId>, IComparer<EnemyUnitArchetypeId>
         {
@@ -29,7 +29,7 @@ namespace Game.Feature.Gameplay.Entities
         private static readonly OrdinalComparerImpl OrdinalComparerInstance = new();
         public static readonly EnemyUnitArchetypeId None = new(string.Empty);
 
-        [SerializeField] private readonly string value;
+        [SerializeField] private string value;
 
         public EnemyUnitArchetypeId(string value)
         {

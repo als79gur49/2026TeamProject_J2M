@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Game.Feature.Gameplay.Loop;
 using UnityEngine;
 
@@ -43,39 +42,6 @@ namespace Game.Feature.Gameplay.Entities
                 initialAiMode = EnemyAiMode.Patrol,
             };
         }
-    }
-
-    [CreateAssetMenu(menuName = "Gameplay/AI/Enemy Unit Archetype", fileName = "EnemyUnitArchetype")]
-    public sealed class EnemyUnitArchetypeAsset : ScriptableObject
-    {
-        [SerializeField] private EnemyUnitArchetypeId archetypeId;
-        [SerializeField] private EnemyAiProfile aiProfile;
-        [SerializeField] private EnemyUnitSpawnDefaults spawnDefaults = EnemyUnitSpawnDefaults.CreateDefault();
-
-        public EnemyUnitArchetypeId ArchetypeId => archetypeId;
-
-        public EnemyAiProfile AiProfile => aiProfile;
-
-        public EnemyUnitSpawnDefaults SpawnDefaults => spawnDefaults;
-
-        internal void ValidateConfiguration(string paramName)
-        {
-            archetypeId.Validate(paramName);
-            if (aiProfile == null)
-            {
-                throw new ArgumentException("Enemy unit archetype assets require a non-null AI profile.", paramName);
-            }
-
-            spawnDefaults.Validate(paramName);
-        }
-    }
-
-    [CreateAssetMenu(menuName = "Gameplay/AI/Enemy Unit Archetype Catalog", fileName = "EnemyUnitArchetypeCatalog")]
-    public sealed class EnemyUnitArchetypeCatalog : ScriptableObject
-    {
-        [SerializeField] private EnemyUnitArchetypeAsset[] entries = Array.Empty<EnemyUnitArchetypeAsset>();
-
-        public IReadOnlyList<EnemyUnitArchetypeAsset> Entries => entries ?? Array.Empty<EnemyUnitArchetypeAsset>();
     }
 
     public abstract class EnemyStateResolverAsset : ScriptableObject
