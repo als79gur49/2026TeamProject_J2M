@@ -587,6 +587,7 @@ MonoBehaviour:
   stageCatalogProvider: {fileID: 11400000, guid: acd8229e8e9e4f1da31d8206dfa8188e, type: 2}
   playerViewPrefab: {fileID: 1100110011001100110, guid: dad668eb9c4d5a1459580883a9e78cfc, type: 3}
   enemyPresentationCatalog: {fileID: 0}
+  enemyUnitArchetypeCatalog: {fileID: 11400000, guid: 5c5a7223f24e45109bfa8c1c539cb6db, type: 2}
   staticEntityPresentationCatalog: {fileID: 0}
 --- !u!4 &1179627482
 Transform:
