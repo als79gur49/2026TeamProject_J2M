@@ -24,6 +24,8 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplaySimulationTimingPreset_DefaultShowcase.asset";
         private const string DefaultPresentationTimingPresetAssetPath =
             "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplayPresentationTimingPreset_DefaultShowcase.asset";
+        private const string CombinedGameplayShowcaseCameraTopologyPresetAssetPath =
+            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Camera/Presets/GameplayCameraTopologyPreset_CombinedGameplayShowcase.asset";
         private const string HudPrefabPath = "Assets/_Features/UI/UI_HUD/Prefabs/GameplayHudRoot.prefab";
         private const string ScreenCatalogPath =
             "Assets/_Features/UI/UI_Screens/Prefabs/GameplayScreenPrefabCatalog.asset";
@@ -55,8 +57,12 @@ namespace Game.Feature.Gameplay.Host.EditorTools
 
             var installerObject = new GameObject(rootObjectName);
             var installer = installerObject.AddComponent<TInstaller>();
+            var cameraTopologyAuthoring = installerObject.AddComponent<GameplayCameraTopologyAuthoring>();
             AssignActions(installer);
             AssignStageBootstrap(installer, stageCatalogProviderAssetPath);
+            AssignCameraTopologyPreset(
+                cameraTopologyAuthoring,
+                CombinedGameplayShowcaseCameraTopologyPresetAssetPath);
             AssignObjectReference(
                 installer,
                 "simulationTimingPreset",
@@ -72,11 +78,37 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(
                 installerObject,
                 installer.GetCameraSettings(),
+                installer.GetBaselineAuthoringPolicy(),
                 installer.GetTopologyTransitionCameraShakeProfile());
             EnsureCanonicalBootstrapRuntime(installerObject);
             installer.ConfigureBootstrapCamera(Camera.main);
 
             EditorSceneManager.SaveScene(scene, scenePath);
+        }
+
+        private static void AssignCameraTopologyPreset(
+            GameplayCameraTopologyAuthoring authoring,
+            string assetPath)
+        {
+            var preset = AssetDatabase.LoadAssetAtPath<GameplayCameraTopologyPreset>(assetPath);
+            if (preset == null)
+            {
+                throw new InvalidOperationException($"Missing asset at '{assetPath}'.");
+            }
+
+            var serializedObject = new SerializedObject(authoring);
+            var sourceModeProperty = serializedObject.FindProperty("sourceMode");
+            var presetProperty = serializedObject.FindProperty("preset");
+
+            if (sourceModeProperty == null || presetProperty == null)
+            {
+                throw new InvalidOperationException(
+                    $"{nameof(GameplayCameraTopologyAuthoring)} does not expose preset-mode camera topology fields.");
+            }
+
+            sourceModeProperty.enumValueIndex = (int)GameplayCameraTopologySourceMode.Preset;
+            presetProperty.objectReferenceValue = preset;
+            serializedObject.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static void AssignActions(Component installer)

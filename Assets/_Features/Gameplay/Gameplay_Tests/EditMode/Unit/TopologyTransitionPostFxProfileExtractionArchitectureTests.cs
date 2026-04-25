@@ -33,9 +33,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/PostFx/Profiles.meta";
         private const string ProfileMetaRelativePath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/PostFx/Profiles/TopologyTransitionPostFxProfile.cs.meta";
-        private const string InstallerPropertyPath = "topologyTransitionPostFxProfile";
-        private const string CombinedGameplayShowcaseInstallerMarker =
-            "m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.CombinedGameplayShowcaseInstaller";
+        private const string AuthoringPropertyPath = "inlineSharedTuning.topologyTransitionPostFxProfile";
+        private const string SerializedProfileKey = "topologyTransitionPostFxProfile";
+        private const string SourceModePropertyPath = "sourceMode";
+        private const string PresetPropertyPath = "preset";
+        private const string GameplayCameraTopologyAuthoringMarker =
+            "m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.GameplayCameraTopologyAuthoring";
         private const string ExpectedProfileGuid = "e9c2d74380794db68d7b3d0c8acaf812";
 
         private static readonly string[] ExpectedSerializedHolders =
@@ -43,6 +46,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/Scenes/CombinedGameplayShowcase.unity",
             "Assets/Scenes/TutorialScene.unity",
             "Assets/Scenes/UIAudioScene.unity",
+            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Camera/Presets/GameplayCameraTopologyPreset_CombinedGameplayShowcase.asset",
+            "Assets/_Features/Stages/Stage_TutorialScene/Camera/Presets/GameplayCameraTopologyPreset_TutorialScene.asset",
         };
 
         private static readonly string[] ExpectedFieldNames =
@@ -410,7 +415,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void RepositorySerializedTargets_ForPostFxProfile_AreLimitedToKnownShowcaseScenes()
+        public void RepositorySerializedTargets_ForPostFxProfile_AreLimitedToKnownCameraTopologyAuthoringAndPresetAssets()
         {
             var assetPaths = Directory.GetFiles(GetAbsolutePath("Assets"), "*.*", SearchOption.AllDirectories)
                 .Where(path => HasSerializedAssetExtension(path))
@@ -424,12 +429,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void ShowcaseInstallerScenes_PreserveSerializedPostFxProfileMeaning()
+        public void ShowcaseInstallerScenes_PresetMode_RuntimeMeaning_UsesReferencedPostFxPreset()
         {
-            foreach (var scenePath in ExpectedSerializedHolders)
+            foreach (var scenePath in ExpectedSerializedHolders.Where(path => path.EndsWith(".unity", StringComparison.Ordinal)))
             {
-                var installerBlock = ReadCombinedGameplayInstallerBlock(scenePath);
-                var expectedProfile = ReadSerializedProfile(installerBlock);
+                var expectedPresetPath = ResolveExpectedPresetAssetPath(scenePath);
+                var expectedProfile = ReadSerializedProfile(ReadRepoFile(expectedPresetPath));
 
                 var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
 
@@ -437,13 +442,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     var installer = Object.FindFirstObjectByType<CombinedGameplayShowcaseInstaller>();
                     Assert.That(installer, Is.Not.Null, $"Missing installer in '{scene.path}'.");
+                    var authoring = installer.GetComponent<GameplayCameraTopologyAuthoring>();
+                    Assert.That(authoring, Is.Not.Null, $"Missing {nameof(GameplayCameraTopologyAuthoring)} in '{scene.path}'.");
 
-                    var serializedObject = new SerializedObject(installer);
-                    var profileProperty = serializedObject.FindProperty(InstallerPropertyPath);
+                    var serializedObject = new SerializedObject(authoring);
+                    var sourceModeProperty = serializedObject.FindProperty(SourceModePropertyPath);
+                    var presetProperty = serializedObject.FindProperty(PresetPropertyPath);
+                    var profileProperty = serializedObject.FindProperty(AuthoringPropertyPath);
 
-                    Assert.That(profileProperty, Is.Not.Null, $"Missing serialized path '{InstallerPropertyPath}' in '{scene.path}'.");
+                    Assert.That(sourceModeProperty, Is.Not.Null, $"Missing serialized path '{SourceModePropertyPath}' in '{scene.path}'.");
+                    Assert.That(presetProperty, Is.Not.Null, $"Missing serialized path '{PresetPropertyPath}' in '{scene.path}'.");
+                    Assert.That(profileProperty, Is.Not.Null, $"Missing serialized path '{AuthoringPropertyPath}' in '{scene.path}'.");
                     serializedObject.Update();
-                    AssertSerializedPropertyMatches(profileProperty, expectedProfile, scene.path);
+                    Assert.That(sourceModeProperty.enumValueIndex, Is.EqualTo((int)GameplayCameraTopologySourceMode.Preset));
+                    Assert.That(AssetDatabase.GetAssetPath(presetProperty.objectReferenceValue), Is.EqualTo(expectedPresetPath));
                     AssertProfileMatches(expectedProfile, installer.GetTopologyTransitionPostFxProfile(), scene.path);
                 }
                 finally
@@ -453,9 +465,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        private static string ResolveExpectedPresetAssetPath(string scenePath)
+        {
+            return scenePath == "Assets/Scenes/CombinedGameplayShowcase.unity"
+                ? "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Camera/Presets/GameplayCameraTopologyPreset_CombinedGameplayShowcase.asset"
+                : "Assets/_Features/Stages/Stage_TutorialScene/Camera/Presets/GameplayCameraTopologyPreset_TutorialScene.asset";
+        }
+
         private static bool ContainsPostFxProfileHolder(string relativePath)
         {
-            return ReadRepoFile(relativePath).IndexOf($"{InstallerPropertyPath}:", StringComparison.Ordinal) >= 0;
+            return ReadRepoFile(relativePath).IndexOf($"{SerializedProfileKey}:", StringComparison.Ordinal) >= 0;
         }
 
         private static bool HasSerializedAssetExtension(string absolutePath)
@@ -482,9 +501,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static SerializedTopologyTransitionPostFxProfile ReadSerializedProfile(string installerBlock)
         {
-            Assert.That(installerBlock, Does.Contain($"{InstallerPropertyPath}:"));
-            var profileBlock = ReadSerializedBlock(installerBlock, InstallerPropertyPath, 2);
-            var distortionBlock = ReadSerializedBlock(profileBlock, "distortionProfile", 4);
+            Assert.That(installerBlock, Does.Contain($"{SerializedProfileKey}:"));
+            var profileBlock = TryReadSerializedBlock(installerBlock, SerializedProfileKey, 2) ??
+                               ReadSerializedBlock(installerBlock, SerializedProfileKey, 4);
+            var distortionBlock = TryReadSerializedBlock(profileBlock, "distortionProfile", 4) ??
+                                  ReadSerializedBlock(profileBlock, "distortionProfile", 6);
 
             return new SerializedTopologyTransitionPostFxProfile(
                 ReadSerializedObjectGuid(profileBlock, "authoritativeVolumeProfile"),
@@ -511,7 +532,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static string ReadCombinedGameplayInstallerBlock(string scenePath)
         {
             var sceneText = ReadRepoFile(scenePath);
-            var markerIndex = sceneText.IndexOf(CombinedGameplayShowcaseInstallerMarker, StringComparison.Ordinal);
+            var markerIndex = sceneText.IndexOf(GameplayCameraTopologyAuthoringMarker, StringComparison.Ordinal);
 
             Assert.That(markerIndex, Is.GreaterThanOrEqualTo(0), $"Missing installer block in {scenePath}.");
 
@@ -584,6 +605,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(match.Success, Is.True, $"Serialized block '{key}' was not found.");
             return match.Groups["block"].Value;
+        }
+
+        private static string TryReadSerializedBlock(string source, string key, int indentation)
+        {
+            var parentIndentation = new string(' ', indentation);
+            var childIndentation = new string(' ', indentation + 2);
+            var match = Regex.Match(
+                source,
+                $@"(?ms)^{Regex.Escape(parentIndentation)}{Regex.Escape(key)}:\s*$\n(?<block>(?:^{Regex.Escape(childIndentation)}.*$\n?)*)",
+                RegexOptions.CultureInvariant);
+
+            return match.Success ? match.Groups["block"].Value : null;
         }
 
         private static void AssertSerializedPropertyMatches(

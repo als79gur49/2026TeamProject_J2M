@@ -119,18 +119,19 @@ namespace Game.Feature.Gameplay.Host
 
         internal GameplayCameraSettings ResolveConfiguredSettings(
             GameplayCameraSettings baseSettings,
+            GameplayCameraBaselineAuthoringPolicy baselineAuthoringPolicy,
             Vector3 targetWorldPosition,
             CubeTopologyState topology,
             TopologyRotationVisualMapping topologyRotationVisualMapping)
         {
             var resolvedSettings = CloneConfiguredSettings(baseSettings);
             ResetAuthoredSceneCameraBaselineUsage();
-            if (!HasApplicableAuthoredSceneCameraSettings(resolvedSettings))
+            if (!HasApplicableAuthoredSceneCameraSettings(baselineAuthoringPolicy))
             {
                 return resolvedSettings;
             }
 
-            if (resolvedSettings.UseAuthoredSceneCameraPose)
+            if (baselineAuthoringPolicy.UseAuthoredSceneCameraPose)
             {
                 PrepareAuthoredSceneCameraBaseline(
                     targetWorldPosition,
@@ -138,7 +139,7 @@ namespace Game.Feature.Gameplay.Host
                     topologyRotationVisualMapping);
             }
 
-            if (resolvedSettings.UseAuthoredSceneCameraLens)
+            if (baselineAuthoringPolicy.UseAuthoredSceneCameraLens)
             {
                 ApplyAuthoredSceneCameraLens(resolvedSettings);
             }
@@ -324,10 +325,11 @@ namespace Game.Feature.Gameplay.Host
             _useAuthoredSceneCameraPoseAsBaseline = false;
         }
 
-        private bool HasApplicableAuthoredSceneCameraSettings(GameplayCameraSettings resolvedSettings)
+        private bool HasApplicableAuthoredSceneCameraSettings(GameplayCameraBaselineAuthoringPolicy baselineAuthoringPolicy)
         {
             return _hasAuthoredSceneCameraPose &&
-                   (resolvedSettings.UseAuthoredSceneCameraPose || resolvedSettings.UseAuthoredSceneCameraLens);
+                   (baselineAuthoringPolicy.UseAuthoredSceneCameraPose ||
+                    baselineAuthoringPolicy.UseAuthoredSceneCameraLens);
         }
 
         private void PrepareAuthoredSceneCameraBaseline(

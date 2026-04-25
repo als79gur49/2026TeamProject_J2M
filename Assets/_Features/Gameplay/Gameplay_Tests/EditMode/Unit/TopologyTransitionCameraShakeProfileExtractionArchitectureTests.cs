@@ -30,9 +30,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/Camera/Profiles.meta";
         private const string ProfileMetaRelativePath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/Camera/Profiles/TopologyTransitionCameraShakeProfile.cs.meta";
-        private const string InstallerPropertyPath = "topologyTransitionCameraShakeProfile";
-        private const string CombinedGameplayShowcaseInstallerMarker =
-            "m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.CombinedGameplayShowcaseInstaller";
+        private const string AuthoringPropertyPath = "inlineSharedTuning.topologyTransitionCameraShakeProfile";
+        private const string SerializedProfileKey = "topologyTransitionCameraShakeProfile";
+        private const string SourceModePropertyPath = "sourceMode";
+        private const string PresetPropertyPath = "preset";
+        private const string GameplayCameraTopologyAuthoringMarker =
+            "m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.GameplayCameraTopologyAuthoring";
         private const string ExpectedProfileGuid = "f8a8aa3000874792ae19a20bcbccaa96";
 
         private static readonly string[] ExpectedSerializedHolders =
@@ -40,6 +43,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/Scenes/CombinedGameplayShowcase.unity",
             "Assets/Scenes/TutorialScene.unity",
             "Assets/Scenes/UIAudioScene.unity",
+            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Camera/Presets/GameplayCameraTopologyPreset_CombinedGameplayShowcase.asset",
+            "Assets/_Features/Stages/Stage_TutorialScene/Camera/Presets/GameplayCameraTopologyPreset_TutorialScene.asset",
         };
 
         private static readonly string[] ExpectedFieldNames =
@@ -253,7 +258,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void RepositorySerializedTargets_ForCameraShakeProfile_AreLimitedToKnownShowcaseScenes()
+        public void RepositorySerializedTargets_ForCameraShakeProfile_AreLimitedToKnownCameraTopologyAuthoringAndPresetAssets()
         {
             var assetPaths = Directory.GetFiles(GetAbsolutePath("Assets"), "*.*", SearchOption.AllDirectories)
                 .Where(path => HasSerializedAssetExtension(path))
@@ -267,12 +272,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void ShowcaseInstallerScenes_PreserveSerializedCameraShakeProfileMeaning()
+        public void ShowcaseInstallerScenes_PresetMode_RuntimeMeaning_UsesReferencedPresetCameraShakeProfile()
         {
-            foreach (var scenePath in ExpectedSerializedHolders)
+            foreach (var scenePath in ExpectedSerializedHolders.Where(path => path.EndsWith(".unity", StringComparison.Ordinal)))
             {
-                var installerBlock = ReadCombinedGameplayInstallerBlock(scenePath);
-                var expectedProfile = ReadSerializedProfile(installerBlock);
+                var expectedPresetPath = ResolveExpectedPresetAssetPath(scenePath);
+                var expectedProfile = ReadSerializedProfile(ReadRepoFile(expectedPresetPath));
 
                 var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
 
@@ -280,13 +285,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     var installer = Object.FindFirstObjectByType<CombinedGameplayShowcaseInstaller>();
                     Assert.That(installer, Is.Not.Null, $"Missing installer in '{scene.path}'.");
+                    var authoring = installer.GetComponent<GameplayCameraTopologyAuthoring>();
+                    Assert.That(authoring, Is.Not.Null, $"Missing {nameof(GameplayCameraTopologyAuthoring)} in '{scene.path}'.");
 
-                    var serializedObject = new SerializedObject(installer);
-                    var profileProperty = serializedObject.FindProperty(InstallerPropertyPath);
+                    var serializedObject = new SerializedObject(authoring);
+                    var sourceModeProperty = serializedObject.FindProperty(SourceModePropertyPath);
+                    var presetProperty = serializedObject.FindProperty(PresetPropertyPath);
+                    var profileProperty = serializedObject.FindProperty(AuthoringPropertyPath);
 
-                    Assert.That(profileProperty, Is.Not.Null, $"Missing serialized path '{InstallerPropertyPath}' in '{scene.path}'.");
+                    Assert.That(sourceModeProperty, Is.Not.Null, $"Missing serialized path '{SourceModePropertyPath}' in '{scene.path}'.");
+                    Assert.That(presetProperty, Is.Not.Null, $"Missing serialized path '{PresetPropertyPath}' in '{scene.path}'.");
+                    Assert.That(profileProperty, Is.Not.Null, $"Missing serialized path '{AuthoringPropertyPath}' in '{scene.path}'.");
                     serializedObject.Update();
-                    AssertSerializedPropertyMatches(profileProperty, expectedProfile, scene.path);
+                    Assert.That(sourceModeProperty.enumValueIndex, Is.EqualTo((int)GameplayCameraTopologySourceMode.Preset));
+                    Assert.That(AssetDatabase.GetAssetPath(presetProperty.objectReferenceValue), Is.EqualTo(expectedPresetPath));
                     AssertProfileMatches(expectedProfile, installer.GetTopologyTransitionCameraShakeProfile(), scene.path);
                 }
                 finally
@@ -296,9 +308,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        private static string ResolveExpectedPresetAssetPath(string scenePath)
+        {
+            return scenePath == "Assets/Scenes/CombinedGameplayShowcase.unity"
+                ? "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Camera/Presets/GameplayCameraTopologyPreset_CombinedGameplayShowcase.asset"
+                : "Assets/_Features/Stages/Stage_TutorialScene/Camera/Presets/GameplayCameraTopologyPreset_TutorialScene.asset";
+        }
+
         private static bool ContainsCameraShakeProfileHolder(string relativePath)
         {
-            return ReadRepoFile(relativePath).IndexOf($"{InstallerPropertyPath}:", StringComparison.Ordinal) >= 0;
+            return ReadRepoFile(relativePath).IndexOf($"{SerializedProfileKey}:", StringComparison.Ordinal) >= 0;
         }
 
         private static bool HasSerializedAssetExtension(string absolutePath)
@@ -325,7 +344,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static SerializedCameraShakeProfile ReadSerializedProfile(string installerBlock)
         {
-            Assert.That(installerBlock, Does.Contain($"{InstallerPropertyPath}:"));
+            Assert.That(installerBlock, Does.Contain($"{SerializedProfileKey}:"));
 
             return new SerializedCameraShakeProfile(
                 ReadSerializedFloatValue(installerBlock, nameof(TopologyTransitionCameraShakeProfile.ImpactStart01)),
@@ -343,7 +362,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static string ReadCombinedGameplayInstallerBlock(string scenePath)
         {
             var sceneText = ReadRepoFile(scenePath);
-            var markerIndex = sceneText.IndexOf(CombinedGameplayShowcaseInstallerMarker, StringComparison.Ordinal);
+            var markerIndex = sceneText.IndexOf(GameplayCameraTopologyAuthoringMarker, StringComparison.Ordinal);
 
             Assert.That(markerIndex, Is.GreaterThanOrEqualTo(0), $"Missing installer block in {scenePath}.");
 

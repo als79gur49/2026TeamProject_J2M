@@ -1,7 +1,9 @@
+using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -21,6 +23,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         private const string CombinedScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
         private const string TutorialScenePath = "Assets/Scenes/TutorialScene.unity";
+        private const string CombinedPresetAssetPath =
+            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Camera/Presets/GameplayCameraTopologyPreset_CombinedGameplayShowcase.asset";
+        private const string TutorialPresetAssetPath =
+            "Assets/_Features/Stages/Stage_TutorialScene/Camera/Presets/GameplayCameraTopologyPreset_TutorialScene.asset";
         private const string AuthoritativeVolumeProfileAssetPath = "Assets/DefaultVolumeProfile.asset";
         private const string DeprecatedVolumeProfileGuid = "eda47df5b85f4f249abf7abd73db2cb2";
 
@@ -42,6 +48,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(authoritativeProfile, Is.Not.Null);
                 Assert.That(authoritativeProfile.TryGet(out MotionBlur authoritativeMotionBlur), Is.True);
                 Assert.That(authoritativeProfile.TryGet(out LensDistortion authoritativeLensDistortion), Is.True);
+                var authoritativeMotionBlurMode = authoritativeMotionBlur.mode.value;
+                var authoritativeMotionBlurQuality = authoritativeMotionBlur.quality.value;
+                var authoritativeMotionBlurIntensity = authoritativeMotionBlur.intensity.value;
+                var authoritativeLensDistortionIntensity = authoritativeLensDistortion.intensity.value;
+                var authoritativeLensDistortionScale = authoritativeLensDistortion.scale.value;
 
                 host.Initialize(
                     new GameplaySceneHostConfiguration
@@ -92,11 +103,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(controller.LensDistortionOverride.scale.value, Is.EqualTo(1.05f).Within(0.0001f));
                 Assert.That(outputCamera.GetUniversalAdditionalCameraData().renderPostProcessing, Is.True);
 
-                Assert.That(authoritativeMotionBlur.mode.value, Is.EqualTo(MotionBlurMode.CameraOnly));
-                Assert.That(authoritativeMotionBlur.quality.value, Is.EqualTo(MotionBlurQuality.Low));
-                Assert.That(authoritativeMotionBlur.intensity.value, Is.EqualTo(0f));
-                Assert.That(authoritativeLensDistortion.intensity.value, Is.EqualTo(0f));
-                Assert.That(authoritativeLensDistortion.scale.value, Is.EqualTo(1f));
+                Assert.That(authoritativeMotionBlur.mode.value, Is.EqualTo(authoritativeMotionBlurMode));
+                Assert.That(authoritativeMotionBlur.quality.value, Is.EqualTo(authoritativeMotionBlurQuality));
+                Assert.That(authoritativeMotionBlur.intensity.value, Is.EqualTo(authoritativeMotionBlurIntensity));
+                Assert.That(authoritativeLensDistortion.intensity.value, Is.EqualTo(authoritativeLensDistortionIntensity));
+                Assert.That(authoritativeLensDistortion.scale.value, Is.EqualTo(authoritativeLensDistortionScale));
             }
             finally
             {
@@ -325,33 +336,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void ShowcaseScenes_InstallerSerialization_UsesAssetsDefaultVolumeProfileInsteadOfDeprecatedSettingsProfile()
+        public void ShowcaseCameraTopologyPresetAssets_UseAssetsDefaultVolumeProfileInsteadOfDeprecatedSettingsProfile()
         {
+            var combinedPresetText = ReadNormalizedText(CombinedPresetAssetPath);
+            var tutorialPresetText = ReadNormalizedText(TutorialPresetAssetPath);
             var combinedSceneText = ReadNormalizedText(CombinedScenePath);
             var tutorialSceneText = ReadNormalizedText(TutorialScenePath);
             var authoritativeGuid = AssetDatabase.AssetPathToGUID(AuthoritativeVolumeProfileAssetPath);
+            var combinedPresetGuid = AssetDatabase.AssetPathToGUID(CombinedPresetAssetPath);
+            var tutorialPresetGuid = AssetDatabase.AssetPathToGUID(TutorialPresetAssetPath);
 
-            StringAssert.Contains($"authoritativeVolumeProfile: {{fileID: 11400000, guid: {authoritativeGuid}, type: 2}}", combinedSceneText);
-            StringAssert.Contains($"authoritativeVolumeProfile: {{fileID: 11400000, guid: {authoritativeGuid}, type: 2}}", tutorialSceneText);
-            StringAssert.Contains("angularVelocityResponseExponent: 0.65", combinedSceneText);
-            StringAssert.Contains("angularVelocityResponseExponent: 0.65", tutorialSceneText);
-            StringAssert.Contains("distortionProfile:", combinedSceneText);
-            StringAssert.Contains("ImpactIntensity: -0.2", combinedSceneText);
-            StringAssert.Contains("distortionProfile:", tutorialSceneText);
-            StringAssert.Contains("ImpactIntensity: -0.2", tutorialSceneText);
+            StringAssert.Contains($"authoritativeVolumeProfile: {{fileID: 11400000, guid: {authoritativeGuid}, type: 2}}", combinedPresetText);
+            StringAssert.Contains($"authoritativeVolumeProfile: {{fileID: 11400000, guid: {authoritativeGuid}, type: 2}}", tutorialPresetText);
+            StringAssert.Contains("angularVelocityResponseExponent: 0.65", combinedPresetText);
+            StringAssert.Contains("angularVelocityResponseExponent: 0.65", tutorialPresetText);
+            StringAssert.Contains("distortionProfile:", combinedPresetText);
+            StringAssert.Contains("ImpactIntensity: -0.2", combinedPresetText);
+            StringAssert.Contains("distortionProfile:", tutorialPresetText);
+            StringAssert.Contains("ImpactIntensity: -0.2", tutorialPresetText);
+            StringAssert.Contains($"preset: {{fileID: 11400000, guid: {combinedPresetGuid}, type: 2}}", combinedSceneText);
+            StringAssert.Contains($"preset: {{fileID: 11400000, guid: {tutorialPresetGuid}, type: 2}}", tutorialSceneText);
             StringAssert.DoesNotContain(DeprecatedVolumeProfileGuid, combinedSceneText);
             StringAssert.DoesNotContain(DeprecatedVolumeProfileGuid, tutorialSceneText);
+            StringAssert.DoesNotContain(DeprecatedVolumeProfileGuid, combinedPresetText);
+            StringAssert.DoesNotContain(DeprecatedVolumeProfileGuid, tutorialPresetText);
         }
 
         [Test]
         [Category("Full")]
-        public void ShowcaseScenes_Scaffold_EnablesPostProcessingOnOutputCamera()
+        public void ShowcaseScenes_HostStartup_EnablesPostProcessingOnOutputCamera()
         {
-            AssertSceneScaffoldEnablesOutputCameraPostProcessing(CombinedScenePath);
-            AssertSceneScaffoldEnablesOutputCameraPostProcessing(TutorialScenePath);
+            AssertSceneHostStartupEnablesOutputCameraPostProcessing(CombinedScenePath, "combined-gameplay-showcase");
+            AssertSceneHostStartupEnablesOutputCameraPostProcessing(TutorialScenePath, "tutorial-scene");
         }
 
-        private static void AssertSceneScaffoldEnablesOutputCameraPostProcessing(string scenePath)
+        private static void AssertSceneHostStartupEnablesOutputCameraPostProcessing(string scenePath, string stageIdValue)
         {
             var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
 
@@ -359,11 +378,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var installer = Object.FindFirstObjectByType<CombinedGameplayShowcaseInstaller>();
                 Assert.That(installer, Is.Not.Null, $"Missing installer in '{scenePath}'.");
+                var host = installer.GetComponent<GameplaySceneHost>();
+                Assert.That(host, Is.Not.Null, $"Missing {nameof(GameplaySceneHost)} in '{scenePath}'.");
 
                 GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(
                     installer.gameObject,
                     installer.GetCameraSettings(),
+                    installer.GetBaselineAuthoringPolicy(),
                     installer.GetTopologyTransitionCameraShakeProfile());
+                host.Initialize(BuildConfiguration(installer, stageIdValue));
 
                 var outputCamera = Camera.main;
                 Assert.That(outputCamera, Is.Not.Null, $"Missing Main Camera in '{scenePath}'.");
@@ -381,6 +404,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 System.IO.Directory.GetParent(Application.dataPath)?.FullName ?? string.Empty,
                 assetPath.Replace('/', System.IO.Path.DirectorySeparatorChar));
             return System.IO.File.ReadAllText(fullPath).Replace("\r\n", "\n");
+        }
+
+        private static GameplaySceneHostConfiguration BuildConfiguration(
+            CombinedGameplayShowcaseInstaller installer,
+            string stageIdValue)
+        {
+            var buildInitialGameplayState = typeof(GameplayShowcaseSceneInstallerBase).GetMethod(
+                "BuildInitialGameplayState",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            var createConfiguration = typeof(GameplayShowcaseSceneInstallerBase).GetMethod(
+                "CreateConfiguration",
+                BindingFlags.Instance | BindingFlags.NonPublic,
+                binder: null,
+                types: new[] { buildInitialGameplayState?.ReturnType, typeof(GameplayCameraSettings) },
+                modifiers: null);
+
+            Assert.That(buildInitialGameplayState, Is.Not.Null);
+            Assert.That(createConfiguration, Is.Not.Null);
+
+            StageLaunchContextStore.Clear();
+            StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow(stageIdValue));
+
+            try
+            {
+                var initialGameplayState = buildInitialGameplayState.Invoke(installer, null);
+                return (GameplaySceneHostConfiguration)createConfiguration.Invoke(
+                    installer,
+                    new[] { initialGameplayState, installer.GetCameraSettings() });
+            }
+            finally
+            {
+                StageLaunchContextStore.Clear();
+            }
         }
 
         private static TopologyTransitionVisualState CreateActiveVisualState(float progress01, float angularVelocityNormalized)

@@ -1,7 +1,6 @@
 using System;
 using Unity.Cinemachine;
 using UnityEngine;
-using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
 
 namespace Game.Feature.Gameplay.Host
@@ -10,30 +9,50 @@ namespace Game.Feature.Gameplay.Host
     {
         internal static void Bootstrap(
             GameObject installerRoot,
-            GameplayBoardRoot boardRoot,
-            GameplayCameraSettings cameraSettings,
-            TopologyTransitionCameraShakeProfile topologyTransitionCameraShakeProfile)
+            GameplayBoardRoot boardRoot)
         {
             if (installerRoot == null)
             {
                 throw new ArgumentNullException(nameof(installerRoot));
             }
 
-            var resolvedCameraSettings = cameraSettings ?? GameplayCameraSettings.CreateShowcaseDefault();
             var rig = installerRoot.GetComponent<GameplayCameraRig>() ?? installerRoot.AddComponent<GameplayCameraRig>();
-            rig.ApplySettings(resolvedCameraSettings);
-            rig.ConfigureTopologyTransitionCameraShake(
-                topologyTransitionCameraShakeProfile ?? TopologyTransitionCameraShakeProfile.CreateDefault());
+            ConfigureSceneCinemachinePath(
+                installerRoot.scene,
+                boardRoot,
+                rig);
+        }
 
-            ConfigureSceneOutputCameras(installerRoot.scene);
-            ConfigureSceneCinemachinePath(installerRoot.scene, boardRoot, rig, resolvedCameraSettings);
+        internal static void ApplyResolvedStartupLens(
+            Scene scene,
+            GameplayResolvedCameraStartupPlan startupPlan)
+        {
+            if (!scene.IsValid() || !startupPlan.UsesHierarchyCinemachinePath)
+            {
+                return;
+            }
+
+            var rootObjects = scene.GetRootGameObjects();
+            for (var i = 0; i < rootObjects.Length; i++)
+            {
+                var rootObject = rootObjects[i];
+                if (rootObject == null)
+                {
+                    continue;
+                }
+
+                var cinemachineCameras = rootObject.GetComponentsInChildren<CinemachineCamera>(includeInactive: true);
+                for (var j = 0; j < cinemachineCameras.Length; j++)
+                {
+                    ApplyResolvedStartupLens(cinemachineCameras[j], startupPlan.ResolvedCameraSettings);
+                }
+            }
         }
 
         private static void ConfigureSceneCinemachinePath(
             Scene scene,
             GameplayBoardRoot boardRoot,
-            GameplayCameraRig rig,
-            GameplayCameraSettings cameraSettings)
+            GameplayCameraRig rig)
         {
             if (!scene.IsValid() || boardRoot == null)
             {
@@ -52,7 +71,10 @@ namespace Game.Feature.Gameplay.Host
                 var cinemachineCameras = rootObject.GetComponentsInChildren<CinemachineCamera>(includeInactive: true);
                 for (var j = 0; j < cinemachineCameras.Length; j++)
                 {
-                    ConfigureCinemachineCamera(cinemachineCameras[j], boardRoot, rig, cameraSettings);
+                    ConfigureCinemachineCamera(
+                        cinemachineCameras[j],
+                        boardRoot,
+                        rig);
                 }
 
                 var brains = rootObject.GetComponentsInChildren<CinemachineBrain>(includeInactive: true);
@@ -64,43 +86,10 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private static void ConfigureSceneOutputCameras(Scene scene)
-        {
-            if (!scene.IsValid())
-            {
-                return;
-            }
-
-            var rootObjects = scene.GetRootGameObjects();
-            for (var i = 0; i < rootObjects.Length; i++)
-            {
-                var rootObject = rootObjects[i];
-                if (rootObject == null)
-                {
-                    continue;
-                }
-
-                var cameras = rootObject.GetComponentsInChildren<Camera>(includeInactive: true);
-                for (var j = 0; j < cameras.Length; j++)
-                {
-                    var camera = cameras[j];
-                    if (camera == null ||
-                        (!camera.CompareTag("MainCamera") &&
-                         camera.GetComponent<CinemachineBrain>() == null))
-                    {
-                        continue;
-                    }
-
-                    camera.GetUniversalAdditionalCameraData().renderPostProcessing = true;
-                }
-            }
-        }
-
         private static void ConfigureCinemachineCamera(
             CinemachineCamera cinemachineCamera,
             GameplayBoardRoot boardRoot,
-            GameplayCameraRig rig,
-            GameplayCameraSettings cameraSettings)
+            GameplayCameraRig rig)
         {
             if (cinemachineCamera == null ||
                 boardRoot?.CameraEffectsRoot == null ||
@@ -128,15 +117,23 @@ namespace Game.Feature.Gameplay.Host
                 CustomLookAtTarget = true,
             };
 
-            if (!cameraSettings.UseAuthoredSceneCameraLens)
+            cinemachineCamera.BlendHint = 0;
+        }
+
+        private static void ApplyResolvedStartupLens(
+            CinemachineCamera cinemachineCamera,
+            GameplayCameraSettings resolvedCameraSettings)
+        {
+            if (cinemachineCamera == null || resolvedCameraSettings == null)
             {
-                lens.FieldOfView = cameraSettings.PerspectiveFieldOfView;
-                lens.NearClipPlane = cameraSettings.NearClipPlane;
-                lens.FarClipPlane = cameraSettings.FarClipPlane;
-                cinemachineCamera.Lens = lens;
+                return;
             }
 
-            cinemachineCamera.BlendHint = 0;
+            var lens = cinemachineCamera.Lens;
+            lens.FieldOfView = resolvedCameraSettings.PerspectiveFieldOfView;
+            lens.NearClipPlane = resolvedCameraSettings.NearClipPlane;
+            lens.FarClipPlane = resolvedCameraSettings.FarClipPlane;
+            cinemachineCamera.Lens = lens;
         }
     }
 }

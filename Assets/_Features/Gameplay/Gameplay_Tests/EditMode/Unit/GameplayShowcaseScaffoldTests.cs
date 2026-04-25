@@ -56,7 +56,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var rig = installerObject.GetComponent<GameplayCameraRig>();
                 Assert.That(rig, Is.Not.Null);
-                AssertCameraSettings(rig, expectedCameraSettings);
 
                 var boardRoot = installerObject.GetComponentInChildren<GameplayBoardRoot>();
                 Assert.That(boardRoot, Is.Not.Null);
@@ -74,15 +73,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(cinemachineCamera.Target.TrackingTarget, Is.EqualTo(boardRoot.CameraTargetRoot));
                 Assert.That(cinemachineCamera.Target.LookAtTarget, Is.EqualTo(boardRoot.CameraTargetRoot));
                 Assert.That(cinemachineCamera.Target.CustomLookAtTarget, Is.True);
-                Assert.That(
-                    cinemachineCamera.Lens.FieldOfView,
-                    Is.EqualTo(expectedCameraSettings.PerspectiveFieldOfView).Within(0.0001f));
-                Assert.That(
-                    cinemachineCamera.Lens.NearClipPlane,
-                    Is.EqualTo(expectedCameraSettings.NearClipPlane).Within(0.0001f));
-                Assert.That(
-                    cinemachineCamera.Lens.FarClipPlane,
-                    Is.EqualTo(expectedCameraSettings.FarClipPlane).Within(0.0001f));
                 Assert.That(brain.DefaultBlend.Style, Is.EqualTo(CinemachineBlendDefinition.Styles.Cut));
                 Assert.That(brain.DefaultBlend.BlendTime, Is.EqualTo(0f).Within(0.0001f));
 
@@ -124,10 +114,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     authoredWorldRotation);
                 SceneManager.MoveGameObjectToScene(cinemachineCameraObject, scene);
 
+                var baselineAuthoringPolicy = GameplayCameraBaselineAuthoringPolicy.CreateShowcaseDefault();
                 var baseCameraSettings = new GameplayCameraSettings
                 {
-                    UseAuthoredSceneCameraPose = true,
-                    UseAuthoredSceneCameraLens = true,
                     PitchDegrees = 10f,
                     YawDegrees = 15f,
                     DistanceMode = CameraDistanceMode.AutoFit,
@@ -140,12 +129,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(
                     installerObject,
-                    baseCameraSettings);
+                    baseCameraSettings,
+                    baselineAuthoringPolicy);
 
                 var rig = installerObject.GetComponent<GameplayCameraRig>();
                 Assert.That(rig, Is.Not.Null);
                 var resolvedCameraSettings = rig.ResolveConfiguredSettings(
                     baseCameraSettings,
+                    baselineAuthoringPolicy,
                     Vector3.zero,
                     new CubeTopologyState(FaceId.Floor),
                     TopologyRotationVisualMapping.ForwardUsesPositiveX);
@@ -185,7 +176,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void GameplayShowcaseSceneScaffold_EnsureInstallerScaffold_AppliesProvidedShakeProfileToRig()
+        public void GameplaySceneHost_Initialize_UsesResolvedStartupLens_WhenHierarchyBootstrapDisablesAuthoredLens()
         {
             var scene = CreateIsolatedTestScene();
 
@@ -193,6 +184,114 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var installerObject = new GameObject("GameplayShowcaseInstaller");
                 SceneManager.MoveGameObjectToScene(installerObject, scene);
+                var host = installerObject.AddComponent<GameplaySceneHost>();
+
+                var mainCameraObject = new GameObject("Main Camera");
+                mainCameraObject.tag = "MainCamera";
+                mainCameraObject.AddComponent<Camera>();
+                mainCameraObject.AddComponent<CinemachineBrain>();
+                SceneManager.MoveGameObjectToScene(mainCameraObject, scene);
+
+                var cinemachineCameraObject = new GameObject("CinemachineCamera");
+                var cinemachineCamera = cinemachineCameraObject.AddComponent<CinemachineCamera>();
+                var lens = cinemachineCamera.Lens;
+                lens.FieldOfView = 44f;
+                lens.NearClipPlane = 0.2f;
+                lens.FarClipPlane = 90f;
+                cinemachineCamera.Lens = lens;
+                var authoredWorldPosition = new Vector3(3f, 4f, -8f);
+                var authoredWorldRotation = Quaternion.LookRotation(new Vector3(-3f, -4f, 8f).normalized, Vector3.up);
+                cinemachineCamera.transform.SetPositionAndRotation(
+                    authoredWorldPosition,
+                    authoredWorldRotation);
+                SceneManager.MoveGameObjectToScene(cinemachineCameraObject, scene);
+
+                var baselineAuthoringPolicy = new GameplayCameraBaselineAuthoringPolicy
+                {
+                    UseAuthoredSceneCameraPose = true,
+                    UseAuthoredSceneCameraLens = false,
+                };
+                var baseCameraSettings = new GameplayCameraSettings
+                {
+                    PitchDegrees = 10f,
+                    YawDegrees = 15f,
+                    DistanceMode = CameraDistanceMode.AutoFit,
+                    ManualDistance = 2f,
+                    FramingPadding = 1.2f,
+                    PerspectiveFieldOfView = 60f,
+                    NearClipPlane = 0.03f,
+                    FarClipPlane = 100f,
+                };
+
+                GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(
+                    installerObject,
+                    baseCameraSettings,
+                    baselineAuthoringPolicy);
+
+                var rig = installerObject.GetComponent<GameplayCameraRig>();
+                Assert.That(rig, Is.Not.Null);
+                host.Initialize(
+                    new GameplaySceneHostConfiguration
+                    {
+                        AutoAdvanceTicks = false,
+                        AutoCreateViews = false,
+                        CameraBaselineAuthoringPolicy = baselineAuthoringPolicy,
+                        CameraSettings = baseCameraSettings,
+                        CellSize = 1f,
+                        InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                        InitialEntities = new[]
+                        {
+                            new EntityState
+                            {
+                                entityId = 10,
+                                position = new SurfaceCell(FaceId.Floor, 0, 0),
+                                hp = 3,
+                                maxHp = 3,
+                                teamId = 1,
+                                type = EntityType.Unit,
+                                state = EntityPhaseState.Idle,
+                                facing = Direction.Right,
+                            },
+                        },
+                        InitialTopology = new CubeTopologyState(FaceId.Floor),
+                        PlayerEntityId = 10,
+                        SnapViewCameraToTarget = false,
+                        StaticEntityLogics = Array.Empty<IEntityLogic>(),
+                        TopologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesPositiveX,
+                    });
+
+                var boardRoot = installerObject.GetComponentInChildren<GameplayBoardRoot>();
+                Assert.That(rig.PerspectiveFieldOfView, Is.EqualTo(60f).Within(0.0001f));
+                Assert.That(rig.NearClipPlane, Is.EqualTo(0.03f).Within(0.0001f));
+                Assert.That(rig.FarClipPlane, Is.EqualTo(100f).Within(0.0001f));
+                Assert.That(cinemachineCamera.Lens.FieldOfView, Is.EqualTo(60f).Within(0.0001f));
+                Assert.That(cinemachineCamera.Lens.NearClipPlane, Is.EqualTo(0.03f).Within(0.0001f));
+                Assert.That(cinemachineCamera.Lens.FarClipPlane, Is.EqualTo(100f).Within(0.0001f));
+                Assert.That(cinemachineCamera.transform.parent, Is.EqualTo(boardRoot.CameraEffectsRoot));
+                Assert.That(
+                    Vector3.Distance(boardRoot.CameraEffectsRoot.position, authoredWorldPosition),
+                    Is.LessThan(0.001f));
+                Assert.That(
+                    Quaternion.Angle(boardRoot.CameraEffectsRoot.rotation, authoredWorldRotation),
+                    Is.LessThan(0.001f));
+            }
+            finally
+            {
+                ResetIsolatedTestScene();
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void GameplaySceneHost_Initialize_AppliesConfiguredStartupShakeProfileOnce()
+        {
+            var scene = CreateIsolatedTestScene();
+
+            try
+            {
+                var installerObject = new GameObject("GameplayShowcaseInstaller");
+                SceneManager.MoveGameObjectToScene(installerObject, scene);
+                var host = installerObject.AddComponent<GameplaySceneHost>();
 
                 var shakeProfile = TopologyTransitionCameraShakeProfile.CreateDefault();
                 shakeProfile.ImpactLocalPositionAmplitude = Vector3.zero;
@@ -207,6 +306,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var rig = installerObject.GetComponent<GameplayCameraRig>();
                 Assert.That(rig, Is.Not.Null);
+                host.Initialize(
+                    new GameplaySceneHostConfiguration
+                    {
+                        AutoAdvanceTicks = false,
+                        AutoCreateViews = false,
+                        CameraSettings = GameplayCameraSettings.CreateShowcaseDefault(),
+                        CellSize = 1f,
+                        InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                        InitialEntities = new[]
+                        {
+                            new EntityState
+                            {
+                                entityId = 10,
+                                position = new SurfaceCell(FaceId.Floor, 0, 0),
+                                hp = 3,
+                                maxHp = 3,
+                                teamId = 1,
+                                type = EntityType.Unit,
+                                state = EntityPhaseState.Idle,
+                                facing = Direction.Right,
+                            },
+                        },
+                        InitialTopology = new CubeTopologyState(FaceId.Floor),
+                        PlayerEntityId = 10,
+                        SnapViewCameraToTarget = false,
+                        StaticEntityLogics = Array.Empty<IEntityLogic>(),
+                        TopologyTransitionCameraShakeProfile = shakeProfile,
+                    });
 
                 rig.ApplyTopologyTransitionVisualState(
                     new TopologyTransitionVisualState(
@@ -243,15 +370,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SceneManager.MoveGameObjectToScene(installerObject, scene);
 
                 var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
+                var cameraTopologyAuthoring = EnsureCameraTopologyAuthoring(installer);
                 SetBaseInstallerField(installer, "actions", actions);
                 SetBaseInstallerField(installer, "simulationTimingPreset", simulationTimingPreset);
                 SetBaseInstallerField(installer, "presentationTimingPreset", presentationTimingPreset);
-                SetBaseInstallerField(
-                    installer,
+                SetTopologyAuthoringField(
+                    cameraTopologyAuthoring,
                     "topologyRotationVisualMapping",
                     TopologyRotationVisualMapping.ForwardUsesPositiveX);
-                SetBaseInstallerField(
-                    installer,
+                SetTopologyAuthoringField(
+                    cameraTopologyAuthoring,
                     "topologyRotationTweenSettings",
                     new TopologyRotationTweenSettings
                     {
@@ -309,6 +437,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SceneManager.MoveGameObjectToScene(installerObject, scene);
 
                 var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
+                EnsureCameraTopologyAuthoring(installer);
                 SetBaseInstallerField(installer, "actions", actions);
                 SetBaseInstallerField(installer, "presentationTimingPreset", presentationTimingPreset);
 
@@ -339,6 +468,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SceneManager.MoveGameObjectToScene(installerObject, scene);
 
                 var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
+                EnsureCameraTopologyAuthoring(installer);
                 SetBaseInstallerField(installer, "actions", actions);
                 SetBaseInstallerField(installer, "simulationTimingPreset", simulationTimingPreset);
 
@@ -372,6 +502,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SceneManager.MoveGameObjectToScene(playerPrefabObject, scene);
 
                 var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
+                EnsureCameraTopologyAuthoring(installer);
                 SetBaseInstallerField(installer, "actions", actions);
                 SetBaseInstallerField(installer, "simulationTimingPreset", simulationTimingPreset);
                 SetBaseInstallerField(installer, "presentationTimingPreset", presentationTimingPreset);
@@ -412,6 +543,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SceneManager.MoveGameObjectToScene(installerObject, scene);
 
                 var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
+                EnsureCameraTopologyAuthoring(installer);
                 SetBaseInstallerField(installer, "actions", actions);
                 SetBaseInstallerField(installer, "simulationTimingPreset", simulationTimingPreset);
                 SetBaseInstallerField(installer, "presentationTimingPreset", presentationTimingPreset);
@@ -448,6 +580,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SceneManager.MoveGameObjectToScene(installerObject, scene);
 
                 var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
+                EnsureCameraTopologyAuthoring(installer);
                 SetBaseInstallerField(installer, "actions", actions);
                 SetBaseInstallerField(installer, "simulationTimingPreset", simulationTimingPreset);
                 SetBaseInstallerField(installer, "presentationTimingPreset", presentationTimingPreset);
@@ -535,6 +668,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetPrivateField(typeof(GameplayShowcaseSceneInstallerBase), target, fieldName, value);
         }
 
+        private static void SetTopologyAuthoringField(object target, string fieldName, object value)
+        {
+            var authoringField = typeof(GameplayCameraTopologyAuthoring).GetField(
+                fieldName,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
+            if (authoringField != null)
+            {
+                authoringField.SetValue(target, value);
+                return;
+            }
+
+            var inlineSharedTuningField = typeof(GameplayCameraTopologyAuthoring).GetField(
+                "inlineSharedTuning",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.That(inlineSharedTuningField, Is.Not.Null);
+
+            var sharedTuning =
+                (GameplayCameraTopologySharedTuning)inlineSharedTuningField.GetValue(target) ??
+                GameplayCameraTopologySharedTuning.CreateShowcaseDefault();
+
+            inlineSharedTuningField.SetValue(target, sharedTuning);
+            SetPrivateField(typeof(GameplayCameraTopologySharedTuning), sharedTuning, fieldName, value);
+        }
+
         private static void SetPrivateField(Type ownerType, object target, string fieldName, object value)
         {
             var field = ownerType.GetField(
@@ -543,6 +702,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(field, Is.Not.Null);
             field.SetValue(target, value);
+        }
+
+        private static GameplayCameraTopologyAuthoring EnsureCameraTopologyAuthoring(Component owner)
+        {
+            Assert.That(owner, Is.Not.Null);
+            return owner.GetComponent<GameplayCameraTopologyAuthoring>() ??
+                   owner.gameObject.AddComponent<GameplayCameraTopologyAuthoring>();
         }
 
         private static GameplaySimulationTimingPreset CreateSimulationTimingPreset(
@@ -610,8 +776,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static void AssertCameraSettings(GameplayCameraSettings actual, GameplayCameraSettings expected)
         {
-            Assert.That(actual.UseAuthoredSceneCameraPose, Is.EqualTo(expected.UseAuthoredSceneCameraPose));
-            Assert.That(actual.UseAuthoredSceneCameraLens, Is.EqualTo(expected.UseAuthoredSceneCameraLens));
             Assert.That(actual.DistanceMode, Is.EqualTo(expected.DistanceMode));
             Assert.That(actual.PitchDegrees, Is.EqualTo(expected.PitchDegrees).Within(0.0001f));
             Assert.That(actual.YawDegrees, Is.EqualTo(expected.YawDegrees).Within(0.0001f));
@@ -639,6 +803,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SceneManager.MoveGameObjectToScene(installerObject, scene);
 
                 var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
+                var cameraTopologyAuthoring = EnsureCameraTopologyAuthoring(installer);
                 var authoredShakeProfile = TopologyTransitionCameraShakeProfile.CreateDefault();
                 authoredShakeProfile.ImpactStart01 = 0.05f;
                 authoredShakeProfile.ImpactDuration01 = 0.11f;
@@ -650,7 +815,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SetBaseInstallerField(installer, "actions", actions);
                 SetBaseInstallerField(installer, "simulationTimingPreset", simulationTimingPreset);
                 SetBaseInstallerField(installer, "presentationTimingPreset", presentationTimingPreset);
-                SetBaseInstallerField(installer, "topologyTransitionCameraShakeProfile", authoredShakeProfile);
+                SetTopologyAuthoringField(
+                    cameraTopologyAuthoring,
+                    "topologyTransitionCameraShakeProfile",
+                    authoredShakeProfile);
 
                 var configuration = installer.BuildConfigurationForTests();
 
@@ -692,6 +860,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SceneManager.MoveGameObjectToScene(installerObject, scene);
 
                 var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
+                var cameraTopologyAuthoring = EnsureCameraTopologyAuthoring(installer);
                 var authoredPostFxProfile = TopologyTransitionPostFxProfile.Create(
                     authoritativeProfile,
                     maxBlurIntensity: 0.42f,
@@ -714,7 +883,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SetBaseInstallerField(installer, "actions", actions);
                 SetBaseInstallerField(installer, "simulationTimingPreset", simulationTimingPreset);
                 SetBaseInstallerField(installer, "presentationTimingPreset", presentationTimingPreset);
-                SetBaseInstallerField(installer, "topologyTransitionPostFxProfile", authoredPostFxProfile);
+                SetTopologyAuthoringField(
+                    cameraTopologyAuthoring,
+                    "topologyTransitionPostFxProfile",
+                    authoredPostFxProfile);
 
                 var configuration = installer.BuildConfigurationForTests();
 

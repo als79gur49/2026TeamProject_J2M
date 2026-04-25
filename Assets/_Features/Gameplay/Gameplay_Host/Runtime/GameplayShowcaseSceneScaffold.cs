@@ -14,6 +14,7 @@ namespace Game.Feature.Gameplay.Host
             EnsureInstallerScaffold(
                 installerRoot,
                 GameplayCameraSettings.CreateShowcaseDefault(),
+                GameplayCameraBaselineAuthoringPolicy.CreateShowcaseDefault(),
                 TopologyTransitionCameraShakeProfile.CreateDefault());
         }
 
@@ -24,12 +25,38 @@ namespace Game.Feature.Gameplay.Host
             EnsureInstallerScaffold(
                 installerRoot,
                 cameraSettings,
+                GameplayCameraBaselineAuthoringPolicy.CreateShowcaseDefault(),
                 TopologyTransitionCameraShakeProfile.CreateDefault());
         }
 
         public static void EnsureInstallerScaffold(
             GameObject installerRoot,
             GameplayCameraSettings cameraSettings,
+            TopologyTransitionCameraShakeProfile topologyTransitionCameraShakeProfile)
+        {
+            EnsureInstallerScaffold(
+                installerRoot,
+                cameraSettings,
+                GameplayCameraBaselineAuthoringPolicy.CreateShowcaseDefault(),
+                topologyTransitionCameraShakeProfile);
+        }
+
+        public static void EnsureInstallerScaffold(
+            GameObject installerRoot,
+            GameplayCameraSettings cameraSettings,
+            GameplayCameraBaselineAuthoringPolicy baselineAuthoringPolicy)
+        {
+            EnsureInstallerScaffold(
+                installerRoot,
+                cameraSettings,
+                baselineAuthoringPolicy,
+                TopologyTransitionCameraShakeProfile.CreateDefault());
+        }
+
+        public static void EnsureInstallerScaffold(
+            GameObject installerRoot,
+            GameplayCameraSettings cameraSettings,
+            GameplayCameraBaselineAuthoringPolicy baselineAuthoringPolicy,
             TopologyTransitionCameraShakeProfile topologyTransitionCameraShakeProfile)
         {
             if (installerRoot == null)
@@ -39,11 +66,7 @@ namespace Game.Feature.Gameplay.Host
 
             DestroyLegacyWorldLabels(installerRoot.scene);
             var boardRoot = EnsureBoardRoot(installerRoot.transform);
-            GameplayShowcaseSceneCameraBootstrap.Bootstrap(
-                installerRoot,
-                boardRoot,
-                cameraSettings,
-                topologyTransitionCameraShakeProfile);
+            GameplayShowcaseSceneCameraBootstrap.Bootstrap(installerRoot, boardRoot);
         }
 
         public static void ConfigureDefaultSceneCamera(Camera camera)
