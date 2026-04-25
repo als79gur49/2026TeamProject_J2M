@@ -34,6 +34,29 @@ namespace Game.Feature.Gameplay.Host
         private TopologyRotationTweenSettings _topologyRotationTweenSettings = TopologyRotationTweenSettings.CreateDefault();
         private TopologyRotationVisualMapping _topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesPositiveX;
 
+        private readonly struct ActiveTransitionEndpoints
+        {
+            public ActiveTransitionEndpoints(
+                float startRotationXDegrees,
+                float destinationRotationXDegrees,
+                Quaternion startRotation,
+                Quaternion destinationRotation)
+            {
+                StartRotationXDegrees = startRotationXDegrees;
+                DestinationRotationXDegrees = destinationRotationXDegrees;
+                StartRotation = startRotation;
+                DestinationRotation = destinationRotation;
+            }
+
+            public float StartRotationXDegrees { get; }
+
+            public float DestinationRotationXDegrees { get; }
+
+            public Quaternion StartRotation { get; }
+
+            public Quaternion DestinationRotation { get; }
+        }
+
         public GameplayTopologyTransitionController(GameplayMotionTimingResolver motionTimingResolver)
         {
             _motionTimingResolver = motionTimingResolver ?? throw new ArgumentNullException(nameof(motionTimingResolver));
@@ -129,18 +152,12 @@ namespace Game.Feature.Gameplay.Host
                 MinimumTopologyTweenDurationSeconds);
             _activeTopologyMotion = topologyMotion;
             _activeTopologyMotionDurationSeconds = durationSeconds;
-            var startRotationXDegrees = _presentedBoardRotationXDegrees;
-            var destinationRotationXDegrees =
-                ResolveNearestRestReferenceAngleXDegrees(startRotationXDegrees, topologyMotion.DestinationTopology);
-            var startRotation = ResolveRotationFromXDegrees(startRotationXDegrees);
-            var destinationRotation = ResolveRotationFromXDegrees(destinationRotationXDegrees);
-            _boardSurfaceTransitionStartRotation = startRotation;
-            _boardSurfaceTransitionDestinationRotation = destinationRotation;
-            ApplyPresentedRotation(startRotationXDegrees, forceApply: true);
-            RecalculateVisualState(startRotation, deltaTime: 0f);
+            var activeTransitionEndpoints = ConfigureActiveTransitionEndpoints(topologyMotion.DestinationTopology);
+            ApplyPresentedRotation(activeTransitionEndpoints.StartRotationXDegrees, forceApply: true);
+            RecalculateVisualState(activeTransitionEndpoints.StartRotation, deltaTime: 0f);
             StartBoardRotationTween(
-                startRotationXDegrees,
-                destinationRotationXDegrees,
+                activeTransitionEndpoints.StartRotationXDegrees,
+                activeTransitionEndpoints.DestinationRotationXDegrees,
                 durationSeconds);
         }
 
@@ -177,12 +194,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var topologyMotion = presentationData.TopologyMotion.Value;
-            _boardSurfaceTransitionStartRotation = _presentedBoardRotation;
-            _boardSurfaceTransitionDestinationRotation =
-                ResolveRotationFromXDegrees(
-                    ResolveNearestRestReferenceAngleXDegrees(
-                        _presentedBoardRotationXDegrees,
-                        topologyMotion.DestinationTopology));
+            ConfigureActiveTransitionEndpoints(topologyMotion.DestinationTopology);
             _boardSurfaceRenderer.BeginTopologyTransition(
                 topologyMotion.SourceTopology,
                 topologyMotion.DestinationTopology);
@@ -225,6 +237,21 @@ namespace Game.Feature.Gameplay.Host
         {
             var desiredAngleXDegrees = ResolveRestReferenceAngleXDegrees(topology);
             return currentAngleXDegrees + Mathf.DeltaAngle(currentAngleXDegrees, desiredAngleXDegrees);
+        }
+
+        private ActiveTransitionEndpoints ConfigureActiveTransitionEndpoints(CubeTopologyState destinationTopology)
+        {
+            var startRotationXDegrees = _presentedBoardRotationXDegrees;
+            var destinationRotationXDegrees =
+                ResolveNearestRestReferenceAngleXDegrees(startRotationXDegrees, destinationTopology);
+            var activeTransitionEndpoints = new ActiveTransitionEndpoints(
+                startRotationXDegrees,
+                destinationRotationXDegrees,
+                ResolveRotationFromXDegrees(startRotationXDegrees),
+                ResolveRotationFromXDegrees(destinationRotationXDegrees));
+            _boardSurfaceTransitionStartRotation = activeTransitionEndpoints.StartRotation;
+            _boardSurfaceTransitionDestinationRotation = activeTransitionEndpoints.DestinationRotation;
+            return activeTransitionEndpoints;
         }
 
         private void ApplyPresentedRotation(float presentedRotationXDegrees, bool forceApply = false)
