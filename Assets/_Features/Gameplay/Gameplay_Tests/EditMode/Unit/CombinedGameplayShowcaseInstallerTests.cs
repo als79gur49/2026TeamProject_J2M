@@ -22,6 +22,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Stages/Content/combined-gameplay-showcase/combined-gameplay-showcase.asset";
         private const string CombinedEnemyPresentationCatalogAssetPath =
             "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Catalogs/EnemyPresentationCatalog_CombinedGameplayShowcase.asset";
+        private const string CombinedEnemyArchetypeCatalogAssetPath =
+            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Catalogs/EnemyUnitArchetypeCatalog_CombinedGameplayShowcase.asset";
         private const string CombinedPresentationAssetPath =
             "Assets/_Features/Stages/Content/combined-gameplay-showcase/combined-gameplay-showcase_Presentation.asset";
         private const string StageCatalogProviderAssetPath =
@@ -35,6 +37,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const int WallFollowerShowcaseEnemyId = 56;
         private const int JumpShowcaseEnemyId = 57;
         private const int ChargeShowcaseEnemyId = 58;
+        private const int UtilitySummonerShowcaseEnemyId = 59;
         private const string AttackingEnemyPresentationId = "Attacking_showcase";
         private const string NonAttackingEnemyPresentationId = "nonAttacking_showcase";
         private const string JumpEnemyPresentationId = "Jump_showcase";
@@ -116,7 +119,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var buildResult = BuildCombinedStage();
 
             Assert.That(buildResult.EnemyAiProfileOverrides, Is.Not.Null);
-            Assert.That(buildResult.EnemyAiProfileOverrides.Length, Is.EqualTo(5));
+            Assert.That(buildResult.EnemyAiProfileOverrides.Length, Is.EqualTo(6));
 
             Assert.That(TryGetProfileOverride(buildResult, ConfiguredShowcaseEnemyId, out var showcaseProfile), Is.True);
             Assert.That(showcaseProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Default));
@@ -162,6 +165,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
+        public void CombinedGameplayStage_BuildsArchetypeSummonerProfileOverrideForUtilitySummonerEnemy()
+        {
+            var buildResult = BuildCombinedStage();
+
+            Assert.That(TryGetProfileOverride(buildResult, UtilitySummonerShowcaseEnemyId, out var summonerProfile), Is.True);
+            Assert.That(summonerProfile, Is.Not.Null);
+            Assert.That(summonerProfile.name, Is.EqualTo("EnemyAi_ArchetypeSummoner"));
+
+            var runtimeDefinition = summonerProfile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+
+            Assert.That(runtimeDefinition.Capabilities.TryGetUtility(out var utility), Is.True);
+            Assert.That(utility.Effects, Is.Not.Empty);
+            Assert.That(utility.Effects[0].Kind, Is.EqualTo(EnemyUtilityEffectKind.SummonMinion));
+            Assert.That(utility.Effects[0].Summon.DefinitionMode, Is.EqualTo(SummonedUnitDefinitionMode.Archetype));
+            Assert.That(
+                utility.Effects[0].Summon.SummonedArchetypeId,
+                Is.EqualTo(new EnemyUnitArchetypeId("PassiveContactMinion")));
+        }
+
+        [Test]
+        [Category("Full")]
         public void CombinedGameplayStage_BuildsEnemyPresentationBindingForConfiguredShowcaseEnemy()
         {
             var presentationDefinition = AssetDatabase.LoadAssetAtPath<StagePresentationDefinition>(CombinedPresentationAssetPath);
@@ -173,7 +197,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var presentation = StagePresentationAssembler.Resolve(presentationDefinition);
 
             Assert.That(presentation.EnemyPresentationBindings, Is.Not.Null);
-            Assert.That(presentation.EnemyPresentationBindings.Length, Is.EqualTo(5));
+            Assert.That(presentation.EnemyPresentationBindings.Length, Is.EqualTo(6));
             Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, ConfiguredShowcaseEnemyId, out var configuredBinding), Is.True);
             Assert.That(configuredBinding.PresentationId, Is.EqualTo(AttackingEnemyPresentationId));
             Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, WallFollowerShowcaseEnemyId, out var wallFollowerBinding), Is.True);
@@ -182,6 +206,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(jumpBinding.PresentationId, Is.EqualTo(JumpEnemyPresentationId));
             Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, ChargeShowcaseEnemyId, out var chargeBinding), Is.True);
             Assert.That(chargeBinding.PresentationId, Is.EqualTo(ChargeEnemyPresentationId));
+            Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, UtilitySummonerShowcaseEnemyId, out var utilitySummonerBinding), Is.True);
+            Assert.That(utilitySummonerBinding.PresentationId, Is.EqualTo("utility_summoner_prefab"));
         }
 
         [Test]
@@ -640,6 +666,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        public void CombinedGameplayShowcaseInstaller_Configuration_UsesEnemyUnitArchetypeCatalog()
+        {
+            var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_Configuration_UsesEnemyUnitArchetypeCatalog");
+
+            try
+            {
+                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                AssignEnemyPresentationCatalog(installer);
+                AssignEnemyUnitArchetypeCatalog(installer);
+                AssignStageContentEntry(installer);
+                AssignTimingPresets(installer);
+
+                var configuration = BuildConfiguration(installer);
+
+                Assert.That(configuration.EnemyUnitArchetypeCatalog, Is.Not.Null);
+                Assert.That(configuration.EnemyUnitArchetypeCatalog.name, Is.EqualTo("EnemyUnitArchetypeCatalog_CombinedGameplayShowcase"));
+                Assert.That(configuration.EnemyUnitArchetypeCatalog.Entries.Count, Is.EqualTo(1));
+                Assert.That(configuration.EnemyUnitArchetypeCatalog.Entries[0].ArchetypeId, Is.EqualTo(new EnemyUnitArchetypeId("PassiveContactMinion")));
+            }
+            finally
+            {
+                DestroyAssignedStageContent(installerObject);
+                Object.DestroyImmediate(installerObject);
+            }
+        }
+
         private static StageRuntimeBuildResult BuildCombinedStage()
         {
             var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(CombinedStageAssetPath);
@@ -654,6 +707,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var field = typeof(CombinedGameplayShowcaseInstaller).GetField(
                 "enemyPresentationCatalog",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            field.SetValue(installer, catalog);
+        }
+
+        private static void AssignEnemyUnitArchetypeCatalog(CombinedGameplayShowcaseInstaller installer)
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<EnemyUnitArchetypeCatalog>(CombinedEnemyArchetypeCatalogAssetPath);
+            Assert.That(catalog, Is.Not.Null, $"Missing enemy archetype catalog asset at '{CombinedEnemyArchetypeCatalogAssetPath}'.");
+
+            var field = typeof(CombinedGameplayShowcaseInstaller).GetField(
+                "enemyUnitArchetypeCatalog",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null);
             field.SetValue(installer, catalog);
@@ -762,6 +827,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(buildInitialStateMethod, Is.Not.Null);
             return buildInitialStateMethod.Invoke(installer, Array.Empty<object>());
+        }
+
+        private static GameplaySceneHostConfiguration BuildConfiguration(CombinedGameplayShowcaseInstaller installer)
+        {
+            var initialState = BuildInitialGameplayState(installer);
+            var createConfigurationMethod = typeof(GameplayShowcaseSceneInstallerBase).GetMethod(
+                "CreateConfiguration",
+                BindingFlags.Instance | BindingFlags.NonPublic,
+                binder: null,
+                types: new[] { initialState.GetType(), typeof(GameplayCameraSettings) },
+                modifiers: null);
+
+            Assert.That(createConfigurationMethod, Is.Not.Null);
+            return (GameplaySceneHostConfiguration)createConfigurationMethod.Invoke(
+                installer,
+                new object[] { initialState, installer.GetCameraSettings() });
         }
 
         private static bool HasWallAt(IReadOnlyList<EntityState> entities, SurfaceCell cell)
