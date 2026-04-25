@@ -1,9 +1,83 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.Gameplay.Loop;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Entities
 {
+    [Serializable]
+    public struct EnemyUnitSpawnDefaults
+    {
+        [SerializeField] private int hp;
+        [SerializeField] private EnemyAiMode initialAiMode;
+
+        public int Hp => hp;
+
+        public EnemyAiMode InitialAiMode => initialAiMode;
+
+        public void Validate(string paramName)
+        {
+            if (hp <= 0)
+            {
+                throw new ArgumentException("Enemy unit spawn defaults require positive HP.", paramName);
+            }
+
+            if (initialAiMode == EnemyAiMode.None ||
+                initialAiMode == EnemyAiMode.Dead)
+            {
+                throw new ArgumentException("Enemy unit spawn defaults require a live initial AI mode.", paramName);
+            }
+        }
+
+        internal EnemyUnitSpawnDefaultsRuntime ToRuntime()
+        {
+            Validate(nameof(EnemyUnitSpawnDefaults));
+            return new EnemyUnitSpawnDefaultsRuntime(hp, initialAiMode);
+        }
+
+        public static EnemyUnitSpawnDefaults CreateDefault()
+        {
+            return new EnemyUnitSpawnDefaults
+            {
+                hp = 1,
+                initialAiMode = EnemyAiMode.Patrol,
+            };
+        }
+    }
+
+    [CreateAssetMenu(menuName = "Gameplay/AI/Enemy Unit Archetype", fileName = "EnemyUnitArchetype")]
+    public sealed class EnemyUnitArchetypeAsset : ScriptableObject
+    {
+        [SerializeField] private EnemyUnitArchetypeId archetypeId;
+        [SerializeField] private EnemyAiProfile aiProfile;
+        [SerializeField] private EnemyUnitSpawnDefaults spawnDefaults = EnemyUnitSpawnDefaults.CreateDefault();
+
+        public EnemyUnitArchetypeId ArchetypeId => archetypeId;
+
+        public EnemyAiProfile AiProfile => aiProfile;
+
+        public EnemyUnitSpawnDefaults SpawnDefaults => spawnDefaults;
+
+        internal void ValidateConfiguration(string paramName)
+        {
+            archetypeId.Validate(paramName);
+            if (aiProfile == null)
+            {
+                throw new ArgumentException("Enemy unit archetype assets require a non-null AI profile.", paramName);
+            }
+
+            spawnDefaults.Validate(paramName);
+        }
+    }
+
+    [CreateAssetMenu(menuName = "Gameplay/AI/Enemy Unit Archetype Catalog", fileName = "EnemyUnitArchetypeCatalog")]
+    public sealed class EnemyUnitArchetypeCatalog : ScriptableObject
+    {
+        [SerializeField] private EnemyUnitArchetypeAsset[] entries = Array.Empty<EnemyUnitArchetypeAsset>();
+
+        public IReadOnlyList<EnemyUnitArchetypeAsset> Entries => entries ?? Array.Empty<EnemyUnitArchetypeAsset>();
+    }
+
     public abstract class EnemyStateResolverAsset : ScriptableObject
     {
         public abstract EnemyAiStateResolverKind Kind { get; }
@@ -111,6 +185,10 @@ namespace Game.Feature.Gameplay.Entities
         [SerializeField] private SummonCandidatePattern candidatePattern = SummonCandidatePattern.OrthogonalAdjacent4;
         [SerializeField] private bool requireNoUnitAtSpawnCell = true;
         [SerializeField] private bool requireNoSolidAtSpawnCell = true;
+        [SerializeField] private SummonedUnitDefinitionMode definitionMode = SummonedUnitDefinitionMode.DefaultEnemy;
+        [SerializeField] private EnemyUnitArchetypeAsset summonedArchetype;
+        [SerializeField] private bool overrideHp;
+        [SerializeField] private int hpOverride = 1;
         [SerializeField] private int minionHp = 1;
 
         public int SpawnCountPerTrigger => spawnCountPerTrigger;
@@ -122,6 +200,14 @@ namespace Game.Feature.Gameplay.Entities
         public bool RequireNoUnitAtSpawnCell => requireNoUnitAtSpawnCell;
 
         public bool RequireNoSolidAtSpawnCell => requireNoSolidAtSpawnCell;
+
+        public SummonedUnitDefinitionMode DefinitionMode => definitionMode;
+
+        public EnemyUnitArchetypeAsset SummonedArchetype => summonedArchetype;
+
+        public bool OverrideHp => overrideHp;
+
+        public int HpOverride => hpOverride;
 
         public int MinionHp => minionHp;
 
@@ -137,9 +223,25 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentException("Summon minion authoring requires a positive max alive child count.", nameof(maxAliveChildren));
             }
 
-            if (minionHp <= 0)
+            if (definitionMode == SummonedUnitDefinitionMode.DefaultEnemy &&
+                minionHp <= 0)
             {
                 throw new ArgumentException("Summon minion authoring requires positive minion HP.", nameof(minionHp));
+            }
+
+            if (definitionMode == SummonedUnitDefinitionMode.Archetype)
+            {
+                if (summonedArchetype == null)
+                {
+                    throw new ArgumentException("Archetype summon authoring requires a summoned archetype asset.", nameof(summonedArchetype));
+                }
+
+                summonedArchetype.ValidateConfiguration(nameof(summonedArchetype));
+
+                if (overrideHp && hpOverride <= 0)
+                {
+                    throw new ArgumentException("Archetype summon authoring HP override must be positive when enabled.", nameof(hpOverride));
+                }
             }
 
             return new SummonMinionRuntime(
@@ -148,7 +250,13 @@ namespace Game.Feature.Gameplay.Entities
                 requireNoUnitAtSpawnCell,
                 requireNoSolidAtSpawnCell,
                 maxAliveChildren,
-                minionHp);
+                minionHp,
+                definitionMode,
+                definitionMode == SummonedUnitDefinitionMode.Archetype
+                    ? summonedArchetype.ArchetypeId
+                    : EnemyUnitArchetypeId.None,
+                overrideHp,
+                hpOverride);
         }
     }
 

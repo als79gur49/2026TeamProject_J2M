@@ -83,6 +83,9 @@ namespace Game.Feature.Gameplay.Loop
             builder.Append("SummonedEntities").Append('\n');
             AppendSummonedEntityLines(builder, GetOrderedSummonedEntityStates(finalSnapshot));
 
+            builder.Append("EnemyDefinitionBindings").Append('\n');
+            AppendEnemyDefinitionBindingLines(builder, GetOrderedEnemyDefinitionBindingStates(finalSnapshot));
+
             builder.Append("SolidOccupancy").Append('\n');
             AppendOccupancyLines(builder, GetOrderedSolidOccupancy(finalSnapshot));
 
@@ -205,6 +208,13 @@ namespace Game.Feature.Gameplay.Loop
             return summonedEntries;
         }
 
+        private static List<EnemyDefinitionBindingSnapshotEntry> GetOrderedEnemyDefinitionBindingStates(WorldSnapshot finalSnapshot)
+        {
+            var bindingEntries = new List<EnemyDefinitionBindingSnapshotEntry>();
+            finalSnapshot.EnumerateEnemyDefinitionBindingStatesOrdered(bindingEntries);
+            return bindingEntries;
+        }
+
         private static List<PhasedSnapshotEntry> GetOrderedPhasedStates(WorldSnapshot finalSnapshot)
         {
             var phasedEntries = new List<PhasedSnapshotEntry>();
@@ -245,6 +255,24 @@ namespace Game.Feature.Gameplay.Loop
             var terrainEntries = new List<TerrainCellState>();
             finalSnapshot.EnumerateTerrainCellsOrdered(terrainEntries);
             return terrainEntries;
+        }
+
+        private static void AppendEnemyDefinitionBindingLines(
+            StringBuilder builder,
+            IReadOnlyList<EnemyDefinitionBindingSnapshotEntry> bindingEntries)
+        {
+            if (bindingEntries.Count == 0)
+            {
+                builder.Append("<empty>").Append('\n');
+                return;
+            }
+
+            for (var i = 0; i < bindingEntries.Count; i++)
+            {
+                builder
+                    .Append(bindingEntries[i].EntityId).Append('|')
+                    .Append(bindingEntries[i].State.ArchetypeId.Value).Append('\n');
+            }
         }
 
         private static void AppendBoardBounds(StringBuilder builder, BoardBounds boardBounds)

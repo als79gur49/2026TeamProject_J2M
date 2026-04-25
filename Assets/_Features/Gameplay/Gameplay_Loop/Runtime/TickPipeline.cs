@@ -31,6 +31,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly EntityIdAllocator _entityIdAllocator;
         private readonly ISnapshotEntityLogicProvider _entityLogicProvider;
         private readonly IReadOnlyList<IEntityLogic> _staticEntityLogics;
+        private readonly IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> _enemySpawnDefaultsByArchetypeId;
         private readonly MovementIntentCollector _movementIntentCollector = new();
         private readonly MovementExpander _movementExpander;
         private readonly AttackIntentCollector _attackIntentCollector = new();
@@ -58,7 +59,8 @@ namespace Game.Feature.Gameplay.Loop
             GameplayTimingProfile generalTimingProfile,
             PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
             int playerRespawnDelayTicks = 1,
-            StageObjectiveRuntimeDefinition objectiveDefinition = null)
+            StageObjectiveRuntimeDefinition objectiveDefinition = null,
+            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> enemySpawnDefaultsByArchetypeId = null)
         {
             _worldState = worldState ?? throw new ArgumentNullException(nameof(worldState));
 
@@ -69,6 +71,7 @@ namespace Game.Feature.Gameplay.Loop
 
             _entityLogicProvider = entityLogicProvider ?? throw new ArgumentNullException(nameof(entityLogicProvider));
             _staticEntityLogics = new List<IEntityLogic>(entityLogics).AsReadOnly();
+            _enemySpawnDefaultsByArchetypeId = enemySpawnDefaultsByArchetypeId;
             _entityIdAllocator = EntityIdAllocator.Create(SnapshotBuilder.Create(_worldState));
             var resolvedGeneralTimingProfile = generalTimingProfile ?? throw new ArgumentNullException(nameof(generalTimingProfile));
             if (playerRespawnDelayTicks <= 0)
@@ -842,7 +845,8 @@ namespace Game.Feature.Gameplay.Loop
                 projectedWorld.CreateSnapshot(),
                 planPhaseResult.PreMovementStatePhaseResult.UtilityTriggerIntents,
                 tickIndex,
-                _entityIdAllocator);
+                _entityIdAllocator,
+                _enemySpawnDefaultsByArchetypeId);
             finalizationBatch.MergeFrom(utilityResolveResult.Batch);
             projectedWorld.ApplyBatch(utilityResolveResult.Batch);
             var postAttackSnapshot = projectedWorld.CreateSnapshot();
@@ -5424,7 +5428,8 @@ namespace Game.Feature.Gameplay.Loop
             WorldSnapshot postAttackSnapshot,
             IReadOnlyList<EnemyUtilityTriggerIntent> triggerIntents,
             int tickIndex,
-            EntityIdAllocator entityIdAllocator)
+            EntityIdAllocator entityIdAllocator,
+            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> spawnDefaultsByArchetypeId)
         {
             if (postAttackSnapshot == null)
             {
@@ -5466,6 +5471,7 @@ namespace Game.Feature.Gameplay.Loop
                     triggerIntent,
                     tickIndex,
                     entityIdAllocator,
+                    spawnDefaultsByArchetypeId,
                     summonedEntries,
                     plannedChildrenBySource,
                     reservedSpawnCells,
@@ -5538,6 +5544,7 @@ namespace Game.Feature.Gameplay.Loop
             in EnemyUtilityTriggerIntent triggerIntent,
             int tickIndex,
             EntityIdAllocator entityIdAllocator,
+            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> spawnDefaultsByArchetypeId,
             IReadOnlyList<SummonedEntitySnapshotEntry> summonedEntries,
             IDictionary<SourceEffectKey, int> plannedChildrenBySource,
             ISet<SurfaceCell> reservedSpawnCells,
@@ -5579,13 +5586,19 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
+                var summonedEntityState = new SummonedEntityState(triggerIntent.SourceEntityId, triggerIntent.EffectIndex);
+                var hasEnemyDefinitionBindingState = TryCreateEnemyDefinitionBindingState(
+                    summonRuntime,
+                    out var enemyDefinitionBindingState);
+                var minionHp = ResolveSummonedMinionHp(summonRuntime, spawnDefaultsByArchetypeId);
+                var initialAiMode = ResolveSummonedMinionInitialAiMode(summonRuntime, spawnDefaultsByArchetypeId);
                 var spawnedEntity = CreateSummonedMinionEntity(
                     entityIdAllocator.AllocateEntityId(),
                     source,
                     spawnCell,
-                    summonRuntime.MinionHp,
+                    minionHp,
+                    initialAiMode,
                     tickIndex);
-                var summonedEntityState = new SummonedEntityState(triggerIntent.SourceEntityId, triggerIntent.EffectIndex);
                 batch.SpawnEntity(
                     spawnedEntity,
                     new FinalizationOperationMetadata(
@@ -5594,11 +5607,18 @@ namespace Game.Feature.Gameplay.Loop
                         triggerIntent.SourceEntityId,
                         actionPlanId: 0),
                     hasSummonedEntityState: true,
-                    summonedEntityState: summonedEntityState);
+                    summonedEntityState: summonedEntityState,
+                    hasEnemyDefinitionBindingState: hasEnemyDefinitionBindingState,
+                    enemyDefinitionBindingState: enemyDefinitionBindingState);
                 reservedSpawnCells.Add(spawnCell);
                 plannedChildrenBySource[sourceKey] = plannedChildren + 1;
-                eventLogEntries.Add(
-                    $"SummonCommitted|Source={triggerIntent.SourceEntityId}|Effect={triggerIntent.EffectIndex}|SpawnIndex={spawnIndex}|Spawned={spawnedEntity.entityId}|Pos=({spawnCell.x},{spawnCell.y})|Tick={tickIndex}");
+                AppendCommittedEvent(
+                    eventLogEntries,
+                    triggerIntent,
+                    tickIndex,
+                    spawnIndex,
+                    spawnedEntity,
+                    summonRuntime);
             }
         }
 
@@ -5856,11 +5876,68 @@ namespace Game.Feature.Gameplay.Loop
             };
         }
 
+        private static int ResolveSummonedMinionHp(
+            in SummonMinionRuntime summonRuntime,
+            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> spawnDefaultsByArchetypeId)
+        {
+            if (summonRuntime.DefinitionMode == SummonedUnitDefinitionMode.DefaultEnemy)
+            {
+                return summonRuntime.MinionHp;
+            }
+
+            var spawnDefaults = ResolveArchetypeSpawnDefaults(summonRuntime.SummonedArchetypeId, spawnDefaultsByArchetypeId);
+            return summonRuntime.OverrideHp
+                ? summonRuntime.HpOverride
+                : spawnDefaults.Hp;
+        }
+
+        private static EnemyAiMode ResolveSummonedMinionInitialAiMode(
+            in SummonMinionRuntime summonRuntime,
+            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> spawnDefaultsByArchetypeId)
+        {
+            if (summonRuntime.DefinitionMode == SummonedUnitDefinitionMode.DefaultEnemy)
+            {
+                return EnemyAiMode.Patrol;
+            }
+
+            return ResolveArchetypeSpawnDefaults(summonRuntime.SummonedArchetypeId, spawnDefaultsByArchetypeId).InitialAiMode;
+        }
+
+        private static EnemyUnitSpawnDefaultsRuntime ResolveArchetypeSpawnDefaults(
+            EnemyUnitArchetypeId archetypeId,
+            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> spawnDefaultsByArchetypeId)
+        {
+            archetypeId.Validate(nameof(archetypeId));
+            if (spawnDefaultsByArchetypeId != null &&
+                spawnDefaultsByArchetypeId.TryGetValue(archetypeId, out var spawnDefaults))
+            {
+                return spawnDefaults;
+            }
+
+            throw new InvalidOperationException(
+                $"Missing enemy unit spawn defaults for archetype '{archetypeId}'.");
+        }
+
+        private static bool TryCreateEnemyDefinitionBindingState(
+            in SummonMinionRuntime summonRuntime,
+            out EnemyDefinitionBindingState bindingState)
+        {
+            if (summonRuntime.DefinitionMode == SummonedUnitDefinitionMode.Archetype)
+            {
+                bindingState = new EnemyDefinitionBindingState(summonRuntime.SummonedArchetypeId);
+                return true;
+            }
+
+            bindingState = default;
+            return false;
+        }
+
         private static EntityState CreateSummonedMinionEntity(
             int entityId,
             in EntityState source,
             SurfaceCell spawnCell,
             int minionHp,
+            EnemyAiMode initialAiMode,
             int tickIndex)
         {
             return new EntityState
@@ -5878,10 +5955,25 @@ namespace Game.Feature.Gameplay.Loop
                 boardPresence = EntityBoardPresence.Occupying,
                 markedForDeath = false,
                 spawnTick = tickIndex,
-                aiMode = EnemyAiMode.Patrol,
+                aiMode = initialAiMode,
                 aiStateTimer = 0,
                 enemyLocomotionCooldownTicks = 0,
             };
+        }
+
+        private static void AppendCommittedEvent(
+            List<string> eventLogEntries,
+            in EnemyUtilityTriggerIntent triggerIntent,
+            int tickIndex,
+            int spawnIndex,
+            in EntityState spawnedEntity,
+            in SummonMinionRuntime summonRuntime)
+        {
+            var archetypeSuffix = summonRuntime.DefinitionMode == SummonedUnitDefinitionMode.Archetype
+                ? $"|Archetype={summonRuntime.SummonedArchetypeId}"
+                : string.Empty;
+            eventLogEntries.Add(
+                $"SummonCommitted|Source={triggerIntent.SourceEntityId}|Effect={triggerIntent.EffectIndex}|SpawnIndex={spawnIndex}|Spawned={spawnedEntity.entityId}|Pos=({spawnedEntity.position.x},{spawnedEntity.position.y})|DefinitionMode={summonRuntime.DefinitionMode}{archetypeSuffix}|Tick={tickIndex}");
         }
 
         private static void AppendSkipEvent(
@@ -7083,6 +7175,8 @@ namespace Game.Feature.Gameplay.Loop
             EntityState spawnEntity = default,
             bool hasSpawnedEntitySummonedState = false,
             SummonedEntityState spawnedEntitySummonedState = default,
+            bool hasSpawnedEntityEnemyDefinitionBindingState = false,
+            EnemyDefinitionBindingState spawnedEntityEnemyDefinitionBindingState = default,
             DelayedAttackEffectRecord delayedAttackEffect = default)
         {
             Sequence = sequence;
@@ -7115,6 +7209,8 @@ namespace Game.Feature.Gameplay.Loop
             SpawnedEntity = spawnEntity;
             HasSpawnedEntitySummonedState = hasSpawnedEntitySummonedState;
             SpawnedEntitySummonedState = spawnedEntitySummonedState;
+            HasSpawnedEntityEnemyDefinitionBindingState = hasSpawnedEntityEnemyDefinitionBindingState;
+            SpawnedEntityEnemyDefinitionBindingState = spawnedEntityEnemyDefinitionBindingState;
             DelayedAttackEffect = delayedAttackEffect;
         }
 
@@ -7178,6 +7274,10 @@ namespace Game.Feature.Gameplay.Loop
 
         public SummonedEntityState SpawnedEntitySummonedState { get; }
 
+        public bool HasSpawnedEntityEnemyDefinitionBindingState { get; }
+
+        public EnemyDefinitionBindingState SpawnedEntityEnemyDefinitionBindingState { get; }
+
         public DelayedAttackEffectRecord DelayedAttackEffect { get; }
 
         public FinalizationOperation WithSequence(long sequence)
@@ -7213,6 +7313,8 @@ namespace Game.Feature.Gameplay.Loop
                 SpawnedEntity,
                 HasSpawnedEntitySummonedState,
                 SpawnedEntitySummonedState,
+                HasSpawnedEntityEnemyDefinitionBindingState,
+                SpawnedEntityEnemyDefinitionBindingState,
                 DelayedAttackEffect);
         }
 
@@ -7425,7 +7527,9 @@ namespace Game.Feature.Gameplay.Loop
             EntityState entity,
             FinalizationOperationMetadata metadata = default,
             bool hasSpawnedEntitySummonedState = false,
-            SummonedEntityState spawnedEntitySummonedState = default)
+            SummonedEntityState spawnedEntitySummonedState = default,
+            bool hasSpawnedEntityEnemyDefinitionBindingState = false,
+            EnemyDefinitionBindingState spawnedEntityEnemyDefinitionBindingState = default)
         {
             return new FinalizationOperation(
                 sequence,
@@ -7434,7 +7538,9 @@ namespace Game.Feature.Gameplay.Loop
                 metadata,
                 spawnEntity: entity,
                 hasSpawnedEntitySummonedState: hasSpawnedEntitySummonedState,
-                spawnedEntitySummonedState: spawnedEntitySummonedState);
+                spawnedEntitySummonedState: spawnedEntitySummonedState,
+                hasSpawnedEntityEnemyDefinitionBindingState: hasSpawnedEntityEnemyDefinitionBindingState,
+                spawnedEntityEnemyDefinitionBindingState: spawnedEntityEnemyDefinitionBindingState);
         }
 
         public static FinalizationOperation ApplyDamage(long sequence, int entityId, int amount, FinalizationOperationMetadata metadata = default)
@@ -7578,7 +7684,9 @@ namespace Game.Feature.Gameplay.Loop
             EntityState entity,
             FinalizationOperationMetadata metadata = default,
             bool hasSummonedEntityState = false,
-            SummonedEntityState summonedEntityState = default)
+            SummonedEntityState summonedEntityState = default,
+            bool hasEnemyDefinitionBindingState = false,
+            EnemyDefinitionBindingState enemyDefinitionBindingState = default)
         {
             _operations.Add(
                 FinalizationOperation.SpawnEntity(
@@ -7586,7 +7694,9 @@ namespace Game.Feature.Gameplay.Loop
                     entity,
                     metadata,
                     hasSummonedEntityState,
-                    summonedEntityState));
+                    summonedEntityState,
+                    hasEnemyDefinitionBindingState,
+                    enemyDefinitionBindingState));
         }
 
         public void ApplyDamage(int entityId, int amount, FinalizationOperationMetadata metadata = default)
@@ -7733,6 +7843,12 @@ namespace Game.Feature.Gameplay.Loop
                         {
                             writeContext.SetSummonedEntityState(operation.SpawnedEntity.entityId, operation.SpawnedEntitySummonedState);
                         }
+                        if (operation.HasSpawnedEntityEnemyDefinitionBindingState)
+                        {
+                            writeContext.SetEnemyDefinitionBindingState(
+                                operation.SpawnedEntity.entityId,
+                                operation.SpawnedEntityEnemyDefinitionBindingState);
+                        }
                         break;
 
                     case FinalizationOperationKind.ApplyDamage:
@@ -7872,6 +7988,10 @@ namespace Game.Feature.Gameplay.Loop
         }
 
         public void SetSummonedEntityState(int entityId, SummonedEntityState state)
+        {
+        }
+
+        public void SetEnemyDefinitionBindingState(int entityId, EnemyDefinitionBindingState state)
         {
         }
 
@@ -8074,6 +8194,11 @@ namespace Game.Feature.Gameplay.Loop
                 if (snapshot.TryGetSummonedEntityState(entityId, out var summonedEntityState))
                 {
                     writeContext.SetSummonedEntityState(entityId, summonedEntityState);
+                }
+
+                if (snapshot.TryGetEnemyDefinitionBindingState(entityId, out var enemyDefinitionBindingState))
+                {
+                    writeContext.SetEnemyDefinitionBindingState(entityId, enemyDefinitionBindingState);
                 }
             }
 

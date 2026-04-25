@@ -73,6 +73,11 @@ namespace Game.Feature.Gameplay.BoardState
             _port.SetSummonedEntityState(entityId, state);
         }
 
+        public void SetEnemyDefinitionBindingState(int entityId, EnemyDefinitionBindingState state)
+        {
+            _port.SetEnemyDefinitionBindingState(entityId, state);
+        }
+
         public void SetPhasedState(int entityId, PhasedRuntimeState state)
         {
             _port.SetPhasedState(entityId, state);

@@ -23,6 +23,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly Dictionary<int, PlayerDamageState> _playerDamageStatesByEntityId = new();
         private readonly Dictionary<int, PlayerControlState> _playerControlStatesByEntityId = new();
         private readonly Dictionary<int, SummonedEntityState> _summonedEntitiesByEntityId = new();
+        private readonly Dictionary<int, EnemyDefinitionBindingState> _enemyDefinitionBindingsByEntityId = new();
         private readonly Dictionary<SurfaceCell, SortedSet<int>> _stackedUnitsByCell = new();
         private readonly TerrainData _terrainData;
         private CubeTopologyState _topology;
@@ -85,6 +86,7 @@ namespace Game.Feature.Gameplay.BoardState
                 new Dictionary<int, PlayerDamageState>(_playerDamageStatesByEntityId),
                 new Dictionary<int, PlayerControlState>(_playerControlStatesByEntityId),
                 new Dictionary<int, SummonedEntityState>(_summonedEntitiesByEntityId),
+                new Dictionary<int, EnemyDefinitionBindingState>(_enemyDefinitionBindingsByEntityId),
                 _topology,
                 _boardBounds,
                 _terrainData);
@@ -153,6 +155,7 @@ namespace Game.Feature.Gameplay.BoardState
             _playerDamageStatesByEntityId.Remove(entityId);
             _playerControlStatesByEntityId.Remove(entityId);
             _summonedEntitiesByEntityId.Remove(entityId);
+            _enemyDefinitionBindingsByEntityId.Remove(entityId);
         }
 
         private void ApplyDamage(int entityId, int amount)
@@ -366,6 +369,17 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             _summonedEntitiesByEntityId[entityId] = state;
+        }
+
+        internal void SetEnemyDefinitionBindingState(int entityId, EnemyDefinitionBindingState state)
+        {
+            if (!_entitiesById.ContainsKey(entityId))
+            {
+                return;
+            }
+
+            state.Validate(nameof(state));
+            _enemyDefinitionBindingsByEntityId[entityId] = state;
         }
 
         internal void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state)
@@ -605,6 +619,16 @@ namespace Game.Feature.Gameplay.BoardState
             _summonedEntitiesByEntityId.Remove(entityId);
         }
 
+        internal bool TryGetEnemyDefinitionBindingState(int entityId, out EnemyDefinitionBindingState state)
+        {
+            return _enemyDefinitionBindingsByEntityId.TryGetValue(entityId, out state);
+        }
+
+        internal void RemoveEnemyDefinitionBindingState(int entityId)
+        {
+            _enemyDefinitionBindingsByEntityId.Remove(entityId);
+        }
+
         internal void EnumerateSummonedEntityStatesOrdered(List<SummonedEntitySnapshotEntry> buffer)
         {
             if (buffer == null)
@@ -616,6 +640,22 @@ namespace Game.Feature.Gameplay.BoardState
             foreach (var pair in _summonedEntitiesByEntityId)
             {
                 buffer.Add(new SummonedEntitySnapshotEntry(pair.Key, pair.Value));
+            }
+
+            buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+        }
+
+        internal void EnumerateEnemyDefinitionBindingStatesOrdered(List<EnemyDefinitionBindingSnapshotEntry> buffer)
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+            foreach (var pair in _enemyDefinitionBindingsByEntityId)
+            {
+                buffer.Add(new EnemyDefinitionBindingSnapshotEntry(pair.Key, pair.Value));
             }
 
             buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
@@ -787,6 +827,11 @@ namespace Game.Feature.Gameplay.BoardState
         void IWorldStateMutationPort.SetSummonedEntityState(int entityId, SummonedEntityState state)
         {
             SetSummonedEntityState(entityId, state);
+        }
+
+        void IWorldStateMutationPort.SetEnemyDefinitionBindingState(int entityId, EnemyDefinitionBindingState state)
+        {
+            SetEnemyDefinitionBindingState(entityId, state);
         }
 
         void IWorldStateMutationPort.SetBoxInteractionLockState(int entityId, BoxInteractionLockState state)

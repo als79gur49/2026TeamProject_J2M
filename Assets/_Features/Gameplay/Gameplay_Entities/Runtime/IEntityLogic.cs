@@ -7,6 +7,19 @@ using System.Collections.Generic;
 
 namespace Game.Feature.Gameplay.Entities
 {
+    public readonly struct EntityLogicCreationContext
+    {
+        public EntityLogicCreationContext(WorldSnapshot snapshot, in EntityState entity)
+        {
+            Snapshot = snapshot ?? throw new System.ArgumentNullException(nameof(snapshot));
+            Entity = entity;
+        }
+
+        public WorldSnapshot Snapshot { get; }
+
+        public EntityState Entity { get; }
+    }
+
     public interface IEntityLogic
     {
     }
@@ -77,8 +90,8 @@ namespace Game.Feature.Gameplay.Entities
 
     public interface IEntityLogicFactory
     {
-        bool CanCreate(in EntityState entity);
-        IEntityLogic Create(in EntityState entity);
+        bool CanCreate(in EntityLogicCreationContext context);
+        IEntityLogic Create(in EntityLogicCreationContext context);
     }
 
     public sealed class EntityLogicSet

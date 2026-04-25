@@ -17,6 +17,7 @@ namespace Game.Feature.Gameplay.Entities
     {
         private readonly EnemyAiRuntimeDefinition _defaultDefinition;
         private readonly IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> _definitionsByEntityId;
+        private readonly IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyAiRuntimeDefinition> _definitionsByArchetypeId;
 
         public EnemyEntityLogicFactory()
             : this(EnemyAiRuntimeDefinition.CreateDefaultMelee())
@@ -25,32 +26,54 @@ namespace Game.Feature.Gameplay.Entities
 
         public EnemyEntityLogicFactory(
             EnemyAiRuntimeDefinition defaultDefinition,
-            IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> definitionsByEntityId = null)
+            IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> definitionsByEntityId = null,
+            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyAiRuntimeDefinition> definitionsByArchetypeId = null)
         {
             defaultDefinition.Validate(nameof(defaultDefinition));
 
             _defaultDefinition = defaultDefinition;
             _definitionsByEntityId = definitionsByEntityId;
+            _definitionsByArchetypeId = definitionsByArchetypeId;
         }
 
-        public bool CanCreate(in EntityState entity)
+        public bool CanCreate(in EntityLogicCreationContext context)
         {
+            var entity = context.Entity;
             return entity.type == EntityType.Unit &&
                    entity.aiMode != EnemyAiMode.None;
         }
 
-        public IEntityLogic Create(in EntityState entity)
+        public IEntityLogic Create(in EntityLogicCreationContext context)
         {
-            return new EnemyCoreLogicAdapter(entity.entityId, ResolveDefinition(entity));
+            var entity = context.Entity;
+            return new EnemyCoreLogicAdapter(entity.entityId, ResolveDefinition(context.Snapshot, entity));
         }
 
-        internal EnemyAiRuntimeDefinition ResolveDefinition(in EntityState entity)
+        internal EnemyAiRuntimeDefinition ResolveDefinition(WorldSnapshot snapshot, in EntityState entity)
         {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
             if (_definitionsByEntityId != null &&
                 _definitionsByEntityId.TryGetValue(entity.entityId, out var overriddenDefinition))
             {
                 overriddenDefinition.Validate(nameof(overriddenDefinition));
                 return overriddenDefinition;
+            }
+
+            if (snapshot.TryGetEnemyDefinitionBindingState(entity.entityId, out var binding))
+            {
+                if (_definitionsByArchetypeId != null &&
+                    _definitionsByArchetypeId.TryGetValue(binding.ArchetypeId, out var archetypeDefinition))
+                {
+                    archetypeDefinition.Validate(nameof(archetypeDefinition));
+                    return archetypeDefinition;
+                }
+
+                throw new InvalidOperationException(
+                    $"Missing enemy AI archetype definition for binding '{binding.ArchetypeId}' on entity {entity.entityId}.");
             }
 
             return _defaultDefinition;
@@ -68,26 +91,28 @@ namespace Game.Feature.Gameplay.Entities
 
         public EnemyCombatEntityLogicFactory(
             EnemyAiRuntimeDefinition defaultDefinition,
-            IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> definitionsByEntityId = null)
+            IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> definitionsByEntityId = null,
+            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyAiRuntimeDefinition> definitionsByArchetypeId = null)
         {
-            _enemyLogicFactory = new EnemyEntityLogicFactory(defaultDefinition, definitionsByEntityId);
+            _enemyLogicFactory = new EnemyEntityLogicFactory(defaultDefinition, definitionsByEntityId, definitionsByArchetypeId);
         }
 
-        public bool CanCreate(in EntityState entity)
+        public bool CanCreate(in EntityLogicCreationContext context)
         {
-            if (!_enemyLogicFactory.CanCreate(entity))
+            if (!_enemyLogicFactory.CanCreate(context))
             {
                 return false;
             }
 
-            var definition = _enemyLogicFactory.ResolveDefinition(entity);
+            var definition = _enemyLogicFactory.ResolveDefinition(context.Snapshot, context.Entity);
             return definition.Capabilities.TryGetCombat(out _) ||
                    definition.Capabilities.TryGetPassiveContact(out _);
         }
 
-        public IEntityLogic Create(in EntityState entity)
+        public IEntityLogic Create(in EntityLogicCreationContext context)
         {
-            return new EnemyAttackLogicAdapter(entity.entityId, _enemyLogicFactory.ResolveDefinition(entity));
+            var entity = context.Entity;
+            return new EnemyAttackLogicAdapter(entity.entityId, _enemyLogicFactory.ResolveDefinition(context.Snapshot, entity));
         }
     }
 

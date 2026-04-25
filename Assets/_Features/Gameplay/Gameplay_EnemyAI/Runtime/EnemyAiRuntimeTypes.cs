@@ -1,9 +1,78 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using UnityEngine;
 
 namespace Game.Feature.Gameplay.Entities
 {
+    [Serializable]
+    public readonly struct EnemyUnitArchetypeId : IEquatable<EnemyUnitArchetypeId>
+    {
+        private sealed class OrdinalComparerImpl : IEqualityComparer<EnemyUnitArchetypeId>, IComparer<EnemyUnitArchetypeId>
+        {
+            public bool Equals(EnemyUnitArchetypeId left, EnemyUnitArchetypeId right)
+            {
+                return left.Equals(right);
+            }
+
+            public int GetHashCode(EnemyUnitArchetypeId value)
+            {
+                return value.GetHashCode();
+            }
+
+            public int Compare(EnemyUnitArchetypeId left, EnemyUnitArchetypeId right)
+            {
+                return string.Compare(left.Value, right.Value, StringComparison.Ordinal);
+            }
+        }
+
+        private static readonly OrdinalComparerImpl OrdinalComparerInstance = new();
+        public static readonly EnemyUnitArchetypeId None = new(string.Empty);
+
+        [SerializeField] private readonly string value;
+
+        public EnemyUnitArchetypeId(string value)
+        {
+            this.value = value ?? string.Empty;
+        }
+
+        public string Value => value ?? string.Empty;
+
+        public bool IsValid => !string.IsNullOrEmpty(Value);
+
+        public static IEqualityComparer<EnemyUnitArchetypeId> EqualityComparer => OrdinalComparerInstance;
+
+        public static IComparer<EnemyUnitArchetypeId> OrderingComparer => OrdinalComparerInstance;
+
+        public bool Equals(EnemyUnitArchetypeId other)
+        {
+            return string.Equals(Value, other.Value, StringComparison.Ordinal);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is EnemyUnitArchetypeId other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return StringComparer.Ordinal.GetHashCode(Value);
+        }
+
+        public override string ToString()
+        {
+            return Value;
+        }
+
+        public void Validate(string paramName)
+        {
+            if (string.IsNullOrEmpty(Value))
+            {
+                throw new ArgumentException("Enemy unit archetype IDs must be non-empty.", paramName);
+            }
+        }
+    }
+
     public enum EnemyCapabilityFamily
     {
         Combat = 0,
@@ -21,6 +90,12 @@ namespace Game.Feature.Gameplay.Entities
     public enum SummonCandidatePattern
     {
         OrthogonalAdjacent4 = 0,
+    }
+
+    public enum SummonedUnitDefinitionMode
+    {
+        DefaultEnemy = 0,
+        Archetype = 1,
     }
 
     public enum BoxLockTargetPattern
@@ -302,6 +377,34 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
+    public readonly struct EnemyUnitSpawnDefaultsRuntime
+    {
+        public EnemyUnitSpawnDefaultsRuntime(int hp, EnemyAiMode initialAiMode)
+        {
+            Hp = hp;
+            InitialAiMode = initialAiMode;
+            Validate(nameof(EnemyUnitSpawnDefaultsRuntime));
+        }
+
+        public int Hp { get; }
+
+        public EnemyAiMode InitialAiMode { get; }
+
+        public void Validate(string paramName)
+        {
+            if (Hp <= 0)
+            {
+                throw new ArgumentException("Enemy unit spawn defaults require positive HP.", paramName);
+            }
+
+            if (InitialAiMode == EnemyAiMode.None ||
+                InitialAiMode == EnemyAiMode.Dead)
+            {
+                throw new ArgumentException("Enemy unit spawn defaults require a live initial AI mode.", paramName);
+            }
+        }
+    }
+
     public readonly struct SummonMinionRuntime
     {
         public SummonMinionRuntime(
@@ -310,7 +413,11 @@ namespace Game.Feature.Gameplay.Entities
             bool requireNoUnitAtSpawnCell,
             bool requireNoSolidAtSpawnCell,
             int maxAliveChildren,
-            int minionHp)
+            int minionHp,
+            SummonedUnitDefinitionMode definitionMode = SummonedUnitDefinitionMode.DefaultEnemy,
+            EnemyUnitArchetypeId summonedArchetypeId = default,
+            bool overrideHp = false,
+            int hpOverride = 1)
         {
             SpawnCountPerTrigger = spawnCountPerTrigger;
             CandidatePattern = candidatePattern;
@@ -318,6 +425,10 @@ namespace Game.Feature.Gameplay.Entities
             RequireNoSolidAtSpawnCell = requireNoSolidAtSpawnCell;
             MaxAliveChildren = maxAliveChildren;
             MinionHp = minionHp;
+            DefinitionMode = definitionMode;
+            SummonedArchetypeId = summonedArchetypeId;
+            OverrideHp = overrideHp;
+            HpOverride = hpOverride;
             Validate(nameof(SummonMinionRuntime));
         }
 
@@ -333,6 +444,14 @@ namespace Game.Feature.Gameplay.Entities
 
         public int MinionHp { get; }
 
+        public SummonedUnitDefinitionMode DefinitionMode { get; }
+
+        public EnemyUnitArchetypeId SummonedArchetypeId { get; }
+
+        public bool OverrideHp { get; }
+
+        public int HpOverride { get; }
+
         public void Validate(string paramName)
         {
             if (SpawnCountPerTrigger <= 0)
@@ -345,9 +464,27 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentException("Summon minion runtime requires a positive max alive child count.", paramName);
             }
 
-            if (MinionHp <= 0)
+            switch (DefinitionMode)
             {
-                throw new ArgumentException("Summon minion runtime requires positive minion HP.", paramName);
+                case SummonedUnitDefinitionMode.DefaultEnemy:
+                    if (MinionHp <= 0)
+                    {
+                        throw new ArgumentException("Summon minion runtime requires positive minion HP.", paramName);
+                    }
+
+                    break;
+
+                case SummonedUnitDefinitionMode.Archetype:
+                    SummonedArchetypeId.Validate(paramName);
+                    if (OverrideHp && HpOverride <= 0)
+                    {
+                        throw new ArgumentException("Summon minion runtime HP override must be positive when enabled.", paramName);
+                    }
+
+                    break;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(DefinitionMode), DefinitionMode, "Unsupported summoned unit definition mode.");
             }
         }
     }
@@ -620,6 +757,35 @@ namespace Game.Feature.Gameplay.Entities
         public int SourceEntityId { get; }
 
         public int SourceEffectIndex { get; }
+    }
+
+    public readonly struct EnemyDefinitionBindingState
+    {
+        public EnemyDefinitionBindingState(EnemyUnitArchetypeId archetypeId)
+        {
+            ArchetypeId = archetypeId;
+            Validate(nameof(EnemyDefinitionBindingState));
+        }
+
+        public EnemyUnitArchetypeId ArchetypeId { get; }
+
+        public void Validate(string paramName)
+        {
+            ArchetypeId.Validate(paramName);
+        }
+    }
+
+    public readonly struct EnemyDefinitionBindingSnapshotEntry
+    {
+        public EnemyDefinitionBindingSnapshotEntry(int entityId, EnemyDefinitionBindingState state)
+        {
+            EntityId = entityId;
+            State = state;
+        }
+
+        public int EntityId { get; }
+
+        public EnemyDefinitionBindingState State { get; }
     }
 
     public readonly struct SummonedEntitySnapshotEntry

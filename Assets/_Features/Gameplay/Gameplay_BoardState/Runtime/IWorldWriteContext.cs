@@ -112,6 +112,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         void SetSummonedEntityState(int entityId, SummonedEntityState state);
 
+        void SetEnemyDefinitionBindingState(int entityId, EnemyDefinitionBindingState state);
+
         new void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state);
 
         new void RemoveBoxInteractionLockState(int entityId);

@@ -92,13 +92,15 @@ namespace Game.Feature.Gameplay.Entities
 
     internal sealed class ProjectileEntityLogicFactory : IEntityLogicFactory
     {
-        public bool CanCreate(in EntityState entity)
+        public bool CanCreate(in EntityLogicCreationContext context)
         {
+            var entity = context.Entity;
             return entity.type == EntityType.Projectile;
         }
 
-        public IEntityLogic Create(in EntityState entity)
+        public IEntityLogic Create(in EntityLogicCreationContext context)
         {
+            var entity = context.Entity;
             return new ProjectileLogic(entity.entityId);
         }
     }
@@ -196,14 +198,16 @@ namespace Game.Feature.Gameplay.Entities
 
     internal sealed class SlidingBoxEntityLogicFactory : IEntityLogicFactory
     {
-        public bool CanCreate(in EntityState entity)
+        public bool CanCreate(in EntityLogicCreationContext context)
         {
+            var entity = context.Entity;
             return entity.type == EntityType.Box &&
                    (entity.boxCapabilities & BoxCapabilities.Push) == BoxCapabilities.Push;
         }
 
-        public IEntityLogic Create(in EntityState entity)
+        public IEntityLogic Create(in EntityLogicCreationContext context)
         {
+            var entity = context.Entity;
             return new SlidingBoxLogic(entity.entityId);
         }
     }

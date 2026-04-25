@@ -10,10 +10,19 @@ namespace Game.Feature.Gameplay.Loop
     public sealed class GameplayBootstrapper
     {
         private readonly ISnapshotEntityLogicProvider _entityLogicProvider;
+        private readonly IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> _spawnDefaultsByArchetypeId;
 
         public GameplayBootstrapper(ISnapshotEntityLogicProvider entityLogicProvider)
+            : this(entityLogicProvider, null)
+        {
+        }
+
+        public GameplayBootstrapper(
+            ISnapshotEntityLogicProvider entityLogicProvider,
+            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> spawnDefaultsByArchetypeId)
         {
             _entityLogicProvider = entityLogicProvider ?? throw new ArgumentNullException(nameof(entityLogicProvider));
+            _spawnDefaultsByArchetypeId = spawnDefaultsByArchetypeId;
         }
 
         public TickPipeline CreateTickPipeline(WorldState worldState)
@@ -51,7 +60,8 @@ namespace Game.Feature.Gameplay.Loop
                 generalTimingProfile,
                 playerControlTiming,
                 playerRespawnDelayTicks,
-                objectiveDefinition);
+                objectiveDefinition,
+                _spawnDefaultsByArchetypeId);
         }
 
         public TickRunner CreateTickRunner(

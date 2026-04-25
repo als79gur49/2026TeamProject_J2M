@@ -78,7 +78,9 @@ namespace Game.Feature.Gameplay.Host
             var bootstrapper = new GameplayBootstrapper(
                 GameplayEntityLogicProviderFactory.CreateDefault(
                     enemyAiRuntime.DefaultDefinition,
-                    enemyAiRuntime.DefinitionsByEntityId));
+                    enemyAiRuntime.DefinitionsByEntityId,
+                    enemyAiRuntime.DefinitionsByArchetypeId),
+                enemyAiRuntime.SpawnDefaultsByArchetypeId);
             var tickRunner = bootstrapper.CreateTickRunner(
                 worldState,
                 BuildStaticEntityLogics(configuration, playerControlTiming),

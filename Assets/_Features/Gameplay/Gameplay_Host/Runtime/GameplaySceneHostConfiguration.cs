@@ -17,15 +17,23 @@ namespace Game.Feature.Gameplay.Host
     {
         public EnemyAiRuntimeCollectionSnapshot(
             EnemyAiRuntimeDefinition defaultDefinition,
-            IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> definitionsByEntityId)
+            IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> definitionsByEntityId,
+            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyAiRuntimeDefinition> definitionsByArchetypeId,
+            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> spawnDefaultsByArchetypeId)
         {
             DefaultDefinition = defaultDefinition;
             DefinitionsByEntityId = definitionsByEntityId;
+            DefinitionsByArchetypeId = definitionsByArchetypeId;
+            SpawnDefaultsByArchetypeId = spawnDefaultsByArchetypeId;
         }
 
         public EnemyAiRuntimeDefinition DefaultDefinition { get; }
 
         public IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> DefinitionsByEntityId { get; }
+
+        public IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyAiRuntimeDefinition> DefinitionsByArchetypeId { get; }
+
+        public IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> SpawnDefaultsByArchetypeId { get; }
     }
 
     public readonly struct PlayerRespawnTimingAuthoritativeSnapshot
@@ -104,6 +112,7 @@ namespace Game.Feature.Gameplay.Host
         public bool DirectionChangeConsumesDelay;
         public EnemyAiProfile DefaultEnemyAiProfile;
         public EnemyAiProfileOverride[] EnemyAiProfileOverrides = Array.Empty<EnemyAiProfileOverride>();
+        public EnemyUnitArchetypeCatalog EnemyUnitArchetypeCatalog;
         public StageContentEntry StageContentEntry;
         public EnemyPresentationCatalog EnemyPresentationCatalog;
         public EnemyPresentationBinding[] EnemyPresentationBindings = Array.Empty<EnemyPresentationBinding>();
@@ -196,9 +205,17 @@ namespace Game.Feature.Gameplay.Host
 
         public EnemyAiRuntimeCollectionSnapshot CreateEnemyAiRuntimeSnapshot()
         {
+            var defaultDefinition = ResolveDefaultEnemyAiRuntimeDefinition();
+            var definitionsByEntityId = CreateEnemyAiDefinitionOverrides();
+            CreateEnemyAiArchetypeRuntimeCollections(
+                out var definitionsByArchetypeId,
+                out var spawnDefaultsByArchetypeId);
+            ValidateSummonArchetypeReferences(defaultDefinition, definitionsByEntityId, definitionsByArchetypeId);
             return new EnemyAiRuntimeCollectionSnapshot(
-                ResolveDefaultEnemyAiRuntimeDefinition(),
-                CreateEnemyAiDefinitionOverrides());
+                defaultDefinition,
+                definitionsByEntityId,
+                definitionsByArchetypeId,
+                spawnDefaultsByArchetypeId);
         }
 
         public float ResolveFaceSeamGap()
@@ -360,6 +377,131 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return definitionsByEntityId;
+        }
+
+        private void CreateEnemyAiArchetypeRuntimeCollections(
+            out IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyAiRuntimeDefinition> definitionsByArchetypeId,
+            out IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> spawnDefaultsByArchetypeId)
+        {
+            definitionsByArchetypeId = null;
+            spawnDefaultsByArchetypeId = null;
+
+            if (EnemyUnitArchetypeCatalog == null)
+            {
+                return;
+            }
+
+            var orderedEntries = new List<EnemyUnitArchetypeAsset>(EnemyUnitArchetypeCatalog.Entries.Count);
+            for (var i = 0; i < EnemyUnitArchetypeCatalog.Entries.Count; i++)
+            {
+                var entry = EnemyUnitArchetypeCatalog.Entries[i];
+                if (entry == null)
+                {
+                    throw new ArgumentException("Enemy unit archetype catalogs cannot contain null entries.", nameof(EnemyUnitArchetypeCatalog));
+                }
+
+                orderedEntries.Add(entry);
+            }
+
+            orderedEntries.Sort((left, right) => EnemyUnitArchetypeId.OrderingComparer.Compare(left.ArchetypeId, right.ArchetypeId));
+
+            var compiledDefinitions = new Dictionary<EnemyUnitArchetypeId, EnemyAiRuntimeDefinition>(EnemyUnitArchetypeId.EqualityComparer);
+            var compiledSpawnDefaults = new Dictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime>(EnemyUnitArchetypeId.EqualityComparer);
+            for (var i = 0; i < orderedEntries.Count; i++)
+            {
+                var entry = orderedEntries[i];
+                entry.ValidateConfiguration(nameof(EnemyUnitArchetypeCatalog));
+
+                var archetypeId = entry.ArchetypeId;
+                if (compiledDefinitions.ContainsKey(archetypeId))
+                {
+                    throw new ArgumentException(
+                        $"Enemy unit archetype catalogs cannot contain duplicate archetype IDs ('{archetypeId}').",
+                        nameof(EnemyUnitArchetypeCatalog));
+                }
+
+                compiledDefinitions.Add(archetypeId, entry.AiProfile.CreateRuntimeDefinition(SimulationTicksPerSecond));
+                compiledSpawnDefaults.Add(archetypeId, entry.SpawnDefaults.ToRuntime());
+            }
+
+            definitionsByArchetypeId = compiledDefinitions.Count > 0 ? compiledDefinitions : null;
+            spawnDefaultsByArchetypeId = compiledSpawnDefaults.Count > 0 ? compiledSpawnDefaults : null;
+        }
+
+        private void ValidateSummonArchetypeReferences(
+            EnemyAiRuntimeDefinition defaultDefinition,
+            IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> definitionsByEntityId,
+            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyAiRuntimeDefinition> definitionsByArchetypeId)
+        {
+            ValidateSummonArchetypeReferences(
+                defaultDefinition,
+                definitionsByArchetypeId,
+                "Default enemy AI definition");
+
+            if (definitionsByEntityId == null)
+            {
+                definitionsByEntityId = null;
+            }
+            else
+            {
+                var orderedEntityIds = new List<int>(definitionsByEntityId.Keys);
+                orderedEntityIds.Sort();
+                for (var i = 0; i < orderedEntityIds.Count; i++)
+                {
+                    var entityId = orderedEntityIds[i];
+                    ValidateSummonArchetypeReferences(
+                        definitionsByEntityId[entityId],
+                        definitionsByArchetypeId,
+                        $"Enemy AI definition override for entity {entityId}");
+                }
+            }
+
+            if (definitionsByArchetypeId == null)
+            {
+                return;
+            }
+
+            var orderedArchetypeIds = new List<EnemyUnitArchetypeId>(definitionsByArchetypeId.Keys);
+            orderedArchetypeIds.Sort(EnemyUnitArchetypeId.OrderingComparer);
+            for (var i = 0; i < orderedArchetypeIds.Count; i++)
+            {
+                var archetypeId = orderedArchetypeIds[i];
+                ValidateSummonArchetypeReferences(
+                    definitionsByArchetypeId[archetypeId],
+                    definitionsByArchetypeId,
+                    $"Enemy unit archetype '{archetypeId}'");
+            }
+        }
+
+        private static void ValidateSummonArchetypeReferences(
+            EnemyAiRuntimeDefinition definition,
+            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyAiRuntimeDefinition> definitionsByArchetypeId,
+            string definitionLabel)
+        {
+            if (!definition.Capabilities.TryGetUtility(out var utility))
+            {
+                return;
+            }
+
+            for (var effectIndex = 0; effectIndex < utility.Effects.Count; effectIndex++)
+            {
+                var effect = utility.Effects[effectIndex];
+                if (effect.Kind != EnemyUtilityEffectKind.SummonMinion ||
+                    effect.Summon.DefinitionMode != SummonedUnitDefinitionMode.Archetype)
+                {
+                    continue;
+                }
+
+                var archetypeId = effect.Summon.SummonedArchetypeId;
+                if (definitionsByArchetypeId != null &&
+                    definitionsByArchetypeId.ContainsKey(archetypeId))
+                {
+                    continue;
+                }
+
+                throw new InvalidOperationException(
+                    $"{definitionLabel} references missing enemy unit archetype '{archetypeId}' at utility effect index {effectIndex}.");
+            }
         }
     }
 }

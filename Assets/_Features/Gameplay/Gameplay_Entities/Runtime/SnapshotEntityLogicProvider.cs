@@ -58,16 +58,17 @@ namespace Game.Feature.Gameplay.Entities
             for (var entityIndex = 0; entityIndex < orderedEntities.Count; entityIndex++)
             {
                 var entity = orderedEntities[entityIndex];
+                var creationContext = new EntityLogicCreationContext(snapshot, entity);
 
                 for (var factoryIndex = 0; factoryIndex < _entityLogicFactories.Count; factoryIndex++)
                 {
                     var factory = _entityLogicFactories[factoryIndex];
-                    if (!factory.CanCreate(entity))
+                    if (!factory.CanCreate(creationContext))
                     {
                         continue;
                     }
 
-                    var candidate = factory.Create(entity);
+                    var candidate = factory.Create(creationContext);
                     if (candidate == null)
                     {
                         throw new InvalidOperationException("Entity logic factories must not return null.");

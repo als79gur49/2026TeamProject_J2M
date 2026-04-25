@@ -318,25 +318,27 @@ namespace Game.Feature.Gameplay.Entities
 
         public EnemyActionStateEntityLogicFactory(
             EnemyAiRuntimeDefinition defaultDefinition,
-            IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> definitionsByEntityId = null)
+            IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> definitionsByEntityId = null,
+            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyAiRuntimeDefinition> definitionsByArchetypeId = null)
         {
-            _enemyLogicFactory = new EnemyEntityLogicFactory(defaultDefinition, definitionsByEntityId);
+            _enemyLogicFactory = new EnemyEntityLogicFactory(defaultDefinition, definitionsByEntityId, definitionsByArchetypeId);
         }
 
-        public bool CanCreate(in EntityState entity)
+        public bool CanCreate(in EntityLogicCreationContext context)
         {
-            if (!_enemyLogicFactory.CanCreate(entity))
+            if (!_enemyLogicFactory.CanCreate(context))
             {
                 return false;
             }
 
-            var definition = _enemyLogicFactory.ResolveDefinition(entity);
+            var definition = _enemyLogicFactory.ResolveDefinition(context.Snapshot, context.Entity);
             return definition.Capabilities.TryGetCombat(out _);
         }
 
-        public IEntityLogic Create(in EntityState entity)
+        public IEntityLogic Create(in EntityLogicCreationContext context)
         {
-            return new EnemyActionStateLogic(entity.entityId, _enemyLogicFactory.ResolveDefinition(entity));
+            var entity = context.Entity;
+            return new EnemyActionStateLogic(entity.entityId, _enemyLogicFactory.ResolveDefinition(context.Snapshot, entity));
         }
     }
 

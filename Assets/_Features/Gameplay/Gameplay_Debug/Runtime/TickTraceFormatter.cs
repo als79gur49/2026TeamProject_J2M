@@ -121,6 +121,7 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, $"{label}.EnemyCharges", GetEnemyChargeEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.Phased", GetPhasedEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.SummonedEntities", GetSummonedEntityEntries(snapshot), FormatString);
+            AppendSection(builder, $"{label}.EnemyDefinitionBindings", GetEnemyDefinitionBindingEntries(snapshot), FormatString);
             AppendOccupancySection(builder, $"{label}.Occupancy", snapshot);
         }
 
@@ -321,6 +322,21 @@ namespace Game.Feature.Gameplay.Debug
             {
                 lines.Add(
                     $"E={entries[i].EntityId}|Source={entries[i].State.SourceEntityId}|Effect={entries[i].State.SourceEffectIndex}");
+            }
+
+            return lines;
+        }
+
+        private static List<string> GetEnemyDefinitionBindingEntries(WorldSnapshot snapshot)
+        {
+            var entries = new List<EnemyDefinitionBindingSnapshotEntry>();
+            var lines = new List<string>();
+            snapshot.EnumerateEnemyDefinitionBindingStatesOrdered(entries);
+
+            for (var i = 0; i < entries.Count; i++)
+            {
+                lines.Add(
+                    $"E={entries[i].EntityId}|Archetype={entries[i].State.ArchetypeId}");
             }
 
             return lines;
@@ -564,6 +580,10 @@ namespace Game.Feature.Gameplay.Debug
                     {
                         builder.Append("|SummonSource=").Append(operation.SpawnedEntitySummonedState.SourceEntityId)
                             .Append("|SummonEffect=").Append(operation.SpawnedEntitySummonedState.SourceEffectIndex);
+                    }
+                    if (operation.HasSpawnedEntityEnemyDefinitionBindingState)
+                    {
+                        builder.Append("|Archetype=").Append(operation.SpawnedEntityEnemyDefinitionBindingState.ArchetypeId);
                     }
                     break;
 

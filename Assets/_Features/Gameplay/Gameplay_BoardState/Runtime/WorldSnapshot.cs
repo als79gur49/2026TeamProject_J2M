@@ -71,6 +71,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly IReadOnlyDictionary<int, PlayerDamageState> _playerDamageStatesByEntityId;
         private readonly IReadOnlyDictionary<int, PlayerControlState> _playerControlStatesByEntityId;
         private readonly IReadOnlyDictionary<int, SummonedEntityState> _summonedEntitiesByEntityId;
+        private readonly IReadOnlyDictionary<int, EnemyDefinitionBindingState> _enemyDefinitionBindingsByEntityId;
         private readonly IReadOnlyDictionary<SurfaceCell, int> _projectileOccupancy;
         private readonly IReadOnlyDictionary<SurfaceCell, int> _solidOccupancy;
         private readonly IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> _stackedUnitsByCell;
@@ -93,6 +94,7 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, PlayerDamageState> playerDamageStatesByEntityId,
             Dictionary<int, PlayerControlState> playerControlStatesByEntityId,
             Dictionary<int, SummonedEntityState> summonedEntitiesByEntityId,
+            Dictionary<int, EnemyDefinitionBindingState> enemyDefinitionBindingsByEntityId,
             CubeTopologyState topology,
             BoardBounds boardBounds,
             TerrainData terrainData)
@@ -112,6 +114,7 @@ namespace Game.Feature.Gameplay.BoardState
             _playerDamageStatesByEntityId = new ReadOnlyDictionary<int, PlayerDamageState>(playerDamageStatesByEntityId ?? throw new ArgumentNullException(nameof(playerDamageStatesByEntityId)));
             _playerControlStatesByEntityId = new ReadOnlyDictionary<int, PlayerControlState>(playerControlStatesByEntityId ?? throw new ArgumentNullException(nameof(playerControlStatesByEntityId)));
             _summonedEntitiesByEntityId = new ReadOnlyDictionary<int, SummonedEntityState>(summonedEntitiesByEntityId ?? throw new ArgumentNullException(nameof(summonedEntitiesByEntityId)));
+            _enemyDefinitionBindingsByEntityId = new ReadOnlyDictionary<int, EnemyDefinitionBindingState>(enemyDefinitionBindingsByEntityId ?? throw new ArgumentNullException(nameof(enemyDefinitionBindingsByEntityId)));
             _topology = topology;
             _boardBounds = boardBounds;
             _terrainData = terrainData ?? throw new ArgumentNullException(nameof(terrainData));
@@ -190,6 +193,11 @@ namespace Game.Feature.Gameplay.BoardState
         public bool TryGetSummonedEntityState(int entityId, out SummonedEntityState state)
         {
             return _summonedEntitiesByEntityId.TryGetValue(entityId, out state);
+        }
+
+        public bool TryGetEnemyDefinitionBindingState(int entityId, out EnemyDefinitionBindingState state)
+        {
+            return _enemyDefinitionBindingsByEntityId.TryGetValue(entityId, out state);
         }
 
         internal bool TryGetPhasedState(int entityId, out PhasedRuntimeState state)
@@ -795,6 +803,23 @@ namespace Game.Feature.Gameplay.BoardState
             foreach (var pair in _summonedEntitiesByEntityId)
             {
                 buffer.Add(new SummonedEntitySnapshotEntry(pair.Key, pair.Value));
+            }
+
+            buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+        }
+
+        internal void EnumerateEnemyDefinitionBindingStatesOrdered(List<EnemyDefinitionBindingSnapshotEntry> buffer)
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+
+            foreach (var pair in _enemyDefinitionBindingsByEntityId)
+            {
+                buffer.Add(new EnemyDefinitionBindingSnapshotEntry(pair.Key, pair.Value));
             }
 
             buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));

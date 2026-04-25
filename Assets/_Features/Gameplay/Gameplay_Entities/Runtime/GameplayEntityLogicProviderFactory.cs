@@ -20,14 +20,15 @@ namespace Game.Feature.Gameplay.Entities
 
         public static ISnapshotEntityLogicProvider CreateDefault(
             EnemyAiRuntimeDefinition defaultDefinition,
-            IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> definitionsByEntityId = null)
+            IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> definitionsByEntityId = null,
+            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyAiRuntimeDefinition> definitionsByArchetypeId = null)
         {
             return new SnapshotEntityLogicProvider(
                 new IEntityLogicFactory[]
                 {
-                    new EnemyEntityLogicFactory(defaultDefinition, definitionsByEntityId),
-                    new EnemyActionStateEntityLogicFactory(defaultDefinition, definitionsByEntityId),
-                    new EnemyCombatEntityLogicFactory(defaultDefinition, definitionsByEntityId),
+                    new EnemyEntityLogicFactory(defaultDefinition, definitionsByEntityId, definitionsByArchetypeId),
+                    new EnemyActionStateEntityLogicFactory(defaultDefinition, definitionsByEntityId, definitionsByArchetypeId),
+                    new EnemyCombatEntityLogicFactory(defaultDefinition, definitionsByEntityId, definitionsByArchetypeId),
                     new SlidingBoxEntityLogicFactory(),
                     new ProjectileEntityLogicFactory(),
                 });
