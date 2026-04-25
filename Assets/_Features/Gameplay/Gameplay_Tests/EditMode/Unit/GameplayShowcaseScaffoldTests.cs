@@ -627,7 +627,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static void SetTopologyAuthoringField(object target, string fieldName, object value)
         {
-            SetPrivateField(typeof(GameplayCameraTopologyAuthoring), target, fieldName, value);
+            var authoringField = typeof(GameplayCameraTopologyAuthoring).GetField(
+                fieldName,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
+            if (authoringField != null)
+            {
+                authoringField.SetValue(target, value);
+                return;
+            }
+
+            var inlineSharedTuningField = typeof(GameplayCameraTopologyAuthoring).GetField(
+                "inlineSharedTuning",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.That(inlineSharedTuningField, Is.Not.Null);
+
+            var sharedTuning =
+                (GameplayCameraTopologySharedTuning)inlineSharedTuningField.GetValue(target) ??
+                GameplayCameraTopologySharedTuning.CreateShowcaseDefault();
+
+            inlineSharedTuningField.SetValue(target, sharedTuning);
+            SetPrivateField(typeof(GameplayCameraTopologySharedTuning), sharedTuning, fieldName, value);
         }
 
         private static void SetPrivateField(Type ownerType, object target, string fieldName, object value)

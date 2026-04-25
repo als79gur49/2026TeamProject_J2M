@@ -60,20 +60,23 @@ This document is the slice-local supporting truth-source for the current topolog
 
 - `GameplayCameraTopologyAuthoring` is the scene-local authority entrypoint.
 - `GameplayCameraTopologyPreset` owns stage-scoped shared tuning only.
+- `GameplayCameraTopologySharedTuning` is the canonical shared-tuning schema for camera topology.
 - `GameplayCameraSettings` is shared tuning only.
 - `GameplayCameraBaselineAuthoringPolicy` is the dedicated scene-local authored-baseline policy type.
-- `GameplayCameraTopologyInlineSharedTuning` is the explicit inline-only shared-tuning fallback lane.
+- `inlineSharedTuning` on `GameplayCameraTopologyAuthoring` is the explicit inline-mode field using the canonical shared-tuning schema.
 - `configureMainCamera` remains local.
 - `UseAuthoredSceneCameraPose/Lens` live in scene-local baseline policy, not `GameplayCameraSettings`.
 - `Preset` mode ignores inline shared-tuning values for runtime snapshot resolution.
 - Candidate A is complete:
   - authored-baseline usage flags no longer live in `GameplayCameraSettings`
   - scene-local baseline policy is carried explicitly through authoring snapshot, host configuration, bootstrap glue, and rig resolution
-  - preset `cameraSettings` now serializes shared tuning only
+  - preset `cameraSettings` content remains shared tuning only inside the canonical `sharedTuning` block
 - Candidate B is complete:
   - non-authoritative inline shared tuning no longer lives as five root fields on `GameplayCameraTopologyAuthoring`
-  - scene-local authoring now serializes one explicit `inlineSharedTuning` block for `Inline` mode only
+  - scene-local authoring serializes one explicit `inlineSharedTuning` block for `Inline` mode only, using the canonical shared schema
+  - `GameplayCameraTopologyPreset` serializes one explicit `sharedTuning` block using the same canonical shared schema
   - `Preset` mode inspector UX hides the inline lane and keeps the referenced preset as the only authoritative shared-tuning source
+  - the temporary `GameplayCameraTopologySceneMigrationTool` has been removed because this schema is now canonical
 
 ## Explicit non-ownership
 

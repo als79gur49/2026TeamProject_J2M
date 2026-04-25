@@ -16,16 +16,20 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentNullException(nameof(configuration));
             }
 
+            var sharedTuning = snapshot.SharedTuning ?? GameplayCameraTopologySharedTuning.CreateShowcaseDefault();
             configuration.SnapViewCameraToTarget = snapshot.ConfigureMainCamera;
             configuration.CameraBaselineAuthoringPolicy = snapshot.BaselineAuthoringPolicy;
-            configuration.TopologyRotationVisualMapping = snapshot.TopologyRotationVisualMapping;
-            configuration.TopologyRotationTween = snapshot.TopologyRotationTweenSettings;
-            configuration.CameraSettings = resolvedCameraSettings?.Clone() ?? GameplayCameraSettings.CreateShowcaseDefault();
+            configuration.TopologyRotationVisualMapping = sharedTuning.TopologyRotationVisualMapping;
+            configuration.TopologyRotationTween = sharedTuning.TopologyRotationTweenSettings;
+            configuration.CameraSettings =
+                resolvedCameraSettings?.Clone() ??
+                sharedTuning.CameraSettings?.Clone() ??
+                GameplayCameraSettings.CreateShowcaseDefault();
             configuration.TopologyTransitionCameraShakeProfile =
-                snapshot.TopologyTransitionCameraShakeProfile?.Clone() ??
+                sharedTuning.TopologyTransitionCameraShakeProfile?.Clone() ??
                 TopologyTransitionCameraShakeProfile.CreateDefault();
             configuration.TopologyTransitionPostFxProfile =
-                snapshot.TopologyTransitionPostFxProfile?.Clone() ??
+                sharedTuning.TopologyTransitionPostFxProfile?.Clone() ??
                 TopologyTransitionPostFxProfile.CreateDefault();
             configuration.ViewCamera = viewCamera;
         }

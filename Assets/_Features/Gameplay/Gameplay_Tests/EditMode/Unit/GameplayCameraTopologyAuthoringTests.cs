@@ -73,11 +73,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SetAuthoringField(authoring, "configureMainCamera", false);
                 SetInlineSharedTuningProperty(
                     authoring,
-                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyRotationVisualMapping),
+                    nameof(GameplayCameraTopologySharedTuning.TopologyRotationVisualMapping),
                     TopologyRotationVisualMapping.ForwardUsesNegativeX);
                 SetInlineSharedTuningProperty(
                     authoring,
-                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyRotationTweenSettings),
+                    nameof(GameplayCameraTopologySharedTuning.TopologyRotationTweenSettings),
                     new TopologyRotationTweenSettings
                     {
                         Ease = TopologyRotationTweenEase.InOutBounce,
@@ -85,36 +85,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SetAuthoringField(authoring, "baselineAuthoringPolicy", baselineAuthoringPolicy);
                 SetInlineSharedTuningProperty(
                     authoring,
-                    nameof(GameplayCameraTopologyInlineSharedTuning.CameraSettings),
+                    nameof(GameplayCameraTopologySharedTuning.CameraSettings),
                     cameraSettings);
                 SetInlineSharedTuningProperty(
                     authoring,
-                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyTransitionCameraShakeProfile),
+                    nameof(GameplayCameraTopologySharedTuning.TopologyTransitionCameraShakeProfile),
                     shakeProfile);
                 SetInlineSharedTuningProperty(
                     authoring,
-                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyTransitionPostFxProfile),
+                    nameof(GameplayCameraTopologySharedTuning.TopologyTransitionPostFxProfile),
                     postFxProfile);
 
                 var snapshot = authoring.CreateSnapshot();
 
                 Assert.That(snapshot.ConfigureMainCamera, Is.False);
                 AssertBaselineAuthoringPolicy(snapshot.BaselineAuthoringPolicy, baselineAuthoringPolicy);
-                Assert.That(snapshot.TopologyRotationVisualMapping, Is.EqualTo(TopologyRotationVisualMapping.ForwardUsesNegativeX));
-                Assert.That(snapshot.TopologyRotationTweenSettings.Ease, Is.EqualTo(TopologyRotationTweenEase.InOutBounce));
-                Assert.That(snapshot.CameraSettings, Is.Not.SameAs(cameraSettings));
-                Assert.That(snapshot.TopologyTransitionCameraShakeProfile, Is.Not.SameAs(shakeProfile));
-                Assert.That(snapshot.TopologyTransitionPostFxProfile, Is.Not.SameAs(postFxProfile));
-                AssertCameraSettings(snapshot.CameraSettings, cameraSettings);
-                Assert.That(snapshot.TopologyTransitionCameraShakeProfile.ImpactDuration01, Is.EqualTo(0.14f).Within(0.0001f));
+                Assert.That(snapshot.SharedTuning.TopologyRotationVisualMapping, Is.EqualTo(TopologyRotationVisualMapping.ForwardUsesNegativeX));
+                Assert.That(snapshot.SharedTuning.TopologyRotationTweenSettings.Ease, Is.EqualTo(TopologyRotationTweenEase.InOutBounce));
+                Assert.That(snapshot.SharedTuning.CameraSettings, Is.Not.SameAs(cameraSettings));
+                Assert.That(snapshot.SharedTuning.TopologyTransitionCameraShakeProfile, Is.Not.SameAs(shakeProfile));
+                Assert.That(snapshot.SharedTuning.TopologyTransitionPostFxProfile, Is.Not.SameAs(postFxProfile));
+                AssertCameraSettings(snapshot.SharedTuning.CameraSettings, cameraSettings);
+                Assert.That(snapshot.SharedTuning.TopologyTransitionCameraShakeProfile.ImpactDuration01, Is.EqualTo(0.14f).Within(0.0001f));
                 Assert.That(
-                    snapshot.TopologyTransitionCameraShakeProfile.LandingLocalRotationAmplitudeDegrees,
+                    snapshot.SharedTuning.TopologyTransitionCameraShakeProfile.LandingLocalRotationAmplitudeDegrees,
                     Is.EqualTo(new Vector3(0.21f, 0.32f, 0.43f)));
-                Assert.That(snapshot.TopologyTransitionPostFxProfile.AuthoritativeVolumeProfile, Is.SameAs(authoritativeProfile));
-                Assert.That(snapshot.TopologyTransitionPostFxProfile.MotionBlurMode, Is.EqualTo(MotionBlurMode.CameraAndObjects));
-                Assert.That(snapshot.TopologyTransitionPostFxProfile.MotionBlurQuality, Is.EqualTo(MotionBlurQuality.High));
-                Assert.That(snapshot.TopologyTransitionPostFxProfile.MaxBlurIntensity, Is.EqualTo(0.41f).Within(0.0001f));
-                Assert.That(snapshot.TopologyTransitionPostFxProfile.DistortionProfile.Center, Is.EqualTo(new Vector2(0.42f, 0.57f)));
+                Assert.That(snapshot.SharedTuning.TopologyTransitionPostFxProfile.AuthoritativeVolumeProfile, Is.SameAs(authoritativeProfile));
+                Assert.That(snapshot.SharedTuning.TopologyTransitionPostFxProfile.MotionBlurMode, Is.EqualTo(MotionBlurMode.CameraAndObjects));
+                Assert.That(snapshot.SharedTuning.TopologyTransitionPostFxProfile.MotionBlurQuality, Is.EqualTo(MotionBlurQuality.High));
+                Assert.That(snapshot.SharedTuning.TopologyTransitionPostFxProfile.MaxBlurIntensity, Is.EqualTo(0.41f).Within(0.0001f));
+                Assert.That(snapshot.SharedTuning.TopologyTransitionPostFxProfile.DistortionProfile.Center, Is.EqualTo(new Vector2(0.42f, 0.57f)));
             }
             finally
             {
@@ -135,12 +135,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SetAuthoringField(
                     authoring,
                     "inlineSharedTuning",
-                    new GameplayCameraTopologyInlineSharedTuning
-                    {
-                        CameraSettings = null,
-                        TopologyTransitionCameraShakeProfile = null,
-                        TopologyTransitionPostFxProfile = null,
-                    });
+                    CreateSharedTuningWithNullNestedReferences());
 
                 authoring.Validate();
                 var snapshot = authoring.CreateSnapshot();
@@ -148,9 +143,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 AssertBaselineAuthoringPolicy(
                     snapshot.BaselineAuthoringPolicy,
                     GameplayCameraBaselineAuthoringPolicy.CreateShowcaseDefault());
-                AssertCameraSettings(snapshot.CameraSettings, GameplayCameraSettings.CreateShowcaseDefault());
-                Assert.That(snapshot.TopologyTransitionCameraShakeProfile.ImpactStart01, Is.EqualTo(0.02f).Within(0.0001f));
-                Assert.That(snapshot.TopologyTransitionPostFxProfile.MaxBlurIntensity, Is.EqualTo(0.3f).Within(0.0001f));
+                AssertCameraSettings(snapshot.SharedTuning.CameraSettings, GameplayCameraSettings.CreateShowcaseDefault());
+                Assert.That(snapshot.SharedTuning.TopologyTransitionCameraShakeProfile.ImpactStart01, Is.EqualTo(0.02f).Within(0.0001f));
+                Assert.That(snapshot.SharedTuning.TopologyTransitionPostFxProfile.MaxBlurIntensity, Is.EqualTo(0.3f).Within(0.0001f));
             }
             finally
             {
@@ -203,8 +198,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         UseAuthoredSceneCameraPose = false,
                         UseAuthoredSceneCameraLens = false,
                     });
-                Assert.That(snapshot.CameraSettings.PitchDegrees, Is.EqualTo(41f).Within(0.0001f));
-                Assert.That(snapshot.CameraSettings.PerspectiveFieldOfView, Is.EqualTo(47f).Within(0.0001f));
+                Assert.That(snapshot.SharedTuning.CameraSettings.PitchDegrees, Is.EqualTo(41f).Within(0.0001f));
+                Assert.That(snapshot.SharedTuning.CameraSettings.PerspectiveFieldOfView, Is.EqualTo(47f).Within(0.0001f));
             }
             finally
             {
@@ -254,7 +249,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var configuration = new GameplaySceneHostConfiguration();
                 var viewCamera = viewCameraObject.AddComponent<Camera>();
 
-                InvokeComposer(configuration, snapshot, snapshot.CameraSettings, viewCamera);
+                InvokeComposer(configuration, snapshot, snapshot.SharedTuning.CameraSettings, viewCamera);
 
                 AssertBaselineAuthoringPolicy(
                     configuration.CameraBaselineAuthoringPolicy,
@@ -263,8 +258,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         UseAuthoredSceneCameraPose = false,
                         UseAuthoredSceneCameraLens = true,
                     });
-                AssertCameraSettings(configuration.CameraSettings, snapshot.CameraSettings);
-                Assert.That(configuration.CameraSettings, Is.Not.SameAs(snapshot.CameraSettings));
+                AssertCameraSettings(configuration.CameraSettings, snapshot.SharedTuning.CameraSettings);
+                Assert.That(configuration.CameraSettings, Is.Not.SameAs(snapshot.SharedTuning.CameraSettings));
             }
             finally
             {
@@ -330,18 +325,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     GameplayCameraBaselineAuthoringPolicy.CreateShowcaseDefault());
                 SetInlineSharedTuningProperty(
                     authoring,
-                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyRotationVisualMapping),
+                    nameof(GameplayCameraTopologySharedTuning.TopologyRotationVisualMapping),
                     TopologyRotationVisualMapping.ForwardUsesPositiveX);
                 SetInlineSharedTuningProperty(
                     authoring,
-                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyRotationTweenSettings),
+                    nameof(GameplayCameraTopologySharedTuning.TopologyRotationTweenSettings),
                     new TopologyRotationTweenSettings
                     {
                         Ease = TopologyRotationTweenEase.InOutBounce,
                     });
                 SetInlineSharedTuningProperty(
                     authoring,
-                    nameof(GameplayCameraTopologyInlineSharedTuning.CameraSettings),
+                    nameof(GameplayCameraTopologySharedTuning.CameraSettings),
                     new GameplayCameraSettings
                     {
                         PitchDegrees = 12f,
@@ -351,7 +346,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 inlineShake.ImpactDuration01 = 0.44f;
                 SetInlineSharedTuningProperty(
                     authoring,
-                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyTransitionCameraShakeProfile),
+                    nameof(GameplayCameraTopologySharedTuning.TopologyTransitionCameraShakeProfile),
                     inlineShake);
                 var inlinePostFx = TopologyTransitionPostFxProfile.Create(
                     null,
@@ -365,7 +360,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     distortionProfile: TopologyTransitionDistortionProfile.Create(scale: 1.44f));
                 SetInlineSharedTuningProperty(
                     authoring,
-                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyTransitionPostFxProfile),
+                    nameof(GameplayCameraTopologySharedTuning.TopologyTransitionPostFxProfile),
                     inlinePostFx);
 
                 var snapshot = authoring.CreateSnapshot();
@@ -373,12 +368,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 AssertBaselineAuthoringPolicy(
                     snapshot.BaselineAuthoringPolicy,
                     GameplayCameraBaselineAuthoringPolicy.CreateShowcaseDefault());
-                Assert.That(snapshot.TopologyRotationVisualMapping, Is.EqualTo(TopologyRotationVisualMapping.ForwardUsesNegativeX));
-                Assert.That(snapshot.TopologyRotationTweenSettings.Ease, Is.EqualTo(TopologyRotationTweenEase.Linear));
-                Assert.That(snapshot.CameraSettings.PitchDegrees, Is.EqualTo(44f).Within(0.0001f));
-                Assert.That(snapshot.CameraSettings.PerspectiveFieldOfView, Is.EqualTo(46f).Within(0.0001f));
-                Assert.That(snapshot.TopologyTransitionCameraShakeProfile.ImpactDuration01, Is.EqualTo(0.13f).Within(0.0001f));
-                Assert.That(snapshot.TopologyTransitionPostFxProfile.MaxBlurIntensity, Is.EqualTo(0.31f).Within(0.0001f));
+                Assert.That(snapshot.SharedTuning.TopologyRotationVisualMapping, Is.EqualTo(TopologyRotationVisualMapping.ForwardUsesNegativeX));
+                Assert.That(snapshot.SharedTuning.TopologyRotationTweenSettings.Ease, Is.EqualTo(TopologyRotationTweenEase.Linear));
+                Assert.That(snapshot.SharedTuning.CameraSettings.PitchDegrees, Is.EqualTo(44f).Within(0.0001f));
+                Assert.That(snapshot.SharedTuning.CameraSettings.PerspectiveFieldOfView, Is.EqualTo(46f).Within(0.0001f));
+                Assert.That(snapshot.SharedTuning.TopologyTransitionCameraShakeProfile.ImpactDuration01, Is.EqualTo(0.13f).Within(0.0001f));
+                Assert.That(snapshot.SharedTuning.TopologyTransitionPostFxProfile.MaxBlurIntensity, Is.EqualTo(0.31f).Within(0.0001f));
             }
             finally
             {
@@ -441,7 +436,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     });
                 SetInlineSharedTuningProperty(
                     authoring,
-                    nameof(GameplayCameraTopologyInlineSharedTuning.CameraSettings),
+                    nameof(GameplayCameraTopologySharedTuning.CameraSettings),
                     new GameplayCameraSettings
                     {
                         PitchDegrees = 9f,
@@ -452,7 +447,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     });
                 SetInlineSharedTuningProperty(
                     authoring,
-                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyTransitionPostFxProfile),
+                    nameof(GameplayCameraTopologySharedTuning.TopologyTransitionPostFxProfile),
                     TopologyTransitionPostFxProfile.Create(
                         null,
                         MotionBlurMode.CameraAndObjects,
@@ -473,11 +468,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         UseAuthoredSceneCameraPose = false,
                         UseAuthoredSceneCameraLens = true,
                     });
-                Assert.That(snapshot.CameraSettings.PitchDegrees, Is.EqualTo(29f).Within(0.0001f));
-                Assert.That(snapshot.CameraSettings.NearClipPlane, Is.EqualTo(0.08f).Within(0.0001f));
-                Assert.That(snapshot.TopologyTransitionPostFxProfile.AuthoritativeVolumeProfile, Is.SameAs(authoritativeProfile));
-                Assert.That(snapshot.TopologyTransitionPostFxProfile.MaxBlurIntensity, Is.EqualTo(0.27f).Within(0.0001f));
-                Assert.That(snapshot.TopologyTransitionPostFxProfile.DistortionProfile.Scale, Is.EqualTo(1.08f).Within(0.0001f));
+                Assert.That(snapshot.SharedTuning.CameraSettings.PitchDegrees, Is.EqualTo(29f).Within(0.0001f));
+                Assert.That(snapshot.SharedTuning.CameraSettings.NearClipPlane, Is.EqualTo(0.08f).Within(0.0001f));
+                Assert.That(snapshot.SharedTuning.TopologyTransitionPostFxProfile.AuthoritativeVolumeProfile, Is.SameAs(authoritativeProfile));
+                Assert.That(snapshot.SharedTuning.TopologyTransitionPostFxProfile.MaxBlurIntensity, Is.EqualTo(0.27f).Within(0.0001f));
+                Assert.That(snapshot.SharedTuning.TopologyTransitionPostFxProfile.DistortionProfile.Scale, Is.EqualTo(1.08f).Within(0.0001f));
             }
             finally
             {
@@ -537,7 +532,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     });
                 SetInlineSharedTuningProperty(
                     authoring,
-                    nameof(GameplayCameraTopologyInlineSharedTuning.CameraSettings),
+                    nameof(GameplayCameraTopologySharedTuning.CameraSettings),
                     new GameplayCameraSettings
                     {
                         PitchDegrees = 11f,
@@ -546,7 +541,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 inlineShake.ImpactDuration01 = 0.48f;
                 SetInlineSharedTuningProperty(
                     authoring,
-                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyTransitionCameraShakeProfile),
+                    nameof(GameplayCameraTopologySharedTuning.TopologyTransitionCameraShakeProfile),
                     inlineShake);
                 var inlinePostFx = TopologyTransitionPostFxProfile.Create(
                     null,
@@ -560,7 +555,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     distortionProfile: TopologyTransitionDistortionProfile.Create(scale: 1.28f));
                 SetInlineSharedTuningProperty(
                     authoring,
-                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyTransitionPostFxProfile),
+                    nameof(GameplayCameraTopologySharedTuning.TopologyTransitionPostFxProfile),
                     inlinePostFx);
 
                 var cameraSettings = authoring.GetCameraSettings();
@@ -598,7 +593,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var authoring = rootObject.AddComponent<GameplayCameraTopologyAuthoring>();
                 SetInlineSharedTuningProperty(
                     authoring,
-                    nameof(GameplayCameraTopologyInlineSharedTuning.CameraSettings),
+                    nameof(GameplayCameraTopologySharedTuning.CameraSettings),
                     new GameplayCameraSettings
                     {
                         PitchDegrees = 26f,
@@ -613,7 +608,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 AssertBaselineAuthoringPolicy(
                     snapshot.BaselineAuthoringPolicy,
                     GameplayCameraBaselineAuthoringPolicy.CreateShowcaseDefault());
-                Assert.That(snapshot.CameraSettings.PitchDegrees, Is.EqualTo(26f).Within(0.0001f));
+                Assert.That(snapshot.SharedTuning.CameraSettings.PitchDegrees, Is.EqualTo(26f).Within(0.0001f));
             }
             finally
             {
@@ -708,11 +703,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SetAuthoringField(authoring, "configureMainCamera", false);
                 SetInlineSharedTuningProperty(
                     authoring,
-                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyRotationVisualMapping),
+                    nameof(GameplayCameraTopologySharedTuning.TopologyRotationVisualMapping),
                     TopologyRotationVisualMapping.ForwardUsesNegativeX);
                 SetInlineSharedTuningProperty(
                     authoring,
-                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyRotationTweenSettings),
+                    nameof(GameplayCameraTopologySharedTuning.TopologyRotationTweenSettings),
                     new TopologyRotationTweenSettings
                     {
                         Ease = TopologyRotationTweenEase.Linear,
@@ -720,11 +715,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SetAuthoringField(authoring, "baselineAuthoringPolicy", baselineAuthoringPolicy);
                 SetInlineSharedTuningProperty(
                     authoring,
-                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyTransitionCameraShakeProfile),
+                    nameof(GameplayCameraTopologySharedTuning.TopologyTransitionCameraShakeProfile),
                     shakeProfile);
                 SetInlineSharedTuningProperty(
                     authoring,
-                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyTransitionPostFxProfile),
+                    nameof(GameplayCameraTopologySharedTuning.TopologyTransitionPostFxProfile),
                     postFxProfile);
 
                 var configuration = new GameplaySceneHostConfiguration();
@@ -743,8 +738,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Assert.That(configuration.ViewCamera, Is.SameAs(viewCamera));
                     Assert.That(configuration.CameraSettings, Is.Not.SameAs(resolvedCameraSettings));
                     AssertCameraSettings(configuration.CameraSettings, resolvedCameraSettings);
-                    Assert.That(configuration.TopologyTransitionCameraShakeProfile, Is.Not.SameAs(snapshot.TopologyTransitionCameraShakeProfile));
-                    Assert.That(configuration.TopologyTransitionPostFxProfile, Is.Not.SameAs(snapshot.TopologyTransitionPostFxProfile));
+                    Assert.That(configuration.TopologyTransitionCameraShakeProfile, Is.Not.SameAs(snapshot.SharedTuning.TopologyTransitionCameraShakeProfile));
+                    Assert.That(configuration.TopologyTransitionPostFxProfile, Is.Not.SameAs(snapshot.SharedTuning.TopologyTransitionPostFxProfile));
                     Assert.That(configuration.TopologyTransitionCameraShakeProfile.LandingDuration01, Is.EqualTo(0.21f).Within(0.0001f));
                     Assert.That(configuration.TopologyTransitionPostFxProfile.MotionBlurQuality, Is.EqualTo(MotionBlurQuality.Medium));
                     Assert.That(configuration.TopologyTransitionPostFxProfile.DistortionProfile.Scale, Is.EqualTo(1.09f).Within(0.0001f));
@@ -792,25 +787,60 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(inlineSharedTuningField, Is.Not.Null, "Missing private field 'inlineSharedTuning'.");
 
             var inlineSharedTuning =
-                (GameplayCameraTopologyInlineSharedTuning)inlineSharedTuningField.GetValue(authoring) ??
-                GameplayCameraTopologyInlineSharedTuning.CreateShowcaseDefault();
+                (GameplayCameraTopologySharedTuning)inlineSharedTuningField.GetValue(authoring) ??
+                GameplayCameraTopologySharedTuning.CreateShowcaseDefault();
 
             inlineSharedTuningField.SetValue(authoring, inlineSharedTuning);
-
-            var property = typeof(GameplayCameraTopologyInlineSharedTuning).GetProperty(
-                propertyName,
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-
-            Assert.That(
-                property,
-                Is.Not.Null,
-                $"Missing property '{propertyName}' on '{nameof(GameplayCameraTopologyInlineSharedTuning)}'.");
-            property.SetValue(inlineSharedTuning, value);
+            SetSharedTuningField(inlineSharedTuning, ToSerializedFieldName(propertyName), value);
         }
 
         private static void SetPresetField(GameplayCameraTopologyPreset preset, string fieldName, object value)
         {
-            SetPrivateField(typeof(GameplayCameraTopologyPreset), preset, fieldName, value);
+            var presetField = typeof(GameplayCameraTopologyPreset).GetField(
+                fieldName,
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+            if (presetField != null)
+            {
+                presetField.SetValue(preset, value);
+                return;
+            }
+
+            var sharedTuningField = typeof(GameplayCameraTopologyPreset).GetField(
+                "sharedTuning",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.That(sharedTuningField, Is.Not.Null, "Missing private field 'sharedTuning'.");
+
+            var sharedTuning =
+                (GameplayCameraTopologySharedTuning)sharedTuningField.GetValue(preset) ??
+                GameplayCameraTopologySharedTuning.CreateShowcaseDefault();
+
+            sharedTuningField.SetValue(preset, sharedTuning);
+            SetSharedTuningField(sharedTuning, fieldName, value);
+        }
+
+        private static void SetSharedTuningField(
+            GameplayCameraTopologySharedTuning sharedTuning,
+            string fieldName,
+            object value)
+        {
+            SetPrivateField(typeof(GameplayCameraTopologySharedTuning), sharedTuning, fieldName, value);
+        }
+
+        private static GameplayCameraTopologySharedTuning CreateSharedTuningWithNullNestedReferences()
+        {
+            var sharedTuning = GameplayCameraTopologySharedTuning.CreateShowcaseDefault();
+            SetSharedTuningField(sharedTuning, "cameraSettings", null);
+            SetSharedTuningField(sharedTuning, "topologyTransitionCameraShakeProfile", null);
+            SetSharedTuningField(sharedTuning, "topologyTransitionPostFxProfile", null);
+            return sharedTuning;
+        }
+
+        private static string ToSerializedFieldName(string propertyName)
+        {
+            Assert.That(string.IsNullOrWhiteSpace(propertyName), Is.False);
+            return char.ToLowerInvariant(propertyName[0]) + propertyName[1..];
         }
 
         private static void SetPrivateField(Type ownerType, object target, string fieldName, object value)
@@ -852,7 +882,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayCameraBaselineAuthoringPolicy.cs";
         private const string AuthoringRelativePath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayCameraTopologyAuthoring.cs";
-        private const string InlineSharedTuningRelativePath =
+        private const string SharedTuningRelativePath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayCameraTopologySharedTuning.cs";
+        private const string LegacyInlineSharedTuningRelativePath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayCameraTopologyInlineSharedTuning.cs";
         private const string SourceModeRelativePath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayCameraTopologySourceMode.cs";
@@ -902,7 +934,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(source, Does.Contain("public void Validate()"));
             Assert.That(source, Does.Contain("public GameplayCameraBaselineAuthoringPolicy GetBaselineAuthoringPolicy()"));
             Assert.That(source, Does.Contain("public static GameplayCameraTopologyAuthoring GetRequiredValidated(Component owner)"));
-            Assert.That(source, Does.Contain("[SerializeField] private GameplayCameraTopologyInlineSharedTuning inlineSharedTuning"));
+            Assert.That(source, Does.Contain("public GameplayCameraTopologySharedTuning SharedTuning { get; }"));
+            Assert.That(source, Does.Contain("[SerializeField] private GameplayCameraTopologySharedTuning inlineSharedTuning"));
             Assert.That(source, Does.Not.Contain("[SerializeField] private TopologyRotationVisualMapping topologyRotationVisualMapping"));
             Assert.That(source, Does.Not.Contain("[SerializeField] private TopologyRotationTweenSettings topologyRotationTweenSettings"));
             Assert.That(source, Does.Not.Contain("[SerializeField] private GameplayCameraSettings cameraSettings"));
@@ -925,17 +958,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayCameraTopologyInlineSharedTuning_Source_Exists_WithCanonicalPublicSurface()
+        public void GameplayCameraTopologySharedTuning_Source_Exists_WithCanonicalPublicSurface()
         {
-            var source = ReadRepoFile(InlineSharedTuningRelativePath);
+            var source = ReadRepoFile(SharedTuningRelativePath);
 
-            Assert.That(source, Does.Contain("public sealed class GameplayCameraTopologyInlineSharedTuning"));
+            Assert.That(source, Does.Contain("public sealed class GameplayCameraTopologySharedTuning"));
             Assert.That(source, Does.Contain("public void Validate()"));
-            Assert.That(source, Does.Contain("public GameplayCameraTopologyPresetSnapshot CreateSnapshot()"));
-            Assert.That(source, Does.Contain("public static GameplayCameraTopologyInlineSharedTuning CreateShowcaseDefault()"));
+            Assert.That(source, Does.Contain("public GameplayCameraTopologySharedTuning Clone()"));
+            Assert.That(source, Does.Contain("public static GameplayCameraTopologySharedTuning CreateRuntimeDefault()"));
+            Assert.That(source, Does.Contain("public static GameplayCameraTopologySharedTuning CreateShowcaseDefault()"));
             Assert.That(source, Does.Contain("[SerializeField] private TopologyRotationVisualMapping topologyRotationVisualMapping"));
             Assert.That(source, Does.Contain("[SerializeField] private GameplayCameraSettings cameraSettings"));
-            Assert.That(source, Does.Contain("public GameplayCameraSettings CameraSettings"));
+            Assert.That(source, Does.Contain("public GameplayCameraSettings CameraSettings => cameraSettings;"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void LegacyGameplayCameraTopologyInlineSharedTuning_File_IsAbsent()
+        {
+            Assert.That(File.Exists(GetAbsolutePath(LegacyInlineSharedTuningRelativePath)), Is.False);
         }
 
         [Test]
@@ -948,9 +989,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(sourceModeSource, Does.Contain("public enum GameplayCameraTopologySourceMode"));
             Assert.That(sourceModeSource, Does.Contain("Inline = 0"));
             Assert.That(sourceModeSource, Does.Contain("Preset = 1"));
-            Assert.That(presetSource, Does.Contain("public readonly struct GameplayCameraTopologyPresetSnapshot"));
             Assert.That(presetSource, Does.Contain("public sealed class GameplayCameraTopologyPreset : ScriptableObject"));
-            Assert.That(presetSource, Does.Contain("public GameplayCameraTopologyPresetSnapshot CreateSnapshot()"));
+            Assert.That(presetSource, Does.Contain("[SerializeField] private GameplayCameraTopologySharedTuning sharedTuning"));
+            Assert.That(presetSource, Does.Contain("public GameplayCameraTopologySharedTuning CreateSnapshot()"));
             Assert.That(presetSource, Does.Contain("public void Validate()"));
         }
 
@@ -960,8 +1001,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var source = ReadRepoFile(AuthoringRelativePath);
 
-            Assert.That(source, Does.Contain("private GameplayCameraTopologyPresetSnapshot ResolveSharedSnapshot()"));
-            Assert.That(source, Does.Contain("GameplayCameraTopologySourceMode.Inline => inlineSharedTuning.CreateSnapshot()"));
+            Assert.That(source, Does.Contain("private GameplayCameraTopologySharedTuning ResolveSharedTuning()"));
+            Assert.That(source, Does.Contain("GameplayCameraTopologySourceMode.Inline => inlineSharedTuning.Clone()"));
             Assert.That(source, Does.Contain("GameplayCameraTopologySourceMode.Preset => ResolveRequiredPreset().CreateSnapshot()"));
             Assert.That(source, Does.Contain("Preset mode never reads inline shared tuning"));
             Assert.That(source, Does.Contain("inlineSharedTuning.Validate();"));
@@ -1029,9 +1070,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(source, Does.Contain("configuration.SnapViewCameraToTarget = snapshot.ConfigureMainCamera;"));
             Assert.That(source, Does.Contain("configuration.CameraBaselineAuthoringPolicy = snapshot.BaselineAuthoringPolicy;"));
-            Assert.That(source, Does.Contain("configuration.TopologyRotationVisualMapping = snapshot.TopologyRotationVisualMapping;"));
-            Assert.That(source, Does.Contain("configuration.TopologyRotationTween = snapshot.TopologyRotationTweenSettings;"));
-            Assert.That(source, Does.Contain("configuration.CameraSettings = resolvedCameraSettings?.Clone()"));
+            Assert.That(source, Does.Contain("var sharedTuning = snapshot.SharedTuning ?? GameplayCameraTopologySharedTuning.CreateShowcaseDefault();"));
+            Assert.That(source, Does.Contain("configuration.TopologyRotationVisualMapping = sharedTuning.TopologyRotationVisualMapping;"));
+            Assert.That(source, Does.Contain("configuration.TopologyRotationTween = sharedTuning.TopologyRotationTweenSettings;"));
+            Assert.That(source, Does.Contain("resolvedCameraSettings?.Clone()"));
+            Assert.That(source, Does.Contain("sharedTuning.CameraSettings?.Clone()"));
             Assert.That(source, Does.Contain("configuration.TopologyTransitionCameraShakeProfile ="));
             Assert.That(source, Does.Contain("configuration.TopologyTransitionPostFxProfile ="));
             Assert.That(source, Does.Contain("configuration.ViewCamera = viewCamera;"));
@@ -1119,15 +1162,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Full")]
         public void CameraTopologyPresetAssets_SerializeCameraSettingsAsTuningOnly()
         {
-            var combinedPresetCameraSettings = ReadSerializedBlock(
-                ReadRepoFile(CombinedGameplayShowcasePresetAssetPath),
-                "cameraSettings",
-                2);
-            var tutorialPresetCameraSettings = ReadSerializedBlock(
-                ReadRepoFile(TutorialScenePresetAssetPath),
-                "cameraSettings",
-                2);
+            var combinedPresetText = ReadRepoFile(CombinedGameplayShowcasePresetAssetPath);
+            var tutorialPresetText = ReadRepoFile(TutorialScenePresetAssetPath);
+            var combinedSharedTuningBlock = ReadSerializedBlock(combinedPresetText, "sharedTuning", 2);
+            var tutorialSharedTuningBlock = ReadSerializedBlock(tutorialPresetText, "sharedTuning", 2);
+            var combinedPresetCameraSettings = ReadSerializedBlock(combinedSharedTuningBlock, "cameraSettings", 4);
+            var tutorialPresetCameraSettings = ReadSerializedBlock(tutorialSharedTuningBlock, "cameraSettings", 4);
 
+            StringAssert.Contains("sharedTuning:", combinedPresetText);
+            StringAssert.Contains("sharedTuning:", tutorialPresetText);
+            StringAssert.DoesNotContain("\n  cameraSettings:", combinedPresetText);
+            StringAssert.DoesNotContain("\n  cameraSettings:", tutorialPresetText);
             StringAssert.DoesNotContain("UseAuthoredSceneCameraPose:", combinedPresetCameraSettings);
             StringAssert.DoesNotContain("UseAuthoredSceneCameraLens:", combinedPresetCameraSettings);
             StringAssert.DoesNotContain("UseAuthoredSceneCameraPose:", tutorialPresetCameraSettings);

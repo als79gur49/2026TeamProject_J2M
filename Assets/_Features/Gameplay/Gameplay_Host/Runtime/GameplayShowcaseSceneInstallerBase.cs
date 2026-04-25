@@ -102,19 +102,20 @@ namespace Game.Feature.Gameplay.Host
 
             var initialState = BuildInitialGameplayState();
             var cameraTopologyAuthoring = ResolveCameraTopologyAuthoringSnapshot();
-            var baseCameraSettings = cameraTopologyAuthoring.CameraSettings?.Clone() ??
+            var sharedTuning = cameraTopologyAuthoring.SharedTuning;
+            var baseCameraSettings = sharedTuning.CameraSettings?.Clone() ??
                                      GameplayCameraSettings.CreateShowcaseDefault();
             var baselineAuthoringPolicy = cameraTopologyAuthoring.BaselineAuthoringPolicy;
             GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(
                 gameObject,
                 baseCameraSettings,
                 baselineAuthoringPolicy,
-                cameraTopologyAuthoring.TopologyTransitionCameraShakeProfile);
+                sharedTuning.TopologyTransitionCameraShakeProfile);
             var resolvedCameraSettings = ResolveEffectiveCameraSettings(
                 initialState,
                 baseCameraSettings,
                 baselineAuthoringPolicy,
-                cameraTopologyAuthoring.TopologyRotationVisualMapping);
+                sharedTuning.TopologyRotationVisualMapping);
             var rig = GetComponent<GameplayCameraRig>();
             rig?.ApplySettings(resolvedCameraSettings);
 
@@ -210,14 +211,15 @@ namespace Game.Feature.Gameplay.Host
         {
             var initialState = BuildInitialGameplayState();
             var cameraTopologyAuthoring = ResolveCameraTopologyAuthoringSnapshot();
+            var sharedTuning = cameraTopologyAuthoring.SharedTuning;
             ConfigureSceneCamera(
                 camera,
                 initialState.BoardBounds,
                 ResolveEffectiveCameraSettings(
                     initialState,
-                    cameraTopologyAuthoring.CameraSettings,
+                    sharedTuning.CameraSettings,
                     cameraTopologyAuthoring.BaselineAuthoringPolicy,
-                    cameraTopologyAuthoring.TopologyRotationVisualMapping),
+                    sharedTuning.TopologyRotationVisualMapping),
                 initialState.InitialTopology);
         }
 

@@ -8,36 +8,18 @@ namespace Game.Feature.Gameplay.Host
         public GameplayCameraTopologyAuthoringSnapshot(
             bool configureMainCamera,
             GameplayCameraBaselineAuthoringPolicy baselineAuthoringPolicy,
-            TopologyRotationVisualMapping topologyRotationVisualMapping,
-            TopologyRotationTweenSettings topologyRotationTweenSettings,
-            GameplayCameraSettings cameraSettings,
-            TopologyTransitionCameraShakeProfile topologyTransitionCameraShakeProfile,
-            TopologyTransitionPostFxProfile topologyTransitionPostFxProfile)
+            GameplayCameraTopologySharedTuning sharedTuning)
         {
             ConfigureMainCamera = configureMainCamera;
             BaselineAuthoringPolicy = baselineAuthoringPolicy;
-            TopologyRotationVisualMapping = topologyRotationVisualMapping;
-            TopologyRotationTweenSettings = topologyRotationTweenSettings;
-            CameraSettings = cameraSettings?.Clone() ?? GameplayCameraSettings.CreateShowcaseDefault();
-            TopologyTransitionCameraShakeProfile =
-                topologyTransitionCameraShakeProfile?.Clone() ?? TopologyTransitionCameraShakeProfile.CreateDefault();
-            TopologyTransitionPostFxProfile =
-                topologyTransitionPostFxProfile?.Clone() ?? TopologyTransitionPostFxProfile.CreateDefault();
+            SharedTuning = sharedTuning?.Clone() ?? GameplayCameraTopologySharedTuning.CreateShowcaseDefault();
         }
 
         public bool ConfigureMainCamera { get; }
 
         public GameplayCameraBaselineAuthoringPolicy BaselineAuthoringPolicy { get; }
 
-        public TopologyRotationVisualMapping TopologyRotationVisualMapping { get; }
-
-        public TopologyRotationTweenSettings TopologyRotationTweenSettings { get; }
-
-        public GameplayCameraSettings CameraSettings { get; }
-
-        public TopologyTransitionCameraShakeProfile TopologyTransitionCameraShakeProfile { get; }
-
-        public TopologyTransitionPostFxProfile TopologyTransitionPostFxProfile { get; }
+        public GameplayCameraTopologySharedTuning SharedTuning { get; }
     }
 
     /// <summary>
@@ -58,27 +40,22 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private GameplayCameraBaselineAuthoringPolicy baselineAuthoringPolicy =
             GameplayCameraBaselineAuthoringPolicy.CreateShowcaseDefault();
         [Tooltip("Inline-only shared tuning. This block is authoritative only when Source Mode is Inline.")]
-        [SerializeField] private GameplayCameraTopologyInlineSharedTuning inlineSharedTuning =
-            GameplayCameraTopologyInlineSharedTuning.CreateShowcaseDefault();
+        [SerializeField] private GameplayCameraTopologySharedTuning inlineSharedTuning =
+            GameplayCameraTopologySharedTuning.CreateShowcaseDefault();
 
         public GameplayCameraTopologyAuthoringSnapshot CreateSnapshot()
         {
             Validate();
-            var sharedSnapshot = ResolveSharedSnapshot();
 
             return new GameplayCameraTopologyAuthoringSnapshot(
                 configureMainCamera,
                 baselineAuthoringPolicy,
-                sharedSnapshot.TopologyRotationVisualMapping,
-                sharedSnapshot.TopologyRotationTweenSettings,
-                sharedSnapshot.CameraSettings,
-                sharedSnapshot.TopologyTransitionCameraShakeProfile,
-                sharedSnapshot.TopologyTransitionPostFxProfile);
+                ResolveSharedTuning());
         }
 
         public void Validate()
         {
-            inlineSharedTuning ??= GameplayCameraTopologyInlineSharedTuning.CreateShowcaseDefault();
+            inlineSharedTuning ??= GameplayCameraTopologySharedTuning.CreateShowcaseDefault();
             inlineSharedTuning.Validate();
             preset?.Validate();
         }
@@ -104,7 +81,7 @@ namespace Game.Feature.Gameplay.Host
         public GameplayCameraSettings GetCameraSettings()
         {
             Validate();
-            return ResolveSharedSnapshot().CameraSettings?.Clone() ??
+            return ResolveSharedTuning().CameraSettings?.Clone() ??
                    GameplayCameraSettings.CreateShowcaseDefault();
         }
 
@@ -117,25 +94,25 @@ namespace Game.Feature.Gameplay.Host
         public TopologyTransitionCameraShakeProfile GetTopologyTransitionCameraShakeProfile()
         {
             Validate();
-            return ResolveSharedSnapshot().TopologyTransitionCameraShakeProfile?.Clone() ??
+            return ResolveSharedTuning().TopologyTransitionCameraShakeProfile?.Clone() ??
                    TopologyTransitionCameraShakeProfile.CreateDefault();
         }
 
         public TopologyTransitionPostFxProfile GetTopologyTransitionPostFxProfile()
         {
             Validate();
-            return ResolveSharedSnapshot().TopologyTransitionPostFxProfile?.Clone() ??
+            return ResolveSharedTuning().TopologyTransitionPostFxProfile?.Clone() ??
                    TopologyTransitionPostFxProfile.CreateDefault();
         }
 
         // Preset mode never reads inline shared tuning. The nested inline lane exists only as the
         // explicit Inline-mode authority surface and is not the canonical runtime source while
         // Preset mode is active.
-        private GameplayCameraTopologyPresetSnapshot ResolveSharedSnapshot()
+        private GameplayCameraTopologySharedTuning ResolveSharedTuning()
         {
             return sourceMode switch
             {
-                GameplayCameraTopologySourceMode.Inline => inlineSharedTuning.CreateSnapshot(),
+                GameplayCameraTopologySourceMode.Inline => inlineSharedTuning.Clone(),
                 GameplayCameraTopologySourceMode.Preset => ResolveRequiredPreset().CreateSnapshot(),
                 _ => throw new ArgumentOutOfRangeException(nameof(sourceMode), sourceMode, "Unknown camera topology source mode."),
             };
