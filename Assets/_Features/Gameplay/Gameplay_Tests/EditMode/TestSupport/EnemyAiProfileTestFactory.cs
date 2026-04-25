@@ -27,6 +27,7 @@ namespace Game.Feature.Gameplay.Tests
         public MovementSkillStrategyKind MovementSkillStrategyKind = MovementSkillStrategyKind.None;
         public EnemyJumpTimingAuthoringSettings JumpTimingSettings = EnemyJumpTimingAuthoringSettings.CreateDefault();
         public EnemyUtilityEffectAuthoring[] UtilityEffects;
+        public EnemyFrontFaceSupportEffectAuthoring[] FrontFaceSupportEffects;
     }
 
     internal static class EnemyAiProfileTestFactory
@@ -420,6 +421,13 @@ namespace Game.Feature.Gameplay.Tests
                 var utility = CreateHiddenAsset<EnemyUtilityCapabilityAsset>("Test_EnemyUtilityCapability");
                 SetSerializedField(utility, "effects", spec.UtilityEffects);
                 yield return utility;
+            }
+
+            if (spec.FrontFaceSupportEffects != null)
+            {
+                var frontFaceSupport = CreateHiddenAsset<EnemyFrontFaceSupportCapabilityAsset>("Test_EnemyFrontFaceSupportCapability");
+                SetSerializedField(frontFaceSupport, "effects", spec.FrontFaceSupportEffects);
+                yield return frontFaceSupport;
             }
         }
 

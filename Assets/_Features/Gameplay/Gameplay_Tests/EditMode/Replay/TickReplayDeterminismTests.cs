@@ -1703,6 +1703,38 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
+        public void Replay_FrontFaceShieldScenario_ProducesStableHashTraceAndEventLog()
+        {
+            var firstReplay = RunFrontFaceShieldReplaySequence();
+            var secondReplay = RunFrontFaceShieldReplaySequence();
+
+            AssertEquivalentReplayOutputs(firstReplay, secondReplay);
+            Assert.That(firstReplay[0].Trace, Does.Contain("Reason=BoxSlideBlockedByFrontFaceShield"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("MovementKind=PushStart"));
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstReplay[0].EventLogDump,
+                    "BoxSlideBlockedByFrontFaceShield",
+                    "MovementKind=PushStart",
+                    "Box=20",
+                    "ShieldSource=40",
+                    "Tick=1"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstReplay[0].EventLogDump,
+                    "PlayerActionBlockedByFrontFaceShield",
+                    "Action=Push",
+                    "Actor=10",
+                    "Box=20",
+                    "ShieldSource=40",
+                    "Tick=1"),
+                Is.True);
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=20|Pos=(0,1)|Hp=1|MaxHp=1|Team=0|Type=Box"));
+        }
+
+        [Test]
+        [Category("Core")]
         public void Replay_EnemyAiScenario_ProducesStablePerTickHashTraceAndFinalState()
         {
             var firstReplay = RunEnemyAiReplaySequence();
@@ -2175,6 +2207,42 @@ namespace Game.Feature.Gameplay.Tests.Replay
                         new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
                         new TickInput(2),
                         new TickInput(3),
+                    });
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        private static IReadOnlyList<TickReplayFrame> RunFrontFaceShieldReplaySequence()
+        {
+            var profile = CreateFrontFaceSupportProfile(
+                CreateBoxSlideShieldSupportEffect(radius: 1));
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, facing: Direction.Up),
+                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 0, 1), capabilities: BoxCapabilities.Push),
+                    CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Front, 0, 1), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Left),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
+                GameplayTerrainData.Empty);
+
+            try
+            {
+                var bootstrapper = GameplayCompositionRoot.CreateDefaultBootstrapper(profile);
+
+                return new TickReplayHarness().Run(
+                    bootstrapper,
+                    worldState,
+                    new IEntityLogic[]
+                    {
+                        CreateImmediatePushPlayerLogic(10),
+                    },
+                    new[]
+                    {
+                        new TickInput(1, PlayerTickCommand.Push(Direction.Up)),
                     });
             }
             finally
@@ -2992,6 +3060,17 @@ namespace Game.Feature.Gameplay.Tests.Replay
             });
         }
 
+        private static EnemyAiProfile CreateFrontFaceSupportProfile(params EnemyFrontFaceSupportEffectAuthoring[] effects)
+        {
+            return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                PatrolStrategyKind = PatrolStrategyKind.Stationary,
+                FrontFaceSupportEffects = effects,
+            });
+        }
+
         private static EnemyUtilityEffectAuthoring CreateSummonUtilityEffect(
             int initialDelayTicks,
             int intervalTicks,
@@ -3052,6 +3131,22 @@ namespace Game.Feature.Gameplay.Tests.Replay
             EnemyAiProfileTestFactory.SetSerializedField(effect, "initialDelaySeconds", TicksToSeconds(initialDelayTicks));
             EnemyAiProfileTestFactory.SetSerializedField(effect, "intervalSeconds", TicksToSeconds(intervalTicks));
             EnemyAiProfileTestFactory.SetSerializedField(effect, "lockNearbyBoxes", lockNearbyBoxes);
+            return effect;
+        }
+
+        private static EnemyFrontFaceSupportEffectAuthoring CreateBoxSlideShieldSupportEffect(
+            int radius,
+            bool includeSourceCell = false,
+            FrontFaceShieldTargetPattern targetPattern = FrontFaceShieldTargetPattern.ManhattanRadius)
+        {
+            var boxSlideShield = new BoxSlideShieldAuthoring();
+            EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "radius", radius);
+            EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "includeSourceCell", includeSourceCell);
+            EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "targetPattern", targetPattern);
+
+            var effect = new EnemyFrontFaceSupportEffectAuthoring();
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyFrontFaceSupportEffectKind.BoxSlideShield);
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "boxSlideShield", boxSlideShield);
             return effect;
         }
 

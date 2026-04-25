@@ -2354,6 +2354,148 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void EnemyAiProfile_CreateRuntimeDefinition_FrontFaceSupportCapability_CompilesBoxSlideShield()
+        {
+            var profile = CreateFrontFaceSupportProfile(
+                CreateBoxSlideShieldSupportEffect(
+                    radius: 2,
+                    includeSourceCell: true,
+                    targetPattern: FrontFaceShieldTargetPattern.OrthogonalAdjacent4));
+
+            try
+            {
+                var definition = profile.CreateRuntimeDefinition(10);
+
+                Assert.That(definition.Capabilities.TryGetFrontFaceSupport(out var support), Is.True);
+                Assert.That(support.Effects, Has.Count.EqualTo(1));
+                Assert.That(support.Effects[0].Kind, Is.EqualTo(EnemyFrontFaceSupportEffectKind.BoxSlideShield));
+                Assert.That(support.Effects[0].BoxSlideShield.Radius, Is.EqualTo(2));
+                Assert.That(support.Effects[0].BoxSlideShield.IncludeSourceCell, Is.True);
+                Assert.That(support.Effects[0].BoxSlideShield.TargetPattern, Is.EqualTo(FrontFaceShieldTargetPattern.OrthogonalAdjacent4));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayEntityLogicProviderFactory_FrontFaceSupportOnlyProfile_RegistersSupportLaneWithoutCombatLogics()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Front, 0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            var profile = CreateFrontFaceSupportProfile(CreateBoxSlideShieldSupportEffect());
+
+            try
+            {
+                var provider = GameplayEntityLogicProviderFactory.CreateDefault(profile);
+                var logicSet = provider.Build(worldState.CreateSnapshot(), Array.Empty<IEntityLogic>());
+
+                Assert.That(logicSet.AiStateLogics, Has.Count.EqualTo(1));
+                Assert.That(logicSet.PreMovementStateLogics, Has.Count.EqualTo(1));
+                Assert.That(logicSet.FrontFaceSupportLogics, Has.Count.EqualTo(1));
+                Assert.That(logicSet.MovementLogics, Has.Count.EqualTo(1));
+                Assert.That(logicSet.EnemyActionStateLogics, Is.Empty);
+                Assert.That(logicSet.AttackLogics, Is.Empty);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void FrontFaceShieldSource_FrontFaceOccupyingSource_IsActive()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Front, 0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            var profile = CreateFrontFaceSupportProfile(CreateBoxSlideShieldSupportEffect());
+
+            try
+            {
+                var provider = GameplayEntityLogicProviderFactory.CreateDefault(profile);
+                var logicSet = provider.Build(worldState.CreateSnapshot(), Array.Empty<IEntityLogic>());
+                var contributors = new List<FrontFaceSupportContributor>();
+
+                logicSet.FrontFaceSupportLogics[0].CollectFrontFaceSupportContributors(
+                    worldState.CreateSnapshot(),
+                    new TickInput(1),
+                    contributors);
+
+                Assert.That(contributors, Has.Count.EqualTo(1));
+                Assert.That(contributors[0].SourceEntityId, Is.EqualTo(40));
+                Assert.That(contributors[0].SourceCell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+                Assert.That(contributors[0].EffectRuntime.Kind, Is.EqualTo(EnemyFrontFaceSupportEffectKind.BoxSlideShield));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void FrontFaceShieldSource_BottomFaceSource_IsInactive()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            var profile = CreateFrontFaceSupportProfile(CreateBoxSlideShieldSupportEffect());
+
+            try
+            {
+                var provider = GameplayEntityLogicProviderFactory.CreateDefault(profile);
+                var logicSet = provider.Build(worldState.CreateSnapshot(), Array.Empty<IEntityLogic>());
+                var contributors = new List<FrontFaceSupportContributor>();
+
+                logicSet.FrontFaceSupportLogics[0].CollectFrontFaceSupportContributors(
+                    worldState.CreateSnapshot(),
+                    new TickInput(1),
+                    contributors);
+
+                Assert.That(contributors, Is.Empty);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void FrontFaceShieldSource_DeadMarkedOrNonOccupying_IsInactive()
+        {
+            var deadSource = CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Front, 0, 0), aiMode: EnemyAiMode.Dead, hp: 0);
+            var markedSource = CreateUnit(entityId: 41, teamId: 2, position: new SurfaceCell(FaceId.Front, 1, 0), aiMode: EnemyAiMode.Patrol);
+            markedSource.markedForDeath = true;
+            var detachedSource = CreateUnit(entityId: 42, teamId: 2, position: new SurfaceCell(FaceId.Front, 2, 0), aiMode: EnemyAiMode.Patrol);
+            detachedSource.boardPresence = EntityBoardPresence.Detached;
+            var profile = CreateFrontFaceSupportProfile(CreateBoxSlideShieldSupportEffect());
+
+            try
+            {
+                var provider = GameplayEntityLogicProviderFactory.CreateDefault(profile);
+
+                Assert.That(CollectSupportContributors(provider, deadSource), Is.Empty);
+                Assert.That(CollectSupportContributors(provider, markedSource), Is.Empty);
+                Assert.That(CollectSupportContributors(provider, detachedSource), Is.Empty);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void EnemyAiProfileCompiler_UtilityCapability_LockNearbyBoxes_NullPayload_Throws()
         {
             var effect = new EnemyUtilityEffectAuthoring();
@@ -3190,6 +3332,97 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 UnityEngine.Object.DestroyImmediate(duplicateUtility);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAiProfileCompiler_FrontFaceSupportCapability_NullEffect_Throws()
+        {
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                PatrolStrategyKind = PatrolStrategyKind.Stationary,
+                FrontFaceSupportEffects = new EnemyFrontFaceSupportEffectAuthoring[] { null },
+            });
+
+            try
+            {
+                Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAiProfileCompiler_FrontFaceSupportCapability_NullPayload_Throws()
+        {
+            var effect = new EnemyFrontFaceSupportEffectAuthoring();
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyFrontFaceSupportEffectKind.BoxSlideShield);
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "boxSlideShield", null);
+            var profile = CreateFrontFaceSupportProfile(effect);
+
+            try
+            {
+                Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAiProfileCompiler_FrontFaceSupportCapability_NonPositiveRadius_Throws()
+        {
+            var profile = CreateFrontFaceSupportProfile(
+                CreateBoxSlideShieldSupportEffect(radius: 0));
+
+            try
+            {
+                Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAiProfileCompiler_FrontFaceSupportCapability_DuplicateFamily_Throws()
+        {
+            var profile = CreateFrontFaceSupportProfile(CreateBoxSlideShieldSupportEffect());
+            var duplicateSupport = ScriptableObject.CreateInstance<EnemyFrontFaceSupportCapabilityAsset>();
+            duplicateSupport.hideFlags = HideFlags.HideAndDontSave;
+            EnemyAiProfileTestFactory.SetSerializedField(
+                duplicateSupport,
+                "effects",
+                new[] { CreateBoxSlideShieldSupportEffect(radius: 2) });
+
+            try
+            {
+                var capabilities = EnemyAiProfileTestFactory.GetSerializedField<List<EnemyCapabilityAsset>>(profile, "capabilityAssets");
+                EnemyAiProfileTestFactory.SetSerializedField(
+                    profile,
+                    "capabilityAssets",
+                    new List<EnemyCapabilityAsset>
+                    {
+                        capabilities[0],
+                        duplicateSupport,
+                    });
+
+                Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(duplicateSupport);
                 DestroyProfile(profile);
             }
         }
@@ -4764,6 +4997,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             });
         }
 
+        private static EnemyAiProfile CreateFrontFaceSupportProfile(EnemyFrontFaceSupportEffectAuthoring effect)
+        {
+            return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                PatrolStrategyKind = PatrolStrategyKind.Stationary,
+                FrontFaceSupportEffects = new[] { effect },
+            });
+        }
+
         private static EnemyUtilityEffectAuthoring CreateSummonUtilityEffect(
             float initialDelaySeconds = 0f,
             float intervalSeconds = 1f,
@@ -4941,6 +5185,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
             EnemyAiProfileTestFactory.SetSerializedField(effect, "intervalSeconds", intervalSeconds);
             EnemyAiProfileTestFactory.SetSerializedField(effect, "lockNearbyBoxes", lockNearbyBoxes);
             return effect;
+        }
+
+        private static EnemyFrontFaceSupportEffectAuthoring CreateBoxSlideShieldSupportEffect(
+            int radius = 1,
+            bool includeSourceCell = false,
+            FrontFaceShieldTargetPattern targetPattern = FrontFaceShieldTargetPattern.ManhattanRadius)
+        {
+            var boxSlideShield = new BoxSlideShieldAuthoring();
+            EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "radius", radius);
+            EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "includeSourceCell", includeSourceCell);
+            EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "targetPattern", targetPattern);
+
+            var effect = new EnemyFrontFaceSupportEffectAuthoring();
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyFrontFaceSupportEffectKind.BoxSlideShield);
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "boxSlideShield", boxSlideShield);
+            return effect;
+        }
+
+        private static IReadOnlyList<FrontFaceSupportContributor> CollectSupportContributors(
+            ISnapshotEntityLogicProvider provider,
+            EntityState source)
+        {
+            var worldState = CreateWorldState(new[] { source }, new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)));
+            var logicSet = provider.Build(worldState.CreateSnapshot(), Array.Empty<IEntityLogic>());
+            var contributors = new List<FrontFaceSupportContributor>();
+            logicSet.FrontFaceSupportLogics[0].CollectFrontFaceSupportContributors(
+                worldState.CreateSnapshot(),
+                new TickInput(1),
+                contributors);
+            return contributors;
         }
 
         private static void DestroyProfile(EnemyAiProfile profile)
