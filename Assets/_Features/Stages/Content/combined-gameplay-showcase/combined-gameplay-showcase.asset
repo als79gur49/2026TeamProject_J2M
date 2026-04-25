@@ -282,7 +282,7 @@ MonoBehaviour:
     BoxCapabilities: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
-    EnemyAiProfile: {fileID: 11400000, guid: c060b28c68d33c04fb7290a2357fba36, type: 2}
+    EnemyAiProfile: {fileID: 11400000, guid: 8fdb5400ceb74592aa5dea3cbb2cf2a8, type: 2}
     PresentationId: 
     UnitStackGroup: 
   wallSpawns:
