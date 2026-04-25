@@ -34,6 +34,29 @@ namespace Game.Feature.Gameplay.Host
         private TopologyRotationTweenSettings _topologyRotationTweenSettings = TopologyRotationTweenSettings.CreateDefault();
         private TopologyRotationVisualMapping _topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesPositiveX;
 
+        private readonly struct ActiveTransitionEndpoints
+        {
+            public ActiveTransitionEndpoints(
+                float startRotationXDegrees,
+                float destinationRotationXDegrees,
+                Quaternion startRotation,
+                Quaternion destinationRotation)
+            {
+                StartRotationXDegrees = startRotationXDegrees;
+                DestinationRotationXDegrees = destinationRotationXDegrees;
+                StartRotation = startRotation;
+                DestinationRotation = destinationRotation;
+            }
+
+            public float StartRotationXDegrees { get; }
+
+            public float DestinationRotationXDegrees { get; }
+
+            public Quaternion StartRotation { get; }
+
+            public Quaternion DestinationRotation { get; }
+        }
+
         public GameplayTopologyTransitionController(GameplayMotionTimingResolver motionTimingResolver)
         {
             _motionTimingResolver = motionTimingResolver ?? throw new ArgumentNullException(nameof(motionTimingResolver));
@@ -67,7 +90,7 @@ namespace Game.Feature.Gameplay.Host
         public void AttachCameraRig(GameplayCameraRig cameraRig)
         {
             _cameraRig = cameraRig;
-            ApplyPresentedBoardRotation(_presentedBoardRotationXDegrees, forceApply: true);
+            ApplyPresentedRotation(_presentedBoardRotationXDegrees, forceApply: true);
         }
 
         public void Reset()
@@ -79,7 +102,7 @@ namespace Game.Feature.Gameplay.Host
             _boardSurfaceTransitionDestinationRotation = Quaternion.identity;
             KillBoardRotationTween();
             _isBoardSurfaceTransitionActive = false;
-            ApplyPresentedBoardRotation(0f, forceApply: true);
+            ApplyPresentedRotation(0f, forceApply: true);
             UpdateInactiveVisualState();
         }
 
@@ -91,7 +114,7 @@ namespace Game.Feature.Gameplay.Host
             var restReferenceRotation = ResolveRotationFromXDegrees(restReferenceRotationXDegrees);
             _boardSurfaceTransitionStartRotation = restReferenceRotation;
             _boardSurfaceTransitionDestinationRotation = restReferenceRotation;
-            ApplyPresentedBoardRotation(restReferenceRotationXDegrees, forceApply: true);
+            ApplyPresentedRotation(restReferenceRotationXDegrees, forceApply: true);
             _boardSurfaceRenderer?.CompleteTopologyTransition(topology);
             UpdateInactiveVisualState();
         }
@@ -118,7 +141,7 @@ namespace Game.Feature.Gameplay.Host
                 var restReferenceRotation = ResolveRotationFromXDegrees(restReferenceRotationXDegrees);
                 _boardSurfaceTransitionStartRotation = restReferenceRotation;
                 _boardSurfaceTransitionDestinationRotation = restReferenceRotation;
-                ApplyPresentedBoardRotation(restReferenceRotationXDegrees, forceApply: true);
+                ApplyPresentedRotation(restReferenceRotationXDegrees, forceApply: true);
                 UpdateInactiveVisualState();
                 return;
             }
@@ -129,18 +152,12 @@ namespace Game.Feature.Gameplay.Host
                 MinimumTopologyTweenDurationSeconds);
             _activeTopologyMotion = topologyMotion;
             _activeTopologyMotionDurationSeconds = durationSeconds;
-            var startRotationXDegrees = _presentedBoardRotationXDegrees;
-            var destinationRotationXDegrees =
-                ResolveNearestRestReferenceAngleXDegrees(startRotationXDegrees, topologyMotion.DestinationTopology);
-            var startRotation = ResolveRotationFromXDegrees(startRotationXDegrees);
-            var destinationRotation = ResolveRotationFromXDegrees(destinationRotationXDegrees);
-            _boardSurfaceTransitionStartRotation = startRotation;
-            _boardSurfaceTransitionDestinationRotation = destinationRotation;
-            ApplyPresentedBoardRotation(startRotationXDegrees, forceApply: true);
-            RecalculateVisualState(startRotation, deltaTime: 0f);
+            var activeTransitionEndpoints = ConfigureActiveTransitionEndpoints(topologyMotion.DestinationTopology);
+            ApplyPresentedRotation(activeTransitionEndpoints.StartRotationXDegrees, forceApply: true);
+            RecalculateVisualState(activeTransitionEndpoints.StartRotation, deltaTime: 0f);
             StartBoardRotationTween(
-                startRotationXDegrees,
-                destinationRotationXDegrees,
+                activeTransitionEndpoints.StartRotationXDegrees,
+                activeTransitionEndpoints.DestinationRotationXDegrees,
                 durationSeconds);
         }
 
@@ -177,12 +194,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var topologyMotion = presentationData.TopologyMotion.Value;
-            _boardSurfaceTransitionStartRotation = _presentedBoardRotation;
-            _boardSurfaceTransitionDestinationRotation =
-                ResolveRotationFromXDegrees(
-                    ResolveNearestRestReferenceAngleXDegrees(
-                        _presentedBoardRotationXDegrees,
-                        topologyMotion.DestinationTopology));
+            ConfigureActiveTransitionEndpoints(topologyMotion.DestinationTopology);
             _boardSurfaceRenderer.BeginTopologyTransition(
                 topologyMotion.SourceTopology,
                 topologyMotion.DestinationTopology);
@@ -206,7 +218,7 @@ namespace Game.Feature.Gameplay.Host
                 var restReferenceRotation = ResolveRotationFromXDegrees(restReferenceRotationXDegrees);
                 _boardSurfaceTransitionStartRotation = restReferenceRotation;
                 _boardSurfaceTransitionDestinationRotation = restReferenceRotation;
-                ApplyPresentedBoardRotation(restReferenceRotationXDegrees);
+                ApplyPresentedRotation(restReferenceRotationXDegrees);
             }
 
             UpdateBoardSurfaceTransition(_presentedBoardRotation);
@@ -226,22 +238,38 @@ namespace Game.Feature.Gameplay.Host
             var desiredAngleXDegrees = ResolveRestReferenceAngleXDegrees(topology);
             return currentAngleXDegrees + Mathf.DeltaAngle(currentAngleXDegrees, desiredAngleXDegrees);
         }
-        private void ApplyPresentedBoardRotation(float visualReferenceRotationXDegrees, bool forceApply = false)
+
+        private ActiveTransitionEndpoints ConfigureActiveTransitionEndpoints(CubeTopologyState destinationTopology)
         {
-            var visualReferenceRotation = ResolveRotationFromXDegrees(visualReferenceRotationXDegrees);
+            var startRotationXDegrees = _presentedBoardRotationXDegrees;
+            var destinationRotationXDegrees =
+                ResolveNearestRestReferenceAngleXDegrees(startRotationXDegrees, destinationTopology);
+            var activeTransitionEndpoints = new ActiveTransitionEndpoints(
+                startRotationXDegrees,
+                destinationRotationXDegrees,
+                ResolveRotationFromXDegrees(startRotationXDegrees),
+                ResolveRotationFromXDegrees(destinationRotationXDegrees));
+            _boardSurfaceTransitionStartRotation = activeTransitionEndpoints.StartRotation;
+            _boardSurfaceTransitionDestinationRotation = activeTransitionEndpoints.DestinationRotation;
+            return activeTransitionEndpoints;
+        }
+
+        private void ApplyPresentedRotation(float presentedRotationXDegrees, bool forceApply = false)
+        {
+            var presentedRotation = ResolveRotationFromXDegrees(presentedRotationXDegrees);
             if (!forceApply &&
-                Quaternion.Angle(_presentedBoardRotation, visualReferenceRotation) <= 0.001f &&
-                Mathf.Abs(_presentedBoardRotationXDegrees - visualReferenceRotationXDegrees) <= 0.001f)
+                Quaternion.Angle(_presentedBoardRotation, presentedRotation) <= 0.001f &&
+                Mathf.Abs(_presentedBoardRotationXDegrees - presentedRotationXDegrees) <= 0.001f)
             {
                 return;
             }
 
-            _presentedBoardRotation = visualReferenceRotation;
-            _presentedBoardRotationXDegrees = visualReferenceRotationXDegrees;
-            _boardRoot?.ApplyPresentationRotation(visualReferenceRotation, _resolveCubeCenter());
+            _presentedBoardRotation = presentedRotation;
+            _presentedBoardRotationXDegrees = presentedRotationXDegrees;
+            _boardRoot?.ApplyPresentationRotation(presentedRotation, _resolveCubeCenter());
             _cameraRig?.SetPresentedTopologyOrbit(
-                Quaternion.Inverse(visualReferenceRotation),
-                -visualReferenceRotationXDegrees);
+                Quaternion.Inverse(presentedRotation),
+                -presentedRotationXDegrees);
         }
 
         private void CleanupCompletedBoardSurfaceTransitionState(CubeTopologyState committedTopology)
@@ -314,21 +342,14 @@ namespace Game.Feature.Gameplay.Host
                         progress = value;
                         var tweenedRotationXDegrees =
                             Mathf.LerpUnclamped(startRotationXDegrees, destinationRotationXDegrees, progress);
-                        var tweenedRotation = ResolveRotationFromXDegrees(tweenedRotationXDegrees);
-
-                        _presentedBoardRotation = tweenedRotation;
-                        _presentedBoardRotationXDegrees = tweenedRotationXDegrees;
-                        _boardRoot?.ApplyPresentationRotation(tweenedRotation, _resolveCubeCenter());
-                        _cameraRig?.SetPresentedTopologyOrbit(
-                            Quaternion.Inverse(tweenedRotation),
-                            -tweenedRotationXDegrees);
+                        ApplyPresentedRotation(tweenedRotationXDegrees);
                     },
                     1f,
                     durationSeconds)
                 .SetEase(ResolveTopologyRotationEase())
                 .SetUpdate(UpdateType.Manual)
                 .SetAutoKill(true)
-                .OnComplete(() => ApplyPresentedBoardRotation(destinationRotationXDegrees, forceApply: true))
+                .OnComplete(() => ApplyPresentedRotation(destinationRotationXDegrees, forceApply: true))
                 .OnKill(() =>
                 {
                     _boardRotationTween = null;
