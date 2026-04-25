@@ -410,8 +410,19 @@ namespace Game.Feature.Gameplay.Loop
             var executableMovementIntents = FilterExecutionLockedMovementIntents(planSnapshot, input.TickIndex, rawMovementIntents, rejectedReasons);
             var sortedIntents = BuildMovementIntents(executableMovementIntents);
             var playerTraversalSourceIds = CollectPlayerTraversalSourceIds(entityLogicsForTick.MovementLogics);
+            var frontFaceSupportContributors = CollectFrontFaceSupportContributors(
+                entityLogicsForTick.FrontFaceSupportLogics,
+                planSnapshot,
+                in input);
             var expandedCandidates = new List<ActionGroup>();
-            _movementExpander.Expand(planSnapshot, input.TickIndex, sortedIntents, playerTraversalSourceIds, expandedCandidates, rejectedReasons);
+            _movementExpander.Expand(
+                planSnapshot,
+                input.TickIndex,
+                sortedIntents,
+                playerTraversalSourceIds,
+                frontFaceSupportContributors,
+                expandedCandidates,
+                rejectedReasons);
             expandedCandidates.Sort(ActionGroupComparer.Instance);
             AssignMovementGroupIds(expandedCandidates);
             var movementActionPlanPayloads = BuildMovementActionPlanPayloads(
@@ -871,6 +882,7 @@ namespace Game.Feature.Gameplay.Loop
             AddRange(movementResolvedOperations, jumpLandingResolveBatch.Operations);
             AddRange(movementResolvedOperations, phaseRelocationResolveBatch.Operations);
             AppendBoxInteractionLockBlockedEvents(movementRejectedReasons, movementCommitEvents, tickIndex);
+            AppendFrontFaceShieldBlockedEvents(movementRejectedReasons, movementCommitEvents, tickIndex);
             var movementPhaseResult = new MovementPhaseResult(
                 planPhaseResult.RawIntents,
                 planPhaseResult.SortedIntents,
@@ -940,6 +952,26 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return playerTraversalSourceIds;
+        }
+
+        private static List<FrontFaceSupportContributor> CollectFrontFaceSupportContributors(
+            IReadOnlyList<IFrontFaceSupportLogic> entityLogics,
+            WorldSnapshot snapshot,
+            in TickInput input)
+        {
+            var contributors = new List<FrontFaceSupportContributor>(entityLogics?.Count ?? 0);
+            if (entityLogics == null)
+            {
+                return contributors;
+            }
+
+            for (var i = 0; i < entityLogics.Count; i++)
+            {
+                entityLogics[i].CollectFrontFaceSupportContributors(snapshot, input, contributors);
+            }
+
+            contributors.Sort(FrontFaceSupportContributorComparer.Instance);
+            return contributors;
         }
 
 
@@ -4843,6 +4875,35 @@ namespace Game.Feature.Gameplay.Loop
             }
         }
 
+        private static void AppendFrontFaceShieldBlockedEvents(
+            IReadOnlyList<string> movementRejectedReasons,
+            List<string> movementCommitEvents,
+            int tickIndex)
+        {
+            if (movementRejectedReasons == null || movementCommitEvents == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < movementRejectedReasons.Count; i++)
+            {
+                if (!TryBuildFrontFaceShieldBlockedEvents(
+                        movementRejectedReasons[i],
+                        tickIndex,
+                        out var blockedEvent,
+                        out var playerBlockedEvent))
+                {
+                    continue;
+                }
+
+                movementCommitEvents.Add(blockedEvent);
+                if (!string.IsNullOrEmpty(playerBlockedEvent))
+                {
+                    movementCommitEvents.Add(playerBlockedEvent);
+                }
+            }
+        }
+
         private static bool TryBuildBoxInteractionLockBlockedEvent(
             string movementRejectedReason,
             int tickIndex,
@@ -4878,6 +4939,42 @@ namespace Game.Feature.Gameplay.Loop
 
             blockedEvent =
                 $"PlayerActionBlockedByBoxInteractionLock|Action={actionKind}|Actor={sourceText}|Box={targetText}|Cell={cellText}|Tick={tickIndex}";
+            return true;
+        }
+
+        private static bool TryBuildFrontFaceShieldBlockedEvents(
+            string movementRejectedReason,
+            int tickIndex,
+            out string blockedEvent,
+            out string playerBlockedEvent)
+        {
+            blockedEvent = null;
+            playerBlockedEvent = null;
+            if (string.IsNullOrEmpty(movementRejectedReason) ||
+                !movementRejectedReason.StartsWith("MovementRejected|", StringComparison.Ordinal) ||
+                !movementRejectedReason.Contains("Reason=BoxSlideBlockedByFrontFaceShield", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (!TryGetStructuredLogValue(movementRejectedReason, "MovementKind", out var movementKindText) ||
+                !TryGetStructuredLogValue(movementRejectedReason, "Box", out var boxText) ||
+                !TryGetStructuredLogValue(movementRejectedReason, "Cell", out var cellText) ||
+                !TryGetStructuredLogValue(movementRejectedReason, "ShieldSource", out var shieldSourceText))
+            {
+                return false;
+            }
+
+            blockedEvent =
+                $"BoxSlideBlockedByFrontFaceShield|MovementKind={movementKindText}|Box={boxText}|Cell={cellText}|ShieldSource={shieldSourceText}|Tick={tickIndex}";
+
+            if (string.Equals(movementKindText, nameof(BoxSlideMovementKind.PushStart), StringComparison.Ordinal) &&
+                TryGetStructuredLogValue(movementRejectedReason, "Source", out var sourceText))
+            {
+                playerBlockedEvent =
+                    $"PlayerActionBlockedByFrontFaceShield|Action={PlayerActionKind.Push}|Actor={sourceText}|Box={boxText}|Cell={cellText}|ShieldSource={shieldSourceText}|Tick={tickIndex}";
+            }
+
             return true;
         }
 

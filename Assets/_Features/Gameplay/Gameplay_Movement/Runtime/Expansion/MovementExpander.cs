@@ -34,7 +34,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             List<ActionGroup> buffer,
             List<string> rejectedReasons)
         {
-            Expand(snapshot, tickIndex: 0, sortedIntents, null, buffer, rejectedReasons);
+            Expand(snapshot, tickIndex: 0, sortedIntents, null, null, buffer, rejectedReasons);
         }
 
         public void Expand(
@@ -44,7 +44,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             List<ActionGroup> buffer,
             List<string> rejectedReasons)
         {
-            Expand(snapshot, tickIndex, sortedIntents, null, buffer, rejectedReasons);
+            Expand(snapshot, tickIndex, sortedIntents, null, null, buffer, rejectedReasons);
         }
 
         public void Expand(
@@ -54,7 +54,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             List<ActionGroup> buffer,
             List<string> rejectedReasons)
         {
-            Expand(snapshot, tickIndex: 0, sortedIntents, playerTraversalSourceIds, buffer, rejectedReasons);
+            Expand(snapshot, tickIndex: 0, sortedIntents, playerTraversalSourceIds, null, buffer, rejectedReasons);
         }
 
         public void Expand(
@@ -62,6 +62,18 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             int tickIndex,
             IReadOnlyList<MoveIntent> sortedIntents,
             ISet<int> playerTraversalSourceIds,
+            List<ActionGroup> buffer,
+            List<string> rejectedReasons)
+        {
+            Expand(snapshot, tickIndex, sortedIntents, playerTraversalSourceIds, null, buffer, rejectedReasons);
+        }
+
+        public void Expand(
+            WorldSnapshot snapshot,
+            int tickIndex,
+            IReadOnlyList<MoveIntent> sortedIntents,
+            ISet<int> playerTraversalSourceIds,
+            IReadOnlyList<FrontFaceSupportContributor> frontFaceSupportContributors,
             List<ActionGroup> buffer,
             List<string> rejectedReasons)
         {
@@ -111,7 +123,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 {
                     case MovementCommandKind.Push:
                     case MovementCommandKind.Move:
-                        ExpandMoveLike(snapshot, entity, intent, tickIndex, playerTraversalSourceIds, buffer, rejectedReasons);
+                        ExpandMoveLike(snapshot, entity, intent, tickIndex, playerTraversalSourceIds, frontFaceSupportContributors, buffer, rejectedReasons);
                         break;
 
                     case MovementCommandKind.Flip:
@@ -132,12 +144,13 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             MoveIntent intent,
             int tickIndex,
             ISet<int> playerTraversalSourceIds,
+            IReadOnlyList<FrontFaceSupportContributor> frontFaceSupportContributors,
             List<ActionGroup> buffer,
             List<string> rejectedReasons)
         {
             if (IsSlidingPushBox(source))
             {
-                ExpandSlidingPushBoxMove(snapshot, source, intent, tickIndex, buffer, rejectedReasons);
+                ExpandSlidingPushBoxMove(snapshot, source, intent, tickIndex, frontFaceSupportContributors, buffer, rejectedReasons);
                 return;
             }
 
@@ -192,7 +205,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                     snapshot.Topology.IsFaceActive(targetBox.position.face) &&
                     HasBoxCapability(targetBox, BoxCapabilities.Push))
                 {
-                    TryExpandPush(snapshot, source, targetBox, intent, delta, stepFacing, buffer, rejectedReasons);
+                    TryExpandPush(snapshot, source, targetBox, intent, tickIndex, delta, stepFacing, frontFaceSupportContributors, buffer, rejectedReasons);
                     return;
                 }
 
@@ -485,8 +498,10 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             EntityState source,
             EntityState target,
             MoveIntent intent,
+            int tickIndex,
             Vector2Int delta,
             Direction stepFacing,
+            IReadOnlyList<FrontFaceSupportContributor> frontFaceSupportContributors,
             List<ActionGroup> buffer,
             List<string> rejectedReasons)
         {
@@ -528,6 +543,28 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 return;
             }
 
+            if (BoxSlideBlockerQuery.TryResolveBlocker(
+                    snapshot,
+                    frontFaceSupportContributors,
+                    tickIndex,
+                    target,
+                    target.position,
+                    destination,
+                    BoxSlideMovementKind.PushStart,
+                    out var blocker))
+            {
+                rejectedReasons.Add(
+                    BuildFrontFaceShieldRejectedReason(
+                        intent.SourceId,
+                        intent.IntentId,
+                        BoxSlideMovementKind.PushStart,
+                        target.entityId,
+                        target.position,
+                        destination,
+                        blocker));
+                return;
+            }
+
             var actionGroup = new ActionGroup(
                 intent.IntentId,
                 intent.SourceId,
@@ -553,6 +590,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             EntityState source,
             MoveIntent intent,
             int tickIndex,
+            IReadOnlyList<FrontFaceSupportContributor> frontFaceSupportContributors,
             List<ActionGroup> buffer,
             List<string> rejectedReasons)
         {
@@ -591,6 +629,40 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 {
                     return;
                 }
+
+                var stopGroup = new ActionGroup(
+                    intent.IntentId,
+                    intent.SourceId,
+                    intent.Priority,
+                    ActionGroupKind.Stop);
+                stopGroup.StateChanges.Add(
+                    new StateChangeAction(
+                        source.entityId,
+                        EntityPhaseState.Idle,
+                        stateTimer: 0));
+                buffer.Add(stopGroup);
+                return;
+            }
+
+            if (BoxSlideBlockerQuery.TryResolveBlocker(
+                    snapshot,
+                    frontFaceSupportContributors,
+                    tickIndex,
+                    source,
+                    source.position,
+                    destination,
+                    BoxSlideMovementKind.SlidingContinuation,
+                    out var blocker))
+            {
+                rejectedReasons.Add(
+                    BuildFrontFaceShieldRejectedReason(
+                        intent.SourceId,
+                        intent.IntentId,
+                        BoxSlideMovementKind.SlidingContinuation,
+                        source.entityId,
+                        source.position,
+                        destination,
+                        blocker));
 
                 var stopGroup = new ActionGroup(
                     intent.IntentId,
@@ -788,6 +860,19 @@ namespace Game.Feature.Gameplay.Movement.Expansion
 
             sourceTeamId = 0;
             return false;
+        }
+
+        private static string BuildFrontFaceShieldRejectedReason(
+            int sourceId,
+            int intentId,
+            BoxSlideMovementKind movementKind,
+            int boxEntityId,
+            SurfaceCell sourceCell,
+            SurfaceCell destinationCell,
+            in BoxSlideBlockerResult blocker)
+        {
+            return
+                $"MovementRejected|Stage=Expand|Source={sourceId}|I={intentId}|Reason=BoxSlideBlockedByFrontFaceShield|MovementKind={movementKind}|Box={boxEntityId}|From={FormatCell(sourceCell)}|Cell={FormatCell(destinationCell)}|ShieldSource={blocker.BlockerEntityId}|ShieldCell={FormatCell(blocker.BlockerSourceCell)}";
         }
 
         private static string FormatStopper(SlideStopper stopper)
