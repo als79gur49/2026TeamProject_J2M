@@ -26,6 +26,7 @@ namespace Game.Feature.Gameplay.Tests
         public bool IncludePassiveContact;
         public MovementSkillStrategyKind MovementSkillStrategyKind = MovementSkillStrategyKind.None;
         public EnemyJumpTimingAuthoringSettings JumpTimingSettings = EnemyJumpTimingAuthoringSettings.CreateDefault();
+        public EnemyGlideTimingAuthoringSettings GlideTimingSettings = EnemyGlideTimingAuthoringSettings.CreateDefault();
         public EnemyUtilityEffectAuthoring[] UtilityEffects;
         public EnemyFrontFaceSupportEffectAuthoring[] FrontFaceSupportEffects;
     }
@@ -190,6 +191,37 @@ namespace Game.Feature.Gameplay.Tests
                 AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
                 MovementSkillStrategyKind = MovementSkillStrategyKind.JumpToLockedTarget,
                 JumpTimingSettings = ToAuthoring(jumpTimingSettings),
+                IncludePassiveContact = includePassiveContact,
+            });
+        }
+
+        public static EnemyAiProfile CreateGlideChaser(
+            EnemyGlideTimingSettings glideTimingSettings,
+            int moveCooldownTicks = 0,
+            bool includePassiveContact = false)
+        {
+            return Create(new EnemyAiTestProfileSpec
+            {
+                LocomotionTimingSettings = ToAuthoring(new EnemyLocomotionTimingSettings(moveCooldownTicks)),
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                MovementSkillStrategyKind = MovementSkillStrategyKind.GlideOverSolid,
+                GlideTimingSettings = ToAuthoring(glideTimingSettings),
+                IncludePassiveContact = includePassiveContact,
+            });
+        }
+
+        public static EnemyAiProfile CreateGlidePatrol(
+            EnemyGlideTimingSettings glideTimingSettings,
+            int moveCooldownTicks = 0,
+            bool includePassiveContact = false)
+        {
+            return Create(new EnemyAiTestProfileSpec
+            {
+                LocomotionTimingSettings = ToAuthoring(new EnemyLocomotionTimingSettings(moveCooldownTicks)),
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                MovementSkillStrategyKind = MovementSkillStrategyKind.GlideOverSolid,
+                GlideTimingSettings = ToAuthoring(glideTimingSettings),
                 IncludePassiveContact = includePassiveContact,
             });
         }
@@ -409,6 +441,14 @@ namespace Game.Feature.Gameplay.Tests
                     break;
                 }
 
+                case MovementSkillStrategyKind.GlideOverSolid:
+                {
+                    var glide = CreateHiddenAsset<GlideOverSolidCapabilityAsset>("Test_GlideOverSolidCapability");
+                    SetSerializedField(glide, "glideTimingSettings", spec.GlideTimingSettings);
+                    yield return glide;
+                    break;
+                }
+
                 default:
                     throw new ArgumentOutOfRangeException(
                         nameof(spec.MovementSkillStrategyKind),
@@ -471,6 +511,13 @@ namespace Game.Feature.Gameplay.Tests
         private static EnemyJumpTimingAuthoringSettings ToAuthoring(EnemyJumpTimingSettings settings)
         {
             return EnemyJumpTimingAuthoringSettings.FromRuntimeSettings(
+                settings,
+                GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+        }
+
+        private static EnemyGlideTimingAuthoringSettings ToAuthoring(EnemyGlideTimingSettings settings)
+        {
+            return EnemyGlideTimingAuthoringSettings.FromRuntimeSettings(
                 settings,
                 GameplayTimingProfile.DefaultSimulationTicksPerSecond);
         }

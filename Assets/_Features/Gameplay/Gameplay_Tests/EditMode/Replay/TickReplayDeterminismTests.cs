@@ -1412,6 +1412,40 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Extended")]
+        public void DeterminismHash_EnemyGlideState_IsIncludedInCanonicalState()
+        {
+            var idleWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Chase),
+            });
+            var glideWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Chase),
+            });
+
+            glideWorldState.CreateWriteContext().SetEnemyGlideState(
+                40,
+                EnemyGlideRuntimeState.Create(
+                    isActive: true,
+                    isLandingPending: false,
+                    sequence: 2,
+                    activeUntilTickExclusive: 8,
+                    cooldownUntilTickExclusive: 0,
+                    durationTicks: 3,
+                    cooldownTicks: 2,
+                    lastExitedTick: 0,
+                    landingPendingCell: default));
+
+            var idleResult = GameplayCompositionRoot.CreateTickPipeline(idleWorldState).RunTick(new TickInput(1));
+            var glideResult = GameplayCompositionRoot.CreateTickPipeline(glideWorldState).RunTick(new TickInput(1));
+
+            Assert.That(idleResult.DeterminismHash, Is.Not.EqualTo(glideResult.DeterminismHash));
+            Assert.That(glideResult.Trace.Text, Does.Contain("Final.EnemyGlides"));
+            Assert.That(glideResult.Trace.Text, Does.Contain("E=40|Active=1|LandingPending=0|Seq=2|ActiveUntil=8|CooldownUntil=0|Duration=3|Cooldown=2|LastExited=0"));
+        }
+
+        [Test]
         [Category("Core")]
         public void DeterminismHash_EnemyChargeState_IsIncludedInCanonicalState()
         {
