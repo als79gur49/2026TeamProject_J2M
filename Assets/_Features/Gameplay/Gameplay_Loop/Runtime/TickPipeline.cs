@@ -1509,8 +1509,7 @@ namespace Game.Feature.Gameplay.Loop
                     plan.TargetId,
                     plan.LandingRule,
                     plan.SuccessState,
-                    plan.RetryState,
-                    plan.CrushedBoxEntityId);
+                    plan.RetryState);
             }
 
             return payloads;
@@ -2192,8 +2191,7 @@ namespace Game.Feature.Gameplay.Loop
                             landingRule: "TargetCrushBox",
                             successState,
                             retryState,
-                            JumpLandingKind.CrushBoxAndLand,
-                            crushEvaluation.CrushedBoxEntityId));
+                            JumpLandingKind.CrushBoxAndLand));
                     jumpLandingSpaceContests.Add(
                         new Contest(
                             contestId,
@@ -2201,7 +2199,7 @@ namespace Game.Feature.Gameplay.Loop
                             actionPlanId,
                             jumpEntry.EntityId,
                             priority: 0,
-                            affectedEntityId: crushEvaluation.CrushedBoxEntityId,
+                            affectedEntityId: 0,
                             affectedCell: jumpState.lockedTargetCell,
                             hasAffectedCell: true,
                             localActionIndex: 0));
@@ -2440,13 +2438,6 @@ namespace Game.Feature.Gameplay.Loop
 
                 var accepted = payload.LandingKind != JumpLandingKind.RetryOnly &&
                                landingLegality.Verdict == LegalityVerdict.Allowed;
-                if (accepted &&
-                    payload.LandingKind == JumpLandingKind.CrushBoxAndLand &&
-                    resolvedCrushedBoxEntityId > 0 &&
-                    resolvedCrushedBoxEntityId != payload.CrushedBoxEntityId)
-                {
-                    accepted = false;
-                }
                 var resolvedTargetId = accepted &&
                                        payload.LandingKind == JumpLandingKind.CrushBoxAndLand
                     ? resolvedCrushedBoxEntityId
@@ -6228,8 +6219,7 @@ namespace Game.Feature.Gameplay.Loop
             string landingRule,
             EnemyJumpRuntimeState successState,
             EnemyJumpRuntimeState retryState,
-            JumpLandingKind landingKind,
-            int crushedBoxEntityId = 0)
+            JumpLandingKind landingKind)
         {
             ActionPlanId = actionPlanId;
             ContestId = contestId;
@@ -6241,7 +6231,6 @@ namespace Game.Feature.Gameplay.Loop
             SuccessState = successState;
             RetryState = retryState;
             LandingKind = landingKind;
-            CrushedBoxEntityId = crushedBoxEntityId;
         }
 
         public int ActionPlanId { get; }
@@ -6263,8 +6252,6 @@ namespace Game.Feature.Gameplay.Loop
         public EnemyJumpRuntimeState RetryState { get; }
 
         public JumpLandingKind LandingKind { get; }
-
-        public int CrushedBoxEntityId { get; }
     }
 
     internal sealed class PhaseRelocationPlan
@@ -6921,8 +6908,7 @@ namespace Game.Feature.Gameplay.Loop
             int contestedTargetEntityId,
             string landingRule,
             EnemyJumpRuntimeState successJumpState,
-            EnemyJumpRuntimeState retryJumpState,
-            int crushedBoxEntityId = 0)
+            EnemyJumpRuntimeState retryJumpState)
             : base(actionPlanId, intentId: 0, sourceActorEntityId, priority, ResolvedActionSemanticKind.JumpLanding)
         {
             LandingKind = landingKind;
@@ -6931,7 +6917,6 @@ namespace Game.Feature.Gameplay.Loop
             LandingRule = landingRule ?? string.Empty;
             SuccessJumpState = successJumpState;
             RetryJumpState = retryJumpState;
-            CrushedBoxEntityId = crushedBoxEntityId;
         }
 
         public JumpLandingKind LandingKind { get; }
@@ -6945,8 +6930,6 @@ namespace Game.Feature.Gameplay.Loop
         public EnemyJumpRuntimeState SuccessJumpState { get; }
 
         public EnemyJumpRuntimeState RetryJumpState { get; }
-
-        public int CrushedBoxEntityId { get; }
     }
 
     internal sealed class PhaseRelocationActionPlanPayload : ActionPlanPayload

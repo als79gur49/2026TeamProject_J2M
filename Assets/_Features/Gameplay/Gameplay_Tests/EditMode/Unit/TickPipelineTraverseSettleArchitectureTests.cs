@@ -41,6 +41,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(body, Does.Contain("RuntimeSettlementLegalityPolicy.EvaluateJumpCrushLandingCell("));
             Assert.That(body, Does.Contain("new SettlementContext("));
             Assert.That(body, Does.Contain("new JumpLandingEvidence("));
+            Assert.That(body, Does.Not.Contain("payload.CrushedBoxEntityId"));
         }
 
         [Test]

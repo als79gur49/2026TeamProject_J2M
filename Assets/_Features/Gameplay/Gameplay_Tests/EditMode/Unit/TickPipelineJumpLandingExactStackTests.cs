@@ -1,4 +1,7 @@
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Runtime.ExceptionServices;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
@@ -60,6 +63,113 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(evaluation.LegalityResult.Verdict, Is.EqualTo(LegalityVerdict.Allowed));
             Assert.That(evaluation.CrushedBoxEntityId, Is.EqualTo(50));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ResolveJumpLanding_CrushBoxAndLand_UsesCurrentResolveSnapshotBoxId()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var targetCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var stalePlanBoxCell = new SurfaceCell(FaceId.Floor, 3, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(40, sourceCell, teamId: 2, boardPresence: EntityBoardPresence.Detached),
+                CreateBox(50, stalePlanBoxCell, BoxCapabilities.JumpCrushable),
+                CreateBox(51, targetCell, BoxCapabilities.JumpCrushable),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var snapshot = worldState.CreateSnapshot();
+            var actionPlanId = 7;
+            var contestId = 3;
+            var successState = new EnemyJumpRuntimeState
+            {
+                phase = EnemyJumpPhase.Cooldown,
+                sequence = 1,
+                sourceCell = sourceCell,
+                lockedTargetCell = targetCell,
+                windupEndTick = 1,
+                landingTick = 2,
+                cooldownRemainingTicks = 1,
+            };
+            var retryState = successState;
+            retryState.phase = EnemyJumpPhase.Airborne;
+            retryState.retryCount = 1;
+            var payloads = new Dictionary<int, JumpLandingActionPlanPayload>
+            {
+                {
+                    actionPlanId,
+                    new JumpLandingActionPlanPayload(
+                        actionPlanId,
+                        sourceActorEntityId: 40,
+                        priority: 0,
+                        JumpLandingKind.CrushBoxAndLand,
+                        targetCell,
+                        contestedTargetEntityId: 0,
+                        landingRule: "TargetCrushBox",
+                        successState,
+                        retryState)
+                },
+            };
+            var contests = new[]
+            {
+                new Contest(
+                    contestId,
+                    ContestKind.Space,
+                    actionPlanId,
+                    sourceId: 40,
+                    priority: 0,
+                    affectedEntityId: 50,
+                    affectedCell: targetCell,
+                    hasAffectedCell: true,
+                    localActionIndex: 0),
+            };
+            var movementRecords = new List<ResolutionRecord>();
+            var movementCommitEvents = new List<string>();
+
+            var batch = ResolveJumpLandingSpaceContestsCanonical(
+                pipeline,
+                snapshot,
+                snapshot,
+                new[] { actionPlanId },
+                payloads,
+                contests,
+                new MovementReservationBook(),
+                movementRecords,
+                movementCommitEvents);
+            var operations = batch.Operations.ToArray();
+            var projectedWorld = new ProjectedWorld(snapshot);
+            projectedWorld.ApplyBatch(batch);
+            var resolvedSnapshot = projectedWorld.CreateSnapshot();
+
+            Assert.That(operations.Length, Is.EqualTo(5));
+            Assert.That(operations[0].Kind, Is.EqualTo(FinalizationOperationKind.SetBoardPresence));
+            Assert.That(operations[0].EntityId, Is.EqualTo(51));
+            Assert.That(operations[0].BoardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+            Assert.That(operations[1].Kind, Is.EqualTo(FinalizationOperationKind.MarkDestroy));
+            Assert.That(operations[1].EntityId, Is.EqualTo(51));
+            Assert.That(operations[2].Kind, Is.EqualTo(FinalizationOperationKind.MoveEntity));
+            Assert.That(operations[2].EntityId, Is.EqualTo(40));
+            Assert.That(operations[2].Destination, Is.EqualTo(targetCell));
+            Assert.That(operations[3].Kind, Is.EqualTo(FinalizationOperationKind.SetBoardPresence));
+            Assert.That(operations[3].EntityId, Is.EqualTo(40));
+            Assert.That(operations[3].BoardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(operations[4].Kind, Is.EqualTo(FinalizationOperationKind.SetEnemyJumpState));
+            Assert.That(operations[4].EntityId, Is.EqualTo(40));
+            Assert.That(operations.Any(operation => operation.EntityId == 50), Is.False);
+
+            Assert.That(resolvedSnapshot.TryGetEntity(51, out var currentBox), Is.True);
+            Assert.That(currentBox.boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+            Assert.That(currentBox.markedForDeath, Is.True);
+            Assert.That(resolvedSnapshot.TryGetBoxAt(targetCell, out _), Is.False);
+            Assert.That(resolvedSnapshot.TryGetEntity(50, out var staleBox), Is.True);
+            Assert.That(staleBox.markedForDeath, Is.False);
+            Assert.That(staleBox.position, Is.EqualTo(stalePlanBoxCell));
+            Assert.That(resolvedSnapshot.TryGetEntity(40, out var jumper), Is.True);
+            Assert.That(jumper.position, Is.EqualTo(targetCell));
+            Assert.That(jumper.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(movementRecords.Single().Accepted, Is.True);
+            Assert.That(movementCommitEvents.Single(), Does.Contain("Target=51"));
         }
 
         [Test]
@@ -201,6 +311,45 @@ namespace Game.Feature.Gameplay.Tests.Unit
             for (var i = 0; i < entityIds.Length; i++)
             {
                 writeContext.SetPlayerControlState(entityIds[i], default);
+            }
+        }
+
+        private static FinalizationBatch ResolveJumpLandingSpaceContestsCanonical(
+            TickPipeline pipeline,
+            WorldSnapshot movementSnapshot,
+            WorldSnapshot damageProjectionSnapshot,
+            IReadOnlyList<int> orderedJumpLandingActionPlanIds,
+            IReadOnlyDictionary<int, JumpLandingActionPlanPayload> jumpLandingActionPlanPayloads,
+            IReadOnlyList<Contest> jumpLandingSpaceContests,
+            MovementReservationBook reservationBook,
+            List<ResolutionRecord> movementResolutionRecords,
+            List<string> movementCommitEvents)
+        {
+            var method = typeof(TickPipeline).GetMethod(
+                "ResolveJumpLandingSpaceContestsCanonical",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+
+            try
+            {
+                return (FinalizationBatch)method.Invoke(
+                    pipeline,
+                    new object[]
+                    {
+                        movementSnapshot,
+                        damageProjectionSnapshot,
+                        orderedJumpLandingActionPlanIds,
+                        jumpLandingActionPlanPayloads,
+                        jumpLandingSpaceContests,
+                        reservationBook,
+                        movementResolutionRecords,
+                        movementCommitEvents,
+                    });
+            }
+            catch (TargetInvocationException exception) when (exception.InnerException != null)
+            {
+                ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
+                throw;
             }
         }
 
