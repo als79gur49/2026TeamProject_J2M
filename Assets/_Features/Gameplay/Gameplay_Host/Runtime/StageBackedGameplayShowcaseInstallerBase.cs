@@ -1,3 +1,4 @@
+using Game.Feature.Flow.Audio;
 using Game.Feature.Stages;
 using UnityEngine;
 
@@ -10,6 +11,17 @@ namespace Game.Feature.Gameplay.Host
 
         [Header("Stage Load")]
         [SerializeField] private ScriptableObjectStageCatalogProvider stageCatalogProvider;
+        [SerializeField] private CampaignStageSequenceDefinition campaignStageSequenceDefinition;
+        [SerializeField] private bool enableCampaignFlow = true;
+        [SerializeField] private Transform stageBackgroundRoot;
+        [SerializeField] private StageBgmProfileCatalog stageBgmProfileCatalog;
+        [SerializeField] private GlobalAudioFlowBootstrap globalAudioFlowBootstrap;
+
+        private ActiveSlotProvider _activeSlotProvider;
+        private CampaignGameplayFlowController _campaignFlowController;
+        private StagePresentationDefinition _resolvedPresentationDefinition;
+        private SaveSlotStore _saveSlotStore;
+        private readonly StagePresentationRuntimeAdapter _stagePresentationRuntimeAdapter = new();
 
         protected ScriptableObjectStageCatalogProvider StageCatalogProvider => stageCatalogProvider;
 
@@ -18,6 +30,7 @@ namespace Game.Feature.Gameplay.Host
             var resolved = RuntimeContentResolver.Resolve(CreateStageLoadRequest());
             var buildResult = StageRuntimeBuilder.Build(resolved.Entry.GameplayDefinition);
             var resolvedPresentation = StagePresentationAssembler.Resolve(resolved.Entry.PresentationDefinition);
+            _resolvedPresentationDefinition = resolved.Entry.PresentationDefinition;
             var compositionData = StageSceneCompositionAssembler.Compose(buildResult, resolvedPresentation);
 
             return new InitialGameplayState(
@@ -33,6 +46,59 @@ namespace Game.Feature.Gameplay.Host
                 compositionData.PresentationData.EnemyPresentationBindings,
                 compositionData.PresentationData.StaticEntityPresentationCatalog,
                 compositionData.PresentationData.StaticEntityPresentationBindings);
+        }
+
+        protected override void ConfigureRuntimeConfiguration(
+            GameplaySceneHostConfiguration configuration,
+            in InitialGameplayState initialState)
+        {
+            if (!enableCampaignFlow)
+            {
+                return;
+            }
+
+            _saveSlotStore ??= new SaveSlotStore();
+            _activeSlotProvider ??= new ActiveSlotProvider();
+            configuration.DisablePlayerRespawn = true;
+            if (_activeSlotProvider.HasActiveSlot)
+            {
+                configuration.StageCompletionProfileStore = new SaveSlotStageCompletionProfileStore(
+                    _saveSlotStore,
+                    _activeSlotProvider);
+            }
+        }
+
+        protected override void OnHostInitialized(
+            GameplaySceneHost host,
+            in InitialGameplayState initialState)
+        {
+            _stagePresentationRuntimeAdapter.Apply(
+                _resolvedPresentationDefinition,
+                stageBackgroundRoot,
+                stageBgmProfileCatalog,
+                globalAudioFlowBootstrap);
+
+            if (!enableCampaignFlow || _activeSlotProvider == null || !_activeSlotProvider.HasActiveSlot)
+            {
+                return;
+            }
+
+            var sequenceDefinition = campaignStageSequenceDefinition != null
+                ? campaignStageSequenceDefinition
+                : CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance();
+            var sequenceResolver = new CampaignStageSequenceResolver(sequenceDefinition);
+            _campaignFlowController = new CampaignGameplayFlowController(
+                host,
+                _saveSlotStore,
+                _activeSlotProvider,
+                sequenceResolver,
+                gameObject.scene.name);
+            _campaignFlowController.Bind();
+        }
+
+        private void OnDestroy()
+        {
+            _campaignFlowController?.Dispose();
         }
 
         private StageLoadRequest CreateStageLoadRequest()

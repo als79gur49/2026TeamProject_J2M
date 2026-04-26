@@ -38,6 +38,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new[] { CreatePlayerUnit(entityId: 10, position: spawnCell, hp: 3) },
                     tickIndex: 1,
                     respawnDelayTicks: 1,
+                    allowRespawn: true,
                     worldState.CreateWriteContext()));
 
             Assert.That(result, Is.Not.Null);
@@ -80,6 +81,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new[] { CreatePlayerUnit(entityId: 10, position: spawnCell, hp: 3) },
                     tickIndex: 1,
                     respawnDelayTicks: 1,
+                    allowRespawn: true,
                     worldState.CreateWriteContext()));
 
             Assert.That(result, Is.Not.Null);

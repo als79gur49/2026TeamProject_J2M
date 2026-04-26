@@ -113,6 +113,7 @@ namespace Game.Feature.Gameplay.Host
                 sharedTuning.TopologyTransitionCameraShakeProfile);
             var host = GetComponent<GameplaySceneHost>() ?? gameObject.AddComponent<GameplaySceneHost>();
             host.Initialize(CreateConfiguration(initialState, baseCameraSettings));
+            OnHostInitialized(host, initialState);
         }
 
         protected virtual GameplayCameraSettings CreateCameraSettings()
@@ -183,6 +184,18 @@ namespace Game.Feature.Gameplay.Host
         }
 
         protected abstract InitialGameplayState BuildInitialGameplayState();
+
+        protected virtual void ConfigureRuntimeConfiguration(
+            GameplaySceneHostConfiguration configuration,
+            in InitialGameplayState initialState)
+        {
+        }
+
+        protected virtual void OnHostInitialized(
+            GameplaySceneHost host,
+            in InitialGameplayState initialState)
+        {
+        }
 
         public GameplayCameraSettings GetCameraSettings()
         {
@@ -263,6 +276,7 @@ namespace Game.Feature.Gameplay.Host
                 ViewFactory = viewFactory,
             };
 
+            ConfigureRuntimeConfiguration(configuration, initialState);
             ResolveSimulationTimingPreset().ApplyTo(configuration);
             ResolvePresentationTimingPreset().ApplyTo(configuration);
             GameplayCameraTopologyConfigurationComposer.ApplyTo(

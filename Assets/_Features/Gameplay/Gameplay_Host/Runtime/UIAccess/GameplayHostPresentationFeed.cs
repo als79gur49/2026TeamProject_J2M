@@ -18,11 +18,12 @@ namespace Game.Feature.Gameplay.Host.UIAccess
         public GameplayHostPresentationFeed(
             GameplayInputHost inputHost,
             GameplayTickViewPresenter presenter,
-            StageContentEntry stageContentEntry = null)
+            StageContentEntry stageContentEntry = null,
+            IStageCompletionProfileStore stageCompletionProfileStore = null)
         {
             _inputHost = inputHost ?? throw new ArgumentNullException(nameof(inputHost));
             _presenter = presenter ?? throw new ArgumentNullException(nameof(presenter));
-            _stageCompletionRuntime = new GameplayHostStageCompletionRuntime(stageContentEntry);
+            _stageCompletionRuntime = new GameplayHostStageCompletionRuntime(stageContentEntry, stageCompletionProfileStore);
             CurrentState = CreateCurrentState();
 
             _inputHost.TickCompleted += HandleTickCompleted;
@@ -32,6 +33,8 @@ namespace Game.Feature.Gameplay.Host.UIAccess
         public event Action<GameplayPresentationFrame> FramePublished;
 
         public event Action<GameplayPresentationState> StateChanged;
+
+        internal event Action<TickResult, StageCompletionReadModel> StageClearCommitted;
 
         public GameplayPresentationState CurrentState { get; private set; }
 
@@ -50,7 +53,12 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 return;
             }
 
-            _stageCompletionRuntime.ProcessTick(result);
+            var stageCompletion = _stageCompletionRuntime.ProcessTick(result);
+            if (result.ObjectiveResult != null && result.ObjectiveResult.ClearedThisTick)
+            {
+                StageClearCommitted?.Invoke(result, stageCompletion);
+            }
+
             FramePublished?.Invoke(CreateFrame(result));
         }
 

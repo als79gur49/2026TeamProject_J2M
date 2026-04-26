@@ -21,6 +21,7 @@ namespace Game.Feature.Gameplay.Host
         private bool _hasBufferedUiPush;
         private bool _isInitialized;
         private bool _isSimulationPaused;
+        private bool _isTerminalHoldActive;
         private TickInputBuffer _inputBuffer;
         private InputAction _flipAction;
         private int _maxTicksPerFrame;
@@ -46,6 +47,8 @@ namespace Game.Feature.Gameplay.Host
         internal int PlayerEntityId => _playerEntityId;
 
         internal bool IsSimulationPaused => _isSimulationPaused;
+
+        internal bool IsTerminalHoldActive => _isTerminalHoldActive;
 
         public void Initialize(
             TickInputBuffer inputBuffer,
@@ -106,6 +109,7 @@ namespace Game.Feature.Gameplay.Host
             _uiBufferedPushDirection = Direction.None;
             _uiHeldMoveDirection = Direction.None;
             _isSimulationPaused = false;
+            _isTerminalHoldActive = false;
             _isInitialized = true;
 
             BindActions();
@@ -120,7 +124,7 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentOutOfRangeException(nameof(deltaTime), "Delta time must be zero or greater.");
             }
 
-            if (_isSimulationPaused)
+            if (_isSimulationPaused || _isTerminalHoldActive)
             {
                 return 0;
             }
@@ -166,7 +170,7 @@ namespace Game.Feature.Gameplay.Host
         public TickResult RunSingleTick()
         {
             EnsureInitialized();
-            if (_isSimulationPaused || IsPresentationLocked())
+            if (_isSimulationPaused || _isTerminalHoldActive || IsPresentationLocked())
             {
                 return null;
             }
@@ -207,8 +211,30 @@ namespace Game.Feature.Gameplay.Host
             _isSimulationPaused = isSimulationPaused;
         }
 
+        internal void EnterTerminalHold()
+        {
+            EnsureInitialized();
+            _isTerminalHoldActive = true;
+            ClearPendingPlayerInput();
+            ClearPendingUiInput();
+            _accumulatedTime = 0f;
+        }
+
+        internal void ExitTerminalHold()
+        {
+            EnsureInitialized();
+            _isTerminalHoldActive = false;
+        }
+
         public void SetRawMoveInput(Vector2 rawMoveInput)
         {
+            if (_isTerminalHoldActive)
+            {
+                _sampledMoveInput = Vector2.zero;
+                _moveIntentBuffer?.Reset();
+                return;
+            }
+
             _sampledMoveInput = rawMoveInput;
             var now = ResolveCurrentInputTime();
             var sampledDirection = GridMoveInputQuantizer.Quantize(rawMoveInput, _moveDeadzone);
@@ -218,18 +244,32 @@ namespace Game.Feature.Gameplay.Host
         public void BufferFlip()
         {
             EnsureInitialized();
+            if (_isTerminalHoldActive)
+            {
+                return;
+            }
+
             _hasBufferedFlip = true;
         }
 
         public void BufferPush()
         {
             EnsureInitialized();
+            if (_isTerminalHoldActive)
+            {
+                return;
+            }
+
             _hasBufferedPush = true;
         }
 
         internal void SetUiHeldMoveDirection(Direction direction)
         {
             EnsureInitialized();
+            if (_isTerminalHoldActive)
+            {
+                return;
+            }
 
             if (!IsOrthogonalDirection(direction))
             {
@@ -248,6 +288,10 @@ namespace Game.Feature.Gameplay.Host
         internal void BufferUiFlip(Direction direction)
         {
             EnsureInitialized();
+            if (_isTerminalHoldActive)
+            {
+                return;
+            }
 
             if (!IsOrthogonalDirection(direction))
             {
@@ -261,6 +305,10 @@ namespace Game.Feature.Gameplay.Host
         internal void BufferUiPush(Direction direction)
         {
             EnsureInitialized();
+            if (_isTerminalHoldActive)
+            {
+                return;
+            }
 
             if (!IsOrthogonalDirection(direction))
             {
@@ -433,6 +481,14 @@ namespace Game.Feature.Gameplay.Host
             _uiBufferedPushDirection = Direction.None;
             _uiHeldMoveDirection = Direction.None;
             _sampledMoveInput = Vector2.zero;
+            _moveIntentBuffer?.Reset();
+        }
+
+        private void ClearPendingPlayerInput()
+        {
+            _sampledMoveInput = Vector2.zero;
+            _hasBufferedFlip = false;
+            _hasBufferedPush = false;
             _moveIntentBuffer?.Reset();
         }
 
