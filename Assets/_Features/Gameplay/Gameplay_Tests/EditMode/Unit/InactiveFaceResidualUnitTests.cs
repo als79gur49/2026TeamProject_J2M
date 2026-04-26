@@ -13,7 +13,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         [Test]
         [Category("Extended")]
-        public void RespawnProcessor_InactiveFaceTerrainAtSpawn_DoesNotThrow_AndSkipsDeterministically()
+        public void RespawnProcessor_InactiveFaceTerrainAtSpawn_DefersUntilTopologyReset()
         {
             var spawnCell = new SurfaceCell(FaceId.Front, 1, 0);
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -38,12 +38,61 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new[] { CreatePlayerUnit(entityId: 10, position: spawnCell, hp: 3) },
                     tickIndex: 1,
                     respawnDelayTicks: 1,
-                    (IRespawnCommitContext)worldState.CreateWriteContext()));
+                    worldState.CreateWriteContext()));
 
             Assert.That(result, Is.Not.Null);
             Assert.That(result.RespawnedEntities, Is.Empty);
-            Assert.That(result.EventLogEntries, Does.Contain("RespawnSkipped|E=10|Pos=(1,0)|Face=Front|Tick=1|Reason=Terrain"));
+            Assert.That(result.TopologyResetRequest.HasValue, Is.True);
+            Assert.That(result.TopologyResetRequest.Value.SourceTopology, Is.EqualTo(new CubeTopologyState(FaceId.Back)));
+            Assert.That(result.TopologyResetRequest.Value.DestinationTopology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+            Assert.That(result.TopologyResetRequest.Value.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
+            Assert.That(result.EventLogEntries, Does.Contain("RespawnDeferred|E=10|Reason=TopologyResetRequired|TargetFace=Front|Tick=1"));
+            Assert.That(result.EventLogEntries, Does.Contain("RespawnTopologyResetRequested|E=10|From=Back|To=Floor|Rotation=Forward|TargetFace=Front|Tick=1"));
             Assert.That(worldState.CreateSnapshot().TryGetEntity(10, out _), Is.False);
+            Assert.That(worldState.CreateSnapshot().Topology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void RespawnProcessor_ActiveFrontFaceTerrainAtSpawn_DefersUntilBottomFace()
+        {
+            var spawnCell = new SurfaceCell(FaceId.Front, 1, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                Array.Empty<EntityState>(),
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
+                new GameplayTerrainData(new[] { new Vector2Int(1, 0) }),
+                new CubeTopologyState(FaceId.Floor));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.Topology.IsFaceActive(spawnCell.face), Is.True);
+            Assert.That(snapshot.Topology.BottomFace, Is.Not.EqualTo(spawnCell.face));
+            Assert.That(snapshot.TryGetAuthoritativePlacementBlocker(EntityType.Unit, spawnCell, ignoredEntityId: 0, out var blocker), Is.True);
+            Assert.That(blocker.Kind, Is.EqualTo(SlideStopperKind.Terrain));
+
+            var processor = new RespawnProcessor();
+            RespawnPhaseResult result = null;
+
+            Assert.DoesNotThrow(
+                () => result = processor.Process(
+                    snapshot,
+                    snapshot,
+                    CleanupFixtureFactory.None(),
+                    new[] { CreatePlayerUnit(entityId: 10, position: spawnCell, hp: 3) },
+                    tickIndex: 1,
+                    respawnDelayTicks: 1,
+                    worldState.CreateWriteContext()));
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.RespawnedEntities, Is.Empty);
+            Assert.That(result.EventLogEntries, Does.Contain("RespawnDeferred|E=10|Reason=TopologyResetRequired|TargetFace=Front|Tick=1"));
+            Assert.That(result.EventLogEntries, Does.Contain("RespawnTopologyResetRequested|E=10|From=Floor|To=Front|Rotation=Forward|TargetFace=Front|Tick=1"));
+            Assert.That(result.EventLogEntries, Has.None.StartWith("RespawnSkipped|E=10|"));
+            Assert.That(result.TopologyResetRequest.HasValue, Is.True);
+            Assert.That(result.TopologyResetRequest.Value.SourceTopology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+            Assert.That(result.TopologyResetRequest.Value.DestinationTopology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
+            Assert.That(result.TopologyResetRequest.Value.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
+            Assert.That(worldState.CreateSnapshot().TryGetEntity(10, out _), Is.False);
+            Assert.That(worldState.CreateSnapshot().Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
         }
 
         [TestCase("solid")]

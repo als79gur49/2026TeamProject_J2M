@@ -163,6 +163,33 @@ namespace Game.Feature.Gameplay.Loop
         public StageObjectiveTickResult ObjectiveResult => _objectiveResult;
     }
 
+    internal readonly struct RespawnTopologyResetRequest
+    {
+        public RespawnTopologyResetRequest(
+            int entityId,
+            FaceId targetFace,
+            CubeTopologyState sourceTopology,
+            CubeTopologyState destinationTopology,
+            CubeRotationKind rotationKind)
+        {
+            EntityId = entityId;
+            TargetFace = targetFace;
+            SourceTopology = sourceTopology;
+            DestinationTopology = destinationTopology;
+            RotationKind = rotationKind;
+        }
+
+        public int EntityId { get; }
+
+        public FaceId TargetFace { get; }
+
+        public CubeTopologyState SourceTopology { get; }
+
+        public CubeTopologyState DestinationTopology { get; }
+
+        public CubeRotationKind RotationKind { get; }
+    }
+
     internal sealed class RespawnPhaseResult
     {
         public static readonly RespawnPhaseResult Empty = new(
@@ -174,7 +201,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public RespawnPhaseResult(
             IEnumerable<EntityState> respawnedEntities,
-            IEnumerable<string> eventLogEntries)
+            IEnumerable<string> eventLogEntries,
+            RespawnTopologyResetRequest? topologyResetRequest = null)
         {
             if (respawnedEntities == null)
             {
@@ -188,11 +216,14 @@ namespace Game.Feature.Gameplay.Loop
 
             _respawnedEntities = new ReadOnlyCollection<EntityState>(new List<EntityState>(respawnedEntities));
             _eventLogEntries = new ReadOnlyCollection<string>(new List<string>(eventLogEntries));
+            TopologyResetRequest = topologyResetRequest;
         }
 
         public IReadOnlyList<EntityState> RespawnedEntities => _respawnedEntities;
 
         public IReadOnlyList<string> EventLogEntries => _eventLogEntries;
+
+        public RespawnTopologyResetRequest? TopologyResetRequest { get; }
     }
 
     internal readonly struct TickPresentationBuildContext
@@ -1607,7 +1638,7 @@ namespace Game.Feature.Gameplay.Loop
             var destinationTopology = context.PostMovementSnapshot.Topology;
             if (sourceTopology.Equals(destinationTopology))
             {
-                return null;
+                return BuildRespawnTopologyMotion(context);
             }
 
             return new TickTopologyMotion(
@@ -1617,6 +1648,30 @@ namespace Game.Feature.Gameplay.Loop
                     context.MovementPhaseResult.ResolvedOperations,
                     sourceTopology,
                     destinationTopology));
+        }
+
+        private static TickTopologyMotion? BuildRespawnTopologyMotion(in TickPresentationBuildContext context)
+        {
+            var sourceTopology = context.PostAttackSnapshot.Topology;
+            var destinationTopology = context.FinalAuthoritativeSnapshot.Topology;
+            if (sourceTopology.Equals(destinationTopology))
+            {
+                return null;
+            }
+
+            if (context.RespawnPhaseResult.TopologyResetRequest.HasValue)
+            {
+                var topologyResetRequest = context.RespawnPhaseResult.TopologyResetRequest.Value;
+                return new TickTopologyMotion(
+                    topologyResetRequest.SourceTopology,
+                    topologyResetRequest.DestinationTopology,
+                    topologyResetRequest.RotationKind);
+            }
+
+            return new TickTopologyMotion(
+                sourceTopology,
+                destinationTopology,
+                ResolveRotationKind(Array.Empty<FinalizationOperation>(), sourceTopology, destinationTopology));
         }
 
         private static void BuildTransitionVisibilityPresentation(

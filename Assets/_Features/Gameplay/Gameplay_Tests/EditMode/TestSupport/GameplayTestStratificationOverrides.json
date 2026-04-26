@@ -770,7 +770,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.Respawn_PlayerRemovedInCleanup_RespawnsNextTickAtInitialSpawnWithFullHp",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.PlayerDiesOnInitialBottomFace_SameBottomRespawnUnchanged",
       "category": "Core",
       "contracts": [
         "damage_affects_movement",
@@ -1227,6 +1227,16 @@
         "enemy_logic_contract"
       ],
       "reason": "Locked Core coverage for enemy_logic_contract in EnemyLogicTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.RespawnTopologyReset_EmitsTopologyMotionBeforeSpawnVisibility",
+      "category": "Core",
+      "contracts": [
+        "spawn_destroy_delayed_ordering",
+        "world_snapshot_and_presentation_contract"
+      ],
+      "reason": "Locked Core coverage for respawn topology reset TickResult ordering in WorldSnapshotAndPresentationTests.",
       "locked": true
     }
   ]

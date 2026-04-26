@@ -1039,7 +1039,7 @@ namespace Game.Feature.Gameplay.Loop
             WorldSnapshot postCleanupSnapshot,
             CleanupPhaseResult cleanupPhaseResult,
             int tickIndex,
-            IRespawnCommitContext writeContext,
+            IWorldWriteContext writeContext,
             List<TickPhase> completedPhases,
             List<string> phaseTrace)
         {
@@ -5030,7 +5030,7 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<EntityState> respawnTemplates,
             int tickIndex,
             int respawnDelayTicks,
-            IRespawnCommitContext writeContext)
+            IWorldWriteContext writeContext)
         {
             if (tickStartSnapshot == null)
             {
@@ -5066,6 +5066,7 @@ namespace Game.Feature.Gameplay.Loop
 
             var respawnedEntities = new List<EntityState>();
             var eventLogEntries = new List<string>();
+            RespawnTopologyResetRequest? topologyResetRequest = null;
             var removedEntityIdsThisTick = cleanupPhaseResult.RemovedEntityIds.Count > 0
                 ? new HashSet<int>(cleanupPhaseResult.RemovedEntityIds)
                 : null;
@@ -5105,6 +5106,36 @@ namespace Game.Feature.Gameplay.Loop
                 }
 
                 var respawnEntity = BuildRespawnEntity(template, tickIndex);
+                if (postCleanupSnapshot.Topology.BottomFace != respawnEntity.position.face)
+                {
+                    if (!TryResolveRespawnTopologyReset(
+                            postCleanupSnapshot.Topology,
+                            respawnEntity.position.face,
+                            out var resetTopology,
+                            out var rotationKind))
+                    {
+                        throw new InvalidOperationException(
+                            $"Respawn topology reset could not resolve a bottom-face topology step for entity {respawnEntity.entityId} on face {respawnEntity.position.face} from {postCleanupSnapshot.Topology}.");
+                    }
+
+                    writeContext.SetTopology(resetTopology);
+                    topologyResetRequest = new RespawnTopologyResetRequest(
+                        respawnEntity.entityId,
+                        respawnEntity.position.face,
+                        postCleanupSnapshot.Topology,
+                        resetTopology,
+                        rotationKind);
+                    eventLogEntries.Add(FormatRespawnDeferredEvent(respawnEntity, tickIndex));
+                    eventLogEntries.Add(
+                        FormatRespawnTopologyResetRequestedEvent(
+                            respawnEntity,
+                            postCleanupSnapshot.Topology,
+                            resetTopology,
+                            rotationKind,
+                            tickIndex));
+                    continue;
+                }
+
                 var respawnLegality = RuntimePlacementValidityPolicy.EvaluateAuthoritativePlacement(
                     postCleanupSnapshot,
                     respawnEntity.type,
@@ -5125,7 +5156,7 @@ namespace Game.Feature.Gameplay.Loop
                     $"RespawnCommitted|E={respawnEntity.entityId}|Pos=({respawnEntity.position.x},{respawnEntity.position.y})|Face={respawnEntity.position.face}|Facing={respawnEntity.facing}|Tick={tickIndex}");
             }
 
-            return new RespawnPhaseResult(respawnedEntities, eventLogEntries);
+            return new RespawnPhaseResult(respawnedEntities, eventLogEntries, topologyResetRequest);
         }
 
         private static EntityState BuildRespawnEntity(EntityState template, int tickIndex)
@@ -5152,6 +5183,50 @@ namespace Game.Feature.Gameplay.Loop
             int tickIndex)
         {
             return LegalityDiagnosticsFormatter.FormatRespawnSkippedEvent(entity, legality, tickIndex);
+        }
+
+        private static string FormatRespawnDeferredEvent(EntityState entity, int tickIndex)
+        {
+            return
+                $"RespawnDeferred|E={entity.entityId}|Reason=TopologyResetRequired|TargetFace={entity.position.face}|Tick={tickIndex}";
+        }
+
+        private static string FormatRespawnTopologyResetRequestedEvent(
+            EntityState entity,
+            CubeTopologyState sourceTopology,
+            CubeTopologyState destinationTopology,
+            CubeRotationKind rotationKind,
+            int tickIndex)
+        {
+            return
+                $"RespawnTopologyResetRequested|E={entity.entityId}|From={sourceTopology.BottomFace}|To={destinationTopology.BottomFace}|Rotation={rotationKind}|TargetFace={entity.position.face}|Tick={tickIndex}";
+        }
+
+        private static bool TryResolveRespawnTopologyReset(
+            CubeTopologyState currentTopology,
+            FaceId targetFace,
+            out CubeTopologyState resetTopology,
+            out CubeRotationKind rotationKind)
+        {
+            var forwardTopology = currentTopology.Rotate(CubeRotationKind.Forward);
+            if (forwardTopology.BottomFace == targetFace)
+            {
+                resetTopology = forwardTopology;
+                rotationKind = CubeRotationKind.Forward;
+                return true;
+            }
+
+            var backwardTopology = currentTopology.Rotate(CubeRotationKind.Backward);
+            if (backwardTopology.BottomFace == targetFace)
+            {
+                resetTopology = backwardTopology;
+                rotationKind = CubeRotationKind.Backward;
+                return true;
+            }
+
+            resetTopology = forwardTopology;
+            rotationKind = CubeRotationKind.Forward;
+            return true;
         }
     }
 

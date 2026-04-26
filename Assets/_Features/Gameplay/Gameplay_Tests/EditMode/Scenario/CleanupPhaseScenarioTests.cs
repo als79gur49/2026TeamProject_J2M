@@ -90,9 +90,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void Respawn_PlayerRemovedInCleanup_RespawnsNextTickAtInitialSpawnWithFullHp()
+        public void PlayerDiesOnInitialBottomFace_SameBottomRespawnUnchanged()
         {
-            var spawnCell = new SurfaceCell(FaceId.Front, 2, 1);
+            var spawnCell = new SurfaceCell(FaceId.Floor, 2, 1);
             var worldState = CreateWorldState(new[]
             {
                 CreatePlayerUnit(entityId: 10, position: spawnCell, hp: 4, facing: Direction.Left),
@@ -107,13 +107,17 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var afterRespawnSnapshot = CreateSnapshot(worldState);
 
             CollectionAssert.AreEqual(new[] { 10 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(deathTick.EventLog));
-            Assert.That(deathTick.EventLog, Has.None.EqualTo("RespawnCommitted|E=10|Pos=(2,1)|Face=Front|Facing=Left|Tick=20"));
+            Assert.That(deathTick.EventLog, Has.None.EqualTo("RespawnCommitted|E=10|Pos=(2,1)|Face=Floor|Facing=Left|Tick=20"));
             Assert.That(afterDeathSnapshot.TryGetEntity(10, out _), Is.False);
 
-            Assert.That(respawnTick.EventLog, Does.Contain("RespawnCommitted|E=10|Pos=(2,1)|Face=Front|Facing=Left|Tick=21"));
+            Assert.That(respawnTick.EventLog, Has.None.Contains("RespawnDeferred|E=10|Reason=TopologyResetRequired"));
+            Assert.That(respawnTick.EventLog, Has.None.Contains("RespawnTopologyResetRequested|E=10|"));
+            Assert.That(respawnTick.PresentationData.TopologyMotion.HasValue, Is.False);
+            Assert.That(respawnTick.EventLog, Does.Contain("RespawnCommitted|E=10|Pos=(2,1)|Face=Floor|Facing=Left|Tick=21"));
             Assert.That(respawnTick.PresentationData.VisibilityChanges.Any(change =>
                 change.EntityId == 10 &&
                 change.ChangeKind == TickVisibilityChangeKind.Spawn), Is.True);
+            Assert.That(afterRespawnSnapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
             Assert.That(afterRespawnSnapshot.TryGetEntity(10, out var respawnedPlayer), Is.True);
             Assert.That(respawnedPlayer.entityId, Is.EqualTo(10));
             Assert.That(respawnedPlayer.position, Is.EqualTo(spawnCell));
@@ -127,6 +131,202 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(respawnedPlayer.spawnTick, Is.EqualTo(21));
             Assert.That(respawnedPlayer.kineticInstigatorEntityId, Is.Zero);
             Assert.That(respawnedPlayer.kineticInstigatorTeamId, Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerRespawnTargetActiveFrontFace_RespawnDeferredUntilBottomFace()
+        {
+            var spawnCell = new SurfaceCell(FaceId.Front, 2, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreatePlayerUnit(entityId: 10, position: spawnCell, hp: 4, facing: Direction.Left),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+
+            worldState.CreateWriteContext().ApplyDamage(10, amount: 4);
+
+            var deathTick = pipeline.RunTick(new TickInput(110));
+            var resetTick = pipeline.RunTick(new TickInput(111));
+            var afterResetSnapshot = CreateSnapshot(worldState);
+            var respawnTick = pipeline.RunTick(new TickInput(112));
+            var afterRespawnSnapshot = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(new[] { 10 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(deathTick.EventLog));
+            Assert.That(resetTick.EventLog, Does.Contain("RespawnDeferred|E=10|Reason=TopologyResetRequired|TargetFace=Front|Tick=111"));
+            Assert.That(resetTick.EventLog, Does.Contain("RespawnTopologyResetRequested|E=10|From=Floor|To=Front|Rotation=Forward|TargetFace=Front|Tick=111"));
+            Assert.That(resetTick.EventLog, Has.None.StartWith("RespawnCommitted|E=10|"));
+            Assert.That(resetTick.PresentationData.TopologyMotion.HasValue, Is.True);
+            Assert.That(resetTick.PresentationData.TopologyMotion.Value.SourceTopology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+            Assert.That(resetTick.PresentationData.TopologyMotion.Value.DestinationTopology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
+            Assert.That(resetTick.PresentationData.TopologyMotion.Value.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
+            Assert.That(
+                resetTick.PresentationData.VisibilityChanges.Any(change =>
+                    change.EntityId == 10 &&
+                    change.ChangeKind == TickVisibilityChangeKind.Spawn),
+                Is.False);
+            Assert.That(afterResetSnapshot.TryGetEntity(10, out _), Is.False);
+            Assert.That(afterResetSnapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
+
+            Assert.That(respawnTick.EventLog, Does.Contain("RespawnCommitted|E=10|Pos=(2,1)|Face=Front|Facing=Left|Tick=112"));
+            Assert.That(afterRespawnSnapshot.Topology.BottomFace, Is.EqualTo(FaceId.Front));
+            Assert.That(afterRespawnSnapshot.TryGetEntity(10, out var respawnedPlayer), Is.True);
+            Assert.That(respawnedPlayer.position, Is.EqualTo(spawnCell));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerDiesOnNonInitialFace_RespawnDeferredUntilTopologyReset()
+        {
+            var spawnCell = new SurfaceCell(FaceId.Front, 2, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreatePlayerUnit(entityId: 10, position: spawnCell, hp: 4, facing: Direction.Left),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var writeContext = worldState.CreateWriteContext();
+
+            writeContext.SetTopology(new CubeTopologyState(FaceId.Back));
+            writeContext.ApplyDamage(10, amount: 4);
+
+            var deathTick = pipeline.RunTick(new TickInput(120));
+            var resetTick = pipeline.RunTick(new TickInput(121));
+            var afterResetSnapshot = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(new[] { 10 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(deathTick.EventLog));
+            Assert.That(resetTick.EventLog, Does.Contain("RespawnDeferred|E=10|Reason=TopologyResetRequired|TargetFace=Front|Tick=121"));
+            Assert.That(resetTick.EventLog, Does.Contain("RespawnTopologyResetRequested|E=10|From=Back|To=Floor|Rotation=Forward|TargetFace=Front|Tick=121"));
+            Assert.That(resetTick.EventLog, Has.None.StartWith("RespawnCommitted|E=10|"));
+            Assert.That(resetTick.PresentationData.TopologyMotion.HasValue, Is.True);
+            Assert.That(resetTick.PresentationData.TopologyMotion.Value.SourceTopology, Is.EqualTo(new CubeTopologyState(FaceId.Back)));
+            Assert.That(resetTick.PresentationData.TopologyMotion.Value.DestinationTopology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+            Assert.That(resetTick.PresentationData.TopologyMotion.Value.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
+            Assert.That(
+                resetTick.PresentationData.VisibilityChanges.Any(change =>
+                    change.EntityId == 10 &&
+                    change.ChangeKind == TickVisibilityChangeKind.Spawn),
+                Is.False);
+            Assert.That(afterResetSnapshot.TryGetEntity(10, out _), Is.False);
+            Assert.That(afterResetSnapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+            Assert.That(afterResetSnapshot.Topology.IsFaceActive(spawnCell.face), Is.True);
+            Assert.That(afterResetSnapshot.Topology.BottomFace, Is.Not.EqualTo(spawnCell.face));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerDiesOnNonInitialFace_RespawnSucceedsAfterTopologyReturnsToInitialFace()
+        {
+            var spawnCell = new SurfaceCell(FaceId.Front, 2, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreatePlayerUnit(entityId: 10, position: spawnCell, hp: 4, facing: Direction.Left),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var writeContext = worldState.CreateWriteContext();
+
+            writeContext.SetTopology(new CubeTopologyState(FaceId.Back));
+            writeContext.ApplyDamage(10, amount: 4);
+
+            var deathTick = pipeline.RunTick(new TickInput(220));
+            var firstResetTick = pipeline.RunTick(new TickInput(221));
+            var secondResetTick = pipeline.RunTick(new TickInput(222));
+            var respawnTick = pipeline.RunTick(new TickInput(223));
+            var afterRespawnSnapshot = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(new[] { 10 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(deathTick.EventLog));
+            Assert.That(firstResetTick.EventLog, Does.Contain("RespawnDeferred|E=10|Reason=TopologyResetRequired|TargetFace=Front|Tick=221"));
+            Assert.That(firstResetTick.EventLog, Does.Contain("RespawnTopologyResetRequested|E=10|From=Back|To=Floor|Rotation=Forward|TargetFace=Front|Tick=221"));
+            Assert.That(secondResetTick.EventLog, Does.Contain("RespawnDeferred|E=10|Reason=TopologyResetRequired|TargetFace=Front|Tick=222"));
+            Assert.That(secondResetTick.EventLog, Does.Contain("RespawnTopologyResetRequested|E=10|From=Floor|To=Front|Rotation=Forward|TargetFace=Front|Tick=222"));
+            Assert.That(respawnTick.EventLog, Does.Contain("RespawnCommitted|E=10|Pos=(2,1)|Face=Front|Facing=Left|Tick=223"));
+            Assert.That(afterRespawnSnapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
+            Assert.That(afterRespawnSnapshot.Topology.BottomFace, Is.EqualTo(spawnCell.face));
+            Assert.That(afterRespawnSnapshot.TryGetEntity(10, out var respawnedPlayer), Is.True);
+            Assert.That(respawnedPlayer.position, Is.EqualTo(spawnCell));
+            Assert.That(respawnedPlayer.hp, Is.EqualTo(4));
+            Assert.That(respawnedPlayer.maxHp, Is.EqualTo(4));
+            Assert.That(respawnedPlayer.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(respawnedPlayer.spawnTick, Is.EqualTo(223));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void DeferredRespawn_DoesNotDuplicateOccupancy()
+        {
+            var spawnCell = new SurfaceCell(FaceId.Front, 2, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreatePlayerUnit(entityId: 10, position: spawnCell, hp: 3, facing: Direction.Left),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var writeContext = worldState.CreateWriteContext();
+
+            writeContext.SetTopology(new CubeTopologyState(FaceId.Back));
+            writeContext.ApplyDamage(10, amount: 3);
+
+            pipeline.RunTick(new TickInput(320));
+            pipeline.RunTick(new TickInput(321));
+            pipeline.RunTick(new TickInput(322));
+            pipeline.RunTick(new TickInput(323));
+            var afterRespawnSnapshot = CreateSnapshot(worldState);
+            pipeline.RunTick(new TickInput(324));
+            var afterFollowupSnapshot = CreateSnapshot(worldState);
+            var unitsAtSpawn = new List<EntityState>();
+            var followupUnitsAtSpawn = new List<EntityState>();
+
+            afterRespawnSnapshot.EnumerateUnitsAt(spawnCell, unitsAtSpawn);
+            afterFollowupSnapshot.EnumerateUnitsAt(spawnCell, followupUnitsAtSpawn);
+
+            Assert.That(unitsAtSpawn.Count(entity => entity.entityId == 10), Is.EqualTo(1));
+            Assert.That(followupUnitsAtSpawn.Count(entity => entity.entityId == 10), Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void RespawnBlockedAfterTopologyReset_RetriesWithoutTopologyLoop()
+        {
+            var spawnCell = new SurfaceCell(FaceId.Front, 2, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreatePlayerUnit(entityId: 10, position: spawnCell, hp: 3, facing: Direction.Left),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var writeContext = worldState.CreateWriteContext();
+
+            writeContext.SetTopology(new CubeTopologyState(FaceId.Back));
+            writeContext.ApplyDamage(10, amount: 3);
+
+            var deathTick = pipeline.RunTick(new TickInput(420));
+            var firstResetTick = pipeline.RunTick(new TickInput(421));
+            worldState.CreateWriteContext().SpawnEntity(CreateWall(entityId: 90, position: spawnCell));
+
+            var secondResetTick = pipeline.RunTick(new TickInput(422));
+            var blockedRespawnTickOne = pipeline.RunTick(new TickInput(423));
+            var blockedRespawnTickTwo = pipeline.RunTick(new TickInput(424));
+            var blockedSnapshot = CreateSnapshot(worldState);
+
+            Assert.That(SemanticEventAssertions.GetCleanupRemovedEntityIds(deathTick.EventLog), Has.Member(10));
+            Assert.That(firstResetTick.EventLog, Does.Contain("RespawnTopologyResetRequested|E=10|From=Back|To=Floor|Rotation=Forward|TargetFace=Front|Tick=421"));
+            Assert.That(secondResetTick.EventLog, Does.Contain("RespawnTopologyResetRequested|E=10|From=Floor|To=Front|Rotation=Forward|TargetFace=Front|Tick=422"));
+            Assert.That(blockedRespawnTickOne.EventLog, Does.Contain("RespawnSkipped|E=10|Pos=(2,1)|Face=Front|Tick=423|Reason=Entity|BlockerEntity=90|BlockerType=None"));
+            Assert.That(blockedRespawnTickTwo.EventLog, Does.Contain("RespawnSkipped|E=10|Pos=(2,1)|Face=Front|Tick=424|Reason=Entity|BlockerEntity=90|BlockerType=None"));
+            Assert.That(blockedRespawnTickOne.EventLog, Has.None.Contains("RespawnTopologyResetRequested|E=10|"));
+            Assert.That(blockedRespawnTickTwo.EventLog, Has.None.Contains("RespawnTopologyResetRequested|E=10|"));
+            Assert.That(blockedRespawnTickOne.PresentationData.TopologyMotion.HasValue, Is.False);
+            Assert.That(blockedRespawnTickTwo.PresentationData.TopologyMotion.HasValue, Is.False);
+            Assert.That(blockedSnapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
+            Assert.That(blockedSnapshot.TryGetEntity(10, out _), Is.False);
+
+            worldState.CreateWriteContext().RemoveEntity(90);
+
+            var successfulRespawnTick = pipeline.RunTick(new TickInput(425));
+            var successfulSnapshot = CreateSnapshot(worldState);
+            var unitsAtSpawn = new List<EntityState>();
+
+            successfulSnapshot.EnumerateUnitsAt(spawnCell, unitsAtSpawn);
+
+            Assert.That(successfulRespawnTick.EventLog, Does.Contain("RespawnCommitted|E=10|Pos=(2,1)|Face=Front|Facing=Left|Tick=425"));
+            Assert.That(unitsAtSpawn.Count(entity => entity.entityId == 10), Is.EqualTo(1));
         }
 
         [Test]
@@ -199,7 +399,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Respawn_InactiveFaceSolidAtSpawn_DoesNotThrow_AndSkipsDeterministically()
+        public void Respawn_InactiveFaceSolidAtSpawn_ResetsTopologyBeforeBlockedRetry()
         {
             var spawnCell = new SurfaceCell(FaceId.Front, 2, 1);
             var worldState = CreateWorldState(new[]
@@ -220,21 +420,33 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(blocker.Kind, Is.EqualTo(SlideStopperKind.Entity));
             Assert.That(blocker.EntityId, Is.EqualTo(90));
 
+            TickResult firstResetTick = default;
+            Assert.DoesNotThrow(() => firstResetTick = pipeline.RunTick(new TickInput(61)));
+            var afterFirstResetSnapshot = CreateSnapshot(worldState);
+            TickResult secondResetTick = default;
+            Assert.DoesNotThrow(() => secondResetTick = pipeline.RunTick(new TickInput(62)));
+            var afterSecondResetSnapshot = CreateSnapshot(worldState);
             TickResult blockedRespawnTick = default;
-            Assert.DoesNotThrow(() => blockedRespawnTick = pipeline.RunTick(new TickInput(61)));
+            Assert.DoesNotThrow(() => blockedRespawnTick = pipeline.RunTick(new TickInput(63)));
 
             var blockedSnapshot = CreateSnapshot(worldState);
 
             Assert.That(SemanticEventAssertions.GetCleanupRemovedEntityIds(deathTick.EventLog), Has.Member(10));
+            Assert.That(firstResetTick.EventLog, Does.Contain("RespawnDeferred|E=10|Reason=TopologyResetRequired|TargetFace=Front|Tick=61"));
+            Assert.That(firstResetTick.EventLog, Does.Contain("RespawnTopologyResetRequested|E=10|From=Back|To=Floor|Rotation=Forward|TargetFace=Front|Tick=61"));
+            Assert.That(afterFirstResetSnapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+            Assert.That(secondResetTick.EventLog, Does.Contain("RespawnDeferred|E=10|Reason=TopologyResetRequired|TargetFace=Front|Tick=62"));
+            Assert.That(secondResetTick.EventLog, Does.Contain("RespawnTopologyResetRequested|E=10|From=Floor|To=Front|Rotation=Forward|TargetFace=Front|Tick=62"));
+            Assert.That(afterSecondResetSnapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
             Assert.That(
                 blockedRespawnTick.EventLog,
-                Does.Contain("RespawnSkipped|E=10|Pos=(2,1)|Face=Front|Tick=61|Reason=Entity|BlockerEntity=90|BlockerType=None"));
+                Does.Contain("RespawnSkipped|E=10|Pos=(2,1)|Face=Front|Tick=63|Reason=Entity|BlockerEntity=90|BlockerType=None"));
             Assert.That(blockedSnapshot.TryGetEntity(10, out _), Is.False);
         }
 
         [Test]
         [Category("Extended")]
-        public void Respawn_InactiveFaceDetachedHiddenOccupant_Commits()
+        public void Respawn_InactiveFaceDetachedHiddenOccupant_ResetsTopologyThenCommits()
         {
             var spawnCell = new SurfaceCell(FaceId.Front, 2, 1);
             var worldState = CreateWorldState(new[]
@@ -258,13 +470,22 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(preRespawnSnapshot.TryGetPlacementBlocker(EntityType.Unit, spawnCell, ignoredEntityId: 0, out _), Is.False);
             Assert.That(preRespawnSnapshot.TryGetAuthoritativePlacementBlocker(EntityType.Unit, spawnCell, ignoredEntityId: 0, out _), Is.False);
 
+            TickResult firstResetTick = default;
+            Assert.DoesNotThrow(() => firstResetTick = pipeline.RunTick(new TickInput(71)));
+            TickResult secondResetTick = default;
+            Assert.DoesNotThrow(() => secondResetTick = pipeline.RunTick(new TickInput(72)));
             TickResult respawnTick = default;
-            Assert.DoesNotThrow(() => respawnTick = pipeline.RunTick(new TickInput(71)));
+            Assert.DoesNotThrow(() => respawnTick = pipeline.RunTick(new TickInput(73)));
 
             var respawnedSnapshot = CreateSnapshot(worldState);
 
             Assert.That(SemanticEventAssertions.GetCleanupRemovedEntityIds(deathTick.EventLog), Has.Member(10));
-            Assert.That(respawnTick.EventLog, Does.Contain("RespawnCommitted|E=10|Pos=(2,1)|Face=Front|Facing=Left|Tick=71"));
+            Assert.That(firstResetTick.EventLog, Does.Contain("RespawnDeferred|E=10|Reason=TopologyResetRequired|TargetFace=Front|Tick=71"));
+            Assert.That(firstResetTick.EventLog, Does.Contain("RespawnTopologyResetRequested|E=10|From=Back|To=Floor|Rotation=Forward|TargetFace=Front|Tick=71"));
+            Assert.That(secondResetTick.EventLog, Does.Contain("RespawnDeferred|E=10|Reason=TopologyResetRequired|TargetFace=Front|Tick=72"));
+            Assert.That(secondResetTick.EventLog, Does.Contain("RespawnTopologyResetRequested|E=10|From=Floor|To=Front|Rotation=Forward|TargetFace=Front|Tick=72"));
+            Assert.That(respawnTick.EventLog, Does.Contain("RespawnCommitted|E=10|Pos=(2,1)|Face=Front|Facing=Left|Tick=73"));
+            Assert.That(respawnedSnapshot.Topology.BottomFace, Is.EqualTo(FaceId.Front));
             Assert.That(respawnedSnapshot.TryGetEntity(10, out var respawnedPlayer), Is.True);
             Assert.That(respawnedPlayer.position, Is.EqualTo(spawnCell));
             Assert.That(respawnedPlayer.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));

@@ -1112,6 +1112,66 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void RespawnTopologyReset_EmitsTopologyMotionBeforeSpawnVisibility()
+        {
+            var sourceTopology = new CubeTopologyState(FaceId.Back);
+            var destinationTopology = new CubeTopologyState(FaceId.Floor);
+            var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2));
+            var sourceSnapshot = CreateWorldState(
+                new[]
+                {
+                    CreateEntity(20, EntityType.Box, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Left),
+                },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                sourceTopology).CreateSnapshot();
+            var finalSnapshot = CreateWorldState(
+                new[]
+                {
+                    CreateEntity(20, EntityType.Box, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Left),
+                },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                destinationTopology).CreateSnapshot();
+            var respawnPhaseResult = new RespawnPhaseResult(
+                Array.Empty<EntityState>(),
+                new[]
+                {
+                    "RespawnDeferred|E=10|Reason=TopologyResetRequired|TargetFace=Front|Tick=9",
+                    "RespawnTopologyResetRequested|E=10|From=Back|To=Floor|Rotation=Forward|TargetFace=Front|Tick=9",
+                },
+                new RespawnTopologyResetRequest(
+                    entityId: 10,
+                    targetFace: FaceId.Front,
+                    sourceTopology,
+                    destinationTopology,
+                    CubeRotationKind.Forward));
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    sourceSnapshot,
+                    sourceSnapshot,
+                    sourceSnapshot,
+                    finalSnapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    respawnPhaseResult,
+                    currentTickIndex: 9));
+
+            Assert.That(presentationData.TopologyMotion.HasValue, Is.True);
+            Assert.That(presentationData.TopologyMotion.Value.SourceTopology, Is.EqualTo(sourceTopology));
+            Assert.That(presentationData.TopologyMotion.Value.DestinationTopology, Is.EqualTo(destinationTopology));
+            Assert.That(presentationData.TopologyMotion.Value.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
+            Assert.That(
+                presentationData.VisibilityChanges.Any(change =>
+                    change.EntityId == 10 &&
+                    change.ChangeKind == TickVisibilityChangeKind.Spawn),
+                Is.False);
+        }
+
+        [Test]
         [Category("Extended")]
         public void TickPresentationDataBuilder_FlipDestroySelf_SeparatesLogicalNoMoveFromFlipImpactSignal()
         {
