@@ -100,6 +100,19 @@ namespace Game.Feature.Gameplay.BoardState
         public SurfaceCell LockedTargetCell { get; }
     }
 
+    internal readonly struct JumpCrushLandingEvaluation
+    {
+        public JumpCrushLandingEvaluation(LegalityResult legalityResult, int crushedBoxEntityId)
+        {
+            LegalityResult = legalityResult;
+            CrushedBoxEntityId = crushedBoxEntityId;
+        }
+
+        public LegalityResult LegalityResult { get; }
+
+        public int CrushedBoxEntityId { get; }
+    }
+
     internal readonly struct CurrentEnemyLockRetentionEvidence
     {
         public CurrentEnemyLockRetentionEvidence(int sourceEntityId, int targetEntityId)

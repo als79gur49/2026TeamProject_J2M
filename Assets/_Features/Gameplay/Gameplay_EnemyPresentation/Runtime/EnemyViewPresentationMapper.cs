@@ -100,13 +100,15 @@ namespace Game.Feature.Gameplay.Host
             bool startedChargeActiveThisTick,
             bool startedChargeRecoverThisTick,
             bool tookDamage,
-            bool didDie)
+            bool didDie,
+            TickEnemyJumpPresentationOutcome jumpOutcome = TickEnemyJumpPresentationOutcome.None)
         {
             EntityId = entityId;
             TickIndex = tickIndex;
             AiMode = aiMode;
             ActiveActionKind = activeActionKind;
             JumpPhase = jumpPhase;
+            JumpOutcome = jumpOutcome;
             ChargePhase = chargePhase;
             IsMoving = isMoving;
             StartedWindupThisTick = startedWindupThisTick;
@@ -132,6 +134,8 @@ namespace Game.Feature.Gameplay.Host
         public EnemyActionKind ActiveActionKind { get; }
 
         public EnemyJumpPhase JumpPhase { get; }
+
+        public TickEnemyJumpPresentationOutcome JumpOutcome { get; }
 
         public EnemyChargePhase ChargePhase { get; }
 
@@ -236,6 +240,7 @@ namespace Game.Feature.Gameplay.Host
                 var startedJumpAirborneThisTick = false;
                 var landedFromJumpThisTick = false;
                 var retryingJumpAirborneThisTick = false;
+                var jumpOutcome = TickEnemyJumpPresentationOutcome.None;
                 var chargePhase = EnemyChargePhase.None;
                 var startedChargeWindupThisTick = false;
                 var startedChargeActiveThisTick = false;
@@ -262,6 +267,7 @@ namespace Game.Feature.Gameplay.Host
                     startedJumpAirborneThisTick = jumpSignal.StartedAirborneThisTick;
                     landedFromJumpThisTick = jumpSignal.LandedThisTick;
                     retryingJumpAirborneThisTick = jumpSignal.RetryThisTick;
+                    jumpOutcome = jumpSignal.Outcome;
                 }
 
                 if (_enemyChargeSignalsByEntityId.TryGetValue(entityId, out var chargeSignal))
@@ -293,7 +299,8 @@ namespace Game.Feature.Gameplay.Host
                     startedChargeActiveThisTick,
                     startedChargeRecoverThisTick,
                     tookDamageThisTick,
-                    didDie);
+                    didDie,
+                    jumpOutcome);
             }
         }
 

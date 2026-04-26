@@ -11,6 +11,7 @@ namespace Game.Feature.Gameplay.BoardState
         Flip = 1 << 1,
         Item = 1 << 2,
         Destroy = 1 << 3,
+        JumpCrushable = 1 << 4,
     }
 
     public struct EntityState

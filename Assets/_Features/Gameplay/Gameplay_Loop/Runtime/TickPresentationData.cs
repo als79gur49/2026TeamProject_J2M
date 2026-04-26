@@ -412,6 +412,16 @@ namespace Game.Feature.Gameplay.Loop
         public bool StartedRecoveryThisTick { get; }
     }
 
+    public enum TickEnemyJumpPresentationOutcome
+    {
+        None = 0,
+        WindupStarted = 1,
+        AirborneStarted = 2,
+        Landed = 3,
+        Retried = 4,
+        CrushedBoxAndLanded = 5,
+    }
+
     public readonly struct TickEnemyJumpPresentationSignal
     {
         public TickEnemyJumpPresentationSignal(
@@ -428,15 +438,19 @@ namespace Game.Feature.Gameplay.Loop
             Direction facing = Direction.None,
             int landingTick = 0,
             int remainingAirborneTicks = 0,
-            int retryCount = 0)
+            int retryCount = 0,
+            TickEnemyJumpPresentationOutcome outcome = TickEnemyJumpPresentationOutcome.None)
         {
+            var resolvedOutcome = outcome == TickEnemyJumpPresentationOutcome.None
+                ? ResolveOutcome(startedWindupThisTick, startedAirborneThisTick, landedThisTick, retryThisTick)
+                : outcome;
             EntityId = entityId;
             Sequence = sequence;
             Phase = phase;
             StartedWindupThisTick = startedWindupThisTick;
             StartedAirborneThisTick = startedAirborneThisTick;
-            LandedThisTick = landedThisTick;
-            RetryThisTick = retryThisTick;
+            LandedThisTick = landedThisTick || resolvedOutcome == TickEnemyJumpPresentationOutcome.CrushedBoxAndLanded;
+            RetryThisTick = retryThisTick || resolvedOutcome == TickEnemyJumpPresentationOutcome.Retried;
             SourceCell = sourceCell;
             LockedTargetCell = lockedTargetCell;
             PresentationTargetCell = presentationTargetCell;
@@ -444,6 +458,7 @@ namespace Game.Feature.Gameplay.Loop
             LandingTick = landingTick;
             RemainingAirborneTicks = remainingAirborneTicks;
             RetryCount = retryCount;
+            Outcome = resolvedOutcome;
         }
 
         public int EntityId { get; }
@@ -473,6 +488,34 @@ namespace Game.Feature.Gameplay.Loop
         public int RemainingAirborneTicks { get; }
 
         public int RetryCount { get; }
+
+        public TickEnemyJumpPresentationOutcome Outcome { get; }
+
+        private static TickEnemyJumpPresentationOutcome ResolveOutcome(
+            bool startedWindupThisTick,
+            bool startedAirborneThisTick,
+            bool landedThisTick,
+            bool retryThisTick)
+        {
+            if (startedWindupThisTick)
+            {
+                return TickEnemyJumpPresentationOutcome.WindupStarted;
+            }
+
+            if (startedAirborneThisTick)
+            {
+                return TickEnemyJumpPresentationOutcome.AirborneStarted;
+            }
+
+            if (landedThisTick)
+            {
+                return TickEnemyJumpPresentationOutcome.Landed;
+            }
+
+            return retryThisTick
+                ? TickEnemyJumpPresentationOutcome.Retried
+                : TickEnemyJumpPresentationOutcome.None;
+        }
     }
 
     public readonly struct TickEnemyChargePresentationSignal

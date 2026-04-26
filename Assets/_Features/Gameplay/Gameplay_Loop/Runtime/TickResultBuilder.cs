@@ -1373,12 +1373,15 @@ namespace Game.Feature.Gameplay.Loop
                 var landedThisTick = false;
                 var retryThisTick = false;
                 var presentationTargetCell = resolvedState.lockedTargetCell;
+                var outcome = TickEnemyJumpPresentationOutcome.None;
                 if (TryFindJumpPresentationOperation(context.MovementPhaseResult.ResolvedOperations, entityId, out var jumpOperation))
                 {
                     startedWindupThisTick = jumpOperation.Metadata.JumpPresentationKind == JumpPresentationKind.WindupStart;
                     startedAirborneThisTick = jumpOperation.Metadata.JumpPresentationKind == JumpPresentationKind.AirborneStart;
-                    landedThisTick = jumpOperation.Metadata.JumpPresentationKind == JumpPresentationKind.LandingSuccess;
+                    landedThisTick = jumpOperation.Metadata.JumpPresentationKind == JumpPresentationKind.LandingSuccess ||
+                                      jumpOperation.Metadata.JumpPresentationKind == JumpPresentationKind.CrushedBoxAndLanded;
                     retryThisTick = jumpOperation.Metadata.JumpPresentationKind == JumpPresentationKind.LandingRetry;
+                    outcome = ResolveJumpPresentationOutcome(jumpOperation.Metadata.JumpPresentationKind);
                     if (!jumpOperation.Metadata.PresentationTargetCell.Equals(default(SurfaceCell)))
                     {
                         presentationTargetCell = jumpOperation.Metadata.PresentationTargetCell;
@@ -1405,8 +1408,23 @@ namespace Game.Feature.Gameplay.Loop
                         facing: facing,
                         landingTick: resolvedState.landingTick,
                         remainingAirborneTicks: remainingAirborneTicks,
-                        retryCount: resolvedState.retryCount));
+                        retryCount: resolvedState.retryCount,
+                        outcome: outcome));
             }
+        }
+
+        private static TickEnemyJumpPresentationOutcome ResolveJumpPresentationOutcome(
+            JumpPresentationKind presentationKind)
+        {
+            return presentationKind switch
+            {
+                JumpPresentationKind.WindupStart => TickEnemyJumpPresentationOutcome.WindupStarted,
+                JumpPresentationKind.AirborneStart => TickEnemyJumpPresentationOutcome.AirborneStarted,
+                JumpPresentationKind.LandingSuccess => TickEnemyJumpPresentationOutcome.Landed,
+                JumpPresentationKind.LandingRetry => TickEnemyJumpPresentationOutcome.Retried,
+                JumpPresentationKind.CrushedBoxAndLanded => TickEnemyJumpPresentationOutcome.CrushedBoxAndLanded,
+                _ => TickEnemyJumpPresentationOutcome.None,
+            };
         }
 
         private static void CollectEnemyActionCandidateIds(

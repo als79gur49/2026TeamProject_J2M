@@ -1509,7 +1509,8 @@ namespace Game.Feature.Gameplay.Loop
                     plan.TargetId,
                     plan.LandingRule,
                     plan.SuccessState,
-                    plan.RetryState);
+                    plan.RetryState,
+                    plan.CrushedBoxEntityId);
             }
 
             return payloads;
@@ -2163,6 +2164,50 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
+                var crushEvaluation = RuntimeSettlementLegalityPolicy.EvaluateJumpCrushLandingCell(
+                    new SettlementContext(
+                        snapshot,
+                        BuildLegalityActorRef(snapshot, jumpEntry.EntityId, EntityType.Unit),
+                        jumpState.lockedTargetCell,
+                        snapshot.Topology,
+                        SpatialState.Anchored),
+                    new JumpLandingEvidence(
+                        snapshot,
+                        jumpState.lockedTargetCell));
+                if (crushEvaluation.LegalityResult.Verdict == LegalityVerdict.Allowed &&
+                    crushEvaluation.CrushedBoxEntityId > 0)
+                {
+                    var actionPlanId = _idAllocator.AllocateGroupId();
+                    var contestId = nextContestId++;
+                    var successState = EnemyJumpQueries.EnterCooldown(jumpState, cooldownTicks);
+                    var retryState = EnemyJumpQueries.ScheduleRetry(jumpState, tickIndex + 1);
+                    jumpLandingPlans.Add(
+                        new JumpLandingPlan(
+                            actionPlanId,
+                            contestId,
+                            jumpEntry.EntityId,
+                            priority: 0,
+                            targetId: 0,
+                            destinationCell: jumpState.lockedTargetCell,
+                            landingRule: "TargetCrushBox",
+                            successState,
+                            retryState,
+                            JumpLandingKind.CrushBoxAndLand,
+                            crushEvaluation.CrushedBoxEntityId));
+                    jumpLandingSpaceContests.Add(
+                        new Contest(
+                            contestId,
+                            ContestKind.Space,
+                            actionPlanId,
+                            jumpEntry.EntityId,
+                            priority: 0,
+                            affectedEntityId: crushEvaluation.CrushedBoxEntityId,
+                            affectedCell: jumpState.lockedTargetCell,
+                            hasAffectedCell: true,
+                            localActionIndex: 0));
+                    continue;
+                }
+
                 if (!EnemyJumpQueries.TryResolveLandingCell(snapshot, source, jumpState, out var landingCell, out var landingRule))
                 {
                     var retryState = EnemyJumpQueries.ScheduleRetry(jumpState, tickIndex + 1);
@@ -2366,39 +2411,81 @@ namespace Game.Feature.Gameplay.Loop
                 }
 
                 var reservationStatus = reservationBook.GetCellStatus(payload.DestinationCell);
-                var landingLegality = RuntimeSettlementLegalityPolicy.EvaluateJumpLandingCell(
-                    new SettlementContext(
-                        movementSnapshot,
-                        BuildLegalityActorRef(movementSnapshot, payload.SourceActorEntityId, EntityType.Unit),
-                        payload.DestinationCell,
-                        movementSnapshot.Topology,
-                        SpatialState.Anchored,
-                        reservationStatus),
-                    new JumpLandingEvidence(
-                        damageProjectionSnapshot,
-                        payload.SuccessJumpState.lockedTargetCell));
+                var settlementContext = new SettlementContext(
+                    movementSnapshot,
+                    BuildLegalityActorRef(movementSnapshot, payload.SourceActorEntityId, EntityType.Unit),
+                    payload.DestinationCell,
+                    movementSnapshot.Topology,
+                    SpatialState.Anchored,
+                    reservationStatus);
+                var jumpLandingEvidence = new JumpLandingEvidence(
+                    damageProjectionSnapshot,
+                    payload.SuccessJumpState.lockedTargetCell);
+                var resolvedCrushedBoxEntityId = 0;
+                var landingLegality = default(LegalityResult);
+                if (payload.LandingKind == JumpLandingKind.CrushBoxAndLand)
+                {
+                    var crushEvaluation = RuntimeSettlementLegalityPolicy.EvaluateJumpCrushLandingCell(
+                        settlementContext,
+                        jumpLandingEvidence);
+                    landingLegality = crushEvaluation.LegalityResult;
+                    resolvedCrushedBoxEntityId = crushEvaluation.CrushedBoxEntityId;
+                }
+                else
+                {
+                    landingLegality = RuntimeSettlementLegalityPolicy.EvaluateJumpLandingCell(
+                        settlementContext,
+                        jumpLandingEvidence);
+                }
 
                 var accepted = payload.LandingKind != JumpLandingKind.RetryOnly &&
                                landingLegality.Verdict == LegalityVerdict.Allowed;
+                if (accepted &&
+                    payload.LandingKind == JumpLandingKind.CrushBoxAndLand &&
+                    resolvedCrushedBoxEntityId > 0 &&
+                    resolvedCrushedBoxEntityId != payload.CrushedBoxEntityId)
+                {
+                    accepted = false;
+                }
                 var resolvedTargetId = accepted &&
-                                       payload.LandingKind != JumpLandingKind.ExactStack &&
-                                       payload.ContestedTargetEntityId > 0 &&
-                                       IsImpactTargetSurviving(
-                                           damageProjectionSnapshot,
-                                           payload.ContestedTargetEntityId)
-                    ? payload.ContestedTargetEntityId
-                    : 0;
+                                       payload.LandingKind == JumpLandingKind.CrushBoxAndLand
+                    ? resolvedCrushedBoxEntityId
+                    : accepted &&
+                      payload.LandingKind != JumpLandingKind.ExactStack &&
+                      payload.ContestedTargetEntityId > 0 &&
+                      IsImpactTargetSurviving(
+                          damageProjectionSnapshot,
+                          payload.ContestedTargetEntityId)
+                        ? payload.ContestedTargetEntityId
+                        : 0;
 
                 var resolutionRecord = CreateResolutionRecord(contest, accepted);
                 movementResolutionRecords.Add(resolutionRecord);
+                var jumpPresentationKind = accepted
+                    ? payload.LandingKind == JumpLandingKind.CrushBoxAndLand && resolvedCrushedBoxEntityId > 0
+                        ? JumpPresentationKind.CrushedBoxAndLanded
+                        : JumpPresentationKind.LandingSuccess
+                    : JumpPresentationKind.LandingRetry;
                 var metadata = CreateJumpLandingMetadata(
                     payload,
                     resolutionRecord,
-                    accepted ? JumpPresentationKind.LandingSuccess : JumpPresentationKind.LandingRetry);
+                    jumpPresentationKind);
 
                 if (accepted)
                 {
                     reservationBook.ReserveJumpLanding(payload.SourceActorEntityId, payload.DestinationCell);
+                    if (payload.LandingKind == JumpLandingKind.CrushBoxAndLand &&
+                        resolvedCrushedBoxEntityId > 0)
+                    {
+                        var boxDestroyMetadata = CreateJumpLandingMetadata(
+                            payload,
+                            resolutionRecord,
+                            JumpPresentationKind.None,
+                            TickEntityExitCause.BoxDestroy);
+                        batch.SetBoardPresence(resolvedCrushedBoxEntityId, EntityBoardPresence.Detached, boxDestroyMetadata);
+                        batch.MarkDestroy(resolvedCrushedBoxEntityId, boxDestroyMetadata);
+                    }
+
                     batch.MoveEntity(payload.SourceActorEntityId, payload.DestinationCell, metadata);
                     batch.SetBoardPresence(payload.SourceActorEntityId, EntityBoardPresence.Occupying, metadata);
                     batch.SetEnemyJumpState(payload.SourceActorEntityId, payload.SuccessJumpState, metadata);
@@ -2699,7 +2786,8 @@ namespace Game.Feature.Gameplay.Loop
         private static FinalizationOperationMetadata CreateJumpLandingMetadata(
             JumpLandingActionPlanPayload payload,
             ResolutionRecord resolutionRecord,
-            JumpPresentationKind jumpPresentationKind)
+            JumpPresentationKind jumpPresentationKind,
+            TickEntityExitCause exitCauseHint = TickEntityExitCause.None)
         {
             return new FinalizationOperationMetadata(
                 TickPhase.Resolve,
@@ -2710,6 +2798,7 @@ namespace Game.Feature.Gameplay.Loop
                 resolutionRecord.ContestId,
                 resolutionRecord.LocalActionIndex,
                 payload.Priority,
+                exitCauseHint: exitCauseHint,
                 movementSemanticKind: MovementSemanticKind.JumpLanding,
                 damageSourceType: DamageSourceType.None,
                 jumpPresentationKind: jumpPresentationKind,
@@ -6139,7 +6228,8 @@ namespace Game.Feature.Gameplay.Loop
             string landingRule,
             EnemyJumpRuntimeState successState,
             EnemyJumpRuntimeState retryState,
-            JumpLandingKind landingKind)
+            JumpLandingKind landingKind,
+            int crushedBoxEntityId = 0)
         {
             ActionPlanId = actionPlanId;
             ContestId = contestId;
@@ -6151,6 +6241,7 @@ namespace Game.Feature.Gameplay.Loop
             SuccessState = successState;
             RetryState = retryState;
             LandingKind = landingKind;
+            CrushedBoxEntityId = crushedBoxEntityId;
         }
 
         public int ActionPlanId { get; }
@@ -6172,6 +6263,8 @@ namespace Game.Feature.Gameplay.Loop
         public EnemyJumpRuntimeState RetryState { get; }
 
         public JumpLandingKind LandingKind { get; }
+
+        public int CrushedBoxEntityId { get; }
     }
 
     internal sealed class PhaseRelocationPlan
@@ -6223,6 +6316,7 @@ namespace Game.Feature.Gameplay.Loop
         ExactStack = 0,
         Contested = 1,
         RetryOnly = 2,
+        CrushBoxAndLand = 3,
     }
 
     internal abstract class ActionPlanPayload
@@ -6827,7 +6921,8 @@ namespace Game.Feature.Gameplay.Loop
             int contestedTargetEntityId,
             string landingRule,
             EnemyJumpRuntimeState successJumpState,
-            EnemyJumpRuntimeState retryJumpState)
+            EnemyJumpRuntimeState retryJumpState,
+            int crushedBoxEntityId = 0)
             : base(actionPlanId, intentId: 0, sourceActorEntityId, priority, ResolvedActionSemanticKind.JumpLanding)
         {
             LandingKind = landingKind;
@@ -6836,6 +6931,7 @@ namespace Game.Feature.Gameplay.Loop
             LandingRule = landingRule ?? string.Empty;
             SuccessJumpState = successJumpState;
             RetryJumpState = retryJumpState;
+            CrushedBoxEntityId = crushedBoxEntityId;
         }
 
         public JumpLandingKind LandingKind { get; }
@@ -6849,6 +6945,8 @@ namespace Game.Feature.Gameplay.Loop
         public EnemyJumpRuntimeState SuccessJumpState { get; }
 
         public EnemyJumpRuntimeState RetryJumpState { get; }
+
+        public int CrushedBoxEntityId { get; }
     }
 
     internal sealed class PhaseRelocationActionPlanPayload : ActionPlanPayload
@@ -7202,6 +7300,7 @@ namespace Game.Feature.Gameplay.Loop
         AirborneStart = 2,
         LandingSuccess = 3,
         LandingRetry = 4,
+        CrushedBoxAndLanded = 5,
     }
 
     internal readonly struct FinalizationOperationMetadata

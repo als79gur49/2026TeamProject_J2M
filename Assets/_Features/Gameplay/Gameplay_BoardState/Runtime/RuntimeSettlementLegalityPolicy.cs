@@ -170,6 +170,97 @@ namespace Game.Feature.Gameplay.BoardState
                 context.ReservationStatus);
         }
 
+        public static JumpCrushLandingEvaluation EvaluateJumpCrushLandingCell(
+            SettlementContext context,
+            JumpLandingEvidence evidence)
+        {
+            SpatialStateSemantics.EnsureProductionSupported(context.Actor.SpatialState.Kind);
+            SpatialStateSemantics.EnsureProductionSupported(context.RequestedTerminalState);
+
+            if (context.TerminalCell != evidence.LockedTargetCell)
+            {
+                return new JumpCrushLandingEvaluation(EvaluateJumpLandingCell(context, evidence), crushedBoxEntityId: 0);
+            }
+
+            if (ReservationQuery.BlocksSettlement(context.ReservationStatus))
+            {
+                return new JumpCrushLandingEvaluation(
+                    LegalityResult.Blocked(
+                        LegalityDomain.Settlement,
+                        context.TerminalCell,
+                        context.TerminalTopology,
+                        RuntimeLegalityBlockerFactory.CreateReservationConflict(),
+                        context.ReservationStatus),
+                    crushedBoxEntityId: 0);
+            }
+
+            if (!context.OccupancySnapshot.TryGetAuthoritativePlacementBlocker(
+                    context.Actor.EntityType,
+                    context.TerminalCell,
+                    context.Actor.EntityId,
+                    out var blocker))
+            {
+                return new JumpCrushLandingEvaluation(EvaluateJumpLandingCell(context, evidence), crushedBoxEntityId: 0);
+            }
+
+            if (blocker.Kind != SlideStopperKind.Entity ||
+                blocker.EntityType != EntityType.Box ||
+                !context.OccupancySnapshot.TryGetEntity(blocker.EntityId, out var box) ||
+                !HasBoxCapability(box, BoxCapabilities.JumpCrushable))
+            {
+                return new JumpCrushLandingEvaluation(
+                    LegalityResult.Blocked(
+                        LegalityDomain.Settlement,
+                        context.TerminalCell,
+                        context.TerminalTopology,
+                        RuntimeLegalityBlockerFactory.Create(context.OccupancySnapshot.EntitiesById, blocker),
+                        context.ReservationStatus),
+                    crushedBoxEntityId: 0);
+            }
+
+            var modifiers = ModifierQuery.GetJumpLandingModifiers(context, evidence);
+            if (modifiers.Has(LegalityModifierId.ExclusiveLockedPlayerExactStackAllowance) &&
+                IsExclusiveLockedPlayerStack(
+                    context.OccupancySnapshot,
+                    context.TerminalCell,
+                    context.Actor.EntityId))
+            {
+                return new JumpCrushLandingEvaluation(
+                    LegalityResult.Allowed(
+                        LegalityDomain.Settlement,
+                        context.TerminalCell,
+                        context.TerminalTopology,
+                        context.ReservationStatus),
+                    box.entityId);
+            }
+
+            if (TryGetSettlementBlockingOccupant(
+                    context,
+                    shouldIgnoreOccupant: null,
+                    shouldTreatAsBlockingOccupant: occupant => IsImpactTargetSurviving(
+                        evidence.DamageProjectionSnapshot,
+                        occupant.entityId),
+                    out var blockingOccupant))
+            {
+                return new JumpCrushLandingEvaluation(
+                    LegalityResult.Blocked(
+                        LegalityDomain.Settlement,
+                        context.TerminalCell,
+                        context.TerminalTopology,
+                        RuntimeLegalityBlockerFactory.Create(blockingOccupant),
+                        context.ReservationStatus),
+                    crushedBoxEntityId: 0);
+            }
+
+            return new JumpCrushLandingEvaluation(
+                LegalityResult.Allowed(
+                    LegalityDomain.Settlement,
+                    context.TerminalCell,
+                    context.TerminalTopology,
+                    context.ReservationStatus),
+                box.entityId);
+        }
+
         public static LegalityResult EvaluateJumpLandingCell(
             WorldSnapshot movementSnapshot,
             WorldSnapshot damageProjectionSnapshot,
@@ -305,6 +396,12 @@ namespace Game.Feature.Gameplay.BoardState
             return snapshot.TryGetEntity(targetEntityId, out var targetEntity) &&
                    targetEntity.hp > 0 &&
                    !targetEntity.markedForDeath;
+        }
+
+        private static bool HasBoxCapability(EntityState entity, BoxCapabilities capability)
+        {
+            return entity.type == EntityType.Box &&
+                   (entity.boxCapabilities & capability) == capability;
         }
 
         private static bool TryGetSettlementBlockingOccupant(
