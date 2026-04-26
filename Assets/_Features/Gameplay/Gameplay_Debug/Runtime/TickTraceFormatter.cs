@@ -116,6 +116,7 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, $"{label}.EnemyPatrols", GetEnemyPatrolEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.ExecutionLocks", GetExecutionLockEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyJumps", GetEnemyJumpEntries(snapshot), FormatString);
+            AppendSection(builder, $"{label}.EnemyGlides", GetEnemyGlideEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyUtilities", GetEnemyUtilityEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.BoxInteractionLocks", GetBoxInteractionLockEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyCharges", GetEnemyChargeEntries(snapshot), FormatString);
@@ -241,6 +242,22 @@ namespace Game.Feature.Gameplay.Debug
                 var entry = entries[i];
                 lines.Add(
                     $"E={entry.EntityId}|Phase={entry.State.phase}|Seq={entry.State.sequence}|Source={entry.State.sourceCell}|Locked={entry.State.lockedTargetCell}|WindupEnd={entry.State.windupEndTick}|Landing={entry.State.landingTick}|Cooldown={entry.State.cooldownRemainingTicks}|Retry={entry.State.retryCount}");
+            }
+
+            return lines;
+        }
+
+        private static List<string> GetEnemyGlideEntries(WorldSnapshot snapshot)
+        {
+            var entries = new List<EnemyGlideSnapshotEntry>();
+            var lines = new List<string>();
+            snapshot.EnumerateEnemyGlideStatesOrdered(entries);
+
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                lines.Add(
+                    $"E={entry.EntityId}|Active={(entry.State.IsActive ? 1 : 0)}|LandingPending={(entry.State.IsLandingPending ? 1 : 0)}|Seq={entry.State.Sequence}|ActiveUntil={entry.State.ActiveUntilTickExclusive}|CooldownUntil={entry.State.CooldownUntilTickExclusive}|Duration={entry.State.DurationTicks}|Cooldown={entry.State.CooldownTicks}|LastExited={entry.State.LastExitedTick}|PendingCell={entry.State.LandingPendingCell}");
             }
 
             return lines;
@@ -527,6 +544,18 @@ namespace Game.Feature.Gameplay.Debug
                         .Append("|ExitExclusive=").Append(operation.PhasedState.exitTickExclusive)
                         .Append("|Active=").Append(operation.PhasedState.IsActive ? 1 : 0)
                         .Append(BuildPhasedMetadataSuffix(operation.PhasedState.ownerKind));
+                    break;
+
+                case FinalizationOperationKind.SetEnemyGlideState:
+                    builder.Append("|Active=").Append(operation.EnemyGlideState.IsActive ? 1 : 0)
+                        .Append("|LandingPending=").Append(operation.EnemyGlideState.IsLandingPending ? 1 : 0)
+                        .Append("|GlideSeq=").Append(operation.EnemyGlideState.Sequence)
+                        .Append("|ActiveUntil=").Append(operation.EnemyGlideState.ActiveUntilTickExclusive)
+                        .Append("|CooldownUntil=").Append(operation.EnemyGlideState.CooldownUntilTickExclusive)
+                        .Append("|Duration=").Append(operation.EnemyGlideState.DurationTicks)
+                        .Append("|Cooldown=").Append(operation.EnemyGlideState.CooldownTicks)
+                        .Append("|LastExited=").Append(operation.EnemyGlideState.LastExitedTick)
+                        .Append("|PendingCell=").Append(operation.EnemyGlideState.LandingPendingCell);
                     break;
 
                 case FinalizationOperationKind.SetEnemyUtilityState:

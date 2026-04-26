@@ -231,7 +231,7 @@ namespace Game.Feature.Gameplay.PlayerControl
                     delta,
                     out _,
                     out var stopper) &&
-                snapshot.TryPickHostileUnitImpactTargetAt(stopper.Cell, player.teamId, out _))
+                snapshot.TryPickHostileUnitImpactTargetAtForBoxSlide(stopper.Cell, player.teamId, out _))
             {
                 contact = new PlayerActionTarget(target.entityId, inputDirection);
                 return true;

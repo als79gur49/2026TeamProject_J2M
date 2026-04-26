@@ -50,6 +50,7 @@ namespace Game.Feature.Gameplay.BoardState
                 entitiesById,
                 stackedUnitsByCell,
                 enemyJumpStatesByEntityId: null,
+                enemyGlideStatesByEntityId: null,
                 phasedStatesByEntityId: null,
                 solidOccupancyByCell,
                 projectileOccupancy,
@@ -65,6 +66,7 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
             IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
@@ -79,6 +81,7 @@ namespace Game.Feature.Gameplay.BoardState
                 entitiesById,
                 stackedUnitsByCell,
                 enemyJumpStatesByEntityId,
+                enemyGlideStatesByEntityId,
                 phasedStatesByEntityId,
                 solidOccupancyByCell,
                 projectileOccupancy,
@@ -89,6 +92,7 @@ namespace Game.Feature.Gameplay.BoardState
                 ignoredEntityId,
                 default,
                 PlacementQueryMode.Authoritative,
+                PlacementGlideQueryMode.Normal,
                 out blocker);
         }
 
@@ -109,6 +113,7 @@ namespace Game.Feature.Gameplay.BoardState
                 entitiesById,
                 stackedUnitsByCell,
                 enemyJumpStatesByEntityId: null,
+                enemyGlideStatesByEntityId: null,
                 phasedStatesByEntityId: null,
                 solidOccupancyByCell,
                 projectileOccupancy,
@@ -125,6 +130,7 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
             IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
@@ -140,6 +146,7 @@ namespace Game.Feature.Gameplay.BoardState
                 entitiesById,
                 stackedUnitsByCell,
                 enemyJumpStatesByEntityId,
+                enemyGlideStatesByEntityId,
                 phasedStatesByEntityId,
                 solidOccupancyByCell,
                 projectileOccupancy,
@@ -150,6 +157,40 @@ namespace Game.Feature.Gameplay.BoardState
                 ignoredEntityId,
                 topology,
                 PlacementQueryMode.Gameplay,
+                PlacementGlideQueryMode.Normal,
+                out blocker);
+        }
+
+        public static bool TryGetBoxSlidePlacementBlocker(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
+            IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
+            CubeTopologyState topology,
+            BoardBounds boardBounds,
+            TerrainData terrainData,
+            SurfaceCell cell,
+            out SlideStopper blocker)
+        {
+            return TryGetPlacementBlockerCore(
+                entitiesById,
+                stackedUnitsByCell,
+                enemyJumpStatesByEntityId,
+                enemyGlideStatesByEntityId,
+                phasedStatesByEntityId,
+                solidOccupancyByCell,
+                projectileOccupancy,
+                boardBounds,
+                terrainData,
+                EntityType.Box,
+                cell,
+                ignoredEntityId: 0,
+                topology,
+                PlacementQueryMode.Gameplay,
+                PlacementGlideQueryMode.BoxSlide,
                 out blocker);
         }
 
@@ -168,6 +209,7 @@ namespace Game.Feature.Gameplay.BoardState
             return TryGetRepresentablePlacementBlocker(
                 entitiesById,
                 CreateStackedUnitQueryView(stackedUnitsByCell),
+                enemyGlideStatesByEntityId: null,
                 solidOccupancyByCell,
                 projectileOccupancy,
                 boardBounds,
@@ -194,6 +236,7 @@ namespace Game.Feature.Gameplay.BoardState
                 entitiesById,
                 stackedUnitsByCell,
                 enemyJumpStatesByEntityId: null,
+                enemyGlideStatesByEntityId: null,
                 phasedStatesByEntityId: null,
                 solidOccupancyByCell,
                 projectileOccupancy,
@@ -204,6 +247,66 @@ namespace Game.Feature.Gameplay.BoardState
                 ignoredEntityId,
                 default,
                 PlacementQueryMode.Representable,
+                PlacementGlideQueryMode.Normal,
+                out blocker);
+        }
+
+        public static bool TryGetRepresentablePlacementBlocker(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, SortedSet<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
+            IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
+            BoardBounds boardBounds,
+            TerrainData terrainData,
+            EntityType entityType,
+            SurfaceCell cell,
+            int ignoredEntityId,
+            out SlideStopper blocker)
+        {
+            return TryGetRepresentablePlacementBlocker(
+                entitiesById,
+                CreateStackedUnitQueryView(stackedUnitsByCell),
+                enemyGlideStatesByEntityId,
+                solidOccupancyByCell,
+                projectileOccupancy,
+                boardBounds,
+                terrainData,
+                entityType,
+                cell,
+                ignoredEntityId,
+                out blocker);
+        }
+
+        public static bool TryGetRepresentablePlacementBlocker(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
+            IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
+            BoardBounds boardBounds,
+            TerrainData terrainData,
+            EntityType entityType,
+            SurfaceCell cell,
+            int ignoredEntityId,
+            out SlideStopper blocker)
+        {
+            return TryGetPlacementBlockerCore(
+                entitiesById,
+                stackedUnitsByCell,
+                enemyJumpStatesByEntityId: null,
+                enemyGlideStatesByEntityId,
+                phasedStatesByEntityId: null,
+                solidOccupancyByCell,
+                projectileOccupancy,
+                boardBounds,
+                terrainData,
+                entityType,
+                cell,
+                ignoredEntityId,
+                default,
+                PlacementQueryMode.Representable,
+                PlacementGlideQueryMode.Normal,
                 out blocker);
         }
 
@@ -221,6 +324,7 @@ namespace Game.Feature.Gameplay.BoardState
                 entitiesById,
                 stackedUnitsByCell,
                 enemyJumpStatesByEntityId: null,
+                enemyGlideStatesByEntityId: null,
                 phasedStatesByEntityId: null,
                 solidOccupancyByCell,
                 topology,
@@ -234,6 +338,7 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
             IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             CubeTopologyState topology,
@@ -252,6 +357,7 @@ namespace Game.Feature.Gameplay.BoardState
                 entitiesById,
                 stackedUnitsByCell,
                 enemyJumpStatesByEntityId,
+                enemyGlideStatesByEntityId,
                 phasedStatesByEntityId,
                 solidOccupancyByCell,
                 EmptyOccupancy,
@@ -268,6 +374,7 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
             IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
@@ -278,6 +385,7 @@ namespace Game.Feature.Gameplay.BoardState
             int ignoredEntityId,
             CubeTopologyState topology,
             PlacementQueryMode queryMode,
+            PlacementGlideQueryMode glideQueryMode,
             out SlideStopper blocker)
         {
             ValidateQueryDictionaries(entitiesById, solidOccupancyByCell);
@@ -316,10 +424,11 @@ namespace Game.Feature.Gameplay.BoardState
                 return true;
             }
 
-                if (TryGetBlockingPlacementEntity(
+            if (TryGetBlockingPlacementEntity(
                     entitiesById,
                     stackedUnitsByCell,
                     enemyJumpStatesByEntityId,
+                    enemyGlideStatesByEntityId,
                     phasedStatesByEntityId,
                     solidOccupancyByCell,
                     projectileOccupancy,
@@ -328,6 +437,7 @@ namespace Game.Feature.Gameplay.BoardState
                     entityType,
                     cell,
                     ignoredEntityId,
+                    glideQueryMode,
                     out var blockingEntity))
             {
                 blocker = SlideStopper.CreateEntity(blockingEntity);
@@ -342,6 +452,7 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
             IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
@@ -350,6 +461,7 @@ namespace Game.Feature.Gameplay.BoardState
             EntityType entityType,
             SurfaceCell cell,
             int ignoredEntityId,
+            PlacementGlideQueryMode glideQueryMode,
             out EntityState entity)
         {
             switch (entityType)
@@ -359,11 +471,14 @@ namespace Game.Feature.Gameplay.BoardState
                         entitiesById,
                         solidOccupancyByCell,
                         enemyJumpStatesByEntityId,
+                        enemyGlideStatesByEntityId,
                         phasedStatesByEntityId,
                         topology,
                         queryMode,
                         cell,
                         ignoredEntityId,
+                        entityType,
+                        glideQueryMode,
                         out entity);
 
                 case EntityType.Projectile:
@@ -371,11 +486,14 @@ namespace Game.Feature.Gameplay.BoardState
                             entitiesById,
                             projectileOccupancy,
                             enemyJumpStatesByEntityId,
+                            enemyGlideStatesByEntityId,
                             phasedStatesByEntityId,
                             topology,
                             queryMode,
                             cell,
                             ignoredEntityId,
+                            entityType,
+                            glideQueryMode,
                             out entity))
                     {
                         return true;
@@ -385,11 +503,14 @@ namespace Game.Feature.Gameplay.BoardState
                         entitiesById,
                         solidOccupancyByCell,
                         enemyJumpStatesByEntityId,
+                        enemyGlideStatesByEntityId,
                         phasedStatesByEntityId,
                         topology,
                         queryMode,
                         cell,
                         ignoredEntityId,
+                        entityType,
+                        glideQueryMode,
                         out entity);
 
                 case EntityType.Box:
@@ -398,11 +519,14 @@ namespace Game.Feature.Gameplay.BoardState
                             entitiesById,
                             solidOccupancyByCell,
                             enemyJumpStatesByEntityId,
+                            enemyGlideStatesByEntityId,
                             phasedStatesByEntityId,
                             topology,
                             queryMode,
                             cell,
                             ignoredEntityId,
+                            entityType,
+                            glideQueryMode,
                             out entity))
                     {
                         return true;
@@ -412,11 +536,13 @@ namespace Game.Feature.Gameplay.BoardState
                         entitiesById,
                         stackedUnitsByCell,
                         enemyJumpStatesByEntityId,
+                        enemyGlideStatesByEntityId,
                         phasedStatesByEntityId,
                         topology,
                         queryMode,
                         cell,
                         ignoredEntityId,
+                        glideQueryMode,
                         out entity);
 
                 default:
@@ -445,15 +571,24 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, int> occupancyByCell,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
             IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             CubeTopologyState topology,
             PlacementQueryMode queryMode,
             SurfaceCell cell,
             int ignoredEntityId,
+            EntityType movingEntityType,
+            PlacementGlideQueryMode glideQueryMode,
             out EntityState entity)
         {
             if (TryGetStoredOccupant(entitiesById, occupancyByCell, cell, out entity) &&
                 entity.entityId != ignoredEntityId &&
+                !ShouldIgnoreSolidOccupantForGlide(
+                    enemyGlideStatesByEntityId,
+                    movingEntityType,
+                    queryMode,
+                    cell,
+                    ignoredEntityId) &&
                 GameplayEntityQueryPolicy.IsBlockingPlacementEntity(
                     ResolveSpatialState(enemyJumpStatesByEntityId, phasedStatesByEntityId, entity, topology),
                     requireGameplayVisibility: queryMode == PlacementQueryMode.Gameplay))
@@ -469,32 +604,88 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
             IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             CubeTopologyState topology,
             PlacementQueryMode queryMode,
             SurfaceCell cell,
             int ignoredEntityId,
+            PlacementGlideQueryMode glideQueryMode,
             out EntityState entity)
         {
-            if (SnapshotReadQueries.TryGetStoredStackedUnit(
-                    entitiesById,
-                    stackedUnitsByCell,
-                    enemyJumpStatesByEntityId,
-                    phasedStatesByEntityId,
-                    topology,
-                    cell,
-                    requireGameplayVisibility: queryMode == PlacementQueryMode.Gameplay,
-                    ignoredEntityId,
-                    out entity) &&
-                GameplayEntityQueryPolicy.IsBlockingPlacementEntity(
-                    ResolveSpatialState(enemyJumpStatesByEntityId, phasedStatesByEntityId, entity, topology),
-                    requireGameplayVisibility: queryMode == PlacementQueryMode.Gameplay))
+            if (!stackedUnitsByCell.TryGetValue(cell, out var entityIds))
             {
-                return true;
+                entity = default;
+                return false;
+            }
+
+            foreach (var entityId in entityIds)
+            {
+                if (entityId == ignoredEntityId ||
+                    !entitiesById.TryGetValue(entityId, out var candidate) ||
+                    ShouldIgnoreStackedUnitForGlide(
+                        enemyGlideStatesByEntityId,
+                        candidate.entityId,
+                        queryMode,
+                        glideQueryMode))
+                {
+                    continue;
+                }
+
+                var spatialState = ResolveSpatialState(enemyJumpStatesByEntityId, phasedStatesByEntityId, candidate, topology);
+                if (GameplayEntityQueryPolicy.IsBlockingPlacementEntity(
+                        spatialState,
+                        requireGameplayVisibility: queryMode == PlacementQueryMode.Gameplay))
+                {
+                    entity = candidate;
+                    return true;
+                }
             }
 
             entity = default;
             return false;
+        }
+
+        private static bool ShouldIgnoreSolidOccupantForGlide(
+            IReadOnlyDictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
+            EntityType movingEntityType,
+            PlacementQueryMode queryMode,
+            SurfaceCell cell,
+            int ignoredEntityId)
+        {
+            if (movingEntityType != EntityType.Unit ||
+                ignoredEntityId <= 0 ||
+                enemyGlideStatesByEntityId == null ||
+                !enemyGlideStatesByEntityId.TryGetValue(ignoredEntityId, out var glideState))
+            {
+                return false;
+            }
+
+            if (glideState.IsActive)
+            {
+                return true;
+            }
+
+            return queryMode == PlacementQueryMode.Representable &&
+                   glideState.IsLandingPending &&
+                   glideState.LandingPendingCell == cell;
+        }
+
+        private static bool ShouldIgnoreStackedUnitForGlide(
+            IReadOnlyDictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
+            int entityId,
+            PlacementQueryMode queryMode,
+            PlacementGlideQueryMode glideQueryMode)
+        {
+            if (enemyGlideStatesByEntityId == null ||
+                !enemyGlideStatesByEntityId.TryGetValue(entityId, out var glideState) ||
+                !glideState.IsActive)
+            {
+                return false;
+            }
+
+            return glideQueryMode == PlacementGlideQueryMode.BoxSlide ||
+                   queryMode == PlacementQueryMode.Representable;
         }
 
         private static bool TryGetStoredOccupant(
@@ -567,6 +758,12 @@ namespace Game.Feature.Gameplay.BoardState
             Authoritative = 0,
             Gameplay = 1,
             Representable = 2,
+        }
+
+        private enum PlacementGlideQueryMode
+        {
+            Normal = 0,
+            BoxSlide = 1,
         }
     }
 }

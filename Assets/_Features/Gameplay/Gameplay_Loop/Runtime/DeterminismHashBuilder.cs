@@ -68,6 +68,9 @@ namespace Game.Feature.Gameplay.Loop
             builder.Append("EnemyJumps").Append('\n');
             AppendEnemyJumpLines(builder, GetOrderedEnemyJumpStates(finalSnapshot));
 
+            builder.Append("EnemyGlides").Append('\n');
+            AppendEnemyGlideLines(builder, GetOrderedEnemyGlideStates(finalSnapshot));
+
             builder.Append("EnemyUtilities").Append('\n');
             AppendEnemyUtilityLines(builder, GetOrderedEnemyUtilityStates(finalSnapshot));
 
@@ -164,6 +167,13 @@ namespace Game.Feature.Gameplay.Loop
             var enemyJumpEntries = new List<EnemyJumpSnapshotEntry>();
             finalSnapshot.EnumerateEnemyJumpStatesOrdered(enemyJumpEntries);
             return enemyJumpEntries;
+        }
+
+        private static List<EnemyGlideSnapshotEntry> GetOrderedEnemyGlideStates(WorldSnapshot finalSnapshot)
+        {
+            var enemyGlideEntries = new List<EnemyGlideSnapshotEntry>();
+            finalSnapshot.EnumerateEnemyGlideStatesOrdered(enemyGlideEntries);
+            return enemyGlideEntries;
         }
 
         private static List<EnemyPatrolSnapshotEntry> GetOrderedEnemyPatrolStates(WorldSnapshot finalSnapshot)
@@ -560,6 +570,35 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entry.State.landingTick).Append('|')
                     .Append(entry.State.cooldownRemainingTicks).Append('|')
                     .Append(entry.State.retryCount).Append('\n');
+            }
+        }
+
+        private static void AppendEnemyGlideLines(
+            StringBuilder builder,
+            IReadOnlyList<EnemyGlideSnapshotEntry> enemyGlideEntries)
+        {
+            if (enemyGlideEntries.Count == 0)
+            {
+                builder.Append("<empty>").Append('\n');
+                return;
+            }
+
+            for (var i = 0; i < enemyGlideEntries.Count; i++)
+            {
+                var entry = enemyGlideEntries[i];
+                builder
+                    .Append(entry.EntityId).Append('|')
+                    .Append(entry.State.IsActive ? 1 : 0).Append('|')
+                    .Append(entry.State.IsLandingPending ? 1 : 0).Append('|')
+                    .Append(entry.State.Sequence).Append('|')
+                    .Append(entry.State.ActiveUntilTickExclusive).Append('|')
+                    .Append(entry.State.CooldownUntilTickExclusive).Append('|')
+                    .Append(entry.State.DurationTicks).Append('|')
+                    .Append(entry.State.CooldownTicks).Append('|')
+                    .Append(entry.State.LastExitedTick).Append('|')
+                    .Append((int)entry.State.LandingPendingCell.face).Append('|')
+                    .Append(entry.State.LandingPendingCell.x).Append('|')
+                    .Append(entry.State.LandingPendingCell.y).Append('\n');
             }
         }
 

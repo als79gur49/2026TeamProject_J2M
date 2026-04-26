@@ -17,6 +17,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly Dictionary<int, EnemyChargeRuntimeState> _enemyChargeStatesByEntityId = new();
         private readonly Dictionary<int, EntityExecutionLockState> _executionLockStatesByEntityId = new();
         private readonly Dictionary<int, EnemyJumpRuntimeState> _enemyJumpStatesByEntityId = new();
+        private readonly Dictionary<int, EnemyGlideRuntimeState> _enemyGlideStatesByEntityId = new();
         private readonly Dictionary<int, EnemyUtilityRuntimeState> _enemyUtilityStatesByEntityId = new();
         private readonly Dictionary<int, BoxInteractionLockState> _boxInteractionLockStatesByEntityId = new();
         private readonly Dictionary<int, PhasedRuntimeState> _phasedStatesByEntityId = new();
@@ -51,6 +52,16 @@ namespace Game.Feature.Gameplay.BoardState
             BoardBounds boardBounds,
             TerrainData terrainData,
             CubeTopologyState topology)
+            : this(initialEntities, boardBounds, terrainData, topology, initialEnemyGlideStatesByEntityId: null)
+        {
+        }
+
+        internal WorldState(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            TerrainData terrainData,
+            CubeTopologyState topology,
+            IReadOnlyDictionary<int, EnemyGlideRuntimeState> initialEnemyGlideStatesByEntityId)
         {
             if (initialEntities == null)
             {
@@ -61,6 +72,17 @@ namespace Game.Feature.Gameplay.BoardState
             _terrainData = terrainData ?? throw new ArgumentNullException(nameof(terrainData));
             _topology = topology;
             ValidateTerrainBounds();
+
+            if (initialEnemyGlideStatesByEntityId != null)
+            {
+                foreach (var pair in initialEnemyGlideStatesByEntityId)
+                {
+                    if (pair.Value.HasAuthoritativeRecord)
+                    {
+                        _enemyGlideStatesByEntityId[pair.Key] = pair.Value;
+                    }
+                }
+            }
 
             foreach (var entity in initialEntities)
             {
@@ -80,6 +102,7 @@ namespace Game.Feature.Gameplay.BoardState
                 new Dictionary<int, EnemyChargeRuntimeState>(_enemyChargeStatesByEntityId),
                 new Dictionary<int, EntityExecutionLockState>(_executionLockStatesByEntityId),
                 new Dictionary<int, EnemyJumpRuntimeState>(_enemyJumpStatesByEntityId),
+                new Dictionary<int, EnemyGlideRuntimeState>(_enemyGlideStatesByEntityId),
                 new Dictionary<int, EnemyUtilityRuntimeState>(_enemyUtilityStatesByEntityId),
                 new Dictionary<int, BoxInteractionLockState>(_boxInteractionLockStatesByEntityId),
                 new Dictionary<int, PhasedRuntimeState>(_phasedStatesByEntityId),
@@ -107,7 +130,7 @@ namespace Game.Feature.Gameplay.BoardState
             entity.enemyLocomotionCooldownTicks = Mathf.Max(0, entity.enemyLocomotionCooldownTicks);
             if (ShouldStoreEntityInOccupancy(entity))
             {
-                EnsurePlacementIsRepresentable(entity, entity.position, ignoredEntityId: 0);
+                EnsurePlacementIsRepresentable(entity, entity.position, entity.entityId);
             }
 
             _entitiesById.Add(entity.entityId, entity);
@@ -149,6 +172,7 @@ namespace Game.Feature.Gameplay.BoardState
             _enemyChargeStatesByEntityId.Remove(entityId);
             _executionLockStatesByEntityId.Remove(entityId);
             _enemyJumpStatesByEntityId.Remove(entityId);
+            _enemyGlideStatesByEntityId.Remove(entityId);
             _enemyUtilityStatesByEntityId.Remove(entityId);
             _boxInteractionLockStatesByEntityId.Remove(entityId);
             _phasedStatesByEntityId.Remove(entityId);
@@ -171,6 +195,7 @@ namespace Game.Feature.Gameplay.BoardState
             {
                 ClearChargeState(entityId);
                 _phasedStatesByEntityId.Remove(entityId);
+                _enemyGlideStatesByEntityId.Remove(entityId);
             }
         }
 
@@ -220,6 +245,7 @@ namespace Game.Feature.Gameplay.BoardState
             UpdateStoredEntity(entity);
             ClearChargeState(entityId);
             _phasedStatesByEntityId.Remove(entityId);
+            _enemyGlideStatesByEntityId.Remove(entityId);
         }
 
         private void SetFacing(int entityId, Direction facing)
@@ -265,6 +291,7 @@ namespace Game.Feature.Gameplay.BoardState
             {
                 ClearChargeState(entityId);
                 _phasedStatesByEntityId.Remove(entityId);
+                _enemyGlideStatesByEntityId.Remove(entityId);
             }
 
             if (boardPresence == EntityBoardPresence.Occupying)
@@ -348,6 +375,28 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             _enemyJumpStatesByEntityId[entityId] = state;
+        }
+
+        private void SetEnemyGlideState(int entityId, EnemyGlideRuntimeState state)
+        {
+            if (!_entitiesById.TryGetValue(entityId, out var entity))
+            {
+                return;
+            }
+
+            if (!state.HasAuthoritativeRecord)
+            {
+                _enemyGlideStatesByEntityId.Remove(entityId);
+                return;
+            }
+
+            if (entity.type != EntityType.Unit)
+            {
+                throw new InvalidOperationException(
+                    $"Entity {entityId} cannot hold enemy glide runtime state because only unit entities are supported.");
+            }
+
+            _enemyGlideStatesByEntityId[entityId] = state;
         }
 
         internal void SetEnemyUtilityState(int entityId, EnemyUtilityRuntimeState state)
@@ -513,6 +562,7 @@ namespace Game.Feature.Gameplay.BoardState
             if (!WorldPlacementPolicy.TryGetRepresentablePlacementBlocker(
                 _entitiesById,
                 _stackedUnitsByCell,
+                _enemyGlideStatesByEntityId,
                 _solidOccupancy,
                 _projectileOccupancy,
                 _boardBounds,
@@ -817,6 +867,11 @@ namespace Game.Feature.Gameplay.BoardState
         void IWorldStateMutationPort.SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state)
         {
             SetEnemyJumpState(entityId, state);
+        }
+
+        void IWorldStateMutationPort.SetEnemyGlideState(int entityId, EnemyGlideRuntimeState state)
+        {
+            SetEnemyGlideState(entityId, state);
         }
 
         void IWorldStateMutationPort.SetEnemyUtilityState(int entityId, EnemyUtilityRuntimeState state)

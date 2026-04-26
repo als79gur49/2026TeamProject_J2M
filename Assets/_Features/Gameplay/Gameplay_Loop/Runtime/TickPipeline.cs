@@ -3454,11 +3454,15 @@ namespace Game.Feature.Gameplay.Loop
                 snapshot,
                 payload.SourceActorEntityId,
                 impactSourceEntity);
+            var skipActiveGlideTargets =
+                payload.HasDeferredImpactPayload ||
+                (payload.HasImpactReservationPayload &&
+                 payload.ImpactReservationPayload.DispositionPolicyKind == ImpactDispositionPolicyKind.PushLike);
+            var hasTarget = skipActiveGlideTargets
+                ? snapshot.TryPickHostileUnitImpactTargetAtForBoxSlide(impactCell, sourceTeamId, out var target)
+                : snapshot.TryPickHostileUnitImpactTargetAt(impactCell, sourceTeamId, out target);
             if (sourceTeamId <= 0 ||
-                !snapshot.TryPickHostileUnitImpactTargetAt(
-                    impactCell,
-                    sourceTeamId,
-                    out var target))
+                !hasTarget)
             {
                 return false;
             }
@@ -7237,6 +7241,7 @@ namespace Game.Feature.Gameplay.Loop
         SetEnemyUtilityState = 20,
         SetBoxInteractionLockState = 21,
         RemoveBoxInteractionLockState = 22,
+        SetEnemyGlideState = 23,
     }
 
     internal enum ResolvedActionSemanticKind
@@ -7379,6 +7384,7 @@ namespace Game.Feature.Gameplay.Loop
             EnemyActionRuntimeState enemyActionState = default,
             EnemyPatrolRuntimeState enemyPatrolState = default,
             EnemyJumpRuntimeState enemyJumpState = default,
+            EnemyGlideRuntimeState enemyGlideState = default,
             EnemyChargeRuntimeState enemyChargeState = default,
             EnemyUtilityRuntimeState enemyUtilityState = null,
             BoxInteractionLockState boxInteractionLockState = default,
@@ -7413,6 +7419,7 @@ namespace Game.Feature.Gameplay.Loop
             EnemyActionState = enemyActionState;
             EnemyPatrolState = enemyPatrolState;
             EnemyJumpState = enemyJumpState;
+            EnemyGlideState = enemyGlideState;
             EnemyChargeState = enemyChargeState;
             EnemyUtilityState = enemyUtilityState;
             BoxInteractionLockState = boxInteractionLockState;
@@ -7471,6 +7478,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public EnemyJumpRuntimeState EnemyJumpState { get; }
 
+        public EnemyGlideRuntimeState EnemyGlideState { get; }
+
         public EnemyChargeRuntimeState EnemyChargeState { get; }
 
         public EnemyUtilityRuntimeState EnemyUtilityState { get; }
@@ -7517,6 +7526,7 @@ namespace Game.Feature.Gameplay.Loop
                 EnemyActionState,
                 EnemyPatrolState,
                 EnemyJumpState,
+                EnemyGlideState,
                 EnemyChargeState,
                 EnemyUtilityState,
                 BoxInteractionLockState,
@@ -7677,6 +7687,17 @@ namespace Game.Feature.Gameplay.Loop
                 metadata,
                 entityId: entityId,
                 enemyJumpState: enemyJumpState);
+        }
+
+        public static FinalizationOperation SetEnemyGlideState(long sequence, int entityId, EnemyGlideRuntimeState enemyGlideState, FinalizationOperationMetadata metadata = default)
+        {
+            return new FinalizationOperation(
+                sequence,
+                FinalizationOperationBucket.NonHpState,
+                FinalizationOperationKind.SetEnemyGlideState,
+                metadata,
+                entityId: entityId,
+                enemyGlideState: enemyGlideState);
         }
 
         public static FinalizationOperation SetEnemyChargeState(long sequence, int entityId, EnemyChargeRuntimeState enemyChargeState, FinalizationOperationMetadata metadata = default)
@@ -7866,6 +7887,11 @@ namespace Game.Feature.Gameplay.Loop
             _operations.Add(FinalizationOperation.SetEnemyJumpState(_nextSequence++, entityId, state, metadata));
         }
 
+        public void SetEnemyGlideState(int entityId, EnemyGlideRuntimeState state, FinalizationOperationMetadata metadata = default)
+        {
+            _operations.Add(FinalizationOperation.SetEnemyGlideState(_nextSequence++, entityId, state, metadata));
+        }
+
         public void SetEnemyChargeState(int entityId, EnemyChargeRuntimeState state, FinalizationOperationMetadata metadata = default)
         {
             _operations.Add(FinalizationOperation.SetEnemyChargeState(_nextSequence++, entityId, state, metadata));
@@ -8028,6 +8054,10 @@ namespace Game.Feature.Gameplay.Loop
                         ((IPreMovementStateCommitContext)writeContext).SetEnemyJumpState(operation.EntityId, operation.EnemyJumpState);
                         break;
 
+                    case FinalizationOperationKind.SetEnemyGlideState:
+                        ((IPreMovementStateCommitContext)writeContext).SetEnemyGlideState(operation.EntityId, operation.EnemyGlideState);
+                        break;
+
                     case FinalizationOperationKind.SetEnemyChargeState:
                         ((IPreMovementStateCommitContext)writeContext).SetEnemyChargeState(operation.EntityId, operation.EnemyChargeState);
                         break;
@@ -8141,6 +8171,11 @@ namespace Game.Feature.Gameplay.Loop
         public void SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state)
         {
             _batch.SetEnemyJumpState(entityId, state, CreateJumpStateMetadata(entityId, state));
+        }
+
+        public void SetEnemyGlideState(int entityId, EnemyGlideRuntimeState state)
+        {
+            _batch.SetEnemyGlideState(entityId, state);
         }
 
         public void SetEnemyUtilityState(int entityId, EnemyUtilityRuntimeState state)
@@ -8342,11 +8377,20 @@ namespace Game.Feature.Gameplay.Loop
             var entities = new List<EntityState>();
             snapshot.EnumerateEntitiesOrdered(entities);
             entities.Sort(CompareProjectedMaterializationOrder);
+            var enemyGlideStates = new List<EnemyGlideSnapshotEntry>();
+            snapshot.EnumerateEnemyGlideStatesOrdered(enemyGlideStates);
+            var enemyGlideStatesByEntityId = new Dictionary<int, EnemyGlideRuntimeState>(enemyGlideStates.Count);
+            for (var i = 0; i < enemyGlideStates.Count; i++)
+            {
+                enemyGlideStatesByEntityId[enemyGlideStates[i].EntityId] = enemyGlideStates[i].State;
+            }
+
             var worldState = new WorldState(
                 entities,
                 snapshot.BoardBounds,
                 snapshot.TerrainData,
-                snapshot.Topology);
+                snapshot.Topology,
+                enemyGlideStatesByEntityId);
             var writeContext = worldState.CreateWriteContext();
 
             for (var i = 0; i < entities.Count; i++)
@@ -8380,6 +8424,11 @@ namespace Game.Feature.Gameplay.Loop
                 if (snapshot.TryGetEnemyJumpState(entityId, out var enemyJumpState))
                 {
                     writeContext.SetEnemyJumpState(entityId, enemyJumpState);
+                }
+
+                if (snapshot.TryGetEnemyGlideState(entityId, out var enemyGlideState))
+                {
+                    writeContext.SetEnemyGlideState(entityId, enemyGlideState);
                 }
 
                 if (snapshot.TryGetEnemyUtilityState(entityId, out var enemyUtilityState))
@@ -8439,7 +8488,12 @@ namespace Game.Feature.Gameplay.Loop
                 return 2;
             }
 
-            return entity.type == EntityType.Projectile ? 0 : 1;
+            if (entity.type == EntityType.Projectile)
+            {
+                return 0;
+            }
+
+            return entity.type == EntityType.Unit ? 2 : 1;
         }
     }
 }

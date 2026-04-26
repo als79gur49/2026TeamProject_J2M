@@ -365,10 +365,13 @@ namespace Game.Feature.Gameplay.BoardState
                 stackedUnitsByCell,
                 solidOccupancyByCell,
                 enemyJumpStatesByEntityId: null,
+                enemyGlideStatesByEntityId: null,
                 phasedStatesByEntityId: null,
                 topology,
                 cell,
                 sourceTeamId,
+                skipActiveGlideTargets: false,
+                allowGlideTargetsOverSolid: false,
                 out entity);
         }
 
@@ -377,10 +380,13 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
             IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             CubeTopologyState topology,
             SurfaceCell cell,
             int sourceTeamId,
+            bool skipActiveGlideTargets,
+            bool allowGlideTargetsOverSolid,
             out EntityState entity)
         {
             ValidateQueryDictionaries(entitiesById, stackedUnitsByCell, solidOccupancyByCell);
@@ -389,8 +395,13 @@ namespace Game.Feature.Gameplay.BoardState
 
             if (!topology.IsFaceActive(cell.face) ||
                 sourceTeamId <= 0 ||
-                TryGetSolidOccupantAt(entitiesById, solidOccupancyByCell, topology, cell, out _) ||
                 !stackedUnitsByCell.TryGetValue(cell, out var entityIds))
+            {
+                return false;
+            }
+
+            var hasSolidOccupant = TryGetSolidOccupantAt(entitiesById, solidOccupancyByCell, topology, cell, out _);
+            if (hasSolidOccupant && !allowGlideTargetsOverSolid)
             {
                 return false;
             }
@@ -401,6 +412,8 @@ namespace Game.Feature.Gameplay.BoardState
             foreach (var entityId in entityIds)
             {
                 if (!entitiesById.TryGetValue(entityId, out var candidate) ||
+                    (skipActiveGlideTargets && IsActiveGlideTarget(enemyGlideStatesByEntityId, candidate.entityId)) ||
+                    (hasSolidOccupant && !IsGlideTargetOverSolid(enemyGlideStatesByEntityId, candidate.entityId)) ||
                     !GameplayEntityQueryPolicy.ShouldParticipateInTargetSelection(
                         ResolveSpatialState(enemyJumpStatesByEntityId, phasedStatesByEntityId, candidate, topology)) ||
                     candidate.teamId == sourceTeamId)
@@ -422,6 +435,24 @@ namespace Game.Feature.Gameplay.BoardState
 
             entity = hostile;
             return true;
+        }
+
+        private static bool IsActiveGlideTarget(
+            IReadOnlyDictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
+            int entityId)
+        {
+            return enemyGlideStatesByEntityId != null &&
+                   enemyGlideStatesByEntityId.TryGetValue(entityId, out var state) &&
+                   state.IsActive;
+        }
+
+        private static bool IsGlideTargetOverSolid(
+            IReadOnlyDictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
+            int entityId)
+        {
+            return enemyGlideStatesByEntityId != null &&
+                   enemyGlideStatesByEntityId.TryGetValue(entityId, out var state) &&
+                   (state.IsActive || state.IsLandingPending);
         }
 
         // Legacy non-projectile lookup keeps solid-first resolution so existing box/wall callers stay stable.

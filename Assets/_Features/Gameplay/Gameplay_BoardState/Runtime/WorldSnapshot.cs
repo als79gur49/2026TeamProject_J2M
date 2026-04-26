@@ -64,6 +64,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly IReadOnlyDictionary<int, EnemyChargeRuntimeState> _enemyChargeStatesByEntityId;
         private readonly IReadOnlyDictionary<int, EntityExecutionLockState> _executionLockStatesByEntityId;
         private readonly IReadOnlyDictionary<int, EnemyJumpRuntimeState> _enemyJumpStatesByEntityId;
+        private readonly IReadOnlyDictionary<int, EnemyGlideRuntimeState> _enemyGlideStatesByEntityId;
         private readonly IReadOnlyDictionary<int, EnemyUtilityRuntimeState> _enemyUtilityStatesByEntityId;
         private readonly IReadOnlyDictionary<int, BoxInteractionLockState> _boxInteractionLockStatesByEntityId;
         private readonly IReadOnlyDictionary<int, EntityState> _entitiesById;
@@ -88,6 +89,7 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, EnemyChargeRuntimeState> enemyChargeStatesByEntityId,
             Dictionary<int, EntityExecutionLockState> executionLockStatesByEntityId,
             Dictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            Dictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
             Dictionary<int, EnemyUtilityRuntimeState> enemyUtilityStatesByEntityId,
             Dictionary<int, BoxInteractionLockState> boxInteractionLockStatesByEntityId,
             Dictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
@@ -108,6 +110,7 @@ namespace Game.Feature.Gameplay.BoardState
             _enemyChargeStatesByEntityId = new ReadOnlyDictionary<int, EnemyChargeRuntimeState>(enemyChargeStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyChargeStatesByEntityId)));
             _executionLockStatesByEntityId = new ReadOnlyDictionary<int, EntityExecutionLockState>(executionLockStatesByEntityId ?? throw new ArgumentNullException(nameof(executionLockStatesByEntityId)));
             _enemyJumpStatesByEntityId = new ReadOnlyDictionary<int, EnemyJumpRuntimeState>(enemyJumpStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyJumpStatesByEntityId)));
+            _enemyGlideStatesByEntityId = new ReadOnlyDictionary<int, EnemyGlideRuntimeState>(enemyGlideStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyGlideStatesByEntityId)));
             _enemyUtilityStatesByEntityId = new ReadOnlyDictionary<int, EnemyUtilityRuntimeState>(enemyUtilityStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyUtilityStatesByEntityId)));
             _boxInteractionLockStatesByEntityId = new ReadOnlyDictionary<int, BoxInteractionLockState>(boxInteractionLockStatesByEntityId ?? throw new ArgumentNullException(nameof(boxInteractionLockStatesByEntityId)));
             _phasedStatesByEntityId = new ReadOnlyDictionary<int, PhasedRuntimeState>(phasedStatesByEntityId ?? throw new ArgumentNullException(nameof(phasedStatesByEntityId)));
@@ -166,6 +169,23 @@ namespace Game.Feature.Gameplay.BoardState
         public bool TryGetEnemyJumpState(int entityId, out EnemyJumpRuntimeState state)
         {
             return _enemyJumpStatesByEntityId.TryGetValue(entityId, out state);
+        }
+
+        public bool TryGetEnemyGlideState(int entityId, out EnemyGlideRuntimeState state)
+        {
+            return _enemyGlideStatesByEntityId.TryGetValue(entityId, out state);
+        }
+
+        public bool TryGetActiveEnemyGlideState(int entityId, out EnemyGlideRuntimeState state)
+        {
+            if (_enemyGlideStatesByEntityId.TryGetValue(entityId, out state) &&
+                state.IsActive)
+            {
+                return true;
+            }
+
+            state = default;
+            return false;
         }
 
         public bool TryGetEnemyUtilityState(int entityId, out EnemyUtilityRuntimeState state)
@@ -350,6 +370,11 @@ namespace Game.Feature.Gameplay.BoardState
             return TryPickHostileUnitImpactTargetAt(_topology, cell, sourceTeamId, out entity);
         }
 
+        public bool TryPickHostileUnitImpactTargetAtForBoxSlide(SurfaceCell cell, int sourceTeamId, out EntityState entity)
+        {
+            return TryPickHostileUnitImpactTargetAtForBoxSlide(_topology, cell, sourceTeamId, out entity);
+        }
+
         public bool TryPickImpactTargetAt(Vector2Int cell, int sourceTeamId, out EntityState entity)
         {
             return TryPickImpactTargetAt(CreateDefaultQueryCell(cell), sourceTeamId, out entity);
@@ -430,6 +455,7 @@ namespace Game.Feature.Gameplay.BoardState
                 _entitiesById,
                 _stackedUnitsByCell,
                 _enemyJumpStatesByEntityId,
+                _enemyGlideStatesByEntityId,
                 _phasedStatesByEntityId,
                 _solidOccupancy,
                 _projectileOccupancy,
@@ -461,6 +487,7 @@ namespace Game.Feature.Gameplay.BoardState
                 _entitiesById,
                 _stackedUnitsByCell,
                 _enemyJumpStatesByEntityId,
+                _enemyGlideStatesByEntityId,
                 _phasedStatesByEntityId,
                 _solidOccupancy,
                 _projectileOccupancy,
@@ -570,6 +597,9 @@ namespace Game.Feature.Gameplay.BoardState
             return SurfaceSlideQueries.TryResolveNextSurfaceBoxSlideStep(
                 _entitiesById,
                 _stackedUnitsByCell,
+                _enemyJumpStatesByEntityId,
+                _enemyGlideStatesByEntityId,
+                _phasedStatesByEntityId,
                 _solidOccupancy,
                 topology,
                 _boardBounds,
@@ -609,6 +639,7 @@ namespace Game.Feature.Gameplay.BoardState
                 _entitiesById,
                 _stackedUnitsByCell,
                 _enemyJumpStatesByEntityId,
+                _enemyGlideStatesByEntityId,
                 _phasedStatesByEntityId,
                 _solidOccupancy,
                 topology,
@@ -735,6 +766,23 @@ namespace Game.Feature.Gameplay.BoardState
             foreach (var pair in _enemyJumpStatesByEntityId)
             {
                 buffer.Add(new EnemyJumpSnapshotEntry(pair.Key, pair.Value));
+            }
+
+            buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+        }
+
+        internal void EnumerateEnemyGlideStatesOrdered(List<EnemyGlideSnapshotEntry> buffer)
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+
+            foreach (var pair in _enemyGlideStatesByEntityId)
+            {
+                buffer.Add(new EnemyGlideSnapshotEntry(pair.Key, pair.Value));
             }
 
             buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
@@ -941,10 +989,34 @@ namespace Game.Feature.Gameplay.BoardState
                 _stackedUnitsByCell,
                 _solidOccupancy,
                 _enemyJumpStatesByEntityId,
+                _enemyGlideStatesByEntityId,
                 _phasedStatesByEntityId,
                 topology,
                 cell,
                 sourceTeamId,
+                skipActiveGlideTargets: false,
+                allowGlideTargetsOverSolid: true,
+                out entity);
+        }
+
+        internal bool TryPickHostileUnitImpactTargetAtForBoxSlide(
+            CubeTopologyState topology,
+            SurfaceCell cell,
+            int sourceTeamId,
+            out EntityState entity)
+        {
+            return SnapshotReadQueries.TryPickHostileUnitImpactTargetAt(
+                _entitiesById,
+                _stackedUnitsByCell,
+                _solidOccupancy,
+                _enemyJumpStatesByEntityId,
+                _enemyGlideStatesByEntityId,
+                _phasedStatesByEntityId,
+                topology,
+                cell,
+                sourceTeamId,
+                skipActiveGlideTargets: true,
+                allowGlideTargetsOverSolid: true,
                 out entity);
         }
 

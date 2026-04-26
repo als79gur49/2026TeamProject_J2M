@@ -238,6 +238,11 @@ namespace Game.Feature.Gameplay.Entities
                 CommitChargeState(snapshot, in input, source, writeContext, updates);
             }
 
+            if (HasGlideMovementSkill())
+            {
+                CommitGlideState(snapshot, in input, source, writeContext, updates);
+            }
+
             if (HasPhaseMovementSkill())
             {
                 CommitEnemyOwnedPhasedState(snapshot, in input, source, writeContext, updates);
@@ -481,6 +486,85 @@ namespace Game.Feature.Gameplay.Entities
         {
             return _movementSkillCapability != null &&
                    _movementSkillCapability.Kind == MovementSkillStrategyKind.PhaseThroughLockedTarget;
+        }
+
+        private bool HasGlideMovementSkill()
+        {
+            return _movementSkillCapability != null &&
+                   _movementSkillCapability.Kind == MovementSkillStrategyKind.GlideOverSolid;
+        }
+
+        private void CommitGlideState(
+            WorldSnapshot snapshot,
+            in TickInput input,
+            in EntityState source,
+            IPreMovementStateCommitContext writeContext,
+            List<string> updates)
+        {
+            var hasPreviousState = snapshot.TryGetEnemyGlideState(_entityId, out var previousState);
+            var nextState = hasPreviousState ? previousState : default;
+            var changed = false;
+
+            if (source.hp <= 0 ||
+                source.markedForDeath ||
+                source.aiMode == EnemyAiMode.Dead ||
+                source.boardPresence != EntityBoardPresence.Occupying)
+            {
+                if (hasPreviousState)
+                {
+                    nextState = EnemyGlideQueries.Clear();
+                    changed = true;
+                    AppendGlideUpdate(updates, _entityId, "ClearDead", nextState);
+                }
+
+                if (changed)
+                {
+                    writeContext.SetEnemyGlideState(_entityId, nextState);
+                }
+
+                return;
+            }
+
+            if (nextState.IsActive &&
+                input.TickIndex >= nextState.ActiveUntilTickExclusive)
+            {
+                nextState = snapshot.TryGetSolidSemanticAt(source.position, out _)
+                    ? EnemyGlideQueries.EndActiveToLandingPending(nextState, input.TickIndex, source.position)
+                    : EnemyGlideQueries.EndActiveToCooldown(nextState, input.TickIndex);
+                hasPreviousState = true;
+                changed = true;
+                AppendGlideUpdate(
+                    updates,
+                    _entityId,
+                    nextState.IsLandingPending ? "EnterLandingPending" : "EndActive",
+                    nextState);
+            }
+
+            if (nextState.IsLandingPending &&
+                (!snapshot.TryGetSolidSemanticAt(source.position, out _) ||
+                 source.position != nextState.LandingPendingCell))
+            {
+                nextState = EnemyGlideQueries.ClearLandingPendingToCooldown(nextState, input.TickIndex);
+                hasPreviousState = true;
+                changed = true;
+                AppendGlideUpdate(updates, _entityId, "ClearLandingPending", nextState);
+            }
+
+            if (source.aiMode == EnemyAiMode.Chase &&
+                EnemyGlideQueries.CanStart(hasPreviousState, nextState, input.TickIndex))
+            {
+                nextState = EnemyGlideQueries.Start(
+                    nextState,
+                    input.TickIndex,
+                    _movementSkillCapability.GlideTimingSettings);
+                changed = true;
+                AppendGlideUpdate(updates, _entityId, "Start", nextState);
+            }
+
+            if (changed)
+            {
+                writeContext.SetEnemyGlideState(_entityId, nextState);
+            }
         }
 
         private void CommitEnemyOwnedPhasedState(
@@ -1011,6 +1095,21 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             updates.Add(builder.ToString());
+        }
+
+        private static void AppendGlideUpdate(
+            List<string> updates,
+            int entityId,
+            string label,
+            in EnemyGlideRuntimeState state)
+        {
+            if (updates == null)
+            {
+                throw new ArgumentNullException(nameof(updates));
+            }
+
+            updates.Add(
+                $"EnemyGlideStateUpdated|E={entityId}|Label={label}|Active={(state.IsActive ? 1 : 0)}|LandingPending={(state.IsLandingPending ? 1 : 0)}|Seq={state.Sequence}|ActiveUntil={state.ActiveUntilTickExclusive}|CooldownUntil={state.CooldownUntilTickExclusive}|Duration={state.DurationTicks}|Cooldown={state.CooldownTicks}|LastExited={state.LastExitedTick}|PendingCell={state.LandingPendingCell}");
         }
 
         private GroundLocomotionResolution ResolveBaselineGroundLocomotion(

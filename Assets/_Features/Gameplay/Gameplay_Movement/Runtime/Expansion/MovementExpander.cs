@@ -345,6 +345,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                         landingCell,
                         stopSliding: false,
                         assignKineticOwner: true,
+                        skipActiveGlideTargets: false,
                         buffer))
                 {
                     return;
@@ -521,6 +522,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                         stopper.Cell,
                         stopSliding: false,
                         assignKineticOwner: true,
+                        skipActiveGlideTargets: true,
                         buffer))
                 {
                     return;
@@ -614,6 +616,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                         stopper.Cell,
                         stopSliding: true,
                         assignKineticOwner: false,
+                        skipActiveGlideTargets: true,
                         buffer))
                 {
                     return;
@@ -769,10 +772,18 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             SurfaceCell impactCell,
             bool stopSliding,
             bool assignKineticOwner,
+            bool skipActiveGlideTargets,
             List<ActionGroup> buffer)
         {
-            if (!TryResolveBoxImpactTeamId(actorSource, impactSourceBox, out var sourceTeamId) ||
-                !snapshot.TryPickHostileUnitImpactTargetAt(impactCell, sourceTeamId, out var target))
+            if (!TryResolveBoxImpactTeamId(actorSource, impactSourceBox, out var sourceTeamId))
+            {
+                return false;
+            }
+
+            var hasImpactTarget = skipActiveGlideTargets
+                ? snapshot.TryPickHostileUnitImpactTargetAtForBoxSlide(impactCell, sourceTeamId, out var target)
+                : snapshot.TryPickHostileUnitImpactTargetAt(impactCell, sourceTeamId, out target);
+            if (!hasImpactTarget)
             {
                 return false;
             }

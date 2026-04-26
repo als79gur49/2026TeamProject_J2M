@@ -8,10 +8,20 @@ namespace Game.Feature.Gameplay.BoardState
     internal readonly struct LegalityActorRef
     {
         public LegalityActorRef(int entityId, EntityType entityType, ResolvedSpatialState spatialState)
+            : this(entityId, entityType, spatialState, default)
+        {
+        }
+
+        public LegalityActorRef(
+            int entityId,
+            EntityType entityType,
+            ResolvedSpatialState spatialState,
+            EnemyGlideRuntimeState glideState)
         {
             EntityId = entityId;
             EntityType = entityType;
             SpatialState = spatialState;
+            GlideState = glideState;
         }
 
         public int EntityId { get; }
@@ -19,6 +29,8 @@ namespace Game.Feature.Gameplay.BoardState
         public EntityType EntityType { get; }
 
         public ResolvedSpatialState SpatialState { get; }
+
+        public EnemyGlideRuntimeState GlideState { get; }
     }
 
     internal readonly struct TraverseContext

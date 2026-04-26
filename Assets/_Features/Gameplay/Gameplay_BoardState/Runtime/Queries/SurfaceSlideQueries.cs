@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.Entities;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.BoardState
@@ -11,6 +12,9 @@ namespace Game.Feature.Gameplay.BoardState
         public static bool TryResolveNextSurfaceBoxSlideStep(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             CubeTopologyState topology,
             BoardBounds boardBounds,
@@ -42,6 +46,9 @@ namespace Game.Feature.Gameplay.BoardState
                 if (TryGetBoxSlideBlocker(
                         entitiesById,
                         stackedUnitsByCell,
+                        enemyJumpStatesByEntityId,
+                        enemyGlideStatesByEntityId,
+                        phasedStatesByEntityId,
                         solidOccupancyByCell,
                         topology,
                         boardBounds,
@@ -72,6 +79,9 @@ namespace Game.Feature.Gameplay.BoardState
             if (TryGetBoxSlideBlocker(
                     entitiesById,
                     stackedUnitsByCell,
+                    enemyJumpStatesByEntityId,
+                    enemyGlideStatesByEntityId,
+                    phasedStatesByEntityId,
                     solidOccupancyByCell,
                     topology,
                     boardBounds,
@@ -126,6 +136,9 @@ namespace Game.Feature.Gameplay.BoardState
         private static bool TryGetBoxSlideBlocker(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             CubeTopologyState topology,
             BoardBounds boardBounds,
@@ -133,17 +146,18 @@ namespace Game.Feature.Gameplay.BoardState
             SurfaceCell cell,
             out SlideStopper stopper)
         {
-            return WorldPlacementPolicy.TryGetGameplayPlacementBlocker(
+            return WorldPlacementPolicy.TryGetBoxSlidePlacementBlocker(
                 entitiesById,
                 stackedUnitsByCell,
+                enemyJumpStatesByEntityId,
+                enemyGlideStatesByEntityId,
+                phasedStatesByEntityId,
                 solidOccupancyByCell,
                 EmptyProjectileOccupancy,
                 topology,
                 boardBounds,
                 terrainData,
-                EntityType.Box,
                 cell,
-                ignoredEntityId: 0,
                 out stopper);
         }
 

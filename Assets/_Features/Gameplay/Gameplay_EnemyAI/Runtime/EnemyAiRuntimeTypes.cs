@@ -327,6 +327,14 @@ namespace Game.Feature.Gameplay.Entities
         public EnemyMovementSkillCapabilityRuntime(
             MovementSkillStrategyKind kind,
             EnemyJumpTimingSettings jumpTimingSettings)
+            : this(kind, jumpTimingSettings, EnemyGlideTimingSettings.CreateDefault())
+        {
+        }
+
+        public EnemyMovementSkillCapabilityRuntime(
+            MovementSkillStrategyKind kind,
+            EnemyJumpTimingSettings jumpTimingSettings,
+            EnemyGlideTimingSettings glideTimingSettings)
         {
             if (kind == MovementSkillStrategyKind.None)
             {
@@ -334,19 +342,64 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             Kind = kind;
-            JumpTimingSettings = jumpTimingSettings;
+            _jumpTimingSettings = jumpTimingSettings;
+            _glideTimingSettings = glideTimingSettings;
             Validate(nameof(EnemyMovementSkillCapabilityRuntime));
         }
+
+        private readonly EnemyJumpTimingSettings _jumpTimingSettings;
+        private readonly EnemyGlideTimingSettings _glideTimingSettings;
 
         public override EnemyCapabilityFamily Family => EnemyCapabilityFamily.MovementSkill;
 
         public MovementSkillStrategyKind Kind { get; }
 
-        public EnemyJumpTimingSettings JumpTimingSettings { get; }
+        public EnemyJumpTimingSettings JumpTimingSettings
+        {
+            get
+            {
+                if (Kind != MovementSkillStrategyKind.JumpToLockedTarget &&
+                    Kind != MovementSkillStrategyKind.PhaseThroughLockedTarget)
+                {
+                    throw new InvalidOperationException(
+                        $"Movement skill '{Kind}' does not expose jump timing settings.");
+                }
+
+                return _jumpTimingSettings;
+            }
+        }
+
+        public EnemyGlideTimingSettings GlideTimingSettings
+        {
+            get
+            {
+                if (Kind != MovementSkillStrategyKind.GlideOverSolid)
+                {
+                    throw new InvalidOperationException(
+                        $"Movement skill '{Kind}' does not expose glide timing settings.");
+                }
+
+                return _glideTimingSettings;
+            }
+        }
 
         public override void Validate(string paramName)
         {
-            JumpTimingSettings.Validate(paramName);
+            switch (Kind)
+            {
+                case MovementSkillStrategyKind.JumpToLockedTarget:
+                case MovementSkillStrategyKind.PhaseThroughLockedTarget:
+                    _jumpTimingSettings.Validate(paramName);
+                    break;
+
+                case MovementSkillStrategyKind.GlideOverSolid:
+                    _glideTimingSettings.Validate(paramName);
+                    break;
+
+                case MovementSkillStrategyKind.None:
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(Kind), Kind, "Unknown movement skill kind.");
+            }
         }
     }
 

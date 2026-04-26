@@ -12,7 +12,8 @@ namespace Game.Feature.Gameplay.BoardState
             if (entityId > 0 &&
                 snapshot.TryGetResolvedSpatialState(entityId, out var spatialState))
             {
-                return new LegalityActorRef(entityId, entityType, spatialState);
+                snapshot.TryGetEnemyGlideState(entityId, out var glideState);
+                return new LegalityActorRef(entityId, entityType, spatialState, glideState);
             }
 
             return new LegalityActorRef(
@@ -29,7 +30,8 @@ namespace Game.Feature.Gameplay.BoardState
         {
             if (snapshot.TryGetResolvedSpatialState(actor.entityId, out var spatialState))
             {
-                return new LegalityActorRef(actor.entityId, actor.type, spatialState);
+                snapshot.TryGetEnemyGlideState(actor.entityId, out var glideState);
+                return new LegalityActorRef(actor.entityId, actor.type, spatialState, glideState);
             }
 
             return new LegalityActorRef(

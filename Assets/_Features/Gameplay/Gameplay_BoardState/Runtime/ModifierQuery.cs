@@ -40,7 +40,13 @@ namespace Game.Feature.Gameplay.BoardState
         public static LegalityCapabilitySet GetTraversalCapabilities(in LegalityActorRef actor)
         {
             SpatialStateSemantics.EnsureProductionSupported(actor.SpatialState.Kind);
-            return StateQuery.GetBaseCapabilities(actor.SpatialState);
+            var capabilities = StateQuery.GetBaseCapabilities(actor.SpatialState);
+            if (actor.GlideState.IsActive)
+            {
+                capabilities = capabilities.With(LegalityCapabilityId.IgnoreTraversalSolidBlocker);
+            }
+
+            return capabilities;
         }
 
         public static bool IgnoresTraversalBlocker(

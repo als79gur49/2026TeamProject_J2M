@@ -366,6 +366,9 @@ namespace Game.Feature.Gameplay.BoardState
             return SurfaceSlideQueries.TryResolveNextSurfaceBoxSlideStep(
                 entitiesById,
                 stackedUnitsByCell,
+                enemyJumpStatesByEntityId: null,
+                enemyGlideStatesByEntityId: null,
+                phasedStatesByEntityId: null,
                 solidOccupancyByCell,
                 topology,
                 boardBounds,

@@ -17,6 +17,7 @@ namespace Game.Feature.Gameplay.BoardState
         void SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state);
         void SetEnemyChargeState(int entityId, EnemyChargeRuntimeState state);
         void SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state);
+        void SetEnemyGlideState(int entityId, EnemyGlideRuntimeState state);
         void SetEnemyUtilityState(int entityId, EnemyUtilityRuntimeState state);
         void SetSummonedEntityState(int entityId, SummonedEntityState state);
         void SetEnemyDefinitionBindingState(int entityId, EnemyDefinitionBindingState state);

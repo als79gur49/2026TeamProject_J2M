@@ -41,6 +41,7 @@ namespace Game.Feature.Gameplay.Entities
         None = 0,
         JumpToLockedTarget = 1,
         PhaseThroughLockedTarget = 2,
+        GlideOverSolid = 3,
     }
 
     [Serializable]
@@ -530,6 +531,104 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
+    [Serializable]
+    public struct EnemyGlideTimingSettings
+    {
+        [SerializeField] private int durationTicks;
+        [SerializeField] private int cooldownTicks;
+
+        public EnemyGlideTimingSettings(int durationTicks, int cooldownTicks)
+        {
+            this.durationTicks = durationTicks;
+            this.cooldownTicks = cooldownTicks;
+        }
+
+        public int DurationTicks => durationTicks;
+
+        public int CooldownTicks => cooldownTicks;
+
+        public void Validate(string paramName)
+        {
+            if (durationTicks <= 0)
+            {
+                throw new ArgumentException("Enemy glide timing settings require a positive duration tick count.", paramName);
+            }
+
+            if (cooldownTicks < 0)
+            {
+                throw new ArgumentException("Enemy glide timing settings require a non-negative cooldown tick count.", paramName);
+            }
+        }
+
+        public static EnemyGlideTimingSettings CreateDefault()
+        {
+            return new EnemyGlideTimingSettings(durationTicks: 1, cooldownTicks: 0);
+        }
+    }
+
+    [Serializable]
+    public struct EnemyGlideTimingAuthoringSettings
+    {
+        [SerializeField] private float durationSeconds;
+        [SerializeField] private float cooldownSeconds;
+
+        public EnemyGlideTimingAuthoringSettings(float durationSeconds, float cooldownSeconds)
+        {
+            this.durationSeconds = durationSeconds;
+            this.cooldownSeconds = cooldownSeconds;
+        }
+
+        public float DurationSeconds => durationSeconds;
+
+        public float CooldownSeconds => cooldownSeconds;
+
+        public void Validate(string paramName)
+        {
+            if (durationSeconds <= 0f)
+            {
+                throw new ArgumentException("Enemy glide timing authoring settings require a positive duration.", paramName);
+            }
+
+            if (cooldownSeconds < 0f)
+            {
+                throw new ArgumentException("Enemy glide timing authoring settings require a non-negative cooldown duration.", paramName);
+            }
+        }
+
+        public EnemyGlideTimingSettings ToRuntimeSettings(int simulationTicksPerSecond)
+        {
+            Validate(nameof(EnemyGlideTimingAuthoringSettings));
+
+            return new EnemyGlideTimingSettings(
+                GameplayTimingProfile.SecondsToTicks(durationSeconds, simulationTicksPerSecond),
+                GameplayTimingProfile.SecondsToTicks(
+                    cooldownSeconds,
+                    simulationTicksPerSecond,
+                    allowZero: true));
+        }
+
+        public static EnemyGlideTimingAuthoringSettings CreateDefault()
+        {
+            return new EnemyGlideTimingAuthoringSettings(durationSeconds: 3f, cooldownSeconds: 2f);
+        }
+
+        public static EnemyGlideTimingAuthoringSettings FromRuntimeSettings(
+            EnemyGlideTimingSettings runtimeSettings,
+            int simulationTicksPerSecond)
+        {
+            if (simulationTicksPerSecond <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(simulationTicksPerSecond),
+                    "Simulation tick rate must be greater than zero.");
+            }
+
+            return new EnemyGlideTimingAuthoringSettings(
+                runtimeSettings.DurationTicks / (float)simulationTicksPerSecond,
+                runtimeSettings.CooldownTicks / (float)simulationTicksPerSecond);
+        }
+    }
+
     public readonly struct EnemyAiRuntimeDefinition
     {
         public EnemyAiRuntimeDefinition(
@@ -666,8 +765,15 @@ namespace Game.Feature.Gameplay.Entities
             : global::Game.Feature.Gameplay.Entities.MovementSkillStrategyKind.None;
 
         public EnemyJumpTimingSettings JumpTimingSettings => Capabilities.TryGetMovementSkill(out var movementSkill)
+            && (movementSkill.Kind == MovementSkillStrategyKind.JumpToLockedTarget ||
+                movementSkill.Kind == MovementSkillStrategyKind.PhaseThroughLockedTarget)
             ? movementSkill.JumpTimingSettings
             : global::Game.Feature.Gameplay.Entities.EnemyJumpTimingSettings.CreateDefault();
+
+        public EnemyGlideTimingSettings GlideTimingSettings => Capabilities.TryGetMovementSkill(out var movementSkill) &&
+                                                               movementSkill.Kind == MovementSkillStrategyKind.GlideOverSolid
+            ? movementSkill.GlideTimingSettings
+            : global::Game.Feature.Gameplay.Entities.EnemyGlideTimingSettings.CreateDefault();
 
         public IPatrolStrategy PatrolStrategy => Brain.Patrol.Strategy;
 

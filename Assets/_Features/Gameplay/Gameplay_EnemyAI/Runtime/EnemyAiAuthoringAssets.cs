@@ -133,13 +133,18 @@ namespace Game.Feature.Gameplay.Entities
 
         public abstract MovementSkillStrategyKind Kind { get; }
 
-        public abstract EnemyJumpTimingAuthoringSettings JumpTimingSettings { get; }
+        public virtual EnemyJumpTimingAuthoringSettings JumpTimingSettings =>
+            EnemyJumpTimingAuthoringSettings.CreateDefault();
+
+        public virtual EnemyGlideTimingAuthoringSettings GlideTimingSettings =>
+            EnemyGlideTimingAuthoringSettings.CreateDefault();
 
         internal sealed override EnemyCapabilityRuntime Compile(int simulationTicksPerSecond)
         {
             return new EnemyMovementSkillCapabilityRuntime(
                 Kind,
-                JumpTimingSettings.ToRuntimeSettings(simulationTicksPerSecond));
+                JumpTimingSettings.ToRuntimeSettings(simulationTicksPerSecond),
+                GlideTimingSettings.ToRuntimeSettings(simulationTicksPerSecond));
         }
     }
 

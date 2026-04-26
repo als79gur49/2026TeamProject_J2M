@@ -37,6 +37,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         void SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state);
 
+        void SetEnemyGlideState(int entityId, EnemyGlideRuntimeState state);
+
         void SetEnemyUtilityState(int entityId, EnemyUtilityRuntimeState state);
 
         void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state);
