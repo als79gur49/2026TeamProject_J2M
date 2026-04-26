@@ -795,7 +795,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             providerField.SetValue(installer, provider);
 
             StageLaunchContextStore.Clear();
-            StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow("combined-gameplay-showcase"));
+            StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow("stage-1-1"));
         }
 
         private static void AssignTimingPresets(CombinedGameplayShowcaseInstaller installer)

@@ -104,5 +104,54 @@ namespace Game.Feature.UI.Tests
             Assert.That(payload.Items[0].Amount, Is.EqualTo(50));
             Assert.That(payload.SummaryText, Does.Contain("First-clear"));
         }
+
+        [Test]
+        public void StageResultPayloadMapper_MapsCanonicalCampaignNextStageRequest()
+        {
+            var payload = StageResultPayloadMapper.Map(CreateReadModel("stage-1-1"));
+            var finalPayload = StageResultPayloadMapper.Map(CreateReadModel("stage-5-1"));
+
+            Assert.That(payload.NextStageRequest.IsValid, Is.True);
+            Assert.That(payload.NextStageRequest.StageId.Value, Is.EqualTo("stage-2-1"));
+            Assert.That(payload.ContinueStageRequest.StageId.Value, Is.EqualTo("stage-2-1"));
+            Assert.That(finalPayload.NextStageRequest.IsValid, Is.False);
+        }
+
+        private static StageCompletionReadModel CreateReadModel(string stageIdValue)
+        {
+            var stageId = StageId.CreateOrThrow(stageIdValue);
+            return new StageCompletionReadModel(
+                stageId,
+                stageIdValue,
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                new StageClearResult(
+                    stageId,
+                    new StageRunId("run-" + stageIdValue),
+                    StageTerminalReason.Cleared,
+                    wasCleared: true,
+                    finalTickIndex: 1,
+                    default,
+                    Array.Empty<StageSessionMetricValue>(),
+                    Array.Empty<StageChallengeRuntimeState>()),
+                new StageClearEvaluationResult(
+                    stageId,
+                    new StageRunId("run-" + stageIdValue),
+                    wasCleared: true,
+                    score: 0,
+                    starsEarned: 0,
+                    rankId: string.Empty,
+                    challengeResults: Array.Empty<StageChallengeEvaluationResult>()),
+                new RewardGrantResult(
+                    stageId,
+                    new StageRunId("run-" + stageIdValue),
+                    Array.Empty<RewardGrantEntry>(),
+                    Array.Empty<string>(),
+                    Array.Empty<RewardGrantId>(),
+                    wasFirstClear: false),
+                PlayerStageProgress.CreateEmpty(stageId));
+        }
     }
 }

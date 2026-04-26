@@ -79,9 +79,9 @@ namespace Game.Feature.Stages.Editor.Tests
 
             Assert.That(catalogAsset, Is.Not.Null);
             Assert.That(catalogAsset.TryResolveScenePath("Assets/Scenes/CombinedGameplayShowcase.unity", out var combinedStageId), Is.True);
-            Assert.That(combinedStageId.Value, Is.EqualTo("combined-gameplay-showcase"));
+            Assert.That(combinedStageId.Value, Is.EqualTo("stage-1-1"));
             Assert.That(catalogAsset.TryResolveScenePath("Assets/Scenes/UIAudioScene.unity", out var uiAudioStageId), Is.True);
-            Assert.That(uiAudioStageId.Value, Is.EqualTo("tutorial-scene"));
+            Assert.That(uiAudioStageId.Value, Is.EqualTo("stage-0-1"));
         }
 
         [Test]
@@ -89,7 +89,7 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             var stageId = StageEditorDirectPlayLauncher.PrimePendingLaunchForScene("Assets/Scenes/TutorialScene.unity");
 
-            Assert.That(stageId.Value, Is.EqualTo("tutorial-scene"));
+            Assert.That(stageId.Value, Is.EqualTo("stage-0-1"));
             Assert.That(StageLaunchContextStore.TryPeekPendingEditorDirectPlay(out var pendingStageId), Is.True);
             Assert.That(pendingStageId, Is.EqualTo(stageId));
         }

@@ -366,8 +366,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Full")]
         public void ShowcaseScenes_HostStartup_EnablesPostProcessingOnOutputCamera()
         {
-            AssertSceneHostStartupEnablesOutputCameraPostProcessing(CombinedScenePath, "combined-gameplay-showcase");
-            AssertSceneHostStartupEnablesOutputCameraPostProcessing(TutorialScenePath, "tutorial-scene");
+            AssertSceneHostStartupEnablesOutputCameraPostProcessing(CombinedScenePath, "stage-1-1");
+            AssertSceneHostStartupEnablesOutputCameraPostProcessing(TutorialScenePath, "stage-0-1");
         }
 
         private static void AssertSceneHostStartupEnablesOutputCameraPostProcessing(string scenePath, string stageIdValue)
