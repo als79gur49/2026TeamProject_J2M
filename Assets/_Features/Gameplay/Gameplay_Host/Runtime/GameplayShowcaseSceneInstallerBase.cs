@@ -26,7 +26,9 @@ namespace Game.Feature.Gameplay.Host
                 StageObjectiveRuntimeDefinition objectiveRuntimeDefinition,
                 EnemyAiProfileOverride[] enemyAiProfileOverrides,
                 StageContentEntry stageContentEntry,
+                EnemyUnitArchetypeCatalog enemyUnitArchetypeCatalog,
                 EnemyPresentationCatalog enemyPresentationCatalog,
+                EnemyPresentationArchetypeCatalog enemyPresentationArchetypeCatalog,
                 EnemyPresentationBinding[] enemyPresentationBindings,
                 StaticEntityPresentationCatalog staticEntityPresentationCatalog,
                 StaticEntityPresentationBinding[] staticEntityPresentationBindings)
@@ -39,7 +41,9 @@ namespace Game.Feature.Gameplay.Host
                 ObjectiveRuntimeDefinition = objectiveRuntimeDefinition ?? StageObjectiveRuntimeDefinition.Disabled;
                 EnemyAiProfileOverrides = enemyAiProfileOverrides ?? Array.Empty<EnemyAiProfileOverride>();
                 StageContentEntry = stageContentEntry;
+                EnemyUnitArchetypeCatalog = enemyUnitArchetypeCatalog;
                 EnemyPresentationCatalog = enemyPresentationCatalog;
+                EnemyPresentationArchetypeCatalog = enemyPresentationArchetypeCatalog;
                 EnemyPresentationBindings = enemyPresentationBindings ?? Array.Empty<EnemyPresentationBinding>();
                 StaticEntityPresentationCatalog = staticEntityPresentationCatalog;
                 StaticEntityPresentationBindings = staticEntityPresentationBindings ?? Array.Empty<StaticEntityPresentationBinding>();
@@ -61,7 +65,11 @@ namespace Game.Feature.Gameplay.Host
 
             public StageContentEntry StageContentEntry { get; }
 
+            public EnemyUnitArchetypeCatalog EnemyUnitArchetypeCatalog { get; }
+
             public EnemyPresentationCatalog EnemyPresentationCatalog { get; }
+
+            public EnemyPresentationArchetypeCatalog EnemyPresentationArchetypeCatalog { get; }
 
             public EnemyPresentationBinding[] EnemyPresentationBindings { get; }
 
@@ -141,10 +149,10 @@ namespace Game.Feature.Gameplay.Host
                 initialState.PlayerEntityId,
                 ResolvePlayerViewPrefab(),
                 ResolveEnemyViewPrefabs(
-                    initialState.EnemyPresentationCatalog ?? ResolveEnemyPresentationCatalog(),
+                    ResolveConfiguredEnemyPresentationCatalog(initialState),
                     initialState.EnemyPresentationBindings),
                 ResolveStaticEntityViewPrefabs(
-                    initialState.StaticEntityPresentationCatalog ?? ResolveStaticEntityPresentationCatalog(),
+                    ResolveConfiguredStaticEntityPresentationCatalog(initialState),
                     initialState.StaticEntityPresentationBindings));
         }
 
@@ -257,13 +265,13 @@ namespace Game.Feature.Gameplay.Host
                 DefaultEnemyAiProfile = ResolveDefaultEnemyAiProfile(),
                 DirectionChangeConsumesDelay = directionChangeConsumesDelay,
                 EnemyAiProfileOverrides = initialState.EnemyAiProfileOverrides,
-                EnemyUnitArchetypeCatalog = ResolveEnemyUnitArchetypeCatalog(),
-                EnemyPresentationArchetypeCatalog = ResolveEnemyPresentationArchetypeCatalog(),
+                EnemyUnitArchetypeCatalog = ResolveConfiguredEnemyUnitArchetypeCatalog(initialState),
+                EnemyPresentationArchetypeCatalog = ResolveConfiguredEnemyPresentationArchetypeCatalog(initialState),
                 StageContentEntry = initialState.StageContentEntry,
                 EnemyPresentationBindings = initialState.EnemyPresentationBindings,
-                EnemyPresentationCatalog = initialState.EnemyPresentationCatalog ?? ResolveEnemyPresentationCatalog(),
+                EnemyPresentationCatalog = ResolveConfiguredEnemyPresentationCatalog(initialState),
                 StaticEntityPresentationBindings = initialState.StaticEntityPresentationBindings,
-                StaticEntityPresentationCatalog = initialState.StaticEntityPresentationCatalog ?? ResolveStaticEntityPresentationCatalog(),
+                StaticEntityPresentationCatalog = ResolveConfiguredStaticEntityPresentationCatalog(initialState),
                 InitialBoardBounds = initialState.BoardBounds,
                 InitialEntities = initialState.InitialEntities,
                 InitialTerrain = initialState.InitialTerrain,
@@ -327,6 +335,39 @@ namespace Game.Feature.Gameplay.Host
         {
             var boardRoot = GetComponentInChildren<GameplayBoardRoot>(includeInactive: true);
             return CreateViewFactory(boardRoot, initialState);
+        }
+
+        private EnemyUnitArchetypeCatalog ResolveConfiguredEnemyUnitArchetypeCatalog(
+            in InitialGameplayState initialState)
+        {
+            return initialState.EnemyUnitArchetypeCatalog ??
+                   (AllowsLegacySceneCatalogFallback(initialState) ? ResolveEnemyUnitArchetypeCatalog() : null);
+        }
+
+        private EnemyPresentationArchetypeCatalog ResolveConfiguredEnemyPresentationArchetypeCatalog(
+            in InitialGameplayState initialState)
+        {
+            return initialState.EnemyPresentationArchetypeCatalog ??
+                   (AllowsLegacySceneCatalogFallback(initialState) ? ResolveEnemyPresentationArchetypeCatalog() : null);
+        }
+
+        private EnemyPresentationCatalog ResolveConfiguredEnemyPresentationCatalog(
+            in InitialGameplayState initialState)
+        {
+            return initialState.EnemyPresentationCatalog ??
+                   (AllowsLegacySceneCatalogFallback(initialState) ? ResolveEnemyPresentationCatalog() : null);
+        }
+
+        private StaticEntityPresentationCatalog ResolveConfiguredStaticEntityPresentationCatalog(
+            in InitialGameplayState initialState)
+        {
+            return initialState.StaticEntityPresentationCatalog ??
+                   (AllowsLegacySceneCatalogFallback(initialState) ? ResolveStaticEntityPresentationCatalog() : null);
+        }
+
+        private static bool AllowsLegacySceneCatalogFallback(in InitialGameplayState initialState)
+        {
+            return initialState.StageContentEntry == null;
         }
 
         private GameplayCameraSettings ResolveEffectiveCameraSettings(

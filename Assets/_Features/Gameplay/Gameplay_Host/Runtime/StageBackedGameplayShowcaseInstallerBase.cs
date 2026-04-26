@@ -9,11 +9,17 @@ namespace Game.Feature.Gameplay.Host
     {
         private static readonly StageRuntimeContentResolver RuntimeContentResolver = new();
 
-        [Header("Stage Load")]
+        [Header("Stage Catalog")]
         [SerializeField] private ScriptableObjectStageCatalogProvider stageCatalogProvider;
+
+        [Header("Campaign Flow")]
         [SerializeField] private CampaignStageSequenceDefinition campaignStageSequenceDefinition;
         [SerializeField] private bool enableCampaignFlow = true;
+
+        [Header("Stage Presentation Runtime")]
         [SerializeField] private Transform stageBackgroundRoot;
+
+        [Header("Persistent BGM Flow")]
         [SerializeField] private StageBgmProfileCatalog stageBgmProfileCatalog;
         [SerializeField] private GlobalAudioFlowBootstrap globalAudioFlowBootstrap;
 
@@ -42,7 +48,9 @@ namespace Game.Feature.Gameplay.Host
                 compositionData.GameplayBuildResult.ObjectiveRuntimeDefinition,
                 compositionData.GameplayBuildResult.EnemyAiProfileOverrides,
                 resolved.Entry,
+                resolved.Entry.GameplayDefinition.EnemyUnitArchetypeCatalog,
                 compositionData.PresentationData.EnemyPresentationCatalog,
+                compositionData.PresentationData.EnemyPresentationArchetypeCatalog,
                 compositionData.PresentationData.EnemyPresentationBindings,
                 compositionData.PresentationData.StaticEntityPresentationCatalog,
                 compositionData.PresentationData.StaticEntityPresentationBindings);
