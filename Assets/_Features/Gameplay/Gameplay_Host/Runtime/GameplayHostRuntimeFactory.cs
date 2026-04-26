@@ -90,7 +90,8 @@ namespace Game.Feature.Gameplay.Host
                 playerControlTiming,
                 playerRespawnTiming.RespawnDelayTicks,
                 configuration.ObjectiveRuntimeDefinition,
-                startTickIndex: 1);
+                startTickIndex: 1,
+                allowPlayerRespawn: !configuration.DisablePlayerRespawn);
 
             var boardRoot = EnsureBoardRootHierarchy(hostTransform);
             var boardSurfaceRenderer = boardRoot.EnsureBoardSurfaceRenderer();
@@ -163,7 +164,11 @@ namespace Game.Feature.Gameplay.Host
                     new GameplayHostSessionQuery(tickRunner, pauseService, admissionPolicy),
                     new GameplayHostPlayerHudQuery(tickRunner, inputHost, admissionPolicy),
                     new GameplayHostObjectiveQuery(tickRunner)),
-                new GameplayHostPresentationFeed(inputHost, presenter, configuration.StageContentEntry),
+                new GameplayHostPresentationFeed(
+                    inputHost,
+                    presenter,
+                    configuration.StageContentEntry,
+                    configuration.StageCompletionProfileStore),
                 pauseService);
 
             return new GameplayHostRuntimeContext(

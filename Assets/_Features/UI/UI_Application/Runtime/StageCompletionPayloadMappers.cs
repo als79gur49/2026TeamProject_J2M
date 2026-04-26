@@ -8,6 +8,9 @@ namespace Game.Feature.UI.Application
 {
     public static class StageCompletionStageResultPayloadMapper
     {
+        private static readonly Lazy<CampaignStageSequenceResolver> CanonicalCampaignResolver =
+            new(() => new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance()));
+
         public static StageResultScreenPayload Map(StageCompletionReadModel readModel)
         {
             if (readModel == null)
@@ -22,14 +25,40 @@ namespace Game.Feature.UI.Application
                 ? readModel.ResultDetailText
                 : BuildDefaultDetail(readModel);
 
+            var nextStageRequest = StageNavigationRequest.None;
+            if (CampaignStageResultNavigationStore.TryGet(readModel.StageId, out var campaignNavigationPlan))
+            {
+                nextStageRequest = campaignNavigationPlan.NextStageRequest;
+                CampaignStageResultNavigationStore.Clear();
+            }
+            else
+            {
+                nextStageRequest = ResolveCanonicalCampaignNextRequest(readModel.StageId);
+            }
+
             return new StageResultScreenPayload(
                 string.IsNullOrWhiteSpace(readModel.ResultTitle) ? "Stage Cleared" : readModel.ResultTitle,
                 summaryText,
                 detailText,
                 string.IsNullOrWhiteSpace(readModel.ResultContinueLabel) ? "Continue" : readModel.ResultContinueLabel,
-                new StageNavigationRequest(readModel.StageId, StageNavigationKind.Continue, "stage-result-continue"),
+                nextStageRequest.IsValid
+                    ? nextStageRequest
+                    : new StageNavigationRequest(readModel.StageId, StageNavigationKind.Continue, "stage-result-continue"),
                 new StageNavigationRequest(readModel.StageId, StageNavigationKind.Retry, "stage-result-retry"),
-                StageNavigationRequest.None);
+                nextStageRequest);
+        }
+
+        private static StageNavigationRequest ResolveCanonicalCampaignNextRequest(StageId stageId)
+        {
+            var resolver = CanonicalCampaignResolver.Value;
+            if (!resolver.Contains(stageId) ||
+                resolver.IsFinal(stageId) ||
+                !resolver.TryGetNext(stageId, out var nextStageId))
+            {
+                return StageNavigationRequest.None;
+            }
+
+            return new StageNavigationRequest(nextStageId, StageNavigationKind.NextStage, "campaign-auto-next");
         }
 
         private static string BuildDefaultSummary(StageCompletionReadModel readModel)

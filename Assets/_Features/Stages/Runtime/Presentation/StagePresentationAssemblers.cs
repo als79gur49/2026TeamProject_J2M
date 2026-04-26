@@ -15,6 +15,7 @@ namespace Game.Feature.Stages
             GameObject backgroundPrefab,
             StageBgmReference bgmReference,
             EnemyPresentationCatalog enemyPresentationCatalog,
+            EnemyPresentationArchetypeCatalog enemyPresentationArchetypeCatalog,
             EnemyPresentationBinding[] enemyPresentationBindings,
             StaticEntityPresentationCatalog staticEntityPresentationCatalog,
             StaticEntityPresentationBinding[] staticEntityPresentationBindings,
@@ -29,6 +30,7 @@ namespace Game.Feature.Stages
             BackgroundPrefab = backgroundPrefab;
             BgmReference = bgmReference;
             EnemyPresentationCatalog = enemyPresentationCatalog;
+            EnemyPresentationArchetypeCatalog = enemyPresentationArchetypeCatalog;
             EnemyPresentationBindings = enemyPresentationBindings ?? Array.Empty<EnemyPresentationBinding>();
             StaticEntityPresentationCatalog = staticEntityPresentationCatalog;
             StaticEntityPresentationBindings = staticEntityPresentationBindings ?? Array.Empty<StaticEntityPresentationBinding>();
@@ -49,6 +51,8 @@ namespace Game.Feature.Stages
         public StageBgmReference BgmReference { get; }
 
         public EnemyPresentationCatalog EnemyPresentationCatalog { get; }
+
+        public EnemyPresentationArchetypeCatalog EnemyPresentationArchetypeCatalog { get; }
 
         public EnemyPresentationBinding[] EnemyPresentationBindings { get; }
 
@@ -94,6 +98,7 @@ namespace Game.Feature.Stages
             null,
             StageBgmReference.None,
             null,
+            null,
             Array.Empty<EnemyPresentationBinding>(),
             null,
             Array.Empty<StaticEntityPresentationBinding>(),
@@ -116,6 +121,7 @@ namespace Game.Feature.Stages
                 definition.BackgroundPrefab,
                 definition.BgmReference,
                 definition.EnemyPresentationCatalog,
+                definition.EnemyPresentationArchetypeCatalog,
                 CloneBindings(definition.EnemyPresentationBindings),
                 definition.StaticEntityPresentationCatalog,
                 CloneBindings(definition.StaticEntityPresentationBindings),

@@ -67,6 +67,9 @@ namespace Game.Feature.Stages
         [Header("Objective")]
         [SerializeField] private StageObjectiveAuthoring objective = StageObjectiveAuthoring.CreateDefault();
 
+        [Header("Gameplay Companion")]
+        [SerializeField] private EnemyUnitArchetypeCatalog enemyUnitArchetypeCatalog;
+
         public StageBoardDefinition Board => board;
 
         public StageSpawnDefinition[] PlayerSpawns => playerSpawns ?? Array.Empty<StageSpawnDefinition>();
@@ -80,6 +83,8 @@ namespace Game.Feature.Stages
         public StageZoneDefinition[] Zones => zones ?? Array.Empty<StageZoneDefinition>();
 
         public StageObjectiveAuthoring Objective => NormalizeObjective(objective);
+
+        public EnemyUnitArchetypeCatalog EnemyUnitArchetypeCatalog => enemyUnitArchetypeCatalog;
 
         public StageSpawnDefinition[] Spawns => FlattenSpawnGroups();
 

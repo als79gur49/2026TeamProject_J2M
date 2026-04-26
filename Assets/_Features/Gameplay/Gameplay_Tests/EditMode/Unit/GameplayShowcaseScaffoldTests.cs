@@ -9,6 +9,7 @@ using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Timing;
+using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -530,6 +531,59 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
+        public void GameplayShowcaseInstaller_CreateConfiguration_StageBackedPath_DoesNotUseLegacyCatalogFallbacks()
+        {
+            var scene = CreateIsolatedTestScene();
+            var actions = ScriptableObject.CreateInstance<InputActionAsset>();
+            var simulationTimingPreset = CreateSimulationTimingPreset();
+            var presentationTimingPreset = CreatePresentationTimingPreset();
+            var stageContentEntry = ScriptableObject.CreateInstance<StageContentEntry>();
+            var legacyEnemyUnitCatalog = ScriptableObject.CreateInstance<EnemyUnitArchetypeCatalog>();
+            var legacyEnemyPresentationCatalog = ScriptableObject.CreateInstance<EnemyPresentationCatalog>();
+            var legacyEnemyPresentationArchetypeCatalog = ScriptableObject.CreateInstance<EnemyPresentationArchetypeCatalog>();
+            var legacyStaticEntityPresentationCatalog = ScriptableObject.CreateInstance<StaticEntityPresentationCatalog>();
+
+            try
+            {
+                var installerObject = new GameObject("GameplayShowcaseInstaller");
+                SceneManager.MoveGameObjectToScene(installerObject, scene);
+
+                var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
+                EnsureCameraTopologyAuthoring(installer);
+                SetBaseInstallerField(installer, "actions", actions);
+                SetBaseInstallerField(installer, "simulationTimingPreset", simulationTimingPreset);
+                SetBaseInstallerField(installer, "presentationTimingPreset", presentationTimingPreset);
+
+                installer.StageContentEntryOverride = stageContentEntry;
+                installer.LegacyEnemyUnitArchetypeCatalogOverride = legacyEnemyUnitCatalog;
+                installer.LegacyEnemyPresentationCatalogOverride = legacyEnemyPresentationCatalog;
+                installer.LegacyEnemyPresentationArchetypeCatalogOverride = legacyEnemyPresentationArchetypeCatalog;
+                installer.LegacyStaticEntityPresentationCatalogOverride = legacyStaticEntityPresentationCatalog;
+
+                var configuration = installer.BuildConfigurationForTests();
+
+                Assert.That(configuration.StageContentEntry, Is.SameAs(stageContentEntry));
+                Assert.That(configuration.EnemyUnitArchetypeCatalog, Is.Null);
+                Assert.That(configuration.EnemyPresentationCatalog, Is.Null);
+                Assert.That(configuration.EnemyPresentationArchetypeCatalog, Is.Null);
+                Assert.That(configuration.StaticEntityPresentationCatalog, Is.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(legacyStaticEntityPresentationCatalog);
+                UnityEngine.Object.DestroyImmediate(legacyEnemyPresentationArchetypeCatalog);
+                UnityEngine.Object.DestroyImmediate(legacyEnemyPresentationCatalog);
+                UnityEngine.Object.DestroyImmediate(legacyEnemyUnitCatalog);
+                UnityEngine.Object.DestroyImmediate(stageContentEntry);
+                UnityEngine.Object.DestroyImmediate(simulationTimingPreset);
+                UnityEngine.Object.DestroyImmediate(presentationTimingPreset);
+                UnityEngine.Object.DestroyImmediate(actions);
+                ResetIsolatedTestScene();
+            }
+        }
+
+        [Test]
+        [Category("Full")]
         public void GameplayShowcaseInstaller_CreateConfiguration_PropagatesExplicitFaceSeamGap()
         {
             var scene = CreateIsolatedTestScene();
@@ -931,6 +985,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public IGameplayEntityViewFactory ViewFactoryOverride { get; set; }
 
+            public StageContentEntry StageContentEntryOverride { get; set; }
+
+            public EnemyUnitArchetypeCatalog InitialEnemyUnitArchetypeCatalogOverride { get; set; }
+
+            public EnemyPresentationCatalog InitialEnemyPresentationCatalogOverride { get; set; }
+
+            public EnemyPresentationArchetypeCatalog InitialEnemyPresentationArchetypeCatalogOverride { get; set; }
+
+            public StaticEntityPresentationCatalog InitialStaticEntityPresentationCatalogOverride { get; set; }
+
+            public EnemyUnitArchetypeCatalog LegacyEnemyUnitArchetypeCatalogOverride { get; set; }
+
+            public EnemyPresentationCatalog LegacyEnemyPresentationCatalogOverride { get; set; }
+
+            public EnemyPresentationArchetypeCatalog LegacyEnemyPresentationArchetypeCatalogOverride { get; set; }
+
+            public StaticEntityPresentationCatalog LegacyStaticEntityPresentationCatalogOverride { get; set; }
+
             public GameplaySceneHostConfiguration BuildConfigurationForTests()
             {
                 var createConfiguration = typeof(GameplayShowcaseSceneInstallerBase).GetMethod(
@@ -958,6 +1030,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 return PlayerViewPrefabOverride;
             }
 
+            protected override EnemyPresentationCatalog ResolveEnemyPresentationCatalog()
+            {
+                return LegacyEnemyPresentationCatalogOverride;
+            }
+
+            protected override EnemyUnitArchetypeCatalog ResolveEnemyUnitArchetypeCatalog()
+            {
+                return LegacyEnemyUnitArchetypeCatalogOverride;
+            }
+
+            protected override EnemyPresentationArchetypeCatalog ResolveEnemyPresentationArchetypeCatalog()
+            {
+                return LegacyEnemyPresentationArchetypeCatalogOverride;
+            }
+
+            protected override StaticEntityPresentationCatalog ResolveStaticEntityPresentationCatalog()
+            {
+                return LegacyStaticEntityPresentationCatalogOverride;
+            }
+
             protected override InitialGameplayState BuildInitialGameplayState()
             {
                 return new InitialGameplayState(
@@ -968,10 +1060,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     playerEntityId: 10,
                     StageObjectiveRuntimeDefinition.Disabled,
                     Array.Empty<EnemyAiProfileOverride>(),
-                    null,
-                    null,
+                    StageContentEntryOverride,
+                    InitialEnemyUnitArchetypeCatalogOverride,
+                    InitialEnemyPresentationCatalogOverride,
+                    InitialEnemyPresentationArchetypeCatalogOverride,
                     Array.Empty<EnemyPresentationBinding>(),
-                    null,
+                    InitialStaticEntityPresentationCatalogOverride,
                     Array.Empty<StaticEntityPresentationBinding>());
             }
 
@@ -997,6 +1091,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         private const string CombinedScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
         private const string TutorialScenePath = "Assets/Scenes/TutorialScene.unity";
+        private const string UiAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
         private const string CombinedSceneInstallerIdentifier =
             "Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.CombinedGameplayShowcaseInstaller";
         private const string StageCatalogProviderAssetPath =
@@ -1007,6 +1102,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplayPresentationTimingPreset_DefaultShowcase.asset";
         private const string PlayerAnimationTestPrefabPath =
             "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/Entity_View_PlayerAnimationTest.prefab";
+        private const string CombinedGameplayShowcaseInstallerSourcePath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/CombinedGameplayShowcaseInstaller.cs";
 
         [Test]
         [Category("Full")]
@@ -1038,11 +1135,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Full")]
         public void CombinedGameplayShowcaseScene_DoesNotSerializeSceneLocalPresentationCompatReferences()
         {
-            var installerBlock = ReadInstallerBlock(CombinedScenePath, CombinedSceneInstallerIdentifier);
+            var scenePaths = new[] { CombinedScenePath, TutorialScenePath, UiAudioScenePath };
+            for (var i = 0; i < scenePaths.Length; i++)
+            {
+                var installerBlock = ReadInstallerBlock(scenePaths[i], CombinedSceneInstallerIdentifier);
 
-            StringAssert.Contains("enemyPresentationCatalog: {fileID: 0}", installerBlock);
-            StringAssert.Contains("staticEntityPresentationCatalog: {fileID: 0}", installerBlock);
-            StringAssert.DoesNotContain("stageDefinition: {fileID: 11400000", installerBlock);
+                StringAssert.DoesNotContain("enemyPresentationCatalog:", installerBlock);
+                StringAssert.DoesNotContain("enemyPresentationArchetypeCatalog:", installerBlock);
+                StringAssert.DoesNotContain("enemyUnitArchetypeCatalog:", installerBlock);
+                StringAssert.DoesNotContain("staticEntityPresentationCatalog:", installerBlock);
+                StringAssert.DoesNotContain("stageDefinition: {fileID: 11400000", installerBlock);
+            }
+
+            var installerSource = ReadNormalizedText(CombinedGameplayShowcaseInstallerSourcePath);
+            StringAssert.DoesNotContain("private EnemyPresentationCatalog", installerSource);
+            StringAssert.DoesNotContain("private EnemyPresentationArchetypeCatalog", installerSource);
+            StringAssert.DoesNotContain("private EnemyUnitArchetypeCatalog", installerSource);
+            StringAssert.DoesNotContain("private StaticEntityPresentationCatalog", installerSource);
+            StringAssert.DoesNotContain("ResolveEnemyPresentationCatalog()", installerSource);
+            StringAssert.DoesNotContain("ResolveEnemyPresentationArchetypeCatalog()", installerSource);
+            StringAssert.DoesNotContain("ResolveEnemyUnitArchetypeCatalog()", installerSource);
+            StringAssert.DoesNotContain("ResolveStaticEntityPresentationCatalog()", installerSource);
         }
 
         [Test]

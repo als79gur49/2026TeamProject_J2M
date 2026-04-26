@@ -6,8 +6,6 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 {
     internal sealed class GameplayHostStageCompletionRuntime
     {
-        private static readonly StageId FallbackStageId = StageId.CreateOrThrow("runtime-stage");
-
         private readonly StageCompletionCommitter _committer;
         private readonly StageContentEntry _entry;
         private readonly IStageCompletionProfileStore _profileStore;
@@ -36,6 +34,12 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             if (!_sessionTracker.TryCreateClearResult(out var clearResult))
             {
                 return CurrentStageCompletion;
+            }
+
+            if (!clearResult.StageId.IsValid)
+            {
+                throw new InvalidOperationException(
+                    "Stage completion requires a valid StageContentEntry StageId. Runtime default stage fallback is not allowed.");
             }
 
             var clearEvaluationResult = StageClearEvaluator.Evaluate(_entry?.ClearEvaluationDefinition, clearResult);
@@ -72,7 +76,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
         {
             return entry != null && entry.StageId.IsValid
                 ? entry.StageId
-                : FallbackStageId;
+                : StageId.None;
         }
 
         private sealed class InMemoryStageCompletionProfileStore : IStageCompletionProfileStore

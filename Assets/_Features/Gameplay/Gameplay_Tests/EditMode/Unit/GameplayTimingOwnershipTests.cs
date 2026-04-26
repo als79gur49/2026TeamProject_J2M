@@ -10,6 +10,7 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.Animations;
@@ -106,9 +107,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void GameplayInputHost_RunSingleTick_RaisesStageClearedEvent_WithoutLegacyOverlayPath()
         {
             var hostObject = new GameObject("GameplayInputHost_RunSingleTick_RaisesStageClearedEvent_WithoutLegacyOverlayPath");
+            StageContentEntry stageContentEntry = null;
 
             try
             {
+                stageContentEntry = CreateStageContentEntry("stage-test-clear");
                 var host = hostObject.AddComponent<GameplaySceneHost>();
                 host.Initialize(
                     new GameplaySceneHostConfiguration
@@ -121,6 +124,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             CreatePlayerEntity(),
                         },
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
+                        StageContentEntry = stageContentEntry,
                         ObjectiveRuntimeDefinition = CreateSingleCellObjective(new SurfaceCell(FaceId.Floor, 0, 0)),
                         PlayerEntityId = 10,
                     });
@@ -137,6 +141,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                if (stageContentEntry != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(stageContentEntry);
+                }
+
                 UnityEngine.Object.DestroyImmediate(hostObject);
             }
         }
@@ -2386,6 +2395,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 boardPresence = EntityBoardPresence.Occupying,
                 aiMode = EnemyAiMode.None,
             };
+        }
+
+        private static StageContentEntry CreateStageContentEntry(string stageId)
+        {
+            var entry = ScriptableObject.CreateInstance<StageContentEntry>();
+            entry.AssignStageId(StageId.CreateOrThrow(stageId));
+            return entry;
         }
 
         private static StageObjectiveRuntimeDefinition CreateSingleCellObjective(SurfaceCell goalCell)

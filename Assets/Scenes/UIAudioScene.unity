@@ -1264,73 +1264,12 @@ MonoBehaviour:
   gameplayAudioMap: {fileID: 11400000, guid: 2e17653afa1ba264a950b76bcd5ccc56, type: 2}
   faceSeamGap: 3.5
   stageCatalogProvider: {fileID: 11400000, guid: acd8229e8e9e4f1da31d8206dfa8188e, type: 2}
+  campaignStageSequenceDefinition: {fileID: 0}
+  enableCampaignFlow: 1
+  stageBackgroundRoot: {fileID: 0}
+  stageBgmProfileCatalog: {fileID: 0}
+  globalAudioFlowBootstrap: {fileID: 0}
   playerViewPrefab: {fileID: 1100110011001100110, guid: dad668eb9c4d5a1459580883a9e78cfc, type: 3}
-  enemyPresentationCatalog: {fileID: 0}
-  staticEntityPresentationCatalog: {fileID: 0}
---- !u!114 &1179627488
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1179627480}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 970b8cce4cb043879c79b43f28da51dd, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.GameplayCameraTopologyAuthoring
-  sourceMode: 1
-  preset: {fileID: 11400000, guid: 887fe82849e743a2b4de1b930dd2ef9c, type: 2}
-  configureMainCamera: 0
-  baselineAuthoringPolicy:
-    UseAuthoredSceneCameraPose: 1
-    UseAuthoredSceneCameraLens: 1
-  inlineSharedTuning:
-    topologyRotationVisualMapping: 1
-    topologyRotationTweenSettings:
-      Ease: 9
-    cameraSettings:
-      PitchDegrees: 35
-      YawDegrees: 0
-      DistanceMode: 1
-      ManualDistance: 16
-      FramingPadding: 1.2
-      PerspectiveFieldOfView: 50
-      NearClipPlane: 0.03
-      FarClipPlane: 100
-      ClearFlags: 2
-      BackgroundColor: {r: 0.93, g: 0.95, b: 0.98, a: 1}
-    topologyTransitionCameraShakeProfile:
-      ImpactStart01: 0.02
-      ImpactDuration01: 0.18
-      ImpactOscillationCycles: 2
-      ImpactLocalPositionAmplitude: {x: 0.012, y: 0.008, z: 0.018}
-      ImpactLocalRotationAmplitudeDegrees: {x: 0.45, y: 0.28, z: 0.12}
-      LandingStart01: 0.76
-      LandingDuration01: 0.18
-      LandingOscillationCycles: 1
-      LandingLocalPositionAmplitude: {x: 0.006, y: 0.004, z: 0.01}
-      LandingLocalRotationAmplitudeDegrees: {x: 0.24, y: 0.14, z: 0.08}
-    topologyTransitionPostFxProfile:
-      authoritativeVolumeProfile: {fileID: 11400000, guid: 34b03bafcc38d5143b72f2184dc129e7, type: 2}
-      motionBlurMode: 0
-      motionBlurQuality: 2
-      maxBlurIntensity: 0.3
-      cameraClamp: 0.05
-      angularVelocityResponseExponent: 0.65
-      landingFadeStart01: 0.82
-      landingFadeExponent: 3
-      distortionProfile:
-        ImpactStart01: 0.04
-        ImpactDuration01: 0.16
-        ImpactIntensity: -0.2
-        LandingStart01: 0.72
-        LandingDuration01: 0.18
-        LandingIntensity: 0.12
-        XMultiplier: 1
-        YMultiplier: 1
-        Center: {x: 0.5, y: 0.5}
-        Scale: 1.05
 --- !u!4 &1179627482
 Transform:
   m_ObjectHideFlags: 0
@@ -1419,6 +1358,70 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Feature.Flow.Audio::Game.Feature.Flow.Audio.GlobalAudioFlowBootstrap
   audioRuntimeInstaller: {fileID: 1179627485}
   persistentRoot: {fileID: 0}
+--- !u!114 &1179627488
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1179627480}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 970b8cce4cb043879c79b43f28da51dd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.GameplayCameraTopologyAuthoring
+  sourceMode: 1
+  preset: {fileID: 11400000, guid: 887fe82849e743a2b4de1b930dd2ef9c, type: 2}
+  configureMainCamera: 0
+  baselineAuthoringPolicy:
+    UseAuthoredSceneCameraPose: 1
+    UseAuthoredSceneCameraLens: 1
+  inlineSharedTuning:
+    topologyRotationVisualMapping: 1
+    topologyRotationTweenSettings:
+      Ease: 9
+    cameraSettings:
+      PitchDegrees: 35
+      YawDegrees: 0
+      DistanceMode: 1
+      ManualDistance: 16
+      FramingPadding: 1.2
+      PerspectiveFieldOfView: 50
+      NearClipPlane: 0.03
+      FarClipPlane: 100
+      ClearFlags: 2
+      BackgroundColor: {r: 0.93, g: 0.95, b: 0.98, a: 1}
+    topologyTransitionCameraShakeProfile:
+      ImpactStart01: 0.02
+      ImpactDuration01: 0.18
+      ImpactOscillationCycles: 2
+      ImpactLocalPositionAmplitude: {x: 0.012, y: 0.008, z: 0.018}
+      ImpactLocalRotationAmplitudeDegrees: {x: 0.45, y: 0.28, z: 0.12}
+      LandingStart01: 0.76
+      LandingDuration01: 0.18
+      LandingOscillationCycles: 1
+      LandingLocalPositionAmplitude: {x: 0.006, y: 0.004, z: 0.01}
+      LandingLocalRotationAmplitudeDegrees: {x: 0.24, y: 0.14, z: 0.08}
+    topologyTransitionPostFxProfile:
+      authoritativeVolumeProfile: {fileID: 11400000, guid: 34b03bafcc38d5143b72f2184dc129e7, type: 2}
+      motionBlurMode: 0
+      motionBlurQuality: 2
+      maxBlurIntensity: 0.3
+      cameraClamp: 0.05
+      angularVelocityResponseExponent: 0.65
+      landingFadeStart01: 0.82
+      landingFadeExponent: 3
+      distortionProfile:
+        ImpactStart01: 0.04
+        ImpactDuration01: 0.16
+        ImpactIntensity: -0.2
+        LandingStart01: 0.72
+        LandingDuration01: 0.18
+        LandingIntensity: 0.12
+        XMultiplier: 1
+        YMultiplier: 1
+        Center: {x: 0.5, y: 0.5}
+        Scale: 1.05
 --- !u!1 &1255821668
 GameObject:
   m_ObjectHideFlags: 0

@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 719d25abb3d28bb43a69db0e2a37a7df, type: 3}
+  m_Name: stage-4-1_Entry
+  m_EditorClassIdentifier:
+  stageId:
+    value: stage-4-1
+  gameplayDefinition: {fileID: 11400000, guid: 2d4313eeefca6a2ca32def636ed28556, type: 2}
+  presentationDefinition: {fileID: 11400000, guid: 606c8c8ab997a15d696bfcb621d76b7f, type: 2}
+  clearEvaluationDefinition: {fileID: 11400000, guid: 02cd922221e90d622f247c6ae153ff4e, type: 2}
+  rewardDefinition: {fileID: 11400000, guid: 41b7366a3d2aa2529a7cded86336ccc7, type: 2}
+  progressionDefinition: {fileID: 11400000, guid: ecbd26fa4322f66fa5398931d4905ae6, type: 2}

@@ -20,12 +20,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         private const string CombinedStageAssetPath =
             "Assets/_Features/Stages/Content/combined-gameplay-showcase/combined-gameplay-showcase.asset";
-        private const string CombinedEnemyPresentationCatalogAssetPath =
-            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Catalogs/EnemyPresentationCatalog_CombinedGameplayShowcase.asset";
-        private const string CombinedEnemyArchetypeCatalogAssetPath =
-            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Catalogs/EnemyUnitArchetypeCatalog_CombinedGameplayShowcase.asset";
-        private const string CombinedEnemyPresentationArchetypeCatalogAssetPath =
-            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Catalogs/EnemyPresentationArchetypeCatalog_CombinedGameplayShowcase.asset";
         private const string CombinedPresentationAssetPath =
             "Assets/_Features/Stages/Content/combined-gameplay-showcase/combined-gameplay-showcase_Presentation.asset";
         private const string StageCatalogProviderAssetPath =
@@ -210,6 +204,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(chargeBinding.PresentationId, Is.EqualTo(ChargeEnemyPresentationId));
             Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, UtilitySummonerShowcaseEnemyId, out var utilitySummonerBinding), Is.True);
             Assert.That(utilitySummonerBinding.PresentationId, Is.EqualTo("utility_summoner_prefab"));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void StagePresentationResolvedData_RoundTrip_IncludesEnemyPresentationArchetypeCatalog()
+        {
+            var presentationDefinition = AssetDatabase.LoadAssetAtPath<StagePresentationDefinition>(CombinedPresentationAssetPath);
+            Assert.That(
+                presentationDefinition,
+                Is.Not.Null,
+                $"Missing stage presentation asset at '{CombinedPresentationAssetPath}'.");
+
+            var resolved = StagePresentationAssembler.Resolve(presentationDefinition);
+            var copy = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+
+            try
+            {
+                copy.ApplyResolvedData(resolved);
+                var roundTrip = StagePresentationAssembler.Resolve(copy);
+
+                Assert.That(roundTrip.EnemyPresentationCatalog, Is.SameAs(resolved.EnemyPresentationCatalog));
+                Assert.That(
+                    roundTrip.EnemyPresentationArchetypeCatalog,
+                    Is.SameAs(resolved.EnemyPresentationArchetypeCatalog));
+                Assert.That(roundTrip.EnemyPresentationArchetypeCatalog, Is.Not.Null);
+            }
+            finally
+            {
+                Object.DestroyImmediate(copy);
+            }
         }
 
         [Test]
@@ -669,21 +693,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void CombinedGameplayShowcaseInstaller_Configuration_UsesEnemyUnitArchetypeCatalog()
+        [Category("Full")]
+        public void CombinedGameplayShowcaseInstaller_Configuration_UsesStageDefinitionEnemyUnitArchetypeCatalog()
         {
             var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_Configuration_UsesEnemyUnitArchetypeCatalog");
 
             try
             {
                 var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
-                AssignEnemyPresentationCatalog(installer);
-                AssignEnemyUnitArchetypeCatalog(installer);
                 AssignStageContentEntry(installer);
                 AssignTimingPresets(installer);
 
                 var configuration = BuildConfiguration(installer);
 
                 Assert.That(configuration.EnemyUnitArchetypeCatalog, Is.Not.Null);
+                Assert.That(
+                    configuration.EnemyUnitArchetypeCatalog,
+                    Is.SameAs(configuration.StageContentEntry.GameplayDefinition.EnemyUnitArchetypeCatalog));
                 Assert.That(configuration.EnemyUnitArchetypeCatalog.name, Is.EqualTo("EnemyUnitArchetypeCatalog_CombinedGameplayShowcase"));
                 Assert.That(configuration.EnemyUnitArchetypeCatalog.Entries.Count, Is.EqualTo(1));
                 Assert.That(configuration.EnemyUnitArchetypeCatalog.Entries[0].ArchetypeId, Is.EqualTo(new EnemyUnitArchetypeId("PassiveContactMinion")));
@@ -696,22 +722,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void CombinedGameplayShowcaseInstaller_Configuration_UsesEnemyPresentationArchetypeCatalog()
+        [Category("Full")]
+        public void CombinedGameplayShowcaseInstaller_Configuration_UsesStagePresentationDefinitionEnemyPresentationArchetypeCatalog()
         {
             var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_Configuration_UsesEnemyPresentationArchetypeCatalog");
 
             try
             {
                 var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
-                AssignEnemyPresentationCatalog(installer);
-                AssignEnemyPresentationArchetypeCatalog(installer);
-                AssignEnemyUnitArchetypeCatalog(installer);
                 AssignStageContentEntry(installer);
                 AssignTimingPresets(installer);
 
                 var configuration = BuildConfiguration(installer);
 
                 Assert.That(configuration.EnemyPresentationArchetypeCatalog, Is.Not.Null);
+                Assert.That(
+                    configuration.EnemyPresentationArchetypeCatalog,
+                    Is.SameAs(configuration.StageContentEntry.PresentationDefinition.EnemyPresentationArchetypeCatalog));
                 Assert.That(
                     configuration.EnemyPresentationArchetypeCatalog.name,
                     Is.EqualTo("EnemyPresentationArchetypeCatalog_CombinedGameplayShowcase"));
@@ -736,6 +763,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        [Category("Full")]
+        public void CampaignStageAssets_WithSummonArchetypes_HaveRuntimeAndPresentationArchetypeCatalogs()
+        {
+            var provider = AssetDatabase.LoadAssetAtPath<ScriptableObjectStageCatalogProvider>(StageCatalogProviderAssetPath);
+            Assert.That(provider, Is.Not.Null, $"Missing stage catalog provider at '{StageCatalogProviderAssetPath}'.");
+
+            var checkedSummonStages = 0;
+            var entries = provider.LoadEntries();
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                if (entry == null || entry.GameplayDefinition == null || !StageUsesSummonArchetype(entry.GameplayDefinition))
+                {
+                    continue;
+                }
+
+                checkedSummonStages++;
+                Assert.That(
+                    entry.GameplayDefinition.EnemyUnitArchetypeCatalog,
+                    Is.Not.Null,
+                    $"{entry.StageId.Value} uses summon archetypes and must assign a runtime enemy unit archetype catalog.");
+                Assert.That(
+                    entry.PresentationDefinition?.EnemyPresentationArchetypeCatalog,
+                    Is.Not.Null,
+                    $"{entry.StageId.Value} uses summon archetypes and must assign a presentation enemy archetype catalog.");
+            }
+
+            Assert.That(checkedSummonStages, Is.GreaterThan(0));
+        }
+
         private static StageRuntimeBuildResult BuildCombinedStage()
         {
             var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(CombinedStageAssetPath);
@@ -743,44 +801,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return StageRuntimeBuilder.Build(stage);
         }
 
-        private static void AssignEnemyPresentationCatalog(CombinedGameplayShowcaseInstaller installer)
+        private static bool StageUsesSummonArchetype(StageDefinition stage)
         {
-            var catalog = AssetDatabase.LoadAssetAtPath<EnemyPresentationCatalog>(CombinedEnemyPresentationCatalogAssetPath);
-            Assert.That(catalog, Is.Not.Null, $"Missing enemy presentation catalog asset at '{CombinedEnemyPresentationCatalogAssetPath}'.");
+            var enemySpawns = stage.EnemySpawns;
+            for (var spawnIndex = 0; spawnIndex < enemySpawns.Length; spawnIndex++)
+            {
+                var profile = enemySpawns[spawnIndex].EnemyAiProfile;
+                if (profile == null)
+                {
+                    continue;
+                }
 
-            var field = typeof(CombinedGameplayShowcaseInstaller).GetField(
-                "enemyPresentationCatalog",
-                BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.That(field, Is.Not.Null);
-            field.SetValue(installer, catalog);
-        }
+                var runtimeDefinition = profile.CreateRuntimeDefinition(
+                    GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+                if (!runtimeDefinition.Capabilities.TryGetUtility(out var utility))
+                {
+                    continue;
+                }
 
-        private static void AssignEnemyUnitArchetypeCatalog(CombinedGameplayShowcaseInstaller installer)
-        {
-            var catalog = AssetDatabase.LoadAssetAtPath<EnemyUnitArchetypeCatalog>(CombinedEnemyArchetypeCatalogAssetPath);
-            Assert.That(catalog, Is.Not.Null, $"Missing enemy archetype catalog asset at '{CombinedEnemyArchetypeCatalogAssetPath}'.");
+                for (var effectIndex = 0; effectIndex < utility.Effects.Count; effectIndex++)
+                {
+                    if (utility.Effects[effectIndex].Kind == EnemyUtilityEffectKind.SummonMinion)
+                    {
+                        return true;
+                    }
+                }
+            }
 
-            var field = typeof(CombinedGameplayShowcaseInstaller).GetField(
-                "enemyUnitArchetypeCatalog",
-                BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.That(field, Is.Not.Null);
-            field.SetValue(installer, catalog);
-        }
-
-        private static void AssignEnemyPresentationArchetypeCatalog(CombinedGameplayShowcaseInstaller installer)
-        {
-            var catalog = AssetDatabase.LoadAssetAtPath<EnemyPresentationArchetypeCatalog>(
-                CombinedEnemyPresentationArchetypeCatalogAssetPath);
-            Assert.That(
-                catalog,
-                Is.Not.Null,
-                $"Missing enemy presentation archetype catalog asset at '{CombinedEnemyPresentationArchetypeCatalogAssetPath}'.");
-
-            var field = typeof(CombinedGameplayShowcaseInstaller).GetField(
-                "enemyPresentationArchetypeCatalog",
-                BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.That(field, Is.Not.Null);
-            field.SetValue(installer, catalog);
+            return false;
         }
 
         private static void AssignStageContentEntry(CombinedGameplayShowcaseInstaller installer)
@@ -795,7 +843,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             providerField.SetValue(installer, provider);
 
             StageLaunchContextStore.Clear();
-            StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow("combined-gameplay-showcase"));
+            StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow("stage-1-1"));
         }
 
         private static void AssignTimingPresets(CombinedGameplayShowcaseInstaller installer)
@@ -831,7 +879,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             CombinedGameplayShowcaseInstaller installer,
             GameplayBoardRoot boardRoot)
         {
-            AssignEnemyPresentationCatalog(installer);
             AssignStageContentEntry(installer);
             AssignTimingPresets(installer);
             var initialState = BuildInitialGameplayState(installer);
@@ -841,13 +888,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(factoryMethod, Is.Not.Null);
             return (IGameplayEntityViewFactory)factoryMethod.Invoke(installer, new[] { (object)boardRoot, initialState });
-        }
-
-        private static void SetPrivateField(object target, string fieldName, object value)
-        {
-            var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.That(field, Is.Not.Null, $"Missing private field '{fieldName}' on {target.GetType().Name}.");
-            field.SetValue(target, value);
         }
 
         private static void DestroyAssignedStageContent(GameObject installerObject)
@@ -890,6 +930,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static GameplaySceneHostConfiguration BuildConfiguration(CombinedGameplayShowcaseInstaller installer)
         {
+            EnsureCameraTopologyAuthoring(installer);
+
             var initialState = BuildInitialGameplayState(installer);
             var createConfigurationMethod = typeof(GameplayShowcaseSceneInstallerBase).GetMethod(
                 "CreateConfiguration",
@@ -902,6 +944,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return (GameplaySceneHostConfiguration)createConfigurationMethod.Invoke(
                 installer,
                 new object[] { initialState, installer.GetCameraSettings() });
+        }
+
+        private static GameplayCameraTopologyAuthoring EnsureCameraTopologyAuthoring(Component owner)
+        {
+            return owner.GetComponent<GameplayCameraTopologyAuthoring>() ??
+                   owner.gameObject.AddComponent<GameplayCameraTopologyAuthoring>();
         }
 
         private static bool HasWallAt(IReadOnlyList<EntityState> entities, SurfaceCell cell)

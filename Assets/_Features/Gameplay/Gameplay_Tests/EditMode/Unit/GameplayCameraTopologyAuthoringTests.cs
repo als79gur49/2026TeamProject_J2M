@@ -1305,7 +1305,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(createConfiguration, Is.Not.Null);
 
             StageLaunchContextStore.Clear();
-            StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow("combined-gameplay-showcase"));
+            StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow("stage-1-1"));
 
             try
             {

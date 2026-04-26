@@ -14,6 +14,7 @@ namespace Game.Feature.Stages
         [SerializeField] private GameObject backgroundPrefab;
         [SerializeField] private StageBgmReference bgmReference = StageBgmReference.None;
         [SerializeField] private EnemyPresentationCatalog enemyPresentationCatalog;
+        [SerializeField] private EnemyPresentationArchetypeCatalog enemyPresentationArchetypeCatalog;
         [SerializeField] private EnemyPresentationBinding[] enemyPresentationBindings = Array.Empty<EnemyPresentationBinding>();
         [SerializeField] private StaticEntityPresentationCatalog staticEntityPresentationCatalog;
         [SerializeField] private StaticEntityPresentationBinding[] staticEntityPresentationBindings = Array.Empty<StaticEntityPresentationBinding>();
@@ -33,6 +34,8 @@ namespace Game.Feature.Stages
         public StageBgmReference BgmReference => bgmReference;
 
         public EnemyPresentationCatalog EnemyPresentationCatalog => enemyPresentationCatalog;
+
+        public EnemyPresentationArchetypeCatalog EnemyPresentationArchetypeCatalog => enemyPresentationArchetypeCatalog;
 
         public EnemyPresentationBinding[] EnemyPresentationBindings => enemyPresentationBindings ?? Array.Empty<EnemyPresentationBinding>();
 
@@ -58,6 +61,7 @@ namespace Game.Feature.Stages
             backgroundPrefab = resolvedData.BackgroundPrefab;
             bgmReference = resolvedData.BgmReference;
             enemyPresentationCatalog = resolvedData.EnemyPresentationCatalog;
+            enemyPresentationArchetypeCatalog = resolvedData.EnemyPresentationArchetypeCatalog;
             enemyPresentationBindings = resolvedData.EnemyPresentationBindings ?? Array.Empty<EnemyPresentationBinding>();
             staticEntityPresentationCatalog = resolvedData.StaticEntityPresentationCatalog;
             staticEntityPresentationBindings =

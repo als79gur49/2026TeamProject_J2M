@@ -1,0 +1,155 @@
+using System;
+using System.Collections.Generic;
+using Game.Feature.Stages;
+using Game.Feature.UI.Application;
+using Game.Feature.UI.Composition;
+using Game.Feature.UI.Flow;
+using Game.Feature.UI.Popups;
+using Game.Feature.UI.Screens;
+using NUnit.Framework;
+using UnityEngine;
+
+namespace Game.Feature.UI.Tests
+{
+    public sealed class CampaignMainMenuAndAutoNextTests
+    {
+        [Test]
+        public void MainMenuSlotViewModelMapper_MapsEmptyExistingAndCompletedSlots()
+        {
+            var resolver = new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+            var slots = new[]
+            {
+                SaveSlotData.CreateEmpty(1),
+                new SaveSlotData
+                {
+                    SlotNumber = 2,
+                    CurrentStageId = StageId.CreateOrThrow("stage-2-2"),
+                    CurrentLevelGroupId = "level-2",
+                    RemainingChances = 2,
+                    TotalDeaths = 1,
+                    LastPlayedAt = "played",
+                },
+                new SaveSlotData
+                {
+                    SlotNumber = 3,
+                    CurrentStageId = StageId.CreateOrThrow("stage-5-1"),
+                    CurrentLevelGroupId = "level-5",
+                    RemainingChances = 3,
+                    CampaignCompleted = true,
+                    TotalDeaths = 5,
+                },
+            };
+
+            var viewModel = MainMenuSlotViewModelMapper.Map(slots, resolver);
+
+            Assert.That(viewModel.SlotCards[0].State, Is.EqualTo(SaveSlotCardState.Empty));
+            Assert.That(viewModel.SlotCards[0].PrimaryActionText, Is.EqualTo("New Game"));
+            Assert.That(viewModel.SlotCards[1].State, Is.EqualTo(SaveSlotCardState.Existing));
+            Assert.That(viewModel.SlotCards[1].PrimaryActionText, Is.EqualTo("Continue"));
+            Assert.That(viewModel.SlotCards[1].StageText, Is.EqualTo("Stage 2-2"));
+            Assert.That(viewModel.SlotCards[2].State, Is.EqualTo(SaveSlotCardState.Completed));
+            Assert.That(viewModel.SlotCards[2].PrimaryActionText, Is.EqualTo("Restart"));
+            Assert.That(viewModel.SlotCards[2].ShowDelete, Is.True);
+        }
+
+        [Test]
+        public void MainMenuController_DeleteMutatesOnlyWhenConfirmed()
+        {
+            var saveKey = CreatePrefsKey(nameof(MainMenuController_DeleteMutatesOnlyWhenConfirmed));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var confirmPort = new FakeConfirmPopupPort();
+            var controller = new MainMenuController(
+                saveStore,
+                activeSlotProvider,
+                new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance()),
+                new FakeStageLaunchRouter(),
+                confirmPort);
+            saveStore.ClearAll();
+            activeSlotProvider.ClearActiveSlot();
+            saveStore.SaveSlot(new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
+                CurrentLevelGroupId = "level-1",
+            });
+            activeSlotProvider.SetActiveSlot(1);
+
+            controller.RequestDelete(1);
+            confirmPort.Complete(false);
+            Assert.That(saveStore.LoadSlot(1).IsEmpty, Is.False);
+            Assert.That(activeSlotProvider.ActiveSlotNumber, Is.EqualTo(1));
+
+            controller.RequestDelete(1);
+            confirmPort.Complete(true);
+            Assert.That(saveStore.LoadSlot(1).IsEmpty, Is.True);
+            Assert.That(activeSlotProvider.TryGetActiveSlotNumber(out _), Is.False);
+        }
+
+        [Test]
+        public void StageResultAutoNextDriver_PausesForRewardPopupAndLaunchesOnce()
+        {
+            var screenController = new ScreenController(new FakeScreenRuntimeFactory());
+            var popupController = new PopupController(new FakePopupRuntimeFactory());
+            var router = new FakeStageLaunchRouter();
+            using var driver = new StageResultAutoNextDriver(screenController, popupController, router);
+            var nextRequest = new StageNavigationRequest(
+                StageId.CreateOrThrow("stage-2-1"),
+                StageNavigationKind.NextStage,
+                "test");
+            var payload = new StageResultScreenPayload(
+                "Clear",
+                string.Empty,
+                string.Empty,
+                "Continue",
+                nextRequest,
+                StageNavigationRequest.None,
+                nextRequest);
+
+            screenController.Show(new ScreenRequest(ScreenId.StageResult, payload, "result"));
+            driver.Tick(1f);
+            popupController.Push(
+                new PopupRequest(
+                    PopupId.Reward,
+                    new RewardPopupPayload("Rewards", Array.Empty<RewardPopupItemPayload>(), string.Empty, "Close")),
+                out var rewardInstanceId);
+            driver.Tick(10f);
+
+            Assert.That(driver.IsPausedByRewardPopup, Is.True);
+            Assert.That(router.Requests, Is.Empty);
+
+            popupController.Close(rewardInstanceId, PopupCloseReason.Programmatic);
+            driver.Tick(2f);
+            driver.Tick(2f);
+
+            Assert.That(router.Requests.Count, Is.EqualTo(1));
+            Assert.That(router.Requests[0].StageId.Value, Is.EqualTo("stage-2-1"));
+            Assert.That(driver.LaunchCount, Is.EqualTo(1));
+        }
+
+        private static string CreatePrefsKey(string suffix)
+        {
+            return "Game.Feature.UI.Tests." + suffix + "." + Guid.NewGuid().ToString("N");
+        }
+
+        private sealed class FakeConfirmPopupPort : IConfirmPopupPort
+        {
+            private Action<bool> _completion;
+
+            public List<ConfirmPopupPayload> Requests { get; } = new();
+
+            public void Request(ConfirmPopupPayload payload, Action<bool> completion)
+            {
+                Requests.Add(payload);
+                _completion = completion;
+            }
+
+            public void Complete(bool confirmed)
+            {
+                _completion?.Invoke(confirmed);
+                _completion = null;
+            }
+        }
+    }
+}

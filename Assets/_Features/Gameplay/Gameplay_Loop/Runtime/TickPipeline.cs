@@ -49,6 +49,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly int _playerMoveCooldownTicks;
         private readonly int _playerDamageCooldownTicks;
         private readonly int _playerRespawnDelayTicks;
+        private readonly bool _allowPlayerRespawn;
         private readonly int _slidingStateTimerTicks;
         private readonly WorldState _worldState;
 
@@ -60,7 +61,8 @@ namespace Game.Feature.Gameplay.Loop
             PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
             int playerRespawnDelayTicks = 1,
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
-            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> enemySpawnDefaultsByArchetypeId = null)
+            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> enemySpawnDefaultsByArchetypeId = null,
+            bool allowPlayerRespawn = true)
         {
             _worldState = worldState ?? throw new ArgumentNullException(nameof(worldState));
 
@@ -86,6 +88,7 @@ namespace Game.Feature.Gameplay.Loop
             _playerMoveCooldownTicks = Math.Max(0, playerControlTiming.MoveCooldownTicks);
             _playerDamageCooldownTicks = Math.Max(0, playerControlTiming.DamageCooldownTicks);
             _playerRespawnDelayTicks = playerRespawnDelayTicks;
+            _allowPlayerRespawn = allowPlayerRespawn;
             _moveOccupancyTicks = resolvedGeneralTimingProfile.MoveOccupancyTicks;
             _playerRespawnTemplates = BuildPlayerRespawnTemplates(
                 SnapshotBuilder.Create(_worldState),
@@ -1051,6 +1054,7 @@ namespace Game.Feature.Gameplay.Loop
                 _playerRespawnTemplates,
                 tickIndex,
                 _playerRespawnDelayTicks,
+                _allowPlayerRespawn,
                 writeContext);
             phaseTrace.Add("Respawn:Exit");
             completedPhases.Add(TickPhase.Respawn);
@@ -5114,6 +5118,7 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<EntityState> respawnTemplates,
             int tickIndex,
             int respawnDelayTicks,
+            bool allowRespawn,
             IWorldWriteContext writeContext)
         {
             if (tickStartSnapshot == null)
@@ -5186,6 +5191,13 @@ namespace Game.Feature.Gameplay.Loop
 
                 if (tickIndex < _eligibleRespawnTicksByEntityId[entityId])
                 {
+                    continue;
+                }
+
+                if (!allowRespawn)
+                {
+                    _eligibleRespawnTicksByEntityId.Remove(entityId);
+                    eventLogEntries.Add($"RespawnSuppressed|E={entityId}|Reason=PolicyDisabled|Tick={tickIndex}");
                     continue;
                 }
 

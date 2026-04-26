@@ -41,6 +41,7 @@ namespace Game.Feature.UI.Composition
         private DisplayPreviewTimeoutRelay _displayPreviewTimeoutRelay;
         private DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
         private bool _isInstalled;
+        private StageResultAutoNextDriver _stageResultAutoNextDriver;
 
         public GameplayUiFlowPorts Ports { get; private set; }
 
@@ -101,6 +102,11 @@ namespace Game.Feature.UI.Composition
             if (_isInstalled && KeyboardBridge.WasEscapePressedThisFrame())
             {
                 Coordinator.HandleBackRequested();
+            }
+
+            if (_isInstalled)
+            {
+                _stageResultAutoNextDriver?.Tick(Time.unscaledDeltaTime);
             }
 
             if (!_isInstalled || _rootView == null || _rootView.DiagnosticsOverlayView == null)
@@ -204,6 +210,10 @@ namespace Game.Feature.UI.Composition
                 PresentationSource,
                 uiAudioPort,
                 new CurrentSceneStageLaunchRouter(gameObject.scene.name));
+            _stageResultAutoNextDriver = new StageResultAutoNextDriver(
+                ScreenController,
+                PopupController,
+                new CurrentSceneStageLaunchRouter(gameObject.scene.name));
             displayPreviewSessionHost.BindAudioIntentBoundary(Coordinator);
 
             HudController.AttachView(_rootView.HudView);
@@ -223,6 +233,7 @@ namespace Game.Feature.UI.Composition
             _audioSettingsLifecycleRelay?.FlushNow();
             _diagnosticsTracker?.Dispose();
             Coordinator?.Dispose();
+            _stageResultAutoNextDriver?.Dispose();
             ScreenController?.Dispose();
             PopupController?.Dispose();
             HudController?.Dispose();
