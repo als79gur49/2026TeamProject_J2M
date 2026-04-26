@@ -94,6 +94,7 @@ namespace Game.Feature.Gameplay.Host
             AppendCapabilityLine(builder, capabilities, BoxCapabilities.Flip, "Flip");
             AppendCapabilityLine(builder, capabilities, BoxCapabilities.Item, "Item");
             AppendCapabilityLine(builder, capabilities, BoxCapabilities.Destroy, "Destroy");
+            AppendCapabilityLine(builder, capabilities, BoxCapabilities.JumpCrushable, "JumpCrush");
             return builder.ToString();
         }
 
