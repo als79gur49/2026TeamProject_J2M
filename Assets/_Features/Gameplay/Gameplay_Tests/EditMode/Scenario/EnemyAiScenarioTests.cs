@@ -2885,6 +2885,107 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
+        public void EnemyAi_JumpLanding_JumpCrushableBoxOnLockedCell_CrushesAndLands()
+        {
+            var lockedTargetCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var playerRetreatCell = new SurfaceCell(FaceId.Floor, 4, 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: lockedTargetCell, hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                    CreateBox(entityId: 50, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.JumpCrushable),
+                    CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 2)));
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+            PrimePlayerControlState(worldState, 10);
+
+            try
+            {
+                pipeline.RunTick(new TickInput(1));
+                var writeContext = worldState.CreateWriteContext();
+                writeContext.MoveEntity(10, playerRetreatCell);
+                writeContext.MoveEntity(50, lockedTargetCell);
+
+                pipeline.RunTick(new TickInput(2));
+                var landingTick = pipeline.RunTick(new TickInput(3));
+                var snapshot = worldState.CreateSnapshot();
+                var stackedUnits = new List<EntityState>();
+
+                snapshot.EnumerateUnitsAt(lockedTargetCell, stackedUnits);
+
+                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(lockedTargetCell));
+                Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+                Assert.That(snapshot.TryGetEntity(50, out _), Is.False);
+                Assert.That(snapshot.TryGetBoxAt(lockedTargetCell, out _), Is.False);
+                CollectionAssert.AreEqual(new[] { 40 }, stackedUnits.Select(entity => entity.entityId).ToArray());
+                CollectionAssert.AreEqual(new[] { 50 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(landingTick.EventLog));
+                Assert.That(GetEnemyJumpState(worldState, 40).phase, Is.EqualTo(EnemyJumpPhase.Cooldown));
+                Assert.That(landingTick.Trace.Text, Does.Contain("Rule=TargetCrushBox"));
+
+                var jumpSignal = landingTick.PresentationData.EnemyJumpSignals.Single(signal => signal.EntityId == 40);
+                Assert.That(jumpSignal.Outcome, Is.EqualTo(TickEnemyJumpPresentationOutcome.CrushedBoxAndLanded));
+                Assert.That(jumpSignal.LandedThisTick, Is.True);
+                Assert.That(jumpSignal.RetryThisTick, Is.False);
+
+                var exitSignal = landingTick.PresentationData.EntityExitSignals.Single(signal => signal.ExitedEntityId == 50);
+                Assert.That(exitSignal.ExitCause, Is.EqualTo(TickEntityExitCause.BoxDestroy));
+                Assert.That(exitSignal.SourceActorEntityId, Is.EqualTo(40));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        [TestCase((int)BoxCapabilities.None)]
+        [TestCase((int)BoxCapabilities.Destroy)]
+        [TestCase((int)BoxCapabilities.Item)]
+        public void EnemyAi_JumpLanding_NonJumpCrushableBoxOnLockedCell_FallsBackWithoutDestroy(int boxCapabilityValue)
+        {
+            var lockedTargetCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: lockedTargetCell, hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                    CreateBox(entityId: 50, position: new Vector2Int(1, 0), capabilities: (BoxCapabilities)boxCapabilityValue),
+                    CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 2)));
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+            PrimePlayerControlState(worldState, 10);
+
+            try
+            {
+                pipeline.RunTick(new TickInput(1));
+                var writeContext = worldState.CreateWriteContext();
+                writeContext.MoveEntity(10, new SurfaceCell(FaceId.Floor, 4, 1));
+                writeContext.MoveEntity(50, lockedTargetCell);
+
+                pipeline.RunTick(new TickInput(2));
+                var landingTick = pipeline.RunTick(new TickInput(3));
+
+                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 3, 1)));
+                Assert.That(GetEntity(worldState, 50).position, Is.EqualTo(lockedTargetCell));
+                Assert.That(GetEntity(worldState, 50).markedForDeath, Is.False);
+                Assert.That(SemanticEventAssertions.GetCleanupRemovedEntityIds(landingTick.EventLog), Is.Empty);
+                Assert.That(landingTick.PresentationData.EntityExitSignals.Any(signal => signal.ExitedEntityId == 50), Is.False);
+                Assert.That(landingTick.Trace.Text, Does.Contain("Rule=TargetRing1Forward"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void EnemyAi_JumpLanding_TargetTwoRingBlocked_FallsBackToSourceTwoRing()
         {

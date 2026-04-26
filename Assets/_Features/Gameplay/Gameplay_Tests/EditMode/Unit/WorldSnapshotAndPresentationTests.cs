@@ -1838,6 +1838,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(signal.StartedAirborneThisTick, Is.False);
             Assert.That(signal.LandedThisTick, Is.False);
             Assert.That(signal.RetryThisTick, Is.False);
+            Assert.That(signal.Outcome, Is.EqualTo(TickEnemyJumpPresentationOutcome.WindupStarted));
             Assert.That(signal.SourceCell, Is.EqualTo(enemyCell));
             Assert.That(signal.LockedTargetCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 3, 1)));
             Assert.That(signal.PresentationTargetCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 3, 1)));
@@ -1915,6 +1916,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(startSignal.StartedAirborneThisTick, Is.True);
             Assert.That(startSignal.LandedThisTick, Is.False);
             Assert.That(startSignal.RetryThisTick, Is.False);
+            Assert.That(startSignal.Outcome, Is.EqualTo(TickEnemyJumpPresentationOutcome.AirborneStarted));
             Assert.That(startSignal.SourceCell, Is.EqualTo(sourceCell));
             Assert.That(startSignal.LockedTargetCell, Is.EqualTo(targetCell));
             Assert.That(startSignal.PresentationTargetCell, Is.EqualTo(targetCell));
@@ -1966,6 +1968,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(retrySignal.StartedAirborneThisTick, Is.False);
             Assert.That(retrySignal.LandedThisTick, Is.False);
             Assert.That(retrySignal.RetryThisTick, Is.True);
+            Assert.That(retrySignal.Outcome, Is.EqualTo(TickEnemyJumpPresentationOutcome.Retried));
             Assert.That(retrySignal.SourceCell, Is.EqualTo(sourceCell));
             Assert.That(retrySignal.LockedTargetCell, Is.EqualTo(targetCell));
             Assert.That(retrySignal.PresentationTargetCell, Is.EqualTo(targetCell));
@@ -1974,6 +1977,99 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(retrySignal.RemainingAirborneTicks, Is.EqualTo(1));
             Assert.That(retrySignal.RetryCount, Is.EqualTo(1));
             Assert.That(retryPresentationData.EnemyActionSignals, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickPresentationDataBuilder_BuildsEnemyJumpSignal_ForCrushedBoxAndLanded()
+        {
+            const int enemyId = 40;
+            const int boxId = 20;
+            const int actionPlanId = 700;
+            var sourceCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var targetCell = new SurfaceCell(FaceId.Floor, 3, 1);
+            var airborneState = CreateEnemyJumpState(
+                EnemyJumpPhase.Airborne,
+                sequence: 5,
+                sourceCell,
+                targetCell);
+            var cooldownState = CreateEnemyJumpState(
+                EnemyJumpPhase.Cooldown,
+                sequence: 5,
+                sourceCell,
+                targetCell);
+            var preMovementBox = CreateEntity(boxId, EntityType.Box, targetCell, Direction.None);
+            preMovementBox.boxCapabilities = BoxCapabilities.JumpCrushable;
+            var boxExitMetadata = new FinalizationOperationMetadata(
+                TickPhase.Resolve,
+                ResolvedActionSemanticKind.JumpLanding,
+                enemyId,
+                actionPlanId,
+                contestId: actionPlanId,
+                exitCauseHint: TickEntityExitCause.BoxDestroy,
+                movementSemanticKind: MovementSemanticKind.JumpLanding,
+                presentationTargetCell: targetCell);
+            var jumpMetadata = new FinalizationOperationMetadata(
+                TickPhase.Resolve,
+                ResolvedActionSemanticKind.JumpLanding,
+                enemyId,
+                actionPlanId,
+                contestId: actionPlanId,
+                movementSemanticKind: MovementSemanticKind.JumpLanding,
+                jumpPresentationKind: JumpPresentationKind.CrushedBoxAndLanded,
+                presentationTargetCell: targetCell);
+            var movementPhaseResult = CreateMovementPhaseResultWithOperations(
+                FinalizationOperation.SetBoardPresence(1, boxId, EntityBoardPresence.Detached, boxExitMetadata),
+                FinalizationOperation.MarkDestroy(2, boxId, boxExitMetadata),
+                FinalizationOperation.MoveEntity(3, enemyId, targetCell, jumpMetadata),
+                FinalizationOperation.SetBoardPresence(4, enemyId, EntityBoardPresence.Occupying, jumpMetadata),
+                FinalizationOperation.SetEnemyJumpState(5, enemyId, cooldownState, jumpMetadata));
+
+            var preMovementSnapshot = CreateSnapshotWithEnemyJumpStates(
+                new[]
+                {
+                    CreateEnemyEntity(enemyId, sourceCell, EnemyAiMode.Patrol, Direction.Right, EntityBoardPresence.Detached),
+                    preMovementBox,
+                },
+                new EnemyJumpStateSeed(enemyId, airborneState));
+            var postMovementSnapshot = CreateSnapshotWithEnemyJumpStates(
+                new[]
+                {
+                    CreateEnemyEntity(enemyId, targetCell, EnemyAiMode.Patrol, Direction.Right),
+                },
+                new EnemyJumpStateSeed(enemyId, cooldownState));
+            var finalSnapshot = CreateSnapshotWithEnemyJumpStates(
+                new[]
+                {
+                    CreateEnemyEntity(enemyId, targetCell, EnemyAiMode.Patrol, Direction.Right),
+                },
+                new EnemyJumpStateSeed(enemyId, cooldownState));
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    postMovementSnapshot,
+                    postMovementSnapshot,
+                    finalSnapshot,
+                    movementPhaseResult,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.RemovedEntities(boxId),
+                    currentTickIndex: 7,
+                    jumpBaselineSnapshot: preMovementSnapshot));
+
+            var jumpSignal = presentationData.EnemyJumpSignals.Single();
+            Assert.That(jumpSignal.EntityId, Is.EqualTo(enemyId));
+            Assert.That(jumpSignal.Outcome, Is.EqualTo(TickEnemyJumpPresentationOutcome.CrushedBoxAndLanded));
+            Assert.That(jumpSignal.LandedThisTick, Is.True);
+            Assert.That(jumpSignal.RetryThisTick, Is.False);
+            Assert.That(jumpSignal.PresentationTargetCell, Is.EqualTo(targetCell));
+
+            var exitSignal = presentationData.EntityExitSignals.Single();
+            Assert.That(exitSignal.ExitedEntityId, Is.EqualTo(boxId));
+            Assert.That(exitSignal.ExitCause, Is.EqualTo(TickEntityExitCause.BoxDestroy));
+            Assert.That(exitSignal.SourceActorEntityId, Is.EqualTo(enemyId));
+            Assert.That(exitSignal.SourceCell, Is.EqualTo(targetCell));
+            Assert.That(exitSignal.EntityType, Is.EqualTo(EntityType.Box));
         }
 
         [Test]
@@ -2306,6 +2402,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<string>(),
                 Array.Empty<string>(),
                 _ => semanticKind);
+        }
+
+        private static MovementPhaseResult CreateMovementPhaseResultWithOperations(
+            params FinalizationOperation[] operations)
+        {
+            return new MovementPhaseResult(
+                Array.Empty<RawMovementIntent>(),
+                Array.Empty<MoveIntent>(),
+                Array.Empty<ResolutionRecord>(),
+                Array.Empty<ImpactDispositionResolutionRecord>(),
+                operations ?? Array.Empty<FinalizationOperation>(),
+                Array.Empty<string>(),
+                Array.Empty<string>());
         }
 
         private static AttackPhaseResult CreateAttackPhaseResult(params ActionGroup[] selectedGroups)

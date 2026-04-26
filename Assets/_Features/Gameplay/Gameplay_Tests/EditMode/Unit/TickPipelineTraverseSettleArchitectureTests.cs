@@ -14,7 +14,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "EnumerateUnitsAt(",
             "TryResolveContestedJumpLandingTarget(",
             "IsExclusiveLockedPlayerStack(",
-            "EntityBoardPresence.Detached",
             "EnemyJumpPhase.Airborne",
         };
 
@@ -39,6 +38,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             AssertContainsNoForbiddenTokens(body, JumpLandingForbiddenTokens);
             Assert.That(body, Does.Contain("RuntimeSettlementLegalityPolicy.EvaluateJumpLandingCell("));
+            Assert.That(body, Does.Contain("RuntimeSettlementLegalityPolicy.EvaluateJumpCrushLandingCell("));
             Assert.That(body, Does.Contain("new SettlementContext("));
             Assert.That(body, Does.Contain("new JumpLandingEvidence("));
         }

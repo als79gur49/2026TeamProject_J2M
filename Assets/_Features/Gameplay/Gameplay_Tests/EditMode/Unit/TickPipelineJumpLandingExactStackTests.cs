@@ -10,6 +10,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class TickPipelineJumpLandingExactStackTests
     {
         [Test]
+        [Category("Core")]
+        public void BoxCapabilities_FlagValues_AreStable()
+        {
+            Assert.That((int)BoxCapabilities.Push, Is.EqualTo(1));
+            Assert.That((int)BoxCapabilities.Flip, Is.EqualTo(2));
+            Assert.That((int)BoxCapabilities.Item, Is.EqualTo(4));
+            Assert.That((int)BoxCapabilities.Destroy, Is.EqualTo(8));
+            Assert.That((int)BoxCapabilities.JumpCrushable, Is.EqualTo(16));
+        }
+
+        [Test]
         [Category("Extended")]
         public void IsExclusiveLockedPlayerStack_PlayerOnly_ReturnsTrue()
         {
@@ -23,6 +34,61 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 TickPipeline.IsExclusiveLockedPlayerStack(worldState.CreateSnapshot(), targetCell, sourceEntityId: 40),
                 Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EvaluateJumpCrushLandingCell_JumpCrushableBoxOnLockedTarget_AllowsAndReportsBox()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var targetCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(40, sourceCell, teamId: 2, boardPresence: EntityBoardPresence.Detached),
+                CreateBox(50, targetCell, BoxCapabilities.JumpCrushable),
+            });
+            var snapshot = worldState.CreateSnapshot();
+
+            var evaluation = RuntimeSettlementLegalityPolicy.EvaluateJumpCrushLandingCell(
+                new SettlementContext(
+                    snapshot,
+                    StateQuery.BuildActorRef(snapshot, 40, EntityType.Unit),
+                    targetCell,
+                    snapshot.Topology,
+                    SpatialState.Anchored),
+                new JumpLandingEvidence(snapshot, targetCell));
+
+            Assert.That(evaluation.LegalityResult.Verdict, Is.EqualTo(LegalityVerdict.Allowed));
+            Assert.That(evaluation.CrushedBoxEntityId, Is.EqualTo(50));
+        }
+
+        [Test]
+        [Category("Extended")]
+        [TestCase((int)BoxCapabilities.None)]
+        [TestCase((int)BoxCapabilities.Destroy)]
+        [TestCase((int)BoxCapabilities.Item)]
+        public void EvaluateJumpCrushLandingCell_NonJumpCrushableBoxOnLockedTarget_Blocks(int boxCapabilityValue)
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var targetCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(40, sourceCell, teamId: 2, boardPresence: EntityBoardPresence.Detached),
+                CreateBox(50, targetCell, (BoxCapabilities)boxCapabilityValue),
+            });
+            var snapshot = worldState.CreateSnapshot();
+
+            var evaluation = RuntimeSettlementLegalityPolicy.EvaluateJumpCrushLandingCell(
+                new SettlementContext(
+                    snapshot,
+                    StateQuery.BuildActorRef(snapshot, 40, EntityType.Unit),
+                    targetCell,
+                    snapshot.Topology,
+                    SpatialState.Anchored),
+                new JumpLandingEvidence(snapshot, targetCell));
+
+            Assert.That(evaluation.LegalityResult.Verdict, Is.EqualTo(LegalityVerdict.Blocked));
+            Assert.That(evaluation.CrushedBoxEntityId, Is.Zero);
         }
 
         [Test]
@@ -160,6 +226,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 boardPresence = boardPresence,
                 markedForDeath = markedForDeath,
                 spawnTick = 0,
+                aiMode = EnemyAiMode.None,
+                aiStateTimer = 0,
+            };
+        }
+
+        private static EntityState CreateBox(
+            int entityId,
+            SurfaceCell position,
+            BoxCapabilities capabilities)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.Box,
+                state = EntityPhaseState.Idle,
+                stateTimer = 0,
+                facing = Direction.None,
+                boardPresence = EntityBoardPresence.Occupying,
+                markedForDeath = false,
+                spawnTick = 0,
+                boxCapabilities = capabilities,
                 aiMode = EnemyAiMode.None,
                 aiStateTimer = 0,
             };

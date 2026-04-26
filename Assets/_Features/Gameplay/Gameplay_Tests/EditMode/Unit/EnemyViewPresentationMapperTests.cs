@@ -72,6 +72,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void EnemyViewPresentationMapper_MapsCrushedBoxJumpOutcome()
+        {
+            const int enemyId = 40;
+            var mapper = new EnemyViewPresentationMapper();
+            var states = new Dictionary<int, EnemyViewPresentationState>();
+            var viewsByEntityId = new Dictionary<int, GameplayEntityView>();
+            var enemy = CreateEnemy(enemyId, EnemyAiMode.Patrol);
+
+            mapper.Build(
+                CreateResult(
+                    tickIndex: 3,
+                    enemy,
+                    new TickEnemyJumpPresentationSignal(
+                        enemyId,
+                        sequence: 2,
+                        phase: EnemyJumpPhase.Cooldown,
+                        startedWindupThisTick: false,
+                        startedAirborneThisTick: false,
+                        landedThisTick: true,
+                        retryThisTick: false,
+                        outcome: TickEnemyJumpPresentationOutcome.CrushedBoxAndLanded)),
+                viewsByEntityId,
+                states);
+
+            Assert.That(states.TryGetValue(enemyId, out var state), Is.True);
+            Assert.That(state.JumpOutcome, Is.EqualTo(TickEnemyJumpPresentationOutcome.CrushedBoxAndLanded));
+            Assert.That(state.LandedFromJumpThisTick, Is.True);
+            Assert.That(state.RetryingJumpAirborneThisTick, Is.False);
+        }
+
+        [Test]
         [Category("Extended")]
         public void EnemyViewPresentationMapper_TryMapInitial_RoleEnemyWithNoneAiMode_StillMapsEnemyViewState()
         {
