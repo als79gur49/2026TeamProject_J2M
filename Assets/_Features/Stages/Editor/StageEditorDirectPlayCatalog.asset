@@ -15,10 +15,10 @@ MonoBehaviour:
   entries:
   - ScenePath: Assets/Scenes/CombinedGameplayShowcase.unity
     StageId:
-      value: combined-gameplay-showcase
+      value: stage-1-1
   - ScenePath: Assets/Scenes/TutorialScene.unity
     StageId:
-      value: tutorial-scene
+      value: stage-0-1
   - ScenePath: Assets/Scenes/UIAudioScene.unity
     StageId:
-      value: tutorial-scene
+      value: stage-0-1

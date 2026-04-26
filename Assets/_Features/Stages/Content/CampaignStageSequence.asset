@@ -1,0 +1,51 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9360183218ba829f5e65a3fc2a5b3732, type: 3}
+  m_Name: CampaignStageSequence
+  m_EditorClassIdentifier:
+  entries:
+  - stageId:
+      value: stage-0-1
+    displayName: 0-1
+    levelGroupId: level-0
+  - stageId:
+      value: stage-1-1
+    displayName: 1-1
+    levelGroupId: level-1
+  - stageId:
+      value: stage-2-1
+    displayName: 2-1
+    levelGroupId: level-2
+  - stageId:
+      value: stage-2-2
+    displayName: 2-2
+    levelGroupId: level-2
+  - stageId:
+      value: stage-3-1
+    displayName: 3-1
+    levelGroupId: level-3
+  - stageId:
+      value: stage-3-2
+    displayName: 3-2
+    levelGroupId: level-3
+  - stageId:
+      value: stage-4-1
+    displayName: 4-1
+    levelGroupId: level-4
+  - stageId:
+      value: stage-4-2
+    displayName: 4-2
+    levelGroupId: level-4
+  - stageId:
+      value: stage-5-1
+    displayName: 5-1
+    levelGroupId: level-5

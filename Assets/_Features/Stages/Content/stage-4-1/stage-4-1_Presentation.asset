@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa3d3ac91cb8b0247afbfeee10097db3, type: 3}
+  m_Name: stage-4-1_Presentation
+  m_EditorClassIdentifier: 
+  ownerEntry: {fileID: 11400000, guid: 11affcb9dad0844b53320cf3fe9880fb, type: 2}
+  ownerEntryGuid: 11affcb9dad0844b53320cf3fe9880fb
+  displayName: 4-1
+  summaryText: 
+  previewSprite: {fileID: 0}
+  backgroundPrefab: {fileID: 0}
+  bgmReference:
+    bgmKey: 
+  enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
+  enemyPresentationBindings:
+  - EntityId: 54
+    PresentationId: Attacking_showcase
+  - EntityId: 55
+    PresentationId: nonAttacking_showcase
+  - EntityId: 56
+    PresentationId: nonAttacking_showcase
+  - EntityId: 57
+    PresentationId: Jump_showcase
+  - EntityId: 58
+    PresentationId: Charge_showcase
+  - EntityId: 59
+    PresentationId: utility_summoner_prefab
+  staticEntityPresentationCatalog: {fileID: 11400000, guid: 28eb5cc07ccd15d4b9a99a3364f7fd07, type: 2}
+  staticEntityPresentationBindings: []
+  resultTitle: Stage Cleared
+  resultSummaryText: 
+  resultDetailText: 
+  resultContinueLabel: Continue
