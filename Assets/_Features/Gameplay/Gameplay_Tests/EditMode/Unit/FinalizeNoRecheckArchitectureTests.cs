@@ -31,7 +31,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Extended")]
+        [Category("Core")]
         public void RespawnProcessor_Process_UsesCanonicalAuthoritativePlacementLegality()
         {
             var tickPipelineSource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs");

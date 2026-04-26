@@ -13,7 +13,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class ReservationReadModelContractTests
     {
         [Test]
-        [Category("Extended")]
+        [Category("Core")]
         public void MovementReservationBook_Freeze_SortsImpactReservations_AndExposesReadOnlyStatuses()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
@@ -77,7 +77,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Extended")]
+        [Category("Core")]
         public void AttackInputNormalizer_Normalize_WithFrozenMovementReservationExport_ConsumesExportedImpactsOnly()
         {
             var normalizer = new AttackInputNormalizer();

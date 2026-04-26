@@ -1230,6 +1230,82 @@
       "locked": true
     },
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyChargeStateTests.EnemyChargeQueries_StartCharge_InitializesCountersAndPhase",
+      "category": "Core",
+      "contracts": [
+        "enemy_charge_state_contract"
+      ],
+      "reason": "Locked Core coverage for enemy charge state lifecycle queries in EnemyChargeStateTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyChargeStateTests.EnemyChargeQueries_StartCharge_WithZeroWindup_StartsActiveWithoutConsumingStep",
+      "category": "Core",
+      "contracts": [
+        "enemy_charge_state_contract"
+      ],
+      "reason": "Locked Core coverage for enemy charge zero-windup transition semantics in EnemyChargeStateTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyChargeStateTests.EnemyChargeQueries_ConsumeActiveStep_DecrementsRemainingStepsOnly",
+      "category": "Core",
+      "contracts": [
+        "enemy_charge_state_contract"
+      ],
+      "reason": "Locked Core coverage for enemy charge active-step countdown semantics in EnemyChargeStateTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyChargeStateTests.EnemyChargeQueries_EnterRecoverAndTickRecover_UseChargeStateCountdownOnly",
+      "category": "Core",
+      "contracts": [
+        "enemy_charge_state_contract"
+      ],
+      "reason": "Locked Core coverage for enemy charge recover countdown semantics in EnemyChargeStateTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyChargeStateTests.EnemyChargeQueries_Clear_PreservesSequenceAndRemovesProgress",
+      "category": "Core",
+      "contracts": [
+        "enemy_charge_state_contract"
+      ],
+      "reason": "Locked Core coverage for enemy charge progress clearing semantics in EnemyChargeStateTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.FinalizeNoRecheckArchitectureTests.RespawnProcessor_Process_UsesCanonicalAuthoritativePlacementLegality",
+      "category": "Core",
+      "contracts": [
+        "spawn_destroy_delayed_ordering",
+        "finalize_no_recheck_architecture_contract"
+      ],
+      "reason": "Locked Core coverage for authoritative respawn placement legality in FinalizeNoRecheckArchitectureTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.ReservationReadModelContractTests.MovementReservationBook_Freeze_SortsImpactReservations_AndExposesReadOnlyStatuses",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "movement_affects_attack",
+        "reservation_read_model_contract"
+      ],
+      "reason": "Locked Core coverage for push impact reservation export ordering in ReservationReadModelContractTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.ReservationReadModelContractTests.AttackInputNormalizer_Normalize_WithFrozenMovementReservationExport_ConsumesExportedImpactsOnly",
+      "category": "Core",
+      "contracts": [
+        "movement_affects_attack",
+        "reservation_read_model_contract"
+      ],
+      "reason": "Locked Core coverage for movement-to-attack impact handoff in ReservationReadModelContractTests.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.RespawnTopologyReset_EmitsTopologyMotionBeforeSpawnVisibility",
       "category": "Core",
       "contracts": [
