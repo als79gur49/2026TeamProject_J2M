@@ -65,6 +65,15 @@ namespace Game.Feature.Gameplay.Host
 
         public GameplayEntityPose SampleAndAdvance(float deltaTime, GameplayEntityPose fallbackPose)
         {
+            return SampleAndAdvance(deltaTime, fallbackPose, out _);
+        }
+
+        public GameplayEntityPose SampleAndAdvance(
+            float deltaTime,
+            GameplayEntityPose fallbackPose,
+            out Vector3 visualScaleMultiplier)
+        {
+            visualScaleMultiplier = Vector3.one;
             if (_clips.Count == 0)
             {
                 return fallbackPose;
@@ -78,6 +87,7 @@ namespace Game.Feature.Gameplay.Host
                 var pose = clip.IsComplete
                     ? clip.EndPose
                     : clip.Sample();
+                visualScaleMultiplier = clip.SampleVisualScaleMultiplier();
                 if (!clip.IsComplete)
                 {
                     return pose;
@@ -86,6 +96,7 @@ namespace Game.Feature.Gameplay.Host
                 _clips.RemoveAt(0);
                 if (_clips.Count == 0)
                 {
+                    visualScaleMultiplier = Vector3.one;
                     return fallbackPose;
                 }
 
@@ -181,6 +192,22 @@ namespace Game.Feature.Gameplay.Host
             };
         }
 
+        public Vector3 SampleVisualScaleMultiplier()
+        {
+            var t = DurationSeconds <= 0f
+                ? 1f
+                : Mathf.Clamp01(ElapsedSeconds / DurationSeconds);
+
+            return _motionKind switch
+            {
+                TickEntityMotionKind.Flip => BoxMotionVisualScaleSampler.SampleFlipMotion(t),
+                TickEntityMotionKind.BoxSlide => BoxMotionVisualScaleSampler.SampleSlideMotion(
+                    t,
+                    Quaternion.Inverse(StartPose.Rotation) * (EndPose.Position - StartPose.Position)),
+                _ => Vector3.one,
+            };
+        }
+
         public void SetEndPose(GameplayEntityPose endPose)
         {
             EndPose = endPose;
@@ -230,6 +257,105 @@ namespace Game.Feature.Gameplay.Host
                 _interpolateRotation
                     ? Quaternion.SlerpUnclamped(StartPose.Rotation, EndPose.Rotation, clampedT)
                     : EndPose.Rotation);
+        }
+    }
+
+    internal static class BoxMotionVisualScaleSampler
+    {
+        private static readonly Vector3 FlipPeakScale = new(1.1f, 1.1f, 1.08f);
+        private static readonly Vector3 FlipPreImpactScale = new(0.96f, 0.96f, 0.96f);
+        private static readonly Vector3 FlipImpactSquashScale = new(1.13f, 1.13f, 0.82f);
+        private static readonly Vector3 FlipReboundScale = new(0.98f, 0.98f, 1.06f);
+
+        private static readonly Vector3 SlideXStretchScale = new(1.06f, 0.985f, 0.97f);
+        private static readonly Vector3 SlideXBrakeScale = new(0.96f, 1.035f, 0.94f);
+        private static readonly Vector3 SlideYStretchScale = new(0.985f, 1.06f, 0.97f);
+        private static readonly Vector3 SlideYBrakeScale = new(1.035f, 0.96f, 0.94f);
+
+        public static Vector3 SampleFlipMotion(float normalizedTime)
+        {
+            var t = Mathf.Clamp01(normalizedTime);
+            if (t <= 0.9f)
+            {
+                return SampleFlipFlight(t / 0.9f);
+            }
+
+            return SampleFlipSettle((t - 0.9f) / 0.1f);
+        }
+
+        public static Vector3 SampleFlipFlight(float normalizedTime)
+        {
+            var t = Mathf.Clamp01(normalizedTime);
+            if (t <= 0.46f)
+            {
+                return Vector3.LerpUnclamped(Vector3.one, FlipPeakScale, EaseOutQuad(t / 0.46f));
+            }
+
+            if (t <= 0.82f)
+            {
+                return Vector3.LerpUnclamped(FlipPeakScale, FlipPreImpactScale, EaseInQuad((t - 0.46f) / 0.36f));
+            }
+
+            return Vector3.LerpUnclamped(FlipPreImpactScale, FlipImpactSquashScale, EaseInQuad((t - 0.82f) / 0.18f));
+        }
+
+        public static Vector3 SampleFlipSettle(float normalizedTime)
+        {
+            var t = Mathf.Clamp01(normalizedTime);
+            if (t <= 0.45f)
+            {
+                return Vector3.LerpUnclamped(FlipImpactSquashScale, FlipReboundScale, EaseOutQuad(t / 0.45f));
+            }
+
+            return Vector3.LerpUnclamped(FlipReboundScale, Vector3.one, EaseOutQuad((t - 0.45f) / 0.55f));
+        }
+
+        public static Vector3 SampleSlideMotion(float normalizedTime, Vector3 localTravelDirection)
+        {
+            var stretchScale = Mathf.Abs(localTravelDirection.y) > Mathf.Abs(localTravelDirection.x)
+                ? SlideYStretchScale
+                : SlideXStretchScale;
+            var brakeScale = Mathf.Abs(localTravelDirection.y) > Mathf.Abs(localTravelDirection.x)
+                ? SlideYBrakeScale
+                : SlideXBrakeScale;
+            var t = Mathf.Clamp01(normalizedTime);
+
+            if (t <= 0.18f)
+            {
+                return Vector3.LerpUnclamped(Vector3.one, stretchScale, EaseOutQuad(t / 0.18f));
+            }
+
+            if (t <= 0.72f)
+            {
+                return stretchScale;
+            }
+
+            if (t <= 0.88f)
+            {
+                return Vector3.LerpUnclamped(stretchScale, brakeScale, EaseInOutQuad((t - 0.72f) / 0.16f));
+            }
+
+            return Vector3.LerpUnclamped(brakeScale, Vector3.one, EaseOutQuad((t - 0.88f) / 0.12f));
+        }
+
+        private static float EaseInQuad(float t)
+        {
+            var clamped = Mathf.Clamp01(t);
+            return clamped * clamped;
+        }
+
+        private static float EaseOutQuad(float t)
+        {
+            var inverse = 1f - Mathf.Clamp01(t);
+            return 1f - (inverse * inverse);
+        }
+
+        private static float EaseInOutQuad(float t)
+        {
+            var clamped = Mathf.Clamp01(t);
+            return clamped < 0.5f
+                ? 2f * clamped * clamped
+                : 1f - (Mathf.Pow(-2f * clamped + 2f, 2f) * 0.5f);
         }
     }
 }

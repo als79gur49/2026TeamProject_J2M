@@ -137,6 +137,22 @@ namespace Game.Feature.Gameplay.Host
             return _impactPose;
         }
 
+        public Vector3 SampleVisualScaleMultiplier()
+        {
+            var normalizedTime = NormalizedTime;
+            if (_disposition == FlipImpactPresentationDisposition.Stay)
+            {
+                return SampleStayVisualScale(normalizedTime);
+            }
+
+            if (normalizedTime <= ContactNormalizedTime)
+            {
+                return SamplePreContactVisualScale(normalizedTime);
+            }
+
+            return BoxMotionVisualScaleSampler.SampleFlipSettle(DestroyBreakNormalizedTime);
+        }
+
         private GameplayEntityPose SampleStay(float normalizedTime)
         {
             if (normalizedTime <= ContactNormalizedTime)
@@ -166,6 +182,33 @@ namespace Game.Feature.Gameplay.Host
             var preContactDenominator = Mathf.Max(0.0001f, ContactNormalizedTime);
             var contactTime = Mathf.Clamp01(normalizedTime / preContactDenominator);
             return FlipArcSampler.Sample(_sourcePose, _impactPose, contactTime, _arcHeightWorld);
+        }
+
+        private Vector3 SampleStayVisualScale(float normalizedTime)
+        {
+            if (normalizedTime <= ContactNormalizedTime)
+            {
+                return SamplePreContactVisualScale(normalizedTime);
+            }
+
+            var holdEndNormalizedTime = Mathf.Min(
+                1f,
+                ContactNormalizedTime + _timingSettings.StayPostContactHoldNormalizedDuration);
+            if (normalizedTime <= holdEndNormalizedTime)
+            {
+                var holdDenominator = Mathf.Max(0.0001f, holdEndNormalizedTime - ContactNormalizedTime);
+                return BoxMotionVisualScaleSampler.SampleFlipSettle(
+                    Mathf.Clamp01((normalizedTime - ContactNormalizedTime) / holdDenominator));
+            }
+
+            return Vector3.one;
+        }
+
+        private Vector3 SamplePreContactVisualScale(float normalizedTime)
+        {
+            var preContactDenominator = Mathf.Max(0.0001f, ContactNormalizedTime);
+            return BoxMotionVisualScaleSampler.SampleFlipFlight(
+                Mathf.Clamp01(normalizedTime / preContactDenominator));
         }
     }
 }

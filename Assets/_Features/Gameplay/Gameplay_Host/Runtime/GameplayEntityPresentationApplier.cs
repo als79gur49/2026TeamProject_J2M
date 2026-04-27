@@ -56,6 +56,7 @@ namespace Game.Feature.Gameplay.Host
             CleanupCompletedTopologyTransitionState(hasActiveBoardRotationTween);
 
             _trackState.CompletedMotionTrackIds.Clear();
+            _trackState.CompletedMotionVisualScaleEntityIds.Clear();
             _trackState.CompletedJumpTrackIds.Clear();
             _trackState.CompletedVisibilityTrackIds.Clear();
             _trackState.VisibleEntityIds.Clear();
@@ -78,20 +79,26 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
+                var motionVisualScaleMultiplier = Vector3.one;
                 if (_trackState.StayFlipImpactTracks.TryGetValue(entityId, out var stayFlipImpactTrack))
                 {
                     localPose = stayFlipImpactTrack.Sample();
+                    motionVisualScaleMultiplier = stayFlipImpactTrack.SampleVisualScaleMultiplier();
                     stayFlipImpactTrack.Advance(deltaTime);
                     if (stayFlipImpactTrack.IsComplete)
                     {
                         localPose = stayFlipImpactTrack.SourcePose;
+                        motionVisualScaleMultiplier = Vector3.one;
                         _trackState.CompletedStayFlipImpactTrackIds.Add(entityId);
                         _trackState.CompletedFlipImpactKeys.Add(stayFlipImpactTrack.InstanceKey);
                     }
                 }
                 else if (_trackState.LocalMotionTracks.TryGetValue(entityId, out var motionTrack))
                 {
-                    localPose = motionTrack.SampleAndAdvance(deltaTime, localPose);
+                    localPose = motionTrack.SampleAndAdvance(
+                        deltaTime,
+                        localPose,
+                        out motionVisualScaleMultiplier);
                     if (!motionTrack.HasClips)
                     {
                         _trackState.CompletedMotionTrackIds.Add(entityId);
@@ -151,11 +158,13 @@ namespace Game.Feature.Gameplay.Host
                 if (!isVisible)
                 {
                     ResetPlayerDeathDisplacement(view);
+                    ResetMotionVisualScaleIfApplied(entityId, view);
                     continue;
                 }
 
                 view.SetVisible(true);
                 view.ApplyLocalPose(localPose.Position, localPose.Rotation);
+                ApplyMotionVisualScale(entityId, view, motionVisualScaleMultiplier);
                 _stateStore.PresentedLocalPosesByEntityId[entityId] = localPose;
                 ApplyPlayerDeathDisplacement(entityId, view);
                 _trackState.VisibleEntityIds.Add(entityId);
@@ -168,6 +177,7 @@ namespace Game.Feature.Gameplay.Host
             ApplyPendingFlipInteractionResets();
             ApplyFlipInteractionTracks(deltaTime);
             CleanupHiddenPlayerDeathDisplacementTracks();
+            CleanupHiddenMotionVisualScales();
 
             viewBinder.HideViewsExcept(_trackState.VisibleEntityIds);
             _animationSync.SyncHiddenDrivers(
@@ -311,6 +321,77 @@ namespace Game.Feature.Gameplay.Host
             {
                 _trackState.PlayerDeathDisplacementTracks.Remove(_trackState.CompletedPlayerDeathDisplacementTrackIds[i]);
             }
+        }
+
+        private void CleanupHiddenMotionVisualScales()
+        {
+            if (_trackState.MotionVisualScaleEntityIds.Count == 0)
+            {
+                return;
+            }
+
+            _trackState.CompletedMotionVisualScaleEntityIds.Clear();
+            foreach (var entityId in _trackState.MotionVisualScaleEntityIds)
+            {
+                if (_trackState.VisibleEntityIds.Contains(entityId))
+                {
+                    continue;
+                }
+
+                if (_stateStore.ViewsByEntityId.TryGetValue(entityId, out var view) &&
+                    view != null)
+                {
+                    view.ResetModelRootVisualScale();
+                }
+
+                _trackState.CompletedMotionVisualScaleEntityIds.Add(entityId);
+            }
+
+            for (var i = 0; i < _trackState.CompletedMotionVisualScaleEntityIds.Count; i++)
+            {
+                _trackState.MotionVisualScaleEntityIds.Remove(_trackState.CompletedMotionVisualScaleEntityIds[i]);
+            }
+        }
+
+        private void ApplyMotionVisualScale(
+            int entityId,
+            GameplayEntityView view,
+            Vector3 visualScaleMultiplier)
+        {
+            if (view == null ||
+                !_stateStore.EntityTypesByEntityId.TryGetValue(entityId, out var entityType) ||
+                entityType != EntityType.Box)
+            {
+                ResetMotionVisualScaleIfApplied(entityId, view);
+                return;
+            }
+
+            if (IsApproximatelyOne(visualScaleMultiplier))
+            {
+                ResetMotionVisualScaleIfApplied(entityId, view);
+                return;
+            }
+
+            view.ApplyModelRootVisualScale(visualScaleMultiplier);
+            _trackState.MotionVisualScaleEntityIds.Add(entityId);
+        }
+
+        private void ResetMotionVisualScaleIfApplied(int entityId, GameplayEntityView view)
+        {
+            if (!_trackState.MotionVisualScaleEntityIds.Remove(entityId) ||
+                view == null)
+            {
+                return;
+            }
+
+            view.ResetModelRootVisualScale();
+        }
+
+        private static bool IsApproximatelyOne(Vector3 scale)
+        {
+            return Mathf.Abs(scale.x - 1f) <= 0.0001f &&
+                   Mathf.Abs(scale.y - 1f) <= 0.0001f &&
+                   Mathf.Abs(scale.z - 1f) <= 0.0001f;
         }
 
         private void ApplyPlayerDeathDisplacement(int entityId, GameplayEntityView view)

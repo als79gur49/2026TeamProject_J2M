@@ -472,6 +472,108 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
+        public void GameplayTickViewPresenter_BoxFlipMotion_ScalesModelRootDuringRiseImpactAndReset()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_BoxFlipMotion_ScalesModelRootDuringRiseImpactAndReset");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var timingProfile = CreateTimingProfile();
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
+
+                presenter.Initialize(
+                    binder,
+                    boardBounds,
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateBox(30, sourceCell),
+                    },
+                    topology);
+
+                presenter.Present(CreateMotionTickResult(CreateBox(30, destinationCell), topology, sourceCell, destinationCell, TickEntityMotionKind.Flip));
+                presenter.UpdatePresentation(timingProfile.FlipMotionDurationSeconds * 0.25f);
+
+                Assert.That(registry.TryGetView(30, out var view), Is.True);
+                Assert.That(view.ModelRoot.localScale.x, Is.GreaterThan(1f));
+                Assert.That(view.ModelRoot.localScale.y, Is.GreaterThan(1f));
+                Assert.That(view.ModelRoot.localScale.z, Is.GreaterThan(1f));
+
+                presenter.UpdatePresentation(timingProfile.FlipMotionDurationSeconds * 0.65f);
+
+                Assert.That(view.ModelRoot.localScale.x, Is.GreaterThan(1f));
+                Assert.That(view.ModelRoot.localScale.y, Is.GreaterThan(1f));
+                Assert.That(view.ModelRoot.localScale.z, Is.LessThan(1f));
+
+                presenter.UpdatePresentation(timingProfile.FlipMotionDurationSeconds * 0.10f);
+
+                AssertScaleApproximately(view.ModelRoot.localScale, Vector3.one);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTickViewPresenter_BoxSlideMotion_StretchesAlongTravelAndResets()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_BoxSlideMotion_StretchesAlongTravelAndResets");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var timingProfile = CreateTimingProfile();
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
+
+                presenter.Initialize(
+                    binder,
+                    boardBounds,
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateBox(30, sourceCell),
+                    },
+                    topology);
+
+                presenter.Present(CreateMotionTickResult(CreateBox(30, destinationCell), topology, sourceCell, destinationCell, TickEntityMotionKind.BoxSlide));
+                presenter.UpdatePresentation(timingProfile.BoxSlideStepIntervalSeconds * 0.5f);
+
+                Assert.That(registry.TryGetView(30, out var view), Is.True);
+                Assert.That(Mathf.Max(view.ModelRoot.localScale.x, view.ModelRoot.localScale.y), Is.GreaterThan(1f));
+                Assert.That(Mathf.Min(view.ModelRoot.localScale.x, view.ModelRoot.localScale.y), Is.LessThan(1f));
+                Assert.That(view.ModelRoot.localScale.z, Is.LessThan(1f));
+
+                presenter.UpdatePresentation(timingProfile.BoxSlideStepIntervalSeconds * 0.5f);
+
+                AssertScaleApproximately(view.ModelRoot.localScale, Vector3.one);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         [Category("Full")]
         public void GameplayTickViewPresenter_EnemyPrefabUnitMoveOverride_PrefersUnitLocomotionAuthoring()
         {
@@ -3528,6 +3630,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         private static void AssertPositionApproximately(Vector3 actual, Vector3 expected)
+        {
+            Assert.That(actual.x, Is.EqualTo(expected.x).Within(0.001f));
+            Assert.That(actual.y, Is.EqualTo(expected.y).Within(0.001f));
+            Assert.That(actual.z, Is.EqualTo(expected.z).Within(0.001f));
+        }
+
+        private static void AssertScaleApproximately(Vector3 actual, Vector3 expected)
         {
             Assert.That(actual.x, Is.EqualTo(expected.x).Within(0.001f));
             Assert.That(actual.y, Is.EqualTo(expected.y).Within(0.001f));

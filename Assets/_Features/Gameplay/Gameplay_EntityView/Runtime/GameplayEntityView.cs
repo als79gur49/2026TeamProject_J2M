@@ -8,6 +8,8 @@ namespace Game.Feature.Gameplay.Host
 
         [SerializeField] private int entityId;
         [SerializeField] private Transform modelRoot;
+        private Vector3 baseModelRootLocalScale = Vector3.one;
+        private bool hasBaseModelRootLocalScale;
 
         public int EntityId => entityId;
 
@@ -16,6 +18,7 @@ namespace Game.Feature.Gameplay.Host
         private void Awake()
         {
             EnsureModelRoot();
+            CaptureModelRootBaseScale();
         }
 
         public void Initialize(int newEntityId)
@@ -52,12 +55,37 @@ namespace Game.Feature.Gameplay.Host
             targetModelRoot.localPosition = localPosition;
             targetModelRoot.localRotation = localRotation;
             targetModelRoot.localScale = Vector3.one;
+            CaptureModelRootBaseScale();
         }
 
         public void ApplyLocalPose(Vector3 localPosition, Quaternion localRotation)
         {
             transform.localPosition = localPosition;
             transform.localRotation = localRotation;
+        }
+
+        public void ApplyModelRootVisualScale(Vector3 scaleMultiplier)
+        {
+            var targetModelRoot = EnsureModelRoot();
+            if (!hasBaseModelRootLocalScale)
+            {
+                CaptureModelRootBaseScale();
+            }
+
+            targetModelRoot.localScale = Vector3.Scale(
+                baseModelRootLocalScale,
+                SanitizeScaleMultiplier(scaleMultiplier));
+        }
+
+        public void ResetModelRootVisualScale()
+        {
+            var targetModelRoot = EnsureModelRoot();
+            if (!hasBaseModelRootLocalScale)
+            {
+                CaptureModelRootBaseScale();
+            }
+
+            targetModelRoot.localScale = baseModelRootLocalScale;
         }
 
         public void SetVisible(bool isVisible)
@@ -68,6 +96,21 @@ namespace Game.Feature.Gameplay.Host
             }
 
             gameObject.SetActive(isVisible);
+        }
+
+        private void CaptureModelRootBaseScale()
+        {
+            var targetModelRoot = EnsureModelRoot();
+            baseModelRootLocalScale = targetModelRoot.localScale;
+            hasBaseModelRootLocalScale = true;
+        }
+
+        private static Vector3 SanitizeScaleMultiplier(Vector3 scaleMultiplier)
+        {
+            return new Vector3(
+                Mathf.Max(0.0001f, scaleMultiplier.x),
+                Mathf.Max(0.0001f, scaleMultiplier.y),
+                Mathf.Max(0.0001f, scaleMultiplier.z));
         }
     }
 }
