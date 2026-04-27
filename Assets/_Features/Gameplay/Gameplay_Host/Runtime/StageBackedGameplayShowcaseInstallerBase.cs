@@ -25,11 +25,16 @@ namespace Game.Feature.Gameplay.Host
 
         private ActiveSlotProvider _activeSlotProvider;
         private CampaignGameplayFlowController _campaignFlowController;
+        private bool _campaignRuntimeActive;
         private StagePresentationDefinition _resolvedPresentationDefinition;
         private SaveSlotStore _saveSlotStore;
         private readonly StagePresentationRuntimeAdapter _stagePresentationRuntimeAdapter = new();
 
         protected ScriptableObjectStageCatalogProvider StageCatalogProvider => stageCatalogProvider;
+
+        internal bool CampaignRuntimeActive => _campaignRuntimeActive;
+
+        internal bool HasCampaignFlowController => _campaignFlowController != null;
 
         protected sealed override InitialGameplayState BuildInitialGameplayState()
         {
@@ -60,20 +65,24 @@ namespace Game.Feature.Gameplay.Host
             GameplaySceneHostConfiguration configuration,
             in InitialGameplayState initialState)
         {
-            if (!enableCampaignFlow)
+            EnsureCampaignStores();
+            var activation = CampaignRuntimeActivationPolicy.Evaluate(enableCampaignFlow, _activeSlotProvider);
+            _campaignRuntimeActive = activation.IsActive;
+            if (!_campaignRuntimeActive)
             {
                 return;
             }
 
-            _saveSlotStore ??= new SaveSlotStore();
-            _activeSlotProvider ??= new ActiveSlotProvider();
+            ValidateActiveSlotMatchesLaunchStage(initialState.StageContentEntry != null
+                ? initialState.StageContentEntry.StageId
+                : StageId.None);
             configuration.DisablePlayerRespawn = true;
-            if (_activeSlotProvider.HasActiveSlot)
-            {
-                configuration.StageCompletionProfileStore = new SaveSlotStageCompletionProfileStore(
-                    _saveSlotStore,
-                    _activeSlotProvider);
-            }
+            configuration.CampaignChancesReadSource = new SaveSlotCampaignChancesReadSource(
+                _saveSlotStore,
+                _activeSlotProvider);
+            configuration.StageCompletionProfileStore = new SaveSlotStageCompletionProfileStore(
+                _saveSlotStore,
+                _activeSlotProvider);
         }
 
         protected override void OnHostInitialized(
@@ -86,7 +95,7 @@ namespace Game.Feature.Gameplay.Host
                 stageBgmProfileCatalog,
                 globalAudioFlowBootstrap);
 
-            if (!enableCampaignFlow || _activeSlotProvider == null || !_activeSlotProvider.HasActiveSlot)
+            if (!_campaignRuntimeActive)
             {
                 return;
             }
@@ -100,7 +109,7 @@ namespace Game.Feature.Gameplay.Host
                 _saveSlotStore,
                 _activeSlotProvider,
                 sequenceResolver,
-                gameObject.scene.name);
+                new SceneNameStageLaunchRouter(gameObject.scene.name));
             _campaignFlowController.Bind();
         }
 
@@ -114,6 +123,36 @@ namespace Game.Feature.Gameplay.Host
             return StageLoadRequest.CreateLaunchContextOnly(
                 stageCatalogProvider,
                 gameObject.scene.name);
+        }
+
+        private void EnsureCampaignStores()
+        {
+            var directPlayContext = EditorDirectPlayContextStore.GetCurrentOrNone();
+            if (directPlayContext.HasCustomSaveNamespace)
+            {
+                _saveSlotStore ??= new SaveSlotStore(directPlayContext.SaveSlotStoreKey);
+                _activeSlotProvider ??= new ActiveSlotProvider(directPlayContext.ActiveSlotProviderKey);
+                return;
+            }
+
+            _saveSlotStore ??= new SaveSlotStore();
+            _activeSlotProvider ??= new ActiveSlotProvider();
+        }
+
+        private void ValidateActiveSlotMatchesLaunchStage(StageId launchStageId)
+        {
+            if (!launchStageId.IsValid)
+            {
+                throw new System.InvalidOperationException("Campaign runtime requires a valid launch StageId.");
+            }
+
+            var activeSlotNumber = _activeSlotProvider.ActiveSlotNumber;
+            var activeSlot = _saveSlotStore.LoadSlot(activeSlotNumber);
+            if (!activeSlot.CurrentStageId.Equals(launchStageId))
+            {
+                throw new System.InvalidOperationException(
+                    $"Campaign active slot stage '{activeSlot.CurrentStageId.Value}' does not match launch stage '{launchStageId.Value}'.");
+            }
         }
     }
 }

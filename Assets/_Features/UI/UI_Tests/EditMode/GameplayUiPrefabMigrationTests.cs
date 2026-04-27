@@ -60,6 +60,7 @@ namespace Game.Feature.UI.Tests
                 typeof(SettingsAudioView),
                 typeof(SettingsDisplayView),
                 typeof(StageResultScreenView),
+                typeof(LevelFailedScreenView),
                 typeof(InventoryCatalogView),
                 typeof(InventoryDetailView),
                 typeof(InventoryActionView),
@@ -244,6 +245,7 @@ namespace Game.Feature.UI.Tests
                     "_inventoryPrefab",
                     "_settingsPrefab",
                     "_stageResultPrefab",
+                    "_levelFailedPrefab",
                 }));
             Assert.That(
                 instanceFields.Select(field => field.FieldType).ToArray(),
@@ -255,6 +257,7 @@ namespace Game.Feature.UI.Tests
                     typeof(InventoryScreenView),
                     typeof(SettingsScreenView),
                     typeof(StageResultScreenView),
+                    typeof(LevelFailedScreenView),
                 }));
             Assert.That(
                 publicPropertyNames,
@@ -263,6 +266,7 @@ namespace Game.Feature.UI.Tests
                     "GameplayPrefab",
                     "HelpPrefab",
                     "InventoryPrefab",
+                    "LevelFailedPrefab",
                     "ObjectiveStatusPrefab",
                     "SettingsPrefab",
                     "StageResultPrefab",
@@ -283,6 +287,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(AssetDatabase.GetAssetPath(screenCatalog.InventoryPrefab), Is.EqualTo(UiTestPrefabAssetUtility.InventoryScreenPrefabPath));
             Assert.That(AssetDatabase.GetAssetPath(screenCatalog.SettingsPrefab), Is.EqualTo(UiTestPrefabAssetUtility.SettingsScreenPrefabPath));
             Assert.That(AssetDatabase.GetAssetPath(screenCatalog.StageResultPrefab), Is.EqualTo(UiTestPrefabAssetUtility.StageResultScreenPrefabPath));
+            Assert.That(AssetDatabase.GetAssetPath(screenCatalog.LevelFailedPrefab), Is.EqualTo(UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath));
         }
 
         [Test]
@@ -331,6 +336,7 @@ namespace Game.Feature.UI.Tests
         [TestCase(ScreenId.Inventory)]
         [TestCase(ScreenId.Settings)]
         [TestCase(ScreenId.StageResult)]
+        [TestCase(ScreenId.LevelFailed)]
         public void CanonicalScreenPrefabAsset_UsesAuthoredScreenView_AndNoCrossLayerOwners(ScreenId screenId)
         {
             switch (screenId)
@@ -380,6 +386,12 @@ namespace Game.Feature.UI.Tests
                     AssertScreenPrefabContract<StageResultScreenView>(
                         UiTestPrefabAssetUtility.StageResultScreenPrefabPath,
                         typeof(StageResultScreenView));
+                    break;
+
+                case ScreenId.LevelFailed:
+                    AssertScreenPrefabContract<LevelFailedScreenView>(
+                        UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath,
+                        typeof(LevelFailedScreenView));
                     break;
 
                 default:
@@ -722,6 +734,7 @@ namespace Game.Feature.UI.Tests
         [TestCase(ScreenId.Inventory, "_screenPrefabCatalog.InventoryPrefab", "CreateInventoryScreen(")]
         [TestCase(ScreenId.Settings, "_screenPrefabCatalog.SettingsPrefab", "CreateSettingsScreen(")]
         [TestCase(ScreenId.StageResult, "_screenPrefabCatalog.StageResultPrefab", "CreateStageResultScreen(")]
+        [TestCase(ScreenId.LevelFailed, "_screenPrefabCatalog.LevelFailedPrefab", "CreateLevelFailedScreen(")]
         public void ScreenFactoryMigration_UsesCanonicalPrefabReference_AndRemovesLegacyBuilderMarkers(
             ScreenId screenId,
             string prefabReferenceToken,
@@ -751,6 +764,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(screenFactorySource, Does.Not.Contain("CreateInventoryScreen("));
             Assert.That(screenFactorySource, Does.Not.Contain("CreateSettingsScreen("));
             Assert.That(screenFactorySource, Does.Not.Contain("CreateStageResultScreen("));
+            Assert.That(screenFactorySource, Does.Not.Contain("CreateLevelFailedScreen("));
             Assert.That(screenFactorySource, Does.Not.Contain("UiCanvasElementFactory.CreatePanel("));
             Assert.That(screenFactorySource, Does.Not.Contain("UiCanvasElementFactory.CreateLabel("));
             Assert.That(screenFactorySource, Does.Not.Contain("UiCanvasElementFactory.CreateButton("));
@@ -977,6 +991,9 @@ namespace Game.Feature.UI.Tests
                 case ScreenId.StageResult:
                     return UiTestPrefabAssetUtility.LoadScreenPrefab<StageResultScreenView>(UiTestPrefabAssetUtility.StageResultScreenPrefabPath);
 
+                case ScreenId.LevelFailed:
+                    return UiTestPrefabAssetUtility.LoadScreenPrefab<LevelFailedScreenView>(UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath);
+
                 default:
                     throw new ArgumentOutOfRangeException(nameof(screenId), screenId, null);
             }
@@ -1048,6 +1065,7 @@ namespace Game.Feature.UI.Tests
                 typeof(SettingsAudioView),
                 typeof(SettingsDisplayView),
                 typeof(StageResultScreenView),
+                typeof(LevelFailedScreenView),
                 typeof(ScreenLayerView),
                 typeof(UiArchitectureDiagnosticsOverlayView),
                 typeof(PopupController),
@@ -1077,6 +1095,7 @@ namespace Game.Feature.UI.Tests
                 typeof(SettingsAudioView),
                 typeof(SettingsDisplayView),
                 typeof(StageResultScreenView),
+                typeof(LevelFailedScreenView),
                 typeof(InventoryCatalogView),
                 typeof(InventoryDetailView),
                 typeof(InventoryActionView),

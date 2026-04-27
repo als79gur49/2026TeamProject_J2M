@@ -16,7 +16,9 @@ namespace Game.Feature.Gameplay.UIAccess.Models
             bool canStartActionThisTick,
             GameplayUiRecoveryCooldown? recoveryCooldown = null,
             bool canStartAnyActionThisTick = false,
-            bool hasExplicitPushCandidateInCurrentDirection = false)
+            bool hasExplicitPushCandidateInCurrentDirection = false,
+            bool hasRemainingChances = false,
+            int remainingChances = 0)
             : this(
                 isAvailable,
                 playerEntityId,
@@ -32,7 +34,9 @@ namespace Game.Feature.Gameplay.UIAccess.Models
                 canStartActionThisTick,
                 recoveryCooldown,
                 canStartAnyActionThisTick,
-                hasExplicitPushCandidateInCurrentDirection)
+                hasExplicitPushCandidateInCurrentDirection,
+                hasRemainingChances,
+                remainingChances)
         {
         }
 
@@ -51,7 +55,9 @@ namespace Game.Feature.Gameplay.UIAccess.Models
             bool canStartActionThisTick,
             GameplayUiRecoveryCooldown? recoveryCooldown = null,
             bool canStartAnyActionThisTick = false,
-            bool hasExplicitPushCandidateInCurrentDirection = false)
+            bool hasExplicitPushCandidateInCurrentDirection = false,
+            bool hasRemainingChances = false,
+            int remainingChances = 0)
         {
             IsAvailable = isAvailable;
             PlayerEntityId = playerEntityId;
@@ -67,6 +73,8 @@ namespace Game.Feature.Gameplay.UIAccess.Models
             CanStartActionThisTick = canStartActionThisTick;
             CanStartAnyActionThisTick = canStartAnyActionThisTick || canStartActionThisTick;
             HasExplicitPushCandidateInCurrentDirection = hasExplicitPushCandidateInCurrentDirection;
+            HasRemainingChances = hasRemainingChances;
+            RemainingChances = remainingChances;
             RecoveryCooldown = recoveryCooldown;
         }
 
@@ -97,6 +105,10 @@ namespace Game.Feature.Gameplay.UIAccess.Models
         public bool CanStartAnyActionThisTick { get; }
 
         public bool HasExplicitPushCandidateInCurrentDirection { get; }
+
+        public bool HasRemainingChances { get; }
+
+        public int RemainingChances { get; }
 
         public GameplayUiRecoveryCooldown? RecoveryCooldown { get; }
     }

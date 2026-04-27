@@ -610,6 +610,7 @@ namespace Game.Feature.UI.Tests
                     "GameplayPrefab",
                     "HelpPrefab",
                     "InventoryPrefab",
+                    "LevelFailedPrefab",
                     "ObjectiveStatusPrefab",
                     "SettingsPrefab",
                     "StageResultPrefab",
@@ -756,7 +757,7 @@ namespace Game.Feature.UI.Tests
                 GetConstructorSignatures(typeof(UIFlowCoordinator)),
                 Is.EqualTo(new[]
                 {
-                    "UIFlowCoordinator(ScreenController, PopupController, UIBlockPolicy, IUiFlowPauseService, IGameplayUiPresentationSource, IUiAudioPort, IStageLaunchRouter)",
+                    "UIFlowCoordinator(ScreenController, PopupController, UIBlockPolicy, IUiFlowPauseService, IGameplayUiPresentationSource, IUiAudioPort, IStageLaunchRouter, IMainMenuReturnRouter)",
                 }));
         }
 
@@ -1048,6 +1049,7 @@ namespace Game.Feature.UI.Tests
                 typeof(InventoryScreenView),
                 typeof(SettingsScreenView),
                 typeof(StageResultScreenView),
+                typeof(LevelFailedScreenView),
                 typeof(InventoryCatalogView),
                 typeof(InventoryDetailView),
                 typeof(InventoryActionView),
@@ -1090,6 +1092,7 @@ namespace Game.Feature.UI.Tests
                 typeof(InventoryScreenView),
                 typeof(SettingsScreenView),
                 typeof(StageResultScreenView),
+                typeof(LevelFailedScreenView),
                 typeof(InventoryCatalogView),
                 typeof(InventoryDetailView),
                 typeof(InventoryActionView),
@@ -1118,6 +1121,7 @@ namespace Game.Feature.UI.Tests
                 typeof(InventoryScreenView),
                 typeof(SettingsScreenView),
                 typeof(StageResultScreenView),
+                typeof(LevelFailedScreenView),
                 typeof(InventoryCatalogView),
                 typeof(InventoryDetailView),
                 typeof(InventoryActionView),

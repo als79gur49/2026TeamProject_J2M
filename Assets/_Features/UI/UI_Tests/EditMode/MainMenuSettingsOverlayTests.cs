@@ -1,0 +1,626 @@
+using System;
+using System.IO;
+using System.Linq;
+using Game.Feature.UI.Application;
+using Game.Feature.UI.Composition;
+using Game.Feature.UI.Flow;
+using Game.Feature.UI.Popups;
+using Game.Feature.UI.Screens;
+using Game.Shared.Audio;
+using Game.Shared.Display;
+using NUnit.Framework;
+using UnityEditor;
+using UnityEditor.SceneManagement;
+using UnityEngine;
+using UnityEngine.UI;
+using UiDisplayWindowMode = Game.Feature.UI.Application.DisplayWindowMode;
+
+namespace Game.Feature.UI.Tests
+{
+    public sealed class MainMenuSettingsOverlayTests
+    {
+        private const string MainMenuScenePath = "Assets/Scenes/MainMenuScene.unity";
+        private static readonly string[] SettingsImplementationSourcePaths =
+        {
+            "Assets/_Features/UI/UI_Composition/Runtime/MainMenuSettingsPortAdapter.cs",
+            "Assets/_Features/UI/UI_Composition/Runtime/MainMenuSettingsOverlayController.cs",
+            "Assets/_Features/UI/UI_Composition/Runtime/MainMenuSettingsRuntime.cs",
+            "Assets/_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs",
+        };
+
+        [Test]
+        public void MainMenuSettingsButton_InvokesMainMenuSettingsPort()
+        {
+            var settingsPort = new RecordingMainMenuSettingsPort();
+            var hub = new MainMenuHubController(
+                settingsPort,
+                new RecordingApplicationQuitPort(),
+                new RecordingConfirmPopupPort(),
+                _ => { });
+
+            hub.HandleCommand(new MainMenuCommandIntent(MainMenuCommandKind.OpenSettings));
+
+            Assert.That(settingsPort.OpenCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void MainMenuSettingsPortAdapter_InstantiatesSettingsPrefabWithoutGameplayHost()
+        {
+            using var harness = new OverlayHarness();
+            var settingsPort = new MainMenuSettingsPortAdapter(harness.OverlayController);
+
+            settingsPort.OpenSettings();
+
+            Assert.That(harness.CreatedRuntimeCount, Is.EqualTo(1));
+            Assert.That(harness.Root.GetComponentsInChildren<SettingsScreenView>(true), Has.Length.EqualTo(1));
+            AssertForbiddenMainMenuSettingsReferences();
+        }
+
+        [Test]
+        public void MainMenuSettingsPortAdapter_DoesNotReferenceGameplayUiFlowInstallerOrUIFlowCoordinator()
+        {
+            foreach (var path in SettingsImplementationSourcePaths)
+            {
+                var source = ReadRepoFile(path);
+
+                Assert.That(source, Does.Not.Contain("GameplayUiFlowInstaller"), path);
+                Assert.That(source, Does.Not.Contain("UIFlowCoordinator"), path);
+            }
+        }
+
+        [Test]
+        public void MainMenuSettingsRuntime_BindsSettingsScreenPresenter()
+        {
+            using var harness = new RuntimeHarness();
+
+            harness.Runtime.Open();
+
+            Assert.That(harness.Runtime.Presenter, Is.Not.Null);
+            Assert.That(harness.Runtime.View, Is.Not.Null);
+            Assert.That(harness.Runtime.View.CurrentDisplayValueText, Is.EqualTo("1280 x 720"));
+            Assert.That(harness.Runtime.View.IsDisplayApplyInteractable, Is.False);
+        }
+
+        [Test]
+        public void MainMenuSettingsRuntime_CloseDisposesViewAndFlushesSettings()
+        {
+            using var harness = new RuntimeHarness();
+            harness.Runtime.Open();
+            var viewObject = harness.Runtime.View.gameObject;
+
+            harness.Runtime.Dispose();
+
+            Assert.That(harness.AudioPort.FlushCount, Is.EqualTo(1));
+            Assert.That(viewObject == null, Is.True);
+            Assert.That(harness.Runtime.IsOpen, Is.False);
+        }
+
+        [Test]
+        public void MainMenuSettingsRuntime_BackClosesOverlay()
+        {
+            using var harness = new OverlayHarness();
+            harness.OverlayController.Open();
+
+            harness.CreatedRuntime.View.ClickBack();
+
+            Assert.That(harness.OverlayController.IsOpen, Is.False);
+            Assert.That(harness.OverlayController.OverlayLayer.gameObject.activeSelf, Is.False);
+        }
+
+        [Test]
+        public void MainMenuSettingsRuntime_OpenTwice_DoesNotDuplicateSettingsView()
+        {
+            using var harness = new OverlayHarness();
+
+            harness.OverlayController.Open();
+            harness.OverlayController.Open();
+
+            Assert.That(harness.CreatedRuntimeCount, Is.EqualTo(1));
+            Assert.That(harness.Root.GetComponentsInChildren<SettingsScreenView>(true), Has.Length.EqualTo(1));
+        }
+
+        [Test]
+        public void MainMenuSettingsRuntime_AudioChange_UsesAudioSettingsPort()
+        {
+            using var harness = new RuntimeHarness();
+            harness.Runtime.Open();
+
+            harness.Runtime.View.SetAudioVolume(AudioSettingsChannel.Bgm, 0.25f);
+            harness.Runtime.View.SetAudioMuted(AudioSettingsChannel.Sfx, true);
+            harness.Runtime.View.CommitAudioInteraction(AudioSettingsChannel.Bgm);
+
+            Assert.That(harness.AudioPort.SetVolumeCount, Is.EqualTo(1));
+            Assert.That(harness.AudioPort.LastVolumeChannel, Is.EqualTo(AudioSettingsChannel.Bgm));
+            Assert.That(harness.AudioPort.LastVolume, Is.EqualTo(0.25f).Within(0.001f));
+            Assert.That(harness.AudioPort.SetMutedCount, Is.EqualTo(1));
+            Assert.That(harness.AudioPort.LastMutedChannel, Is.EqualTo(AudioSettingsChannel.Sfx));
+            Assert.That(harness.AudioPort.FlushCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void MainMenuSettingsRuntime_DisplayApply_UsesDisplaySettingsPortAndConfirmPopup()
+        {
+            using var harness = new RuntimeHarness();
+            harness.Runtime.Open();
+
+            harness.Runtime.View.SelectDisplayResolution(1);
+            harness.Runtime.View.ClickDisplayApply();
+
+            Assert.That(harness.DisplayPort.BeginPreviewCount, Is.EqualTo(1));
+            Assert.That(harness.DisplayPort.LastPreviewRequest.ModeIndex, Is.EqualTo(1));
+            Assert.That(harness.PopupHarness.PopupController.PopupCount, Is.EqualTo(1));
+            Assert.That(harness.PopupHarness.PopupController.TopPopup.Value.PopupId, Is.EqualTo(PopupId.Confirm));
+        }
+
+        [Test]
+        public void MainMenuSettingsRuntime_CancelOrClose_RevertsActiveDisplayPreview()
+        {
+            using var harness = new RuntimeHarness();
+            harness.Runtime.Open();
+            harness.Runtime.View.SelectDisplayResolution(1);
+            harness.Runtime.View.ClickDisplayApply();
+
+            harness.Runtime.Dispose();
+
+            Assert.That(harness.DisplayPort.RevertPreviewCount, Is.EqualTo(1));
+            Assert.That(harness.DisplayPort.IsPreviewActive, Is.False);
+            Assert.That(harness.PopupHarness.PopupController.PopupCount, Is.Zero);
+        }
+
+        [Test]
+        public void MainMenuSettingsPopup_BlocksSaveSlotInteractionWhileOpen()
+        {
+            using var harness = new OverlayHarness();
+
+            harness.OverlayController.Open();
+
+            var blocker = harness.OverlayController.OverlayLayer.Find("SettingsBlocker");
+            Assert.That(blocker, Is.Not.Null);
+            Assert.That(blocker.GetComponent<CanvasGroup>().blocksRaycasts, Is.True);
+            Assert.That(blocker.GetComponent<Image>().raycastTarget, Is.True);
+        }
+
+        [Test]
+        public void ConfirmPopup_BlocksSettingsInteractionWhileDisplayPreviewOpen()
+        {
+            using var harness = new RuntimeHarness();
+            harness.Runtime.Open();
+
+            harness.Runtime.View.SelectDisplayResolution(1);
+            harness.Runtime.View.ClickDisplayApply();
+
+            Assert.That(harness.PopupHarness.PopupLayerView.BlocksLowerLayerPointer, Is.True);
+            Assert.That(harness.PopupHarness.PopupLayerView.BackdropMode, Is.EqualTo(PopupBackdropMode.Consume));
+        }
+
+        [Test]
+        public void MainMenuSettings_SourceGuard_DoesNotReferenceGameplaySceneHostHUDPausePresentationSource()
+        {
+            AssertForbiddenMainMenuSettingsReferences();
+        }
+
+        [Test]
+        public void MainMenuSettings_SourceGuard_DoesNotReferenceScreenControllerOrGameplayScreenRuntimeFactory()
+        {
+            foreach (var path in SettingsImplementationSourcePaths)
+            {
+                var source = ReadRepoFile(path);
+
+                Assert.That(source, Does.Not.Contain("ScreenController"), path);
+                Assert.That(source, Does.Not.Contain("GameplayScreenRuntimeFactory"), path);
+                Assert.That(source, Does.Not.Contain("ScreenAction"), path);
+                Assert.That(source, Does.Not.Contain("ScreenRequest"), path);
+            }
+        }
+
+        [Test]
+        public void MainMenuSettings_ViewDoesNotTouchPlayerPrefsOrScreenSetResolution()
+        {
+            var guardedViewSources = new[]
+            {
+                "Assets/_Features/UI/UI_Screens/Runtime/SettingsScreenView.cs",
+                "Assets/_Features/UI/UI_Screens/Runtime/SettingsAudioView.cs",
+                "Assets/_Features/UI/UI_Screens/Runtime/SettingsDisplayView.cs",
+            };
+
+            foreach (var path in guardedViewSources)
+            {
+                var source = ReadRepoFile(path);
+
+                Assert.That(source, Does.Not.Contain("PlayerPrefs"), path);
+                Assert.That(source, Does.Not.Contain("AudioSettingsStore"), path);
+                Assert.That(source, Does.Not.Contain("DisplaySettingsStore"), path);
+                Assert.That(source, Does.Not.Contain("Screen.SetResolution"), path);
+            }
+        }
+
+        [Test]
+        public void MainMenuScene_HasSettingsAudioAndDisplayRuntimeInstallers()
+        {
+            var scene = EditorSceneManager.OpenScene(MainMenuScenePath, OpenSceneMode.Single);
+            var rootObjects = scene.GetRootGameObjects();
+            var uiRoot = rootObjects.Single(root => root.GetComponent<MainMenuUiFlowInstaller>() != null);
+            var installer = uiRoot.GetComponent<MainMenuUiFlowInstaller>();
+            var audioInstaller = uiRoot.GetComponent<AudioRuntimeInstaller>();
+            var displayInstaller = uiRoot.GetComponent<DisplayRuntimeInstaller>();
+
+            Assert.That(audioInstaller, Is.Not.Null);
+            Assert.That(displayInstaller, Is.Not.Null);
+            var serializedInstaller = new SerializedObject(installer);
+            var serializedAudioInstaller = new SerializedObject(audioInstaller);
+            Assert.That(serializedAudioInstaller.FindProperty("bindingMode").enumValueIndex, Is.EqualTo((int)AudioRuntimeInstallerBindingMode.PreferRegisteredPersistentRuntime));
+            Assert.That(serializedInstaller.FindProperty("_settingsScreenPrefab").objectReferenceValue, Is.Not.Null);
+            Assert.That(serializedInstaller.FindProperty("_settingsPreviewTimeoutSeconds").doubleValue, Is.EqualTo(15d));
+        }
+
+        private static void AssertForbiddenMainMenuSettingsReferences()
+        {
+            var forbiddenTokens = new[]
+            {
+                "GameplaySceneHost",
+                "HUDRootView",
+                "GameplayUiPresentationSource",
+                "IGameplayQueryFacade",
+                "IGameplayCommandGateway",
+                "IUiFlowPauseService",
+                "Game.Feature.Gameplay",
+                "PlayerPrefs",
+                "Screen.SetResolution",
+            };
+
+            foreach (var path in SettingsImplementationSourcePaths)
+            {
+                var source = ReadRepoFile(path);
+                foreach (var token in forbiddenTokens)
+                {
+                    Assert.That(source, Does.Not.Contain(token), $"{path} must not reference {token}");
+                }
+            }
+        }
+
+        private static string ReadRepoFile(string relativePath)
+        {
+            return File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), relativePath));
+        }
+
+        private sealed class RuntimeHarness : IDisposable
+        {
+            public RuntimeHarness()
+            {
+                Root = new GameObject("MainMenuSettingsRuntimeTestRoot", typeof(RectTransform));
+                ContentRoot = CreateFullScreenRect("SettingsContentRoot", Root.transform);
+                PopupHarness = new PopupHarness(Root.transform);
+                AudioPort = new RecordingAudioSettingsPort();
+                DisplayPort = new RecordingDisplaySettingsPort();
+                Runtime = CreateRuntime(ContentRoot, PopupHarness, AudioPort, DisplayPort);
+            }
+
+            public GameObject Root { get; }
+
+            public RectTransform ContentRoot { get; }
+
+            public PopupHarness PopupHarness { get; }
+
+            public RecordingAudioSettingsPort AudioPort { get; }
+
+            public RecordingDisplaySettingsPort DisplayPort { get; }
+
+            public MainMenuSettingsRuntime Runtime { get; }
+
+            public void Dispose()
+            {
+                Runtime.Dispose();
+                PopupHarness.Dispose();
+                UnityEngine.Object.DestroyImmediate(Root);
+            }
+        }
+
+        private sealed class OverlayHarness : IDisposable
+        {
+            public OverlayHarness()
+            {
+                Root = new GameObject("MainMenuSettingsOverlayTestRoot", typeof(RectTransform));
+                PopupHarness = new PopupHarness(Root.transform);
+                AudioPort = new RecordingAudioSettingsPort();
+                DisplayPort = new RecordingDisplaySettingsPort();
+                OverlayController = new MainMenuSettingsOverlayController(
+                    Root.transform,
+                    PopupHarness.PopupLayerView.transform,
+                    contentRoot =>
+                    {
+                        CreatedRuntimeCount++;
+                        CreatedRuntime = CreateRuntime(contentRoot, PopupHarness, AudioPort, DisplayPort);
+                        return CreatedRuntime;
+                    });
+            }
+
+            public GameObject Root { get; }
+
+            public PopupHarness PopupHarness { get; }
+
+            public RecordingAudioSettingsPort AudioPort { get; }
+
+            public RecordingDisplaySettingsPort DisplayPort { get; }
+
+            public MainMenuSettingsOverlayController OverlayController { get; }
+
+            public MainMenuSettingsRuntime CreatedRuntime { get; private set; }
+
+            public int CreatedRuntimeCount { get; private set; }
+
+            public void Dispose()
+            {
+                OverlayController.Dispose();
+                PopupHarness.Dispose();
+                UnityEngine.Object.DestroyImmediate(Root);
+            }
+        }
+
+        private sealed class PopupHarness : IDisposable
+        {
+            public PopupHarness(Transform parent)
+            {
+                PopupLayerView = CreatePopupLayer(parent);
+                var popupCatalog = AssetDatabase.LoadAssetAtPath<PopupPrefabCatalog>(UiTestPrefabAssetUtility.PopupCatalogPath);
+                Assert.That(popupCatalog, Is.Not.Null);
+                PopupController = new PopupController(new GameplayPopupRuntimeFactory(PopupLayerView, popupCatalog));
+                PopupController.StateChanged += SyncPopupLayer;
+                TimeoutRelay = PopupLayerView.gameObject.AddComponent<DisplayPreviewTimeoutRelay>();
+                DisplayLifecycleRelay = PopupLayerView.gameObject.AddComponent<DisplaySettingsLifecycleRelay>();
+                DisplayPreviewSessionHost = new DisplayPreviewSessionHost(PopupController, TimeoutRelay, 15d);
+            }
+
+            public PopupLayerView PopupLayerView { get; }
+
+            public PopupController PopupController { get; }
+
+            public DisplayPreviewTimeoutRelay TimeoutRelay { get; }
+
+            public DisplaySettingsLifecycleRelay DisplayLifecycleRelay { get; }
+
+            public DisplayPreviewSessionHost DisplayPreviewSessionHost { get; }
+
+            public void Dispose()
+            {
+                PopupController.StateChanged -= SyncPopupLayer;
+                PopupController.Dispose();
+            }
+
+            private void SyncPopupLayer()
+            {
+                var topPopup = PopupController.TopPopup;
+                if (!topPopup.HasValue)
+                {
+                    PopupLayerView.SetState(false, false, false, PopupBackdropMode.None);
+                    return;
+                }
+
+                var policy = topPopup.Value.Policy;
+                PopupLayerView.SetState(
+                    true,
+                    policy.ShowsDim,
+                    policy.BlocksLowerLayers || policy.BackdropMode != PopupBackdropMode.None,
+                    policy.BackdropMode);
+            }
+        }
+
+        private static MainMenuSettingsRuntime CreateRuntime(
+            RectTransform contentRoot,
+            PopupHarness popupHarness,
+            RecordingAudioSettingsPort audioPort,
+            RecordingDisplaySettingsPort displayPort)
+        {
+            return new MainMenuSettingsRuntime(
+                UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath),
+                contentRoot,
+                new AccessibilitySettingsStore(),
+                audioPort,
+                displayPort,
+                popupHarness.PopupController,
+                popupHarness.DisplayPreviewSessionHost,
+                popupHarness.DisplayLifecycleRelay,
+                SettingsScreenPayload.Default,
+                15d);
+        }
+
+        private static PopupLayerView CreatePopupLayer(Transform parent)
+        {
+            var layerRoot = new GameObject("MainMenuPopupLayer", typeof(RectTransform));
+            layerRoot.transform.SetParent(parent, false);
+            var layerRect = (RectTransform)layerRoot.transform;
+            StretchToParent(layerRect);
+            var popupLayerView = layerRoot.AddComponent<PopupLayerView>();
+
+            var backdrop = new GameObject("Backdrop", typeof(RectTransform));
+            backdrop.transform.SetParent(layerRoot.transform, false);
+            StretchToParent((RectTransform)backdrop.transform);
+            var backdropCanvasGroup = backdrop.AddComponent<CanvasGroup>();
+            var backdropImage = backdrop.AddComponent<Image>();
+            var backdropButton = backdrop.AddComponent<Button>();
+
+            var content = new GameObject("Content", typeof(RectTransform));
+            content.transform.SetParent(layerRoot.transform, false);
+            var contentRect = (RectTransform)content.transform;
+            StretchToParent(contentRect);
+
+            popupLayerView.Configure(layerRoot, backdropCanvasGroup, backdropImage, backdropButton, contentRect);
+            return popupLayerView;
+        }
+
+        private static RectTransform CreateFullScreenRect(string name, Transform parent)
+        {
+            var root = new GameObject(name, typeof(RectTransform));
+            root.transform.SetParent(parent, false);
+            var rectTransform = (RectTransform)root.transform;
+            StretchToParent(rectTransform);
+            return rectTransform;
+        }
+
+        private static void StretchToParent(RectTransform rectTransform)
+        {
+            rectTransform.anchorMin = Vector2.zero;
+            rectTransform.anchorMax = Vector2.one;
+            rectTransform.offsetMin = Vector2.zero;
+            rectTransform.offsetMax = Vector2.zero;
+        }
+
+        private sealed class RecordingMainMenuSettingsPort : IMainMenuSettingsPort
+        {
+            public int OpenCount { get; private set; }
+
+            public void OpenSettings()
+            {
+                OpenCount++;
+            }
+        }
+
+        private sealed class RecordingApplicationQuitPort : IApplicationQuitPort
+        {
+            public void Quit()
+            {
+            }
+        }
+
+        private sealed class RecordingConfirmPopupPort : IConfirmPopupPort
+        {
+            public void Request(ConfirmPopupPayload payload, Action<bool> completion)
+            {
+            }
+        }
+
+        public sealed class RecordingAudioSettingsPort : IAudioSettingsPort
+        {
+            private AudioSettingsPortChannelState main = new(1f, false);
+            private AudioSettingsPortChannelState bgm = new(0.8f, false);
+            private AudioSettingsPortChannelState sfx = new(0.6f, false);
+
+            public int FlushCount { get; private set; }
+
+            public int SetMutedCount { get; private set; }
+
+            public int SetVolumeCount { get; private set; }
+
+            public AudioSettingsChannel LastMutedChannel { get; private set; }
+
+            public AudioSettingsChannel LastVolumeChannel { get; private set; }
+
+            public float LastVolume { get; private set; }
+
+            public AudioSettingsPortSnapshot Read()
+            {
+                return new AudioSettingsPortSnapshot(main, bgm, sfx);
+            }
+
+            public void SetVolume(AudioSettingsChannel channel, float volume)
+            {
+                SetVolumeCount++;
+                LastVolumeChannel = channel;
+                LastVolume = volume;
+                SetChannelState(channel, new AudioSettingsPortChannelState(volume, Read().GetChannelState(channel).IsMuted));
+            }
+
+            public void SetMuted(AudioSettingsChannel channel, bool isMuted)
+            {
+                SetMutedCount++;
+                LastMutedChannel = channel;
+                SetChannelState(channel, new AudioSettingsPortChannelState(Read().GetChannelState(channel).Volume, isMuted));
+            }
+
+            public void Flush()
+            {
+                FlushCount++;
+            }
+
+            private void SetChannelState(AudioSettingsChannel channel, AudioSettingsPortChannelState state)
+            {
+                switch (channel)
+                {
+                    case AudioSettingsChannel.Main:
+                        main = state;
+                        break;
+                    case AudioSettingsChannel.Bgm:
+                        bgm = state;
+                        break;
+                    case AudioSettingsChannel.Sfx:
+                        sfx = state;
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(channel), channel, null);
+                }
+            }
+        }
+
+        public sealed class RecordingDisplaySettingsPort : IDisplaySettingsPort
+        {
+            private readonly DisplaySettingsPortModeOption[] modes =
+            {
+                new(1280, 720, "1280 x 720"),
+                new(1920, 1080, "1920 x 1080"),
+            };
+
+            private int committedModeIndex;
+            private int currentModeIndex;
+            private UiDisplayWindowMode committedWindowMode = UiDisplayWindowMode.Windowed;
+            private UiDisplayWindowMode currentWindowMode = UiDisplayWindowMode.Windowed;
+
+            public int BeginPreviewCount { get; private set; }
+
+            public int CommitPreviewCount { get; private set; }
+
+            public int RevertPreviewCount { get; private set; }
+
+            public bool IsPreviewActive { get; private set; }
+
+            public DisplaySettingsPortPreviewRequest LastPreviewRequest { get; private set; }
+
+            public DisplaySettingsPortSnapshot Read()
+            {
+                return new DisplaySettingsPortSnapshot(
+                    modes,
+                    committedModeIndex,
+                    committedWindowMode,
+                    modes[currentModeIndex].LabelText,
+                    currentWindowMode,
+                    IsPreviewActive);
+            }
+
+            public bool BeginPreview(DisplaySettingsPortPreviewRequest request)
+            {
+                BeginPreviewCount++;
+                LastPreviewRequest = request;
+                currentModeIndex = Mathf.Clamp(request.ModeIndex, 0, modes.Length - 1);
+                currentWindowMode = request.WindowMode;
+                IsPreviewActive = true;
+                return true;
+            }
+
+            public bool CommitPreview()
+            {
+                CommitPreviewCount++;
+                if (!IsPreviewActive)
+                {
+                    return false;
+                }
+
+                committedModeIndex = currentModeIndex;
+                committedWindowMode = currentWindowMode;
+                IsPreviewActive = false;
+                return true;
+            }
+
+            public bool RevertPreview()
+            {
+                RevertPreviewCount++;
+                if (!IsPreviewActive)
+                {
+                    return false;
+                }
+
+                currentModeIndex = committedModeIndex;
+                currentWindowMode = committedWindowMode;
+                IsPreviewActive = false;
+                return true;
+            }
+        }
+    }
+}

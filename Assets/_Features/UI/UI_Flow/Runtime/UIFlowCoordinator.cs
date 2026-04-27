@@ -15,6 +15,7 @@ namespace Game.Feature.UI.Flow
         }
 
         private readonly IGameplayUiPresentationSource _presentationSource;
+        private readonly IMainMenuReturnRouter _mainMenuReturnRouter;
         private readonly IUiFlowPauseService _pauseService;
         private readonly PopupController _popupController;
         private readonly ScreenController _screenController;
@@ -33,7 +34,8 @@ namespace Game.Feature.UI.Flow
             IUiFlowPauseService pauseService,
             IGameplayUiPresentationSource presentationSource,
             IUiAudioPort uiAudioPort,
-            IStageLaunchRouter stageLaunchRouter)
+            IStageLaunchRouter stageLaunchRouter,
+            IMainMenuReturnRouter mainMenuReturnRouter = null)
         {
             _screenController = screenController ?? throw new ArgumentNullException(nameof(screenController));
             _popupController = popupController ?? throw new ArgumentNullException(nameof(popupController));
@@ -42,6 +44,7 @@ namespace Game.Feature.UI.Flow
             _presentationSource = presentationSource ?? throw new ArgumentNullException(nameof(presentationSource));
             _uiAudioPort = uiAudioPort ?? throw new ArgumentNullException(nameof(uiAudioPort));
             _stageLaunchRouter = stageLaunchRouter ?? throw new ArgumentNullException(nameof(stageLaunchRouter));
+            _mainMenuReturnRouter = mainMenuReturnRouter ?? NoOpMainMenuReturnRouter.Instance;
 
             _screenController.StateChanged += HandleFlowStateChanged;
             _screenController.ActionRequested += HandleScreenActionRequested;
@@ -52,6 +55,7 @@ namespace Game.Feature.UI.Flow
             _popupController.PopupCompletionDispatching += HandlePopupCompletionDispatching;
             _popupController.PopupCompletionDispatched += HandlePopupCompletionDispatched;
             _presentationSource.TickEventsApplied += HandleTickEventsApplied;
+            _presentationSource.LevelFailedCommitted += HandleLevelFailedCommitted;
         }
 
         public UIBlockSnapshot CurrentBlockSnapshot { get; private set; }
@@ -145,6 +149,7 @@ namespace Game.Feature.UI.Flow
             _popupController.PopupCompletionDispatching -= HandlePopupCompletionDispatching;
             _popupController.PopupCompletionDispatched -= HandlePopupCompletionDispatched;
             _presentationSource.TickEventsApplied -= HandleTickEventsApplied;
+            _presentationSource.LevelFailedCommitted -= HandleLevelFailedCommitted;
         }
 
         bool IUiFlowAudioIntentBoundary.ExecuteOpenForwardBoundary(Func<bool> action)
@@ -279,6 +284,10 @@ namespace Game.Feature.UI.Flow
 
                 case ScreenActionKind.LaunchStage:
                     LaunchStage(action.StageNavigationRequest);
+                    break;
+
+                case ScreenActionKind.ReturnToMainMenu:
+                    ReturnToMainMenu();
                     break;
             }
         }
@@ -546,6 +555,12 @@ namespace Game.Feature.UI.Flow
             _stageLaunchRouter.Launch(request);
         }
 
+        private void ReturnToMainMenu()
+        {
+            ClosePopupsForScreenTransition();
+            _mainMenuReturnRouter.ReturnToMainMenu();
+        }
+
         private void HandleTickEventsApplied(UITickEventBatch batch)
         {
             if (!batch.HasAnyEvents)
@@ -577,6 +592,32 @@ namespace Game.Feature.UI.Flow
                 });
                 return;
             }
+        }
+
+        private void HandleLevelFailedCommitted(LevelFailedScreenPayload payload)
+        {
+            if (payload == null)
+            {
+                return;
+            }
+
+            if (_screenController.CurrentScreenId == ScreenId.LevelFailed)
+            {
+                return;
+            }
+
+            ExecuteIntent(UiFlowAudioIntentKind.SystemPresentation, () =>
+            {
+                ClearPauseReturnMode();
+                ClosePopupsForScreenTransition();
+                _screenController.Clear();
+                _screenController.SetRoot(new ScreenRequest(
+                    ScreenId.LevelFailed,
+                    payload,
+                    ScreenId.LevelFailed.ToString()));
+                RecordDelta(UiFlowAudioDelta.FromRootScreenSet(ScreenId.LevelFailed));
+                return true;
+            });
         }
 
         private void OpenStageCompletionFlow()

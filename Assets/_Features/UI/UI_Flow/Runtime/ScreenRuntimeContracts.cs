@@ -183,6 +183,7 @@ namespace Game.Feature.UI.Flow
         ReplaceScreen = 4,
         RequestPopup = 5,
         LaunchStage = 6,
+        ReturnToMainMenu = 7,
     }
 
     public readonly struct ScreenAction
@@ -235,6 +236,29 @@ namespace Game.Feature.UI.Flow
         public static ScreenAction LaunchStage(StageNavigationRequest request)
         {
             return new ScreenAction(ScreenActionKind.LaunchStage, default, default, request);
+        }
+
+        public static ScreenAction ReturnToMainMenu()
+        {
+            return new ScreenAction(ScreenActionKind.ReturnToMainMenu, default, default, StageNavigationRequest.None);
+        }
+    }
+
+    public interface IMainMenuReturnRouter
+    {
+        void ReturnToMainMenu();
+    }
+
+    public sealed class NoOpMainMenuReturnRouter : IMainMenuReturnRouter
+    {
+        public static readonly NoOpMainMenuReturnRouter Instance = new();
+
+        private NoOpMainMenuReturnRouter()
+        {
+        }
+
+        public void ReturnToMainMenu()
+        {
         }
     }
 

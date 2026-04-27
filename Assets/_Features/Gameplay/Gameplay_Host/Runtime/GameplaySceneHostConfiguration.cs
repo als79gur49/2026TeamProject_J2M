@@ -156,6 +156,7 @@ namespace Game.Feature.Gameplay.Host
         public bool SnapViewCameraToTarget;
         public InputActionAsset Actions;
         public GameplayAudioMap GameplayAudioMap;
+        public ICampaignChancesReadSource CampaignChancesReadSource;
         public IEntityLogic[] StaticEntityLogics = Array.Empty<IEntityLogic>();
         public GameplayEntityView PlayerViewPrefab;
         public Camera ViewCamera;

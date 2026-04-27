@@ -110,10 +110,14 @@ namespace Game.Feature.UI.Tests
 
         public event Action<GameplayPresentationState> StateChanged;
 
+        public event Action<GameplayLevelFailedReadModel> LevelFailedCommitted;
+
         public GameplayPresentationState CurrentState { get; private set; } =
             new GameplayPresentationState(new GameplayUiTopology(GameplayUiFace.Floor), false, false, false);
 
         public StageCompletionReadModel CurrentStageCompletion { get; private set; }
+
+        public GameplayLevelFailedReadModel CurrentLevelFailed { get; private set; }
 
         public void PublishFrame(GameplayPresentationFrame frame)
         {
@@ -129,6 +133,12 @@ namespace Game.Feature.UI.Tests
         public void PublishStageCompletion(StageCompletionReadModel readModel)
         {
             CurrentStageCompletion = readModel;
+        }
+
+        public void PublishLevelFailed(GameplayLevelFailedReadModel readModel)
+        {
+            CurrentLevelFailed = readModel;
+            LevelFailedCommitted?.Invoke(readModel);
         }
     }
 
@@ -462,10 +472,13 @@ namespace Game.Feature.UI.Tests
     {
         private event Action<UIPresentationSnapshot> _snapshotChanged;
         private event Action<UITickEventBatch> _tickEventsApplied;
+        private event Action<LevelFailedScreenPayload> _levelFailedCommitted;
 
         public int SnapshotSubscriberCount { get; private set; }
 
         public int TickEventSubscriberCount { get; private set; }
+
+        public int LevelFailedSubscriberCount { get; private set; }
 
         public event Action<UIPresentationSnapshot> SnapshotChanged
         {
@@ -495,11 +508,27 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        public event Action<LevelFailedScreenPayload> LevelFailedCommitted
+        {
+            add
+            {
+                LevelFailedSubscriberCount++;
+                _levelFailedCommitted += value;
+            }
+            remove
+            {
+                LevelFailedSubscriberCount--;
+                _levelFailedCommitted -= value;
+            }
+        }
+
         public UIPresentationSnapshot CurrentSnapshot { get; private set; } = UIPresentationSnapshot.Empty;
 
         public UITickEventBatch CurrentTickEvents { get; private set; } = UITickEventBatch.Empty;
 
         public StageCompletionReadModel CurrentStageCompletion { get; private set; }
+
+        public LevelFailedScreenPayload CurrentLevelFailed { get; private set; }
 
         public void PublishSnapshot(UIPresentationSnapshot snapshot)
         {
@@ -518,6 +547,12 @@ namespace Game.Feature.UI.Tests
             CurrentStageCompletion = readModel;
         }
 
+        public void PublishLevelFailed(LevelFailedScreenPayload payload)
+        {
+            CurrentLevelFailed = payload;
+            _levelFailedCommitted?.Invoke(payload);
+        }
+
         public void UpdateUiGameplayInputBlocked(bool isUiGameplayInputBlocked)
         {
         }
@@ -532,6 +567,16 @@ namespace Game.Feature.UI.Tests
         public void Launch(StageNavigationRequest request)
         {
             requests.Add(request);
+        }
+    }
+
+    internal sealed class FakeMainMenuReturnRouter : IMainMenuReturnRouter
+    {
+        public int ReturnCallCount { get; private set; }
+
+        public void ReturnToMainMenu()
+        {
+            ReturnCallCount++;
         }
     }
 
@@ -694,6 +739,15 @@ namespace Game.Feature.UI.Tests
             },
             {
                 ScreenId.StageResult,
+                new ScreenPolicy(
+                    ScreenPolicyClass.TerminalResult,
+                    ScreenRetentionMode.DisposeOnHide,
+                    ScreenBackAction.Consume,
+                    HudShellMode.Hidden,
+                    blocksUiGameplayInput: true)
+            },
+            {
+                ScreenId.LevelFailed,
                 new ScreenPolicy(
                     ScreenPolicyClass.TerminalResult,
                     ScreenRetentionMode.DisposeOnHide,

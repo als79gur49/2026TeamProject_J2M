@@ -162,7 +162,11 @@ namespace Game.Feature.Gameplay.Host
                 new GameplayHostCommandGateway(inputHost, admissionPolicy),
                 new GameplayQueryFacade(
                     new GameplayHostSessionQuery(tickRunner, pauseService, admissionPolicy),
-                    new GameplayHostPlayerHudQuery(tickRunner, inputHost, admissionPolicy),
+                    new GameplayHostPlayerHudQuery(
+                        tickRunner,
+                        inputHost,
+                        admissionPolicy,
+                        configuration.CampaignChancesReadSource),
                     new GameplayHostObjectiveQuery(tickRunner)),
                 new GameplayHostPresentationFeed(
                     inputHost,

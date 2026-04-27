@@ -1,22 +1,29 @@
 using System;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Game.Feature.UI.Screens
 {
     public sealed class MainMenuScreenView : MonoBehaviour
     {
+        private const string MissingAuthoredStructureMessage =
+            "MainMenu screen is missing required authored shell references. Repair MainMenuScreen.prefab so it contains TopBar, ContentHost, BottomBar, SaveSlotPanelView, SettingsButton, and QuitButton.";
+
         [SerializeField] private GameObject _root;
-        [SerializeField] private SaveSlotCardView[] _slotCards = Array.Empty<SaveSlotCardView>();
+        [SerializeField] private RectTransform _topBar;
+        [SerializeField] private RectTransform _contentHost;
+        [SerializeField] private RectTransform _bottomBar;
+        [SerializeField] private SaveSlotPanelView _saveSlotPanel;
+        [SerializeField] private Button _settingsButton;
+        [SerializeField] private Button _quitButton;
 
-        private MainMenuScreenViewModel _viewModel;
+        public event Action<MainMenuCommandIntent> CommandRequested;
 
-        public event Action<SaveSlotIntent> IntentRequested;
+        public event Action<MainMenuNavigationIntent> NavigationRequested;
 
-        public void Bind(MainMenuScreenViewModel viewModel)
-        {
-            _viewModel = viewModel;
-            Refresh();
-        }
+        public SaveSlotPanelView SaveSlotPanel => _saveSlotPanel;
+
+        public MainMenuSectionId ActiveSection { get; private set; } = MainMenuSectionId.SaveSlots;
 
         public void SetVisible(bool visible)
         {
@@ -26,60 +33,100 @@ namespace Game.Feature.UI.Screens
             }
         }
 
+        public void ValidateAuthoredStructureOrThrow()
+        {
+            if (_root == null ||
+                _topBar == null ||
+                _contentHost == null ||
+                _bottomBar == null ||
+                _saveSlotPanel == null ||
+                _settingsButton == null ||
+                _quitButton == null)
+            {
+                throw new InvalidOperationException(MissingAuthoredStructureMessage);
+            }
+
+            if (_topBar.parent != transform ||
+                _contentHost.parent != transform ||
+                _bottomBar.parent != transform ||
+                _saveSlotPanel.transform.parent != _contentHost)
+            {
+                throw new InvalidOperationException(MissingAuthoredStructureMessage);
+            }
+
+            _saveSlotPanel.ValidateAuthoredStructureOrThrow();
+        }
+
+        public void ShowSection(MainMenuSectionId sectionId)
+        {
+            ActiveSection = sectionId;
+            if (_saveSlotPanel != null)
+            {
+                _saveSlotPanel.gameObject.SetActive(sectionId == MainMenuSectionId.SaveSlots);
+            }
+        }
+
+        public void SetActiveSection(MainMenuSectionId sectionId)
+        {
+            ShowSection(sectionId);
+        }
+
+        public void RequestSection(MainMenuSectionId sectionId)
+        {
+            NavigationRequested?.Invoke(new MainMenuNavigationIntent(sectionId));
+        }
+
+        public void ClickSettings()
+        {
+            CommandRequested?.Invoke(new MainMenuCommandIntent(MainMenuCommandKind.OpenSettings));
+        }
+
+        public void ClickQuit()
+        {
+            CommandRequested?.Invoke(new MainMenuCommandIntent(MainMenuCommandKind.Quit));
+        }
+
         private void OnEnable()
         {
-            WireSlotCards();
-            Refresh();
+            WireButtons();
         }
 
         private void OnDisable()
         {
-            UnwireSlotCards();
+            UnwireButtons();
         }
 
-        private void WireSlotCards()
+        private void WireButtons()
         {
-            for (var i = 0; i < _slotCards.Length; i++)
-            {
-                if (_slotCards[i] != null)
-                {
-                    _slotCards[i].IntentRequested -= HandleSlotIntentRequested;
-                    _slotCards[i].IntentRequested += HandleSlotIntentRequested;
-                }
-            }
+            Rebind(_settingsButton, ClickSettings);
+            Rebind(_quitButton, ClickQuit);
         }
 
-        private void UnwireSlotCards()
+        private void UnwireButtons()
         {
-            for (var i = 0; i < _slotCards.Length; i++)
-            {
-                if (_slotCards[i] != null)
-                {
-                    _slotCards[i].IntentRequested -= HandleSlotIntentRequested;
-                }
-            }
+            Unbind(_settingsButton, ClickSettings);
+            Unbind(_quitButton, ClickQuit);
         }
 
-        private void HandleSlotIntentRequested(SaveSlotIntent intent)
+        private static void Rebind(Button button, UnityEngine.Events.UnityAction action)
         {
-            IntentRequested?.Invoke(intent);
-        }
-
-        private void Refresh()
-        {
-            if (_viewModel == null)
+            if (button == null)
             {
                 return;
             }
 
-            var count = Math.Min(_slotCards.Length, _viewModel.SlotCards.Count);
-            for (var i = 0; i < count; i++)
+            button.onClick.RemoveListener(action);
+            button.onClick.AddListener(action);
+        }
+
+        private static void Unbind(Button button, UnityEngine.Events.UnityAction action)
+        {
+            if (button == null)
             {
-                if (_slotCards[i] != null)
-                {
-                    _slotCards[i].Bind(_viewModel.SlotCards[i]);
-                }
+                return;
             }
+
+            button.onClick.RemoveListener(action);
         }
     }
 }

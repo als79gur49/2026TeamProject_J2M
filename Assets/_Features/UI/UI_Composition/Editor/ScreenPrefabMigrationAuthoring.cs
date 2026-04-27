@@ -20,6 +20,7 @@ namespace Game.Feature.UI.Editor
         private const string InventoryScreenPrefabPath = PrefabDirectoryPath + "/InventoryScreen.prefab";
         private const string SettingsScreenPrefabPath = PrefabDirectoryPath + "/SettingsScreen.prefab";
         private const string StageResultScreenPrefabPath = PrefabDirectoryPath + "/StageResultScreen.prefab";
+        private const string LevelFailedScreenPrefabPath = PrefabDirectoryPath + "/LevelFailedScreen.prefab";
         private const string ScreenCatalogPath = PrefabDirectoryPath + "/GameplayScreenPrefabCatalog.asset";
         private const string TutorialScenePath = "Assets/Scenes/TutorialScene.unity";
 
@@ -34,6 +35,7 @@ namespace Game.Feature.UI.Editor
             SavePrefab(BuildInventoryScreenPrefab(), InventoryScreenPrefabPath);
             SavePrefab(BuildSettingsScreenPrefab(), SettingsScreenPrefabPath);
             SavePrefab(BuildStageResultScreenPrefab(), StageResultScreenPrefabPath);
+            SavePrefab(BuildLevelFailedScreenPrefab(), LevelFailedScreenPrefabPath);
 
             ImportPrefabAssets();
 
@@ -44,6 +46,7 @@ namespace Game.Feature.UI.Editor
             SetField(catalog, "_inventoryPrefab", LoadPrefabComponent<InventoryScreenView>(InventoryScreenPrefabPath));
             SetField(catalog, "_settingsPrefab", LoadPrefabComponent<SettingsScreenView>(SettingsScreenPrefabPath));
             SetField(catalog, "_stageResultPrefab", LoadPrefabComponent<StageResultScreenView>(StageResultScreenPrefabPath));
+            SetField(catalog, "_levelFailedPrefab", LoadPrefabComponent<LevelFailedScreenView>(LevelFailedScreenPrefabPath));
             EditorUtility.SetDirty(catalog);
 
             WireTutorialScene(catalog);
@@ -58,6 +61,21 @@ namespace Game.Feature.UI.Editor
             EnsureFolderExists(PrefabDirectoryPath);
             SavePrefab(BuildSettingsScreenPrefab(), SettingsScreenPrefabPath);
             AssetDatabase.ImportAsset(SettingsScreenPrefabPath, ImportAssetOptions.ForceSynchronousImport);
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+        }
+
+        [MenuItem("Game/UI/Rebuild Level Failed Screen Prefab")]
+        public static void RebuildLevelFailedScreenPrefabOnly()
+        {
+            EnsureFolderExists(PrefabDirectoryPath);
+            SavePrefab(BuildLevelFailedScreenPrefab(), LevelFailedScreenPrefabPath);
+            AssetDatabase.ImportAsset(LevelFailedScreenPrefabPath, ImportAssetOptions.ForceSynchronousImport);
+
+            var catalog = LoadOrCreateCatalog();
+            SetField(catalog, "_levelFailedPrefab", LoadPrefabComponent<LevelFailedScreenView>(LevelFailedScreenPrefabPath));
+            EditorUtility.SetDirty(catalog);
+
+            AssetDatabase.SaveAssets();
             AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
         }
 
@@ -382,6 +400,33 @@ namespace Game.Feature.UI.Editor
             SetField(view, "_detailLabel", detail);
             SetField(view, "_continueButton", button.Button);
             SetField(view, "_continueButtonLabel", button.Label);
+            return root;
+        }
+
+        private static GameObject BuildLevelFailedScreenPrefab()
+        {
+            var root = CreateScreenPanel<LevelFailedScreenView>(
+                "LevelFailedScreen",
+                new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f),
+                new Vector2(460f, 230f),
+                Vector2.zero,
+                out var view);
+            var rootRect = root.GetComponent<RectTransform>();
+
+            var title = CreateLabel("Title", rootRect, new Vector2(24f, -24f), new Vector2(412f, 32f), TextAnchor.MiddleCenter, 22, FontStyle.Bold);
+            var detail = CreateLabel("Detail", rootRect, new Vector2(24f, -78f), new Vector2(412f, 70f), TextAnchor.UpperCenter, 15);
+            var restart = CreateButton("RestartLevelButton", rootRect, "Restart Level", new Vector2(96f, -174f), new Vector2(136f, 34f));
+            var main = CreateButton("MainButton", rootRect, "Main", new Vector2(248f, -174f), new Vector2(116f, 34f));
+
+            SetField(view, "_root", root);
+            SetField(view, "_titleLabel", title);
+            SetField(view, "_detailLabel", detail);
+            SetField(view, "_restartLevelButton", restart.Button);
+            SetField(view, "_restartLevelButtonLabel", restart.Label);
+            SetField(view, "_mainButton", main.Button);
+            SetField(view, "_mainButtonLabel", main.Label);
             return root;
         }
 
@@ -976,6 +1021,7 @@ namespace Game.Feature.UI.Editor
             AssetDatabase.ImportAsset(InventoryScreenPrefabPath, ImportAssetOptions.ForceSynchronousImport);
             AssetDatabase.ImportAsset(SettingsScreenPrefabPath, ImportAssetOptions.ForceSynchronousImport);
             AssetDatabase.ImportAsset(StageResultScreenPrefabPath, ImportAssetOptions.ForceSynchronousImport);
+            AssetDatabase.ImportAsset(LevelFailedScreenPrefabPath, ImportAssetOptions.ForceSynchronousImport);
             AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
         }
 

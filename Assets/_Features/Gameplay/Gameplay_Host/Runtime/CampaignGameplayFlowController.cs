@@ -1,8 +1,8 @@
 using System;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Host.UIAccess;
+using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Stages;
-using UnityEngine.SceneManagement;
 
 namespace Game.Feature.Gameplay.Host
 {
@@ -10,7 +10,7 @@ namespace Game.Feature.Gameplay.Host
     {
         private readonly ActiveSlotProvider _activeSlotProvider;
         private readonly GameplaySceneHost _host;
-        private readonly string _sceneName;
+        private readonly IStageLaunchRouter _stageLaunchRouter;
         private readonly SaveSlotStore _saveSlotStore;
         private readonly CampaignStageSequenceResolver _sequenceResolver;
         private readonly StageRetryChanceTracker _retryChanceTracker;
@@ -23,13 +23,13 @@ namespace Game.Feature.Gameplay.Host
             SaveSlotStore saveSlotStore,
             ActiveSlotProvider activeSlotProvider,
             CampaignStageSequenceResolver sequenceResolver,
-            string sceneName)
+            IStageLaunchRouter stageLaunchRouter)
         {
             _host = host ?? throw new ArgumentNullException(nameof(host));
             _saveSlotStore = saveSlotStore ?? throw new ArgumentNullException(nameof(saveSlotStore));
             _activeSlotProvider = activeSlotProvider ?? throw new ArgumentNullException(nameof(activeSlotProvider));
             _sequenceResolver = sequenceResolver ?? throw new ArgumentNullException(nameof(sequenceResolver));
-            _sceneName = sceneName ?? string.Empty;
+            _stageLaunchRouter = stageLaunchRouter ?? throw new ArgumentNullException(nameof(stageLaunchRouter));
             _retryChanceTracker = new StageRetryChanceTracker(_sequenceResolver);
         }
 
@@ -111,8 +111,34 @@ namespace Game.Feature.Gameplay.Host
                     mutableSlot.LastPlayedAt = DateTimeOffset.UtcNow.ToString("O");
                 });
 
-            StageLaunchContextStore.SetCurrent(route.NextStageId);
-            SceneManager.LoadScene(_sceneName);
+            if (route.RouteKind == StageRetryRouteKind.ReturnToLevelGroupFirstStage)
+            {
+                PublishLevelFailed(route);
+                return;
+            }
+
+            _stageLaunchRouter.Launch(new StageNavigationRequest(
+                route.NextStageId,
+                StageNavigationKind.Retry,
+                "campaign-death-retry"));
+        }
+
+        private void PublishLevelFailed(StageRetryRouteResult route)
+        {
+            if (_presentationFeed == null)
+            {
+                throw new InvalidOperationException("Campaign level failed flow requires a gameplay presentation feed.");
+            }
+
+            _presentationFeed.PublishLevelFailed(new GameplayLevelFailedReadModel(
+                "Level Failed",
+                "All chances were used. Restart the level or return to main.",
+                "Restart Level",
+                "Main",
+                new StageNavigationRequest(
+                    route.NextStageId,
+                    StageNavigationKind.Retry,
+                    "level-failed-restart-level")));
         }
 
         private void HandleStageClearCommitted(TickResult result, StageCompletionReadModel readModel)

@@ -20,7 +20,9 @@ namespace Game.Feature.UI.Application
                 FormatAction(player),
                 tick.FinalTopology.BottomFace.ToString(),
                 FormatStatus(tick, interaction, player),
-                FormatDamage(tick, player));
+                FormatDamage(tick, player),
+                player.HasRemainingChances,
+                player.RemainingChances);
         }
 
         private static string FormatAction(UIPlayerActionSlice player)

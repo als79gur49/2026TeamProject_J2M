@@ -26,7 +26,9 @@ namespace Game.Feature.UI.Application
             bool canStartActionThisTick,
             UIRecoveryCooldownSlice? recoveryCooldown,
             bool canStartAnyActionThisTick = false,
-            bool hasExplicitPushCandidateInCurrentDirection = false)
+            bool hasExplicitPushCandidateInCurrentDirection = false,
+            bool hasRemainingChances = false,
+            int remainingChances = 0)
             : this(
                 tickIndex,
                 shouldUpdateTickIndex,
@@ -48,7 +50,9 @@ namespace Game.Feature.UI.Application
                 canStartActionThisTick,
                 recoveryCooldown,
                 canStartAnyActionThisTick,
-                hasExplicitPushCandidateInCurrentDirection)
+                hasExplicitPushCandidateInCurrentDirection,
+                hasRemainingChances,
+                remainingChances)
         {
         }
 
@@ -73,7 +77,9 @@ namespace Game.Feature.UI.Application
             bool canStartActionThisTick,
             UIRecoveryCooldownSlice? recoveryCooldown,
             bool canStartAnyActionThisTick = false,
-            bool hasExplicitPushCandidateInCurrentDirection = false)
+            bool hasExplicitPushCandidateInCurrentDirection = false,
+            bool hasRemainingChances = false,
+            int remainingChances = 0)
         {
             TickIndex = tickIndex;
             ShouldUpdateTickIndex = shouldUpdateTickIndex;
@@ -95,6 +101,8 @@ namespace Game.Feature.UI.Application
             CanStartActionThisTick = canStartActionThisTick;
             CanStartAnyActionThisTick = canStartAnyActionThisTick || canStartActionThisTick;
             HasExplicitPushCandidateInCurrentDirection = hasExplicitPushCandidateInCurrentDirection;
+            HasRemainingChances = hasRemainingChances;
+            RemainingChances = remainingChances;
             RecoveryCooldown = recoveryCooldown;
         }
 
@@ -137,6 +145,10 @@ namespace Game.Feature.UI.Application
         public bool CanStartAnyActionThisTick { get; }
 
         public bool HasExplicitPushCandidateInCurrentDirection { get; }
+
+        public bool HasRemainingChances { get; }
+
+        public int RemainingChances { get; }
 
         public UIRecoveryCooldownSlice? RecoveryCooldown { get; }
     }
@@ -241,7 +253,9 @@ namespace Game.Feature.UI.Application
                 previous.Player.LastDamageTickIndex,
                 refreshInput.RecoveryCooldown,
                 refreshInput.CanStartAnyActionThisTick,
-                refreshInput.HasExplicitPushCandidateInCurrentDirection);
+                refreshInput.HasExplicitPushCandidateInCurrentDirection,
+                refreshInput.HasRemainingChances,
+                refreshInput.RemainingChances);
 
             return new UIPresentationSnapshot(
                 tick,
@@ -276,7 +290,9 @@ namespace Game.Feature.UI.Application
                             snapshot.Player.LastDamageTickIndex,
                             snapshot.Player.RecoveryCooldown,
                             snapshot.Player.CanStartAnyActionThisTick,
-                            snapshot.Player.HasExplicitPushCandidateInCurrentDirection),
+                            snapshot.Player.HasExplicitPushCandidateInCurrentDirection,
+                            snapshot.Player.HasRemainingChances,
+                            snapshot.Player.RemainingChances),
                         snapshot.Notifications);
 
                 case UITickEventKind.PlayerDamaged:
@@ -299,7 +315,9 @@ namespace Game.Feature.UI.Application
                             tickEvent.TickIndex,
                             snapshot.Player.RecoveryCooldown,
                             snapshot.Player.CanStartAnyActionThisTick,
-                            snapshot.Player.HasExplicitPushCandidateInCurrentDirection),
+                            snapshot.Player.HasExplicitPushCandidateInCurrentDirection,
+                            snapshot.Player.HasRemainingChances,
+                            snapshot.Player.RemainingChances),
                         snapshot.Notifications);
 
                 case UITickEventKind.StageCleared:

@@ -296,6 +296,185 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        [Category("Extended")]
+        public void GameplayInstaller_NoActiveSlot_DoesNotBindCampaignController_AndDoesNotDisableRespawn()
+        {
+            var activeKey = CreatePrefsKey(nameof(GameplayInstaller_NoActiveSlot_DoesNotBindCampaignController_AndDoesNotDisableRespawn));
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            try
+            {
+                activeSlotProvider.ClearActiveSlot();
+
+                var activation = CampaignRuntimeActivationPolicy.Evaluate(
+                    enableCampaignFlow: true,
+                    activeSlotProvider,
+                    EditorDirectPlayContext.None);
+
+                Assert.That(activation.IsActive, Is.False);
+                Assert.That(activation.HasActiveSlot, Is.False);
+            }
+            finally
+            {
+                activeSlotProvider.ClearActiveSlot();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayInstaller_ActiveSlot_BindsCampaignController_AndDisablesRespawn()
+        {
+            var activeKey = CreatePrefsKey(nameof(GameplayInstaller_ActiveSlot_BindsCampaignController_AndDisablesRespawn));
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            try
+            {
+                activeSlotProvider.SetActiveSlot(1);
+
+                var activation = CampaignRuntimeActivationPolicy.Evaluate(
+                    enableCampaignFlow: true,
+                    activeSlotProvider,
+                    EditorDirectPlayContext.None);
+
+                Assert.That(activation.IsActive, Is.True);
+                Assert.That(activation.HasActiveSlot, Is.True);
+            }
+            finally
+            {
+                activeSlotProvider.ClearActiveSlot();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void NonCampaignDirectPlay_SuppressesCampaign_EvenWithStaleActiveSlot()
+        {
+            var activeKey = CreatePrefsKey(nameof(NonCampaignDirectPlay_SuppressesCampaign_EvenWithStaleActiveSlot));
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            try
+            {
+                activeSlotProvider.SetActiveSlot(1);
+                var context = EditorDirectPlayContext.CreateNonCampaign(StageId.CreateOrThrow("stage-0-1"));
+
+                var activation = CampaignRuntimeActivationPolicy.Evaluate(
+                    enableCampaignFlow: true,
+                    activeSlotProvider,
+                    context);
+
+                Assert.That(activation.HasActiveSlot, Is.True);
+                Assert.That(activation.IsSuppressedByEditorDirectPlay, Is.True);
+                Assert.That(activation.IsActive, Is.False);
+            }
+            finally
+            {
+                activeSlotProvider.ClearActiveSlot();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CampaignDirectPlay_TempSlotMode_EnablesCampaignRuntime()
+        {
+            var activeSlotProvider = new ActiveSlotProvider(EditorDirectPlayContextStore.TempActiveSlotProviderKey);
+            try
+            {
+                activeSlotProvider.ClearActiveSlot();
+                activeSlotProvider.SetActiveSlot(1);
+                var context = EditorDirectPlayContext.CreateCampaignTempSlot(
+                    StageId.CreateOrThrow("stage-2-1"),
+                    remainingChances: 2);
+
+                var activation = CampaignRuntimeActivationPolicy.Evaluate(
+                    enableCampaignFlow: true,
+                    activeSlotProvider,
+                    context);
+
+                Assert.That(activation.IsActive, Is.True);
+                Assert.That(context.SaveSlotStoreKey, Is.EqualTo(EditorDirectPlayContextStore.TempSaveSlotStoreKey));
+                Assert.That(context.ActiveSlotProviderKey, Is.EqualTo(EditorDirectPlayContextStore.TempActiveSlotProviderKey));
+            }
+            finally
+            {
+                activeSlotProvider.ClearActiveSlot();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CampaignDirectPlay_RemainingChances1_DeathPublishesLevelFailedRoute()
+        {
+            var tracker = new StageRetryChanceTracker(CreateResolver());
+            var route = tracker.ResolveDeathRoute(new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = StageId.CreateOrThrow("stage-2-2"),
+                CurrentLevelGroupId = "level-2",
+                RemainingChances = 1,
+            });
+
+            Assert.That(route.RouteKind, Is.EqualTo(StageRetryRouteKind.ReturnToLevelGroupFirstStage));
+            Assert.That(route.NextStageId.Value, Is.EqualTo("stage-2-1"));
+            Assert.That(route.RemainingChances, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void RuntimeBootstrap_FailsIfCampaignActiveSlotStageAndLaunchStageMismatch()
+        {
+            var saveKey = CreatePrefsKey(nameof(RuntimeBootstrap_FailsIfCampaignActiveSlotStageAndLaunchStageMismatch));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var installerObject = new GameObject("installer");
+            try
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                saveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
+                });
+                activeSlotProvider.SetActiveSlot(1);
+                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                SetPrivateField(installer, "_saveSlotStore", saveStore);
+                SetPrivateField(installer, "_activeSlotProvider", activeSlotProvider);
+
+                var method = typeof(StageBackedGameplayShowcaseInstallerBase).GetMethod(
+                    "ValidateActiveSlotMatchesLaunchStage",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(method, Is.Not.Null);
+                var exception = Assert.Throws<TargetInvocationException>(() => method.Invoke(
+                    installer,
+                    new object[] { StageId.CreateOrThrow("stage-2-1") }));
+
+                Assert.That(exception?.InnerException, Is.TypeOf<InvalidOperationException>());
+                StringAssert.Contains("does not match launch stage", exception?.InnerException?.Message);
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(installerObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void DeathRoute_UsesSyncedLevelGroup_NotStaleSavedGroup()
+        {
+            var tracker = new StageRetryChanceTracker(CreateResolver());
+
+            var route = tracker.ResolveDeathRoute(new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = StageId.CreateOrThrow("stage-2-2"),
+                CurrentLevelGroupId = "level-5",
+                RemainingChances = 1,
+            });
+
+            Assert.That(route.NextStageId.Value, Is.EqualTo("stage-2-1"));
+        }
+
         private static CampaignStageSequenceResolver CreateResolver()
         {
             return new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
@@ -321,7 +500,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static void SetPrivateField(object target, string fieldName, object value)
         {
-            var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            var targetType = target.GetType();
+            FieldInfo field = null;
+            for (var type = targetType; type != null && field == null; type = type.BaseType)
+            {
+                field = type.GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            }
+
             Assert.That(field, Is.Not.Null, $"{target.GetType().Name}.{fieldName}");
             field.SetValue(target, value);
         }

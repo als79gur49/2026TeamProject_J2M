@@ -3,6 +3,7 @@ using Game.Feature.Gameplay.UIAccess.Contracts;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Gameplay.UIAccess.Presentation;
 using Game.Feature.Stages;
+using Game.Feature.UI.Screens;
 
 namespace Game.Feature.UI.Application
 {
@@ -12,11 +13,15 @@ namespace Game.Feature.UI.Application
 
         event Action<UITickEventBatch> TickEventsApplied;
 
+        event Action<LevelFailedScreenPayload> LevelFailedCommitted;
+
         UIPresentationSnapshot CurrentSnapshot { get; }
 
         UITickEventBatch CurrentTickEvents { get; }
 
         StageCompletionReadModel CurrentStageCompletion { get; }
+
+        LevelFailedScreenPayload CurrentLevelFailed { get; }
 
         void UpdateUiGameplayInputBlocked(bool isUiGameplayInputBlocked);
     }
@@ -53,6 +58,7 @@ namespace Game.Feature.UI.Application
 
             _presentationFeed.FramePublished += HandleFramePublished;
             _presentationFeed.StateChanged += HandlePresentationStateChanged;
+            _presentationFeed.LevelFailedCommitted += HandleLevelFailedCommitted;
             _pauseService.PauseChanged += HandlePauseChanged;
         }
 
@@ -60,16 +66,21 @@ namespace Game.Feature.UI.Application
 
         public event Action<UITickEventBatch> TickEventsApplied;
 
+        public event Action<LevelFailedScreenPayload> LevelFailedCommitted;
+
         public UIPresentationSnapshot CurrentSnapshot { get; private set; }
 
         public UITickEventBatch CurrentTickEvents { get; private set; }
 
         public StageCompletionReadModel CurrentStageCompletion => _presentationFeed.CurrentStageCompletion;
 
+        public LevelFailedScreenPayload CurrentLevelFailed { get; private set; }
+
         public void Dispose()
         {
             _presentationFeed.FramePublished -= HandleFramePublished;
             _presentationFeed.StateChanged -= HandlePresentationStateChanged;
+            _presentationFeed.LevelFailedCommitted -= HandleLevelFailedCommitted;
             _pauseService.PauseChanged -= HandlePauseChanged;
         }
 
@@ -138,6 +149,12 @@ namespace Game.Feature.UI.Application
                         shouldUpdateFinalTopology: false)).Snapshot);
         }
 
+        private void HandleLevelFailedCommitted(GameplayLevelFailedReadModel readModel)
+        {
+            CurrentLevelFailed = LevelFailedPayloadMapper.Map(readModel);
+            LevelFailedCommitted?.Invoke(CurrentLevelFailed);
+        }
+
         private UIStateRefreshInput CreateRefreshInput(
             GameplayPresentationFrame? frame,
             bool shouldUpdateTickIndex,
@@ -178,7 +195,9 @@ namespace Game.Feature.UI.Application
                 playerHud.CanStartActionThisTick,
                 MapRecoveryCooldown(playerHud.RecoveryCooldown),
                 playerHud.CanStartAnyActionThisTick,
-                playerHud.HasExplicitPushCandidateInCurrentDirection);
+                playerHud.HasExplicitPushCandidateInCurrentDirection,
+                playerHud.HasRemainingChances,
+                playerHud.RemainingChances);
         }
 
         private static UIRecoveryCooldownSlice? MapRecoveryCooldown(GameplayUiRecoveryCooldown? recoveryCooldown)

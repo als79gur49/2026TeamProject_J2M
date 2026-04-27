@@ -1264,7 +1264,7 @@ MonoBehaviour:
   gameplayAudioMap: {fileID: 11400000, guid: 2e17653afa1ba264a950b76bcd5ccc56, type: 2}
   faceSeamGap: 3.5
   stageCatalogProvider: {fileID: 11400000, guid: acd8229e8e9e4f1da31d8206dfa8188e, type: 2}
-  campaignStageSequenceDefinition: {fileID: 0}
+  campaignStageSequenceDefinition: {fileID: 11400000, guid: bdeaa9a608b8dde4b6d0192853f857b0, type: 2}
   enableCampaignFlow: 1
   stageBackgroundRoot: {fileID: 0}
   stageBgmProfileCatalog: {fileID: 0}
@@ -1315,6 +1315,7 @@ MonoBehaviour:
   _screenPrefabCatalog: {fileID: 11400000, guid: 96b947be919f0ab4dabd973a4925ff83, type: 2}
   _popupPrefabCatalog: {fileID: 11400000, guid: b2310c16b9b12f0478d2bff3c647ea03, type: 2}
   _uiAudioCueMap: {fileID: 11400000, guid: f22f968bc51249c19c72dc545d349f23, type: 2}
+  _routeConfig: {fileID: 11400000, guid: 610a3d54d20a4aad80ceecaee720675b, type: 2}
   _installOnStart: 1
 --- !u!114 &1179627485
 MonoBehaviour:

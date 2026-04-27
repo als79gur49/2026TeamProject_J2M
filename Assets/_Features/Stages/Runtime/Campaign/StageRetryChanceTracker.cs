@@ -61,9 +61,7 @@ namespace Game.Feature.Stages
                     remainingChances - 1);
             }
 
-            var levelGroupId = !string.IsNullOrWhiteSpace(slot.CurrentLevelGroupId)
-                ? slot.CurrentLevelGroupId
-                : _sequenceResolver.GetLevelGroupId(slot.CurrentStageId);
+            var levelGroupId = _sequenceResolver.GetLevelGroupId(slot.CurrentStageId);
             if (!_sequenceResolver.TryGetFirstStageInLevelGroup(levelGroupId, out var firstStageId))
             {
                 throw new InvalidOperationException(
