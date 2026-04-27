@@ -28,9 +28,9 @@ MonoBehaviour:
   - EntityId: 55
     PresentationId: nonAttacking_showcase
   - EntityId: 56
-    PresentationId: nonAttacking_showcase
+    PresentationId: wallFollower_sun
   - EntityId: 57
-    PresentationId: Jump_showcase
+    PresentationId: jumpChaser_astra
   - EntityId: 58
     PresentationId: Charge_showcase
   - EntityId: 59

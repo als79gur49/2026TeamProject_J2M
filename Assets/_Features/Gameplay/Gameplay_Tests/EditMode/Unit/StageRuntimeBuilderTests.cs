@@ -31,7 +31,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const int TutorialEnemyId = 101;
         private const string AttackingEnemyPresentationId = "Attacking_showcase";
         private const string NonAttackingEnemyPresentationId = "nonAttacking_showcase";
-        private const string JumpEnemyPresentationId = "Jump_showcase";
+        private const string WallFollowerEnemyPresentationId = "wallFollower_sun";
+        private const string JumpChaserEnemyPresentationId = "jumpChaser_astra";
         private const string ChargeEnemyPresentationId = "Charge_showcase";
         private const string WindupEnemyPresentationId = "windup_melee_showcase";
         private const string UtilitySummonerEnemyPresentationId = "utility_summoner_prefab";
@@ -344,9 +345,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, NonAttackingShowcaseEnemyId, out var nonAttackingBinding), Is.True);
             Assert.That(nonAttackingBinding.PresentationId, Is.EqualTo(NonAttackingEnemyPresentationId));
             Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, WallFollowerShowcaseEnemyId, out var wallFollowerBinding), Is.True);
-            Assert.That(wallFollowerBinding.PresentationId, Is.EqualTo(NonAttackingEnemyPresentationId));
+            Assert.That(wallFollowerBinding.PresentationId, Is.EqualTo(WallFollowerEnemyPresentationId));
             Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, JumpShowcaseEnemyId, out var jumpBinding), Is.True);
-            Assert.That(jumpBinding.PresentationId, Is.EqualTo(JumpEnemyPresentationId));
+            Assert.That(jumpBinding.PresentationId, Is.EqualTo(JumpChaserEnemyPresentationId));
             Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, ChargeShowcaseEnemyId, out var chargeBinding), Is.True);
             Assert.That(chargeBinding.PresentationId, Is.EqualTo(ChargeEnemyPresentationId));
             Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, UtilitySummonerShowcaseEnemyId, out var utilitySummonerBinding), Is.True);

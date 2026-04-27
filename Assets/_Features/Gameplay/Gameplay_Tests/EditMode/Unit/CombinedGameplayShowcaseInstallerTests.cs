@@ -36,7 +36,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const int UtilitySummonerShowcaseEnemyId = 59;
         private const string AttackingEnemyPresentationId = "Attacking_showcase";
         private const string NonAttackingEnemyPresentationId = "nonAttacking_showcase";
-        private const string JumpEnemyPresentationId = "Jump_showcase";
+        private const string WallFollowerEnemyPresentationId = "wallFollower_sun";
+        private const string JumpChaserEnemyPresentationId = "jumpChaser_astra";
         private const string ChargeEnemyPresentationId = "Charge_showcase";
 
         [Test]
@@ -197,9 +198,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, ConfiguredShowcaseEnemyId, out var configuredBinding), Is.True);
             Assert.That(configuredBinding.PresentationId, Is.EqualTo(AttackingEnemyPresentationId));
             Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, WallFollowerShowcaseEnemyId, out var wallFollowerBinding), Is.True);
-            Assert.That(wallFollowerBinding.PresentationId, Is.EqualTo(NonAttackingEnemyPresentationId));
+            Assert.That(wallFollowerBinding.PresentationId, Is.EqualTo(WallFollowerEnemyPresentationId));
             Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, JumpShowcaseEnemyId, out var jumpBinding), Is.True);
-            Assert.That(jumpBinding.PresentationId, Is.EqualTo(JumpEnemyPresentationId));
+            Assert.That(jumpBinding.PresentationId, Is.EqualTo(JumpChaserEnemyPresentationId));
             Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, ChargeShowcaseEnemyId, out var chargeBinding), Is.True);
             Assert.That(chargeBinding.PresentationId, Is.EqualTo(ChargeEnemyPresentationId));
             Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, UtilitySummonerShowcaseEnemyId, out var utilitySummonerBinding), Is.True);
