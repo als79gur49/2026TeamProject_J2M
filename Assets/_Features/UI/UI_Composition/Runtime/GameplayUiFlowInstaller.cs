@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Stages;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.HUD;
@@ -34,6 +35,7 @@ namespace Game.Feature.UI.Composition
         // Popup-prefab composition remains popup-only. Do not widen this into a cross-layer asset registry.
         [SerializeField] private PopupPrefabCatalog _popupPrefabCatalog;
         [SerializeField] private UiAudioCueMap _uiAudioCueMap;
+        [SerializeField] private GameplayStageLaunchRouteConfig _routeConfig;
         [SerializeField] private bool _installOnStart = true;
 
         private UiArchitectureDiagnosticsTracker _diagnosticsTracker;
@@ -211,7 +213,8 @@ namespace Game.Feature.UI.Composition
                 Ports.PauseService,
                 PresentationSource,
                 uiAudioPort,
-                new CurrentSceneStageLaunchRouter(gameObject.scene.name));
+                new CurrentSceneStageLaunchRouter(gameObject.scene.name),
+                CreateMainMenuReturnRouter());
             _stageResultAutoNextDriver = new StageResultAutoNextDriver(
                 ScreenController,
                 PopupController,
@@ -366,6 +369,13 @@ namespace Game.Feature.UI.Composition
             }
 
             return audioRuntimeInstaller;
+        }
+
+        private IMainMenuReturnRouter CreateMainMenuReturnRouter()
+        {
+            return _routeConfig != null
+                ? new ConfiguredMainMenuReturnRouter(_routeConfig)
+                : NoOpMainMenuReturnRouter.Instance;
         }
 
         private void EnsureAudioSettingsLifecycleRelay(IAudioSettingsPort audioSettingsPort)
