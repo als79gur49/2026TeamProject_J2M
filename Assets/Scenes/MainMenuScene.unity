@@ -131,6 +131,8 @@ GameObject:
   - component: {fileID: 1002}
   - component: {fileID: 1003}
   - component: {fileID: 1004}
+  - component: {fileID: 1005}
+  - component: {fileID: 1006}
   m_Layer: 5
   m_Name: MainMenuBootstrapRoot
   m_TagString: Untagged
@@ -174,6 +176,7 @@ MonoBehaviour:
   _settingsScreenPrefab: {fileID: 8102357125233103768, guid: 55b072965064aa64186ae00710d369a8, type: 3}
   _popupLayerView: {fileID: 0}
   _popupPrefabCatalog: {fileID: 11400000, guid: b2310c16b9b12f0478d2bff3c647ea03, type: 2}
+  _uiAudioCueMap: {fileID: 11400000, guid: f22f968bc51249c19c72dc545d349f23, type: 2}
   _routeConfig: {fileID: 11400000, guid: 610a3d54d20a4aad80ceecaee720675b, type: 2}
   _stageCatalogProvider: {fileID: 11400000, guid: acd8229e8e9e4f1da31d8206dfa8188e, type: 2}
   _campaignStageSequenceDefinition: {fileID: 11400000, guid: bdeaa9a608b8dde4b6d0192853f857b0, type: 2}
@@ -207,6 +210,34 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Shared.Display::Game.Shared.Display.DisplayRuntimeInstaller
   installOnAwake: 1
+--- !u!114 &1005
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9c6e4d677b454b719df7fcbce88cf09e, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game.Feature.Flow.Audio::Game.Feature.Flow.Audio.GlobalAudioFlowBootstrap
+  audioRuntimeInstaller: {fileID: 1003}
+  persistentRoot: {fileID: 0}
+--- !u!114 &1006
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cfb34ae4a4f04214b0df88a1d56a8590, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game.Feature.Flow.Audio::Game.Feature.Flow.Audio.SceneBgmRequestSource
+  bootstrap: {fileID: 1005}
+  profile: {fileID: 11400000, guid: 1867b7d5eea89ba35c164011be1152a1, type: 2}
 --- !u!1 &2118448076
 GameObject:
   m_ObjectHideFlags: 0
