@@ -46,6 +46,8 @@ namespace Game.Feature.Gameplay.Host
 
         internal int PlayerEntityId => _playerEntityId;
 
+        public InputActionAsset Actions => _actions;
+
         internal bool IsSimulationPaused => _isSimulationPaused;
 
         internal bool IsTerminalHoldActive => _isTerminalHoldActive;

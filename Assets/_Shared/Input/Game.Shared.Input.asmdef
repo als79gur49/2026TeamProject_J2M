@@ -1,0 +1,7 @@
+{
+  "name": "Game.Shared.Input",
+  "rootNamespace": "Game.Shared.Input",
+  "references": [
+    "Unity.InputSystem"
+  ]
+}
