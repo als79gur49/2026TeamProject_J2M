@@ -8,6 +8,8 @@ using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
+using Game.Shared.Audio;
+using Game.Shared.Display;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -18,6 +20,7 @@ namespace Game.Feature.UI.Tests
     public sealed class CampaignProductionEntryTests
     {
         private const string MainMenuScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab";
+        private const string SettingsScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab";
         private const string PopupCatalogPath = "Assets/_Features/UI/UI_Popups/Prefabs/GameplayPopupPrefabCatalog.asset";
         private const string RouteConfigPath = "Assets/_Features/UI/UI_Composition/Authoring/GameplayStageLaunchRouteConfig.asset";
         private const string MainMenuScenePath = "Assets/Scenes/MainMenuScene.unity";
@@ -41,13 +44,17 @@ namespace Game.Feature.UI.Tests
             var provider = CreateProvider("stage-0-1");
             var catalog = AssetDatabase.LoadAssetAtPath<PopupPrefabCatalog>(PopupCatalogPath);
             var prefab = AssetDatabase.LoadAssetAtPath<MainMenuScreenView>(MainMenuScreenPrefabPath);
+            var settingsPrefab = AssetDatabase.LoadAssetAtPath<SettingsScreenView>(SettingsScreenPrefabPath);
             var routeConfig = AssetDatabase.LoadAssetAtPath<GameplayStageLaunchRouteConfig>(RouteConfigPath);
 
             try
             {
                 var installer = root.AddComponent<MainMenuUiFlowInstaller>();
+                root.AddComponent<AudioRuntimeInstaller>();
+                root.AddComponent<DisplayRuntimeInstaller>();
                 SetPrivateField(installer, "_installOnStart", false);
                 SetPrivateField(installer, "_mainMenuScreenPrefab", prefab);
+                SetPrivateField(installer, "_settingsScreenPrefab", settingsPrefab);
                 SetPrivateField(installer, "_popupPrefabCatalog", catalog);
                 SetPrivateField(installer, "_routeConfig", routeConfig);
                 SetPrivateField(installer, "_stageCatalogProvider", provider.Provider);
@@ -75,13 +82,17 @@ namespace Game.Feature.UI.Tests
             var provider = CreateProvider("stage-0-1");
             var catalog = AssetDatabase.LoadAssetAtPath<PopupPrefabCatalog>(PopupCatalogPath);
             var prefab = AssetDatabase.LoadAssetAtPath<MainMenuScreenView>(MainMenuScreenPrefabPath);
+            var settingsPrefab = AssetDatabase.LoadAssetAtPath<SettingsScreenView>(SettingsScreenPrefabPath);
             var routeConfig = AssetDatabase.LoadAssetAtPath<GameplayStageLaunchRouteConfig>(RouteConfigPath);
 
             try
             {
                 var installer = root.AddComponent<MainMenuUiFlowInstaller>();
+                root.AddComponent<AudioRuntimeInstaller>();
+                root.AddComponent<DisplayRuntimeInstaller>();
                 SetPrivateField(installer, "_installOnStart", false);
                 SetPrivateField(installer, "_mainMenuScreenPrefab", prefab);
+                SetPrivateField(installer, "_settingsScreenPrefab", settingsPrefab);
                 SetPrivateField(installer, "_popupPrefabCatalog", catalog);
                 SetPrivateField(installer, "_routeConfig", routeConfig);
                 SetPrivateField(installer, "_stageCatalogProvider", provider.Provider);

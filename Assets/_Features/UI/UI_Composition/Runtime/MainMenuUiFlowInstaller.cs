@@ -4,6 +4,8 @@ using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
+using Game.Shared.Audio;
+using Game.Shared.Display;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -21,18 +23,31 @@ namespace Game.Feature.UI.Composition
             "MainMenuUiFlowInstaller requires a MainMenuScreenView prefab reference.";
         private const string MissingPopupPrefabCatalogMessage =
             "MainMenuUiFlowInstaller requires a PopupPrefabCatalog reference.";
+        private const string MissingSettingsScreenPrefabMessage =
+            "MainMenuUiFlowInstaller requires a SettingsScreenView prefab reference.";
+        private const string MissingAudioInstallerMessage =
+            "MainMenuUiFlowInstaller requires a same-root AudioRuntimeInstaller with an AudioSettingsService.";
+        private const string MissingDisplayInstallerMessage =
+            "MainMenuUiFlowInstaller requires a same-root DisplayRuntimeInstaller with a DisplaySettingsService.";
 
         [SerializeField] private MainMenuScreenView _mainMenuScreenView;
         [SerializeField] private MainMenuScreenView _mainMenuScreenPrefab;
+        [SerializeField] private SettingsScreenView _settingsScreenPrefab;
         [SerializeField] private PopupLayerView _popupLayerView;
         [SerializeField] private PopupPrefabCatalog _popupPrefabCatalog;
         [SerializeField] private GameplayStageLaunchRouteConfig _routeConfig;
         [SerializeField] private ScriptableObjectStageCatalogProvider _stageCatalogProvider;
         [SerializeField] private CampaignStageSequenceDefinition _campaignStageSequenceDefinition;
+        [SerializeField] private double _settingsPreviewTimeoutSeconds = 15d;
         [SerializeField] private bool _installOnStart = true;
 
+        private AudioSettingsLifecycleRelay _audioSettingsLifecycleRelay;
         private IConfirmPopupPort _confirmPopupPort;
+        private DisplayPreviewTimeoutRelay _displayPreviewTimeoutRelay;
+        private DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
         private bool _isInstalled;
+        private MainMenuSettingsOverlayController _settingsOverlayController;
+        private IMainMenuSettingsPort _settingsPort;
 
         public MainMenuController Controller { get; private set; }
 
@@ -79,6 +94,7 @@ namespace Game.Feature.UI.Composition
 
             _mainMenuScreenView.ValidateAuthoredStructureOrThrow();
             BuildPopupModule();
+            BuildSettingsModule();
             BuildSaveSlotModule();
             BuildHubModule();
             _mainMenuScreenView.SetVisible(true);
@@ -92,6 +108,42 @@ namespace Game.Feature.UI.Composition
             PopupController.StateChanged += SyncPopupLayer;
             _popupLayerView.BackdropClicked += HandlePopupBackdropClicked;
             _confirmPopupPort = new ConfirmPopupPortAdapter(PopupController);
+        }
+
+        private void BuildSettingsModule()
+        {
+            if (_settingsScreenPrefab == null)
+            {
+                throw new InvalidOperationException(MissingSettingsScreenPrefabMessage);
+            }
+
+            var audioSettingsPort = CreateAudioSettingsPort();
+            var displaySettingsPort = CreateDisplaySettingsPort();
+            EnsureAudioSettingsLifecycleRelay(audioSettingsPort);
+            EnsureDisplayPreviewTimeoutRelay();
+            EnsureDisplaySettingsLifecycleRelay();
+
+            var accessibilitySettingsStore = new AccessibilitySettingsStore();
+            var displayPreviewSessionHost = new DisplayPreviewSessionHost(
+                PopupController,
+                _displayPreviewTimeoutRelay,
+                _settingsPreviewTimeoutSeconds);
+
+            _settingsOverlayController = new MainMenuSettingsOverlayController(
+                transform,
+                _popupLayerView != null ? _popupLayerView.transform : null,
+                contentRoot => new MainMenuSettingsRuntime(
+                    _settingsScreenPrefab,
+                    contentRoot,
+                    accessibilitySettingsStore,
+                    audioSettingsPort,
+                    displaySettingsPort,
+                    PopupController,
+                    displayPreviewSessionHost,
+                    _displaySettingsLifecycleRelay,
+                    SettingsScreenPayload.Default,
+                    _settingsPreviewTimeoutSeconds));
+            _settingsPort = new MainMenuSettingsPortAdapter(_settingsOverlayController);
         }
 
         private void BuildSaveSlotModule()
@@ -119,7 +171,7 @@ namespace Game.Feature.UI.Composition
         private void BuildHubModule()
         {
             HubController = new MainMenuHubController(
-                NoOpMainMenuSettingsPort.Instance,
+                _settingsPort ?? NoOpMainMenuSettingsPort.Instance,
                 new UnityApplicationQuitPort(),
                 _confirmPopupPort,
                 _mainMenuScreenView.ShowSection);
@@ -157,6 +209,7 @@ namespace Game.Feature.UI.Composition
                 PopupController.StateChanged -= SyncPopupLayer;
             }
 
+            _settingsOverlayController?.Dispose();
             PopupController?.Dispose();
         }
 
@@ -298,6 +351,69 @@ namespace Game.Feature.UI.Composition
             contentRect.offsetMax = Vector2.zero;
 
             _popupLayerView.Configure(layerRoot, backdropCanvasGroup, backdropImage, backdropButton, contentRect);
+        }
+
+        private IAudioSettingsPort CreateAudioSettingsPort()
+        {
+            var audioRuntimeInstaller = GetComponent<AudioRuntimeInstaller>();
+            if (audioRuntimeInstaller == null)
+            {
+                throw new InvalidOperationException(MissingAudioInstallerMessage);
+            }
+
+            audioRuntimeInstaller.Install();
+            if (audioRuntimeInstaller.AudioSettingsService == null)
+            {
+                throw new InvalidOperationException(MissingAudioInstallerMessage);
+            }
+
+            return new AudioSettingsPortAdapter(audioRuntimeInstaller.AudioSettingsService);
+        }
+
+        private IDisplaySettingsPort CreateDisplaySettingsPort()
+        {
+            var displayRuntimeInstaller = GetComponent<DisplayRuntimeInstaller>();
+            if (displayRuntimeInstaller == null)
+            {
+                throw new InvalidOperationException(MissingDisplayInstallerMessage);
+            }
+
+            displayRuntimeInstaller.Install();
+            if (displayRuntimeInstaller.DisplaySettingsService == null)
+            {
+                throw new InvalidOperationException(MissingDisplayInstallerMessage);
+            }
+
+            return new DisplaySettingsPortAdapter(displayRuntimeInstaller.DisplaySettingsService);
+        }
+
+        private void EnsureAudioSettingsLifecycleRelay(IAudioSettingsPort audioSettingsPort)
+        {
+            _audioSettingsLifecycleRelay = GetComponent<AudioSettingsLifecycleRelay>();
+            if (_audioSettingsLifecycleRelay == null)
+            {
+                _audioSettingsLifecycleRelay = gameObject.AddComponent<AudioSettingsLifecycleRelay>();
+            }
+
+            _audioSettingsLifecycleRelay.Initialize(audioSettingsPort);
+        }
+
+        private void EnsureDisplayPreviewTimeoutRelay()
+        {
+            _displayPreviewTimeoutRelay = GetComponent<DisplayPreviewTimeoutRelay>();
+            if (_displayPreviewTimeoutRelay == null)
+            {
+                _displayPreviewTimeoutRelay = gameObject.AddComponent<DisplayPreviewTimeoutRelay>();
+            }
+        }
+
+        private void EnsureDisplaySettingsLifecycleRelay()
+        {
+            _displaySettingsLifecycleRelay = GetComponent<DisplaySettingsLifecycleRelay>();
+            if (_displaySettingsLifecycleRelay == null)
+            {
+                _displaySettingsLifecycleRelay = gameObject.AddComponent<DisplaySettingsLifecycleRelay>();
+            }
         }
     }
 }
