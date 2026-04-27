@@ -32,6 +32,10 @@ namespace Game.Feature.UI.Composition
 
         public bool IsOpen => runtime != null;
 
+        public event Action Opened;
+
+        public event Action Closed;
+
         public RectTransform ContentRoot
         {
             get
@@ -70,6 +74,7 @@ namespace Game.Feature.UI.Composition
             {
                 SetOverlayVisible(true);
                 runtime.Open();
+                Opened?.Invoke();
             }
             catch
             {
@@ -94,6 +99,7 @@ namespace Game.Feature.UI.Composition
             closingRuntime.CloseRequested -= HandleRuntimeCloseRequested;
             closingRuntime.Dispose();
             SetOverlayVisible(false);
+            Closed?.Invoke();
         }
 
         public void Focus()

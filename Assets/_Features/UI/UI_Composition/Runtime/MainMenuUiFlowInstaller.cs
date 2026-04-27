@@ -26,15 +26,18 @@ namespace Game.Feature.UI.Composition
         private const string MissingSettingsScreenPrefabMessage =
             "MainMenuUiFlowInstaller requires a SettingsScreenView prefab reference.";
         private const string MissingAudioInstallerMessage =
-            "MainMenuUiFlowInstaller requires a same-root AudioRuntimeInstaller with an AudioSettingsService.";
+            "MainMenuUiFlowInstaller requires a same-root AudioRuntimeInstaller with audio runtime services.";
         private const string MissingDisplayInstallerMessage =
             "MainMenuUiFlowInstaller requires a same-root DisplayRuntimeInstaller with a DisplaySettingsService.";
+        private const string MissingUiAudioCueMapMessage =
+            "MainMenuUiFlowInstaller requires a serialized UiAudioCueMap for MainMenu UI SFX.";
 
         [SerializeField] private MainMenuScreenView _mainMenuScreenView;
         [SerializeField] private MainMenuScreenView _mainMenuScreenPrefab;
         [SerializeField] private SettingsScreenView _settingsScreenPrefab;
         [SerializeField] private PopupLayerView _popupLayerView;
         [SerializeField] private PopupPrefabCatalog _popupPrefabCatalog;
+        [SerializeField] private UiAudioCueMap _uiAudioCueMap;
         [SerializeField] private GameplayStageLaunchRouteConfig _routeConfig;
         [SerializeField] private ScriptableObjectStageCatalogProvider _stageCatalogProvider;
         [SerializeField] private CampaignStageSequenceDefinition _campaignStageSequenceDefinition;
@@ -48,6 +51,7 @@ namespace Game.Feature.UI.Composition
         private bool _isInstalled;
         private MainMenuSettingsOverlayController _settingsOverlayController;
         private IMainMenuSettingsPort _settingsPort;
+        private MainMenuUiAudioFeedbackController _uiAudioFeedbackController;
 
         public MainMenuController Controller { get; private set; }
 
@@ -97,6 +101,7 @@ namespace Game.Feature.UI.Composition
             BuildSettingsModule();
             BuildSaveSlotModule();
             BuildHubModule();
+            BuildAudioFeedbackModule();
             _mainMenuScreenView.SetVisible(true);
             _popupLayerView.SetState(false, false, false, PopupBackdropMode.None);
             _isInstalled = true;
@@ -181,8 +186,21 @@ namespace Game.Feature.UI.Composition
             _mainMenuScreenView.ShowSection(MainMenuSectionId.SaveSlots);
         }
 
+        private void BuildAudioFeedbackModule()
+        {
+            var uiAudioPort = CreateUiAudioPort();
+            _uiAudioFeedbackController = new MainMenuUiAudioFeedbackController(uiAudioPort);
+            _uiAudioFeedbackController.Attach(
+                _mainMenuScreenView,
+                PopupController,
+                _settingsOverlayController);
+        }
+
         private void OnDestroy()
         {
+            _uiAudioFeedbackController?.Dispose();
+            _uiAudioFeedbackController = null;
+
             if (Controller != null)
             {
                 Controller.ViewModelChanged -= HandleControllerViewModelChanged;
@@ -210,6 +228,7 @@ namespace Game.Feature.UI.Composition
             }
 
             _settingsOverlayController?.Dispose();
+            _audioSettingsLifecycleRelay?.FlushNow();
             PopupController?.Dispose();
         }
 
@@ -355,12 +374,7 @@ namespace Game.Feature.UI.Composition
 
         private IAudioSettingsPort CreateAudioSettingsPort()
         {
-            var audioRuntimeInstaller = GetComponent<AudioRuntimeInstaller>();
-            if (audioRuntimeInstaller == null)
-            {
-                throw new InvalidOperationException(MissingAudioInstallerMessage);
-            }
-
+            var audioRuntimeInstaller = GetRequiredAudioRuntimeInstaller();
             audioRuntimeInstaller.Install();
             if (audioRuntimeInstaller.AudioSettingsService == null)
             {
@@ -368,6 +382,23 @@ namespace Game.Feature.UI.Composition
             }
 
             return new AudioSettingsPortAdapter(audioRuntimeInstaller.AudioSettingsService);
+        }
+
+        private IUiAudioPort CreateUiAudioPort()
+        {
+            if (_uiAudioCueMap == null)
+            {
+                throw new InvalidOperationException(MissingUiAudioCueMapMessage);
+            }
+
+            var audioRuntimeInstaller = GetRequiredAudioRuntimeInstaller();
+            audioRuntimeInstaller.Install();
+            if (audioRuntimeInstaller.AudioService == null)
+            {
+                throw new InvalidOperationException(MissingAudioInstallerMessage);
+            }
+
+            return new UiAudioPortAdapter(audioRuntimeInstaller.AudioService, _uiAudioCueMap);
         }
 
         private IDisplaySettingsPort CreateDisplaySettingsPort()
@@ -385,6 +416,17 @@ namespace Game.Feature.UI.Composition
             }
 
             return new DisplaySettingsPortAdapter(displayRuntimeInstaller.DisplaySettingsService);
+        }
+
+        private AudioRuntimeInstaller GetRequiredAudioRuntimeInstaller()
+        {
+            var audioRuntimeInstaller = GetComponent<AudioRuntimeInstaller>();
+            if (audioRuntimeInstaller == null)
+            {
+                throw new InvalidOperationException(MissingAudioInstallerMessage);
+            }
+
+            return audioRuntimeInstaller;
         }
 
         private void EnsureAudioSettingsLifecycleRelay(IAudioSettingsPort audioSettingsPort)

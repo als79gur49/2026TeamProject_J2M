@@ -22,6 +22,7 @@ namespace Game.Feature.UI.Tests
         private const string MainMenuScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab";
         private const string SettingsScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab";
         private const string PopupCatalogPath = "Assets/_Features/UI/UI_Popups/Prefabs/GameplayPopupPrefabCatalog.asset";
+        private const string UiAudioCueMapPath = "Assets/_Features/UI/UI_Composition/Authoring/UiAudioCueMap_V1.asset";
         private const string RouteConfigPath = "Assets/_Features/UI/UI_Composition/Authoring/GameplayStageLaunchRouteConfig.asset";
         private const string MainMenuScenePath = "Assets/Scenes/MainMenuScene.unity";
         private const string GameplayShellScenePath = "Assets/Scenes/UIAudioScene.unity";
@@ -43,6 +44,7 @@ namespace Game.Feature.UI.Tests
             var root = new GameObject("main-menu-installer");
             var provider = CreateProvider("stage-0-1");
             var catalog = AssetDatabase.LoadAssetAtPath<PopupPrefabCatalog>(PopupCatalogPath);
+            var uiAudioCueMap = AssetDatabase.LoadAssetAtPath<UiAudioCueMap>(UiAudioCueMapPath);
             var prefab = AssetDatabase.LoadAssetAtPath<MainMenuScreenView>(MainMenuScreenPrefabPath);
             var settingsPrefab = AssetDatabase.LoadAssetAtPath<SettingsScreenView>(SettingsScreenPrefabPath);
             var routeConfig = AssetDatabase.LoadAssetAtPath<GameplayStageLaunchRouteConfig>(RouteConfigPath);
@@ -56,6 +58,7 @@ namespace Game.Feature.UI.Tests
                 SetPrivateField(installer, "_mainMenuScreenPrefab", prefab);
                 SetPrivateField(installer, "_settingsScreenPrefab", settingsPrefab);
                 SetPrivateField(installer, "_popupPrefabCatalog", catalog);
+                SetPrivateField(installer, "_uiAudioCueMap", uiAudioCueMap);
                 SetPrivateField(installer, "_routeConfig", routeConfig);
                 SetPrivateField(installer, "_stageCatalogProvider", provider.Provider);
                 SetPrivateField(installer, "_campaignStageSequenceDefinition", CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
@@ -81,6 +84,7 @@ namespace Game.Feature.UI.Tests
             var root = new GameObject("main-menu-delete-popup-installer");
             var provider = CreateProvider("stage-0-1");
             var catalog = AssetDatabase.LoadAssetAtPath<PopupPrefabCatalog>(PopupCatalogPath);
+            var uiAudioCueMap = AssetDatabase.LoadAssetAtPath<UiAudioCueMap>(UiAudioCueMapPath);
             var prefab = AssetDatabase.LoadAssetAtPath<MainMenuScreenView>(MainMenuScreenPrefabPath);
             var settingsPrefab = AssetDatabase.LoadAssetAtPath<SettingsScreenView>(SettingsScreenPrefabPath);
             var routeConfig = AssetDatabase.LoadAssetAtPath<GameplayStageLaunchRouteConfig>(RouteConfigPath);
@@ -94,6 +98,7 @@ namespace Game.Feature.UI.Tests
                 SetPrivateField(installer, "_mainMenuScreenPrefab", prefab);
                 SetPrivateField(installer, "_settingsScreenPrefab", settingsPrefab);
                 SetPrivateField(installer, "_popupPrefabCatalog", catalog);
+                SetPrivateField(installer, "_uiAudioCueMap", uiAudioCueMap);
                 SetPrivateField(installer, "_routeConfig", routeConfig);
                 SetPrivateField(installer, "_stageCatalogProvider", provider.Provider);
                 SetPrivateField(installer, "_campaignStageSequenceDefinition", CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
