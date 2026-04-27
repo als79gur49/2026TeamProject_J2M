@@ -59,7 +59,10 @@ namespace Game.Feature.Flow.Audio
 
             current = this;
             gameObject.name = RootObjectName;
-            DontDestroyOnLoad(gameObject);
+            if (Application.isPlaying)
+            {
+                DontDestroyOnLoad(gameObject);
+            }
 
             if (isInitialized)
             {

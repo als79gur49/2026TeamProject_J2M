@@ -486,10 +486,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 SetSerializedField(typeof(AudioDefinition), definitionB, "category", AudioCategory.Bgm);
                 var manager = CreateInitializedManager(rootObject, new RecordingAudioSettingsPersistenceStore());
 
-                var firstHandle = manager.PlayBgm(definitionA);
+                var firstHandle = manager.PlayBgm(CreateBgmPlayRequest(definitionA, AudioBgmTransition.Immediate));
                 Assert.That(manager.CaptureLivePlaybackCount(), Is.EqualTo(1));
 
-                var secondHandle = manager.PlayBgm(definitionB);
+                var secondHandle = manager.PlayBgm(CreateBgmPlayRequest(definitionB, AudioBgmTransition.Immediate));
                 var snapshots = manager.CaptureLivePlaybackSnapshots();
 
                 Assert.That(firstHandle.IsValid, Is.False);
@@ -504,6 +504,288 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 UnityEngine.Object.DestroyImmediate(definitionB);
                 UnityEngine.Object.DestroyImmediate(clipA);
                 UnityEngine.Object.DestroyImmediate(clipB);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void AudioPlaybackService_PlayBgmFadeOutIn_FadesOutThenFadesIn()
+        {
+            var rootObject = new GameObject("AudioBgmFadeOutInRoot");
+            var clipA = AudioClip.Create("BgmFadeA", 4410, 1, 44100, false);
+            var clipB = AudioClip.Create("BgmFadeB", 4410, 1, 44100, false);
+            var definitionA = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+            var definitionB = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+
+            try
+            {
+                ConfigureBgmDefinition(definitionA, clipA);
+                ConfigureBgmDefinition(definitionB, clipB);
+                var manager = CreateInitializedManager(rootObject, new RecordingAudioSettingsPersistenceStore());
+
+                manager.PlayBgm(CreateBgmPlayRequest(definitionA, AudioBgmTransition.Immediate));
+                manager.PlayBgm(CreateBgmPlayRequest(definitionB, AudioBgmTransition.FadeOutIn(1f, 1f)));
+
+                manager.TickForTesting(0.5f);
+                var fadeOutSnapshot = manager.CaptureLivePlaybackSnapshots();
+                Assert.That(fadeOutSnapshot, Has.Length.EqualTo(1));
+                Assert.That(fadeOutSnapshot[0].Source.clip, Is.SameAs(clipA));
+                Assert.That(fadeOutSnapshot[0].FadeMultiplier, Is.EqualTo(0.5f).Within(0.0001f));
+                Assert.That(fadeOutSnapshot[0].Source.volume, Is.EqualTo(0.5f).Within(0.0001f));
+
+                manager.TickForTesting(0.5f);
+                var switchedSnapshot = manager.CaptureLivePlaybackSnapshots();
+                Assert.That(switchedSnapshot, Has.Length.EqualTo(1));
+                Assert.That(switchedSnapshot[0].Source.clip, Is.SameAs(clipB));
+                Assert.That(switchedSnapshot[0].FadeMultiplier, Is.EqualTo(0f).Within(0.0001f));
+                Assert.That(switchedSnapshot[0].Source.volume, Is.EqualTo(0f).Within(0.0001f));
+
+                manager.TickForTesting(0.5f);
+                Assert.That(switchedSnapshot[0].Source.volume, Is.EqualTo(0.5f).Within(0.0001f));
+
+                manager.TickForTesting(0.5f);
+                Assert.That(switchedSnapshot[0].Source.volume, Is.EqualTo(1f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(definitionA);
+                UnityEngine.Object.DestroyImmediate(definitionB);
+                UnityEngine.Object.DestroyImmediate(clipA);
+                UnityEngine.Object.DestroyImmediate(clipB);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void AudioPlaybackService_FadeInWhenNoCurrentBgm_StartsAtZeroAndRampsUp()
+        {
+            var rootObject = new GameObject("AudioBgmFadeInOnlyRoot");
+            var clip = AudioClip.Create("BgmFadeInOnly", 4410, 1, 44100, false);
+            var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+
+            try
+            {
+                ConfigureBgmDefinition(definition, clip);
+                var manager = CreateInitializedManager(rootObject, new RecordingAudioSettingsPersistenceStore());
+
+                var handle = manager.PlayBgm(CreateBgmPlayRequest(definition, AudioBgmTransition.FadeOutIn(1f, 1f)));
+                var snapshot = manager.CaptureLivePlaybackSnapshots();
+
+                Assert.That(handle.IsValid, Is.True);
+                Assert.That(snapshot, Has.Length.EqualTo(1));
+                Assert.That(snapshot[0].Source.volume, Is.EqualTo(0f).Within(0.0001f));
+
+                manager.TickForTesting(0.5f);
+                Assert.That(snapshot[0].Source.volume, Is.EqualTo(0.5f).Within(0.0001f));
+
+                manager.TickForTesting(0.5f);
+                Assert.That(snapshot[0].Source.volume, Is.EqualTo(1f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(definition);
+                UnityEngine.Object.DestroyImmediate(clip);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void AudioPlaybackService_StopFadeOut_FadesToZeroThenStops()
+        {
+            var rootObject = new GameObject("AudioBgmStopFadeRoot");
+            var clip = AudioClip.Create("BgmStopFade", 4410, 1, 44100, false);
+            var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+
+            try
+            {
+                ConfigureBgmDefinition(definition, clip);
+                var manager = CreateInitializedManager(rootObject, new RecordingAudioSettingsPersistenceStore());
+
+                manager.PlayBgm(CreateBgmPlayRequest(definition, AudioBgmTransition.Immediate));
+                manager.StopBgm(new AudioBgmStopRequest(AudioBgmTransition.FadeOutIn(1f, 1f)));
+
+                manager.TickForTesting(0.5f);
+                var snapshot = manager.CaptureLivePlaybackSnapshots();
+                Assert.That(snapshot, Has.Length.EqualTo(1));
+                Assert.That(snapshot[0].Source.volume, Is.EqualTo(0.5f).Within(0.0001f));
+
+                manager.TickForTesting(0.5f);
+                Assert.That(manager.CaptureLivePlaybackCount(), Is.EqualTo(0));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(definition);
+                UnityEngine.Object.DestroyImmediate(clip);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void AudioPlaybackService_ZeroFadeDuration_BehavesImmediate()
+        {
+            var rootObject = new GameObject("AudioBgmZeroFadeRoot");
+            var clipA = AudioClip.Create("BgmZeroA", 4410, 1, 44100, false);
+            var clipB = AudioClip.Create("BgmZeroB", 4410, 1, 44100, false);
+            var definitionA = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+            var definitionB = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+
+            try
+            {
+                ConfigureBgmDefinition(definitionA, clipA);
+                ConfigureBgmDefinition(definitionB, clipB);
+                var manager = CreateInitializedManager(rootObject, new RecordingAudioSettingsPersistenceStore());
+
+                var firstHandle = manager.PlayBgm(CreateBgmPlayRequest(definitionA, AudioBgmTransition.Immediate));
+                var secondHandle = manager.PlayBgm(CreateBgmPlayRequest(definitionB, AudioBgmTransition.FadeOutIn(0f, 0f)));
+                var snapshot = manager.CaptureLivePlaybackSnapshots();
+
+                Assert.That(firstHandle.IsValid, Is.False);
+                Assert.That(secondHandle.IsValid, Is.True);
+                Assert.That(snapshot, Has.Length.EqualTo(1));
+                Assert.That(snapshot[0].Source.clip, Is.SameAs(clipB));
+                Assert.That(snapshot[0].Source.volume, Is.EqualTo(1f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(definitionA);
+                UnityEngine.Object.DestroyImmediate(definitionB);
+                UnityEngine.Object.DestroyImmediate(clipA);
+                UnityEngine.Object.DestroyImmediate(clipB);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void AudioPlaybackService_NewRequestDuringFade_CancelsPreviousAndUsesLatest()
+        {
+            var rootObject = new GameObject("AudioBgmFadeCancelRoot");
+            var clipA = AudioClip.Create("BgmCancelA", 4410, 1, 44100, false);
+            var clipB = AudioClip.Create("BgmCancelB", 4410, 1, 44100, false);
+            var clipC = AudioClip.Create("BgmCancelC", 4410, 1, 44100, false);
+            var definitionA = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+            var definitionB = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+            var definitionC = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+
+            try
+            {
+                ConfigureBgmDefinition(definitionA, clipA);
+                ConfigureBgmDefinition(definitionB, clipB);
+                ConfigureBgmDefinition(definitionC, clipC);
+                var manager = CreateInitializedManager(rootObject, new RecordingAudioSettingsPersistenceStore());
+
+                manager.PlayBgm(CreateBgmPlayRequest(definitionA, AudioBgmTransition.Immediate));
+                manager.PlayBgm(CreateBgmPlayRequest(definitionB, AudioBgmTransition.FadeOutIn(1f, 1f)));
+                manager.TickForTesting(0.5f);
+                manager.PlayBgm(CreateBgmPlayRequest(definitionC, AudioBgmTransition.Immediate));
+
+                var snapshot = manager.CaptureLivePlaybackSnapshots();
+                Assert.That(snapshot, Has.Length.EqualTo(1));
+                Assert.That(snapshot[0].Source.clip, Is.SameAs(clipC));
+                Assert.That(snapshot[0].Source.volume, Is.EqualTo(1f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(definitionA);
+                UnityEngine.Object.DestroyImmediate(definitionB);
+                UnityEngine.Object.DestroyImmediate(definitionC);
+                UnityEngine.Object.DestroyImmediate(clipA);
+                UnityEngine.Object.DestroyImmediate(clipB);
+                UnityEngine.Object.DestroyImmediate(clipC);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void AudioPlaybackService_ApplyLiveMixDuringFade_PreservesFadeMultiplier()
+        {
+            var rootObject = new GameObject("AudioBgmFadeMixRoot");
+            var clip = AudioClip.Create("BgmFadeMix", 4410, 1, 44100, false);
+            var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+
+            try
+            {
+                ConfigureBgmDefinition(definition, clip);
+                var manager = CreateInitializedManager(rootObject, new RecordingAudioSettingsPersistenceStore());
+
+                manager.PlayBgm(CreateBgmPlayRequest(definition, AudioBgmTransition.FadeOutIn(0f, 1f)));
+                manager.TickForTesting(0.5f);
+                manager.SetChannelVolume(AudioChannel.Bgm, 0.5f);
+                var snapshot = manager.CaptureLivePlaybackSnapshots();
+
+                Assert.That(snapshot, Has.Length.EqualTo(1));
+                Assert.That(snapshot[0].FadeMultiplier, Is.EqualTo(0.5f).Within(0.0001f));
+                Assert.That(snapshot[0].Source.volume, Is.EqualTo(0.25f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(definition);
+                UnityEngine.Object.DestroyImmediate(clip);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void AudioPlaybackService_MuteDuringFade_ProducesZeroFinalVolume()
+        {
+            var rootObject = new GameObject("AudioBgmFadeMuteRoot");
+            var clip = AudioClip.Create("BgmFadeMute", 4410, 1, 44100, false);
+            var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+
+            try
+            {
+                ConfigureBgmDefinition(definition, clip);
+                var manager = CreateInitializedManager(rootObject, new RecordingAudioSettingsPersistenceStore());
+
+                manager.PlayBgm(CreateBgmPlayRequest(definition, AudioBgmTransition.FadeOutIn(0f, 1f)));
+                manager.TickForTesting(0.5f);
+                manager.SetChannelMuted(AudioChannel.Bgm, true);
+                var snapshot = manager.CaptureLivePlaybackSnapshots();
+
+                Assert.That(snapshot, Has.Length.EqualTo(1));
+                Assert.That(snapshot[0].Source.volume, Is.EqualTo(0f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(definition);
+                UnityEngine.Object.DestroyImmediate(clip);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void AudioPlaybackService_UnmuteDuringFade_RespectsCurrentFadeMultiplier()
+        {
+            var rootObject = new GameObject("AudioBgmFadeUnmuteRoot");
+            var clip = AudioClip.Create("BgmFadeUnmute", 4410, 1, 44100, false);
+            var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+
+            try
+            {
+                ConfigureBgmDefinition(definition, clip);
+                var manager = CreateInitializedManager(rootObject, new RecordingAudioSettingsPersistenceStore());
+
+                manager.PlayBgm(CreateBgmPlayRequest(definition, AudioBgmTransition.FadeOutIn(0f, 1f)));
+                manager.TickForTesting(0.5f);
+                manager.SetChannelMuted(AudioChannel.Bgm, true);
+                manager.SetChannelMuted(AudioChannel.Bgm, false);
+                var snapshot = manager.CaptureLivePlaybackSnapshots();
+
+                Assert.That(snapshot, Has.Length.EqualTo(1));
+                Assert.That(snapshot[0].FadeMultiplier, Is.EqualTo(0.5f).Within(0.0001f));
+                Assert.That(snapshot[0].Source.volume, Is.EqualTo(0.5f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(definition);
+                UnityEngine.Object.DestroyImmediate(clip);
             }
         }
 
@@ -529,6 +811,19 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         {
             SetSerializedField(definition, "clip", clip);
             SetSerializedField(typeof(AudioDefinition), definition, "loop", loop);
+        }
+
+        private static void ConfigureBgmDefinition(SingleAudioDefinition definition, AudioClip clip)
+        {
+            ConfigureDefinition(definition, clip, loop: true);
+            SetSerializedField(typeof(AudioDefinition), definition, "category", AudioCategory.Bgm);
+        }
+
+        private static AudioBgmPlaybackRequest CreateBgmPlayRequest(
+            AudioDefinition definition,
+            AudioBgmTransition transition)
+        {
+            return new AudioBgmPlaybackRequest(definition, transition);
         }
 
         private static void SetSerializedField(object target, string fieldName, object value)

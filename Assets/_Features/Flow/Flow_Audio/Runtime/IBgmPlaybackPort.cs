@@ -5,11 +5,9 @@ namespace Game.Feature.Flow.Audio
 {
     public interface IBgmPlaybackPort
     {
-        // v1 keeps playback execution immediate-only. Future fade/crossfade support should be
-        // added here as explicit playback capability rather than pushed into coordinator timing logic.
-        void PlayImmediate(AudioDefinition definition);
+        void Play(BgmPlaybackRequest request);
 
-        void StopImmediate();
+        void Stop(BgmStopRequest request);
     }
 
     internal sealed class BgmPlaybackPortAdapter : IBgmPlaybackPort
@@ -21,14 +19,28 @@ namespace Game.Feature.Flow.Audio
             this.audioService = audioService ?? throw new ArgumentNullException(nameof(audioService));
         }
 
-        public void PlayImmediate(AudioDefinition definition)
+        public void Play(BgmPlaybackRequest request)
         {
-            audioService.PlayBgm(definition);
+            audioService.PlayBgm(new AudioBgmPlaybackRequest(
+                request.Definition,
+                MapTransition(request.Transition)));
         }
 
-        public void StopImmediate()
+        public void Stop(BgmStopRequest request)
         {
-            audioService.StopBgm();
+            audioService.StopBgm(new AudioBgmStopRequest(MapTransition(request.Transition)));
+        }
+
+        private static AudioBgmTransition MapTransition(BgmPlaybackTransition transition)
+        {
+            return transition.Mode switch
+            {
+                BgmExecutedTransitionMode.Immediate => AudioBgmTransition.Immediate,
+                BgmExecutedTransitionMode.FadeOutIn => AudioBgmTransition.FadeOutIn(
+                    transition.FadeOutSeconds,
+                    transition.FadeInSeconds),
+                _ => throw new ArgumentOutOfRangeException(nameof(transition), transition.Mode, "Unsupported BGM transition mode."),
+            };
         }
     }
 }

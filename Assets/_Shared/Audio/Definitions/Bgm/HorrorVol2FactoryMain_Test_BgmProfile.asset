@@ -13,5 +13,7 @@ MonoBehaviour:
   m_Name: HorrorVol2FactoryMain_Test_BgmProfile
   m_EditorClassIdentifier: Game.Feature.Flow.Audio::Game.Feature.Flow.Audio.BgmProfile
   loopDefinition: {fileID: 11400000, guid: e35de9d1e9281254482c11b13a32a88e, type: 2}
-  transitionMode: 0
+  transitionMode: 1
+  fadeOutSeconds: 0.35
+  fadeInSeconds: 0.35
   restartIfAlreadyPlaying: 0

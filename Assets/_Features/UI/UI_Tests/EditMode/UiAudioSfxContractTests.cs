@@ -184,7 +184,7 @@ namespace Game.Feature.UI.Tests
                 return default;
             }
 
-            public AudioPlaybackHandle PlayBgm(AudioDefinition definition)
+            public AudioPlaybackHandle PlayBgm(AudioBgmPlaybackRequest request)
             {
                 BgmCallCount++;
                 return default;
@@ -194,7 +194,7 @@ namespace Game.Feature.UI.Tests
             {
             }
 
-            public void StopBgm()
+            public void StopBgm(AudioBgmStopRequest request)
             {
             }
         }

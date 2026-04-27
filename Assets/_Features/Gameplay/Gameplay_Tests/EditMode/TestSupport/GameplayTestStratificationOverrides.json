@@ -1314,6 +1314,24 @@
       ],
       "reason": "Locked Core coverage for respawn topology reset TickResult ordering in WorldSnapshotAndPresentationTests.",
       "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.BgmFlowArchitectureTests.IBgmPlaybackPort_PublicSurface_UsesRequestBasedPlayStop",
+      "category": "Core",
+      "contracts": [
+        "bgm_flow_architecture_contract"
+      ],
+      "reason": "Locked Core coverage for the request-based BGM playback port public surface.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.BgmFlowRuntimeTests.BgmFlowCoordinator_RequestSceneDefault_ImmediateProfile_SendsImmediatePlaybackRequest",
+      "category": "Core",
+      "contracts": [
+        "bgm_flow_runtime_contract"
+      ],
+      "reason": "Locked Core coverage for immediate BGM request translation after request-based port migration.",
+      "locked": true
     }
   ]
 }

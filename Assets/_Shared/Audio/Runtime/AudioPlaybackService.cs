@@ -9,12 +9,14 @@ namespace Game.Shared.Audio
         public AudioLivePlaybackDebugSnapshot(
             AudioChannel leafChannel,
             float baseClipVolume,
+            float fadeMultiplier,
             AudioSource source,
             bool isSourceReferenceValid,
             bool isControllerValid)
         {
             LeafChannel = leafChannel;
             BaseClipVolume = baseClipVolume;
+            FadeMultiplier = fadeMultiplier;
             Source = source;
             IsSourceReferenceValid = isSourceReferenceValid;
             IsControllerValid = isControllerValid;
@@ -23,6 +25,8 @@ namespace Game.Shared.Audio
         public AudioChannel LeafChannel { get; }
 
         public float BaseClipVolume { get; }
+
+        public float FadeMultiplier { get; }
 
         public AudioSource Source { get; }
 
@@ -38,6 +42,7 @@ namespace Game.Shared.Audio
 
         private AttachedAudioRegistry attachedRegistry;
         private AudioSource bgmSource;
+        private BgmTransitionState bgmTransitionState;
         private AudioSourcePool sourcePool;
         private Transform runtimeRoot;
 
@@ -108,19 +113,25 @@ namespace Game.Shared.Audio
             return handle;
         }
 
-        public AudioPlaybackHandle PlayBgm(AudioDefinition definition, AudioMixingService mixingService)
+        public AudioPlaybackHandle PlayBgm(AudioBgmPlaybackRequest request, AudioMixingService mixingService)
         {
             EnsureBgmSource();
 
-            for (var i = activeControllers.Count - 1; i >= 0; i--)
+            if (request.Transition.Mode == AudioBgmTransitionMode.Immediate ||
+                request.Transition.Mode == AudioBgmTransitionMode.FadeOutIn && !request.Transition.HasAnyFadeDuration)
             {
-                if (ReferenceEquals(activeControllers[i].Source, bgmSource))
-                {
-                    activeControllers[i].Stop();
-                }
+                CancelBgmTransition();
+                StopCurrentBgmControllers();
+                return CreatePlayback(
+                    request.Definition,
+                    default,
+                    attachedKey: null,
+                    useBgmLane: true,
+                    mixingService: mixingService,
+                    initialFadeMultiplier: 1f);
             }
 
-            return CreatePlayback(definition, default, attachedKey: null, useBgmLane: true, mixingService);
+            return PlayBgmFadeOutIn(request, mixingService);
         }
 
         public void Stop(AudioPlaybackHandle handle)
@@ -128,23 +139,46 @@ namespace Game.Shared.Audio
             handle?.Stop();
         }
 
-        public void StopBgm()
+        public void StopBgm(AudioBgmStopRequest request, AudioMixingService mixingService)
         {
             if (bgmSource == null)
             {
                 return;
             }
 
-            for (var i = activeControllers.Count - 1; i >= 0; i--)
+            if (request.Transition.Mode == AudioBgmTransitionMode.Immediate ||
+                request.Transition.FadeOutSeconds <= 0f)
             {
-                if (ReferenceEquals(activeControllers[i].Source, bgmSource))
-                {
-                    activeControllers[i].Stop();
-                }
+                CancelBgmTransition();
+                StopCurrentBgmControllers();
+                return;
             }
+
+            CancelBgmTransition();
+            var currentController = FindCurrentBgmController();
+            if (currentController == null)
+            {
+                return;
+            }
+
+            bgmTransitionState = BgmTransitionState.CreateFadingOutForStop(
+                request.Transition.FadeOutSeconds,
+                ResolveFadeMultiplier(currentController));
         }
 
-        public void Tick()
+        public void Tick(AudioMixingService mixingService)
+        {
+            Tick(mixingService, Time.unscaledDeltaTime);
+        }
+
+        internal void Tick(AudioMixingService mixingService, float deltaSeconds)
+        {
+            TickControllers();
+            AdvanceBgmTransition(mixingService, Mathf.Max(0f, deltaSeconds));
+            PruneStaleLivePlaybacks();
+        }
+
+        private void TickControllers()
         {
             for (var i = activeControllers.Count - 1; i >= 0; i--)
             {
@@ -162,8 +196,6 @@ namespace Game.Shared.Audio
                     activeControllers.RemoveAt(i);
                 }
             }
-
-            PruneStaleLivePlaybacks();
         }
 
         public void ApplyLiveMix(AudioMixingService mixingService)
@@ -185,7 +217,7 @@ namespace Game.Shared.Audio
                     continue;
                 }
 
-                record.Source.volume = mixingService.ResolvePlaybackVolume(record.LeafChannel, record.BaseClipVolume);
+                ApplyLivePlaybackVolume(record, mixingService);
             }
 
             for (var i = 0; i < staleControllers.Count; i++)
@@ -194,8 +226,206 @@ namespace Game.Shared.Audio
             }
         }
 
+        private AudioPlaybackHandle PlayBgmFadeOutIn(
+            AudioBgmPlaybackRequest request,
+            AudioMixingService mixingService)
+        {
+            CancelBgmTransition();
+            var currentController = FindCurrentBgmController();
+            if (currentController == null)
+            {
+                return StartBgmFadeIn(request.Definition, request.Transition.FadeInSeconds, mixingService);
+            }
+
+            if (request.Transition.FadeOutSeconds <= 0f)
+            {
+                StopCurrentBgmControllers();
+                return StartBgmFadeIn(request.Definition, request.Transition.FadeInSeconds, mixingService);
+            }
+
+            bgmTransitionState = BgmTransitionState.CreateFadingOutForPlay(
+                request.Definition,
+                request.Transition.FadeOutSeconds,
+                request.Transition.FadeInSeconds,
+                ResolveFadeMultiplier(currentController));
+            return AudioPlaybackHandle.Invalid;
+        }
+
+        private AudioPlaybackHandle StartBgmFadeIn(
+            AudioDefinition definition,
+            float fadeInSeconds,
+            AudioMixingService mixingService)
+        {
+            var initialFadeMultiplier = fadeInSeconds > 0f ? 0f : 1f;
+            var handle = CreatePlayback(
+                definition,
+                default,
+                attachedKey: null,
+                useBgmLane: true,
+                mixingService: mixingService,
+                initialFadeMultiplier: initialFadeMultiplier);
+
+            if (fadeInSeconds <= 0f || !handle.IsValid)
+            {
+                CancelBgmTransition();
+                return handle;
+            }
+
+            var currentController = FindCurrentBgmController();
+            if (currentController == null)
+            {
+                CancelBgmTransition();
+                return handle;
+            }
+
+            bgmTransitionState = BgmTransitionState.CreateFadingIn(fadeInSeconds, initialFadeMultiplier);
+            return handle;
+        }
+
+        private void AdvanceBgmTransition(AudioMixingService mixingService, float deltaSeconds)
+        {
+            if (bgmTransitionState == null)
+            {
+                return;
+            }
+
+            var controller = FindCurrentBgmController();
+            if (controller == null)
+            {
+                if (bgmTransitionState.Phase == BgmTransitionPhase.FadingOutForPlay &&
+                    bgmTransitionState.PendingDefinition != null)
+                {
+                    var pendingDefinition = bgmTransitionState.PendingDefinition;
+                    var fadeInSeconds = bgmTransitionState.FadeInSeconds;
+                    bgmTransitionState = null;
+                    StartBgmFadeIn(pendingDefinition, fadeInSeconds, mixingService);
+                    return;
+                }
+
+                bgmTransitionState = null;
+                return;
+            }
+
+            var state = bgmTransitionState;
+            state.ElapsedSeconds += deltaSeconds;
+            var progress = state.DurationSeconds <= 0f
+                ? 1f
+                : Mathf.Clamp01(state.ElapsedSeconds / state.DurationSeconds);
+            var fadeMultiplier = Mathf.Lerp(state.StartMultiplier, state.TargetMultiplier, progress);
+            SetFadeMultiplier(controller, fadeMultiplier, mixingService);
+
+            if (progress < 1f)
+            {
+                return;
+            }
+
+            CompleteBgmTransitionPhase(state, mixingService);
+        }
+
+        private void CompleteBgmTransitionPhase(BgmTransitionState state, AudioMixingService mixingService)
+        {
+            switch (state.Phase)
+            {
+                case BgmTransitionPhase.FadingOutForPlay:
+                    var pendingDefinition = state.PendingDefinition;
+                    var fadeInSeconds = state.FadeInSeconds;
+                    bgmTransitionState = null;
+                    StopCurrentBgmControllers();
+                    if (pendingDefinition != null)
+                    {
+                        StartBgmFadeIn(pendingDefinition, fadeInSeconds, mixingService);
+                    }
+
+                    break;
+                case BgmTransitionPhase.FadingIn:
+                    var currentController = FindCurrentBgmController();
+                    if (currentController != null)
+                    {
+                        SetFadeMultiplier(currentController, 1f, mixingService);
+                    }
+
+                    bgmTransitionState = null;
+                    break;
+                case BgmTransitionPhase.FadingOutForStop:
+                    bgmTransitionState = null;
+                    StopCurrentBgmControllers();
+                    break;
+                default:
+                    bgmTransitionState = null;
+                    break;
+            }
+        }
+
+        private AudioSourcePlaybackController FindCurrentBgmController()
+        {
+            if (bgmSource == null)
+            {
+                return null;
+            }
+
+            for (var i = activeControllers.Count - 1; i >= 0; i--)
+            {
+                var controller = activeControllers[i];
+                if (controller.IsAlive && ReferenceEquals(controller.Source, bgmSource))
+                {
+                    return controller;
+                }
+            }
+
+            return null;
+        }
+
+        private void StopCurrentBgmControllers()
+        {
+            if (bgmSource == null)
+            {
+                return;
+            }
+
+            for (var i = activeControllers.Count - 1; i >= 0; i--)
+            {
+                if (ReferenceEquals(activeControllers[i].Source, bgmSource))
+                {
+                    activeControllers[i].Stop();
+                }
+            }
+        }
+
+        private void CancelBgmTransition()
+        {
+            bgmTransitionState = null;
+        }
+
+        private float ResolveFadeMultiplier(AudioSourcePlaybackController controller)
+        {
+            return livePlaybacks.TryGetValue(controller, out var record)
+                ? record.FadeMultiplier
+                : 1f;
+        }
+
+        private void SetFadeMultiplier(
+            AudioSourcePlaybackController controller,
+            float fadeMultiplier,
+            AudioMixingService mixingService)
+        {
+            if (!livePlaybacks.TryGetValue(controller, out var record))
+            {
+                return;
+            }
+
+            record.FadeMultiplier = Mathf.Clamp01(fadeMultiplier);
+            ApplyLivePlaybackVolume(record, mixingService);
+        }
+
+        private void ApplyLivePlaybackVolume(AudioLivePlaybackRecord record, AudioMixingService mixingService)
+        {
+            record.Source.volume = mixingService.ResolvePlaybackVolume(record.LeafChannel, record.BaseClipVolume) *
+                                   record.FadeMultiplier;
+        }
+
         public void Dispose()
         {
+            CancelBgmTransition();
             for (var i = activeControllers.Count - 1; i >= 0; i--)
             {
                 activeControllers[i].Stop();
@@ -217,6 +447,7 @@ namespace Game.Shared.Audio
                 snapshots[index++] = new AudioLivePlaybackDebugSnapshot(
                     record.LeafChannel,
                     record.BaseClipVolume,
+                    record.FadeMultiplier,
                     record.Source,
                     record.IsSourceReferenceValid,
                     record.Controller.IsAlive);
@@ -230,7 +461,8 @@ namespace Game.Shared.Audio
             in AudioPlaybackContext context,
             AttachedAudioKey? attachedKey,
             bool useBgmLane,
-            AudioMixingService mixingService)
+            AudioMixingService mixingService,
+            float initialFadeMultiplier = 1f)
         {
             if (definition == null)
             {
@@ -255,7 +487,8 @@ namespace Game.Shared.Audio
                 return AudioPlaybackHandle.Invalid;
             }
 
-            var finalVolume = mixingService.ResolvePlaybackVolume(leafChannel, playbackData.Volume);
+            var fadeMultiplier = Mathf.Clamp01(initialFadeMultiplier);
+            var finalVolume = mixingService.ResolvePlaybackVolume(leafChannel, playbackData.Volume) * fadeMultiplier;
             ConfigureSource(source, playbackData, finalVolume);
             source.Play();
 
@@ -273,16 +506,21 @@ namespace Game.Shared.Audio
                 invalidateAttached,
                 playbackData.Loop);
             activeControllers.Add(controller);
-            RegisterLivePlayback(controller, leafChannel, playbackData.Volume);
+            RegisterLivePlayback(controller, leafChannel, playbackData.Volume, fadeMultiplier);
             return controller.Handle;
         }
 
         private void RegisterLivePlayback(
             AudioSourcePlaybackController controller,
             AudioChannel leafChannel,
-            float baseClipVolume)
+            float baseClipVolume,
+            float fadeMultiplier)
         {
-            livePlaybacks[controller] = new AudioLivePlaybackRecord(controller, leafChannel, baseClipVolume);
+            livePlaybacks[controller] = new AudioLivePlaybackRecord(
+                controller,
+                leafChannel,
+                baseClipVolume,
+                fadeMultiplier);
         }
 
         private void UnregisterLivePlayback(AudioSourcePlaybackController controller)
@@ -348,16 +586,18 @@ namespace Game.Shared.Audio
             bgmSource.dopplerLevel = 0f;
         }
 
-        private readonly struct AudioLivePlaybackRecord
+        private sealed class AudioLivePlaybackRecord
         {
             public AudioLivePlaybackRecord(
                 AudioSourcePlaybackController controller,
                 AudioChannel leafChannel,
-                float baseClipVolume)
+                float baseClipVolume,
+                float fadeMultiplier)
             {
                 Controller = controller;
                 LeafChannel = leafChannel;
                 BaseClipVolume = baseClipVolume;
+                FadeMultiplier = Mathf.Clamp01(fadeMultiplier);
             }
 
             public AudioSourcePlaybackController Controller { get; }
@@ -366,9 +606,90 @@ namespace Game.Shared.Audio
 
             public float BaseClipVolume { get; }
 
+            public float FadeMultiplier { get; set; }
+
             public AudioSource Source => Controller.Source;
 
             public bool IsSourceReferenceValid => Source != null;
+        }
+
+        private enum BgmTransitionPhase
+        {
+            FadingOutForPlay,
+            FadingIn,
+            FadingOutForStop,
+        }
+
+        private sealed class BgmTransitionState
+        {
+            private BgmTransitionState(
+                BgmTransitionPhase phase,
+                AudioDefinition pendingDefinition,
+                float fadeInSeconds,
+                float durationSeconds,
+                float startMultiplier,
+                float targetMultiplier)
+            {
+                Phase = phase;
+                PendingDefinition = pendingDefinition;
+                FadeInSeconds = fadeInSeconds;
+                DurationSeconds = durationSeconds;
+                StartMultiplier = Mathf.Clamp01(startMultiplier);
+                TargetMultiplier = Mathf.Clamp01(targetMultiplier);
+            }
+
+            public BgmTransitionPhase Phase { get; }
+
+            public AudioDefinition PendingDefinition { get; }
+
+            public float FadeInSeconds { get; }
+
+            public float DurationSeconds { get; }
+
+            public float ElapsedSeconds { get; set; }
+
+            public float StartMultiplier { get; }
+
+            public float TargetMultiplier { get; }
+
+            public static BgmTransitionState CreateFadingOutForPlay(
+                AudioDefinition pendingDefinition,
+                float fadeOutSeconds,
+                float fadeInSeconds,
+                float startMultiplier)
+            {
+                return new BgmTransitionState(
+                    BgmTransitionPhase.FadingOutForPlay,
+                    pendingDefinition,
+                    fadeInSeconds,
+                    fadeOutSeconds,
+                    startMultiplier,
+                    0f);
+            }
+
+            public static BgmTransitionState CreateFadingIn(float fadeInSeconds, float startMultiplier)
+            {
+                return new BgmTransitionState(
+                    BgmTransitionPhase.FadingIn,
+                    null,
+                    0f,
+                    fadeInSeconds,
+                    startMultiplier,
+                    1f);
+            }
+
+            public static BgmTransitionState CreateFadingOutForStop(
+                float fadeOutSeconds,
+                float startMultiplier)
+            {
+                return new BgmTransitionState(
+                    BgmTransitionPhase.FadingOutForStop,
+                    null,
+                    0f,
+                    fadeOutSeconds,
+                    startMultiplier,
+                    0f);
+            }
         }
 
         private readonly struct AttachedAudioKey : IEquatable<AttachedAudioKey>
