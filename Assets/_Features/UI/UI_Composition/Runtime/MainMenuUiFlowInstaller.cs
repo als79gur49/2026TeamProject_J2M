@@ -31,9 +31,12 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private CampaignStageSequenceDefinition _campaignStageSequenceDefinition;
         [SerializeField] private bool _installOnStart = true;
 
+        private IConfirmPopupPort _confirmPopupPort;
         private bool _isInstalled;
 
         public MainMenuController Controller { get; private set; }
+
+        public MainMenuHubController HubController { get; private set; }
 
         public MainMenuScreenView MainMenuScreenView => _mainMenuScreenView;
 
@@ -74,7 +77,25 @@ namespace Game.Feature.UI.Composition
             EnsureMainMenuScreenView();
             EnsurePopupLayerView();
 
+            _mainMenuScreenView.ValidateAuthoredStructureOrThrow();
+            BuildPopupModule();
+            BuildSaveSlotModule();
+            BuildHubModule();
+            _mainMenuScreenView.SetVisible(true);
+            _popupLayerView.SetState(false, false, false, PopupBackdropMode.None);
+            _isInstalled = true;
+        }
+
+        private void BuildPopupModule()
+        {
             PopupController = new PopupController(new GameplayPopupRuntimeFactory(_popupLayerView, _popupPrefabCatalog));
+            PopupController.StateChanged += SyncPopupLayer;
+            _popupLayerView.BackdropClicked += HandlePopupBackdropClicked;
+            _confirmPopupPort = new ConfirmPopupPortAdapter(PopupController);
+        }
+
+        private void BuildSaveSlotModule()
+        {
             var sequenceDefinition = _campaignStageSequenceDefinition != null
                 ? _campaignStageSequenceDefinition
                 : CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance();
@@ -87,15 +108,25 @@ namespace Game.Feature.UI.Composition
                 activeSlotProvider,
                 sequenceResolver,
                 new ConfiguredGameplayStageLaunchRouter(_routeConfig),
-                new ConfirmPopupPortAdapter(PopupController),
+                _confirmPopupPort,
                 validationService);
 
-            _mainMenuScreenView.IntentRequested += Controller.HandleIntent;
+            _mainMenuScreenView.SaveSlotPanel.SaveSlotIntentRequested += Controller.HandleIntent;
             Controller.ViewModelChanged += HandleControllerViewModelChanged;
-            _mainMenuScreenView.Bind(Controller.BuildViewModel());
-            _mainMenuScreenView.SetVisible(true);
-            _popupLayerView.SetState(false, false, false, PopupBackdropMode.None);
-            _isInstalled = true;
+            _mainMenuScreenView.SaveSlotPanel.Bind(Controller.BuildViewModel());
+        }
+
+        private void BuildHubModule()
+        {
+            HubController = new MainMenuHubController(
+                NoOpMainMenuSettingsPort.Instance,
+                new UnityApplicationQuitPort(),
+                _confirmPopupPort,
+                _mainMenuScreenView.ShowSection);
+
+            _mainMenuScreenView.CommandRequested += HubController.HandleCommand;
+            _mainMenuScreenView.NavigationRequested += HubController.HandleNavigation;
+            _mainMenuScreenView.ShowSection(MainMenuSectionId.SaveSlots);
         }
 
         private void OnDestroy()
@@ -105,20 +136,63 @@ namespace Game.Feature.UI.Composition
                 Controller.ViewModelChanged -= HandleControllerViewModelChanged;
             }
 
-            if (_mainMenuScreenView != null && Controller != null)
+            if (_mainMenuScreenView != null && _mainMenuScreenView.SaveSlotPanel != null && Controller != null)
             {
-                _mainMenuScreenView.IntentRequested -= Controller.HandleIntent;
+                _mainMenuScreenView.SaveSlotPanel.SaveSlotIntentRequested -= Controller.HandleIntent;
+            }
+
+            if (_mainMenuScreenView != null && HubController != null)
+            {
+                _mainMenuScreenView.CommandRequested -= HubController.HandleCommand;
+                _mainMenuScreenView.NavigationRequested -= HubController.HandleNavigation;
+            }
+
+            if (_popupLayerView != null)
+            {
+                _popupLayerView.BackdropClicked -= HandlePopupBackdropClicked;
+            }
+
+            if (PopupController != null)
+            {
+                PopupController.StateChanged -= SyncPopupLayer;
             }
 
             PopupController?.Dispose();
         }
 
-        private void HandleControllerViewModelChanged(MainMenuScreenViewModel viewModel)
+        private void HandleControllerViewModelChanged(SaveSlotPanelViewModel viewModel)
         {
-            if (_mainMenuScreenView != null)
+            if (_mainMenuScreenView != null && _mainMenuScreenView.SaveSlotPanel != null)
             {
-                _mainMenuScreenView.Bind(viewModel);
+                _mainMenuScreenView.SaveSlotPanel.Bind(viewModel);
             }
+        }
+
+        private void HandlePopupBackdropClicked()
+        {
+            PopupController?.HandleBackdropClicked();
+        }
+
+        private void SyncPopupLayer()
+        {
+            if (_popupLayerView == null || PopupController == null)
+            {
+                return;
+            }
+
+            var topPopup = PopupController.TopPopup;
+            if (!topPopup.HasValue)
+            {
+                _popupLayerView.SetState(false, false, false, PopupBackdropMode.None);
+                return;
+            }
+
+            var policy = topPopup.Value.Policy;
+            _popupLayerView.SetState(
+                true,
+                policy.ShowsDim,
+                policy.BlocksLowerLayers || policy.BackdropMode != PopupBackdropMode.None,
+                policy.BackdropMode);
         }
 
         private void EnsureCanvasRoot()
@@ -188,11 +262,13 @@ namespace Game.Feature.UI.Composition
         {
             if (_popupLayerView != null && _popupLayerView.ContentRoot != null)
             {
+                _popupLayerView.transform.SetAsLastSibling();
                 return;
             }
 
             var layerRoot = new GameObject("MainMenuPopupLayer", typeof(RectTransform));
             layerRoot.transform.SetParent(transform, false);
+            layerRoot.transform.SetAsLastSibling();
             var layerRect = (RectTransform)layerRoot.transform;
             layerRect.anchorMin = Vector2.zero;
             layerRect.anchorMax = Vector2.one;

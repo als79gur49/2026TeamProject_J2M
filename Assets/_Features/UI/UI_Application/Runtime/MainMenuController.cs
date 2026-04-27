@@ -35,9 +35,9 @@ namespace Game.Feature.UI.Application
             _saveSlotValidationService = saveSlotValidationService;
         }
 
-        public event Action<MainMenuScreenViewModel> ViewModelChanged;
+        public event Action<SaveSlotPanelViewModel> ViewModelChanged;
 
-        public MainMenuScreenViewModel BuildViewModel()
+        public SaveSlotPanelViewModel BuildViewModel()
         {
             return MainMenuSlotViewModelMapper.Map(
                 _saveSlotStore.LoadAll(),

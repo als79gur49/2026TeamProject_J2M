@@ -35,6 +35,45 @@ namespace Game.Feature.UI.Screens
         public SaveSlotIntentKind IntentKind { get; }
     }
 
+    public enum MainMenuSectionId
+    {
+        None = 0,
+        SaveSlots = 1,
+        History = 2,
+        Friends = 3,
+        Profile = 4,
+        Achievements = 5,
+        Collection = 6,
+        Credits = 7,
+    }
+
+    public readonly struct MainMenuNavigationIntent
+    {
+        public MainMenuNavigationIntent(MainMenuSectionId sectionId)
+        {
+            SectionId = sectionId;
+        }
+
+        public MainMenuSectionId SectionId { get; }
+    }
+
+    public enum MainMenuCommandKind
+    {
+        None = 0,
+        OpenSettings = 1,
+        Quit = 2,
+    }
+
+    public readonly struct MainMenuCommandIntent
+    {
+        public MainMenuCommandIntent(MainMenuCommandKind commandKind)
+        {
+            CommandKind = commandKind;
+        }
+
+        public MainMenuCommandKind CommandKind { get; }
+    }
+
     public sealed class SaveSlotCardViewModel
     {
         public SaveSlotCardViewModel(
@@ -90,9 +129,9 @@ namespace Game.Feature.UI.Screens
         public bool ShowDelete { get; }
     }
 
-    public sealed class MainMenuScreenViewModel
+    public sealed class SaveSlotPanelViewModel
     {
-        public MainMenuScreenViewModel(IReadOnlyList<SaveSlotCardViewModel> slotCards)
+        public SaveSlotPanelViewModel(IReadOnlyList<SaveSlotCardViewModel> slotCards)
         {
             SlotCards = slotCards ?? Array.Empty<SaveSlotCardViewModel>();
         }
@@ -102,14 +141,14 @@ namespace Game.Feature.UI.Screens
 
     public static class MainMenuSlotViewModelMapper
     {
-        public static MainMenuScreenViewModel Map(
+        public static SaveSlotPanelViewModel Map(
             IReadOnlyList<SaveSlotData> slots,
             CampaignStageSequenceResolver sequenceResolver)
         {
             return Map(slots, sequenceResolver, validationService: null);
         }
 
-        public static MainMenuScreenViewModel Map(
+        public static SaveSlotPanelViewModel Map(
             IReadOnlyList<SaveSlotData> slots,
             CampaignStageSequenceResolver sequenceResolver,
             SaveSlotValidationService validationService)
@@ -129,7 +168,7 @@ namespace Game.Feature.UI.Screens
                 cards.Add(MapSlot(slot, sequenceResolver, validationService != null ? validation : (SaveSlotValidationResult?)null));
             }
 
-            return new MainMenuScreenViewModel(cards);
+            return new SaveSlotPanelViewModel(cards);
         }
 
         public static SaveSlotCardViewModel MapSlot(
@@ -190,7 +229,7 @@ namespace Game.Feature.UI.Screens
                     string.IsNullOrWhiteSpace(displayStage) ? string.Empty : $"Stage {displayStage}",
                     $"Chances {slot.RemainingChances}",
                     $"Deaths {slot.TotalDeaths}",
-                    slot.LastPlayedAt,
+                    FormatLastPlayedText(slot.LastPlayedAt),
                     "Restart",
                     SaveSlotIntentKind.Restart,
                     showRestart: true,
@@ -208,7 +247,7 @@ namespace Game.Feature.UI.Screens
                     ResolveInvalidStageText(slot, displayStage, validation.Status),
                     string.Empty,
                     $"Deaths {slot.TotalDeaths}",
-                    slot.LastPlayedAt,
+                    FormatLastPlayedText(slot.LastPlayedAt),
                     "Restart",
                     SaveSlotIntentKind.Restart,
                     showRestart: true,
@@ -223,11 +262,26 @@ namespace Game.Feature.UI.Screens
                 string.IsNullOrWhiteSpace(displayStage) ? string.Empty : $"Stage {displayStage}",
                 $"Chances {slot.RemainingChances}",
                 $"Deaths {slot.TotalDeaths}",
-                slot.LastPlayedAt,
+                FormatLastPlayedText(slot.LastPlayedAt),
                 "Continue",
                 SaveSlotIntentKind.Continue,
                 showRestart: false,
                 showDelete: true);
+        }
+
+        private static string FormatLastPlayedText(string lastPlayedAt)
+        {
+            if (string.IsNullOrWhiteSpace(lastPlayedAt))
+            {
+                return string.Empty;
+            }
+
+            if (DateTimeOffset.TryParse(lastPlayedAt, out var playedAt))
+            {
+                return $"Played {playedAt.LocalDateTime:yyyy-MM-dd HH:mm}";
+            }
+
+            return lastPlayedAt;
         }
 
         private static string ResolveInvalidStageText(
