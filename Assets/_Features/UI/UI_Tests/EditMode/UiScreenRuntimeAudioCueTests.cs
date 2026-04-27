@@ -79,9 +79,10 @@ namespace Game.Feature.UI.Tests
             view.ClickTooltipToggle();
             view.ClickLargeTextToggle();
             view.SetAudioMuted(AudioSettingsChannel.Sfx, true);
+            view.CommitAudioInteraction(AudioSettingsChannel.Main);
+            view.ClickDisplayTab();
             view.SelectDisplayResolution(1);
             view.SetDisplayFullscreen(true);
-            view.CommitAudioInteraction(AudioSettingsChannel.Main);
 
             Assert.That(
                 harness.UiAudioPort.PlayedCueIds,
@@ -90,9 +91,9 @@ namespace Game.Feature.UI.Tests
                     UiAudioCueId.Toggle,
                     UiAudioCueId.Toggle,
                     UiAudioCueId.Toggle,
+                    UiAudioCueId.AdjustValueCommit,
                     UiAudioCueId.Select,
                     UiAudioCueId.Toggle,
-                    UiAudioCueId.AdjustValueCommit,
                 }));
 
             harness.UiAudioPort.Clear();
@@ -109,6 +110,7 @@ namespace Game.Feature.UI.Tests
             var view = harness.ScreenLayerView.FindScreenView<SettingsScreenView>();
             Assert.That(view, Is.Not.Null);
 
+            view.ClickDisplayTab();
             view.SelectDisplayResolution(1);
             harness.UiAudioPort.Clear();
 

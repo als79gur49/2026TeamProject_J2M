@@ -142,6 +142,7 @@ namespace Game.Feature.UI.Tests
         {
             using var harness = new RuntimeHarness();
             harness.Runtime.Open();
+            harness.Runtime.View.ClickDisplayTab();
 
             harness.Runtime.View.SelectDisplayResolution(1);
             harness.Runtime.View.ClickDisplayApply();
@@ -157,6 +158,7 @@ namespace Game.Feature.UI.Tests
         {
             using var harness = new RuntimeHarness();
             harness.Runtime.Open();
+            harness.Runtime.View.ClickDisplayTab();
             harness.Runtime.View.SelectDisplayResolution(1);
             harness.Runtime.View.ClickDisplayApply();
 
@@ -185,6 +187,7 @@ namespace Game.Feature.UI.Tests
         {
             using var harness = new RuntimeHarness();
             harness.Runtime.Open();
+            harness.Runtime.View.ClickDisplayTab();
 
             harness.Runtime.View.SelectDisplayResolution(1);
             harness.Runtime.View.ClickDisplayApply();
@@ -221,6 +224,7 @@ namespace Game.Feature.UI.Tests
                 "Assets/_Features/UI/UI_Screens/Runtime/SettingsScreenView.cs",
                 "Assets/_Features/UI/UI_Screens/Runtime/SettingsAudioView.cs",
                 "Assets/_Features/UI/UI_Screens/Runtime/SettingsDisplayView.cs",
+                "Assets/_Features/UI/UI_Screens/Runtime/SettingsInputView.cs",
             };
 
             foreach (var path in guardedViewSources)

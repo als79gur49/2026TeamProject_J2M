@@ -14,6 +14,7 @@ namespace Game.Feature.UI.Composition
         private readonly IGameplayUiPresentationSource _presentationSource;
         private readonly IAudioSettingsPort _audioSettingsPort;
         private readonly IDisplaySettingsPort _displaySettingsPort;
+        private readonly IKeyboardBindingSettingsPort _keyboardBindingSettingsPort;
         private readonly IUiAudioPort _uiAudioPort;
         private readonly DisplayPreviewSessionHost _displayPreviewSessionHost;
         private readonly DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
@@ -32,6 +33,33 @@ namespace Game.Feature.UI.Composition
             DisplayPreviewSessionHost displayPreviewSessionHost,
             DisplaySettingsLifecycleRelay displaySettingsLifecycleRelay,
             ScreenPrefabCatalog screenPrefabCatalog)
+            : this(
+                screenLayerView,
+                queryFacade,
+                presentationSource,
+                accessibilitySettingsStore,
+                audioSettingsPort,
+                displaySettingsPort,
+                NoOpKeyboardBindingSettingsPort.Instance,
+                uiAudioPort,
+                displayPreviewSessionHost,
+                displaySettingsLifecycleRelay,
+                screenPrefabCatalog)
+        {
+        }
+
+        internal GameplayScreenRuntimeFactory(
+            ScreenLayerView screenLayerView,
+            IGameplayQueryFacade queryFacade,
+            IGameplayUiPresentationSource presentationSource,
+            AccessibilitySettingsStore accessibilitySettingsStore,
+            IAudioSettingsPort audioSettingsPort,
+            IDisplaySettingsPort displaySettingsPort,
+            IKeyboardBindingSettingsPort keyboardBindingSettingsPort,
+            IUiAudioPort uiAudioPort,
+            DisplayPreviewSessionHost displayPreviewSessionHost,
+            DisplaySettingsLifecycleRelay displaySettingsLifecycleRelay,
+            ScreenPrefabCatalog screenPrefabCatalog)
         {
             _screenLayerView = screenLayerView ?? throw new ArgumentNullException(nameof(screenLayerView));
             _queryFacade = queryFacade ?? throw new ArgumentNullException(nameof(queryFacade));
@@ -39,6 +67,7 @@ namespace Game.Feature.UI.Composition
             _accessibilitySettingsStore = accessibilitySettingsStore ?? throw new ArgumentNullException(nameof(accessibilitySettingsStore));
             _audioSettingsPort = audioSettingsPort ?? throw new ArgumentNullException(nameof(audioSettingsPort));
             _displaySettingsPort = displaySettingsPort ?? throw new ArgumentNullException(nameof(displaySettingsPort));
+            _keyboardBindingSettingsPort = keyboardBindingSettingsPort ?? NoOpKeyboardBindingSettingsPort.Instance;
             _uiAudioPort = uiAudioPort ?? throw new ArgumentNullException(nameof(uiAudioPort));
             _displayPreviewSessionHost = displayPreviewSessionHost ?? throw new ArgumentNullException(nameof(displayPreviewSessionHost));
             _displaySettingsLifecycleRelay = displaySettingsLifecycleRelay ?? throw new ArgumentNullException(nameof(displaySettingsLifecycleRelay));
@@ -155,15 +184,21 @@ namespace Game.Feature.UI.Composition
 
         private ScreenRuntimeFactoryResult CreateSettingsRuntime()
         {
-            var presenter = new SettingsScreenPresenter(_accessibilitySettingsStore, _audioSettingsPort, _displaySettingsPort);
+            var presenter = new SettingsScreenPresenter(
+                _accessibilitySettingsStore,
+                _audioSettingsPort,
+                _displaySettingsPort,
+                _keyboardBindingSettingsPort);
             var view = InstantiateScreenPrefab(_screenPrefabCatalog.SettingsPrefab, ScreenId.Settings);
             view.ValidateAuthoredStructureOrThrow();
             view.AudioView.ValidateAuthoredControlsOrThrow();
             view.DisplayView.ValidateAuthoredControlsOrThrow();
+            view.InputView.ValidateAuthoredControlsOrThrow();
 
             view.Bind(presenter.ViewModel);
             view.AudioView.Bind(presenter.AudioPresenter.ViewModel);
             view.DisplayView.Bind(presenter.DisplayPresenter.ViewModel);
+            view.InputView.Bind(presenter.InputPresenter.ViewModel);
             view.SetIsCurrent(false);
 
             return new ScreenRuntimeFactoryResult(
@@ -547,6 +582,7 @@ namespace Game.Feature.UI.Composition
             private readonly SettingsAudioView _audioView;
             private readonly DisplayPreviewSessionHost _displayPreviewSessionHost;
             private readonly SettingsDisplayView _displayView;
+            private readonly SettingsInputView _inputView;
             private readonly DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
             private readonly SettingsScreenPresenter _presenter;
             private bool _isCurrent;
@@ -563,6 +599,7 @@ namespace Game.Feature.UI.Composition
                 _presenter = presenter;
                 _audioView = view.AudioView ?? throw new ArgumentNullException(nameof(view.AudioView));
                 _displayView = view.DisplayView ?? throw new ArgumentNullException(nameof(view.DisplayView));
+                _inputView = view.InputView ?? throw new ArgumentNullException(nameof(view.InputView));
                 _displayPreviewSessionHost = displayPreviewSessionHost ?? throw new ArgumentNullException(nameof(displayPreviewSessionHost));
                 _displaySettingsLifecycleRelay = displaySettingsLifecycleRelay ?? throw new ArgumentNullException(nameof(displaySettingsLifecycleRelay));
                 _audioView.VolumeChanged += HandleAudioVolumeChanged;
@@ -572,6 +609,11 @@ namespace Game.Feature.UI.Composition
                 _displayView.FullscreenToggled += HandleDisplayFullscreenToggled;
                 _displayView.ApplyRequested += HandleDisplayApplyRequested;
                 _displayView.RevertRequested += HandleDisplayRevertRequested;
+                _inputView.MovementSchemeToggleRequested += HandleInputMovementSchemeToggleRequested;
+                _inputView.PushRebindRequested += HandleInputPushRebindRequested;
+                _inputView.FlipRebindRequested += HandleInputFlipRebindRequested;
+                _inputView.ResetRequested += HandleInputResetRequested;
+                view.SectionSelected += HandleSectionSelected;
                 view.TooltipInfoRequested += HandleTooltipInfoRequested;
                 view.TooltipToggleRequested += HandleTooltipToggleRequested;
                 view.LargeTextToggleRequested += HandleLargeTextToggleRequested;
@@ -590,6 +632,7 @@ namespace Game.Feature.UI.Composition
                 _displayPreviewSessionHost.CancelActivePreview();
                 _presenter.DisplayPresenter.ClearPreviewCountdown();
                 _presenter.AudioPresenter.Flush();
+                _presenter.InputPresenter.CancelRebind();
                 _audioView.VolumeChanged -= HandleAudioVolumeChanged;
                 _audioView.MuteChanged -= HandleAudioMuteChanged;
                 _audioView.InteractionCompleted -= HandleAudioInteractionCompleted;
@@ -597,6 +640,11 @@ namespace Game.Feature.UI.Composition
                 _displayView.FullscreenToggled -= HandleDisplayFullscreenToggled;
                 _displayView.ApplyRequested -= HandleDisplayApplyRequested;
                 _displayView.RevertRequested -= HandleDisplayRevertRequested;
+                _inputView.MovementSchemeToggleRequested -= HandleInputMovementSchemeToggleRequested;
+                _inputView.PushRebindRequested -= HandleInputPushRebindRequested;
+                _inputView.FlipRebindRequested -= HandleInputFlipRebindRequested;
+                _inputView.ResetRequested -= HandleInputResetRequested;
+                View.SectionSelected -= HandleSectionSelected;
                 View.TooltipInfoRequested -= HandleTooltipInfoRequested;
                 View.TooltipToggleRequested -= HandleTooltipToggleRequested;
                 View.LargeTextToggleRequested -= HandleLargeTextToggleRequested;
@@ -604,6 +652,7 @@ namespace Game.Feature.UI.Composition
                 _displaySettingsLifecycleRelay.ResyncRequested -= HandleDisplayResyncRequested;
                 _displayPreviewSessionHost.CountdownChanged -= HandleDisplayPreviewCountdownChanged;
                 _displayView.Bind(null);
+                _inputView.Bind(null);
                 _audioView.Bind(null);
                 View.Bind(null);
                 base.Dispose();
@@ -616,6 +665,7 @@ namespace Game.Feature.UI.Composition
                     _displayPreviewSessionHost.CancelActivePreview();
                     _presenter.DisplayPresenter.ClearPreviewCountdown();
                     _presenter.AudioPresenter.Flush();
+                    _presenter.InputPresenter.CancelRebind();
                 }
 
                 _isCurrent = isCurrent;
@@ -630,6 +680,50 @@ namespace Game.Feature.UI.Composition
             private void HandleTooltipInfoRequested()
             {
                 RaiseAction(ScreenAction.Popup(new PopupRequest(PopupId.Tooltip, _presenter.BuildTooltipInfoPayload())));
+            }
+
+            private void HandleSectionSelected(SettingsSectionId sectionId)
+            {
+                _presenter.SelectSection(sectionId);
+            }
+
+            private void HandleInputMovementSchemeToggleRequested(bool useArrowKeys)
+            {
+                _presenter.InputPresenter.SetMovementScheme(useArrowKeys
+                    ? KeyboardMovementScheme.ArrowKeys
+                    : KeyboardMovementScheme.Wasd);
+                PlayLocalCue(UiAudioCueId.Toggle);
+            }
+
+            private void HandleInputPushRebindRequested()
+            {
+                _presenter.InputPresenter.StartRebind(KeyboardBindableAction.Push);
+                PlayLocalCue(UiAudioCueId.Select);
+            }
+
+            private void HandleInputFlipRebindRequested()
+            {
+                _presenter.InputPresenter.StartRebind(KeyboardBindableAction.Flip);
+                PlayLocalCue(UiAudioCueId.Select);
+            }
+
+            private void HandleInputResetRequested()
+            {
+                RaiseAction(ScreenAction.Popup(new PopupRequest(
+                    PopupId.Confirm,
+                    new ConfirmPopupPayload(
+                        "Reset Input Settings",
+                        "Reset input settings to defaults?",
+                        "Reset",
+                        "Cancel",
+                        false),
+                    completion =>
+                    {
+                        if (completion.CompletionKind == PopupCompletionKind.Confirmed)
+                        {
+                            _presenter.InputPresenter.ResetToDefaults();
+                        }
+                    })));
             }
 
             private void HandleTooltipToggleRequested()
@@ -728,6 +822,12 @@ namespace Game.Feature.UI.Composition
 
             private void HandleBackRequested()
             {
+                if (_presenter.InputPresenter.IsRebinding)
+                {
+                    _presenter.InputPresenter.CancelRebind();
+                    return;
+                }
+
                 RaiseAction(ScreenAction.Back());
             }
 

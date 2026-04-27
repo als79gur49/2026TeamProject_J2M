@@ -33,6 +33,7 @@ namespace Game.Feature.UI.Tests
 
                 var view = runtimeContext.ScreenLayerView.FindScreenView<SettingsScreenView>();
                 Assert.That(view, Is.Not.Null);
+                view.ClickDisplayTab();
 
                 view.SelectDisplayResolution(2);
                 view.SetDisplayFullscreen(true);
@@ -71,7 +72,9 @@ namespace Game.Feature.UI.Tests
                 result.Runtime.ApplyPayload(SettingsScreenPayload.Default);
                 result.Runtime.SetIsCurrent(true);
 
-                var displayView = runtimeContext.ScreenLayerView.FindScreenView<SettingsScreenView>().DisplayView;
+                var view = runtimeContext.ScreenLayerView.FindScreenView<SettingsScreenView>();
+                view.ClickDisplayTab();
+                var displayView = view.DisplayView;
                 var countdownRoot = GetDisplayPrivateField<RectTransform>(displayView, "_previewCountdownRoot");
                 var countdownLabel = GetDisplayPrivateField<TMP_Text>(displayView, "_previewCountdownLabel");
                 var countdownFill = GetDisplayPrivateField<Image>(displayView, "_previewCountdownFill");
@@ -118,6 +121,7 @@ namespace Game.Feature.UI.Tests
                 result.Runtime.SetIsCurrent(true);
 
                 var view = runtimeContext.ScreenLayerView.FindScreenView<SettingsScreenView>();
+                view.ClickDisplayTab();
                 view.SelectDisplayResolution(2);
                 view.SetDisplayFullscreen(true);
                 view.ClickDisplayApply();
@@ -151,7 +155,9 @@ namespace Game.Feature.UI.Tests
                 result.Runtime.ApplyPayload(SettingsScreenPayload.Default);
                 result.Runtime.SetIsCurrent(true);
 
-                var displayView = runtimeContext.ScreenLayerView.FindScreenView<SettingsScreenView>().DisplayView;
+                var view = runtimeContext.ScreenLayerView.FindScreenView<SettingsScreenView>();
+                view.ClickDisplayTab();
+                var displayView = view.DisplayView;
                 var countdownRoot = GetDisplayPrivateField<RectTransform>(displayView, "_previewCountdownRoot");
 
                 displayView.SelectResolution(1);
@@ -185,7 +191,9 @@ namespace Game.Feature.UI.Tests
                 result.Runtime.ApplyPayload(SettingsScreenPayload.Default);
                 result.Runtime.SetIsCurrent(true);
 
-                var displayView = runtimeContext.ScreenLayerView.FindScreenView<SettingsScreenView>().DisplayView;
+                var view = runtimeContext.ScreenLayerView.FindScreenView<SettingsScreenView>();
+                view.ClickDisplayTab();
+                var displayView = view.DisplayView;
                 var countdownRoot = GetDisplayPrivateField<RectTransform>(displayView, "_previewCountdownRoot");
                 var countdownLabel = GetDisplayPrivateField<TMP_Text>(displayView, "_previewCountdownLabel");
                 var countdownFill = GetDisplayPrivateField<Image>(displayView, "_previewCountdownFill");
@@ -230,6 +238,7 @@ namespace Game.Feature.UI.Tests
                 result.Runtime.SetIsCurrent(true);
 
                 var view = runtimeContext.ScreenLayerView.FindScreenView<SettingsScreenView>();
+                view.ClickDisplayTab();
                 view.SelectDisplayResolution(1);
                 view.SetDisplayFullscreen(true);
                 view.ClickDisplayApply();
@@ -263,6 +272,7 @@ namespace Game.Feature.UI.Tests
                 result.Runtime.SetIsCurrent(true);
 
                 var view = runtimeContext.ScreenLayerView.FindScreenView<SettingsScreenView>();
+                view.ClickDisplayTab();
                 var displayView = view.DisplayView;
                 var hintRoot = GetDisplayPrivateField<RectTransform>(displayView, "_resolutionHoverHintRoot");
 
@@ -296,6 +306,7 @@ namespace Game.Feature.UI.Tests
                 result.Runtime.SetIsCurrent(true);
 
                 var view = runtimeContext.ScreenLayerView.FindScreenView<SettingsScreenView>();
+                view.ClickDisplayTab();
                 var displayView = view.DisplayView;
                 var hintRoot = GetDisplayPrivateField<RectTransform>(displayView, "_resolutionHoverHintRoot");
 

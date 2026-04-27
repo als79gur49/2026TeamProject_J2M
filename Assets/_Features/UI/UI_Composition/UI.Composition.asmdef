@@ -12,6 +12,8 @@
     "Game.Feature.UI.HUD",
     "Game.Feature.UI.Screens",
     "Game.Feature.UI.Popups",
+    "Game.Shared.Input",
+    "Unity.InputSystem",
     "Unity.TextMeshPro"
   ]
 }

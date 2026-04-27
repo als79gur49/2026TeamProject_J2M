@@ -9,6 +9,7 @@ using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.UIAccess.Queries;
 using Game.Shared.Audio;
+using Game.Shared.Input;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using UnityEngine;
 
@@ -146,6 +147,7 @@ namespace Game.Feature.Gameplay.Host
             var viewCameraRig = visualRuntime.ViewCameraRig;
 
             presenter.PresentInitial(presentedInitialEntities, configuration.InitialTopology);
+            KeyboardBindingSettingsService.ApplySavedSettings(configuration.Actions);
             inputHost.Initialize(
                 inputBuffer,
                 tickRunner,

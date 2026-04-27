@@ -1,0 +1,575 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.InputSystem;
+
+namespace Game.Shared.Input
+{
+    public sealed class KeyboardBindingSettingsService : IDisposable
+    {
+        private const string MoveActionPath = "Player/Move";
+        private const string PushActionPath = "Player/Push";
+        private const string FlipActionPath = "Player/Flip";
+        private const string KeyboardGroup = "Keyboard&Mouse";
+        private const string EmptyOverridePath = "";
+
+        private static readonly string[] WasdPaths =
+        {
+            "<Keyboard>/w",
+            "<Keyboard>/a",
+            "<Keyboard>/s",
+            "<Keyboard>/d",
+        };
+
+        private static readonly string[] ArrowPaths =
+        {
+            "<Keyboard>/upArrow",
+            "<Keyboard>/downArrow",
+            "<Keyboard>/leftArrow",
+            "<Keyboard>/rightArrow",
+        };
+
+        private static readonly string[] ReservedPaths =
+        {
+            "<Keyboard>/escape",
+            "<Keyboard>/f3",
+            "<Keyboard>/f4",
+        };
+
+        private readonly InputActionAsset _actions;
+        private readonly IKeyboardBindingStore _store;
+        private InputActionRebindingExtensions.RebindingOperation _rebindOperation;
+        private bool _mapWasEnabledBeforeRebind;
+        private string _pendingRebindPath;
+        private KeyboardBindableAction? _rebindingAction;
+        private KeyboardMovementScheme _movementScheme = KeyboardMovementScheme.Wasd;
+
+        public KeyboardBindingSettingsService(InputActionAsset actions, IKeyboardBindingStore store = null)
+        {
+            _actions = actions != null ? actions : throw new ArgumentNullException(nameof(actions));
+            _store = store ?? new PlayerPrefsKeyboardBindingStore();
+            LoadAndApplySavedSettings();
+        }
+
+        public bool IsRebinding => _rebindOperation != null;
+
+        public static void ApplySavedSettings(InputActionAsset actions, IKeyboardBindingStore store = null)
+        {
+            if (actions == null)
+            {
+                return;
+            }
+
+            using var service = new KeyboardBindingSettingsService(actions, store);
+        }
+
+        public KeyboardBindingSettingsSnapshot Read()
+        {
+            return new KeyboardBindingSettingsSnapshot(
+                _movementScheme,
+                _movementScheme == KeyboardMovementScheme.ArrowKeys ? "Arrow Keys" : "WASD",
+                ResolveDisplayName(KeyboardBindableAction.Push),
+                ResolveDisplayName(KeyboardBindableAction.Flip),
+                IsRebinding,
+                _rebindingAction);
+        }
+
+        public KeyboardBindingValidationStatus SetMovementScheme(KeyboardMovementScheme scheme)
+        {
+            var validation = ValidateMovementSchemeChange(scheme);
+            if (validation != KeyboardBindingValidationStatus.Success)
+            {
+                return validation;
+            }
+
+            WithPlayerMapDisabled(() =>
+            {
+                ApplyMovementScheme(scheme);
+            });
+
+            _movementScheme = scheme;
+            _store.SaveMovementScheme(scheme);
+            _store.Save();
+            return KeyboardBindingValidationStatus.Success;
+        }
+
+        public KeyboardRebindStartResult StartRebind(
+            KeyboardBindableAction action,
+            Action<KeyboardRebindResult> completed)
+        {
+            if (IsRebinding)
+            {
+                return new KeyboardRebindStartResult(false, KeyboardBindingValidationStatus.AlreadyRebinding, Read());
+            }
+
+            var inputAction = ResolveBindableAction(action);
+            var bindingIndex = FindKeyboardBindingIndex(inputAction);
+            if (inputAction == null || bindingIndex < 0)
+            {
+                return new KeyboardRebindStartResult(false, KeyboardBindingValidationStatus.MissingBinding, Read());
+            }
+
+            _rebindingAction = action;
+            _pendingRebindPath = null;
+            var actionMap = inputAction.actionMap;
+            _mapWasEnabledBeforeRebind = actionMap != null && actionMap.enabled;
+            if (_mapWasEnabledBeforeRebind)
+            {
+                actionMap.Disable();
+            }
+
+            _rebindOperation = inputAction.PerformInteractiveRebinding(bindingIndex)
+                .WithTargetBinding(bindingIndex)
+                .WithExpectedControlType("Button")
+                .WithControlsExcluding("<Mouse>")
+                .WithCancelingThrough("<Keyboard>/escape")
+                .WithActionEventNotificationsBeingSuppressed()
+                .OnApplyBinding((_, path) => _pendingRebindPath = path)
+                .OnCancel(_ =>
+                {
+                    FinishRebind(action, KeyboardBindingValidationStatus.Canceled, completed);
+                })
+                .OnComplete(_ =>
+                {
+                    var status = CompleteRebind(action, _pendingRebindPath);
+                    FinishRebind(action, status, completed);
+                });
+
+            _rebindOperation.Start();
+            return new KeyboardRebindStartResult(true, KeyboardBindingValidationStatus.Success, Read());
+        }
+
+        public void CancelRebind()
+        {
+            _rebindOperation?.Cancel();
+        }
+
+        public KeyboardBindingSettingsSnapshot ResetToDefaults()
+        {
+            CancelRebind();
+            WithPlayerMapDisabled(() =>
+            {
+                ClearManagedOverrides();
+                ApplyMovementScheme(KeyboardMovementScheme.Wasd);
+            });
+
+            _movementScheme = KeyboardMovementScheme.Wasd;
+            _store.SaveMovementScheme(_movementScheme);
+            _store.ClearBindingOverridesJson();
+            _store.Save();
+            return Read();
+        }
+
+        public void LoadAndApplySavedSettings()
+        {
+            var scheme = _store.TryLoadMovementScheme(out var storedScheme)
+                ? storedScheme
+                : KeyboardMovementScheme.Wasd;
+
+            WithPlayerMapDisabled(() =>
+            {
+                ClearManagedOverrides();
+                if (_store.TryLoadBindingOverridesJson(out var json))
+                {
+                    try
+                    {
+                        _actions.LoadBindingOverridesFromJson(json, removeExisting: false);
+                    }
+                    catch
+                    {
+                        ClearBindableActionOverrides();
+                        _store.ClearBindingOverridesJson();
+                        _store.Save();
+                    }
+                }
+
+                _movementScheme = scheme;
+                if (ValidateMovementSchemeChange(scheme) != KeyboardBindingValidationStatus.Success)
+                {
+                    ClearBindableActionOverrides();
+                    _store.ClearBindingOverridesJson();
+                    _store.Save();
+                }
+
+                ApplyMovementScheme(scheme);
+            });
+        }
+
+        public void Dispose()
+        {
+            CancelRebind();
+        }
+
+        private KeyboardBindingValidationStatus CompleteRebind(KeyboardBindableAction action, string selectedPath)
+        {
+            if (string.IsNullOrWhiteSpace(selectedPath) || !IsKeyboardPath(selectedPath))
+            {
+                return KeyboardBindingValidationStatus.InvalidKey;
+            }
+
+            var validation = ValidateActionBinding(action, selectedPath);
+            if (validation != KeyboardBindingValidationStatus.Success)
+            {
+                return validation;
+            }
+
+            var inputAction = ResolveBindableAction(action);
+            var bindingIndex = FindKeyboardBindingIndex(inputAction);
+            if (inputAction == null || bindingIndex < 0)
+            {
+                return KeyboardBindingValidationStatus.MissingBinding;
+            }
+
+            inputAction.ApplyBindingOverride(bindingIndex, selectedPath);
+            _store.SaveBindingOverridesJson(BuildPushFlipOverridesJson());
+            _store.Save();
+            return KeyboardBindingValidationStatus.Success;
+        }
+
+        private void FinishRebind(
+            KeyboardBindableAction action,
+            KeyboardBindingValidationStatus status,
+            Action<KeyboardRebindResult> completed)
+        {
+            var operation = _rebindOperation;
+            _rebindOperation = null;
+            _pendingRebindPath = null;
+            _rebindingAction = null;
+
+            operation?.Dispose();
+
+            var actionMap = ResolvePlayerMap();
+            if (_mapWasEnabledBeforeRebind && actionMap != null)
+            {
+                actionMap.Enable();
+            }
+
+            _mapWasEnabledBeforeRebind = false;
+            completed?.Invoke(new KeyboardRebindResult(action, status, Read()));
+        }
+
+        private KeyboardBindingValidationStatus ValidateMovementSchemeChange(KeyboardMovementScheme scheme)
+        {
+            var movementKeys = scheme == KeyboardMovementScheme.ArrowKeys ? ArrowPaths : WasdPaths;
+            var pushPath = ResolveEffectivePath(KeyboardBindableAction.Push);
+            var flipPath = ResolveEffectivePath(KeyboardBindableAction.Flip);
+
+            foreach (var movementKey in movementKeys)
+            {
+                if (PathsEqual(movementKey, pushPath) || PathsEqual(movementKey, flipPath))
+                {
+                    return KeyboardBindingValidationStatus.MovementConflict;
+                }
+            }
+
+            return KeyboardBindingValidationStatus.Success;
+        }
+
+        private KeyboardBindingValidationStatus ValidateActionBinding(KeyboardBindableAction action, string selectedPath)
+        {
+            if (IsReserved(selectedPath))
+            {
+                return KeyboardBindingValidationStatus.ReservedKey;
+            }
+
+            var otherAction = action == KeyboardBindableAction.Push
+                ? KeyboardBindableAction.Flip
+                : KeyboardBindableAction.Push;
+            if (PathsEqual(selectedPath, ResolveEffectivePath(otherAction)))
+            {
+                return KeyboardBindingValidationStatus.DuplicateAction;
+            }
+
+            var activeMovementPaths = _movementScheme == KeyboardMovementScheme.ArrowKeys ? ArrowPaths : WasdPaths;
+            foreach (var movementPath in activeMovementPaths)
+            {
+                if (PathsEqual(selectedPath, movementPath))
+                {
+                    return KeyboardBindingValidationStatus.MovementConflict;
+                }
+            }
+
+            return KeyboardBindingValidationStatus.Success;
+        }
+
+        private void ApplyMovementScheme(KeyboardMovementScheme scheme)
+        {
+            var moveAction = _actions.FindAction(MoveActionPath, throwIfNotFound: false);
+            if (moveAction == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < moveAction.bindings.Count; i++)
+            {
+                var binding = moveAction.bindings[i];
+                if (!binding.isPartOfComposite || !IsKeyboardPath(binding.path))
+                {
+                    continue;
+                }
+
+                if (IsWasdPath(binding.path))
+                {
+                    ApplyMovementPartEnabled(moveAction, i, scheme == KeyboardMovementScheme.Wasd);
+                }
+                else if (IsArrowPath(binding.path))
+                {
+                    ApplyMovementPartEnabled(moveAction, i, scheme == KeyboardMovementScheme.ArrowKeys);
+                }
+            }
+        }
+
+        private static void ApplyMovementPartEnabled(InputAction moveAction, int bindingIndex, bool isEnabled)
+        {
+            if (isEnabled)
+            {
+                moveAction.RemoveBindingOverride(bindingIndex);
+                return;
+            }
+
+            moveAction.ApplyBindingOverride(bindingIndex, EmptyOverridePath);
+        }
+
+        private void ClearManagedOverrides()
+        {
+            ClearMovementOverrides();
+            ClearBindableActionOverrides();
+        }
+
+        private void ClearMovementOverrides()
+        {
+            var moveAction = _actions.FindAction(MoveActionPath, throwIfNotFound: false);
+            if (moveAction == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < moveAction.bindings.Count; i++)
+            {
+                var binding = moveAction.bindings[i];
+                if (binding.isPartOfComposite && IsKeyboardPath(binding.path))
+                {
+                    moveAction.RemoveBindingOverride(i);
+                }
+            }
+        }
+
+        private void ClearBindableActionOverrides()
+        {
+            ClearBindableActionOverride(KeyboardBindableAction.Push);
+            ClearBindableActionOverride(KeyboardBindableAction.Flip);
+        }
+
+        private void ClearBindableActionOverride(KeyboardBindableAction action)
+        {
+            var inputAction = ResolveBindableAction(action);
+            var bindingIndex = FindKeyboardBindingIndex(inputAction);
+            if (inputAction != null && bindingIndex >= 0)
+            {
+                inputAction.RemoveBindingOverride(bindingIndex);
+            }
+        }
+
+        private string BuildPushFlipOverridesJson()
+        {
+            var overrides = new BindingOverrideListJson();
+            AddBindingOverrideJson(KeyboardBindableAction.Push, overrides.bindings);
+            AddBindingOverrideJson(KeyboardBindableAction.Flip, overrides.bindings);
+            return overrides.bindings.Count == 0 ? string.Empty : JsonUtility.ToJson(overrides);
+        }
+
+        private void AddBindingOverrideJson(KeyboardBindableAction action, List<BindingOverrideJson> overrides)
+        {
+            var inputAction = ResolveBindableAction(action);
+            var bindingIndex = FindKeyboardBindingIndex(inputAction);
+            if (inputAction == null || bindingIndex < 0)
+            {
+                return;
+            }
+
+            var binding = inputAction.bindings[bindingIndex];
+            if (!binding.hasOverrides)
+            {
+                return;
+            }
+
+            overrides.Add(new BindingOverrideJson
+            {
+                action = $"{inputAction.actionMap.name}/{inputAction.name}",
+                id = binding.id.ToString(),
+                path = binding.overridePath ?? "null",
+                interactions = binding.overrideInteractions ?? "null",
+                processors = binding.overrideProcessors ?? "null",
+            });
+        }
+
+        private string ResolveDisplayName(KeyboardBindableAction action)
+        {
+            var inputAction = ResolveBindableAction(action);
+            var bindingIndex = FindKeyboardBindingIndex(inputAction);
+            if (inputAction == null || bindingIndex < 0)
+            {
+                return string.Empty;
+            }
+
+            var path = inputAction.bindings[bindingIndex].effectivePath;
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return string.Empty;
+            }
+
+            return InputControlPath.ToHumanReadableString(
+                path,
+                InputControlPath.HumanReadableStringOptions.OmitDevice);
+        }
+
+        private string ResolveEffectivePath(KeyboardBindableAction action)
+        {
+            var inputAction = ResolveBindableAction(action);
+            var bindingIndex = FindKeyboardBindingIndex(inputAction);
+            if (inputAction == null || bindingIndex < 0)
+            {
+                return string.Empty;
+            }
+
+            return inputAction.bindings[bindingIndex].effectivePath;
+        }
+
+        private InputAction ResolveBindableAction(KeyboardBindableAction action)
+        {
+            return _actions.FindAction(
+                action == KeyboardBindableAction.Push ? PushActionPath : FlipActionPath,
+                throwIfNotFound: false);
+        }
+
+        private InputActionMap ResolvePlayerMap()
+        {
+            return _actions.FindActionMap("Player", throwIfNotFound: false);
+        }
+
+        private static int FindKeyboardBindingIndex(InputAction action)
+        {
+            if (action == null)
+            {
+                return -1;
+            }
+
+            for (var i = 0; i < action.bindings.Count; i++)
+            {
+                var binding = action.bindings[i];
+                if (binding.isComposite || binding.isPartOfComposite)
+                {
+                    continue;
+                }
+
+                if (IsKeyboardPath(binding.path) ||
+                    IsKeyboardPath(binding.effectivePath) ||
+                    ContainsKeyboardGroup(binding.groups))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        private void WithPlayerMapDisabled(Action action)
+        {
+            var actionMap = ResolvePlayerMap();
+            var wasEnabled = actionMap != null && actionMap.enabled;
+            if (wasEnabled)
+            {
+                actionMap.Disable();
+            }
+
+            try
+            {
+                action();
+            }
+            finally
+            {
+                if (wasEnabled && actionMap != null)
+                {
+                    actionMap.Enable();
+                }
+            }
+        }
+
+        private static bool ContainsKeyboardGroup(string groups)
+        {
+            return !string.IsNullOrWhiteSpace(groups) &&
+                   groups.IndexOf(KeyboardGroup, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static bool IsKeyboardPath(string path)
+        {
+            return !string.IsNullOrWhiteSpace(path) &&
+                   NormalizePath(path).StartsWith("<keyboard>/", StringComparison.Ordinal);
+        }
+
+        private static bool IsWasdPath(string path)
+        {
+            foreach (var wasdPath in WasdPaths)
+            {
+                if (PathsEqual(path, wasdPath))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsArrowPath(string path)
+        {
+            foreach (var arrowPath in ArrowPaths)
+            {
+                if (PathsEqual(path, arrowPath))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsReserved(string path)
+        {
+            foreach (var reservedPath in ReservedPaths)
+            {
+                if (PathsEqual(path, reservedPath))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool PathsEqual(string left, string right)
+        {
+            return string.Equals(NormalizePath(left), NormalizePath(right), StringComparison.Ordinal);
+        }
+
+        private static string NormalizePath(string path)
+        {
+            return (path ?? string.Empty).Trim().ToLowerInvariant();
+        }
+
+        [Serializable]
+        private sealed class BindingOverrideListJson
+        {
+            public List<BindingOverrideJson> bindings = new List<BindingOverrideJson>();
+        }
+
+        [Serializable]
+        private struct BindingOverrideJson
+        {
+            public string action;
+            public string id;
+            public string path;
+            public string interactions;
+            public string processors;
+        }
+    }
+}

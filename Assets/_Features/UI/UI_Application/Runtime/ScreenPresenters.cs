@@ -1504,24 +1504,191 @@ namespace Game.Feature.UI.Application
         }
     }
 
+    public readonly struct SettingsInputPresenterInput
+    {
+        public SettingsInputPresenterInput(
+            string sectionTitle,
+            string movementLabel,
+            string useArrowKeysLabel,
+            string pushLabel,
+            string flipLabel,
+            string changeLabel,
+            string resetLabel)
+        {
+            SectionTitle = sectionTitle ?? string.Empty;
+            MovementLabel = movementLabel ?? string.Empty;
+            UseArrowKeysLabel = useArrowKeysLabel ?? string.Empty;
+            PushLabel = pushLabel ?? string.Empty;
+            FlipLabel = flipLabel ?? string.Empty;
+            ChangeLabel = changeLabel ?? string.Empty;
+            ResetLabel = resetLabel ?? string.Empty;
+        }
+
+        public string SectionTitle { get; }
+
+        public string MovementLabel { get; }
+
+        public string UseArrowKeysLabel { get; }
+
+        public string PushLabel { get; }
+
+        public string FlipLabel { get; }
+
+        public string ChangeLabel { get; }
+
+        public string ResetLabel { get; }
+    }
+
+    public sealed class SettingsInputPresenter
+    {
+        private readonly IKeyboardBindingSettingsPort _keyboardBindingSettingsPort;
+        private SettingsInputPresenterInput _input = new SettingsInputPresenterInput(
+            "Input",
+            "Movement Keys",
+            "Use Arrow Keys",
+            "Push",
+            "Flip",
+            "Change",
+            "Reset Input");
+        private string _statusText = string.Empty;
+
+        public SettingsInputPresenter(IKeyboardBindingSettingsPort keyboardBindingSettingsPort)
+        {
+            _keyboardBindingSettingsPort = keyboardBindingSettingsPort ?? throw new ArgumentNullException(nameof(keyboardBindingSettingsPort));
+        }
+
+        public SettingsInputViewModel ViewModel { get; } = new SettingsInputViewModel();
+
+        public bool IsRebinding => _keyboardBindingSettingsPort.IsRebinding;
+
+        public void Apply(SettingsInputPresenterInput input)
+        {
+            _input = input;
+            RefreshViewModel(_keyboardBindingSettingsPort.Read());
+        }
+
+        public void SetMovementScheme(KeyboardMovementScheme scheme)
+        {
+            var result = _keyboardBindingSettingsPort.TrySetMovementScheme(scheme);
+            _statusText = ToStatusText(result, KeyboardBindableAction.Push);
+            RefreshViewModel(_keyboardBindingSettingsPort.Read());
+        }
+
+        public void StartRebind(KeyboardBindableAction action)
+        {
+            var startResult = _keyboardBindingSettingsPort.StartRebind(action, HandleRebindCompleted);
+            if (startResult.Started)
+            {
+                _statusText = action == KeyboardBindableAction.Push
+                    ? "Press a key for Push..."
+                    : "Press a key for Flip...";
+                RefreshViewModel(startResult.Snapshot);
+                return;
+            }
+
+            _statusText = ToStatusText(startResult.ValidationResult, action);
+            RefreshViewModel(startResult.Snapshot);
+        }
+
+        public void CancelRebind()
+        {
+            _keyboardBindingSettingsPort.CancelRebind();
+            RefreshViewModel(_keyboardBindingSettingsPort.Read());
+        }
+
+        public void ResetToDefaults()
+        {
+            var snapshot = _keyboardBindingSettingsPort.ResetToDefaults();
+            _statusText = "Input settings reset.";
+            RefreshViewModel(snapshot);
+        }
+
+        private void HandleRebindCompleted(KeyboardRebindResult result)
+        {
+            _statusText = ToStatusText(result.ValidationResult, result.Action);
+            RefreshViewModel(result.Snapshot);
+        }
+
+        private void RefreshViewModel(KeyboardBindingSettingsSnapshot snapshot)
+        {
+            var areControlsInteractable = !snapshot.IsRebinding;
+            ViewModel.SetContent(
+                _input.SectionTitle,
+                _input.MovementLabel,
+                _input.UseArrowKeysLabel,
+                snapshot.MovementScheme == KeyboardMovementScheme.ArrowKeys,
+                snapshot.MovementDisplayName,
+                _input.PushLabel,
+                snapshot.PushDisplayName,
+                _input.ChangeLabel,
+                _input.FlipLabel,
+                snapshot.FlipDisplayName,
+                _input.ChangeLabel,
+                _input.ResetLabel,
+                _statusText,
+                snapshot.IsRebinding,
+                areControlsInteractable);
+        }
+
+        private static string ToStatusText(KeyboardBindingValidationResult result, KeyboardBindableAction action)
+        {
+            switch (result)
+            {
+                case KeyboardBindingValidationResult.Success:
+                    return string.Empty;
+                case KeyboardBindingValidationResult.Canceled:
+                    return "Rebind canceled.";
+                case KeyboardBindingValidationResult.ReservedKey:
+                    return "This key is reserved.";
+                case KeyboardBindingValidationResult.DuplicateAction:
+                    return action == KeyboardBindableAction.Push
+                        ? "This key is already used by Flip."
+                        : "This key is already used by Push.";
+                case KeyboardBindingValidationResult.MovementConflict:
+                    return "This key conflicts with movement keys.";
+                case KeyboardBindingValidationResult.AlreadyRebinding:
+                    return "Rebind already in progress.";
+                default:
+                    return "This key cannot be used.";
+            }
+        }
+    }
+
     public sealed class SettingsScreenPresenter
     {
         private readonly AccessibilitySettingsStore _accessibilitySettingsStore;
         private SettingsScreenPayload _payload = SettingsScreenPayload.Default;
+        private SettingsSectionId _selectedSection = SettingsSectionId.Audio;
 
         public SettingsScreenPresenter(
             AccessibilitySettingsStore accessibilitySettingsStore,
             IAudioSettingsPort audioSettingsPort,
             IDisplaySettingsPort displaySettingsPort)
+            : this(
+                accessibilitySettingsStore,
+                audioSettingsPort,
+                displaySettingsPort,
+                NoOpKeyboardBindingSettingsPort.Instance)
+        {
+        }
+
+        public SettingsScreenPresenter(
+            AccessibilitySettingsStore accessibilitySettingsStore,
+            IAudioSettingsPort audioSettingsPort,
+            IDisplaySettingsPort displaySettingsPort,
+            IKeyboardBindingSettingsPort keyboardBindingSettingsPort)
         {
             _accessibilitySettingsStore = accessibilitySettingsStore ?? throw new ArgumentNullException(nameof(accessibilitySettingsStore));
             AudioPresenter = new SettingsAudioPresenter(audioSettingsPort ?? throw new ArgumentNullException(nameof(audioSettingsPort)));
             DisplayPresenter = new SettingsDisplayPresenter(displaySettingsPort ?? throw new ArgumentNullException(nameof(displaySettingsPort)));
+            InputPresenter = new SettingsInputPresenter(keyboardBindingSettingsPort ?? throw new ArgumentNullException(nameof(keyboardBindingSettingsPort)));
         }
 
         public SettingsAudioPresenter AudioPresenter { get; }
 
         public SettingsDisplayPresenter DisplayPresenter { get; }
+
+        public SettingsInputPresenter InputPresenter { get; }
 
         public SettingsScreenViewModel ViewModel { get; } = new SettingsScreenViewModel();
 
@@ -1541,6 +1708,20 @@ namespace Game.Feature.UI.Application
                 _payload.DisplayApplyLabel,
                 _payload.DisplayRevertLabel),
                 previewTimeoutSeconds);
+            InputPresenter.Apply(new SettingsInputPresenterInput(
+                _payload.InputSectionTitle,
+                _payload.MovementLabel,
+                _payload.UseArrowKeysLabel,
+                _payload.PushLabel,
+                _payload.FlipLabel,
+                _payload.InputChangeLabel,
+                _payload.ResetInputLabel));
+            RefreshViewModel();
+        }
+
+        public void SelectSection(SettingsSectionId sectionId)
+        {
+            _selectedSection = sectionId;
             RefreshViewModel();
         }
 
@@ -1574,7 +1755,11 @@ namespace Game.Feature.UI.Application
                 accessibilityState.IsLargeTextEnabled ? "Enabled" : "Disabled",
                 _payload.TooltipToggleLabel,
                 _payload.LargeTextToggleLabel,
-                _payload.BackLabel);
+                _payload.BackLabel,
+                _payload.AudioTabLabel,
+                _payload.DisplayTabLabel,
+                _payload.InputTabLabel,
+                _selectedSection);
         }
     }
 

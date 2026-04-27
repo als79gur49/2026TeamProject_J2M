@@ -21,6 +21,7 @@ namespace Game.Feature.UI.Tests
                 var viewModel = CreateDisplayViewModel();
                 displayView.Bind(viewModel);
                 settingsScreen.SetIsCurrent(true);
+                ShowDisplaySectionForStandaloneView(displayView);
 
                 var relay = GetPrivateField<SettingsHoverRelay>(displayView, "_resolutionHoverRelay");
                 var hintRoot = GetPrivateField<RectTransform>(displayView, "_resolutionHoverHintRoot");
@@ -54,6 +55,7 @@ namespace Game.Feature.UI.Tests
                 var displayView = settingsScreen.DisplayView;
                 displayView.Bind(CreateDisplayViewModel());
                 settingsScreen.SetIsCurrent(true);
+                ShowDisplaySectionForStandaloneView(displayView);
 
                 var relay = GetPrivateField<SettingsHoverRelay>(displayView, "_resolutionHoverRelay");
                 var hintRoot = GetPrivateField<RectTransform>(displayView, "_resolutionHoverHintRoot");
@@ -82,6 +84,7 @@ namespace Game.Feature.UI.Tests
                 var displayView = settingsScreen.DisplayView;
                 displayView.Bind(CreateDisplayViewModel());
                 settingsScreen.SetIsCurrent(true);
+                ShowDisplaySectionForStandaloneView(displayView);
 
                 var relay = GetPrivateField<SettingsHoverRelay>(displayView, "_resolutionHoverRelay");
                 var hintRoot = GetPrivateField<RectTransform>(displayView, "_resolutionHoverHintRoot");
@@ -115,6 +118,7 @@ namespace Game.Feature.UI.Tests
                 var viewModel = CreateDisplayViewModel();
                 displayView.Bind(viewModel);
                 settingsScreen.SetIsCurrent(true);
+                ShowDisplaySectionForStandaloneView(displayView);
 
                 var relay = GetPrivateField<SettingsHoverRelay>(displayView, "_resolutionHoverRelay");
                 var hintRoot = GetPrivateField<RectTransform>(displayView, "_resolutionHoverHintRoot");
@@ -193,6 +197,12 @@ namespace Game.Feature.UI.Tests
             var value = field.GetValue(target) as TField;
             Assert.That(value, Is.Not.Null, fieldName);
             return value;
+        }
+
+        private static void ShowDisplaySectionForStandaloneView(SettingsDisplayView displayView)
+        {
+            displayView.gameObject.SetActive(true);
+            displayView.SetIsVisible(true);
         }
     }
 }
