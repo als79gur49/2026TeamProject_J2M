@@ -6,8 +6,10 @@ using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 using Game.Shared.Audio;
 using Game.Shared.Display;
+using Game.Shared.Input;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 namespace Game.Feature.UI.Composition
@@ -35,6 +37,7 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private MainMenuScreenView _mainMenuScreenView;
         [SerializeField] private MainMenuScreenView _mainMenuScreenPrefab;
         [SerializeField] private SettingsScreenView _settingsScreenPrefab;
+        [SerializeField] private InputActionAsset _inputActions;
         [SerializeField] private PopupLayerView _popupLayerView;
         [SerializeField] private PopupPrefabCatalog _popupPrefabCatalog;
         [SerializeField] private UiAudioCueMap _uiAudioCueMap;
@@ -124,6 +127,7 @@ namespace Game.Feature.UI.Composition
 
             var audioSettingsPort = CreateAudioSettingsPort();
             var displaySettingsPort = CreateDisplaySettingsPort();
+            var keyboardBindingSettingsPort = CreateKeyboardBindingSettingsPort();
             EnsureAudioSettingsLifecycleRelay(audioSettingsPort);
             EnsureDisplayPreviewTimeoutRelay();
             EnsureDisplaySettingsLifecycleRelay();
@@ -143,6 +147,7 @@ namespace Game.Feature.UI.Composition
                     accessibilitySettingsStore,
                     audioSettingsPort,
                     displaySettingsPort,
+                    keyboardBindingSettingsPort,
                     PopupController,
                     displayPreviewSessionHost,
                     _displaySettingsLifecycleRelay,
@@ -416,6 +421,16 @@ namespace Game.Feature.UI.Composition
             }
 
             return new DisplaySettingsPortAdapter(displayRuntimeInstaller.DisplaySettingsService);
+        }
+
+        private IKeyboardBindingSettingsPort CreateKeyboardBindingSettingsPort()
+        {
+            if (_inputActions == null)
+            {
+                return NoOpKeyboardBindingSettingsPort.Instance;
+            }
+
+            return new KeyboardBindingSettingsPortAdapter(new KeyboardBindingSettingsService(_inputActions));
         }
 
         private AudioRuntimeInstaller GetRequiredAudioRuntimeInstaller()

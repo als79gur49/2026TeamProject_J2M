@@ -12,6 +12,7 @@ namespace Game.Feature.UI.Composition
         private readonly AccessibilitySettingsStore accessibilitySettingsStore;
         private readonly IAudioSettingsPort audioSettingsPort;
         private readonly IDisplaySettingsPort displaySettingsPort;
+        private readonly IKeyboardBindingSettingsPort keyboardBindingSettingsPort;
         private readonly DisplayPreviewSessionHost displayPreviewSessionHost;
         private readonly DisplaySettingsLifecycleRelay displaySettingsLifecycleRelay;
         private readonly SettingsScreenPayload payload;
@@ -24,6 +25,7 @@ namespace Game.Feature.UI.Composition
         private bool isDisposed;
         private SettingsAudioView audioView;
         private SettingsDisplayView displayView;
+        private SettingsInputView inputView;
         private SettingsScreenPresenter presenter;
         private SettingsScreenView view;
 
@@ -33,6 +35,7 @@ namespace Game.Feature.UI.Composition
             AccessibilitySettingsStore accessibilitySettingsStore,
             IAudioSettingsPort audioSettingsPort,
             IDisplaySettingsPort displaySettingsPort,
+            IKeyboardBindingSettingsPort keyboardBindingSettingsPort,
             PopupController popupController,
             DisplayPreviewSessionHost displayPreviewSessionHost,
             DisplaySettingsLifecycleRelay displaySettingsLifecycleRelay,
@@ -48,6 +51,7 @@ namespace Game.Feature.UI.Composition
             this.accessibilitySettingsStore = accessibilitySettingsStore ?? throw new ArgumentNullException(nameof(accessibilitySettingsStore));
             this.audioSettingsPort = audioSettingsPort ?? throw new ArgumentNullException(nameof(audioSettingsPort));
             this.displaySettingsPort = displaySettingsPort ?? throw new ArgumentNullException(nameof(displaySettingsPort));
+            this.keyboardBindingSettingsPort = keyboardBindingSettingsPort ?? throw new ArgumentNullException(nameof(keyboardBindingSettingsPort));
             this.popupController = popupController ?? throw new ArgumentNullException(nameof(popupController));
             this.displayPreviewSessionHost = displayPreviewSessionHost ?? throw new ArgumentNullException(nameof(displayPreviewSessionHost));
             this.displaySettingsLifecycleRelay = displaySettingsLifecycleRelay ?? throw new ArgumentNullException(nameof(displaySettingsLifecycleRelay));
@@ -62,6 +66,32 @@ namespace Game.Feature.UI.Composition
         public SettingsScreenView View => view;
 
         public SettingsScreenPresenter Presenter => presenter;
+
+        public MainMenuSettingsRuntime(
+            SettingsScreenView settingsScreenPrefab,
+            RectTransform settingsContentRoot,
+            AccessibilitySettingsStore accessibilitySettingsStore,
+            IAudioSettingsPort audioSettingsPort,
+            IDisplaySettingsPort displaySettingsPort,
+            PopupController popupController,
+            DisplayPreviewSessionHost displayPreviewSessionHost,
+            DisplaySettingsLifecycleRelay displaySettingsLifecycleRelay,
+            SettingsScreenPayload payload,
+            double previewTimeoutSeconds)
+            : this(
+                settingsScreenPrefab,
+                settingsContentRoot,
+                accessibilitySettingsStore,
+                audioSettingsPort,
+                displaySettingsPort,
+                NoOpKeyboardBindingSettingsPort.Instance,
+                popupController,
+                displayPreviewSessionHost,
+                displaySettingsLifecycleRelay,
+                payload,
+                previewTimeoutSeconds)
+        {
+        }
 
         public void Open()
         {
@@ -91,14 +121,17 @@ namespace Game.Feature.UI.Composition
                 view.name = settingsScreenPrefab.name;
                 audioView = view.AudioView ?? throw new InvalidOperationException("Settings screen view is missing an audio section.");
                 displayView = view.DisplayView ?? throw new InvalidOperationException("Settings screen view is missing a display section.");
-                presenter = new SettingsScreenPresenter(accessibilitySettingsStore, audioSettingsPort, displaySettingsPort);
+                inputView = view.InputView ?? throw new InvalidOperationException("Settings screen view is missing an input section.");
+                presenter = new SettingsScreenPresenter(accessibilitySettingsStore, audioSettingsPort, displaySettingsPort, keyboardBindingSettingsPort);
                 view.ValidateAuthoredStructureOrThrow();
                 audioView.ValidateAuthoredControlsOrThrow();
                 displayView.ValidateAuthoredControlsOrThrow();
+                inputView.ValidateAuthoredControlsOrThrow();
                 presenter.Apply(payload, previewTimeoutSeconds);
                 view.Bind(presenter.ViewModel);
                 audioView.Bind(presenter.AudioPresenter.ViewModel);
                 displayView.Bind(presenter.DisplayPresenter.ViewModel);
+                inputView.Bind(presenter.InputPresenter.ViewModel);
                 SubscribeEvents();
                 view.SetIsCurrent(true);
             }
@@ -119,6 +152,7 @@ namespace Game.Feature.UI.Composition
             isDisposed = true;
             CloseOwnedTooltipPopup();
             CancelDisplayPreviewOnClose();
+            presenter?.InputPresenter.CancelRebind();
 
             if (presenter != null)
             {
@@ -131,6 +165,11 @@ namespace Game.Feature.UI.Composition
             if (displayView != null)
             {
                 displayView.Bind(null);
+            }
+
+            if (inputView != null)
+            {
+                inputView.Bind(null);
             }
 
             if (audioView != null)
@@ -146,6 +185,7 @@ namespace Game.Feature.UI.Composition
             }
 
             displayView = null;
+            inputView = null;
             audioView = null;
             presenter = null;
             view = null;
@@ -160,6 +200,11 @@ namespace Game.Feature.UI.Composition
             displayView.FullscreenToggled += HandleDisplayFullscreenToggled;
             displayView.ApplyRequested += HandleDisplayApplyRequested;
             displayView.RevertRequested += HandleDisplayRevertRequested;
+            inputView.MovementSchemeToggleRequested += HandleInputMovementSchemeToggleRequested;
+            inputView.PushRebindRequested += HandleInputPushRebindRequested;
+            inputView.FlipRebindRequested += HandleInputFlipRebindRequested;
+            inputView.ResetRequested += HandleInputResetRequested;
+            view.SectionSelected += HandleSectionSelected;
             view.TooltipInfoRequested += HandleTooltipInfoRequested;
             view.TooltipToggleRequested += HandleTooltipToggleRequested;
             view.LargeTextToggleRequested += HandleLargeTextToggleRequested;
@@ -185,8 +230,17 @@ namespace Game.Feature.UI.Composition
                 displayView.RevertRequested -= HandleDisplayRevertRequested;
             }
 
+            if (inputView != null)
+            {
+                inputView.MovementSchemeToggleRequested -= HandleInputMovementSchemeToggleRequested;
+                inputView.PushRebindRequested -= HandleInputPushRebindRequested;
+                inputView.FlipRebindRequested -= HandleInputFlipRebindRequested;
+                inputView.ResetRequested -= HandleInputResetRequested;
+            }
+
             if (view != null)
             {
+                view.SectionSelected -= HandleSectionSelected;
                 view.TooltipInfoRequested -= HandleTooltipInfoRequested;
                 view.TooltipToggleRequested -= HandleTooltipToggleRequested;
                 view.LargeTextToggleRequested -= HandleLargeTextToggleRequested;
@@ -226,6 +280,49 @@ namespace Game.Feature.UI.Composition
             hasActiveTooltipPopup = false;
             activeTooltipPopupId = default;
             popupController.Close(popupId, PopupCloseReason.ScreenTransition);
+        }
+
+        private void HandleSectionSelected(SettingsSectionId sectionId)
+        {
+            presenter.SelectSection(sectionId);
+        }
+
+        private void HandleInputMovementSchemeToggleRequested(bool useArrowKeys)
+        {
+            presenter.InputPresenter.SetMovementScheme(useArrowKeys
+                ? KeyboardMovementScheme.ArrowKeys
+                : KeyboardMovementScheme.Wasd);
+        }
+
+        private void HandleInputPushRebindRequested()
+        {
+            presenter.InputPresenter.StartRebind(KeyboardBindableAction.Push);
+        }
+
+        private void HandleInputFlipRebindRequested()
+        {
+            presenter.InputPresenter.StartRebind(KeyboardBindableAction.Flip);
+        }
+
+        private void HandleInputResetRequested()
+        {
+            popupController.Push(
+                new PopupRequest(
+                    PopupId.Confirm,
+                    new ConfirmPopupPayload(
+                        "Reset Input Settings",
+                        "Reset input settings to defaults?",
+                        "Reset",
+                        "Cancel",
+                        false),
+                    completion =>
+                    {
+                        if (completion.CompletionKind == PopupCompletionKind.Confirmed)
+                        {
+                            presenter?.InputPresenter.ResetToDefaults();
+                        }
+                    }),
+                out _);
         }
 
         private void HandleTooltipInfoRequested()
@@ -331,6 +428,12 @@ namespace Game.Feature.UI.Composition
 
         private void HandleBackRequested()
         {
+            if (presenter != null && presenter.InputPresenter.IsRebinding)
+            {
+                presenter.InputPresenter.CancelRebind();
+                return;
+            }
+
             CloseRequested?.Invoke();
         }
 

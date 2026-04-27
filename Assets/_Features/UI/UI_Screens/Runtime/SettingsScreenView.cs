@@ -11,6 +11,7 @@ namespace Game.Feature.UI.Screens
     {
         public const string AudioSectionName = "SettingsAudioSection";
         public const string DisplaySectionName = "SettingsDisplaySection";
+        public const string InputSectionName = "SettingsInputSection";
 
         private const string MissingAudioSectionMessage =
             "Settings screen is missing or miswired required authored audio section. Repair: assign SettingsScreenView._audioView to the SettingsAudioSection child view.";
@@ -18,11 +19,20 @@ namespace Game.Feature.UI.Screens
         private const string MissingDisplaySectionMessage =
             "Settings screen is missing or miswired required authored display section. Repair: assign SettingsScreenView._displayView to the SettingsDisplaySection child view.";
 
+        private const string MissingInputSectionMessage =
+            "Settings screen is missing or miswired required authored input section. Repair: assign SettingsScreenView._inputView to the SettingsInputSection child view.";
+
         [SerializeField] private GameObject _root;
         [SerializeField] private TMP_Text _titleLabel;
         [SerializeField] private TMP_Text _tooltipStatusLabel;
         [SerializeField] private TMP_Text _largeTextStatusLabel;
         [SerializeField] private Button _tooltipInfoButton;
+        [SerializeField] private Button _audioTabButton;
+        [SerializeField] private TMP_Text _audioTabButtonLabel;
+        [SerializeField] private Button _displayTabButton;
+        [SerializeField] private TMP_Text _displayTabButtonLabel;
+        [SerializeField] private Button _inputTabButton;
+        [SerializeField] private TMP_Text _inputTabButtonLabel;
         [SerializeField] private Button _tooltipToggleButton;
         [SerializeField] private Button _largeTextToggleButton;
         [SerializeField] private Button _backButton;
@@ -31,6 +41,7 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private TMP_Text _backButtonLabel;
         [SerializeField] private SettingsAudioView _audioView;
         [SerializeField] private SettingsDisplayView _displayView;
+        [SerializeField] private SettingsInputView _inputView;
 
         private bool _isVisible;
         private SettingsScreenViewModel _viewModel;
@@ -45,6 +56,8 @@ namespace Game.Feature.UI.Screens
         public event Action TooltipInfoRequested;
 
         public event Action LargeTextToggleRequested;
+
+        public event Action<SettingsSectionId> SectionSelected;
 
         public event Action BackRequested;
 
@@ -80,6 +93,8 @@ namespace Game.Feature.UI.Screens
 
         public SettingsDisplayView DisplayView => _displayView;
 
+        public SettingsInputView InputView => _inputView;
+
         public void Bind(SettingsScreenViewModel viewModel)
         {
             if (_viewModel != null)
@@ -100,6 +115,7 @@ namespace Game.Feature.UI.Screens
         {
             ValidateSection(_audioView, nameof(_audioView), AudioSectionName, MissingAudioSectionMessage);
             ValidateSection(_displayView, nameof(_displayView), DisplaySectionName, MissingDisplaySectionMessage);
+            ValidateSection(_inputView, nameof(_inputView), InputSectionName, MissingInputSectionMessage);
         }
 
         public void SetIsCurrent(bool isCurrent)
@@ -136,6 +152,36 @@ namespace Game.Feature.UI.Screens
             }
 
             DisplayView.ClickRevert();
+        }
+
+        public void ClickAudioTab()
+        {
+            if (!IsVisible)
+            {
+                return;
+            }
+
+            SectionSelected?.Invoke(SettingsSectionId.Audio);
+        }
+
+        public void ClickDisplayTab()
+        {
+            if (!IsVisible)
+            {
+                return;
+            }
+
+            SectionSelected?.Invoke(SettingsSectionId.Display);
+        }
+
+        public void ClickInputTab()
+        {
+            if (!IsVisible)
+            {
+                return;
+            }
+
+            SectionSelected?.Invoke(SettingsSectionId.Input);
         }
 
         public void ClickLargeTextToggle()
@@ -221,6 +267,9 @@ namespace Game.Feature.UI.Screens
         private void OnEnable()
         {
             RebindButton(_tooltipInfoButton, ClickTooltipInfo);
+            RebindButton(_audioTabButton, ClickAudioTab);
+            RebindButton(_displayTabButton, ClickDisplayTab);
+            RebindButton(_inputTabButton, ClickInputTab);
             RebindButton(_tooltipToggleButton, ClickTooltipToggle);
             RebindButton(_largeTextToggleButton, ClickLargeTextToggle);
             RebindButton(_backButton, ClickBack);
@@ -231,6 +280,9 @@ namespace Game.Feature.UI.Screens
         {
             StopRootEnterMotion();
             UnbindButton(_tooltipInfoButton, ClickTooltipInfo);
+            UnbindButton(_audioTabButton, ClickAudioTab);
+            UnbindButton(_displayTabButton, ClickDisplayTab);
+            UnbindButton(_inputTabButton, ClickInputTab);
             UnbindButton(_tooltipToggleButton, ClickTooltipToggle);
             UnbindButton(_largeTextToggleButton, ClickLargeTextToggle);
             UnbindButton(_backButton, ClickBack);
@@ -244,6 +296,12 @@ namespace Game.Feature.UI.Screens
             ValidateSerializedReference(_tooltipStatusLabel, nameof(_tooltipStatusLabel));
             ValidateSerializedReference(_largeTextStatusLabel, nameof(_largeTextStatusLabel));
             ValidateSerializedReference(_tooltipInfoButton, nameof(_tooltipInfoButton));
+            ValidateSerializedReference(_audioTabButton, nameof(_audioTabButton));
+            ValidateSerializedReference(_audioTabButtonLabel, nameof(_audioTabButtonLabel));
+            ValidateSerializedReference(_displayTabButton, nameof(_displayTabButton));
+            ValidateSerializedReference(_displayTabButtonLabel, nameof(_displayTabButtonLabel));
+            ValidateSerializedReference(_inputTabButton, nameof(_inputTabButton));
+            ValidateSerializedReference(_inputTabButtonLabel, nameof(_inputTabButtonLabel));
             ValidateSerializedReference(_tooltipToggleButton, nameof(_tooltipToggleButton));
             ValidateSerializedReference(_largeTextToggleButton, nameof(_largeTextToggleButton));
             ValidateSerializedReference(_backButton, nameof(_backButton));
@@ -252,6 +310,7 @@ namespace Game.Feature.UI.Screens
             ValidateSerializedReference(_backButtonLabel, nameof(_backButtonLabel));
             ValidateSerializedReference(_audioView, nameof(_audioView));
             ValidateSerializedReference(_displayView, nameof(_displayView));
+            ValidateSerializedReference(_inputView, nameof(_inputView));
         }
 #endif
 
@@ -271,15 +330,7 @@ namespace Game.Feature.UI.Screens
 
         private void RefreshView()
         {
-            if (_audioView != null)
-            {
-                _audioView.SetIsVisible(IsVisible);
-            }
-
-            if (_displayView != null)
-            {
-                _displayView.SetIsVisible(IsVisible);
-            }
+            ApplySectionVisibility();
 
             ApplyRootVisibility();
 
@@ -318,6 +369,75 @@ namespace Game.Feature.UI.Screens
             if (_backButtonLabel != null)
             {
                 _backButtonLabel.text = _viewModel.BackLabel;
+            }
+
+            if (_audioTabButtonLabel != null)
+            {
+                _audioTabButtonLabel.text = _viewModel.AudioTabLabel;
+            }
+
+            if (_displayTabButtonLabel != null)
+            {
+                _displayTabButtonLabel.text = _viewModel.DisplayTabLabel;
+            }
+
+            if (_inputTabButtonLabel != null)
+            {
+                _inputTabButtonLabel.text = _viewModel.InputTabLabel;
+            }
+
+            if (_audioTabButton != null)
+            {
+                _audioTabButton.interactable = _viewModel.SelectedSection != SettingsSectionId.Audio;
+            }
+
+            if (_displayTabButton != null)
+            {
+                _displayTabButton.interactable = _viewModel.SelectedSection != SettingsSectionId.Display;
+            }
+
+            if (_inputTabButton != null)
+            {
+                _inputTabButton.interactable = _viewModel.SelectedSection != SettingsSectionId.Input;
+            }
+        }
+
+        private void ApplySectionVisibility()
+        {
+            var selectedSection = _viewModel != null ? _viewModel.SelectedSection : SettingsSectionId.Audio;
+            ApplySectionVisibility(_audioView, IsVisible && selectedSection == SettingsSectionId.Audio);
+            ApplySectionVisibility(_displayView, IsVisible && selectedSection == SettingsSectionId.Display);
+            ApplySectionVisibility(_inputView, IsVisible && selectedSection == SettingsSectionId.Input);
+        }
+
+        private static void ApplySectionVisibility(Component sectionView, bool isVisible)
+        {
+            if (sectionView == null)
+            {
+                return;
+            }
+
+            if (isVisible && !sectionView.gameObject.activeSelf)
+            {
+                sectionView.gameObject.SetActive(true);
+            }
+
+            if (sectionView is SettingsAudioView audioView)
+            {
+                audioView.SetIsVisible(isVisible);
+            }
+            else if (sectionView is SettingsDisplayView displayView)
+            {
+                displayView.SetIsVisible(isVisible);
+            }
+            else if (sectionView is SettingsInputView inputView)
+            {
+                inputView.SetIsVisible(isVisible);
+            }
+
+            if (!isVisible && sectionView.gameObject.activeSelf)
+            {
+                sectionView.gameObject.SetActive(false);
             }
         }
 
@@ -385,13 +505,17 @@ namespace Game.Feature.UI.Screens
             }
 
             LayoutRect(_titleLabel != null ? _titleLabel.rectTransform : null, new Vector2(16f, -16f), new Vector2(428f, 24f));
-            LayoutRect(_audioView != null ? _audioView.transform as RectTransform : null, new Vector2(24f, -58f), new Vector2(412f, 124f));
-            LayoutRect(_displayView != null ? _displayView.transform as RectTransform : null, new Vector2(24f, -194f), new Vector2(412f, 248f));
-            LayoutRect(_tooltipStatusLabel != null ? _tooltipStatusLabel.rectTransform : null, new Vector2(24f, -458f), new Vector2(160f, 22f));
-            LayoutRect(_tooltipInfoButton != null ? _tooltipInfoButton.GetComponent<RectTransform>() : null, new Vector2(188f, -452f), new Vector2(24f, 28f));
-            LayoutRect(_tooltipToggleButton != null ? _tooltipToggleButton.GetComponent<RectTransform>() : null, new Vector2(220f, -452f), new Vector2(140f, 28f));
-            LayoutRect(_largeTextStatusLabel != null ? _largeTextStatusLabel.rectTransform : null, new Vector2(24f, -504f), new Vector2(160f, 22f));
-            LayoutRect(_largeTextToggleButton != null ? _largeTextToggleButton.GetComponent<RectTransform>() : null, new Vector2(220f, -498f), new Vector2(140f, 28f));
+            LayoutRect(_audioTabButton != null ? _audioTabButton.GetComponent<RectTransform>() : null, new Vector2(24f, -52f), new Vector2(116f, 30f));
+            LayoutRect(_displayTabButton != null ? _displayTabButton.GetComponent<RectTransform>() : null, new Vector2(148f, -52f), new Vector2(116f, 30f));
+            LayoutRect(_inputTabButton != null ? _inputTabButton.GetComponent<RectTransform>() : null, new Vector2(272f, -52f), new Vector2(116f, 30f));
+            LayoutRect(_audioView != null ? _audioView.transform as RectTransform : null, new Vector2(24f, -102f), new Vector2(412f, 124f));
+            LayoutRect(_displayView != null ? _displayView.transform as RectTransform : null, new Vector2(24f, -102f), new Vector2(412f, 248f));
+            LayoutRect(_inputView != null ? _inputView.transform as RectTransform : null, new Vector2(24f, -102f), new Vector2(412f, 248f));
+            LayoutRect(_tooltipStatusLabel != null ? _tooltipStatusLabel.rectTransform : null, new Vector2(24f, -418f), new Vector2(160f, 22f));
+            LayoutRect(_tooltipInfoButton != null ? _tooltipInfoButton.GetComponent<RectTransform>() : null, new Vector2(188f, -412f), new Vector2(24f, 28f));
+            LayoutRect(_tooltipToggleButton != null ? _tooltipToggleButton.GetComponent<RectTransform>() : null, new Vector2(220f, -412f), new Vector2(140f, 28f));
+            LayoutRect(_largeTextStatusLabel != null ? _largeTextStatusLabel.rectTransform : null, new Vector2(24f, -464f), new Vector2(160f, 22f));
+            LayoutRect(_largeTextToggleButton != null ? _largeTextToggleButton.GetComponent<RectTransform>() : null, new Vector2(220f, -458f), new Vector2(140f, 28f));
             LayoutRect(_backButton != null ? _backButton.GetComponent<RectTransform>() : null, new Vector2(181f, -554f), new Vector2(98f, 30f));
         }
 

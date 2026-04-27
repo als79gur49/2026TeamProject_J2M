@@ -241,6 +241,9 @@ namespace Game.Feature.UI.Screens
     {
         public static readonly SettingsScreenPayload Default = new(
             "Settings",
+            "Audio",
+            "Display",
+            "Input",
             "Main",
             "Background Music",
             "Effects",
@@ -251,6 +254,13 @@ namespace Game.Feature.UI.Screens
             "Fullscreen Window",
             "Apply",
             "Revert",
+            "Input",
+            "Movement Keys",
+            "Use Arrow Keys",
+            "Push",
+            "Flip",
+            "Change",
+            "Reset Input",
             "Toggle Tooltips",
             "Toggle Large Text",
             "Back");
@@ -270,8 +280,64 @@ namespace Game.Feature.UI.Screens
             string tooltipToggleLabel,
             string largeTextToggleLabel,
             string backLabel)
+            : this(
+                titleText,
+                "Audio",
+                "Display",
+                "Input",
+                mainAudioLabel,
+                bgmAudioLabel,
+                sfxAudioLabel,
+                displaySectionTitle,
+                currentDisplayLabel,
+                resolutionLabel,
+                resolutionHoverHintText,
+                fullscreenLabel,
+                displayApplyLabel,
+                displayRevertLabel,
+                "Input",
+                "Movement Keys",
+                "Use Arrow Keys",
+                "Push",
+                "Flip",
+                "Change",
+                "Reset Input",
+                tooltipToggleLabel,
+                largeTextToggleLabel,
+                backLabel)
+        {
+        }
+
+        public SettingsScreenPayload(
+            string titleText,
+            string audioTabLabel,
+            string displayTabLabel,
+            string inputTabLabel,
+            string mainAudioLabel,
+            string bgmAudioLabel,
+            string sfxAudioLabel,
+            string displaySectionTitle,
+            string currentDisplayLabel,
+            string resolutionLabel,
+            string resolutionHoverHintText,
+            string fullscreenLabel,
+            string displayApplyLabel,
+            string displayRevertLabel,
+            string inputSectionTitle,
+            string movementLabel,
+            string useArrowKeysLabel,
+            string pushLabel,
+            string flipLabel,
+            string inputChangeLabel,
+            string resetInputLabel,
+            string tooltipToggleLabel,
+            string largeTextToggleLabel,
+            string backLabel)
         {
             TitleText = titleText ?? string.Empty;
+            AudioTabLabel = audioTabLabel ?? string.Empty;
+            DisplayTabLabel = displayTabLabel ?? string.Empty;
+            InputTabLabel = inputTabLabel ?? string.Empty;
             MainAudioLabel = mainAudioLabel ?? string.Empty;
             BgmAudioLabel = bgmAudioLabel ?? string.Empty;
             SfxAudioLabel = sfxAudioLabel ?? string.Empty;
@@ -282,12 +348,25 @@ namespace Game.Feature.UI.Screens
             FullscreenLabel = fullscreenLabel ?? string.Empty;
             DisplayApplyLabel = displayApplyLabel ?? string.Empty;
             DisplayRevertLabel = displayRevertLabel ?? string.Empty;
+            InputSectionTitle = inputSectionTitle ?? string.Empty;
+            MovementLabel = movementLabel ?? string.Empty;
+            UseArrowKeysLabel = useArrowKeysLabel ?? string.Empty;
+            PushLabel = pushLabel ?? string.Empty;
+            FlipLabel = flipLabel ?? string.Empty;
+            InputChangeLabel = inputChangeLabel ?? string.Empty;
+            ResetInputLabel = resetInputLabel ?? string.Empty;
             TooltipToggleLabel = tooltipToggleLabel ?? string.Empty;
             LargeTextToggleLabel = largeTextToggleLabel ?? string.Empty;
             BackLabel = backLabel ?? string.Empty;
         }
 
         public string TitleText { get; }
+
+        public string AudioTabLabel { get; }
+
+        public string DisplayTabLabel { get; }
+
+        public string InputTabLabel { get; }
 
         public string MainAudioLabel { get; }
 
@@ -308,6 +387,20 @@ namespace Game.Feature.UI.Screens
         public string DisplayApplyLabel { get; }
 
         public string DisplayRevertLabel { get; }
+
+        public string InputSectionTitle { get; }
+
+        public string MovementLabel { get; }
+
+        public string UseArrowKeysLabel { get; }
+
+        public string PushLabel { get; }
+
+        public string FlipLabel { get; }
+
+        public string InputChangeLabel { get; }
+
+        public string ResetInputLabel { get; }
 
         public string TooltipToggleLabel { get; }
 
@@ -357,6 +450,37 @@ namespace Game.Feature.UI.Screens
         public bool AreTooltipsEnabled { get; }
 
         public bool IsLargeTextEnabled { get; }
+    }
+
+    public enum SettingsSectionId
+    {
+        Audio = 0,
+        Display = 1,
+        Input = 2,
+    }
+
+    public enum KeyboardMovementScheme
+    {
+        Wasd = 0,
+        ArrowKeys = 1,
+    }
+
+    public enum KeyboardBindableAction
+    {
+        Push = 0,
+        Flip = 1,
+    }
+
+    public enum KeyboardBindingValidationResult
+    {
+        Success = 0,
+        Canceled = 1,
+        AlreadyRebinding = 2,
+        MissingBinding = 3,
+        InvalidKey = 4,
+        ReservedKey = 5,
+        DuplicateAction = 6,
+        MovementConflict = 7,
     }
 
     public sealed class StageResultScreenPayload : IScreenPayload
@@ -721,6 +845,76 @@ namespace Game.Feature.UI.Screens
         }
     }
 
+    public sealed class SettingsInputViewModel
+    {
+        public event Action Changed;
+
+        public string SectionTitle { get; private set; } = string.Empty;
+
+        public string MovementLabel { get; private set; } = string.Empty;
+
+        public string UseArrowKeysLabel { get; private set; } = string.Empty;
+
+        public bool UseArrowKeys { get; private set; }
+
+        public string MovementCurrentText { get; private set; } = string.Empty;
+
+        public string PushLabel { get; private set; } = string.Empty;
+
+        public string PushCurrentText { get; private set; } = string.Empty;
+
+        public string PushChangeLabel { get; private set; } = string.Empty;
+
+        public string FlipLabel { get; private set; } = string.Empty;
+
+        public string FlipCurrentText { get; private set; } = string.Empty;
+
+        public string FlipChangeLabel { get; private set; } = string.Empty;
+
+        public string ResetLabel { get; private set; } = string.Empty;
+
+        public string StatusText { get; private set; } = string.Empty;
+
+        public bool IsRebinding { get; private set; }
+
+        public bool AreControlsInteractable { get; private set; } = true;
+
+        public void SetContent(
+            string sectionTitle,
+            string movementLabel,
+            string useArrowKeysLabel,
+            bool useArrowKeys,
+            string movementCurrentText,
+            string pushLabel,
+            string pushCurrentText,
+            string pushChangeLabel,
+            string flipLabel,
+            string flipCurrentText,
+            string flipChangeLabel,
+            string resetLabel,
+            string statusText,
+            bool isRebinding,
+            bool areControlsInteractable)
+        {
+            SectionTitle = sectionTitle ?? string.Empty;
+            MovementLabel = movementLabel ?? string.Empty;
+            UseArrowKeysLabel = useArrowKeysLabel ?? string.Empty;
+            UseArrowKeys = useArrowKeys;
+            MovementCurrentText = movementCurrentText ?? string.Empty;
+            PushLabel = pushLabel ?? string.Empty;
+            PushCurrentText = pushCurrentText ?? string.Empty;
+            PushChangeLabel = pushChangeLabel ?? string.Empty;
+            FlipLabel = flipLabel ?? string.Empty;
+            FlipCurrentText = flipCurrentText ?? string.Empty;
+            FlipChangeLabel = flipChangeLabel ?? string.Empty;
+            ResetLabel = resetLabel ?? string.Empty;
+            StatusText = statusText ?? string.Empty;
+            IsRebinding = isRebinding;
+            AreControlsInteractable = areControlsInteractable;
+            Changed?.Invoke();
+        }
+    }
+
     public sealed class SettingsScreenViewModel
     {
         public event Action Changed;
@@ -737,13 +931,25 @@ namespace Game.Feature.UI.Screens
 
         public string BackLabel { get; private set; } = string.Empty;
 
+        public string AudioTabLabel { get; private set; } = string.Empty;
+
+        public string DisplayTabLabel { get; private set; } = string.Empty;
+
+        public string InputTabLabel { get; private set; } = string.Empty;
+
+        public SettingsSectionId SelectedSection { get; private set; }
+
         public void SetContent(
             string titleText,
             string tooltipStatusText,
             string largeTextStatusText,
             string tooltipToggleLabel,
             string largeTextToggleLabel,
-            string backLabel)
+            string backLabel,
+            string audioTabLabel = "Audio",
+            string displayTabLabel = "Display",
+            string inputTabLabel = "Input",
+            SettingsSectionId selectedSection = SettingsSectionId.Audio)
         {
             TitleText = titleText ?? string.Empty;
             TooltipStatusText = tooltipStatusText ?? string.Empty;
@@ -751,6 +957,10 @@ namespace Game.Feature.UI.Screens
             TooltipToggleLabel = tooltipToggleLabel ?? string.Empty;
             LargeTextToggleLabel = largeTextToggleLabel ?? string.Empty;
             BackLabel = backLabel ?? string.Empty;
+            AudioTabLabel = audioTabLabel ?? string.Empty;
+            DisplayTabLabel = displayTabLabel ?? string.Empty;
+            InputTabLabel = inputTabLabel ?? string.Empty;
+            SelectedSection = selectedSection;
             Changed?.Invoke();
         }
     }

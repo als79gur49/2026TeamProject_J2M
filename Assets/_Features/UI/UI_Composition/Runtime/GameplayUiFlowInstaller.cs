@@ -9,7 +9,9 @@ using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 using Game.Shared.Audio;
 using Game.Shared.Display;
+using Game.Shared.Input;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace Game.Feature.UI.Composition
 {
@@ -32,6 +34,7 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private HUDRootView _hudPrefab;
         // Screen-prefab composition remains screen-only. Do not widen this into a cross-layer asset registry.
         [SerializeField] private ScreenPrefabCatalog _screenPrefabCatalog;
+        [SerializeField] private InputActionAsset _inputActions;
         // Popup-prefab composition remains popup-only. Do not widen this into a cross-layer asset registry.
         [SerializeField] private PopupPrefabCatalog _popupPrefabCatalog;
         [SerializeField] private UiAudioCueMap _uiAudioCueMap;
@@ -43,6 +46,7 @@ namespace Game.Feature.UI.Composition
         private DisplayPreviewTimeoutRelay _displayPreviewTimeoutRelay;
         private DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
         private bool _isInstalled;
+        private IKeyboardBindingSettingsPort _keyboardBindingSettingsPort;
         private StageResultAutoNextDriver _stageResultAutoNextDriver;
 
         public GameplayUiFlowPorts Ports { get; private set; }
@@ -103,7 +107,9 @@ namespace Game.Feature.UI.Composition
 
         private void Update()
         {
-            if (_isInstalled && KeyboardBridge.WasEscapePressedThisFrame())
+            if (_isInstalled &&
+                (_keyboardBindingSettingsPort == null || !_keyboardBindingSettingsPort.IsRebinding) &&
+                KeyboardBridge.WasEscapePressedThisFrame())
             {
                 Coordinator.HandleBackRequested();
             }
@@ -114,6 +120,11 @@ namespace Game.Feature.UI.Composition
             }
 
             if (!_isInstalled || _rootView == null || _rootView.DiagnosticsOverlayView == null)
+            {
+                return;
+            }
+
+            if (_keyboardBindingSettingsPort != null && _keyboardBindingSettingsPort.IsRebinding)
             {
                 return;
             }
@@ -167,6 +178,7 @@ namespace Game.Feature.UI.Composition
             PresentationSource = Ports.PresentationSource;
             var audioSettingsPort = CreateAudioSettingsPort();
             var displaySettingsPort = CreateDisplaySettingsPort();
+            _keyboardBindingSettingsPort = CreateKeyboardBindingSettingsPort();
             var uiAudioPort = CreateUiAudioPort();
             EnsureAudioSettingsLifecycleRelay(audioSettingsPort);
             EnsureDisplayPreviewTimeoutRelay();
@@ -196,6 +208,7 @@ namespace Game.Feature.UI.Composition
                 accessibilitySettingsStore,
                 audioSettingsPort,
                 displaySettingsPort,
+                _keyboardBindingSettingsPort,
                 uiAudioPort,
                 displayPreviewSessionHost,
                 _displaySettingsLifecycleRelay,
@@ -358,6 +371,19 @@ namespace Game.Feature.UI.Composition
             }
 
             return new DisplaySettingsPortAdapter(displayRuntimeInstaller.DisplaySettingsService);
+        }
+
+        private IKeyboardBindingSettingsPort CreateKeyboardBindingSettingsPort()
+        {
+            var actions = _sceneHost != null && _sceneHost.InputHost != null
+                ? _sceneHost.InputHost.Actions
+                : _inputActions;
+            if (actions == null)
+            {
+                return NoOpKeyboardBindingSettingsPort.Instance;
+            }
+
+            return new KeyboardBindingSettingsPortAdapter(new KeyboardBindingSettingsService(actions));
         }
 
         private AudioRuntimeInstaller GetRequiredAudioRuntimeInstaller()
