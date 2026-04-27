@@ -82,11 +82,42 @@ namespace Game.Feature.UI.Tests
             Assert.That(playerStatusPresenter.ViewModel.HpNormalized, Is.EqualTo(1f));
             Assert.That(playerStatusPresenter.ViewModel.ActionText, Is.EqualTo("Flip (Recovery)"));
             Assert.That(playerStatusPresenter.ViewModel.StatusText, Is.EqualTo("Read Only"));
+            Assert.That(playerStatusPresenter.ViewModel.ChancesText, Is.EqualTo(string.Empty));
             Assert.That(actionBarPresenter.ViewModel.OutcomeText, Is.EqualTo("Blocked"));
             Assert.That(actionBarPresenter.ViewModel.Slots.Count, Is.EqualTo(2));
             Assert.That(actionBarPresenter.ViewModel.Slots[1].StateText, Is.EqualTo("Recovering"));
             Assert.That(actionBarPresenter.ViewModel.Slots[1].CooldownNormalized, Is.EqualTo(0f));
             Assert.That(notificationPresenter.ViewModel.Items.Count, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void PlayerStatusPresenter_CarriesRemainingChances_AsReadOnlyHudText()
+        {
+            var presenter = new PlayerStatusPresenter();
+
+            presenter.Apply(
+                new UITickSlice(4, new GameplayUiTopology(GameplayUiFace.Front), false, false),
+                new UIInteractionSlice(false, true, false, false),
+                new UIPlayerActionSlice(
+                    playerEntityId: 10,
+                    currentHp: 2,
+                    maxHp: 4,
+                    facing: GameplayUiDirection.Right,
+                    activeActionKind: GameplayUiActionKind.None,
+                    isRecoveryPhase: false,
+                    canMoveThisTick: true,
+                    canStartActionThisTick: true,
+                    lastResolvedOutcome: GameplayUiActionResolutionKind.None,
+                    lastResolvedTickIndex: 0,
+                    tookDamageThisTick: false,
+                    lastDamageAmount: 0,
+                    lastDamageTickIndex: 0,
+                    hasRemainingChances: true,
+                    remainingChances: 2));
+
+            Assert.That(presenter.ViewModel.HasRemainingChances, Is.True);
+            Assert.That(presenter.ViewModel.RemainingChances, Is.EqualTo(2));
+            Assert.That(presenter.ViewModel.ChancesText, Is.EqualTo("Chances: 2"));
         }
 
         [Test]

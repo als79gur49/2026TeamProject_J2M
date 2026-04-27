@@ -68,6 +68,9 @@ namespace Game.Feature.Gameplay.Host
             _saveSlotStore ??= new SaveSlotStore();
             _activeSlotProvider ??= new ActiveSlotProvider();
             configuration.DisablePlayerRespawn = true;
+            configuration.CampaignChancesReadSource = new SaveSlotCampaignChancesReadSource(
+                _saveSlotStore,
+                _activeSlotProvider);
             if (_activeSlotProvider.HasActiveSlot)
             {
                 configuration.StageCompletionProfileStore = new SaveSlotStageCompletionProfileStore(

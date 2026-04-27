@@ -22,6 +22,12 @@ namespace Game.Feature.UI.HUD
 
         public string DamageText { get; private set; } = string.Empty;
 
+        public bool HasRemainingChances { get; private set; }
+
+        public int RemainingChances { get; private set; }
+
+        public string ChancesText { get; private set; } = string.Empty;
+
         public void SetState(
             int currentHp,
             int maxHp,
@@ -29,7 +35,9 @@ namespace Game.Feature.UI.HUD
             string actionText,
             string topologyText,
             string statusText,
-            string damageText)
+            string damageText,
+            bool hasRemainingChances = false,
+            int remainingChances = 0)
         {
             CurrentHp = currentHp;
             MaxHp = maxHp > 0 ? maxHp : currentHp;
@@ -41,6 +49,9 @@ namespace Game.Feature.UI.HUD
             TopologyText = topologyText ?? string.Empty;
             StatusText = statusText ?? string.Empty;
             DamageText = damageText ?? string.Empty;
+            HasRemainingChances = hasRemainingChances;
+            RemainingChances = remainingChances;
+            ChancesText = hasRemainingChances ? $"Chances: {remainingChances}" : string.Empty;
             Changed?.Invoke();
         }
 

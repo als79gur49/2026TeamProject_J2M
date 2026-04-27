@@ -51,6 +51,43 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void HUDController_CanonicalPrefab_RendersRemainingChancesInPlayerStatus()
+        {
+            var rootObject = new GameObject("HUDController_CanonicalPrefab_RendersRemainingChancesInPlayerStatus");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+
+                var source = new ManualGameplayUiPresentationSource();
+                var playerStatusPresenter = new PlayerStatusPresenter();
+                var actionBarPresenter = new ActionBarPresenter();
+                var notificationPresenter = new NotificationPresenter();
+                using var rootPresenter = new HUDRootPresenter(
+                    source,
+                    playerStatusPresenter,
+                    actionBarPresenter,
+                    notificationPresenter);
+                using var controller = new HUDController(
+                    rootPresenter.ViewModel,
+                    playerStatusPresenter.ViewModel,
+                    actionBarPresenter.ViewModel,
+                    notificationPresenter.ViewModel);
+
+                controller.AttachView(hudView);
+                source.PublishSnapshot(CreateSnapshot(hasRemainingChances: true, remainingChances: 2));
+
+                var damageLabel = hudView.PlayerStatusView.transform.Find("Damage")?.GetComponent<TMPro.TMP_Text>();
+                Assert.That(damageLabel, Is.Not.Null);
+                Assert.That(damageLabel.text, Does.Contain("Chances: 2"));
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
         public void HUDController_Dispose_DetachesAllHudBindings()
         {
             var rootObject = new GameObject("HUDController_Dispose_DetachesAllHudBindings");
@@ -122,7 +159,9 @@ namespace Game.Feature.UI.Tests
             bool isRecoveryPhase = false,
             bool canMoveThisTick = true,
             bool canStartActionThisTick = true,
-            GameplayUiActionResolutionKind lastOutcome = GameplayUiActionResolutionKind.None)
+            GameplayUiActionResolutionKind lastOutcome = GameplayUiActionResolutionKind.None,
+            bool hasRemainingChances = false,
+            int remainingChances = 0)
         {
             return new UIPresentationSnapshot(
                 new UITickSlice(
@@ -147,7 +186,9 @@ namespace Game.Feature.UI.Tests
                     lastResolvedTickIndex: lastOutcome == GameplayUiActionResolutionKind.None ? 0 : 4,
                     tookDamageThisTick: false,
                     lastDamageAmount: 0,
-                    lastDamageTickIndex: 0),
+                    lastDamageTickIndex: 0,
+                    hasRemainingChances: hasRemainingChances,
+                    remainingChances: remainingChances),
                 new UINotificationLedgerSlice(new[]
                 {
                     new UINotificationRecord(

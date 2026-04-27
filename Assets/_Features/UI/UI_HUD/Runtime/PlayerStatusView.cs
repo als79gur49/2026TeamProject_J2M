@@ -115,7 +115,9 @@ namespace Game.Feature.UI.HUD
 
             if (_damageLabel != null)
             {
-                _damageLabel.text = $"Damage: {_viewModel.DamageText}";
+                _damageLabel.text = _viewModel.HasRemainingChances
+                    ? $"{_viewModel.ChancesText} | Damage: {_viewModel.DamageText}"
+                    : $"Damage: {_viewModel.DamageText}";
             }
         }
 

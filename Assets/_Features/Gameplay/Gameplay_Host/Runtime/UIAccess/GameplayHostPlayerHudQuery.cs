@@ -1,4 +1,5 @@
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.UIAccess.Models;
@@ -9,17 +10,20 @@ namespace Game.Feature.Gameplay.Host.UIAccess
     internal sealed class GameplayHostPlayerHudQuery : IGameplayPlayerHudQuery
     {
         private readonly GameplayHostCommandAdmissionPolicy _admissionPolicy;
+        private readonly ICampaignChancesReadSource _campaignChancesReadSource;
         private readonly GameplayInputHost _inputHost;
         private readonly TickRunner _tickRunner;
 
         public GameplayHostPlayerHudQuery(
             TickRunner tickRunner,
             GameplayInputHost inputHost,
-            GameplayHostCommandAdmissionPolicy admissionPolicy)
+            GameplayHostCommandAdmissionPolicy admissionPolicy,
+            ICampaignChancesReadSource campaignChancesReadSource = null)
         {
             _tickRunner = tickRunner;
             _inputHost = inputHost;
             _admissionPolicy = admissionPolicy;
+            _campaignChancesReadSource = campaignChancesReadSource;
         }
 
         public GameplayPlayerHudReadModel Read()
@@ -51,6 +55,9 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                                                                  playerEntity,
                                                                  _inputHost?.PreviewPushDirection() ?? Direction.None);
             var recoveryCooldown = TryCreateRecoveryCooldown(playerControlState, nextTickIndex);
+            var remainingChances = 0;
+            var hasRemainingChances = _campaignChancesReadSource != null &&
+                                      _campaignChancesReadSource.TryReadRemainingChances(out remainingChances);
 
             return new GameplayPlayerHudReadModel(
                 isAvailable: true,
@@ -71,7 +78,9 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 canStartActionThisTick: canStartAnyActionThisTick,
                 recoveryCooldown: recoveryCooldown,
                 canStartAnyActionThisTick: canStartAnyActionThisTick,
-                hasExplicitPushCandidateInCurrentDirection: hasExplicitPushCandidateInCurrentDirection);
+                hasExplicitPushCandidateInCurrentDirection: hasExplicitPushCandidateInCurrentDirection,
+                hasRemainingChances: hasRemainingChances,
+                remainingChances: hasRemainingChances ? remainingChances : 0);
         }
 
         private static GameplayUiRecoveryCooldown? TryCreateRecoveryCooldown(

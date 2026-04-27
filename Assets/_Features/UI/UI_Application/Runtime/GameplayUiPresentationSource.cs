@@ -178,7 +178,9 @@ namespace Game.Feature.UI.Application
                 playerHud.CanStartActionThisTick,
                 MapRecoveryCooldown(playerHud.RecoveryCooldown),
                 playerHud.CanStartAnyActionThisTick,
-                playerHud.HasExplicitPushCandidateInCurrentDirection);
+                playerHud.HasExplicitPushCandidateInCurrentDirection,
+                playerHud.HasRemainingChances,
+                playerHud.RemainingChances);
         }
 
         private static UIRecoveryCooldownSlice? MapRecoveryCooldown(GameplayUiRecoveryCooldown? recoveryCooldown)
