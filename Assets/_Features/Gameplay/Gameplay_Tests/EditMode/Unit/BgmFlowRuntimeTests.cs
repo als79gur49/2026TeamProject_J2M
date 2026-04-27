@@ -54,6 +54,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void BgmProfile_ValidateOrThrow_RejectsInvalidFadeDurations()
+        {
+            var profile = CreateProfile(
+                "InvalidFadeProfile",
+                CreateDefinition("InvalidFadeDefinition", AudioCategory.Bgm),
+                transitionMode: BgmTransitionMode.FadeOutIn,
+                fadeOutSeconds: float.NaN);
+
+            var exception = Assert.Throws<InvalidOperationException>(() => profile.ValidateOrThrow());
+            Assert.That(
+                exception.Message,
+                Is.EqualTo("BgmProfile 'InvalidFadeProfile' requires fadeOutSeconds to be finite and greater than or equal to zero."));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void BgmFlowCoordinator_RequestSceneDefault_NullProfile_IsExplicitNoOp()
         {
             var playbackPort = new RecordingBgmPlaybackPort();
@@ -61,7 +77,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             coordinator.RequestSceneDefault(null);
 
-            Assert.That(playbackPort.PlayCalls, Is.Empty);
+            Assert.That(playbackPort.PlayRequests, Is.Empty);
             Assert.That(coordinator.GetCurrentProfile(), Is.Null);
         }
 
@@ -76,8 +92,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             coordinator.RequestSceneDefault(profile);
             coordinator.RequestSceneDefault(profile);
 
-            Assert.That(playbackPort.PlayCalls, Has.Count.EqualTo(1));
-            Assert.That(playbackPort.PlayCalls[0], Is.SameAs(profile.LoopDefinition));
+            Assert.That(playbackPort.PlayRequests, Has.Count.EqualTo(1));
+            Assert.That(playbackPort.PlayRequests[0].Definition, Is.SameAs(profile.LoopDefinition));
             Assert.That(coordinator.GetCurrentProfile(), Is.SameAs(profile));
         }
 
@@ -95,9 +111,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             coordinator.RequestSceneDefault(profile);
             coordinator.RequestSceneDefault(profile);
 
-            Assert.That(playbackPort.PlayCalls, Has.Count.EqualTo(2));
-            Assert.That(playbackPort.PlayCalls[0], Is.SameAs(profile.LoopDefinition));
-            Assert.That(playbackPort.PlayCalls[1], Is.SameAs(profile.LoopDefinition));
+            Assert.That(playbackPort.PlayRequests, Has.Count.EqualTo(2));
+            Assert.That(playbackPort.PlayRequests[0].Definition, Is.SameAs(profile.LoopDefinition));
+            Assert.That(playbackPort.PlayRequests[1].Definition, Is.SameAs(profile.LoopDefinition));
             Assert.That(coordinator.GetCurrentProfile(), Is.SameAs(profile));
         }
 
@@ -113,9 +129,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             coordinator.RequestSceneDefault(profileA);
             coordinator.RequestSceneDefault(profileB);
 
-            Assert.That(playbackPort.PlayCalls, Has.Count.EqualTo(2));
-            Assert.That(playbackPort.PlayCalls[0], Is.SameAs(profileA.LoopDefinition));
-            Assert.That(playbackPort.PlayCalls[1], Is.SameAs(profileB.LoopDefinition));
+            Assert.That(playbackPort.PlayRequests, Has.Count.EqualTo(2));
+            Assert.That(playbackPort.PlayRequests[0].Definition, Is.SameAs(profileA.LoopDefinition));
+            Assert.That(playbackPort.PlayRequests[1].Definition, Is.SameAs(profileB.LoopDefinition));
             Assert.That(coordinator.GetCurrentProfile(), Is.SameAs(profileB));
         }
 
@@ -130,48 +146,119 @@ namespace Game.Feature.Gameplay.Tests.Unit
             coordinator.RequestSceneDefault(profile);
             coordinator.StopCurrent();
 
-            Assert.That(playbackPort.StopCallCount, Is.EqualTo(1));
+            Assert.That(playbackPort.StopRequests, Has.Count.EqualTo(1));
+            Assert.That(playbackPort.StopRequests[0].Transition.Mode, Is.EqualTo(BgmExecutedTransitionMode.Immediate));
             Assert.That(coordinator.GetCurrentProfile(), Is.Null);
         }
 
         [Test]
+        [Category("Core")]
+        public void BgmFlowCoordinator_RequestSceneDefault_ImmediateProfile_SendsImmediatePlaybackRequest()
+        {
+            var profile = CreateProfile("ImmediateProfile", CreateDefinition("ImmediateDefinition", AudioCategory.Bgm));
+            var playbackPort = new RecordingBgmPlaybackPort();
+            var coordinator = new BgmFlowCoordinator(playbackPort);
+
+            coordinator.RequestSceneDefault(profile);
+
+            Assert.That(playbackPort.PlayRequests, Has.Count.EqualTo(1));
+            Assert.That(playbackPort.PlayRequests[0].Transition.Mode, Is.EqualTo(BgmExecutedTransitionMode.Immediate));
+        }
+
+        [Test]
         [Category("Extended")]
-        public void BgmFlowCoordinator_RequestSceneDefault_FadeOutIn_WarnsAndDegradesToImmediate()
+        public void BgmFlowCoordinator_RequestSceneDefault_FadeOutInProfile_SendsFadeOutInPlaybackRequest()
         {
             var profile = CreateProfile(
                 "FadeOutInProfile",
                 CreateDefinition("FadeOutInDefinition", AudioCategory.Bgm),
-                transitionMode: BgmTransitionMode.FadeOutIn);
+                transitionMode: BgmTransitionMode.FadeOutIn,
+                fadeOutSeconds: 0.25f,
+                fadeInSeconds: 0.75f);
             var playbackPort = new RecordingBgmPlaybackPort();
             var coordinator = new BgmFlowCoordinator(playbackPort);
 
-            LogAssert.Expect(
-                LogType.Warning,
-                "BgmProfile 'FadeOutInProfile' requests 'FadeOutIn', but BGM flow v1 executes Immediate only. Degrading to Immediate.");
             coordinator.RequestSceneDefault(profile);
 
-            Assert.That(playbackPort.PlayCalls, Has.Count.EqualTo(1));
+            Assert.That(playbackPort.PlayRequests, Has.Count.EqualTo(1));
+            Assert.That(playbackPort.PlayRequests[0].Transition.Mode, Is.EqualTo(BgmExecutedTransitionMode.FadeOutIn));
+            Assert.That(playbackPort.PlayRequests[0].Transition.FadeOutSeconds, Is.EqualTo(0.25f));
+            Assert.That(playbackPort.PlayRequests[0].Transition.FadeInSeconds, Is.EqualTo(0.75f));
             Assert.That(coordinator.GetCurrentProfile(), Is.SameAs(profile));
         }
 
         [Test]
         [Category("Extended")]
-        public void BgmFlowCoordinator_RequestSceneDefault_Crossfade_WarnsAndDegradesToImmediate()
+        public void BgmFlowCoordinator_RequestSceneDefault_Crossfade_WarnsAndFallsBack()
         {
             var profile = CreateProfile(
                 "CrossfadeProfile",
                 CreateDefinition("CrossfadeDefinition", AudioCategory.Bgm),
-                transitionMode: BgmTransitionMode.Crossfade);
+                transitionMode: BgmTransitionMode.Crossfade,
+                fadeOutSeconds: 0.25f,
+                fadeInSeconds: 0.5f);
             var playbackPort = new RecordingBgmPlaybackPort();
             var coordinator = new BgmFlowCoordinator(playbackPort);
 
             LogAssert.Expect(
                 LogType.Warning,
-                "BgmProfile 'CrossfadeProfile' requests 'Crossfade', but BGM flow v1 executes Immediate only. Degrading to Immediate.");
+                "BgmProfile 'CrossfadeProfile' requests Crossfade, but single-source BGM runtime does not support Crossfade. Falling back to FadeOutIn.");
             coordinator.RequestSceneDefault(profile);
 
-            Assert.That(playbackPort.PlayCalls, Has.Count.EqualTo(1));
+            Assert.That(playbackPort.PlayRequests, Has.Count.EqualTo(1));
+            Assert.That(playbackPort.PlayRequests[0].Transition.Mode, Is.EqualTo(BgmExecutedTransitionMode.FadeOutIn));
+            Assert.That(playbackPort.PlayRequests[0].Transition.FadeOutSeconds, Is.EqualTo(0.25f));
+            Assert.That(playbackPort.PlayRequests[0].Transition.FadeInSeconds, Is.EqualTo(0.5f));
             Assert.That(coordinator.GetCurrentProfile(), Is.SameAs(profile));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BgmFlowCoordinator_RequestSceneDefault_CrossfadeWithZeroDurations_FallsBackImmediate()
+        {
+            var profile = CreateProfile(
+                "CrossfadeZeroProfile",
+                CreateDefinition("CrossfadeZeroDefinition", AudioCategory.Bgm),
+                transitionMode: BgmTransitionMode.Crossfade,
+                fadeOutSeconds: 0f,
+                fadeInSeconds: 0f);
+            var playbackPort = new RecordingBgmPlaybackPort();
+            var coordinator = new BgmFlowCoordinator(playbackPort);
+
+            LogAssert.Expect(
+                LogType.Warning,
+                "BgmProfile 'CrossfadeZeroProfile' requests Crossfade, but single-source BGM runtime does not support Crossfade. Falling back to Immediate.");
+            coordinator.RequestSceneDefault(profile);
+
+            Assert.That(playbackPort.PlayRequests, Has.Count.EqualTo(1));
+            Assert.That(playbackPort.PlayRequests[0].Transition.Mode, Is.EqualTo(BgmExecutedTransitionMode.Immediate));
+            Assert.That(coordinator.GetCurrentProfile(), Is.SameAs(profile));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BgmPlaybackPortAdapter_MapsFlowRequestToSharedAudioRequest()
+        {
+            var audioService = new RecordingAudioService();
+            var adapterType = typeof(IBgmPlaybackPort).Assembly.GetType(
+                "Game.Feature.Flow.Audio.BgmPlaybackPortAdapter",
+                throwOnError: true);
+            var adapter = (IBgmPlaybackPort)Activator.CreateInstance(adapterType, audioService);
+            var definition = CreateDefinition("AdapterBgmDefinition", AudioCategory.Bgm);
+
+            adapter.Play(new BgmPlaybackRequest(
+                definition,
+                BgmPlaybackTransition.FadeOutIn(0.25f, 0.75f)));
+            adapter.Stop(new BgmStopRequest(BgmPlaybackTransition.FadeOutIn(0.5f, 0f)));
+
+            Assert.That(audioService.PlayBgmRequests, Has.Count.EqualTo(1));
+            Assert.That(audioService.PlayBgmRequests[0].Definition, Is.SameAs(definition));
+            Assert.That(audioService.PlayBgmRequests[0].Transition.Mode, Is.EqualTo(AudioBgmTransitionMode.FadeOutIn));
+            Assert.That(audioService.PlayBgmRequests[0].Transition.FadeOutSeconds, Is.EqualTo(0.25f));
+            Assert.That(audioService.PlayBgmRequests[0].Transition.FadeInSeconds, Is.EqualTo(0.75f));
+            Assert.That(audioService.StopBgmRequests, Has.Count.EqualTo(1));
+            Assert.That(audioService.StopBgmRequests[0].Transition.Mode, Is.EqualTo(AudioBgmTransitionMode.FadeOutIn));
+            Assert.That(audioService.StopBgmRequests[0].Transition.FadeOutSeconds, Is.EqualTo(0.5f));
         }
 
         [Test]
@@ -422,12 +509,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             string profileName,
             AudioDefinition definition,
             BgmTransitionMode transitionMode = BgmTransitionMode.Immediate,
-            bool restartIfAlreadyPlaying = false)
+            bool restartIfAlreadyPlaying = false,
+            float fadeOutSeconds = 0.35f,
+            float fadeInSeconds = 0.35f)
         {
             var profile = Track(ScriptableObject.CreateInstance<BgmProfile>());
             profile.name = profileName;
             SetSerializedField(typeof(BgmProfile), profile, "loopDefinition", definition);
             SetSerializedField(typeof(BgmProfile), profile, "transitionMode", transitionMode);
+            SetSerializedField(typeof(BgmProfile), profile, "fadeOutSeconds", fadeOutSeconds);
+            SetSerializedField(typeof(BgmProfile), profile, "fadeInSeconds", fadeInSeconds);
             SetSerializedField(typeof(BgmProfile), profile, "restartIfAlreadyPlaying", restartIfAlreadyPlaying);
             return profile;
         }
@@ -482,18 +573,54 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private sealed class RecordingBgmPlaybackPort : IBgmPlaybackPort
         {
-            public readonly List<AudioDefinition> PlayCalls = new();
+            public readonly List<BgmPlaybackRequest> PlayRequests = new();
 
-            public int StopCallCount { get; private set; }
+            public readonly List<BgmStopRequest> StopRequests = new();
 
-            public void PlayImmediate(AudioDefinition definition)
+            public void Play(BgmPlaybackRequest request)
             {
-                PlayCalls.Add(definition);
+                PlayRequests.Add(request);
             }
 
-            public void StopImmediate()
+            public void Stop(BgmStopRequest request)
             {
-                StopCallCount++;
+                StopRequests.Add(request);
+            }
+        }
+
+        private sealed class RecordingAudioService : IAudioService
+        {
+            public readonly List<AudioBgmPlaybackRequest> PlayBgmRequests = new();
+
+            public readonly List<AudioBgmStopRequest> StopBgmRequests = new();
+
+            public AudioPlaybackHandle Play2D(AudioDefinition definition, in AudioPlaybackContext context = default)
+            {
+                return default;
+            }
+
+            public AudioPlaybackHandle PlayAttached(
+                AudioDefinition definition,
+                Component owner,
+                AudioAttachmentSlot slot,
+                in AudioPlaybackContext context = default)
+            {
+                return default;
+            }
+
+            public AudioPlaybackHandle PlayBgm(AudioBgmPlaybackRequest request)
+            {
+                PlayBgmRequests.Add(request);
+                return default;
+            }
+
+            public void Stop(AudioPlaybackHandle handle)
+            {
+            }
+
+            public void StopBgm(AudioBgmStopRequest request)
+            {
+                StopBgmRequests.Add(request);
             }
         }
     }

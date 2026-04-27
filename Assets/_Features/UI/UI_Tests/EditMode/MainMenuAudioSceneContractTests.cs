@@ -70,6 +70,18 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void MainMenu_BgmProfile_CanUseFadeOutInTransition()
+        {
+            var profile = AssetDatabase.LoadAssetAtPath<BgmProfile>(MainMenuBgmProfilePath);
+
+            Assert.That(profile, Is.Not.Null);
+            Assert.That(profile.TransitionMode, Is.EqualTo(BgmTransitionMode.FadeOutIn));
+            Assert.That(profile.FadeOutSeconds, Is.EqualTo(0.35f).Within(0.0001f));
+            Assert.That(profile.FadeInSeconds, Is.EqualTo(0.35f).Within(0.0001f));
+            Assert.DoesNotThrow(() => profile.ValidateOrThrow());
+        }
+
+        [Test]
         public void MainMenuBgm_DoesNotCallPlayBgmDirectlyFromMainMenuUiFlowInstaller()
         {
             var source = ReadRepoFile(MainMenuUiFlowInstallerPath);

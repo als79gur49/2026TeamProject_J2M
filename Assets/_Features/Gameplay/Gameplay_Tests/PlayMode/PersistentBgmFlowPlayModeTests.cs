@@ -160,7 +160,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             var replacedSnapshots = manager.CaptureLivePlaybackSnapshots();
             Assert.That(replacedSnapshots, Has.Length.EqualTo(1));
-            Assert.That(replacedSnapshots[0].Source, Is.Not.SameAs(firstSource));
+            Assert.That(replacedSnapshots[0].Source, Is.SameAs(firstSource));
+            Assert.That(replacedSnapshots[0].Source.clip, Is.SameAs(profileB.LoopDefinition.Resolve(default).Clip));
             Assert.That(persistentRoot.Coordinator.GetCurrentProfile(), Is.SameAs(profileB));
         }
 
@@ -182,6 +183,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             var persistentRoot = GlobalAudioFlowRoot.Current;
             var manager = persistentRoot.RuntimeRoot.AudioManager;
+            bootstrapContext.AudioInstaller.AudioSettingsService.SetChannelMuted(AudioChannel.Master, false);
+            bootstrapContext.AudioInstaller.AudioSettingsService.SetChannelVolume(AudioChannel.Master, 1f);
+            bootstrapContext.AudioInstaller.AudioSettingsService.SetChannelMuted(AudioChannel.Bgm, false);
+            bootstrapContext.AudioInstaller.AudioSettingsService.SetChannelVolume(AudioChannel.Bgm, 1f);
             var snapshots = manager.CaptureLivePlaybackSnapshots();
             Assert.That(snapshots, Has.Length.EqualTo(1));
             Assert.That(snapshots[0].LeafChannel, Is.EqualTo(AudioChannel.Bgm));

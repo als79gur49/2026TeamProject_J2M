@@ -26,17 +26,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Extended")]
-        public void IBgmPlaybackPort_PublicSurface_RemainsImmediateOnly()
+        [Category("Core")]
+        public void IBgmPlaybackPort_PublicSurface_UsesRequestBasedPlayStop()
         {
-            var methodNames = typeof(IBgmPlaybackPort)
+            var methods = typeof(IBgmPlaybackPort)
                 .GetMethods(BindingFlags.Instance | BindingFlags.Public)
                 .Where(method => !method.IsSpecialName)
-                .Select(method => method.Name)
-                .OrderBy(name => name)
                 .ToArray();
+            var methodNames = methods.Select(method => method.Name).OrderBy(name => name).ToArray();
 
-            Assert.That(methodNames, Is.EqualTo(new[] { "PlayImmediate", "StopImmediate" }));
+            Assert.That(methodNames, Is.EqualTo(new[] { "Play", "Stop" }));
+            Assert.That(
+                methods.Single(method => method.Name == nameof(IBgmPlaybackPort.Play)).GetParameters()[0].ParameterType,
+                Is.EqualTo(typeof(BgmPlaybackRequest)));
+            Assert.That(
+                methods.Single(method => method.Name == nameof(IBgmPlaybackPort.Stop)).GetParameters()[0].ParameterType,
+                Is.EqualTo(typeof(BgmStopRequest)));
         }
 
         [Test]
@@ -131,6 +136,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(source, Does.Not.Contain("IAudioService"));
             Assert.That(source, Does.Not.Contain("PlayBgm("));
             Assert.That(source, Does.Not.Contain("StopBgm("));
+            Assert.That(source, Does.Not.Contain("FadeOutSeconds"));
+            Assert.That(source, Does.Not.Contain("FadeInSeconds"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StagePresentationRuntimeAdapter_Source_DoesNotOwnFadeImplementation()
+        {
+            var source = ReadRepoFile("Assets/_Features/Flow/Flow_Audio/Runtime/StagePresentationRuntimeAdapter.cs");
+
+            Assert.That(source, Does.Not.Contain("FadeOutSeconds"));
+            Assert.That(source, Does.Not.Contain("FadeInSeconds"));
+            Assert.That(source, Does.Not.Contain("PlayBgm("));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MainMenuUiFlowInstaller_Source_DoesNotReadBgmTransitionPolicy()
+        {
+            var source = ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs");
+
+            Assert.That(source, Does.Not.Contain("BgmTransitionMode"));
+            Assert.That(source, Does.Not.Contain("FadeOutSeconds"));
+            Assert.That(source, Does.Not.Contain("FadeInSeconds"));
+            Assert.That(source, Does.Not.Contain("PlayBgm"));
         }
 
         [Test]

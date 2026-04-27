@@ -77,9 +77,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 }));
 
             Assert.That(methodNames, Does.Not.Contain("Play3D"));
-            Assert.That(typeof(IAudioService).GetMethod(nameof(IAudioService.PlayBgm))?.GetParameters(), Has.Length.EqualTo(1));
+            var playBgmParameters = typeof(IAudioService).GetMethod(nameof(IAudioService.PlayBgm))?.GetParameters();
+            var stopBgmParameters = typeof(IAudioService).GetMethod(nameof(IAudioService.StopBgm))?.GetParameters();
+            Assert.That(playBgmParameters, Has.Length.EqualTo(1));
+            Assert.That(playBgmParameters?[0].ParameterType, Is.EqualTo(typeof(AudioBgmPlaybackRequest)));
             Assert.That(typeof(IAudioService).GetMethod(nameof(IAudioService.Stop))?.GetParameters(), Has.Length.EqualTo(1));
-            Assert.That(typeof(IAudioService).GetMethod(nameof(IAudioService.StopBgm))?.GetParameters(), Has.Length.EqualTo(0));
+            Assert.That(stopBgmParameters, Has.Length.EqualTo(1));
+            Assert.That(stopBgmParameters?[0].ParameterType, Is.EqualTo(typeof(AudioBgmStopRequest)));
 
             var contextProperties = typeof(AudioPlaybackContext)
                 .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
@@ -110,6 +114,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(references, Does.Not.Contain("Game.Feature.Gameplay.ActionAudio"));
             Assert.That(references, Does.Not.Contain("Game.Feature.Gameplay.UIAccess"));
             Assert.That(references, Does.Not.Contain("Game.Feature.UI.Application"));
+            Assert.That(references, Does.Not.Contain("Game.Feature.Flow.Audio"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SharedAudioRuntime_SourceSentinel_DoesNotImplementCrossfadeMultiSource()
+        {
+            var source = ReadRepoFile("Assets/_Shared/Audio/Runtime/AudioPlaybackService.cs");
+
+            Assert.That(source, Does.Contain("private AudioSource bgmSource;"));
+            Assert.That(source, Does.Not.Contain("secondBgmSource"));
+            Assert.That(source, Does.Not.Contain("secondaryBgmSource"));
+            Assert.That(source, Does.Not.Contain("bgmSourceA"));
+            Assert.That(source, Does.Not.Contain("bgmSourceB"));
+            Assert.That(source, Does.Not.Contain("Crossfade"));
         }
 
         [Test]
