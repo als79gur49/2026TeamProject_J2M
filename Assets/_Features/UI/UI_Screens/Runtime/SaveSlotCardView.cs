@@ -86,25 +86,12 @@ namespace Game.Feature.UI.Screens
                 _statusLabel.text = _viewModel?.StatusText ?? string.Empty;
             }
 
-            if (_stageLabel != null)
-            {
-                _stageLabel.text = _viewModel?.StageText ?? string.Empty;
-            }
-
-            if (_chancesLabel != null)
-            {
-                _chancesLabel.text = _viewModel?.ChancesText ?? string.Empty;
-            }
-
-            if (_deathsLabel != null)
-            {
-                _deathsLabel.text = _viewModel?.DeathsText ?? string.Empty;
-            }
-
-            if (_lastPlayedLabel != null)
-            {
-                _lastPlayedLabel.text = _viewModel?.LastPlayedText ?? string.Empty;
-            }
+            var hasStage = SetOptionalLabel(_stageLabel, _viewModel?.StageText);
+            var hasChances = SetOptionalLabel(_chancesLabel, _viewModel?.ChancesText);
+            var hasDeaths = SetOptionalLabel(_deathsLabel, _viewModel?.DeathsText);
+            var hasLastPlayed = SetOptionalLabel(_lastPlayedLabel, _viewModel?.LastPlayedText);
+            SetRowActive(_stageLabel ?? _chancesLabel, hasStage || hasChances);
+            SetRowActive(_deathsLabel ?? _lastPlayedLabel, hasDeaths || hasLastPlayed);
 
             if (_primaryButtonLabel != null)
             {
@@ -120,7 +107,10 @@ namespace Game.Feature.UI.Screens
 
             if (_restartButton != null)
             {
-                _restartButton.gameObject.SetActive(_viewModel != null && _viewModel.ShowRestart);
+                var showRestart = _viewModel != null &&
+                                  _viewModel.ShowRestart &&
+                                  _viewModel.PrimaryIntentKind != SaveSlotIntentKind.Restart;
+                _restartButton.gameObject.SetActive(showRestart);
             }
 
             if (_deleteButton != null)
@@ -167,35 +157,72 @@ namespace Game.Feature.UI.Screens
                 layout.childForceExpandHeight = false;
             }
 
-            _titleLabel ??= CreateLabel("Title", 22, FontStyles.Bold);
-            _statusLabel ??= CreateLabel("Status", 16, FontStyles.Bold);
-            _stageLabel ??= CreateLabel("Stage", 15, FontStyles.Normal);
-            _chancesLabel ??= CreateLabel("Chances", 14, FontStyles.Normal);
-            _deathsLabel ??= CreateLabel("Deaths", 14, FontStyles.Normal);
-            _lastPlayedLabel ??= CreateLabel("LastPlayed", 12, FontStyles.Normal);
+            var headerRow = CreateHorizontalRow("HeaderRow", transform, 32f, 12f);
+            _titleLabel ??= CreateLabel("Title", 22, FontStyles.Bold, headerRow, TextAlignmentOptions.Left);
+            AddFlexibleWidth(_titleLabel.gameObject, 1f);
+            _statusLabel ??= CreateLabel("Status", 16, FontStyles.Bold, headerRow, TextAlignmentOptions.Right);
+            AddMinWidth(_statusLabel.gameObject, 120f);
+
+            var detailRow = CreateHorizontalRow("DetailRow", transform, 24f, 12f);
+            _stageLabel ??= CreateLabel("Stage", 16, FontStyles.Normal, detailRow, TextAlignmentOptions.Left);
+            AddFlexibleWidth(_stageLabel.gameObject, 1f);
+            _chancesLabel ??= CreateLabel("Chances", 15, FontStyles.Normal, detailRow, TextAlignmentOptions.Right);
+            AddMinWidth(_chancesLabel.gameObject, 120f);
+
+            var metaRow = CreateHorizontalRow("MetaRow", transform, 22f, 12f);
+            _deathsLabel ??= CreateLabel("Deaths", 14, FontStyles.Normal, metaRow, TextAlignmentOptions.Left);
+            AddMinWidth(_deathsLabel.gameObject, 96f);
+            _lastPlayedLabel ??= CreateLabel("LastPlayed", 14, FontStyles.Normal, metaRow, TextAlignmentOptions.Right);
+            AddFlexibleWidth(_lastPlayedLabel.gameObject, 1f);
+
+            var actionRow = CreateHorizontalRow("ActionRow", transform, 38f, 8f);
             if (_primaryButton == null)
             {
-                _primaryButton = CreateButton("PrimaryButton", out _primaryButtonLabel);
+                _primaryButton = CreateButton("PrimaryButton", actionRow, out _primaryButtonLabel);
             }
 
             if (_restartButton == null)
             {
-                _restartButton = CreateButton("RestartButton", out var restartLabel);
+                _restartButton = CreateButton("RestartButton", actionRow, out var restartLabel);
                 restartLabel.text = "Restart";
             }
 
             if (_deleteButton == null)
             {
-                _deleteButton = CreateButton("DeleteButton", out var deleteLabel);
+                _deleteButton = CreateButton("DeleteButton", actionRow, out var deleteLabel);
                 deleteLabel.text = "Delete";
             }
         }
 
-        private TMP_Text CreateLabel(string objectName, int fontSize, FontStyles fontStyle)
+        private static RectTransform CreateHorizontalRow(string objectName, Transform parent, float minHeight, float spacing)
+        {
+            var rowObject = new GameObject(objectName, typeof(RectTransform));
+            rowObject.transform.SetParent(parent, false);
+            var layout = rowObject.AddComponent<HorizontalLayoutGroup>();
+            layout.spacing = spacing;
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = true;
+
+            var layoutElement = rowObject.AddComponent<LayoutElement>();
+            layoutElement.minHeight = minHeight;
+            layoutElement.preferredHeight = minHeight;
+            return (RectTransform)rowObject.transform;
+        }
+
+        private TMP_Text CreateLabel(
+            string objectName,
+            int fontSize,
+            FontStyles fontStyle,
+            Transform parent,
+            TextAlignmentOptions alignment)
         {
             var labelObject = new GameObject(objectName, typeof(RectTransform));
-            labelObject.transform.SetParent(transform, false);
+            labelObject.transform.SetParent(parent, false);
             var label = labelObject.AddComponent<TextMeshProUGUI>();
+            label.alignment = alignment;
             label.fontSize = fontSize;
             label.fontStyle = fontStyle;
             label.color = Color.white;
@@ -205,15 +232,18 @@ namespace Game.Feature.UI.Screens
             return label;
         }
 
-        private Button CreateButton(string objectName, out TMP_Text label)
+        private Button CreateButton(string objectName, Transform parent, out TMP_Text label)
         {
             var buttonObject = new GameObject(objectName, typeof(RectTransform));
-            buttonObject.transform.SetParent(transform, false);
+            buttonObject.transform.SetParent(parent, false);
             var image = buttonObject.AddComponent<Image>();
             image.color = new Color(0.20f, 0.25f, 0.34f, 1f);
             var button = buttonObject.AddComponent<Button>();
             var layoutElement = buttonObject.AddComponent<LayoutElement>();
             layoutElement.minHeight = 36f;
+            layoutElement.preferredHeight = 36f;
+            layoutElement.minWidth = 112f;
+            layoutElement.flexibleWidth = 1f;
 
             var labelObject = new GameObject("Label", typeof(RectTransform));
             labelObject.transform.SetParent(buttonObject.transform, false);
@@ -229,6 +259,46 @@ namespace Game.Feature.UI.Screens
             label.color = Color.white;
             label.raycastTarget = false;
             return button;
+        }
+
+        private static bool SetOptionalLabel(TMP_Text label, string text)
+        {
+            if (label == null)
+            {
+                return false;
+            }
+
+            text ??= string.Empty;
+            var hasText = !string.IsNullOrWhiteSpace(text);
+            label.text = text;
+            label.gameObject.SetActive(hasText);
+            return hasText;
+        }
+
+        private static void SetRowActive(TMP_Text rowChild, bool active)
+        {
+            if (rowChild == null || rowChild.transform.parent == null)
+            {
+                return;
+            }
+
+            var row = rowChild.transform.parent;
+            if (row.GetComponent<SaveSlotCardView>() == null)
+            {
+                row.gameObject.SetActive(active);
+            }
+        }
+
+        private static void AddMinWidth(GameObject target, float minWidth)
+        {
+            var layoutElement = target.AddComponent<LayoutElement>();
+            layoutElement.minWidth = minWidth;
+        }
+
+        private static void AddFlexibleWidth(GameObject target, float flexibleWidth)
+        {
+            var layoutElement = target.AddComponent<LayoutElement>();
+            layoutElement.flexibleWidth = flexibleWidth;
         }
 
         private static void Rebind(Button button, UnityEngine.Events.UnityAction action)
