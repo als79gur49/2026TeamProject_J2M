@@ -85,6 +85,23 @@ namespace Game.Feature.Gameplay.Host
                 _activeSlotProvider);
         }
 
+        protected override void ConfigureObjectiveRuntimeDefinition(
+            GameplaySceneHostConfiguration configuration,
+            in InitialGameplayState initialState)
+        {
+            var gameplayDefinition = initialState.StageContentEntry != null
+                ? initialState.StageContentEntry.GameplayDefinition
+                : null;
+            if (gameplayDefinition == null)
+            {
+                return;
+            }
+
+            var timing = StageSimulationTiming.FromTicksPerSecond(configuration.SimulationTicksPerSecond);
+            configuration.ObjectiveRuntimeDefinition =
+                StageRuntimeBuilder.Build(gameplayDefinition, timing).ObjectiveRuntimeDefinition;
+        }
+
         protected override void OnHostInitialized(
             GameplaySceneHost host,
             in InitialGameplayState initialState)

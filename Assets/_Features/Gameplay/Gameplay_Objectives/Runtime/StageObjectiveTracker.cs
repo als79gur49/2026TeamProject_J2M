@@ -55,7 +55,8 @@ namespace Game.Feature.Gameplay.Objectives
             }
 
             var goalReached = _objectiveDefinition.IsPlayerOnGoal(finalSnapshot);
-            var shouldClear = goalReached && AreAllRequiredConditionsSatisfied();
+            var allConditionsSatisfied = AreAllRequiredConditionsSatisfied();
+            var shouldClear = ShouldClear(goalReached, allConditionsSatisfied);
             var clearedThisTick = !_isCleared && shouldClear;
             if (clearedThisTick)
             {
@@ -82,6 +83,22 @@ namespace Game.Feature.Gameplay.Objectives
             }
 
             return true;
+        }
+
+        private bool ShouldClear(bool goalReached, bool allConditionsSatisfied)
+        {
+            switch (_objectiveDefinition.CompletionPolicy)
+            {
+                case StageCompletionPolicy.RequirePlayerOnGoalWithAllConditions:
+                    return goalReached && allConditionsSatisfied;
+
+                case StageCompletionPolicy.RequireAllConditions:
+                    return allConditionsSatisfied;
+
+                case StageCompletionPolicy.Disabled:
+                default:
+                    return false;
+            }
         }
 
         private StageObjectiveTickResult CreateResult(bool goalReached, bool clearedThisTick)

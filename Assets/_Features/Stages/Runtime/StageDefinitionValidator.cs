@@ -136,12 +136,77 @@ namespace Game.Feature.Stages
                 normalizedConditions[i] = condition;
             }
 
+            ValidateCompletionPolicy(
+                stageName,
+                objective.CompletionPolicy,
+                normalizedGoalIds,
+                normalizedConditions);
+
             return new StageObjectiveAuthoring
             {
                 CompletionPolicy = objective.CompletionPolicy,
                 GoalZoneIds = normalizedGoalIds,
                 RequiredConditions = normalizedConditions,
             };
+        }
+
+        private static void ValidateCompletionPolicy(
+            string stageName,
+            StageCompletionPolicy completionPolicy,
+            IReadOnlyList<string> goalZoneIds,
+            IReadOnlyList<StageConditionAsset> requiredConditions)
+        {
+            switch (completionPolicy)
+            {
+                case StageCompletionPolicy.Disabled:
+                    return;
+
+                case StageCompletionPolicy.RequirePlayerOnGoalWithAllConditions:
+                    if (goalZoneIds == null || goalZoneIds.Count == 0)
+                    {
+                        throw new InvalidOperationException(
+                            $"Stage '{stageName}' objective policy {completionPolicy} requires at least one goal zone id.");
+                    }
+
+                    return;
+
+                case StageCompletionPolicy.RequireAllConditions:
+                    if (requiredConditions == null || requiredConditions.Count == 0)
+                    {
+                        throw new InvalidOperationException(
+                            $"Stage '{stageName}' objective policy {completionPolicy} requires at least one required condition.");
+                    }
+
+                    if (ContainsOnlyTimeLimitConditions(requiredConditions))
+                    {
+                        throw new InvalidOperationException(
+                            $"Stage '{stageName}' objective policy {completionPolicy} cannot use only time limit conditions because it would clear immediately.");
+                    }
+
+                    return;
+
+                default:
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' objective uses unknown completion policy value {(int)completionPolicy}.");
+            }
+        }
+
+        private static bool ContainsOnlyTimeLimitConditions(IReadOnlyList<StageConditionAsset> requiredConditions)
+        {
+            if (requiredConditions == null || requiredConditions.Count == 0)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < requiredConditions.Count; i++)
+            {
+                if (requiredConditions[i] is not ClearWithinTimeLimitConditionAsset)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static string NormalizeZoneId(string stageName, int zoneIndex, string zoneId)

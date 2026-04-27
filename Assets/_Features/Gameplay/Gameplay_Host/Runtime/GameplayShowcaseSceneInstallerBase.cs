@@ -199,6 +199,12 @@ namespace Game.Feature.Gameplay.Host
         {
         }
 
+        protected virtual void ConfigureObjectiveRuntimeDefinition(
+            GameplaySceneHostConfiguration configuration,
+            in InitialGameplayState initialState)
+        {
+        }
+
         protected virtual void OnHostInitialized(
             GameplaySceneHost host,
             in InitialGameplayState initialState)
@@ -287,6 +293,7 @@ namespace Game.Feature.Gameplay.Host
             ConfigureRuntimeConfiguration(configuration, initialState);
             ResolveSimulationTimingPreset().ApplyTo(configuration);
             ResolvePresentationTimingPreset().ApplyTo(configuration);
+            ConfigureObjectiveRuntimeDefinition(configuration, initialState);
             GameplayCameraTopologyConfigurationComposer.ApplyTo(
                 configuration,
                 cameraTopologyAuthoring,
