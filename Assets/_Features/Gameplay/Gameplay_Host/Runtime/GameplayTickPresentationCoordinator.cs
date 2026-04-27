@@ -29,6 +29,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplayPresentationTrackState _trackState = new();
         private readonly GameplayTopologyTransitionController _topologyTransitionController;
         private readonly GameplayTransientEffectPresenter _transientEffectPresenter = new();
+        private readonly GameplayFrontFaceShieldVfxPresenter _frontFaceShieldVfxPresenter = new();
         private readonly GameplayMotionTimingResolver _motionTimingResolver;
         private readonly GameplayPoseResolver _poseResolver;
 
@@ -148,6 +149,7 @@ namespace Game.Feature.Gameplay.Host
             _entityPresentationApplier.ResetAllPlayerDeathDisplacements();
             _trackState.ResetSession();
             _transientEffectPresenter.Initialize(viewBinder.SearchRoot, cellSize);
+            _frontFaceShieldVfxPresenter.Initialize(viewBinder.SearchRoot, cellSize);
             _animationSync.Reset();
             _stateStore.ResetSession(initialTopology);
             _summonedEnemyPresentationResolver.Initialize(
@@ -194,6 +196,11 @@ namespace Game.Feature.Gameplay.Host
                 _projector,
                 _viewBinder,
                 TopologyCommitted);
+            TraceStep("RefreshFrontFaceShieldSources");
+            _frontFaceShieldVfxPresenter.RefreshActiveSources(
+                result.PresentationData.FrontFaceShieldSources,
+                _stateStore,
+                _projector);
             _exitPresentationController.RefreshEntityExitPlan(result.PresentationData);
             _planner.RefreshPlayerLocomotionSignals(result.PresentationData);
             _topologyTransitionController.RefreshTopologyTrack(
@@ -219,6 +226,11 @@ namespace Game.Feature.Gameplay.Host
                     _timingProfile));
             TraceStep("PlayPlayerHitEffects");
             PlayPlayerHitEffects(result);
+            TraceStep("PlayFrontFaceShieldBlockBursts");
+            _frontFaceShieldVfxPresenter.PlayBlockBursts(
+                result.PresentationData.FrontFaceShieldBlocks,
+                _stateStore,
+                _projector);
             TraceStep("PlayPlannedAudio");
             _audioPresentationController.PlayPlannedAudio();
             _actionAudioPresentationController.PlayPlannedAudio();
@@ -243,6 +255,7 @@ namespace Game.Feature.Gameplay.Host
             _trackState.ResetSession();
             _exitPresentationController.Reset();
             _transientEffectPresenter.Clear();
+            _frontFaceShieldVfxPresenter.Clear();
             _animationSync.Reset();
             _stateStore.ResetSession(topology);
             _topologyTransitionController.Reset();
@@ -278,6 +291,7 @@ namespace Game.Feature.Gameplay.Host
 
             _topologyTransitionController.UpdatePresentation(deltaTime, _stateStore.CommittedTopology);
             _transientEffectPresenter.Update(deltaTime);
+            _frontFaceShieldVfxPresenter.Update(deltaTime);
             _entityPresentationApplier.Apply(
                 deltaTime,
                 _topologyTransitionController.HasActiveBoardRotationTween,
