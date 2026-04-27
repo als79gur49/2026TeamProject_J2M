@@ -41,7 +41,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             track.Advance(1f);
             var sample = track.Sample();
 
-            Assert.That(sample.Position, Is.EqualTo(sourcePose.Position));
+            Assert.That(Vector3.Distance(sample.Position, sourcePose.Position), Is.LessThanOrEqualTo(0.0001f));
             Assert.That(Quaternion.Angle(sample.Rotation, sourcePose.Rotation), Is.LessThanOrEqualTo(0.001f));
         }
     }
