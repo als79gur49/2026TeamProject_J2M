@@ -297,8 +297,8 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: ee4160b1ea994e21b5b93ee5e5b66c8d, type: 2}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   wallSpawns:
   - EntityId: 196
     Kind: 3
