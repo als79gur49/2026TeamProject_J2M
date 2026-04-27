@@ -12,10 +12,10 @@ namespace Game.Shared.Audio
             AudioAttachmentSlot slot,
             in AudioPlaybackContext context = default);
 
-        AudioPlaybackHandle PlayBgm(AudioDefinition definition);
+        AudioPlaybackHandle PlayBgm(AudioBgmPlaybackRequest request);
 
         void Stop(AudioPlaybackHandle handle);
 
-        void StopBgm();
+        void StopBgm(AudioBgmStopRequest request);
     }
 }

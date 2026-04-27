@@ -28,14 +28,14 @@ namespace Game.Feature.Flow.Audio
                 return;
             }
 
-            ResolveExecutedTransitionMode(profile);
-            playbackPort.PlayImmediate(profile.LoopDefinition);
+            var transition = ResolvePlaybackTransition(profile);
+            playbackPort.Play(new BgmPlaybackRequest(profile.LoopDefinition, transition));
             currentProfile = profile;
         }
 
         public void StopCurrent()
         {
-            playbackPort.StopImmediate();
+            playbackPort.Stop(new BgmStopRequest(BgmPlaybackTransition.Immediate));
             currentProfile = null;
         }
 
@@ -44,17 +44,33 @@ namespace Game.Feature.Flow.Audio
             return currentProfile;
         }
 
-        private static BgmTransitionMode ResolveExecutedTransitionMode(BgmProfile profile)
+        private static BgmPlaybackTransition ResolvePlaybackTransition(BgmProfile profile)
         {
-            if (profile.TransitionMode == BgmTransitionMode.Immediate)
+            switch (profile.TransitionMode)
             {
-                return BgmTransitionMode.Immediate;
+                case BgmTransitionMode.Immediate:
+                    return BgmPlaybackTransition.Immediate;
+                case BgmTransitionMode.FadeOutIn:
+                    return BgmPlaybackTransition.FadeOutIn(profile.FadeOutSeconds, profile.FadeInSeconds);
+                case BgmTransitionMode.Crossfade:
+                    return ResolveCrossfadeFallbackTransition(profile);
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(profile),
+                        profile.TransitionMode,
+                        $"BgmProfile '{profile.name}' uses an unsupported transition mode.");
             }
+        }
 
+        private static BgmPlaybackTransition ResolveCrossfadeFallbackTransition(BgmProfile profile)
+        {
+            var fallback = profile.FadeOutSeconds > 0f || profile.FadeInSeconds > 0f
+                ? BgmPlaybackTransition.FadeOutIn(profile.FadeOutSeconds, profile.FadeInSeconds)
+                : BgmPlaybackTransition.Immediate;
             Debug.LogWarning(
-                $"BgmProfile '{profile.name}' requests '{profile.TransitionMode}', but BGM flow v1 executes Immediate only. Degrading to Immediate.",
+                $"BgmProfile '{profile.name}' requests Crossfade, but single-source BGM runtime does not support Crossfade. Falling back to {fallback.Mode}.",
                 profile);
-            return BgmTransitionMode.Immediate;
+            return fallback;
         }
     }
 }

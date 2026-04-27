@@ -59,10 +59,10 @@ namespace Game.Shared.Audio
             return playbackService.PlayAttached(definition, owner, slot, context, mixingService);
         }
 
-        public AudioPlaybackHandle PlayBgm(AudioDefinition definition)
+        public AudioPlaybackHandle PlayBgm(AudioBgmPlaybackRequest request)
         {
             ThrowIfNotInitialized();
-            return playbackService.PlayBgm(definition, mixingService);
+            return playbackService.PlayBgm(request, mixingService);
         }
 
         public void Stop(AudioPlaybackHandle handle)
@@ -71,10 +71,10 @@ namespace Game.Shared.Audio
             playbackService.Stop(handle);
         }
 
-        public void StopBgm()
+        public void StopBgm(AudioBgmStopRequest request)
         {
             ThrowIfNotInitialized();
-            playbackService.StopBgm();
+            playbackService.StopBgm(request, mixingService);
         }
 
         public AudioSettingsSnapshot ReadSettings()
@@ -110,7 +110,7 @@ namespace Game.Shared.Audio
                 return;
             }
 
-            playbackService.Tick();
+            playbackService.Tick(mixingService);
         }
 
         private void OnDestroy()
@@ -140,6 +140,12 @@ namespace Game.Shared.Audio
         internal int CaptureLivePlaybackCount()
         {
             return playbackService?.LivePlaybackCount ?? 0;
+        }
+
+        internal void TickForTesting(float deltaSeconds)
+        {
+            ThrowIfNotInitialized();
+            playbackService.Tick(mixingService, deltaSeconds);
         }
     }
 }
