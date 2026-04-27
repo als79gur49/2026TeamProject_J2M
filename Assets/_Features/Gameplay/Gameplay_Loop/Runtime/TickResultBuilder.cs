@@ -388,6 +388,8 @@ namespace Game.Feature.Gameplay.Loop
             var enemyDamageSignals = new List<TickEnemyDamagePresentationSignal>();
             var enemyJumpSignals = new List<TickEnemyJumpPresentationSignal>();
             var enemyChargeSignals = new List<TickEnemyChargePresentationSignal>();
+            var frontFaceShieldSourceSignals = new List<TickFrontFaceShieldSourceSignal>();
+            var frontFaceShieldBlockSignals = new List<TickFrontFaceShieldBlockSignal>();
             var playerActionSignals = new List<TickPlayerActionPresentationSignal>();
             var playerDamageSignals = new List<TickPlayerDamagePresentationSignal>();
             var playerDeathSignals = new List<TickPlayerDeathPresentationSignal>();
@@ -412,6 +414,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildEnemyPresentation(context, enemyActionSignals);
             BuildEnemyJumpPresentation(context, enemyJumpSignals);
             BuildEnemyChargePresentation(context, enemyChargeSignals);
+            BuildFrontFaceShieldPresentation(context, frontFaceShieldSourceSignals, frontFaceShieldBlockSignals);
             BuildSummonedEnemyPresentationBindings(context, summonedEnemyPresentationBindings);
 
             var topologyMotion = BuildTopologyMotion(context);
@@ -422,6 +425,8 @@ namespace Game.Feature.Gameplay.Loop
                    enemyDamageSignals.Count == 0 &&
                    enemyJumpSignals.Count == 0 &&
                    enemyChargeSignals.Count == 0 &&
+                   frontFaceShieldSourceSignals.Count == 0 &&
+                   frontFaceShieldBlockSignals.Count == 0 &&
                    entityExitSignals.Count == 0 &&
                    impactTransientSignals.Count == 0 &&
                    flipImpactSignals.Count == 0 &&
@@ -450,7 +455,48 @@ namespace Game.Feature.Gameplay.Loop
                     entityExitSignals,
                     impactTransientSignals,
                     flipImpactSignals,
-                    summonedEnemyPresentationBindings);
+                    summonedEnemyPresentationBindings,
+                    frontFaceShieldSourceSignals,
+                    frontFaceShieldBlockSignals);
+        }
+
+        private static void BuildFrontFaceShieldPresentation(
+            in TickPresentationBuildContext context,
+            List<TickFrontFaceShieldSourceSignal> sourceSignals,
+            List<TickFrontFaceShieldBlockSignal> blockSignals)
+        {
+            var sourceExports = context.MovementPhaseResult.FrontFaceShieldSourceExports;
+            for (var i = 0; i < sourceExports.Count; i++)
+            {
+                var export = sourceExports[i];
+                sourceSignals.Add(
+                    new TickFrontFaceShieldSourceSignal(
+                        export.SourceEntityId,
+                        export.SourceCell,
+                        export.Topology,
+                        export.Radius,
+                        export.IncludeSourceCell,
+                        export.TargetPattern,
+                        export.TickIndex,
+                        export.PresentationSeed));
+            }
+
+            var blockExports = context.MovementPhaseResult.FrontFaceShieldBlockExports;
+            for (var i = 0; i < blockExports.Count; i++)
+            {
+                var export = blockExports[i];
+                blockSignals.Add(
+                    new TickFrontFaceShieldBlockSignal(
+                        export.ShieldSourceEntityId,
+                        export.BoxEntityId,
+                        export.ActorEntityId,
+                        export.BlockedCell,
+                        export.ShieldSourceCell,
+                        export.MovementKind,
+                        export.Topology,
+                        export.TickIndex,
+                        export.PresentationSeed));
+            }
         }
 
         private static void BuildMovementPresentation(

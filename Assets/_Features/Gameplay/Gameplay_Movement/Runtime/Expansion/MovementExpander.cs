@@ -75,7 +75,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             ISet<int> playerTraversalSourceIds,
             IReadOnlyList<FrontFaceSupportContributor> frontFaceSupportContributors,
             List<ActionGroup> buffer,
-            List<string> rejectedReasons)
+            List<string> rejectedReasons,
+            List<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports = null)
         {
             if (snapshot == null)
             {
@@ -123,7 +124,16 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 {
                     case MovementCommandKind.Push:
                     case MovementCommandKind.Move:
-                        ExpandMoveLike(snapshot, entity, intent, tickIndex, playerTraversalSourceIds, frontFaceSupportContributors, buffer, rejectedReasons);
+                        ExpandMoveLike(
+                            snapshot,
+                            entity,
+                            intent,
+                            tickIndex,
+                            playerTraversalSourceIds,
+                            frontFaceSupportContributors,
+                            buffer,
+                            rejectedReasons,
+                            frontFaceShieldBlockExports);
                         break;
 
                     case MovementCommandKind.Flip:
@@ -146,11 +156,20 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             ISet<int> playerTraversalSourceIds,
             IReadOnlyList<FrontFaceSupportContributor> frontFaceSupportContributors,
             List<ActionGroup> buffer,
-            List<string> rejectedReasons)
+            List<string> rejectedReasons,
+            List<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports)
         {
             if (IsSlidingPushBox(source))
             {
-                ExpandSlidingPushBoxMove(snapshot, source, intent, tickIndex, frontFaceSupportContributors, buffer, rejectedReasons);
+                ExpandSlidingPushBoxMove(
+                    snapshot,
+                    source,
+                    intent,
+                    tickIndex,
+                    frontFaceSupportContributors,
+                    buffer,
+                    rejectedReasons,
+                    frontFaceShieldBlockExports);
                 return;
             }
 
@@ -205,7 +224,18 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                     snapshot.Topology.IsFaceActive(targetBox.position.face) &&
                     HasBoxCapability(targetBox, BoxCapabilities.Push))
                 {
-                    TryExpandPush(snapshot, source, targetBox, intent, tickIndex, delta, stepFacing, frontFaceSupportContributors, buffer, rejectedReasons);
+                    TryExpandPush(
+                        snapshot,
+                        source,
+                        targetBox,
+                        intent,
+                        tickIndex,
+                        delta,
+                        stepFacing,
+                        frontFaceSupportContributors,
+                        buffer,
+                        rejectedReasons,
+                        frontFaceShieldBlockExports);
                     return;
                 }
 
@@ -504,7 +534,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             Direction stepFacing,
             IReadOnlyList<FrontFaceSupportContributor> frontFaceSupportContributors,
             List<ActionGroup> buffer,
-            List<string> rejectedReasons)
+            List<string> rejectedReasons,
+            List<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports)
         {
             var destinationResolved = snapshot.TryResolveNextSurfaceBoxSlideStep(
                 snapshot.Topology,
@@ -564,6 +595,15 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                         target.position,
                         destination,
                         blocker));
+                AddFrontFaceShieldBlockPresentationExport(
+                    frontFaceShieldBlockExports,
+                    snapshot.Topology,
+                    tickIndex,
+                    FrontFaceShieldBlockMovementKind.PushStart,
+                    actorEntityId: intent.SourceId,
+                    boxEntityId: target.entityId,
+                    blockedCell: destination,
+                    blocker);
                 return;
             }
 
@@ -594,7 +634,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             int tickIndex,
             IReadOnlyList<FrontFaceSupportContributor> frontFaceSupportContributors,
             List<ActionGroup> buffer,
-            List<string> rejectedReasons)
+            List<string> rejectedReasons,
+            List<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports)
         {
             var delta = ResolveIntentDelta(source.position, intent.Destination);
             var stepFacing = ResolveCardinalFacing(
@@ -666,6 +707,15 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                         source.position,
                         destination,
                         blocker));
+                AddFrontFaceShieldBlockPresentationExport(
+                    frontFaceShieldBlockExports,
+                    snapshot.Topology,
+                    tickIndex,
+                    FrontFaceShieldBlockMovementKind.SlidingContinuation,
+                    actorEntityId: source.kineticInstigatorEntityId > 0 ? source.kineticInstigatorEntityId : 0,
+                    boxEntityId: source.entityId,
+                    blockedCell: destination,
+                    blocker);
 
                 var stopGroup = new ActionGroup(
                     intent.IntentId,
@@ -884,6 +934,60 @@ namespace Game.Feature.Gameplay.Movement.Expansion
         {
             return
                 $"MovementRejected|Stage=Expand|Source={sourceId}|I={intentId}|Reason=BoxSlideBlockedByFrontFaceShield|MovementKind={movementKind}|Box={boxEntityId}|From={FormatCell(sourceCell)}|Cell={FormatCell(destinationCell)}|ShieldSource={blocker.BlockerEntityId}|ShieldCell={FormatCell(blocker.BlockerSourceCell)}";
+        }
+
+        private static void AddFrontFaceShieldBlockPresentationExport(
+            List<FrontFaceShieldBlockPresentationExport> exports,
+            CubeTopologyState topology,
+            int tickIndex,
+            FrontFaceShieldBlockMovementKind movementKind,
+            int actorEntityId,
+            int boxEntityId,
+            SurfaceCell blockedCell,
+            in BoxSlideBlockerResult blocker)
+        {
+            if (exports == null)
+            {
+                return;
+            }
+
+            exports.Add(
+                new FrontFaceShieldBlockPresentationExport(
+                    blocker.BlockerEntityId,
+                    boxEntityId,
+                    actorEntityId,
+                    blockedCell,
+                    blocker.BlockerSourceCell,
+                    movementKind,
+                    topology,
+                    tickIndex,
+                    BuildFrontFaceShieldPresentationSeed(
+                        tickIndex,
+                        blocker.BlockerEntityId,
+                        boxEntityId,
+                        blockedCell,
+                        (int)movementKind)));
+        }
+
+        internal static int BuildFrontFaceShieldPresentationSeed(
+            int tickIndex,
+            int sourceEntityId,
+            int targetEntityId,
+            SurfaceCell cell,
+            int discriminator)
+        {
+            unchecked
+            {
+                var seed = 17;
+                seed = (seed * 31) + tickIndex;
+                seed = (seed * 31) + sourceEntityId;
+                seed = (seed * 31) + targetEntityId;
+                seed = (seed * 31) + (int)cell.face;
+                seed = (seed * 31) + cell.x;
+                seed = (seed * 31) + cell.y;
+                seed = (seed * 31) + discriminator;
+                return seed;
+            }
         }
 
         private static string FormatStopper(SlideStopper stopper)

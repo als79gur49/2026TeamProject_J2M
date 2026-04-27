@@ -417,6 +417,11 @@ namespace Game.Feature.Gameplay.Loop
                 entityLogicsForTick.FrontFaceSupportLogics,
                 planSnapshot,
                 in input);
+            var frontFaceShieldSourceExports = BuildFrontFaceShieldSourcePresentationExports(
+                frontFaceSupportContributors,
+                planSnapshot.Topology,
+                input.TickIndex);
+            var frontFaceShieldBlockExports = new List<FrontFaceShieldBlockPresentationExport>();
             var expandedCandidates = new List<ActionGroup>();
             _movementExpander.Expand(
                 planSnapshot,
@@ -425,7 +430,8 @@ namespace Game.Feature.Gameplay.Loop
                 playerTraversalSourceIds,
                 frontFaceSupportContributors,
                 expandedCandidates,
-                rejectedReasons);
+                rejectedReasons,
+                frontFaceShieldBlockExports);
             expandedCandidates.Sort(ActionGroupComparer.Instance);
             AssignMovementGroupIds(expandedCandidates);
             var movementActionPlanPayloads = BuildMovementActionPlanPayloads(
@@ -460,6 +466,8 @@ namespace Game.Feature.Gameplay.Loop
                 phaseRelocationPlans,
                 phaseRelocationActionPlanPayloads,
                 orderedPhaseRelocationActionPlanIds,
+                frontFaceShieldSourceExports,
+                frontFaceShieldBlockExports,
                 nextContestId,
                 aiPhaseResult,
                 preMovementStateResult,
@@ -893,7 +901,9 @@ namespace Game.Feature.Gameplay.Loop
                 impactDispositionRecords,
                 movementResolvedOperations,
                 movementCommitEvents,
-                movementRejectedReasons);
+                movementRejectedReasons,
+                planPhaseResult.FrontFaceShieldSourceExports,
+                planPhaseResult.FrontFaceShieldBlockExports);
 
             AddRange(attackCommitEvents, utilityResolveResult.EventLogEntries);
             var attackResolvedOperations = new List<FinalizationOperation>(attackStageBatch.Operations.Count + utilityResolveResult.Batch.Operations.Count);
@@ -977,6 +987,45 @@ namespace Game.Feature.Gameplay.Loop
             return contributors;
         }
 
+        private static List<FrontFaceShieldSourcePresentationExport> BuildFrontFaceShieldSourcePresentationExports(
+            IReadOnlyList<FrontFaceSupportContributor> contributors,
+            CubeTopologyState topology,
+            int tickIndex)
+        {
+            var exports = new List<FrontFaceShieldSourcePresentationExport>(contributors?.Count ?? 0);
+            if (contributors == null)
+            {
+                return exports;
+            }
+
+            for (var i = 0; i < contributors.Count; i++)
+            {
+                var contributor = contributors[i];
+                if (contributor.EffectRuntime.Kind != EnemyFrontFaceSupportEffectKind.BoxSlideShield)
+                {
+                    continue;
+                }
+
+                var shield = contributor.EffectRuntime.BoxSlideShield;
+                exports.Add(
+                    new FrontFaceShieldSourcePresentationExport(
+                        contributor.SourceEntityId,
+                        contributor.SourceCell,
+                        topology,
+                        shield.Radius,
+                        shield.IncludeSourceCell,
+                        shield.TargetPattern,
+                        tickIndex,
+                        MovementExpander.BuildFrontFaceShieldPresentationSeed(
+                            tickIndex,
+                            contributor.SourceEntityId,
+                            0,
+                            contributor.SourceCell,
+                            contributor.EffectIndex)));
+            }
+
+            return exports;
+        }
 
         private CleanupPhaseResult RunCleanupPhase(
             WorldSnapshot snapshot,
@@ -5416,6 +5465,8 @@ namespace Game.Feature.Gameplay.Loop
             List<PhaseRelocationPlan> phaseRelocationPlans,
             Dictionary<int, PhaseRelocationActionPlanPayload> phaseRelocationActionPlanPayloads,
             List<int> orderedPhaseRelocationActionPlanIds,
+            List<FrontFaceShieldSourcePresentationExport> frontFaceShieldSourceExports,
+            List<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports,
             int nextContestId,
             EnemyAiPhaseResult enemyAiPhaseResult,
             PreMovementStatePhaseResult preMovementStatePhaseResult,
@@ -5439,6 +5490,8 @@ namespace Game.Feature.Gameplay.Loop
             PhaseRelocationPlans = phaseRelocationPlans ?? throw new ArgumentNullException(nameof(phaseRelocationPlans));
             PhaseRelocationActionPlanPayloads = phaseRelocationActionPlanPayloads ?? throw new ArgumentNullException(nameof(phaseRelocationActionPlanPayloads));
             OrderedPhaseRelocationActionPlanIds = orderedPhaseRelocationActionPlanIds ?? throw new ArgumentNullException(nameof(orderedPhaseRelocationActionPlanIds));
+            FrontFaceShieldSourceExports = frontFaceShieldSourceExports ?? throw new ArgumentNullException(nameof(frontFaceShieldSourceExports));
+            FrontFaceShieldBlockExports = frontFaceShieldBlockExports ?? throw new ArgumentNullException(nameof(frontFaceShieldBlockExports));
             NextContestId = nextContestId;
             EnemyAiPhaseResult = enemyAiPhaseResult ?? throw new ArgumentNullException(nameof(enemyAiPhaseResult));
             PreMovementStatePhaseResult = preMovementStatePhaseResult ?? throw new ArgumentNullException(nameof(preMovementStatePhaseResult));
@@ -5478,6 +5531,10 @@ namespace Game.Feature.Gameplay.Loop
         public Dictionary<int, PhaseRelocationActionPlanPayload> PhaseRelocationActionPlanPayloads { get; }
 
         public List<int> OrderedPhaseRelocationActionPlanIds { get; }
+
+        public List<FrontFaceShieldSourcePresentationExport> FrontFaceShieldSourceExports { get; }
+
+        public List<FrontFaceShieldBlockPresentationExport> FrontFaceShieldBlockExports { get; }
 
         public int NextContestId { get; }
 
