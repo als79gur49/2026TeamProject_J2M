@@ -234,6 +234,24 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        [Test]
+        public void MainMenuScene_HasSettingsAudioAndDisplayRuntimeInstallers()
+        {
+            var scene = EditorSceneManager.OpenScene(MainMenuScenePath, OpenSceneMode.Single);
+            var rootObjects = scene.GetRootGameObjects();
+            var uiRoot = rootObjects.Single(root => root.GetComponent<MainMenuUiFlowInstaller>() != null);
+            var installer = uiRoot.GetComponent<MainMenuUiFlowInstaller>();
+            var audioInstaller = uiRoot.GetComponent<AudioRuntimeInstaller>();
+            var displayInstaller = uiRoot.GetComponent<DisplayRuntimeInstaller>();
+
+            Assert.That(audioInstaller, Is.Not.Null);
+            Assert.That(displayInstaller, Is.Not.Null);
+            var serializedInstaller = new SerializedObject(installer);
+            var serializedAudioInstaller = new SerializedObject(audioInstaller);
+            Assert.That(serializedAudioInstaller.FindProperty("bindingMode").enumValueIndex, Is.EqualTo((int)AudioRuntimeInstallerBindingMode.PreferRegisteredPersistentRuntime));
+            Assert.That(serializedInstaller.FindProperty("_settingsScreenPrefab").objectReferenceValue, Is.Not.Null);
+            Assert.That(serializedInstaller.FindProperty("_settingsPreviewTimeoutSeconds").doubleValue, Is.EqualTo(15d));
+        }
 
         private static void AssertForbiddenMainMenuSettingsReferences()
         {
