@@ -34,11 +34,21 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
         public event Action<GameplayPresentationState> StateChanged;
 
+        public event Action<GameplayLevelFailedReadModel> LevelFailedCommitted;
+
         internal event Action<TickResult, StageCompletionReadModel> StageClearCommitted;
 
         public GameplayPresentationState CurrentState { get; private set; }
 
         public StageCompletionReadModel CurrentStageCompletion => _stageCompletionRuntime.CurrentStageCompletion;
+
+        public GameplayLevelFailedReadModel CurrentLevelFailed { get; private set; }
+
+        internal void PublishLevelFailed(GameplayLevelFailedReadModel readModel)
+        {
+            CurrentLevelFailed = readModel ?? throw new ArgumentNullException(nameof(readModel));
+            LevelFailedCommitted?.Invoke(CurrentLevelFailed);
+        }
 
         public void Dispose()
         {

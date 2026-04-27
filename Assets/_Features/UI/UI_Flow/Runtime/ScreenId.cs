@@ -9,5 +9,6 @@ namespace Game.Feature.UI.Flow
         Inventory = 4,
         Settings = 5,
         StageResult = 6,
+        LevelFailed = 7,
     }
 }

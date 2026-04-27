@@ -10,8 +10,12 @@ namespace Game.Feature.Gameplay.UIAccess.Contracts
 
         event Action<GameplayPresentationState> StateChanged;
 
+        event Action<GameplayLevelFailedReadModel> LevelFailedCommitted;
+
         GameplayPresentationState CurrentState { get; }
 
         StageCompletionReadModel CurrentStageCompletion { get; }
+
+        GameplayLevelFailedReadModel CurrentLevelFailed { get; }
     }
 }

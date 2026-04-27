@@ -1,6 +1,7 @@
 using System;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Host.UIAccess;
+using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Stages;
 using UnityEngine.SceneManagement;
 
@@ -111,8 +112,32 @@ namespace Game.Feature.Gameplay.Host
                     mutableSlot.LastPlayedAt = DateTimeOffset.UtcNow.ToString("O");
                 });
 
+            if (route.RouteKind == StageRetryRouteKind.ReturnToLevelGroupFirstStage)
+            {
+                PublishLevelFailed(route);
+                return;
+            }
+
             StageLaunchContextStore.SetCurrent(route.NextStageId);
             SceneManager.LoadScene(_sceneName);
+        }
+
+        private void PublishLevelFailed(StageRetryRouteResult route)
+        {
+            if (_presentationFeed == null)
+            {
+                throw new InvalidOperationException("Campaign level failed flow requires a gameplay presentation feed.");
+            }
+
+            _presentationFeed.PublishLevelFailed(new GameplayLevelFailedReadModel(
+                "Level Failed",
+                "All chances were used. Restart the level or return to main.",
+                "Restart Level",
+                "Main",
+                new StageNavigationRequest(
+                    route.NextStageId,
+                    StageNavigationKind.Retry,
+                    "level-failed-restart-level")));
         }
 
         private void HandleStageClearCommitted(TickResult result, StageCompletionReadModel readModel)

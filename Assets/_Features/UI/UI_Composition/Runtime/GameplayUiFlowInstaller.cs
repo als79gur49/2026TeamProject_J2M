@@ -77,6 +77,8 @@ namespace Game.Feature.UI.Composition
 
         public StageResultScreenView StageResultScreenView => ScreenLayerView != null ? ScreenLayerView.FindScreenView<StageResultScreenView>() : null;
 
+        public LevelFailedScreenView LevelFailedScreenView => ScreenLayerView != null ? ScreenLayerView.FindScreenView<LevelFailedScreenView>() : null;
+
         public PopupLayerView PopupLayerView => _rootView != null ? _rootView.PopupLayerView : null;
 
         public PausePopupView PausePopupView => PopupLayerView != null ? PopupLayerView.FindPopupView<PausePopupView>() : null;

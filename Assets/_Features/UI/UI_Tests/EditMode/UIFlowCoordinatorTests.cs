@@ -736,6 +736,92 @@ namespace Game.Feature.UI.Tests
             Assert.That(screenRuntimeFactory.CreatedRuntimes.FindAll(record => record.Request.ScreenId == ScreenId.StageResult), Has.Count.EqualTo(1));
         }
 
+        [Test]
+        public void UIFlowCoordinator_LevelFailedEvent_OpensTerminalLevelFailedOnce()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            var screenRuntimeFactory = new FakeScreenRuntimeFactory();
+            var presentationSource = new ManualGameplayUiPresentationSource();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                screenRuntimeFactory,
+                presentationSource,
+                out var screenController,
+                out var popupController);
+
+            coordinator.Initialize();
+            Assert.That(coordinator.OpenHelpScreen(), Is.True);
+            Assert.That(coordinator.RequestPausePopup(), Is.True);
+
+            var restartRequest = new StageNavigationRequest(
+                StageId.CreateOrThrow("stage-1-1"),
+                StageNavigationKind.Retry,
+                "level-failed-restart-level");
+            var payload = new LevelFailedScreenPayload(
+                "Level Failed",
+                "All chances were used.",
+                "Restart Level",
+                "Main",
+                restartRequest);
+
+            presentationSource.PublishLevelFailed(payload);
+            presentationSource.PublishLevelFailed(payload);
+
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.LevelFailed));
+            Assert.That(screenController.BackStackCount, Is.EqualTo(0));
+            Assert.That(popupController.PopupCount, Is.EqualTo(0));
+            var records = screenRuntimeFactory.CreatedRuntimes.FindAll(record => record.Request.ScreenId == ScreenId.LevelFailed);
+            Assert.That(records, Has.Count.EqualTo(1));
+            Assert.That(records[0].Request.Payload, Is.SameAs(payload));
+            Assert.That(coordinator.HandleBackRequested(), Is.True);
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.LevelFailed));
+            Assert.That(coordinator.CurrentBlockSnapshot.BlocksUiGameplayInput, Is.True);
+        }
+
+        [Test]
+        public void UIFlowCoordinator_LevelFailedActions_LaunchSavedRestartRequest_AndUseMainRouter()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            var screenRuntimeFactory = new FakeScreenRuntimeFactory();
+            var presentationSource = new ManualGameplayUiPresentationSource();
+            var mainMenuReturnRouter = new FakeMainMenuReturnRouter();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                screenRuntimeFactory,
+                presentationSource,
+                mainMenuReturnRouter,
+                out _,
+                out _,
+                out _,
+                out var stageLaunchRouter);
+
+            coordinator.Initialize();
+            var restartRequest = new StageNavigationRequest(
+                StageId.CreateOrThrow("stage-1-1"),
+                StageNavigationKind.Retry,
+                "level-failed-restart-level");
+            presentationSource.PublishLevelFailed(new LevelFailedScreenPayload(
+                "Level Failed",
+                "All chances were used.",
+                "Restart Level",
+                "Main",
+                restartRequest));
+            var levelFailedRecord = screenRuntimeFactory.CreatedRuntimes.Find(record => record.Request.ScreenId == ScreenId.LevelFailed);
+
+            levelFailedRecord.Runtime.Emit(ScreenAction.LaunchStage(restartRequest));
+            levelFailedRecord.Runtime.Emit(ScreenAction.ReturnToMainMenu());
+
+            Assert.That(stageLaunchRouter.Requests, Has.Count.EqualTo(1));
+            Assert.That(stageLaunchRouter.Requests[0].StageId, Is.EqualTo(restartRequest.StageId));
+            Assert.That(stageLaunchRouter.Requests[0].NavigationKind, Is.EqualTo(StageNavigationKind.Retry));
+            Assert.That(stageLaunchRouter.Requests[0].Source, Is.EqualTo("level-failed-restart-level"));
+            Assert.That(mainMenuReturnRouter.ReturnCallCount, Is.EqualTo(1));
+        }
+
         private static UIFlowCoordinator CreateCoordinatorWithStageLaunchRouter(
             FakeGameplayPauseService pauseService,
             FakePopupRuntimeFactory runtimeFactory,
@@ -761,6 +847,7 @@ namespace Game.Feature.UI.Tests
             FakePopupRuntimeFactory runtimeFactory,
             FakeScreenRuntimeFactory screenRuntimeFactory,
             ManualGameplayUiPresentationSource presentationSource,
+            FakeMainMenuReturnRouter mainMenuReturnRouter,
             out ScreenController screenController,
             out PopupController popupController,
             out RecordingUiAudioPort uiAudioPort,
@@ -778,7 +865,30 @@ namespace Game.Feature.UI.Tests
                 pauseService,
                 presentationSource,
                 uiAudioPort,
-                stageLaunchRouter);
+                stageLaunchRouter,
+                mainMenuReturnRouter);
+        }
+
+        private static UIFlowCoordinator CreateCoordinator(
+            FakeGameplayPauseService pauseService,
+            FakePopupRuntimeFactory runtimeFactory,
+            FakeScreenRuntimeFactory screenRuntimeFactory,
+            ManualGameplayUiPresentationSource presentationSource,
+            out ScreenController screenController,
+            out PopupController popupController,
+            out RecordingUiAudioPort uiAudioPort,
+            out FakeStageLaunchRouter stageLaunchRouter)
+        {
+            return CreateCoordinator(
+                pauseService,
+                runtimeFactory,
+                screenRuntimeFactory,
+                presentationSource,
+                new FakeMainMenuReturnRouter(),
+                out screenController,
+                out popupController,
+                out uiAudioPort,
+                out stageLaunchRouter);
         }
 
         private static UIFlowCoordinator CreateCoordinator(

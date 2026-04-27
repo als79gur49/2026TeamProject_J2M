@@ -67,6 +67,9 @@ namespace Game.Feature.UI.Composition
                 case ScreenId.StageResult:
                     return CreateStageResultRuntime();
 
+                case ScreenId.LevelFailed:
+                    return CreateLevelFailedRuntime();
+
                 default:
                     throw new InvalidOperationException($"Unsupported screen id: {request.ScreenId}");
             }
@@ -194,6 +197,23 @@ namespace Game.Feature.UI.Composition
                     HudShellMode.Hidden,
                     blocksUiGameplayInput: true),
                 new StageResultRuntime(view, presenter, _uiAudioPort, () => DestroyObject(view.gameObject)));
+        }
+
+        private ScreenRuntimeFactoryResult CreateLevelFailedRuntime()
+        {
+            var presenter = new LevelFailedScreenPresenter();
+            var view = InstantiateScreenPrefab(_screenPrefabCatalog.LevelFailedPrefab, ScreenId.LevelFailed);
+            view.Bind(presenter.ViewModel);
+            view.SetIsCurrent(false);
+
+            return new ScreenRuntimeFactoryResult(
+                new ScreenPolicy(
+                    ScreenPolicyClass.TerminalResult,
+                    ScreenRetentionMode.DisposeOnHide,
+                    ScreenBackAction.Consume,
+                    HudShellMode.Hidden,
+                    blocksUiGameplayInput: true),
+                new LevelFailedRuntime(view, presenter, _uiAudioPort, () => DestroyObject(view.gameObject)));
         }
 
         private TView InstantiateScreenPrefab<TView>(TView prefab, ScreenId screenId)
@@ -775,6 +795,54 @@ namespace Game.Feature.UI.Composition
                 }
 
                 RaiseAction(ScreenAction.LaunchStage(_payload.ContinueStageRequest));
+            }
+        }
+
+        private sealed class LevelFailedRuntime : ScreenRuntimeBase<LevelFailedScreenView>
+        {
+            private readonly LevelFailedScreenPresenter _presenter;
+            private LevelFailedScreenPayload _payload;
+
+            public LevelFailedRuntime(
+                LevelFailedScreenView view,
+                LevelFailedScreenPresenter presenter,
+                IUiAudioPort uiAudioPort,
+                Action dispose)
+                : base(view, uiAudioPort, dispose)
+            {
+                _presenter = presenter;
+                view.RestartLevelRequested += HandleRestartLevelRequested;
+                view.MainRequested += HandleMainRequested;
+            }
+
+            public override void ApplyPayload(IScreenPayload payload)
+            {
+                _payload = ExpectPayload<LevelFailedScreenPayload>(payload);
+                _presenter.Apply(_payload);
+            }
+
+            public override void Dispose()
+            {
+                View.RestartLevelRequested -= HandleRestartLevelRequested;
+                View.MainRequested -= HandleMainRequested;
+                View.Bind(null);
+                base.Dispose();
+            }
+
+            private void HandleRestartLevelRequested()
+            {
+                if (_payload == null || !_payload.RestartLevelRequest.IsValid)
+                {
+                    throw new InvalidOperationException(
+                        "Level failed restart requires a valid StageNavigationRequest payload.");
+                }
+
+                RaiseAction(ScreenAction.LaunchStage(_payload.RestartLevelRequest));
+            }
+
+            private void HandleMainRequested()
+            {
+                RaiseAction(ScreenAction.ReturnToMainMenu());
             }
         }
     }

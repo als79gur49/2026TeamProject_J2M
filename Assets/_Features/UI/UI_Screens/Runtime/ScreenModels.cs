@@ -394,6 +394,35 @@ namespace Game.Feature.UI.Screens
         public StageNavigationRequest NextStageRequest { get; }
     }
 
+    public sealed class LevelFailedScreenPayload : IScreenPayload
+    {
+        public LevelFailedScreenPayload(
+            string titleText,
+            string detailText,
+            string restartLevelLabel,
+            string mainLabel,
+            StageNavigationRequest restartLevelRequest)
+        {
+            TitleText = string.IsNullOrWhiteSpace(titleText) ? "Level Failed" : titleText;
+            DetailText = detailText ?? string.Empty;
+            RestartLevelLabel = string.IsNullOrWhiteSpace(restartLevelLabel)
+                ? "Restart Level"
+                : restartLevelLabel;
+            MainLabel = string.IsNullOrWhiteSpace(mainLabel) ? "Main" : mainLabel;
+            RestartLevelRequest = restartLevelRequest;
+        }
+
+        public string TitleText { get; }
+
+        public string DetailText { get; }
+
+        public string RestartLevelLabel { get; }
+
+        public string MainLabel { get; }
+
+        public StageNavigationRequest RestartLevelRequest { get; }
+    }
+
     public sealed class GameplayScreenViewModel
     {
         public event Action Changed;
@@ -748,6 +777,32 @@ namespace Game.Feature.UI.Screens
             SummaryText = summaryText ?? string.Empty;
             DetailText = detailText ?? string.Empty;
             ContinueLabel = continueLabel ?? string.Empty;
+            Changed?.Invoke();
+        }
+    }
+
+    public sealed class LevelFailedScreenViewModel
+    {
+        public event Action Changed;
+
+        public string TitleText { get; private set; } = string.Empty;
+
+        public string DetailText { get; private set; } = string.Empty;
+
+        public string RestartLevelLabel { get; private set; } = string.Empty;
+
+        public string MainLabel { get; private set; } = string.Empty;
+
+        public void SetContent(
+            string titleText,
+            string detailText,
+            string restartLevelLabel,
+            string mainLabel)
+        {
+            TitleText = titleText ?? string.Empty;
+            DetailText = detailText ?? string.Empty;
+            RestartLevelLabel = restartLevelLabel ?? string.Empty;
+            MainLabel = mainLabel ?? string.Empty;
             Changed?.Invoke();
         }
     }

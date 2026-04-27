@@ -1596,4 +1596,23 @@ namespace Game.Feature.UI.Application
                 payload.ContinueLabel);
         }
     }
+
+    public sealed class LevelFailedScreenPresenter
+    {
+        public LevelFailedScreenViewModel ViewModel { get; } = new LevelFailedScreenViewModel();
+
+        public void Apply(LevelFailedScreenPayload payload)
+        {
+            if (payload == null)
+            {
+                throw new ArgumentNullException(nameof(payload));
+            }
+
+            ViewModel.SetContent(
+                payload.TitleText,
+                payload.DetailText,
+                payload.RestartLevelLabel,
+                payload.MainLabel);
+        }
+    }
 }
