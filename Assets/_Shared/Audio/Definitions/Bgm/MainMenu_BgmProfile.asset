@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 45b8b1c4696f460786a23e2ca53da691, type: 3}
+  m_Name: MainMenu_BgmProfile
+  m_EditorClassIdentifier: Game.Feature.Flow.Audio::Game.Feature.Flow.Audio.BgmProfile
+  loopDefinition: {fileID: 11400000, guid: 862a72c9fb5307356648d58915d3ece3, type: 2}
+  transitionMode: 0
+  restartIfAlreadyPlaying: 0
