@@ -29,6 +29,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         [Test]
         [Category("Extended")]
+        public void TickPresentationData_EmptyAndLegacyConstructorsExposeEmptyFrontFaceShieldSignals()
+        {
+            Assert.That(TickPresentationData.Empty.FrontFaceShieldSources, Is.Empty);
+            Assert.That(TickPresentationData.Empty.FrontFaceShieldBlocks, Is.Empty);
+
+            var presentationData = new TickPresentationData(Array.Empty<TickEntityMotion>());
+
+            Assert.That(presentationData.FrontFaceShieldSources, Is.Empty);
+            Assert.That(presentationData.FrontFaceShieldBlocks, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayWorldStateTestFactory_CreateBounded_WithTimingProfile_NormalizesPreExistingProjectileCadence()
         {
             var timingProfile = new GameplayTimingProfile(

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
@@ -1358,6 +1359,256 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 UnityEngine.Object.DestroyImmediate(hitVfxPrefab);
                 UnityEngine.Object.DestroyImmediate(playerViewPrefab.gameObject);
                 UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void GameplayTickPresentationCoordinator_FrontFaceShieldSource_ReconcilesActiveLoopWithoutDuplicates()
+        {
+            var rootObject = new GameObject("GameplayTickPresentationCoordinator_FrontFaceShieldSource_ReconcilesActiveLoopWithoutDuplicates");
+            var enemyPrefab = CreateEnemyViewPrefab(
+                "EnemyPrefab_FrontFaceShieldActive",
+                UnitLocomotionPresentationAuthoring.UseGlobalTimingSentinel,
+                EntityMotionPresentationAuthoring.UseGlobalTimingSentinel);
+            var activeLoopPrefab = new GameObject("FrontFaceShieldActiveLoopPrefab");
+
+            try
+            {
+                var authoring = enemyPrefab.gameObject.AddComponent<EnemyFrontFaceShieldPresentationAuthoring>();
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "activeLoopPrefab", activeLoopPrefab);
+
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Front, 0, 0);
+                var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
+
+                presenter.Initialize(binder, boardBounds, topology, 1f, CreateTimingProfile());
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, topology);
+
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 1,
+                        new[] { CreateEnemyUnit(20, sourceCell) },
+                        topology,
+                        CreateFrontFaceShieldPresentationData(
+                            new[] { CreateShieldSourceSignal(20, sourceCell, topology, tickIndex: 1) },
+                            Array.Empty<TickFrontFaceShieldBlockSignal>())));
+
+                Assert.That(CountDescendantsByNamePrefix(rootObject.transform, "FrontFaceShieldActiveLoop_20"), Is.EqualTo(1));
+
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 2,
+                        new[] { CreateEnemyUnit(20, sourceCell) },
+                        topology,
+                        CreateFrontFaceShieldPresentationData(
+                            new[] { CreateShieldSourceSignal(20, sourceCell, topology, tickIndex: 2) },
+                            Array.Empty<TickFrontFaceShieldBlockSignal>())));
+
+                Assert.That(CountDescendantsByNamePrefix(rootObject.transform, "FrontFaceShieldActiveLoop_20"), Is.EqualTo(1));
+
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 3,
+                        new[] { CreateEnemyUnit(20, sourceCell) },
+                        topology,
+                        CreateFrontFaceShieldPresentationData(
+                            Array.Empty<TickFrontFaceShieldSourceSignal>(),
+                            Array.Empty<TickFrontFaceShieldBlockSignal>())));
+
+                Assert.That(CountDescendantsByNamePrefix(rootObject.transform, "FrontFaceShieldActiveLoop_20"), Is.EqualTo(0));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(activeLoopPrefab);
+                UnityEngine.Object.DestroyImmediate(enemyPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTickPresentationCoordinator_FrontFaceShieldMissingAuthoring_NoOps()
+        {
+            var rootObject = new GameObject("GameplayTickPresentationCoordinator_FrontFaceShieldMissingAuthoring_NoOps");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Front, 0, 0);
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new DefaultGameplayEntityViewFactory(
+                        registry.transform,
+                        1f,
+                        playerEntityId: 10));
+
+                presenter.Initialize(binder, boardBounds, topology, 1f, CreateTimingProfile());
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, topology);
+
+                Assert.DoesNotThrow(
+                    () => presenter.Present(
+                        CreateTickResult(
+                            tickIndex: 1,
+                            new[] { CreateEnemyUnit(20, sourceCell) },
+                            topology,
+                            CreateFrontFaceShieldPresentationData(
+                                new[] { CreateShieldSourceSignal(20, sourceCell, topology, tickIndex: 1) },
+                                new[]
+                                {
+                                    CreateShieldBlockSignal(
+                                        shieldSourceEntityId: 20,
+                                        boxEntityId: 30,
+                                        actorEntityId: 10,
+                                        blockedCell: sourceCell,
+                                        shieldSourceCell: sourceCell,
+                                        topology: topology,
+                                        tickIndex: 1),
+                                }))));
+
+                Assert.That(CountDescendantsByNamePrefix(rootObject.transform, "FrontFaceShield"), Is.EqualTo(0));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTickPresentationCoordinator_FrontFaceShieldNullPrefabs_NoOps()
+        {
+            var rootObject = new GameObject("GameplayTickPresentationCoordinator_FrontFaceShieldNullPrefabs_NoOps");
+            var enemyPrefab = CreateEnemyViewPrefab(
+                "EnemyPrefab_FrontFaceShieldNullPrefabs",
+                UnitLocomotionPresentationAuthoring.UseGlobalTimingSentinel,
+                EntityMotionPresentationAuthoring.UseGlobalTimingSentinel);
+
+            try
+            {
+                enemyPrefab.gameObject.AddComponent<EnemyFrontFaceShieldPresentationAuthoring>();
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Front, 0, 0);
+                var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
+
+                presenter.Initialize(binder, boardBounds, topology, 1f, CreateTimingProfile());
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, topology);
+
+                Assert.DoesNotThrow(
+                    () => presenter.Present(
+                        CreateTickResult(
+                            tickIndex: 1,
+                            new[] { CreateEnemyUnit(20, sourceCell) },
+                            topology,
+                            CreateFrontFaceShieldPresentationData(
+                                new[] { CreateShieldSourceSignal(20, sourceCell, topology, tickIndex: 1) },
+                                new[]
+                                {
+                                    CreateShieldBlockSignal(
+                                        shieldSourceEntityId: 20,
+                                        boxEntityId: 30,
+                                        actorEntityId: 10,
+                                        blockedCell: sourceCell,
+                                        shieldSourceCell: sourceCell,
+                                        topology: topology,
+                                        tickIndex: 1),
+                                }))));
+
+                Assert.That(CountDescendantsByNamePrefix(rootObject.transform, "FrontFaceShield"), Is.EqualTo(0));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(enemyPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void GameplayTickPresentationCoordinator_FrontFaceShieldBlockSignal_SpawnsOneShotBurst()
+        {
+            var rootObject = new GameObject("GameplayTickPresentationCoordinator_FrontFaceShieldBlockSignal_SpawnsOneShotBurst");
+            var enemyPrefab = CreateEnemyViewPrefab(
+                "EnemyPrefab_FrontFaceShieldBurst",
+                UnitLocomotionPresentationAuthoring.UseGlobalTimingSentinel,
+                EntityMotionPresentationAuthoring.UseGlobalTimingSentinel);
+            var blockBurstPrefab = new GameObject("FrontFaceShieldBlockBurstPrefab");
+
+            try
+            {
+                var authoring = enemyPrefab.gameObject.AddComponent<EnemyFrontFaceShieldPresentationAuthoring>();
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "blockBurstPrefab", blockBurstPrefab);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "blockBurstSeconds", 0.2f);
+
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Front, 0, 0);
+                var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
+
+                presenter.Initialize(binder, boardBounds, topology, 1f, CreateTimingProfile());
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, topology);
+
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 1,
+                        new[] { CreateEnemyUnit(20, sourceCell) },
+                        topology,
+                        CreateFrontFaceShieldPresentationData(
+                            new[] { CreateShieldSourceSignal(20, sourceCell, topology, tickIndex: 1) },
+                            new[]
+                            {
+                                CreateShieldBlockSignal(
+                                    shieldSourceEntityId: 20,
+                                    boxEntityId: 30,
+                                    actorEntityId: 10,
+                                    blockedCell: sourceCell,
+                                    shieldSourceCell: sourceCell,
+                                    topology: topology,
+                                    tickIndex: 1),
+                            })));
+
+                Assert.That(CountDescendantsByNamePrefix(rootObject.transform, "FrontFaceShieldBlockBurst_20_30"), Is.EqualTo(1));
+
+                presenter.UpdatePresentation(0.21f);
+
+                Assert.That(CountDescendantsByNamePrefix(rootObject.transform, "FrontFaceShieldBlockBurst_20_30"), Is.EqualTo(0));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(blockBurstPrefab);
+                UnityEngine.Object.DestroyImmediate(enemyPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTickPresentationCoordinator_FrontFaceShieldVfx_DoesNotParseLegacyEventStrings()
+        {
+            var hostRuntimeDirectory = Path.Combine(Application.dataPath, "_Features/Gameplay/Gameplay_Host/Runtime");
+            var checkedFiles = new[]
+            {
+                Path.Combine(hostRuntimeDirectory, "GameplayTickPresentationCoordinator.cs"),
+                Path.Combine(hostRuntimeDirectory, "GameplayFrontFaceShieldVfxPresenter.cs"),
+            };
+
+            foreach (var path in checkedFiles)
+            {
+                var source = File.ReadAllText(path);
+
+                Assert.That(source, Does.Not.Contain("BoxSlideBlockedByFrontFaceShield"), path);
+                Assert.That(source, Does.Not.Contain("PlayerActionBlockedByFrontFaceShield"), path);
             }
         }
 
@@ -3337,6 +3588,102 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 .GetField("_presentationCoordinator", BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(coordinatorField, Is.Not.Null);
             return coordinatorField.GetValue(presenter);
+        }
+
+        private static GameplayEntityViewBinder CreateEnemyPrefabBinder(
+            GameplayEntityViewRegistry registry,
+            GameplayEntityView enemyPrefab)
+        {
+            return new GameplayEntityViewBinder(
+                registry,
+                new DefaultGameplayEntityViewFactory(
+                    registry.transform,
+                    1f,
+                    playerEntityId: 10,
+                    enemyViewPrefabsByEntityId: new Dictionary<int, GameplayEntityView>
+                    {
+                        { 20, enemyPrefab },
+                    }));
+        }
+
+        private static TickPresentationData CreateFrontFaceShieldPresentationData(
+            IReadOnlyList<TickFrontFaceShieldSourceSignal> sources,
+            IReadOnlyList<TickFrontFaceShieldBlockSignal> blocks)
+        {
+            return new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
+                playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
+                playerLocomotionSignals: Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                playerDamageSignals: Array.Empty<TickPlayerDamagePresentationSignal>(),
+                playerDeathSignals: Array.Empty<TickPlayerDeathPresentationSignal>(),
+                enemyDamageSignals: Array.Empty<TickEnemyDamagePresentationSignal>(),
+                enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                enemyJumpSignals: Array.Empty<TickEnemyJumpPresentationSignal>(),
+                enemyChargeSignals: Array.Empty<TickEnemyChargePresentationSignal>(),
+                entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>(),
+                impactTransientSignals: Array.Empty<TickImpactTransientPresentationSignal>(),
+                flipImpactSignals: Array.Empty<FlipImpactPresentationSignal>(),
+                summonedEnemyPresentationBindings: Array.Empty<TickSummonedEnemyPresentationBinding>(),
+                frontFaceShieldSources: sources,
+                frontFaceShieldBlocks: blocks);
+        }
+
+        private static TickFrontFaceShieldSourceSignal CreateShieldSourceSignal(
+            int sourceEntityId,
+            SurfaceCell sourceCell,
+            CubeTopologyState topology,
+            int tickIndex)
+        {
+            return new TickFrontFaceShieldSourceSignal(
+                sourceEntityId,
+                sourceCell,
+                topology,
+                1,
+                false,
+                FrontFaceShieldTargetPattern.ManhattanRadius,
+                tickIndex,
+                presentationSeed: tickIndex * 31 + sourceEntityId);
+        }
+
+        private static TickFrontFaceShieldBlockSignal CreateShieldBlockSignal(
+            int shieldSourceEntityId,
+            int boxEntityId,
+            int actorEntityId,
+            SurfaceCell blockedCell,
+            SurfaceCell shieldSourceCell,
+            CubeTopologyState topology,
+            int tickIndex)
+        {
+            return new TickFrontFaceShieldBlockSignal(
+                shieldSourceEntityId,
+                boxEntityId,
+                actorEntityId,
+                blockedCell,
+                shieldSourceCell,
+                FrontFaceShieldBlockMovementKind.PushStart,
+                topology,
+                tickIndex,
+                presentationSeed: tickIndex * 31 + shieldSourceEntityId + boxEntityId);
+        }
+
+        private static int CountDescendantsByNamePrefix(Transform root, string prefix)
+        {
+            var count = 0;
+            var descendants = root.GetComponentsInChildren<Transform>(includeInactive: true);
+            for (var i = 0; i < descendants.Length; i++)
+            {
+                if (descendants[i] != null &&
+                    descendants[i] != root &&
+                    descendants[i].name.StartsWith(prefix, StringComparison.Ordinal))
+                {
+                    count++;
+                }
+            }
+
+            return count;
         }
 
         private static GameplayEntityView CreateEnemyViewPrefab(
