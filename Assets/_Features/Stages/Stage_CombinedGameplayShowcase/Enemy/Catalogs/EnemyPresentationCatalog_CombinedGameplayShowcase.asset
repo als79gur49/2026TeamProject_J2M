@@ -17,6 +17,8 @@ MonoBehaviour:
     ViewPrefab: {fileID: 1140100000000000001, guid: b456abcadc504e01840a42fea9f1cfbf, type: 3}
   - PresentationId: nonAttacking_showcase
     ViewPrefab: {fileID: 9211435893976661014, guid: d2fcbcdf8d3b4dd4b88dd02f4fb843ae, type: 3}
+  - PresentationId: front_face_shield_showcase
+    ViewPrefab: {fileID: 2823823344174377908, guid: a0f6aec63dc4a4bb5f9d5ee7c786b00d, type: 3}
   - PresentationId: wallFollower_sun
     ViewPrefab: {fileID: 1141000000000002001, guid: 40031cd173e7ca9902ba3c3d971f4239, type: 3}
   - PresentationId: Attacking_showcase
