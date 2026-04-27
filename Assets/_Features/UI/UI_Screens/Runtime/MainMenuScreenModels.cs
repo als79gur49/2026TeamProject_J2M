@@ -9,6 +9,8 @@ namespace Game.Feature.UI.Screens
         Empty = 0,
         Existing = 1,
         Completed = 2,
+        Corrupted = 3,
+        Unsupported = 4,
     }
 
     public enum SaveSlotIntentKind
@@ -104,6 +106,14 @@ namespace Game.Feature.UI.Screens
             IReadOnlyList<SaveSlotData> slots,
             CampaignStageSequenceResolver sequenceResolver)
         {
+            return Map(slots, sequenceResolver, validationService: null);
+        }
+
+        public static MainMenuScreenViewModel Map(
+            IReadOnlyList<SaveSlotData> slots,
+            CampaignStageSequenceResolver sequenceResolver,
+            SaveSlotValidationService validationService)
+        {
             if (slots == null)
             {
                 throw new ArgumentNullException(nameof(slots));
@@ -113,7 +123,10 @@ namespace Game.Feature.UI.Screens
             for (var slotNumber = 1; slotNumber <= SaveSlotStore.SlotCount; slotNumber++)
             {
                 var slot = ResolveSlot(slots, slotNumber);
-                cards.Add(MapSlot(slot, sequenceResolver));
+                var validation = validationService != null
+                    ? validationService.Validate(slot)
+                    : default;
+                cards.Add(MapSlot(slot, sequenceResolver, validationService != null ? validation : (SaveSlotValidationResult?)null));
             }
 
             return new MainMenuScreenViewModel(cards);
@@ -122,6 +135,14 @@ namespace Game.Feature.UI.Screens
         public static SaveSlotCardViewModel MapSlot(
             SaveSlotData slot,
             CampaignStageSequenceResolver sequenceResolver)
+        {
+            return MapSlot(slot, sequenceResolver, null);
+        }
+
+        public static SaveSlotCardViewModel MapSlot(
+            SaveSlotData slot,
+            CampaignStageSequenceResolver sequenceResolver,
+            SaveSlotValidationResult? validationResult)
         {
             if (slot == null)
             {
@@ -146,6 +167,11 @@ namespace Game.Feature.UI.Screens
                     showDelete: false);
             }
 
+            var validation = validationResult ?? new SaveSlotValidationResult(
+                slot,
+                slot.CampaignCompleted ? SaveSlotValidationStatus.Completed : SaveSlotValidationStatus.Valid,
+                sequenceResolver != null ? sequenceResolver.GetLevelGroupId(slot.CurrentStageId) : slot.CurrentLevelGroupId,
+                levelGroupWasSynced: false);
             var displayStage = sequenceResolver != null
                 ? sequenceResolver.GetDisplayName(slot.CurrentStageId)
                 : slot.CurrentStageId.Value;
@@ -154,15 +180,33 @@ namespace Game.Feature.UI.Screens
                 displayStage = slot.CurrentStageId.Value;
             }
 
-            if (slot.CampaignCompleted)
+            if (validation.Status == SaveSlotValidationStatus.Completed)
             {
                 return new SaveSlotCardViewModel(
                     slot.SlotNumber,
                     SaveSlotCardState.Completed,
                     title,
                     "Completed",
-                    "Stage 5-1",
+                    string.IsNullOrWhiteSpace(displayStage) ? string.Empty : $"Stage {displayStage}",
                     $"Chances {slot.RemainingChances}",
+                    $"Deaths {slot.TotalDeaths}",
+                    slot.LastPlayedAt,
+                    "Restart",
+                    SaveSlotIntentKind.Restart,
+                    showRestart: true,
+                    showDelete: true);
+            }
+
+            if (!validation.CanContinue)
+            {
+                var isUnsupported = validation.Status == SaveSlotValidationStatus.UnsupportedVersion;
+                return new SaveSlotCardViewModel(
+                    slot.SlotNumber,
+                    isUnsupported ? SaveSlotCardState.Unsupported : SaveSlotCardState.Corrupted,
+                    title,
+                    isUnsupported ? "Unsupported" : "Needs Repair",
+                    ResolveInvalidStageText(slot, displayStage, validation.Status),
+                    string.Empty,
                     $"Deaths {slot.TotalDeaths}",
                     slot.LastPlayedAt,
                     "Restart",
@@ -184,6 +228,27 @@ namespace Game.Feature.UI.Screens
                 SaveSlotIntentKind.Continue,
                 showRestart: false,
                 showDelete: true);
+        }
+
+        private static string ResolveInvalidStageText(
+            SaveSlotData slot,
+            string displayStage,
+            SaveSlotValidationStatus status)
+        {
+            if (!slot.CurrentStageId.IsValid)
+            {
+                return "Invalid stage";
+            }
+
+            if (!string.IsNullOrWhiteSpace(displayStage))
+            {
+                return $"Stage {displayStage}";
+            }
+
+            return status == SaveSlotValidationStatus.StageMissingFromCatalog ||
+                   status == SaveSlotValidationStatus.StageMissingFromSequence
+                ? $"Stage {slot.CurrentStageId.Value}"
+                : "Invalid stage";
         }
 
         private static SaveSlotData ResolveSlot(IReadOnlyList<SaveSlotData> slots, int slotNumber)

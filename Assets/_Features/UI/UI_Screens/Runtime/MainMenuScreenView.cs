@@ -39,6 +39,11 @@ namespace Game.Feature.UI.Screens
 
         private void WireSlotCards()
         {
+            if ((_slotCards == null || _slotCards.Length == 0) && transform != null)
+            {
+                _slotCards = GetComponentsInChildren<SaveSlotCardView>(true);
+            }
+
             for (var i = 0; i < _slotCards.Length; i++)
             {
                 if (_slotCards[i] != null)
