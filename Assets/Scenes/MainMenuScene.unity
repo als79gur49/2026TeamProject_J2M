@@ -174,6 +174,7 @@ MonoBehaviour:
   _mainMenuScreenView: {fileID: 0}
   _mainMenuScreenPrefab: {fileID: 100002, guid: 3653dda6297e449a973c9c81814d192a, type: 3}
   _settingsScreenPrefab: {fileID: 8102357125233103768, guid: 55b072965064aa64186ae00710d369a8, type: 3}
+  _inputActions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   _popupLayerView: {fileID: 0}
   _popupPrefabCatalog: {fileID: 11400000, guid: b2310c16b9b12f0478d2bff3c647ea03, type: 2}
   _uiAudioCueMap: {fileID: 11400000, guid: f22f968bc51249c19c72dc545d349f23, type: 2}
