@@ -138,8 +138,8 @@ namespace Game.Feature.UI.Tests
                 Assert.That(serializedShowcaseInstaller.FindProperty("stageLoadSourceMode"), Is.Null);
                 Assert.That(serializedShowcaseInstaller.FindProperty("stageContentEntry"), Is.Null);
                 Assert.That(serializedShowcaseInstaller.FindProperty("stageDefinition"), Is.Null);
-                Assert.That(serializedShowcaseInstaller.FindProperty("enemyPresentationCatalog").objectReferenceValue, Is.Null);
-                Assert.That(serializedShowcaseInstaller.FindProperty("staticEntityPresentationCatalog").objectReferenceValue, Is.Null);
+                Assert.That(serializedShowcaseInstaller.FindProperty("enemyPresentationCatalog"), Is.Null);
+                Assert.That(serializedShowcaseInstaller.FindProperty("staticEntityPresentationCatalog"), Is.Null);
                 Assert.That(serializedShowcaseInstaller.FindProperty("defaultStageId"), Is.Null);
                 var stageCatalogProvider = serializedShowcaseInstaller.FindProperty("stageCatalogProvider");
                 Assert.That(stageCatalogProvider, Is.Not.Null);
