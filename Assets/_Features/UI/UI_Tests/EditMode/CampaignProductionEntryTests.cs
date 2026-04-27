@@ -5,6 +5,7 @@ using System.Reflection;
 using Game.Feature.Stages;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
+using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 using NUnit.Framework;
@@ -55,8 +56,10 @@ namespace Game.Feature.UI.Tests
                 installer.Install();
 
                 Assert.That(installer.Controller, Is.Not.Null);
+                Assert.That(installer.HubController, Is.Not.Null);
                 Assert.That(installer.MainMenuScreenView, Is.Not.Null);
-                Assert.That(installer.MainMenuScreenView.GetComponentsInChildren<SaveSlotCardView>(true).Length, Is.EqualTo(3));
+                Assert.That(installer.MainMenuScreenView.SaveSlotPanel, Is.Not.Null);
+                Assert.That(installer.MainMenuScreenView.SaveSlotPanel.GetComponentsInChildren<SaveSlotCardView>(true).Length, Is.EqualTo(3));
             }
             finally
             {
@@ -66,13 +69,54 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void MainMenuScreenPrefab_HasExactlyThreeSaveSlotCards_WiredToMainMenuScreenView()
+        public void MainMenuUiFlowInstaller_DeleteRequest_ShowsConfirmPopupLayerAboveMainMenuScreen()
+        {
+            var root = new GameObject("main-menu-delete-popup-installer");
+            var provider = CreateProvider("stage-0-1");
+            var catalog = AssetDatabase.LoadAssetAtPath<PopupPrefabCatalog>(PopupCatalogPath);
+            var prefab = AssetDatabase.LoadAssetAtPath<MainMenuScreenView>(MainMenuScreenPrefabPath);
+            var routeConfig = AssetDatabase.LoadAssetAtPath<GameplayStageLaunchRouteConfig>(RouteConfigPath);
+
+            try
+            {
+                var installer = root.AddComponent<MainMenuUiFlowInstaller>();
+                SetPrivateField(installer, "_installOnStart", false);
+                SetPrivateField(installer, "_mainMenuScreenPrefab", prefab);
+                SetPrivateField(installer, "_popupPrefabCatalog", catalog);
+                SetPrivateField(installer, "_routeConfig", routeConfig);
+                SetPrivateField(installer, "_stageCatalogProvider", provider.Provider);
+                SetPrivateField(installer, "_campaignStageSequenceDefinition", CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+
+                installer.Install();
+                var popupLayer = GetPrivateField<PopupLayerView>(installer, "_popupLayerView");
+                Assert.That(popupLayer.gameObject.activeSelf, Is.False);
+
+                installer.Controller.RequestDelete(1);
+
+                Assert.That(installer.PopupController.Contains(PopupId.Confirm), Is.True);
+                Assert.That(popupLayer.gameObject.activeSelf, Is.True);
+                Assert.That(popupLayer.IsDimVisible, Is.True);
+                Assert.That(popupLayer.FindPopupView<ConfirmPopupView>(), Is.Not.Null);
+                Assert.That(
+                    popupLayer.transform.GetSiblingIndex(),
+                    Is.GreaterThan(installer.MainMenuScreenView.transform.GetSiblingIndex()));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                provider.Dispose();
+            }
+        }
+
+        [Test]
+        public void MainMenuScreenPrefab_HasExactlyThreeSaveSlotCards_WiredToSaveSlotPanelView()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<MainMenuScreenView>(MainMenuScreenPrefabPath);
             Assert.That(prefab, Is.Not.Null);
-            Assert.That(prefab.GetComponentsInChildren<SaveSlotCardView>(true).Length, Is.EqualTo(3));
+            Assert.That(prefab.SaveSlotPanel, Is.Not.Null);
+            Assert.That(prefab.SaveSlotPanel.GetComponentsInChildren<SaveSlotCardView>(true).Length, Is.EqualTo(3));
 
-            var serialized = new SerializedObject(prefab);
+            var serialized = new SerializedObject(prefab.SaveSlotPanel);
             var cards = serialized.FindProperty("_slotCards");
             Assert.That(cards, Is.Not.Null);
             Assert.That(cards.arraySize, Is.EqualTo(3));
@@ -436,6 +480,13 @@ namespace Game.Feature.UI.Tests
             var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, $"{target.GetType().Name}.{fieldName}");
             field.SetValue(target, value);
+        }
+
+        private static T GetPrivateField<T>(object target, string fieldName)
+        {
+            var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, $"{target.GetType().Name}.{fieldName}");
+            return (T)field.GetValue(target);
         }
 
         private sealed class FakeConfirmPopupPort : IConfirmPopupPort
