@@ -11,10 +11,15 @@ namespace Game.Feature.Stages
     {
         public static StageRuntimeBuildResult Build(StageDefinition stage)
         {
+            return Build(stage, StageSimulationTiming.Default);
+        }
+
+        public static StageRuntimeBuildResult Build(StageDefinition stage, StageSimulationTiming timing)
+        {
             var validated = StageDefinitionValidator.ValidateAndNormalize(stage);
             var initialEntities = BuildInitialEntities(validated);
             var enemyAiProfileOverrides = BuildEnemyAiProfileOverrides(validated.Spawns);
-            var objectiveRuntimeDefinition = BuildObjectiveRuntimeDefinition(validated);
+            var objectiveRuntimeDefinition = BuildObjectiveRuntimeDefinition(validated, timing);
 
             return new StageRuntimeBuildResult(
                 validated.BoardBounds,
@@ -129,7 +134,8 @@ namespace Game.Feature.Stages
         }
 
         private static StageObjectiveRuntimeDefinition BuildObjectiveRuntimeDefinition(
-            StageDefinitionValidator.ValidatedStageData validated)
+            StageDefinitionValidator.ValidatedStageData validated,
+            StageSimulationTiming timing)
         {
             if (validated == null)
             {
@@ -151,7 +157,8 @@ namespace Game.Feature.Stages
             var goalZones = BuildGoalZoneDefinitions(validated.Objective.GetGoalZoneIdsOrEmpty(), zonesById);
             var conditionDefinitions = BuildConditionRuntimeDefinitions(
                 validated,
-                zonesById);
+                zonesById,
+                timing);
 
             return new StageObjectiveRuntimeDefinition(
                 validated.Objective.CompletionPolicy,
@@ -227,7 +234,8 @@ namespace Game.Feature.Stages
 
         private static StageConditionRuntimeDefinition[] BuildConditionRuntimeDefinitions(
             StageDefinitionValidator.ValidatedStageData validated,
-            IReadOnlyDictionary<string, StageZoneRuntimeDefinition> zonesById)
+            IReadOnlyDictionary<string, StageZoneRuntimeDefinition> zonesById,
+            StageSimulationTiming timing)
         {
             var requiredConditions = validated.Objective.GetRequiredConditionsOrEmpty();
             if (requiredConditions.Length == 0)
@@ -238,7 +246,8 @@ namespace Game.Feature.Stages
             var compilationContext = new StageConditionCompilationContext(
                 validated.StageName,
                 validated.PlayerEntityId,
-                zonesById);
+                zonesById,
+                timing);
             var runtimeDefinitions = new StageConditionRuntimeDefinition[requiredConditions.Length];
             for (var i = 0; i < requiredConditions.Length; i++)
             {

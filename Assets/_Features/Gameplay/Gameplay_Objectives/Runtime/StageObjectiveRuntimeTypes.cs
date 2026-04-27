@@ -10,6 +10,7 @@ namespace Game.Feature.Gameplay.Objectives
     {
         Disabled = 0,
         RequirePlayerOnGoalWithAllConditions = 1,
+        RequireAllConditions = 2,
     }
 
     public readonly struct StageZoneRuntimeRegion
@@ -238,10 +239,26 @@ namespace Game.Feature.Gameplay.Objectives
 
         public IReadOnlyList<StageConditionRuntimeDefinition> RequiredConditions { get; }
 
-        public bool HasObjective =>
-            CompletionPolicy != StageCompletionPolicy.Disabled &&
-            PlayerEntityId > 0 &&
-            GoalZones.Count > 0;
+        public bool HasObjective
+        {
+            get
+            {
+                switch (CompletionPolicy)
+                {
+                    case StageCompletionPolicy.Disabled:
+                        return false;
+
+                    case StageCompletionPolicy.RequirePlayerOnGoalWithAllConditions:
+                        return PlayerEntityId > 0 && GoalZones.Count > 0;
+
+                    case StageCompletionPolicy.RequireAllConditions:
+                        return RequiredConditions.Count > 0;
+
+                    default:
+                        return false;
+                }
+            }
+        }
 
         public bool IsPlayerOnGoal(WorldSnapshot finalSnapshot)
         {
@@ -250,7 +267,8 @@ namespace Game.Feature.Gameplay.Objectives
                 throw new ArgumentNullException(nameof(finalSnapshot));
             }
 
-            if (!HasObjective ||
+            if (GoalZones.Count == 0 ||
+                PlayerEntityId <= 0 ||
                 !finalSnapshot.TryGetEntity(PlayerEntityId, out var player) ||
                 player.hp <= 0 ||
                 player.markedForDeath)

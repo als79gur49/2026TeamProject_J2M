@@ -210,6 +210,21 @@ namespace Game.Feature.Stages
                     gameplayAssetPath,
                     options.Timing);
             }
+
+            try
+            {
+                StageDefinitionValidator.Validate(entry.GameplayDefinition);
+            }
+            catch (Exception exception)
+            {
+                report.Add(
+                    StageValidationSeverity.Error,
+                    "gameplay.definition.invalid",
+                    $"Gameplay StageDefinition '{stageDefinitionName}' is invalid: {exception.Message}",
+                    entry.GameplayDefinition,
+                    gameplayAssetPath,
+                    options.Timing);
+            }
         }
 
         private static void ValidateCompanion(

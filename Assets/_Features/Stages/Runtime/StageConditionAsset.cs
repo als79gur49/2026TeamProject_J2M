@@ -39,15 +39,27 @@ namespace Game.Feature.Stages
             string stageName,
             int playerEntityId,
             IReadOnlyDictionary<string, StageZoneRuntimeDefinition> zonesById)
+            : this(stageName, playerEntityId, zonesById, StageSimulationTiming.Default)
+        {
+        }
+
+        public StageConditionCompilationContext(
+            string stageName,
+            int playerEntityId,
+            IReadOnlyDictionary<string, StageZoneRuntimeDefinition> zonesById,
+            StageSimulationTiming timing)
         {
             StageName = string.IsNullOrWhiteSpace(stageName) ? "<unnamed stage>" : stageName;
             PlayerEntityId = playerEntityId;
             _zonesById = zonesById ?? throw new ArgumentNullException(nameof(zonesById));
+            Timing = timing;
         }
 
         public string StageName { get; }
 
         public int PlayerEntityId { get; }
+
+        public StageSimulationTiming Timing { get; }
 
         public bool TryGetZone(string zoneId, out StageZoneRuntimeDefinition zone)
         {
