@@ -2,7 +2,7 @@
 
 이 문서는 persistent BGM ownership v1의 active supporting truth-source다.
 
-이 문서는 gameplay one-shot audio scope를 넓히지 않은 채, scene request source와 persistent BGM owner의 책임을 고정한다. v1의 목표는 transition effect 완성이 아니라 ownership continuity와 cross-scene lifetime hardening이다.
+이 문서는 gameplay one-shot audio scope를 넓히지 않은 채, scene request source와 persistent BGM owner의 책임을 고정한다. v1의 목표는 ownership continuity, cross-scene lifetime hardening, 그리고 single-source `FadeOutIn` execution이다.
 
 ## 1. Ownership Terms
 
@@ -73,34 +73,41 @@ exact fail-fast messages:
 
 ## 5. Transition Governance
 
-- `Immediate` is the only executed transition mode in BGM flow v1.
-- `FadeOutIn` and `Crossfade` are reserved future policy values only.
+- `Immediate` and `FadeOutIn` are executed transition modes in BGM flow v1.
+- `Crossfade` is reserved for a future multi-source BGM runtime.
+- `FadeOutIn` execution belongs to the BGM flow/shared audio runtime path, not to `SceneBgmRequestSource`, `StagePresentationRuntimeAdapter`, or menu installers.
 - v1 runtime behavior는 아래로 고정한다.
-  - unsupported mode request는 warning 하나를 남기고 `Immediate`로 degrade 한다.
+  - `Immediate`는 기존처럼 즉시 stop/start 한다.
+  - `FadeOutIn`은 single BGM source에서 fade out -> switch -> fade in으로 실행한다.
+  - `Crossfade` request는 warning 하나를 남기고 fallback 한다.
+  - fallback policy:
+    - profile fade duration 중 하나라도 0보다 크면 `FadeOutIn`
+    - fade duration이 모두 0이면 `Immediate`
   - exact warning:
-    - `BgmProfile '<ProfileName>' requests '<Mode>', but BGM flow v1 executes Immediate only. Degrading to Immediate.`
+    - `BgmProfile '<ProfileName>' requests Crossfade, but single-source BGM runtime does not support Crossfade. Falling back to <FallbackMode>.`
 - `BgmProfile` inspector/authoring guidance:
   - `loopDefinition` must be non-null
   - `loopDefinition` must use `AudioCategory.Bgm`
-  - transition dropdown의 `FadeOutIn` / `Crossfade`는 future policy reservation이며 현재 runtime behavior 완성을 의미하지 않는다
+  - `fadeOutSeconds` / `fadeInSeconds` must be finite and greater than or equal to zero
+  - transition dropdown의 `Crossfade`는 future policy reservation이며 현재 runtime behavior 완성을 의미하지 않는다
 
 ## 6. Policy Vs Playback Capability Roadmap
 
 - coordinator는 continuity와 transition policy decision만 소유한다.
-- playback port는 그 policy를 shared runtime capability에 맞게 execute 하는 seam이다.
-- true `FadeOutIn` needs playback-port/runtime support.
+- playback port는 `Play(BgmPlaybackRequest)` / `Stop(BgmStopRequest)` request를 shared runtime capability로 전달하는 seam이다.
+- true `FadeOutIn` is supported by the request-based playback port and shared audio runtime.
 - true `Crossfade` needs shared-runtime multi-lane/capability expansion beyond the current single BGM lane.
 - `BgmFlowCoordinator`는 low-level timing/mixing mechanics를 직접 소유하지 않는다.
 
 forward plan:
 
-- phase 1: `Immediate` continuity only
-- phase 2: `FadeOutIn` execution via additive playback-port/runtime support
+- phase 1: `Immediate` continuity
+- phase 2: request-based `FadeOutIn` execution on one BGM source
 - phase 3: true `Crossfade` via multi-lane runtime expansion
 
 ## 7. Reporting Scope
 
-- v1 ownership continuity는 completed fade/crossfade feature support와 동일하지 않다.
+- v1 ownership continuity와 single-source `FadeOutIn` support는 true `Crossfade` support와 동일하지 않다.
 - reporting은 실제 실행한 검증 범위만 말해야 한다.
 - approved reporting levels:
   - `build verified`
@@ -108,4 +115,4 @@ forward plan:
   - `cross-scene continuity validated`
   - `real transition-effects validation completed`
 - approved sentence template:
-  - `Persistent BGM ownership and cross-scene continuity are validated; transition effects remain Immediate-only in v1.`
+  - `Persistent BGM ownership, cross-scene continuity, and single-source FadeOutIn are validated; Crossfade remains reserved.`

@@ -232,7 +232,7 @@
 - Hover, disabled/no-op, and backdrop-consume feedback remain out of scope in v1.
 ## Persistent BGM flow reporting wording / Persistent BGM flow reporting wording
 ### 한국어
-- persistent BGM flow v1 결과는 ownership continuity 범위만 말해야 하며 fade/crossfade feature completion을 암시하면 안 된다.
+- persistent BGM flow v1 결과는 ownership continuity와 실제 검증한 transition 범위만 말해야 하며 true Crossfade completion을 암시하면 안 된다.
 - 아래 네 reporting level만 공식적으로 사용한다.
   - `build verified`
     - claim 가능 조건: relevant build가 통과했을 때
@@ -243,11 +243,11 @@
   - `real transition-effects validation completed`
     - claim 가능 조건: 실제 transition effect runtime behavior가 구현되고 그 범위가 별도로 검증됐을 때
 - approved sentence template:
-  - `Persistent BGM ownership and cross-scene continuity are validated; transition effects remain Immediate-only in v1.`
-- v1 ownership continuity는 fade/crossfade support completion과 동일하지 않다.
+  - `Persistent BGM ownership, cross-scene continuity, and single-source FadeOutIn are validated; Crossfade remains reserved.`
+- v1 ownership continuity와 single-source FadeOutIn support는 true Crossfade support completion과 동일하지 않다.
 
 ### English Original
-- Persistent BGM flow v1 reporting must stay scoped to ownership continuity and must not imply completed fade/crossfade feature support.
+- Persistent BGM flow v1 reporting must stay scoped to ownership continuity and the transition effects actually validated; it must not imply completed Crossfade support.
 - Use only these four reporting levels.
   - `build verified`
     - may be claimed when the relevant build passes
@@ -258,8 +258,8 @@
   - `real transition-effects validation completed`
     - may be claimed only after real transition-effect runtime behavior exists and that scope was validated
 - Approved sentence template:
-  - `Persistent BGM ownership and cross-scene continuity are validated; transition effects remain Immediate-only in v1.`
-- v1 ownership continuity is not equivalent to completed fade/crossfade support.
+  - `Persistent BGM ownership, cross-scene continuity, and single-source FadeOutIn are validated; Crossfade remains reserved.`
+- v1 ownership continuity plus single-source FadeOutIn support is not equivalent to completed Crossfade support.
 ## Targeted gameplay-audio integration validation / 타겟 게임플레이 오디오 통합 검증
 ### 한국어
 - 이 pass는 gameplay audio host-orchestration이 인접 presentation/runtime boundary와 정상적으로 합성되는지 검증하는 targeted integration validation이다.

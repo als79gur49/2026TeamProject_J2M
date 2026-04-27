@@ -132,8 +132,8 @@ TickResult
   - feature-facing playback contract
 - `IBgmPlaybackPort`
   - flow-owned BGM continuity policy가 shared runtime capability에 닿는 narrow execution seam이다
-  - v1에서는 `PlayImmediate`와 `StopImmediate`만 허용한다
-  - future fade/crossfade는 coordinator timing logic이 아니라 additive playback capability expansion으로 도입한다
+  - v1에서는 `Play(BgmPlaybackRequest)`와 `Stop(BgmStopRequest)`만 허용한다
+  - `FadeOutIn`은 coordinator timing logic이 아니라 shared audio runtime playback capability로 실행한다
 - `AudioManager`
   - central runtime implementation
   - definition resolution, source lease, attached registry delegation, BGM routing만 담당한다
@@ -184,8 +184,8 @@ TickResult
 - `scene-local installer access seam`은 canonical root same `GameObject`의 `AudioRuntimeInstaller`다.
 - scene-local installer는 persistent runtime이 있을 때 creator/owner가 아니라 access seam만 제공할 수 있다.
 - `AudioRuntimeExternalRootRegistry`는 bootstrap plumbing only이며 service locator가 아니다.
-- `Immediate` is the only executed transition mode in BGM flow v1.
-- true `FadeOutIn` needs playback-port/runtime support.
+- `Immediate` and `FadeOutIn` are executed transition modes in BGM flow v1.
+- true `FadeOutIn` is supported by request-based playback-port/runtime support.
 - true `Crossfade` needs shared-runtime multi-lane/capability expansion beyond the current single BGM lane.
 - 이 분리는 coordinator policy와 playback capability roadmap을 분리하기 위한 것이다.
 
@@ -199,8 +199,8 @@ Public API는 아래만 허용한다.
 - `Stop`
 - `StopBgm`
 
-v1 public contract는 fade/crossfade를 포함하지 않는다.
-future fade/crossfade는 behavior가 실제로 구현될 때 additive overload 또는 explicit options type으로만 도입한다.
+v1 public contract는 request-based BGM transition을 포함한다.
+`FadeOutIn`은 supported이고, `Crossfade`는 future multi-source runtime 확장으로만 도입한다.
 
 금지:
 
@@ -453,7 +453,7 @@ EditMode / structure guard:
 - no definition-level policy inheritance
 - map 누락 fail-fast
 - manager-alone no silent recovery
-- v1 public contract has no fade/crossfade
+- v1 public contract uses request-based BGM Play/Stop and supports FadeOutIn
 - v1 `AudioBinding.Policy` must remain null
 
 PlayMode / runtime guard:
@@ -489,7 +489,7 @@ PlayMode / runtime guard:
 - authoring/bootstrap/runtime은 failure mode가 달라도 binding-local rule source는 `AudioBinding` 하나다.
 - validation reuse가 실제로 gameplay audio 바깥으로 필요해지면 shared diagnostics facade를 추가하고 friend assembly를 기본 경로로 늘리지 않는다.
 - `AudioManager` internal extraction priority는 `BGM lane -> source pool and active controller set -> attached registry` 순서를 기본으로 삼는다.
-- fade/crossfade와 ducking은 `AudioBgmChannel` 또는 `AudioBgmController` 추출 시점에 수용한다.
+- FadeOutIn은 request-based BGM runtime에 포함되어 있고, crossfade와 ducking은 `AudioBgmChannel` 또는 `AudioBgmController` 추가 추출 시점에 수용한다.
 - category budget, stealing, pause-group 성격의 infra rule은 `AudioSourcePool` 또는 active playback/controller set 추출 시점에 수용한다.
 - attached semantic 확장이 실제로 필요해질 때만 `AttachedAudioRegistry`를 별도 collaborator로 분리한다.
 - 아래 조건이 생기면 Medium이 아니라 escalation 대상이다: second feature map consumer, 추가 friend assembly 요구, binding validation duplication 재발, 또는 fade/crossfade/ducking/stealing/category budget 중 둘 이상이 같은 `AudioManager.cs` 수정으로 들어오는 경우.

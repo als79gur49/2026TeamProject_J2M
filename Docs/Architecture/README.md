@@ -33,7 +33,7 @@
 - [Gameplay-Action-Audio-Governance.md](./Gameplay-Action-Audio-Governance.md)
   - current supporting truth for gameplay action-audio profile governance, prefab-local authoring policy, and frozen v1 moment semantics
 - [Bgm-Flow-V1-Guidelines.md](./Bgm-Flow-V1-Guidelines.md)
-  - current supporting truth for persistent BGM ownership, scene request-source boundaries, and Immediate-only v1 transition governance
+  - current supporting truth for persistent BGM ownership, scene request-source boundaries, request-based BGM playback, FadeOutIn support, and reserved Crossfade governance
 - [ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md](./ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md)
   - active decision record for support tree deferred relocation governance, review triggers, and pilot-eligible gate
 - [ADR/ADR-003-Persistent-Bgm-Ownership-Implementation-Gate.md](./ADR/ADR-003-Persistent-Bgm-Ownership-Implementation-Gate.md)

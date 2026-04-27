@@ -52,7 +52,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("Audio Runtime Root"));
             Assert.That(doc, Does.Contain("Deprecated Terms"));
             Assert.That(doc, Does.Contain("Play3D"));
-            Assert.That(doc, Does.Contain("v1 public contract는 fade/crossfade를 포함하지 않는다"));
+            Assert.That(doc, Does.Contain("v1 public contract는 request-based BGM transition을 포함한다"));
             Assert.That(doc, Does.Contain("must remain null"));
             Assert.That(doc, Does.Contain("setup defect"));
             Assert.That(doc, Does.Contain("binding-local validation rule의 canonical owner"));
@@ -62,7 +62,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("shared `AudioBindingDiagnostics` facade"));
             Assert.That(doc, Does.Contain("권위는 shared에, 조합은 feature에 둔다"));
             Assert.That(doc, Does.Contain("`BGM lane -> source pool and active controller set -> attached registry`"));
-            Assert.That(doc, Does.Contain("fade/crossfade와 ducking은 `AudioBgmChannel` 또는 `AudioBgmController`"));
+            Assert.That(doc, Does.Contain("FadeOutIn은 request-based BGM runtime에 포함되어 있고"));
             Assert.That(doc, Does.Contain("second feature map consumer"));
             Assert.That(doc, Does.Contain("PlayEntityExitEffects()"));
             Assert.That(doc, Does.Contain("PlayPlayerHitEffects(result)"));
@@ -71,7 +71,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("ApplyEntityExitOwnership()"));
             Assert.That(doc, Does.Contain("persistent runtime owner"));
             Assert.That(doc, Does.Contain("scene-local installer access seam"));
-            Assert.That(doc, Does.Contain("Immediate` is the only executed transition mode in BGM flow v1"));
+            Assert.That(doc, Does.Contain("Immediate` and `FadeOutIn` are executed transition modes in BGM flow v1"));
             Assert.That(doc, Does.Contain("true `Crossfade` needs shared-runtime multi-lane/capability expansion beyond the current single BGM lane"));
             Assert.That(doc, Does.Contain("prefer a grouped `GameplayPresentationAudioConfig`."));
             Assert.That(doc, Does.Not.Contain("GameplayAudioPresenter"));
@@ -159,7 +159,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("targeted persistent BGM ownership validated"));
             Assert.That(doc, Does.Contain("cross-scene continuity validated"));
             Assert.That(doc, Does.Contain("real transition-effects validation completed"));
-            Assert.That(doc, Does.Contain("Persistent BGM ownership and cross-scene continuity are validated; transition effects remain Immediate-only in v1."));
+            Assert.That(doc, Does.Contain("Persistent BGM ownership, cross-scene continuity, and single-source FadeOutIn are validated; Crossfade remains reserved."));
         }
 
         [Test]
@@ -174,13 +174,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("AudioRuntimeExternalRootRegistry"));
             Assert.That(doc, Does.Contain("bootstrap plumbing only"));
             Assert.That(doc, Does.Contain("service locator"));
-            Assert.That(doc, Does.Contain("Immediate` is the only executed transition mode in BGM flow v1"));
-            Assert.That(doc, Does.Contain("true `FadeOutIn` needs playback-port/runtime support"));
+            Assert.That(doc, Does.Contain("Immediate` and `FadeOutIn` are executed transition modes in BGM flow v1"));
+            Assert.That(doc, Does.Contain("true `FadeOutIn` is supported by the request-based playback port and shared audio runtime"));
             Assert.That(doc, Does.Contain("true `Crossfade` needs shared-runtime multi-lane/capability expansion beyond the current single BGM lane"));
             Assert.That(doc, Does.Contain("AudioRuntimeExternalRootRegistry cannot register multiple persistent AudioRuntimeRoot instances."));
             Assert.That(doc, Does.Contain("GlobalAudioFlowRoot cannot exist more than once. Reuse the existing persistent audio-flow root instead of creating another."));
             Assert.That(doc, Does.Contain("SceneBgmRequestSource requires a serialized GlobalAudioFlowBootstrap reference when a BgmProfile is assigned."));
-            Assert.That(doc, Does.Contain("Persistent BGM ownership and cross-scene continuity are validated; transition effects remain Immediate-only in v1."));
+            Assert.That(doc, Does.Contain("Persistent BGM ownership, cross-scene continuity, and single-source FadeOutIn are validated; Crossfade remains reserved."));
         }
 
         [Test]
