@@ -35,6 +35,8 @@ MonoBehaviour:
     PresentationId: Charge_showcase
   - EntityId: 59
     PresentationId: utility_summoner_prefab
+  - EntityId: 61
+    PresentationId: front_face_shield_showcase
   staticEntityPresentationCatalog: {fileID: 11400000, guid: 28eb5cc07ccd15d4b9a99a3364f7fd07, type: 2}
   staticEntityPresentationBindings: []
   resultTitle: Stage Cleared
