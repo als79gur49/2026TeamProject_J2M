@@ -5,6 +5,7 @@
     "Game.Feature.Stages",
     "Game.Feature.Gameplay",
     "Game.Feature.Gameplay.Host",
+    "Game.Feature.UI.Composition",
     "Game.Shared.AudioContracts"
   ],
   "includePlatforms": [

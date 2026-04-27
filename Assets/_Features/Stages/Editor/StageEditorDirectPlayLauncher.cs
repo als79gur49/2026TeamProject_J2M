@@ -1,4 +1,5 @@
 using System;
+using Game.Feature.UI.Composition;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -80,9 +81,88 @@ namespace Game.Feature.Stages.Editor
                 return false;
             }
 
+            EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(stageId));
             StageLaunchContextStore.PrimePendingEditorDirectPlay(stageId);
             RememberLastLaunch(scenePath);
             return true;
+        }
+
+        public static void LaunchStage(
+            StageId stageId,
+            EditorDirectPlayMode mode,
+            int remainingChances,
+            int productionSlotNumber = 1)
+        {
+            if (!stageId.IsValid)
+            {
+                throw new ArgumentException("Direct Play requires a valid StageId.", nameof(stageId));
+            }
+
+            var routeConfig = LoadRouteConfigOrThrow();
+            var scenePath = routeConfig.GameplayShellScenePath;
+            if (string.IsNullOrWhiteSpace(scenePath))
+            {
+                throw new InvalidOperationException("Direct Play requires a configured gameplay shell scene path.");
+            }
+
+            var stageCatalogProvider = LoadStageCatalogProviderOrThrow();
+            var sequenceResolver = new CampaignStageSequenceResolver(LoadCampaignSequenceDefinition());
+            if (mode == EditorDirectPlayMode.CampaignTempSlot ||
+                mode == EditorDirectPlayMode.CampaignProductionSlot)
+            {
+                ValidateCampaignStage(stageId, stageCatalogProvider, sequenceResolver);
+            }
+
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+            {
+                return;
+            }
+
+            try
+            {
+                switch (mode)
+                {
+                    case EditorDirectPlayMode.NonCampaign:
+                        EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(stageId));
+                        break;
+
+                    case EditorDirectPlayMode.CampaignTempSlot:
+                        PrimeCampaignTempSlot(stageId, sequenceResolver, remainingChances);
+                        break;
+
+                    case EditorDirectPlayMode.CampaignProductionSlot:
+                        PrimeCampaignProductionSlot(stageId, sequenceResolver, remainingChances, productionSlotNumber);
+                        break;
+
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unsupported Direct Play mode.");
+                }
+
+                StageLaunchContextStore.PrimePendingEditorDirectPlay(stageId);
+                EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+                RememberLastLaunch(scenePath);
+                EditorApplication.isPlaying = true;
+            }
+            catch
+            {
+                StageLaunchContextStore.Clear();
+                EditorDirectPlayContextStore.Clear();
+                throw;
+            }
+        }
+
+        public static void ClearTempDirectPlaySave()
+        {
+            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+        }
+
+        public static void PrimeCampaignTempSlotForTests(
+            StageId stageId,
+            CampaignStageSequenceResolver sequenceResolver,
+            int remainingChances)
+        {
+            PrimeCampaignTempSlot(stageId, sequenceResolver, remainingChances);
+            StageLaunchContextStore.PrimePendingEditorDirectPlay(stageId);
         }
 
         private static void LaunchScene(string scenePath)
@@ -108,6 +188,13 @@ namespace Game.Feature.Stages.Editor
 
         private static void HandlePlayModeStateChanged(PlayModeStateChange change)
         {
+            if (change == PlayModeStateChange.ExitingPlayMode)
+            {
+                EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+                EditorDirectPlayContextStore.Clear();
+                return;
+            }
+
             if (change != PlayModeStateChange.ExitingEditMode)
             {
                 return;
@@ -143,6 +230,125 @@ namespace Game.Feature.Stages.Editor
         {
             return
                 $"Scene '{scenePath}' is not registered in {nameof(StageEditorDirectPlayCatalog)} at '{StageEditorDirectPlayCatalog.DefaultAssetPath}'.";
+        }
+
+        private static void PrimeCampaignTempSlot(
+            StageId stageId,
+            CampaignStageSequenceResolver sequenceResolver,
+            int remainingChances)
+        {
+            remainingChances = Mathf.Clamp(remainingChances, 1, SaveSlotStore.DefaultRemainingChances);
+            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            var saveStore = new SaveSlotStore(EditorDirectPlayContextStore.TempSaveSlotStoreKey);
+            var activeSlotProvider = new ActiveSlotProvider(EditorDirectPlayContextStore.TempActiveSlotProviderKey);
+            saveStore.ClearAll();
+            activeSlotProvider.ClearActiveSlot();
+            saveStore.SaveSlot(new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = stageId,
+                CurrentLevelGroupId = sequenceResolver.GetLevelGroupId(stageId),
+                RemainingChances = remainingChances,
+                LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
+            });
+            activeSlotProvider.SetActiveSlot(1);
+            EditorDirectPlayContextStore.SetCurrent(
+                EditorDirectPlayContext.CreateCampaignTempSlot(stageId, remainingChances));
+        }
+
+        private static void PrimeCampaignProductionSlot(
+            StageId stageId,
+            CampaignStageSequenceResolver sequenceResolver,
+            int remainingChances,
+            int productionSlotNumber)
+        {
+            SaveSlotStore.ThrowIfInvalidSlotNumber(productionSlotNumber);
+            remainingChances = Mathf.Clamp(remainingChances, 1, SaveSlotStore.DefaultRemainingChances);
+            if (!EditorUtility.DisplayDialog(
+                    "Overwrite Production Campaign Slot",
+                    $"Overwrite production campaign slot {productionSlotNumber} for Direct Play?",
+                    "Overwrite",
+                    "Cancel"))
+            {
+                throw new OperationCanceledException("Production Direct Play launch was cancelled.");
+            }
+
+            var saveStore = new SaveSlotStore();
+            var activeSlotProvider = new ActiveSlotProvider();
+            saveStore.SaveSlot(new SaveSlotData
+            {
+                SlotNumber = productionSlotNumber,
+                CurrentStageId = stageId,
+                CurrentLevelGroupId = sequenceResolver.GetLevelGroupId(stageId),
+                RemainingChances = remainingChances,
+                LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
+            });
+            activeSlotProvider.SetActiveSlot(productionSlotNumber);
+            EditorDirectPlayContextStore.SetCurrent(new EditorDirectPlayContext(
+                EditorDirectPlayMode.CampaignProductionSlot,
+                stageId,
+                string.Empty,
+                string.Empty,
+                remainingChances,
+                suppressCampaignFlow: false));
+        }
+
+        private static void ValidateCampaignStage(
+            StageId stageId,
+            IStageCatalogProvider stageCatalogProvider,
+            CampaignStageSequenceResolver sequenceResolver)
+        {
+            if (!sequenceResolver.Contains(stageId))
+            {
+                throw new InvalidOperationException(
+                    $"Campaign Direct Play stage '{stageId.Value}' is not in the campaign sequence.");
+            }
+
+            var catalogResolver = new StageCatalogResolver(stageCatalogProvider);
+            if (!catalogResolver.TryResolve(stageId, out _))
+            {
+                throw new InvalidOperationException(
+                    $"Campaign Direct Play stage '{stageId.Value}' is missing from the stage catalog.");
+            }
+        }
+
+        private static GameplayStageLaunchRouteConfig LoadRouteConfigOrThrow()
+        {
+            var guids = AssetDatabase.FindAssets($"t:{nameof(GameplayStageLaunchRouteConfig)}");
+            if (guids == null || guids.Length == 0)
+            {
+                throw new InvalidOperationException("No GameplayStageLaunchRouteConfig asset exists for Direct Play.");
+            }
+
+            var path = AssetDatabase.GUIDToAssetPath(guids[0]);
+            var routeConfig = AssetDatabase.LoadAssetAtPath<GameplayStageLaunchRouteConfig>(path);
+            if (routeConfig == null)
+            {
+                throw new InvalidOperationException("Direct Play could not load GameplayStageLaunchRouteConfig.");
+            }
+
+            return routeConfig;
+        }
+
+        private static ScriptableObjectStageCatalogProvider LoadStageCatalogProviderOrThrow()
+        {
+            var provider = AssetDatabase.LoadAssetAtPath<ScriptableObjectStageCatalogProvider>(
+                "Assets/_Features/Stages/Content/StageCatalogProvider.asset");
+            if (provider == null)
+            {
+                throw new InvalidOperationException("Direct Play requires the stage catalog provider asset.");
+            }
+
+            return provider;
+        }
+
+        private static CampaignStageSequenceDefinition LoadCampaignSequenceDefinition()
+        {
+            var definition = AssetDatabase.LoadAssetAtPath<CampaignStageSequenceDefinition>(
+                "Assets/_Features/Stages/Content/CampaignStageSequence.asset");
+            return definition != null
+                ? definition
+                : CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance();
         }
     }
 }
