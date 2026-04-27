@@ -44,8 +44,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Not.Contain("simple-shell checkpoint is complete for `Help`, `ObjectiveStatus`, and `Settings`"));
             Assert.That(baseline, Does.Contain("simple-shell checkpoint is complete for `Help` and `ObjectiveStatus`"));
             Assert.That(baseline, Does.Contain("complex-screen checkpoint is complete for `Inventory` and bounded `Settings`"));
-            Assert.That(baseline, Does.Contain("Settings authored child-view canonicalization is closed here"));
-            Assert.That(baseline, Does.Contain("`UiPrefabMigrationInventory` removal and unrelated migration/helper cleanup remain later work"));
+            Assert.That(baseline, Does.Contain("Settings authored child-view canonicalization and migration helper cleanup are closed here"));
+            Assert.That(baseline, Does.Not.Contain("removal and unrelated migration/helper cleanup remain later work"));
             Assert.That(baseline, Does.Not.Contain("Popup:Pause -> GameplayPopupRuntimeFactory.CreatePausePopup"));
             Assert.That(baseline, Does.Not.Contain("ScreenInternal:InventoryScreen.Sections -> InventoryScreenView authored child sections remain runtime-built"));
         }
@@ -148,8 +148,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(displayGuidelines, Does.Contain("whole-second stepwise text plus bar"));
             Assert.That(displayGuidelines, Does.Contain("does not add live popup countdown UI"));
             Assert.That(displayGuidelines, Does.Not.Contain("TooltipPopup auto-hide"));
-            Assert.That(displayGuidelines, Does.Contain("Settings authored child-view canonicalization only"));
-            Assert.That(displayGuidelines, Does.Contain("UiPrefabMigrationInventory` cleanup"));
+            Assert.That(displayGuidelines, Does.Contain("Settings authored child-view canonicalization and migration helper cleanup are complete"));
+            Assert.That(displayGuidelines, Does.Not.Contain("remain later work"));
             Assert.That(buildChecklist, Does.Contain("Editor-only execution is insufficient evidence for fullscreen/window correctness."));
             Assert.That(buildChecklist, Does.Contain("startup apply"));
             Assert.That(buildChecklist, Does.Contain("timeout revert"));

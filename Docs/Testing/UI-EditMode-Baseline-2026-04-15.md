@@ -148,7 +148,7 @@
 - `StageResultScreen` remains a runtime-owned terminal special case; its continue action stays intent-only and does not locally decide root replacement policy
 - `InventoryScreen` remains one runtime-managed screen shell with nested child views; child sections do not become separately runtime-managed units and the root presenter does not regrow into a monolith
 - `SettingsScreen` now remains one runtime-managed shell with authored `SettingsAudioSection` and `SettingsDisplaySection` children; audio/display fallback rebuilding is removed while preview/session ownership remains in `SettingsRuntime`
-- Settings authored child-view canonicalization is closed here, but `UiPrefabMigrationInventory` removal and unrelated migration/helper cleanup remain later work
+- Settings authored child-view canonicalization and migration helper cleanup are closed here; no UI mixed-mode allowlist remains as runtime or editor code
 - stage clear reaches only the canonical Stage 7 terminal `StageResult` screen path; the legacy host-owned clear overlay no longer survives as a parallel runtime UI system
 - no Stage 4–8 contract is widened merely for test/debug convenience
 

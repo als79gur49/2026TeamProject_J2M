@@ -499,24 +499,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(countdownFill.type, Is.EqualTo(Image.Type.Simple));
         }
 
-        [Test]
-        public void ScreenPrefabMigrationAuthoring_Source_AuthorsSettingsChildSections_AndWiresSerializedChildViews()
-        {
-            var authoringSource = ReadRepoFile("Assets/_Features/UI/UI_Composition/Editor/ScreenPrefabMigrationAuthoring.cs");
-
-            Assert.That(authoringSource, Does.Contain("SettingsScreenView.AudioSectionName"));
-            Assert.That(authoringSource, Does.Contain("SettingsScreenView.DisplaySectionName"));
-            Assert.That(authoringSource, Does.Contain("_audioView"));
-            Assert.That(authoringSource, Does.Contain("_displayView"));
-            Assert.That(authoringSource, Does.Contain("ResolutionInfoHotspot"));
-            Assert.That(authoringSource, Does.Contain("ResolutionHoverHint"));
-            Assert.That(authoringSource, Does.Contain("DisplayPreviewCountdown"));
-            Assert.That(authoringSource, Does.Contain("_resolutionHoverRelay"));
-            Assert.That(authoringSource, Does.Contain("_resolutionHoverHintRoot"));
-            Assert.That(authoringSource, Does.Contain("_previewCountdownRoot"));
-            Assert.That(authoringSource, Does.Contain("CreateCountdownStrip"));
-        }
-
         [TestCase(ScreenId.Gameplay)]
         [TestCase(ScreenId.Help)]
         [TestCase(ScreenId.ObjectiveStatus)]
@@ -678,56 +660,6 @@ namespace Game.Feature.UI.Tests
             }
         }
 
-        [Test]
-        public void UiPrefabMigrationInventory_Allowlist_IsEmpty_AfterScreenPrefabMigrationCompletes()
-        {
-            Assert.That(ReadInventoryBoolProperty("IsRootShellMigrated"), Is.True);
-            Assert.That(ReadInventoryBoolProperty("AllowsLegacyInventoryScreenSections"), Is.False);
-            Assert.That(
-                InvokeInventoryBooleanMethod(
-                    "LayerHasNoMixedModeEntries",
-                    ReadInventoryEnumValue("Game.Feature.UI.Composition.UiPrefabMigrationEntryKind", "Popup")),
-                Is.True);
-            Assert.That(
-                InvokeInventoryBooleanMethod(
-                    "LayerHasNoMixedModeEntries",
-                    ReadInventoryEnumValue("Game.Feature.UI.Composition.UiPrefabMigrationEntryKind", "Screen")),
-                Is.True);
-            Assert.That(
-                InvokeInventoryBooleanMethod(
-                    "LayerHasNoMixedModeEntries",
-                    ReadInventoryEnumValue("Game.Feature.UI.Composition.UiPrefabMigrationEntryKind", "ScreenInternal")),
-                Is.True);
-
-            foreach (PopupId popupId in Enum.GetValues(typeof(PopupId)))
-            {
-                if (popupId == PopupId.None)
-                {
-                    continue;
-                }
-
-                Assert.That(InvokeInventoryBooleanMethod("AllowsLegacyPopupBuilder", popupId), Is.False, popupId.ToString());
-            }
-
-            foreach (ScreenId screenId in Enum.GetValues(typeof(ScreenId)))
-            {
-                if (screenId == ScreenId.None)
-                {
-                    continue;
-                }
-
-                Assert.That(InvokeInventoryBooleanMethod("AllowsLegacyScreenBuilder", screenId), Is.False, screenId.ToString());
-            }
-
-            var documentationTokens = ReadInventoryDocumentationTokens();
-            Assert.That(documentationTokens, Is.Empty);
-            Assert.That(documentationTokens.Any(token => token.StartsWith("RootShell:", StringComparison.Ordinal)), Is.False);
-            Assert.That(documentationTokens.Any(token => token.StartsWith("Hud:", StringComparison.Ordinal)), Is.False);
-            Assert.That(documentationTokens.Any(token => token.StartsWith("Popup:", StringComparison.Ordinal)), Is.False);
-            Assert.That(documentationTokens.Any(token => token.StartsWith("Screen:", StringComparison.Ordinal)), Is.False);
-            Assert.That(documentationTokens.Any(token => token.StartsWith("ScreenInternal:", StringComparison.Ordinal)), Is.False);
-        }
-
         [TestCase(ScreenId.Gameplay, "_screenPrefabCatalog.GameplayPrefab", "CreateGameplayScreen(")]
         [TestCase(ScreenId.Help, "_screenPrefabCatalog.HelpPrefab", "CreateHelpScreen(")]
         [TestCase(ScreenId.ObjectiveStatus, "_screenPrefabCatalog.ObjectiveStatusPrefab", "CreateObjectiveStatusScreen(")]
@@ -842,47 +774,6 @@ namespace Game.Feature.UI.Tests
             var tooltipPopupViewSource = ReadRepoFile(TooltipPopupViewSourcePath);
             Assert.That(tooltipPopupViewSource.ToLowerInvariant(), Does.Not.Contain("autohide"));
             Assert.That(tooltipPopupViewSource.ToLowerInvariant(), Does.Not.Contain("expiry"));
-        }
-
-        private static bool InvokeInventoryBooleanMethod(string methodName, object argument)
-        {
-            var inventoryType = GetInventoryType();
-            var method = inventoryType.GetMethod(methodName, BindingFlags.Static | BindingFlags.NonPublic);
-            Assert.That(method, Is.Not.Null, methodName);
-            return (bool)method.Invoke(null, new[] { argument });
-        }
-
-        private static string[] ReadInventoryDocumentationTokens()
-        {
-            var inventoryType = GetInventoryType();
-            var property = inventoryType.GetProperty("DocumentationTokens", BindingFlags.Static | BindingFlags.NonPublic);
-            Assert.That(property, Is.Not.Null);
-            return ((IEnumerable)property.GetValue(null))
-                .Cast<object>()
-                .Select(value => value.ToString())
-                .ToArray();
-        }
-
-        private static bool ReadInventoryBoolProperty(string propertyName)
-        {
-            var inventoryType = GetInventoryType();
-            var property = inventoryType.GetProperty(propertyName, BindingFlags.Static | BindingFlags.NonPublic);
-            Assert.That(property, Is.Not.Null, propertyName);
-            return (bool)property.GetValue(null);
-        }
-
-        private static object ReadInventoryEnumValue(string enumTypeName, string valueName)
-        {
-            var enumType = typeof(GameplayUiFlowInstaller).Assembly.GetType(enumTypeName);
-            Assert.That(enumType, Is.Not.Null, enumTypeName);
-            return Enum.Parse(enumType, valueName);
-        }
-
-        private static Type GetInventoryType()
-        {
-            var inventoryType = typeof(GameplayUiFlowInstaller).Assembly.GetType("Game.Feature.UI.Composition.UiPrefabMigrationInventory");
-            Assert.That(inventoryType, Is.Not.Null);
-            return inventoryType;
         }
 
         private static void AssertScreenPrefabContract<TScreenView>(string assetPath, params Type[] allowedViewTypes)
