@@ -141,6 +141,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void StageCatalogValidator_InvalidGameplayDefinition_ReportsError()
+        {
+            var entry = CreateEntry("invalid-objective");
+            var invalidStage = CreateMinimalStageDefinition("invalid-objective");
+            SetPrivateField(
+                invalidStage,
+                "objective",
+                new StageObjectiveAuthoring
+                {
+                    CompletionPolicy = StageCompletionPolicy.RequirePlayerOnGoalWithAllConditions,
+                    GoalZoneIds = Array.Empty<string>(),
+                    RequiredConditions = Array.Empty<StageConditionAsset>(),
+                });
+            entry.AssignGameplayDefinition(invalidStage);
+
+            var validator = new StageCatalogValidator();
+            var report = validator.ValidateEntries(
+                new[] { entry },
+                aliasTable: null,
+                new StageCatalogValidationOptions
+                {
+                    Timing = StageValidationTiming.TestOrCi,
+                });
+
+            Assert.That(report.Issues.Any(issue => issue.Code == "gameplay.definition.invalid"), Is.True);
+            Assert.That(
+                report.Issues.Any(issue => issue.Message.Contains("requires at least one goal zone id")),
+                Is.True);
+        }
+
+        [Test]
         public void StageSessionTracker_TerminalResult_IsEmittedOnlyOnce_AndResetCreatesNewRun()
         {
             var tracker = new StageSessionTracker();
