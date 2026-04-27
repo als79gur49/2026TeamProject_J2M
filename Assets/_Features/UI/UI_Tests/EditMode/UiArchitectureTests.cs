@@ -898,7 +898,7 @@ namespace Game.Feature.UI.Tests
         {
             Assert.That(
                 GetPublicPropertyNames(typeof(SettingsScreenPresenter)),
-                Is.EqualTo(new[] { "AudioPresenter", "DisplayPresenter", "ViewModel" }));
+                Is.EqualTo(new[] { "AudioPresenter", "DisplayPresenter", "InputPresenter", "ViewModel" }));
             Assert.That(GetPublicEventNames(typeof(SettingsScreenPresenter)), Is.Empty);
             Assert.That(
                 GetPublicMethodSignatures(typeof(SettingsScreenPresenter)),
@@ -906,6 +906,7 @@ namespace Game.Feature.UI.Tests
                 {
                     "Apply(SettingsScreenPayload, Double)",
                     "BuildTooltipInfoPayload()",
+                    "SelectSection(SettingsSectionId)",
                     "ToggleLargeText()",
                     "ToggleTooltips()",
                 }));
@@ -914,6 +915,7 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo(new[]
                 {
                     "SettingsScreenPresenter(AccessibilitySettingsStore, IAudioSettingsPort, IDisplaySettingsPort)",
+                    "SettingsScreenPresenter(AccessibilitySettingsStore, IAudioSettingsPort, IDisplaySettingsPort, IKeyboardBindingSettingsPort)",
                 }));
         }
 
