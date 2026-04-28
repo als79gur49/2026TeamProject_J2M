@@ -233,7 +233,7 @@ namespace Game.Feature.UI.Application
 
             return new ObjectiveInfoPopupPayload(
                 "Objective Info",
-                $"Goal reached: {FormatBoolean(_state.GoalReached)} | All conditions: {FormatBoolean(_state.AllConditionsSatisfied)} | Cleared: {FormatBoolean(_state.IsCleared)}");
+                $"{BuildObjectiveSummary(_state)} Goal reached: {FormatBoolean(_state.GoalReached)} | All conditions: {FormatBoolean(_state.AllConditionsSatisfied)} | Cleared: {FormatBoolean(_state.IsCleared)}");
         }
 
         public void Dispose()
@@ -267,7 +267,7 @@ namespace Game.Feature.UI.Application
                 _titleText,
                 badgeText: BuildObjectiveBadge(_state),
                 summaryText: BuildObjectiveSummary(_state),
-                detailText: $"Goal Reached: {FormatBoolean(_state.GoalReached)}",
+                detailText: BuildObjectiveDetail(_state),
                 secondaryText: $"All Conditions: {FormatBoolean(_state.AllConditionsSatisfied)} | Cleared: {FormatBoolean(_state.IsCleared)}",
                 isOverviewSelected: true,
                 isSessionSelected: false);
@@ -305,6 +305,22 @@ namespace Game.Feature.UI.Application
                 return "This stage currently has no active objective.";
             }
 
+            if (!string.IsNullOrWhiteSpace(state.ObjectiveTitle) &&
+                !string.IsNullOrWhiteSpace(state.ObjectiveSummary))
+            {
+                return $"{state.ObjectiveTitle}: {state.ObjectiveSummary}";
+            }
+
+            if (!string.IsNullOrWhiteSpace(state.ObjectiveTitle))
+            {
+                return state.ObjectiveTitle;
+            }
+
+            if (!string.IsNullOrWhiteSpace(state.ObjectiveSummary))
+            {
+                return state.ObjectiveSummary;
+            }
+
             if (state.IsCleared)
             {
                 return "The objective chain is fully cleared.";
@@ -321,6 +337,21 @@ namespace Game.Feature.UI.Application
             }
 
             return "Primary goal is still in progress.";
+        }
+
+        private static string BuildObjectiveDetail(ObjectiveStatusScreenState state)
+        {
+            if (!state.HasObjective)
+            {
+                return "No objective conditions are configured for display.";
+            }
+
+            if (!string.IsNullOrWhiteSpace(state.ConditionDetailText))
+            {
+                return state.ConditionDetailText;
+            }
+
+            return "No displayable objective conditions.";
         }
 
         private static string FormatBoolean(bool value)

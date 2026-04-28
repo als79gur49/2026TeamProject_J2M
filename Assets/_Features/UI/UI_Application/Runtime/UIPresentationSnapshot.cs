@@ -159,6 +159,161 @@ namespace Game.Feature.UI.Application
         }
     }
 
+    public enum UIObjectiveConditionRole
+    {
+        None = 0,
+        PrimaryGoal = 1,
+        SecondaryGoal = 2,
+        Challenge = 3,
+    }
+
+    public readonly struct UIObjectiveConditionSlice : IEquatable<UIObjectiveConditionSlice>
+    {
+        public UIObjectiveConditionSlice(
+            string titleText,
+            string progressText,
+            bool isSatisfied,
+            bool required,
+            UIObjectiveConditionRole role,
+            int sortOrder)
+        {
+            TitleText = titleText ?? string.Empty;
+            ProgressText = progressText ?? string.Empty;
+            IsSatisfied = isSatisfied;
+            Required = required;
+            Role = role;
+            SortOrder = sortOrder;
+        }
+
+        public string TitleText { get; }
+
+        public string ProgressText { get; }
+
+        public bool IsSatisfied { get; }
+
+        public bool Required { get; }
+
+        public UIObjectiveConditionRole Role { get; }
+
+        public int SortOrder { get; }
+
+        public bool Equals(UIObjectiveConditionSlice other)
+        {
+            return string.Equals(TitleText, other.TitleText, StringComparison.Ordinal) &&
+                   string.Equals(ProgressText, other.ProgressText, StringComparison.Ordinal) &&
+                   IsSatisfied == other.IsSatisfied &&
+                   Required == other.Required &&
+                   Role == other.Role &&
+                   SortOrder == other.SortOrder;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is UIObjectiveConditionSlice other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(TitleText, ProgressText, IsSatisfied, Required, Role, SortOrder);
+        }
+    }
+
+    public readonly struct UIObjectiveSlice : IEquatable<UIObjectiveSlice>
+    {
+        public static readonly UIObjectiveSlice Empty = new(
+            false,
+            string.Empty,
+            string.Empty,
+            false,
+            false,
+            false,
+            Array.Empty<UIObjectiveConditionSlice>());
+
+        private readonly ReadOnlyCollection<UIObjectiveConditionSlice> _conditions;
+
+        public UIObjectiveSlice(
+            bool hasObjective,
+            string title,
+            string summary,
+            bool goalReached,
+            bool allConditionsSatisfied,
+            bool isCleared,
+            IEnumerable<UIObjectiveConditionSlice> conditions)
+        {
+            HasObjective = hasObjective;
+            Title = title ?? string.Empty;
+            Summary = summary ?? string.Empty;
+            GoalReached = goalReached;
+            AllConditionsSatisfied = allConditionsSatisfied;
+            IsCleared = isCleared;
+            _conditions = new ReadOnlyCollection<UIObjectiveConditionSlice>(
+                new List<UIObjectiveConditionSlice>(conditions ?? Array.Empty<UIObjectiveConditionSlice>()));
+        }
+
+        public bool HasObjective { get; }
+
+        public string Title { get; }
+
+        public string Summary { get; }
+
+        public bool GoalReached { get; }
+
+        public bool AllConditionsSatisfied { get; }
+
+        public bool IsCleared { get; }
+
+        public IReadOnlyList<UIObjectiveConditionSlice> Conditions => _conditions != null
+            ? _conditions
+            : Array.Empty<UIObjectiveConditionSlice>();
+
+        public bool Equals(UIObjectiveSlice other)
+        {
+            if (HasObjective != other.HasObjective ||
+                !string.Equals(Title, other.Title, StringComparison.Ordinal) ||
+                !string.Equals(Summary, other.Summary, StringComparison.Ordinal) ||
+                GoalReached != other.GoalReached ||
+                AllConditionsSatisfied != other.AllConditionsSatisfied ||
+                IsCleared != other.IsCleared)
+            {
+                return false;
+            }
+
+            var left = Conditions;
+            var right = other.Conditions;
+            if (left.Count != right.Count)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < left.Count; i++)
+            {
+                if (!left[i].Equals(right[i]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is UIObjectiveSlice other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            var hash = HashCode.Combine(HasObjective, Title, Summary, GoalReached, AllConditionsSatisfied, IsCleared);
+            var conditions = Conditions;
+            for (var i = 0; i < conditions.Count; i++)
+            {
+                hash = HashCode.Combine(hash, conditions[i]);
+            }
+
+            return hash;
+        }
+    }
+
     public readonly struct UIPlayerActionSlice : IEquatable<UIPlayerActionSlice>
     {
         public UIPlayerActionSlice(
@@ -447,6 +602,7 @@ namespace Game.Feature.UI.Application
             new UITickSlice(0, new GameplayUiTopology(GameplayUiFace.Floor), false, false),
             new UIInteractionSlice(false, false, false, false),
             UIStageSlice.Empty,
+            UIObjectiveSlice.Empty,
             new UIPlayerActionSlice(
                 0,
                 0,
@@ -471,6 +627,7 @@ namespace Game.Feature.UI.Application
                 tick,
                 interaction,
                 UIStageSlice.Empty,
+                UIObjectiveSlice.Empty,
                 player,
                 notifications)
         {
@@ -482,10 +639,28 @@ namespace Game.Feature.UI.Application
             UIStageSlice stage,
             UIPlayerActionSlice player,
             UINotificationLedgerSlice notifications)
+            : this(
+                tick,
+                interaction,
+                stage,
+                UIObjectiveSlice.Empty,
+                player,
+                notifications)
+        {
+        }
+
+        public UIPresentationSnapshot(
+            UITickSlice tick,
+            UIInteractionSlice interaction,
+            UIStageSlice stage,
+            UIObjectiveSlice objective,
+            UIPlayerActionSlice player,
+            UINotificationLedgerSlice notifications)
         {
             Tick = tick;
             Interaction = interaction;
             Stage = stage;
+            Objective = objective;
             Player = player;
             Notifications = notifications;
         }
@@ -496,6 +671,8 @@ namespace Game.Feature.UI.Application
 
         public UIStageSlice Stage { get; }
 
+        public UIObjectiveSlice Objective { get; }
+
         public UIPlayerActionSlice Player { get; }
 
         public UINotificationLedgerSlice Notifications { get; }
@@ -505,6 +682,7 @@ namespace Game.Feature.UI.Application
             return Tick.Equals(other.Tick) &&
                    Interaction.Equals(other.Interaction) &&
                    Stage.Equals(other.Stage) &&
+                   Objective.Equals(other.Objective) &&
                    Player.Equals(other.Player) &&
                    Notifications.Equals(other.Notifications);
         }
@@ -516,7 +694,7 @@ namespace Game.Feature.UI.Application
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(Tick, Interaction, Stage, Player, Notifications);
+            return HashCode.Combine(Tick, Interaction, Stage, Objective, Player, Notifications);
         }
     }
 }

@@ -13,11 +13,41 @@ namespace Game.Feature.UI.Screens
             bool isPaused,
             bool canAcceptGameplayCommands,
             bool isStageCleared)
+            : this(
+                hasObjective,
+                goalReached,
+                allConditionsSatisfied,
+                isCleared,
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                nextTickIndex,
+                isPaused,
+                canAcceptGameplayCommands,
+                isStageCleared)
+        {
+        }
+
+        public ObjectiveStatusScreenState(
+            bool hasObjective,
+            bool goalReached,
+            bool allConditionsSatisfied,
+            bool isCleared,
+            string objectiveTitle,
+            string objectiveSummary,
+            string conditionDetailText,
+            int nextTickIndex,
+            bool isPaused,
+            bool canAcceptGameplayCommands,
+            bool isStageCleared)
         {
             HasObjective = hasObjective;
             GoalReached = goalReached;
             AllConditionsSatisfied = allConditionsSatisfied;
             IsCleared = isCleared;
+            ObjectiveTitle = objectiveTitle ?? string.Empty;
+            ObjectiveSummary = objectiveSummary ?? string.Empty;
+            ConditionDetailText = conditionDetailText ?? string.Empty;
             NextTickIndex = nextTickIndex;
             IsPaused = isPaused;
             CanAcceptGameplayCommands = canAcceptGameplayCommands;
@@ -31,6 +61,12 @@ namespace Game.Feature.UI.Screens
         public bool AllConditionsSatisfied { get; }
 
         public bool IsCleared { get; }
+
+        public string ObjectiveTitle { get; }
+
+        public string ObjectiveSummary { get; }
+
+        public string ConditionDetailText { get; }
 
         public int NextTickIndex { get; }
 
