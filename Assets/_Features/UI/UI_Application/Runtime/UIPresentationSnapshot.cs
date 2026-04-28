@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Game.Feature.Gameplay.UIAccess.Models;
+using Game.Feature.Stages;
 
 namespace Game.Feature.UI.Application
 {
@@ -123,6 +124,41 @@ namespace Game.Feature.UI.Application
         }
     }
 
+    public readonly struct UIStageSlice : IEquatable<UIStageSlice>
+    {
+        public static readonly UIStageSlice Empty = new(StageId.None, string.Empty);
+
+        public UIStageSlice(
+            StageId stageId,
+            string displayName)
+        {
+            StageId = stageId;
+            DisplayName = displayName ?? string.Empty;
+        }
+
+        public StageId StageId { get; }
+
+        public string DisplayName { get; }
+
+        public bool HasDisplayName => !string.IsNullOrWhiteSpace(DisplayName);
+
+        public bool Equals(UIStageSlice other)
+        {
+            return StageId.Equals(other.StageId) &&
+                   string.Equals(DisplayName, other.DisplayName, StringComparison.Ordinal);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is UIStageSlice other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(StageId, DisplayName);
+        }
+    }
+
     public readonly struct UIPlayerActionSlice : IEquatable<UIPlayerActionSlice>
     {
         public UIPlayerActionSlice(
@@ -142,7 +178,8 @@ namespace Game.Feature.UI.Application
             bool canStartAnyActionThisTick = false,
             bool hasExplicitPushCandidateInCurrentDirection = false,
             bool hasRemainingChances = false,
-            int remainingChances = 0)
+            int remainingChances = 0,
+            int maxChances = 0)
             : this(
                 playerEntityId,
                 currentHp,
@@ -161,7 +198,8 @@ namespace Game.Feature.UI.Application
                 canStartAnyActionThisTick,
                 hasExplicitPushCandidateInCurrentDirection,
                 hasRemainingChances,
-                remainingChances)
+                remainingChances,
+                maxChances)
         {
         }
 
@@ -183,7 +221,8 @@ namespace Game.Feature.UI.Application
             bool canStartAnyActionThisTick = false,
             bool hasExplicitPushCandidateInCurrentDirection = false,
             bool hasRemainingChances = false,
-            int remainingChances = 0)
+            int remainingChances = 0,
+            int maxChances = 0)
         {
             PlayerEntityId = playerEntityId;
             CurrentHp = currentHp;
@@ -197,6 +236,9 @@ namespace Game.Feature.UI.Application
             HasExplicitPushCandidateInCurrentDirection = hasExplicitPushCandidateInCurrentDirection;
             HasRemainingChances = hasRemainingChances;
             RemainingChances = remainingChances;
+            MaxChances = maxChances > 0
+                ? maxChances
+                : (hasRemainingChances ? remainingChances : 0);
             LastResolvedOutcome = lastResolvedOutcome;
             LastResolvedTickIndex = lastResolvedTickIndex;
             TookDamageThisTick = tookDamageThisTick;
@@ -229,6 +271,8 @@ namespace Game.Feature.UI.Application
 
         public int RemainingChances { get; }
 
+        public int MaxChances { get; }
+
         public GameplayUiActionResolutionKind LastResolvedOutcome { get; }
 
         public int LastResolvedTickIndex { get; }
@@ -255,6 +299,7 @@ namespace Game.Feature.UI.Application
                    HasExplicitPushCandidateInCurrentDirection == other.HasExplicitPushCandidateInCurrentDirection &&
                    HasRemainingChances == other.HasRemainingChances &&
                    RemainingChances == other.RemainingChances &&
+                   MaxChances == other.MaxChances &&
                    LastResolvedOutcome == other.LastResolvedOutcome &&
                    LastResolvedTickIndex == other.LastResolvedTickIndex &&
                    TookDamageThisTick == other.TookDamageThisTick &&
@@ -281,7 +326,7 @@ namespace Game.Feature.UI.Application
                 CanStartActionThisTick);
             hash = HashCode.Combine(hash, CanStartAnyActionThisTick);
             hash = HashCode.Combine(hash, HasExplicitPushCandidateInCurrentDirection, LastResolvedOutcome);
-            hash = HashCode.Combine(hash, HasRemainingChances, RemainingChances);
+            hash = HashCode.Combine(hash, HasRemainingChances, RemainingChances, MaxChances);
             hash = HashCode.Combine(hash, LastResolvedTickIndex, TookDamageThisTick, LastDamageAmount, LastDamageTickIndex);
             hash = HashCode.Combine(hash, RecoveryCooldown);
             return hash;
@@ -401,6 +446,7 @@ namespace Game.Feature.UI.Application
         public static readonly UIPresentationSnapshot Empty = new(
             new UITickSlice(0, new GameplayUiTopology(GameplayUiFace.Floor), false, false),
             new UIInteractionSlice(false, false, false, false),
+            UIStageSlice.Empty,
             new UIPlayerActionSlice(
                 0,
                 0,
@@ -421,9 +467,25 @@ namespace Game.Feature.UI.Application
             UIInteractionSlice interaction,
             UIPlayerActionSlice player,
             UINotificationLedgerSlice notifications)
+            : this(
+                tick,
+                interaction,
+                UIStageSlice.Empty,
+                player,
+                notifications)
+        {
+        }
+
+        public UIPresentationSnapshot(
+            UITickSlice tick,
+            UIInteractionSlice interaction,
+            UIStageSlice stage,
+            UIPlayerActionSlice player,
+            UINotificationLedgerSlice notifications)
         {
             Tick = tick;
             Interaction = interaction;
+            Stage = stage;
             Player = player;
             Notifications = notifications;
         }
@@ -431,6 +493,8 @@ namespace Game.Feature.UI.Application
         public UITickSlice Tick { get; }
 
         public UIInteractionSlice Interaction { get; }
+
+        public UIStageSlice Stage { get; }
 
         public UIPlayerActionSlice Player { get; }
 
@@ -440,6 +504,7 @@ namespace Game.Feature.UI.Application
         {
             return Tick.Equals(other.Tick) &&
                    Interaction.Equals(other.Interaction) &&
+                   Stage.Equals(other.Stage) &&
                    Player.Equals(other.Player) &&
                    Notifications.Equals(other.Notifications);
         }
@@ -451,7 +516,7 @@ namespace Game.Feature.UI.Application
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(Tick, Interaction, Player, Notifications);
+            return HashCode.Combine(Tick, Interaction, Stage, Player, Notifications);
         }
     }
 }

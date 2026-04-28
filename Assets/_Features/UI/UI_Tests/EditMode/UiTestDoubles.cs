@@ -372,19 +372,24 @@ namespace Game.Feature.UI.Tests
     {
         private readonly MutableObjectiveQuery _objectiveQuery;
         private readonly MutablePlayerHudQuery _playerHudQuery;
+        private readonly MutableStageQuery _stageQuery;
         private readonly MutableSessionQuery _sessionQuery;
 
         public FakeGameplayQueryFacade(
             GameplaySessionReadModel session,
             GameplayPlayerHudReadModel playerHud,
-            GameplayObjectiveReadModel objective)
+            GameplayObjectiveReadModel objective,
+            GameplayStageReadModel stage = default)
         {
             _sessionQuery = new MutableSessionQuery(session);
+            _stageQuery = new MutableStageQuery(stage);
             _playerHudQuery = new MutablePlayerHudQuery(playerHud);
             _objectiveQuery = new MutableObjectiveQuery(objective);
         }
 
         public IGameplaySessionQuery Session => _sessionQuery;
+
+        public IGameplayStageQuery Stage => _stageQuery;
 
         public IGameplayPlayerHudQuery PlayerHud => _playerHudQuery;
 
@@ -398,6 +403,11 @@ namespace Game.Feature.UI.Tests
         public void SetPlayerHud(GameplayPlayerHudReadModel playerHud)
         {
             _playerHudQuery.Value = playerHud;
+        }
+
+        public void SetStage(GameplayStageReadModel stage)
+        {
+            _stageQuery.Value = stage;
         }
 
         public void SetObjective(GameplayObjectiveReadModel objective)
@@ -432,6 +442,21 @@ namespace Game.Feature.UI.Tests
             public GameplaySessionReadModel Value { get; set; }
 
             public GameplaySessionReadModel Read()
+            {
+                return Value;
+            }
+        }
+
+        private sealed class MutableStageQuery : IGameplayStageQuery
+        {
+            public MutableStageQuery(GameplayStageReadModel value)
+            {
+                Value = value;
+            }
+
+            public GameplayStageReadModel Value { get; set; }
+
+            public GameplayStageReadModel Read()
             {
                 return Value;
             }

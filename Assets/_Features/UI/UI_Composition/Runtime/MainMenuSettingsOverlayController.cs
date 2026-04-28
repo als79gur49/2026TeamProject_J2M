@@ -1,4 +1,5 @@
 using System;
+using Game.Feature.UI.Screens;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -36,6 +37,8 @@ namespace Game.Feature.UI.Composition
 
         public event Action Closed;
 
+        public event Action<SettingsSectionId> SectionChanged;
+
         public RectTransform ContentRoot
         {
             get
@@ -69,6 +72,7 @@ namespace Game.Feature.UI.Composition
             var createdRuntime = runtimeFactory(contentRoot);
             runtime = createdRuntime ?? throw new InvalidOperationException("MainMenu settings runtime factory returned null.");
             runtime.CloseRequested += HandleRuntimeCloseRequested;
+            runtime.SectionChanged += HandleRuntimeSectionChanged;
 
             try
             {
@@ -79,6 +83,7 @@ namespace Game.Feature.UI.Composition
             catch
             {
                 runtime.CloseRequested -= HandleRuntimeCloseRequested;
+                runtime.SectionChanged -= HandleRuntimeSectionChanged;
                 runtime.Dispose();
                 runtime = null;
                 SetOverlayVisible(false);
@@ -97,6 +102,7 @@ namespace Game.Feature.UI.Composition
             var closingRuntime = runtime;
             runtime = null;
             closingRuntime.CloseRequested -= HandleRuntimeCloseRequested;
+            closingRuntime.SectionChanged -= HandleRuntimeSectionChanged;
             closingRuntime.Dispose();
             SetOverlayVisible(false);
             Closed?.Invoke();
@@ -134,6 +140,11 @@ namespace Game.Feature.UI.Composition
         private void HandleRuntimeCloseRequested()
         {
             Close();
+        }
+
+        private void HandleRuntimeSectionChanged(SettingsSectionId sectionId)
+        {
+            SectionChanged?.Invoke(sectionId);
         }
 
         private void EnsureOverlayLayer()

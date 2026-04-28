@@ -1,6 +1,7 @@
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Gameplay.UIAccess.Queries;
+using Game.Feature.Stages;
 
 namespace Game.Feature.Gameplay.Host.UIAccess
 {
@@ -27,6 +28,31 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 _pauseService != null && _pauseService.IsPaused,
                 _admissionPolicy != null && _admissionPolicy.CanAcceptActionableCommands(),
                 _tickRunner?.CurrentObjectiveResult?.IsCleared ?? false);
+        }
+    }
+
+    internal sealed class GameplayHostStageQuery : IGameplayStageQuery
+    {
+        private readonly StageContentEntry _stageContentEntry;
+
+        public GameplayHostStageQuery(StageContentEntry stageContentEntry)
+        {
+            _stageContentEntry = stageContentEntry;
+        }
+
+        public GameplayStageReadModel Read()
+        {
+            if (_stageContentEntry == null)
+            {
+                return default;
+            }
+
+            var stageId = _stageContentEntry.StageId;
+            var presentation = StagePresentationAssembler.Resolve(_stageContentEntry.PresentationDefinition);
+            var displayName = !string.IsNullOrWhiteSpace(presentation.DisplayName)
+                ? presentation.DisplayName
+                : (stageId.IsValid ? stageId.Value : string.Empty);
+            return new GameplayStageReadModel(stageId, displayName);
         }
     }
 }

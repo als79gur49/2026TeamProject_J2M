@@ -28,7 +28,7 @@ namespace Game.Feature.UI.Tests
                 var beforeScreenId = installer.ScreenController.CurrentScreenId;
                 var beforeBackStackCount = installer.ScreenController.BackStackCount;
                 var beforePopupCount = installer.PopupController.PopupCount;
-                var beforeHudInteractive = installer.HudController.ActionBarViewModel.IsInteractive;
+                var beforeHudReadOnly = installer.HudController.IsGameplayReadOnly;
 
                 overlay.ToggleVisibility();
                 overlay.ToggleExpanded();
@@ -38,7 +38,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(beforeScreenId));
                 Assert.That(installer.ScreenController.BackStackCount, Is.EqualTo(beforeBackStackCount));
                 Assert.That(installer.PopupController.PopupCount, Is.EqualTo(beforePopupCount));
-                Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.EqualTo(beforeHudInteractive));
+                Assert.That(installer.HudController.IsGameplayReadOnly, Is.EqualTo(beforeHudReadOnly));
                 Assert.That(overlay.IsOverlayVisible, Is.True);
                 Assert.That(overlay.IsExpanded, Is.True);
             }

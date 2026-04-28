@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Gameplay.UIAccess.Presentation;
+using Game.Feature.Stages;
 using Game.Feature.UI.Application;
 using NUnit.Framework;
 
@@ -174,6 +175,40 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UIStateMapper_ReduceRefresh_MapsChancesCapacitySlice()
+        {
+            var mapper = new UIStateMapper();
+
+            var result = mapper.ReduceRefresh(
+                UIPresentationSnapshot.Empty,
+                CreateRefreshInput(
+                    hasRemainingChances: true,
+                    remainingChances: 2,
+                    maxChances: 3));
+
+            Assert.That(result.Snapshot.Player.HasRemainingChances, Is.True);
+            Assert.That(result.Snapshot.Player.RemainingChances, Is.EqualTo(2));
+            Assert.That(result.Snapshot.Player.MaxChances, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void UIStateMapper_ReduceRefresh_MapsStageSlice()
+        {
+            var mapper = new UIStateMapper();
+            var stageId = StageId.CreateOrThrow("stage-1-1");
+
+            var result = mapper.ReduceRefresh(
+                UIPresentationSnapshot.Empty,
+                CreateRefreshInput(
+                    stageId: stageId,
+                    stageDisplayName: "Stage 1-1"));
+
+            Assert.That(result.Snapshot.Stage.StageId, Is.EqualTo(stageId));
+            Assert.That(result.Snapshot.Stage.DisplayName, Is.EqualTo("Stage 1-1"));
+            Assert.That(result.Snapshot.Stage.HasDisplayName, Is.True);
+        }
+
+        [Test]
         public void UIStateMapper_IdenticalInputSequences_ProduceIdenticalSnapshotsAndAppliedEvents()
         {
             var firstSequence = RunMapperSequence();
@@ -335,6 +370,69 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void GameplayUiPresentationSource_RefreshMapsRemainingAndMaxChancesFromPlayerHudQuery()
+        {
+            var queryFacade = new FakeGameplayQueryFacade(
+                new GameplaySessionReadModel(1, false, true, false),
+                new GameplayPlayerHudReadModel(
+                    isAvailable: true,
+                    playerEntityId: 10,
+                    currentHp: 3,
+                    maxHp: 3,
+                    facing: GameplayUiDirection.Right,
+                    activeActionKind: GameplayUiActionKind.None,
+                    activeActionDirection: GameplayUiDirection.None,
+                    activeTargetEntityId: 0,
+                    isActionInProgress: false,
+                    isActionInRecoveryPhase: false,
+                    canMoveThisTick: true,
+                    canStartActionThisTick: true,
+                    recoveryCooldown: null,
+                    canStartAnyActionThisTick: true,
+                    hasExplicitPushCandidateInCurrentDirection: false,
+                    hasRemainingChances: true,
+                    remainingChances: 2,
+                    maxChances: 3),
+                new GameplayObjectiveReadModel(false, false, false, false));
+            var presentationFeed = new FakeGameplayPresentationFeed();
+            var pauseService = new FakeGameplayPauseService();
+            using var source = new GameplayUiPresentationSource(queryFacade, presentationFeed, pauseService);
+
+            presentationFeed.PublishState(new GameplayPresentationState(
+                new GameplayUiTopology(GameplayUiFace.Front),
+                isPresentationActive: false,
+                hasBlockingPresentation: false,
+                isTopologyTransitionActive: false));
+
+            Assert.That(source.CurrentSnapshot.Player.HasRemainingChances, Is.True);
+            Assert.That(source.CurrentSnapshot.Player.RemainingChances, Is.EqualTo(2));
+            Assert.That(source.CurrentSnapshot.Player.MaxChances, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void GameplayUiPresentationSource_RefreshMapsStageFromStageQuery()
+        {
+            var stageId = StageId.CreateOrThrow("stage-1-1");
+            var queryFacade = new FakeGameplayQueryFacade(
+                new GameplaySessionReadModel(1, false, true, false),
+                FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
+                new GameplayObjectiveReadModel(false, false, false, false),
+                new GameplayStageReadModel(stageId, "Stage 1-1"));
+            var presentationFeed = new FakeGameplayPresentationFeed();
+            var pauseService = new FakeGameplayPauseService();
+            using var source = new GameplayUiPresentationSource(queryFacade, presentationFeed, pauseService);
+
+            presentationFeed.PublishState(new GameplayPresentationState(
+                new GameplayUiTopology(GameplayUiFace.Front),
+                isPresentationActive: false,
+                hasBlockingPresentation: false,
+                isTopologyTransitionActive: false));
+
+            Assert.That(source.CurrentSnapshot.Stage.StageId, Is.EqualTo(stageId));
+            Assert.That(source.CurrentSnapshot.Stage.DisplayName, Is.EqualTo("Stage 1-1"));
+        }
+
+        [Test]
         public void GameplayUiPresentationSource_OlderFramePublication_RefreshesWithoutTickRegressionOrNewEvents()
         {
             var queryFacade = new FakeGameplayQueryFacade(
@@ -421,7 +519,12 @@ namespace Game.Feature.UI.Tests
             bool isRecoveryPhase = false,
             bool canMoveThisTick = true,
             bool canStartActionThisTick = true,
-            UIRecoveryCooldownSlice? recoveryCooldown = null)
+            UIRecoveryCooldownSlice? recoveryCooldown = null,
+            bool hasRemainingChances = false,
+            int remainingChances = 0,
+            int maxChances = 0,
+            StageId stageId = default,
+            string stageDisplayName = "")
         {
             return new UIStateRefreshInput(
                 tickIndex,
@@ -442,7 +545,12 @@ namespace Game.Feature.UI.Tests
                 isRecoveryPhase,
                 canMoveThisTick,
                 canStartActionThisTick,
-                recoveryCooldown);
+                recoveryCooldown,
+                hasRemainingChances: hasRemainingChances,
+                remainingChances: remainingChances,
+                maxChances: maxChances,
+                stageId: stageId,
+                stageDisplayName: stageDisplayName);
         }
 
         private static UITickEvent CreateEvent(

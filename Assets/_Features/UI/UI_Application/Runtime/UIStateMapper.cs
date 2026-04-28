@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.UIAccess.Models;
+using Game.Feature.Stages;
 
 namespace Game.Feature.UI.Application
 {
@@ -28,7 +29,10 @@ namespace Game.Feature.UI.Application
             bool canStartAnyActionThisTick = false,
             bool hasExplicitPushCandidateInCurrentDirection = false,
             bool hasRemainingChances = false,
-            int remainingChances = 0)
+            int remainingChances = 0,
+            int maxChances = 0,
+            StageId stageId = default,
+            string stageDisplayName = null)
             : this(
                 tickIndex,
                 shouldUpdateTickIndex,
@@ -52,7 +56,10 @@ namespace Game.Feature.UI.Application
                 canStartAnyActionThisTick,
                 hasExplicitPushCandidateInCurrentDirection,
                 hasRemainingChances,
-                remainingChances)
+                remainingChances,
+                maxChances,
+                stageId,
+                stageDisplayName)
         {
         }
 
@@ -79,7 +86,10 @@ namespace Game.Feature.UI.Application
             bool canStartAnyActionThisTick = false,
             bool hasExplicitPushCandidateInCurrentDirection = false,
             bool hasRemainingChances = false,
-            int remainingChances = 0)
+            int remainingChances = 0,
+            int maxChances = 0,
+            StageId stageId = default,
+            string stageDisplayName = null)
         {
             TickIndex = tickIndex;
             ShouldUpdateTickIndex = shouldUpdateTickIndex;
@@ -103,6 +113,11 @@ namespace Game.Feature.UI.Application
             HasExplicitPushCandidateInCurrentDirection = hasExplicitPushCandidateInCurrentDirection;
             HasRemainingChances = hasRemainingChances;
             RemainingChances = remainingChances;
+            MaxChances = maxChances > 0
+                ? maxChances
+                : (hasRemainingChances ? remainingChances : 0);
+            StageId = stageId;
+            StageDisplayName = stageDisplayName ?? string.Empty;
             RecoveryCooldown = recoveryCooldown;
         }
 
@@ -149,6 +164,12 @@ namespace Game.Feature.UI.Application
         public bool HasRemainingChances { get; }
 
         public int RemainingChances { get; }
+
+        public int MaxChances { get; }
+
+        public StageId StageId { get; }
+
+        public string StageDisplayName { get; }
 
         public UIRecoveryCooldownSlice? RecoveryCooldown { get; }
     }
@@ -216,6 +237,7 @@ namespace Game.Feature.UI.Application
             next = new UIPresentationSnapshot(
                 next.Tick,
                 next.Interaction,
+                next.Stage,
                 next.Player,
                 new UINotificationLedgerSlice(notifications));
 
@@ -237,6 +259,9 @@ namespace Game.Feature.UI.Application
                 refreshInput.CanAcceptGameplayCommands,
                 refreshInput.HasBlockingGameplayPresentation,
                 refreshInput.IsUiGameplayInputBlocked);
+            var stage = new UIStageSlice(
+                refreshInput.StageId,
+                refreshInput.StageDisplayName);
             var player = new UIPlayerActionSlice(
                 refreshInput.PlayerEntityId,
                 refreshInput.CurrentHp,
@@ -255,11 +280,13 @@ namespace Game.Feature.UI.Application
                 refreshInput.CanStartAnyActionThisTick,
                 refreshInput.HasExplicitPushCandidateInCurrentDirection,
                 refreshInput.HasRemainingChances,
-                refreshInput.RemainingChances);
+                refreshInput.RemainingChances,
+                refreshInput.MaxChances);
 
             return new UIPresentationSnapshot(
                 tick,
                 interaction,
+                stage,
                 player,
                 previous.Notifications);
         }
@@ -274,6 +301,7 @@ namespace Game.Feature.UI.Application
                     return new UIPresentationSnapshot(
                         snapshot.Tick,
                         snapshot.Interaction,
+                        snapshot.Stage,
                         new UIPlayerActionSlice(
                             snapshot.Player.PlayerEntityId,
                             snapshot.Player.CurrentHp,
@@ -292,13 +320,15 @@ namespace Game.Feature.UI.Application
                             snapshot.Player.CanStartAnyActionThisTick,
                             snapshot.Player.HasExplicitPushCandidateInCurrentDirection,
                             snapshot.Player.HasRemainingChances,
-                            snapshot.Player.RemainingChances),
+                            snapshot.Player.RemainingChances,
+                            snapshot.Player.MaxChances),
                         snapshot.Notifications);
 
                 case UITickEventKind.PlayerDamaged:
                     return new UIPresentationSnapshot(
                         snapshot.Tick,
                         snapshot.Interaction,
+                        snapshot.Stage,
                         new UIPlayerActionSlice(
                             snapshot.Player.PlayerEntityId,
                             snapshot.Player.CurrentHp,
@@ -317,7 +347,8 @@ namespace Game.Feature.UI.Application
                             snapshot.Player.CanStartAnyActionThisTick,
                             snapshot.Player.HasExplicitPushCandidateInCurrentDirection,
                             snapshot.Player.HasRemainingChances,
-                            snapshot.Player.RemainingChances),
+                            snapshot.Player.RemainingChances,
+                            snapshot.Player.MaxChances),
                         snapshot.Notifications);
 
                 case UITickEventKind.StageCleared:
@@ -328,6 +359,7 @@ namespace Game.Feature.UI.Application
                             isStageCleared: true,
                             snapshot.Tick.IsTopologyTransitionActive),
                         snapshot.Interaction,
+                        snapshot.Stage,
                         snapshot.Player,
                         snapshot.Notifications);
 

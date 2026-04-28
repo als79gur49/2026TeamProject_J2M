@@ -1719,10 +1719,16 @@ namespace Game.Feature.UI.Application
             RefreshViewModel();
         }
 
-        public void SelectSection(SettingsSectionId sectionId)
+        public bool SelectSection(SettingsSectionId sectionId)
         {
+            if (_selectedSection == sectionId)
+            {
+                return false;
+            }
+
             _selectedSection = sectionId;
             RefreshViewModel();
+            return true;
         }
 
         public TooltipPopupPayload BuildTooltipInfoPayload()

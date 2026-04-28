@@ -164,6 +164,7 @@ namespace Game.Feature.Gameplay.Host
                 new GameplayHostCommandGateway(inputHost, admissionPolicy),
                 new GameplayQueryFacade(
                     new GameplayHostSessionQuery(tickRunner, pauseService, admissionPolicy),
+                    new GameplayHostStageQuery(configuration.StageContentEntry),
                     new GameplayHostPlayerHudQuery(
                         tickRunner,
                         inputHost,

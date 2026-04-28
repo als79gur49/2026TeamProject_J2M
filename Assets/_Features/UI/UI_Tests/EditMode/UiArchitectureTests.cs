@@ -84,6 +84,7 @@ namespace Game.Feature.UI.Tests
             var representativePresenterAssemblies = new[]
             {
                 typeof(HUDRootPresenter).Assembly,
+                typeof(StageInfoPresenter).Assembly,
                 typeof(PlayerStatusPresenter).Assembly,
                 typeof(ActionBarPresenter).Assembly,
                 typeof(NotificationPresenter).Assembly,
@@ -189,6 +190,7 @@ namespace Game.Feature.UI.Tests
             var presenterTypes = new[]
             {
                 typeof(HUDRootPresenter),
+                typeof(StageInfoPresenter),
                 typeof(PlayerStatusPresenter),
                 typeof(ActionBarPresenter),
                 typeof(NotificationPresenter),
@@ -267,7 +269,7 @@ namespace Game.Feature.UI.Tests
                 .OrderBy(name => name)
                 .ToArray();
 
-            Assert.That(propertyNames, Is.EqualTo(new[] { "Objectives", "PlayerHud", "Session" }));
+            Assert.That(propertyNames, Is.EqualTo(new[] { "Objectives", "PlayerHud", "Session", "Stage" }));
         }
 
         [Test]
@@ -303,8 +305,8 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo(new[]
                 {
                     typeof(IGameplayUiPresentationSource),
+                    typeof(StageInfoPresenter),
                     typeof(PlayerStatusPresenter),
-                    typeof(ActionBarPresenter),
                     typeof(NotificationPresenter),
                 }));
 
@@ -351,7 +353,7 @@ namespace Game.Feature.UI.Tests
                 .OrderBy(name => name)
                 .ToArray();
 
-            Assert.That(propertyNames, Is.EqualTo(new[] { "IsDimmed", "IsPauseButtonEnabled", "IsVisible" }));
+            Assert.That(propertyNames, Is.EqualTo(new[] { "IsDimmed", "IsGameplayReadOnly", "IsPauseButtonEnabled", "IsVisible" }));
         }
 
         [Test]
@@ -408,10 +410,11 @@ namespace Game.Feature.UI.Tests
                 propertyNames,
                 Is.EqualTo(new[]
                 {
-                    "ActionBarViewModel",
+                    "IsGameplayReadOnly",
                     "NotificationViewModel",
                     "PlayerStatusViewModel",
                     "RootViewModel",
+                    "StageInfoViewModel",
                 }));
 
             var methodNames = typeof(HUDController)
@@ -429,6 +432,7 @@ namespace Game.Feature.UI.Tests
             var presenterTypes = new[]
             {
                 typeof(HUDRootPresenter),
+                typeof(StageInfoPresenter),
                 typeof(PlayerStatusPresenter),
                 typeof(ActionBarPresenter),
                 typeof(NotificationPresenter),

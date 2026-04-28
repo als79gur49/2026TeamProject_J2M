@@ -93,11 +93,28 @@ namespace Game.Feature.UI.Tests
                     UiAudioCueId.Toggle,
                     UiAudioCueId.AdjustValueCommit,
                     UiAudioCueId.Select,
+                    UiAudioCueId.Select,
                     UiAudioCueId.Toggle,
                 }));
 
             harness.UiAudioPort.Clear();
             view.ClickDisplayRevert();
+            Assert.That(harness.UiAudioPort.PlayedCueIds, Is.Empty);
+        }
+
+        [Test]
+        public void GameplayScreenRuntimeFactory_SettingsCurrentSectionTab_DoesNotEmitCue()
+        {
+            using var harness = UiAudioHarness.Create();
+
+            Assert.That(harness.Coordinator.OpenSettingsScreen(), Is.True);
+            harness.UiAudioPort.Clear();
+
+            var view = harness.ScreenLayerView.FindScreenView<SettingsScreenView>();
+            Assert.That(view, Is.Not.Null);
+
+            view.ClickAudioTab();
+
             Assert.That(harness.UiAudioPort.PlayedCueIds, Is.Empty);
         }
 

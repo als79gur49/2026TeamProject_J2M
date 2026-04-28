@@ -6,4 +6,9 @@ namespace Game.Feature.Gameplay.UIAccess.Queries
     {
         GameplaySessionReadModel Read();
     }
+
+    public interface IGameplayStageQuery
+    {
+        GameplayStageReadModel Read();
+    }
 }
