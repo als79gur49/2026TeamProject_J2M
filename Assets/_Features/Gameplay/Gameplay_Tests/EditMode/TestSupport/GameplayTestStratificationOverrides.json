@@ -1334,12 +1334,12 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.StageObjectiveSystemTests.ObjectiveClear_ExplicitPrimaryGoalSuppressesLegacySyntheticPrimary",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.StageObjectiveSystemTests.ObjectiveClear_PrimaryGoalConditionStatus_UsesStableId",
       "category": "Core",
       "contracts": [
         "stage_objective_condition_contract"
       ],
-      "reason": "Locked Core coverage for explicit PrimaryGoal suppressing legacy synthetic GoalZoneIds compatibility entries.",
+      "reason": "Locked Core coverage for explicit PrimaryGoal condition status metadata.",
       "locked": true
     },
     {

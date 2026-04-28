@@ -54,7 +54,7 @@ namespace Game.Feature.Gameplay.Objectives
                 _conditionEntries[i].Runtime.Advance(finalSnapshot, in tickFacts);
             }
 
-            var allConditionsSatisfied = AreAllRequiredConditionsSatisfied();
+            var allConditionsSatisfied = AreAllRequiredEntriesSatisfied();
             var goalReached = IsPrimaryGoalSatisfied();
             var shouldClear = ShouldClear(allConditionsSatisfied);
             var clearedThisTick = !_isCleared && shouldClear;
@@ -67,7 +67,7 @@ namespace Game.Feature.Gameplay.Objectives
             return _currentResult;
         }
 
-        private bool AreAllRequiredConditionsSatisfied()
+        private bool AreAllRequiredEntriesSatisfied()
         {
             if (_conditionEntries.Length == 0)
             {
@@ -103,7 +103,6 @@ namespace Game.Feature.Gameplay.Objectives
         {
             switch (_objectiveDefinition.CompletionPolicy)
             {
-                case StageCompletionPolicy.RequirePlayerOnGoalWithAllConditions:
                 case StageCompletionPolicy.RequireAllConditions:
                     return allConditionsSatisfied;
 
@@ -118,7 +117,7 @@ namespace Game.Feature.Gameplay.Objectives
             return new StageObjectiveTickResult(
                 hasObjective: true,
                 goalReached,
-                allConditionsSatisfied: AreAllRequiredConditionsSatisfied(),
+                allConditionsSatisfied: AreAllRequiredEntriesSatisfied(),
                 clearedThisTick,
                 isCleared: _isCleared,
                 conditionStatuses: BuildConditionStatuses());

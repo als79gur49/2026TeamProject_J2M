@@ -144,28 +144,24 @@ namespace Game.Feature.Stages
 
             var zoneDefinitions = BuildZoneRuntimeDefinitions(validated.Zones);
             var zonesById = BuildZoneLookup(zoneDefinitions);
-            var goalZones = BuildGoalZoneDefinitions(validated.Objective.GetGoalZoneIdsOrEmpty(), zonesById);
             if (validated.Objective.CompletionPolicy == StageCompletionPolicy.Disabled)
             {
                 return new StageObjectiveRuntimeDefinition(
                     StageCompletionPolicy.Disabled,
                     validated.PlayerEntityId,
                     zoneDefinitions,
-                    goalZones,
                     Array.Empty<StageObjectiveConditionRuntimeDefinitionEntry>());
             }
 
             var conditionEntries = BuildConditionRuntimeEntries(
                 validated,
                 zonesById,
-                goalZones,
                 timing);
 
             return new StageObjectiveRuntimeDefinition(
                 validated.Objective.CompletionPolicy,
                 validated.PlayerEntityId,
                 zoneDefinitions,
-                goalZones,
                 conditionEntries);
         }
 
@@ -211,35 +207,11 @@ namespace Game.Feature.Stages
             return zonesById;
         }
 
-        private static StageZoneRuntimeDefinition[] BuildGoalZoneDefinitions(
-            IReadOnlyList<string> goalZoneIds,
-            IReadOnlyDictionary<string, StageZoneRuntimeDefinition> zonesById)
-        {
-            if (goalZoneIds == null || goalZoneIds.Count == 0)
-            {
-                return Array.Empty<StageZoneRuntimeDefinition>();
-            }
-
-            var goalZones = new StageZoneRuntimeDefinition[goalZoneIds.Count];
-            for (var i = 0; i < goalZoneIds.Count; i++)
-            {
-                if (!zonesById.TryGetValue(goalZoneIds[i], out goalZones[i]))
-                {
-                    throw new InvalidOperationException(
-                        $"Objective references unknown goal zone id '{goalZoneIds[i]}'.");
-                }
-            }
-
-            return goalZones;
-        }
-
         private static StageObjectiveConditionRuntimeDefinitionEntry[] BuildConditionRuntimeEntries(
             StageDefinitionValidator.ValidatedStageData validated,
             IReadOnlyDictionary<string, StageZoneRuntimeDefinition> zonesById,
-            StageZoneRuntimeDefinition[] goalZones,
             StageSimulationTiming timing)
         {
-            var requiredConditions = validated.Objective.GetRequiredConditionsOrEmpty();
             var conditionEntries = validated.Objective.GetConditionEntriesOrEmpty();
 
             var compilationContext = new StageConditionCompilationContext(
@@ -249,25 +221,10 @@ namespace Game.Feature.Stages
                 timing);
             var runtimeEntries = new List<StageObjectiveConditionRuntimeDefinitionEntry>();
 
-            for (var i = 0; i < requiredConditions.Length; i++)
-            {
-                var runtimeDefinition = requiredConditions[i].Compile(in compilationContext);
-                runtimeEntries.Add(new StageObjectiveConditionRuntimeDefinitionEntry(
-                    runtimeDefinition,
-                    required: true,
-                    StageObjectiveConditionRole.None,
-                    $"legacy-required-{i}-{ResolveConditionAssetName(requiredConditions[i])}"));
-            }
-
-            var hasExplicitPrimaryGoal = false;
             for (var i = 0; i < conditionEntries.Length; i++)
             {
                 var authoringEntry = conditionEntries[i];
                 var runtimeDefinition = authoringEntry.Condition.Compile(in compilationContext);
-                if (authoringEntry.Role == StageObjectiveConditionRole.PrimaryGoal)
-                {
-                    hasExplicitPrimaryGoal = true;
-                }
 
                 runtimeEntries.Add(new StageObjectiveConditionRuntimeDefinitionEntry(
                     runtimeDefinition,
@@ -276,38 +233,9 @@ namespace Game.Feature.Stages
                     ResolveStableConditionId(authoringEntry.StableConditionId, i, runtimeDefinition)));
             }
 
-            if (!hasExplicitPrimaryGoal &&
-                goalZones != null &&
-                goalZones.Length > 0)
-            {
-                var required = validated.Objective.CompletionPolicy == StageCompletionPolicy.RequirePlayerOnGoalWithAllConditions;
-                runtimeEntries.Add(new StageObjectiveConditionRuntimeDefinitionEntry(
-                    new PlayerAtAnyZoneConditionRuntimeDefinition(
-                        "legacy-primary-goal",
-                        "Primary Goal",
-                        validated.PlayerEntityId,
-                        goalZones,
-                        requireAlive: true),
-                    required,
-                    StageObjectiveConditionRole.PrimaryGoal,
-                    "legacy-primary-goal"));
-            }
-
             return runtimeEntries.Count == 0
                 ? Array.Empty<StageObjectiveConditionRuntimeDefinitionEntry>()
                 : runtimeEntries.ToArray();
-        }
-
-        private static string ResolveConditionAssetName(StageConditionAsset condition)
-        {
-            if (condition == null)
-            {
-                return "null";
-            }
-
-            return string.IsNullOrWhiteSpace(condition.name)
-                ? condition.GetType().Name
-                : condition.name.Trim();
         }
 
         private static string ResolveStableConditionId(

@@ -9,9 +9,6 @@ namespace Game.Feature.Gameplay.Objectives
     public enum StageCompletionPolicy
     {
         Disabled = 0,
-        // TODO(goal-zone-condition-followup): alias or remove this legacy policy after migrated assets use PrimaryGoal condition entries.
-        [Obsolete("Goal zone objective role is now represented by a PrimaryGoal PlayerAtAnyZone condition. Kept for serialized compatibility.", false)]
-        RequirePlayerOnGoalWithAllConditions = 1,
         RequireAllConditions = 2,
     }
 
@@ -381,38 +378,18 @@ namespace Game.Feature.Gameplay.Objectives
             StageCompletionPolicy.Disabled,
             0,
             Array.Empty<StageZoneRuntimeDefinition>(),
-            Array.Empty<StageZoneRuntimeDefinition>(),
             Array.Empty<StageObjectiveConditionRuntimeDefinitionEntry>());
 
         public StageObjectiveRuntimeDefinition(
             StageCompletionPolicy completionPolicy,
             int playerEntityId,
             StageZoneRuntimeDefinition[] zones,
-            StageZoneRuntimeDefinition[] goalZones,
-            StageConditionRuntimeDefinition[] requiredConditions)
-            : this(
-                completionPolicy,
-                playerEntityId,
-                zones,
-                goalZones,
-                BuildCompatibilityEntries(completionPolicy, playerEntityId, goalZones, requiredConditions))
-        {
-        }
-
-        public StageObjectiveRuntimeDefinition(
-            StageCompletionPolicy completionPolicy,
-            int playerEntityId,
-            StageZoneRuntimeDefinition[] zones,
-            StageZoneRuntimeDefinition[] goalZones,
             StageObjectiveConditionRuntimeDefinitionEntry[] conditionEntries)
         {
             CompletionPolicy = completionPolicy;
             PlayerEntityId = playerEntityId;
             Zones = zones ?? Array.Empty<StageZoneRuntimeDefinition>();
-            // TODO(goal-zone-condition-followup): remove GoalZones after content assets finish migrating to PrimaryGoal condition entries.
-            GoalZones = goalZones ?? Array.Empty<StageZoneRuntimeDefinition>();
             ConditionEntries = ValidateConditionEntries(conditionEntries);
-            RequiredConditions = ExtractLegacyRequiredConditionDefinitions(ConditionEntries);
         }
 
         public StageCompletionPolicy CompletionPolicy { get; }
@@ -420,11 +397,6 @@ namespace Game.Feature.Gameplay.Objectives
         public int PlayerEntityId { get; }
 
         public IReadOnlyList<StageZoneRuntimeDefinition> Zones { get; }
-
-        [Obsolete("Goal zone objective role is now represented by a PrimaryGoal PlayerAtAnyZone condition. Kept for serialized compatibility.", false)]
-        public IReadOnlyList<StageZoneRuntimeDefinition> GoalZones { get; }
-
-        public IReadOnlyList<StageConditionRuntimeDefinition> RequiredConditions { get; }
 
         public IReadOnlyList<StageObjectiveConditionRuntimeDefinitionEntry> ConditionEntries { get; }
 
@@ -437,9 +409,6 @@ namespace Game.Feature.Gameplay.Objectives
                     case StageCompletionPolicy.Disabled:
                         return false;
 
-                    case StageCompletionPolicy.RequirePlayerOnGoalWithAllConditions:
-                        return PlayerEntityId > 0 && HasRequiredPrimaryGoalEntry();
-
                     case StageCompletionPolicy.RequireAllConditions:
                         return HasRequiredConditionEntries();
 
@@ -447,35 +416,6 @@ namespace Game.Feature.Gameplay.Objectives
                         return false;
                 }
             }
-        }
-
-        // TODO(goal-zone-condition-followup): delete this helper after no callers need legacy GoalZones compatibility.
-        [Obsolete("Goal zone objective role is now represented by a PrimaryGoal PlayerAtAnyZone condition. Kept for serialized compatibility.", false)]
-        public bool IsPlayerOnGoal(WorldSnapshot finalSnapshot)
-        {
-            if (finalSnapshot == null)
-            {
-                throw new ArgumentNullException(nameof(finalSnapshot));
-            }
-
-            if (GoalZones.Count == 0 ||
-                PlayerEntityId <= 0 ||
-                !finalSnapshot.TryGetEntity(PlayerEntityId, out var player) ||
-                player.hp <= 0 ||
-                player.markedForDeath)
-            {
-                return false;
-            }
-
-            for (var i = 0; i < GoalZones.Count; i++)
-            {
-                if (GoalZones[i].Contains(player.position))
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         public StageObjectiveTracker CreateTracker()
@@ -536,61 +476,6 @@ namespace Game.Feature.Gameplay.Objectives
             return false;
         }
 
-        private bool HasRequiredPrimaryGoalEntry()
-        {
-            for (var i = 0; i < ConditionEntries.Count; i++)
-            {
-                if (ConditionEntries[i].Required &&
-                    ConditionEntries[i].Role == StageObjectiveConditionRole.PrimaryGoal)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static StageObjectiveConditionRuntimeDefinitionEntry[] BuildCompatibilityEntries(
-            StageCompletionPolicy completionPolicy,
-            int playerEntityId,
-            StageZoneRuntimeDefinition[] goalZones,
-            StageConditionRuntimeDefinition[] requiredConditions)
-        {
-            var entries = new List<StageObjectiveConditionRuntimeDefinitionEntry>();
-            var effectiveRequiredConditions = requiredConditions ?? Array.Empty<StageConditionRuntimeDefinition>();
-            for (var i = 0; i < effectiveRequiredConditions.Length; i++)
-            {
-                if (effectiveRequiredConditions[i] == null)
-                {
-                    continue;
-                }
-
-                entries.Add(new StageObjectiveConditionRuntimeDefinitionEntry(
-                    effectiveRequiredConditions[i],
-                    required: true,
-                    StageObjectiveConditionRole.None,
-                    effectiveRequiredConditions[i].ConditionId));
-            }
-
-            if (completionPolicy != StageCompletionPolicy.Disabled &&
-                goalZones != null &&
-                goalZones.Length > 0)
-            {
-                entries.Add(new StageObjectiveConditionRuntimeDefinitionEntry(
-                    new PlayerAtAnyZoneConditionRuntimeDefinition(
-                        "legacy-primary-goal",
-                        "Primary Goal",
-                        playerEntityId,
-                        goalZones,
-                        requireAlive: true),
-                    required: completionPolicy == StageCompletionPolicy.RequirePlayerOnGoalWithAllConditions,
-                    StageObjectiveConditionRole.PrimaryGoal,
-                    "legacy-primary-goal"));
-            }
-
-            return entries.ToArray();
-        }
-
         private static StageObjectiveConditionRuntimeDefinitionEntry[] ValidateConditionEntries(
             StageObjectiveConditionRuntimeDefinitionEntry[] conditionEntries)
         {
@@ -627,27 +512,6 @@ namespace Game.Feature.Gameplay.Objectives
             }
 
             return normalized;
-        }
-
-        private static StageConditionRuntimeDefinition[] ExtractLegacyRequiredConditionDefinitions(
-            IReadOnlyList<StageObjectiveConditionRuntimeDefinitionEntry> conditionEntries)
-        {
-            if (conditionEntries == null || conditionEntries.Count == 0)
-            {
-                return Array.Empty<StageConditionRuntimeDefinition>();
-            }
-
-            var requiredConditions = new List<StageConditionRuntimeDefinition>();
-            for (var i = 0; i < conditionEntries.Count; i++)
-            {
-                var entry = conditionEntries[i];
-                if (entry.Required && entry.Role != StageObjectiveConditionRole.PrimaryGoal)
-                {
-                    requiredConditions.Add(entry.Condition);
-                }
-            }
-
-            return requiredConditions.ToArray();
         }
     }
 

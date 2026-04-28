@@ -97,36 +97,10 @@ namespace Game.Feature.Stages
             StageObjectiveAuthoring objective,
             IReadOnlyList<StageZoneDefinition> zones)
         {
-            var normalizedGoalZoneIds = objective.GetGoalZoneIdsOrEmpty();
-            var requiredConditions = objective.GetRequiredConditionsOrEmpty();
             var conditionEntries = objective.GetConditionEntriesOrEmpty();
             var zonesById = BuildZonesById(zones);
             var validationContext = new StageConditionValidationContext(stageName, zonesById);
-            var normalizedGoalIds = new string[normalizedGoalZoneIds.Length];
 
-            for (var i = 0; i < normalizedGoalZoneIds.Length; i++)
-            {
-                var goalZoneId = normalizedGoalZoneIds[i];
-                if (string.IsNullOrWhiteSpace(goalZoneId))
-                {
-                    throw new InvalidOperationException(
-                        $"Stage '{stageName}' objective contains an empty goal zone id at index {i}.");
-                }
-
-                var normalizedGoalZoneId = goalZoneId.Trim();
-                if (!zonesById.ContainsKey(normalizedGoalZoneId))
-                {
-                    throw new InvalidOperationException(
-                        $"Stage '{stageName}' objective references unknown goal zone id '{normalizedGoalZoneId}'.");
-                }
-
-                normalizedGoalIds[i] = normalizedGoalZoneId;
-            }
-
-            var normalizedConditions = ValidateRequiredConditions(
-                stageName,
-                requiredConditions,
-                in validationContext);
             var normalizedConditionEntries = ValidateConditionEntries(
                 stageName,
                 conditionEntries,
@@ -135,44 +109,13 @@ namespace Game.Feature.Stages
             ValidateCompletionPolicy(
                 stageName,
                 objective.CompletionPolicy,
-                normalizedGoalIds,
-                normalizedConditions,
                 normalizedConditionEntries);
 
             return new StageObjectiveAuthoring
             {
                 CompletionPolicy = objective.CompletionPolicy,
-                GoalZoneIds = normalizedGoalIds,
-                RequiredConditions = normalizedConditions,
                 ConditionEntries = normalizedConditionEntries,
             };
-        }
-
-        private static StageConditionAsset[] ValidateRequiredConditions(
-            string stageName,
-            IReadOnlyList<StageConditionAsset> requiredConditions,
-            in StageConditionValidationContext validationContext)
-        {
-            if (requiredConditions == null || requiredConditions.Count == 0)
-            {
-                return Array.Empty<StageConditionAsset>();
-            }
-
-            var normalizedConditions = new StageConditionAsset[requiredConditions.Count];
-            for (var i = 0; i < requiredConditions.Count; i++)
-            {
-                var condition = requiredConditions[i];
-                if (condition == null)
-                {
-                    throw new InvalidOperationException(
-                        $"Stage '{stageName}' objective contains a null condition asset at index {i}.");
-                }
-
-                condition.Validate(in validationContext);
-                normalizedConditions[i] = condition;
-            }
-
-            return normalizedConditions;
         }
 
         private static StageObjectiveConditionEntry[] ValidateConditionEntries(
@@ -233,8 +176,6 @@ namespace Game.Feature.Stages
         private static void ValidateCompletionPolicy(
             string stageName,
             StageCompletionPolicy completionPolicy,
-            IReadOnlyList<string> goalZoneIds,
-            IReadOnlyList<StageConditionAsset> requiredConditions,
             IReadOnlyList<StageObjectiveConditionEntry> conditionEntries)
         {
             switch (completionPolicy)
@@ -242,32 +183,15 @@ namespace Game.Feature.Stages
                 case StageCompletionPolicy.Disabled:
                     return;
 
-                case StageCompletionPolicy.RequirePlayerOnGoalWithAllConditions:
-                    if (!HasLegacyGoalZoneIds(goalZoneIds) &&
-                        !HasRequiredPrimaryGoal(conditionEntries))
-                    {
-                        throw new InvalidOperationException(
-                            $"Stage '{stageName}' objective policy {completionPolicy} requires at least one goal zone id or one required PrimaryGoal condition entry.");
-                    }
-
-                    if (HasAnyPrimaryGoal(conditionEntries) &&
-                        !HasRequiredPrimaryGoal(conditionEntries))
-                    {
-                        throw new InvalidOperationException(
-                            $"Stage '{stageName}' objective policy {completionPolicy} requires the explicit PrimaryGoal condition entry to be required.");
-                    }
-
-                    return;
-
                 case StageCompletionPolicy.RequireAllConditions:
-                    var requiredConditionCount = CountRequiredConditions(requiredConditions, conditionEntries);
+                    var requiredConditionCount = CountRequiredEntries(conditionEntries);
                     if (requiredConditionCount == 0)
                     {
                         throw new InvalidOperationException(
                             $"Stage '{stageName}' objective policy {completionPolicy} requires at least one required condition.");
                     }
 
-                    if (ContainsOnlyTimeLimitConditions(requiredConditions, conditionEntries))
+                    if (ContainsOnlyTimeLimitEntries(conditionEntries))
                     {
                         throw new InvalidOperationException(
                             $"Stage '{stageName}' objective policy {completionPolicy} cannot use only time limit conditions because it would clear immediately.");
@@ -281,53 +205,9 @@ namespace Game.Feature.Stages
             }
         }
 
-        private static bool HasLegacyGoalZoneIds(IReadOnlyList<string> goalZoneIds)
+        private static int CountRequiredEntries(IReadOnlyList<StageObjectiveConditionEntry> conditionEntries)
         {
-            return goalZoneIds != null && goalZoneIds.Count > 0;
-        }
-
-        private static bool HasAnyPrimaryGoal(IReadOnlyList<StageObjectiveConditionEntry> conditionEntries)
-        {
-            if (conditionEntries == null)
-            {
-                return false;
-            }
-
-            for (var i = 0; i < conditionEntries.Count; i++)
-            {
-                if (conditionEntries[i].Role == StageObjectiveConditionRole.PrimaryGoal)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static bool HasRequiredPrimaryGoal(IReadOnlyList<StageObjectiveConditionEntry> conditionEntries)
-        {
-            if (conditionEntries == null)
-            {
-                return false;
-            }
-
-            for (var i = 0; i < conditionEntries.Count; i++)
-            {
-                if (conditionEntries[i].Role == StageObjectiveConditionRole.PrimaryGoal &&
-                    conditionEntries[i].Required)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static int CountRequiredConditions(
-            IReadOnlyList<StageConditionAsset> requiredConditions,
-            IReadOnlyList<StageObjectiveConditionEntry> conditionEntries)
-        {
-            var count = requiredConditions?.Count ?? 0;
+            var count = 0;
             if (conditionEntries != null)
             {
                 for (var i = 0; i < conditionEntries.Count; i++)
@@ -342,25 +222,13 @@ namespace Game.Feature.Stages
             return count;
         }
 
-        private static bool ContainsOnlyTimeLimitConditions(
-            IReadOnlyList<StageConditionAsset> requiredConditions,
+        private static bool ContainsOnlyTimeLimitEntries(
             IReadOnlyList<StageObjectiveConditionEntry> conditionEntries)
         {
-            var requiredConditionCount = CountRequiredConditions(requiredConditions, conditionEntries);
+            var requiredConditionCount = CountRequiredEntries(conditionEntries);
             if (requiredConditionCount == 0)
             {
                 return false;
-            }
-
-            if (requiredConditions != null)
-            {
-                for (var i = 0; i < requiredConditions.Count; i++)
-                {
-                    if (requiredConditions[i] is not ClearWithinTimeLimitConditionAsset)
-                    {
-                        return false;
-                    }
-                }
             }
 
             if (conditionEntries != null)

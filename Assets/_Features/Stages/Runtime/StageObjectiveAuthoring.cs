@@ -29,23 +29,7 @@ namespace Game.Feature.Stages
     public struct StageObjectiveAuthoring
     {
         public StageCompletionPolicy CompletionPolicy;
-        // TODO(goal-zone-condition-followup): remove after StageContentEntry assets are migrated to PrimaryGoal PlayerAtAnyZone condition entries.
-        [Obsolete("Goal zone objective role is now represented by a PrimaryGoal PlayerAtAnyZone condition. Kept for serialized compatibility.", false)]
-        [Tooltip("Deprecated. Use ConditionEntries with Role=PrimaryGoal and PlayerAtAnyZoneConditionAsset. Kept for serialized compatibility.")]
-        public string[] GoalZoneIds;
-        [Tooltip("Legacy required conditions. New authoring should use ConditionEntries.")]
-        public StageConditionAsset[] RequiredConditions;
         public StageObjectiveConditionEntry[] ConditionEntries;
-
-        public string[] GetGoalZoneIdsOrEmpty()
-        {
-            return GoalZoneIds ?? Array.Empty<string>();
-        }
-
-        public StageConditionAsset[] GetRequiredConditionsOrEmpty()
-        {
-            return RequiredConditions ?? Array.Empty<StageConditionAsset>();
-        }
 
         public StageObjectiveConditionEntry[] GetConditionEntriesOrEmpty()
         {
@@ -57,8 +41,6 @@ namespace Game.Feature.Stages
             return new StageObjectiveAuthoring
             {
                 CompletionPolicy = StageCompletionPolicy.Disabled,
-                GoalZoneIds = Array.Empty<string>(),
-                RequiredConditions = Array.Empty<StageConditionAsset>(),
                 ConditionEntries = Array.Empty<StageObjectiveConditionEntry>(),
             };
         }

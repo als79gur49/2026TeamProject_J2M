@@ -692,7 +692,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(
                 clearedResult.ObjectiveResult.ConditionStatuses.Single(status =>
                     status.Role == StageObjectiveConditionRole.PrimaryGoal).ConditionId,
-                Is.EqualTo("legacy-primary-goal"));
+                Is.EqualTo("primary-goal"));
         }
 
         private static TickResult RunSingleTickWithObjective(
@@ -726,11 +726,22 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 });
 
             return new StageObjectiveRuntimeDefinition(
-                StageCompletionPolicy.RequirePlayerOnGoalWithAllConditions,
+                StageCompletionPolicy.RequireAllConditions,
                 10,
                 new[] { goalZone },
-                new[] { goalZone },
-                Array.Empty<StageConditionRuntimeDefinition>());
+                new[]
+                {
+                    new StageObjectiveConditionRuntimeDefinitionEntry(
+                        new PlayerAtAnyZoneConditionRuntimeDefinition(
+                            "primary-goal",
+                            "Primary Goal",
+                            10,
+                            new[] { goalZone },
+                            requireAlive: true),
+                        required: true,
+                        StageObjectiveConditionRole.PrimaryGoal,
+                        "primary-goal"),
+                });
         }
 
         private static PlayerControlTimingAuthoritativeSnapshot CreateDefaultPlayerControlTimingSnapshot(GameplayTimingProfile timingProfile)
