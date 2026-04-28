@@ -6,6 +6,8 @@ namespace Game.Feature.Gameplay.UIAccess.Contracts
     {
         IGameplaySessionQuery Session { get; }
 
+        IGameplayStageQuery Stage { get; }
+
         IGameplayPlayerHudQuery PlayerHud { get; }
 
         IGameplayObjectiveQuery Objectives { get; }

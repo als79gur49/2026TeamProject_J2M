@@ -192,10 +192,12 @@ namespace Game.Feature.UI.Composition
                 _displayPreviewTimeoutRelay);
 
             var playerStatusPresenter = new PlayerStatusPresenter();
+            var stageInfoPresenter = new StageInfoPresenter();
             var actionBarPresenter = new ActionBarPresenter();
             var notificationPresenter = new NotificationPresenter();
             HudRootPresenter = new HUDRootPresenter(
                 PresentationSource,
+                stageInfoPresenter,
                 playerStatusPresenter,
                 actionBarPresenter,
                 notificationPresenter);
@@ -215,6 +217,7 @@ namespace Game.Feature.UI.Composition
                 _screenPrefabCatalog));
             HudController = new HUDController(
                 HudRootPresenter.ViewModel,
+                stageInfoPresenter.ViewModel,
                 playerStatusPresenter.ViewModel,
                 actionBarPresenter.ViewModel,
                 notificationPresenter.ViewModel);

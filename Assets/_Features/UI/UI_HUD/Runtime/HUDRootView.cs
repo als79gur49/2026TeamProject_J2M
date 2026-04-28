@@ -1,5 +1,6 @@
 using System;
 using DG.Tweening;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -16,11 +17,13 @@ namespace Game.Feature.UI.HUD
         [SerializeField] private GameObject _root;
         [SerializeField] private CanvasGroup _shellCanvasGroup;
         [SerializeField] private Button _pauseButton;
+        [SerializeField] private TMP_Text _stageNameLabel;
         [SerializeField] private PlayerStatusView _playerStatusView;
         [SerializeField] private ActionBarView _actionBarView;
         [SerializeField] private NotificationView _notificationView;
 
         private HUDRootViewModel _viewModel;
+        private StageInfoViewModel _stageInfoViewModel;
         private bool _isVisible = true;
         private Tween _shellTween;
         private bool _lastRootVisibleState;
@@ -36,6 +39,8 @@ namespace Game.Feature.UI.HUD
         public NotificationView NotificationView => _notificationView;
 
         public HUDRootViewModel ViewModel => _viewModel;
+
+        public StageInfoViewModel StageInfoViewModel => _stageInfoViewModel;
 
         public bool IsVisible
         {
@@ -61,6 +66,22 @@ namespace Game.Feature.UI.HUD
             }
 
             RefreshView();
+        }
+
+        public void BindStageInfo(StageInfoViewModel viewModel)
+        {
+            if (_stageInfoViewModel != null)
+            {
+                _stageInfoViewModel.Changed -= HandleStageInfoViewModelChanged;
+            }
+
+            _stageInfoViewModel = viewModel;
+            if (_stageInfoViewModel != null)
+            {
+                _stageInfoViewModel.Changed += HandleStageInfoViewModelChanged;
+            }
+
+            RefreshStageName();
         }
 
         public void ClickPause()
@@ -99,6 +120,7 @@ namespace Game.Feature.UI.HUD
             ValidateSerializedReference(_root, nameof(_root));
             ValidateSerializedReference(_shellCanvasGroup, nameof(_shellCanvasGroup));
             ValidateSerializedReference(_pauseButton, nameof(_pauseButton));
+            ValidateSerializedReference(_stageNameLabel, nameof(_stageNameLabel));
             ValidateSerializedReference(_playerStatusView, nameof(_playerStatusView));
             ValidateSerializedReference(_actionBarView, nameof(_actionBarView));
             ValidateSerializedReference(_notificationView, nameof(_notificationView));
@@ -113,6 +135,11 @@ namespace Game.Feature.UI.HUD
                 _viewModel.Changed -= HandleViewModelChanged;
             }
 
+            if (_stageInfoViewModel != null)
+            {
+                _stageInfoViewModel.Changed -= HandleStageInfoViewModelChanged;
+            }
+
             if (_pauseButton != null)
             {
                 _pauseButton.onClick.RemoveListener(ClickPause);
@@ -122,6 +149,11 @@ namespace Game.Feature.UI.HUD
         private void HandleViewModelChanged()
         {
             RefreshView();
+        }
+
+        private void HandleStageInfoViewModelChanged()
+        {
+            RefreshStageName();
         }
 
         private void RefreshView()
@@ -183,6 +215,20 @@ namespace Game.Feature.UI.HUD
             {
                 _pauseButton.interactable = _viewModel != null && _viewModel.IsPauseButtonEnabled;
             }
+
+            RefreshStageName();
+        }
+
+        private void RefreshStageName()
+        {
+            if (_stageNameLabel == null)
+            {
+                return;
+            }
+
+            var hasStageName = _stageInfoViewModel != null && _stageInfoViewModel.HasStageName;
+            _stageNameLabel.gameObject.SetActive(hasStageName);
+            _stageNameLabel.text = hasStageName ? _stageInfoViewModel.StageName : string.Empty;
         }
 
         private void ApplyShellAlphaImmediate(float alpha)

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.UIAccess.Models;
+using Game.Feature.Stages;
 
 namespace Game.Feature.UI.Application
 {
@@ -29,7 +30,9 @@ namespace Game.Feature.UI.Application
             bool hasExplicitPushCandidateInCurrentDirection = false,
             bool hasRemainingChances = false,
             int remainingChances = 0,
-            int maxChances = 0)
+            int maxChances = 0,
+            StageId stageId = default,
+            string stageDisplayName = null)
             : this(
                 tickIndex,
                 shouldUpdateTickIndex,
@@ -54,7 +57,9 @@ namespace Game.Feature.UI.Application
                 hasExplicitPushCandidateInCurrentDirection,
                 hasRemainingChances,
                 remainingChances,
-                maxChances)
+                maxChances,
+                stageId,
+                stageDisplayName)
         {
         }
 
@@ -82,7 +87,9 @@ namespace Game.Feature.UI.Application
             bool hasExplicitPushCandidateInCurrentDirection = false,
             bool hasRemainingChances = false,
             int remainingChances = 0,
-            int maxChances = 0)
+            int maxChances = 0,
+            StageId stageId = default,
+            string stageDisplayName = null)
         {
             TickIndex = tickIndex;
             ShouldUpdateTickIndex = shouldUpdateTickIndex;
@@ -109,6 +116,8 @@ namespace Game.Feature.UI.Application
             MaxChances = maxChances > 0
                 ? maxChances
                 : (hasRemainingChances ? remainingChances : 0);
+            StageId = stageId;
+            StageDisplayName = stageDisplayName ?? string.Empty;
             RecoveryCooldown = recoveryCooldown;
         }
 
@@ -157,6 +166,10 @@ namespace Game.Feature.UI.Application
         public int RemainingChances { get; }
 
         public int MaxChances { get; }
+
+        public StageId StageId { get; }
+
+        public string StageDisplayName { get; }
 
         public UIRecoveryCooldownSlice? RecoveryCooldown { get; }
     }
@@ -224,6 +237,7 @@ namespace Game.Feature.UI.Application
             next = new UIPresentationSnapshot(
                 next.Tick,
                 next.Interaction,
+                next.Stage,
                 next.Player,
                 new UINotificationLedgerSlice(notifications));
 
@@ -245,6 +259,9 @@ namespace Game.Feature.UI.Application
                 refreshInput.CanAcceptGameplayCommands,
                 refreshInput.HasBlockingGameplayPresentation,
                 refreshInput.IsUiGameplayInputBlocked);
+            var stage = new UIStageSlice(
+                refreshInput.StageId,
+                refreshInput.StageDisplayName);
             var player = new UIPlayerActionSlice(
                 refreshInput.PlayerEntityId,
                 refreshInput.CurrentHp,
@@ -269,6 +286,7 @@ namespace Game.Feature.UI.Application
             return new UIPresentationSnapshot(
                 tick,
                 interaction,
+                stage,
                 player,
                 previous.Notifications);
         }
@@ -283,6 +301,7 @@ namespace Game.Feature.UI.Application
                     return new UIPresentationSnapshot(
                         snapshot.Tick,
                         snapshot.Interaction,
+                        snapshot.Stage,
                         new UIPlayerActionSlice(
                             snapshot.Player.PlayerEntityId,
                             snapshot.Player.CurrentHp,
@@ -309,6 +328,7 @@ namespace Game.Feature.UI.Application
                     return new UIPresentationSnapshot(
                         snapshot.Tick,
                         snapshot.Interaction,
+                        snapshot.Stage,
                         new UIPlayerActionSlice(
                             snapshot.Player.PlayerEntityId,
                             snapshot.Player.CurrentHp,
@@ -339,6 +359,7 @@ namespace Game.Feature.UI.Application
                             isStageCleared: true,
                             snapshot.Tick.IsTopologyTransitionActive),
                         snapshot.Interaction,
+                        snapshot.Stage,
                         snapshot.Player,
                         snapshot.Notifications);
 

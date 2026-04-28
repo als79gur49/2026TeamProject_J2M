@@ -161,6 +161,7 @@ namespace Game.Feature.UI.Application
             bool shouldUpdateFinalTopology)
         {
             var session = _queryFacade.Session.Read();
+            var stage = _queryFacade.Stage.Read();
             var playerHud = _queryFacade.PlayerHud.Read();
             var player = frame.HasValue && frame.Value.Player.HasValue
                 ? frame.Value.Player.Value
@@ -198,7 +199,9 @@ namespace Game.Feature.UI.Application
                 playerHud.HasExplicitPushCandidateInCurrentDirection,
                 playerHud.HasRemainingChances,
                 playerHud.RemainingChances,
-                playerHud.MaxChances);
+                playerHud.MaxChances,
+                stage.StageId,
+                stage.DisplayName);
         }
 
         private static UIRecoveryCooldownSlice? MapRecoveryCooldown(GameplayUiRecoveryCooldown? recoveryCooldown)

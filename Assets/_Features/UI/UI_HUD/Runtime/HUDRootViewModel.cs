@@ -23,4 +23,25 @@ namespace Game.Feature.UI.HUD
             Changed?.Invoke();
         }
     }
+
+    public sealed class StageInfoViewModel
+    {
+        public event Action Changed;
+
+        public string StageName { get; private set; } = string.Empty;
+
+        public bool HasStageName => !string.IsNullOrWhiteSpace(StageName);
+
+        public void SetStageName(string stageName)
+        {
+            var nextStageName = stageName ?? string.Empty;
+            if (string.Equals(StageName, nextStageName, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            StageName = nextStageName;
+            Changed?.Invoke();
+        }
+    }
 }

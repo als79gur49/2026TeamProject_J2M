@@ -69,6 +69,7 @@ MonoBehaviour:
   _root: {fileID: 100100}
   _shellCanvasGroup: {fileID: 225100}
   _pauseButton: {fileID: 114103}
+  _stageNameLabel: {fileID: 114101}
   _playerStatusView: {fileID: 114110}
   _actionBarView: {fileID: 114120}
   _notificationView: {fileID: 114140}
@@ -84,7 +85,7 @@ GameObject:
   - component: {fileID: 222101}
   - component: {fileID: 114101}
   m_Layer: 0
-  m_Name: Title
+  m_Name: StageName
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -137,7 +138,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Combat HUD
+  m_text:
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}

@@ -8,15 +8,18 @@ namespace Game.Feature.UI.Application
         private readonly ActionBarPresenter _actionBarPresenter;
         private readonly PlayerStatusPresenter _playerStatusPresenter;
         private readonly IGameplayUiPresentationSource _presentationSource;
+        private readonly StageInfoPresenter _stageInfoPresenter;
         private readonly NotificationPresenter _notificationPresenter;
 
         public HUDRootPresenter(
             IGameplayUiPresentationSource presentationSource,
+            StageInfoPresenter stageInfoPresenter,
             PlayerStatusPresenter playerStatusPresenter,
             ActionBarPresenter actionBarPresenter,
             NotificationPresenter notificationPresenter)
         {
             _presentationSource = presentationSource ?? throw new ArgumentNullException(nameof(presentationSource));
+            _stageInfoPresenter = stageInfoPresenter ?? throw new ArgumentNullException(nameof(stageInfoPresenter));
             _playerStatusPresenter = playerStatusPresenter ?? throw new ArgumentNullException(nameof(playerStatusPresenter));
             _actionBarPresenter = actionBarPresenter ?? throw new ArgumentNullException(nameof(actionBarPresenter));
             _notificationPresenter = notificationPresenter ?? throw new ArgumentNullException(nameof(notificationPresenter));
@@ -49,9 +52,20 @@ namespace Game.Feature.UI.Application
                 isPauseButtonEnabled: !snapshot.Interaction.IsPaused &&
                                       !snapshot.Interaction.IsUiGameplayInputBlocked);
 
+            _stageInfoPresenter.Apply(snapshot.Stage);
             _playerStatusPresenter.Apply(snapshot.Tick, snapshot.Interaction, snapshot.Player);
             _actionBarPresenter.Apply(snapshot.Tick, snapshot.Interaction, snapshot.Player);
             _notificationPresenter.Apply(snapshot.Notifications);
+        }
+    }
+
+    public sealed class StageInfoPresenter
+    {
+        public StageInfoViewModel ViewModel { get; } = new();
+
+        public void Apply(UIStageSlice stage)
+        {
+            ViewModel.SetStageName(stage.DisplayName);
         }
     }
 }
