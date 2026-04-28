@@ -169,6 +169,14 @@
 - regression validation은 hash, trace equality, final entities, event log를 우선 본다.
 - trace section name이나 synthetic normalized input token은 canonical contract가 아니다.
 
+## Stage Objective
+- `StageDefinition.Zones`는 stage-local spatial registry다. zone data 자체는 objective special field가 아니다.
+- Objective goal은 `StageObjectiveAuthoring.ConditionEntries`에 `PlayerAtAnyZoneConditionAsset`을 연결하고 entry `Role=PrimaryGoal`로 표시한다.
+- Objective clear 공식은 `Required=true` condition entry가 모두 satisfied인 것이다.
+- `GoalReached`는 유지되는 UI/read-model field지만 source는 `Role=PrimaryGoal` condition status의 `IsSatisfied`다.
+- `PrimaryGoal` entry가 없으면 `GoalReached=false`이며 required conditions만으로 clear될 수 있다.
+- legacy `GoalZoneIds`, `GoalZones`, `IsPlayerOnGoal`, `RequirePlayerOnGoalWithAllConditions` 경로는 제거되었다.
+
 ## Topology Visual Bridges
 - topology visual bridge는 scene-side presentation helper다.
 - bridge는 gameplay collision, movement, query, authoritative wall/entity/runtime data에 참여하지 않는다.
