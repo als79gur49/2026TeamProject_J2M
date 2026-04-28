@@ -335,8 +335,10 @@ MonoBehaviour:
     - MinInclusive: {x: 0, y: 5}
       MaxInclusive: {x: 0, y: 7}
   objective:
-    CompletionPolicy: 1
-    GoalZoneIds:
-    - 1
-    RequiredConditions: []
+    CompletionPolicy: 2
+    ConditionEntries:
+    - Condition: {fileID: 11400000, guid: 0a5ed70e5ae1212d3c1dee3e4107b5b2, type: 2}
+      Required: 1
+      Role: 1
+      StableConditionId: primary-goal
   enemyUnitArchetypeCatalog: {fileID: 11400000, guid: 5c5a7223f24e45109bfa8c1c539cb6db, type: 2}

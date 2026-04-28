@@ -317,6 +317,5 @@ MonoBehaviour:
   zones: []
   objective:
     CompletionPolicy: 0
-    GoalZoneIds: []
-    RequiredConditions: []
+    ConditionEntries: []
   enemyUnitArchetypeCatalog: {fileID: 11400000, guid: 5c5a7223f24e45109bfa8c1c539cb6db, type: 2}

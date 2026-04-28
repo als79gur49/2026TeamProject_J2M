@@ -2692,7 +2692,9 @@ MonoBehaviour:
     - MinInclusive: {x: 7, y: 5}
       MaxInclusive: {x: 7, y: 5}
   objective:
-    CompletionPolicy: 1
-    GoalZoneIds:
-    - 3000
-    RequiredConditions: []
+    CompletionPolicy: 2
+    ConditionEntries:
+    - Condition: {fileID: 11400000, guid: 9f2a9812adbe80d8efdbe7d9cc4a9031, type: 2}
+      Required: 1
+      Role: 1
+      StableConditionId: primary-goal
