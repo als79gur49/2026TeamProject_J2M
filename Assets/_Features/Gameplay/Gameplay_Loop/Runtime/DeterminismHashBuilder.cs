@@ -74,6 +74,9 @@ namespace Game.Feature.Gameplay.Loop
             builder.Append("EnemyUtilities").Append('\n');
             AppendEnemyUtilityLines(builder, GetOrderedEnemyUtilityStates(finalSnapshot));
 
+            builder.Append("EnemyFrontFaceSupports").Append('\n');
+            AppendEnemyFrontFaceSupportLines(builder, GetOrderedEnemyFrontFaceSupportStates(finalSnapshot));
+
             builder.Append("BoxInteractionLocks").Append('\n');
             AppendBoxInteractionLockLines(builder, GetOrderedBoxInteractionLockStates(finalSnapshot));
 
@@ -195,6 +198,13 @@ namespace Game.Feature.Gameplay.Loop
             var enemyUtilityEntries = new List<EnemyUtilitySnapshotEntry>();
             finalSnapshot.EnumerateEnemyUtilityStatesOrdered(enemyUtilityEntries);
             return enemyUtilityEntries;
+        }
+
+        private static List<EnemyFrontFaceSupportSnapshotEntry> GetOrderedEnemyFrontFaceSupportStates(WorldSnapshot finalSnapshot)
+        {
+            var frontFaceSupportEntries = new List<EnemyFrontFaceSupportSnapshotEntry>();
+            finalSnapshot.EnumerateEnemyFrontFaceSupportStatesOrdered(frontFaceSupportEntries);
+            return frontFaceSupportEntries;
         }
 
         private static List<BoxInteractionLockSnapshotEntry> GetOrderedBoxInteractionLockStates(WorldSnapshot finalSnapshot)
@@ -389,7 +399,48 @@ namespace Game.Feature.Gameplay.Loop
                     builder
                         .Append(entry.EntityId).Append('|')
                         .Append(effectIndex).Append('|')
-                        .Append(entry.State.EffectStates[effectIndex].cooldownTicksRemaining).Append('\n');
+                        .Append(entry.State.EffectStates[effectIndex].cooldownTicksRemaining).Append('|')
+                        .Append((int)entry.State.EffectStates[effectIndex].phase).Append('|')
+                        .Append(entry.State.EffectStates[effectIndex].windupStartTick).Append('|')
+                        .Append(entry.State.EffectStates[effectIndex].windupEndTick).Append('|')
+                        .Append(entry.State.EffectStates[effectIndex].activationSequence).Append('\n');
+                }
+            }
+        }
+
+        private static void AppendEnemyFrontFaceSupportLines(
+            StringBuilder builder,
+            IReadOnlyList<EnemyFrontFaceSupportSnapshotEntry> frontFaceSupportEntries)
+        {
+            if (frontFaceSupportEntries.Count == 0)
+            {
+                builder.Append("<empty>").Append('\n');
+                return;
+            }
+
+            for (var i = 0; i < frontFaceSupportEntries.Count; i++)
+            {
+                var entry = frontFaceSupportEntries[i];
+                if (entry.State.EffectStates.Count == 0)
+                {
+                    builder.Append(entry.EntityId).Append("|<empty>").Append('\n');
+                    continue;
+                }
+
+                for (var effectIndex = 0; effectIndex < entry.State.EffectStates.Count; effectIndex++)
+                {
+                    var state = entry.State.EffectStates[effectIndex];
+                    builder
+                        .Append(entry.EntityId).Append('|')
+                        .Append(effectIndex).Append('|')
+                        .Append((int)state.phase).Append('|')
+                        .Append(state.windupStartTick).Append('|')
+                        .Append(state.windupEndTick).Append('|')
+                        .Append(state.activationSequence).Append('|')
+                        .Append(state.cooldownTicksRemaining).Append('|')
+                        .Append(state.radius).Append('|')
+                        .Append(state.includeSourceCell ? 1 : 0).Append('|')
+                        .Append((int)state.targetPattern).Append('\n');
                 }
             }
         }

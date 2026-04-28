@@ -41,6 +41,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         void SetEnemyUtilityState(int entityId, EnemyUtilityRuntimeState state);
 
+        void SetEnemyFrontFaceSupportState(int entityId, EnemyFrontFaceSupportRuntimeState state);
+
         void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state);
     }
 

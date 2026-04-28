@@ -159,6 +159,7 @@ namespace Game.Feature.Gameplay.Entities
         [SerializeField] private EnemyUnitArchetypeAsset summonedArchetype;
         [SerializeField] private bool overrideHp;
         [SerializeField] private int hpOverride = 1;
+        [SerializeField] private float windupSeconds = 1.0f;
 
         public int SpawnCountPerTrigger => spawnCountPerTrigger;
 
@@ -176,7 +177,14 @@ namespace Game.Feature.Gameplay.Entities
 
         public int HpOverride => hpOverride;
 
+        public float WindupSeconds => windupSeconds;
+
         internal SummonMinionRuntime Compile()
+        {
+            return Compile(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+        }
+
+        internal SummonMinionRuntime Compile(int simulationTicksPerSecond)
         {
             if (spawnCountPerTrigger <= 0)
             {
@@ -200,6 +208,17 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentException("Summon minion authoring HP override must be positive when enabled.", nameof(hpOverride));
             }
 
+            if (windupSeconds <= 0f)
+            {
+                throw new ArgumentException("Summon minion authoring requires a positive windup duration.", nameof(windupSeconds));
+            }
+
+            var windupTicks = GameplayTimingProfile.SecondsToTicks(windupSeconds, simulationTicksPerSecond);
+            if (windupTicks <= 0)
+            {
+                throw new ArgumentException("Summon minion authoring windup must compile to a positive duration.", nameof(windupSeconds));
+            }
+
             return new SummonMinionRuntime(
                 spawnCountPerTrigger,
                 candidatePattern,
@@ -208,7 +227,8 @@ namespace Game.Feature.Gameplay.Entities
                 maxAliveChildren,
                 summonedArchetype.ArchetypeId,
                 overrideHp,
-                hpOverride);
+                hpOverride,
+                windupTicks);
         }
     }
 
@@ -282,7 +302,7 @@ namespace Game.Feature.Gameplay.Entities
     {
         [SerializeField] private EnemyUtilityEffectKind kind = EnemyUtilityEffectKind.SummonMinion;
         [SerializeField] private float initialDelaySeconds = 0f;
-        [SerializeField] private float intervalSeconds = 1f;
+        [SerializeField] private float cooldownSeconds = 1f;
         [SerializeField] private SummonMinionAuthoring summon = new();
         [SerializeField] private LockNearbyBoxesAuthoring lockNearbyBoxes = new();
 
@@ -290,7 +310,7 @@ namespace Game.Feature.Gameplay.Entities
 
         public float InitialDelaySeconds => initialDelaySeconds;
 
-        public float IntervalSeconds => intervalSeconds;
+        public float CooldownSeconds => cooldownSeconds;
 
         public SummonMinionAuthoring Summon => summon;
 
@@ -303,9 +323,9 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentException("Enemy utility effect authoring requires a non-negative initial delay.", nameof(initialDelaySeconds));
             }
 
-            if (intervalSeconds <= 0f)
+            if (cooldownSeconds <= 0f)
             {
-                throw new ArgumentException("Enemy utility effect authoring requires a positive interval.", nameof(intervalSeconds));
+                throw new ArgumentException("Enemy utility effect authoring requires a positive cooldown.", nameof(cooldownSeconds));
             }
 
             return kind switch
@@ -313,12 +333,12 @@ namespace Game.Feature.Gameplay.Entities
                 EnemyUtilityEffectKind.SummonMinion => new EnemyUtilityEffectRuntime(
                     kind,
                     GameplayTimingProfile.SecondsToTicks(initialDelaySeconds, simulationTicksPerSecond, allowZero: true),
-                    GameplayTimingProfile.SecondsToTicks(intervalSeconds, simulationTicksPerSecond),
-                    summon: (summon ?? throw new ArgumentException("Summon utility effect requires summon authoring data.", nameof(summon))).Compile()),
+                    GameplayTimingProfile.SecondsToTicks(cooldownSeconds, simulationTicksPerSecond),
+                    summon: (summon ?? throw new ArgumentException("Summon utility effect requires summon authoring data.", nameof(summon))).Compile(simulationTicksPerSecond)),
                 EnemyUtilityEffectKind.LockNearbyBoxes => new EnemyUtilityEffectRuntime(
                     kind,
                     GameplayTimingProfile.SecondsToTicks(initialDelaySeconds, simulationTicksPerSecond, allowZero: true),
-                    GameplayTimingProfile.SecondsToTicks(intervalSeconds, simulationTicksPerSecond),
+                    GameplayTimingProfile.SecondsToTicks(cooldownSeconds, simulationTicksPerSecond),
                     lockNearbyBoxes: (lockNearbyBoxes ?? throw new ArgumentException("Lock nearby boxes utility effect requires authoring data.", nameof(lockNearbyBoxes))).Compile(simulationTicksPerSecond)),
                 _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unsupported enemy utility effect kind."),
             };
@@ -331,6 +351,8 @@ namespace Game.Feature.Gameplay.Entities
         [SerializeField] private int radius = 1;
         [SerializeField] private bool includeSourceCell;
         [SerializeField] private FrontFaceShieldTargetPattern targetPattern = FrontFaceShieldTargetPattern.ManhattanRadius;
+        [SerializeField] private float windupSeconds = 1.0f;
+        [SerializeField] private float cooldownSeconds = 1.0f;
 
         public int Radius => radius;
 
@@ -338,7 +360,16 @@ namespace Game.Feature.Gameplay.Entities
 
         public FrontFaceShieldTargetPattern TargetPattern => targetPattern;
 
+        public float WindupSeconds => windupSeconds;
+
+        public float CooldownSeconds => cooldownSeconds;
+
         internal BoxSlideShieldRuntime Compile()
+        {
+            return Compile(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+        }
+
+        internal BoxSlideShieldRuntime Compile(int simulationTicksPerSecond)
         {
             if (radius <= 0)
             {
@@ -356,7 +387,29 @@ namespace Game.Feature.Gameplay.Entities
                     throw new ArgumentOutOfRangeException(nameof(targetPattern), targetPattern, "Unsupported front-face shield target pattern.");
             }
 
-            return new BoxSlideShieldRuntime(radius, includeSourceCell, targetPattern);
+            if (windupSeconds <= 0f)
+            {
+                throw new ArgumentException("Box slide shield authoring requires a positive windup duration.", nameof(windupSeconds));
+            }
+
+            if (cooldownSeconds <= 0f)
+            {
+                throw new ArgumentException("Box slide shield authoring requires a positive cooldown.", nameof(cooldownSeconds));
+            }
+
+            var windupTicks = GameplayTimingProfile.SecondsToTicks(windupSeconds, simulationTicksPerSecond);
+            if (windupTicks <= 0)
+            {
+                throw new ArgumentException("Box slide shield authoring windup must compile to a positive duration.", nameof(windupSeconds));
+            }
+
+            var cooldownTicks = GameplayTimingProfile.SecondsToTicks(cooldownSeconds, simulationTicksPerSecond);
+            if (cooldownTicks <= 0)
+            {
+                throw new ArgumentException("Box slide shield authoring cooldown must compile to a positive duration.", nameof(cooldownSeconds));
+            }
+
+            return new BoxSlideShieldRuntime(radius, includeSourceCell, targetPattern, windupTicks, cooldownTicks);
         }
     }
 
@@ -378,7 +431,7 @@ namespace Game.Feature.Gameplay.Entities
             {
                 EnemyFrontFaceSupportEffectKind.BoxSlideShield => new EnemyFrontFaceSupportEffectRuntime(
                     kind,
-                    boxSlideShield: (boxSlideShield ?? throw new ArgumentException("Box slide shield support effect requires authoring data.", nameof(boxSlideShield))).Compile()),
+                    boxSlideShield: (boxSlideShield ?? throw new ArgumentException("Box slide shield support effect requires authoring data.", nameof(boxSlideShield))).Compile(simulationTicksPerSecond)),
                 _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unsupported front-face support effect kind."),
             };
         }

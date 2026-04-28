@@ -390,6 +390,8 @@ namespace Game.Feature.Gameplay.Loop
             var enemyChargeSignals = new List<TickEnemyChargePresentationSignal>();
             var frontFaceShieldSourceSignals = new List<TickFrontFaceShieldSourceSignal>();
             var frontFaceShieldBlockSignals = new List<TickFrontFaceShieldBlockSignal>();
+            var summonWindupWarnings = new List<TickSummonWindupWarningSignal>();
+            var frontFaceShieldWindupWarnings = new List<TickFrontFaceShieldWindupWarningSignal>();
             var playerActionSignals = new List<TickPlayerActionPresentationSignal>();
             var playerDamageSignals = new List<TickPlayerDamagePresentationSignal>();
             var playerDeathSignals = new List<TickPlayerDeathPresentationSignal>();
@@ -415,6 +417,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildEnemyJumpPresentation(context, enemyJumpSignals);
             BuildEnemyChargePresentation(context, enemyChargeSignals);
             BuildFrontFaceShieldPresentation(context, frontFaceShieldSourceSignals, frontFaceShieldBlockSignals);
+            BuildEnemyUtilityWindupPresentation(context, summonWindupWarnings, frontFaceShieldWindupWarnings);
             BuildSummonedEnemyPresentationBindings(context, summonedEnemyPresentationBindings);
 
             var topologyMotion = BuildTopologyMotion(context);
@@ -427,6 +430,8 @@ namespace Game.Feature.Gameplay.Loop
                    enemyChargeSignals.Count == 0 &&
                    frontFaceShieldSourceSignals.Count == 0 &&
                    frontFaceShieldBlockSignals.Count == 0 &&
+                   summonWindupWarnings.Count == 0 &&
+                   frontFaceShieldWindupWarnings.Count == 0 &&
                    entityExitSignals.Count == 0 &&
                    impactTransientSignals.Count == 0 &&
                    flipImpactSignals.Count == 0 &&
@@ -457,7 +462,116 @@ namespace Game.Feature.Gameplay.Loop
                     flipImpactSignals,
                     summonedEnemyPresentationBindings,
                     frontFaceShieldSourceSignals,
-                    frontFaceShieldBlockSignals);
+                    frontFaceShieldBlockSignals,
+                    summonWindupWarnings,
+                    frontFaceShieldWindupWarnings);
+        }
+
+        private static void BuildEnemyUtilityWindupPresentation(
+            in TickPresentationBuildContext context,
+            List<TickSummonWindupWarningSignal> summonWindupWarnings,
+            List<TickFrontFaceShieldWindupWarningSignal> frontFaceShieldWindupWarnings)
+        {
+            var utilityEntries = new List<EnemyUtilitySnapshotEntry>();
+            context.FinalAuthoritativeSnapshot.EnumerateEnemyUtilityStatesOrdered(utilityEntries);
+            for (var i = 0; i < utilityEntries.Count; i++)
+            {
+                var entry = utilityEntries[i];
+                if (!context.FinalAuthoritativeSnapshot.TryGetEntity(entry.EntityId, out var source) ||
+                    !EntityRolePolicy.IsEnemyUnit(source))
+                {
+                    continue;
+                }
+
+                for (var effectIndex = 0; effectIndex < entry.State.EffectStates.Count; effectIndex++)
+                {
+                    var effectState = entry.State.EffectStates[effectIndex];
+                    if (effectState.phase != EnemyUtilityEffectPhase.Windup)
+                    {
+                        continue;
+                    }
+
+                    summonWindupWarnings.Add(
+                        new TickSummonWindupWarningSignal(
+                            entry.EntityId,
+                            effectIndex,
+                            source.position,
+                            context.FinalAuthoritativeSnapshot.Topology,
+                            source.facing,
+                            effectState.windupStartTick,
+                            effectState.windupEndTick,
+                            effectState.activationSequence,
+                            context.CurrentTickIndex,
+                            BuildUtilityWarningPresentationSeed(
+                                context.CurrentTickIndex,
+                                entry.EntityId,
+                                effectIndex,
+                                source.position,
+                                effectState.activationSequence)));
+                }
+            }
+
+            var frontFaceSupportEntries = new List<EnemyFrontFaceSupportSnapshotEntry>();
+            context.FinalAuthoritativeSnapshot.EnumerateEnemyFrontFaceSupportStatesOrdered(frontFaceSupportEntries);
+            for (var i = 0; i < frontFaceSupportEntries.Count; i++)
+            {
+                var entry = frontFaceSupportEntries[i];
+                if (!context.FinalAuthoritativeSnapshot.TryGetEntity(entry.EntityId, out var source) ||
+                    !EntityRolePolicy.IsEnemyUnit(source))
+                {
+                    continue;
+                }
+
+                for (var effectIndex = 0; effectIndex < entry.State.EffectStates.Count; effectIndex++)
+                {
+                    var effectState = entry.State.EffectStates[effectIndex];
+                    if (effectState.phase != EnemyFrontFaceSupportEffectPhase.Windup)
+                    {
+                        continue;
+                    }
+
+                    frontFaceShieldWindupWarnings.Add(
+                        new TickFrontFaceShieldWindupWarningSignal(
+                            entry.EntityId,
+                            effectIndex,
+                            source.position,
+                            context.FinalAuthoritativeSnapshot.Topology,
+                            effectState.radius,
+                            effectState.includeSourceCell,
+                            effectState.targetPattern,
+                            effectState.windupStartTick,
+                            effectState.windupEndTick,
+                            effectState.activationSequence,
+                            context.CurrentTickIndex,
+                            BuildUtilityWarningPresentationSeed(
+                                context.CurrentTickIndex,
+                                entry.EntityId,
+                                effectIndex,
+                                source.position,
+                                effectState.activationSequence)));
+                }
+            }
+        }
+
+        private static int BuildUtilityWarningPresentationSeed(
+            int tickIndex,
+            int sourceEntityId,
+            int effectIndex,
+            SurfaceCell sourceCell,
+            int activationSequence)
+        {
+            unchecked
+            {
+                var seed = 17;
+                seed = (seed * 31) + tickIndex;
+                seed = (seed * 31) + sourceEntityId;
+                seed = (seed * 31) + effectIndex;
+                seed = (seed * 31) + (int)sourceCell.face;
+                seed = (seed * 31) + sourceCell.x;
+                seed = (seed * 31) + sourceCell.y;
+                seed = (seed * 31) + activationSequence;
+                return seed;
+            }
         }
 
         private static void BuildFrontFaceShieldPresentation(

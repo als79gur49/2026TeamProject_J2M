@@ -68,6 +68,11 @@ namespace Game.Feature.Gameplay.BoardState
             _port.SetEnemyUtilityState(entityId, state);
         }
 
+        public void SetEnemyFrontFaceSupportState(int entityId, EnemyFrontFaceSupportRuntimeState state)
+        {
+            _port.SetEnemyFrontFaceSupportState(entityId, state);
+        }
+
         public void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state)
         {
             _port.SetBoxInteractionLockState(entityId, state);

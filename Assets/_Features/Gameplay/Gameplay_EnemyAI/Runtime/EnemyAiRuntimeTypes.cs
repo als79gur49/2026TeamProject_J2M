@@ -476,7 +476,8 @@ namespace Game.Feature.Gameplay.Entities
             int maxAliveChildren,
             EnemyUnitArchetypeId summonedArchetypeId,
             bool overrideHp = false,
-            int hpOverride = 1)
+            int hpOverride = 1,
+            int windupTicks = 1)
         {
             SpawnCountPerTrigger = spawnCountPerTrigger;
             CandidatePattern = candidatePattern;
@@ -486,6 +487,7 @@ namespace Game.Feature.Gameplay.Entities
             SummonedArchetypeId = summonedArchetypeId;
             OverrideHp = overrideHp;
             HpOverride = hpOverride;
+            WindupTicks = windupTicks;
             Validate(nameof(SummonMinionRuntime));
         }
 
@@ -505,6 +507,8 @@ namespace Game.Feature.Gameplay.Entities
 
         public int HpOverride { get; }
 
+        public int WindupTicks { get; }
+
         public void Validate(string paramName)
         {
             if (SpawnCountPerTrigger <= 0)
@@ -521,6 +525,11 @@ namespace Game.Feature.Gameplay.Entities
             if (OverrideHp && HpOverride <= 0)
             {
                 throw new ArgumentException("Summon minion runtime HP override must be positive when enabled.", paramName);
+            }
+
+            if (WindupTicks <= 0)
+            {
+                throw new ArgumentException("Summon minion runtime requires a positive windup duration.", paramName);
             }
         }
     }
@@ -590,13 +599,13 @@ namespace Game.Feature.Gameplay.Entities
         public EnemyUtilityEffectRuntime(
             EnemyUtilityEffectKind kind,
             int initialDelayTicks,
-            int intervalTicks,
+            int cooldownTicks,
             SummonMinionRuntime summon = default,
             LockNearbyBoxesRuntime lockNearbyBoxes = default)
         {
             Kind = kind;
             InitialDelayTicks = initialDelayTicks;
-            IntervalTicks = intervalTicks;
+            CooldownTicks = cooldownTicks;
             Summon = summon;
             LockNearbyBoxes = lockNearbyBoxes;
             Validate(nameof(EnemyUtilityEffectRuntime));
@@ -606,7 +615,7 @@ namespace Game.Feature.Gameplay.Entities
 
         public int InitialDelayTicks { get; }
 
-        public int IntervalTicks { get; }
+        public int CooldownTicks { get; }
 
         public SummonMinionRuntime Summon { get; }
 
@@ -619,9 +628,9 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentException("Enemy utility effect runtime requires a non-negative initial delay.", paramName);
             }
 
-            if (IntervalTicks <= 0)
+            if (CooldownTicks <= 0)
             {
-                throw new ArgumentException("Enemy utility effect runtime requires a positive interval.", paramName);
+                throw new ArgumentException("Enemy utility effect runtime requires a positive cooldown.", paramName);
             }
 
             switch (Kind)
@@ -685,11 +694,15 @@ namespace Game.Feature.Gameplay.Entities
         public BoxSlideShieldRuntime(
             int radius,
             bool includeSourceCell,
-            FrontFaceShieldTargetPattern targetPattern)
+            FrontFaceShieldTargetPattern targetPattern,
+            int windupTicks = 1,
+            int cooldownTicks = 1)
         {
             Radius = radius;
             IncludeSourceCell = includeSourceCell;
             TargetPattern = targetPattern;
+            WindupTicks = windupTicks;
+            CooldownTicks = cooldownTicks;
             Validate(nameof(BoxSlideShieldRuntime));
         }
 
@@ -699,11 +712,25 @@ namespace Game.Feature.Gameplay.Entities
 
         public FrontFaceShieldTargetPattern TargetPattern { get; }
 
+        public int WindupTicks { get; }
+
+        public int CooldownTicks { get; }
+
         public void Validate(string paramName)
         {
             if (Radius <= 0)
             {
                 throw new ArgumentException("Box slide shield runtime requires a positive radius.", paramName);
+            }
+
+            if (WindupTicks <= 0)
+            {
+                throw new ArgumentException("Box slide shield runtime requires a positive windup duration.", paramName);
+            }
+
+            if (CooldownTicks <= 0)
+            {
+                throw new ArgumentException("Box slide shield runtime requires a positive cooldown.", paramName);
             }
 
             switch (TargetPattern)
@@ -915,6 +942,16 @@ namespace Game.Feature.Gameplay.Entities
     public struct EnemyUtilityEffectState
     {
         public int cooldownTicksRemaining;
+        public EnemyUtilityEffectPhase phase;
+        public int windupStartTick;
+        public int windupEndTick;
+        public int activationSequence;
+    }
+
+    public enum EnemyUtilityEffectPhase
+    {
+        None = 0,
+        Windup = 1,
     }
 
     public sealed class EnemyUtilityRuntimeState
@@ -1054,6 +1091,155 @@ namespace Game.Feature.Gameplay.Entities
             for (var i = 0; i < left.EffectStates.Count; i++)
             {
                 if (left.EffectStates[i].cooldownTicksRemaining != right.EffectStates[i].cooldownTicksRemaining)
+                {
+                    return false;
+                }
+
+                if (left.EffectStates[i].phase != right.EffectStates[i].phase ||
+                    left.EffectStates[i].windupStartTick != right.EffectStates[i].windupStartTick ||
+                    left.EffectStates[i].windupEndTick != right.EffectStates[i].windupEndTick ||
+                    left.EffectStates[i].activationSequence != right.EffectStates[i].activationSequence)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
+
+    public enum EnemyFrontFaceSupportEffectPhase
+    {
+        None = 0,
+        Windup = 1,
+        Active = 2,
+    }
+
+    public struct EnemyFrontFaceSupportEffectState
+    {
+        public EnemyFrontFaceSupportEffectPhase phase;
+        public int windupStartTick;
+        public int windupEndTick;
+        public int activationSequence;
+        public int cooldownTicksRemaining;
+        public int radius;
+        public bool includeSourceCell;
+        public FrontFaceShieldTargetPattern targetPattern;
+    }
+
+    public sealed class EnemyFrontFaceSupportRuntimeState
+    {
+        private readonly ReadOnlyCollection<EnemyFrontFaceSupportEffectState> _effectStates;
+
+        public EnemyFrontFaceSupportRuntimeState(IEnumerable<EnemyFrontFaceSupportEffectState> effectStates)
+        {
+            if (effectStates == null)
+            {
+                throw new ArgumentNullException(nameof(effectStates));
+            }
+
+            var copiedStates = new List<EnemyFrontFaceSupportEffectState>();
+            foreach (var effectState in effectStates)
+            {
+                copiedStates.Add(effectState);
+            }
+
+            _effectStates = new ReadOnlyCollection<EnemyFrontFaceSupportEffectState>(copiedStates);
+        }
+
+        public IReadOnlyList<EnemyFrontFaceSupportEffectState> EffectStates => _effectStates;
+
+        public bool HasEffectCount(int expectedCount)
+        {
+            return _effectStates.Count == Math.Max(0, expectedCount);
+        }
+    }
+
+    public readonly struct EnemyFrontFaceSupportSnapshotEntry
+    {
+        public EnemyFrontFaceSupportSnapshotEntry(int entityId, EnemyFrontFaceSupportRuntimeState state)
+        {
+            EntityId = entityId;
+            State = state ?? throw new ArgumentNullException(nameof(state));
+        }
+
+        public int EntityId { get; }
+
+        public EnemyFrontFaceSupportRuntimeState State { get; }
+    }
+
+    internal static class EnemyFrontFaceSupportStateQueries
+    {
+        public static EnemyFrontFaceSupportRuntimeState CreateInitialState(EnemyFrontFaceSupportCapabilityRuntime capability)
+        {
+            if (capability == null)
+            {
+                throw new ArgumentNullException(nameof(capability));
+            }
+
+            var effectStates = new EnemyFrontFaceSupportEffectState[capability.Effects.Count];
+            for (var i = 0; i < capability.Effects.Count; i++)
+            {
+                effectStates[i] = CreateInactiveEffectState(capability.Effects[i], previousActivationSequence: 0);
+            }
+
+            return new EnemyFrontFaceSupportRuntimeState(effectStates);
+        }
+
+        public static EnemyFrontFaceSupportEffectState CreateInactiveEffectState(
+            EnemyFrontFaceSupportEffectRuntime effectRuntime,
+            int previousActivationSequence)
+        {
+            if (effectRuntime == null)
+            {
+                throw new ArgumentNullException(nameof(effectRuntime));
+            }
+
+            var state = new EnemyFrontFaceSupportEffectState
+            {
+                phase = EnemyFrontFaceSupportEffectPhase.None,
+                activationSequence = Math.Max(0, previousActivationSequence),
+            };
+
+            if (effectRuntime.Kind == EnemyFrontFaceSupportEffectKind.BoxSlideShield)
+            {
+                state.radius = effectRuntime.BoxSlideShield.Radius;
+                state.includeSourceCell = effectRuntime.BoxSlideShield.IncludeSourceCell;
+                state.targetPattern = effectRuntime.BoxSlideShield.TargetPattern;
+            }
+
+            return state;
+        }
+
+        public static bool AreEqual(EnemyFrontFaceSupportRuntimeState left, EnemyFrontFaceSupportRuntimeState right)
+        {
+            if (ReferenceEquals(left, right))
+            {
+                return true;
+            }
+
+            if (left == null || right == null)
+            {
+                return false;
+            }
+
+            if (left.EffectStates.Count != right.EffectStates.Count)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < left.EffectStates.Count; i++)
+            {
+                var leftState = left.EffectStates[i];
+                var rightState = right.EffectStates[i];
+                if (leftState.phase != rightState.phase ||
+                    leftState.windupStartTick != rightState.windupStartTick ||
+                    leftState.windupEndTick != rightState.windupEndTick ||
+                    leftState.activationSequence != rightState.activationSequence ||
+                    leftState.cooldownTicksRemaining != rightState.cooldownTicksRemaining ||
+                    leftState.radius != rightState.radius ||
+                    leftState.includeSourceCell != rightState.includeSourceCell ||
+                    leftState.targetPattern != rightState.targetPattern)
                 {
                     return false;
                 }

@@ -7311,6 +7311,7 @@ namespace Game.Feature.Gameplay.Loop
         SetBoxInteractionLockState = 21,
         RemoveBoxInteractionLockState = 22,
         SetEnemyGlideState = 23,
+        SetEnemyFrontFaceSupportState = 24,
     }
 
     internal enum ResolvedActionSemanticKind
@@ -7456,6 +7457,7 @@ namespace Game.Feature.Gameplay.Loop
             EnemyGlideRuntimeState enemyGlideState = default,
             EnemyChargeRuntimeState enemyChargeState = default,
             EnemyUtilityRuntimeState enemyUtilityState = null,
+            EnemyFrontFaceSupportRuntimeState enemyFrontFaceSupportState = null,
             BoxInteractionLockState boxInteractionLockState = default,
             PhasedRuntimeState phasedState = default,
             EntityState spawnEntity = default,
@@ -7491,6 +7493,7 @@ namespace Game.Feature.Gameplay.Loop
             EnemyGlideState = enemyGlideState;
             EnemyChargeState = enemyChargeState;
             EnemyUtilityState = enemyUtilityState;
+            EnemyFrontFaceSupportState = enemyFrontFaceSupportState;
             BoxInteractionLockState = boxInteractionLockState;
             PhasedState = phasedState;
             SpawnedEntity = spawnEntity;
@@ -7553,6 +7556,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public EnemyUtilityRuntimeState EnemyUtilityState { get; }
 
+        public EnemyFrontFaceSupportRuntimeState EnemyFrontFaceSupportState { get; }
+
         public BoxInteractionLockState BoxInteractionLockState { get; }
 
         public PhasedRuntimeState PhasedState { get; }
@@ -7598,6 +7603,7 @@ namespace Game.Feature.Gameplay.Loop
                 EnemyGlideState,
                 EnemyChargeState,
                 EnemyUtilityState,
+                EnemyFrontFaceSupportState,
                 BoxInteractionLockState,
                 PhasedState,
                 SpawnedEntity,
@@ -7791,6 +7797,21 @@ namespace Game.Feature.Gameplay.Loop
                 enemyUtilityState: enemyUtilityState);
         }
 
+        public static FinalizationOperation SetEnemyFrontFaceSupportState(
+            long sequence,
+            int entityId,
+            EnemyFrontFaceSupportRuntimeState enemyFrontFaceSupportState,
+            FinalizationOperationMetadata metadata = default)
+        {
+            return new FinalizationOperation(
+                sequence,
+                FinalizationOperationBucket.NonHpState,
+                FinalizationOperationKind.SetEnemyFrontFaceSupportState,
+                metadata,
+                entityId: entityId,
+                enemyFrontFaceSupportState: enemyFrontFaceSupportState);
+        }
+
         public static FinalizationOperation SetBoxInteractionLockState(long sequence, int entityId, BoxInteractionLockState boxInteractionLockState, FinalizationOperationMetadata metadata = default)
         {
             return new FinalizationOperation(
@@ -7971,6 +7992,11 @@ namespace Game.Feature.Gameplay.Loop
             _operations.Add(FinalizationOperation.SetEnemyUtilityState(_nextSequence++, entityId, state, metadata));
         }
 
+        public void SetEnemyFrontFaceSupportState(int entityId, EnemyFrontFaceSupportRuntimeState state, FinalizationOperationMetadata metadata = default)
+        {
+            _operations.Add(FinalizationOperation.SetEnemyFrontFaceSupportState(_nextSequence++, entityId, state, metadata));
+        }
+
         public void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state, FinalizationOperationMetadata metadata = default)
         {
             _operations.Add(FinalizationOperation.SetBoxInteractionLockState(_nextSequence++, entityId, state, metadata));
@@ -8135,6 +8161,10 @@ namespace Game.Feature.Gameplay.Loop
                         ((IPreMovementStateCommitContext)writeContext).SetEnemyUtilityState(operation.EntityId, operation.EnemyUtilityState);
                         break;
 
+                    case FinalizationOperationKind.SetEnemyFrontFaceSupportState:
+                        ((IPreMovementStateCommitContext)writeContext).SetEnemyFrontFaceSupportState(operation.EntityId, operation.EnemyFrontFaceSupportState);
+                        break;
+
                     case FinalizationOperationKind.SetBoxInteractionLockState:
                         writeContext.SetBoxInteractionLockState(operation.EntityId, operation.BoxInteractionLockState);
                         break;
@@ -8250,6 +8280,11 @@ namespace Game.Feature.Gameplay.Loop
         public void SetEnemyUtilityState(int entityId, EnemyUtilityRuntimeState state)
         {
             _batch.SetEnemyUtilityState(entityId, state);
+        }
+
+        public void SetEnemyFrontFaceSupportState(int entityId, EnemyFrontFaceSupportRuntimeState state)
+        {
+            _batch.SetEnemyFrontFaceSupportState(entityId, state);
         }
 
         public void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state)
@@ -8503,6 +8538,11 @@ namespace Game.Feature.Gameplay.Loop
                 if (snapshot.TryGetEnemyUtilityState(entityId, out var enemyUtilityState))
                 {
                     writeContext.SetEnemyUtilityState(entityId, enemyUtilityState);
+                }
+
+                if (snapshot.TryGetEnemyFrontFaceSupportState(entityId, out var enemyFrontFaceSupportState))
+                {
+                    writeContext.SetEnemyFrontFaceSupportState(entityId, enemyFrontFaceSupportState);
                 }
 
                 if (snapshot.TryGetBoxInteractionLockState(entityId, out var boxInteractionLockState))

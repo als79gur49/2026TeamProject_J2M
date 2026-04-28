@@ -57,6 +57,7 @@ namespace Game.Feature.Gameplay.Entities
         private readonly EnemyMovementSkillCapabilityRuntime _movementSkillCapability;
         private readonly EnemyPassiveContactCapabilityRuntime _passiveContactCapability;
         private readonly EnemyUtilityCapabilityRuntime _utilityCapability;
+        private readonly EnemyFrontFaceSupportCapabilityRuntime _frontFaceSupportCapability;
         private readonly IEnemyAiStateResolver _stateResolver;
         private readonly bool _usesChargeStateResolver;
         private readonly List<EntityState> _sharedCellUnits = new();
@@ -100,6 +101,7 @@ namespace Game.Feature.Gameplay.Entities
             aiDefinition.Capabilities.TryGetMovementSkill(out _movementSkillCapability);
             aiDefinition.Capabilities.TryGetPassiveContact(out _passiveContactCapability);
             aiDefinition.Capabilities.TryGetUtility(out _utilityCapability);
+            aiDefinition.Capabilities.TryGetFrontFaceSupport(out _frontFaceSupportCapability);
         }
 
         public int ControlledEntityId => _entityId;
@@ -215,8 +217,23 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentNullException(nameof(actionTransitions));
             }
 
-            if (!TryGetAiControlledEnemy(snapshot, out var source))
+            if (!EnemyParticipationPolicy.TryGetEnemyLogicEntity(snapshot, _entityId, out var source))
             {
+                return;
+            }
+
+            if (_frontFaceSupportCapability != null)
+            {
+                CommitEnemyFrontFaceSupportState(snapshot, in input, source, writeContext, updates);
+            }
+
+            if (!EnemyParticipationPolicy.CanParticipateOnCurrentTopology(snapshot, source))
+            {
+                if (_utilityCapability != null)
+                {
+                    CommitEnemyUtilityState(snapshot, in input, source, writeContext, updates);
+                }
+
                 return;
             }
 
@@ -727,8 +744,14 @@ namespace Game.Feature.Gameplay.Entities
                     $"EnemyUtilityInitialized|E={_entityId}|EffectCount={currentState.EffectStates.Count}");
             }
 
-            if (!hasCurrentState || !isControllableParticipant)
+            if (!hasCurrentState)
             {
+                return;
+            }
+
+            if (!isControllableParticipant)
+            {
+                CancelEnemyUtilityWindups(currentState, writeContext, updates);
                 return;
             }
 
@@ -740,16 +763,72 @@ namespace Game.Feature.Gameplay.Entities
                 var previousEffectState = currentState.EffectStates[effectIndex];
                 var nextEffectState = previousEffectState;
                 var effectRuntime = _utilityCapability.Effects[effectIndex];
+                var triggered = false;
+
+                if (effectRuntime.Kind == EnemyUtilityEffectKind.SummonMinion)
+                {
+                    if (nextEffectState.phase == EnemyUtilityEffectPhase.Windup)
+                    {
+                        if (input.TickIndex >= nextEffectState.windupEndTick)
+                        {
+                            nextEffectState.phase = EnemyUtilityEffectPhase.None;
+                            nextEffectState.windupStartTick = 0;
+                            nextEffectState.windupEndTick = 0;
+                            nextEffectState.cooldownTicksRemaining = effectRuntime.CooldownTicks;
+                            triggered = true;
+                            if (writeContext is IEnemyUtilityTriggerSink triggerSink)
+                            {
+                                triggerSink.EmitEnemyUtilityTriggerIntent(
+                                    new EnemyUtilityTriggerIntent(
+                                        _entityId,
+                                        effectIndex,
+                                        effectRuntime.Kind,
+                                        input.TickIndex,
+                                        effectRuntime));
+                            }
+
+                            updates.Add(
+                                $"EnemyUtilityWindupCommitted|E={_entityId}|Effect={effectIndex}|Sequence={nextEffectState.activationSequence}|Tick={input.TickIndex}");
+                        }
+                    }
+                    else
+                    {
+                        if (nextEffectState.cooldownTicksRemaining > 0)
+                        {
+                            nextEffectState.cooldownTicksRemaining = Mathf.Max(0, nextEffectState.cooldownTicksRemaining - 1);
+                        }
+
+                        if (nextEffectState.cooldownTicksRemaining == 0)
+                        {
+                            nextEffectState.phase = EnemyUtilityEffectPhase.Windup;
+                            nextEffectState.windupStartTick = input.TickIndex;
+                            nextEffectState.windupEndTick = input.TickIndex + effectRuntime.Summon.WindupTicks;
+                            nextEffectState.activationSequence = Math.Max(0, nextEffectState.activationSequence) + 1;
+                            updates.Add(
+                                $"EnemyUtilityWindupStarted|E={_entityId}|Effect={effectIndex}|Sequence={nextEffectState.activationSequence}|Start={nextEffectState.windupStartTick}|End={nextEffectState.windupEndTick}");
+                        }
+                    }
+
+                    nextEffectStates[effectIndex] = nextEffectState;
+                    if (!AreEqual(previousEffectState, nextEffectState))
+                    {
+                        hasAnyChange = true;
+                        updates.Add(
+                            $"EnemyUtilityCooldownUpdated|E={_entityId}|Effect={effectIndex}|From={previousEffectState.cooldownTicksRemaining}|To={nextEffectState.cooldownTicksRemaining}|Triggered={(triggered ? 1 : 0)}");
+                    }
+
+                    continue;
+                }
 
                 if (nextEffectState.cooldownTicksRemaining > 0)
                 {
                     nextEffectState.cooldownTicksRemaining = Mathf.Max(0, nextEffectState.cooldownTicksRemaining - 1);
                 }
 
-                var triggered = nextEffectState.cooldownTicksRemaining == 0;
+                triggered = nextEffectState.cooldownTicksRemaining == 0;
                 if (triggered)
                 {
-                    nextEffectState.cooldownTicksRemaining = effectRuntime.IntervalTicks;
+                    nextEffectState.cooldownTicksRemaining = effectRuntime.CooldownTicks;
                     if (writeContext is IEnemyUtilityTriggerSink triggerSink)
                     {
                         triggerSink.EmitEnemyUtilityTriggerIntent(
@@ -763,7 +842,7 @@ namespace Game.Feature.Gameplay.Entities
                 }
 
                 nextEffectStates[effectIndex] = nextEffectState;
-                if (previousEffectState.cooldownTicksRemaining != nextEffectState.cooldownTicksRemaining)
+                if (!AreEqual(previousEffectState, nextEffectState))
                 {
                     hasAnyChange = true;
                     updates.Add(
@@ -778,6 +857,175 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             writeContext.SetEnemyUtilityState(_entityId, new EnemyUtilityRuntimeState(nextEffectStates));
+        }
+
+        private void CancelEnemyUtilityWindups(
+            EnemyUtilityRuntimeState currentState,
+            IPreMovementStateCommitContext writeContext,
+            List<string> updates)
+        {
+            if (currentState == null)
+            {
+                return;
+            }
+
+            var nextEffectStates = new EnemyUtilityEffectState[currentState.EffectStates.Count];
+            var hasAnyChange = false;
+            for (var effectIndex = 0; effectIndex < currentState.EffectStates.Count; effectIndex++)
+            {
+                var previousEffectState = currentState.EffectStates[effectIndex];
+                var nextEffectState = previousEffectState;
+                if (nextEffectState.phase == EnemyUtilityEffectPhase.Windup)
+                {
+                    var cooldownTicks = effectIndex < _utilityCapability.Effects.Count
+                        ? _utilityCapability.Effects[effectIndex].CooldownTicks
+                        : nextEffectState.cooldownTicksRemaining;
+
+                    nextEffectState.phase = EnemyUtilityEffectPhase.None;
+                    nextEffectState.cooldownTicksRemaining = cooldownTicks;
+                    nextEffectState.windupStartTick = 0;
+                    nextEffectState.windupEndTick = 0;
+                    hasAnyChange = true;
+                    updates.Add(
+                        $"EnemyUtilityWindupCanceled|E={_entityId}|Effect={effectIndex}|Sequence={nextEffectState.activationSequence}|Cooldown={nextEffectState.cooldownTicksRemaining}");
+                }
+
+                nextEffectStates[effectIndex] = nextEffectState;
+            }
+
+            if (hasAnyChange)
+            {
+                writeContext.SetEnemyUtilityState(_entityId, new EnemyUtilityRuntimeState(nextEffectStates));
+            }
+        }
+
+        private void CommitEnemyFrontFaceSupportState(
+            WorldSnapshot snapshot,
+            in TickInput input,
+            in EntityState source,
+            IPreMovementStateCommitContext writeContext,
+            List<string> updates)
+        {
+            var isEligibleSource = EnemyFrontFaceSupportPolicy.IsActiveFrontFaceSupportSource(snapshot, source);
+            var hasCurrentState = snapshot.TryGetEnemyFrontFaceSupportState(_entityId, out var currentState);
+            var initializedState = false;
+            if ((!hasCurrentState || !currentState.HasEffectCount(_frontFaceSupportCapability.Effects.Count)) &&
+                isEligibleSource)
+            {
+                currentState = EnemyFrontFaceSupportStateQueries.CreateInitialState(_frontFaceSupportCapability);
+                hasCurrentState = true;
+                initializedState = true;
+                updates.Add(
+                    $"EnemyFrontFaceSupportInitialized|E={_entityId}|EffectCount={currentState.EffectStates.Count}");
+            }
+
+            if (!hasCurrentState)
+            {
+                return;
+            }
+
+            var nextEffectStates = new EnemyFrontFaceSupportEffectState[currentState.EffectStates.Count];
+            var hasAnyChange = false;
+
+            for (var effectIndex = 0; effectIndex < currentState.EffectStates.Count; effectIndex++)
+            {
+                var previousEffectState = currentState.EffectStates[effectIndex];
+                var effectRuntime = _frontFaceSupportCapability.Effects[effectIndex];
+                var nextEffectState = previousEffectState;
+
+                if (!isEligibleSource)
+                {
+                    var canceledWindup = previousEffectState.phase == EnemyFrontFaceSupportEffectPhase.Windup;
+                    var cooldownTicksRemaining = canceledWindup && effectRuntime.Kind == EnemyFrontFaceSupportEffectKind.BoxSlideShield
+                        ? effectRuntime.BoxSlideShield.CooldownTicks
+                        : Mathf.Max(0, previousEffectState.cooldownTicksRemaining - 1);
+
+                    nextEffectState = EnemyFrontFaceSupportStateQueries.CreateInactiveEffectState(
+                        effectRuntime,
+                        previousEffectState.activationSequence);
+                    nextEffectState.cooldownTicksRemaining = cooldownTicksRemaining;
+                    if (!AreEqual(previousEffectState, nextEffectState))
+                    {
+                        updates.Add(
+                            $"EnemyFrontFaceSupportCleared|E={_entityId}|Effect={effectIndex}|PreviousPhase={previousEffectState.phase}|Cooldown={nextEffectState.cooldownTicksRemaining}");
+                    }
+                }
+                else if (effectRuntime.Kind == EnemyFrontFaceSupportEffectKind.BoxSlideShield)
+                {
+                    var shield = effectRuntime.BoxSlideShield;
+                    nextEffectState.radius = shield.Radius;
+                    nextEffectState.includeSourceCell = shield.IncludeSourceCell;
+                    nextEffectState.targetPattern = shield.TargetPattern;
+
+                    if (nextEffectState.phase == EnemyFrontFaceSupportEffectPhase.None)
+                    {
+                        if (nextEffectState.cooldownTicksRemaining > 0)
+                        {
+                            nextEffectState.cooldownTicksRemaining = Mathf.Max(0, nextEffectState.cooldownTicksRemaining - 1);
+                        }
+
+                        if (nextEffectState.cooldownTicksRemaining == 0)
+                        {
+                            nextEffectState.phase = EnemyFrontFaceSupportEffectPhase.Windup;
+                            nextEffectState.windupStartTick = input.TickIndex;
+                            nextEffectState.windupEndTick = input.TickIndex + shield.WindupTicks;
+                            nextEffectState.activationSequence = Math.Max(0, nextEffectState.activationSequence) + 1;
+                            updates.Add(
+                                $"EnemyFrontFaceSupportWindupStarted|E={_entityId}|Effect={effectIndex}|Sequence={nextEffectState.activationSequence}|Start={nextEffectState.windupStartTick}|End={nextEffectState.windupEndTick}");
+                        }
+                    }
+                    else if (nextEffectState.phase == EnemyFrontFaceSupportEffectPhase.Windup &&
+                             input.TickIndex >= nextEffectState.windupEndTick)
+                    {
+                        nextEffectState.phase = EnemyFrontFaceSupportEffectPhase.Active;
+                        nextEffectState.cooldownTicksRemaining = shield.CooldownTicks;
+                        updates.Add(
+                            $"EnemyFrontFaceSupportActivated|E={_entityId}|Effect={effectIndex}|Sequence={nextEffectState.activationSequence}|Tick={input.TickIndex}|Cooldown={nextEffectState.cooldownTicksRemaining}");
+                    }
+                    else if (nextEffectState.phase == EnemyFrontFaceSupportEffectPhase.Active &&
+                             nextEffectState.cooldownTicksRemaining > 0)
+                    {
+                        nextEffectState.cooldownTicksRemaining = Mathf.Max(0, nextEffectState.cooldownTicksRemaining - 1);
+                    }
+                }
+
+                nextEffectStates[effectIndex] = nextEffectState;
+                if (!AreEqual(previousEffectState, nextEffectState))
+                {
+                    hasAnyChange = true;
+                }
+            }
+
+            if (!initializedState &&
+                !hasAnyChange)
+            {
+                return;
+            }
+
+            writeContext.SetEnemyFrontFaceSupportState(
+                _entityId,
+                new EnemyFrontFaceSupportRuntimeState(nextEffectStates));
+        }
+
+        private static bool AreEqual(EnemyUtilityEffectState left, EnemyUtilityEffectState right)
+        {
+            return left.cooldownTicksRemaining == right.cooldownTicksRemaining &&
+                   left.phase == right.phase &&
+                   left.windupStartTick == right.windupStartTick &&
+                   left.windupEndTick == right.windupEndTick &&
+                   left.activationSequence == right.activationSequence;
+        }
+
+        private static bool AreEqual(EnemyFrontFaceSupportEffectState left, EnemyFrontFaceSupportEffectState right)
+        {
+            return left.phase == right.phase &&
+                   left.windupStartTick == right.windupStartTick &&
+                   left.windupEndTick == right.windupEndTick &&
+                   left.activationSequence == right.activationSequence &&
+                   left.cooldownTicksRemaining == right.cooldownTicksRemaining &&
+                   left.radius == right.radius &&
+                   left.includeSourceCell == right.includeSourceCell &&
+                   left.targetPattern == right.targetPattern;
         }
 
         private static RawMovementIntent ApplyMovementCooldown(RawMovementIntent intent, int cooldownTicks)

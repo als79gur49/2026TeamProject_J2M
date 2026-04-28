@@ -66,6 +66,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly IReadOnlyDictionary<int, EnemyJumpRuntimeState> _enemyJumpStatesByEntityId;
         private readonly IReadOnlyDictionary<int, EnemyGlideRuntimeState> _enemyGlideStatesByEntityId;
         private readonly IReadOnlyDictionary<int, EnemyUtilityRuntimeState> _enemyUtilityStatesByEntityId;
+        private readonly IReadOnlyDictionary<int, EnemyFrontFaceSupportRuntimeState> _enemyFrontFaceSupportStatesByEntityId;
         private readonly IReadOnlyDictionary<int, BoxInteractionLockState> _boxInteractionLockStatesByEntityId;
         private readonly IReadOnlyDictionary<int, EntityState> _entitiesById;
         private readonly IReadOnlyDictionary<int, PhasedRuntimeState> _phasedStatesByEntityId;
@@ -91,6 +92,7 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
             Dictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
             Dictionary<int, EnemyUtilityRuntimeState> enemyUtilityStatesByEntityId,
+            Dictionary<int, EnemyFrontFaceSupportRuntimeState> enemyFrontFaceSupportStatesByEntityId,
             Dictionary<int, BoxInteractionLockState> boxInteractionLockStatesByEntityId,
             Dictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             Dictionary<int, PlayerDamageState> playerDamageStatesByEntityId,
@@ -112,6 +114,7 @@ namespace Game.Feature.Gameplay.BoardState
             _enemyJumpStatesByEntityId = new ReadOnlyDictionary<int, EnemyJumpRuntimeState>(enemyJumpStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyJumpStatesByEntityId)));
             _enemyGlideStatesByEntityId = new ReadOnlyDictionary<int, EnemyGlideRuntimeState>(enemyGlideStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyGlideStatesByEntityId)));
             _enemyUtilityStatesByEntityId = new ReadOnlyDictionary<int, EnemyUtilityRuntimeState>(enemyUtilityStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyUtilityStatesByEntityId)));
+            _enemyFrontFaceSupportStatesByEntityId = new ReadOnlyDictionary<int, EnemyFrontFaceSupportRuntimeState>(enemyFrontFaceSupportStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyFrontFaceSupportStatesByEntityId)));
             _boxInteractionLockStatesByEntityId = new ReadOnlyDictionary<int, BoxInteractionLockState>(boxInteractionLockStatesByEntityId ?? throw new ArgumentNullException(nameof(boxInteractionLockStatesByEntityId)));
             _phasedStatesByEntityId = new ReadOnlyDictionary<int, PhasedRuntimeState>(phasedStatesByEntityId ?? throw new ArgumentNullException(nameof(phasedStatesByEntityId)));
             _playerDamageStatesByEntityId = new ReadOnlyDictionary<int, PlayerDamageState>(playerDamageStatesByEntityId ?? throw new ArgumentNullException(nameof(playerDamageStatesByEntityId)));
@@ -191,6 +194,11 @@ namespace Game.Feature.Gameplay.BoardState
         public bool TryGetEnemyUtilityState(int entityId, out EnemyUtilityRuntimeState state)
         {
             return _enemyUtilityStatesByEntityId.TryGetValue(entityId, out state);
+        }
+
+        public bool TryGetEnemyFrontFaceSupportState(int entityId, out EnemyFrontFaceSupportRuntimeState state)
+        {
+            return _enemyFrontFaceSupportStatesByEntityId.TryGetValue(entityId, out state);
         }
 
         public bool TryGetBoxInteractionLockState(int entityId, out BoxInteractionLockState state)
@@ -800,6 +808,23 @@ namespace Game.Feature.Gameplay.BoardState
             foreach (var pair in _enemyUtilityStatesByEntityId)
             {
                 buffer.Add(new EnemyUtilitySnapshotEntry(pair.Key, pair.Value));
+            }
+
+            buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+        }
+
+        internal void EnumerateEnemyFrontFaceSupportStatesOrdered(List<EnemyFrontFaceSupportSnapshotEntry> buffer)
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+
+            foreach (var pair in _enemyFrontFaceSupportStatesByEntityId)
+            {
+                buffer.Add(new EnemyFrontFaceSupportSnapshotEntry(pair.Key, pair.Value));
             }
 
             buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));

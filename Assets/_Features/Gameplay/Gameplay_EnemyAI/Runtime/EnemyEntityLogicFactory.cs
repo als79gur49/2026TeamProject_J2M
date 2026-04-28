@@ -248,13 +248,20 @@ namespace Game.Feature.Gameplay.Entities
 
             if (_capability == null ||
                 !EnemyParticipationPolicy.TryGetEnemyLogicEntity(snapshot, _entityId, out var source) ||
-                !EnemyFrontFaceSupportPolicy.IsActiveFrontFaceSupportSource(snapshot, source))
+                !EnemyFrontFaceSupportPolicy.IsActiveFrontFaceSupportSource(snapshot, source) ||
+                !snapshot.TryGetEnemyFrontFaceSupportState(_entityId, out var supportState) ||
+                !supportState.HasEffectCount(_capability.Effects.Count))
             {
                 return;
             }
 
             for (var i = 0; i < _capability.Effects.Count; i++)
             {
+                if (supportState.EffectStates[i].phase != EnemyFrontFaceSupportEffectPhase.Active)
+                {
+                    continue;
+                }
+
                 buffer.Add(new FrontFaceSupportContributor(_entityId, source.position, i, _capability.Effects[i]));
             }
         }
