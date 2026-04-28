@@ -18,3 +18,5 @@ MonoBehaviour:
       radius: 1
       includeSourceCell: 0
       targetPattern: 2
+      windupSeconds: 1
+      cooldownSeconds: 1

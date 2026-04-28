@@ -15,7 +15,7 @@ MonoBehaviour:
   effects:
   - kind: 1
     initialDelaySeconds: 0
-    intervalSeconds: 8
+    cooldownSeconds: 8
     summon:
       spawnCountPerTrigger: 1
       maxAliveChildren: 3
