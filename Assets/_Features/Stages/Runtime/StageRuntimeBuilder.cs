@@ -150,19 +150,25 @@ namespace Game.Feature.Stages
                     StageCompletionPolicy.Disabled,
                     validated.PlayerEntityId,
                     zoneDefinitions,
-                    Array.Empty<StageObjectiveConditionRuntimeDefinitionEntry>());
+                    Array.Empty<StageObjectiveConditionRuntimeDefinitionEntry>(),
+                    StageObjectiveDisplayMetadata.Empty);
             }
 
             var conditionEntries = BuildConditionRuntimeEntries(
                 validated,
                 zonesById,
-                timing);
+                timing,
+                out var conditionDisplayMetadata);
 
             return new StageObjectiveRuntimeDefinition(
                 validated.Objective.CompletionPolicy,
                 validated.PlayerEntityId,
                 zoneDefinitions,
-                conditionEntries);
+                conditionEntries,
+                new StageObjectiveDisplayMetadata(
+                    validated.Objective.ObjectiveTitle,
+                    validated.Objective.ObjectiveSummary,
+                    conditionDisplayMetadata));
         }
 
         private static StageZoneRuntimeDefinition[] BuildZoneRuntimeDefinitions(
@@ -210,7 +216,8 @@ namespace Game.Feature.Stages
         private static StageObjectiveConditionRuntimeDefinitionEntry[] BuildConditionRuntimeEntries(
             StageDefinitionValidator.ValidatedStageData validated,
             IReadOnlyDictionary<string, StageZoneRuntimeDefinition> zonesById,
-            StageSimulationTiming timing)
+            StageSimulationTiming timing,
+            out StageObjectiveConditionDisplayMetadata[] conditionDisplayMetadata)
         {
             var conditionEntries = validated.Objective.GetConditionEntriesOrEmpty();
 
@@ -220,19 +227,31 @@ namespace Game.Feature.Stages
                 zonesById,
                 timing);
             var runtimeEntries = new List<StageObjectiveConditionRuntimeDefinitionEntry>();
+            var displayEntries = new List<StageObjectiveConditionDisplayMetadata>();
 
             for (var i = 0; i < conditionEntries.Length; i++)
             {
                 var authoringEntry = conditionEntries[i];
                 var runtimeDefinition = authoringEntry.Condition.Compile(in compilationContext);
+                var stableConditionId = ResolveStableConditionId(authoringEntry.StableConditionId, i, runtimeDefinition);
 
                 runtimeEntries.Add(new StageObjectiveConditionRuntimeDefinitionEntry(
                     runtimeDefinition,
                     authoringEntry.Required,
                     authoringEntry.Role,
-                    ResolveStableConditionId(authoringEntry.StableConditionId, i, runtimeDefinition)));
+                    stableConditionId));
+                displayEntries.Add(new StageObjectiveConditionDisplayMetadata(
+                    stableConditionId,
+                    authoringEntry.Role,
+                    authoringEntry.Required,
+                    authoringEntry.DisplayText,
+                    authoringEntry.SortOrder,
+                    i));
             }
 
+            conditionDisplayMetadata = displayEntries.Count == 0
+                ? Array.Empty<StageObjectiveConditionDisplayMetadata>()
+                : displayEntries.ToArray();
             return runtimeEntries.Count == 0
                 ? Array.Empty<StageObjectiveConditionRuntimeDefinitionEntry>()
                 : runtimeEntries.ToArray();
