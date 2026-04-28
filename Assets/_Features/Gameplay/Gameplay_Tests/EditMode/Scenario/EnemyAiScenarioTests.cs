@@ -317,7 +317,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Extended")]
         public void EnemyUtilitySummon_InitializesCooldown_TriggersAndResetsThroughCanonicalState()
         {
-            var profile = CreateUtilitySummonProfile(initialDelayTicks: 2, intervalTicks: 3);
+            var profile = CreateUtilitySummonProfile(initialDelayTicks: 2, cooldownTicks: 3, windupTicks: 1);
             EnemyAiProfile defaultProfile = null;
             EnemyUnitArchetypeCatalog archetypeCatalog = null;
             var worldState = CreateWorldState(new[]
@@ -339,10 +339,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var secondTick = pipeline.RunTick(new TickInput(2));
                 var secondUtilityState = GetEnemyUtilityState(worldState, 40);
 
-                Assert.That(secondUtilityState.EffectStates[0].cooldownTicksRemaining, Is.EqualTo(3));
+                Assert.That(secondUtilityState.EffectStates[0].cooldownTicksRemaining, Is.Zero);
+                Assert.That(secondUtilityState.EffectStates[0].phase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
+                Assert.That(secondTick.PresentationData.SummonWindupWarnings, Has.Count.EqualTo(1));
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.False);
+                Assert.That(secondTick.EventLog, Has.None.Contains("SummonCommitted|Source=40|Effect=0"));
+
+                var thirdTick = pipeline.RunTick(new TickInput(3));
+                var thirdUtilityState = GetEnemyUtilityState(worldState, 40);
+
+                Assert.That(thirdUtilityState.EffectStates[0].cooldownTicksRemaining, Is.EqualTo(3));
+                Assert.That(thirdUtilityState.EffectStates[0].phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
+                Assert.That(thirdTick.PresentationData.SummonWindupWarnings, Is.Empty);
                 Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out var child), Is.True);
                 Assert.That(child.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
-                Assert.That(secondTick.EventLog, Has.Some.Contains("SummonCommitted|Source=40|Effect=0"));
+                Assert.That(thirdTick.EventLog, Has.Some.Contains("SummonCommitted|Source=40|Effect=0"));
                 Assert.That(worldState.CreateSnapshot().TryGetSummonedEntityState(41, out var summonedState), Is.True);
                 Assert.That(summonedState.SourceEntityId, Is.EqualTo(40));
                 Assert.That(summonedState.SourceEffectIndex, Is.EqualTo(0));
@@ -361,7 +372,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Extended")]
         public void EnemyUtilitySummon_OffBottomExistingUtilityState_DoesNotAdvance()
         {
-            var profile = CreateUtilitySummonProfile(initialDelayTicks: 0, intervalTicks: 3);
+            var profile = CreateUtilitySummonProfile(initialDelayTicks: 0, cooldownTicks: 3);
             EnemyAiProfile defaultProfile = null;
             EnemyUnitArchetypeCatalog archetypeCatalog = null;
             var worldState = CreateWorldState(
@@ -399,7 +410,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Extended")]
         public void EnemyUtilitySummon_DeterministicCandidateOrder_SkipsBlockedForwardAndRight()
         {
-            var profile = CreateUtilitySummonProfile(initialDelayTicks: 0, intervalTicks: 5);
+            var profile = CreateUtilitySummonProfile(initialDelayTicks: 0, cooldownTicks: 5, windupTicks: 1);
             EnemyAiProfile defaultProfile = null;
             EnemyUnitArchetypeCatalog archetypeCatalog = null;
             var worldState = CreateWorldState(new[]
@@ -413,6 +424,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 var pipeline = CreateSharedSummonTickPipeline(profile, worldState, out defaultProfile, out archetypeCatalog);
                 pipeline.RunTick(new TickInput(1));
+                pipeline.RunTick(new TickInput(2));
 
                 Assert.That(worldState.CreateSnapshot().TryGetEntity(61, out var child), Is.True);
                 Assert.That(child.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
@@ -429,24 +441,89 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Extended")]
         public void EnemyUtilitySummon_SourceKilledAfterTrigger_DoesNotSpawn()
         {
-            var profile = CreateUtilitySummonProfile(initialDelayTicks: 0, intervalTicks: 5);
+            var profile = CreateUtilitySummonProfile(initialDelayTicks: 0, cooldownTicks: 5, windupTicks: 1);
             EnemyAiProfile defaultProfile = null;
             EnemyUnitArchetypeCatalog archetypeCatalog = null;
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), hp: 3),
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 1, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 2, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
             });
 
             try
             {
                 var pipeline = CreateSharedSummonBootstrapper(profile, out defaultProfile, out archetypeCatalog)
                     .CreateTickPipeline(worldState, new IEntityLogic[] { new ScriptedAttackLogic(10, 40) });
-                var tick = pipeline.RunTick(new TickInput(1));
+                var warningTick = pipeline.RunTick(new TickInput(1));
+
+                Assert.That(warningTick.PresentationData.SummonWindupWarnings, Has.Count.EqualTo(1));
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.False);
+
+                var tick = pipeline.RunTick(new TickInput(2));
 
                 Assert.That(worldState.CreateSnapshot().TryGetEntity(40, out _), Is.False);
                 Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.False);
                 Assert.That(tick.EventLog, Has.Some.Contains("SummonSkipped|Source=40|Effect=0|SpawnIndex=0|Reason=SourceInvalid"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyUtilitySummon_IneligibleDuringWindup_CancelsAndRestartsFullWindup()
+        {
+            var profile = CreateUtilitySummonProfile(initialDelayTicks: 0, cooldownTicks: 2, windupTicks: 1);
+            EnemyAiProfile defaultProfile = null;
+            EnemyUnitArchetypeCatalog archetypeCatalog = null;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new CubeTopologyState(FaceId.Floor));
+
+            try
+            {
+                var pipeline = CreateSharedSummonTickPipeline(profile, worldState, out defaultProfile, out archetypeCatalog);
+
+                var firstWarning = pipeline.RunTick(new TickInput(1));
+                Assert.That(firstWarning.PresentationData.SummonWindupWarnings, Has.Count.EqualTo(1));
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.False);
+
+                worldState.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Front, 0, 0));
+                var canceledTick = pipeline.RunTick(new TickInput(2));
+                var canceledState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
+
+                Assert.That(canceledTick.PresentationData.SummonWindupWarnings, Is.Empty);
+                Assert.That(canceledState.phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
+                Assert.That(canceledState.cooldownTicksRemaining, Is.EqualTo(2));
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.False);
+
+                worldState.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Floor, 0, 0));
+                var cooldownTick = pipeline.RunTick(new TickInput(3));
+                var cooldownState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
+
+                Assert.That(cooldownTick.PresentationData.SummonWindupWarnings, Is.Empty);
+                Assert.That(cooldownState.phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
+                Assert.That(cooldownState.cooldownTicksRemaining, Is.EqualTo(1));
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.False);
+
+                var restartedWarning = pipeline.RunTick(new TickInput(4));
+
+                Assert.That(restartedWarning.PresentationData.SummonWindupWarnings, Has.Count.EqualTo(1));
+                Assert.That(restartedWarning.PresentationData.SummonWindupWarnings[0].ActivationSequence, Is.EqualTo(2));
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.False);
+
+                var committedTick = pipeline.RunTick(new TickInput(5));
+
+                Assert.That(committedTick.PresentationData.SummonWindupWarnings, Is.Empty);
+                Assert.That(committedTick.EventLog, Has.Some.Contains("SummonCommitted|Source=40|Effect=0|SpawnIndex=0|Spawned=41"));
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.True);
             }
             finally
             {
@@ -466,7 +543,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 DetectionStrategyKind = DetectionStrategyKind.None,
                 PatrolStrategyKind = PatrolStrategyKind.Stationary,
             });
-            var profile = CreateUtilitySummonProfile(initialDelayTicks: 0, intervalTicks: 5, maxAliveChildren: 1);
+            var profile = CreateUtilitySummonProfile(initialDelayTicks: 0, cooldownTicks: 5, maxAliveChildren: 1, windupTicks: 1);
             var archetypeCatalog = CreateEnemyUnitArchetypeCatalog(GetSharedSummonedArchetype());
             var blockedWorld = CreateWorldState(new[]
             {
@@ -485,14 +562,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             try
             {
                 var blockedPipeline = CreateTickPipeline(defaultProfile, profile, archetypeCatalog, blockedWorld);
-                var blockedTick = blockedPipeline.RunTick(new TickInput(1));
+                blockedPipeline.RunTick(new TickInput(1));
+                var blockedTick = blockedPipeline.RunTick(new TickInput(2));
                 Assert.That(blockedWorld.CreateSnapshot().TryGetEntity(51, out _), Is.False);
                 Assert.That(blockedTick.EventLog, Has.Some.Contains("SummonSkipped|Source=40|Effect=0|SpawnIndex=0|Reason=MaxAliveReached"));
 
                 var deadChildPipeline = CreateTickPipeline(defaultProfile, profile, archetypeCatalog, deadChildWorld);
                 deadChildPipeline.RunTick(new TickInput(1));
+                deadChildPipeline.RunTick(new TickInput(2));
                 Assert.That(deadChildWorld.CreateSnapshot().TryGetEntity(51, out var spawnedChild), Is.True);
-                Assert.That(spawnedChild.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, -1)));
+                Assert.That(spawnedChild.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             }
             finally
             {
@@ -520,7 +599,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             });
             var archetype = CreateEnemyUnitArchetypeAsset("BasicMinion", archetypeProfile, hp: 1, initialAiMode: EnemyAiMode.Patrol);
             var archetypeCatalog = CreateEnemyUnitArchetypeCatalog(archetype);
-            var utilityProfile = CreateUtilitySummonProfile(initialDelayTicks: 0, intervalTicks: 10, summonedArchetype: archetype);
+            var utilityProfile = CreateUtilitySummonProfile(initialDelayTicks: 0, cooldownTicks: 10, summonedArchetype: archetype, windupTicks: 1);
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
@@ -530,12 +609,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 var pipeline = CreateTickPipeline(defaultProfile, utilityProfile, archetypeCatalog, worldState);
 
-                pipeline.RunTick(new TickInput(1));
+                var warningTick = pipeline.RunTick(new TickInput(1));
+                Assert.That(warningTick.PresentationData.SummonWindupWarnings, Has.Count.EqualTo(1));
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.False);
+
+                pipeline.RunTick(new TickInput(2));
                 Assert.That(GetEntity(worldState, 41).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
                 Assert.That(worldState.CreateSnapshot().TryGetEnemyDefinitionBindingState(41, out var bindingState), Is.True);
                 Assert.That(bindingState.ArchetypeId, Is.EqualTo(new EnemyUnitArchetypeId("BasicMinion")));
 
-                pipeline.RunTick(new TickInput(2));
+                pipeline.RunTick(new TickInput(3));
                 Assert.That(GetEntity(worldState, 41).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
             }
             finally
@@ -563,8 +646,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var catalog = CreateEnemyUnitArchetypeCatalog(archetype);
             var summonerProfile = CreateUtilitySummonProfile(
                 initialDelayTicks: 0,
-                intervalTicks: 10,
-                summonedArchetype: archetype);
+                cooldownTicks: 10,
+                summonedArchetype: archetype,
+                windupTicks: 1);
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
@@ -573,7 +657,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             try
             {
                 var pipeline = CreateTickPipeline(defaultProfile, summonerProfile, catalog, worldState);
-                var firstTick = pipeline.RunTick(new TickInput(1));
+                var warningTick = pipeline.RunTick(new TickInput(1));
+
+                Assert.That(warningTick.PresentationData.SummonWindupWarnings, Has.Count.EqualTo(1));
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.False);
+
+                var firstTick = pipeline.RunTick(new TickInput(2));
                 var snapshotAfterSpawn = worldState.CreateSnapshot();
 
                 Assert.That(snapshotAfterSpawn.TryGetEntity(41, out var child), Is.True);
@@ -585,10 +674,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(child.facing, Is.EqualTo(Direction.Right));
                 Assert.That(snapshotAfterSpawn.TryGetEnemyDefinitionBindingState(41, out var bindingState), Is.True);
                 Assert.That(bindingState.ArchetypeId, Is.EqualTo(new EnemyUnitArchetypeId("BasicMinion")));
-                Assert.That(firstTick.EventLog, Has.Some.Contains("SummonCommitted|Source=40|Effect=0|SpawnIndex=0|Spawned=41|Pos=(1,0)|Archetype=BasicMinion|Tick=1"));
+                Assert.That(firstTick.EventLog, Has.Some.Contains("SummonCommitted|Source=40|Effect=0|SpawnIndex=0|Spawned=41|Pos=(1,0)|Archetype=BasicMinion|Tick=2"));
                 Assert.That(firstTick.EventLog, Has.None.Contains("DefinitionMode="));
 
-                pipeline.RunTick(new TickInput(2));
+                pipeline.RunTick(new TickInput(3));
 
                 Assert.That(GetEntity(worldState, 41).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
             }
@@ -617,10 +706,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var catalog = CreateEnemyUnitArchetypeCatalog(archetype);
             var summonerProfile = CreateUtilitySummonProfile(
                 initialDelayTicks: 0,
-                intervalTicks: 10,
+                cooldownTicks: 10,
                 summonedArchetype: archetype,
                 overrideHp: true,
-                hpOverride: 6);
+                hpOverride: 6,
+                windupTicks: 1);
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
@@ -630,6 +720,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 var pipeline = CreateTickPipeline(defaultProfile, summonerProfile, catalog, worldState);
                 pipeline.RunTick(new TickInput(1));
+                pipeline.RunTick(new TickInput(2));
 
                 var snapshotAfterSpawn = worldState.CreateSnapshot();
                 Assert.That(snapshotAfterSpawn.TryGetEntity(41, out var child), Is.True);
@@ -638,7 +729,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(bindingState.ArchetypeId, Is.EqualTo(new EnemyUnitArchetypeId("HeavyMinion")));
 
                 worldState.CreateWriteContext().ApplyDamage(40, 3);
-                pipeline.RunTick(new TickInput(2));
+                pipeline.RunTick(new TickInput(3));
 
                 var snapshotAfterFollowup = worldState.CreateSnapshot();
                 Assert.That(snapshotAfterFollowup.TryGetEntity(40, out _), Is.False);
@@ -663,7 +754,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var profile = CreateUtilityLockNearbyBoxesProfile(
                 initialDelayTicks: 0,
-                intervalTicks: 3,
+                cooldownTicks: 3,
                 radius: 1,
                 durationTicks: 2);
             var worldState = CreateWorldState(
@@ -702,7 +793,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var profile = CreateUtilityLockNearbyBoxesProfile(
                 initialDelayTicks: 0,
-                intervalTicks: 3,
+                cooldownTicks: 3,
                 radius: 1,
                 durationTicks: 2,
                 blocksPush: true,
@@ -794,7 +885,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var profile = CreateUtilityLockNearbyBoxesProfile(
                 initialDelayTicks: 0,
-                intervalTicks: 3,
+                cooldownTicks: 3,
                 radius: 1,
                 durationTicks: 2,
                 blocksPush: false,
@@ -866,7 +957,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var profile = CreateUtilityLockNearbyBoxesProfile(
                 initialDelayTicks: 0,
-                intervalTicks: 5,
+                cooldownTicks: 5,
                 radius: 1,
                 durationTicks: 2,
                 targetPattern: BoxLockTargetPattern.OrthogonalAdjacent4);
@@ -921,7 +1012,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             });
             var shortPushProfile = CreateUtilityLockNearbyBoxesProfile(
                 initialDelayTicks: 0,
-                intervalTicks: 5,
+                cooldownTicks: 5,
                 radius: 1,
                 durationTicks: 1,
                 blocksPush: true,
@@ -929,7 +1020,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 targetPattern: BoxLockTargetPattern.OrthogonalAdjacent4);
             var longFlipProfile = CreateUtilityLockNearbyBoxesProfile(
                 initialDelayTicks: 0,
-                intervalTicks: 5,
+                cooldownTicks: 5,
                 radius: 1,
                 durationTicks: 3,
                 blocksPush: false,
@@ -4526,27 +4617,29 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static EnemyAiProfile CreateUtilitySummonProfile(
             int initialDelayTicks,
-            int intervalTicks,
+            int cooldownTicks,
             int spawnCountPerTrigger = 1,
             int maxAliveChildren = 3,
             EnemyUnitArchetypeAsset summonedArchetype = null,
             bool overrideHp = false,
-            int hpOverride = 1)
+            int hpOverride = 1,
+            int windupTicks = 1)
         {
             return CreateUtilityProfile(
                 CreateSummonUtilityEffect(
                     initialDelayTicks,
-                    intervalTicks,
+                    cooldownTicks,
                     spawnCountPerTrigger,
                     maxAliveChildren,
                     summonedArchetype != null ? summonedArchetype : GetSharedSummonedArchetype(),
                     overrideHp,
-                    hpOverride));
+                    hpOverride,
+                    windupTicks));
         }
 
         private static EnemyAiProfile CreateUtilityLockNearbyBoxesProfile(
             int initialDelayTicks,
-            int intervalTicks,
+            int cooldownTicks,
             int radius,
             int durationTicks,
             bool blocksPush = true,
@@ -4557,7 +4650,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return CreateUtilityProfile(
                 CreateLockNearbyBoxesUtilityEffect(
                     initialDelayTicks,
-                    intervalTicks,
+                    cooldownTicks,
                     radius,
                     durationTicks,
                     blocksPush,
@@ -4579,12 +4672,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static EnemyUtilityEffectAuthoring CreateSummonUtilityEffect(
             int initialDelayTicks,
-            int intervalTicks,
+            int cooldownTicks,
             int spawnCountPerTrigger,
             int maxAliveChildren,
             EnemyUnitArchetypeAsset summonedArchetype,
             bool overrideHp = false,
-            int hpOverride = 1)
+            int hpOverride = 1,
+            int windupTicks = 1)
         {
             var summon = new SummonMinionAuthoring();
             EnemyAiProfileTestFactory.SetSerializedField(summon, "spawnCountPerTrigger", spawnCountPerTrigger);
@@ -4595,18 +4689,19 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             EnemyAiProfileTestFactory.SetSerializedField(summon, "summonedArchetype", summonedArchetype);
             EnemyAiProfileTestFactory.SetSerializedField(summon, "overrideHp", overrideHp);
             EnemyAiProfileTestFactory.SetSerializedField(summon, "hpOverride", hpOverride);
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "windupSeconds", TicksToSeconds(windupTicks));
 
             var effect = new EnemyUtilityEffectAuthoring();
             EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.SummonMinion);
             EnemyAiProfileTestFactory.SetSerializedField(effect, "initialDelaySeconds", TicksToSeconds(initialDelayTicks));
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "intervalSeconds", TicksToSeconds(intervalTicks));
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "cooldownSeconds", TicksToSeconds(cooldownTicks));
             EnemyAiProfileTestFactory.SetSerializedField(effect, "summon", summon);
             return effect;
         }
 
         private static EnemyUtilityEffectAuthoring CreateLockNearbyBoxesUtilityEffect(
             int initialDelayTicks,
-            int intervalTicks,
+            int cooldownTicks,
             int radius,
             int durationTicks,
             bool blocksPush,
@@ -4625,7 +4720,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var effect = new EnemyUtilityEffectAuthoring();
             EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.LockNearbyBoxes);
             EnemyAiProfileTestFactory.SetSerializedField(effect, "initialDelaySeconds", TicksToSeconds(initialDelayTicks));
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "intervalSeconds", TicksToSeconds(intervalTicks));
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "cooldownSeconds", TicksToSeconds(cooldownTicks));
             EnemyAiProfileTestFactory.SetSerializedField(effect, "lockNearbyBoxes", lockNearbyBoxes);
             return effect;
         }

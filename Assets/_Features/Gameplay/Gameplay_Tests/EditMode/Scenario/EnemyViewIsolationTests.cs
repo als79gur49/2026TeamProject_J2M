@@ -245,7 +245,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             });
             var archetype = CreateEnemyUnitArchetypeAsset("BasicMinion", archetypeProfile, hp: 4, initialAiMode: EnemyAiMode.Patrol);
             var archetypeCatalog = CreateEnemyUnitArchetypeCatalog(archetype);
-            var summonerProfile = CreateUtilitySummonProfile(initialDelayTicks: 0, intervalTicks: 10, summonedArchetype: archetype);
+            var summonerProfile = CreateUtilitySummonProfile(initialDelayTicks: 0, cooldownTicks: 10, summonedArchetype: archetype);
             var baselinePipeline = CreateArchetypeBootstrapper(defaultProfile, summonerProfile, archetypeCatalog).CreateTickPipeline(baselineWorld);
             var presentedPipeline = CreateArchetypeBootstrapper(defaultProfile, summonerProfile, archetypeCatalog).CreateTickPipeline(presentedWorld);
             var rootObject = new GameObject("EnemyViewIsolationTests_SummonedPresenter");
@@ -282,8 +282,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 presenter.UpdatePresentation(0f);
 
                 Assert.That(presentedFirstTick.DeterminismHash, Is.EqualTo(baselineFirstTick.DeterminismHash));
-                Assert.That(registry.TryGetView(41, out var spawnedView), Is.True);
-                Assert.That(spawnedView.transform.Find("SummonedMarker"), Is.Not.Null);
+                Assert.That(registry.TryGetView(41, out _), Is.False);
 
                 var baselineSecondTick = baselinePipeline.RunTick(new TickInput(2));
                 var presentedSecondTick = presentedPipeline.RunTick(new TickInput(2));
@@ -292,12 +291,22 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 presenter.UpdatePresentation(0f);
 
                 Assert.That(presentedSecondTick.DeterminismHash, Is.EqualTo(baselineSecondTick.DeterminismHash));
+                Assert.That(registry.TryGetView(41, out var spawnedView), Is.True);
+                Assert.That(spawnedView.transform.Find("SummonedMarker"), Is.Not.Null);
+
+                var baselineThirdTick = baselinePipeline.RunTick(new TickInput(3));
+                var presentedThirdTick = presentedPipeline.RunTick(new TickInput(3));
+
+                presenter.Present(presentedThirdTick);
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(presentedThirdTick.DeterminismHash, Is.EqualTo(baselineThirdTick.DeterminismHash));
                 CollectionAssert.AreEqual(
-                    SummarizeEntities(baselineSecondTick.FinalEntities),
-                    SummarizeEntities(presentedSecondTick.FinalEntities));
+                    SummarizeEntities(baselineThirdTick.FinalEntities),
+                    SummarizeEntities(presentedThirdTick.FinalEntities));
                 CollectionAssert.AreEqual(
-                    baselineSecondTick.EventLog.ToArray(),
-                    presentedSecondTick.EventLog.ToArray());
+                    baselineThirdTick.EventLog.ToArray(),
+                    presentedThirdTick.EventLog.ToArray());
 
                 var presentedSnapshotAfter = presentedWorld.CreateSnapshot();
                 Assert.That(presentedSnapshotAfter.TryGetEnemyDefinitionBindingState(41, out var bindingState), Is.True);
@@ -414,7 +423,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static EnemyAiProfile CreateUtilitySummonProfile(
             int initialDelayTicks,
-            int intervalTicks,
+            int cooldownTicks,
             EnemyUnitArchetypeAsset summonedArchetype)
         {
             return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
@@ -424,14 +433,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 PatrolStrategyKind = PatrolStrategyKind.Stationary,
                 UtilityEffects = new[]
                 {
-                    CreateSummonUtilityEffect(initialDelayTicks, intervalTicks, summonedArchetype),
+                    CreateSummonUtilityEffect(initialDelayTicks, cooldownTicks, summonedArchetype),
                 },
             });
         }
 
         private static EnemyUtilityEffectAuthoring CreateSummonUtilityEffect(
             int initialDelayTicks,
-            int intervalTicks,
+            int cooldownTicks,
             EnemyUnitArchetypeAsset summonedArchetype)
         {
             var summon = new SummonMinionAuthoring();
@@ -441,6 +450,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             EnemyAiProfileTestFactory.SetSerializedField(summon, "requireNoUnitAtSpawnCell", true);
             EnemyAiProfileTestFactory.SetSerializedField(summon, "requireNoSolidAtSpawnCell", true);
             EnemyAiProfileTestFactory.SetSerializedField(summon, "summonedArchetype", summonedArchetype);
+            EnemyAiProfileTestFactory.SetSerializedField(
+                summon,
+                "windupSeconds",
+                1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond);
 
             var effect = new EnemyUtilityEffectAuthoring();
             EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.SummonMinion);
@@ -450,8 +463,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 initialDelayTicks / (float)GameplayTimingProfile.DefaultSimulationTicksPerSecond);
             EnemyAiProfileTestFactory.SetSerializedField(
                 effect,
-                "intervalSeconds",
-                intervalTicks / (float)GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+                "cooldownSeconds",
+                cooldownTicks / (float)GameplayTimingProfile.DefaultSimulationTicksPerSecond);
             EnemyAiProfileTestFactory.SetSerializedField(effect, "summon", summon);
             return effect;
         }

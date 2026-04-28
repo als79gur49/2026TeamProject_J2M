@@ -33,11 +33,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             Assert.That(TickPresentationData.Empty.FrontFaceShieldSources, Is.Empty);
             Assert.That(TickPresentationData.Empty.FrontFaceShieldBlocks, Is.Empty);
+            Assert.That(TickPresentationData.Empty.SummonWindupWarnings, Is.Empty);
+            Assert.That(TickPresentationData.Empty.FrontFaceShieldWindupWarnings, Is.Empty);
 
             var presentationData = new TickPresentationData(Array.Empty<TickEntityMotion>());
 
             Assert.That(presentationData.FrontFaceShieldSources, Is.Empty);
             Assert.That(presentationData.FrontFaceShieldBlocks, Is.Empty);
+            Assert.That(presentationData.SummonWindupWarnings, Is.Empty);
+            Assert.That(presentationData.FrontFaceShieldWindupWarnings, Is.Empty);
         }
 
         [Test]

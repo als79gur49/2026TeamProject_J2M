@@ -2260,7 +2260,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var profile = CreateUtilitySummonerProfile(
                 CreateSummonUtilityEffect(
                     initialDelaySeconds: 0.2f,
-                    intervalSeconds: 0.5f,
+                    cooldownSeconds: 0.5f,
                     spawnCountPerTrigger: 2,
                     maxAliveChildren: 4,
                     overrideHp: true,
@@ -2274,7 +2274,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(utility.Effects, Has.Count.EqualTo(1));
                 Assert.That(utility.Effects[0].Kind, Is.EqualTo(EnemyUtilityEffectKind.SummonMinion));
                 Assert.That(utility.Effects[0].InitialDelayTicks, Is.EqualTo(2));
-                Assert.That(utility.Effects[0].IntervalTicks, Is.EqualTo(5));
+                Assert.That(utility.Effects[0].CooldownTicks, Is.EqualTo(5));
                 Assert.That(utility.Effects[0].Summon.SpawnCountPerTrigger, Is.EqualTo(2));
                 Assert.That(utility.Effects[0].Summon.MaxAliveChildren, Is.EqualTo(4));
                 Assert.That(utility.Effects[0].Summon.SummonedArchetypeId, Is.EqualTo(new EnemyUnitArchetypeId("BasicMinion")));
@@ -2294,7 +2294,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var profile = CreateUtilitySummonerProfile(
                 CreateLockNearbyBoxesUtilityEffect(
                     initialDelaySeconds: 0.2f,
-                    intervalSeconds: 0.5f,
+                    cooldownSeconds: 0.5f,
                     radius: 2,
                     durationSeconds: 0.3f,
                     blocksPush: true,
@@ -2310,7 +2310,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(utility.Effects, Has.Count.EqualTo(1));
                 Assert.That(utility.Effects[0].Kind, Is.EqualTo(EnemyUtilityEffectKind.LockNearbyBoxes));
                 Assert.That(utility.Effects[0].InitialDelayTicks, Is.EqualTo(2));
-                Assert.That(utility.Effects[0].IntervalTicks, Is.EqualTo(5));
+                Assert.That(utility.Effects[0].CooldownTicks, Is.EqualTo(5));
                 Assert.That(utility.Effects[0].LockNearbyBoxes.Radius, Is.EqualTo(2));
                 Assert.That(utility.Effects[0].LockNearbyBoxes.DurationTicks, Is.EqualTo(3));
                 Assert.That(utility.Effects[0].LockNearbyBoxes.BlocksPush, Is.True);
@@ -2360,7 +2360,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateBoxSlideShieldSupportEffect(
                     radius: 2,
                     includeSourceCell: true,
-                    targetPattern: FrontFaceShieldTargetPattern.OrthogonalAdjacent4));
+                    targetPattern: FrontFaceShieldTargetPattern.OrthogonalAdjacent4,
+                    cooldownTicks: 10));
 
             try
             {
@@ -2372,6 +2373,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(support.Effects[0].BoxSlideShield.Radius, Is.EqualTo(2));
                 Assert.That(support.Effects[0].BoxSlideShield.IncludeSourceCell, Is.True);
                 Assert.That(support.Effects[0].BoxSlideShield.TargetPattern, Is.EqualTo(FrontFaceShieldTargetPattern.OrthogonalAdjacent4));
+                Assert.That(support.Effects[0].BoxSlideShield.WindupTicks, Is.EqualTo(10));
+                Assert.That(support.Effects[0].BoxSlideShield.CooldownTicks, Is.EqualTo(10));
             }
             finally
             {
@@ -2416,6 +2419,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Front, 0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
             });
+            worldState.SetEnemyFrontFaceSupportState(40, CreateActiveFrontFaceSupportState());
             var profile = CreateFrontFaceSupportProfile(CreateBoxSlideShieldSupportEffect());
 
             try
@@ -2501,7 +2505,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var effect = new EnemyUtilityEffectAuthoring();
             EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.LockNearbyBoxes);
             EnemyAiProfileTestFactory.SetSerializedField(effect, "initialDelaySeconds", 0f);
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "intervalSeconds", 1f);
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "cooldownSeconds", 1f);
             EnemyAiProfileTestFactory.SetSerializedField(effect, "lockNearbyBoxes", null);
             var profile = CreateUtilitySummonerProfile(effect);
 
@@ -2577,8 +2581,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 PatrolStrategyKind = PatrolStrategyKind.Stationary,
                 UtilityEffects = new[]
                 {
-                    CreateSummonUtilityEffect(intervalSeconds: 2f),
-                    CreateLockNearbyBoxesUtilityEffect(initialDelaySeconds: 0.1f, intervalSeconds: 0.4f, radius: 1, durationSeconds: 0.2f),
+                    CreateSummonUtilityEffect(cooldownSeconds: 2f),
+                    CreateLockNearbyBoxesUtilityEffect(initialDelaySeconds: 0.1f, cooldownSeconds: 0.4f, radius: 1, durationSeconds: 0.2f),
                 },
             });
 
@@ -3235,9 +3239,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyAiProfileCompiler_UtilityCapability_NonPositiveInterval_Throws()
+        public void EnemyAiProfileCompiler_UtilityCapability_NonPositiveCooldown_Throws()
         {
-            var profile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect(intervalSeconds: 0f));
+            var profile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect(cooldownSeconds: 0f));
 
             try
             {
@@ -3289,7 +3293,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var summon = CreateSummonMinionAuthoring(includeSummonedArchetype: false);
             EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.SummonMinion);
             EnemyAiProfileTestFactory.SetSerializedField(effect, "initialDelaySeconds", 0f);
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "intervalSeconds", 1f);
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "cooldownSeconds", 1f);
             EnemyAiProfileTestFactory.SetSerializedField(effect, "summon", summon);
             var profile = CreateUtilitySummonerProfile(effect);
 
@@ -3313,7 +3317,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             EnemyAiProfileTestFactory.SetSerializedField(
                 duplicateUtility,
                 "effects",
-                new[] { CreateSummonUtilityEffect(intervalSeconds: 2f) });
+                new[] { CreateSummonUtilityEffect(cooldownSeconds: 2f) });
 
             try
             {
@@ -5010,7 +5014,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static EnemyUtilityEffectAuthoring CreateSummonUtilityEffect(
             float initialDelaySeconds = 0f,
-            float intervalSeconds = 1f,
+            float cooldownSeconds = 1f,
             int spawnCountPerTrigger = 1,
             int maxAliveChildren = 3,
             EnemyUnitArchetypeAsset summonedArchetype = null,
@@ -5032,7 +5036,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var effect = new EnemyUtilityEffectAuthoring();
             EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.SummonMinion);
             EnemyAiProfileTestFactory.SetSerializedField(effect, "initialDelaySeconds", initialDelaySeconds);
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "intervalSeconds", intervalSeconds);
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "cooldownSeconds", cooldownSeconds);
             EnemyAiProfileTestFactory.SetSerializedField(effect, "summon", summon);
             return effect;
         }
@@ -5040,7 +5044,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static EnemyUtilityEffectAuthoring CreateArchetypeSummonUtilityEffect(
             EnemyUnitArchetypeAsset summonedArchetype,
             float initialDelaySeconds = 0f,
-            float intervalSeconds = 1f,
+            float cooldownSeconds = 1f,
             int spawnCountPerTrigger = 1,
             int maxAliveChildren = 3,
             bool overrideHp = false,
@@ -5050,7 +5054,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             return CreateSummonUtilityEffect(
                 initialDelaySeconds,
-                intervalSeconds,
+                cooldownSeconds,
                 spawnCountPerTrigger,
                 maxAliveChildren,
                 summonedArchetype,
@@ -5163,7 +5167,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static EnemyUtilityEffectAuthoring CreateLockNearbyBoxesUtilityEffect(
             float initialDelaySeconds = 0f,
-            float intervalSeconds = 1f,
+            float cooldownSeconds = 1f,
             int radius = 1,
             float durationSeconds = 2f,
             bool blocksPush = true,
@@ -5182,7 +5186,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var effect = new EnemyUtilityEffectAuthoring();
             EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.LockNearbyBoxes);
             EnemyAiProfileTestFactory.SetSerializedField(effect, "initialDelaySeconds", initialDelaySeconds);
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "intervalSeconds", intervalSeconds);
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "cooldownSeconds", cooldownSeconds);
             EnemyAiProfileTestFactory.SetSerializedField(effect, "lockNearbyBoxes", lockNearbyBoxes);
             return effect;
         }
@@ -5190,17 +5194,44 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static EnemyFrontFaceSupportEffectAuthoring CreateBoxSlideShieldSupportEffect(
             int radius = 1,
             bool includeSourceCell = false,
-            FrontFaceShieldTargetPattern targetPattern = FrontFaceShieldTargetPattern.ManhattanRadius)
+            FrontFaceShieldTargetPattern targetPattern = FrontFaceShieldTargetPattern.ManhattanRadius,
+            int windupTicks = 10,
+            int cooldownTicks = 10)
         {
             var boxSlideShield = new BoxSlideShieldAuthoring();
             EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "radius", radius);
             EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "includeSourceCell", includeSourceCell);
             EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "targetPattern", targetPattern);
+            EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "windupSeconds", TicksToSeconds(windupTicks));
+            EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "cooldownSeconds", TicksToSeconds(cooldownTicks));
 
             var effect = new EnemyFrontFaceSupportEffectAuthoring();
             EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyFrontFaceSupportEffectKind.BoxSlideShield);
             EnemyAiProfileTestFactory.SetSerializedField(effect, "boxSlideShield", boxSlideShield);
             return effect;
+        }
+
+        private static EnemyFrontFaceSupportRuntimeState CreateActiveFrontFaceSupportState()
+        {
+            return new EnemyFrontFaceSupportRuntimeState(
+                new[]
+                {
+                    new EnemyFrontFaceSupportEffectState
+                    {
+                        phase = EnemyFrontFaceSupportEffectPhase.Active,
+                        windupStartTick = 0,
+                        windupEndTick = 1,
+                        activationSequence = 1,
+                        radius = 1,
+                        includeSourceCell = false,
+                        targetPattern = FrontFaceShieldTargetPattern.ManhattanRadius,
+                    },
+                });
+        }
+
+        private static float TicksToSeconds(int ticks)
+        {
+            return ticks / 10f;
         }
 
         private static IReadOnlyList<FrontFaceSupportContributor> CollectSupportContributors(

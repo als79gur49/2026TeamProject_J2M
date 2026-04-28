@@ -1109,7 +1109,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiProfileCompiler_UtilityCapability_NonPositiveInterval_Throws",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiProfileCompiler_UtilityCapability_NonPositiveCooldown_Throws",
       "category": "Core",
       "contracts": [
         "enemy_logic_contract"
@@ -1331,6 +1331,24 @@
         "bgm_flow_runtime_contract"
       ],
       "reason": "Locked Core coverage for immediate BGM request translation after request-based port migration.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.GameplayTickPresentationCoordinator_FrontFaceShieldWindupWarning_ReconcilesTelegraphPrefab",
+      "category": "Core",
+      "contracts": [
+        "gameplay_tick_presentation_coordinator_contract"
+      ],
+      "reason": "Locked Core coverage for FrontFace Shield windup warning presentation reconciliation.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.GameplayTickPresentationCoordinator_SummonWindupWarning_MissingAuthoringNoOps",
+      "category": "Core",
+      "contracts": [
+        "gameplay_tick_presentation_coordinator_contract"
+      ],
+      "reason": "Locked Core coverage for optional Summon windup warning presentation authoring no-op behavior.",
       "locked": true
     }
   ]

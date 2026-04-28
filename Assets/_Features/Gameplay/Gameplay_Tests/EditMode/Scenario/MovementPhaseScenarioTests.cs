@@ -2324,7 +2324,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     .CreateDefaultBootstrapper(profile)
                     .CreateTickPipeline(worldState, new IEntityLogic[] { CreateImmediatePushPlayerLogic(10) });
 
-                var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+                var warningResult = pipeline.RunTick(new TickInput(1));
+                Assert.That(warningResult.PresentationData.FrontFaceShieldWindupWarnings, Has.Count.EqualTo(1));
+                Assert.That(warningResult.PresentationData.FrontFaceShieldSources, Is.Empty);
+                Assert.That(warningResult.PresentationData.FrontFaceShieldBlocks, Is.Empty);
+                Assert.That(warningResult.MovementPhaseResult.RejectedReasons, Is.Empty);
+
+                var result = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Up)));
                 var snapshotAfter = CreateSnapshot(worldState);
 
                 Assert.That(
@@ -2353,7 +2359,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(sourceSignal.Radius, Is.EqualTo(1));
                 Assert.That(sourceSignal.IncludeSourceCell, Is.False);
                 Assert.That(sourceSignal.TargetPattern, Is.EqualTo(FrontFaceShieldTargetPattern.ManhattanRadius));
-                Assert.That(sourceSignal.TickIndex, Is.EqualTo(1));
+                Assert.That(sourceSignal.TickIndex, Is.EqualTo(2));
 
                 Assert.That(result.PresentationData.FrontFaceShieldBlocks, Has.Count.EqualTo(1));
                 var blockSignal = result.PresentationData.FrontFaceShieldBlocks[0];
@@ -2363,7 +2369,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(blockSignal.BlockedCell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
                 Assert.That(blockSignal.ShieldSourceCell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 1)));
                 Assert.That(blockSignal.MovementKind, Is.EqualTo(FrontFaceShieldBlockMovementKind.PushStart));
-                Assert.That(blockSignal.TickIndex, Is.EqualTo(1));
+                Assert.That(blockSignal.TickIndex, Is.EqualTo(2));
                 Assert.That(snapshotAfter.TryGetBoxInteractionLockState(20, out _), Is.False);
                 Assert.That(snapshotAfter.TryGetEntity(20, out var boxAfter), Is.True);
                 Assert.That(boxAfter.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
@@ -2400,7 +2406,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     .CreateDefaultBootstrapper(profile)
                     .CreateTickPipeline(worldState, new IEntityLogic[] { CreateImmediatePushPlayerLogic(10) });
 
-                var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+                var warningResult = pipeline.RunTick(new TickInput(1));
+                Assert.That(warningResult.PresentationData.FrontFaceShieldWindupWarnings, Has.Count.EqualTo(1));
+                Assert.That(warningResult.PresentationData.FrontFaceShieldSources, Is.Empty);
+
+                var result = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Right)));
                 var snapshotAfter = CreateSnapshot(worldState);
 
                 Assert.That(
@@ -2448,7 +2458,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     .CreateDefaultBootstrapper(profile)
                     .CreateTickPipeline(worldState, new IEntityLogic[] { CreateImmediatePushPlayerLogic(10) });
 
-                var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+                pipeline.RunTick(new TickInput(1));
+                var result = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Right)));
 
                 Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
                 Assert.That(result.MovementPhaseResult.CommitEvents, Has.None.Contains("FrontFaceShield"));
@@ -2532,7 +2543,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(worldState);
 
-                var result = pipeline.RunTick(new TickInput(7));
+                var warningResult = pipeline.RunTick(new TickInput(7));
+                Assert.That(warningResult.PresentationData.FrontFaceShieldWindupWarnings, Has.Count.EqualTo(1));
+                Assert.That(warningResult.PresentationData.FrontFaceShieldSources, Is.Empty);
+
+                var result = pipeline.RunTick(new TickInput(8));
 
                 Assert.That(result.PresentationData.FrontFaceShieldSources, Has.Count.EqualTo(1));
                 var sourceSignal = result.PresentationData.FrontFaceShieldSources[0];
@@ -2541,8 +2556,66 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(sourceSignal.Radius, Is.EqualTo(2));
                 Assert.That(sourceSignal.IncludeSourceCell, Is.True);
                 Assert.That(sourceSignal.TargetPattern, Is.EqualTo(FrontFaceShieldTargetPattern.ManhattanRadius));
-                Assert.That(sourceSignal.TickIndex, Is.EqualTo(7));
+                Assert.That(sourceSignal.TickIndex, Is.EqualTo(8));
                 Assert.That(result.PresentationData.FrontFaceShieldBlocks, Is.Empty);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Movement_FrontFaceShield_IneligibleDuringWindup_ClearsAndRestartsFullWindup()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateFrontFaceEnemy(entityId: 40, position: new SurfaceCell(FaceId.Front, 0, 1)),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
+                GameplayTerrainData.Empty);
+            var profile = CreateFrontFaceSupportProfile(CreateBoxSlideShieldSupportEffect(radius: 1, cooldownTicks: 2));
+
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(worldState);
+
+                var firstWarning = pipeline.RunTick(new TickInput(1));
+                Assert.That(firstWarning.PresentationData.FrontFaceShieldWindupWarnings, Has.Count.EqualTo(1));
+                Assert.That(firstWarning.PresentationData.FrontFaceShieldSources, Is.Empty);
+
+                worldState.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Floor, 0, 1));
+                var clearedTick = pipeline.RunTick(new TickInput(2));
+                var clearedSnapshot = CreateSnapshot(worldState);
+
+                Assert.That(clearedTick.PresentationData.FrontFaceShieldWindupWarnings, Is.Empty);
+                Assert.That(clearedTick.PresentationData.FrontFaceShieldSources, Is.Empty);
+                Assert.That(clearedSnapshot.TryGetEnemyFrontFaceSupportState(40, out var clearedState), Is.True);
+                Assert.That(clearedState.EffectStates[0].phase, Is.EqualTo(EnemyFrontFaceSupportEffectPhase.None));
+                Assert.That(clearedState.EffectStates[0].cooldownTicksRemaining, Is.EqualTo(2));
+
+                worldState.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Front, 0, 1));
+                var cooldownTick = pipeline.RunTick(new TickInput(3));
+                var cooldownSnapshot = CreateSnapshot(worldState);
+
+                Assert.That(cooldownTick.PresentationData.FrontFaceShieldWindupWarnings, Is.Empty);
+                Assert.That(cooldownTick.PresentationData.FrontFaceShieldSources, Is.Empty);
+                Assert.That(cooldownSnapshot.TryGetEnemyFrontFaceSupportState(40, out var cooldownState), Is.True);
+                Assert.That(cooldownState.EffectStates[0].phase, Is.EqualTo(EnemyFrontFaceSupportEffectPhase.None));
+                Assert.That(cooldownState.EffectStates[0].cooldownTicksRemaining, Is.EqualTo(1));
+
+                var restartedWarning = pipeline.RunTick(new TickInput(4));
+                Assert.That(restartedWarning.PresentationData.FrontFaceShieldWindupWarnings, Has.Count.EqualTo(1));
+                Assert.That(restartedWarning.PresentationData.FrontFaceShieldWindupWarnings[0].ActivationSequence, Is.EqualTo(2));
+                Assert.That(restartedWarning.PresentationData.FrontFaceShieldSources, Is.Empty);
+
+                var activeTick = pipeline.RunTick(new TickInput(5));
+
+                Assert.That(activeTick.PresentationData.FrontFaceShieldWindupWarnings, Is.Empty);
+                Assert.That(activeTick.PresentationData.FrontFaceShieldSources, Has.Count.EqualTo(1));
+                Assert.That(activeTick.PresentationData.FrontFaceShieldSources[0].SourceEntityId, Is.EqualTo(40));
             }
             finally
             {
@@ -2616,13 +2689,19 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[]
                 {
-                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
-                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 0, 1), capabilities: BoxCapabilities.Push),
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1), facing: Direction.Up),
+                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 0, 2), capabilities: BoxCapabilities.Push),
                     CreateFrontFaceEnemy(entityId: 40, position: new SurfaceCell(FaceId.Front, 0, 2)),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(0, 2)),
                 GameplayTerrainData.Empty);
             var profile = CreateFrontFaceSupportProfile(CreateBoxSlideShieldSupportEffect(radius: 1));
+            worldState.SetEnemyFrontFaceSupportState(
+                40,
+                CreateActiveFrontFaceSupportState(
+                    radius: 1,
+                    includeSourceCell: false,
+                    targetPattern: FrontFaceShieldTargetPattern.ManhattanRadius));
 
             try
             {
@@ -2662,6 +2741,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new BoardBounds(Vector2Int.zero, new Vector2Int(0, 2)),
                 GameplayTerrainData.Empty);
             var profile = CreateFrontFaceSupportProfile(CreateBoxSlideShieldSupportEffect(radius: 1));
+            worldState.SetEnemyFrontFaceSupportState(
+                40,
+                CreateActiveFrontFaceSupportState(
+                    radius: 1,
+                    includeSourceCell: false,
+                    targetPattern: FrontFaceShieldTargetPattern.ManhattanRadius));
 
             try
             {
@@ -3401,17 +3486,47 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static EnemyFrontFaceSupportEffectAuthoring CreateBoxSlideShieldSupportEffect(
             int radius = 1,
             bool includeSourceCell = false,
-            FrontFaceShieldTargetPattern targetPattern = FrontFaceShieldTargetPattern.ManhattanRadius)
+            FrontFaceShieldTargetPattern targetPattern = FrontFaceShieldTargetPattern.ManhattanRadius,
+            int windupTicks = 1,
+            int cooldownTicks = 1)
         {
             var boxSlideShield = new BoxSlideShieldAuthoring();
             EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "radius", radius);
             EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "includeSourceCell", includeSourceCell);
             EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "targetPattern", targetPattern);
+            EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "windupSeconds", TicksToSeconds(windupTicks));
+            EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "cooldownSeconds", TicksToSeconds(cooldownTicks));
 
             var effect = new EnemyFrontFaceSupportEffectAuthoring();
             EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyFrontFaceSupportEffectKind.BoxSlideShield);
             EnemyAiProfileTestFactory.SetSerializedField(effect, "boxSlideShield", boxSlideShield);
             return effect;
+        }
+
+        private static EnemyFrontFaceSupportRuntimeState CreateActiveFrontFaceSupportState(
+            int radius,
+            bool includeSourceCell,
+            FrontFaceShieldTargetPattern targetPattern)
+        {
+            return new EnemyFrontFaceSupportRuntimeState(
+                new[]
+                {
+                    new EnemyFrontFaceSupportEffectState
+                    {
+                        phase = EnemyFrontFaceSupportEffectPhase.Active,
+                        windupStartTick = 0,
+                        windupEndTick = 1,
+                        activationSequence = 1,
+                        radius = radius,
+                        includeSourceCell = includeSourceCell,
+                        targetPattern = targetPattern,
+                    },
+                });
+        }
+
+        private static float TicksToSeconds(int ticks)
+        {
+            return ticks / (float)GameplayTimingProfile.DefaultSimulationTicksPerSecond;
         }
 
         private static (MovementPhaseResult Result, WorldSnapshot SnapshotAfterMovement) RunMovementPhaseOnly(

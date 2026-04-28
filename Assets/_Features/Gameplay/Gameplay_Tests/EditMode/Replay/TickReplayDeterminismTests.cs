@@ -1665,19 +1665,21 @@ namespace Game.Feature.Gameplay.Tests.Replay
             var secondReplay = RunUtilitySummonReplaySequence();
 
             AssertEquivalentReplayOutputs(firstReplay, secondReplay);
-            Assert.That(firstReplay[0].Trace, Does.Contain("PreMovement.UtilityTriggers"));
-            Assert.That(firstReplay[0].Trace, Does.Contain("Source=40|Effect=0|Kind=SummonMinion|Tick=1"));
             Assert.That(firstReplay[0].Trace, Does.Contain("Final.EnemyUtilities"));
-            Assert.That(firstReplay[0].Trace, Does.Contain("E=40|Effect=0|Cooldown=2"));
-            Assert.That(firstReplay[0].Trace, Does.Contain("Final.SummonedEntities"));
-            Assert.That(firstReplay[0].Trace, Does.Contain("E=41|Source=40|Effect=0"));
-            Assert.That(firstReplay[0].Trace, Does.Contain("Final.EnemyDefinitionBindings"));
-            Assert.That(firstReplay[0].Trace, Does.Contain("E=41|Archetype=BasicMinion"));
-            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=41|Pos=(1,0)|Hp=1|MaxHp=1|Team=2|Type=Unit"));
-            Assert.That(firstReplay[0].EventLogDump, Does.Contain("SummonCommitted|Source=40|Effect=0|SpawnIndex=0|Spawned=41|Pos=(1,0)|Archetype=BasicMinion|Tick=1"));
-            Assert.That(firstReplay[0].EventLogDump, Does.Not.Contain("DefinitionMode="));
-            Assert.That(firstReplay[1].Trace, Does.Contain("E=40|Effect=0|Cooldown=1"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("E=40|Effect=0|Cooldown=0|Phase=Windup"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Not.Contain("E=41|"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Not.Contain("SummonCommitted|Source=40"));
+            Assert.That(firstReplay[1].Trace, Does.Contain("PreMovement.UtilityTriggers"));
+            Assert.That(firstReplay[1].Trace, Does.Contain("Source=40|Effect=0|Kind=SummonMinion|Tick=2"));
+            Assert.That(firstReplay[1].Trace, Does.Contain("Final.EnemyUtilities"));
+            Assert.That(firstReplay[1].Trace, Does.Contain("E=40|Effect=0|Cooldown=2|Phase=None"));
+            Assert.That(firstReplay[1].Trace, Does.Contain("Final.SummonedEntities"));
+            Assert.That(firstReplay[1].Trace, Does.Contain("E=41|Source=40|Effect=0"));
+            Assert.That(firstReplay[1].Trace, Does.Contain("Final.EnemyDefinitionBindings"));
+            Assert.That(firstReplay[1].Trace, Does.Contain("E=41|Archetype=BasicMinion"));
             Assert.That(firstReplay[1].FinalEntitiesDump, Does.Contain("E=41|Pos=(1,0)|Hp=1"));
+            Assert.That(firstReplay[1].EventLogDump, Does.Contain("SummonCommitted|Source=40|Effect=0|SpawnIndex=0|Spawned=41|Pos=(1,0)|Archetype=BasicMinion|Tick=2"));
+            Assert.That(firstReplay[1].EventLogDump, Does.Not.Contain("DefinitionMode="));
             Assert.That(firstReplay[1].EventLogDump, Does.Not.Contain("SummonCommitted|Source=40|Effect=0|SpawnIndex=0|Spawned=42"));
         }
 
@@ -1689,16 +1691,17 @@ namespace Game.Feature.Gameplay.Tests.Replay
             var secondReplay = RunUtilityArchetypeSummonReplaySequence();
 
             AssertEquivalentReplayOutputs(firstReplay, secondReplay);
-            Assert.That(firstReplay[0].Trace, Does.Contain("PreMovement.UtilityTriggers"));
-            Assert.That(firstReplay[0].Trace, Does.Contain("Source=40|Effect=0|Kind=SummonMinion|Tick=1"));
-            Assert.That(firstReplay[0].Trace, Does.Contain("Final.SummonedEntities"));
-            Assert.That(firstReplay[0].Trace, Does.Contain("E=41|Source=40|Effect=0"));
-            Assert.That(firstReplay[0].Trace, Does.Contain("Final.EnemyDefinitionBindings"));
-            Assert.That(firstReplay[0].Trace, Does.Contain("E=41|Archetype=BasicMinion"));
-            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=41|Pos=(1,0)|Hp=4|MaxHp=4|Team=2|Type=Unit"));
-            Assert.That(firstReplay[0].EventLogDump, Does.Contain("SummonCommitted|Source=40|Effect=0|SpawnIndex=0|Spawned=41|Pos=(1,0)|Archetype=BasicMinion|Tick=1"));
-            Assert.That(firstReplay[0].EventLogDump, Does.Not.Contain("DefinitionMode="));
-            Assert.That(firstReplay[1].FinalEntitiesDump, Does.Contain("E=41|Pos=(2,0)|Hp=4|MaxHp=4|Team=2|Type=Unit"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("E=40|Effect=0|Cooldown=0|Phase=Windup"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Not.Contain("E=41|"));
+            Assert.That(firstReplay[1].Trace, Does.Contain("PreMovement.UtilityTriggers"));
+            Assert.That(firstReplay[1].Trace, Does.Contain("Source=40|Effect=0|Kind=SummonMinion|Tick=2"));
+            Assert.That(firstReplay[1].Trace, Does.Contain("Final.SummonedEntities"));
+            Assert.That(firstReplay[1].Trace, Does.Contain("E=41|Source=40|Effect=0"));
+            Assert.That(firstReplay[1].Trace, Does.Contain("Final.EnemyDefinitionBindings"));
+            Assert.That(firstReplay[1].Trace, Does.Contain("E=41|Archetype=BasicMinion"));
+            Assert.That(firstReplay[1].FinalEntitiesDump, Does.Contain("E=41|Pos=(1,0)|Hp=4|MaxHp=4|Team=2|Type=Unit"));
+            Assert.That(firstReplay[1].EventLogDump, Does.Contain("SummonCommitted|Source=40|Effect=0|SpawnIndex=0|Spawned=41|Pos=(1,0)|Archetype=BasicMinion|Tick=2"));
+            Assert.That(firstReplay[1].EventLogDump, Does.Not.Contain("DefinitionMode="));
         }
 
         [Test]
@@ -1743,28 +1746,31 @@ namespace Game.Feature.Gameplay.Tests.Replay
             var secondReplay = RunFrontFaceShieldReplaySequence();
 
             AssertEquivalentReplayOutputs(firstReplay, secondReplay);
-            Assert.That(firstReplay[0].Trace, Does.Contain("Reason=BoxSlideBlockedByFrontFaceShield"));
-            Assert.That(firstReplay[0].Trace, Does.Contain("MovementKind=PushStart"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("Final.EnemyFrontFaceSupports"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("E=40|Effect=0|Phase=Windup"));
+            Assert.That(firstReplay[0].Trace, Does.Not.Contain("Reason=BoxSlideBlockedByFrontFaceShield"));
+            Assert.That(firstReplay[1].Trace, Does.Contain("Reason=BoxSlideBlockedByFrontFaceShield"));
+            Assert.That(firstReplay[1].Trace, Does.Contain("MovementKind=PushStart"));
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
-                    firstReplay[0].EventLogDump,
+                    firstReplay[1].EventLogDump,
                     "BoxSlideBlockedByFrontFaceShield",
                     "MovementKind=PushStart",
                     "Box=20",
                     "ShieldSource=40",
-                    "Tick=1"),
+                    "Tick=2"),
                 Is.True);
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
-                    firstReplay[0].EventLogDump,
+                    firstReplay[1].EventLogDump,
                     "PlayerActionBlockedByFrontFaceShield",
                     "Action=Push",
                     "Actor=10",
                     "Box=20",
                     "ShieldSource=40",
-                    "Tick=1"),
+                    "Tick=2"),
                 Is.True);
-            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=20|Pos=(0,1)|Hp=1|MaxHp=1|Team=0|Type=Box"));
+            Assert.That(firstReplay[1].FinalEntitiesDump, Does.Contain("E=20|Pos=(0,1)|Hp=1|MaxHp=1|Team=0|Type=Box"));
         }
 
         [Test]
@@ -2128,7 +2134,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         private static IReadOnlyList<TickReplayFrame> RunUtilitySummonReplaySequence()
         {
-            var utilityProfile = CreateUtilitySummonProfile(initialDelayTicks: 0, intervalTicks: 2);
+            var utilityProfile = CreateUtilitySummonProfile(initialDelayTicks: 0, cooldownTicks: 2);
             EnemyAiProfile defaultProfile = null;
             EnemyUnitArchetypeCatalog archetypeCatalog = null;
             var worldState = CreateWorldState(
@@ -2174,7 +2180,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             var catalog = CreateEnemyUnitArchetypeCatalog(archetype);
             var utilityProfile = CreateUtilitySummonProfile(
                 initialDelayTicks: 0,
-                intervalTicks: 2,
+                cooldownTicks: 2,
                 summonedArchetype: archetype);
             var worldState = CreateWorldState(
                 new[]
@@ -2210,7 +2216,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         {
             var profile = CreateUtilityLockNearbyBoxesProfile(
                 initialDelayTicks: 0,
-                intervalTicks: 3,
+                cooldownTicks: 3,
                 radius: 1,
                 durationTicks: 2,
                 blocksPush: true,
@@ -2276,7 +2282,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     },
                     new[]
                     {
-                        new TickInput(1, PlayerTickCommand.Push(Direction.Up)),
+                        new TickInput(1),
+                        new TickInput(2, PlayerTickCommand.Push(Direction.Up)),
                     });
             }
             finally
@@ -3043,7 +3050,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         private static EnemyAiProfile CreateUtilitySummonProfile(
             int initialDelayTicks,
-            int intervalTicks,
+            int cooldownTicks,
             int spawnCountPerTrigger = 1,
             int maxAliveChildren = 3,
             EnemyUnitArchetypeAsset summonedArchetype = null,
@@ -3053,7 +3060,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             return CreateUtilityProfile(
                 CreateSummonUtilityEffect(
                     initialDelayTicks,
-                    intervalTicks,
+                    cooldownTicks,
                     spawnCountPerTrigger,
                     maxAliveChildren,
                     summonedArchetype != null ? summonedArchetype : GetSharedSummonedArchetype(),
@@ -3063,7 +3070,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         private static EnemyAiProfile CreateUtilityLockNearbyBoxesProfile(
             int initialDelayTicks,
-            int intervalTicks,
+            int cooldownTicks,
             int radius,
             int durationTicks,
             bool blocksPush = true,
@@ -3074,7 +3081,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             return CreateUtilityProfile(
                 CreateLockNearbyBoxesUtilityEffect(
                     initialDelayTicks,
-                    intervalTicks,
+                    cooldownTicks,
                     radius,
                     durationTicks,
                     blocksPush,
@@ -3107,7 +3114,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         private static EnemyUtilityEffectAuthoring CreateSummonUtilityEffect(
             int initialDelayTicks,
-            int intervalTicks,
+            int cooldownTicks,
             int spawnCountPerTrigger,
             int maxAliveChildren,
             EnemyUnitArchetypeAsset summonedArchetype,
@@ -3123,11 +3130,12 @@ namespace Game.Feature.Gameplay.Tests.Replay
             EnemyAiProfileTestFactory.SetSerializedField(summon, "summonedArchetype", summonedArchetype);
             EnemyAiProfileTestFactory.SetSerializedField(summon, "overrideHp", overrideHp);
             EnemyAiProfileTestFactory.SetSerializedField(summon, "hpOverride", hpOverride);
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "windupSeconds", TicksToSeconds(1));
 
             var effect = new EnemyUtilityEffectAuthoring();
             EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.SummonMinion);
             EnemyAiProfileTestFactory.SetSerializedField(effect, "initialDelaySeconds", TicksToSeconds(initialDelayTicks));
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "intervalSeconds", TicksToSeconds(intervalTicks));
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "cooldownSeconds", TicksToSeconds(cooldownTicks));
             EnemyAiProfileTestFactory.SetSerializedField(effect, "summon", summon);
             return effect;
         }
@@ -3144,7 +3152,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         private static EnemyUtilityEffectAuthoring CreateLockNearbyBoxesUtilityEffect(
             int initialDelayTicks,
-            int intervalTicks,
+            int cooldownTicks,
             int radius,
             int durationTicks,
             bool blocksPush,
@@ -3163,7 +3171,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             var effect = new EnemyUtilityEffectAuthoring();
             EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.LockNearbyBoxes);
             EnemyAiProfileTestFactory.SetSerializedField(effect, "initialDelaySeconds", TicksToSeconds(initialDelayTicks));
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "intervalSeconds", TicksToSeconds(intervalTicks));
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "cooldownSeconds", TicksToSeconds(cooldownTicks));
             EnemyAiProfileTestFactory.SetSerializedField(effect, "lockNearbyBoxes", lockNearbyBoxes);
             return effect;
         }
@@ -3177,6 +3185,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
             EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "radius", radius);
             EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "includeSourceCell", includeSourceCell);
             EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "targetPattern", targetPattern);
+            EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "windupSeconds", TicksToSeconds(1));
+            EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "cooldownSeconds", TicksToSeconds(1));
 
             var effect = new EnemyFrontFaceSupportEffectAuthoring();
             EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyFrontFaceSupportEffectKind.BoxSlideShield);
