@@ -6749,6 +6749,107 @@ namespace Game.Feature.Gameplay.Loop
         public int Sequence { get; }
     }
 
+    internal readonly struct KinematicMotionOutcome
+    {
+        public KinematicMotionOutcome(
+            int entityId,
+            SurfaceCell sourceAnchorCell,
+            KinematicOffset2 sourceLocalOffset,
+            SurfaceCell resolvedAnchorCell,
+            KinematicOffset2 resolvedLocalOffset,
+            bool anchorChanged,
+            bool blocked,
+            KinematicSweepRejectionReason rejectedBy)
+        {
+            EntityId = entityId;
+            SourceAnchorCell = sourceAnchorCell;
+            SourceLocalOffset = sourceLocalOffset;
+            ResolvedAnchorCell = resolvedAnchorCell;
+            ResolvedLocalOffset = resolvedLocalOffset;
+            AnchorChanged = anchorChanged;
+            Blocked = blocked;
+            RejectedBy = rejectedBy;
+        }
+
+        public int EntityId { get; }
+
+        public SurfaceCell SourceAnchorCell { get; }
+
+        public KinematicOffset2 SourceLocalOffset { get; }
+
+        public SurfaceCell ResolvedAnchorCell { get; }
+
+        public KinematicOffset2 ResolvedLocalOffset { get; }
+
+        public bool AnchorChanged { get; }
+
+        public bool Blocked { get; }
+
+        public KinematicSweepRejectionReason RejectedBy { get; }
+    }
+
+    internal readonly struct UnitLocomotionIntent
+    {
+        public UnitLocomotionIntent(
+            int entityId,
+            KinematicVelocity2 requestedDelta,
+            MotionMode requestedMode,
+            ForcedMotionOp forcedOp = ForcedMotionOp.None)
+        {
+            EntityId = entityId;
+            RequestedDelta = requestedDelta;
+            RequestedMode = requestedMode;
+            ForcedOp = forcedOp;
+        }
+
+        public int EntityId { get; }
+
+        public KinematicVelocity2 RequestedDelta { get; }
+
+        public MotionMode RequestedMode { get; }
+
+        public ForcedMotionOp ForcedOp { get; }
+    }
+
+    internal readonly struct ForcedMotionOpRequest
+    {
+        public ForcedMotionOpRequest(
+            int entityId,
+            ForcedMotionOp forcedOp,
+            KinematicVelocity2 requestedDelta,
+            int startTick)
+        {
+            EntityId = entityId;
+            ForcedOp = forcedOp;
+            RequestedDelta = requestedDelta;
+            StartTick = startTick;
+        }
+
+        public int EntityId { get; }
+
+        public ForcedMotionOp ForcedOp { get; }
+
+        public KinematicVelocity2 RequestedDelta { get; }
+
+        public int StartTick { get; }
+    }
+
+    internal readonly struct MotionInterruptRecord
+    {
+        public MotionInterruptRecord(int entityId, MotionInterruptPolicy policy, int sourceEntityId)
+        {
+            EntityId = entityId;
+            Policy = policy;
+            SourceEntityId = sourceEntityId;
+        }
+
+        public int EntityId { get; }
+
+        public MotionInterruptPolicy Policy { get; }
+
+        public int SourceEntityId { get; }
+    }
+
     internal sealed class MovementActionPlanPayload : ActionPlanPayload
     {
         public MovementActionPlanPayload(
@@ -6779,7 +6880,8 @@ namespace Game.Feature.Gameplay.Loop
             bool hasImpactReservationPayload,
             MovementImpactReservationPayload impactReservationPayload,
             bool hasDeferredImpactPayload,
-            MovementDeferredImpactPayload deferredImpactPayload)
+            MovementDeferredImpactPayload deferredImpactPayload,
+            IReadOnlyList<KinematicMotionOutcome> kinematicMotionOutcomes = null)
             : base(actionPlanId, intentId, sourceActorEntityId, priority, semanticKind)
         {
             MovementCandidateKind = movementCandidateKind;
@@ -6805,6 +6907,7 @@ namespace Game.Feature.Gameplay.Loop
             ImpactReservationPayload = impactReservationPayload;
             HasDeferredImpactPayload = hasDeferredImpactPayload;
             DeferredImpactPayload = deferredImpactPayload;
+            KinematicMotionOutcomes = kinematicMotionOutcomes ?? Array.Empty<KinematicMotionOutcome>();
         }
 
         public MovementCandidateKind MovementCandidateKind { get; }
@@ -6852,6 +6955,8 @@ namespace Game.Feature.Gameplay.Loop
         public bool HasDeferredImpactPayload { get; }
 
         public MovementDeferredImpactPayload DeferredImpactPayload { get; }
+
+        public IReadOnlyList<KinematicMotionOutcome> KinematicMotionOutcomes { get; }
     }
 
     internal readonly struct StateChangeWritePayload
@@ -7312,6 +7417,7 @@ namespace Game.Feature.Gameplay.Loop
         RemoveBoxInteractionLockState = 22,
         SetEnemyGlideState = 23,
         SetEnemyFrontFaceSupportState = 24,
+        SetUnitKinematicState = 25,
     }
 
     internal enum ResolvedActionSemanticKind
@@ -7459,6 +7565,7 @@ namespace Game.Feature.Gameplay.Loop
             EnemyUtilityRuntimeState enemyUtilityState = null,
             EnemyFrontFaceSupportRuntimeState enemyFrontFaceSupportState = null,
             BoxInteractionLockState boxInteractionLockState = default,
+            UnitKinematicRuntimeState unitKinematicState = default,
             PhasedRuntimeState phasedState = default,
             EntityState spawnEntity = default,
             bool hasSpawnedEntitySummonedState = false,
@@ -7495,6 +7602,7 @@ namespace Game.Feature.Gameplay.Loop
             EnemyUtilityState = enemyUtilityState;
             EnemyFrontFaceSupportState = enemyFrontFaceSupportState;
             BoxInteractionLockState = boxInteractionLockState;
+            UnitKinematicState = unitKinematicState;
             PhasedState = phasedState;
             SpawnedEntity = spawnEntity;
             HasSpawnedEntitySummonedState = hasSpawnedEntitySummonedState;
@@ -7560,6 +7668,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public BoxInteractionLockState BoxInteractionLockState { get; }
 
+        public UnitKinematicRuntimeState UnitKinematicState { get; }
+
         public PhasedRuntimeState PhasedState { get; }
 
         public EntityState SpawnedEntity { get; }
@@ -7605,6 +7715,7 @@ namespace Game.Feature.Gameplay.Loop
                 EnemyUtilityState,
                 EnemyFrontFaceSupportState,
                 BoxInteractionLockState,
+                UnitKinematicState,
                 PhasedState,
                 SpawnedEntity,
                 HasSpawnedEntitySummonedState,
@@ -7833,6 +7944,21 @@ namespace Game.Feature.Gameplay.Loop
                 entityId: entityId);
         }
 
+        public static FinalizationOperation SetUnitKinematicState(
+            long sequence,
+            int entityId,
+            UnitKinematicRuntimeState unitKinematicState,
+            FinalizationOperationMetadata metadata = default)
+        {
+            return new FinalizationOperation(
+                sequence,
+                FinalizationOperationBucket.NonHpState,
+                FinalizationOperationKind.SetUnitKinematicState,
+                metadata,
+                entityId: entityId,
+                unitKinematicState: unitKinematicState);
+        }
+
         public static FinalizationOperation SetPhasedState(long sequence, int entityId, PhasedRuntimeState phasedState, FinalizationOperationMetadata metadata = default)
         {
             return new FinalizationOperation(
@@ -8007,6 +8133,11 @@ namespace Game.Feature.Gameplay.Loop
             _operations.Add(FinalizationOperation.RemoveBoxInteractionLockState(_nextSequence++, entityId, metadata));
         }
 
+        public void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state, FinalizationOperationMetadata metadata = default)
+        {
+            _operations.Add(FinalizationOperation.SetUnitKinematicState(_nextSequence++, entityId, state, metadata));
+        }
+
         public void SetPhasedState(int entityId, PhasedRuntimeState state, FinalizationOperationMetadata metadata = default)
         {
             _operations.Add(FinalizationOperation.SetPhasedState(_nextSequence++, entityId, state, metadata));
@@ -8171,6 +8302,10 @@ namespace Game.Feature.Gameplay.Loop
 
                     case FinalizationOperationKind.RemoveBoxInteractionLockState:
                         writeContext.RemoveBoxInteractionLockState(operation.EntityId);
+                        break;
+
+                    case FinalizationOperationKind.SetUnitKinematicState:
+                        writeContext.SetUnitKinematicState(operation.EntityId, operation.UnitKinematicState);
                         break;
 
                     case FinalizationOperationKind.SetPhasedState:
@@ -8353,6 +8488,11 @@ namespace Game.Feature.Gameplay.Loop
         public void RemoveBoxInteractionLockState(int entityId)
         {
             _batch.RemoveBoxInteractionLockState(entityId);
+        }
+
+        public void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state)
+        {
+            _batch.SetUnitKinematicState(entityId, state);
         }
 
         public void SetBoardPresence(int entityId, EntityBoardPresence boardPresence)
@@ -8548,6 +8688,11 @@ namespace Game.Feature.Gameplay.Loop
                 if (snapshot.TryGetBoxInteractionLockState(entityId, out var boxInteractionLockState))
                 {
                     writeContext.SetBoxInteractionLockState(entityId, boxInteractionLockState);
+                }
+
+                if (snapshot.TryGetUnitKinematicState(entityId, out var unitKinematicState))
+                {
+                    writeContext.SetUnitKinematicState(entityId, unitKinematicState);
                 }
 
                 if (snapshot.TryGetEnemyChargeState(entityId, out var enemyChargeState))

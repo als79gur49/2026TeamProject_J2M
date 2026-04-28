@@ -652,6 +652,19 @@ namespace Game.Feature.Gameplay.Debug
                     builder.Append("|RemoveLock=1");
                     break;
 
+                case FinalizationOperationKind.SetUnitKinematicState:
+                    builder.Append("|LocalX=").Append(operation.UnitKinematicState.localOffset.X.RawValue)
+                        .Append("|LocalY=").Append(operation.UnitKinematicState.localOffset.Y.RawValue)
+                        .Append("|VelX=").Append(operation.UnitKinematicState.velocity.X.RawValue)
+                        .Append("|VelY=").Append(operation.UnitKinematicState.velocity.Y.RawValue)
+                        .Append("|MotionMode=").Append(operation.UnitKinematicState.mode)
+                        .Append("|ForcedOp=").Append(operation.UnitKinematicState.forcedOp)
+                        .Append("|RemainingDistance=").Append(operation.UnitKinematicState.remainingDistanceUnits)
+                        .Append("|RemainingTicks=").Append(operation.UnitKinematicState.remainingTicks)
+                        .Append("|SpeedScale=").Append(operation.UnitKinematicState.speedScalePermille)
+                        .Append("|MotionSeq=").Append(operation.UnitKinematicState.sequenceId);
+                    break;
+
                 case FinalizationOperationKind.SetTopology:
                     builder.Append("|Rotation=").Append(operation.Metadata.RotationKind)
                         .Append("|Bottom=").Append(operation.Topology.BottomFace)

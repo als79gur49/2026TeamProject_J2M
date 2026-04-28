@@ -399,12 +399,14 @@ namespace Game.Feature.Gameplay.Loop
             var summonedEnemyPresentationBindings = new List<TickSummonedEnemyPresentationBinding>();
             var visibilityChanges = new List<TickVisibilityChange>();
             var transitionVisibilityChanges = new List<TickTransitionVisibilityChange>();
+            var kinematicMotionTracks = new List<TickKinematicMotionTrack>();
             var exitOwnedEntityIds = new HashSet<int>();
 
             BuildEntityExitPresentation(context, entityExitSignals, exitOwnedEntityIds);
             BuildFlipImpactPresentation(context, flipImpactSignals);
             BuildImpactTransientPresentation(context, impactTransientSignals);
             BuildMovementPresentation(context, entityMotions, visibilityChanges, exitOwnedEntityIds);
+            BuildKinematicMotionPresentation(context, kinematicMotionTracks);
             BuildAttackPresentation(context, visibilityChanges);
             BuildCleanupPresentation(context, visibilityChanges, exitOwnedEntityIds);
             BuildRespawnPresentation(context, visibilityChanges);
@@ -442,6 +444,7 @@ namespace Game.Feature.Gameplay.Loop
                    summonedEnemyPresentationBindings.Count == 0 &&
                    visibilityChanges.Count == 0 &&
                    transitionVisibilityChanges.Count == 0 &&
+                   kinematicMotionTracks.Count == 0 &&
                    !topologyMotion.HasValue
                 ? TickPresentationData.Empty
                 : new TickPresentationData(
@@ -464,7 +467,8 @@ namespace Game.Feature.Gameplay.Loop
                     frontFaceShieldSourceSignals,
                     frontFaceShieldBlockSignals,
                     summonWindupWarnings,
-                    frontFaceShieldWindupWarnings);
+                    frontFaceShieldWindupWarnings,
+                    kinematicMotionTracks);
         }
 
         private static void BuildEnemyUtilityWindupPresentation(
@@ -642,6 +646,33 @@ namespace Game.Feature.Gameplay.Loop
                             context.PreMovementSnapshot.Topology,
                             sourceEntity.facing));
                 }
+            }
+        }
+
+        private static void BuildKinematicMotionPresentation(
+            in TickPresentationBuildContext context,
+            List<TickKinematicMotionTrack> kinematicMotionTracks)
+        {
+            var operations = context.MovementPhaseResult.ResolvedOperations;
+            for (var i = 0; i < operations.Count; i++)
+            {
+                var operation = operations[i];
+                if (operation.Kind != FinalizationOperationKind.SetUnitKinematicState ||
+                    !context.PreMovementSnapshot.TryGetUnitKinematicPose(operation.EntityId, out var sourcePose) ||
+                    !context.PostMovementSnapshot.TryGetUnitKinematicPose(operation.EntityId, out var destinationPose))
+                {
+                    continue;
+                }
+
+                kinematicMotionTracks.Add(
+                    new TickKinematicMotionTrack(
+                        operation.EntityId,
+                        sourcePose.AnchorCell,
+                        sourcePose.LocalOffset,
+                        destinationPose.AnchorCell,
+                        destinationPose.LocalOffset,
+                        operation.UnitKinematicState.mode,
+                        operation.UnitKinematicState.forcedOp));
             }
         }
 

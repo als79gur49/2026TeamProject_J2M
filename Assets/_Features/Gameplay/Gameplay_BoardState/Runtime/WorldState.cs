@@ -26,6 +26,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly Dictionary<int, PlayerControlState> _playerControlStatesByEntityId = new();
         private readonly Dictionary<int, SummonedEntityState> _summonedEntitiesByEntityId = new();
         private readonly Dictionary<int, EnemyDefinitionBindingState> _enemyDefinitionBindingsByEntityId = new();
+        private readonly Dictionary<int, UnitKinematicRuntimeState> _unitKinematicStatesByEntityId = new();
         private readonly Dictionary<SurfaceCell, SortedSet<int>> _stackedUnitsByCell = new();
         private readonly TerrainData _terrainData;
         private CubeTopologyState _topology;
@@ -112,6 +113,7 @@ namespace Game.Feature.Gameplay.BoardState
                 new Dictionary<int, PlayerControlState>(_playerControlStatesByEntityId),
                 new Dictionary<int, SummonedEntityState>(_summonedEntitiesByEntityId),
                 new Dictionary<int, EnemyDefinitionBindingState>(_enemyDefinitionBindingsByEntityId),
+                new Dictionary<int, UnitKinematicRuntimeState>(_unitKinematicStatesByEntityId),
                 _topology,
                 _boardBounds,
                 _terrainData);
@@ -157,6 +159,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             ClearOccupancyForEntity(entity);
             UpdateStoredEntity(updatedEntity);
+            _unitKinematicStatesByEntityId.Remove(entityId);
             SetOccupancyForEntity(updatedEntity);
         }
 
@@ -183,6 +186,7 @@ namespace Game.Feature.Gameplay.BoardState
             _playerControlStatesByEntityId.Remove(entityId);
             _summonedEntitiesByEntityId.Remove(entityId);
             _enemyDefinitionBindingsByEntityId.Remove(entityId);
+            _unitKinematicStatesByEntityId.Remove(entityId);
         }
 
         private void ApplyDamage(int entityId, int amount)
@@ -458,6 +462,29 @@ namespace Game.Feature.Gameplay.BoardState
             _boxInteractionLockStatesByEntityId[entityId] = state;
         }
 
+        internal void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state)
+        {
+            if (!_entitiesById.TryGetValue(entityId, out var entity))
+            {
+                return;
+            }
+
+            if (entity.type != EntityType.Unit)
+            {
+                throw new InvalidOperationException(
+                    $"Entity {entityId} cannot hold unit kinematic runtime state because only unit entities are supported.");
+            }
+
+            var normalizedState = state.NormalizedForStorage();
+            if (normalizedState.IsSettledZero)
+            {
+                _unitKinematicStatesByEntityId.Remove(entityId);
+                return;
+            }
+
+            _unitKinematicStatesByEntityId[entityId] = normalizedState;
+        }
+
         internal void RemoveBoxInteractionLockState(int entityId)
         {
             _boxInteractionLockStatesByEntityId.Remove(entityId);
@@ -683,6 +710,27 @@ namespace Game.Feature.Gameplay.BoardState
         internal bool TryGetBoxInteractionLockState(int entityId, out BoxInteractionLockState state)
         {
             return _boxInteractionLockStatesByEntityId.TryGetValue(entityId, out state);
+        }
+
+        internal bool TryGetUnitKinematicState(int entityId, out UnitKinematicRuntimeState state)
+        {
+            return _unitKinematicStatesByEntityId.TryGetValue(entityId, out state);
+        }
+
+        internal void EnumerateUnitKinematicStatesOrdered(List<UnitKinematicSnapshotEntry> buffer)
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+            foreach (var pair in _unitKinematicStatesByEntityId)
+            {
+                buffer.Add(new UnitKinematicSnapshotEntry(pair.Key, pair.Value));
+            }
+
+            buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
         }
 
         internal void EnumerateBoxInteractionLockStatesOrdered(List<BoxInteractionLockSnapshotEntry> buffer)
@@ -939,6 +987,11 @@ namespace Game.Feature.Gameplay.BoardState
         void IWorldStateMutationPort.SetBoxInteractionLockState(int entityId, BoxInteractionLockState state)
         {
             SetBoxInteractionLockState(entityId, state);
+        }
+
+        void IWorldStateMutationPort.SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state)
+        {
+            SetUnitKinematicState(entityId, state);
         }
 
         void IWorldStateMutationPort.RemoveBoxInteractionLockState(int entityId)

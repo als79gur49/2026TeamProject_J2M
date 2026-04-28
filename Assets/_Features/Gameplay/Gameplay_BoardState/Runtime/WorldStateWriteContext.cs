@@ -78,6 +78,11 @@ namespace Game.Feature.Gameplay.BoardState
             _port.SetBoxInteractionLockState(entityId, state);
         }
 
+        public void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state)
+        {
+            _port.SetUnitKinematicState(entityId, state);
+        }
+
         public void SetSummonedEntityState(int entityId, SummonedEntityState state)
         {
             _port.SetSummonedEntityState(entityId, state);

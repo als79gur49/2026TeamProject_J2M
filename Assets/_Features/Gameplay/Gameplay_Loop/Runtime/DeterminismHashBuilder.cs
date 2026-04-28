@@ -83,6 +83,9 @@ namespace Game.Feature.Gameplay.Loop
             builder.Append("EnemyCharges").Append('\n');
             AppendEnemyChargeLines(builder, GetOrderedEnemyChargeStates(finalSnapshot));
 
+            builder.Append("UnitKinematics").Append('\n');
+            AppendUnitKinematicLines(builder, GetOrderedUnitKinematicStates(finalSnapshot));
+
             builder.Append("PhasedStates").Append('\n');
             AppendPhasedStateLines(builder, GetOrderedPhasedStates(finalSnapshot));
 
@@ -242,6 +245,13 @@ namespace Game.Feature.Gameplay.Loop
             return phasedEntries;
         }
 
+        private static List<UnitKinematicSnapshotEntry> GetOrderedUnitKinematicStates(WorldSnapshot finalSnapshot)
+        {
+            var unitKinematicEntries = new List<UnitKinematicSnapshotEntry>();
+            finalSnapshot.EnumerateUnitKinematicStatesOrdered(unitKinematicEntries);
+            return unitKinematicEntries;
+        }
+
         private static List<PlayerControlSnapshotEntry> GetOrderedPlayerControlStates(WorldSnapshot finalSnapshot)
         {
             var playerControlEntries = new List<PlayerControlSnapshotEntry>();
@@ -308,6 +318,35 @@ namespace Game.Feature.Gameplay.Loop
                 .Append(boardBounds.MinInclusive.y).Append('|')
                 .Append(boardBounds.MaxInclusive.x).Append('|')
                 .Append(boardBounds.MaxInclusive.y).Append('\n');
+        }
+
+        private static void AppendUnitKinematicLines(
+            StringBuilder builder,
+            IReadOnlyList<UnitKinematicSnapshotEntry> unitKinematicEntries)
+        {
+            if (unitKinematicEntries.Count == 0)
+            {
+                builder.Append("<empty>").Append('\n');
+                return;
+            }
+
+            for (var i = 0; i < unitKinematicEntries.Count; i++)
+            {
+                var entry = unitKinematicEntries[i];
+                var state = entry.State;
+                builder
+                    .Append(entry.EntityId).Append('|')
+                    .Append(state.localOffset.X.RawValue).Append('|')
+                    .Append(state.localOffset.Y.RawValue).Append('|')
+                    .Append(state.velocity.X.RawValue).Append('|')
+                    .Append(state.velocity.Y.RawValue).Append('|')
+                    .Append((int)state.mode).Append('|')
+                    .Append((int)state.forcedOp).Append('|')
+                    .Append(state.remainingDistanceUnits).Append('|')
+                    .Append(state.remainingTicks).Append('|')
+                    .Append(state.speedScalePermille).Append('|')
+                    .Append(state.sequenceId).Append('\n');
+            }
         }
 
         private static void AppendOccupancyLines(
