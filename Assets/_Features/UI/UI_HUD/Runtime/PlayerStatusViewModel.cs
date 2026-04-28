@@ -6,65 +6,58 @@ namespace Game.Feature.UI.HUD
     {
         public event Action Changed;
 
-        public int CurrentHp { get; private set; }
-
-        public int MaxHp { get; private set; }
-
-        public float HpNormalized { get; private set; } = 1f;
-
         public string FacingText { get; private set; } = string.Empty;
 
-        public string ActionText { get; private set; } = string.Empty;
-
         public string TopologyText { get; private set; } = string.Empty;
-
-        public string StatusText { get; private set; } = string.Empty;
-
-        public string DamageText { get; private set; } = string.Empty;
 
         public bool HasRemainingChances { get; private set; }
 
         public int RemainingChances { get; private set; }
 
-        public string ChancesText { get; private set; } = string.Empty;
+        public int MaxChances { get; private set; }
 
         public void SetState(
-            int currentHp,
-            int maxHp,
             string facingText,
-            string actionText,
             string topologyText,
-            string statusText,
-            string damageText,
             bool hasRemainingChances = false,
-            int remainingChances = 0)
+            int remainingChances = 0,
+            int maxChances = 0)
         {
-            CurrentHp = currentHp;
-            MaxHp = maxHp > 0 ? maxHp : currentHp;
-            HpNormalized = MaxHp > 0
-                ? Clamp01((float)CurrentHp / MaxHp)
-                : 0f;
             FacingText = facingText ?? string.Empty;
-            ActionText = actionText ?? string.Empty;
             TopologyText = topologyText ?? string.Empty;
-            StatusText = statusText ?? string.Empty;
-            DamageText = damageText ?? string.Empty;
-            HasRemainingChances = hasRemainingChances;
-            RemainingChances = remainingChances;
-            ChancesText = hasRemainingChances ? $"Chances: {remainingChances}" : string.Empty;
+            MaxChances = ResolveMaxChances(hasRemainingChances, remainingChances, maxChances);
+            HasRemainingChances = hasRemainingChances && MaxChances > 0;
+            RemainingChances = HasRemainingChances
+                ? Clamp(remainingChances, 0, MaxChances)
+                : 0;
             Changed?.Invoke();
         }
 
-        private static float Clamp01(float value)
+        private static int ResolveMaxChances(bool hasRemainingChances, int remainingChances, int maxChances)
         {
-            if (value < 0f)
+            if (!hasRemainingChances)
             {
-                return 0f;
+                return 0;
             }
 
-            if (value > 1f)
+            if (maxChances > 0)
             {
-                return 1f;
+                return maxChances;
+            }
+
+            return remainingChances > 0 ? remainingChances : 0;
+        }
+
+        private static int Clamp(int value, int min, int max)
+        {
+            if (value < min)
+            {
+                return min;
+            }
+
+            if (value > max)
+            {
+                return max;
             }
 
             return value;

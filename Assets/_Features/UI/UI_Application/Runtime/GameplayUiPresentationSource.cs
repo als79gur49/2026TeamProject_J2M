@@ -197,7 +197,8 @@ namespace Game.Feature.UI.Application
                 playerHud.CanStartAnyActionThisTick,
                 playerHud.HasExplicitPushCandidateInCurrentDirection,
                 playerHud.HasRemainingChances,
-                playerHud.RemainingChances);
+                playerHud.RemainingChances,
+                playerHud.MaxChances);
         }
 
         private static UIRecoveryCooldownSlice? MapRecoveryCooldown(GameplayUiRecoveryCooldown? recoveryCooldown)

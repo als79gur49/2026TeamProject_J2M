@@ -28,7 +28,8 @@ namespace Game.Feature.UI.Application
             bool canStartAnyActionThisTick = false,
             bool hasExplicitPushCandidateInCurrentDirection = false,
             bool hasRemainingChances = false,
-            int remainingChances = 0)
+            int remainingChances = 0,
+            int maxChances = 0)
             : this(
                 tickIndex,
                 shouldUpdateTickIndex,
@@ -52,7 +53,8 @@ namespace Game.Feature.UI.Application
                 canStartAnyActionThisTick,
                 hasExplicitPushCandidateInCurrentDirection,
                 hasRemainingChances,
-                remainingChances)
+                remainingChances,
+                maxChances)
         {
         }
 
@@ -79,7 +81,8 @@ namespace Game.Feature.UI.Application
             bool canStartAnyActionThisTick = false,
             bool hasExplicitPushCandidateInCurrentDirection = false,
             bool hasRemainingChances = false,
-            int remainingChances = 0)
+            int remainingChances = 0,
+            int maxChances = 0)
         {
             TickIndex = tickIndex;
             ShouldUpdateTickIndex = shouldUpdateTickIndex;
@@ -103,6 +106,9 @@ namespace Game.Feature.UI.Application
             HasExplicitPushCandidateInCurrentDirection = hasExplicitPushCandidateInCurrentDirection;
             HasRemainingChances = hasRemainingChances;
             RemainingChances = remainingChances;
+            MaxChances = maxChances > 0
+                ? maxChances
+                : (hasRemainingChances ? remainingChances : 0);
             RecoveryCooldown = recoveryCooldown;
         }
 
@@ -149,6 +155,8 @@ namespace Game.Feature.UI.Application
         public bool HasRemainingChances { get; }
 
         public int RemainingChances { get; }
+
+        public int MaxChances { get; }
 
         public UIRecoveryCooldownSlice? RecoveryCooldown { get; }
     }
@@ -255,7 +263,8 @@ namespace Game.Feature.UI.Application
                 refreshInput.CanStartAnyActionThisTick,
                 refreshInput.HasExplicitPushCandidateInCurrentDirection,
                 refreshInput.HasRemainingChances,
-                refreshInput.RemainingChances);
+                refreshInput.RemainingChances,
+                refreshInput.MaxChances);
 
             return new UIPresentationSnapshot(
                 tick,
@@ -292,7 +301,8 @@ namespace Game.Feature.UI.Application
                             snapshot.Player.CanStartAnyActionThisTick,
                             snapshot.Player.HasExplicitPushCandidateInCurrentDirection,
                             snapshot.Player.HasRemainingChances,
-                            snapshot.Player.RemainingChances),
+                            snapshot.Player.RemainingChances,
+                            snapshot.Player.MaxChances),
                         snapshot.Notifications);
 
                 case UITickEventKind.PlayerDamaged:
@@ -317,7 +327,8 @@ namespace Game.Feature.UI.Application
                             snapshot.Player.CanStartAnyActionThisTick,
                             snapshot.Player.HasExplicitPushCandidateInCurrentDirection,
                             snapshot.Player.HasRemainingChances,
-                            snapshot.Player.RemainingChances),
+                            snapshot.Player.RemainingChances,
+                            snapshot.Player.MaxChances),
                         snapshot.Notifications);
 
                 case UITickEventKind.StageCleared:

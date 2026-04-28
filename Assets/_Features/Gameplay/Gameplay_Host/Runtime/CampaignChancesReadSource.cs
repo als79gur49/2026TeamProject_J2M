@@ -5,7 +5,7 @@ namespace Game.Feature.Gameplay.Host
 {
     public interface ICampaignChancesReadSource
     {
-        bool TryReadRemainingChances(out int remainingChances);
+        bool TryReadChances(out int remainingChances, out int maxChances);
     }
 
     internal sealed class SaveSlotCampaignChancesReadSource : ICampaignChancesReadSource
@@ -21,19 +21,36 @@ namespace Game.Feature.Gameplay.Host
             _activeSlotProvider = activeSlotProvider ?? throw new ArgumentNullException(nameof(activeSlotProvider));
         }
 
-        public bool TryReadRemainingChances(out int remainingChances)
+        public bool TryReadChances(out int remainingChances, out int maxChances)
         {
             remainingChances = 0;
+            maxChances = SaveSlotStore.DefaultRemainingChances;
             if (!_activeSlotProvider.TryGetActiveSlotNumber(out var activeSlotNumber))
             {
                 return false;
             }
 
             var slot = _saveSlotStore.LoadSlot(activeSlotNumber);
-            remainingChances = slot.RemainingChances <= 0
+            var normalizedRemainingChances = slot.RemainingChances <= 0
                 ? SaveSlotStore.DefaultRemainingChances
                 : slot.RemainingChances;
+            remainingChances = Clamp(normalizedRemainingChances, 0, maxChances);
             return true;
+        }
+
+        private static int Clamp(int value, int min, int max)
+        {
+            if (value < min)
+            {
+                return min;
+            }
+
+            if (value > max)
+            {
+                return max;
+            }
+
+            return value;
         }
     }
 }

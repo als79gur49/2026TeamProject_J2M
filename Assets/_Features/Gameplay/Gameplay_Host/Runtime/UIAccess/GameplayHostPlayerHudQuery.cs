@@ -56,8 +56,9 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                                                                  _inputHost?.PreviewPushDirection() ?? Direction.None);
             var recoveryCooldown = TryCreateRecoveryCooldown(playerControlState, nextTickIndex);
             var remainingChances = 0;
+            var maxChances = 0;
             var hasRemainingChances = _campaignChancesReadSource != null &&
-                                      _campaignChancesReadSource.TryReadRemainingChances(out remainingChances);
+                                      _campaignChancesReadSource.TryReadChances(out remainingChances, out maxChances);
 
             return new GameplayPlayerHudReadModel(
                 isAvailable: true,
@@ -80,7 +81,8 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 canStartAnyActionThisTick: canStartAnyActionThisTick,
                 hasExplicitPushCandidateInCurrentDirection: hasExplicitPushCandidateInCurrentDirection,
                 hasRemainingChances: hasRemainingChances,
-                remainingChances: hasRemainingChances ? remainingChances : 0);
+                remainingChances: hasRemainingChances ? remainingChances : 0,
+                maxChances: hasRemainingChances ? maxChances : 0);
         }
 
         private static GameplayUiRecoveryCooldown? TryCreateRecoveryCooldown(

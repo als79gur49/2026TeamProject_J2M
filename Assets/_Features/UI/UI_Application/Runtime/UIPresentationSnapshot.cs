@@ -142,7 +142,8 @@ namespace Game.Feature.UI.Application
             bool canStartAnyActionThisTick = false,
             bool hasExplicitPushCandidateInCurrentDirection = false,
             bool hasRemainingChances = false,
-            int remainingChances = 0)
+            int remainingChances = 0,
+            int maxChances = 0)
             : this(
                 playerEntityId,
                 currentHp,
@@ -161,7 +162,8 @@ namespace Game.Feature.UI.Application
                 canStartAnyActionThisTick,
                 hasExplicitPushCandidateInCurrentDirection,
                 hasRemainingChances,
-                remainingChances)
+                remainingChances,
+                maxChances)
         {
         }
 
@@ -183,7 +185,8 @@ namespace Game.Feature.UI.Application
             bool canStartAnyActionThisTick = false,
             bool hasExplicitPushCandidateInCurrentDirection = false,
             bool hasRemainingChances = false,
-            int remainingChances = 0)
+            int remainingChances = 0,
+            int maxChances = 0)
         {
             PlayerEntityId = playerEntityId;
             CurrentHp = currentHp;
@@ -197,6 +200,9 @@ namespace Game.Feature.UI.Application
             HasExplicitPushCandidateInCurrentDirection = hasExplicitPushCandidateInCurrentDirection;
             HasRemainingChances = hasRemainingChances;
             RemainingChances = remainingChances;
+            MaxChances = maxChances > 0
+                ? maxChances
+                : (hasRemainingChances ? remainingChances : 0);
             LastResolvedOutcome = lastResolvedOutcome;
             LastResolvedTickIndex = lastResolvedTickIndex;
             TookDamageThisTick = tookDamageThisTick;
@@ -229,6 +235,8 @@ namespace Game.Feature.UI.Application
 
         public int RemainingChances { get; }
 
+        public int MaxChances { get; }
+
         public GameplayUiActionResolutionKind LastResolvedOutcome { get; }
 
         public int LastResolvedTickIndex { get; }
@@ -255,6 +263,7 @@ namespace Game.Feature.UI.Application
                    HasExplicitPushCandidateInCurrentDirection == other.HasExplicitPushCandidateInCurrentDirection &&
                    HasRemainingChances == other.HasRemainingChances &&
                    RemainingChances == other.RemainingChances &&
+                   MaxChances == other.MaxChances &&
                    LastResolvedOutcome == other.LastResolvedOutcome &&
                    LastResolvedTickIndex == other.LastResolvedTickIndex &&
                    TookDamageThisTick == other.TookDamageThisTick &&
@@ -281,7 +290,7 @@ namespace Game.Feature.UI.Application
                 CanStartActionThisTick);
             hash = HashCode.Combine(hash, CanStartAnyActionThisTick);
             hash = HashCode.Combine(hash, HasExplicitPushCandidateInCurrentDirection, LastResolvedOutcome);
-            hash = HashCode.Combine(hash, HasRemainingChances, RemainingChances);
+            hash = HashCode.Combine(hash, HasRemainingChances, RemainingChances, MaxChances);
             hash = HashCode.Combine(hash, LastResolvedTickIndex, TookDamageThisTick, LastDamageAmount, LastDamageTickIndex);
             hash = HashCode.Combine(hash, RecoveryCooldown);
             return hash;

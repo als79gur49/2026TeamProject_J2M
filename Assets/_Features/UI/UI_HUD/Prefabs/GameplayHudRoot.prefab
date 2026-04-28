@@ -497,19 +497,19 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 224111}
+  - {fileID: 224117}
+  - {fileID: 224113}
+  - {fileID: 224115}
   - {fileID: 224112}
   - {fileID: 224118}
-  - {fileID: 224113}
   - {fileID: 224114}
-  - {fileID: 224115}
   - {fileID: 224116}
-  - {fileID: 224117}
   m_Father: {fileID: 224100}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 12, y: -48}
-  m_SizeDelta: {x: 214, y: 194}
+  m_SizeDelta: {x: 214, y: 112}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &114110
 MonoBehaviour:
@@ -525,13 +525,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Feature.UI.HUD::Game.Feature.UI.HUD.PlayerStatusView
   _root: {fileID: 100110}
   _titleLabel: {fileID: 114111}
-  _hpLabel: {fileID: 114112}
-  _hpSlider: {fileID: 1141180}
   _facingLabel: {fileID: 114113}
-  _actionLabel: {fileID: 114114}
   _topologyLabel: {fileID: 114115}
-  _statusLabel: {fileID: 114116}
-  _damageLabel: {fileID: 114117}
+  _chancesLabel: {fileID: 114117}
 --- !u!1 &100111
 GameObject:
   m_ObjectHideFlags: 0
@@ -686,7 +682,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &224112
 RectTransform:
   m_ObjectHideFlags: 0
@@ -840,7 +836,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 12, y: -82}
+  m_AnchoredPosition: {x: 12, y: -72}
   m_SizeDelta: {x: 190, y: 18}
   m_Pivot: {x: 0, y: 1}
 --- !u!222 &222113
@@ -960,7 +956,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &224114
 RectTransform:
   m_ObjectHideFlags: 0
@@ -1114,7 +1110,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 12, y: -126}
+  m_AnchoredPosition: {x: 12, y: -94}
   m_SizeDelta: {x: 190, y: 18}
   m_Pivot: {x: 0, y: 1}
 --- !u!222 &222115
@@ -1234,7 +1230,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &224116
 RectTransform:
   m_ObjectHideFlags: 0
@@ -1366,7 +1362,7 @@ GameObject:
   - component: {fileID: 222117}
   - component: {fileID: 114117}
   m_Layer: 0
-  m_Name: Damage
+  m_Name: Chances
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1388,8 +1384,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 12, y: -170}
-  m_SizeDelta: {x: 190, y: 18}
+  m_AnchoredPosition: {x: 12, y: -40}
+  m_SizeDelta: {x: 190, y: 24}
   m_Pivot: {x: 0, y: 1}
 --- !u!222 &222117
 CanvasRenderer:
@@ -1446,8 +1442,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 14
-  m_fontSizeBase: 14
+  m_fontSize: 16
+  m_fontSizeBase: 16
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 10
@@ -1509,7 +1505,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &224118
 RectTransform:
   m_ObjectHideFlags: 0

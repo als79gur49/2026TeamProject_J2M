@@ -1,20 +1,21 @@
+using System.Text;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace Game.Feature.UI.HUD
 {
     public sealed class PlayerStatusView : MonoBehaviour
     {
+        private const char FilledHeart = '\u2665';
+        private const char EmptyHeart = '\u2661';
+        private const string FilledHeartColor = "#E94B68";
+        private const string EmptyHeartColor = "#536071";
+
         [SerializeField] private GameObject _root;
         [SerializeField] private TMP_Text _titleLabel;
-        [SerializeField] private TMP_Text _hpLabel;
-        [SerializeField] private Slider _hpSlider;
         [SerializeField] private TMP_Text _facingLabel;
-        [SerializeField] private TMP_Text _actionLabel;
         [SerializeField] private TMP_Text _topologyLabel;
-        [SerializeField] private TMP_Text _statusLabel;
-        [SerializeField] private TMP_Text _damageLabel;
+        [SerializeField] private TMP_Text _chancesLabel;
 
         private PlayerStatusViewModel _viewModel;
 
@@ -41,13 +42,9 @@ namespace Game.Feature.UI.HUD
         {
             ValidateSerializedReference(_root, nameof(_root));
             ValidateSerializedReference(_titleLabel, nameof(_titleLabel));
-            ValidateSerializedReference(_hpLabel, nameof(_hpLabel));
-            ValidateSerializedReference(_hpSlider, nameof(_hpSlider));
             ValidateSerializedReference(_facingLabel, nameof(_facingLabel));
-            ValidateSerializedReference(_actionLabel, nameof(_actionLabel));
             ValidateSerializedReference(_topologyLabel, nameof(_topologyLabel));
-            ValidateSerializedReference(_statusLabel, nameof(_statusLabel));
-            ValidateSerializedReference(_damageLabel, nameof(_damageLabel));
+            ValidateSerializedReference(_chancesLabel, nameof(_chancesLabel));
         }
 #endif
 
@@ -78,19 +75,12 @@ namespace Game.Feature.UI.HUD
 
             if (_viewModel == null)
             {
+                if (_chancesLabel != null)
+                {
+                    _chancesLabel.gameObject.SetActive(false);
+                }
+
                 return;
-            }
-
-            if (_hpLabel != null)
-            {
-                _hpLabel.text = _viewModel.MaxHp > 0
-                    ? $"HP: {_viewModel.CurrentHp}/{_viewModel.MaxHp}"
-                    : $"HP: {_viewModel.CurrentHp}";
-            }
-
-            if (_hpSlider != null)
-            {
-                _hpSlider.value = _viewModel.HpNormalized;
             }
 
             if (_facingLabel != null)
@@ -98,27 +88,49 @@ namespace Game.Feature.UI.HUD
                 _facingLabel.text = $"Facing: {_viewModel.FacingText}";
             }
 
-            if (_actionLabel != null)
-            {
-                _actionLabel.text = $"Action: {_viewModel.ActionText}";
-            }
-
             if (_topologyLabel != null)
             {
                 _topologyLabel.text = $"Topology: {_viewModel.TopologyText}";
             }
 
-            if (_statusLabel != null)
+            if (_chancesLabel != null)
             {
-                _statusLabel.text = $"Status: {_viewModel.StatusText}";
+                _chancesLabel.gameObject.SetActive(_viewModel.HasRemainingChances);
+                _chancesLabel.text = _viewModel.HasRemainingChances
+                    ? BuildChancesText(_viewModel.RemainingChances, _viewModel.MaxChances)
+                    : string.Empty;
+            }
+        }
+
+        private static string BuildChancesText(int remainingChances, int maxChances)
+        {
+            var builder = new StringBuilder("Chances: ");
+            for (var i = 0; i < maxChances; i++)
+            {
+                if (i > 0)
+                {
+                    builder.Append(' ');
+                }
+
+                if (i < remainingChances)
+                {
+                    builder.Append("<color=")
+                        .Append(FilledHeartColor)
+                        .Append('>')
+                        .Append(FilledHeart)
+                        .Append("</color>");
+                }
+                else
+                {
+                    builder.Append("<color=")
+                        .Append(EmptyHeartColor)
+                        .Append('>')
+                        .Append(EmptyHeart)
+                        .Append("</color>");
+                }
             }
 
-            if (_damageLabel != null)
-            {
-                _damageLabel.text = _viewModel.HasRemainingChances
-                    ? $"{_viewModel.ChancesText} | Damage: {_viewModel.DamageText}"
-                    : $"Damage: {_viewModel.DamageText}";
-            }
+            return builder.ToString();
         }
 
 #if UNITY_EDITOR

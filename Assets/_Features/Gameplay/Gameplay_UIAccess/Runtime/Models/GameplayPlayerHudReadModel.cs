@@ -18,7 +18,8 @@ namespace Game.Feature.Gameplay.UIAccess.Models
             bool canStartAnyActionThisTick = false,
             bool hasExplicitPushCandidateInCurrentDirection = false,
             bool hasRemainingChances = false,
-            int remainingChances = 0)
+            int remainingChances = 0,
+            int maxChances = 0)
             : this(
                 isAvailable,
                 playerEntityId,
@@ -36,7 +37,8 @@ namespace Game.Feature.Gameplay.UIAccess.Models
                 canStartAnyActionThisTick,
                 hasExplicitPushCandidateInCurrentDirection,
                 hasRemainingChances,
-                remainingChances)
+                remainingChances,
+                maxChances)
         {
         }
 
@@ -57,7 +59,8 @@ namespace Game.Feature.Gameplay.UIAccess.Models
             bool canStartAnyActionThisTick = false,
             bool hasExplicitPushCandidateInCurrentDirection = false,
             bool hasRemainingChances = false,
-            int remainingChances = 0)
+            int remainingChances = 0,
+            int maxChances = 0)
         {
             IsAvailable = isAvailable;
             PlayerEntityId = playerEntityId;
@@ -75,6 +78,9 @@ namespace Game.Feature.Gameplay.UIAccess.Models
             HasExplicitPushCandidateInCurrentDirection = hasExplicitPushCandidateInCurrentDirection;
             HasRemainingChances = hasRemainingChances;
             RemainingChances = remainingChances;
+            MaxChances = maxChances > 0
+                ? maxChances
+                : (hasRemainingChances ? remainingChances : 0);
             RecoveryCooldown = recoveryCooldown;
         }
 
@@ -109,6 +115,8 @@ namespace Game.Feature.Gameplay.UIAccess.Models
         public bool HasRemainingChances { get; }
 
         public int RemainingChances { get; }
+
+        public int MaxChances { get; }
 
         public GameplayUiRecoveryCooldown? RecoveryCooldown { get; }
     }
