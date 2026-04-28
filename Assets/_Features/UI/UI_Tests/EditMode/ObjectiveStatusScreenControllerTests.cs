@@ -27,11 +27,19 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(presenter.ViewModel.BadgeText, Is.EqualTo("Goal Reached"));
             Assert.That(presenter.ViewModel.SummaryText, Does.Contain("Primary goal reached"));
+            Assert.That(presenter.ViewModel.DetailText, Is.EqualTo("Goal Reached: Yes"));
+            Assert.That(presenter.ViewModel.SecondaryText, Does.Not.Contain("PlayerAtAnyZone"));
+            Assert.That(presenter.ViewModel.SecondaryText, Does.Not.Contain("PrimaryGoal"));
+            Assert.That(presenter.BuildInfoPopupPayload().BodyText, Does.Contain("Goal reached: Yes"));
+            Assert.That(presenter.BuildInfoPopupPayload().BodyText, Does.Not.Contain("PlayerAtAnyZone"));
+            Assert.That(presenter.BuildInfoPopupPayload().BodyText, Does.Not.Contain("PrimaryGoal"));
 
             presenter.ShowSession();
 
             Assert.That(presenter.ViewModel.BadgeText, Is.EqualTo("Session"));
             Assert.That(presenter.ViewModel.SummaryText, Does.Contain("7"));
+            Assert.That(presenter.ViewModel.DetailText, Does.Not.Contain("PlayerAtAnyZone"));
+            Assert.That(presenter.ViewModel.DetailText, Does.Not.Contain("PrimaryGoal"));
             Assert.That(presenter.BuildInfoPopupPayload().TitleText, Is.EqualTo("Session Info"));
         }
     }

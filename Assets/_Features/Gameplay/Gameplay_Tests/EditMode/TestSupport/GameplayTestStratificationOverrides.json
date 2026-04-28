@@ -1332,6 +1332,43 @@
       ],
       "reason": "Locked Core coverage for immediate BGM request translation after request-based port migration.",
       "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.StageObjectiveSystemTests.ObjectiveClear_ExplicitPrimaryGoalSuppressesLegacySyntheticPrimary",
+      "category": "Core",
+      "contracts": [
+        "stage_objective_condition_contract"
+      ],
+      "reason": "Locked Core coverage for explicit PrimaryGoal suppressing legacy synthetic GoalZoneIds compatibility entries.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.StageObjectiveSystemTests.ObjectiveConditionStatuses_UseDeterministicEntryOrder",
+      "category": "Core",
+      "contracts": [
+        "stage_objective_condition_contract",
+        "determinism"
+      ],
+      "reason": "Locked Core coverage for deterministic condition-backed objective status ordering.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.StageObjectiveSystemTests.StageDefinitionValidation_PlayerAtAnyZone_DuplicateZoneIdsRejects",
+      "category": "Core",
+      "contracts": [
+        "stage_objective_condition_contract"
+      ],
+      "reason": "Locked Core coverage for PlayerAtAnyZone condition zone-id validation.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.StageObjectiveSystemTests.Conditions_PlayerAtAnyZone_TracksCurrentFaceAwareOccupancy",
+      "category": "Core",
+      "contracts": [
+        "stage_objective_condition_contract"
+      ],
+      "reason": "Locked Core coverage for current face-aware player goal occupancy evaluation.",
+      "locked": true
     }
   ]
 }

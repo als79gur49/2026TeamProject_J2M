@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
@@ -260,7 +261,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Array.Empty<StageObjectiveDamageFact>()));
 
                 Assert.That(result.GoalReached, Is.False);
-                Assert.That(result.AllConditionsSatisfied, Is.True);
+                Assert.That(result.AllConditionsSatisfied, Is.False);
                 Assert.That(result.IsCleared, Is.False);
             }
             finally
@@ -416,6 +417,187 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void ObjectiveClear_RequireAllConditions_LegacyGoalZoneDoesNotStrengthenClear()
+        {
+            var condition = ScriptableObject.CreateInstance<SpecificEntityAtZoneConditionAsset>();
+
+            try
+            {
+                SetPrivateField(condition, "entityId", 20);
+                SetPrivateField(condition, "zoneId", "target");
+                SetPrivateField(condition, "requireAlive", true);
+                var objective = BuildObjectiveDefinition(
+                    goalZoneIds: new[] { "goal" },
+                    zones: new[]
+                    {
+                        CreateZone("goal", FaceId.Floor, CreateRegion(2, 2, 2, 2)),
+                        CreateZone("target", FaceId.Floor, CreateRegion(1, 1, 1, 1)),
+                    },
+                    requiredConditions: new StageConditionAsset[] { condition },
+                    completionPolicy: StageCompletionPolicy.RequireAllConditions);
+                var tracker = objective.CreateTracker();
+
+                var result = tracker.Advance(
+                    CreateSnapshot(
+                        CreatePlayerEntity(10, new SurfaceCell(FaceId.Floor, 0, 0)),
+                        CreateEnemyEntity(20, new SurfaceCell(FaceId.Floor, 1, 1))),
+                    CreateObjectiveTickFacts(1));
+
+                Assert.That(result.GoalReached, Is.False);
+                Assert.That(result.AllConditionsSatisfied, Is.True);
+                Assert.That(result.ClearedThisTick, Is.True);
+                Assert.That(result.IsCleared, Is.True);
+                Assert.That(result.ConditionStatuses.Any(status =>
+                    status.Role == StageObjectiveConditionRole.PrimaryGoal &&
+                    status.ConditionId == "legacy-primary-goal" &&
+                    status.Required == false), Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(condition);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ObjectiveClear_ExplicitPrimaryGoalWithoutLegacyGoalZones_ClearsWithOtherConditions()
+        {
+            var primaryGoal = ScriptableObject.CreateInstance<PlayerAtAnyZoneConditionAsset>();
+            var allEnemiesDefeated = ScriptableObject.CreateInstance<AllEnemiesDefeatedConditionAsset>();
+
+            try
+            {
+                SetPrivateField(primaryGoal, "zoneIds", new[] { "goal" });
+                SetPrivateField(primaryGoal, "requireAlive", true);
+                var objective = BuildObjectiveDefinition(
+                    goalZoneIds: Array.Empty<string>(),
+                    zones: new[]
+                    {
+                        CreateZone("goal", FaceId.Floor, CreateRegion(1, 1, 1, 1)),
+                    },
+                    requiredConditions: Array.Empty<StageConditionAsset>(),
+                    completionPolicy: StageCompletionPolicy.RequireAllConditions,
+                    timing: StageSimulationTiming.Default,
+                    conditionEntries: new[]
+                    {
+                        CreateConditionEntry(primaryGoal, required: true, StageObjectiveConditionRole.PrimaryGoal, "explicit-primary"),
+                        CreateConditionEntry(allEnemiesDefeated, required: true, StageObjectiveConditionRole.None, "all-enemies"),
+                    });
+
+                var blocked = objective.CreateTracker().Advance(
+                    CreateSnapshot(
+                        CreatePlayerEntity(10, new SurfaceCell(FaceId.Floor, 1, 1)),
+                        CreateEnemyEntity(20, new SurfaceCell(FaceId.Floor, 0, 0))),
+                    CreateObjectiveTickFacts(1));
+                Assert.That(blocked.GoalReached, Is.True);
+                Assert.That(blocked.AllConditionsSatisfied, Is.False);
+                Assert.That(blocked.IsCleared, Is.False);
+
+                var cleared = objective.CreateTracker().Advance(
+                    CreateSnapshot(CreatePlayerEntity(10, new SurfaceCell(FaceId.Floor, 1, 1))),
+                    CreateObjectiveTickFacts(1));
+                Assert.That(cleared.GoalReached, Is.True);
+                Assert.That(cleared.AllConditionsSatisfied, Is.True);
+                Assert.That(cleared.ClearedThisTick, Is.True);
+                Assert.That(cleared.IsCleared, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(primaryGoal);
+                UnityEngine.Object.DestroyImmediate(allEnemiesDefeated);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ObjectiveClear_ExplicitPrimaryGoalSuppressesLegacySyntheticPrimary()
+        {
+            var explicitPrimary = ScriptableObject.CreateInstance<PlayerAtAnyZoneConditionAsset>();
+
+            try
+            {
+                SetPrivateField(explicitPrimary, "zoneIds", new[] { "explicit-goal" });
+                SetPrivateField(explicitPrimary, "requireAlive", true);
+                var objective = BuildObjectiveDefinition(
+                    goalZoneIds: new[] { "legacy-goal" },
+                    zones: new[]
+                    {
+                        CreateZone("legacy-goal", FaceId.Floor, CreateRegion(0, 0, 0, 0)),
+                        CreateZone("explicit-goal", FaceId.Floor, CreateRegion(1, 1, 1, 1)),
+                    },
+                    requiredConditions: Array.Empty<StageConditionAsset>(),
+                    completionPolicy: StageCompletionPolicy.RequirePlayerOnGoalWithAllConditions,
+                    timing: StageSimulationTiming.Default,
+                    conditionEntries: new[]
+                    {
+                        CreateConditionEntry(explicitPrimary, required: true, StageObjectiveConditionRole.PrimaryGoal, "explicit-primary"),
+                    });
+                var tracker = objective.CreateTracker();
+
+                var result = tracker.Advance(
+                    CreateSnapshot(CreatePlayerEntity(10, new SurfaceCell(FaceId.Floor, 0, 0))),
+                    CreateObjectiveTickFacts(1));
+
+                Assert.That(result.GoalReached, Is.False);
+                Assert.That(result.IsCleared, Is.False);
+                Assert.That(
+                    result.ConditionStatuses.Count(status => status.Role == StageObjectiveConditionRole.PrimaryGoal),
+                    Is.EqualTo(1));
+                Assert.That(
+                    result.ConditionStatuses.Any(status => status.ConditionId == "legacy-primary-goal"),
+                    Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(explicitPrimary);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ObjectiveConditionStatuses_UseDeterministicEntryOrder()
+        {
+            var legacyRequired = ScriptableObject.CreateInstance<SpecificEntityRemovedConditionAsset>();
+            var explicitOptional = ScriptableObject.CreateInstance<AllEnemiesDefeatedConditionAsset>();
+
+            try
+            {
+                legacyRequired.name = "RemoveNinetyNine";
+                SetPrivateField(legacyRequired, "entityId", 99);
+                var objective = BuildObjectiveDefinition(
+                    goalZoneIds: new[] { "goal" },
+                    zones: new[]
+                    {
+                        CreateZone("goal", FaceId.Floor, CreateRegion(1, 1, 1, 1)),
+                    },
+                    requiredConditions: new StageConditionAsset[] { legacyRequired },
+                    completionPolicy: StageCompletionPolicy.RequirePlayerOnGoalWithAllConditions,
+                    timing: StageSimulationTiming.Default,
+                    conditionEntries: new[]
+                    {
+                        CreateConditionEntry(explicitOptional, required: false, StageObjectiveConditionRole.Challenge, "explicit-optional"),
+                    });
+
+                var result = objective.CreateTracker().Advance(
+                    CreateSnapshot(CreatePlayerEntity(10, new SurfaceCell(FaceId.Floor, 1, 1))),
+                    CreateObjectiveTickFacts(1));
+
+                CollectionAssert.AreEqual(
+                    new[] { "legacy-required-0-RemoveNinetyNine", "explicit-optional", "legacy-primary-goal" },
+                    result.ConditionStatuses.Select(status => status.ConditionId).ToArray());
+                Assert.That(
+                    result.ConditionStatuses.Count(status => status.Role == StageObjectiveConditionRole.PrimaryGoal),
+                    Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(legacyRequired);
+                UnityEngine.Object.DestroyImmediate(explicitOptional);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void StageDefinitionValidation_RequireAllConditions_RequiresCondition()
         {
             var stage = CreateStage(
@@ -483,6 +665,142 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 UnityEngine.Object.DestroyImmediate(condition);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageDefinitionValidation_PlayerAtAnyZone_UnknownZoneRejects()
+        {
+            var condition = ScriptableObject.CreateInstance<PlayerAtAnyZoneConditionAsset>();
+
+            try
+            {
+                SetPrivateField(condition, "zoneIds", new[] { "missing" });
+                var stage = CreateStage(
+                    "PlayerAtAnyZoneMissingZone",
+                    CreateBoard(),
+                    new[]
+                    {
+                        CreateZone("goal", FaceId.Floor, CreateRegion(1, 1, 1, 1)),
+                    },
+                    CreateObjective(
+                        StageCompletionPolicy.RequireAllConditions,
+                        Array.Empty<string>(),
+                        conditionEntries: new[]
+                        {
+                            CreateConditionEntry(condition, required: true, StageObjectiveConditionRole.PrimaryGoal, "primary"),
+                        }),
+                    CreatePlayerSpawn(10, new SurfaceCell(FaceId.Floor, 0, 0)));
+
+                AssertStageBuildThrows(stage, "references unknown zone id 'missing'");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(condition);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageDefinitionValidation_PlayerAtAnyZone_EmptyZoneListRejects()
+        {
+            var condition = ScriptableObject.CreateInstance<PlayerAtAnyZoneConditionAsset>();
+
+            try
+            {
+                SetPrivateField(condition, "zoneIds", Array.Empty<string>());
+                var stage = CreateStage(
+                    "PlayerAtAnyZoneEmptyZones",
+                    CreateBoard(),
+                    new[]
+                    {
+                        CreateZone("goal", FaceId.Floor, CreateRegion(1, 1, 1, 1)),
+                    },
+                    CreateObjective(
+                        StageCompletionPolicy.RequireAllConditions,
+                        Array.Empty<string>(),
+                        conditionEntries: new[]
+                        {
+                            CreateConditionEntry(condition, required: true, StageObjectiveConditionRole.PrimaryGoal, "primary"),
+                        }),
+                    CreatePlayerSpawn(10, new SurfaceCell(FaceId.Floor, 0, 0)));
+
+                AssertStageBuildThrows(stage, "requires at least one zone id");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(condition);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageDefinitionValidation_PlayerAtAnyZone_DuplicateZoneIdsRejects()
+        {
+            var condition = ScriptableObject.CreateInstance<PlayerAtAnyZoneConditionAsset>();
+
+            try
+            {
+                SetPrivateField(condition, "zoneIds", new[] { "goal", " goal " });
+                var stage = CreateStage(
+                    "PlayerAtAnyZoneDuplicateZones",
+                    CreateBoard(),
+                    new[]
+                    {
+                        CreateZone("goal", FaceId.Floor, CreateRegion(1, 1, 1, 1)),
+                    },
+                    CreateObjective(
+                        StageCompletionPolicy.RequireAllConditions,
+                        Array.Empty<string>(),
+                        conditionEntries: new[]
+                        {
+                            CreateConditionEntry(condition, required: true, StageObjectiveConditionRole.PrimaryGoal, "primary"),
+                        }),
+                    CreatePlayerSpawn(10, new SurfaceCell(FaceId.Floor, 0, 0)));
+
+                AssertStageBuildThrows(stage, "contains duplicate zone id 'goal'");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(condition);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageDefinitionValidation_MultiplePrimaryGoalEntriesRejects()
+        {
+            var first = ScriptableObject.CreateInstance<PlayerAtAnyZoneConditionAsset>();
+            var second = ScriptableObject.CreateInstance<PlayerAtAnyZoneConditionAsset>();
+
+            try
+            {
+                SetPrivateField(first, "zoneIds", new[] { "goal" });
+                SetPrivateField(second, "zoneIds", new[] { "goal" });
+                var stage = CreateStage(
+                    "MultiplePrimaryGoals",
+                    CreateBoard(),
+                    new[]
+                    {
+                        CreateZone("goal", FaceId.Floor, CreateRegion(1, 1, 1, 1)),
+                    },
+                    CreateObjective(
+                        StageCompletionPolicy.RequireAllConditions,
+                        Array.Empty<string>(),
+                        conditionEntries: new[]
+                        {
+                            CreateConditionEntry(first, required: true, StageObjectiveConditionRole.PrimaryGoal, "primary-a"),
+                            CreateConditionEntry(second, required: true, StageObjectiveConditionRole.PrimaryGoal, "primary-b"),
+                        }),
+                    CreatePlayerSpawn(10, new SurfaceCell(FaceId.Floor, 0, 0)));
+
+                AssertStageBuildThrows(stage, "more than one PrimaryGoal");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(first);
+                UnityEngine.Object.DestroyImmediate(second);
             }
         }
 
@@ -574,6 +892,88 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     StageObjectiveTickFacts.Empty);
                 runtime.Advance(checkpointSnapshot, StageObjectiveTickFacts.Empty);
                 Assert.That(runtime.IsSatisfied, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(conditionAsset);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Conditions_PlayerAtAnyZone_TracksCurrentFaceAwareOccupancy()
+        {
+            var conditionAsset = ScriptableObject.CreateInstance<PlayerAtAnyZoneConditionAsset>();
+
+            try
+            {
+                SetPrivateField(conditionAsset, "zoneIds", new[] { "target" });
+                SetPrivateField(conditionAsset, "requireAlive", true);
+                var runtime = BuildSingleConditionRuntime(
+                    conditionAsset,
+                    zones: new[]
+                    {
+                        CreateZone("target", FaceId.Front, CreateRegion(1, 1, 1, 1)),
+                    });
+
+                runtime.Advance(
+                    CreateSnapshot(CreatePlayerEntity(10, new SurfaceCell(FaceId.Front, 1, 1))),
+                    StageObjectiveTickFacts.Empty);
+                Assert.That(runtime.IsSatisfied, Is.True);
+
+                runtime.Advance(
+                    CreateSnapshot(CreatePlayerEntity(10, new SurfaceCell(FaceId.Front, 0, 0))),
+                    StageObjectiveTickFacts.Empty);
+                Assert.That(runtime.IsSatisfied, Is.False);
+
+                runtime.Advance(
+                    CreateSnapshot(CreatePlayerEntity(10, new SurfaceCell(FaceId.Floor, 1, 1))),
+                    StageObjectiveTickFacts.Empty);
+                Assert.That(runtime.IsSatisfied, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(conditionAsset);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Conditions_PlayerAtAnyZone_RequireAliveRejectsDeadMarkedOrNonOccupyingPlayer()
+        {
+            var conditionAsset = ScriptableObject.CreateInstance<PlayerAtAnyZoneConditionAsset>();
+
+            try
+            {
+                SetPrivateField(conditionAsset, "zoneIds", new[] { "target" });
+                SetPrivateField(conditionAsset, "requireAlive", true);
+                var runtime = BuildSingleConditionRuntime(
+                    conditionAsset,
+                    zones: new[]
+                    {
+                        CreateZone("target", FaceId.Floor, CreateRegion(1, 1, 1, 1)),
+                    });
+
+                runtime.Advance(
+                    CreateSnapshot(CreatePlayerEntity(10, new SurfaceCell(FaceId.Floor, 1, 1), hp: 0)),
+                    StageObjectiveTickFacts.Empty);
+                Assert.That(runtime.IsSatisfied, Is.False);
+
+                runtime.Advance(
+                    CreateSnapshot(CreatePlayerEntity(
+                        10,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        markedForDeath: true)),
+                    StageObjectiveTickFacts.Empty);
+                Assert.That(runtime.IsSatisfied, Is.False);
+
+                runtime.Advance(
+                    CreateSnapshot(CreatePlayerEntity(
+                        10,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        boardPresence: EntityBoardPresence.Detached)),
+                    StageObjectiveTickFacts.Empty);
+                Assert.That(runtime.IsSatisfied, Is.False);
             }
             finally
             {
@@ -804,11 +1204,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
             StageCompletionPolicy completionPolicy,
             StageSimulationTiming timing)
         {
+            return BuildObjectiveDefinition(
+                goalZoneIds,
+                zones,
+                requiredConditions,
+                completionPolicy,
+                timing,
+                conditionEntries: null);
+        }
+
+        private static StageObjectiveRuntimeDefinition BuildObjectiveDefinition(
+            string[] goalZoneIds,
+            StageZoneDefinition[] zones,
+            StageConditionAsset[] requiredConditions,
+            StageCompletionPolicy completionPolicy,
+            StageSimulationTiming timing,
+            StageObjectiveConditionEntry[] conditionEntries)
+        {
             var stage = CreateStage(
                 "ObjectiveStage",
                 CreateBoard(),
                 zones,
-                CreateObjective(completionPolicy, goalZoneIds, requiredConditions),
+                CreateObjective(completionPolicy, goalZoneIds, requiredConditions, conditionEntries),
                 CreatePlayerSpawn(10, new SurfaceCell(FaceId.Floor, 0, 0)));
 
             try
@@ -868,13 +1285,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static StageObjectiveAuthoring CreateObjective(
             StageCompletionPolicy completionPolicy,
             string[] goalZoneIds,
-            StageConditionAsset[] requiredConditions = null)
+            StageConditionAsset[] requiredConditions = null,
+            StageObjectiveConditionEntry[] conditionEntries = null)
         {
             return new StageObjectiveAuthoring
             {
                 CompletionPolicy = completionPolicy,
                 GoalZoneIds = goalZoneIds ?? Array.Empty<string>(),
                 RequiredConditions = requiredConditions ?? Array.Empty<StageConditionAsset>(),
+                ConditionEntries = conditionEntries ?? Array.Empty<StageObjectiveConditionEntry>(),
+            };
+        }
+
+        private static StageObjectiveConditionEntry CreateConditionEntry(
+            StageConditionAsset condition,
+            bool required,
+            StageObjectiveConditionRole role,
+            string stableConditionId = "")
+        {
+            return new StageObjectiveConditionEntry
+            {
+                Condition = condition,
+                Required = required,
+                Role = role,
+                StableConditionId = stableConditionId,
             };
         }
 
@@ -943,20 +1377,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 GameplayTimingProfile.CreateDefault()).CreateSnapshot();
         }
 
-        private static EntityState CreatePlayerEntity(int entityId, SurfaceCell cell)
+        private static EntityState CreatePlayerEntity(
+            int entityId,
+            SurfaceCell cell,
+            int hp = 3,
+            bool markedForDeath = false,
+            EntityBoardPresence boardPresence = EntityBoardPresence.Occupying)
         {
             return new EntityState
             {
                 entityId = entityId,
                 position = cell,
-                hp = 3,
+                hp = hp,
                 maxHp = 3,
                 teamId = 1,
                 type = EntityType.Unit,
                 unitRole = UnitRole.Player,
                 state = EntityPhaseState.Idle,
                 facing = Direction.Right,
-                boardPresence = EntityBoardPresence.Occupying,
+                boardPresence = boardPresence,
+                markedForDeath = markedForDeath,
             };
         }
 
