@@ -120,6 +120,49 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void MainMenuSettingsRuntime_SectionChanged_EmitsOnlyWhenSelectedSectionChanges()
+        {
+            using var harness = new RuntimeHarness();
+            var changedCount = 0;
+            var lastSection = SettingsSectionId.Audio;
+            harness.Runtime.SectionChanged += sectionId =>
+            {
+                changedCount++;
+                lastSection = sectionId;
+            };
+            harness.Runtime.Open();
+
+            harness.Runtime.View.ClickAudioTab();
+            Assert.That(changedCount, Is.Zero);
+
+            harness.Runtime.View.ClickDisplayTab();
+            Assert.That(changedCount, Is.EqualTo(1));
+            Assert.That(lastSection, Is.EqualTo(SettingsSectionId.Display));
+
+            harness.Runtime.View.ClickDisplayTab();
+            Assert.That(changedCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void MainMenuSettingsOverlayController_RelaysSettingsSectionChanges()
+        {
+            using var harness = new OverlayHarness();
+            var changedCount = 0;
+            var lastSection = SettingsSectionId.Audio;
+            harness.OverlayController.SectionChanged += sectionId =>
+            {
+                changedCount++;
+                lastSection = sectionId;
+            };
+
+            harness.OverlayController.Open();
+            harness.CreatedRuntime.View.ClickInputTab();
+
+            Assert.That(changedCount, Is.EqualTo(1));
+            Assert.That(lastSection, Is.EqualTo(SettingsSectionId.Input));
+        }
+
+        [Test]
         public void MainMenuSettingsRuntime_AudioChange_UsesAudioSettingsPort()
         {
             using var harness = new RuntimeHarness();

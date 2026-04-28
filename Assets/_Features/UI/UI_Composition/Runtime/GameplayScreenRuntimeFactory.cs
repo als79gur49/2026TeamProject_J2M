@@ -684,7 +684,10 @@ namespace Game.Feature.UI.Composition
 
             private void HandleSectionSelected(SettingsSectionId sectionId)
             {
-                _presenter.SelectSection(sectionId);
+                if (_presenter.SelectSection(sectionId))
+                {
+                    PlayLocalCue(UiAudioCueId.Select);
+                }
             }
 
             private void HandleInputMovementSchemeToggleRequested(bool useArrowKeys)

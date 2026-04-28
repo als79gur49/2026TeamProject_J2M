@@ -61,6 +61,8 @@ namespace Game.Feature.UI.Composition
 
         public event Action CloseRequested;
 
+        public event Action<SettingsSectionId> SectionChanged;
+
         public bool IsOpen => view != null && !isDisposed;
 
         public SettingsScreenView View => view;
@@ -284,7 +286,10 @@ namespace Game.Feature.UI.Composition
 
         private void HandleSectionSelected(SettingsSectionId sectionId)
         {
-            presenter.SelectSection(sectionId);
+            if (presenter.SelectSection(sectionId))
+            {
+                SectionChanged?.Invoke(sectionId);
+            }
         }
 
         private void HandleInputMovementSchemeToggleRequested(bool useArrowKeys)
