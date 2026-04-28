@@ -16,10 +16,20 @@ namespace Game.Feature.Gameplay.Tests.Replay
             WorldState worldState,
             IEnumerable<IEntityLogic> entityLogics,
             IReadOnlyList<TickInput> inputs,
-            IReadOnlyList<DelayedAttackEffectRecord> initialDelayedAttackEffects = null)
+            IReadOnlyList<DelayedAttackEffectRecord> initialDelayedAttackEffects = null,
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags = default)
         {
             var entityLogicList = new List<IEntityLogic>(entityLogics);
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, entityLogicList);
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            var playerControlTiming = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                timingProfile.SimulationTicksPerSecond,
+                timingProfile.RepeatedMoveIntervalSeconds);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                entityLogicList,
+                timingProfile,
+                playerControlTiming,
+                runtimeFeatureFlags: runtimeFeatureFlags);
             return Run(pipeline, entityLogicList, inputs, initialDelayedAttackEffects);
         }
 
@@ -28,7 +38,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
             WorldState worldState,
             IEnumerable<IEntityLogic> entityLogics,
             IReadOnlyList<TickInput> inputs,
-            IReadOnlyList<DelayedAttackEffectRecord> initialDelayedAttackEffects = null)
+            IReadOnlyList<DelayedAttackEffectRecord> initialDelayedAttackEffects = null,
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags = default)
         {
             if (bootstrapper == null)
             {
@@ -36,7 +47,16 @@ namespace Game.Feature.Gameplay.Tests.Replay
             }
 
             var entityLogicList = new List<IEntityLogic>(entityLogics);
-            var pipeline = bootstrapper.CreateTickPipeline(worldState, entityLogicList);
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            var playerControlTiming = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                timingProfile.SimulationTicksPerSecond,
+                timingProfile.RepeatedMoveIntervalSeconds);
+            var pipeline = bootstrapper.CreateTickPipeline(
+                worldState,
+                entityLogicList,
+                timingProfile,
+                playerControlTiming,
+                runtimeFeatureFlags: runtimeFeatureFlags);
             return Run(pipeline, entityLogicList, inputs, initialDelayedAttackEffects);
         }
 
