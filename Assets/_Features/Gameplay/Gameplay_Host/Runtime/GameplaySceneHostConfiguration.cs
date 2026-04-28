@@ -110,6 +110,7 @@ namespace Game.Feature.Gameplay.Host
         public float CellSize = 1f;
         public float FaceSeamGap = -1f;
         public bool DirectionChangeConsumesDelay;
+        public bool EnablePlayerSameFaceContinuousLocomotion;
         public EnemyAiProfile DefaultEnemyAiProfile;
         public EnemyAiProfileOverride[] EnemyAiProfileOverrides = Array.Empty<EnemyAiProfileOverride>();
         public EnemyUnitArchetypeCatalog EnemyUnitArchetypeCatalog;
@@ -207,6 +208,11 @@ namespace Game.Feature.Gameplay.Host
         public PlayerRespawnTimingAuthoritativeSnapshot CreatePlayerRespawnTimingSnapshot()
         {
             return ResolvePlayerRespawnTimingSettings().CreateAuthoritativeSnapshot(SimulationTicksPerSecond);
+        }
+
+        public GameplayRuntimeFeatureFlags CreateRuntimeFeatureFlags()
+        {
+            return new GameplayRuntimeFeatureFlags(EnablePlayerSameFaceContinuousLocomotion);
         }
 
         public EnemyAiRuntimeCollectionSnapshot CreateEnemyAiRuntimeSnapshot()

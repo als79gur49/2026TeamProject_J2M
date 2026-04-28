@@ -201,6 +201,12 @@ namespace Game.Feature.Gameplay.PlayerControl
                 return false;
             }
 
+            if (!UnitSpatialQuery.TryResolveSettledProbeCell(snapshot, player.entityId, inputDirection, out _))
+            {
+                contact = default;
+                return false;
+            }
+
             if (!TryResolveTraversalStep(snapshot, player, delta, out var targetCell, out var movementTopology))
             {
                 contact = default;
@@ -258,6 +264,12 @@ namespace Game.Feature.Gameplay.PlayerControl
                 return false;
             }
 
+            if (!UnitSpatialQuery.TryResolveSettledProbeCell(snapshot, player.entityId, inputDirection, out _))
+            {
+                target = default;
+                return false;
+            }
+
             if (!TryResolveTraversalStep(snapshot, player, delta, out var targetCell, out var movementTopology))
             {
                 target = default;
@@ -286,6 +298,7 @@ namespace Game.Feature.Gameplay.PlayerControl
             }
 
             if (!TryResolveDelta(inputDirection, out var delta) ||
+                !UnitSpatialQuery.TryResolveSettledProbeCell(snapshot, player.entityId, inputDirection, out _) ||
                 !snapshot.TryResolveLocalFlipCells(player.position, delta, out var targetCell, out var landingCell))
             {
                 target = default;
@@ -381,7 +394,8 @@ namespace Game.Feature.Gameplay.PlayerControl
             }
 
             if (!action.IsActive ||
-                !TryResolveDelta(action.direction, out var delta))
+                !TryResolveDelta(action.direction, out var delta) ||
+                !UnitSpatialQuery.IsSettledAtAnchor(snapshot, player.entityId))
             {
                 return false;
             }

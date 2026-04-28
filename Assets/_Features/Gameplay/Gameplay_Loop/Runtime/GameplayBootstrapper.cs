@@ -52,7 +52,8 @@ namespace Game.Feature.Gameplay.Loop
             PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
             int playerRespawnDelayTicks = 1,
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
-            bool allowPlayerRespawn = true)
+            bool allowPlayerRespawn = true,
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags = default)
         {
             return new TickPipeline(
                 worldState,
@@ -63,7 +64,8 @@ namespace Game.Feature.Gameplay.Loop
                 playerRespawnDelayTicks,
                 objectiveDefinition,
                 _spawnDefaultsByArchetypeId,
-                allowPlayerRespawn);
+                allowPlayerRespawn,
+                runtimeFeatureFlags);
         }
 
         public TickRunner CreateTickRunner(
@@ -102,7 +104,8 @@ namespace Game.Feature.Gameplay.Loop
             int playerRespawnDelayTicks = 1,
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
             int startTickIndex = 1,
-            bool allowPlayerRespawn = true)
+            bool allowPlayerRespawn = true,
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags = default)
         {
             if (inputBuffer == null)
             {
@@ -117,7 +120,8 @@ namespace Game.Feature.Gameplay.Loop
                     playerControlTiming,
                     playerRespawnDelayTicks,
                     objectiveDefinition,
-                    allowPlayerRespawn),
+                    allowPlayerRespawn,
+                    runtimeFeatureFlags),
                 inputBuffer,
                 startTickIndex);
         }

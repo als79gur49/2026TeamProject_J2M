@@ -161,7 +161,7 @@ namespace Game.Feature.Gameplay.Loop
         {
             var blocksSharedUnitMoves = payload.BlockingType == MovementBlockingType.Blocking;
 
-            if (payload.MoveWrites.Count > 0)
+            if (PayloadReservesDestination(payload))
             {
                 _reservedDestinations.Add(payload.DestinationCell);
                 if (blocksSharedUnitMoves)
@@ -173,8 +173,11 @@ namespace Game.Feature.Gameplay.Loop
                     payload.HasMovementEdge &&
                     payload.MovementEdge.FromCell != payload.MovementEdge.ToCell)
                 {
+                    var reservedEntityId = payload.MoveWrites.Count > 0
+                        ? payload.MoveWrites[0].EntityId
+                        : payload.SourceActorEntityId;
                     var edgeReservation = new EdgeReservation(
-                        payload.MoveWrites[0].EntityId,
+                        reservedEntityId,
                         payload.MovementEdge.FromCell,
                         payload.MovementEdge.ToCell,
                         payload.ActionPlanId);
@@ -278,7 +281,7 @@ namespace Game.Feature.Gameplay.Loop
             out SurfaceCell conflictingDestination)
         {
             conflictingDestination = default;
-            if (payload.MoveWrites.Count == 0)
+            if (!PayloadReservesDestination(payload))
             {
                 return false;
             }
@@ -290,6 +293,24 @@ namespace Game.Feature.Gameplay.Loop
 
             conflictingDestination = payload.DestinationCell;
             return true;
+        }
+
+        private static bool PayloadReservesDestination(MovementActionPlanPayload payload)
+        {
+            if (payload.MoveWrites.Count > 0)
+            {
+                return true;
+            }
+
+            for (var i = 0; i < payload.KinematicMotionOutcomes.Count; i++)
+            {
+                if (payload.KinematicMotionOutcomes[i].AnchorChanged)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool TryGetConflictingPayloadEdge(

@@ -92,7 +92,8 @@ namespace Game.Feature.Gameplay.Host
                 playerRespawnTiming.RespawnDelayTicks,
                 configuration.ObjectiveRuntimeDefinition,
                 startTickIndex: 1,
-                allowPlayerRespawn: !configuration.DisablePlayerRespawn);
+                allowPlayerRespawn: !configuration.DisablePlayerRespawn,
+                runtimeFeatureFlags: configuration.CreateRuntimeFeatureFlags());
 
             var boardRoot = EnsureBoardRootHierarchy(hostTransform);
             var boardSurfaceRenderer = boardRoot.EnsureBoardSurfaceRenderer();
