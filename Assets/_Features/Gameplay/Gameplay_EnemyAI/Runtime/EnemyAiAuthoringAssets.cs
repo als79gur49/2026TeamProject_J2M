@@ -349,6 +349,7 @@ namespace Game.Feature.Gameplay.Entities
             {
                 case FrontFaceShieldTargetPattern.OrthogonalAdjacent4:
                 case FrontFaceShieldTargetPattern.ManhattanRadius:
+                case FrontFaceShieldTargetPattern.SquareRadius:
                     break;
 
                 default:

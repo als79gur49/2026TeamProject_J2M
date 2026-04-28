@@ -109,6 +109,7 @@ namespace Game.Feature.Gameplay.Entities
     {
         OrthogonalAdjacent4 = 0,
         ManhattanRadius = 1,
+        SquareRadius = 2,
     }
 
     public readonly struct EnemyCoreRuntime
@@ -709,6 +710,7 @@ namespace Game.Feature.Gameplay.Entities
             {
                 case FrontFaceShieldTargetPattern.OrthogonalAdjacent4:
                 case FrontFaceShieldTargetPattern.ManhattanRadius:
+                case FrontFaceShieldTargetPattern.SquareRadius:
                     return;
 
                 default:

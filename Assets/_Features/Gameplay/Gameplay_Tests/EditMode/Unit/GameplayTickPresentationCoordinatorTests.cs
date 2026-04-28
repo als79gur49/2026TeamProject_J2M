@@ -1532,6 +1532,63 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
+        public void GameplayTickPresentationCoordinator_FrontFaceShieldSquareRadius_ScalesActiveLoopToTileDiameter()
+        {
+            var rootObject = new GameObject("GameplayTickPresentationCoordinator_FrontFaceShieldSquareRadius_ScalesActiveLoopToTileDiameter");
+            var enemyPrefab = CreateEnemyViewPrefab(
+                "EnemyPrefab_FrontFaceShieldSquareRadius",
+                UnitLocomotionPresentationAuthoring.UseGlobalTimingSentinel,
+                EntityMotionPresentationAuthoring.UseGlobalTimingSentinel);
+            var activeLoopPrefab = new GameObject("FrontFaceShieldActiveLoopPrefab");
+
+            try
+            {
+                var authoring = enemyPrefab.gameObject.AddComponent<EnemyFrontFaceShieldPresentationAuthoring>();
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "activeLoopPrefab", activeLoopPrefab);
+
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Front, 0, 0);
+                var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
+
+                presenter.Initialize(binder, boardBounds, topology, 1f, CreateTimingProfile());
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, topology);
+
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 1,
+                        new[] { CreateEnemyUnit(20, sourceCell) },
+                        topology,
+                        CreateFrontFaceShieldPresentationData(
+                            new[]
+                            {
+                                CreateShieldSourceSignal(
+                                    20,
+                                    sourceCell,
+                                    topology,
+                                    tickIndex: 1,
+                                    radius: 1,
+                                    targetPattern: FrontFaceShieldTargetPattern.SquareRadius),
+                            },
+                            Array.Empty<TickFrontFaceShieldBlockSignal>())));
+
+                Assert.That(
+                    TryFindDescendantByNamePrefix(rootObject.transform, "FrontFaceShieldActiveLoop_20", out var activeLoop),
+                    Is.True);
+                Assert.That(activeLoop.localScale, Is.EqualTo(Vector3.one * 3f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(activeLoopPrefab);
+                UnityEngine.Object.DestroyImmediate(enemyPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void GameplayTickPresentationCoordinator_FrontFaceShieldMissingAuthoring_NoOps()
         {
@@ -3744,15 +3801,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int sourceEntityId,
             SurfaceCell sourceCell,
             CubeTopologyState topology,
-            int tickIndex)
+            int tickIndex,
+            int radius = 1,
+            FrontFaceShieldTargetPattern targetPattern = FrontFaceShieldTargetPattern.ManhattanRadius)
         {
             return new TickFrontFaceShieldSourceSignal(
                 sourceEntityId,
                 sourceCell,
                 topology,
-                1,
+                radius,
                 false,
-                FrontFaceShieldTargetPattern.ManhattanRadius,
+                targetPattern,
                 tickIndex,
                 presentationSeed: tickIndex * 31 + sourceEntityId);
         }
@@ -3793,6 +3852,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             return count;
+        }
+
+        private static bool TryFindDescendantByNamePrefix(Transform root, string prefix, out Transform descendant)
+        {
+            var descendants = root.GetComponentsInChildren<Transform>(includeInactive: true);
+            for (var i = 0; i < descendants.Length; i++)
+            {
+                if (descendants[i] != null &&
+                    descendants[i] != root &&
+                    descendants[i].name.StartsWith(prefix, StringComparison.Ordinal))
+                {
+                    descendant = descendants[i];
+                    return true;
+                }
+            }
+
+            descendant = null;
+            return false;
         }
 
         private static GameplayEntityView CreateEnemyViewPrefab(

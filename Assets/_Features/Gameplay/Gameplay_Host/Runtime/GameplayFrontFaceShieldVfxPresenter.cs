@@ -421,9 +421,16 @@ namespace Game.Feature.Gameplay.Host
             TickFrontFaceShieldSourceSignal signal,
             EnemyFrontFaceShieldPresentationSnapshot snapshot)
         {
-            return snapshot.ScaleByRadius
-                ? Vector3.one * Mathf.Max(1f, signal.Radius)
-                : Vector3.one;
+            if (!snapshot.ScaleByRadius)
+            {
+                return Vector3.one;
+            }
+
+            return signal.TargetPattern switch
+            {
+                FrontFaceShieldTargetPattern.SquareRadius => Vector3.one * Mathf.Max(1f, (signal.Radius * 2) + 1),
+                _ => Vector3.one * Mathf.Max(1f, signal.Radius),
+            };
         }
 
         private static float ResolveDuration(float authoredDuration, float fallback)

@@ -122,6 +122,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 FrontFaceShieldTargetPattern.OrthogonalAdjacent4 => Mathf.Abs(offset.x) + Mathf.Abs(offset.y) == 1 ||
                                                                    (shieldRuntime.IncludeSourceCell && offset == Vector2Int.zero),
                 FrontFaceShieldTargetPattern.ManhattanRadius => IsWithinManhattanRadius(offset, shieldRuntime.Radius),
+                FrontFaceShieldTargetPattern.SquareRadius => IsWithinSquareRadius(offset, shieldRuntime.Radius),
                 _ => false,
             };
         }
@@ -129,6 +130,11 @@ namespace Game.Feature.Gameplay.Movement.Expansion
         private static bool IsWithinManhattanRadius(Vector2Int offset, int radius)
         {
             return Mathf.Abs(offset.x) + Mathf.Abs(offset.y) <= radius;
+        }
+
+        private static bool IsWithinSquareRadius(Vector2Int offset, int radius)
+        {
+            return Mathf.Max(Mathf.Abs(offset.x), Mathf.Abs(offset.y)) <= radius;
         }
     }
 }
