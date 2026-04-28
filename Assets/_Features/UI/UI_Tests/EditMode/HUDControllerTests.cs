@@ -25,19 +25,16 @@ namespace Game.Feature.UI.Tests
                 var source = new ManualGameplayUiPresentationSource();
                 var playerStatusPresenter = new PlayerStatusPresenter();
                 var stageInfoPresenter = new StageInfoPresenter();
-                var actionBarPresenter = new ActionBarPresenter();
                 var notificationPresenter = new NotificationPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
                     stageInfoPresenter,
                     playerStatusPresenter,
-                    actionBarPresenter,
                     notificationPresenter);
                 using var controller = new HUDController(
                     rootPresenter.ViewModel,
                     stageInfoPresenter.ViewModel,
                     playerStatusPresenter.ViewModel,
-                    actionBarPresenter.ViewModel,
                     notificationPresenter.ViewModel);
 
                 controller.AttachView(hudView);
@@ -46,7 +43,6 @@ namespace Game.Feature.UI.Tests
                 Assert.That(hudView.ViewModel, Is.SameAs(controller.RootViewModel));
                 Assert.That(hudView.StageInfoViewModel, Is.SameAs(controller.StageInfoViewModel));
                 Assert.That(hudView.PlayerStatusView.ViewModel, Is.SameAs(controller.PlayerStatusViewModel));
-                Assert.That(hudView.ActionBarView.ViewModel, Is.SameAs(controller.ActionBarViewModel));
                 Assert.That(hudView.NotificationView.ViewModel, Is.SameAs(controller.NotificationViewModel));
             }
             finally
@@ -67,19 +63,16 @@ namespace Game.Feature.UI.Tests
                 var source = new ManualGameplayUiPresentationSource();
                 var playerStatusPresenter = new PlayerStatusPresenter();
                 var stageInfoPresenter = new StageInfoPresenter();
-                var actionBarPresenter = new ActionBarPresenter();
                 var notificationPresenter = new NotificationPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
                     stageInfoPresenter,
                     playerStatusPresenter,
-                    actionBarPresenter,
                     notificationPresenter);
                 using var controller = new HUDController(
                     rootPresenter.ViewModel,
                     stageInfoPresenter.ViewModel,
                     playerStatusPresenter.ViewModel,
-                    actionBarPresenter.ViewModel,
                     notificationPresenter.ViewModel);
 
                 controller.AttachView(hudView);
@@ -109,19 +102,16 @@ namespace Game.Feature.UI.Tests
                 var source = new ManualGameplayUiPresentationSource();
                 var playerStatusPresenter = new PlayerStatusPresenter();
                 var stageInfoPresenter = new StageInfoPresenter();
-                var actionBarPresenter = new ActionBarPresenter();
                 var notificationPresenter = new NotificationPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
                     stageInfoPresenter,
                     playerStatusPresenter,
-                    actionBarPresenter,
                     notificationPresenter);
                 using var controller = new HUDController(
                     rootPresenter.ViewModel,
                     stageInfoPresenter.ViewModel,
                     playerStatusPresenter.ViewModel,
-                    actionBarPresenter.ViewModel,
                     notificationPresenter.ViewModel);
 
                 controller.AttachView(hudView);
@@ -150,19 +140,16 @@ namespace Game.Feature.UI.Tests
                 var source = new ManualGameplayUiPresentationSource();
                 var playerStatusPresenter = new PlayerStatusPresenter();
                 var stageInfoPresenter = new StageInfoPresenter();
-                var actionBarPresenter = new ActionBarPresenter();
                 var notificationPresenter = new NotificationPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
                     stageInfoPresenter,
                     playerStatusPresenter,
-                    actionBarPresenter,
                     notificationPresenter);
                 var controller = new HUDController(
                     rootPresenter.ViewModel,
                     stageInfoPresenter.ViewModel,
                     playerStatusPresenter.ViewModel,
-                    actionBarPresenter.ViewModel,
                     notificationPresenter.ViewModel);
 
                 controller.AttachView(hudView);
@@ -171,7 +158,6 @@ namespace Game.Feature.UI.Tests
                 Assert.That(hudView.ViewModel, Is.Null);
                 Assert.That(hudView.StageInfoViewModel, Is.Null);
                 Assert.That(hudView.PlayerStatusView.ViewModel, Is.Null);
-                Assert.That(hudView.ActionBarView.ViewModel, Is.Null);
                 Assert.That(hudView.NotificationView.ViewModel, Is.Null);
             }
             finally

@@ -71,7 +71,6 @@ MonoBehaviour:
   _pauseButton: {fileID: 114103}
   _stageNameLabel: {fileID: 114101}
   _playerStatusView: {fileID: 114110}
-  _actionBarView: {fileID: 114120}
   _notificationView: {fileID: 114140}
 --- !u!1 &100101
 GameObject:
@@ -1632,7 +1631,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &224120
 RectTransform:
   m_ObjectHideFlags: 0

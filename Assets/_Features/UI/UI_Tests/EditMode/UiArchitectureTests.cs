@@ -307,7 +307,6 @@ namespace Game.Feature.UI.Tests
                     typeof(IGameplayUiPresentationSource),
                     typeof(StageInfoPresenter),
                     typeof(PlayerStatusPresenter),
-                    typeof(ActionBarPresenter),
                     typeof(NotificationPresenter),
                 }));
 
@@ -354,7 +353,7 @@ namespace Game.Feature.UI.Tests
                 .OrderBy(name => name)
                 .ToArray();
 
-            Assert.That(propertyNames, Is.EqualTo(new[] { "IsDimmed", "IsPauseButtonEnabled", "IsVisible" }));
+            Assert.That(propertyNames, Is.EqualTo(new[] { "IsDimmed", "IsGameplayReadOnly", "IsPauseButtonEnabled", "IsVisible" }));
         }
 
         [Test]
@@ -411,7 +410,7 @@ namespace Game.Feature.UI.Tests
                 propertyNames,
                 Is.EqualTo(new[]
                 {
-                    "ActionBarViewModel",
+                    "IsGameplayReadOnly",
                     "NotificationViewModel",
                     "PlayerStatusViewModel",
                     "RootViewModel",

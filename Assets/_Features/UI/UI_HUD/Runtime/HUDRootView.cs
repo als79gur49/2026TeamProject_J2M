@@ -19,7 +19,6 @@ namespace Game.Feature.UI.HUD
         [SerializeField] private Button _pauseButton;
         [SerializeField] private TMP_Text _stageNameLabel;
         [SerializeField] private PlayerStatusView _playerStatusView;
-        [SerializeField] private ActionBarView _actionBarView;
         [SerializeField] private NotificationView _notificationView;
 
         private HUDRootViewModel _viewModel;
@@ -33,8 +32,6 @@ namespace Game.Feature.UI.HUD
         public event Action PauseRequested;
 
         public PlayerStatusView PlayerStatusView => _playerStatusView;
-
-        public ActionBarView ActionBarView => _actionBarView;
 
         public NotificationView NotificationView => _notificationView;
 
@@ -122,7 +119,6 @@ namespace Game.Feature.UI.HUD
             ValidateSerializedReference(_pauseButton, nameof(_pauseButton));
             ValidateSerializedReference(_stageNameLabel, nameof(_stageNameLabel));
             ValidateSerializedReference(_playerStatusView, nameof(_playerStatusView));
-            ValidateSerializedReference(_actionBarView, nameof(_actionBarView));
             ValidateSerializedReference(_notificationView, nameof(_notificationView));
         }
 #endif

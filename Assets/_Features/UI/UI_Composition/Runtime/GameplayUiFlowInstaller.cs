@@ -193,13 +193,11 @@ namespace Game.Feature.UI.Composition
 
             var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter();
-            var actionBarPresenter = new ActionBarPresenter();
             var notificationPresenter = new NotificationPresenter();
             HudRootPresenter = new HUDRootPresenter(
                 PresentationSource,
                 stageInfoPresenter,
                 playerStatusPresenter,
-                actionBarPresenter,
                 notificationPresenter);
 
             var accessibilitySettingsStore = new AccessibilitySettingsStore();
@@ -219,7 +217,6 @@ namespace Game.Feature.UI.Composition
                 HudRootPresenter.ViewModel,
                 stageInfoPresenter.ViewModel,
                 playerStatusPresenter.ViewModel,
-                actionBarPresenter.ViewModel,
                 notificationPresenter.ViewModel);
             BlockPolicy = new UIBlockPolicy();
             Coordinator = new UIFlowCoordinator(
@@ -455,7 +452,7 @@ namespace Game.Feature.UI.Composition
                 ScreenController,
                 PopupController,
                 isHudVisible: () => _rootView.HudView != null && _rootView.HudView.IsVisible,
-                isHudReadOnly: () => HudController != null && !HudController.ActionBarViewModel.IsInteractive,
+                isHudReadOnly: () => HudController != null && HudController.IsGameplayReadOnly,
                 inventoryViewAccessor: () => ScreenLayerView != null ? ScreenLayerView.FindScreenView<InventoryScreenView>() : null);
             _rootView.DiagnosticsOverlayView.Bind(_diagnosticsTracker);
         }

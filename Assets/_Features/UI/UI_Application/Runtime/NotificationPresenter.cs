@@ -16,9 +16,12 @@ namespace Game.Feature.UI.Application
             sorted.Sort(CompareNotifications);
 
             var items = new List<NotificationItemViewModel>(MaxNotificationCount);
-            for (var i = 0; i < sorted.Count && i < MaxNotificationCount; i++)
+            for (var i = 0; i < sorted.Count && items.Count < MaxNotificationCount; i++)
             {
-                items.Add(new NotificationItemViewModel(MapMessage(sorted[i])));
+                if (TryMapMessage(sorted[i], out var message))
+                {
+                    items.Add(new NotificationItemViewModel(message));
+                }
             }
 
             ViewModel.SetItems(items);
@@ -41,46 +44,25 @@ namespace Game.Feature.UI.Application
             return right.ActionSequence.CompareTo(left.ActionSequence);
         }
 
-        private static string MapMessage(UINotificationRecord record)
+        private static bool TryMapMessage(UINotificationRecord record, out string message)
         {
             switch (record.EventKind)
             {
                 case UITickEventKind.PlayerActionStarted:
-                    return $"T{record.TickIndex}: {FormatAction(record.ActionKind)} started.";
                 case UITickEventKind.PlayerActionResolved:
-                    return $"T{record.TickIndex}: {FormatAction(record.ActionKind)} {FormatResolution(record.ResolutionKind)}.";
                 case UITickEventKind.PlayerActionCompleted:
-                    return $"T{record.TickIndex}: {FormatAction(record.ActionKind)} completed.";
                 case UITickEventKind.PlayerActionCanceled:
-                    return $"T{record.TickIndex}: {FormatAction(record.ActionKind)} canceled.";
+                    message = string.Empty;
+                    return false;
                 case UITickEventKind.PlayerDamaged:
-                    return $"T{record.TickIndex}: Took {record.DamageAmount} damage.";
+                    message = $"T{record.TickIndex}: Took {record.DamageAmount} damage.";
+                    return true;
                 case UITickEventKind.StageCleared:
-                    return $"T{record.TickIndex}: Stage cleared.";
+                    message = $"T{record.TickIndex}: Stage cleared.";
+                    return true;
                 default:
-                    return $"T{record.TickIndex}: Topology shifted.";
-            }
-        }
-
-        private static string FormatAction(GameplayUiActionKind actionKind)
-        {
-            return actionKind == GameplayUiActionKind.None
-                ? "Action"
-                : actionKind.ToString();
-        }
-
-        private static string FormatResolution(GameplayUiActionResolutionKind resolutionKind)
-        {
-            switch (resolutionKind)
-            {
-                case GameplayUiActionResolutionKind.Impact:
-                    return "impacted";
-                case GameplayUiActionResolutionKind.Blocked:
-                    return "blocked";
-                case GameplayUiActionResolutionKind.Success:
-                    return "succeeded";
-                default:
-                    return "resolved";
+                    message = $"T{record.TickIndex}: Topology shifted.";
+                    return true;
             }
         }
     }

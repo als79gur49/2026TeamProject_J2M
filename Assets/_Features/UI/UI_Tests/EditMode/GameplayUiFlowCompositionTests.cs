@@ -198,12 +198,12 @@ namespace Game.Feature.UI.Tests
                 Assert.That(installer.RootView.GetComponent<Canvas>(), Is.Not.Null);
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
                 Assert.That(installer.HudView.IsVisible, Is.True);
-                Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.True);
+                Assert.That(installer.HudController.IsGameplayReadOnly, Is.False);
 
                 installer.GameplayScreenView.ClickHelp();
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Help));
                 Assert.That(installer.HelpScreenView.IsVisible, Is.True);
-                Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.False);
+                Assert.That(installer.HudController.IsGameplayReadOnly, Is.True);
 
                 installer.HelpScreenView.ClickBack();
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
@@ -321,7 +321,7 @@ namespace Game.Feature.UI.Tests
                     completions.Add), Is.True);
                 Assert.That(installer.TooltipPopupView, Is.Not.Null);
                 Assert.That(installer.PopupLayerView.IsDimVisible, Is.False);
-                Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.True);
+                Assert.That(installer.HudController.IsGameplayReadOnly, Is.False);
 
                 Assert.That(installer.Coordinator.RequestConfirmPopup(
                     new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", true),
@@ -329,7 +329,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(installer.ConfirmPopupView, Is.Not.Null);
                 Assert.That(installer.PopupController.TopPopup.Value.PopupId, Is.EqualTo(PopupId.Confirm));
                 Assert.That(installer.PopupLayerView.IsDimVisible, Is.True);
-                Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.False);
+                Assert.That(installer.HudController.IsGameplayReadOnly, Is.True);
 
                 Assert.That(installer.Coordinator.HandleBackRequested(), Is.True);
                 Assert.That(completions, Has.Count.EqualTo(1));

@@ -135,8 +135,8 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(hudPrefab, Is.Not.Null);
             Assert.That(hudPrefab.PlayerStatusView, Is.Not.Null);
-            Assert.That(hudPrefab.ActionBarView, Is.Not.Null);
             Assert.That(hudPrefab.NotificationView, Is.Not.Null);
+            Assert.That(hudPrefab.GetComponentsInChildren<ActionBarView>(true).Single().gameObject.activeSelf, Is.False);
             Assert.That(hudPrefab.GetComponentsInChildren<GameplayUiCanvasRootView>(true), Is.Empty);
             Assert.That(hudPrefab.GetComponentsInChildren<ScreenLayerView>(true), Is.Empty);
             Assert.That(hudPrefab.GetComponentsInChildren<PopupLayerView>(true), Is.Empty);

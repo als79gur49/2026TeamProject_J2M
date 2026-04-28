@@ -16,20 +16,17 @@ namespace Game.Feature.UI.Tests
             var source = new ManualGameplayUiPresentationSource();
             var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter();
-            var actionBarPresenter = new ActionBarPresenter();
             var notificationPresenter = new NotificationPresenter();
 
             using var rootPresenter = new HUDRootPresenter(
                 source,
                 stageInfoPresenter,
                 playerStatusPresenter,
-                actionBarPresenter,
                 notificationPresenter);
             using var controller = new HUDController(
                 rootPresenter.ViewModel,
                 stageInfoPresenter.ViewModel,
                 playerStatusPresenter.ViewModel,
-                actionBarPresenter.ViewModel,
                 notificationPresenter.ViewModel);
 
             Assert.That(source.SnapshotSubscriberCount, Is.EqualTo(1));
@@ -42,13 +39,11 @@ namespace Game.Feature.UI.Tests
             var source = new ManualGameplayUiPresentationSource();
             var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter();
-            var actionBarPresenter = new ActionBarPresenter();
             var notificationPresenter = new NotificationPresenter();
             var rootPresenter = new HUDRootPresenter(
                 source,
                 stageInfoPresenter,
                 playerStatusPresenter,
-                actionBarPresenter,
                 notificationPresenter);
 
             Assert.That(source.SnapshotSubscriberCount, Is.EqualTo(1));
@@ -66,13 +61,11 @@ namespace Game.Feature.UI.Tests
             var source = new ManualGameplayUiPresentationSource();
             var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter();
-            var actionBarPresenter = new ActionBarPresenter();
             var notificationPresenter = new NotificationPresenter();
             using var rootPresenter = new HUDRootPresenter(
                 source,
                 stageInfoPresenter,
                 playerStatusPresenter,
-                actionBarPresenter,
                 notificationPresenter);
 
             source.PublishSnapshot(CreateSnapshot(
@@ -93,11 +86,18 @@ namespace Game.Feature.UI.Tests
             Assert.That(playerStatusPresenter.ViewModel.TopologyText, Is.EqualTo("Front"));
             Assert.That(playerStatusPresenter.ViewModel.HasRemainingChances, Is.False);
             Assert.That(playerStatusPresenter.ViewModel.MaxChances, Is.EqualTo(0));
-            Assert.That(actionBarPresenter.ViewModel.OutcomeText, Is.EqualTo("Blocked"));
-            Assert.That(actionBarPresenter.ViewModel.Slots.Count, Is.EqualTo(2));
-            Assert.That(actionBarPresenter.ViewModel.Slots[1].StateText, Is.EqualTo("Recovering"));
-            Assert.That(actionBarPresenter.ViewModel.Slots[1].CooldownNormalized, Is.EqualTo(0f));
-            Assert.That(notificationPresenter.ViewModel.Items.Count, Is.EqualTo(2));
+            Assert.That(notificationPresenter.ViewModel.Items.Count, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void NotificationPresenter_DoesNotExposePlayerActionOrOutcomeEvents()
+        {
+            var presenter = new NotificationPresenter();
+
+            presenter.Apply(CreateSnapshot().Notifications);
+
+            Assert.That(presenter.ViewModel.Items.Count, Is.EqualTo(1));
+            Assert.That(presenter.ViewModel.Items[0].MessageText, Is.EqualTo("T3: Took 1 damage."));
         }
 
         [Test]
@@ -134,45 +134,40 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void HUDRootPresenter_RefreshOnlyInteractionChanges_UpdateShellAndActionStates_ThroughMappedSourceOnly()
+        public void HUDRootPresenter_RefreshOnlyInteractionChanges_UpdateShellReadOnlyState_ThroughMappedSourceOnly()
         {
             var source = new ManualGameplayUiPresentationSource();
             var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter();
-            var actionBarPresenter = new ActionBarPresenter();
             var notificationPresenter = new NotificationPresenter();
             using var rootPresenter = new HUDRootPresenter(
                 source,
                 stageInfoPresenter,
                 playerStatusPresenter,
-                actionBarPresenter,
                 notificationPresenter);
 
             source.PublishSnapshot(CreateSnapshot(isPaused: true));
             Assert.That(rootPresenter.ViewModel.IsDimmed, Is.True);
             Assert.That(rootPresenter.ViewModel.IsPauseButtonEnabled, Is.False);
-            Assert.That(actionBarPresenter.ViewModel.IsInteractive, Is.False);
-            Assert.That(actionBarPresenter.ViewModel.Slots[0].StateText, Is.EqualTo("Paused"));
+            Assert.That(rootPresenter.ViewModel.IsGameplayReadOnly, Is.True);
 
             source.PublishSnapshot(CreateSnapshot(hasBlockingPresentation: true));
             Assert.That(rootPresenter.ViewModel.IsDimmed, Is.True);
             Assert.That(rootPresenter.ViewModel.IsPauseButtonEnabled, Is.True);
-            Assert.That(actionBarPresenter.ViewModel.Slots[0].StateText, Is.EqualTo("Busy"));
+            Assert.That(rootPresenter.ViewModel.IsGameplayReadOnly, Is.True);
 
             source.PublishSnapshot(CreateSnapshot(isUiBlocked: true));
             Assert.That(rootPresenter.ViewModel.IsDimmed, Is.True);
-            Assert.That(actionBarPresenter.ViewModel.Slots[0].StateText, Is.EqualTo("Read Only"));
+            Assert.That(rootPresenter.ViewModel.IsGameplayReadOnly, Is.True);
 
             source.PublishSnapshot(CreateSnapshot(canAcceptGameplayCommands: false));
             Assert.That(rootPresenter.ViewModel.IsDimmed, Is.False);
-            Assert.That(actionBarPresenter.ViewModel.IsInteractive, Is.False);
-            Assert.That(actionBarPresenter.ViewModel.Slots[0].StateText, Is.EqualTo("Blocked"));
+            Assert.That(rootPresenter.ViewModel.IsGameplayReadOnly, Is.True);
 
             source.PublishSnapshot(CreateSnapshot());
             Assert.That(rootPresenter.ViewModel.IsDimmed, Is.False);
             Assert.That(rootPresenter.ViewModel.IsPauseButtonEnabled, Is.True);
-            Assert.That(actionBarPresenter.ViewModel.IsInteractive, Is.True);
-            Assert.That(actionBarPresenter.ViewModel.Slots[0].StateText, Is.EqualTo("Ready"));
+            Assert.That(rootPresenter.ViewModel.IsGameplayReadOnly, Is.False);
         }
 
         [Test]
@@ -332,34 +327,6 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void ActionBarPresenter_DoesNotChangeState_WhenOnlyNotificationRetentionChanges()
-        {
-            var source = new ManualGameplayUiPresentationSource();
-            var playerStatusPresenter = new PlayerStatusPresenter();
-            var stageInfoPresenter = new StageInfoPresenter();
-            var actionBarPresenter = new ActionBarPresenter();
-            var notificationPresenter = new NotificationPresenter();
-            using var rootPresenter = new HUDRootPresenter(
-                source,
-                stageInfoPresenter,
-                playerStatusPresenter,
-                actionBarPresenter,
-                notificationPresenter);
-
-            source.PublishSnapshot(CreateSnapshot(lastOutcome: GameplayUiActionResolutionKind.Success));
-            var before = SerializeActionBar(actionBarPresenter.ViewModel);
-
-            source.PublishSnapshot(CreateSnapshot(
-                lastOutcome: GameplayUiActionResolutionKind.Success,
-                notificationEventKind: UITickEventKind.StageCleared,
-                notificationActionKind: GameplayUiActionKind.None,
-                notificationResolutionKind: GameplayUiActionResolutionKind.None));
-            var after = SerializeActionBar(actionBarPresenter.ViewModel);
-
-            Assert.That(after, Is.EqualTo(before));
-        }
-
-        [Test]
         public void ActionBarPresenter_UsesReplaceableSlotDefinitions_ForStageFiveDefaults()
         {
             var presenter = new ActionBarPresenter(new[]
@@ -422,14 +389,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenter.ViewModel.Slots[1].StateText, Is.EqualTo("Recovering: 2"));
             Assert.That(presenter.ViewModel.Slots[0].CooldownNormalized, Is.EqualTo(1f));
             Assert.That(presenter.ViewModel.Slots[1].CooldownNormalized, Is.EqualTo(0f));
-        }
-
-        private static string SerializeActionBar(ActionBarViewModel viewModel)
-        {
-            return string.Join(
-                "|",
-                viewModel.Slots.Select(slot => $"{slot.SlotId}:{slot.LabelText}:{slot.StateText}:{slot.CooldownNormalized}")) +
-                   $"|{viewModel.OutcomeText}|{viewModel.IsInteractive}";
         }
 
         private static UIPresentationSnapshot CreateSnapshot(
