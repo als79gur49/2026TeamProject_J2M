@@ -209,6 +209,52 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UIStateMapper_MapsObjectiveSlice()
+        {
+            var mapper = new UIStateMapper();
+            var objective = CreateObjectiveReadModel(isSatisfied: false);
+
+            var result = mapper.ReduceRefresh(
+                UIPresentationSnapshot.Empty,
+                CreateRefreshInput(objective: objective));
+
+            Assert.That(result.Snapshot.Objective.HasObjective, Is.True);
+            Assert.That(result.Snapshot.Objective.Title, Is.EqualTo("Reach the Exit"));
+            Assert.That(result.Snapshot.Objective.Summary, Is.EqualTo("Move to the exit zone."));
+            Assert.That(result.Snapshot.Objective.Conditions, Has.Count.EqualTo(1));
+            Assert.That(result.Snapshot.Objective.Conditions[0].TitleText, Is.EqualTo("Reach the exit zone"));
+            Assert.That(result.Snapshot.Objective.Conditions[0].Role, Is.EqualTo(UIObjectiveConditionRole.PrimaryGoal));
+        }
+
+        [Test]
+        public void UIObjectiveSlice_EmptyWhenNoObjective()
+        {
+            var mapper = new UIStateMapper();
+
+            var result = mapper.ReduceRefresh(
+                UIPresentationSnapshot.Empty,
+                CreateRefreshInput(objective: GameplayObjectiveReadModel.NoObjective));
+
+            Assert.That(result.Snapshot.Objective.HasObjective, Is.False);
+            Assert.That(result.Snapshot.Objective.Title, Is.Empty);
+            Assert.That(result.Snapshot.Objective.Summary, Is.Empty);
+            Assert.That(result.Snapshot.Objective.Conditions, Is.Empty);
+        }
+
+        [Test]
+        public void UIObjectiveSlice_PreservesConditionSatisfiedState()
+        {
+            var mapper = new UIStateMapper();
+
+            var result = mapper.ReduceRefresh(
+                UIPresentationSnapshot.Empty,
+                CreateRefreshInput(objective: CreateObjectiveReadModel(isSatisfied: true)));
+
+            Assert.That(result.Snapshot.Objective.Conditions, Has.Count.EqualTo(1));
+            Assert.That(result.Snapshot.Objective.Conditions[0].IsSatisfied, Is.True);
+        }
+
+        [Test]
         public void UIStateMapper_IdenticalInputSequences_ProduceIdenticalSnapshotsAndAppliedEvents()
         {
             var firstSequence = RunMapperSequence();
@@ -433,6 +479,28 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void GameplayUiPresentationSource_ReadsObjectiveQuery()
+        {
+            var queryFacade = new FakeGameplayQueryFacade(
+                new GameplaySessionReadModel(1, false, true, false),
+                FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
+                CreateObjectiveReadModel(isSatisfied: false));
+            var presentationFeed = new FakeGameplayPresentationFeed();
+            var pauseService = new FakeGameplayPauseService();
+            using var source = new GameplayUiPresentationSource(queryFacade, presentationFeed, pauseService);
+
+            presentationFeed.PublishState(new GameplayPresentationState(
+                new GameplayUiTopology(GameplayUiFace.Front),
+                isPresentationActive: false,
+                hasBlockingPresentation: false,
+                isTopologyTransitionActive: false));
+
+            Assert.That(source.CurrentSnapshot.Objective.HasObjective, Is.True);
+            Assert.That(source.CurrentSnapshot.Objective.Summary, Is.EqualTo("Move to the exit zone."));
+            Assert.That(source.CurrentSnapshot.Objective.Conditions[0].TitleText, Is.EqualTo("Reach the exit zone"));
+        }
+
+        [Test]
         public void GameplayUiPresentationSource_OlderFramePublication_RefreshesWithoutTickRegressionOrNewEvents()
         {
             var queryFacade = new FakeGameplayQueryFacade(
@@ -524,7 +592,8 @@ namespace Game.Feature.UI.Tests
             int remainingChances = 0,
             int maxChances = 0,
             StageId stageId = default,
-            string stageDisplayName = "")
+            string stageDisplayName = "",
+            GameplayObjectiveReadModel objective = default)
         {
             return new UIStateRefreshInput(
                 tickIndex,
@@ -550,7 +619,30 @@ namespace Game.Feature.UI.Tests
                 remainingChances: remainingChances,
                 maxChances: maxChances,
                 stageId: stageId,
-                stageDisplayName: stageDisplayName);
+                stageDisplayName: stageDisplayName,
+                objective: objective);
+        }
+
+        private static GameplayObjectiveReadModel CreateObjectiveReadModel(bool isSatisfied)
+        {
+            return new GameplayObjectiveReadModel(
+                hasObjective: true,
+                goalReached: isSatisfied,
+                allConditionsSatisfied: isSatisfied,
+                isCleared: false,
+                objectiveTitle: "Reach the Exit",
+                objectiveSummary: "Move to the exit zone.",
+                conditions: new[]
+                {
+                    new GameplayObjectiveConditionReadModel(
+                        stableId: "primary-goal",
+                        role: GameplayObjectiveConditionRole.PrimaryGoal,
+                        required: true,
+                        isSatisfied: isSatisfied,
+                        titleText: "Reach the exit zone",
+                        progressText: string.Empty,
+                        sortOrder: 0),
+                });
         }
 
         private static UITickEvent CreateEvent(

@@ -16,16 +16,19 @@ namespace Game.Feature.UI.Tests
             var source = new ManualGameplayUiPresentationSource();
             var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter();
+            var objectiveHudPresenter = new ObjectiveHudPresenter();
             var notificationPresenter = new NotificationPresenter();
 
             using var rootPresenter = new HUDRootPresenter(
                 source,
                 stageInfoPresenter,
+                objectiveHudPresenter,
                 playerStatusPresenter,
                 notificationPresenter);
             using var controller = new HUDController(
                 rootPresenter.ViewModel,
                 stageInfoPresenter.ViewModel,
+                objectiveHudPresenter.ViewModel,
                 playerStatusPresenter.ViewModel,
                 notificationPresenter.ViewModel);
 
@@ -39,10 +42,12 @@ namespace Game.Feature.UI.Tests
             var source = new ManualGameplayUiPresentationSource();
             var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter();
+            var objectiveHudPresenter = new ObjectiveHudPresenter();
             var notificationPresenter = new NotificationPresenter();
             var rootPresenter = new HUDRootPresenter(
                 source,
                 stageInfoPresenter,
+                objectiveHudPresenter,
                 playerStatusPresenter,
                 notificationPresenter);
 
@@ -61,10 +66,12 @@ namespace Game.Feature.UI.Tests
             var source = new ManualGameplayUiPresentationSource();
             var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter();
+            var objectiveHudPresenter = new ObjectiveHudPresenter();
             var notificationPresenter = new NotificationPresenter();
             using var rootPresenter = new HUDRootPresenter(
                 source,
                 stageInfoPresenter,
+                objectiveHudPresenter,
                 playerStatusPresenter,
                 notificationPresenter);
 
@@ -86,6 +93,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(playerStatusPresenter.ViewModel.TopologyText, Is.EqualTo("Front"));
             Assert.That(playerStatusPresenter.ViewModel.HasRemainingChances, Is.False);
             Assert.That(playerStatusPresenter.ViewModel.MaxChances, Is.EqualTo(0));
+            Assert.That(objectiveHudPresenter.ViewModel.IsVisible, Is.False);
             Assert.That(notificationPresenter.ViewModel.Items.Count, Is.EqualTo(1));
         }
 
@@ -134,15 +142,73 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ObjectiveHudPresenter_HidesWhenNoObjective()
+        {
+            var presenter = new ObjectiveHudPresenter();
+
+            presenter.Apply(UIObjectiveSlice.Empty);
+
+            Assert.That(presenter.ViewModel.IsVisible, Is.False);
+            Assert.That(presenter.ViewModel.ObjectiveText, Is.Empty);
+        }
+
+        [Test]
+        public void ObjectiveHudPresenter_ShowsObjectiveSummary()
+        {
+            var presenter = new ObjectiveHudPresenter();
+
+            presenter.Apply(CreateObjectiveSlice(summary: "Move to the exit zone."));
+
+            Assert.That(presenter.ViewModel.IsVisible, Is.True);
+            Assert.That(presenter.ViewModel.ObjectiveText, Is.EqualTo("Move to the exit zone."));
+            Assert.That(presenter.ViewModel.IsComplete, Is.False);
+        }
+
+        [Test]
+        public void ObjectiveHudPresenter_FallsBackToTitleOrFirstCondition()
+        {
+            var presenter = new ObjectiveHudPresenter();
+
+            presenter.Apply(CreateObjectiveSlice(summary: string.Empty, title: "Reach the Exit"));
+            Assert.That(presenter.ViewModel.ObjectiveText, Is.EqualTo("Reach the Exit"));
+
+            presenter.Apply(CreateObjectiveSlice(summary: string.Empty, title: string.Empty));
+            Assert.That(presenter.ViewModel.ObjectiveText, Is.EqualTo("Reach the exit zone"));
+        }
+
+        [Test]
+        public void HUDRootPresenter_FansOutObjectiveSliceToObjectivePresenter()
+        {
+            var source = new ManualGameplayUiPresentationSource();
+            var playerStatusPresenter = new PlayerStatusPresenter();
+            var stageInfoPresenter = new StageInfoPresenter();
+            var objectiveHudPresenter = new ObjectiveHudPresenter();
+            var notificationPresenter = new NotificationPresenter();
+            using var rootPresenter = new HUDRootPresenter(
+                source,
+                stageInfoPresenter,
+                objectiveHudPresenter,
+                playerStatusPresenter,
+                notificationPresenter);
+
+            source.PublishSnapshot(CreateSnapshot(objective: CreateObjectiveSlice(summary: "Move to the exit zone.")));
+
+            Assert.That(objectiveHudPresenter.ViewModel.IsVisible, Is.True);
+            Assert.That(objectiveHudPresenter.ViewModel.ObjectiveText, Is.EqualTo("Move to the exit zone."));
+        }
+
+        [Test]
         public void HUDRootPresenter_RefreshOnlyInteractionChanges_UpdateShellReadOnlyState_ThroughMappedSourceOnly()
         {
             var source = new ManualGameplayUiPresentationSource();
             var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter();
+            var objectiveHudPresenter = new ObjectiveHudPresenter();
             var notificationPresenter = new NotificationPresenter();
             using var rootPresenter = new HUDRootPresenter(
                 source,
                 stageInfoPresenter,
+                objectiveHudPresenter,
                 playerStatusPresenter,
                 notificationPresenter);
 
@@ -407,7 +473,8 @@ namespace Game.Feature.UI.Tests
             GameplayUiActionKind notificationActionKind = GameplayUiActionKind.Flip,
             GameplayUiActionResolutionKind notificationResolutionKind = GameplayUiActionResolutionKind.Success,
             UIRecoveryCooldownSlice? recoveryCooldown = null,
-            string stageDisplayName = "")
+            string stageDisplayName = "",
+            UIObjectiveSlice? objective = null)
         {
             var acceptsGameplayCommands = canAcceptGameplayCommands ?? (!isPaused && !hasBlockingPresentation);
 
@@ -427,6 +494,7 @@ namespace Game.Feature.UI.Tests
                         ? StageId.None
                         : StageId.CreateOrThrow("stage-1-1"),
                     stageDisplayName),
+                objective ?? UIObjectiveSlice.Empty,
                 new UIPlayerActionSlice(
                     playerEntityId: 10,
                     currentHp: currentHp,
@@ -468,6 +536,30 @@ namespace Game.Feature.UI.Tests
                         damageAmount: 1,
                         expireAfterTickIndex: 7),
                 }));
+        }
+
+        private static UIObjectiveSlice CreateObjectiveSlice(
+            string summary,
+            string title = "Reach the Exit",
+            bool isCleared = false)
+        {
+            return new UIObjectiveSlice(
+                hasObjective: true,
+                title,
+                summary,
+                goalReached: false,
+                allConditionsSatisfied: false,
+                isCleared,
+                new[]
+                {
+                    new UIObjectiveConditionSlice(
+                        titleText: "Reach the exit zone",
+                        progressText: string.Empty,
+                        isSatisfied: false,
+                        required: true,
+                        role: UIObjectiveConditionRole.PrimaryGoal,
+                        sortOrder: 0),
+                });
         }
     }
 }
