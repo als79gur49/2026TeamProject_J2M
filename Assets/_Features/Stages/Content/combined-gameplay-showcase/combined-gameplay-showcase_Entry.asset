@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   stageId:
     value: combined-gameplay-showcase
+  authoringDefinition: {fileID: 11400000, guid: 8b9c369444a0a9d4ab7c09bfaa7dcb8e, type: 2}
   gameplayDefinition: {fileID: 11400000, guid: 768e58af510a487eafd9bf00b45b4ca0, type: 2}
   presentationDefinition: {fileID: 11400000, guid: 997f5288e66444a6b16cbb4f4cc4945c, type: 2}
   clearEvaluationDefinition: {fileID: 11400000, guid: 4146e53b8c5b455db994911f35a0c1b4, type: 2}

@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   stageId:
     value: tutorial-scene
+  authoringDefinition: {fileID: 11400000, guid: e3ec79d9fcf96274f849a61efc576a27, type: 2}
   gameplayDefinition: {fileID: 11400000, guid: 17f422e552184a24d8a666d77d93ab18, type: 2}
   presentationDefinition: {fileID: 11400000, guid: 3198243fe13c47079d67a66784a15079, type: 2}
   clearEvaluationDefinition: {fileID: 11400000, guid: 934755abdc514bca8246ddfb66980c08, type: 2}

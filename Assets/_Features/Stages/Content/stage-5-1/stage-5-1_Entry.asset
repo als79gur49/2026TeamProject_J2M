@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   stageId:
     value: stage-5-1
+  authoringDefinition: {fileID: 11400000, guid: c3ab939b909b8b841b085704c87054cb, type: 2}
   gameplayDefinition: {fileID: 11400000, guid: 40c34efbaa8f4ae96697121f145c1eb8, type: 2}
   presentationDefinition: {fileID: 11400000, guid: 7dc498f65de18c8742a4ab86e2152ce9, type: 2}
   clearEvaluationDefinition: {fileID: 11400000, guid: 207dc2e996b6cde8c0751e91a53f0a9b, type: 2}
