@@ -356,8 +356,21 @@ MonoBehaviour:
     EnemyAiProfile: {fileID: 0}
     PresentationId: 
     UnitStackGroup: 
-  zones: []
+  zones:
+  - ZoneId: exit
+    FaceId: 0
+    Regions:
+    - MinInclusive: {x: 14, y: 7}
+      MaxInclusive: {x: 14, y: 7}
   objective:
-    CompletionPolicy: 0
-    ConditionEntries: []
+    CompletionPolicy: 2
+    ObjectiveTitle: Reach the Exit
+    ObjectiveSummary: Move to the exit zone.
+    ConditionEntries:
+    - Condition: {fileID: 11400000, guid: f6eb208756a644fc80295ea0bdb55ab0, type: 2}
+      Required: 1
+      Role: 1
+      StableConditionId: primary-goal
+      DisplayText: Reach the exit zone
+      SortOrder: 0
   enemyUnitArchetypeCatalog: {fileID: 11400000, guid: 5c5a7223f24e45109bfa8c1c539cb6db, type: 2}
