@@ -2415,11 +2415,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 });
 
             return new StageObjectiveRuntimeDefinition(
-                StageCompletionPolicy.RequirePlayerOnGoalWithAllConditions,
+                StageCompletionPolicy.RequireAllConditions,
                 10,
                 new[] { zone },
-                new[] { zone },
-                Array.Empty<StageConditionRuntimeDefinition>());
+                new[]
+                {
+                    new StageObjectiveConditionRuntimeDefinitionEntry(
+                        new PlayerAtAnyZoneConditionRuntimeDefinition(
+                            "primary-goal",
+                            "Primary Goal",
+                            10,
+                            new[] { zone },
+                            requireAlive: true),
+                        required: true,
+                        StageObjectiveConditionRole.PrimaryGoal,
+                        "primary-goal"),
+                });
         }
 
         private static EntityState CreateEnemyEntity(

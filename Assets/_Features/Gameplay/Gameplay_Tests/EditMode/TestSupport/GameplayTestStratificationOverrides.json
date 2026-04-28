@@ -1350,6 +1350,43 @@
       ],
       "reason": "Locked Core coverage for optional Summon windup warning presentation authoring no-op behavior.",
       "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.StageObjectiveSystemTests.ObjectiveClear_PrimaryGoalConditionStatus_UsesStableId",
+      "category": "Core",
+      "contracts": [
+        "stage_objective_condition_contract"
+      ],
+      "reason": "Locked Core coverage for explicit PrimaryGoal condition status metadata.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.StageObjectiveSystemTests.ObjectiveConditionStatuses_UseDeterministicEntryOrder",
+      "category": "Core",
+      "contracts": [
+        "stage_objective_condition_contract",
+        "determinism"
+      ],
+      "reason": "Locked Core coverage for deterministic condition-backed objective status ordering.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.StageObjectiveSystemTests.StageDefinitionValidation_PlayerAtAnyZone_DuplicateZoneIdsRejects",
+      "category": "Core",
+      "contracts": [
+        "stage_objective_condition_contract"
+      ],
+      "reason": "Locked Core coverage for PlayerAtAnyZone condition zone-id validation.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.StageObjectiveSystemTests.Conditions_PlayerAtAnyZone_TracksCurrentFaceAwareOccupancy",
+      "category": "Core",
+      "contracts": [
+        "stage_objective_condition_contract"
+      ],
+      "reason": "Locked Core coverage for current face-aware player goal occupancy evaluation.",
+      "locked": true
     }
   ]
 }

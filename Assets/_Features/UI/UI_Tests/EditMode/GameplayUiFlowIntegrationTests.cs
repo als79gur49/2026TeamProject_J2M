@@ -433,11 +433,22 @@ namespace Game.Feature.UI.Tests
                 });
 
             return new StageObjectiveRuntimeDefinition(
-                StageCompletionPolicy.RequirePlayerOnGoalWithAllConditions,
+                StageCompletionPolicy.RequireAllConditions,
                 10,
                 new[] { zone },
-                new[] { zone },
-                System.Array.Empty<StageConditionRuntimeDefinition>());
+                new[]
+                {
+                    new StageObjectiveConditionRuntimeDefinitionEntry(
+                        new PlayerAtAnyZoneConditionRuntimeDefinition(
+                            "primary-goal",
+                            "Primary Goal",
+                            10,
+                            new[] { zone },
+                            requireAlive: true),
+                        required: true,
+                        StageObjectiveConditionRole.PrimaryGoal,
+                        "primary-goal"),
+                });
         }
 
         private static EntityState CreatePlayerEntity(SurfaceCell position, Direction facing)

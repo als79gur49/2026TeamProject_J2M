@@ -516,6 +516,8 @@ namespace Game.Feature.Gameplay.Loop
                 builder
                     .Append(status.ConditionId).Append('|')
                     .Append(status.ConditionType).Append('|')
+                    .Append((int)status.Role).Append('|')
+                    .Append(status.Required ? 1 : 0).Append('|')
                     .Append(status.IsSatisfied ? 1 : 0).Append('|')
                     .Append(status.Details).Append('\n');
             }

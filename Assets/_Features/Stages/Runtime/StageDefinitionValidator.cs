@@ -97,87 +97,101 @@ namespace Game.Feature.Stages
             StageObjectiveAuthoring objective,
             IReadOnlyList<StageZoneDefinition> zones)
         {
-            var normalizedGoalZoneIds = objective.GetGoalZoneIdsOrEmpty();
-            var requiredConditions = objective.GetRequiredConditionsOrEmpty();
+            var conditionEntries = objective.GetConditionEntriesOrEmpty();
             var zonesById = BuildZonesById(zones);
             var validationContext = new StageConditionValidationContext(stageName, zonesById);
-            var normalizedGoalIds = new string[normalizedGoalZoneIds.Length];
 
-            for (var i = 0; i < normalizedGoalZoneIds.Length; i++)
-            {
-                var goalZoneId = normalizedGoalZoneIds[i];
-                if (string.IsNullOrWhiteSpace(goalZoneId))
-                {
-                    throw new InvalidOperationException(
-                        $"Stage '{stageName}' objective contains an empty goal zone id at index {i}.");
-                }
-
-                var normalizedGoalZoneId = goalZoneId.Trim();
-                if (!zonesById.ContainsKey(normalizedGoalZoneId))
-                {
-                    throw new InvalidOperationException(
-                        $"Stage '{stageName}' objective references unknown goal zone id '{normalizedGoalZoneId}'.");
-                }
-
-                normalizedGoalIds[i] = normalizedGoalZoneId;
-            }
-
-            var normalizedConditions = new StageConditionAsset[requiredConditions.Length];
-            for (var i = 0; i < requiredConditions.Length; i++)
-            {
-                var condition = requiredConditions[i];
-                if (condition == null)
-                {
-                    throw new InvalidOperationException(
-                        $"Stage '{stageName}' objective contains a null condition asset at index {i}.");
-                }
-
-                condition.Validate(in validationContext);
-                normalizedConditions[i] = condition;
-            }
+            var normalizedConditionEntries = ValidateConditionEntries(
+                stageName,
+                conditionEntries,
+                in validationContext);
 
             ValidateCompletionPolicy(
                 stageName,
                 objective.CompletionPolicy,
-                normalizedGoalIds,
-                normalizedConditions);
+                normalizedConditionEntries);
 
             return new StageObjectiveAuthoring
             {
                 CompletionPolicy = objective.CompletionPolicy,
-                GoalZoneIds = normalizedGoalIds,
-                RequiredConditions = normalizedConditions,
+                ConditionEntries = normalizedConditionEntries,
             };
+        }
+
+        private static StageObjectiveConditionEntry[] ValidateConditionEntries(
+            string stageName,
+            IReadOnlyList<StageObjectiveConditionEntry> conditionEntries,
+            in StageConditionValidationContext validationContext)
+        {
+            if (conditionEntries == null || conditionEntries.Count == 0)
+            {
+                return Array.Empty<StageObjectiveConditionEntry>();
+            }
+
+            var normalizedEntries = new StageObjectiveConditionEntry[conditionEntries.Count];
+            var stableConditionIds = new HashSet<string>(StringComparer.Ordinal);
+            var primaryGoalCount = 0;
+
+            for (var i = 0; i < conditionEntries.Count; i++)
+            {
+                var entry = conditionEntries[i];
+                if (entry.Condition == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' objective condition entry[{i}] contains a null condition asset.");
+                }
+
+                if (entry.Role == StageObjectiveConditionRole.PrimaryGoal)
+                {
+                    primaryGoalCount++;
+                }
+
+                var stableConditionId = entry.StableConditionId?.Trim() ?? string.Empty;
+                if (!string.IsNullOrEmpty(stableConditionId) &&
+                    !stableConditionIds.Add(stableConditionId))
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' objective contains duplicate condition stable id '{stableConditionId}'.");
+                }
+
+                entry.Condition.Validate(in validationContext);
+                normalizedEntries[i] = new StageObjectiveConditionEntry
+                {
+                    Condition = entry.Condition,
+                    Required = entry.Required,
+                    Role = entry.Role,
+                    StableConditionId = stableConditionId,
+                };
+            }
+
+            if (primaryGoalCount > 1)
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{stageName}' objective cannot contain more than one PrimaryGoal condition entry.");
+            }
+
+            return normalizedEntries;
         }
 
         private static void ValidateCompletionPolicy(
             string stageName,
             StageCompletionPolicy completionPolicy,
-            IReadOnlyList<string> goalZoneIds,
-            IReadOnlyList<StageConditionAsset> requiredConditions)
+            IReadOnlyList<StageObjectiveConditionEntry> conditionEntries)
         {
             switch (completionPolicy)
             {
                 case StageCompletionPolicy.Disabled:
                     return;
 
-                case StageCompletionPolicy.RequirePlayerOnGoalWithAllConditions:
-                    if (goalZoneIds == null || goalZoneIds.Count == 0)
-                    {
-                        throw new InvalidOperationException(
-                            $"Stage '{stageName}' objective policy {completionPolicy} requires at least one goal zone id.");
-                    }
-
-                    return;
-
                 case StageCompletionPolicy.RequireAllConditions:
-                    if (requiredConditions == null || requiredConditions.Count == 0)
+                    var requiredConditionCount = CountRequiredEntries(conditionEntries);
+                    if (requiredConditionCount == 0)
                     {
                         throw new InvalidOperationException(
                             $"Stage '{stageName}' objective policy {completionPolicy} requires at least one required condition.");
                     }
 
-                    if (ContainsOnlyTimeLimitConditions(requiredConditions))
+                    if (ContainsOnlyTimeLimitEntries(conditionEntries))
                     {
                         throw new InvalidOperationException(
                             $"Stage '{stageName}' objective policy {completionPolicy} cannot use only time limit conditions because it would clear immediately.");
@@ -191,18 +205,45 @@ namespace Game.Feature.Stages
             }
         }
 
-        private static bool ContainsOnlyTimeLimitConditions(IReadOnlyList<StageConditionAsset> requiredConditions)
+        private static int CountRequiredEntries(IReadOnlyList<StageObjectiveConditionEntry> conditionEntries)
         {
-            if (requiredConditions == null || requiredConditions.Count == 0)
+            var count = 0;
+            if (conditionEntries != null)
+            {
+                for (var i = 0; i < conditionEntries.Count; i++)
+                {
+                    if (conditionEntries[i].Required)
+                    {
+                        count++;
+                    }
+                }
+            }
+
+            return count;
+        }
+
+        private static bool ContainsOnlyTimeLimitEntries(
+            IReadOnlyList<StageObjectiveConditionEntry> conditionEntries)
+        {
+            var requiredConditionCount = CountRequiredEntries(conditionEntries);
+            if (requiredConditionCount == 0)
             {
                 return false;
             }
 
-            for (var i = 0; i < requiredConditions.Count; i++)
+            if (conditionEntries != null)
             {
-                if (requiredConditions[i] is not ClearWithinTimeLimitConditionAsset)
+                for (var i = 0; i < conditionEntries.Count; i++)
                 {
-                    return false;
+                    if (!conditionEntries[i].Required)
+                    {
+                        continue;
+                    }
+
+                    if (conditionEntries[i].Condition is not ClearWithinTimeLimitConditionAsset)
+                    {
+                        return false;
+                    }
                 }
             }
 

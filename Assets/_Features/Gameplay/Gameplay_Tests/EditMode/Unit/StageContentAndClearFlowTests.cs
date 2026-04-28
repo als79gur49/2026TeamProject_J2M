@@ -150,9 +150,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "objective",
                 new StageObjectiveAuthoring
                 {
-                    CompletionPolicy = StageCompletionPolicy.RequirePlayerOnGoalWithAllConditions,
-                    GoalZoneIds = Array.Empty<string>(),
-                    RequiredConditions = Array.Empty<StageConditionAsset>(),
+                    CompletionPolicy = StageCompletionPolicy.RequireAllConditions,
+                    ConditionEntries = Array.Empty<StageObjectiveConditionEntry>(),
                 });
             entry.AssignGameplayDefinition(invalidStage);
 
@@ -167,7 +166,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(report.Issues.Any(issue => issue.Code == "gameplay.definition.invalid"), Is.True);
             Assert.That(
-                report.Issues.Any(issue => issue.Message.Contains("requires at least one goal zone id")),
+                report.Issues.Any(issue => issue.Message.Contains("requires at least one required condition")),
                 Is.True);
         }
 

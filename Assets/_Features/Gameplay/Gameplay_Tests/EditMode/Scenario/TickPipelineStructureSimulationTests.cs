@@ -674,8 +674,25 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreatePlayerEntity(10, new SurfaceCell(FaceId.Floor, 1, 1)),
                 unclearedObjective,
                 timingProfile);
+            var repeatedClearedResult = RunSingleTickWithObjective(
+                CreatePlayerEntity(10, new SurfaceCell(FaceId.Floor, 1, 1)),
+                clearObjective,
+                timingProfile);
 
             Assert.That(clearedResult.DeterminismHash, Is.Not.EqualTo(unclearedResult.DeterminismHash));
+            Assert.That(
+                repeatedClearedResult.DeterminismHash,
+                Is.EqualTo(clearedResult.DeterminismHash),
+                "PrimaryGoal is now condition-backed and must hash deterministically for identical tick input.");
+            Assert.That(clearedResult.ObjectiveResult.GoalReached, Is.True);
+            Assert.That(
+                clearedResult.ObjectiveResult.ConditionStatuses.Count(status =>
+                    status.Role == StageObjectiveConditionRole.PrimaryGoal),
+                Is.EqualTo(1));
+            Assert.That(
+                clearedResult.ObjectiveResult.ConditionStatuses.Single(status =>
+                    status.Role == StageObjectiveConditionRole.PrimaryGoal).ConditionId,
+                Is.EqualTo("primary-goal"));
         }
 
         private static TickResult RunSingleTickWithObjective(
@@ -709,11 +726,22 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 });
 
             return new StageObjectiveRuntimeDefinition(
-                StageCompletionPolicy.RequirePlayerOnGoalWithAllConditions,
+                StageCompletionPolicy.RequireAllConditions,
                 10,
                 new[] { goalZone },
-                new[] { goalZone },
-                Array.Empty<StageConditionRuntimeDefinition>());
+                new[]
+                {
+                    new StageObjectiveConditionRuntimeDefinitionEntry(
+                        new PlayerAtAnyZoneConditionRuntimeDefinition(
+                            "primary-goal",
+                            "Primary Goal",
+                            10,
+                            new[] { goalZone },
+                            requireAlive: true),
+                        required: true,
+                        StageObjectiveConditionRole.PrimaryGoal,
+                        "primary-goal"),
+                });
         }
 
         private static PlayerControlTimingAuthoritativeSnapshot CreateDefaultPlayerControlTimingSnapshot(GameplayTimingProfile timingProfile)

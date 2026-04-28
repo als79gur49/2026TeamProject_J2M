@@ -29,17 +29,11 @@ namespace Game.Feature.Stages
     public struct StageObjectiveAuthoring
     {
         public StageCompletionPolicy CompletionPolicy;
-        public string[] GoalZoneIds;
-        public StageConditionAsset[] RequiredConditions;
+        public StageObjectiveConditionEntry[] ConditionEntries;
 
-        public string[] GetGoalZoneIdsOrEmpty()
+        public StageObjectiveConditionEntry[] GetConditionEntriesOrEmpty()
         {
-            return GoalZoneIds ?? Array.Empty<string>();
-        }
-
-        public StageConditionAsset[] GetRequiredConditionsOrEmpty()
-        {
-            return RequiredConditions ?? Array.Empty<StageConditionAsset>();
+            return ConditionEntries ?? Array.Empty<StageObjectiveConditionEntry>();
         }
 
         public static StageObjectiveAuthoring CreateDefault()
@@ -47,9 +41,17 @@ namespace Game.Feature.Stages
             return new StageObjectiveAuthoring
             {
                 CompletionPolicy = StageCompletionPolicy.Disabled,
-                GoalZoneIds = Array.Empty<string>(),
-                RequiredConditions = Array.Empty<StageConditionAsset>(),
+                ConditionEntries = Array.Empty<StageObjectiveConditionEntry>(),
             };
         }
+    }
+
+    [Serializable]
+    public struct StageObjectiveConditionEntry
+    {
+        public StageConditionAsset Condition;
+        public bool Required;
+        public StageObjectiveConditionRole Role;
+        public string StableConditionId;
     }
 }
