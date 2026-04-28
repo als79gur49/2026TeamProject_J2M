@@ -1,19 +1,35 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using Game.Feature.Gameplay.BoardState;
 
 namespace Game.Feature.Gameplay.Loop
 {
+    internal readonly struct RemovedUnitKinematicPoseRecord
+    {
+        public RemovedUnitKinematicPoseRecord(int entityId, UnitKinematicPose pose)
+        {
+            EntityId = entityId;
+            Pose = pose;
+        }
+
+        public int EntityId { get; }
+
+        public UnitKinematicPose Pose { get; }
+    }
+
     internal sealed class CleanupPhaseResult
     {
         public static readonly CleanupPhaseResult Empty = new(
             Array.Empty<int>(),
             Array.Empty<string>(),
             Array.Empty<string>(),
-            Array.Empty<string>());
+            Array.Empty<string>(),
+            Array.Empty<RemovedUnitKinematicPoseRecord>());
 
         private readonly ReadOnlyCollection<string> _eventLogEntries;
         private readonly ReadOnlyCollection<int> _removedEntityIds;
+        private readonly ReadOnlyCollection<RemovedUnitKinematicPoseRecord> _removedUnitKinematicPoses;
         private readonly ReadOnlyCollection<string> _stateTransitions;
         private readonly ReadOnlyCollection<string> _timerChanges;
 
@@ -21,7 +37,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<int> removedEntityIds,
             IEnumerable<string> timerChanges,
             IEnumerable<string> stateTransitions,
-            IEnumerable<string> eventLogEntries = null)
+            IEnumerable<string> eventLogEntries = null,
+            IEnumerable<RemovedUnitKinematicPoseRecord> removedUnitKinematicPoses = null)
         {
             if (removedEntityIds == null)
             {
@@ -42,6 +59,9 @@ namespace Game.Feature.Gameplay.Loop
             _timerChanges = new ReadOnlyCollection<string>(new List<string>(timerChanges));
             _stateTransitions = new ReadOnlyCollection<string>(new List<string>(stateTransitions));
             _eventLogEntries = new ReadOnlyCollection<string>(new List<string>(eventLogEntries ?? Array.Empty<string>()));
+            _removedUnitKinematicPoses = new ReadOnlyCollection<RemovedUnitKinematicPoseRecord>(
+                new List<RemovedUnitKinematicPoseRecord>(
+                    removedUnitKinematicPoses ?? Array.Empty<RemovedUnitKinematicPoseRecord>()));
         }
 
         public IReadOnlyList<int> RemovedEntityIds => _removedEntityIds;
@@ -51,5 +71,7 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<string> StateTransitions => _stateTransitions;
 
         public IReadOnlyList<string> EventLogEntries => _eventLogEntries;
+
+        public IReadOnlyList<RemovedUnitKinematicPoseRecord> RemovedUnitKinematicPoses => _removedUnitKinematicPoses;
     }
 }

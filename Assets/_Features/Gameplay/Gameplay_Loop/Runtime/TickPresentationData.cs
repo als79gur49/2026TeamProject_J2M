@@ -90,6 +90,13 @@ namespace Game.Feature.Gameplay.Loop
         public Direction? DestinationFacing { get; }
     }
 
+    public enum TickKinematicMotionTerminalKind
+    {
+        None = 0,
+        Interrupted = 1,
+        Removed = 2,
+    }
+
     public readonly struct TickKinematicMotionTrack
     {
         public TickKinematicMotionTrack(
@@ -99,7 +106,8 @@ namespace Game.Feature.Gameplay.Loop
             SurfaceCell destinationAnchorCell,
             KinematicOffset2 destinationLocalOffset,
             MotionMode motionMode,
-            ForcedMotionOp forcedMotionOp)
+            ForcedMotionOp forcedMotionOp,
+            TickKinematicMotionTerminalKind terminalKind = TickKinematicMotionTerminalKind.None)
         {
             EntityId = entityId;
             SourceAnchorCell = sourceAnchorCell;
@@ -108,6 +116,7 @@ namespace Game.Feature.Gameplay.Loop
             DestinationLocalOffset = destinationLocalOffset;
             MotionMode = motionMode;
             ForcedMotionOp = forcedMotionOp;
+            TerminalKind = terminalKind;
         }
 
         public int EntityId { get; }
@@ -123,6 +132,8 @@ namespace Game.Feature.Gameplay.Loop
         public MotionMode MotionMode { get; }
 
         public ForcedMotionOp ForcedMotionOp { get; }
+
+        public TickKinematicMotionTerminalKind TerminalKind { get; }
     }
 
     public readonly struct TickTopologyMotion

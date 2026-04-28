@@ -247,6 +247,22 @@ namespace Game.Feature.Gameplay.BoardState
             return normalized;
         }
 
+        public static UnitKinematicRuntimeState CreateInterruptedFreeze(UnitKinematicRuntimeState sourceState)
+        {
+            var normalizedSource = sourceState.NormalizedForStorage();
+            return new UnitKinematicRuntimeState
+            {
+                localOffset = normalizedSource.localOffset,
+                velocity = KinematicVelocity2.Zero,
+                mode = MotionMode.Interrupted,
+                forcedOp = ForcedMotionOp.None,
+                remainingDistanceUnits = 0,
+                remainingTicks = 0,
+                speedScalePermille = 0,
+                sequenceId = normalizedSource.sequenceId + 1,
+            }.NormalizedForStorage();
+        }
+
         public bool Equals(UnitKinematicRuntimeState other)
         {
             return localOffset.Equals(other.localOffset) &&

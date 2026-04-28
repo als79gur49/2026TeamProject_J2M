@@ -653,11 +653,34 @@ namespace Game.Feature.Gameplay.Loop
             in TickPresentationBuildContext context,
             List<TickKinematicMotionTrack> kinematicMotionTracks)
         {
+            var terminalEntityIds = new HashSet<int>();
+            for (var i = 0; i < context.CleanupPhaseResult.RemovedUnitKinematicPoses.Count; i++)
+            {
+                var record = context.CleanupPhaseResult.RemovedUnitKinematicPoses[i];
+                terminalEntityIds.Add(record.EntityId);
+            }
+
+            var interruptedEntityIds = new List<int>();
+            var seenInterruptedEntityIds = new HashSet<int>();
+            for (var i = 0; i < context.AttackPhaseResult.MotionInterruptRecords.Count; i++)
+            {
+                var record = context.AttackPhaseResult.MotionInterruptRecords[i];
+                if (terminalEntityIds.Contains(record.EntityId) ||
+                    !seenInterruptedEntityIds.Add(record.EntityId))
+                {
+                    continue;
+                }
+
+                interruptedEntityIds.Add(record.EntityId);
+                terminalEntityIds.Add(record.EntityId);
+            }
+
             var operations = context.MovementPhaseResult.ResolvedOperations;
             for (var i = 0; i < operations.Count; i++)
             {
                 var operation = operations[i];
                 if (operation.Kind != FinalizationOperationKind.SetUnitKinematicState ||
+                    terminalEntityIds.Contains(operation.EntityId) ||
                     !context.PreMovementSnapshot.TryGetUnitKinematicPose(operation.EntityId, out var sourcePose) ||
                     !context.PostMovementSnapshot.TryGetUnitKinematicPose(operation.EntityId, out var destinationPose))
                 {
@@ -673,6 +696,49 @@ namespace Game.Feature.Gameplay.Loop
                         destinationPose.LocalOffset,
                         operation.UnitKinematicState.mode,
                         operation.UnitKinematicState.forcedOp));
+            }
+
+            for (var i = 0; i < interruptedEntityIds.Count; i++)
+            {
+                var entityId = interruptedEntityIds[i];
+                if (!context.PreMovementSnapshot.TryGetUnitKinematicPose(entityId, out var sourcePose) ||
+                    !context.PostAttackSnapshot.TryGetUnitKinematicPose(entityId, out var destinationPose))
+                {
+                    continue;
+                }
+
+                kinematicMotionTracks.Add(
+                    new TickKinematicMotionTrack(
+                        entityId,
+                        sourcePose.AnchorCell,
+                        sourcePose.LocalOffset,
+                        destinationPose.AnchorCell,
+                        destinationPose.LocalOffset,
+                        destinationPose.Mode,
+                        destinationPose.State.forcedOp,
+                        TickKinematicMotionTerminalKind.Interrupted));
+            }
+
+            for (var i = 0; i < context.CleanupPhaseResult.RemovedUnitKinematicPoses.Count; i++)
+            {
+                var record = context.CleanupPhaseResult.RemovedUnitKinematicPoses[i];
+                var entityId = record.EntityId;
+                var removedPose = record.Pose;
+                if (!context.PreMovementSnapshot.TryGetUnitKinematicPose(entityId, out var sourcePose))
+                {
+                    continue;
+                }
+
+                kinematicMotionTracks.Add(
+                    new TickKinematicMotionTrack(
+                        entityId,
+                        sourcePose.AnchorCell,
+                        sourcePose.LocalOffset,
+                        removedPose.AnchorCell,
+                        removedPose.LocalOffset,
+                        removedPose.Mode,
+                        removedPose.State.forcedOp,
+                        TickKinematicMotionTerminalKind.Removed));
             }
         }
 

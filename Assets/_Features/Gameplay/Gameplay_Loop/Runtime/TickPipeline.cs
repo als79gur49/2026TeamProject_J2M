@@ -341,6 +341,54 @@ namespace Game.Feature.Gameplay.Loop
             return new PreMovementStatePhaseResult(updates, actionTransitions, rejectedReasons);
         }
 
+        private static void CloseInterruptedPlayerKinematics(
+            WorldSnapshot snapshot,
+            FinalizationBatch batch,
+            List<string> eventLogEntries)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (batch == null)
+            {
+                throw new ArgumentNullException(nameof(batch));
+            }
+
+            if (eventLogEntries == null)
+            {
+                throw new ArgumentNullException(nameof(eventLogEntries));
+            }
+
+            var entities = new List<EntityState>();
+            snapshot.EnumerateEntitiesOrdered(entities);
+            for (var i = 0; i < entities.Count; i++)
+            {
+                var entity = entities[i];
+                if (entity.hp <= 0 ||
+                    entity.markedForDeath ||
+                    !snapshot.TryGetPlayerControlState(entity.entityId, out _) ||
+                    !snapshot.TryGetUnitKinematicPose(entity.entityId, out var pose) ||
+                    !pose.HasAuthoritativeState ||
+                    pose.Mode != MotionMode.Interrupted)
+                {
+                    continue;
+                }
+
+                batch.SetUnitKinematicState(
+                    entity.entityId,
+                    UnitKinematicRuntimeState.SettledZero,
+                    new FinalizationOperationMetadata(
+                        TickPhase.Plan,
+                        ResolvedActionSemanticKind.Stop,
+                        entity.entityId,
+                        actionPlanId: 0));
+                eventLogEntries.Add(
+                    $"KinematicInterruptClosed|E={entity.entityId}|Anchor={FormatCell(pose.AnchorCell)}|Offset={pose.LocalOffset}");
+            }
+        }
+
         private PlanPhaseResult RunPlanPhase(
             WorldSnapshot snapshot,
             in TickInput input,
@@ -363,6 +411,19 @@ namespace Game.Feature.Gameplay.Loop
             projectedWorld.ApplyBatch(beforeMovementAiBatch);
             var snapshotAfterEnemyAi = projectedWorld.CreateSnapshot();
 
+            var kinematicClosureBatch = new FinalizationBatch();
+            var kinematicClosureEvents = new List<string>();
+            if (_runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion)
+            {
+                CloseInterruptedPlayerKinematics(
+                    snapshotAfterEnemyAi,
+                    kinematicClosureBatch,
+                    kinematicClosureEvents);
+                planFinalizationBatch.MergeFrom(kinematicClosureBatch);
+                projectedWorld.ApplyBatch(kinematicClosureBatch);
+                snapshotAfterEnemyAi = projectedWorld.CreateSnapshot();
+            }
+
             var preMovementBatch = new FinalizationBatch();
             var utilityTriggerIntents = new List<EnemyUtilityTriggerIntent>();
             var preMovementContext = new RecordingFinalizationContext(
@@ -375,6 +436,10 @@ namespace Game.Feature.Gameplay.Loop
                 snapshotAfterEnemyAi,
                 in input,
                 preMovementContext);
+            if (kinematicClosureEvents.Count > 0)
+            {
+                preMovementStateResult.EventLogEntries.InsertRange(0, kinematicClosureEvents);
+            }
             utilityTriggerIntents.Sort(EnemyUtilityTriggerIntentComparer.Instance);
             preMovementStateResult.UtilityTriggerIntents.AddRange(utilityTriggerIntents);
             planFinalizationBatch.MergeFrom(preMovementBatch);
@@ -861,6 +926,14 @@ namespace Game.Feature.Gameplay.Loop
                 delayedAttackEffects,
                 attackCommitEvents,
                 delayedAttackEnqueueEvents);
+            var motionInterruptRecords = _runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion
+                ? MaterializePlayerKinematicMotionInterrupts(
+                    attackSnapshot,
+                    damageResolutions,
+                    destroyResolutions,
+                    attackStageBatch,
+                    attackCommitEvents)
+                : new List<MotionInterruptRecord>();
             finalizationBatch.MergeFrom(attackStageBatch);
             projectedWorld.ApplyBatch(attackStageBatch);
             AddRange(resolutionRecords, attackResolutionRecords);
@@ -951,7 +1024,8 @@ namespace Game.Feature.Gameplay.Loop
                 attackCommitEvents,
                 attackEventLogEntries,
                 attackRejectedReasons,
-                frozenMovementReservationExport);
+                frozenMovementReservationExport,
+                motionInterruptRecords);
 
             return new ResolvePhaseResult(
                 movementPhaseResult,
@@ -1108,7 +1182,8 @@ namespace Game.Feature.Gameplay.Loop
                 cleanupPhaseResult.RemovedEntityIds,
                 cleanupPhaseResult.TimerChanges,
                 cleanupPhaseResult.StateTransitions,
-                eventLogEntries);
+                eventLogEntries,
+                cleanupPhaseResult.RemovedUnitKinematicPoses);
         }
 
         private RespawnPhaseResult RunRespawnPhase(
@@ -3798,6 +3873,131 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return batch;
+        }
+
+        private static List<MotionInterruptRecord> MaterializePlayerKinematicMotionInterrupts(
+            WorldSnapshot attackSnapshot,
+            IReadOnlyList<DamageResolutionRecord> damageResolutions,
+            IReadOnlyList<DestroyResolutionRecord> destroyResolutions,
+            FinalizationBatch attackStageBatch,
+            List<string> commitEvents)
+        {
+            if (attackSnapshot == null)
+            {
+                throw new ArgumentNullException(nameof(attackSnapshot));
+            }
+
+            if (damageResolutions == null)
+            {
+                throw new ArgumentNullException(nameof(damageResolutions));
+            }
+
+            if (destroyResolutions == null)
+            {
+                throw new ArgumentNullException(nameof(destroyResolutions));
+            }
+
+            if (attackStageBatch == null)
+            {
+                throw new ArgumentNullException(nameof(attackStageBatch));
+            }
+
+            if (commitEvents == null)
+            {
+                throw new ArgumentNullException(nameof(commitEvents));
+            }
+
+            var interruptRecords = new List<MotionInterruptRecord>();
+            var interruptedEntityIds = new HashSet<int>();
+            for (var i = 0; i < damageResolutions.Count; i++)
+            {
+                var damageResolution = damageResolutions[i];
+                if (!damageResolution.Accepted)
+                {
+                    continue;
+                }
+
+                TryMaterializePlayerKinematicMotionInterrupt(
+                    attackSnapshot,
+                    attackStageBatch,
+                    commitEvents,
+                    interruptRecords,
+                    interruptedEntityIds,
+                    damageResolution.TargetId,
+                    damageResolution.SourceId,
+                    damageResolution.ActionPlanId,
+                    damageResolution.LocalActionIndex,
+                    damageResolution.SourceKind);
+            }
+
+            for (var i = 0; i < destroyResolutions.Count; i++)
+            {
+                var destroyResolution = destroyResolutions[i];
+                if (!destroyResolution.Accepted)
+                {
+                    continue;
+                }
+
+                TryMaterializePlayerKinematicMotionInterrupt(
+                    attackSnapshot,
+                    attackStageBatch,
+                    commitEvents,
+                    interruptRecords,
+                    interruptedEntityIds,
+                    destroyResolution.TargetId,
+                    destroyResolution.SourceId,
+                    destroyResolution.ActionPlanId,
+                    destroyResolution.LocalActionIndex,
+                    AttackSourceKind.Combat);
+            }
+
+            return interruptRecords;
+        }
+
+        private static bool TryMaterializePlayerKinematicMotionInterrupt(
+            WorldSnapshot attackSnapshot,
+            FinalizationBatch attackStageBatch,
+            List<string> commitEvents,
+            List<MotionInterruptRecord> interruptRecords,
+            HashSet<int> interruptedEntityIds,
+            int targetEntityId,
+            int sourceEntityId,
+            int actionPlanId,
+            int localActionIndex,
+            AttackSourceKind sourceKind)
+        {
+            if (interruptedEntityIds.Contains(targetEntityId) ||
+                !attackSnapshot.TryGetPlayerControlState(targetEntityId, out _) ||
+                !attackSnapshot.TryGetUnitKinematicPose(targetEntityId, out var pose) ||
+                !pose.HasAuthoritativeState ||
+                pose.IsSettledAtAnchor ||
+                pose.Mode != MotionMode.Voluntary)
+            {
+                return false;
+            }
+
+            var interruptedState = UnitKinematicRuntimeState.CreateInterruptedFreeze(pose.State);
+            interruptedEntityIds.Add(targetEntityId);
+            attackStageBatch.SetUnitKinematicState(
+                targetEntityId,
+                interruptedState,
+                new FinalizationOperationMetadata(
+                    TickPhase.Resolve,
+                    ResolvedActionSemanticKind.Attack,
+                    sourceEntityId,
+                    actionPlanId,
+                    localActionIndex: localActionIndex,
+                    attackSourceKind: sourceKind,
+                    damageSourceType: ResolveDamageSourceType(sourceKind)));
+
+            interruptRecords.Add(
+                new MotionInterruptRecord(
+                    targetEntityId,
+                    MotionInterruptPolicy.FreezeCurrentPose,
+                    sourceEntityId));
+            commitEvents.Add(
+                $"KinematicMotionInterrupted|E={targetEntityId}|Source={sourceEntityId}|SourceKind={sourceKind}|Anchor={FormatCell(pose.AnchorCell)}|Offset={pose.LocalOffset}|Mode={interruptedState.mode}");
+            return true;
         }
 
         private static WorldSnapshot CreateCompositeDamageProjectionSnapshot(
