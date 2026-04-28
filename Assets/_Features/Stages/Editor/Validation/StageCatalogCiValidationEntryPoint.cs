@@ -89,11 +89,43 @@ namespace Game.Feature.Stages.Editor
             writer.WriteLine($"SerializedStageContentEntry: {summary.SerializedStageContentEntryCount}");
             writer.WriteLine($"LegacyStageDefinition: {summary.LegacyStageDefinitionCount}");
             writer.WriteLine();
+            WriteAuthoringIssues(writer, catalogReport);
             WriteIssues(writer, "Catalog Issues", catalogReport);
             WriteIssues(writer, "Known Warning Governance Issues", knownWarningReport);
             WriteIssues(writer, "Alias Governance Issues", aliasGovernanceReport);
             WriteIssues(writer, "Alias Usage Issues", aliasUsageReport);
             WriteIssues(writer, "Scene Issues", sceneReport);
+        }
+
+        private static void WriteAuthoringIssues(StreamWriter writer, StageValidationReport report)
+        {
+            writer.WriteLine("## Authoring Sync Issues");
+            if (report == null)
+            {
+                writer.WriteLine("None");
+                writer.WriteLine();
+                return;
+            }
+
+            var wroteIssue = false;
+            for (var i = 0; i < report.Issues.Count; i++)
+            {
+                var issue = report.Issues[i];
+                if (!issue.Code.StartsWith("authoring.", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                wroteIssue = true;
+                writer.WriteLine($"- [{issue.Severity}] {issue.Code}: {issue.Message} ({issue.AssetPath})");
+            }
+
+            if (!wroteIssue)
+            {
+                writer.WriteLine("None");
+            }
+
+            writer.WriteLine();
         }
 
         private static void WriteAuditReport(string outputPath, StageCompatAuditReport auditReport)

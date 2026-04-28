@@ -93,6 +93,7 @@ namespace Game.Feature.Stages
                 }
 
                 ValidateEntryPath(entry, entryPath, options, report);
+                ValidateAuthoringDefinition(entry, ownerByCompanion, options, report);
                 ValidateGameplayDefinition(entry, entryPath, options, report);
                 ValidateCompanion(
                     entry,
@@ -135,6 +136,526 @@ namespace Game.Feature.Stages
             }
 
             ValidateAliasTargetsExist(aliasTable, entriesByStageId, options, report);
+        }
+
+        private static void ValidateAuthoringDefinition(
+            StageContentEntry entry,
+            IDictionary<StageCompanionDefinitionBase, StageContentEntry> ownerByCompanion,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            var authoring = entry.AuthoringDefinition;
+            if (authoring == null)
+            {
+                if (options.Timing == StageValidationTiming.TestOrCi)
+                {
+                    report.Add(
+                        StageValidationSeverity.Info,
+                        "authoring.missing",
+                        $"StageContentEntry '{entry.name}' has no StageAuthoringDefinition. Existing direct-authored stages remain supported.",
+                        entry,
+                        GetAssetPath(entry),
+                        options.Timing);
+                }
+
+                return;
+            }
+
+            ValidateCompanion(entry, authoring, ownerByCompanion, false, "authoring", options, report);
+            var authoringPath = GetAssetPath(authoring);
+            if (authoring.GeneratedGameplayDefinition != entry.GameplayDefinition)
+            {
+                report.Add(
+                    StageValidationSeverity.Error,
+                    "authoring.output.gameplay-mismatch",
+                    $"StageAuthoringDefinition '{authoring.name}' generated gameplay reference must match entry GameplayDefinition.",
+                    authoring,
+                    authoringPath,
+                    options.Timing);
+            }
+
+            if (authoring.GeneratedPresentationDefinition != entry.PresentationDefinition)
+            {
+                report.Add(
+                    StageValidationSeverity.Error,
+                    "authoring.output.presentation-mismatch",
+                    $"StageAuthoringDefinition '{authoring.name}' generated presentation reference must match entry PresentationDefinition.",
+                    authoring,
+                    authoringPath,
+                    options.Timing);
+            }
+
+            ValidateAuthoringSourceData(entry, authoring, options, report);
+            if (entry.GameplayDefinition != null && entry.PresentationDefinition != null)
+            {
+                ValidateAuthoringGeneratedSync(entry, authoring, options, report);
+            }
+        }
+
+        private static void ValidateAuthoringSourceData(
+            StageContentEntry entry,
+            StageAuthoringDefinition authoring,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            var severity = ResolveAuthoringSyncSeverity(authoring);
+            var authoringPath = GetAssetPath(authoring);
+            var stableGuids = new HashSet<string>(StringComparer.Ordinal);
+            var mappingsByGuid = new HashSet<string>(StringComparer.Ordinal);
+            var mappingEntityIds = new HashSet<int>();
+            var boardBoundsValid = authoring.Board.MaxInclusive.x >= authoring.Board.MinInclusive.x &&
+                                   authoring.Board.MaxInclusive.y >= authoring.Board.MinInclusive.y;
+            var boardBounds = boardBoundsValid
+                ? new Game.Feature.Gameplay.BoardState.BoardBounds(
+                    authoring.Board.MinInclusive,
+                    authoring.Board.MaxInclusive)
+                : Game.Feature.Gameplay.BoardState.BoardBounds.Unbounded;
+
+            if (!boardBoundsValid)
+            {
+                report.Add(
+                    severity,
+                    "authoring.board.invalid",
+                    $"StageAuthoringDefinition '{authoring.name}' has invalid board bounds.",
+                    authoring,
+                    authoringPath,
+                    options.Timing);
+            }
+
+            var placements = authoring.Placements;
+            for (var i = 0; i < placements.Count; i++)
+            {
+                var placement = placements[i];
+                if (placement == null)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.placement.null",
+                        $"StageAuthoringDefinition '{authoring.name}' placement[{i}] is null.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                    continue;
+                }
+
+                var stableGuid = Normalize(placement.StableGuid);
+                if (string.IsNullOrEmpty(stableGuid))
+                {
+                    report.Add(
+                        severity,
+                        "authoring.stable-guid.empty",
+                        $"StageAuthoringDefinition '{authoring.name}' placement[{i}] has no stable guid.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+                else if (!stableGuids.Add(stableGuid))
+                {
+                    report.Add(
+                        severity,
+                        "authoring.stable-guid.duplicate",
+                        $"StageAuthoringDefinition '{authoring.name}' contains duplicate stable guid '{stableGuid}'.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
+                if (boardBoundsValid && !boardBounds.Contains(placement.Cell.PlanarPosition))
+                {
+                    report.Add(
+                        severity,
+                        "authoring.surface-cell.invalid",
+                        $"StageAuthoringDefinition '{authoring.name}' placement '{stableGuid}' is outside board bounds at {placement.Cell}.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+            }
+
+            var mappings = authoring.EntityIdMappings;
+            for (var i = 0; i < mappings.Count; i++)
+            {
+                var mapping = mappings[i];
+                var stableGuid = Normalize(mapping.StableGuid);
+                if (string.IsNullOrEmpty(stableGuid))
+                {
+                    report.Add(
+                        severity,
+                        "authoring.entity-id-mapping.guid-empty",
+                        $"StageAuthoringDefinition '{authoring.name}' mapping[{i}] has no stable guid.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+                else if (!mappingsByGuid.Add(stableGuid))
+                {
+                    report.Add(
+                        severity,
+                        "authoring.entity-id-mapping.guid-duplicate",
+                        $"StageAuthoringDefinition '{authoring.name}' contains duplicate mapping guid '{stableGuid}'.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
+                if (mapping.EntityId <= 0)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.entity-id-mapping.non-positive",
+                        $"StageAuthoringDefinition '{authoring.name}' mapping '{stableGuid}' must use a positive EntityId.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+                else if (!mappingEntityIds.Add(mapping.EntityId))
+                {
+                    report.Add(
+                        severity,
+                        "authoring.entity-id-mapping.id-duplicate",
+                        $"StageAuthoringDefinition '{authoring.name}' contains duplicate mapped EntityId {mapping.EntityId}.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+            }
+        }
+
+        private static void ValidateAuthoringGeneratedSync(
+            StageContentEntry entry,
+            StageAuthoringDefinition authoring,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            var severity = ResolveAuthoringSyncSeverity(authoring);
+            var authoringPath = GetAssetPath(authoring);
+            var mappingsByGuid = BuildEntityIdMappings(authoring);
+            var expected = BuildExpectedAuthoringOutput(authoring, mappingsByGuid, severity, options, report);
+            if (expected == null)
+            {
+                return;
+            }
+
+            if (!StageBoardsEqual(entry.GameplayDefinition.Board, expected.Board))
+            {
+                report.Add(
+                    severity,
+                    "authoring.generated-output-mismatch",
+                    $"Stage '{entry.StageId.Value}' generated board data is out of sync with StageAuthoringDefinition.",
+                    authoring,
+                    authoringPath,
+                    options.Timing);
+            }
+
+            CompareSpawnGroup(entry, authoring, "playerSpawns", entry.GameplayDefinition.PlayerSpawns, expected.PlayerSpawns, severity, options, report);
+            CompareSpawnGroup(entry, authoring, "enemySpawns", entry.GameplayDefinition.EnemySpawns, expected.EnemySpawns, severity, options, report);
+            CompareSpawnGroup(entry, authoring, "boxSpawns", entry.GameplayDefinition.BoxSpawns, expected.BoxSpawns, severity, options, report);
+            CompareSpawnGroup(entry, authoring, "wallSpawns", entry.GameplayDefinition.WallSpawns, expected.WallSpawns, severity, options, report);
+            ComparePresentationBindings(entry, authoring, expected, severity, options, report);
+        }
+
+        private static Dictionary<string, StageAuthoringIdMapping> BuildEntityIdMappings(StageAuthoringDefinition authoring)
+        {
+            var result = new Dictionary<string, StageAuthoringIdMapping>(StringComparer.Ordinal);
+            var mappings = authoring.EntityIdMappings;
+            for (var i = 0; i < mappings.Count; i++)
+            {
+                var stableGuid = Normalize(mappings[i].StableGuid);
+                if (!string.IsNullOrEmpty(stableGuid) && mappings[i].EntityId > 0)
+                {
+                    result[stableGuid] = mappings[i];
+                }
+            }
+
+            return result;
+        }
+
+        private static ExpectedAuthoringOutput BuildExpectedAuthoringOutput(
+            StageAuthoringDefinition authoring,
+            IReadOnlyDictionary<string, StageAuthoringIdMapping> mappingsByGuid,
+            StageValidationSeverity severity,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            var expected = new ExpectedAuthoringOutput(authoring.Board);
+            var placements = authoring.Placements;
+            for (var i = 0; i < placements.Count; i++)
+            {
+                var placement = placements[i];
+                if (placement == null)
+                {
+                    continue;
+                }
+
+                var stableGuid = Normalize(placement.StableGuid);
+                if (string.IsNullOrEmpty(stableGuid))
+                {
+                    continue;
+                }
+
+                if (!mappingsByGuid.TryGetValue(stableGuid, out var mapping) || mapping.EntityId <= 0)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.entity-id-drift",
+                        $"StageAuthoringDefinition '{authoring.name}' placement '{stableGuid}' has no positive EntityId mapping.",
+                        authoring,
+                        GetAssetPath(authoring),
+                        options.Timing);
+                    continue;
+                }
+
+                var spawn = new StageSpawnDefinition
+                {
+                    EntityId = mapping.EntityId,
+                    Kind = ToSpawnKind(placement.Kind),
+                    Cell = placement.Cell,
+                    Facing = placement.Facing,
+                    Hp = placement.Hp,
+                    BoxCapabilities = placement.BoxCapabilities,
+                    EnemyAiMode = placement.EnemyAiMode,
+                    EnemyAiStateTimer = placement.EnemyAiStateTimer,
+                    EnemyAiProfile = placement.EnemyAiProfileOverride,
+                    PresentationId = string.Empty,
+                    UnitStackGroup = Normalize(placement.UnitStackGroup),
+                };
+
+                switch (placement.Kind)
+                {
+                    case StageAuthoringEntityKind.Player:
+                        expected.PlayerSpawns.Add(spawn);
+                        break;
+                    case StageAuthoringEntityKind.Enemy:
+                        expected.EnemySpawns.Add(spawn);
+                        AddEnemyBinding(expected, spawn.EntityId, placement.PresentationId);
+                        break;
+                    case StageAuthoringEntityKind.Box:
+                        expected.BoxSpawns.Add(spawn);
+                        AddStaticBinding(expected, spawn.EntityId, placement.PresentationId);
+                        break;
+                    case StageAuthoringEntityKind.Wall:
+                        expected.WallSpawns.Add(spawn);
+                        AddStaticBinding(expected, spawn.EntityId, placement.PresentationId);
+                        break;
+                }
+            }
+
+            SortSpawns(expected.PlayerSpawns);
+            SortSpawns(expected.EnemySpawns);
+            SortSpawns(expected.BoxSpawns);
+            SortSpawns(expected.WallSpawns);
+            expected.EnemyBindings.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+            expected.StaticBindings.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+            return expected;
+        }
+
+        private static void AddEnemyBinding(ExpectedAuthoringOutput expected, int entityId, string presentationId)
+        {
+            var normalized = Normalize(presentationId);
+            if (!string.IsNullOrEmpty(normalized))
+            {
+                expected.EnemyBindings.Add(new Game.Feature.Gameplay.Host.EnemyPresentationBinding
+                {
+                    EntityId = entityId,
+                    PresentationId = normalized,
+                });
+            }
+        }
+
+        private static void AddStaticBinding(ExpectedAuthoringOutput expected, int entityId, string presentationId)
+        {
+            var normalized = Normalize(presentationId);
+            if (!string.IsNullOrEmpty(normalized))
+            {
+                expected.StaticBindings.Add(new Game.Feature.Gameplay.Host.StaticEntityPresentationBinding
+                {
+                    EntityId = entityId,
+                    PresentationId = normalized,
+                });
+            }
+        }
+
+        private static void CompareSpawnGroup(
+            StageContentEntry entry,
+            StageAuthoringDefinition authoring,
+            string groupName,
+            IReadOnlyList<StageSpawnDefinition> actual,
+            IReadOnlyList<StageSpawnDefinition> expected,
+            StageValidationSeverity severity,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            var sortedActual = new List<StageSpawnDefinition>(actual ?? Array.Empty<StageSpawnDefinition>());
+            SortSpawns(sortedActual);
+            if (sortedActual.Count != expected.Count)
+            {
+                report.Add(
+                    severity,
+                    "authoring.generated-output-mismatch",
+                    $"Stage '{entry.StageId.Value}' {groupName} count {sortedActual.Count} does not match generated count {expected.Count}.",
+                    authoring,
+                    GetAssetPath(authoring),
+                    options.Timing);
+                return;
+            }
+
+            for (var i = 0; i < expected.Count; i++)
+            {
+                if (!StageSpawnsEqual(sortedActual[i], expected[i]))
+                {
+                    report.Add(
+                        severity,
+                        "authoring.generated-output-mismatch",
+                        $"Stage '{entry.StageId.Value}' {groupName}[{i}] is out of sync with StageAuthoringDefinition.",
+                        authoring,
+                        GetAssetPath(authoring),
+                        options.Timing);
+                    return;
+                }
+            }
+        }
+
+        private static void ComparePresentationBindings(
+            StageContentEntry entry,
+            StageAuthoringDefinition authoring,
+            ExpectedAuthoringOutput expected,
+            StageValidationSeverity severity,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            var actualEnemy = new List<Game.Feature.Gameplay.Host.EnemyPresentationBinding>(
+                entry.PresentationDefinition.EnemyPresentationBindings);
+            var actualStatic = new List<Game.Feature.Gameplay.Host.StaticEntityPresentationBinding>(
+                entry.PresentationDefinition.StaticEntityPresentationBindings);
+            actualEnemy.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+            actualStatic.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+
+            if (!EnemyBindingsEqual(actualEnemy, expected.EnemyBindings) ||
+                !StaticBindingsEqual(actualStatic, expected.StaticBindings))
+            {
+                report.Add(
+                    severity,
+                    "authoring.presentation-binding-drift",
+                    $"Stage '{entry.StageId.Value}' presentation bindings are out of sync with StageAuthoringDefinition.",
+                    authoring,
+                    GetAssetPath(authoring),
+                    options.Timing);
+            }
+        }
+
+        private static bool StageBoardsEqual(StageBoardDefinition left, StageBoardDefinition right)
+        {
+            return left.MinInclusive == right.MinInclusive &&
+                   left.MaxInclusive == right.MaxInclusive &&
+                   left.InitialBottomFace == right.InitialBottomFace;
+        }
+
+        private static bool StageSpawnsEqual(StageSpawnDefinition left, StageSpawnDefinition right)
+        {
+            return left.EntityId == right.EntityId &&
+                   left.Kind == right.Kind &&
+                   left.Cell == right.Cell &&
+                   left.Facing == right.Facing &&
+                   left.Hp == right.Hp &&
+                   left.BoxCapabilities == right.BoxCapabilities &&
+                   left.EnemyAiMode == right.EnemyAiMode &&
+                   left.EnemyAiStateTimer == right.EnemyAiStateTimer &&
+                   left.EnemyAiProfile == right.EnemyAiProfile &&
+                   string.Equals(Normalize(left.PresentationId), string.Empty, StringComparison.Ordinal) &&
+                   string.Equals(Normalize(left.UnitStackGroup), Normalize(right.UnitStackGroup), StringComparison.Ordinal);
+        }
+
+        private static bool EnemyBindingsEqual(
+            IReadOnlyList<Game.Feature.Gameplay.Host.EnemyPresentationBinding> left,
+            IReadOnlyList<Game.Feature.Gameplay.Host.EnemyPresentationBinding> right)
+        {
+            if (left.Count != right.Count)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < left.Count; i++)
+            {
+                if (left[i].EntityId != right[i].EntityId ||
+                    !string.Equals(Normalize(left[i].PresentationId), Normalize(right[i].PresentationId), StringComparison.Ordinal))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool StaticBindingsEqual(
+            IReadOnlyList<Game.Feature.Gameplay.Host.StaticEntityPresentationBinding> left,
+            IReadOnlyList<Game.Feature.Gameplay.Host.StaticEntityPresentationBinding> right)
+        {
+            if (left.Count != right.Count)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < left.Count; i++)
+            {
+                if (left[i].EntityId != right[i].EntityId ||
+                    !string.Equals(Normalize(left[i].PresentationId), Normalize(right[i].PresentationId), StringComparison.Ordinal))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static StageSpawnKind ToSpawnKind(StageAuthoringEntityKind kind)
+        {
+            return kind switch
+            {
+                StageAuthoringEntityKind.Player => StageSpawnKind.Player,
+                StageAuthoringEntityKind.Enemy => StageSpawnKind.Enemy,
+                StageAuthoringEntityKind.Box => StageSpawnKind.Box,
+                StageAuthoringEntityKind.Wall => StageSpawnKind.Wall,
+                _ => StageSpawnKind.Player,
+            };
+        }
+
+        private static StageValidationSeverity ResolveAuthoringSyncSeverity(StageAuthoringDefinition authoring)
+        {
+            return authoring != null && authoring.EnforceGeneratedSync
+                ? StageValidationSeverity.Error
+                : StageValidationSeverity.Warning;
+        }
+
+        private static void SortSpawns(List<StageSpawnDefinition> spawns)
+        {
+            spawns.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+        }
+
+        private static string Normalize(string value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
+        }
+
+        private sealed class ExpectedAuthoringOutput
+        {
+            public ExpectedAuthoringOutput(StageBoardDefinition board)
+            {
+                Board = board;
+            }
+
+            public StageBoardDefinition Board { get; }
+
+            public List<StageSpawnDefinition> PlayerSpawns { get; } = new();
+
+            public List<StageSpawnDefinition> EnemySpawns { get; } = new();
+
+            public List<StageSpawnDefinition> BoxSpawns { get; } = new();
+
+            public List<StageSpawnDefinition> WallSpawns { get; } = new();
+
+            public List<Game.Feature.Gameplay.Host.EnemyPresentationBinding> EnemyBindings { get; } = new();
+
+            public List<Game.Feature.Gameplay.Host.StaticEntityPresentationBinding> StaticBindings { get; } = new();
         }
 
         private static void ValidateEntryPath(
