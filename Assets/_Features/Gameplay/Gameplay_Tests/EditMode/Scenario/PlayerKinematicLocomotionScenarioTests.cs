@@ -1,4 +1,5 @@
 using System.Linq;
+using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
@@ -99,6 +100,123 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Is.True);
         }
 
+        [TestCase(1, 0, 1024)]
+        [TestCase(2, 1, -2048)]
+        [TestCase(3, 1, -1024)]
+        [Category("Extended")]
+        public void PlayerSameFaceContinuousLocomotion_FlagOn_NonlethalHitInterruptsAndNextTickClears(
+            int hitTick,
+            int expectedAnchorX,
+            int expectedLocalX)
+        {
+            var worldState = CreateWorldState(
+                CreatePlayer(10),
+                CreateUnit(40, new SurfaceCell(FaceId.Floor, expectedAnchorX, 1), teamId: 2));
+            var pipeline = CreatePipeline(
+                worldState,
+                GameplayRuntimeFeatureFlags.PlayerSameFaceContinuousLocomotionEnabled,
+                new TickScriptedAttackLogic(40, 10, hitTick));
+
+            TickResult hitResult = null;
+            for (var tick = 1; tick <= hitTick; tick++)
+            {
+                hitResult = pipeline.RunTick(
+                    tick == 1
+                        ? new TickInput(tick, PlayerTickCommand.Move(Direction.Right))
+                        : new TickInput(tick));
+            }
+
+            var hitSnapshot = worldState.CreateSnapshot();
+            Assert.That(hitSnapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, expectedAnchorX, 0)));
+            Assert.That(hitSnapshot.TryGetUnitKinematicState(10, out var interruptedState), Is.True);
+            Assert.That(interruptedState.mode, Is.EqualTo(MotionMode.Interrupted));
+            Assert.That(interruptedState.localOffset.X.RawValue, Is.EqualTo(expectedLocalX));
+            Assert.That(interruptedState.velocity.IsZero, Is.True);
+            Assert.That(hitResult.AttackPhaseResult.MotionInterruptRecords.Count, Is.EqualTo(1));
+            Assert.That(hitResult.AttackPhaseResult.MotionInterruptRecords[0].EntityId, Is.EqualTo(10));
+            Assert.That(
+                hitResult.PresentationData.KinematicMotionTracks.Any(track =>
+                    track.EntityId == 10 &&
+                    track.TerminalKind == TickKinematicMotionTerminalKind.Interrupted),
+                Is.True);
+
+            pipeline.RunTick(new TickInput(hitTick + 1));
+            var nextSnapshot = worldState.CreateSnapshot();
+            Assert.That(nextSnapshot.TryGetEntity(10, out var settledPlayer), Is.True);
+            Assert.That(settledPlayer.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, expectedAnchorX, 0)));
+            Assert.That(nextSnapshot.TryGetUnitKinematicState(10, out _), Is.False);
+        }
+
+        [TestCase(1, 0, 1024)]
+        [TestCase(2, 1, -2048)]
+        [TestCase(3, 1, -1024)]
+        [Category("Extended")]
+        public void PlayerSameFaceContinuousLocomotion_FlagOn_LethalHitRemovesAndPurgesKinematicState(
+            int hitTick,
+            int expectedAnchorX,
+            int expectedLocalX)
+        {
+            var worldState = CreateWorldState(
+                CreatePlayer(10, hp: 1),
+                CreateUnit(40, new SurfaceCell(FaceId.Floor, expectedAnchorX, 1), teamId: 2));
+            var pipeline = CreatePipeline(
+                worldState,
+                GameplayRuntimeFeatureFlags.PlayerSameFaceContinuousLocomotionEnabled,
+                new TickScriptedAttackLogic(40, 10, hitTick));
+
+            TickResult hitResult = null;
+            for (var tick = 1; tick <= hitTick; tick++)
+            {
+                hitResult = pipeline.RunTick(
+                    tick == 1
+                        ? new TickInput(tick, PlayerTickCommand.Move(Direction.Right))
+                        : new TickInput(tick));
+            }
+
+            var hitSnapshot = worldState.CreateSnapshot();
+            Assert.That(hitSnapshot.TryGetEntity(10, out _), Is.False);
+            Assert.That(hitSnapshot.TryGetUnitKinematicState(10, out _), Is.False);
+            Assert.That(
+                hitResult.EventLog.Any(entry => entry.Contains("CleanupRemoved|E=10")),
+                Is.True);
+            Assert.That(
+                hitResult.EventLog.Any(entry =>
+                    entry.Contains("KinematicPoseRemoved|E=10") &&
+                    entry.Contains($"Offset=({expectedLocalX},0)")),
+                Is.True);
+            Assert.That(
+                hitResult.PresentationData.KinematicMotionTracks.Any(track =>
+                    track.EntityId == 10 &&
+                    track.DestinationAnchorCell == new SurfaceCell(FaceId.Floor, expectedAnchorX, 0) &&
+                    track.DestinationLocalOffset.X.RawValue == expectedLocalX &&
+                    track.TerminalKind == TickKinematicMotionTerminalKind.Removed),
+                Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerSameFaceContinuousLocomotion_FlagOn_MarkedForDeathWhileMoving_RemovesAndPurgesKinematicState()
+        {
+            var worldState = CreateWorldState(CreatePlayer(10));
+            var pipeline = CreatePipeline(
+                worldState,
+            GameplayRuntimeFeatureFlags.PlayerSameFaceContinuousLocomotionEnabled);
+
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            ((IAttackCommitContext)worldState.CreateWriteContext()).MarkDestroy(10);
+            var result = pipeline.RunTick(new TickInput(2));
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out _), Is.False);
+            Assert.That(snapshot.TryGetUnitKinematicState(10, out _), Is.False);
+            Assert.That(
+                result.PresentationData.KinematicMotionTracks.Any(track =>
+                    track.EntityId == 10 &&
+                    track.TerminalKind == TickKinematicMotionTerminalKind.Removed),
+                Is.True);
+        }
+
         private static void AssertPose(
             WorldSnapshot snapshot,
             int expectedAnchorX,
@@ -117,19 +235,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static TickPipeline CreatePipeline(
             WorldState worldState,
-            GameplayRuntimeFeatureFlags runtimeFeatureFlags)
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags,
+            params IEntityLogic[] extraLogics)
         {
             var timingProfile = GameplayTimingProfile.CreateDefault();
             var playerTiming = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                 timingProfile.SimulationTicksPerSecond,
                 timingProfile.RepeatedMoveIntervalSeconds);
+            var entityLogics = new IEntityLogic[]
+            {
+                new PlayerLogic(10),
+                new PlayerControlStateLogic(10),
+            }.Concat(extraLogics ?? Enumerable.Empty<IEntityLogic>()).ToArray();
             return GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
-                new IEntityLogic[]
-                {
-                    new PlayerLogic(10),
-                    new PlayerControlStateLogic(10),
-                },
+                entityLogics,
                 timingProfile,
                 playerTiming,
                 runtimeFeatureFlags: runtimeFeatureFlags);
@@ -140,18 +260,33 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return GameplayWorldStateTestFactory.CreateBounded(entities);
         }
 
-        private static EntityState CreatePlayer(int entityId)
+        private static EntityState CreatePlayer(int entityId, int hp = 3)
         {
             return new EntityState
             {
                 entityId = entityId,
                 position = new SurfaceCell(FaceId.Floor, 0, 0),
-                hp = 3,
+                hp = hp,
                 maxHp = 3,
                 teamId = 1,
                 type = EntityType.Unit,
                 unitRole = UnitRole.Player,
                 facing = Direction.Right,
+                boardPresence = EntityBoardPresence.Occupying,
+            };
+        }
+
+        private static EntityState CreateUnit(int entityId, SurfaceCell position, int teamId)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 3,
+                maxHp = 3,
+                teamId = teamId,
+                type = EntityType.Unit,
+                facing = Direction.Left,
                 boardPresence = EntityBoardPresence.Occupying,
             };
         }
@@ -171,6 +306,33 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 boxCapabilities = capabilities,
                 boardPresence = EntityBoardPresence.Occupying,
             };
+        }
+
+        private sealed class TickScriptedAttackLogic : IAttackEntityLogic, IEntityLogicSourceBinding
+        {
+            private readonly int _attackTick;
+            private readonly int _sourceId;
+            private readonly int _targetId;
+
+            public TickScriptedAttackLogic(int sourceId, int targetId, int attackTick)
+            {
+                _sourceId = sourceId;
+                _targetId = targetId;
+                _attackTick = attackTick;
+            }
+
+            public int ControlledEntityId => _sourceId;
+
+            public void CollectAttackIntents(
+                WorldSnapshot snapshot,
+                in TickInput input,
+                System.Collections.Generic.List<RawAttackIntent> buffer)
+            {
+                if (input.TickIndex == _attackTick)
+                {
+                    buffer.Add(new RawAttackIntent(_sourceId, priority: 50, _targetId));
+                }
+            }
         }
     }
 }

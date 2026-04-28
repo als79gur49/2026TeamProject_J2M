@@ -97,6 +97,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(result.RejectedBy, Is.EqualTo(UnitProbeRejectionReason.NotSettledAtAnchor));
         }
 
+        [Test]
+        [Category("Extended")]
+        public void CreateInterruptedFreeze_PreservesOffsetAndZerosMotion()
+        {
+            var sourceState = CreateOffsetState(localX: 1024, localY: 0);
+
+            var interrupted = UnitKinematicRuntimeState.CreateInterruptedFreeze(sourceState);
+
+            Assert.That(interrupted.localOffset.X.RawValue, Is.EqualTo(1024));
+            Assert.That(interrupted.localOffset.Y.RawValue, Is.EqualTo(0));
+            Assert.That(interrupted.velocity.IsZero, Is.True);
+            Assert.That(interrupted.mode, Is.EqualTo(MotionMode.Interrupted));
+            Assert.That(interrupted.forcedOp, Is.EqualTo(ForcedMotionOp.None));
+            Assert.That(interrupted.remainingDistanceUnits, Is.EqualTo(0));
+            Assert.That(interrupted.remainingTicks, Is.EqualTo(0));
+            Assert.That(interrupted.speedScalePermille, Is.EqualTo(0));
+            Assert.That(interrupted.sequenceId, Is.EqualTo(sourceState.sequenceId + 1));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WorldState_RemoveEntity_PurgesUnitKinematicState()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { CreateUnit(10) });
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetUnitKinematicState(10, CreateOffsetState(localX: 1024, localY: 0));
+
+            writeContext.RemoveEntity(10);
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out _), Is.False);
+            Assert.That(snapshot.TryGetUnitKinematicState(10, out _), Is.False);
+            Assert.That(snapshot.TryGetUnitKinematicPose(10, out _), Is.False);
+        }
+
         private static string BuildHash(WorldSnapshot snapshot)
         {
             var finalEntities = new List<EntityState>();
