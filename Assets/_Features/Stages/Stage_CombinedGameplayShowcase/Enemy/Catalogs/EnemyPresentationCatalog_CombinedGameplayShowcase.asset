@@ -31,3 +31,5 @@ MonoBehaviour:
     ViewPrefab: {fileID: 6386733526280430255, guid: 4b046e9ae49c42b4388ff25a2353c3f7, type: 3}
   - PresentationId: utility_summoner_prefab
     ViewPrefab: {fileID: 2823823344174377908, guid: 7fa07cb2cf222ca4194569602c56204a, type: 3}
+  - PresentationId: LockNearybyBoxes_prefab
+    ViewPrefab: {fileID: 2823823344174377908, guid: 63df51ad8ec0533438680ec9b4db5298, type: 3}
