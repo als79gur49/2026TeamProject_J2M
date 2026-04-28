@@ -30,6 +30,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplayTopologyTransitionController _topologyTransitionController;
         private readonly GameplayTransientEffectPresenter _transientEffectPresenter = new();
         private readonly GameplayFrontFaceShieldVfxPresenter _frontFaceShieldVfxPresenter = new();
+        private readonly GameplayUtilityWindupVfxPresenter _utilityWindupVfxPresenter = new();
         private readonly GameplayMotionTimingResolver _motionTimingResolver;
         private readonly GameplayPoseResolver _poseResolver;
 
@@ -150,6 +151,7 @@ namespace Game.Feature.Gameplay.Host
             _trackState.ResetSession();
             _transientEffectPresenter.Initialize(viewBinder.SearchRoot, cellSize);
             _frontFaceShieldVfxPresenter.Initialize(viewBinder.SearchRoot, cellSize);
+            _utilityWindupVfxPresenter.Initialize(viewBinder.SearchRoot);
             _animationSync.Reset();
             _stateStore.ResetSession(initialTopology);
             _summonedEnemyPresentationResolver.Initialize(
@@ -196,6 +198,15 @@ namespace Game.Feature.Gameplay.Host
                 _projector,
                 _viewBinder,
                 TopologyCommitted);
+            TraceStep("RefreshUtilityWindupWarnings");
+            _utilityWindupVfxPresenter.RefreshSummonWarnings(
+                result.PresentationData.SummonWindupWarnings,
+                _stateStore,
+                _projector);
+            _frontFaceShieldVfxPresenter.RefreshWindupWarnings(
+                result.PresentationData.FrontFaceShieldWindupWarnings,
+                _stateStore,
+                _projector);
             TraceStep("RefreshFrontFaceShieldSources");
             _frontFaceShieldVfxPresenter.RefreshActiveSources(
                 result.PresentationData.FrontFaceShieldSources,
@@ -256,6 +267,7 @@ namespace Game.Feature.Gameplay.Host
             _exitPresentationController.Reset();
             _transientEffectPresenter.Clear();
             _frontFaceShieldVfxPresenter.Clear();
+            _utilityWindupVfxPresenter.Clear();
             _animationSync.Reset();
             _stateStore.ResetSession(topology);
             _topologyTransitionController.Reset();
