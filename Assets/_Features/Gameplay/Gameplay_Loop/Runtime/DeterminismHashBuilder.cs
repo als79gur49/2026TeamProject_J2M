@@ -639,12 +639,17 @@ namespace Game.Feature.Gameplay.Loop
                 var entry = enemyGlideEntries[i];
                 builder
                     .Append(entry.EntityId).Append('|')
+                    .Append((int)entry.State.Phase).Append('|')
                     .Append(entry.State.IsActive ? 1 : 0).Append('|')
                     .Append(entry.State.IsLandingPending ? 1 : 0).Append('|')
                     .Append(entry.State.Sequence).Append('|')
+                    .Append(entry.State.WindupUntilTickExclusive).Append('|')
                     .Append(entry.State.ActiveUntilTickExclusive).Append('|')
+                    .Append(entry.State.RecoveryUntilTickExclusive).Append('|')
                     .Append(entry.State.CooldownUntilTickExclusive).Append('|')
+                    .Append(entry.State.WindupTicks).Append('|')
                     .Append(entry.State.DurationTicks).Append('|')
+                    .Append(entry.State.RecoveryTicks).Append('|')
                     .Append(entry.State.CooldownTicks).Append('|')
                     .Append(entry.State.LastExitedTick).Append('|')
                     .Append((int)entry.State.LandingPendingCell.face).Append('|')

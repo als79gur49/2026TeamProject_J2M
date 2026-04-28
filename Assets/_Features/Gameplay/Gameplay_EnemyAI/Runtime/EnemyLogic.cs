@@ -308,6 +308,7 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             if (ShouldSuppressMovementForJump(snapshot, input.TickIndex) ||
+                ShouldSuppressMovementForGlide(snapshot) ||
                 ShouldSuppressMovementForEnemyPhase(snapshot))
             {
                 return;
@@ -542,30 +543,13 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
-            if (nextState.IsActive &&
-                input.TickIndex >= nextState.ActiveUntilTickExclusive)
-            {
-                nextState = snapshot.TryGetSolidSemanticAt(source.position, out _)
-                    ? EnemyGlideQueries.EndActiveToLandingPending(nextState, input.TickIndex, source.position)
-                    : EnemyGlideQueries.EndActiveToCooldown(nextState, input.TickIndex);
-                hasPreviousState = true;
-                changed = true;
-                AppendGlideUpdate(
-                    updates,
-                    _entityId,
-                    nextState.IsLandingPending ? "EnterLandingPending" : "EndActive",
-                    nextState);
-            }
-
-            if (nextState.IsLandingPending &&
-                (!snapshot.TryGetSolidSemanticAt(source.position, out _) ||
-                 source.position != nextState.LandingPendingCell))
-            {
-                nextState = EnemyGlideQueries.ClearLandingPendingToCooldown(nextState, input.TickIndex);
-                hasPreviousState = true;
-                changed = true;
-                AppendGlideUpdate(updates, _entityId, "ClearLandingPending", nextState);
-            }
+            changed |= TryAdvanceGlideLifecycle(
+                snapshot,
+                in input,
+                source,
+                ref hasPreviousState,
+                ref nextState,
+                updates);
 
             if (source.aiMode == EnemyAiMode.Chase &&
                 EnemyGlideQueries.CanStart(hasPreviousState, nextState, input.TickIndex))
@@ -574,14 +558,112 @@ namespace Game.Feature.Gameplay.Entities
                     nextState,
                     input.TickIndex,
                     _movementSkillCapability.GlideTimingSettings);
+                hasPreviousState = true;
                 changed = true;
                 AppendGlideUpdate(updates, _entityId, "Start", nextState);
+                changed |= TryAdvanceGlideLifecycle(
+                    snapshot,
+                    in input,
+                    source,
+                    ref hasPreviousState,
+                    ref nextState,
+                    updates);
             }
 
             if (changed)
             {
                 writeContext.SetEnemyGlideState(_entityId, nextState);
             }
+        }
+
+        private bool TryAdvanceGlideLifecycle(
+            WorldSnapshot snapshot,
+            in TickInput input,
+            in EntityState source,
+            ref bool hasPreviousState,
+            ref EnemyGlideRuntimeState nextState,
+            List<string> updates)
+        {
+            var changed = false;
+            for (var guard = 0; guard < 8; guard++)
+            {
+                switch (nextState.Phase)
+                {
+                    case EnemyGlidePhase.Windup:
+                        if (input.TickIndex < nextState.WindupUntilTickExclusive)
+                        {
+                            return changed;
+                        }
+
+                        nextState = EnemyGlideQueries.BeginActive(nextState, input.TickIndex);
+                        hasPreviousState = true;
+                        changed = true;
+                        AppendGlideUpdate(updates, _entityId, "EnterActive", nextState);
+                        continue;
+
+                    case EnemyGlidePhase.Active:
+                        if (input.TickIndex < nextState.ActiveUntilTickExclusive)
+                        {
+                            return changed;
+                        }
+
+                        nextState = snapshot.TryGetSolidSemanticAt(source.position, out _)
+                            ? EnemyGlideQueries.EndActiveToLandingPending(nextState, input.TickIndex, source.position)
+                            : EnemyGlideQueries.BeginRecovery(nextState, input.TickIndex);
+                        hasPreviousState = true;
+                        changed = true;
+                        AppendGlideUpdate(
+                            updates,
+                            _entityId,
+                            nextState.IsLandingPending ? "EnterLandingPending" : "EnterRecovery",
+                            nextState);
+                        continue;
+
+                    case EnemyGlidePhase.LandingPending:
+                        if (source.position == nextState.LandingPendingCell &&
+                            snapshot.TryGetSolidSemanticAt(source.position, out _))
+                        {
+                            return changed;
+                        }
+
+                        nextState = EnemyGlideQueries.BeginRecovery(nextState, input.TickIndex);
+                        hasPreviousState = true;
+                        changed = true;
+                        AppendGlideUpdate(updates, _entityId, "EnterRecovery", nextState);
+                        continue;
+
+                    case EnemyGlidePhase.Recovery:
+                        if (input.TickIndex < nextState.RecoveryUntilTickExclusive)
+                        {
+                            return changed;
+                        }
+
+                        nextState = EnemyGlideQueries.EndRecoveryToCooldown(nextState, input.TickIndex);
+                        hasPreviousState = true;
+                        changed = true;
+                        AppendGlideUpdate(updates, _entityId, "EnterCooldown", nextState);
+                        continue;
+
+                    case EnemyGlidePhase.Cooldown:
+                        if (input.TickIndex >= nextState.CooldownUntilTickExclusive &&
+                            input.TickIndex > nextState.LastExitedTick &&
+                            source.aiMode != EnemyAiMode.Chase)
+                        {
+                            nextState = EnemyGlideQueries.Clear();
+                            hasPreviousState = false;
+                            changed = true;
+                            AppendGlideUpdate(updates, _entityId, "Ready", nextState);
+                        }
+
+                        return changed;
+
+                    case EnemyGlidePhase.Ready:
+                    default:
+                        return changed;
+                }
+            }
+
+            return changed;
         }
 
         private void CommitEnemyOwnedPhasedState(
@@ -666,6 +748,19 @@ namespace Game.Feature.Gameplay.Entities
         {
             return HasPhaseMovementSkill() &&
                    TryGetEnemyOwnedPhasedState(snapshot, out _);
+        }
+
+        private bool ShouldSuppressMovementForGlide(WorldSnapshot snapshot)
+        {
+            if (!HasGlideMovementSkill() ||
+                !snapshot.TryGetEnemyGlideState(_entityId, out var glideState))
+            {
+                return false;
+            }
+
+            return glideState.Phase == EnemyGlidePhase.Windup ||
+                   glideState.Phase == EnemyGlidePhase.LandingPending ||
+                   glideState.Phase == EnemyGlidePhase.Recovery;
         }
 
         private bool ShouldSuppressAttackForEnemyPhase(WorldSnapshot snapshot, int tickIndex)
@@ -1357,7 +1452,7 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             updates.Add(
-                $"EnemyGlideStateUpdated|E={entityId}|Label={label}|Active={(state.IsActive ? 1 : 0)}|LandingPending={(state.IsLandingPending ? 1 : 0)}|Seq={state.Sequence}|ActiveUntil={state.ActiveUntilTickExclusive}|CooldownUntil={state.CooldownUntilTickExclusive}|Duration={state.DurationTicks}|Cooldown={state.CooldownTicks}|LastExited={state.LastExitedTick}|PendingCell={state.LandingPendingCell}");
+                $"EnemyGlideStateUpdated|E={entityId}|Label={label}|Phase={state.Phase}|Active={(state.IsActive ? 1 : 0)}|LandingPending={(state.IsLandingPending ? 1 : 0)}|Seq={state.Sequence}|WindupUntil={state.WindupUntilTickExclusive}|ActiveUntil={state.ActiveUntilTickExclusive}|RecoveryUntil={state.RecoveryUntilTickExclusive}|CooldownUntil={state.CooldownUntilTickExclusive}|Windup={state.WindupTicks}|Duration={state.DurationTicks}|Recovery={state.RecoveryTicks}|Cooldown={state.CooldownTicks}|LastExited={state.LastExitedTick}|PendingCell={state.LandingPendingCell}");
         }
 
         private GroundLocomotionResolution ResolveBaselineGroundLocomotion(

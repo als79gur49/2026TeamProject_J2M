@@ -4,29 +4,54 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Entities
 {
+    public enum EnemyGlidePhase
+    {
+        Ready = 0,
+        Windup = 1,
+        Active = 2,
+        LandingPending = 3,
+        Recovery = 4,
+        Cooldown = 5,
+    }
+
     public struct EnemyGlideRuntimeState
     {
+        [SerializeField] private EnemyGlidePhase phase;
         [SerializeField] private bool isActive;
         [SerializeField] private bool isLandingPending;
         [SerializeField] private int sequence;
+        [SerializeField] private int windupUntilTickExclusive;
         [SerializeField] private int activeUntilTickExclusive;
+        [SerializeField] private int recoveryUntilTickExclusive;
         [SerializeField] private int cooldownUntilTickExclusive;
+        [SerializeField] private int windupTicks;
         [SerializeField] private int durationTicks;
+        [SerializeField] private int recoveryTicks;
         [SerializeField] private int cooldownTicks;
         [SerializeField] private int lastExitedTick;
         [SerializeField] private SurfaceCell landingPendingCell;
 
-        public bool IsActive => isActive;
+        public EnemyGlidePhase Phase => ResolvePhase();
 
-        public bool IsLandingPending => isLandingPending;
+        public bool IsActive => Phase == EnemyGlidePhase.Active;
+
+        public bool IsLandingPending => Phase == EnemyGlidePhase.LandingPending;
 
         public int Sequence => sequence;
 
+        public int WindupUntilTickExclusive => windupUntilTickExclusive;
+
         public int ActiveUntilTickExclusive => activeUntilTickExclusive;
+
+        public int RecoveryUntilTickExclusive => recoveryUntilTickExclusive;
 
         public int CooldownUntilTickExclusive => cooldownUntilTickExclusive;
 
+        public int WindupTicks => windupTicks;
+
         public int DurationTicks => durationTicks;
+
+        public int RecoveryTicks => recoveryTicks;
 
         public int CooldownTicks => cooldownTicks;
 
@@ -35,12 +60,17 @@ namespace Game.Feature.Gameplay.Entities
         public SurfaceCell LandingPendingCell => landingPendingCell;
 
         public bool HasAuthoritativeRecord =>
+            Phase != EnemyGlidePhase.Ready ||
             isActive ||
             isLandingPending ||
             sequence != 0 ||
+            windupUntilTickExclusive != 0 ||
             activeUntilTickExclusive != 0 ||
+            recoveryUntilTickExclusive != 0 ||
             cooldownUntilTickExclusive != 0 ||
+            windupTicks != 0 ||
             durationTicks != 0 ||
+            recoveryTicks != 0 ||
             cooldownTicks != 0 ||
             lastExitedTick != 0;
 
@@ -55,18 +85,72 @@ namespace Game.Feature.Gameplay.Entities
             int lastExitedTick,
             SurfaceCell landingPendingCell)
         {
+            var phase = isActive
+                ? EnemyGlidePhase.Active
+                : isLandingPending
+                    ? EnemyGlidePhase.LandingPending
+                    : EnemyGlidePhase.Ready;
+            return Create(
+                phase,
+                sequence,
+                windupUntilTickExclusive: 0,
+                activeUntilTickExclusive,
+                recoveryUntilTickExclusive: 0,
+                cooldownUntilTickExclusive,
+                windupTicks: 0,
+                durationTicks,
+                recoveryTicks: 0,
+                cooldownTicks,
+                lastExitedTick,
+                landingPendingCell);
+        }
+
+        internal static EnemyGlideRuntimeState Create(
+            EnemyGlidePhase phase,
+            int sequence,
+            int windupUntilTickExclusive,
+            int activeUntilTickExclusive,
+            int recoveryUntilTickExclusive,
+            int cooldownUntilTickExclusive,
+            int windupTicks,
+            int durationTicks,
+            int recoveryTicks,
+            int cooldownTicks,
+            int lastExitedTick,
+            SurfaceCell landingPendingCell)
+        {
             return new EnemyGlideRuntimeState
             {
-                isActive = isActive,
-                isLandingPending = isLandingPending,
+                phase = phase,
+                isActive = phase == EnemyGlidePhase.Active,
+                isLandingPending = phase == EnemyGlidePhase.LandingPending,
                 sequence = sequence,
+                windupUntilTickExclusive = windupUntilTickExclusive,
                 activeUntilTickExclusive = activeUntilTickExclusive,
+                recoveryUntilTickExclusive = recoveryUntilTickExclusive,
                 cooldownUntilTickExclusive = cooldownUntilTickExclusive,
+                windupTicks = windupTicks,
                 durationTicks = durationTicks,
+                recoveryTicks = recoveryTicks,
                 cooldownTicks = cooldownTicks,
                 lastExitedTick = lastExitedTick,
                 landingPendingCell = landingPendingCell,
             };
+        }
+
+        private EnemyGlidePhase ResolvePhase()
+        {
+            if (phase != EnemyGlidePhase.Ready)
+            {
+                return phase;
+            }
+
+            if (isActive)
+            {
+                return EnemyGlidePhase.Active;
+            }
+
+            return isLandingPending ? EnemyGlidePhase.LandingPending : EnemyGlidePhase.Ready;
         }
     }
 
@@ -93,30 +177,36 @@ namespace Game.Feature.Gameplay.Entities
             timingSettings.Validate(nameof(timingSettings));
 
             return EnemyGlideRuntimeState.Create(
-                isActive: true,
-                isLandingPending: false,
+                EnemyGlidePhase.Windup,
                 sequence: Math.Max(1, previousState.Sequence + 1),
-                activeUntilTickExclusive: tickIndex + timingSettings.DurationTicks,
+                windupUntilTickExclusive: tickIndex + timingSettings.WindupTicks,
+                activeUntilTickExclusive: 0,
+                recoveryUntilTickExclusive: 0,
                 cooldownUntilTickExclusive: 0,
+                windupTicks: timingSettings.WindupTicks,
                 durationTicks: timingSettings.DurationTicks,
+                recoveryTicks: timingSettings.RecoveryTicks,
                 cooldownTicks: timingSettings.CooldownTicks,
                 lastExitedTick: previousState.LastExitedTick,
                 landingPendingCell: default);
         }
 
-        public static EnemyGlideRuntimeState EndActiveToCooldown(
+        public static EnemyGlideRuntimeState BeginActive(
             in EnemyGlideRuntimeState state,
             int tickIndex)
         {
             return EnemyGlideRuntimeState.Create(
-                isActive: false,
-                isLandingPending: false,
+                EnemyGlidePhase.Active,
                 sequence: state.Sequence,
-                activeUntilTickExclusive: state.ActiveUntilTickExclusive,
-                cooldownUntilTickExclusive: tickIndex + Mathf.Max(0, state.CooldownTicks),
+                windupUntilTickExclusive: state.WindupUntilTickExclusive,
+                activeUntilTickExclusive: tickIndex + state.DurationTicks,
+                recoveryUntilTickExclusive: 0,
+                cooldownUntilTickExclusive: 0,
+                windupTicks: state.WindupTicks,
                 durationTicks: state.DurationTicks,
+                recoveryTicks: state.RecoveryTicks,
                 cooldownTicks: state.CooldownTicks,
-                lastExitedTick: tickIndex,
+                lastExitedTick: state.LastExitedTick,
                 landingPendingCell: default);
         }
 
@@ -126,28 +216,53 @@ namespace Game.Feature.Gameplay.Entities
             SurfaceCell pendingCell)
         {
             return EnemyGlideRuntimeState.Create(
-                isActive: false,
-                isLandingPending: true,
+                EnemyGlidePhase.LandingPending,
                 sequence: state.Sequence,
+                windupUntilTickExclusive: state.WindupUntilTickExclusive,
                 activeUntilTickExclusive: state.ActiveUntilTickExclusive,
+                recoveryUntilTickExclusive: 0,
                 cooldownUntilTickExclusive: 0,
+                windupTicks: state.WindupTicks,
                 durationTicks: state.DurationTicks,
+                recoveryTicks: state.RecoveryTicks,
                 cooldownTicks: state.CooldownTicks,
-                lastExitedTick: tickIndex,
+                lastExitedTick: state.LastExitedTick,
                 landingPendingCell: pendingCell);
         }
 
-        public static EnemyGlideRuntimeState ClearLandingPendingToCooldown(
+        public static EnemyGlideRuntimeState BeginRecovery(
             in EnemyGlideRuntimeState state,
             int tickIndex)
         {
             return EnemyGlideRuntimeState.Create(
-                isActive: false,
-                isLandingPending: false,
+                EnemyGlidePhase.Recovery,
                 sequence: state.Sequence,
+                windupUntilTickExclusive: state.WindupUntilTickExclusive,
                 activeUntilTickExclusive: state.ActiveUntilTickExclusive,
-                cooldownUntilTickExclusive: tickIndex + Mathf.Max(0, state.CooldownTicks),
+                recoveryUntilTickExclusive: tickIndex + state.RecoveryTicks,
+                cooldownUntilTickExclusive: 0,
+                windupTicks: state.WindupTicks,
                 durationTicks: state.DurationTicks,
+                recoveryTicks: state.RecoveryTicks,
+                cooldownTicks: state.CooldownTicks,
+                lastExitedTick: state.LastExitedTick,
+                landingPendingCell: default);
+        }
+
+        public static EnemyGlideRuntimeState EndRecoveryToCooldown(
+            in EnemyGlideRuntimeState state,
+            int tickIndex)
+        {
+            return EnemyGlideRuntimeState.Create(
+                EnemyGlidePhase.Cooldown,
+                sequence: state.Sequence,
+                windupUntilTickExclusive: state.WindupUntilTickExclusive,
+                activeUntilTickExclusive: state.ActiveUntilTickExclusive,
+                recoveryUntilTickExclusive: state.RecoveryUntilTickExclusive,
+                cooldownUntilTickExclusive: tickIndex + Mathf.Max(0, state.CooldownTicks),
+                windupTicks: state.WindupTicks,
+                durationTicks: state.DurationTicks,
+                recoveryTicks: state.RecoveryTicks,
                 cooldownTicks: state.CooldownTicks,
                 lastExitedTick: tickIndex,
                 landingPendingCell: default);
@@ -165,9 +280,9 @@ namespace Game.Feature.Gameplay.Entities
                 return true;
             }
 
-            return !state.IsActive &&
-                   !state.IsLandingPending &&
-                   tickIndex >= state.CooldownUntilTickExclusive &&
+            return (state.Phase == EnemyGlidePhase.Ready ||
+                    (state.Phase == EnemyGlidePhase.Cooldown &&
+                     tickIndex >= state.CooldownUntilTickExclusive)) &&
                    tickIndex > state.LastExitedTick;
         }
     }
