@@ -143,21 +143,22 @@ namespace Game.Feature.Stages
             }
 
             var zoneDefinitions = BuildZoneRuntimeDefinitions(validated.Zones);
+            var zonesById = BuildZoneLookup(zoneDefinitions);
+            var goalZones = BuildGoalZoneDefinitions(validated.Objective.GetGoalZoneIdsOrEmpty(), zonesById);
             if (validated.Objective.CompletionPolicy == StageCompletionPolicy.Disabled)
             {
                 return new StageObjectiveRuntimeDefinition(
                     StageCompletionPolicy.Disabled,
                     validated.PlayerEntityId,
                     zoneDefinitions,
-                    Array.Empty<StageZoneRuntimeDefinition>(),
-                    Array.Empty<StageConditionRuntimeDefinition>());
+                    goalZones,
+                    Array.Empty<StageObjectiveConditionRuntimeDefinitionEntry>());
             }
 
-            var zonesById = BuildZoneLookup(zoneDefinitions);
-            var goalZones = BuildGoalZoneDefinitions(validated.Objective.GetGoalZoneIdsOrEmpty(), zonesById);
-            var conditionDefinitions = BuildConditionRuntimeDefinitions(
+            var conditionEntries = BuildConditionRuntimeEntries(
                 validated,
                 zonesById,
+                goalZones,
                 timing);
 
             return new StageObjectiveRuntimeDefinition(
@@ -165,7 +166,7 @@ namespace Game.Feature.Stages
                 validated.PlayerEntityId,
                 zoneDefinitions,
                 goalZones,
-                conditionDefinitions);
+                conditionEntries);
         }
 
         private static StageZoneRuntimeDefinition[] BuildZoneRuntimeDefinitions(
@@ -232,29 +233,94 @@ namespace Game.Feature.Stages
             return goalZones;
         }
 
-        private static StageConditionRuntimeDefinition[] BuildConditionRuntimeDefinitions(
+        private static StageObjectiveConditionRuntimeDefinitionEntry[] BuildConditionRuntimeEntries(
             StageDefinitionValidator.ValidatedStageData validated,
             IReadOnlyDictionary<string, StageZoneRuntimeDefinition> zonesById,
+            StageZoneRuntimeDefinition[] goalZones,
             StageSimulationTiming timing)
         {
             var requiredConditions = validated.Objective.GetRequiredConditionsOrEmpty();
-            if (requiredConditions.Length == 0)
-            {
-                return Array.Empty<StageConditionRuntimeDefinition>();
-            }
+            var conditionEntries = validated.Objective.GetConditionEntriesOrEmpty();
 
             var compilationContext = new StageConditionCompilationContext(
                 validated.StageName,
                 validated.PlayerEntityId,
                 zonesById,
                 timing);
-            var runtimeDefinitions = new StageConditionRuntimeDefinition[requiredConditions.Length];
+            var runtimeEntries = new List<StageObjectiveConditionRuntimeDefinitionEntry>();
+
             for (var i = 0; i < requiredConditions.Length; i++)
             {
-                runtimeDefinitions[i] = requiredConditions[i].Compile(in compilationContext);
+                var runtimeDefinition = requiredConditions[i].Compile(in compilationContext);
+                runtimeEntries.Add(new StageObjectiveConditionRuntimeDefinitionEntry(
+                    runtimeDefinition,
+                    required: true,
+                    StageObjectiveConditionRole.None,
+                    $"legacy-required-{i}-{ResolveConditionAssetName(requiredConditions[i])}"));
             }
 
-            return runtimeDefinitions;
+            var hasExplicitPrimaryGoal = false;
+            for (var i = 0; i < conditionEntries.Length; i++)
+            {
+                var authoringEntry = conditionEntries[i];
+                var runtimeDefinition = authoringEntry.Condition.Compile(in compilationContext);
+                if (authoringEntry.Role == StageObjectiveConditionRole.PrimaryGoal)
+                {
+                    hasExplicitPrimaryGoal = true;
+                }
+
+                runtimeEntries.Add(new StageObjectiveConditionRuntimeDefinitionEntry(
+                    runtimeDefinition,
+                    authoringEntry.Required,
+                    authoringEntry.Role,
+                    ResolveStableConditionId(authoringEntry.StableConditionId, i, runtimeDefinition)));
+            }
+
+            if (!hasExplicitPrimaryGoal &&
+                goalZones != null &&
+                goalZones.Length > 0)
+            {
+                var required = validated.Objective.CompletionPolicy == StageCompletionPolicy.RequirePlayerOnGoalWithAllConditions;
+                runtimeEntries.Add(new StageObjectiveConditionRuntimeDefinitionEntry(
+                    new PlayerAtAnyZoneConditionRuntimeDefinition(
+                        "legacy-primary-goal",
+                        "Primary Goal",
+                        validated.PlayerEntityId,
+                        goalZones,
+                        requireAlive: true),
+                    required,
+                    StageObjectiveConditionRole.PrimaryGoal,
+                    "legacy-primary-goal"));
+            }
+
+            return runtimeEntries.Count == 0
+                ? Array.Empty<StageObjectiveConditionRuntimeDefinitionEntry>()
+                : runtimeEntries.ToArray();
+        }
+
+        private static string ResolveConditionAssetName(StageConditionAsset condition)
+        {
+            if (condition == null)
+            {
+                return "null";
+            }
+
+            return string.IsNullOrWhiteSpace(condition.name)
+                ? condition.GetType().Name
+                : condition.name.Trim();
+        }
+
+        private static string ResolveStableConditionId(
+            string explicitStableConditionId,
+            int entryIndex,
+            StageConditionRuntimeDefinition runtimeDefinition)
+        {
+            if (!string.IsNullOrWhiteSpace(explicitStableConditionId))
+            {
+                return explicitStableConditionId.Trim();
+            }
+
+            return $"entry-{entryIndex}-{runtimeDefinition.ConditionId}";
         }
 
         private static EntityState CreateWall(int entityId, SurfaceCell position, int hp = 1)

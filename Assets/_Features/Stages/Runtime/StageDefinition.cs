@@ -123,6 +123,7 @@ namespace Game.Feature.Stages
                 CompletionPolicy = authoring.CompletionPolicy,
                 GoalZoneIds = authoring.GetGoalZoneIdsOrEmpty(),
                 RequiredConditions = authoring.GetRequiredConditionsOrEmpty(),
+                ConditionEntries = authoring.GetConditionEntriesOrEmpty(),
             };
         }
 

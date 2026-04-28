@@ -105,6 +105,7 @@ namespace Game.Feature.Gameplay.Loop
             AppendPendingDelayedAttackEffectLines(builder, tickResultData.PendingDelayedAttackEffects);
 
             builder.Append("Objective").Append('\n');
+            // TODO(goal-zone-condition-followup): version the objective hash schema when legacy GoalReached is removed.
             AppendObjectiveLines(builder, tickResultData.ObjectiveResult);
 
             builder.Append("EventLog").Append('\n');
@@ -465,6 +466,8 @@ namespace Game.Feature.Gameplay.Loop
                 builder
                     .Append(status.ConditionId).Append('|')
                     .Append(status.ConditionType).Append('|')
+                    .Append((int)status.Role).Append('|')
+                    .Append(status.Required ? 1 : 0).Append('|')
                     .Append(status.IsSatisfied ? 1 : 0).Append('|')
                     .Append(status.Details).Append('\n');
             }

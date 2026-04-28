@@ -35,6 +35,7 @@ namespace Game.Feature.UI.Application
             var session = _queryFacade.Session.Read();
             var objectives = _queryFacade.Objectives.Read();
 
+            // TODO(goal-zone-condition-followup): group objective condition rows by Role when the read model exposes them.
             CurrentState = new ObjectiveStatusScreenState(
                 objectives.HasObjective,
                 objectives.GoalReached,

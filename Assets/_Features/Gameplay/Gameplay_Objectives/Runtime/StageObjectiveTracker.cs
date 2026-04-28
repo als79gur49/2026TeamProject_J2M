@@ -6,7 +6,7 @@ namespace Game.Feature.Gameplay.Objectives
 {
     public sealed class StageObjectiveTracker
     {
-        private readonly IStageConditionRuntime[] _conditionRuntimes;
+        private readonly StageObjectiveConditionRuntimeEntry[] _conditionEntries;
         private readonly StageObjectiveRuntimeDefinition _objectiveDefinition;
         private bool _isCleared;
         private StageObjectiveTickResult _currentResult;
@@ -14,7 +14,7 @@ namespace Game.Feature.Gameplay.Objectives
         public StageObjectiveTracker(StageObjectiveRuntimeDefinition objectiveDefinition)
         {
             _objectiveDefinition = objectiveDefinition ?? StageObjectiveRuntimeDefinition.Disabled;
-            _conditionRuntimes = _objectiveDefinition.CreateConditionRuntimes();
+            _conditionEntries = _objectiveDefinition.CreateConditionRuntimeEntries();
             Reset();
         }
 
@@ -26,9 +26,9 @@ namespace Game.Feature.Gameplay.Objectives
         {
             _isCleared = false;
 
-            for (var i = 0; i < _conditionRuntimes.Length; i++)
+            for (var i = 0; i < _conditionEntries.Length; i++)
             {
-                _conditionRuntimes[i].Reset();
+                _conditionEntries[i].Runtime.Reset();
             }
 
             _currentResult = _objectiveDefinition.HasObjective
@@ -49,14 +49,14 @@ namespace Game.Feature.Gameplay.Objectives
                 return _currentResult;
             }
 
-            for (var i = 0; i < _conditionRuntimes.Length; i++)
+            for (var i = 0; i < _conditionEntries.Length; i++)
             {
-                _conditionRuntimes[i].Advance(finalSnapshot, in tickFacts);
+                _conditionEntries[i].Runtime.Advance(finalSnapshot, in tickFacts);
             }
 
-            var goalReached = _objectiveDefinition.IsPlayerOnGoal(finalSnapshot);
             var allConditionsSatisfied = AreAllRequiredConditionsSatisfied();
-            var shouldClear = ShouldClear(goalReached, allConditionsSatisfied);
+            var goalReached = IsPrimaryGoalSatisfied();
+            var shouldClear = ShouldClear(allConditionsSatisfied);
             var clearedThisTick = !_isCleared && shouldClear;
             if (clearedThisTick)
             {
@@ -69,14 +69,15 @@ namespace Game.Feature.Gameplay.Objectives
 
         private bool AreAllRequiredConditionsSatisfied()
         {
-            if (_conditionRuntimes.Length == 0)
+            if (_conditionEntries.Length == 0)
             {
                 return true;
             }
 
-            for (var i = 0; i < _conditionRuntimes.Length; i++)
+            for (var i = 0; i < _conditionEntries.Length; i++)
             {
-                if (!_conditionRuntimes[i].IsSatisfied)
+                if (_conditionEntries[i].Required &&
+                    !_conditionEntries[i].Runtime.IsSatisfied)
                 {
                     return false;
                 }
@@ -85,13 +86,24 @@ namespace Game.Feature.Gameplay.Objectives
             return true;
         }
 
-        private bool ShouldClear(bool goalReached, bool allConditionsSatisfied)
+        private bool IsPrimaryGoalSatisfied()
+        {
+            for (var i = 0; i < _conditionEntries.Length; i++)
+            {
+                if (_conditionEntries[i].Role == StageObjectiveConditionRole.PrimaryGoal)
+                {
+                    return _conditionEntries[i].Runtime.IsSatisfied;
+                }
+            }
+
+            return false;
+        }
+
+        private bool ShouldClear(bool allConditionsSatisfied)
         {
             switch (_objectiveDefinition.CompletionPolicy)
             {
                 case StageCompletionPolicy.RequirePlayerOnGoalWithAllConditions:
-                    return goalReached && allConditionsSatisfied;
-
                 case StageCompletionPolicy.RequireAllConditions:
                     return allConditionsSatisfied;
 
@@ -114,15 +126,17 @@ namespace Game.Feature.Gameplay.Objectives
 
         private IReadOnlyList<StageConditionStatus> BuildConditionStatuses()
         {
-            if (_conditionRuntimes.Length == 0)
+            if (_conditionEntries.Length == 0)
             {
                 return Array.Empty<StageConditionStatus>();
             }
 
-            var statuses = new StageConditionStatus[_conditionRuntimes.Length];
-            for (var i = 0; i < _conditionRuntimes.Length; i++)
+            var statuses = new StageConditionStatus[_conditionEntries.Length];
+            for (var i = 0; i < _conditionEntries.Length; i++)
             {
-                statuses[i] = _conditionRuntimes[i].CreateStatus();
+                var entry = _conditionEntries[i];
+                statuses[i] = entry.Runtime.CreateStatus()
+                    .WithEntryMetadata(entry.StableConditionId, entry.Role, entry.Required);
             }
 
             return statuses;
