@@ -29,12 +29,6 @@ MonoBehaviour:
     PresentationId: nonAttacking_showcase
   - EntityId: 56
     PresentationId: wallFollower_sun
-  - EntityId: 57
-    PresentationId: jumpChaser_astra
-  - EntityId: 58
-    PresentationId: Charge_showcase
-  - EntityId: 59
-    PresentationId: utility_summoner_prefab
   staticEntityPresentationCatalog: {fileID: 11400000, guid: 28eb5cc07ccd15d4b9a99a3364f7fd07, type: 2}
   staticEntityPresentationBindings: []
   resultTitle: Stage Cleared

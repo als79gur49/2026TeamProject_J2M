@@ -15,6 +15,6 @@ MonoBehaviour:
   effects:
   - kind: 0
     boxSlideShield:
-      radius: 2
+      radius: 1
       includeSourceCell: 0
-      targetPattern: 1
+      targetPattern: 2

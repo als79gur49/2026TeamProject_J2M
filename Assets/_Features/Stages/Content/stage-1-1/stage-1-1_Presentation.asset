@@ -23,20 +23,18 @@ MonoBehaviour:
   enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
   enemyPresentationArchetypeCatalog: {fileID: 11400000, guid: dd4f6d4763f54f89830e7ab92c7d9953, type: 2}
   enemyPresentationBindings:
-  - EntityId: 54
-    PresentationId: Attacking_showcase
-  - EntityId: 55
-    PresentationId: nonAttacking_showcase
   - EntityId: 56
     PresentationId: wallFollower_sun
-  - EntityId: 57
-    PresentationId: jumpChaser_astra
   - EntityId: 58
     PresentationId: Charge_showcase
   - EntityId: 59
     PresentationId: utility_summoner_prefab
   - EntityId: 61
     PresentationId: front_face_shield_showcase
+  - EntityId: 62
+    PresentationId: LockNearybyBoxes_prefab
+  - EntityId: 63
+    PresentationId: LockNearybyBoxes_prefab
   staticEntityPresentationCatalog: {fileID: 11400000, guid: 28eb5cc07ccd15d4b9a99a3364f7fd07, type: 2}
   staticEntityPresentationBindings: []
   resultTitle: Stage Cleared

@@ -331,7 +331,7 @@ Transform:
   m_GameObject: {fileID: 1225762992415310247}
   serializedVersion: 2
   m_LocalRotation: {x: -0.7071068, y: 0, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: -0.5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -356,7 +356,7 @@ Animator:
   m_LinearVelocityBlending: 0
   m_StabilizeFeet: 0
   m_AnimatePhysics: 0
-  m_WarningMessage:
+  m_WarningMessage: 
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
@@ -534,7 +534,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5d61d20915b944faabca806869d9edba, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.GameplayEntityView
   entityId: 13
   modelRoot: {fileID: 1694413947926530904}
@@ -548,7 +548,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a1c4a2f7bf37431fa19e2d57c1d803aa, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.UnitLocomotionPresentationAuthoring
   moveMotionDurationSeconds: 0.8
 --- !u!114 &4994410876415863292
@@ -561,13 +561,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2b6f35d89b0440b0a3897d9c5c63f8a4, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.EnemyAnimatorDriver
   animator: {fileID: 1973374220910874260}
   animationTimingAuthoring: {fileID: 2407586926128549279}
   windupStateName: Windup
   jumpWindupStateName: JumpWindup
   jumpAirborneStateName: JumpAirborne
+  chargeActiveStateName: Charge
   recoveryStateName: Recover
   windupTriggerName: Windup
   jumpWindupTriggerName: JumpWindup
@@ -586,17 +587,19 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 221aa3bf1f4e4fec8fe376442cc63a61, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.EnemyAnimationTimingAuthoring
   attackWindupAnimatorDurationSeconds: -1
   jumpWindupAnimatorDurationSeconds: -1
   jumpAirborneAnimatorDurationSeconds: -1
   recoverAnimatorDurationSeconds: -1
+  deathAnimatorDurationSeconds: -1
   stateTransitionCrossFadeDurationSeconds: -1
   attackWindupReferenceClip: {fileID: 0}
   jumpWindupReferenceClip: {fileID: 0}
   jumpAirborneReferenceClip: {fileID: 0}
   recoverReferenceClip: {fileID: 0}
+  deathReferenceClip: {fileID: 0}
 --- !u!114 &8888888881000000001
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -607,7 +610,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8b2c7065f99a4a64ab5f33e8af477c81, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.EnemyFrontFaceShieldPresentationAuthoring
   telegraphPrefab: {fileID: 100000, guid: 6cd12717bd9bde896dd0a4a174eb8512, type: 3}
   activeLoopPrefab: {fileID: 100000, guid: 2659308d4abf38af9f365878511d7483, type: 3}
@@ -619,7 +622,7 @@ MonoBehaviour:
   attachActiveLoopToSourceView: 0
   scaleByRadius: 1
   localOffset: {x: 0, y: 0, z: 0}
-  attachSlot:
+  attachSlot: 
 --- !u!1 &2124947621262512643
 GameObject:
   m_ObjectHideFlags: 0

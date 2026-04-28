@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d057df79daa540a68b9a3ee57d02c7da, type: 3}
   m_Name: EnemyCapability_GlideOverSolid_GlideChaser
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   glideTimingSettings:
     durationSeconds: 3
-    cooldownSeconds: 2
+    cooldownSeconds: 4
