@@ -207,6 +207,80 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void StageClear_AdvancesAcrossLevelGroupsWithoutResettingRemainingChances()
+        {
+            var saveKey = CreatePrefsKey(nameof(StageClear_AdvancesAcrossLevelGroupsWithoutResettingRemainingChances));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("campaign-clear-host");
+            var inputHostObject = new GameObject("campaign-clear-input");
+
+            try
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                saveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
+                    CurrentLevelGroupId = "level-1",
+                    RemainingChances = 1,
+                });
+                activeSlotProvider.SetActiveSlot(1);
+
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                var inputHost = inputHostObject.AddComponent<GameplayInputHost>();
+                SetPrivateField(inputHost, "_isInitialized", true);
+                SetPrivateField(
+                    host,
+                    "_runtime",
+                    new GameplayHostRuntimeContext(
+                        null,
+                        null,
+                        null,
+                        inputHost,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null));
+
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    activeSlotProvider,
+                    CreateResolver(),
+                    new FakeStageLaunchRouter());
+                var method = typeof(CampaignGameplayFlowController).GetMethod(
+                    "HandleStageClear",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(method, Is.Not.Null);
+
+                method.Invoke(controller, new object[] { null });
+
+                var slot = saveStore.LoadSlot(1);
+                Assert.That(slot.CurrentStageId.Value, Is.EqualTo("stage-2-1"));
+                Assert.That(slot.CurrentLevelGroupId, Is.EqualTo("level-2"));
+                Assert.That(slot.RemainingChances, Is.EqualTo(1));
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+                UnityEngine.Object.DestroyImmediate(inputHostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void TerminalHold_BlocksGameplayTickWithoutSimulationPause()
         {
             var hostObject = new GameObject("input-host");
@@ -535,6 +609,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public BgmProfile GetCurrentProfile()
             {
                 return LastProfile;
+            }
+        }
+
+        private sealed class FakeStageLaunchRouter : IStageLaunchRouter
+        {
+            public StageNavigationRequest LastRequest { get; private set; } = StageNavigationRequest.None;
+
+            public void Launch(StageNavigationRequest request)
+            {
+                LastRequest = request;
             }
         }
     }

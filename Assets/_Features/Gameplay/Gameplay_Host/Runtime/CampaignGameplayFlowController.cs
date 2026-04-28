@@ -185,7 +185,6 @@ namespace Game.Feature.Gameplay.Host
                     $"Campaign sequence could not resolve a next stage for '{completedStageId.Value}'.");
             }
 
-            var completedLevelGroupId = _sequenceResolver.GetLevelGroupId(completedStageId);
             var nextLevelGroupId = _sequenceResolver.GetLevelGroupId(nextStageId);
             _saveSlotStore.UpdateSlot(
                 activeSlotNumber,
@@ -193,11 +192,6 @@ namespace Game.Feature.Gameplay.Host
                 {
                     mutableSlot.CurrentStageId = nextStageId;
                     mutableSlot.CurrentLevelGroupId = nextLevelGroupId;
-                    if (!string.Equals(completedLevelGroupId, nextLevelGroupId, StringComparison.Ordinal))
-                    {
-                        mutableSlot.RemainingChances = SaveSlotStore.DefaultRemainingChances;
-                    }
-
                     mutableSlot.LastPlayedAt = DateTimeOffset.UtcNow.ToString("O");
                 });
 
