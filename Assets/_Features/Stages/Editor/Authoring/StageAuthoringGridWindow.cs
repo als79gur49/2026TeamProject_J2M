@@ -1,6 +1,4 @@
-using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
-using Game.Feature.Gameplay.Host;
 using UnityEditor;
 using UnityEngine;
 
@@ -150,68 +148,30 @@ namespace Game.Feature.Stages.Editor
                 return;
             }
 
-            var options = kind == StageAuthoringEntityKind.Enemy
-                ? GetEnemyPresentationIds()
-                : GetStaticPresentationIds();
-            if (options.Count == 0)
+            var presentationProperty = placementProperty.FindPropertyRelative("PresentationId");
+            var model = StageAuthoringPresentationOptionModel.Build(
+                kind,
+                presentationProperty.stringValue,
+                authoring.GeneratedPresentationDefinition);
+            for (var i = 0; i < model.WarningMessages.Length; i++)
             {
-                EditorGUILayout.HelpBox("No presentation catalog entries available.", MessageType.Warning);
+                EditorGUILayout.HelpBox(model.WarningMessages[i], MessageType.Warning);
+            }
+
+            if (model.PopupLabels.Length == 0)
+            {
                 return;
             }
 
-            var presentationProperty = placementProperty.FindPropertyRelative("PresentationId");
-            var current = StageAuthoringGenerator.Normalize(presentationProperty.stringValue);
-            var index = Mathf.Max(0, options.IndexOf(current));
-            var nextIndex = EditorGUILayout.Popup("Presentation", index, options.ToArray());
-            presentationProperty.stringValue = nextIndex <= 0 ? string.Empty : options[nextIndex];
-        }
-
-        private List<string> GetEnemyPresentationIds()
-        {
-            var ids = new List<string> { string.Empty };
-            var catalog = authoring.GeneratedPresentationDefinition != null
-                ? authoring.GeneratedPresentationDefinition.EnemyPresentationCatalog
-                : null;
-            if (catalog == null)
+            EditorGUI.BeginChangeCheck();
+            var nextIndex = EditorGUILayout.Popup(
+                "Presentation",
+                model.SelectedPopupIndex,
+                model.PopupLabels);
+            if (EditorGUI.EndChangeCheck())
             {
-                return ids;
+                presentationProperty.stringValue = model.ResolvePresentationId(nextIndex);
             }
-
-            var entries = catalog.Entries;
-            for (var i = 0; i < entries.Length; i++)
-            {
-                var id = EnemyPresentationCatalogResolver.NormalizePresentationId(entries[i].PresentationId);
-                if (!string.IsNullOrEmpty(id) && !ids.Contains(id))
-                {
-                    ids.Add(id);
-                }
-            }
-
-            return ids;
-        }
-
-        private List<string> GetStaticPresentationIds()
-        {
-            var ids = new List<string> { string.Empty };
-            var catalog = authoring.GeneratedPresentationDefinition != null
-                ? authoring.GeneratedPresentationDefinition.StaticEntityPresentationCatalog
-                : null;
-            if (catalog == null)
-            {
-                return ids;
-            }
-
-            var entries = catalog.Entries;
-            for (var i = 0; i < entries.Length; i++)
-            {
-                var id = StaticEntityPresentationCatalogResolver.NormalizePresentationId(entries[i].PresentationId);
-                if (!string.IsNullOrEmpty(id) && !ids.Contains(id))
-                {
-                    ids.Add(id);
-                }
-            }
-
-            return ids;
         }
 
         private int FindPlacementAt(FaceId face, int x, int y)

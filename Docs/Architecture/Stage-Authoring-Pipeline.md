@@ -50,6 +50,18 @@ face-aware cells, player count, HP, duplicate occupancy using the existing
 `StageDefinitionValidator` stacking policy, zones/objectives, runtime builder
 smoke, presentation binding ids, and presentation binding drift.
 
+## Grid Editor Presentation Selection
+
+The grid editor presentation dropdown only selects the placement
+`PresentationId`. Catalog missing and empty warnings use the raw catalog entry
+ids, not the popup option list. The popup's `(None)` item is a UI-only empty
+selection and does not count as a catalog entry.
+
+If a selected `PresentationId` is no longer present in the relevant catalog, the
+grid editor shows a warning and preserves the existing value until the user
+changes the selection. ViewPrefab preview is a future UX enhancement, not part
+of the MVP dropdown contract.
+
 ## Migration
 
 Use `Tools/Stages/Authoring/Migrate Selected Stage Content Entry` or the
