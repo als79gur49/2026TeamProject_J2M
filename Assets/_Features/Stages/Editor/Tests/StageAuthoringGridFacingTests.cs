@@ -49,6 +49,104 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void GridCellTint_Player_ReturnsPlayerTint()
+        {
+            Assert.That(StageAuthoringGridCellStyleUtility.TryGetTint(StageAuthoringEntityKind.Player, out var tint), Is.True);
+            Assert.That(tint, Is.EqualTo(StageAuthoringGridCellStyleUtility.PlayerTint));
+        }
+
+        [Test]
+        public void GridCellTint_Enemy_ReturnsEnemyTint()
+        {
+            Assert.That(StageAuthoringGridCellStyleUtility.TryGetTint(StageAuthoringEntityKind.Enemy, out var tint), Is.True);
+            Assert.That(tint, Is.EqualTo(StageAuthoringGridCellStyleUtility.EnemyTint));
+        }
+
+        [Test]
+        public void GridCellTint_Box_ReturnsBoxTint()
+        {
+            Assert.That(StageAuthoringGridCellStyleUtility.TryGetTint(StageAuthoringEntityKind.Box, out var tint), Is.True);
+            Assert.That(tint, Is.EqualTo(StageAuthoringGridCellStyleUtility.BoxTint));
+        }
+
+        [Test]
+        public void GridCellTint_Wall_ReturnsWallTint()
+        {
+            Assert.That(StageAuthoringGridCellStyleUtility.TryGetTint(StageAuthoringEntityKind.Wall, out var tint), Is.True);
+            Assert.That(tint, Is.EqualTo(StageAuthoringGridCellStyleUtility.WallTint));
+        }
+
+        [Test]
+        public void GridCellTint_UnknownKind_ReturnsNoTint()
+        {
+            Assert.That(StageAuthoringGridCellStyleUtility.TryGetTint((StageAuthoringEntityKind)99, out var tint), Is.False);
+            Assert.That(tint, Is.EqualTo(Color.white));
+        }
+
+        [Test]
+        public void GridCellTint_NullPlacement_ReturnsNoTint()
+        {
+            Assert.That(StageAuthoringGridCellStyleUtility.TryGetTint(null, out var tint), Is.False);
+            Assert.That(tint, Is.EqualTo(Color.white));
+        }
+
+        [Test]
+        public void GridCellTint_FocusedMatchingKind_ReturnsKindTint()
+        {
+            var placement = Placement("enemy", StageAuthoringEntityKind.Enemy, Direction.Left);
+
+            Assert.That(
+                StageAuthoringGridCellStyleUtility.TryGetTint(
+                    placement,
+                    StageAuthoringEntityKind.Enemy,
+                    out var tint),
+                Is.True);
+            Assert.That(tint, Is.EqualTo(StageAuthoringGridCellStyleUtility.EnemyTint));
+        }
+
+        [Test]
+        public void GridCellTint_FocusedDifferentKind_ReturnsDimTint()
+        {
+            var placement = Placement("box", StageAuthoringEntityKind.Box, Direction.Right);
+
+            Assert.That(
+                StageAuthoringGridCellStyleUtility.TryGetTint(
+                    placement,
+                    StageAuthoringEntityKind.Enemy,
+                    out var tint),
+                Is.True);
+            Assert.That(tint, Is.EqualTo(StageAuthoringGridCellStyleUtility.DimTint(StageAuthoringGridCellStyleUtility.BoxTint)));
+        }
+
+        [Test]
+        public void GridCellTint_FocusedNullPlacement_ReturnsNoTint()
+        {
+            Assert.That(
+                StageAuthoringGridCellStyleUtility.TryGetTint(
+                    null,
+                    StageAuthoringEntityKind.Box,
+                    out var tint),
+                Is.False);
+            Assert.That(tint, Is.EqualTo(Color.white));
+        }
+
+        [Test]
+        public void GridCellTint_IsFocusedKind_RequiresMatchingFocus()
+        {
+            Assert.That(StageAuthoringGridCellStyleUtility.IsFocusedKind(StageAuthoringEntityKind.Box, null), Is.False);
+            Assert.That(
+                StageAuthoringGridCellStyleUtility.IsFocusedKind(
+                    StageAuthoringEntityKind.Box,
+                    StageAuthoringEntityKind.Enemy),
+                Is.False);
+            Assert.That(
+                StageAuthoringGridCellStyleUtility.IsFocusedKind(
+                    StageAuthoringEntityKind.Box,
+                    StageAuthoringEntityKind.Box),
+                Is.True);
+        }
+
+        [Test]
         public void FacingRotateClockwise_UsesDirectionOrder()
         {
             Assert.That(StageAuthoringFacingDisplayUtility.RotateClockwise(Direction.Up), Is.EqualTo(Direction.Right));

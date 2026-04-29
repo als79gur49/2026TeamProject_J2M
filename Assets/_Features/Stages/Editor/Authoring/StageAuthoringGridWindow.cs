@@ -14,12 +14,15 @@ namespace Game.Feature.Stages.Editor
         private bool presentationPreviewFoldout = true;
         private bool generatedPreviewFoldout = true;
         private bool validationIssuesFoldout = true;
+        private StageAuthoringEntityKind? focusedGridKind;
 
         internal StageAuthoringGenerationReport LastReportForTests => lastReport;
 
         internal FaceId TargetFaceForTests => selection.TargetFace;
 
         internal Vector2Int TargetCellForTests => selection.TargetCell;
+
+        internal StageAuthoringEntityKind? FocusedGridKindForTests => focusedGridKind;
 
         public static void Open(StageAuthoringDefinition definition)
         {
@@ -42,6 +45,7 @@ namespace Game.Feature.Stages.Editor
             serializedAuthoring = authoring != null ? new SerializedObject(authoring) : null;
             selection = new StageAuthoringGridSelectionState();
             lastReport = null;
+            focusedGridKind = null;
         }
 
         internal void BindForTests(StageAuthoringDefinition definition)
@@ -103,6 +107,16 @@ namespace Game.Feature.Stages.Editor
             RotateSelectedFacing(selection.ResolveSelectedPlacementIndex(authoring.Placements), clockwise: false);
         }
 
+        internal void ToggleGridFocusKindForTests(StageAuthoringEntityKind kind)
+        {
+            ToggleGridFocusKind(kind);
+        }
+
+        internal void ClearGridFocusForTests()
+        {
+            focusedGridKind = null;
+        }
+
         private void OnGUI()
         {
             if (authoring == null)
@@ -157,6 +171,7 @@ namespace Game.Feature.Stages.Editor
                 return;
             }
 
+            DrawGridLegend();
             for (var y = board.MaxInclusive.y; y >= board.MinInclusive.y; y--)
             {
                 using (new EditorGUILayout.HorizontalScope())
@@ -165,12 +180,13 @@ namespace Game.Feature.Stages.Editor
                     {
                         var index = selection.FindPlacementAt(authoring.Placements, selection.TargetFace, x, y);
                         var placementCount = selection.CountPlacementsAt(authoring.Placements, selection.TargetFace, x, y);
+                        var placement = index >= 0 ? authoring.Placements[index] : null;
                         var marker = index >= 0
-                            ? StageAuthoringGridRenderer.GetMarker(authoring.Placements[index])
+                            ? StageAuthoringGridRenderer.GetMarker(placement)
                             : ".";
                         if (placementCount > 1)
                         {
-                            marker = StageAuthoringGridMarkerBuilder.Build(authoring.Placements[index], duplicateCell: true);
+                            marker = StageAuthoringGridMarkerBuilder.Build(placement, duplicateCell: true);
                         }
 
                         if (selection.TargetCell.x == x && selection.TargetCell.y == y)
@@ -178,13 +194,87 @@ namespace Game.Feature.Stages.Editor
                             marker = $"[{marker}]";
                         }
 
-                        if (GUILayout.Button(marker, GUILayout.Width(36), GUILayout.Height(28)))
+                        if (DrawGridCellButton(marker, placement, focusedGridKind))
                         {
                             selection.SelectCell(selection.TargetFace, new Vector2Int(x, y), authoring.Placements);
                         }
                     }
                 }
             }
+        }
+
+        private static bool DrawGridCellButton(
+            string marker,
+            StagePlacedEntityAuthoring placement,
+            StageAuthoringEntityKind? focusedKind)
+        {
+            var previousBackgroundColor = GUI.backgroundColor;
+            if (StageAuthoringGridCellStyleUtility.TryGetTint(placement, focusedKind, out var tint))
+            {
+                GUI.backgroundColor = tint;
+            }
+
+            try
+            {
+                return GUILayout.Button(marker, GUILayout.Width(36), GUILayout.Height(28));
+            }
+            finally
+            {
+                GUI.backgroundColor = previousBackgroundColor;
+            }
+        }
+
+        private void DrawGridLegend()
+        {
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUILayout.LabelField("Legend", GUILayout.Width(52));
+                if (GUILayout.Button(focusedGridKind.HasValue ? "All" : "[All]", GUILayout.Width(48), GUILayout.Height(20)))
+                {
+                    focusedGridKind = null;
+                }
+
+                DrawLegendItem(StageAuthoringEntityKind.Player, "P Player");
+                DrawLegendItem(StageAuthoringEntityKind.Enemy, "E Enemy");
+                DrawLegendItem(StageAuthoringEntityKind.Box, "B Box");
+                DrawLegendItem(StageAuthoringEntityKind.Wall, "W Wall");
+            }
+        }
+
+        private void DrawLegendItem(StageAuthoringEntityKind kind, string label)
+        {
+            var previousBackgroundColor = GUI.backgroundColor;
+            if (StageAuthoringGridCellStyleUtility.TryGetTint(kind, out var tint))
+            {
+                if (focusedGridKind.HasValue && !StageAuthoringGridCellStyleUtility.IsFocusedKind(kind, focusedGridKind))
+                {
+                    tint = StageAuthoringGridCellStyleUtility.DimTint(tint);
+                }
+
+                GUI.backgroundColor = tint;
+            }
+
+            try
+            {
+                var buttonLabel = StageAuthoringGridCellStyleUtility.IsFocusedKind(kind, focusedGridKind)
+                    ? $"[{label}]"
+                    : label;
+                if (GUILayout.Button(buttonLabel, GUILayout.Width(72), GUILayout.Height(20)))
+                {
+                    ToggleGridFocusKind(kind);
+                }
+            }
+            finally
+            {
+                GUI.backgroundColor = previousBackgroundColor;
+            }
+        }
+
+        private void ToggleGridFocusKind(StageAuthoringEntityKind kind)
+        {
+            focusedGridKind = StageAuthoringGridCellStyleUtility.IsFocusedKind(kind, focusedGridKind)
+                ? null
+                : kind;
         }
 
         private void DrawSelectedCellTools(int selectedPlacementIndex)

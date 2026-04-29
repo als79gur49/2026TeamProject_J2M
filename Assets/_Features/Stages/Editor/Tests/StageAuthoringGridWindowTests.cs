@@ -189,6 +189,36 @@ namespace Game.Feature.Stages.Editor.Tests
                 });
         }
 
+        [Test]
+        public void LegendFocusToggle_PreservesSelectionAndTargetCell()
+        {
+            WithWindow(
+                new[]
+                {
+                    Placement("a", FaceId.Floor, 0, 0),
+                    Placement("b", FaceId.Floor, 1, 0),
+                },
+                (window, _) =>
+                {
+                    window.SelectCellForTests(FaceId.Floor, new Vector2Int(0, 0));
+                    window.SetTargetCellForTests(FaceId.Front, new Vector2Int(9, 9));
+
+                    window.ToggleGridFocusKindForTests(StageAuthoringEntityKind.Enemy);
+
+                    Assert.That(window.FocusedGridKindForTests, Is.EqualTo(StageAuthoringEntityKind.Enemy));
+                    Assert.That(window.ResolveSelectedPlacementIndexForTests(), Is.EqualTo(0));
+                    Assert.That(window.TargetFaceForTests, Is.EqualTo(FaceId.Front));
+                    Assert.That(window.TargetCellForTests, Is.EqualTo(new Vector2Int(9, 9)));
+
+                    window.ToggleGridFocusKindForTests(StageAuthoringEntityKind.Enemy);
+
+                    Assert.That(window.FocusedGridKindForTests, Is.Null);
+                    Assert.That(window.ResolveSelectedPlacementIndexForTests(), Is.EqualTo(0));
+                    Assert.That(window.TargetFaceForTests, Is.EqualTo(FaceId.Front));
+                    Assert.That(window.TargetCellForTests, Is.EqualTo(new Vector2Int(9, 9)));
+                });
+        }
+
         private static void WithWindow(
             StagePlacedEntityAuthoring[] placements,
             System.Action<StageAuthoringGridWindow, StageAuthoringDefinition> action)
