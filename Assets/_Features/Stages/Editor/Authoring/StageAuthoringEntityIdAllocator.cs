@@ -6,7 +6,7 @@ namespace Game.Feature.Stages.Editor
 {
     internal static class StageAuthoringEntityIdAllocator
     {
-        public static StageAuthoringEntityIdAllocation Allocate(
+        public static StageAuthoringEntityIdAllocation BuildAllocationPlan(
             StageAuthoringDefinition source,
             StageAuthoringGenerationReport report)
         {
@@ -152,6 +152,13 @@ namespace Game.Feature.Stages.Editor
             });
 
             return new StageAuthoringEntityIdAllocation(entityIdsByGuid, mappings);
+        }
+
+        public static StageAuthoringEntityIdAllocation Allocate(
+            StageAuthoringDefinition source,
+            StageAuthoringGenerationReport report)
+        {
+            return BuildAllocationPlan(source, report);
         }
 
         private static string ResolveDisplayName(StagePlacedEntityAuthoring placement)

@@ -27,11 +27,27 @@ namespace Game.Feature.Stages.Editor
             StageAuthoringGenerateOptions options)
         {
             options ??= StageAuthoringGenerateOptions.WriteAll;
+            var plan = BuildPlan(source, gameplayOutput, presentationOutput, options);
+            if (!plan.Report.HasErrors && !options.DryRun)
+            {
+                ApplyPlan(plan, options);
+            }
+
+            return plan.Report;
+        }
+
+        internal static StageAuthoringGenerationPlan BuildPlan(
+            StageAuthoringDefinition source,
+            StageDefinition gameplayOutput,
+            StagePresentationDefinition presentationOutput,
+            StageAuthoringGenerateOptions options)
+        {
+            options ??= StageAuthoringGenerateOptions.WriteAll;
             var report = new StageAuthoringGenerationReport();
             if (source == null)
             {
                 report.Add(StageValidationSeverity.Error, "authoring.source.null", "StageAuthoringDefinition cannot be null.");
-                return report;
+                return new StageAuthoringGenerationPlan(null, null, null, null, report);
             }
 
             gameplayOutput ??= source.GeneratedGameplayDefinition;
@@ -56,40 +72,20 @@ namespace Game.Feature.Stages.Editor
                     AssetDatabase.GetAssetPath(source));
             }
 
-            var allocation = StageAuthoringEntityIdAllocator.Allocate(source, report);
+            var allocation = StageAuthoringEntityIdAllocator.BuildAllocationPlan(source, report);
             if (report.HasErrors)
             {
-                return report;
+                return new StageAuthoringGenerationPlan(source, gameplayOutput, presentationOutput, allocation, report);
             }
 
             var buildData = BuildGeneratedData(source, presentationOutput, allocation.EntityIdsByStableGuid, report);
             if (report.HasErrors)
             {
-                return report;
+                return new StageAuthoringGenerationPlan(source, gameplayOutput, presentationOutput, allocation, buildData, report);
             }
 
             ValidateGeneratedGameplay(buildData, report);
             ValidateGeneratedPresentation(presentationOutput, buildData, report);
-            if (report.HasErrors)
-            {
-                return report;
-            }
-
-            if (!options.DryRun)
-            {
-                ApplyMappings(source, allocation.Mappings);
-                if (options.WriteGameplay)
-                {
-                    ApplyGameplayOutput(gameplayOutput, buildData);
-                }
-
-                if (options.WritePresentationBindings)
-                {
-                    ApplyPresentationOutput(presentationOutput, buildData);
-                }
-
-                AssetDatabase.SaveAssets();
-            }
 
             for (var i = 0; i < buildData.Placements.Count; i++)
             {
@@ -97,7 +93,30 @@ namespace Game.Feature.Stages.Editor
                 report.RecordEntityId(placement.StableGuid, buildData.EntityIdsByStableGuid[placement.StableGuid]);
             }
 
-            return report;
+            return new StageAuthoringGenerationPlan(source, gameplayOutput, presentationOutput, allocation, buildData, report);
+        }
+
+        internal static void ApplyPlan(
+            StageAuthoringGenerationPlan plan,
+            StageAuthoringGenerateOptions options)
+        {
+            if (plan == null || plan.Source == null || plan.BuildData == null || plan.Allocation == null)
+            {
+                return;
+            }
+
+            ApplyMappings(plan.Source, plan.Allocation.Mappings);
+            if (options.WriteGameplay && plan.GameplayOutput != null)
+            {
+                ApplyGameplayOutput(plan.GameplayOutput, plan.BuildData);
+            }
+
+            if (options.WritePresentationBindings && plan.PresentationOutput != null)
+            {
+                ApplyPresentationOutput(plan.PresentationOutput, plan.BuildData);
+            }
+
+            AssetDatabase.SaveAssets();
         }
 
         internal static StageAuthoringBuildData BuildExpectedDataForComparison(
@@ -105,7 +124,7 @@ namespace Game.Feature.Stages.Editor
             StagePresentationDefinition presentationOutput,
             StageAuthoringGenerationReport report)
         {
-            var allocation = StageAuthoringEntityIdAllocator.Allocate(source, report);
+            var allocation = StageAuthoringEntityIdAllocator.BuildAllocationPlan(source, report);
             if (report.HasErrors)
             {
                 return null;
@@ -688,5 +707,63 @@ namespace Game.Feature.Stages.Editor
         public List<EnemyPresentationBinding> EnemyPresentationBindings { get; } = new();
 
         public List<StaticEntityPresentationBinding> StaticEntityPresentationBindings { get; } = new();
+    }
+
+    internal sealed class StageAuthoringGenerationPlan
+    {
+        public StageAuthoringGenerationPlan(
+            StageAuthoringDefinition source,
+            StageDefinition gameplayOutput,
+            StagePresentationDefinition presentationOutput,
+            StageAuthoringEntityIdAllocation allocation,
+            StageAuthoringGenerationReport report)
+            : this(source, gameplayOutput, presentationOutput, allocation, null, report)
+        {
+        }
+
+        public StageAuthoringGenerationPlan(
+            StageAuthoringDefinition source,
+            StageDefinition gameplayOutput,
+            StagePresentationDefinition presentationOutput,
+            StageAuthoringEntityIdAllocation allocation,
+            StageAuthoringBuildData buildData,
+            StageAuthoringGenerationReport report)
+        {
+            Source = source;
+            GameplayOutput = gameplayOutput;
+            PresentationOutput = presentationOutput;
+            Allocation = allocation;
+            BuildData = buildData;
+            Report = report ?? new StageAuthoringGenerationReport();
+            var runtimeAllocationPlan = allocation != null
+                ? new StageAuthoringAllocationPlan(
+                    allocation.EntityIdsByStableGuid,
+                    allocation.Mappings,
+                    Array.Empty<StageAuthoringIdMapping>(),
+                    Array.Empty<StageAuthoringIdMapping>())
+                : StageAuthoringAllocationPlan.Empty;
+            ExpectedGameplaySnapshot = source != null
+                ? StageAuthoringProjection.ProjectExpectedGameplay(source, runtimeAllocationPlan)
+                : null;
+            ExpectedPresentationSnapshot = source != null
+                ? StageAuthoringProjection.ProjectExpectedPresentation(source, runtimeAllocationPlan)
+                : null;
+        }
+
+        public StageAuthoringDefinition Source { get; }
+
+        public StageDefinition GameplayOutput { get; }
+
+        public StagePresentationDefinition PresentationOutput { get; }
+
+        public StageAuthoringEntityIdAllocation Allocation { get; }
+
+        public StageAuthoringBuildData BuildData { get; }
+
+        public StageAuthoringGenerationReport Report { get; }
+
+        public StageAuthoringNormalizedGameplaySnapshot ExpectedGameplaySnapshot { get; }
+
+        public StageAuthoringNormalizedPresentationSnapshot ExpectedPresentationSnapshot { get; }
     }
 }
