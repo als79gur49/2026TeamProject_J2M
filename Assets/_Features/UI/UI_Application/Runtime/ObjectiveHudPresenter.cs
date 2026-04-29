@@ -6,7 +6,11 @@ namespace Game.Feature.UI.Application
 {
     public sealed class ObjectiveHudPresenter
     {
-        private const int MaxHudSubGoalRows = 2;
+        private readonly Dictionary<string, bool> _previousSatisfiedByStableId =
+            new Dictionary<string, bool>(StringComparer.Ordinal);
+        private bool _hasPrevious;
+        private bool _previousComplete;
+        private int _sequenceId;
 
         public ObjectiveHudViewModel ViewModel { get; } = new();
 
@@ -14,24 +18,115 @@ namespace Game.Feature.UI.Application
         {
             if (!objective.HasObjective)
             {
-                ViewModel.SetState(
+                ViewModel.SetDropdownState(
                     false,
                     string.Empty,
                     string.Empty,
-                    Array.Empty<string>(),
+                    Array.Empty<ObjectiveConditionHudViewModel>(),
                     0,
-                    false);
+                    0,
+                    false,
+                    ObjectiveExpansionMode.Collapsed,
+                    ObjectiveDropdownAnimationHint.None);
+                _previousSatisfiedByStableId.Clear();
+                _hasPrevious = false;
+                _previousComplete = false;
                 return;
             }
 
-            var mainGoalText = ResolveMainGoalText(objective);
-            ViewModel.SetState(
+            var completedRequired = 0;
+            var totalRequired = 0;
+            var rows = BuildRows(objective, ref completedRequired, ref totalRequired, out var hasChangedRows);
+            var isComplete = objective.IsCleared || objective.AllConditionsSatisfied;
+            var pulseComplete = _hasPrevious && !_previousComplete && isComplete;
+            var hint = pulseComplete || hasChangedRows
+                ? new ObjectiveDropdownAnimationHint(pulseComplete, hasChangedRows, NextSequenceId())
+                : ObjectiveDropdownAnimationHint.None;
+            var expansionMode = ResolveExpansionMode(hasChangedRows, pulseComplete);
+
+            ViewModel.SetDropdownState(
                 true,
-                mainGoalText,
-                BuildProgressText(objective),
-                BuildHudSubGoalTexts(objective, mainGoalText, out var hiddenSubGoalCount),
-                hiddenSubGoalCount,
-                objective.IsCleared);
+                ResolveMainGoalText(objective),
+                objective.Summary,
+                rows,
+                completedRequired,
+                totalRequired,
+                isComplete,
+                expansionMode,
+                hint);
+
+            _previousSatisfiedByStableId.Clear();
+            for (var i = 0; i < rows.Count; i++)
+            {
+                _previousSatisfiedByStableId[rows[i].StableId] = rows[i].IsSatisfied;
+            }
+
+            _previousComplete = isComplete;
+            _hasPrevious = true;
+        }
+
+        public void ToggleExpanded()
+        {
+            ViewModel.ToggleExpanded();
+        }
+
+        private ObjectiveExpansionMode ResolveExpansionMode(
+            bool hasChangedRows,
+            bool pulseComplete)
+        {
+            if (ViewModel.ExpansionMode == ObjectiveExpansionMode.ManualExpanded)
+            {
+                return ObjectiveExpansionMode.ManualExpanded;
+            }
+
+            if (!_hasPrevious || hasChangedRows || pulseComplete)
+            {
+                return ObjectiveExpansionMode.AutoExpanded;
+            }
+
+            return ViewModel.ExpansionMode;
+        }
+
+        private IReadOnlyList<ObjectiveConditionHudViewModel> BuildRows(
+            UIObjectiveSlice objective,
+            ref int completedRequired,
+            ref int totalRequired,
+            out bool hasChangedRows)
+        {
+            hasChangedRows = false;
+            var conditions = new List<UIObjectiveConditionSlice>(objective.Conditions);
+            conditions.Sort(CompareConditions);
+            var rows = new List<ObjectiveConditionHudViewModel>(conditions.Count);
+
+            for (var i = 0; i < conditions.Count; i++)
+            {
+                var condition = conditions[i];
+                if (condition.Required)
+                {
+                    totalRequired++;
+                    if (condition.IsSatisfied)
+                    {
+                        completedRequired++;
+                    }
+                }
+
+                var stableId = ResolveStableId(condition, i);
+                var justSatisfied = _hasPrevious &&
+                    condition.IsSatisfied &&
+                    (!_previousSatisfiedByStableId.TryGetValue(stableId, out var wasSatisfied) || !wasSatisfied);
+                hasChangedRows |= justSatisfied;
+                rows.Add(new ObjectiveConditionHudViewModel(
+                    stableId,
+                    condition.TitleText,
+                    condition.IsSatisfied,
+                    condition.Required,
+                    MapHudRole(condition.Role),
+                    condition.ProgressText,
+                    justSatisfied,
+                    condition.SortOrder));
+            }
+
+            return rows;
         }
 
         private static string ResolveMainGoalText(UIObjectiveSlice objective)
@@ -68,88 +163,56 @@ namespace Game.Feature.UI.Application
             return string.Empty;
         }
 
-        private static string BuildProgressText(UIObjectiveSlice objective)
+        private int NextSequenceId()
         {
-            var conditions = objective.Conditions;
-            var totalRequired = 0;
-            var satisfiedRequired = 0;
-
-            for (var i = 0; i < conditions.Count; i++)
-            {
-                if (!conditions[i].Required)
-                {
-                    continue;
-                }
-
-                totalRequired++;
-                if (conditions[i].IsSatisfied)
-                {
-                    satisfiedRequired++;
-                }
-            }
-
-            return totalRequired > 0 ? $"{satisfiedRequired}/{totalRequired}" : string.Empty;
+            _sequenceId++;
+            return _sequenceId;
         }
 
-        private static IReadOnlyList<string> BuildHudSubGoalTexts(
-            UIObjectiveSlice objective,
-            string mainGoalText,
-            out int hiddenSubGoalCount)
+        private static ObjectiveConditionHudRole MapHudRole(UIObjectiveConditionRole role)
         {
-            var pending = new List<UIObjectiveConditionSlice>();
-            var done = new List<UIObjectiveConditionSlice>();
-            var conditions = objective.Conditions;
-            for (var i = 0; i < conditions.Count; i++)
+            switch (role)
             {
-                var condition = conditions[i];
-                if (!condition.Required || string.IsNullOrWhiteSpace(condition.TitleText))
-                {
-                    continue;
-                }
-
-                if (ShouldHideDuplicatedPrimaryGoal(objective, condition, mainGoalText))
-                {
-                    continue;
-                }
-
-                if (condition.IsSatisfied)
-                {
-                    done.Add(condition);
-                }
-                else
-                {
-                    pending.Add(condition);
-                }
+                case UIObjectiveConditionRole.PrimaryGoal:
+                    return ObjectiveConditionHudRole.PrimaryGoal;
+                case UIObjectiveConditionRole.SecondaryGoal:
+                    return ObjectiveConditionHudRole.SecondaryGoal;
+                case UIObjectiveConditionRole.Challenge:
+                    return ObjectiveConditionHudRole.Challenge;
+                case UIObjectiveConditionRole.None:
+                default:
+                    return ObjectiveConditionHudRole.None;
             }
-
-            var selected = new List<string>(MaxHudSubGoalRows);
-            AppendSubGoalRows(selected, pending);
-            AppendSubGoalRows(selected, done);
-
-            var totalDisplayable = pending.Count + done.Count;
-            hiddenSubGoalCount = Math.Max(0, totalDisplayable - selected.Count);
-            return selected;
         }
 
-        private static bool ShouldHideDuplicatedPrimaryGoal(
-            UIObjectiveSlice objective,
+        private static string ResolveStableId(
             UIObjectiveConditionSlice condition,
-            string mainGoalText)
+            int index)
         {
-            return string.IsNullOrWhiteSpace(objective.Title) &&
-                condition.Role == UIObjectiveConditionRole.PrimaryGoal &&
-                string.Equals(condition.TitleText, mainGoalText, StringComparison.Ordinal);
+            if (!string.IsNullOrWhiteSpace(condition.StableId))
+            {
+                return condition.StableId;
+            }
+
+            if (!string.IsNullOrWhiteSpace(condition.TitleText))
+            {
+                return condition.TitleText;
+            }
+
+            return $"row-{index}";
         }
 
-        private static void AppendSubGoalRows(
-            ICollection<string> destination,
-            IReadOnlyList<UIObjectiveConditionSlice> source)
+        private static int CompareConditions(
+            UIObjectiveConditionSlice left,
+            UIObjectiveConditionSlice right)
         {
-            for (var i = 0; i < source.Count && destination.Count < MaxHudSubGoalRows; i++)
+            var sortComparison = left.SortOrder.CompareTo(right.SortOrder);
+            if (sortComparison != 0)
             {
-                var condition = source[i];
-                destination.Add($"{(condition.IsSatisfied ? "[x]" : "[ ]")} {condition.TitleText}");
+                return sortComparison;
             }
+
+            return string.Compare(left.TitleText, right.TitleText, StringComparison.Ordinal);
         }
     }
 }

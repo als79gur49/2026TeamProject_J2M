@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.UIAccess.Models;
+using Game.Feature.Gameplay.UIAccess.Presentation;
 using Game.Feature.Stages;
 
 namespace Game.Feature.UI.Application
@@ -33,7 +34,8 @@ namespace Game.Feature.UI.Application
             int maxChances = 0,
             StageId stageId = default,
             string stageDisplayName = null,
-            GameplayObjectiveReadModel objective = default)
+            GameplayObjectiveReadModel objective = default,
+            GameplayTopologyPresentationSlice? topologyPresentation = null)
             : this(
                 tickIndex,
                 shouldUpdateTickIndex,
@@ -61,7 +63,8 @@ namespace Game.Feature.UI.Application
                 maxChances,
                 stageId,
                 stageDisplayName,
-                objective)
+                objective,
+                topologyPresentation)
         {
         }
 
@@ -92,7 +95,8 @@ namespace Game.Feature.UI.Application
             int maxChances = 0,
             StageId stageId = default,
             string stageDisplayName = null,
-            GameplayObjectiveReadModel objective = default)
+            GameplayObjectiveReadModel objective = default,
+            GameplayTopologyPresentationSlice? topologyPresentation = null)
         {
             TickIndex = tickIndex;
             ShouldUpdateTickIndex = shouldUpdateTickIndex;
@@ -122,6 +126,7 @@ namespace Game.Feature.UI.Application
             StageId = stageId;
             StageDisplayName = stageDisplayName ?? string.Empty;
             Objective = objective;
+            TopologyPresentation = topologyPresentation;
             RecoveryCooldown = recoveryCooldown;
         }
 
@@ -176,6 +181,8 @@ namespace Game.Feature.UI.Application
         public string StageDisplayName { get; }
 
         public GameplayObjectiveReadModel Objective { get; }
+
+        public GameplayTopologyPresentationSlice? TopologyPresentation { get; }
 
         public UIRecoveryCooldownSlice? RecoveryCooldown { get; }
     }
@@ -245,6 +252,8 @@ namespace Game.Feature.UI.Application
                 next.Interaction,
                 next.Stage,
                 next.Objective,
+                next.Chance,
+                next.Topology,
                 next.Player,
                 new UINotificationLedgerSlice(notifications));
 
@@ -270,6 +279,7 @@ namespace Game.Feature.UI.Application
                 refreshInput.StageId,
                 refreshInput.StageDisplayName);
             var objective = MapObjective(refreshInput.Objective);
+            var topology = MapTopology(tick, refreshInput);
             var player = new UIPlayerActionSlice(
                 refreshInput.PlayerEntityId,
                 refreshInput.CurrentHp,
@@ -296,6 +306,11 @@ namespace Game.Feature.UI.Application
                 interaction,
                 stage,
                 objective,
+                new UIChanceSlice(
+                    refreshInput.HasRemainingChances,
+                    refreshInput.RemainingChances,
+                    refreshInput.MaxChances),
+                topology,
                 player,
                 previous.Notifications);
         }
@@ -312,6 +327,8 @@ namespace Game.Feature.UI.Application
                         snapshot.Interaction,
                         snapshot.Stage,
                         snapshot.Objective,
+                        snapshot.Chance,
+                        snapshot.Topology,
                         new UIPlayerActionSlice(
                             snapshot.Player.PlayerEntityId,
                             snapshot.Player.CurrentHp,
@@ -340,6 +357,8 @@ namespace Game.Feature.UI.Application
                         snapshot.Interaction,
                         snapshot.Stage,
                         snapshot.Objective,
+                        snapshot.Chance,
+                        snapshot.Topology,
                         new UIPlayerActionSlice(
                             snapshot.Player.PlayerEntityId,
                             snapshot.Player.CurrentHp,
@@ -372,6 +391,10 @@ namespace Game.Feature.UI.Application
                         snapshot.Interaction,
                         snapshot.Stage,
                         snapshot.Objective,
+                        snapshot.Chance,
+                        UITopologySlice.FromTopology(
+                            snapshot.Tick.FinalTopology,
+                            snapshot.Tick.IsTopologyTransitionActive),
                         snapshot.Player,
                         snapshot.Notifications);
 
@@ -393,6 +416,7 @@ namespace Game.Feature.UI.Application
             {
                 var condition = sourceConditions[i];
                 conditions[i] = new UIObjectiveConditionSlice(
+                    condition.StableId,
                     condition.TitleText,
                     condition.ProgressText,
                     condition.IsSatisfied,
@@ -409,6 +433,27 @@ namespace Game.Feature.UI.Application
                 objective.AllConditionsSatisfied,
                 objective.IsCleared,
                 conditions);
+        }
+
+        private static UITopologySlice MapTopology(
+            UITickSlice tick,
+            UIStateRefreshInput refreshInput)
+        {
+            if (refreshInput.TopologyPresentation.HasValue)
+            {
+                var topology = refreshInput.TopologyPresentation.Value;
+                return UITopologySlice.FromTopology(
+                    tick.FinalTopology,
+                    refreshInput.IsTopologyTransitionActive,
+                    topology.SourceTopology,
+                    topology.DestinationTopology,
+                    progress01: 0.0f);
+            }
+
+            return UITopologySlice.FromTopology(
+                tick.FinalTopology,
+                refreshInput.IsTopologyTransitionActive,
+                progress01: refreshInput.IsTopologyTransitionActive ? 0.0f : 1.0f);
         }
 
         private static UIObjectiveConditionRole MapObjectiveRole(GameplayObjectiveConditionRole role)

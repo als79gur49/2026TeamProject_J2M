@@ -9,18 +9,24 @@ namespace Game.Feature.UI.Application
         private readonly IGameplayUiPresentationSource _presentationSource;
         private readonly StageInfoPresenter _stageInfoPresenter;
         private readonly ObjectiveHudPresenter _objectiveHudPresenter;
+        private readonly ChancePanelPresenter _chancePanelPresenter;
+        private readonly TopologyHudPresenter _topologyHudPresenter;
         private readonly NotificationPresenter _notificationPresenter;
 
         public HUDRootPresenter(
             IGameplayUiPresentationSource presentationSource,
             StageInfoPresenter stageInfoPresenter,
             ObjectiveHudPresenter objectiveHudPresenter,
+            ChancePanelPresenter chancePanelPresenter,
+            TopologyHudPresenter topologyHudPresenter,
             PlayerStatusPresenter playerStatusPresenter,
             NotificationPresenter notificationPresenter)
         {
             _presentationSource = presentationSource ?? throw new ArgumentNullException(nameof(presentationSource));
             _stageInfoPresenter = stageInfoPresenter ?? throw new ArgumentNullException(nameof(stageInfoPresenter));
             _objectiveHudPresenter = objectiveHudPresenter ?? throw new ArgumentNullException(nameof(objectiveHudPresenter));
+            _chancePanelPresenter = chancePanelPresenter ?? throw new ArgumentNullException(nameof(chancePanelPresenter));
+            _topologyHudPresenter = topologyHudPresenter ?? throw new ArgumentNullException(nameof(topologyHudPresenter));
             _playerStatusPresenter = playerStatusPresenter ?? throw new ArgumentNullException(nameof(playerStatusPresenter));
             _notificationPresenter = notificationPresenter ?? throw new ArgumentNullException(nameof(notificationPresenter));
 
@@ -28,6 +34,23 @@ namespace Game.Feature.UI.Application
             _presentationSource.SnapshotChanged += HandleSnapshotChanged;
 
             ApplySnapshot(_presentationSource.CurrentSnapshot);
+        }
+
+        public HUDRootPresenter(
+            IGameplayUiPresentationSource presentationSource,
+            StageInfoPresenter stageInfoPresenter,
+            ObjectiveHudPresenter objectiveHudPresenter,
+            PlayerStatusPresenter playerStatusPresenter,
+            NotificationPresenter notificationPresenter)
+            : this(
+                presentationSource,
+                stageInfoPresenter,
+                objectiveHudPresenter,
+                new ChancePanelPresenter(),
+                new TopologyHudPresenter(),
+                playerStatusPresenter,
+                notificationPresenter)
+        {
         }
 
         public HUDRootViewModel ViewModel { get; }
@@ -59,6 +82,8 @@ namespace Game.Feature.UI.Application
 
             _stageInfoPresenter.Apply(snapshot.Stage);
             _objectiveHudPresenter.Apply(snapshot.Objective);
+            _chancePanelPresenter.Apply(snapshot.Chance);
+            _topologyHudPresenter.Apply(snapshot.Topology);
             _playerStatusPresenter.Apply(snapshot.Tick, snapshot.Interaction, snapshot.Player);
             _notificationPresenter.Apply(snapshot.Notifications);
         }

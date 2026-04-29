@@ -1,4 +1,3 @@
-using System.Text;
 using TMPro;
 using UnityEngine;
 
@@ -6,11 +5,6 @@ namespace Game.Feature.UI.HUD
 {
     public sealed class PlayerStatusView : MonoBehaviour
     {
-        private const char FilledHeart = '\u2665';
-        private const char EmptyHeart = '\u2661';
-        private const string FilledHeartColor = "#E94B68";
-        private const string EmptyHeartColor = "#536071";
-
         [SerializeField] private GameObject _root;
         [SerializeField] private TMP_Text _titleLabel;
         [SerializeField] private TMP_Text _facingLabel;
@@ -70,14 +64,28 @@ namespace Game.Feature.UI.HUD
 
             if (_titleLabel != null)
             {
-                _titleLabel.text = "Player";
+                _titleLabel.gameObject.SetActive(false);
+                _titleLabel.text = string.Empty;
             }
 
             if (_viewModel == null)
             {
+                if (_facingLabel != null)
+                {
+                    _facingLabel.gameObject.SetActive(false);
+                    _facingLabel.text = string.Empty;
+                }
+
+                if (_topologyLabel != null)
+                {
+                    _topologyLabel.gameObject.SetActive(false);
+                    _topologyLabel.text = string.Empty;
+                }
+
                 if (_chancesLabel != null)
                 {
                     _chancesLabel.gameObject.SetActive(false);
+                    _chancesLabel.text = string.Empty;
                 }
 
                 return;
@@ -85,52 +93,21 @@ namespace Game.Feature.UI.HUD
 
             if (_facingLabel != null)
             {
-                _facingLabel.text = $"Facing: {_viewModel.FacingText}";
+                _facingLabel.gameObject.SetActive(false);
+                _facingLabel.text = string.Empty;
             }
 
             if (_topologyLabel != null)
             {
-                _topologyLabel.text = $"Topology: {_viewModel.TopologyText}";
+                _topologyLabel.gameObject.SetActive(false);
+                _topologyLabel.text = string.Empty;
             }
 
             if (_chancesLabel != null)
             {
-                _chancesLabel.gameObject.SetActive(_viewModel.HasRemainingChances);
-                _chancesLabel.text = _viewModel.HasRemainingChances
-                    ? BuildChancesText(_viewModel.RemainingChances, _viewModel.MaxChances)
-                    : string.Empty;
+                _chancesLabel.gameObject.SetActive(false);
+                _chancesLabel.text = string.Empty;
             }
-        }
-
-        private static string BuildChancesText(int remainingChances, int maxChances)
-        {
-            var builder = new StringBuilder("Chances: ");
-            for (var i = 0; i < maxChances; i++)
-            {
-                if (i > 0)
-                {
-                    builder.Append(' ');
-                }
-
-                if (i < remainingChances)
-                {
-                    builder.Append("<color=")
-                        .Append(FilledHeartColor)
-                        .Append('>')
-                        .Append(FilledHeart)
-                        .Append("</color>");
-                }
-                else
-                {
-                    builder.Append("<color=")
-                        .Append(EmptyHeartColor)
-                        .Append('>')
-                        .Append(EmptyHeart)
-                        .Append("</color>");
-                }
-            }
-
-            return builder.ToString();
         }
 
 #if UNITY_EDITOR

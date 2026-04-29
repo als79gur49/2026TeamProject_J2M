@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using DG.Tweening;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -12,8 +15,26 @@ namespace Game.Feature.UI.HUD
         [SerializeField] private GameObject _root;
         [SerializeField] private TMP_Text _objectiveLabel;
         [SerializeField] private Button _dropdownButton;
+        [SerializeField] private TMP_Text _eyebrowText;
+        [SerializeField] private TMP_Text _titleText;
+        [SerializeField] private TMP_Text _progressPillText;
+        [SerializeField] private Image _progressBar;
+        [SerializeField] private RectTransform _chevronIcon;
+        [SerializeField] private CanvasGroup _bodyCanvasGroup;
+        [SerializeField] private RectTransform _bodyRoot;
+        [SerializeField] private TMP_Text _summaryText;
+        [SerializeField] private RectTransform _conditionListRoot;
+        [SerializeField] private ObjectiveConditionRowView _conditionRowTemplate;
+        [SerializeField] private TMP_Text _footerStatusText;
+        [SerializeField] private GameObject _completeBadge;
 
+        private readonly List<ObjectiveConditionRowView> _rowPool = new List<ObjectiveConditionRowView>();
         private ObjectiveHudViewModel _viewModel;
+        private Sequence _bodySequence;
+        private Tween _completePulseTween;
+        private int _lastAnimationSequenceId;
+
+        public event Action ExpandToggleRequested;
 
         public ObjectiveHudViewModel ViewModel => _viewModel;
 
@@ -35,6 +56,12 @@ namespace Game.Feature.UI.HUD
 
         public void ClickDropdown()
         {
+            if (ExpandToggleRequested != null)
+            {
+                ExpandToggleRequested.Invoke();
+                return;
+            }
+
             _viewModel?.ToggleExpanded();
         }
 
@@ -46,6 +73,7 @@ namespace Game.Feature.UI.HUD
 
         private void OnDisable()
         {
+            KillTweens();
             UnbindButton(_dropdownButton, ClickDropdown);
         }
 
@@ -61,6 +89,7 @@ namespace Game.Feature.UI.HUD
         private void OnDestroy()
         {
             UnbindButton(_dropdownButton, ClickDropdown);
+            KillTweens();
             if (_viewModel != null)
             {
                 _viewModel.Changed -= HandleViewModelChanged;
@@ -80,14 +109,15 @@ namespace Game.Feature.UI.HUD
                 _root.SetActive(isVisible);
             }
 
-            if (_objectiveLabel == null)
-            {
-                return;
-            }
-
             if (_dropdownButton != null)
             {
                 _dropdownButton.interactable = isVisible && _viewModel != null && _viewModel.CanExpand;
+            }
+
+            RefreshStructuredDropdown(isVisible);
+            if (_objectiveLabel == null)
+            {
+                return;
             }
 
             _objectiveLabel.textWrappingMode = _viewModel != null && _viewModel.IsExpanded
@@ -100,6 +130,176 @@ namespace Game.Feature.UI.HUD
                 ? ParseColor(CompleteColor)
                 : ParseColor(ActiveColor);
             _objectiveLabel.text = isVisible ? _viewModel.ObjectiveText : string.Empty;
+        }
+
+        private void RefreshStructuredDropdown(bool isVisible)
+        {
+            if (_viewModel == null)
+            {
+                return;
+            }
+
+            if (_eyebrowText != null)
+            {
+                _eyebrowText.text = "OBJECTIVE";
+            }
+
+            if (_titleText != null)
+            {
+                _titleText.text = isVisible ? _viewModel.Title : string.Empty;
+                _titleText.textWrappingMode = TextWrappingModes.NoWrap;
+                _titleText.overflowMode = TextOverflowModes.Ellipsis;
+            }
+
+            if (_progressPillText != null)
+            {
+                _progressPillText.text = _viewModel.ProgressText;
+                _progressPillText.gameObject.SetActive(isVisible && !string.IsNullOrWhiteSpace(_viewModel.ProgressText));
+            }
+
+            if (_progressBar != null)
+            {
+                _progressBar.fillAmount = _viewModel.Progress01;
+            }
+
+            if (_summaryText != null)
+            {
+                _summaryText.text = _viewModel.IsExpanded ? _viewModel.Summary : string.Empty;
+                _summaryText.gameObject.SetActive(_viewModel.IsExpanded && !string.IsNullOrWhiteSpace(_viewModel.Summary));
+            }
+
+            if (_footerStatusText != null)
+            {
+                _footerStatusText.text = _viewModel.IsComplete ? "Complete" : string.Empty;
+                _footerStatusText.gameObject.SetActive(_viewModel.IsExpanded || _viewModel.IsComplete);
+            }
+
+            if (_completeBadge != null)
+            {
+                _completeBadge.SetActive(_viewModel.ShowCompleteBadge);
+            }
+
+            if (_chevronIcon != null)
+            {
+                _chevronIcon.localRotation = Quaternion.Euler(0.0f, 0.0f, _viewModel.IsExpanded ? 180.0f : 0.0f);
+            }
+
+            RefreshRows();
+            RefreshBodyVisibility();
+            PlayCompletePulseIfNeeded();
+        }
+
+        private void RefreshRows()
+        {
+            if (_conditionListRoot == null)
+            {
+                return;
+            }
+
+            EnsureRowTemplate();
+            var rows = _viewModel.Rows;
+            while (_rowPool.Count < rows.Count)
+            {
+                _rowPool.Add(CreateRow(_rowPool.Count));
+            }
+
+            for (var i = 0; i < _rowPool.Count; i++)
+            {
+                var active = _viewModel.IsExpanded && i < rows.Count;
+                _rowPool[i].gameObject.SetActive(active);
+                if (active)
+                {
+                    _rowPool[i].Bind(rows[i], HudAnimationSettings.Default);
+                }
+            }
+        }
+
+        private void EnsureRowTemplate()
+        {
+            if (_conditionRowTemplate != null)
+            {
+                return;
+            }
+
+            var template = new GameObject("ObjectiveConditionRowTemplate", typeof(RectTransform), typeof(ObjectiveConditionRowView));
+            template.transform.SetParent(_conditionListRoot, false);
+            _conditionRowTemplate = template.GetComponent<ObjectiveConditionRowView>();
+            _conditionRowTemplate.gameObject.SetActive(false);
+        }
+
+        private ObjectiveConditionRowView CreateRow(int index)
+        {
+            var rowObject = Instantiate(_conditionRowTemplate.gameObject, _conditionListRoot);
+            rowObject.name = $"ObjectiveConditionRowView {index}";
+            rowObject.SetActive(false);
+            return rowObject.GetComponent<ObjectiveConditionRowView>();
+        }
+
+        private void RefreshBodyVisibility()
+        {
+            if (_bodyRoot != null)
+            {
+                _bodyRoot.gameObject.SetActive(_viewModel.IsExpanded);
+            }
+
+            if (_bodyCanvasGroup == null)
+            {
+                return;
+            }
+
+            KillBodySequence();
+            _bodyCanvasGroup.alpha = _viewModel.IsExpanded ? 1.0f : 0.0f;
+        }
+
+        private void PlayCompletePulseIfNeeded()
+        {
+            var hint = _viewModel.AnimationHint;
+            if (!hint.PulseComplete ||
+                hint.SequenceId <= 0 ||
+                hint.SequenceId == _lastAnimationSequenceId)
+            {
+                return;
+            }
+
+            _lastAnimationSequenceId = hint.SequenceId;
+            if (_completeBadge == null)
+            {
+                return;
+            }
+
+            KillCompletePulse();
+            _completePulseTween = _completeBadge.transform
+                .DOPunchScale(Vector3.one * 0.12f, 0.32f, 8, 0.75f)
+                .SetUpdate(true)
+                .SetLink(_completeBadge, LinkBehaviour.KillOnDestroy);
+        }
+
+        private void KillTweens()
+        {
+            KillBodySequence();
+            KillCompletePulse();
+        }
+
+        private void KillBodySequence()
+        {
+            if (_bodySequence == null)
+            {
+                return;
+            }
+
+            _bodySequence.Kill(false);
+            _bodySequence = null;
+        }
+
+        private void KillCompletePulse()
+        {
+            if (_completePulseTween == null)
+            {
+                return;
+            }
+
+            _completePulseTween.Kill(false);
+            _completePulseTween = null;
         }
 
         private static Color ParseColor(string htmlString)

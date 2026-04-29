@@ -45,7 +45,7 @@ MonoBehaviour:
     binding:
       definition: {fileID: 11400000, guid: 5558d6ac1b5a4d8082272ee7bb032762, type: 2}
       attachmentSlot:
-        id: 
+        id:
       policy:
         rid: -2
   - cueId: 5
@@ -60,6 +60,41 @@ MonoBehaviour:
       definition: {fileID: 11400000, guid: 01b347712c584f47ad3d10b3bcf99d77, type: 2}
       attachmentSlot:
         id: 
+      policy:
+        rid: -2
+  - cueId: 7
+    binding:
+      definition: {fileID: 11400000, guid: 5558d6ac1b5a4d8082272ee7bb032762, type: 2}
+      attachmentSlot:
+        id:
+      policy:
+        rid: -2
+  - cueId: 8
+    binding:
+      definition: {fileID: 11400000, guid: 5558d6ac1b5a4d8082272ee7bb032762, type: 2}
+      attachmentSlot:
+        id:
+      policy:
+        rid: -2
+  - cueId: 9
+    binding:
+      definition: {fileID: 11400000, guid: 5558d6ac1b5a4d8082272ee7bb032762, type: 2}
+      attachmentSlot:
+        id:
+      policy:
+        rid: -2
+  - cueId: 10
+    binding:
+      definition: {fileID: 11400000, guid: 5558d6ac1b5a4d8082272ee7bb032762, type: 2}
+      attachmentSlot:
+        id:
+      policy:
+        rid: -2
+  - cueId: 11
+    binding:
+      definition: {fileID: 11400000, guid: 5558d6ac1b5a4d8082272ee7bb032762, type: 2}
+      attachmentSlot:
+        id:
       policy:
         rid: -2
   references:

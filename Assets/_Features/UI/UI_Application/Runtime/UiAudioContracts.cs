@@ -9,6 +9,11 @@ namespace Game.Feature.UI.Application
         Select = 4,
         Toggle = 5,
         AdjustValueCommit = 6,
+        ChanceGain = 7,
+        ChanceLoss = 8,
+        LastChance = 9,
+        ObjectiveComplete = 10,
+        TopologyShift = 11,
     }
 
     public interface IUiAudioPort
