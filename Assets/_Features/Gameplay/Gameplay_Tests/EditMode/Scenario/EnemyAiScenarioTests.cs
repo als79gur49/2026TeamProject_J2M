@@ -3406,6 +3406,521 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
+        public void EnemyMovesIntoPlayer_FlagOff_LegacyImmediateContact()
+        {
+            var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var enemySourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: enemySourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+            });
+            var profile = CreateContactDamageProfile();
+
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+                var result = pipeline.RunTick(new TickInput(1));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+                Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(
+                    SemanticEventAssertions.ContainsEvent(
+                        result.MovementPhaseResult.CommitEvents,
+                        "MoveCommitted",
+                        "E=40",
+                        "To=(0,0)",
+                        "Facing=Left"),
+                    Is.True,
+                    BuildContactTimingDebug(1, "Enemy", 40, 10, snapshot, result));
+                Assert.That(enemy.position, Is.EqualTo(playerCell), BuildContactTimingDebug(1, "Enemy", 40, 10, snapshot, result));
+                Assert.That(player.position, Is.EqualTo(playerCell));
+                Assert.That(snapshot.TryGetUnitKinematicState(40, out _), Is.False);
+                Assert.That(
+                    HasAcceptedPassiveContact(result, 40, 10),
+                    Is.True,
+                    BuildContactTimingDebug(1, "Enemy", 40, 10, snapshot, result));
+                Assert.That(player.hp, Is.EqualTo(2));
+                Assert.That(
+                    result.EventLog.Any(entry =>
+                        entry.Contains("DamageCommitted", StringComparison.Ordinal) &&
+                        entry.Contains("SourceKind=PassiveContact", StringComparison.Ordinal) &&
+                        entry.Contains("Target=10", StringComparison.Ordinal)),
+                    Is.True);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyMovesIntoPlayer_FlagOff_ViewStillMoving_LogicAlreadyContact()
+        {
+            var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var enemySourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: enemySourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+            });
+            var profile = CreateContactDamageProfile();
+
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+                var result = pipeline.RunTick(new TickInput(1));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+                Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(enemy.position, Is.EqualTo(playerCell), BuildContactTimingDebug(1, "Enemy", 40, 10, snapshot, result));
+                Assert.That(player.position, Is.EqualTo(playerCell));
+                Assert.That(
+                    HasAcceptedPassiveContact(result, 40, 10),
+                    Is.True,
+                    BuildContactTimingDebug(1, "Enemy", 40, 10, snapshot, result));
+                Assert.That(
+                    result.PresentationData.EntityMotions.Any(motion =>
+                        motion.EntityId == 40 &&
+                        motion.MotionKind == TickEntityMotionKind.Move &&
+                        motion.SourceCell == enemySourceCell &&
+                        motion.DestinationCell == playerCell),
+                    Is.True,
+                    BuildContactTimingDebug(1, "Enemy", 40, 10, snapshot, result));
+                Assert.That(result.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40), Is.False);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyMovesIntoPlayer_Kinematic_NoContactBeforeCommit()
+        {
+            var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var enemySourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: enemySourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+            });
+            var profile = CreateContactDamageProfile();
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled);
+
+                for (var tick = 1; tick <= 9; tick++)
+                {
+                    var result = pipeline.RunTick(new TickInput(tick));
+                    var snapshot = worldState.CreateSnapshot();
+
+                    Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+                    Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
+                    Assert.That(enemy.position, Is.EqualTo(enemySourceCell), BuildContactTimingDebug(tick, "Enemy", 40, 10, snapshot, result));
+                    Assert.That(player.position, Is.EqualTo(playerCell));
+                    Assert.That(snapshot.TryGetUnitKinematicState(40, out var enemyKinematic), Is.True);
+                    Assert.That(enemyKinematic.mode, Is.EqualTo(MotionMode.Voluntary));
+                    Assert.That(
+                        HasAcceptedPassiveContact(result, 40, 10),
+                        Is.False,
+                        BuildContactTimingDebug(tick, "Enemy", 40, 10, snapshot, result));
+                    Assert.That(player.hp, Is.EqualTo(3));
+                }
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyMovesIntoPlayer_Kinematic_ContactAtCommit()
+        {
+            var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var enemySourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: enemySourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+            });
+            var profile = CreateContactDamageProfile();
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled);
+
+                TickResult result = null;
+                for (var tick = 1; tick <= 10; tick++)
+                {
+                    result = pipeline.RunTick(new TickInput(tick));
+                }
+
+                var snapshot = worldState.CreateSnapshot();
+                Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+                Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(enemy.position, Is.EqualTo(playerCell), BuildContactTimingDebug(10, "Enemy", 40, 10, snapshot, result));
+                Assert.That(player.position, Is.EqualTo(playerCell));
+                Assert.That(snapshot.TryGetUnitKinematicState(40, out var state), Is.True);
+                Assert.That(state.mode, Is.EqualTo(MotionMode.Voluntary));
+                Assert.That(state.elapsedTicks, Is.EqualTo(10));
+                Assert.That(state.commitTick, Is.EqualTo(10));
+                Assert.That(
+                    result.MovementPhaseResult.CommitEvents.Any(entry =>
+                        entry.Contains("KinematicAnchorCommitted", StringComparison.Ordinal) &&
+                        entry.Contains("E=40", StringComparison.Ordinal) &&
+                        entry.Contains("To=(0,0)", StringComparison.Ordinal)),
+                    Is.True);
+                Assert.That(
+                    HasAcceptedPassiveContact(result, 40, 10),
+                    Is.True,
+                    BuildContactTimingDebug(10, "Enemy", 40, 10, snapshot, result));
+                Assert.That(player.hp, Is.EqualTo(2));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyMovesIntoPlayer_Kinematic_ViewUsesKinematicTrack()
+        {
+            var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var enemySourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: enemySourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+            });
+            var profile = CreateContactDamageProfile();
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled);
+                var result = pipeline.RunTick(new TickInput(1));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetUnitKinematicState(40, out var state), Is.True);
+                Assert.That(state.mode, Is.EqualTo(MotionMode.Voluntary));
+                Assert.That(
+                    result.PresentationData.KinematicMotionTracks.Any(track =>
+                        track.EntityId == 40 &&
+                        track.SourceAnchorCell == enemySourceCell &&
+                        track.DestinationAnchorCell == enemySourceCell &&
+                        track.MotionMode == MotionMode.Voluntary),
+                    Is.True,
+                    BuildContactTimingDebug(1, "Enemy", 40, 10, snapshot, result));
+                Assert.That(
+                    result.PresentationData.EntityMotions.Any(motion => motion.EntityId == 40),
+                    Is.False,
+                    BuildContactTimingDebug(1, "Enemy", 40, 10, snapshot, result));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyChase_KinematicContinuation_DoesNotReplanEachTick()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+            });
+            var profile = CreateContactDamageProfile();
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled);
+                var firstTick = pipeline.RunTick(new TickInput(1));
+                var secondTick = pipeline.RunTick(new TickInput(2));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(firstTick.MovementPhaseResult.RawIntents.Any(intent => intent.SourceId == 40), Is.True);
+                Assert.That(secondTick.MovementPhaseResult.RawIntents.Any(intent => intent.SourceId == 40), Is.False);
+                Assert.That(secondTick.MovementPhaseResult.SortedIntents.Any(intent => intent.SourceId == 40), Is.False);
+                Assert.That(snapshot.TryGetUnitKinematicState(40, out var state), Is.True);
+                Assert.That(state.elapsedTicks, Is.EqualTo(2));
+                Assert.That(
+                    secondTick.MovementPhaseResult.CommitEvents.Any(entry =>
+                        entry.Contains("KinematicPoseCommitted", StringComparison.Ordinal) &&
+                        entry.Contains("E=40", StringComparison.Ordinal)),
+                    Is.True);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyPatrol_KinematicMovement()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0)));
+            var profile = CreateNonAttackingEnemyProfile();
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled);
+                var result = pipeline.RunTick(new TickInput(1));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(result.MovementPhaseResult.RawIntents.Any(intent => intent.SourceId == 40), Is.True);
+                Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(enemy.position, Is.EqualTo(sourceCell));
+                Assert.That(snapshot.TryGetUnitKinematicState(40, out var state), Is.True);
+                Assert.That(state.mode, Is.EqualTo(MotionMode.Voluntary));
+                Assert.That(state.stepDirectionX, Is.EqualTo(1));
+                Assert.That(state.stepDirectionY, Is.EqualTo(0));
+                Assert.That(
+                    result.PresentationData.KinematicMotionTracks.Any(track =>
+                        track.EntityId == 40 &&
+                        track.MotionMode == MotionMode.Voluntary),
+                    Is.True);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyCharge_NotMigrated()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), hp: 5),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Charge, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
+            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 0);
+            worldState.CreateWriteContext().SetEnemyChargeState(
+                40,
+                new EnemyChargeRuntimeState
+                {
+                    phase = EnemyChargePhase.Active,
+                    sequence = 1,
+                    lockedDirection = Direction.Right,
+                    remainingActiveSteps = 2,
+                });
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled);
+                var result = pipeline.RunTick(new TickInput(1));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
+                Assert.That(snapshot.TryGetUnitKinematicState(40, out _), Is.False);
+                Assert.That(result.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40), Is.False);
+                Assert.That(
+                    result.PresentationData.EntityMotions.Any(motion =>
+                        motion.EntityId == 40 &&
+                        motion.MotionKind == TickEntityMotionKind.ChargeMove),
+                    Is.True);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJump_NotMigrated()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1);
+            worldState.CreateWriteContext().SetEnemyJumpState(
+                40,
+                new EnemyJumpRuntimeState
+                {
+                    phase = EnemyJumpPhase.Windup,
+                    sequence = 1,
+                    sourceCell = new SurfaceCell(FaceId.Floor, 0, 0),
+                    lockedTargetCell = new SurfaceCell(FaceId.Floor, 2, 0),
+                    windupEndTick = 2,
+                    landingTick = 3,
+                });
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled);
+                var result = pipeline.RunTick(new TickInput(1));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetUnitKinematicState(40, out _), Is.False);
+                Assert.That(result.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40), Is.False);
+                Assert.That(snapshot.TryGetEnemyJumpState(40, out var jumpState), Is.True);
+                Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Windup));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyPhase_NotMigrated()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var pipeline = CreateEnemyPipeline(
+                worldState,
+                CreatePhaseThroughLockedTargetDefinition(windupTicks: 1),
+                GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled);
+
+            pipeline.RunTick(new TickInput(1));
+            var result = pipeline.RunTick(new TickInput(2));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
+            Assert.That(enemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
+            Assert.That(snapshot.TryGetUnitKinematicState(40, out _), Is.False);
+            Assert.That(result.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40), Is.False);
+            Assert.That(result.Trace.Text, Does.Contain("EnemyPhaseRelocation|E=40|Label=Committed"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PassiveContact_CommitTickOnly()
+        {
+            var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+            });
+            var profile = CreateContactDamageProfile();
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled);
+                TickResult result = null;
+
+                for (var tick = 1; tick <= 9; tick++)
+                {
+                    result = pipeline.RunTick(new TickInput(tick));
+                    Assert.That(HasAcceptedPassiveContact(result, 40, 10), Is.False);
+                }
+
+                result = pipeline.RunTick(new TickInput(10));
+                var snapshot = worldState.CreateSnapshot();
+                Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(enemy.position, Is.EqualTo(playerCell));
+                Assert.That(HasAcceptedPassiveContact(result, 40, 10), Is.True);
+                Assert.That(
+                    result.MovementPhaseResult.CommitEvents.Any(entry =>
+                        entry.Contains("KinematicAnchorCommitted", StringComparison.Ordinal) &&
+                        entry.Contains("E=40", StringComparison.Ordinal)),
+                    Is.True);
+                Assert.That(
+                    result.EventLog.Any(entry =>
+                        entry.Contains("DamageCommitted", StringComparison.Ordinal) &&
+                        entry.Contains("SourceKind=PassiveContact", StringComparison.Ordinal) &&
+                        entry.Contains("Target=10", StringComparison.Ordinal)),
+                    Is.True);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyDeathDuringKinematicMove()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 1, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+            });
+            var profile = CreateContactDamageProfile();
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled,
+                    new ScriptedAttackLogic(10, 40));
+                var result = pipeline.RunTick(new TickInput(1));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetEntity(40, out _), Is.False);
+                Assert.That(snapshot.TryGetUnitKinematicState(40, out _), Is.False);
+                Assert.That(result.EventLog.Any(entry => entry.Contains("CleanupRemoved|E=40", StringComparison.Ordinal)), Is.True);
+                Assert.That(result.EventLog.Any(entry => entry.Contains("KinematicPoseRemoved|E=40", StringComparison.Ordinal)), Is.True);
+                Assert.That(result.EventLog.Any(entry => entry.Contains("PlayerRespawnDelayStarted|E=40", StringComparison.Ordinal)), Is.False);
+                Assert.That(
+                    result.PresentationData.KinematicMotionTracks.Any(track =>
+                        track.EntityId == 40 &&
+                        track.EntityType == EntityType.Unit &&
+                        track.TerminalKind == TickKinematicMotionTerminalKind.Removed),
+                    Is.True);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void EnemyAi_ContactDamageProfile_AlreadySharingPlayerCell_DealsDamageWithoutMoving()
         {
@@ -4836,6 +5351,61 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return EnemyAiProfileTestFactory.CreateContactDamage(moveCooldownTicks, recoverTicks);
         }
 
+        private static bool HasAcceptedPassiveContact(TickResult result, int sourceId, int targetId)
+        {
+            return result.AttackPhaseResult.DamageResolutions.Any(
+                record => record.Accepted &&
+                          record.SourceId == sourceId &&
+                          record.TargetId == targetId &&
+                          record.SourceKind == AttackSourceKind.PassiveContact);
+        }
+
+        private static string BuildContactTimingDebug(
+            int tick,
+            string mover,
+            int moverId,
+            int targetId,
+            WorldSnapshot snapshot,
+            TickResult result)
+        {
+            snapshot.TryGetEntity(10, out var player);
+            snapshot.TryGetEntity(40, out var enemy);
+            var hasPlayerKinematic = snapshot.TryGetUnitKinematicState(10, out var playerKinematic);
+            var hasEnemyKinematic = snapshot.TryGetUnitKinematicState(40, out var enemyKinematic);
+            var hasSameCellContact = player.entityId != 0 &&
+                                     enemy.entityId != 0 &&
+                                     player.position == enemy.position;
+            var damageApplied = result.AttackPhaseResult.DamageResolutions.Any(record => record.Accepted);
+            var presentationSource = ResolvePresentationSource(result, moverId, out var viewPose);
+
+            return $"ContactTimingDebug|Tick={tick}|Mover={mover}|MoverId={moverId}|TargetId={targetId}" +
+                   $"|MoverAnchor={(moverId == 10 ? player.position.ToString() : enemy.position.ToString())}" +
+                   $"|MoverKinematicMode={(moverId == 10 && hasPlayerKinematic ? playerKinematic.mode.ToString() : moverId == 40 && hasEnemyKinematic ? enemyKinematic.mode.ToString() : "None")}" +
+                   $"|MoverLocal={(moverId == 10 && hasPlayerKinematic ? $"{playerKinematic.localOffset.X.RawValue},{playerKinematic.localOffset.Y.RawValue}" : moverId == 40 && hasEnemyKinematic ? $"{enemyKinematic.localOffset.X.RawValue},{enemyKinematic.localOffset.Y.RawValue}" : "None")}" +
+                   $"|EnemyAnchor={enemy.position}|PlayerAnchor={player.position}|HasSameCellContact={(hasSameCellContact ? 1 : 0)}" +
+                   $"|DamageApplied={(damageApplied ? 1 : 0)}|ViewPose={viewPose}|PresentationSource={presentationSource}";
+        }
+
+        private static string ResolvePresentationSource(TickResult result, int entityId, out string viewPose)
+        {
+            var kinematicTrack = result.PresentationData.KinematicMotionTracks.FirstOrDefault(track => track.EntityId == entityId);
+            if (kinematicTrack.EntityId == entityId)
+            {
+                viewPose = $"{kinematicTrack.SourceAnchorCell}->{kinematicTrack.DestinationAnchorCell}|Local={kinematicTrack.SourceLocalOffset}->{kinematicTrack.DestinationLocalOffset}";
+                return "kinematic";
+            }
+
+            var legacyMotion = result.PresentationData.EntityMotions.FirstOrDefault(motion => motion.EntityId == entityId);
+            if (legacyMotion.EntityId == entityId)
+            {
+                viewPose = $"{legacyMotion.SourceCell}->{legacyMotion.DestinationCell}";
+                return "legacy TickEntityMotion";
+            }
+
+            viewPose = "committed";
+            return "committed fallback";
+        }
+
         private static int CountPatrolStateUpdates(string traceText, int entityId)
         {
             if (string.IsNullOrEmpty(traceText))
@@ -4867,6 +5437,46 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Array.Empty<IEntityLogic>(),
                 timingProfile,
                 playerTiming);
+        }
+
+        private static TickPipeline CreateEnemyPipeline(
+            WorldState worldState,
+            EnemyAiProfile profile,
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags,
+            params IEntityLogic[] entityLogics)
+        {
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            var playerTiming = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                timingProfile.SimulationTicksPerSecond,
+                timingProfile.RepeatedMoveIntervalSeconds);
+
+            return GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
+                worldState,
+                entityLogics ?? Array.Empty<IEntityLogic>(),
+                timingProfile,
+                playerTiming,
+                runtimeFeatureFlags: runtimeFeatureFlags);
+        }
+
+        private static TickPipeline CreateEnemyPipeline(
+            WorldState worldState,
+            EnemyAiRuntimeDefinition runtimeDefinition,
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags,
+            params IEntityLogic[] entityLogics)
+        {
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            var playerTiming = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                timingProfile.SimulationTicksPerSecond,
+                timingProfile.RepeatedMoveIntervalSeconds);
+
+            return new GameplayBootstrapper(
+                    GameplayEntityLogicProviderFactory.CreateDefault(runtimeDefinition))
+                .CreateTickPipeline(
+                    worldState,
+                    entityLogics ?? Array.Empty<IEntityLogic>(),
+                    timingProfile,
+                    playerTiming,
+                    runtimeFeatureFlags: runtimeFeatureFlags);
         }
 
         private static TickResult RunPrimedSameCellCombatPassiveTick(EnemyAiProfile profile)
