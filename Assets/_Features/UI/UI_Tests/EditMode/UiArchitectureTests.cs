@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
@@ -85,6 +86,7 @@ namespace Game.Feature.UI.Tests
             {
                 typeof(HUDRootPresenter).Assembly,
                 typeof(StageInfoPresenter).Assembly,
+                typeof(ObjectiveHudPresenter).Assembly,
                 typeof(PlayerStatusPresenter).Assembly,
                 typeof(ActionBarPresenter).Assembly,
                 typeof(NotificationPresenter).Assembly,
@@ -191,6 +193,7 @@ namespace Game.Feature.UI.Tests
             {
                 typeof(HUDRootPresenter),
                 typeof(StageInfoPresenter),
+                typeof(ObjectiveHudPresenter),
                 typeof(PlayerStatusPresenter),
                 typeof(ActionBarPresenter),
                 typeof(NotificationPresenter),
@@ -210,6 +213,37 @@ namespace Game.Feature.UI.Tests
                         TypeDependsOn(presenterType, forbiddenType),
                         Is.False,
                         $"{presenterType.FullName} depends on {forbiddenType.FullName}");
+                }
+            }
+        }
+
+        [Test]
+        public void ObjectiveUiCode_DoesNotReferenceForbiddenObjectiveSources()
+        {
+            var objectiveUiSourcePaths = new[]
+            {
+                "Assets/_Features/UI/UI_Application/Runtime/ObjectiveHudPresenter.cs",
+                "Assets/_Features/UI/UI_Application/Runtime/ObjectiveStatusPresenter.cs",
+                "Assets/_Features/UI/UI_HUD/Runtime/ObjectiveHudView.cs",
+                "Assets/_Features/UI/UI_HUD/Runtime/ObjectiveHudViewModel.cs",
+            };
+            var forbiddenTokens = new[]
+            {
+                "StageConditionAsset",
+                "StageDefinition",
+                "StageContentEntry",
+                "StageLaunchContextStore",
+                "SaveSlotStore",
+                ".Details",
+                "ConditionStatus.Details",
+            };
+
+            foreach (var sourcePath in objectiveUiSourcePaths)
+            {
+                var source = File.ReadAllText(sourcePath);
+                foreach (var forbiddenToken in forbiddenTokens)
+                {
+                    Assert.That(source, Does.Not.Contain(forbiddenToken), $"{sourcePath} contains {forbiddenToken}");
                 }
             }
         }
@@ -306,6 +340,7 @@ namespace Game.Feature.UI.Tests
                 {
                     typeof(IGameplayUiPresentationSource),
                     typeof(StageInfoPresenter),
+                    typeof(ObjectiveHudPresenter),
                     typeof(PlayerStatusPresenter),
                     typeof(NotificationPresenter),
                 }));
@@ -317,6 +352,7 @@ namespace Game.Feature.UI.Tests
                 typeof(ScreenController),
                 typeof(PopupController),
                 typeof(UIFlowCoordinator),
+                typeof(ObjectiveHudViewModel),
                 typeof(PlayerStatusViewModel),
                 typeof(ActionBarViewModel),
                 typeof(NotificationViewModel),
@@ -412,6 +448,7 @@ namespace Game.Feature.UI.Tests
                 {
                     "IsGameplayReadOnly",
                     "NotificationViewModel",
+                    "ObjectiveHudViewModel",
                     "PlayerStatusViewModel",
                     "RootViewModel",
                     "StageInfoViewModel",
@@ -433,6 +470,7 @@ namespace Game.Feature.UI.Tests
             {
                 typeof(HUDRootPresenter),
                 typeof(StageInfoPresenter),
+                typeof(ObjectiveHudPresenter),
                 typeof(PlayerStatusPresenter),
                 typeof(ActionBarPresenter),
                 typeof(NotificationPresenter),
@@ -461,6 +499,7 @@ namespace Game.Feature.UI.Tests
         public void HudViews_BindOnlyLocalViewModels()
         {
             AssertViewBindSignature(typeof(HUDRootView), typeof(HUDRootViewModel));
+            AssertViewBindSignature(typeof(ObjectiveHudView), typeof(ObjectiveHudViewModel));
             AssertViewBindSignature(typeof(PlayerStatusView), typeof(PlayerStatusViewModel));
             AssertViewBindSignature(typeof(ActionBarView), typeof(ActionBarViewModel));
             AssertViewBindSignature(typeof(NotificationView), typeof(NotificationViewModel));
@@ -472,6 +511,7 @@ namespace Game.Feature.UI.Tests
             var hudViewTypes = new[]
             {
                 typeof(HUDRootView),
+                typeof(ObjectiveHudView),
                 typeof(PlayerStatusView),
                 typeof(ActionBarView),
                 typeof(NotificationView),
@@ -493,6 +533,7 @@ namespace Game.Feature.UI.Tests
             var hudViewTypes = new[]
             {
                 typeof(HUDRootView),
+                typeof(ObjectiveHudView),
                 typeof(PlayerStatusView),
                 typeof(ActionBarView),
                 typeof(NotificationView),

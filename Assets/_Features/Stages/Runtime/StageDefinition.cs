@@ -121,6 +121,8 @@ namespace Game.Feature.Stages
             return new StageObjectiveAuthoring
             {
                 CompletionPolicy = authoring.CompletionPolicy,
+                ObjectiveTitle = authoring.ObjectiveTitle ?? string.Empty,
+                ObjectiveSummary = authoring.ObjectiveSummary ?? string.Empty,
                 ConditionEntries = authoring.GetConditionEntriesOrEmpty(),
             };
         }

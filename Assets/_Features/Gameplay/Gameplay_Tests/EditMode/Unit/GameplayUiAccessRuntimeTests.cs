@@ -58,6 +58,113 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void GameplayHostObjectiveQuery_ReturnsObjectiveTitleSummary()
+        {
+            var hostObject = new GameObject("GameplayHostObjectiveQuery_ReturnsObjectiveTitleSummary");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(
+                    new[] { CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right) },
+                    CreateUiObjectiveDefinition()));
+
+                var objective = host.UiAccess.QueryFacade.Objectives.Read();
+
+                Assert.That(objective.HasObjective, Is.True);
+                Assert.That(objective.ObjectiveTitle, Is.EqualTo("Reach the Exit"));
+                Assert.That(objective.ObjectiveSummary, Is.EqualTo("Move to the exit zone."));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayHostObjectiveQuery_MapsConditionRows()
+        {
+            var hostObject = new GameObject("GameplayHostObjectiveQuery_MapsConditionRows");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(
+                    new[] { CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right) },
+                    CreateUiObjectiveDefinition()));
+
+                var objective = host.UiAccess.QueryFacade.Objectives.Read();
+
+                Assert.That(objective.Conditions.Count, Is.EqualTo(1));
+                Assert.That(objective.Conditions[0].StableId, Is.EqualTo("primary-goal"));
+                Assert.That(objective.Conditions[0].Role, Is.EqualTo(GameplayObjectiveConditionRole.PrimaryGoal));
+                Assert.That(objective.Conditions[0].Required, Is.True);
+                Assert.That(objective.Conditions[0].TitleText, Is.EqualTo("Reach the exit zone"));
+                Assert.That(objective.Conditions[0].ProgressText, Is.Empty);
+                Assert.That(objective.Conditions[0].SortOrder, Is.EqualTo(0));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayHostObjectiveQuery_DoesNotExposeRawDetailsAsDisplayText()
+        {
+            var hostObject = new GameObject("GameplayHostObjectiveQuery_DoesNotExposeRawDetailsAsDisplayText");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(
+                    new[] { CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right) },
+                    CreateUiObjectiveDefinition()));
+
+                var objective = host.UiAccess.QueryFacade.Objectives.Read();
+
+                Assert.That(objective.Conditions.Count, Is.EqualTo(1));
+                Assert.That(objective.Conditions[0].TitleText, Is.EqualTo("Reach the exit zone"));
+                Assert.That(objective.Conditions[0].TitleText, Does.Not.Contain("PlayerEntityId"));
+                Assert.That(objective.Conditions[0].TitleText, Does.Not.Contain("MatchedZoneId"));
+                Assert.That(objective.Conditions[0].ProgressText, Does.Not.Contain("PlayerEntityId"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayHostObjectiveQuery_DisabledObjective_ReturnsNoObjective()
+        {
+            var hostObject = new GameObject("GameplayHostObjectiveQuery_DisabledObjective_ReturnsNoObjective");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(
+                    new[] { CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right) },
+                    StageObjectiveRuntimeDefinition.Disabled));
+
+                var objective = host.UiAccess.QueryFacade.Objectives.Read();
+
+                Assert.That(objective.HasObjective, Is.False);
+                Assert.That(objective.ObjectiveTitle, Is.Empty);
+                Assert.That(objective.ObjectiveSummary, Is.Empty);
+                Assert.That(objective.Conditions, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayUiAccess_SameWindowQueriesReuseCommittedPlayerFact_WhilePauseRemainsLiveGate()
         {
             var hostObject = new GameObject("GameplayUiAccess_SameWindowQueriesReuseCommittedPlayerFact_WhilePauseRemainsLiveGate");
@@ -517,6 +624,50 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 PlayerEntityId = 10,
                 PlayerControlTiming = playerControlTiming ?? PlayerControlTimingSettings.CreateDefault(),
             };
+        }
+
+        private static StageObjectiveRuntimeDefinition CreateUiObjectiveDefinition()
+        {
+            var goalZone = new StageZoneRuntimeDefinition(
+                "goal",
+                FaceId.Floor,
+                new[]
+                {
+                    new StageZoneRuntimeRegion(
+                        new Vector2Int(0, 0),
+                        new Vector2Int(0, 0)),
+                });
+            var condition = new PlayerAtAnyZoneConditionRuntimeDefinition(
+                "player-at-goal",
+                "Debug Player At Goal",
+                10,
+                new[] { goalZone },
+                requireAlive: true);
+            var runtimeEntry = new StageObjectiveConditionRuntimeDefinitionEntry(
+                condition: condition,
+                required: true,
+                role: StageObjectiveConditionRole.PrimaryGoal,
+                stableConditionId: "primary-goal");
+            var displayMetadata = new StageObjectiveDisplayMetadata(
+                "Reach the Exit",
+                "Move to the exit zone.",
+                new[]
+                {
+                    new StageObjectiveConditionDisplayMetadata(
+                        stableConditionId: "primary-goal",
+                        role: StageObjectiveConditionRole.PrimaryGoal,
+                        required: true,
+                        displayText: "Reach the exit zone",
+                        sortOrder: 0,
+                        authoringOrder: 0),
+                });
+
+            return new StageObjectiveRuntimeDefinition(
+                StageCompletionPolicy.RequireAllConditions,
+                playerEntityId: 10,
+                new[] { goalZone },
+                new[] { runtimeEntry },
+                displayMetadata);
         }
 
         private static PlayerControlTimingSettings CreateRecoveryTimingSettings(

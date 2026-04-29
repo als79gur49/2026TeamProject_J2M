@@ -193,10 +193,12 @@ namespace Game.Feature.UI.Composition
 
             var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter();
+            var objectiveHudPresenter = new ObjectiveHudPresenter();
             var notificationPresenter = new NotificationPresenter();
             HudRootPresenter = new HUDRootPresenter(
                 PresentationSource,
                 stageInfoPresenter,
+                objectiveHudPresenter,
                 playerStatusPresenter,
                 notificationPresenter);
 
@@ -216,6 +218,7 @@ namespace Game.Feature.UI.Composition
             HudController = new HUDController(
                 HudRootPresenter.ViewModel,
                 stageInfoPresenter.ViewModel,
+                objectiveHudPresenter.ViewModel,
                 playerStatusPresenter.ViewModel,
                 notificationPresenter.ViewModel);
             BlockPolicy = new UIBlockPolicy();

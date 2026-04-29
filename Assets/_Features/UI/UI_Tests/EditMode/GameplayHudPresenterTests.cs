@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Stages;
@@ -16,16 +17,19 @@ namespace Game.Feature.UI.Tests
             var source = new ManualGameplayUiPresentationSource();
             var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter();
+            var objectiveHudPresenter = new ObjectiveHudPresenter();
             var notificationPresenter = new NotificationPresenter();
 
             using var rootPresenter = new HUDRootPresenter(
                 source,
                 stageInfoPresenter,
+                objectiveHudPresenter,
                 playerStatusPresenter,
                 notificationPresenter);
             using var controller = new HUDController(
                 rootPresenter.ViewModel,
                 stageInfoPresenter.ViewModel,
+                objectiveHudPresenter.ViewModel,
                 playerStatusPresenter.ViewModel,
                 notificationPresenter.ViewModel);
 
@@ -39,10 +43,12 @@ namespace Game.Feature.UI.Tests
             var source = new ManualGameplayUiPresentationSource();
             var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter();
+            var objectiveHudPresenter = new ObjectiveHudPresenter();
             var notificationPresenter = new NotificationPresenter();
             var rootPresenter = new HUDRootPresenter(
                 source,
                 stageInfoPresenter,
+                objectiveHudPresenter,
                 playerStatusPresenter,
                 notificationPresenter);
 
@@ -61,10 +67,12 @@ namespace Game.Feature.UI.Tests
             var source = new ManualGameplayUiPresentationSource();
             var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter();
+            var objectiveHudPresenter = new ObjectiveHudPresenter();
             var notificationPresenter = new NotificationPresenter();
             using var rootPresenter = new HUDRootPresenter(
                 source,
                 stageInfoPresenter,
+                objectiveHudPresenter,
                 playerStatusPresenter,
                 notificationPresenter);
 
@@ -86,6 +94,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(playerStatusPresenter.ViewModel.TopologyText, Is.EqualTo("Front"));
             Assert.That(playerStatusPresenter.ViewModel.HasRemainingChances, Is.False);
             Assert.That(playerStatusPresenter.ViewModel.MaxChances, Is.EqualTo(0));
+            Assert.That(objectiveHudPresenter.ViewModel.IsVisible, Is.False);
             Assert.That(notificationPresenter.ViewModel.Items.Count, Is.EqualTo(1));
         }
 
@@ -134,15 +143,119 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ObjectiveHudPresenter_HidesWhenNoObjective()
+        {
+            var presenter = new ObjectiveHudPresenter();
+
+            presenter.Apply(UIObjectiveSlice.Empty);
+
+            Assert.That(presenter.ViewModel.IsVisible, Is.False);
+            Assert.That(presenter.ViewModel.ObjectiveText, Is.Empty);
+        }
+
+        [Test]
+        public void ObjectiveHudPresenter_ShowsMainGoalAndRequiredProgress()
+        {
+            var presenter = new ObjectiveHudPresenter();
+
+            presenter.Apply(CreateObjectiveSlice(summary: "Move to the exit zone."));
+
+            Assert.That(presenter.ViewModel.IsVisible, Is.True);
+            Assert.That(presenter.ViewModel.MainGoalText, Is.EqualTo("Reach the Exit"));
+            Assert.That(presenter.ViewModel.ProgressText, Is.EqualTo("0/1"));
+            Assert.That(presenter.ViewModel.ObjectiveText, Is.EqualTo("Reach the Exit 0/1 [>]"));
+            Assert.That(presenter.ViewModel.IsComplete, Is.False);
+        }
+
+        [Test]
+        public void ObjectiveHudPresenter_FallsBackToTitleOrFirstCondition()
+        {
+            var presenter = new ObjectiveHudPresenter();
+
+            presenter.Apply(CreateObjectiveSlice(summary: string.Empty, title: "Reach the Exit"));
+            Assert.That(presenter.ViewModel.ObjectiveText, Is.EqualTo("Reach the Exit 0/1 [>]"));
+
+            presenter.Apply(CreateObjectiveSlice(summary: string.Empty, title: string.Empty));
+            Assert.That(presenter.ViewModel.ObjectiveText, Is.EqualTo("Reach the exit zone 0/1"));
+        }
+
+        [Test]
+        public void ObjectiveHudPresenter_LimitsSubGoalsAndCountsRequiredCompletion()
+        {
+            var presenter = new ObjectiveHudPresenter();
+
+            presenter.Apply(CreateObjectiveSlice(
+                summary: "Complete the required objectives.",
+                title: "Reach the Exit",
+                conditions: new[]
+                {
+                    CreateCondition("primary-goal", isSatisfied: true, role: UIObjectiveConditionRole.PrimaryGoal, sortOrder: 0),
+                    CreateCondition("Open the gate", isSatisfied: false, role: UIObjectiveConditionRole.SecondaryGoal, sortOrder: 10),
+                    CreateCondition("Enter the exit room", isSatisfied: false, role: UIObjectiveConditionRole.SecondaryGoal, sortOrder: 20),
+                    CreateCondition("Leave no enemies behind", isSatisfied: true, role: UIObjectiveConditionRole.SecondaryGoal, sortOrder: 30),
+                }));
+
+            Assert.That(presenter.ViewModel.ProgressText, Is.EqualTo("2/4"));
+            Assert.That(presenter.ViewModel.SubGoalTexts, Is.EqualTo(new[] { "[ ] Open the gate", "[ ] Enter the exit room" }));
+            Assert.That(presenter.ViewModel.HiddenSubGoalCount, Is.EqualTo(2));
+            Assert.That(presenter.ViewModel.ObjectiveText, Is.EqualTo("Reach the Exit 2/4 [>]"));
+        }
+
+        [Test]
+        public void ObjectiveHudViewModel_ToggleExpanded_ChangesObjectiveText()
+        {
+            var viewModel = new ObjectiveHudViewModel();
+            viewModel.SetState(
+                true,
+                "Reach the Exit",
+                "1/3",
+                new[] { "[ ] Open the gate", "[x] Reach the exit zone" },
+                hiddenSubGoalCount: 1,
+                isComplete: false);
+
+            Assert.That(viewModel.ObjectiveText, Is.EqualTo("Reach the Exit 1/3 [>]"));
+
+            viewModel.ToggleExpanded();
+
+            Assert.That(viewModel.IsExpanded, Is.True);
+            Assert.That(viewModel.ObjectiveText, Does.Contain("Reach the Exit 1/3 [v]"));
+            Assert.That(viewModel.ObjectiveText, Does.Contain("[ ] Open the gate"));
+            Assert.That(viewModel.ObjectiveText, Does.Contain("+1 more"));
+        }
+
+        [Test]
+        public void HUDRootPresenter_FansOutObjectiveSliceToObjectivePresenter()
+        {
+            var source = new ManualGameplayUiPresentationSource();
+            var playerStatusPresenter = new PlayerStatusPresenter();
+            var stageInfoPresenter = new StageInfoPresenter();
+            var objectiveHudPresenter = new ObjectiveHudPresenter();
+            var notificationPresenter = new NotificationPresenter();
+            using var rootPresenter = new HUDRootPresenter(
+                source,
+                stageInfoPresenter,
+                objectiveHudPresenter,
+                playerStatusPresenter,
+                notificationPresenter);
+
+            source.PublishSnapshot(CreateSnapshot(objective: CreateObjectiveSlice(summary: "Move to the exit zone.")));
+
+            Assert.That(objectiveHudPresenter.ViewModel.IsVisible, Is.True);
+            Assert.That(objectiveHudPresenter.ViewModel.ObjectiveText, Is.EqualTo("Reach the Exit 0/1 [>]"));
+        }
+
+        [Test]
         public void HUDRootPresenter_RefreshOnlyInteractionChanges_UpdateShellReadOnlyState_ThroughMappedSourceOnly()
         {
             var source = new ManualGameplayUiPresentationSource();
             var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter();
+            var objectiveHudPresenter = new ObjectiveHudPresenter();
             var notificationPresenter = new NotificationPresenter();
             using var rootPresenter = new HUDRootPresenter(
                 source,
                 stageInfoPresenter,
+                objectiveHudPresenter,
                 playerStatusPresenter,
                 notificationPresenter);
 
@@ -407,7 +520,8 @@ namespace Game.Feature.UI.Tests
             GameplayUiActionKind notificationActionKind = GameplayUiActionKind.Flip,
             GameplayUiActionResolutionKind notificationResolutionKind = GameplayUiActionResolutionKind.Success,
             UIRecoveryCooldownSlice? recoveryCooldown = null,
-            string stageDisplayName = "")
+            string stageDisplayName = "",
+            UIObjectiveSlice? objective = null)
         {
             var acceptsGameplayCommands = canAcceptGameplayCommands ?? (!isPaused && !hasBlockingPresentation);
 
@@ -427,6 +541,7 @@ namespace Game.Feature.UI.Tests
                         ? StageId.None
                         : StageId.CreateOrThrow("stage-1-1"),
                     stageDisplayName),
+                objective ?? UIObjectiveSlice.Empty,
                 new UIPlayerActionSlice(
                     playerEntityId: 10,
                     currentHp: currentHp,
@@ -468,6 +583,44 @@ namespace Game.Feature.UI.Tests
                         damageAmount: 1,
                         expireAfterTickIndex: 7),
                 }));
+        }
+
+        private static UIObjectiveSlice CreateObjectiveSlice(
+            string summary,
+            string title = "Reach the Exit",
+            bool isCleared = false,
+            IReadOnlyList<UIObjectiveConditionSlice> conditions = null)
+        {
+            return new UIObjectiveSlice(
+                hasObjective: true,
+                title,
+                summary,
+                goalReached: false,
+                allConditionsSatisfied: false,
+                isCleared,
+                conditions ?? new[]
+                {
+                    CreateCondition(
+                        "Reach the exit zone",
+                        isSatisfied: false,
+                        role: UIObjectiveConditionRole.PrimaryGoal,
+                        sortOrder: 0),
+                });
+        }
+
+        private static UIObjectiveConditionSlice CreateCondition(
+            string titleText,
+            bool isSatisfied,
+            UIObjectiveConditionRole role,
+            int sortOrder)
+        {
+            return new UIObjectiveConditionSlice(
+                titleText,
+                progressText: string.Empty,
+                isSatisfied,
+                required: true,
+                role,
+                sortOrder);
         }
     }
 }

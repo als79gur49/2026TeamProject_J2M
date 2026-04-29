@@ -162,6 +162,7 @@ namespace Game.Feature.UI.Application
         {
             var session = _queryFacade.Session.Read();
             var stage = _queryFacade.Stage.Read();
+            var objective = _queryFacade.Objectives.Read();
             var playerHud = _queryFacade.PlayerHud.Read();
             var player = frame.HasValue && frame.Value.Player.HasValue
                 ? frame.Value.Player.Value
@@ -201,7 +202,8 @@ namespace Game.Feature.UI.Application
                 playerHud.RemainingChances,
                 playerHud.MaxChances,
                 stage.StageId,
-                stage.DisplayName);
+                stage.DisplayName,
+                objective);
         }
 
         private static UIRecoveryCooldownSlice? MapRecoveryCooldown(GameplayUiRecoveryCooldown? recoveryCooldown)

@@ -29,6 +29,8 @@ namespace Game.Feature.Stages
     public struct StageObjectiveAuthoring
     {
         public StageCompletionPolicy CompletionPolicy;
+        public string ObjectiveTitle;
+        public string ObjectiveSummary;
         public StageObjectiveConditionEntry[] ConditionEntries;
 
         public StageObjectiveConditionEntry[] GetConditionEntriesOrEmpty()
@@ -41,6 +43,8 @@ namespace Game.Feature.Stages
             return new StageObjectiveAuthoring
             {
                 CompletionPolicy = StageCompletionPolicy.Disabled,
+                ObjectiveTitle = string.Empty,
+                ObjectiveSummary = string.Empty,
                 ConditionEntries = Array.Empty<StageObjectiveConditionEntry>(),
             };
         }
@@ -53,5 +57,7 @@ namespace Game.Feature.Stages
         public bool Required;
         public StageObjectiveConditionRole Role;
         public string StableConditionId;
+        public string DisplayText;
+        public int SortOrder;
     }
 }

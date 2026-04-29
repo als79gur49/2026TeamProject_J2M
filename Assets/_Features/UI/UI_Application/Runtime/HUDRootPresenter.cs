@@ -8,16 +8,19 @@ namespace Game.Feature.UI.Application
         private readonly PlayerStatusPresenter _playerStatusPresenter;
         private readonly IGameplayUiPresentationSource _presentationSource;
         private readonly StageInfoPresenter _stageInfoPresenter;
+        private readonly ObjectiveHudPresenter _objectiveHudPresenter;
         private readonly NotificationPresenter _notificationPresenter;
 
         public HUDRootPresenter(
             IGameplayUiPresentationSource presentationSource,
             StageInfoPresenter stageInfoPresenter,
+            ObjectiveHudPresenter objectiveHudPresenter,
             PlayerStatusPresenter playerStatusPresenter,
             NotificationPresenter notificationPresenter)
         {
             _presentationSource = presentationSource ?? throw new ArgumentNullException(nameof(presentationSource));
             _stageInfoPresenter = stageInfoPresenter ?? throw new ArgumentNullException(nameof(stageInfoPresenter));
+            _objectiveHudPresenter = objectiveHudPresenter ?? throw new ArgumentNullException(nameof(objectiveHudPresenter));
             _playerStatusPresenter = playerStatusPresenter ?? throw new ArgumentNullException(nameof(playerStatusPresenter));
             _notificationPresenter = notificationPresenter ?? throw new ArgumentNullException(nameof(notificationPresenter));
 
@@ -55,6 +58,7 @@ namespace Game.Feature.UI.Application
                                       !snapshot.Interaction.IsUiGameplayInputBlocked);
 
             _stageInfoPresenter.Apply(snapshot.Stage);
+            _objectiveHudPresenter.Apply(snapshot.Objective);
             _playerStatusPresenter.Apply(snapshot.Tick, snapshot.Interaction, snapshot.Player);
             _notificationPresenter.Apply(snapshot.Notifications);
         }

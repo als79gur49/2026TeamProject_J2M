@@ -14,6 +14,8 @@ namespace Game.Feature.UI.Popups
         [SerializeField] private TMP_Text _descriptionLabel;
         [SerializeField] private Button _resumeButton;
         [SerializeField] private TMP_Text _resumeButtonLabel;
+        [SerializeField] private Button _objectiveButton;
+        [SerializeField] private TMP_Text _objectiveButtonLabel;
         [SerializeField] private Button _settingsButton;
         [SerializeField] private TMP_Text _settingsButtonLabel;
 
@@ -61,6 +63,7 @@ namespace Game.Feature.UI.Popups
         private void OnEnable()
         {
             RebindButton(_resumeButton, ClickResume);
+            RebindButton(_objectiveButton, ClickObjective);
             RebindButton(_settingsButton, ClickSettings);
 
             RefreshView();
@@ -70,6 +73,7 @@ namespace Game.Feature.UI.Popups
         {
             StopRootEnterMotion();
             UnbindButton(_resumeButton, ClickResume);
+            UnbindButton(_objectiveButton, ClickObjective);
             UnbindButton(_settingsButton, ClickSettings);
         }
 
@@ -94,6 +98,16 @@ namespace Game.Feature.UI.Popups
             CompletionRequested?.Invoke(PopupCompletionKind.Resumed);
         }
 
+        public void ClickObjective()
+        {
+            if (!IsVisible || _viewModel == null || _canvasGroup == null || !_canvasGroup.interactable)
+            {
+                return;
+            }
+
+            CompletionRequested?.Invoke(PopupCompletionKind.ObjectiveRequested);
+        }
+
         public void ClickSettings()
         {
             if (!IsVisible || _viewModel == null || _canvasGroup == null || !_canvasGroup.interactable)
@@ -113,6 +127,7 @@ namespace Game.Feature.UI.Popups
             }
 
             UnbindButton(_resumeButton, ClickResume);
+            UnbindButton(_objectiveButton, ClickObjective);
             UnbindButton(_settingsButton, ClickSettings);
         }
 
@@ -143,6 +158,11 @@ namespace Game.Feature.UI.Popups
             if (_resumeButtonLabel != null)
             {
                 _resumeButtonLabel.text = _viewModel.ResumeLabel;
+            }
+
+            if (_objectiveButtonLabel != null)
+            {
+                _objectiveButtonLabel.text = _viewModel.ObjectiveLabel;
             }
 
             if (_settingsButtonLabel != null)

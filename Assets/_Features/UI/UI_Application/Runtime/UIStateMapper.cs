@@ -32,7 +32,8 @@ namespace Game.Feature.UI.Application
             int remainingChances = 0,
             int maxChances = 0,
             StageId stageId = default,
-            string stageDisplayName = null)
+            string stageDisplayName = null,
+            GameplayObjectiveReadModel objective = default)
             : this(
                 tickIndex,
                 shouldUpdateTickIndex,
@@ -59,7 +60,8 @@ namespace Game.Feature.UI.Application
                 remainingChances,
                 maxChances,
                 stageId,
-                stageDisplayName)
+                stageDisplayName,
+                objective)
         {
         }
 
@@ -89,7 +91,8 @@ namespace Game.Feature.UI.Application
             int remainingChances = 0,
             int maxChances = 0,
             StageId stageId = default,
-            string stageDisplayName = null)
+            string stageDisplayName = null,
+            GameplayObjectiveReadModel objective = default)
         {
             TickIndex = tickIndex;
             ShouldUpdateTickIndex = shouldUpdateTickIndex;
@@ -118,6 +121,7 @@ namespace Game.Feature.UI.Application
                 : (hasRemainingChances ? remainingChances : 0);
             StageId = stageId;
             StageDisplayName = stageDisplayName ?? string.Empty;
+            Objective = objective;
             RecoveryCooldown = recoveryCooldown;
         }
 
@@ -170,6 +174,8 @@ namespace Game.Feature.UI.Application
         public StageId StageId { get; }
 
         public string StageDisplayName { get; }
+
+        public GameplayObjectiveReadModel Objective { get; }
 
         public UIRecoveryCooldownSlice? RecoveryCooldown { get; }
     }
@@ -238,6 +244,7 @@ namespace Game.Feature.UI.Application
                 next.Tick,
                 next.Interaction,
                 next.Stage,
+                next.Objective,
                 next.Player,
                 new UINotificationLedgerSlice(notifications));
 
@@ -262,6 +269,7 @@ namespace Game.Feature.UI.Application
             var stage = new UIStageSlice(
                 refreshInput.StageId,
                 refreshInput.StageDisplayName);
+            var objective = MapObjective(refreshInput.Objective);
             var player = new UIPlayerActionSlice(
                 refreshInput.PlayerEntityId,
                 refreshInput.CurrentHp,
@@ -287,6 +295,7 @@ namespace Game.Feature.UI.Application
                 tick,
                 interaction,
                 stage,
+                objective,
                 player,
                 previous.Notifications);
         }
@@ -302,6 +311,7 @@ namespace Game.Feature.UI.Application
                         snapshot.Tick,
                         snapshot.Interaction,
                         snapshot.Stage,
+                        snapshot.Objective,
                         new UIPlayerActionSlice(
                             snapshot.Player.PlayerEntityId,
                             snapshot.Player.CurrentHp,
@@ -329,6 +339,7 @@ namespace Game.Feature.UI.Application
                         snapshot.Tick,
                         snapshot.Interaction,
                         snapshot.Stage,
+                        snapshot.Objective,
                         new UIPlayerActionSlice(
                             snapshot.Player.PlayerEntityId,
                             snapshot.Player.CurrentHp,
@@ -360,11 +371,62 @@ namespace Game.Feature.UI.Application
                             snapshot.Tick.IsTopologyTransitionActive),
                         snapshot.Interaction,
                         snapshot.Stage,
+                        snapshot.Objective,
                         snapshot.Player,
                         snapshot.Notifications);
 
                 default:
                     return snapshot;
+            }
+        }
+
+        private static UIObjectiveSlice MapObjective(GameplayObjectiveReadModel objective)
+        {
+            if (!objective.HasObjective)
+            {
+                return UIObjectiveSlice.Empty;
+            }
+
+            var sourceConditions = objective.Conditions ?? Array.Empty<GameplayObjectiveConditionReadModel>();
+            var conditions = new UIObjectiveConditionSlice[sourceConditions.Count];
+            for (var i = 0; i < sourceConditions.Count; i++)
+            {
+                var condition = sourceConditions[i];
+                conditions[i] = new UIObjectiveConditionSlice(
+                    condition.TitleText,
+                    condition.ProgressText,
+                    condition.IsSatisfied,
+                    condition.Required,
+                    MapObjectiveRole(condition.Role),
+                    condition.SortOrder);
+            }
+
+            return new UIObjectiveSlice(
+                objective.HasObjective,
+                objective.ObjectiveTitle,
+                objective.ObjectiveSummary,
+                objective.GoalReached,
+                objective.AllConditionsSatisfied,
+                objective.IsCleared,
+                conditions);
+        }
+
+        private static UIObjectiveConditionRole MapObjectiveRole(GameplayObjectiveConditionRole role)
+        {
+            switch (role)
+            {
+                case GameplayObjectiveConditionRole.PrimaryGoal:
+                    return UIObjectiveConditionRole.PrimaryGoal;
+
+                case GameplayObjectiveConditionRole.SecondaryGoal:
+                    return UIObjectiveConditionRole.SecondaryGoal;
+
+                case GameplayObjectiveConditionRole.Challenge:
+                    return UIObjectiveConditionRole.Challenge;
+
+                case GameplayObjectiveConditionRole.None:
+                default:
+                    return UIObjectiveConditionRole.None;
             }
         }
 
