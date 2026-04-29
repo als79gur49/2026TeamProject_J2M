@@ -8,6 +8,14 @@ namespace Game.Feature.Gameplay.Host
     {
         [SerializeField] private GameplayEntityView playerViewPrefab;
 
+        protected override void ConfigureRuntimeConfiguration(
+            GameplaySceneHostConfiguration configuration,
+            in InitialGameplayState initialState)
+        {
+            base.ConfigureRuntimeConfiguration(configuration, initialState);
+            configuration.EnablePlayerSameFaceContinuousLocomotion = true;
+        }
+
         protected override IGameplayEntityViewFactory CreateViewFactory(
             GameplayBoardRoot boardRoot,
             in InitialGameplayState initialState)
