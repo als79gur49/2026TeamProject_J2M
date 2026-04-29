@@ -68,11 +68,15 @@ namespace Game.Feature.UI.Tests
             var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter();
             var objectiveHudPresenter = new ObjectiveHudPresenter();
+            var chancePanelPresenter = new ChancePanelPresenter();
+            var topologyHudPresenter = new TopologyHudPresenter();
             var notificationPresenter = new NotificationPresenter();
             using var rootPresenter = new HUDRootPresenter(
                 source,
                 stageInfoPresenter,
                 objectiveHudPresenter,
+                chancePanelPresenter,
+                topologyHudPresenter,
                 playerStatusPresenter,
                 notificationPresenter);
 
@@ -91,9 +95,11 @@ namespace Game.Feature.UI.Tests
             Assert.That(stageInfoPresenter.ViewModel.StageName, Is.EqualTo("Stage 1-1"));
             Assert.That(stageInfoPresenter.ViewModel.HasStageName, Is.True);
             Assert.That(playerStatusPresenter.ViewModel.FacingText, Is.EqualTo("Right"));
-            Assert.That(playerStatusPresenter.ViewModel.TopologyText, Is.EqualTo("Front"));
+            Assert.That(playerStatusPresenter.ViewModel.TopologyText, Is.Empty);
             Assert.That(playerStatusPresenter.ViewModel.HasRemainingChances, Is.False);
             Assert.That(playerStatusPresenter.ViewModel.MaxChances, Is.EqualTo(0));
+            Assert.That(chancePanelPresenter.ViewModel.HasChances, Is.False);
+            Assert.That(topologyHudPresenter.ViewModel.CurrentFaceLabel, Is.EqualTo("Front"));
             Assert.That(objectiveHudPresenter.ViewModel.IsVisible, Is.False);
             Assert.That(notificationPresenter.ViewModel.Items.Count, Is.EqualTo(1));
         }
@@ -110,7 +116,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void PlayerStatusPresenter_CarriesRemainingAndMaxChances_ForHeartHud()
+        public void PlayerStatusPresenter_DoesNotOwnChanceOrTopologyHudState()
         {
             var presenter = new PlayerStatusPresenter();
 
@@ -135,11 +141,77 @@ namespace Game.Feature.UI.Tests
                     remainingChances: 2,
                     maxChances: 3));
 
-            Assert.That(presenter.ViewModel.HasRemainingChances, Is.True);
-            Assert.That(presenter.ViewModel.RemainingChances, Is.EqualTo(2));
-            Assert.That(presenter.ViewModel.MaxChances, Is.EqualTo(3));
+            Assert.That(presenter.ViewModel.HasRemainingChances, Is.False);
+            Assert.That(presenter.ViewModel.RemainingChances, Is.EqualTo(0));
+            Assert.That(presenter.ViewModel.MaxChances, Is.EqualTo(0));
             Assert.That(presenter.ViewModel.FacingText, Is.EqualTo("Right"));
-            Assert.That(presenter.ViewModel.TopologyText, Is.EqualTo("Front"));
+            Assert.That(presenter.ViewModel.TopologyText, Is.Empty);
+        }
+
+        [Test]
+        public void ChancePanelPresenter_DetectsChanceLossIndex()
+        {
+            var presenter = new ChancePanelPresenter();
+
+            presenter.Apply(new UIChanceSlice(true, 3, 3));
+            presenter.Apply(new UIChanceSlice(true, 2, 3));
+
+            Assert.That(presenter.ViewModel.AnimationHint.Kind, Is.EqualTo(ChanceChangeKind.Lost));
+            Assert.That(presenter.ViewModel.AnimationHint.PrimarySlotIndex, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void ChancePanelPresenter_DetectsChanceGainIndex()
+        {
+            var presenter = new ChancePanelPresenter();
+
+            presenter.Apply(new UIChanceSlice(true, 1, 3));
+            presenter.Apply(new UIChanceSlice(true, 2, 3));
+
+            Assert.That(presenter.ViewModel.AnimationHint.Kind, Is.EqualTo(ChanceChangeKind.Gained));
+            Assert.That(presenter.ViewModel.AnimationHint.PrimarySlotIndex, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void ChancePanelPresenter_LastChanceState()
+        {
+            var presenter = new ChancePanelPresenter();
+
+            presenter.Apply(new UIChanceSlice(true, 2, 3));
+            presenter.Apply(new UIChanceSlice(true, 1, 3));
+
+            Assert.That(presenter.ViewModel.IsLastChance, Is.True);
+            Assert.That(presenter.ViewModel.AnimationHint.Kind, Is.EqualTo(ChanceChangeKind.LastChanceEntered));
+        }
+
+        [Test]
+        public void TopologyHudPresenter_MapsCurrentFaceToFourStateIndex()
+        {
+            var presenter = new TopologyHudPresenter();
+
+            presenter.Apply(UITopologySlice.FromTopology(new GameplayUiTopology(GameplayUiFace.Ceiling), false));
+
+            Assert.That(presenter.ViewModel.CurrentFaceLabel, Is.EqualTo("Ceiling"));
+            Assert.That(presenter.ViewModel.CurrentFaceIndex, Is.EqualTo(2));
+            Assert.That(presenter.ViewModel.Chips, Has.Length.EqualTo(4));
+            Assert.That(presenter.ViewModel.Chips[2].IsActive, Is.True);
+        }
+
+        [Test]
+        public void TopologyHudPresenter_ShowsTransitionActiveState()
+        {
+            var presenter = new TopologyHudPresenter();
+
+            presenter.Apply(new UITopologySlice(
+                "Front",
+                1,
+                true,
+                "Floor",
+                "Front",
+                0.0f));
+
+            Assert.That(presenter.ViewModel.IsTransitionActive, Is.True);
+            Assert.That(presenter.ViewModel.TransitionLabel, Is.EqualTo("Floor -> Front"));
         }
 
         [Test]
@@ -163,7 +235,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenter.ViewModel.IsVisible, Is.True);
             Assert.That(presenter.ViewModel.MainGoalText, Is.EqualTo("Reach the Exit"));
             Assert.That(presenter.ViewModel.ProgressText, Is.EqualTo("0/1"));
-            Assert.That(presenter.ViewModel.ObjectiveText, Is.EqualTo("Reach the Exit 0/1 [>]"));
+            Assert.That(presenter.ViewModel.ObjectiveText, Is.EqualTo("Reach the Exit 0/1 [v]\n[ ] Reach the exit zone"));
             Assert.That(presenter.ViewModel.IsComplete, Is.False);
         }
 
@@ -173,14 +245,14 @@ namespace Game.Feature.UI.Tests
             var presenter = new ObjectiveHudPresenter();
 
             presenter.Apply(CreateObjectiveSlice(summary: string.Empty, title: "Reach the Exit"));
-            Assert.That(presenter.ViewModel.ObjectiveText, Is.EqualTo("Reach the Exit 0/1 [>]"));
+            Assert.That(presenter.ViewModel.ObjectiveText, Is.EqualTo("Reach the Exit 0/1 [v]\n[ ] Reach the exit zone"));
 
             presenter.Apply(CreateObjectiveSlice(summary: string.Empty, title: string.Empty));
-            Assert.That(presenter.ViewModel.ObjectiveText, Is.EqualTo("Reach the exit zone 0/1"));
+            Assert.That(presenter.ViewModel.ObjectiveText, Is.EqualTo("Reach the exit zone 0/1 [v]\n[ ] Reach the exit zone"));
         }
 
         [Test]
-        public void ObjectiveHudPresenter_LimitsSubGoalsAndCountsRequiredCompletion()
+        public void ObjectiveDropdownPresenter_BuildsRowsAndCountsRequiredCompletion()
         {
             var presenter = new ObjectiveHudPresenter();
 
@@ -196,9 +268,9 @@ namespace Game.Feature.UI.Tests
                 }));
 
             Assert.That(presenter.ViewModel.ProgressText, Is.EqualTo("2/4"));
-            Assert.That(presenter.ViewModel.SubGoalTexts, Is.EqualTo(new[] { "[ ] Open the gate", "[ ] Enter the exit room" }));
-            Assert.That(presenter.ViewModel.HiddenSubGoalCount, Is.EqualTo(2));
-            Assert.That(presenter.ViewModel.ObjectiveText, Is.EqualTo("Reach the Exit 2/4 [>]"));
+            Assert.That(presenter.ViewModel.Rows.Count, Is.EqualTo(4));
+            Assert.That(presenter.ViewModel.HiddenSubGoalCount, Is.EqualTo(0));
+            Assert.That(presenter.ViewModel.ObjectiveText, Does.Contain("Reach the Exit 2/4 [v]"));
         }
 
         [Test]
@@ -241,7 +313,7 @@ namespace Game.Feature.UI.Tests
             source.PublishSnapshot(CreateSnapshot(objective: CreateObjectiveSlice(summary: "Move to the exit zone.")));
 
             Assert.That(objectiveHudPresenter.ViewModel.IsVisible, Is.True);
-            Assert.That(objectiveHudPresenter.ViewModel.ObjectiveText, Is.EqualTo("Reach the Exit 0/1 [>]"));
+            Assert.That(objectiveHudPresenter.ViewModel.ObjectiveText, Is.EqualTo("Reach the Exit 0/1 [v]\n[ ] Reach the exit zone"));
         }
 
         [Test]

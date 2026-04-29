@@ -57,9 +57,9 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void HUDController_CanonicalPrefab_RendersChancesAsFilledAndEmptyHearts()
+        public void HUDController_CanonicalPrefab_BindsChancePanelViewModel()
         {
-            var rootObject = new GameObject("HUDController_CanonicalPrefab_RendersChancesAsFilledAndEmptyHearts");
+            var rootObject = new GameObject("HUDController_CanonicalPrefab_BindsChancePanelViewModel");
 
             try
             {
@@ -69,28 +69,34 @@ namespace Game.Feature.UI.Tests
                 var playerStatusPresenter = new PlayerStatusPresenter();
                 var stageInfoPresenter = new StageInfoPresenter();
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
+                var chancePanelPresenter = new ChancePanelPresenter();
+                var topologyHudPresenter = new TopologyHudPresenter();
                 var notificationPresenter = new NotificationPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
                     stageInfoPresenter,
                     objectiveHudPresenter,
+                    chancePanelPresenter,
+                    topologyHudPresenter,
                     playerStatusPresenter,
                     notificationPresenter);
                 using var controller = new HUDController(
                     rootPresenter.ViewModel,
                     stageInfoPresenter.ViewModel,
                     objectiveHudPresenter.ViewModel,
+                    chancePanelPresenter.ViewModel,
+                    topologyHudPresenter.ViewModel,
                     playerStatusPresenter.ViewModel,
                     notificationPresenter.ViewModel);
 
                 controller.AttachView(hudView);
                 source.PublishSnapshot(CreateSnapshot(hasRemainingChances: true, remainingChances: 2, maxChances: 3));
 
-                var chancesLabel = hudView.PlayerStatusView.transform.Find("Chances")?.GetComponent<TMPro.TMP_Text>();
-                Assert.That(chancesLabel, Is.Not.Null);
-                Assert.That(chancesLabel.text, Does.Contain("Chances:"));
-                Assert.That(CountCharacter(chancesLabel.text, '\u2665'), Is.EqualTo(2));
-                Assert.That(CountCharacter(chancesLabel.text, '\u2661'), Is.EqualTo(1));
+                Assert.That(hudView.ChancePanelView, Is.Not.Null);
+                Assert.That(hudView.ChancePanelView.ViewModel, Is.SameAs(chancePanelPresenter.ViewModel));
+                Assert.That(chancePanelPresenter.ViewModel.HasChances, Is.True);
+                Assert.That(chancePanelPresenter.ViewModel.RemainingChances, Is.EqualTo(2));
+                Assert.That(chancePanelPresenter.ViewModel.MaxChances, Is.EqualTo(3));
             }
             finally
             {

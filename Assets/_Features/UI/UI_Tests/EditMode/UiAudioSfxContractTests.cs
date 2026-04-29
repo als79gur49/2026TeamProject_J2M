@@ -25,6 +25,11 @@ namespace Game.Feature.UI.Tests
                     "Select",
                     "Toggle",
                     "AdjustValueCommit",
+                    "ChanceGain",
+                    "ChanceLoss",
+                    "LastChance",
+                    "ObjectiveComplete",
+                    "TopologyShift",
                 }));
         }
 
@@ -130,7 +135,7 @@ namespace Game.Feature.UI.Tests
 
             cueMap.ValidateOrThrow();
 
-            Assert.That(cueMap.Entries.Count, Is.EqualTo(7));
+            Assert.That(cueMap.Entries.Count, Is.EqualTo(Enum.GetValues(typeof(UiAudioCueId)).Length));
         }
 
         [Test]
