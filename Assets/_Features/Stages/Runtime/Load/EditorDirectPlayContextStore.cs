@@ -1,8 +1,5 @@
 using System;
 using UnityEngine;
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
 
 namespace Game.Feature.Stages
 {
@@ -80,10 +77,12 @@ namespace Game.Feature.Stages
 
     public static class EditorDirectPlayContextStore
     {
-        public const string TempSaveSlotStoreKey = "Game.Feature.Stages.EditorDirectPlay.TempSaveSlots";
-        public const string TempActiveSlotProviderKey = "Game.Feature.Stages.EditorDirectPlay.TempActiveSaveSlot";
+        public const string TempSaveSlotStoreKey = "Game.Feature.Stages.DirectPlay.TempSaveSlots";
+        public const string TempActiveSlotProviderKey = "Game.Feature.Stages.DirectPlay.TempActiveSaveSlot";
 
-        private const string SessionKey = "Game.Feature.Stages.EditorDirectPlay.Context";
+        private static Func<string> readCurrentJson;
+        private static Action<string> writeCurrentJson;
+        private static Action clearCurrentJson;
 
         public static EditorDirectPlayContext GetCurrentOrNone()
         {
@@ -92,8 +91,7 @@ namespace Game.Feature.Stages
 
         public static bool TryGetCurrent(out EditorDirectPlayContext context)
         {
-#if UNITY_EDITOR
-            var json = SessionState.GetString(SessionKey, string.Empty);
+            var json = readCurrentJson != null ? readCurrentJson() : string.Empty;
             if (!string.IsNullOrWhiteSpace(json))
             {
                 var dto = JsonUtility.FromJson<EditorDirectPlayContextDto>(json);
@@ -103,23 +101,19 @@ namespace Game.Feature.Stages
                     return context.Mode != EditorDirectPlayMode.None;
                 }
             }
-#endif
+
             context = EditorDirectPlayContext.None;
             return false;
         }
 
         public static void SetCurrent(EditorDirectPlayContext context)
         {
-#if UNITY_EDITOR
-            SessionState.SetString(SessionKey, JsonUtility.ToJson(ToDto(context)));
-#endif
+            writeCurrentJson?.Invoke(JsonUtility.ToJson(ToDto(context)));
         }
 
         public static void Clear()
         {
-#if UNITY_EDITOR
-            SessionState.EraseString(SessionKey);
-#endif
+            clearCurrentJson?.Invoke();
         }
 
         public static void ClearTempDirectPlaySave()
@@ -157,6 +151,16 @@ namespace Game.Feature.Stages
                 dto.ActiveSlotProviderKey,
                 dto.RemainingChances,
                 dto.SuppressCampaignFlow);
+        }
+
+        public static void ConfigureEditorStore(
+            Func<string> readJson,
+            Action<string> writeJson,
+            Action clearJson)
+        {
+            readCurrentJson = readJson;
+            writeCurrentJson = writeJson;
+            clearCurrentJson = clearJson;
         }
 
         [Serializable]

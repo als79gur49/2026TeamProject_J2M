@@ -1,0 +1,486 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e9227bf6b63cd0642b7ab4a9d46ad358, type: 3}
+  m_Name: stage-3-2_Authoring
+  m_EditorClassIdentifier: Game.Feature.Stages::Game.Feature.Stages.StageAuthoringDefinition
+  ownerEntry: {fileID: 11400000, guid: dedb1c0cfceeadf585ec253ebd3bd3a0, type: 2}
+  ownerEntryGuid: dedb1c0cfceeadf585ec253ebd3bd3a0
+  schemaVersion: 1
+  generatedGameplayDefinition: {fileID: 11400000, guid: b210756ceade689711a275f7af251b8f, type: 2}
+  generatedPresentationDefinition: {fileID: 11400000, guid: ec3ac7e9b03980d08d4b31e021ea8396, type: 2}
+  board:
+    MinInclusive: {x: 0, y: 0}
+    MaxInclusive: {x: 14, y: 7}
+    InitialBottomFace: 0
+  placements:
+  - StableGuid: stage-3-2:Player:10
+    DisplayName: Player 10
+    Kind: 0
+    Cell:
+      face: 0
+      x: 1
+      y: 1
+    Facing: 2
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: 
+  - StableGuid: stage-3-2:Enemy:54
+    DisplayName: Enemy 54
+    Kind: 1
+    Cell:
+      face: 0
+      x: 6
+      y: 2
+    Facing: 4
+    Hp: 3
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 44ea1e7dcc774075b55e3dcb29906bab, type: 2}
+    PresentationId: Attacking_showcase
+  - StableGuid: stage-3-2:Enemy:55
+    DisplayName: Enemy 55
+    Kind: 1
+    Cell:
+      face: 0
+      x: 7
+      y: 2
+    Facing: 4
+    Hp: 3
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 051f0a3982af4009b6013ba589a7f8d7, type: 2}
+    PresentationId: nonAttacking_showcase
+  - StableGuid: stage-3-2:Enemy:56
+    DisplayName: Enemy 56
+    Kind: 1
+    Cell:
+      face: 0
+      x: 7
+      y: 7
+    Facing: 1
+    Hp: 3
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 8d6b1bc1c4aa4d57b9c6d8df30d7e6a2, type: 2}
+    PresentationId: wallFollower_sun
+  - StableGuid: stage-3-2:Enemy:57
+    DisplayName: Enemy 57
+    Kind: 1
+    Cell:
+      face: 0
+      x: 10
+      y: 2
+    Facing: 4
+    Hp: 3
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 47dcd8d154bb4222829ef11b18507f76, type: 2}
+    PresentationId: jumpChaser_astra
+  - StableGuid: stage-3-2:Enemy:58
+    DisplayName: Enemy 58
+    Kind: 1
+    Cell:
+      face: 3
+      x: 7
+      y: 7
+    Facing: 4
+    Hp: 3
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 3d157a22696a4ee29ac2852d6486cd31, type: 2}
+    PresentationId: Charge_showcase
+  - StableGuid: stage-3-2:Enemy:59
+    DisplayName: Enemy 59
+    Kind: 1
+    Cell:
+      face: 3
+      x: 4
+      y: 5
+    Facing: 4
+    Hp: 3
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 8fdb5400ceb74592aa5dea3cbb2cf2a8, type: 2}
+    PresentationId: utility_summoner_prefab
+  - StableGuid: stage-3-2:Box:30
+    DisplayName: Box 30
+    Kind: 2
+    Cell:
+      face: 0
+      x: 3
+      y: 1
+    Facing: 2
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 1
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: 
+  - StableGuid: stage-3-2:Box:31
+    DisplayName: Box 31
+    Kind: 2
+    Cell:
+      face: 0
+      x: 3
+      y: 3
+    Facing: 2
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 4
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: 
+  - StableGuid: stage-3-2:Box:36
+    DisplayName: Box 36
+    Kind: 2
+    Cell:
+      face: 0
+      x: 5
+      y: 3
+    Facing: 2
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: 
+  - StableGuid: stage-3-2:Box:32
+    DisplayName: Box 32
+    Kind: 2
+    Cell:
+      face: 0
+      x: 3
+      y: 5
+    Facing: 4
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 2
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: 
+  - StableGuid: stage-3-2:Box:33
+    DisplayName: Box 33
+    Kind: 2
+    Cell:
+      face: 0
+      x: 7
+      y: 1
+    Facing: 2
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 3
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: 
+  - StableGuid: stage-3-2:Box:34
+    DisplayName: Box 34
+    Kind: 2
+    Cell:
+      face: 0
+      x: 7
+      y: 3
+    Facing: 4
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 6
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: 
+  - StableGuid: stage-3-2:Box:37
+    DisplayName: Box 37
+    Kind: 2
+    Cell:
+      face: 0
+      x: 8
+      y: 3
+    Facing: 2
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 11
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: 
+  - StableGuid: stage-3-2:Box:35
+    DisplayName: Box 35
+    Kind: 2
+    Cell:
+      face: 0
+      x: 7
+      y: 5
+    Facing: 2
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 7
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: 
+  - StableGuid: stage-3-2:Box:40
+    DisplayName: Box 40
+    Kind: 2
+    Cell:
+      face: 0
+      x: 9
+      y: 6
+    Facing: 1
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 1
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: 
+  - StableGuid: stage-3-2:Box:41
+    DisplayName: Box 41
+    Kind: 2
+    Cell:
+      face: 1
+      x: 3
+      y: 1
+    Facing: 2
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 5
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: 
+  - StableGuid: stage-3-2:Box:42
+    DisplayName: Box 42
+    Kind: 2
+    Cell:
+      face: 2
+      x: 7
+      y: 1
+    Facing: 4
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 3
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: 
+  - StableGuid: stage-3-2:Box:43
+    DisplayName: Box 43
+    Kind: 2
+    Cell:
+      face: 3
+      x: 3
+      y: 5
+    Facing: 2
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: 
+  - StableGuid: stage-3-2:Wall:196
+    DisplayName: Wall 196
+    Kind: 3
+    Cell:
+      face: 0
+      x: 5
+      y: 1
+    Facing: 0
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: 
+  - StableGuid: stage-3-2:Wall:197
+    DisplayName: Wall 197
+    Kind: 3
+    Cell:
+      face: 0
+      x: 6
+      y: 3
+    Facing: 0
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: 
+  - StableGuid: stage-3-2:Wall:198
+    DisplayName: Wall 198
+    Kind: 3
+    Cell:
+      face: 0
+      x: 9
+      y: 1
+    Facing: 0
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: 
+  - StableGuid: stage-3-2:Wall:199
+    DisplayName: Wall 199
+    Kind: 3
+    Cell:
+      face: 0
+      x: 9
+      y: 3
+    Facing: 0
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: 
+  - StableGuid: stage-3-2:Wall:200
+    DisplayName: Wall 200
+    Kind: 3
+    Cell:
+      face: 1
+      x: 9
+      y: 3
+    Facing: 0
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: 
+  zones: []
+  objective:
+    CompletionPolicy: 0
+    ConditionEntries: []
+  entityIdMappings:
+  - StableGuid: stage-3-2:Player:10
+    EntityId: 10
+    Retired: 0
+    LastKnownDisplayName: Player 10
+  - StableGuid: stage-3-2:Enemy:54
+    EntityId: 54
+    Retired: 0
+    LastKnownDisplayName: Enemy 54
+  - StableGuid: stage-3-2:Enemy:55
+    EntityId: 55
+    Retired: 0
+    LastKnownDisplayName: Enemy 55
+  - StableGuid: stage-3-2:Enemy:56
+    EntityId: 56
+    Retired: 0
+    LastKnownDisplayName: Enemy 56
+  - StableGuid: stage-3-2:Enemy:57
+    EntityId: 57
+    Retired: 0
+    LastKnownDisplayName: Enemy 57
+  - StableGuid: stage-3-2:Enemy:58
+    EntityId: 58
+    Retired: 0
+    LastKnownDisplayName: Enemy 58
+  - StableGuid: stage-3-2:Enemy:59
+    EntityId: 59
+    Retired: 0
+    LastKnownDisplayName: Enemy 59
+  - StableGuid: stage-3-2:Box:30
+    EntityId: 30
+    Retired: 0
+    LastKnownDisplayName: Box 30
+  - StableGuid: stage-3-2:Box:31
+    EntityId: 31
+    Retired: 0
+    LastKnownDisplayName: Box 31
+  - StableGuid: stage-3-2:Box:36
+    EntityId: 36
+    Retired: 0
+    LastKnownDisplayName: Box 36
+  - StableGuid: stage-3-2:Box:32
+    EntityId: 32
+    Retired: 0
+    LastKnownDisplayName: Box 32
+  - StableGuid: stage-3-2:Box:33
+    EntityId: 33
+    Retired: 0
+    LastKnownDisplayName: Box 33
+  - StableGuid: stage-3-2:Box:34
+    EntityId: 34
+    Retired: 0
+    LastKnownDisplayName: Box 34
+  - StableGuid: stage-3-2:Box:37
+    EntityId: 37
+    Retired: 0
+    LastKnownDisplayName: Box 37
+  - StableGuid: stage-3-2:Box:35
+    EntityId: 35
+    Retired: 0
+    LastKnownDisplayName: Box 35
+  - StableGuid: stage-3-2:Box:40
+    EntityId: 40
+    Retired: 0
+    LastKnownDisplayName: Box 40
+  - StableGuid: stage-3-2:Box:41
+    EntityId: 41
+    Retired: 0
+    LastKnownDisplayName: Box 41
+  - StableGuid: stage-3-2:Box:42
+    EntityId: 42
+    Retired: 0
+    LastKnownDisplayName: Box 42
+  - StableGuid: stage-3-2:Box:43
+    EntityId: 43
+    Retired: 0
+    LastKnownDisplayName: Box 43
+  - StableGuid: stage-3-2:Wall:196
+    EntityId: 196
+    Retired: 0
+    LastKnownDisplayName: Wall 196
+  - StableGuid: stage-3-2:Wall:197
+    EntityId: 197
+    Retired: 0
+    LastKnownDisplayName: Wall 197
+  - StableGuid: stage-3-2:Wall:198
+    EntityId: 198
+    Retired: 0
+    LastKnownDisplayName: Wall 198
+  - StableGuid: stage-3-2:Wall:199
+    EntityId: 199
+    Retired: 0
+    LastKnownDisplayName: Wall 199
+  - StableGuid: stage-3-2:Wall:200
+    EntityId: 200
+    Retired: 0
+    LastKnownDisplayName: Wall 200
+  enforceGeneratedSync: 0

@@ -25,6 +25,7 @@ namespace Game.Feature.Stages.Editor
                 RequireProgressionDefinition = true,
                 Timing = StageValidationTiming.TestOrCi,
                 Phase = StageValidationPhase.Phase6_SunsetFinalization,
+                AssetMetadataProvider = StageEditorAssetMetadataProvider.Instance,
             };
 
             var auditor = new StageCompatUsageAuditor();
@@ -84,16 +85,102 @@ namespace Game.Feature.Stages.Editor
             writer.WriteLine();
             writer.WriteLine("AuditReport: stage-compat-audit.md");
             writer.WriteLine();
+            WriteFullEditModeKnownFailureBaseline(writer);
             writer.WriteLine("## Scene Mode Summary");
             writer.WriteLine($"CatalogResolvedStageId: {summary.CatalogResolvedStageIdCount}");
             writer.WriteLine($"SerializedStageContentEntry: {summary.SerializedStageContentEntryCount}");
             writer.WriteLine($"LegacyStageDefinition: {summary.LegacyStageDefinitionCount}");
             writer.WriteLine();
+            WriteAuthoringIssues(writer, catalogReport);
+            WritePresentationCatalogIssues(writer, catalogReport);
             WriteIssues(writer, "Catalog Issues", catalogReport);
             WriteIssues(writer, "Known Warning Governance Issues", knownWarningReport);
             WriteIssues(writer, "Alias Governance Issues", aliasGovernanceReport);
             WriteIssues(writer, "Alias Usage Issues", aliasUsageReport);
             WriteIssues(writer, "Scene Issues", sceneReport);
+        }
+
+        private static void WriteFullEditModeKnownFailureBaseline(StreamWriter writer)
+        {
+            if (FullEditModeKnownFailureBaseline.TryBuildDefaultComparison(
+                    out var comparison,
+                    out var sourceOrMessage))
+            {
+                writer.Write(FullEditModeKnownFailureBaseline.BuildMarkdownReport(comparison));
+                writer.WriteLine($"SourceXml: {sourceOrMessage}");
+                writer.WriteLine();
+                return;
+            }
+
+            writer.WriteLine("## Full EditMode Known Failure Baseline");
+            writer.WriteLine($"Not evaluated: {sourceOrMessage}");
+            writer.WriteLine();
+        }
+
+        private static void WriteAuthoringIssues(StreamWriter writer, StageValidationReport report)
+        {
+            writer.WriteLine("## Authoring Sync Issues");
+            if (report == null)
+            {
+                writer.WriteLine("None");
+                writer.WriteLine();
+                return;
+            }
+
+            var wroteIssue = false;
+            for (var i = 0; i < report.Issues.Count; i++)
+            {
+                var issue = report.Issues[i];
+                if (!issue.Code.StartsWith("authoring.", StringComparison.Ordinal) &&
+                    !issue.Code.StartsWith("GameplayDrift.", StringComparison.Ordinal) &&
+                    !issue.Code.StartsWith("PresentationDrift.", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                wroteIssue = true;
+                writer.WriteLine($"- [{issue.Severity}] {issue.Code}: {issue.Message} ({issue.AssetPath})");
+            }
+
+            if (!wroteIssue)
+            {
+                writer.WriteLine("None");
+            }
+
+            writer.WriteLine();
+        }
+
+        private static void WritePresentationCatalogIssues(StreamWriter writer, StageValidationReport report)
+        {
+            writer.WriteLine("## Presentation Catalog Issues");
+            if (report == null)
+            {
+                writer.WriteLine("None");
+                writer.WriteLine();
+                return;
+            }
+
+            var wroteIssue = false;
+            for (var i = 0; i < report.Issues.Count; i++)
+            {
+                var issue = report.Issues[i];
+                if (!issue.Code.StartsWith("PresentationCatalog.", StringComparison.Ordinal) &&
+                    !issue.Code.StartsWith("PresentationBinding.", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                wroteIssue = true;
+                writer.WriteLine(
+                    $"- [{issue.Severity}] {issue.Code}: StageId='{issue.StageId}' EntityId='{FormatOptional(issue.EntityId)}' StableGuid='{issue.StableGuid}' PresentationId='{issue.PresentationId}' Expected='{issue.ExpectedValue}' Actual='{issue.ActualValue}' Message='{issue.Message}' ({issue.AssetPath})");
+            }
+
+            if (!wroteIssue)
+            {
+                writer.WriteLine("None");
+            }
+
+            writer.WriteLine();
         }
 
         private static void WriteAuditReport(string outputPath, StageCompatAuditReport auditReport)
@@ -179,6 +266,27 @@ namespace Game.Feature.Stages.Editor
             }
 
             writer.WriteLine();
+        }
+
+        private static string FormatOptional(int value)
+        {
+            return value == 0 ? string.Empty : value.ToString();
+        }
+
+        private sealed class StageEditorAssetMetadataProvider : IStageValidationAssetMetadataProvider
+        {
+            public static readonly StageEditorAssetMetadataProvider Instance = new();
+
+            public string GetAssetPath(UnityEngine.Object asset)
+            {
+                return asset == null ? string.Empty : AssetDatabase.GetAssetPath(asset);
+            }
+
+            public string GetAssetGuid(UnityEngine.Object asset)
+            {
+                var path = GetAssetPath(asset);
+                return string.IsNullOrEmpty(path) ? string.Empty : AssetDatabase.AssetPathToGUID(path);
+            }
         }
     }
 }

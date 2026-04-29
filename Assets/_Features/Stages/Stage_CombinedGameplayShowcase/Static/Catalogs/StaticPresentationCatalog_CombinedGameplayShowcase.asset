@@ -12,6 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 44d7d8cbbd6d9e64f86fa0dfb85c7bd2, type: 3}
   m_Name: StaticPresentationCatalog_CombinedGameplayShowcase
   m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Host.StaticEntityPresentationCatalog
-  entries:
-  - PresentationId:
-    ViewPrefab: {fileID: 0}
+  entries: []

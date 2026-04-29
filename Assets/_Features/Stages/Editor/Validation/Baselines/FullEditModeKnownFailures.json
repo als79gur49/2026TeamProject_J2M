@@ -1,0 +1,867 @@
+{
+  "capturedAt": "2026-04-29",
+  "sourceXml": "Temp/StageHardeningFullEditMode.after-provider.xml",
+  "summary": {
+    "total": 1906,
+    "passed": 1810,
+    "failed": 95,
+    "skipped": 1
+  },
+  "knownFailures": [
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.AttackInputNormalizationTests.ImpactReservationComparer_PreservesFaceBeforePlanarOrder",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "8660a4b171c1715450913430d75fe84ca486cfe768475b128f11b94d3f46f5ab",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayShowcaseInstaller_Configuration_UsesStageDefinitionEnemyUnitArchetypeCatalog",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "2eef221918626c32e989a973e5c60bf5ed96e1f816bf597a8fdbed8c76972f13",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayShowcaseInstaller_Configuration_UsesStagePresentationDefinitionEnemyPresentationArchetypeCatalog",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "2eef221918626c32e989a973e5c60bf5ed96e1f816bf597a8fdbed8c76972f13",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayShowcaseInstaller_ConfiguredShowcaseEnemy_TimingAuthoringFeedsPresenterDriver",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayShowcaseInstaller_ViewFactory_AttachesTimingAuthoringToConfiguredShowcaseEnemy",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayStage_BuildsEnemyPresentationBindingForConfiguredShowcaseEnemy",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "637fa62e4c18cc748262ba6361cf37bad14831a0f29ca9298c1bae89285bf38b",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayStage_BuildsEnemyProfileOverrideForConfiguredShowcaseEnemy",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "b3eef31cc241c7377d9289b8b6f47253a42981cc4a0a427198a0b12594ef3f6e",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayStage_BuildsJumpShowcaseProfileOverride",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayStage_BuildsRandomWalkPilotProfileOverrideForNonAttackingEnemy",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayStage_BuildsRandomWalkPilotProfileOverrideForWindupMeleeEnemy",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayStage_PlacesConfiguredShowcaseEnemy",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "6d755c8c2d51a4aabb6b9df81ce20c3ee7a2b79a2749352832aaa0543491ed35",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayStage_PlacesJumpShowcaseEnemyOnFarFloorLane",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiRuntimeDefinition_NegativeDesiredChaseDistance_ThrowsArgumentException",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "e3cb75368ff03a5765f7c1bcc4e2d925f0cb8a9b486a7eac9b337c86a82873d3",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiRuntimeDefinition_NegativeMoveCooldownTicks_ThrowsArgumentException",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "5928268be9d4a3b02e30248ea89669cc998a6db727622289af37e08fb3799187",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiRuntimeDefinition_NegativeWindupTicks_ThrowsArgumentException",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "ffe644b7dfd276e3471b1d3848aba68e475a28080b05b6c6a4b8a8283079aa7e",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.EnemyPatrolPhase3DocumentationTests.EnemyPatrolSourceGovernance_EnemyLogic_DoesNotDirectlyBranchOnForwardOrRandomWalkOutsideProposalSeam",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "a6672457242f5612459de9f8bc809004370e0225a5f072cec5696c65a8a71fbd",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.EnemyPrefabScaffoldTests.EnemyViewNonAttackingPrefab_UsesMoveOnlyLocomotionAuthoringAlongsideEnemyAnimationTiming",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "9f30ad93db001ecf2494ac961ffb1d4bf66b7086eed57219e9c1723f7eeff5d7",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.EntityEffectPresentationAuthoringTests.GameplayPrefabs_EntityEffectPresentationAuthoring_CreateSnapshot_UsesRolloutDefaults(\"Assets/_Features/Gameplay/Gameplay_Entities/Runtime/Player_S1.prefab\")",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "1f76aa42f5f3ac54ccec32fa7f081ef1db977f6e052107ef098d6b1b7919d898",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.EntityEffectPresentationAuthoringTests.GameplayPrefabs_EntityEffectPresentationAuthoring_PassesPrefabValidationWithCloneSourceViewDefaults(\"Assets/_Features/Gameplay/Gameplay_Entities/Runtime/Player_S1.prefab\")",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "1f76aa42f5f3ac54ccec32fa7f081ef1db977f6e052107ef098d6b1b7919d898",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.EntityEffectPresentationAuthoringTests.GameplayPrefabs_HaveEntityEffectPresentationAuthoringOnRoot(\"Assets/_Features/Gameplay/Gameplay_Entities/Runtime/Player_S1.prefab\")",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "1f76aa42f5f3ac54ccec32fa7f081ef1db977f6e052107ef098d6b1b7919d898",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayAudioHostOrchestrationTests.GameplayTickViewPresenter_Present_ExecutesGameplayAudioPlayback_BetweenVfxAndExitOwnershipApplication",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "3dc48bb95fa4ff14ffb04b997a1cbeb21f62044fa45453697a03ef845c05b8de",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayAudioHostOrchestrationTests.GameplayTickViewPresenter_Present_UsesCanonicalGameplayAudioOrdering",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "3c1268ab09b5a8f05564af8f20da0b0ca0abb6e0ccae4552c167faa34f5d0f09",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayCameraTopologyAuthoringExtractionArchitectureTests.ShowcaseScenes_PreserveSerializedConfigureMainCameraMeaning",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "2eef221918626c32e989a973e5c60bf5ed96e1f816bf597a8fdbed8c76972f13",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayCameraTopologyAuthoringExtractionArchitectureTests.ShowcaseScenes_PreserveSerializedTopologyRotationTweenEaseMeaning",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "2eef221918626c32e989a973e5c60bf5ed96e1f816bf597a8fdbed8c76972f13",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayCameraTopologyAuthoringExtractionArchitectureTests.ShowcaseScenes_PreserveSerializedTopologyRotationVisualMappingMeaning",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "2eef221918626c32e989a973e5c60bf5ed96e1f816bf597a8fdbed8c76972f13",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.EnemyPupilVisualController_WindupAttackRecover_AnimatesBorderSequence",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "b83fb9126e13d81897c756acf12fe30cd521f4ec8a01dd9663152ea64b6ed2ae",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.GameplayTickPresentationCoordinator_PlayerDeathTick_SuppressesHitVfx",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "5cfc0b41aab35f4eec61eea3063795fb571cab8f72bb9c29f9eb5cfa2788ab59",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.GameplayTickViewPresenter_PlayerRespawnBeforeDeathHide_Completes_ClearsDeathAnimationState",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayTimingOwnershipTests.PlayerAnimatorDriver_WithAnimatorOverride_PrefersAnimatorDurationOverResolvedMotionDuration",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "825503147d19f32bb0e44616f12c6aafa05845092bb5a81f16394d83cffcdbbd",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayUiAccessArchitectureTests.GameplayUiAccess_QueryFacade_OnlyExposesBoundedReaderProperties",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "d46a81615ea26ac7ccaaf4bdb6362d7d2b2490b5163f9cbeb6419679a3bad21d",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayUiAccessRuntimeTests.GameplayUiAccess_PlayerHud_ExposesRecoveryCooldown_AsRecoveryOnlySemantic",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "5d0508a6198220c41e4306851a4eb0eace886015854c81a6058b4d80d870f0fc",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayUiAccessRuntimeTests.GameplayUiAccess_PlayerHud_PushReadiness_ActionLock_DisablesPush",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "19964f41f687b8d1a52c089932449c54954bb4bd304b0b61c71b3023214ffaf2",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayViewProjectionTests.EnemyAnimatorDriver_InspectorSurface_IsLimitedToCoreAuthoringFields",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "4ff2a6152a97abe25d9cc3551d34b05bfd79a32ecfdd19ea337618d06b2796ff",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayViewProjectionTests.GameplayBoardSurfaceRenderer_TopologyTransition_StartWorldPosesMatchDestinationVisibleSurfacePoses",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "91d4e62f9909b195376bee45347fc71a4989f77244844f48b40ef9baadd079f7",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayViewProjectionTests.GameplayBoardSurfaceRenderer_TopologyTransition_UsesDestinationVisibleFacesAtStart",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "e7cf358caaad03811e1136b76c9c61a94723b1931c983e9788e3f2f924de7a27",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayViewProjectionTests.GameplayCubeProjector_ProjectsBottomFaceToHorizontalPlane",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "74de7f5417d3bda7636c1f3800502f30d8ee5c8e2d2496b2ad07cc851be1ec61",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayViewProjectionTests.GameplayCubeProjector_ProjectsFrontFaceToVerticalPlane",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "0a7b3b089dbaab0b7a8187ec8a7947592b202e332f77659918ae865e5232fbb6",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayViewProjectionTests.GameplaySceneHost_CameraTarget_StaysOnCubeCenterDuringTopologyTransition",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "45129d6261f0009e6c77c2c795453d424829a43959e95b5a33344ce1f67e9406",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayViewProjectionTests.GameplaySceneHost_PushMotion_KeepsProjectileLayerQueriesOnCommittedDestinationWhileViewInterpolates",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayViewProjectionTests.GameplaySceneHost_PushMotion_KeepsWorldQueriesOnCommittedDestinationWhileViewInterpolates",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayViewProjectionTests.GameplaySceneHost_TopologyTransition_CameraOrbitPreservesScreenContinuityAtStart",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "f0fef5b3bfb57bd6b8045f575b41424e7ddb33756d46b101c522120b97d85ebb",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayViewProjectionTests.GameplayTickViewPresenter_Present_MapsEnemyAttackHitAndMoveSignalsToAnimatorDrivers",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "7d295a673c4aa2f7d585dda7c9d8be3bda2b043955e9c3b24ea05fd8112ead1c",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayViewProjectionTests.GameplayTickViewPresenter_Present_PlayerActionSignals_HoldPushAndFlipUntilPresentationDurationExpires",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "0259d3d13a58a6f78d67715ee2655ba7181adaa1df01481e2c5439dec262cd46",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayViewProjectionTests.GameplayTickViewPresenter_TopologyMotion_MaintainsBoardRootIdentity",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "5853c08f7346b407797c0bce865ea95634e878cfaa90976a03522c02ea76a407",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.LegalityContextGovernanceTests.LegalityActorRef_CarriesResolvedSpatialState_NotRawSpatialSources",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "b2cc33f555de911e65d69b8854ef6884c313e02b952f66263ecdd865fecf6851",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.RuntimeBoardBoundsGuardTests.GameplaySceneHost_AutoCreateViewsFalse_UsesConfiguredPlayerControlTiming",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.RuntimeBoardBoundsGuardTests.GameplaySceneHost_Initialize_UsesConfiguredPlayerControlTiming_WhenPlayerPrefabHasAnimationTimingAuthoringOnly",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.SpatialStateResolverTruthTableTests.PhasedWritePath_And_FactoryReferences_AreConstrainedToAllowlistedFiles",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "aa5a2667ed7725c5bf63848ece8c85ba2ba49053b90f6cf2656116ded067747b",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.SpatialStateResolverTruthTableTests.ReservedSpatialStates_AreConstrainedToAllowlistedFiles_AndKeepAttachedProducerClosed",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "c7bffaa6d48efb1a55798c810f6a280d779ed271b9690fabf8a3953d156d994c",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.StageObjectiveSystemTests.Conditions_ClearWithinTimeLimit_UsesCeilDeadlineFromTiming(0.25f,10.0f,40,41)",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "5a6928adb317de246a2adc5f21ad09cac7552088c7b517be5343d7d196a9ccce",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.StageObjectiveSystemTests.Conditions_ClearWithinTimeLimit_UsesCeilDeadlineFromTiming(0.3f,10.0f,34,35)",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "5a6928adb317de246a2adc5f21ad09cac7552088c7b517be5343d7d196a9ccce",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.StageObjectiveSystemTests.Conditions_ClearWithinTimeLimit_UsesCeilDeadlineFromTiming(0.5f,10.0f,20,21)",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "5a6928adb317de246a2adc5f21ad09cac7552088c7b517be5343d7d196a9ccce",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.StageRuntimeBuilderTests.StageRuntimeBuilder_CombinedShowcaseStageBuild_ReflectsCurrentConfiguredContract",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "b3eef31cc241c7377d9289b8b6f47253a42981cc4a0a427198a0b12594ef3f6e",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.TopologyTransitionPostFxTests.ShowcaseScenes_HostStartup_EnablesPostProcessingOnOutputCamera",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "2eef221918626c32e989a973e5c60bf5ed96e1f816bf597a8fdbed8c76972f13",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_BuildsEnemyJumpSignal_ForAirborneStartAndRetry",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_BuildsEnemyJumpSignal_ForWindupStart",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_BuildsMoveMotionForUnitMove",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "b960f725d36250a477e9831ca3764fc926fd19c613d4429df783516a31ec8f06",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_BuildsProjectileMoveMotionForProjectileMove",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "b1f3eaa67366dbd90ad96560e46c4be8f9118beae3f458b0faab224d5f49b104",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_FlipDestroySelf_SeparatesLogicalNoMoveFromFlipImpactSignal",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "7d295a673c4aa2f7d585dda7c9d8be3bda2b043955e9c3b24ea05fd8112ead1c",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_UsesPostMovementSnapshotForFollowThroughMotion_AndPostAttackSnapshotForEnemyDeath",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "4ba76585cc693f069fc024903a8cb0fb8baa6df5b69c4ea172f7c1a9e7c7d503",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.WorldStatePlacementInvariantTests.CreateSnapshot_DetachedBoxSharingUnitCell_RemainsMaterializableAndDoesNotBlockOccupancy",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "d7215f004ce5cf9411ff0e05def06b2c8def499bcba911d700a470ad4414ffc5",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.DeterminismHash_EnemyActionState_IsIncludedInCanonicalState",
+      "assembly": "Game.Integration.Replay.Tests.dll",
+      "domain": "Replay",
+      "authoringRelated": false,
+      "failureMessageHash": "a51cb30c286a1adf52b9caca978118656fcefef5a066cdff842b4561fd6b0100",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.DeterminismHash_EnemyJumpState_IsIncludedInCanonicalState",
+      "assembly": "Game.Integration.Replay.Tests.dll",
+      "domain": "Replay",
+      "authoringRelated": false,
+      "failureMessageHash": "4d77c5ce3e32ac336b823281d047bc06930745ba33ca8f8b1b27f08b8039e055",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_CompositeItemAttackScenario_ProducesSameHashTraceAndEventLog",
+      "assembly": "Game.Integration.Replay.Tests.dll",
+      "domain": "Replay",
+      "authoringRelated": false,
+      "failureMessageHash": "7cd468bb7fca989e571e7bc94354ba0d8dff198b807405ea1fcdff0dacf15b31",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_ItemScenario_ProducesSameHashTraceAndEventLog",
+      "assembly": "Game.Integration.Replay.Tests.dll",
+      "domain": "Replay",
+      "authoringRelated": false,
+      "failureMessageHash": "2341c74dd00dc35489875353517e7c71597c71bf267eebe60e59ce999b314db8",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PassiveContactScenario_ProducesStableHashTraceAndPlayerDamage",
+      "assembly": "Game.Integration.Replay.Tests.dll",
+      "domain": "Replay",
+      "authoringRelated": false,
+      "failureMessageHash": "73cfb0d503d818809e1889e8cdde0f4c1bfc789b888ac8052a599c6a76f8db9a",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PushBoxBoardEdgeScenario_ProducesSameHashTraceAndEventLog",
+      "assembly": "Game.Integration.Replay.Tests.dll",
+      "domain": "Replay",
+      "authoringRelated": false,
+      "failureMessageHash": "ef09e657c4971030a126d5d4105a07b512943ad3fc7a09eea780fe213eed693c",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PushBoxEntityStopperScenario_ProducesSameHashTraceAndEventLog",
+      "assembly": "Game.Integration.Replay.Tests.dll",
+      "domain": "Replay",
+      "authoringRelated": false,
+      "failureMessageHash": "0066a56c11990c6d156b9f5e74df1af4b7625edbdb9fdd9c8cc4ba451161d26d",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PushBoxTerrainStopperScenario_ProducesSameHashTraceAndEventLog",
+      "assembly": "Game.Integration.Replay.Tests.dll",
+      "domain": "Replay",
+      "authoringRelated": false,
+      "failureMessageHash": "ef09e657c4971030a126d5d4105a07b512943ad3fc7a09eea780fe213eed693c",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_FireProjectileIntent_SpawnsProjectileDuringCommit",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "ebe72d1c520f598a4ae606c7d4504dcb553464ebf3e2cde80269305fbf3daf59",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_OnHit_DoesNotCreateSameTickNewIntent",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "0eccbe0f9f39960a58961e2ae6e3bdc92593f39617c22573626e45c7d49c1c04",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_OnHit_DoesNotReenterMovementPhase",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "0eccbe0f9f39960a58961e2ae6e3bdc92593f39617c22573626e45c7d49c1c04",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyAi_MoveOccupancy_BlocksAttackStartUntilFirstUnlockedTick",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "bfac2d7e2ab1b6442b68dae5700b5bf5f425a73c992c5f3237b505c966f3edf0",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyAi_WindupForwardBaseline_First3Ticks_MatchPinnedPatrolChaseWindupSequence",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "04c95714a4dd46e8683e32fd71fb117bff8df867c8747d627102f14acabf4529",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Flip_LandingHasHostileUnit_NonLethalImpact_DestroysSelfWithoutCommittedMove",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "3664c54677d06f65550f0c4cc7bb1e1cc0ee418580b5d908a584555018691fc8",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Flip_LandingHasWallOrBox_IsBlockedWithoutImpact",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_FlipInputOnItemFlipDestroyBox_UsesFlipBranch_WithoutConsumeOrDestroy",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "713a9d53940714b1fb61dbe4ce3243658e2136e781324ba34108a78d8fc70c15",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_Flip_SucceedsWhenOppositeCellIsFree",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "1e58ec2145adba4fa288392c38fdb850e983024b7c575bbe1be6913b7be50e01",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_MoveAcrossBottomTopEdge_FailsWhenRotatedDestinationHasWallBlocker",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "fd2b6083eb01d8e71682accb790a413852a5bd9ffdb21002d0b682390d18fcee",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_MoveAcrossBottomTopEdge_FailsWhenRotatedDestinationTerrainBlocked",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "d8983284aeb6917d60b329bc0a3736bba358839727d8a7855ff9570e86545834",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_MoveFromFrontBottomEdge_FailsWithoutRotation",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "0bcd28f3c809603b3cf98f7fa7ee326e2a736b16f6dae36b44c4ae34281d9415",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_MoveIntoPushBox_IsNoOpWithoutExplicitPush",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "003e08fe5ae4263f78498ae608d9aa1c5cdaafdb69256f92760e4b698bf96465",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_PushInputOnItemPushFlipBox_ResolvesAsItemBeforePushOrFlip",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "c3b8831c4fb6f2c3c36376b410b84bc44b2a5c2c0196318a98fd2506035b9923",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_PushInputOnItemPushFlipDestroyBox_ResolvesAsItemBeforePushFlipOrDestroy_AndPresentationUsesEntityExitOwnership",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "ce62d252cedd2597c4b19e11ddc83491910221fe0142e795534b74e057b62a1d",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_PushInputPushBox_ContinuesAcrossBottomFrontSharedEdge",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "a30a120f4c2fd97d6e548f30d09554f2ed146a74a883ac2466bea32142c469a2",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_PushInputPushBox_ContinuesAcrossFrontBottomSharedEdgeBackToBottom",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "5f65c2100531f6f07f190c04f80f23430eed540d8f98944efdd429447b6358d9",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_PushInputPushBox_StopsBeforeEntityBlocker_AndEntityTypeNoneWallRemainsValid",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "366ff5d2e3688b46d7569dc3c9767a6c17c720d94cbb29a22516aaf3ba6acb38",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_SameDestination_OnlyHigherPriorityWins",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_ExplicitPushAgainstBlockedPushBox_EmitsPreMovementRejection",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "003e08fe5ae4263f78498ae608d9aa1c5cdaafdb69256f92760e4b698bf96465",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_ExplicitPushWithoutAdjacentPushTarget_RemainsNoOp",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "003e08fe5ae4263f78498ae608d9aa1c5cdaafdb69256f92760e4b698bf96465",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_LocomotionPresentationSignal_StaysTrueDuringCooldownGapAndDropsWhenBlocked",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "19964f41f687b8d1a52c089932449c54954bb4bd304b0b61c71b3023214ffaf2",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Core.TickPipelineStructureCoreTests.GameplayCompositionRoot_AndBootstrapper_ExposeExplicitGeneralAndPlayerTimingOverloads",
+      "assembly": "Game.TestInfrastructure.dll",
+      "domain": "TestInfrastructure",
+      "authoringRelated": false,
+      "failureMessageHash": "8ebb239c30024128fd3515a853218187f80ebb849f687fd963d9376a22873cd7",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Core.TickPipelineStructureCoreTests.MovementCommitter_ConsumesCanonicalPlayerControlTimingSnapshot",
+      "assembly": "Game.TestInfrastructure.dll",
+      "domain": "TestInfrastructure",
+      "authoringRelated": false,
+      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Core.TickPipelineStructureCoreTests.TickPipeline_CanBeExtendedWithInjectedEntityLogicProvider",
+      "assembly": "Game.TestInfrastructure.dll",
+      "domain": "TestInfrastructure",
+      "authoringRelated": false,
+      "failureMessageHash": "8ebb239c30024128fd3515a853218187f80ebb849f687fd963d9376a22873cd7",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Core.TickPipelineStructureCoreTests.TickPipeline_DoesNotExposeDefaultCompositionConstructors",
+      "assembly": "Game.TestInfrastructure.dll",
+      "domain": "TestInfrastructure",
+      "authoringRelated": false,
+      "failureMessageHash": "fdc9816f053295f9fd3f48e3bae44ff5a255c3a0663f45430bcda49cc4959bc2",
+      "firstObserved": "2026-04-29",
+      "notes": "Existing non-stage-authoring Full EditMode failure"
+    }
+  ]
+}

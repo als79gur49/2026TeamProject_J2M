@@ -65,6 +65,7 @@ namespace Game.Feature.Stages.Editor
             EnsureFolder(stageFolder);
 
             var entryPath = $"{stageFolder}/{stageId.Value}_Entry.asset";
+            var authoringPath = $"{stageFolder}/{stageId.Value}_Authoring.asset";
             var presentationPath = $"{stageFolder}/{stageId.Value}_Presentation.asset";
             var clearEvaluationPath = $"{stageFolder}/{stageId.Value}_ClearEvaluation.asset";
             var rewardPath = $"{stageFolder}/{stageId.Value}_Reward.asset";
@@ -80,6 +81,9 @@ namespace Game.Feature.Stages.Editor
             entry.AssignStageId(stageId);
             entry.AssignGameplayDefinition(stageDefinition);
 
+            var authoring = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
+            authoring.name = $"{stageId.Value}_Authoring";
+
             var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
             presentation.name = $"{stageId.Value}_Presentation";
             presentation.ApplyResolvedData(seededPresentation ?? StagePresentationAssembler.EmptyResolvedData);
@@ -94,23 +98,34 @@ namespace Game.Feature.Stages.Editor
             progression.name = $"{stageId.Value}_Progression";
 
             AssetDatabase.CreateAsset(entry, entryPath);
+            AssetDatabase.CreateAsset(authoring, authoringPath);
             AssetDatabase.CreateAsset(presentation, presentationPath);
             AssetDatabase.CreateAsset(clearEvaluation, clearEvaluationPath);
             AssetDatabase.CreateAsset(reward, rewardPath);
             AssetDatabase.CreateAsset(progression, progressionPath);
 
             var entryGuid = AssetDatabase.AssetPathToGUID(entryPath);
+            authoring.SetOwnerMetadata(entry, entryGuid);
             presentation.SetOwnerMetadata(entry, entryGuid);
             clearEvaluation.SetOwnerMetadata(entry, entryGuid);
             reward.SetOwnerMetadata(entry, entryGuid);
             progression.SetOwnerMetadata(entry, entryGuid);
 
+            authoring.AssignGeneratedDefinitions(stageDefinition, presentation);
+            StageAuthoringMigrationTool.PopulateFromOutputs(
+                authoring,
+                stageId,
+                stageDefinition,
+                presentation,
+                overwriteGeneratedReferences: true);
+            entry.AssignAuthoringDefinition(authoring);
             entry.AssignPresentationDefinition(presentation);
             entry.AssignClearEvaluationDefinition(clearEvaluation);
             entry.AssignRewardDefinition(reward);
             entry.AssignProgressionDefinition(progression);
 
             EditorUtility.SetDirty(entry);
+            EditorUtility.SetDirty(authoring);
             EditorUtility.SetDirty(presentation);
             EditorUtility.SetDirty(clearEvaluation);
             EditorUtility.SetDirty(reward);
@@ -187,6 +202,7 @@ namespace Game.Feature.Stages.Editor
 
             entry.AssignStageId(newStageId);
             RenameAsset(entry, $"{newStageId.Value}_Entry");
+            RenameCompanion(entry.AuthoringDefinition, newStageId, "Authoring", entry);
             RenameCompanion(entry.PresentationDefinition, newStageId, "Presentation", entry);
             RenameCompanion(entry.ClearEvaluationDefinition, newStageId, "ClearEvaluation", entry);
             RenameCompanion(entry.RewardDefinition, newStageId, "Reward", entry);

@@ -26,7 +26,7 @@ namespace Game.Feature.Stages.Editor
                 return report;
             }
 
-            var entryByGameplayGuid = BuildEntryByGameplayGuid(catalog);
+            var entryByAssetGuid = BuildEntryByAssetGuid(catalog);
             var expectedByKey = new Dictionary<string, StageCatalogKnownWarningEntry>(StringComparer.Ordinal);
             var matchedKeys = new HashSet<string>(StringComparer.Ordinal);
             var ledgerEntries = ledger.Entries;
@@ -94,7 +94,7 @@ namespace Game.Feature.Stages.Editor
                         warning.Timing);
                 }
 
-                if (!entryByGameplayGuid.TryGetValue(assetGuid, out var ownerEntry))
+                if (!entryByAssetGuid.TryGetValue(assetGuid, out var ownerEntry))
                 {
                     report.Add(
                         StageValidationSeverity.Error,
@@ -136,22 +136,41 @@ namespace Game.Feature.Stages.Editor
             return report;
         }
 
-        private static Dictionary<string, StageContentEntry> BuildEntryByGameplayGuid(StageCatalog catalog)
+        private static Dictionary<string, StageContentEntry> BuildEntryByAssetGuid(StageCatalog catalog)
         {
             var result = new Dictionary<string, StageContentEntry>(StringComparer.Ordinal);
             var entries = catalog.Entries;
             for (var i = 0; i < entries.Length; i++)
             {
-                var gameplayDefinition = entries[i] != null ? entries[i].GameplayDefinition : null;
-                var assetPath = gameplayDefinition == null ? string.Empty : AssetDatabase.GetAssetPath(gameplayDefinition);
-                var guid = string.IsNullOrWhiteSpace(assetPath) ? string.Empty : AssetDatabase.AssetPathToGUID(assetPath);
-                if (!string.IsNullOrWhiteSpace(guid))
+                var entry = entries[i];
+                if (entry == null)
                 {
-                    result[guid] = entries[i];
+                    continue;
                 }
+
+                AddEntryGuid(result, entry, entry);
+                AddEntryGuid(result, entry.GameplayDefinition, entry);
+                AddEntryGuid(result, entry.PresentationDefinition, entry);
+                AddEntryGuid(result, entry.AuthoringDefinition, entry);
+                AddEntryGuid(result, entry.ClearEvaluationDefinition, entry);
+                AddEntryGuid(result, entry.RewardDefinition, entry);
+                AddEntryGuid(result, entry.ProgressionDefinition, entry);
             }
 
             return result;
+        }
+
+        private static void AddEntryGuid(
+            IDictionary<string, StageContentEntry> result,
+            UnityEngine.Object asset,
+            StageContentEntry entry)
+        {
+            var assetPath = asset == null ? string.Empty : AssetDatabase.GetAssetPath(asset);
+            var guid = string.IsNullOrWhiteSpace(assetPath) ? string.Empty : AssetDatabase.AssetPathToGUID(assetPath);
+            if (!string.IsNullOrWhiteSpace(guid))
+            {
+                result[guid] = entry;
+            }
         }
 
         private static void ValidateLedgerMetadata(

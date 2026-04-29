@@ -6,6 +6,7 @@ namespace Game.Feature.Stages
     public sealed class StageContentEntry : ScriptableObject
     {
         [SerializeField, HideInInspector] private StageId stageId = StageId.None;
+        [SerializeField] private StageAuthoringDefinition authoringDefinition;
         [SerializeField] private StageDefinition gameplayDefinition;
         [SerializeField] private StagePresentationDefinition presentationDefinition;
         [SerializeField] private StageClearEvaluationDefinition clearEvaluationDefinition;
@@ -13,6 +14,8 @@ namespace Game.Feature.Stages
         [SerializeField] private StageProgressionDefinition progressionDefinition;
 
         public StageId StageId => stageId;
+
+        public StageAuthoringDefinition AuthoringDefinition => authoringDefinition;
 
         public StageDefinition GameplayDefinition => gameplayDefinition;
 
@@ -27,6 +30,11 @@ namespace Game.Feature.Stages
         public void AssignStageId(StageId value)
         {
             stageId = value;
+        }
+
+        public void AssignAuthoringDefinition(StageAuthoringDefinition definition)
+        {
+            authoringDefinition = definition;
         }
 
         public void AssignGameplayDefinition(StageDefinition definition)
