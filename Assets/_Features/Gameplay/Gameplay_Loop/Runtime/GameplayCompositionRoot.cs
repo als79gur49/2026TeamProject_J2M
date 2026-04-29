@@ -91,7 +91,8 @@ namespace Game.Feature.Gameplay.Loop
             PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
             int playerRespawnDelayTicks = 1,
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
-            GameplayRuntimeFeatureFlags runtimeFeatureFlags = default)
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
+            PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming = default)
         {
             return CreateDefaultBootstrapper().CreateTickPipeline(
                 worldState,
@@ -100,7 +101,8 @@ namespace Game.Feature.Gameplay.Loop
                 playerControlTiming,
                 playerRespawnDelayTicks,
                 objectiveDefinition,
-                runtimeFeatureFlags: runtimeFeatureFlags);
+                runtimeFeatureFlags: runtimeFeatureFlags,
+                playerKinematicLocomotionTiming: playerKinematicLocomotionTiming);
         }
 
         public static TickRunner CreateTickRunner(
@@ -128,7 +130,8 @@ namespace Game.Feature.Gameplay.Loop
             int playerRespawnDelayTicks = 1,
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
             int startTickIndex = 1,
-            GameplayRuntimeFeatureFlags runtimeFeatureFlags = default)
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
+            PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming = default)
         {
             return CreateDefaultBootstrapper().CreateTickRunner(
                 worldState,
@@ -139,7 +142,8 @@ namespace Game.Feature.Gameplay.Loop
                 playerRespawnDelayTicks,
                 objectiveDefinition,
                 startTickIndex,
-                runtimeFeatureFlags: runtimeFeatureFlags);
+                runtimeFeatureFlags: runtimeFeatureFlags,
+                playerKinematicLocomotionTiming: playerKinematicLocomotionTiming);
         }
     }
 }

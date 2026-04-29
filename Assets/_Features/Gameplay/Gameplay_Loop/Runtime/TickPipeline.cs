@@ -49,6 +49,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly int _playerMoveCooldownTicks;
         private readonly int _playerDamageCooldownTicks;
         private readonly int _playerRespawnDelayTicks;
+        private readonly PlayerKinematicLocomotionTimingSnapshot _playerKinematicLocomotionTiming;
         private readonly bool _allowPlayerRespawn;
         private readonly GameplayRuntimeFeatureFlags _runtimeFeatureFlags;
         private readonly int _slidingStateTimerTicks;
@@ -64,7 +65,8 @@ namespace Game.Feature.Gameplay.Loop
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
             IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> enemySpawnDefaultsByArchetypeId = null,
             bool allowPlayerRespawn = true,
-            GameplayRuntimeFeatureFlags runtimeFeatureFlags = default)
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
+            PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming = default)
         {
             _worldState = worldState ?? throw new ArgumentNullException(nameof(worldState));
 
@@ -90,6 +92,10 @@ namespace Game.Feature.Gameplay.Loop
             _playerMoveCooldownTicks = Math.Max(0, playerControlTiming.MoveCooldownTicks);
             _playerDamageCooldownTicks = Math.Max(0, playerControlTiming.DamageCooldownTicks);
             _playerRespawnDelayTicks = playerRespawnDelayTicks;
+            _playerKinematicLocomotionTiming = playerKinematicLocomotionTiming.IsConfigured
+                ? playerKinematicLocomotionTiming
+                : PlayerKinematicLocomotionTimingSettings.CreateDefault()
+                    .CreateAuthoritativeSnapshot(resolvedGeneralTimingProfile.SimulationTicksPerSecond);
             _allowPlayerRespawn = allowPlayerRespawn;
             _runtimeFeatureFlags = runtimeFeatureFlags;
             _moveOccupancyTicks = resolvedGeneralTimingProfile.MoveOccupancyTicks;
@@ -1418,7 +1424,15 @@ namespace Game.Feature.Gameplay.Loop
                 return true;
             }
 
-            var outcome = CreateKinematicMotionOutcome(sweep);
+            var outcome = CreateKinematicMotionOutcome(
+                sweep,
+                entity.position,
+                sourceState: pose.State,
+                stepDirectionX: delta.x,
+                stepDirectionY: delta.y,
+                elapsedTicks: 1,
+                totalTicks: _playerKinematicLocomotionTiming.TicksPerCell,
+                startedTick: tickIndex);
             payload = CreateKinematicMovementPayload(
                 _idAllocator.AllocateGroupId(),
                 intent.IntentId,
@@ -1444,26 +1458,31 @@ namespace Game.Feature.Gameplay.Loop
                 !snapshot.TryGetUnitKinematicPose(entityId, out var pose) ||
                 pose.IsSettledAtAnchor ||
                 pose.Mode != MotionMode.Voluntary ||
-                pose.State.velocity.IsZero ||
-                !TryResolveFacing(pose.State.velocity, out var facing))
+                !TryResolveStepDirection(pose.State, out var stepDirectionX, out var stepDirectionY, out var facing))
             {
                 return false;
             }
 
-            if (!SurfaceKinematicSweepQueries.TryResolveSameFaceDelta(
-                    snapshot,
-                    entityId,
-                    pose.State.velocity,
-                    out var sweep))
+            var nextElapsedTicks = pose.State.elapsedTicks + 1;
+            if (pose.State.totalTicks < 2 ||
+                (pose.State.totalTicks % 2) != 0 ||
+                nextElapsedTicks <= 0)
             {
                 rejectedReasons.Add(
-                    $"MovementRejected|Stage=Plan|Source={entityId}|Reason=KinematicContinuationRejected|RejectedBy={sweep.RejectedBy}|Anchor={FormatCell(entity.position)}");
+                    $"MovementRejected|Stage=Plan|Source={entityId}|Reason=KinematicContinuationCorrupt|Anchor={FormatCell(entity.position)}");
                 return false;
             }
 
-            var outcome = sweep.Blocked
-                ? CreateBlockedKinematicMotionOutcome(sweep)
-                : CreateKinematicMotionOutcome(sweep);
+            var outcome = CreateKinematicMotionOutcome(
+                entityId,
+                pose.AnchorCell,
+                pose.LocalOffset,
+                pose.State,
+                stepDirectionX,
+                stepDirectionY,
+                nextElapsedTicks,
+                pose.State.totalTicks,
+                pose.State.startedTick);
             payload = CreateKinematicMovementPayload(
                 _idAllocator.AllocateGroupId(),
                 _idAllocator.AllocateIntentId(),
@@ -1472,11 +1491,6 @@ namespace Game.Feature.Gameplay.Loop
                 outcome: outcome,
                 facing: facing,
                 writeFacing: true);
-            if (sweep.Blocked)
-            {
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Plan|Source={entityId}|I={payload.IntentId}|Reason=KinematicContinuationBlocked|RejectedBy={sweep.RejectedBy}|Anchor={FormatCell(entity.position)}");
-            }
 
             return true;
         }
@@ -1549,6 +1563,66 @@ namespace Game.Feature.Gameplay.Loop
             return false;
         }
 
+        private static bool TryResolveStepDirection(
+            UnitKinematicRuntimeState state,
+            out int stepDirectionX,
+            out int stepDirectionY,
+            out Direction facing)
+        {
+            stepDirectionX = state.stepDirectionX;
+            stepDirectionY = state.stepDirectionY;
+            if (stepDirectionX == 1 && stepDirectionY == 0)
+            {
+                facing = Direction.Right;
+                return true;
+            }
+
+            if (stepDirectionX == -1 && stepDirectionY == 0)
+            {
+                facing = Direction.Left;
+                return true;
+            }
+
+            if (stepDirectionY == 1 && stepDirectionX == 0)
+            {
+                facing = Direction.Up;
+                return true;
+            }
+
+            if (stepDirectionY == -1 && stepDirectionX == 0)
+            {
+                facing = Direction.Down;
+                return true;
+            }
+
+            if (!TryResolveFacing(state.velocity, out facing))
+            {
+                return false;
+            }
+
+            switch (facing)
+            {
+                case Direction.Right:
+                    stepDirectionX = 1;
+                    stepDirectionY = 0;
+                    return true;
+                case Direction.Left:
+                    stepDirectionX = -1;
+                    stepDirectionY = 0;
+                    return true;
+                case Direction.Up:
+                    stepDirectionX = 0;
+                    stepDirectionY = 1;
+                    return true;
+                case Direction.Down:
+                    stepDirectionX = 0;
+                    stepDirectionY = -1;
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
         private static KinematicMotionOutcome CreateKinematicMotionOutcome(KinematicSweepResult sweep)
         {
             return new KinematicMotionOutcome(
@@ -1562,6 +1636,70 @@ namespace Game.Feature.Gameplay.Loop
                 sweep.AnchorChanged,
                 blocked: false,
                 rejectedBy: sweep.RejectedBy);
+        }
+
+        private static KinematicMotionOutcome CreateKinematicMotionOutcome(
+            KinematicSweepResult sweep,
+            SurfaceCell currentAnchor,
+            UnitKinematicRuntimeState sourceState,
+            int stepDirectionX,
+            int stepDirectionY,
+            int elapsedTicks,
+            int totalTicks,
+            int startedTick)
+        {
+            return CreateKinematicMotionOutcome(
+                sweep.EntityId,
+                sweep.SourcePose.AnchorCell,
+                sweep.SourcePose.LocalOffset,
+                sourceState,
+                stepDirectionX,
+                stepDirectionY,
+                elapsedTicks,
+                totalTicks,
+                startedTick,
+                currentAnchor);
+        }
+
+        private static KinematicMotionOutcome CreateKinematicMotionOutcome(
+            int entityId,
+            SurfaceCell sourceAnchorCell,
+            KinematicOffset2 sourceLocalOffset,
+            UnitKinematicRuntimeState sourceState,
+            int stepDirectionX,
+            int stepDirectionY,
+            int elapsedTicks,
+            int totalTicks,
+            int startedTick,
+            SurfaceCell? currentAnchorOverride = null)
+        {
+            var currentAnchor = currentAnchorOverride ?? sourceAnchorCell;
+            var resolution = KinematicProgressResolver.ResolvePose(
+                currentAnchor,
+                stepDirectionX,
+                stepDirectionY,
+                elapsedTicks,
+                totalTicks);
+            var resolvedState = CreateVoluntaryKinematicState(
+                sourceState,
+                resolution,
+                stepDirectionX,
+                stepDirectionY,
+                elapsedTicks,
+                totalTicks,
+                startedTick);
+
+            return new KinematicMotionOutcome(
+                entityId,
+                sourceAnchorCell,
+                sourceLocalOffset,
+                resolution.AnchorCell,
+                resolution.LocalOffset,
+                CreateDebugKinematicVelocity(stepDirectionX, stepDirectionY, totalTicks),
+                resolvedState,
+                resolution.IsAnchorCommitTick,
+                blocked: false,
+                rejectedBy: KinematicSweepRejectionReason.None);
         }
 
         private static KinematicMotionOutcome CreateBlockedKinematicMotionOutcome(KinematicSweepResult sweep)
@@ -1607,6 +1745,55 @@ namespace Game.Feature.Gameplay.Loop
                 speedScalePermille = 1000,
                 sequenceId = sourceState.sequenceId + 1,
             }.NormalizedForStorage();
+        }
+
+        private static UnitKinematicRuntimeState CreateVoluntaryKinematicState(
+            UnitKinematicRuntimeState sourceState,
+            KinematicProgressResolution resolution,
+            int stepDirectionX,
+            int stepDirectionY,
+            int elapsedTicks,
+            int totalTicks,
+            int startedTick)
+        {
+            if (resolution.IsSettled)
+            {
+                return UnitKinematicRuntimeState.SettledZero;
+            }
+
+            return new UnitKinematicRuntimeState
+            {
+                localOffset = resolution.LocalOffset,
+                velocity = CreateDebugKinematicVelocity(stepDirectionX, stepDirectionY, totalTicks),
+                mode = MotionMode.Voluntary,
+                forcedOp = ForcedMotionOp.None,
+                remainingDistanceUnits = resolution.RemainingDistanceUnits,
+                remainingTicks = resolution.RemainingTicks,
+                speedScalePermille = 1000,
+                sequenceId = sourceState.sequenceId + 1,
+                elapsedTicks = elapsedTicks,
+                totalTicks = totalTicks,
+                commitTick = totalTicks / 2,
+                startedTick = startedTick,
+                stepDirectionX = stepDirectionX,
+                stepDirectionY = stepDirectionY,
+            }.NormalizedForStorage();
+        }
+
+        private static KinematicVelocity2 CreateDebugKinematicVelocity(
+            int stepDirectionX,
+            int stepDirectionY,
+            int totalTicks)
+        {
+            var unitsPerTick = Math.Max(
+                1,
+                KinematicProgressResolver.ResolveProgressUnits(
+                    1,
+                    Math.Max(2, totalTicks),
+                    KinematicFixed.UnitsPerCell));
+            return new KinematicVelocity2(
+                KinematicFixed.FromRaw(stepDirectionX * unitsPerTick),
+                KinematicFixed.FromRaw(stepDirectionY * unitsPerTick));
         }
 
         private static int ResolveRemainingVoluntaryDistanceUnits(

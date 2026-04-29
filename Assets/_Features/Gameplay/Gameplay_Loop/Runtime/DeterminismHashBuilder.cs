@@ -345,7 +345,13 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(state.remainingDistanceUnits).Append('|')
                     .Append(state.remainingTicks).Append('|')
                     .Append(state.speedScalePermille).Append('|')
-                    .Append(state.sequenceId).Append('\n');
+                    .Append(state.sequenceId).Append('|')
+                    .Append(state.elapsedTicks).Append('|')
+                    .Append(state.totalTicks).Append('|')
+                    .Append(state.commitTick).Append('|')
+                    .Append(state.startedTick).Append('|')
+                    .Append(state.stepDirectionX).Append('|')
+                    .Append(state.stepDirectionY).Append('\n');
             }
         }
 

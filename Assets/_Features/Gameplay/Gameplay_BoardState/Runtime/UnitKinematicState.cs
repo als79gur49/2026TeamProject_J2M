@@ -211,6 +211,12 @@ namespace Game.Feature.Gameplay.BoardState
         public int remainingTicks;
         public int speedScalePermille;
         public int sequenceId;
+        public int elapsedTicks;
+        public int totalTicks;
+        public int commitTick;
+        public int startedTick;
+        public int stepDirectionX;
+        public int stepDirectionY;
 
         public static UnitKinematicRuntimeState SettledZero => default;
 
@@ -222,7 +228,13 @@ namespace Game.Feature.Gameplay.BoardState
             remainingDistanceUnits == 0 &&
             remainingTicks == 0 &&
             speedScalePermille == 0 &&
-            sequenceId == 0;
+            sequenceId == 0 &&
+            elapsedTicks == 0 &&
+            totalTicks == 0 &&
+            commitTick == 0 &&
+            startedTick == 0 &&
+            stepDirectionX == 0 &&
+            stepDirectionY == 0;
 
         public bool IsSettledAtAnchor =>
             localOffset.IsZero &&
@@ -236,12 +248,38 @@ namespace Game.Feature.Gameplay.BoardState
             normalized.remainingTicks = Math.Max(0, normalized.remainingTicks);
             normalized.speedScalePermille = Math.Max(0, normalized.speedScalePermille);
             normalized.sequenceId = Math.Max(0, normalized.sequenceId);
+            normalized.elapsedTicks = Math.Max(0, normalized.elapsedTicks);
+            normalized.totalTicks = Math.Max(0, normalized.totalTicks);
+            normalized.commitTick = Math.Max(0, normalized.commitTick);
+            normalized.startedTick = Math.Max(0, normalized.startedTick);
+            normalized.stepDirectionX = Math.Max(-1, Math.Min(1, normalized.stepDirectionX));
+            normalized.stepDirectionY = Math.Max(-1, Math.Min(1, normalized.stepDirectionY));
             if (normalized.mode == MotionMode.Settled)
             {
                 normalized.velocity = KinematicVelocity2.Zero;
                 normalized.forcedOp = ForcedMotionOp.None;
                 normalized.remainingDistanceUnits = 0;
                 normalized.remainingTicks = 0;
+                normalized.elapsedTicks = 0;
+                normalized.totalTicks = 0;
+                normalized.commitTick = 0;
+                normalized.startedTick = 0;
+                normalized.stepDirectionX = 0;
+                normalized.stepDirectionY = 0;
+            }
+            else if (normalized.mode == MotionMode.Interrupted)
+            {
+                normalized.velocity = KinematicVelocity2.Zero;
+                normalized.forcedOp = ForcedMotionOp.None;
+                normalized.remainingDistanceUnits = 0;
+                normalized.remainingTicks = 0;
+                normalized.speedScalePermille = 0;
+                normalized.elapsedTicks = 0;
+                normalized.totalTicks = 0;
+                normalized.commitTick = 0;
+                normalized.startedTick = 0;
+                normalized.stepDirectionX = 0;
+                normalized.stepDirectionY = 0;
             }
 
             return normalized;
@@ -260,6 +298,12 @@ namespace Game.Feature.Gameplay.BoardState
                 remainingTicks = 0,
                 speedScalePermille = 0,
                 sequenceId = normalizedSource.sequenceId + 1,
+                elapsedTicks = 0,
+                totalTicks = 0,
+                commitTick = 0,
+                startedTick = 0,
+                stepDirectionX = 0,
+                stepDirectionY = 0,
             }.NormalizedForStorage();
         }
 
@@ -272,7 +316,13 @@ namespace Game.Feature.Gameplay.BoardState
                    remainingDistanceUnits == other.remainingDistanceUnits &&
                    remainingTicks == other.remainingTicks &&
                    speedScalePermille == other.speedScalePermille &&
-                   sequenceId == other.sequenceId;
+                   sequenceId == other.sequenceId &&
+                   elapsedTicks == other.elapsedTicks &&
+                   totalTicks == other.totalTicks &&
+                   commitTick == other.commitTick &&
+                   startedTick == other.startedTick &&
+                   stepDirectionX == other.stepDirectionX &&
+                   stepDirectionY == other.stepDirectionY;
         }
 
         public override bool Equals(object obj)
@@ -292,6 +342,12 @@ namespace Game.Feature.Gameplay.BoardState
                 hashCode = (hashCode * 397) ^ remainingTicks;
                 hashCode = (hashCode * 397) ^ speedScalePermille;
                 hashCode = (hashCode * 397) ^ sequenceId;
+                hashCode = (hashCode * 397) ^ elapsedTicks;
+                hashCode = (hashCode * 397) ^ totalTicks;
+                hashCode = (hashCode * 397) ^ commitTick;
+                hashCode = (hashCode * 397) ^ startedTick;
+                hashCode = (hashCode * 397) ^ stepDirectionX;
+                hashCode = (hashCode * 397) ^ stepDirectionY;
                 return hashCode;
             }
         }

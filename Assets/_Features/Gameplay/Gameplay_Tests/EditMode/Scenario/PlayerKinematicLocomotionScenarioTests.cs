@@ -28,7 +28,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void PlayerSameFaceContinuousLocomotion_FlagOn_AdvancesOneCellOverFourTicks()
+        public void PlayerSameFaceContinuousLocomotion_FlagOn_DefaultDurationAdvancesOneCellOverTwentyTicks()
         {
             var worldState = CreateWorldState(CreatePlayer(10));
             var pipeline = CreatePipeline(
@@ -37,21 +37,93 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var tickOne = worldState.CreateSnapshot();
-            AssertPose(tickOne, expectedAnchorX: 0, expectedLocalX: 1024, expectedRemainingTicks: 3);
+            AssertPose(tickOne, expectedAnchorX: 0, expectedLocalX: 205, expectedRemainingTicks: 19, expectedElapsedTicks: 1, expectedTotalTicks: 20);
+
+            for (var tick = 2; tick <= 9; tick++)
+            {
+                pipeline.RunTick(new TickInput(tick));
+            }
+
+            var tickNine = worldState.CreateSnapshot();
+            AssertPose(tickNine, expectedAnchorX: 0, expectedLocalX: 1843, expectedRemainingTicks: 11, expectedElapsedTicks: 9, expectedTotalTicks: 20);
+
+            pipeline.RunTick(new TickInput(10));
+            var tickTen = worldState.CreateSnapshot();
+            AssertPose(tickTen, expectedAnchorX: 1, expectedLocalX: -2048, expectedRemainingTicks: 10, expectedElapsedTicks: 10, expectedTotalTicks: 20);
+
+            for (var tick = 11; tick <= 19; tick++)
+            {
+                pipeline.RunTick(new TickInput(tick));
+            }
+
+            var tickNineteen = worldState.CreateSnapshot();
+            AssertPose(tickNineteen, expectedAnchorX: 1, expectedLocalX: -205, expectedRemainingTicks: 1, expectedElapsedTicks: 19, expectedTotalTicks: 20);
+
+            pipeline.RunTick(new TickInput(20));
+            var tickTwenty = worldState.CreateSnapshot();
+            Assert.That(tickTwenty.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(tickTwenty.TryGetUnitKinematicState(10, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerSameFaceContinuousLocomotion_FlagOn_FourTickCompatibilityDurationReproducesLegacyCadence()
+        {
+            var worldState = CreateWorldState(CreatePlayer(10));
+            var pipeline = CreatePipeline(
+                worldState,
+                GameplayRuntimeFeatureFlags.PlayerSameFaceContinuousLocomotionEnabled,
+                kinematicMoveDurationSeconds: 4f / GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            AssertPose(worldState.CreateSnapshot(), expectedAnchorX: 0, expectedLocalX: 1024, expectedRemainingTicks: 3, expectedElapsedTicks: 1, expectedTotalTicks: 4);
 
             pipeline.RunTick(new TickInput(2));
-            var tickTwo = worldState.CreateSnapshot();
-            AssertPose(tickTwo, expectedAnchorX: 1, expectedLocalX: -2048, expectedRemainingTicks: 2);
+            AssertPose(worldState.CreateSnapshot(), expectedAnchorX: 1, expectedLocalX: -2048, expectedRemainingTicks: 2, expectedElapsedTicks: 2, expectedTotalTicks: 4);
 
             pipeline.RunTick(new TickInput(3));
-            var tickThree = worldState.CreateSnapshot();
-            AssertPose(tickThree, expectedAnchorX: 1, expectedLocalX: -1024, expectedRemainingTicks: 1);
+            AssertPose(worldState.CreateSnapshot(), expectedAnchorX: 1, expectedLocalX: -1024, expectedRemainingTicks: 1, expectedElapsedTicks: 3, expectedTotalTicks: 4);
 
             pipeline.RunTick(new TickInput(4));
-            var tickFour = worldState.CreateSnapshot();
-            Assert.That(tickFour.TryGetEntity(10, out var player), Is.True);
+            var finalSnapshot = worldState.CreateSnapshot();
+            Assert.That(finalSnapshot.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
-            Assert.That(tickFour.TryGetUnitKinematicState(10, out _), Is.False);
+            Assert.That(finalSnapshot.TryGetUnitKinematicState(10, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerSameFaceContinuousLocomotion_FlagOn_PointThirtyFiveDurationUsesTwentyTwoTicksAtSixtyTps()
+        {
+            var worldState = CreateWorldState(CreatePlayer(10));
+            var pipeline = CreatePipeline(
+                worldState,
+                GameplayRuntimeFeatureFlags.PlayerSameFaceContinuousLocomotionEnabled,
+                kinematicMoveDurationSeconds: 0.35f);
+
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            AssertPose(worldState.CreateSnapshot(), expectedAnchorX: 0, expectedLocalX: 186, expectedRemainingTicks: 21, expectedElapsedTicks: 1, expectedTotalTicks: 22);
+
+            for (var tick = 2; tick <= 10; tick++)
+            {
+                pipeline.RunTick(new TickInput(tick));
+            }
+
+            AssertPose(worldState.CreateSnapshot(), expectedAnchorX: 0, expectedLocalX: 1862, expectedRemainingTicks: 12, expectedElapsedTicks: 10, expectedTotalTicks: 22);
+
+            pipeline.RunTick(new TickInput(11));
+            AssertPose(worldState.CreateSnapshot(), expectedAnchorX: 1, expectedLocalX: -2048, expectedRemainingTicks: 11, expectedElapsedTicks: 11, expectedTotalTicks: 22);
+
+            for (var tick = 12; tick <= 22; tick++)
+            {
+                pipeline.RunTick(new TickInput(tick));
+            }
+
+            var finalSnapshot = worldState.CreateSnapshot();
+            Assert.That(finalSnapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(finalSnapshot.TryGetUnitKinematicState(10, out _), Is.False);
         }
 
         [Test]
@@ -100,9 +172,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Is.True);
         }
 
-        [TestCase(1, 0, 1024)]
-        [TestCase(2, 1, -2048)]
-        [TestCase(3, 1, -1024)]
+        [TestCase(5, 0, 1024)]
+        [TestCase(10, 1, -2048)]
+        [TestCase(15, 1, -1024)]
         [Category("Extended")]
         public void PlayerSameFaceContinuousLocomotion_FlagOn_NonlethalHitInterruptsAndNextTickClears(
             int hitTick,
@@ -153,9 +225,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(nextSnapshot.TryGetUnitKinematicState(10, out _), Is.False);
         }
 
-        [TestCase(1, 0, 1024)]
-        [TestCase(2, 1, -2048)]
-        [TestCase(3, 1, -1024)]
+        [TestCase(5, 0, 1024)]
+        [TestCase(10, 1, -2048)]
+        [TestCase(15, 1, -1024)]
         [Category("Extended")]
         public void PlayerSameFaceContinuousLocomotion_FlagOn_LethalHitRemovesAndPurgesKinematicState(
             int hitTick,
@@ -253,7 +325,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             WorldSnapshot snapshot,
             int expectedAnchorX,
             int expectedLocalX,
-            int expectedRemainingTicks)
+            int expectedRemainingTicks,
+            int expectedElapsedTicks,
+            int expectedTotalTicks)
         {
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, expectedAnchorX, 0)));
@@ -261,8 +335,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(state.mode, Is.EqualTo(MotionMode.Voluntary));
             Assert.That(state.localOffset.X.RawValue, Is.EqualTo(expectedLocalX));
             Assert.That(state.localOffset.Y.RawValue, Is.EqualTo(0));
-            Assert.That(state.velocity.X.RawValue, Is.EqualTo(KinematicFixed.DefaultPlayerUnitsPerTick));
             Assert.That(state.remainingTicks, Is.EqualTo(expectedRemainingTicks));
+            Assert.That(state.elapsedTicks, Is.EqualTo(expectedElapsedTicks));
+            Assert.That(state.totalTicks, Is.EqualTo(expectedTotalTicks));
+            Assert.That(state.commitTick, Is.EqualTo(expectedTotalTicks / 2));
+            Assert.That(state.stepDirectionX, Is.EqualTo(1));
+            Assert.That(state.stepDirectionY, Is.EqualTo(0));
         }
 
         private static TickPipeline CreatePipeline(
@@ -270,10 +348,31 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             GameplayRuntimeFeatureFlags runtimeFeatureFlags,
             params IEntityLogic[] extraLogics)
         {
+            return CreatePipeline(
+                worldState,
+                runtimeFeatureFlags,
+                kinematicMoveDurationSeconds: null,
+                extraLogics);
+        }
+
+        private static TickPipeline CreatePipeline(
+            WorldState worldState,
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags,
+            float? kinematicMoveDurationSeconds,
+            params IEntityLogic[] extraLogics)
+        {
             var timingProfile = GameplayTimingProfile.CreateDefault();
             var playerTiming = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                 timingProfile.SimulationTicksPerSecond,
                 timingProfile.RepeatedMoveIntervalSeconds);
+            var kinematicTimingSettings = PlayerKinematicLocomotionTimingSettings.CreateDefault();
+            if (kinematicMoveDurationSeconds.HasValue)
+            {
+                kinematicTimingSettings.KinematicMoveDurationSeconds = kinematicMoveDurationSeconds.Value;
+            }
+
+            var playerKinematicTiming = kinematicTimingSettings.CreateAuthoritativeSnapshot(
+                timingProfile.SimulationTicksPerSecond);
             var entityLogics = new IEntityLogic[]
             {
                 new PlayerLogic(10),
@@ -284,7 +383,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 entityLogics,
                 timingProfile,
                 playerTiming,
-                runtimeFeatureFlags: runtimeFeatureFlags);
+                runtimeFeatureFlags: runtimeFeatureFlags,
+                playerKinematicLocomotionTiming: playerKinematicTiming);
         }
 
         private static WorldState CreateWorldState(params EntityState[] entities)

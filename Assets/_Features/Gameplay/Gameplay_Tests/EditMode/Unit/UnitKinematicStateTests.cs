@@ -114,6 +114,113 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(interrupted.remainingTicks, Is.EqualTo(0));
             Assert.That(interrupted.speedScalePermille, Is.EqualTo(0));
             Assert.That(interrupted.sequenceId, Is.EqualTo(sourceState.sequenceId + 1));
+            Assert.That(interrupted.elapsedTicks, Is.EqualTo(0));
+            Assert.That(interrupted.totalTicks, Is.EqualTo(0));
+            Assert.That(interrupted.commitTick, Is.EqualTo(0));
+            Assert.That(interrupted.startedTick, Is.EqualTo(0));
+            Assert.That(interrupted.stepDirectionX, Is.EqualTo(0));
+            Assert.That(interrupted.stepDirectionY, Is.EqualTo(0));
+        }
+
+        [TestCase(30, 10)]
+        [TestCase(60, 20)]
+        [TestCase(120, 40)]
+        [Category("Extended")]
+        public void PlayerKinematicLocomotionTimingSettings_DefaultDuration_QuantizesToEvenTicks(
+            int simulationTicksPerSecond,
+            int expectedTicksPerCell)
+        {
+            var snapshot = PlayerKinematicLocomotionTimingSettings.CreateDefault()
+                .CreateAuthoritativeSnapshot(simulationTicksPerSecond);
+
+            Assert.That(snapshot.TicksPerCell, Is.EqualTo(expectedTicksPerCell));
+            Assert.That(snapshot.CommitTick, Is.EqualTo(expectedTicksPerCell / 2));
+        }
+
+        [TestCase(30, 12)]
+        [TestCase(60, 22)]
+        [TestCase(120, 42)]
+        [Category("Extended")]
+        public void PlayerKinematicLocomotionTimingSettings_ExplicitPointThirtyFive_UsesEvenCeil(
+            int simulationTicksPerSecond,
+            int expectedTicksPerCell)
+        {
+            var snapshot = new PlayerKinematicLocomotionTimingSettings
+            {
+                KinematicMoveDurationSeconds = 0.35f,
+            }.CreateAuthoritativeSnapshot(simulationTicksPerSecond);
+
+            Assert.That(snapshot.TicksPerCell, Is.EqualTo(expectedTicksPerCell));
+            Assert.That(snapshot.CommitTick, Is.EqualTo(expectedTicksPerCell / 2));
+        }
+
+        [TestCase(0f)]
+        [TestCase(-0.1f)]
+        [TestCase(2.01f)]
+        [Category("Extended")]
+        public void PlayerKinematicLocomotionTimingSettings_InvalidDuration_Throws(float durationSeconds)
+        {
+            var settings = new PlayerKinematicLocomotionTimingSettings
+            {
+                KinematicMoveDurationSeconds = durationSeconds,
+            };
+
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => settings.CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void KinematicProgressResolver_TwentyTickRightMove_UsesProgressTableAndSettlesZero()
+        {
+            var source = new SurfaceCell(FaceId.Floor, 0, 0);
+
+            var tickOne = KinematicProgressResolver.ResolvePose(source, 1, 0, elapsedTicks: 1, totalTicks: 20);
+            var tickNine = KinematicProgressResolver.ResolvePose(source, 1, 0, elapsedTicks: 9, totalTicks: 20);
+            var tickTen = KinematicProgressResolver.ResolvePose(source, 1, 0, elapsedTicks: 10, totalTicks: 20);
+            var tickNineteen = KinematicProgressResolver.ResolvePose(tickTen.AnchorCell, 1, 0, elapsedTicks: 19, totalTicks: 20);
+            var tickTwenty = KinematicProgressResolver.ResolvePose(tickTen.AnchorCell, 1, 0, elapsedTicks: 20, totalTicks: 20);
+
+            Assert.That(tickOne.AnchorCell, Is.EqualTo(source));
+            Assert.That(tickOne.LocalOffset.X.RawValue, Is.EqualTo(205));
+            Assert.That(tickNine.LocalOffset.X.RawValue, Is.EqualTo(1843));
+            Assert.That(tickTen.AnchorCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(tickTen.LocalOffset.X.RawValue, Is.EqualTo(-2048));
+            Assert.That(tickTen.IsAnchorCommitTick, Is.True);
+            Assert.That(tickNineteen.LocalOffset.X.RawValue, Is.EqualTo(-205));
+            Assert.That(tickTwenty.IsSettled, Is.True);
+            Assert.That(tickTwenty.LocalOffset.IsZero, Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void KinematicProgressResolver_TwentyTwoTickRightMove_UsesProgressTable()
+        {
+            var source = new SurfaceCell(FaceId.Floor, 0, 0);
+
+            var tickOne = KinematicProgressResolver.ResolvePose(source, 1, 0, elapsedTicks: 1, totalTicks: 22);
+            var tickTen = KinematicProgressResolver.ResolvePose(source, 1, 0, elapsedTicks: 10, totalTicks: 22);
+            var tickEleven = KinematicProgressResolver.ResolvePose(source, 1, 0, elapsedTicks: 11, totalTicks: 22);
+            var tickTwentyOne = KinematicProgressResolver.ResolvePose(tickEleven.AnchorCell, 1, 0, elapsedTicks: 21, totalTicks: 22);
+
+            Assert.That(tickOne.LocalOffset.X.RawValue, Is.EqualTo(186));
+            Assert.That(tickTen.LocalOffset.X.RawValue, Is.EqualTo(1862));
+            Assert.That(tickEleven.AnchorCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(tickEleven.LocalOffset.X.RawValue, Is.EqualTo(-2048));
+            Assert.That(tickTwentyOne.LocalOffset.X.RawValue, Is.EqualTo(-186));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void KinematicProgressResolver_NegativeDirectionCommitOffset_IsRepresentable()
+        {
+            var source = new SurfaceCell(FaceId.Floor, 0, 0);
+
+            var commit = KinematicProgressResolver.ResolvePose(source, -1, 0, elapsedTicks: 10, totalTicks: 20);
+
+            Assert.That(commit.AnchorCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
+            Assert.That(commit.LocalOffset.X.RawValue, Is.EqualTo(KinematicFixed.MaxPositiveLocalOffset));
+            Assert.That(commit.LocalOffset.IsRepresentableLocalOffset, Is.True);
         }
 
         [Test]
@@ -157,6 +264,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 remainingTicks = 3,
                 speedScalePermille = 1000,
                 sequenceId = 1,
+                elapsedTicks = 1,
+                totalTicks = 20,
+                commitTick = 10,
+                startedTick = 7,
+                stepDirectionX = localX == 0 ? 0 : 1,
+                stepDirectionY = localY == 0 ? 0 : 1,
             };
         }
 

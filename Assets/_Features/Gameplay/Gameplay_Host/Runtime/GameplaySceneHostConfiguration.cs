@@ -137,6 +137,8 @@ namespace Game.Feature.Gameplay.Host
         public StageObjectiveRuntimeDefinition ObjectiveRuntimeDefinition = StageObjectiveRuntimeDefinition.Disabled;
         public int PlayerEntityId = 1;
         public PlayerControlTimingSettings PlayerControlTiming = PlayerControlTimingSettings.CreateDefault();
+        public PlayerKinematicLocomotionTimingSettings PlayerKinematicLocomotionTiming =
+            PlayerKinematicLocomotionTimingSettings.CreateDefault();
         public PlayerRespawnTimingSettings PlayerRespawnTiming = PlayerRespawnTimingSettings.CreateDefault();
         public float MoveMotionDurationSeconds = -1f;
         public float ChargeMoveDurationSeconds = -1f;
@@ -213,6 +215,12 @@ namespace Game.Feature.Gameplay.Host
         public PlayerRespawnTimingAuthoritativeSnapshot CreatePlayerRespawnTimingSnapshot()
         {
             return ResolvePlayerRespawnTimingSettings().CreateAuthoritativeSnapshot(SimulationTicksPerSecond);
+        }
+
+        public PlayerKinematicLocomotionTimingSnapshot CreatePlayerKinematicLocomotionTimingSnapshot()
+        {
+            return ResolvePlayerKinematicLocomotionTimingSettings()
+                .CreateAuthoritativeSnapshot(SimulationTicksPerSecond);
         }
 
         public GameplayRuntimeFeatureFlags CreateRuntimeFeatureFlags()
@@ -368,6 +376,12 @@ namespace Game.Feature.Gameplay.Host
         private PlayerControlTimingSettings ResolvePlayerControlTimingSettings()
         {
             return PlayerControlTiming?.Clone() ?? PlayerControlTimingSettings.CreateDefault();
+        }
+
+        private PlayerKinematicLocomotionTimingSettings ResolvePlayerKinematicLocomotionTimingSettings()
+        {
+            return PlayerKinematicLocomotionTiming?.Clone() ??
+                   PlayerKinematicLocomotionTimingSettings.CreateDefault();
         }
 
         private PlayerRespawnTimingSettings ResolvePlayerRespawnTimingSettings()
