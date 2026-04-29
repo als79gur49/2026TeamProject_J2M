@@ -1,0 +1,694 @@
+using System;
+using System.Linq;
+using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.Host;
+using NUnit.Framework;
+using UnityEditor;
+using UnityEngine;
+
+namespace Game.Feature.Stages.Editor.Tests
+{
+    public sealed class StageAuthoringPresentationCatalogValidationTests
+    {
+        [Test]
+        public void EnemyPlacementPresentationIdMissingFromCatalog_ReportsIssue()
+        {
+            using var fixture = PresentationCatalogFixture.CreateAuthoringPlacement(
+                StageAuthoringEntityKind.Enemy,
+                "missing-enemy-view",
+                enemyCatalogIds: new[] { "enemy-view" },
+                staticCatalogIds: Array.Empty<string>(),
+                enforceGeneratedSync: false);
+
+            AssertHasCode(fixture.Validate(), "PresentationCatalog.EnemyPresentationIdMissing");
+        }
+
+        [Test]
+        public void StaticPlacementPresentationIdMissingFromCatalog_ReportsIssue()
+        {
+            using var fixture = PresentationCatalogFixture.CreateAuthoringPlacement(
+                StageAuthoringEntityKind.Box,
+                "missing-box-view",
+                enemyCatalogIds: Array.Empty<string>(),
+                staticCatalogIds: new[] { "box-view" },
+                enforceGeneratedSync: false);
+
+            AssertHasCode(fixture.Validate(), "PresentationCatalog.StaticPresentationIdMissing");
+        }
+
+        [Test]
+        public void EnemyCatalogNullWithEnemyPlacement_ReportsIssue()
+        {
+            using var fixture = PresentationCatalogFixture.CreateAuthoringPlacement(
+                StageAuthoringEntityKind.Enemy,
+                "enemy-view",
+                enemyCatalogIds: null,
+                staticCatalogIds: Array.Empty<string>(),
+                enforceGeneratedSync: false);
+
+            AssertHasCode(fixture.Validate(), "PresentationCatalog.EnemyCatalogMissing");
+        }
+
+        [Test]
+        public void StaticCatalogNullWithBoxPlacement_ReportsIssue()
+        {
+            using var fixture = PresentationCatalogFixture.CreateAuthoringPlacement(
+                StageAuthoringEntityKind.Box,
+                "box-view",
+                enemyCatalogIds: Array.Empty<string>(),
+                staticCatalogIds: null,
+                enforceGeneratedSync: false);
+
+            AssertHasCode(fixture.Validate(), "PresentationCatalog.StaticCatalogMissing");
+        }
+
+        [Test]
+        public void EmptyCatalogWithPlacement_ReportsIssue()
+        {
+            using var fixture = PresentationCatalogFixture.CreateAuthoringPlacement(
+                StageAuthoringEntityKind.Enemy,
+                "enemy-view",
+                enemyCatalogIds: Array.Empty<string>(),
+                staticCatalogIds: Array.Empty<string>(),
+                enforceGeneratedSync: false);
+
+            AssertHasCode(fixture.Validate(), "PresentationCatalog.EnemyCatalogEmpty");
+        }
+
+        [Test]
+        public void PlayerPlacement_DoesNotRequirePresentationCatalog()
+        {
+            using var fixture = PresentationCatalogFixture.CreateAuthoringPlacement(
+                StageAuthoringEntityKind.Player,
+                "player-view",
+                enemyCatalogIds: null,
+                staticCatalogIds: null,
+                enforceGeneratedSync: true);
+
+            var report = fixture.Validate();
+            Assert.That(report.Issues.Any(IsPresentationIntegrityIssue), Is.False, FormatIssues(report));
+        }
+
+        [Test]
+        public void PlacementPresentationIdEmpty_ReportsIssueWithoutAutoClearing()
+        {
+            using var fixture = PresentationCatalogFixture.CreateAuthoringPlacement(
+                StageAuthoringEntityKind.Enemy,
+                string.Empty,
+                enemyCatalogIds: new[] { "enemy-view" },
+                staticCatalogIds: Array.Empty<string>(),
+                enforceGeneratedSync: false);
+
+            var before = fixture.Authoring.Placements[1].PresentationId;
+            var report = fixture.Validate();
+
+            AssertHasCode(report, "PresentationCatalog.EnemyPresentationIdEmpty");
+            Assert.That(fixture.Authoring.Placements[1].PresentationId, Is.EqualTo(before));
+        }
+
+        [Test]
+        public void EnemyCatalogDuplicatePresentationId_ReportsIssue()
+        {
+            using var fixture = PresentationCatalogFixture.CreateBindingOnly(
+                enemyCatalogIds: new[] { "enemy-view", " enemy-view " },
+                staticCatalogIds: Array.Empty<string>());
+
+            AssertHasCode(fixture.Validate(), "PresentationCatalog.DuplicatePresentationId");
+        }
+
+        [Test]
+        public void StaticCatalogDuplicatePresentationId_ReportsIssue()
+        {
+            using var fixture = PresentationCatalogFixture.CreateBindingOnly(
+                enemyCatalogIds: Array.Empty<string>(),
+                staticCatalogIds: new[] { "box-view", " box-view " });
+
+            AssertHasCode(fixture.Validate(), "PresentationCatalog.DuplicatePresentationId");
+        }
+
+        [Test]
+        public void CatalogEntryEmptyPresentationId_ReportsIssue()
+        {
+            using var fixture = PresentationCatalogFixture.CreateBindingOnly(
+                enemyCatalogIds: new[] { string.Empty },
+                staticCatalogIds: Array.Empty<string>());
+
+            AssertHasCode(fixture.Validate(), "PresentationCatalog.EmptyPresentationId");
+        }
+
+        [Test]
+        public void CatalogEntryNullViewPrefab_ReportsExpectedSeverity()
+        {
+            using var fixture = PresentationCatalogFixture.CreateBindingOnly(
+                enemyCatalogIds: new[] { "enemy-view" },
+                staticCatalogIds: Array.Empty<string>(),
+                assignViewPrefabs: false);
+
+            var issue = AssertHasCode(fixture.Validate(), "PresentationCatalog.ViewPrefabMissing");
+            Assert.That(issue.Severity, Is.EqualTo(StageValidationSeverity.Error));
+        }
+
+        [Test]
+        public void EnemyBindingReferencesMissingSpawn_ReportsOrphanEnemyBinding()
+        {
+            using var fixture = PresentationCatalogFixture.CreateBindingOnly(
+                enemyCatalogIds: new[] { "enemy-view" },
+                staticCatalogIds: Array.Empty<string>());
+            fixture.SetEnemyBindings(new[] { new EnemyPresentationBinding { EntityId = 99, PresentationId = "enemy-view" } });
+
+            AssertHasCode(fixture.Validate(), "PresentationBinding.OrphanEnemyBinding");
+        }
+
+        [Test]
+        public void StaticBindingReferencesMissingSpawn_ReportsOrphanStaticBinding()
+        {
+            using var fixture = PresentationCatalogFixture.CreateBindingOnly(
+                enemyCatalogIds: Array.Empty<string>(),
+                staticCatalogIds: new[] { "box-view" });
+            fixture.SetStaticBindings(new[] { new StaticEntityPresentationBinding { EntityId = 99, PresentationId = "box-view" } });
+
+            AssertHasCode(fixture.Validate(), "PresentationBinding.OrphanStaticBinding");
+        }
+
+        [Test]
+        public void EnemySpawnWithoutBinding_ReportsMissingEnemyBinding()
+        {
+            using var fixture = PresentationCatalogFixture.CreateBindingOnly(
+                enemyCatalogIds: new[] { "enemy-view" },
+                staticCatalogIds: Array.Empty<string>());
+            fixture.SetEnemyBindings(Array.Empty<EnemyPresentationBinding>());
+
+            AssertHasCode(fixture.Validate(), "PresentationBinding.MissingEnemyBinding");
+        }
+
+        [Test]
+        public void BoxSpawnWithoutBinding_ReportsMissingStaticBinding()
+        {
+            using var fixture = PresentationCatalogFixture.CreateBindingOnly(
+                enemyCatalogIds: Array.Empty<string>(),
+                staticCatalogIds: new[] { "box-view" });
+            fixture.SetStaticBindings(Array.Empty<StaticEntityPresentationBinding>());
+
+            AssertHasCode(fixture.Validate(), "PresentationBinding.MissingStaticBinding");
+        }
+
+        [Test]
+        public void StaticBindingReferencesEnemyEntity_ReportsWrongKind()
+        {
+            using var fixture = PresentationCatalogFixture.CreateBindingOnly(
+                enemyCatalogIds: new[] { "enemy-view" },
+                staticCatalogIds: new[] { "box-view" });
+            fixture.SetStaticBindings(new[] { new StaticEntityPresentationBinding { EntityId = 2, PresentationId = "box-view" } });
+
+            AssertHasCode(fixture.Validate(), "PresentationBinding.BindingReferencesWrongKind");
+        }
+
+        [Test]
+        public void EnemyBindingReferencesBoxEntity_ReportsWrongKind()
+        {
+            using var fixture = PresentationCatalogFixture.CreateBindingOnly(
+                enemyCatalogIds: new[] { "enemy-view" },
+                staticCatalogIds: new[] { "box-view" });
+            fixture.SetEnemyBindings(new[] { new EnemyPresentationBinding { EntityId = 3, PresentationId = "enemy-view" } });
+
+            AssertHasCode(fixture.Validate(), "PresentationBinding.BindingReferencesWrongKind");
+        }
+
+        [Test]
+        public void EnemyBindingPresentationIdMissingFromCatalog_ReportsIssue()
+        {
+            using var fixture = PresentationCatalogFixture.CreateBindingOnly(
+                enemyCatalogIds: new[] { "enemy-view" },
+                staticCatalogIds: Array.Empty<string>());
+            fixture.SetEnemyBindings(new[] { new EnemyPresentationBinding { EntityId = 2, PresentationId = "missing-enemy-view" } });
+
+            AssertHasCode(fixture.Validate(), "PresentationCatalog.EnemyPresentationIdMissing");
+        }
+
+        [Test]
+        public void StaticBindingPresentationIdMissingFromCatalog_ReportsIssue()
+        {
+            using var fixture = PresentationCatalogFixture.CreateBindingOnly(
+                enemyCatalogIds: Array.Empty<string>(),
+                staticCatalogIds: new[] { "box-view" });
+            fixture.SetStaticBindings(new[] { new StaticEntityPresentationBinding { EntityId = 3, PresentationId = "missing-box-view" } });
+
+            AssertHasCode(fixture.Validate(), "PresentationCatalog.StaticPresentationIdMissing");
+        }
+
+        [Test]
+        public void PresentationCatalogIssue_EnforceGeneratedSyncFalse_IsWarning()
+        {
+            using var fixture = PresentationCatalogFixture.CreateAuthoringPlacement(
+                StageAuthoringEntityKind.Enemy,
+                "missing-enemy-view",
+                enemyCatalogIds: new[] { "enemy-view" },
+                staticCatalogIds: Array.Empty<string>(),
+                enforceGeneratedSync: false);
+
+            var issue = AssertHasCode(fixture.Validate(), "PresentationCatalog.EnemyPresentationIdMissing");
+            Assert.That(issue.Severity, Is.EqualTo(StageValidationSeverity.Warning));
+        }
+
+        [Test]
+        public void PresentationCatalogIssue_EnforceGeneratedSyncTrue_IsError()
+        {
+            using var fixture = PresentationCatalogFixture.CreateAuthoringPlacement(
+                StageAuthoringEntityKind.Enemy,
+                "missing-enemy-view",
+                enemyCatalogIds: new[] { "enemy-view" },
+                staticCatalogIds: Array.Empty<string>(),
+                enforceGeneratedSync: true);
+
+            var issue = AssertHasCode(fixture.Validate(), "PresentationCatalog.EnemyPresentationIdMissing");
+            Assert.That(issue.Severity, Is.EqualTo(StageValidationSeverity.Error));
+        }
+
+        [Test]
+        public void BindingWrongKind_IsAlwaysError()
+        {
+            using var fixture = PresentationCatalogFixture.CreateBindingOnly(
+                enemyCatalogIds: new[] { "enemy-view" },
+                staticCatalogIds: new[] { "box-view" });
+            fixture.SetEnemyBindings(new[] { new EnemyPresentationBinding { EntityId = 3, PresentationId = "enemy-view" } });
+
+            var issue = AssertHasCode(fixture.Validate(), "PresentationBinding.BindingReferencesWrongKind");
+            Assert.That(issue.Severity, Is.EqualTo(StageValidationSeverity.Error));
+        }
+
+        [Test]
+        public void PresentationCatalogValidation_DoesNotTreatMetadataChangeAsIssue()
+        {
+            var fixture = StageAuthoringTestFixture.CreateSynced();
+            try
+            {
+                SetString(fixture.Presentation, "displayName", "Edited Display");
+                SetString(fixture.Presentation, "resultTitle", "Edited Result");
+
+                var report = fixture.Validate();
+                Assert.That(report.Issues.Any(IsPresentationIntegrityIssue), Is.False, FormatIssues(report));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        public void PresentationCatalogValidation_DoesNotRequirePlayerPresentation()
+        {
+            using var fixture = PresentationCatalogFixture.CreateAuthoringPlacement(
+                StageAuthoringEntityKind.Player,
+                string.Empty,
+                enemyCatalogIds: Array.Empty<string>(),
+                staticCatalogIds: Array.Empty<string>(),
+                enforceGeneratedSync: false);
+
+            var report = fixture.Validate();
+            Assert.That(report.Issues.Any(IsPresentationIntegrityIssue), Is.False, FormatIssues(report));
+        }
+
+        [Test]
+        public void PresentationCatalogValidation_DoesNotModifyAuthoringOrOutputs()
+        {
+            using var fixture = PresentationCatalogFixture.CreateAuthoringPlacement(
+                StageAuthoringEntityKind.Enemy,
+                "missing-enemy-view",
+                enemyCatalogIds: new[] { "enemy-view" },
+                staticCatalogIds: Array.Empty<string>(),
+                enforceGeneratedSync: false);
+            var placementBefore = fixture.Authoring.Placements[1].PresentationId;
+            var bindingBefore = fixture.Presentation.EnemyPresentationBindings[0].PresentationId;
+
+            fixture.Validate();
+
+            Assert.That(fixture.Authoring.Placements[1].PresentationId, Is.EqualTo(placementBefore));
+            Assert.That(fixture.Presentation.EnemyPresentationBindings[0].PresentationId, Is.EqualTo(bindingBefore));
+        }
+
+        private static StageValidationIssue AssertHasCode(StageValidationReport report, string code)
+        {
+            var issue = report.Issues.FirstOrDefault(found => found.Code == code);
+            Assert.That(issue.Code, Is.EqualTo(code), FormatIssues(report));
+            return issue;
+        }
+
+        private static bool IsPresentationIntegrityIssue(StageValidationIssue issue)
+        {
+            return issue.Code.StartsWith("PresentationCatalog.", StringComparison.Ordinal) ||
+                   issue.Code.StartsWith("PresentationBinding.", StringComparison.Ordinal);
+        }
+
+        private static void SetString(StagePresentationDefinition presentation, string fieldName, string value)
+        {
+            var serializedObject = new SerializedObject(presentation);
+            serializedObject.FindProperty(fieldName).stringValue = value;
+            serializedObject.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static string FormatIssues(StageValidationReport report)
+        {
+            return string.Join(
+                Environment.NewLine,
+                report.Issues.Select(issue => $"[{issue.Severity}] {issue.Code}: {issue.Message}"));
+        }
+
+        private sealed class PresentationCatalogFixture : IDisposable
+        {
+            private readonly UnityEngine.Object[] ownedObjects;
+
+            private PresentationCatalogFixture(
+                StageContentEntry entry,
+                StageAuthoringDefinition authoring,
+                StageDefinition gameplay,
+                StagePresentationDefinition presentation,
+                EnemyPresentationCatalog enemyCatalog,
+                StaticEntityPresentationCatalog staticCatalog,
+                GameplayEntityView[] viewPrefabs)
+            {
+                Entry = entry;
+                Authoring = authoring;
+                Gameplay = gameplay;
+                Presentation = presentation;
+                ownedObjects = new UnityEngine.Object[]
+                {
+                    entry,
+                    authoring,
+                    gameplay,
+                    presentation,
+                    enemyCatalog,
+                    staticCatalog,
+                }.Concat((viewPrefabs ?? Array.Empty<GameplayEntityView>()).Select(view => view != null ? view.gameObject : null)).ToArray();
+            }
+
+            public StageContentEntry Entry { get; }
+
+            public StageAuthoringDefinition Authoring { get; }
+
+            public StageDefinition Gameplay { get; }
+
+            public StagePresentationDefinition Presentation { get; }
+
+            public static PresentationCatalogFixture CreateAuthoringPlacement(
+                StageAuthoringEntityKind kind,
+                string presentationId,
+                string[] enemyCatalogIds,
+                string[] staticCatalogIds,
+                bool enforceGeneratedSync)
+            {
+                var fixture = CreateBase(enemyCatalogIds, staticCatalogIds);
+                fixture.Authoring.SetEnforceGeneratedSync(enforceGeneratedSync);
+                fixture.Authoring.SetPlacements(new[]
+                {
+                    Placement("player", StageAuthoringEntityKind.Player, 1, string.Empty),
+                    Placement("subject", kind, 2, presentationId),
+                });
+                fixture.Authoring.SetEntityIdMappings(new[]
+                {
+                    new StageAuthoringIdMapping { StableGuid = "player", EntityId = 1 },
+                    new StageAuthoringIdMapping { StableGuid = "subject", EntityId = 2 },
+                });
+
+                if (kind == StageAuthoringEntityKind.Enemy)
+                {
+                    SetStageSpawns(
+                        fixture.Gameplay,
+                        enemySpawns: new[] { Spawn(2, StageSpawnKind.Enemy) },
+                        boxSpawns: Array.Empty<StageSpawnDefinition>(),
+                        wallSpawns: Array.Empty<StageSpawnDefinition>());
+                    fixture.SetEnemyBindings(string.IsNullOrWhiteSpace(presentationId)
+                        ? Array.Empty<EnemyPresentationBinding>()
+                        : new[] { new EnemyPresentationBinding { EntityId = 2, PresentationId = presentationId } });
+                }
+                else if (kind == StageAuthoringEntityKind.Box || kind == StageAuthoringEntityKind.Wall)
+                {
+                    SetStageSpawns(
+                        fixture.Gameplay,
+                        enemySpawns: Array.Empty<StageSpawnDefinition>(),
+                        boxSpawns: kind == StageAuthoringEntityKind.Box
+                            ? new[] { Spawn(2, StageSpawnKind.Box) }
+                            : Array.Empty<StageSpawnDefinition>(),
+                        wallSpawns: kind == StageAuthoringEntityKind.Wall
+                            ? new[] { Spawn(2, StageSpawnKind.Wall) }
+                            : Array.Empty<StageSpawnDefinition>());
+                    fixture.SetStaticBindings(string.IsNullOrWhiteSpace(presentationId)
+                        ? Array.Empty<StaticEntityPresentationBinding>()
+                        : new[] { new StaticEntityPresentationBinding { EntityId = 2, PresentationId = presentationId } });
+                }
+                else
+                {
+                    SetStageSpawns(
+                        fixture.Gameplay,
+                        enemySpawns: Array.Empty<StageSpawnDefinition>(),
+                        boxSpawns: Array.Empty<StageSpawnDefinition>(),
+                        wallSpawns: Array.Empty<StageSpawnDefinition>());
+                }
+
+                return fixture;
+            }
+
+            public static PresentationCatalogFixture CreateBindingOnly(
+                string[] enemyCatalogIds,
+                string[] staticCatalogIds,
+                bool assignViewPrefabs = true)
+            {
+                var fixture = CreateBase(enemyCatalogIds, staticCatalogIds, assignViewPrefabs);
+                fixture.Entry.AssignAuthoringDefinition(null);
+                SetStageSpawns(
+                    fixture.Gameplay,
+                    enemySpawns: new[] { Spawn(2, StageSpawnKind.Enemy) },
+                    boxSpawns: new[] { Spawn(3, StageSpawnKind.Box) },
+                    wallSpawns: Array.Empty<StageSpawnDefinition>());
+                fixture.SetEnemyBindings(new[] { new EnemyPresentationBinding { EntityId = 2, PresentationId = "enemy-view" } });
+                fixture.SetStaticBindings(new[] { new StaticEntityPresentationBinding { EntityId = 3, PresentationId = "box-view" } });
+                return fixture;
+            }
+
+            public StageValidationReport Validate()
+            {
+                return new StageCatalogValidator().ValidateEntries(
+                    new[] { Entry },
+                    aliasTable: null,
+                    new StageCatalogValidationOptions { Timing = StageValidationTiming.TestOrCi });
+            }
+
+            public void SetEnemyBindings(EnemyPresentationBinding[] bindings)
+            {
+                var serializedObject = new SerializedObject(Presentation);
+                var property = serializedObject.FindProperty("enemyPresentationBindings");
+                property.arraySize = bindings.Length;
+                for (var i = 0; i < bindings.Length; i++)
+                {
+                    var element = property.GetArrayElementAtIndex(i);
+                    element.FindPropertyRelative("EntityId").intValue = bindings[i].EntityId;
+                    element.FindPropertyRelative("PresentationId").stringValue = bindings[i].PresentationId;
+                }
+
+                serializedObject.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            public void SetStaticBindings(StaticEntityPresentationBinding[] bindings)
+            {
+                var serializedObject = new SerializedObject(Presentation);
+                var property = serializedObject.FindProperty("staticEntityPresentationBindings");
+                property.arraySize = bindings.Length;
+                for (var i = 0; i < bindings.Length; i++)
+                {
+                    var element = property.GetArrayElementAtIndex(i);
+                    element.FindPropertyRelative("EntityId").intValue = bindings[i].EntityId;
+                    element.FindPropertyRelative("PresentationId").stringValue = bindings[i].PresentationId;
+                }
+
+                serializedObject.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            public void Dispose()
+            {
+                for (var i = 0; i < ownedObjects.Length; i++)
+                {
+                    if (ownedObjects[i] != null)
+                    {
+                        UnityEngine.Object.DestroyImmediate(ownedObjects[i]);
+                    }
+                }
+            }
+
+            private static PresentationCatalogFixture CreateBase(
+                string[] enemyCatalogIds,
+                string[] staticCatalogIds,
+                bool assignViewPrefabs = true)
+            {
+                var entry = ScriptableObject.CreateInstance<StageContentEntry>();
+                var authoring = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
+                var gameplay = ScriptableObject.CreateInstance<StageDefinition>();
+                var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+                var viewPrefabs = new[]
+                {
+                    CreateViewPrefab("PresentationCatalogValidation_EnemyViewPrefab"),
+                    CreateViewPrefab("PresentationCatalogValidation_StaticViewPrefab"),
+                };
+                var enemyCatalog = enemyCatalogIds != null
+                    ? CreateEnemyCatalog(enemyCatalogIds, assignViewPrefabs ? viewPrefabs[0] : null)
+                    : null;
+                var staticCatalog = staticCatalogIds != null
+                    ? CreateStaticCatalog(staticCatalogIds, assignViewPrefabs ? viewPrefabs[1] : null)
+                    : null;
+
+                entry.name = "presentation-catalog-validation_Entry";
+                authoring.name = "presentation-catalog-validation_Authoring";
+                gameplay.name = "presentation-catalog-validation";
+                presentation.name = "presentation-catalog-validation_Presentation";
+                entry.AssignStageId(StageId.CreateOrThrow("presentation-catalog-validation"));
+                entry.AssignAuthoringDefinition(authoring);
+                entry.AssignGameplayDefinition(gameplay);
+                entry.AssignPresentationDefinition(presentation);
+                authoring.AssignGeneratedDefinitions(gameplay, presentation);
+                authoring.SetOwnerMetadata(entry, string.Empty);
+                presentation.SetOwnerMetadata(entry, string.Empty);
+                authoring.SetBoard(new StageBoardDefinition
+                {
+                    MinInclusive = new Vector2Int(0, 0),
+                    MaxInclusive = new Vector2Int(4, 4),
+                    InitialBottomFace = FaceId.Floor,
+                });
+                authoring.SetObjective(StageObjectiveAuthoring.CreateDefault());
+                SetStageSpawns(
+                    gameplay,
+                    enemySpawns: Array.Empty<StageSpawnDefinition>(),
+                    boxSpawns: Array.Empty<StageSpawnDefinition>(),
+                    wallSpawns: Array.Empty<StageSpawnDefinition>());
+                SetPresentationCatalogs(presentation, enemyCatalog, staticCatalog);
+                return new PresentationCatalogFixture(
+                    entry,
+                    authoring,
+                    gameplay,
+                    presentation,
+                    enemyCatalog,
+                    staticCatalog,
+                    viewPrefabs);
+            }
+
+            private static StagePlacedEntityAuthoring Placement(
+                string stableGuid,
+                StageAuthoringEntityKind kind,
+                int entityId,
+                string presentationId)
+            {
+                return new StagePlacedEntityAuthoring
+                {
+                    StableGuid = stableGuid,
+                    DisplayName = stableGuid,
+                    Kind = kind,
+                    Cell = new SurfaceCell(FaceId.Floor, entityId, 0),
+                    Facing = Direction.Right,
+                    Hp = 1,
+                    BoxCapabilities = BoxCapabilities.Push,
+                    EnemyAiMode = kind == StageAuthoringEntityKind.Enemy ? EnemyAiMode.Patrol : EnemyAiMode.None,
+                    PresentationId = presentationId,
+                };
+            }
+
+            private static StageSpawnDefinition Spawn(int entityId, StageSpawnKind kind)
+            {
+                return new StageSpawnDefinition
+                {
+                    EntityId = entityId,
+                    Kind = kind,
+                    Cell = new SurfaceCell(FaceId.Floor, entityId, 0),
+                    Facing = Direction.Right,
+                    Hp = 1,
+                    BoxCapabilities = BoxCapabilities.Push,
+                    EnemyAiMode = kind == StageSpawnKind.Enemy ? EnemyAiMode.Patrol : EnemyAiMode.None,
+                };
+            }
+
+            private static void SetStageSpawns(
+                StageDefinition gameplay,
+                StageSpawnDefinition[] enemySpawns,
+                StageSpawnDefinition[] boxSpawns,
+                StageSpawnDefinition[] wallSpawns)
+            {
+                var serializedObject = new SerializedObject(gameplay);
+                var board = serializedObject.FindProperty("board");
+                board.FindPropertyRelative("MinInclusive").vector2IntValue = new Vector2Int(0, 0);
+                board.FindPropertyRelative("MaxInclusive").vector2IntValue = new Vector2Int(4, 4);
+                board.FindPropertyRelative("InitialBottomFace").intValue = (int)FaceId.Floor;
+                WriteSpawns(serializedObject.FindProperty("playerSpawns"), new[] { Spawn(1, StageSpawnKind.Player) });
+                WriteSpawns(serializedObject.FindProperty("enemySpawns"), enemySpawns);
+                WriteSpawns(serializedObject.FindProperty("boxSpawns"), boxSpawns);
+                WriteSpawns(serializedObject.FindProperty("wallSpawns"), wallSpawns);
+                serializedObject.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            private static void WriteSpawns(SerializedProperty property, StageSpawnDefinition[] spawns)
+            {
+                property.arraySize = spawns.Length;
+                for (var i = 0; i < spawns.Length; i++)
+                {
+                    var element = property.GetArrayElementAtIndex(i);
+                    element.FindPropertyRelative("EntityId").intValue = spawns[i].EntityId;
+                    element.FindPropertyRelative("Kind").intValue = (int)spawns[i].Kind;
+                    var cell = element.FindPropertyRelative("Cell");
+                    cell.FindPropertyRelative("face").intValue = (int)spawns[i].Cell.face;
+                    cell.FindPropertyRelative("x").intValue = spawns[i].Cell.x;
+                    cell.FindPropertyRelative("y").intValue = spawns[i].Cell.y;
+                    element.FindPropertyRelative("Facing").intValue = (int)spawns[i].Facing;
+                    element.FindPropertyRelative("Hp").intValue = spawns[i].Hp;
+                    element.FindPropertyRelative("BoxCapabilities").intValue = (int)spawns[i].BoxCapabilities;
+                    element.FindPropertyRelative("EnemyAiMode").intValue = (int)spawns[i].EnemyAiMode;
+                }
+            }
+
+            private static EnemyPresentationCatalog CreateEnemyCatalog(string[] ids, GameplayEntityView viewPrefab)
+            {
+                var catalog = ScriptableObject.CreateInstance<EnemyPresentationCatalog>();
+                var serializedObject = new SerializedObject(catalog);
+                var entries = serializedObject.FindProperty("entries");
+                entries.arraySize = ids.Length;
+                for (var i = 0; i < ids.Length; i++)
+                {
+                    var element = entries.GetArrayElementAtIndex(i);
+                    element.FindPropertyRelative("PresentationId").stringValue = ids[i];
+                    element.FindPropertyRelative("ViewPrefab").objectReferenceValue = viewPrefab;
+                }
+
+                serializedObject.ApplyModifiedPropertiesWithoutUndo();
+                return catalog;
+            }
+
+            private static StaticEntityPresentationCatalog CreateStaticCatalog(string[] ids, GameplayEntityView viewPrefab)
+            {
+                var catalog = ScriptableObject.CreateInstance<StaticEntityPresentationCatalog>();
+                var serializedObject = new SerializedObject(catalog);
+                var entries = serializedObject.FindProperty("entries");
+                entries.arraySize = ids.Length;
+                for (var i = 0; i < ids.Length; i++)
+                {
+                    var element = entries.GetArrayElementAtIndex(i);
+                    element.FindPropertyRelative("PresentationId").stringValue = ids[i];
+                    element.FindPropertyRelative("ViewPrefab").objectReferenceValue = viewPrefab;
+                }
+
+                serializedObject.ApplyModifiedPropertiesWithoutUndo();
+                return catalog;
+            }
+
+            private static void SetPresentationCatalogs(
+                StagePresentationDefinition presentation,
+                EnemyPresentationCatalog enemyCatalog,
+                StaticEntityPresentationCatalog staticCatalog)
+            {
+                var serializedObject = new SerializedObject(presentation);
+                serializedObject.FindProperty("enemyPresentationCatalog").objectReferenceValue = enemyCatalog;
+                serializedObject.FindProperty("staticEntityPresentationCatalog").objectReferenceValue = staticCatalog;
+                serializedObject.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            private static GameplayEntityView CreateViewPrefab(string name)
+            {
+                return new GameObject(name).AddComponent<GameplayEntityView>();
+            }
+        }
+    }
+}

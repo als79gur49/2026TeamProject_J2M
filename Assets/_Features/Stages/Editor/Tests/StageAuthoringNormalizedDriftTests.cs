@@ -287,13 +287,25 @@ namespace Game.Feature.Stages.Editor.Tests
             StageDefinition gameplay,
             StagePresentationDefinition presentation,
             EnemyPresentationCatalog enemyCatalog,
-            StaticEntityPresentationCatalog staticCatalog)
+            StaticEntityPresentationCatalog staticCatalog,
+            GameplayEntityView enemyViewPrefab,
+            GameplayEntityView staticViewPrefab)
         {
             Entry = entry;
             Authoring = authoring;
             Gameplay = gameplay;
             Presentation = presentation;
-            ownedObjects = new UnityEngine.Object[] { entry, authoring, gameplay, presentation, enemyCatalog, staticCatalog };
+            ownedObjects = new UnityEngine.Object[]
+            {
+                entry,
+                authoring,
+                gameplay,
+                presentation,
+                enemyCatalog,
+                staticCatalog,
+                enemyViewPrefab != null ? enemyViewPrefab.gameObject : null,
+                staticViewPrefab != null ? staticViewPrefab.gameObject : null,
+            };
         }
 
         public StageContentEntry Entry { get; }
@@ -318,8 +330,10 @@ namespace Game.Feature.Stages.Editor.Tests
             var authoring = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
             var gameplay = ScriptableObject.CreateInstance<StageDefinition>();
             var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
-            var enemyCatalog = CreateEnemyCatalog("enemy-view");
-            var staticCatalog = CreateStaticCatalog("box-view");
+            var enemyViewPrefab = CreateViewPrefab("authoring-test_EnemyViewPrefab");
+            var staticViewPrefab = CreateViewPrefab("authoring-test_StaticViewPrefab");
+            var enemyCatalog = CreateEnemyCatalog("enemy-view", enemyViewPrefab);
+            var staticCatalog = CreateStaticCatalog("box-view", staticViewPrefab);
 
             entry.name = "authoring-test_Entry";
             authoring.name = "authoring-test_Authoring";
@@ -348,7 +362,15 @@ namespace Game.Feature.Stages.Editor.Tests
             });
             authoring.SetObjective(StageObjectiveAuthoring.CreateDefault());
             SetPresentationCatalogs(presentation, enemyCatalog, staticCatalog);
-            return new StageAuthoringTestFixture(entry, authoring, gameplay, presentation, enemyCatalog, staticCatalog);
+            return new StageAuthoringTestFixture(
+                entry,
+                authoring,
+                gameplay,
+                presentation,
+                enemyCatalog,
+                staticCatalog,
+                enemyViewPrefab,
+                staticViewPrefab);
         }
 
         public StageValidationReport Validate()
@@ -389,26 +411,33 @@ namespace Game.Feature.Stages.Editor.Tests
             };
         }
 
-        private static EnemyPresentationCatalog CreateEnemyCatalog(string id)
+        private static EnemyPresentationCatalog CreateEnemyCatalog(string id, GameplayEntityView viewPrefab)
         {
             var catalog = ScriptableObject.CreateInstance<EnemyPresentationCatalog>();
             var serializedObject = new SerializedObject(catalog);
             var entries = serializedObject.FindProperty("entries");
             entries.arraySize = 1;
             entries.GetArrayElementAtIndex(0).FindPropertyRelative("PresentationId").stringValue = id;
+            entries.GetArrayElementAtIndex(0).FindPropertyRelative("ViewPrefab").objectReferenceValue = viewPrefab;
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
             return catalog;
         }
 
-        private static StaticEntityPresentationCatalog CreateStaticCatalog(string id)
+        private static StaticEntityPresentationCatalog CreateStaticCatalog(string id, GameplayEntityView viewPrefab)
         {
             var catalog = ScriptableObject.CreateInstance<StaticEntityPresentationCatalog>();
             var serializedObject = new SerializedObject(catalog);
             var entries = serializedObject.FindProperty("entries");
             entries.arraySize = 1;
             entries.GetArrayElementAtIndex(0).FindPropertyRelative("PresentationId").stringValue = id;
+            entries.GetArrayElementAtIndex(0).FindPropertyRelative("ViewPrefab").objectReferenceValue = viewPrefab;
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
             return catalog;
+        }
+
+        private static GameplayEntityView CreateViewPrefab(string name)
+        {
+            return new GameObject(name).AddComponent<GameplayEntityView>();
         }
 
         private static void SetPresentationCatalogs(
