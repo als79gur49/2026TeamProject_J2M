@@ -16,6 +16,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
             var reportText = File.ReadAllText(reportPath);
             Assert.That(reportText, Does.Contain("## Authoring Sync Issues"));
+            Assert.That(reportText, Does.Contain("## Full EditMode Known Failure Baseline"));
             Assert.That(reportText, Does.Contain("## Known Warning Governance Issues"));
             Assert.That(reportText, Does.Contain("## Alias Governance Issues"));
             Assert.That(reportText, Does.Contain("## Alias Usage Issues"));
