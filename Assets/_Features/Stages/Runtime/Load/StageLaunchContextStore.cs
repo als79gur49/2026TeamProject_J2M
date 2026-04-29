@@ -1,17 +1,19 @@
 using UnityEngine;
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
 
 namespace Game.Feature.Stages
 {
     public static class StageLaunchContextStore
     {
-        private const string PendingEditorStageIdSessionKey =
-            "Game.Feature.Stages.PendingEditorDirectPlayStageId";
+        public delegate bool TryGetPendingStageId(out StageId stageId);
 
         private static StageId currentStageId = StageId.None;
         private static bool hasCurrentStageId;
+        private static System.Action<StageId> primePendingEditorDirectPlay;
+        private static TryGetPendingStageId tryPeekPendingEditorDirectPlay;
+        private static TryGetPendingStageId tryConsumePendingEditorDirectPlay;
+        private static System.Action clearPendingEditorDirectPlay;
+        private static StageId fallbackPendingEditorStageId = StageId.None;
+        private static bool hasFallbackPendingEditorStageId;
 
         public static StageId CurrentStageId => hasCurrentStageId ? currentStageId : StageId.None;
 
@@ -35,14 +37,24 @@ namespace Game.Feature.Stages
                 return true;
             }
 
-#if UNITY_EDITOR
-            if (TryConsumePendingEditorDirectPlay(out stageId))
+            if (tryConsumePendingEditorDirectPlay != null &&
+                tryConsumePendingEditorDirectPlay(out stageId))
             {
                 currentStageId = stageId;
                 hasCurrentStageId = true;
                 return true;
             }
-#endif
+
+            if (tryConsumePendingEditorDirectPlay == null &&
+                hasFallbackPendingEditorStageId)
+            {
+                stageId = fallbackPendingEditorStageId;
+                fallbackPendingEditorStageId = StageId.None;
+                hasFallbackPendingEditorStageId = false;
+                currentStageId = stageId;
+                hasCurrentStageId = true;
+                return true;
+            }
 
             stageId = StageId.None;
             return false;
@@ -60,7 +72,18 @@ namespace Game.Feature.Stages
             hasCurrentStageId = false;
         }
 
-#if UNITY_EDITOR
+        public static void ConfigurePendingEditorDirectPlayStore(
+            System.Action<StageId> primePending,
+            TryGetPendingStageId tryPeekPending,
+            TryGetPendingStageId tryConsumePending,
+            System.Action clearPending)
+        {
+            primePendingEditorDirectPlay = primePending;
+            tryPeekPendingEditorDirectPlay = tryPeekPending;
+            tryConsumePendingEditorDirectPlay = tryConsumePending;
+            clearPendingEditorDirectPlay = clearPending;
+        }
+
         public static void PrimePendingEditorDirectPlay(StageId stageId)
         {
             if (!stageId.IsValid)
@@ -68,14 +91,26 @@ namespace Game.Feature.Stages
                 throw new System.ArgumentException("StageId must be canonical.", nameof(stageId));
             }
 
-            SessionState.SetString(PendingEditorStageIdSessionKey, stageId.Value);
+            if (primePendingEditorDirectPlay != null)
+            {
+                primePendingEditorDirectPlay(stageId);
+                return;
+            }
+
+            fallbackPendingEditorStageId = stageId;
+            hasFallbackPendingEditorStageId = true;
         }
 
         public static bool TryPeekPendingEditorDirectPlay(out StageId stageId)
         {
-            var rawStageId = SessionState.GetString(PendingEditorStageIdSessionKey, string.Empty);
-            if (StageId.TryCreate(rawStageId, out stageId))
+            if (tryPeekPendingEditorDirectPlay != null)
             {
+                return tryPeekPendingEditorDirectPlay(out stageId);
+            }
+
+            if (hasFallbackPendingEditorStageId)
+            {
+                stageId = fallbackPendingEditorStageId;
                 return true;
             }
 
@@ -83,23 +118,16 @@ namespace Game.Feature.Stages
             return false;
         }
 
-        private static bool TryConsumePendingEditorDirectPlay(out StageId stageId)
-        {
-            if (TryPeekPendingEditorDirectPlay(out stageId))
-            {
-                SessionState.EraseString(PendingEditorStageIdSessionKey);
-                return true;
-            }
-
-            return false;
-        }
-#endif
-
         private static void ClearPendingEditorDirectPlayInternal()
         {
-#if UNITY_EDITOR
-            SessionState.EraseString(PendingEditorStageIdSessionKey);
-#endif
+            if (clearPendingEditorDirectPlay != null)
+            {
+                clearPendingEditorDirectPlay();
+                return;
+            }
+
+            fallbackPendingEditorStageId = StageId.None;
+            hasFallbackPendingEditorStageId = false;
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
