@@ -92,6 +92,7 @@ namespace Game.Feature.Stages.Editor
             writer.WriteLine($"LegacyStageDefinition: {summary.LegacyStageDefinitionCount}");
             writer.WriteLine();
             WriteAuthoringIssues(writer, catalogReport);
+            WritePresentationCatalogIssues(writer, catalogReport);
             WriteIssues(writer, "Catalog Issues", catalogReport);
             WriteIssues(writer, "Known Warning Governance Issues", knownWarningReport);
             WriteIssues(writer, "Alias Governance Issues", aliasGovernanceReport);
@@ -139,6 +140,39 @@ namespace Game.Feature.Stages.Editor
 
                 wroteIssue = true;
                 writer.WriteLine($"- [{issue.Severity}] {issue.Code}: {issue.Message} ({issue.AssetPath})");
+            }
+
+            if (!wroteIssue)
+            {
+                writer.WriteLine("None");
+            }
+
+            writer.WriteLine();
+        }
+
+        private static void WritePresentationCatalogIssues(StreamWriter writer, StageValidationReport report)
+        {
+            writer.WriteLine("## Presentation Catalog Issues");
+            if (report == null)
+            {
+                writer.WriteLine("None");
+                writer.WriteLine();
+                return;
+            }
+
+            var wroteIssue = false;
+            for (var i = 0; i < report.Issues.Count; i++)
+            {
+                var issue = report.Issues[i];
+                if (!issue.Code.StartsWith("PresentationCatalog.", StringComparison.Ordinal) &&
+                    !issue.Code.StartsWith("PresentationBinding.", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                wroteIssue = true;
+                writer.WriteLine(
+                    $"- [{issue.Severity}] {issue.Code}: StageId='{issue.StageId}' EntityId='{FormatOptional(issue.EntityId)}' StableGuid='{issue.StableGuid}' PresentationId='{issue.PresentationId}' Expected='{issue.ExpectedValue}' Actual='{issue.ActualValue}' Message='{issue.Message}' ({issue.AssetPath})");
             }
 
             if (!wroteIssue)
@@ -232,6 +266,11 @@ namespace Game.Feature.Stages.Editor
             }
 
             writer.WriteLine();
+        }
+
+        private static string FormatOptional(int value)
+        {
+            return value == 0 ? string.Empty : value.ToString();
         }
 
         private sealed class StageEditorAssetMetadataProvider : IStageValidationAssetMetadataProvider
