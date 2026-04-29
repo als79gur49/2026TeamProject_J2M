@@ -24,7 +24,8 @@ namespace Game.Feature.Gameplay.Host
             Camera viewCamera,
             GameplayCameraRig viewCameraRig,
             IReadOnlyList<EntityState> presentedInitialEntities,
-            GameplayHostUiAccessContext uiAccess)
+            GameplayHostUiAccessContext uiAccess,
+            int playerRespawnDelayTicks = 1)
         {
             BoardRoot = boardRoot;
             BoardSurfaceRenderer = boardSurfaceRenderer;
@@ -32,6 +33,7 @@ namespace Game.Feature.Gameplay.Host
             InputHost = inputHost;
             Presenter = presenter;
             TimingProfile = timingProfile;
+            PlayerRespawnDelayTicks = playerRespawnDelayTicks;
             TickRunner = tickRunner;
             ViewRegistry = viewRegistry;
             ViewCameraTarget = viewCameraTarget;
@@ -56,6 +58,8 @@ namespace Game.Feature.Gameplay.Host
         public IReadOnlyList<EntityState> PresentedInitialEntities { get; }
 
         public GameplayTimingProfile TimingProfile { get; }
+
+        public int PlayerRespawnDelayTicks { get; }
 
         public TickRunner TickRunner { get; }
 

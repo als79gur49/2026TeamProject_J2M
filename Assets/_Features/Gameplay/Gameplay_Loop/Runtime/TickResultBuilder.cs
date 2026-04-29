@@ -197,11 +197,25 @@ namespace Game.Feature.Gameplay.Loop
             Array.Empty<string>());
 
         private readonly ReadOnlyCollection<string> _eventLogEntries;
+        private readonly ReadOnlyCollection<PlayerRespawnDelayRecord> _playerRespawnDelayRecords;
         private readonly ReadOnlyCollection<EntityState> _respawnedEntities;
 
         public RespawnPhaseResult(
             IEnumerable<EntityState> respawnedEntities,
             IEnumerable<string> eventLogEntries,
+            RespawnTopologyResetRequest? topologyResetRequest)
+            : this(
+                respawnedEntities,
+                eventLogEntries,
+                playerRespawnDelayRecords: null,
+                topologyResetRequest: topologyResetRequest)
+        {
+        }
+
+        public RespawnPhaseResult(
+            IEnumerable<EntityState> respawnedEntities,
+            IEnumerable<string> eventLogEntries,
+            IEnumerable<PlayerRespawnDelayRecord> playerRespawnDelayRecords = null,
             RespawnTopologyResetRequest? topologyResetRequest = null)
         {
             if (respawnedEntities == null)
@@ -216,6 +230,9 @@ namespace Game.Feature.Gameplay.Loop
 
             _respawnedEntities = new ReadOnlyCollection<EntityState>(new List<EntityState>(respawnedEntities));
             _eventLogEntries = new ReadOnlyCollection<string>(new List<string>(eventLogEntries));
+            _playerRespawnDelayRecords = new ReadOnlyCollection<PlayerRespawnDelayRecord>(
+                new List<PlayerRespawnDelayRecord>(
+                    playerRespawnDelayRecords ?? Array.Empty<PlayerRespawnDelayRecord>()));
             TopologyResetRequest = topologyResetRequest;
         }
 
@@ -223,7 +240,48 @@ namespace Game.Feature.Gameplay.Loop
 
         public IReadOnlyList<string> EventLogEntries => _eventLogEntries;
 
+        public IReadOnlyList<PlayerRespawnDelayRecord> PlayerRespawnDelayRecords => _playerRespawnDelayRecords;
+
         public RespawnTopologyResetRequest? TopologyResetRequest { get; }
+    }
+
+    internal readonly struct PlayerRespawnDelayRecord
+    {
+        public PlayerRespawnDelayRecord(
+            int entityId,
+            int startTick,
+            int eligibleTick,
+            int delayTicks,
+            int currentTick,
+            bool startedThisTick,
+            bool elapsedThisTick)
+        {
+            EntityId = entityId;
+            StartTick = startTick;
+            EligibleTick = eligibleTick;
+            DelayTicks = delayTicks;
+            CurrentTick = currentTick;
+            StartedThisTick = startedThisTick;
+            ElapsedThisTick = elapsedThisTick;
+        }
+
+        public int EntityId { get; }
+
+        public int StartTick { get; }
+
+        public int EligibleTick { get; }
+
+        public int DelayTicks { get; }
+
+        public int CurrentTick { get; }
+
+        public bool StartedThisTick { get; }
+
+        public bool ElapsedThisTick { get; }
+
+        public int RemainingTicks => Math.Max(0, EligibleTick - CurrentTick);
+
+        public bool IsActive => CurrentTick < EligibleTick;
     }
 
     internal readonly struct TickPresentationBuildContext
@@ -394,6 +452,7 @@ namespace Game.Feature.Gameplay.Loop
             var frontFaceShieldWindupWarnings = new List<TickFrontFaceShieldWindupWarningSignal>();
             var playerActionSignals = new List<TickPlayerActionPresentationSignal>();
             var playerDamageSignals = new List<TickPlayerDamagePresentationSignal>();
+            var playerDeathHoldSignals = new List<TickPlayerDeathHoldPresentationSignal>();
             var playerDeathSignals = new List<TickPlayerDeathPresentationSignal>();
             var playerLocomotionSignals = new List<TickPlayerLocomotionPresentationSignal>();
             var summonedEnemyPresentationBindings = new List<TickSummonedEnemyPresentationBinding>();
@@ -413,6 +472,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildPlayerPresentation(context, playerActionSignals);
             BuildPlayerDamagePresentation(context, playerDamageSignals);
             BuildPlayerDeathPresentation(context, playerDeathSignals);
+            BuildPlayerDeathHoldPresentation(context, playerDeathHoldSignals);
             BuildPlayerLocomotionPresentation(context, playerLocomotionSignals);
             BuildEnemyDamagePresentation(context, enemyDamageSignals);
             BuildEnemyPresentation(context, enemyActionSignals);
@@ -439,6 +499,7 @@ namespace Game.Feature.Gameplay.Loop
                    flipImpactSignals.Count == 0 &&
                    playerActionSignals.Count == 0 &&
                    playerDamageSignals.Count == 0 &&
+                   playerDeathHoldSignals.Count == 0 &&
                    playerDeathSignals.Count == 0 &&
                    playerLocomotionSignals.Count == 0 &&
                    summonedEnemyPresentationBindings.Count == 0 &&
@@ -468,7 +529,31 @@ namespace Game.Feature.Gameplay.Loop
                     frontFaceShieldBlockSignals,
                     summonWindupWarnings,
                     frontFaceShieldWindupWarnings,
-                    kinematicMotionTracks);
+                    kinematicMotionTracks,
+                    playerDeathHoldSignals);
+        }
+
+        private static void BuildPlayerDeathHoldPresentation(
+            in TickPresentationBuildContext context,
+            List<TickPlayerDeathHoldPresentationSignal> playerDeathHoldSignals)
+        {
+            var records = context.RespawnPhaseResult.PlayerRespawnDelayRecords;
+            for (var i = 0; i < records.Count; i++)
+            {
+                var record = records[i];
+                if (!record.IsActive)
+                {
+                    continue;
+                }
+
+                playerDeathHoldSignals.Add(
+                    new TickPlayerDeathHoldPresentationSignal(
+                        record.EntityId,
+                        record.StartTick,
+                        record.EligibleTick,
+                        record.RemainingTicks,
+                        record.StartedThisTick));
+            }
         }
 
         private static void BuildEnemyUtilityWindupPresentation(

@@ -54,11 +54,16 @@ namespace Game.Feature.Gameplay.Host
     [Serializable]
     public sealed class PlayerRespawnTimingSettings
     {
-        public float RespawnDelaySeconds;
+        public const float DefaultRespawnDelaySeconds = GameplayTimingProfile.DefaultPlayerRespawnDelaySeconds;
+
+        public float RespawnDelaySeconds = DefaultRespawnDelaySeconds;
 
         public static PlayerRespawnTimingSettings CreateDefault()
         {
-            return new PlayerRespawnTimingSettings();
+            return new PlayerRespawnTimingSettings
+            {
+                RespawnDelaySeconds = DefaultRespawnDelaySeconds,
+            };
         }
 
         public PlayerRespawnTimingSettings Clone()

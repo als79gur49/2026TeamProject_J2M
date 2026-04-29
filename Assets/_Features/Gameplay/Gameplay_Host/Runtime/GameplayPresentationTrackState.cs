@@ -44,6 +44,8 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, KinematicPresentationPose> _kinematicPoseOverrides = new();
         private readonly Dictionary<int, MotionTrack> _localMotionTracks = new();
         private readonly HashSet<int> _motionVisualScaleEntityIds = new();
+        private readonly Dictionary<int, GameplayEntityPose> _playerDeathHoldPoses = new();
+        private readonly HashSet<int> _playerDeathHoldSignalEntityIds = new();
         private readonly Dictionary<int, PlayerDeathDisplacementTrack> _playerDeathDisplacementTracks = new();
         private readonly Dictionary<int, FlipImpactTrack> _stayFlipImpactTracks = new();
         private readonly Dictionary<int, TickPlayerLocomotionPresentationSignal> _playerLocomotionSignalsByEntityId = new();
@@ -80,6 +82,10 @@ namespace Game.Feature.Gameplay.Host
 
         public HashSet<int> MotionVisualScaleEntityIds => _motionVisualScaleEntityIds;
 
+        public Dictionary<int, GameplayEntityPose> PlayerDeathHoldPoses => _playerDeathHoldPoses;
+
+        public HashSet<int> PlayerDeathHoldSignalEntityIds => _playerDeathHoldSignalEntityIds;
+
         public Dictionary<int, PlayerDeathDisplacementTrack> PlayerDeathDisplacementTracks => _playerDeathDisplacementTracks;
 
         public Dictionary<int, FlipImpactTrack> StayFlipImpactTracks => _stayFlipImpactTracks;
@@ -108,6 +114,8 @@ namespace Game.Feature.Gameplay.Host
             _kinematicPoseOverrides.Clear();
             _localMotionTracks.Clear();
             _motionVisualScaleEntityIds.Clear();
+            _playerDeathHoldPoses.Clear();
+            _playerDeathHoldSignalEntityIds.Clear();
             _playerDeathDisplacementTracks.Clear();
             _stayFlipImpactTracks.Clear();
             _playerLocomotionSignalsByEntityId.Clear();

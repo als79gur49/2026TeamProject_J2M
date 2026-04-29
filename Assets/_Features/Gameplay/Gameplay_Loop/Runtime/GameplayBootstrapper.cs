@@ -147,7 +147,9 @@ namespace Game.Feature.Gameplay.Loop
                 throw new ArgumentNullException(nameof(generalTimingProfile));
             }
 
-            return 1;
+            return GameplayTimingProfile.SecondsToCeilTicks(
+                GameplayTimingProfile.DefaultPlayerRespawnDelaySeconds,
+                generalTimingProfile.SimulationTicksPerSecond);
         }
     }
 }

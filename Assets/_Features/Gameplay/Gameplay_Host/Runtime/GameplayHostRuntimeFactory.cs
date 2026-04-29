@@ -194,7 +194,8 @@ namespace Game.Feature.Gameplay.Host
                 viewCamera,
                 viewCameraRig,
                 presentedInitialEntities,
-                uiAccess);
+                uiAccess,
+                playerRespawnTiming.RespawnDelayTicks);
         }
 
         private static IReadOnlyDictionary<int, GameplayEntityView> BuildEnemyViewPrefabs(

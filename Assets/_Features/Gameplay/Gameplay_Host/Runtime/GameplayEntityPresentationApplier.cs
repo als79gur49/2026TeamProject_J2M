@@ -80,20 +80,33 @@ namespace Game.Feature.Gameplay.Host
                 var hasKinematicPoseOverride = _trackState.KinematicPoseOverrides.TryGetValue(
                     entityId,
                     out var kinematicPoseOverride);
+                var hasPlayerDeathHoldPose = _trackState.PlayerDeathHoldPoses.TryGetValue(
+                    entityId,
+                    out var playerDeathHoldPose);
                 if (!_poseResolver.TryResolveFallbackLocalPose(entityId, out var localPose))
                 {
-                    if (!hasKinematicPoseOverride)
+                    if (hasKinematicPoseOverride)
+                    {
+                        localPose = kinematicPoseOverride.LocalPose;
+                    }
+                    else if (hasPlayerDeathHoldPose)
+                    {
+                        localPose = playerDeathHoldPose;
+                    }
+                    else
                     {
                         continue;
                     }
-
-                    localPose = kinematicPoseOverride.LocalPose;
                 }
 
                 var motionVisualScaleMultiplier = Vector3.one;
                 if (hasKinematicPoseOverride)
                 {
                     localPose = kinematicPoseOverride.LocalPose;
+                }
+                else if (hasPlayerDeathHoldPose)
+                {
+                    localPose = playerDeathHoldPose;
                 }
                 else if (_trackState.StayFlipImpactTracks.TryGetValue(entityId, out var stayFlipImpactTrack))
                 {
@@ -137,10 +150,12 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 var isVisible = hasKinematicPoseOverride ||
+                                hasPlayerDeathHoldPose ||
                                 _stateStore.CommittedLocalTargetPoses.ContainsKey(entityId) ||
                                 _stateStore.JumpDetachedVisibilityStates.ContainsKey(entityId) ||
                                 _stateStore.TransitionVisibilityStates.ContainsKey(entityId);
-                if (_trackState.VisibilityTracks.TryGetValue(entityId, out var visibilityTrack))
+                if (!hasPlayerDeathHoldPose &&
+                    _trackState.VisibilityTracks.TryGetValue(entityId, out var visibilityTrack))
                 {
                     isVisible = visibilityTrack.SampleAndAdvance(deltaTime, isVisible);
                     if (visibilityTrack.IsComplete)
@@ -233,6 +248,11 @@ namespace Game.Feature.Gameplay.Host
             }
 
             foreach (var pair in _trackState.KinematicPoseOverrides)
+            {
+                AddProcessingEntityId(pair.Key);
+            }
+
+            foreach (var pair in _trackState.PlayerDeathHoldPoses)
             {
                 AddProcessingEntityId(pair.Key);
             }

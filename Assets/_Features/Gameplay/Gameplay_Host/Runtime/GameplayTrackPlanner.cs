@@ -87,6 +87,7 @@ namespace Game.Feature.Gameplay.Host
             var kinematicEntityIds = CollectKinematicEntityIds(presentationData);
             var flipImpactTimingSettings = _motionTimingResolver.ResolveFlipImpactTimingSettings(timingProfile);
             RefreshKinematicTracks(presentationData, projector);
+            RefreshPlayerDeathHoldTracks(presentationData);
             RefreshMotionClips(
                 presentationData,
                 previousCommittedLocalTargetPoses,
@@ -161,6 +162,66 @@ namespace Game.Feature.Gameplay.Host
                     localPose,
                     track.MotionMode,
                     track.TerminalKind);
+            }
+        }
+
+        private void RefreshPlayerDeathHoldTracks(TickPresentationData presentationData)
+        {
+            if (presentationData == null)
+            {
+                throw new ArgumentNullException(nameof(presentationData));
+            }
+
+            _trackState.PlayerDeathHoldSignalEntityIds.Clear();
+            for (var i = 0; i < presentationData.PlayerDeathHoldSignals.Count; i++)
+            {
+                var signal = presentationData.PlayerDeathHoldSignals[i];
+                _trackState.PlayerDeathHoldSignalEntityIds.Add(signal.EntityId);
+
+                if (_trackState.KinematicPoseOverrides.TryGetValue(signal.EntityId, out var kinematicPose))
+                {
+                    _trackState.PlayerDeathHoldPoses[signal.EntityId] = kinematicPose.LocalPose;
+                    continue;
+                }
+
+                if (_trackState.PlayerDeathHoldPoses.ContainsKey(signal.EntityId))
+                {
+                    continue;
+                }
+
+                if (_stateStore.PresentedLocalPosesByEntityId.TryGetValue(signal.EntityId, out var presentedPose))
+                {
+                    _trackState.PlayerDeathHoldPoses[signal.EntityId] = presentedPose;
+                    continue;
+                }
+
+                if (_stateStore.RetainedLocalTargetPoses.TryGetValue(signal.EntityId, out var retainedPose))
+                {
+                    _trackState.PlayerDeathHoldPoses[signal.EntityId] = retainedPose;
+                    continue;
+                }
+
+                if (_stateStore.CommittedLocalTargetPoses.TryGetValue(signal.EntityId, out var committedPose))
+                {
+                    _trackState.PlayerDeathHoldPoses[signal.EntityId] = committedPose;
+                }
+            }
+
+            _trackState.CompletedMotionTrackIds.Clear();
+            foreach (var pair in _trackState.PlayerDeathHoldPoses)
+            {
+                if (!_trackState.PlayerDeathHoldSignalEntityIds.Contains(pair.Key))
+                {
+                    _trackState.CompletedMotionTrackIds.Add(pair.Key);
+                }
+            }
+
+            for (var i = 0; i < _trackState.CompletedMotionTrackIds.Count; i++)
+            {
+                var entityId = _trackState.CompletedMotionTrackIds[i];
+                _trackState.PlayerDeathHoldPoses.Remove(entityId);
+                _trackState.VisibilityTracks.Remove(entityId);
+                _stateStore.RetainedLocalTargetPoses.Remove(entityId);
             }
         }
 

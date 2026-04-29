@@ -24,6 +24,7 @@ namespace Game.Feature.Gameplay.Loop
         public const float DefaultPlayerDeathDisplacementDurationSeconds = 0.18f;
         public const float DefaultPlayerDeathDisplacementDistanceInCells = 0.4f;
         public const float DefaultPlayerDeathDisplacementCameraBiasWeight = 0.3f;
+        public const float DefaultPlayerRespawnDelaySeconds = 1f;
         public const float DefaultFlipArcHeightInCells = 0.65f;
         public const int DefaultMaxTicksPerFrame = 8;
 

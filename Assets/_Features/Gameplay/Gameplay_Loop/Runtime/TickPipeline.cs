@@ -5940,7 +5940,7 @@ namespace Game.Feature.Gameplay.Loop
 
     internal sealed class RespawnProcessor
     {
-        private readonly Dictionary<int, int> _eligibleRespawnTicksByEntityId = new();
+        private readonly Dictionary<int, PlayerRespawnDelayState> _respawnDelayStatesByEntityId = new();
 
         public RespawnPhaseResult Process(
             WorldSnapshot tickStartSnapshot,
@@ -5986,6 +5986,7 @@ namespace Game.Feature.Gameplay.Loop
 
             var respawnedEntities = new List<EntityState>();
             var eventLogEntries = new List<string>();
+            var delayRecords = new List<PlayerRespawnDelayRecord>();
             RespawnTopologyResetRequest? topologyResetRequest = null;
             var removedEntityIdsThisTick = cleanupPhaseResult.RemovedEntityIds.Count > 0
                 ? new HashSet<int>(cleanupPhaseResult.RemovedEntityIds)
@@ -6002,32 +6003,61 @@ namespace Game.Feature.Gameplay.Loop
 
                 if (existsAfterCleanup)
                 {
-                    _eligibleRespawnTicksByEntityId.Remove(entityId);
+                    _respawnDelayStatesByEntityId.Remove(entityId);
                     continue;
                 }
 
                 if (removedThisTick)
                 {
-                    _eligibleRespawnTicksByEntityId[entityId] = tickIndex + respawnDelayTicks;
+                    var startedState = new PlayerRespawnDelayState(
+                        tickIndex,
+                        tickIndex + respawnDelayTicks,
+                        respawnDelayTicks,
+                        elapsedEventEmitted: false);
+                    _respawnDelayStatesByEntityId[entityId] = startedState;
+                    delayRecords.Add(CreateDelayRecord(entityId, startedState, tickIndex, startedThisTick: true, elapsedThisTick: false));
+                    eventLogEntries.Add(
+                        $"PlayerRespawnDelayStarted|E={entityId}|StartTick={startedState.StartTick}|EligibleTick={startedState.EligibleTick}|DelayTicks={startedState.DelayTicks}");
                 }
                 else if (existedAtTickStart)
                 {
-                    _eligibleRespawnTicksByEntityId.Remove(entityId);
+                    _respawnDelayStatesByEntityId.Remove(entityId);
                     continue;
                 }
-                else if (!_eligibleRespawnTicksByEntityId.ContainsKey(entityId))
+                else if (!_respawnDelayStatesByEntityId.ContainsKey(entityId))
                 {
-                    _eligibleRespawnTicksByEntityId[entityId] = tickIndex;
+                    _respawnDelayStatesByEntityId[entityId] = new PlayerRespawnDelayState(
+                        tickIndex,
+                        tickIndex,
+                        delayTicks: 0,
+                        elapsedEventEmitted: false);
                 }
 
-                if (tickIndex < _eligibleRespawnTicksByEntityId[entityId])
+                var delayState = _respawnDelayStatesByEntityId[entityId];
+                if (tickIndex < delayState.EligibleTick)
                 {
+                    if (!removedThisTick)
+                    {
+                        delayRecords.Add(CreateDelayRecord(entityId, delayState, tickIndex, startedThisTick: false, elapsedThisTick: false));
+                        eventLogEntries.Add(
+                            $"PlayerRespawnDelayTicking|E={entityId}|StartTick={delayState.StartTick}|EligibleTick={delayState.EligibleTick}|RemainingTicks={Math.Max(0, delayState.EligibleTick - tickIndex)}|Tick={tickIndex}");
+                    }
+
                     continue;
+                }
+
+                if (!delayState.ElapsedEventEmitted)
+                {
+                    delayState = delayState.WithElapsedEventEmitted();
+                    _respawnDelayStatesByEntityId[entityId] = delayState;
+                    delayRecords.Add(CreateDelayRecord(entityId, delayState, tickIndex, startedThisTick: false, elapsedThisTick: true));
+                    eventLogEntries.Add(
+                        $"PlayerRespawnDelayElapsed|E={entityId}|StartTick={delayState.StartTick}|EligibleTick={delayState.EligibleTick}|Tick={tickIndex}");
                 }
 
                 if (!allowRespawn)
                 {
-                    _eligibleRespawnTicksByEntityId.Remove(entityId);
+                    _respawnDelayStatesByEntityId.Remove(entityId);
                     eventLogEntries.Add($"RespawnSuppressed|E={entityId}|Reason=PolicyDisabled|Tick={tickIndex}");
                     continue;
                 }
@@ -6078,12 +6108,29 @@ namespace Game.Feature.Gameplay.Loop
                 writeContext.SetPlayerControlState(respawnEntity.entityId, default);
                 writeContext.SetPlayerDamageState(respawnEntity.entityId, default);
                 respawnedEntities.Add(respawnEntity);
-                _eligibleRespawnTicksByEntityId.Remove(entityId);
+                _respawnDelayStatesByEntityId.Remove(entityId);
                 eventLogEntries.Add(
                     $"RespawnCommitted|E={respawnEntity.entityId}|Pos=({respawnEntity.position.x},{respawnEntity.position.y})|Face={respawnEntity.position.face}|Facing={respawnEntity.facing}|Tick={tickIndex}");
             }
 
-            return new RespawnPhaseResult(respawnedEntities, eventLogEntries, topologyResetRequest);
+            return new RespawnPhaseResult(respawnedEntities, eventLogEntries, delayRecords, topologyResetRequest);
+        }
+
+        private static PlayerRespawnDelayRecord CreateDelayRecord(
+            int entityId,
+            PlayerRespawnDelayState state,
+            int currentTick,
+            bool startedThisTick,
+            bool elapsedThisTick)
+        {
+            return new PlayerRespawnDelayRecord(
+                entityId,
+                state.StartTick,
+                state.EligibleTick,
+                state.DelayTicks,
+                currentTick,
+                startedThisTick,
+                elapsedThisTick);
         }
 
         private static EntityState BuildRespawnEntity(EntityState template, int tickIndex)
@@ -6102,6 +6149,38 @@ namespace Game.Feature.Gameplay.Loop
             respawnEntity.aiStateTimer = 0;
             respawnEntity.enemyLocomotionCooldownTicks = 0;
             return respawnEntity;
+        }
+
+        private readonly struct PlayerRespawnDelayState
+        {
+            public PlayerRespawnDelayState(
+                int startTick,
+                int eligibleTick,
+                int delayTicks,
+                bool elapsedEventEmitted)
+            {
+                StartTick = startTick;
+                EligibleTick = eligibleTick;
+                DelayTicks = delayTicks;
+                ElapsedEventEmitted = elapsedEventEmitted;
+            }
+
+            public int StartTick { get; }
+
+            public int EligibleTick { get; }
+
+            public int DelayTicks { get; }
+
+            public bool ElapsedEventEmitted { get; }
+
+            public PlayerRespawnDelayState WithElapsedEventEmitted()
+            {
+                return new PlayerRespawnDelayState(
+                    StartTick,
+                    EligibleTick,
+                    DelayTicks,
+                    elapsedEventEmitted: true);
+            }
         }
 
         private static string FormatRespawnSkippedEvent(
