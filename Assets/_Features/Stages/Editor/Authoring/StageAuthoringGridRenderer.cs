@@ -6,19 +6,7 @@ namespace Game.Feature.Stages.Editor
     {
         public static string GetMarker(StagePlacedEntityAuthoring placement)
         {
-            if (placement == null)
-            {
-                return ".";
-            }
-
-            return placement.Kind switch
-            {
-                StageAuthoringEntityKind.Player => "P",
-                StageAuthoringEntityKind.Enemy => "E",
-                StageAuthoringEntityKind.Box => "B",
-                StageAuthoringEntityKind.Wall => "W",
-                _ => "?",
-            };
+            return StageAuthoringGridMarkerBuilder.Build(placement);
         }
 
         public static bool IsOnFace(StagePlacedEntityAuthoring placement, FaceId face)
