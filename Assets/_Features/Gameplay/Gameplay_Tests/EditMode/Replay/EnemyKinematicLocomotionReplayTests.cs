@@ -53,6 +53,80 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Extended")]
+        public void Replay_EnemySameFaceContinuousLocomotion_CooldownFallbackDuration_CommitsAtResolvedMidpoint()
+        {
+            var inputs = Enumerable.Range(1, 4)
+                .Select(tick => new TickInput(tick))
+                .ToArray();
+            var profile = EnemyAiProfileTestFactory.CreateContactDamage(moveCooldownTicks: 8);
+            var harness = new TickReplayHarness();
+
+            try
+            {
+                var firstReplay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    CreateContactWorldState(),
+                    entityLogics: new IEntityLogic[0],
+                    inputs,
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled);
+                var secondReplay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    CreateContactWorldState(),
+                    entityLogics: new IEntityLogic[0],
+                    inputs,
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled);
+
+                AssertEquivalentReplayOutputs(firstReplay, secondReplay);
+                Assert.That(firstReplay[2].EventLogDump, Does.Not.Contain("DamageCommitted"));
+                Assert.That(firstReplay[3].EventLogDump, Does.Contain("DamageCommitted"));
+                Assert.That(firstReplay[3].EventLogDump, Does.Contain("SourceKind=PassiveContact"));
+                Assert.That(firstReplay[3].Trace, Does.Contain("KinematicAnchorCommitted"));
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Replay_EnemySameFaceContinuousLocomotion_OrdinaryKinematicDuration_ChangesDeterminismHash()
+        {
+            var inputs = new[] { new TickInput(1) };
+            var fastProfile = CreateContactDamageProfile(
+                moveCooldownSeconds: 12f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                ordinaryKinematicMoveDurationSeconds: 4f / GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+            var slowProfile = CreateContactDamageProfile(
+                moveCooldownSeconds: 12f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                ordinaryKinematicMoveDurationSeconds: 8f / GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+            var harness = new TickReplayHarness();
+
+            try
+            {
+                var fastReplay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(fastProfile),
+                    CreateContactWorldState(),
+                    entityLogics: new IEntityLogic[0],
+                    inputs,
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled);
+                var slowReplay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(slowProfile),
+                    CreateContactWorldState(),
+                    entityLogics: new IEntityLogic[0],
+                    inputs,
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled);
+
+                Assert.That(fastReplay[0].DeterminismHash, Is.Not.EqualTo(slowReplay[0].DeterminismHash));
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(fastProfile);
+                EnemyAiProfileTestFactory.Destroy(slowProfile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Replay_EnemySameFaceContinuousLocomotion_MidMotionDeath_RemovesKinematicStateDeterministically()
         {
             var inputs = new[]
@@ -119,6 +193,24 @@ namespace Game.Feature.Gameplay.Tests.Replay
             {
                 CreatePlayer(10, hp: 3, new SurfaceCell(FaceId.Floor, 0, 0)),
                 CreateEnemy(40, hp: 1, new SurfaceCell(FaceId.Floor, 1, 0)),
+            });
+        }
+
+        private static EnemyAiProfile CreateContactDamageProfile(
+            float moveCooldownSeconds,
+            float ordinaryKinematicMoveDurationSeconds)
+        {
+            return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                CommonSettings = new EnemyAiCommonAuthoringSettings(
+                    movementPriority: 50,
+                    attackPriority: 50,
+                    recoverSeconds: 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
+                LocomotionTimingSettings = new EnemyLocomotionTimingAuthoringSettings(
+                    moveCooldownSeconds,
+                    ordinaryKinematicMoveDurationSeconds),
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                IncludePassiveContact = true,
             });
         }
 

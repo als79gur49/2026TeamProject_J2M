@@ -3739,6 +3739,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(definition.CommonSettings.RecoverTicks, Is.EqualTo(1));
                 Assert.That(definition.AttackTimingSettings.WindupTicks, Is.EqualTo(3));
                 Assert.That(definition.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(4));
+                Assert.That(definition.LocomotionTimingSettings.OrdinaryKinematicMoveTicks, Is.EqualTo(4));
             }
             finally
             {
@@ -3773,6 +3774,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(thirtyTpsDefinition.AttackTimingSettings.WindupTicks, Is.EqualTo(1));
                 Assert.That(sixtyTpsDefinition.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(2));
                 Assert.That(thirtyTpsDefinition.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(1));
+                Assert.That(sixtyTpsDefinition.LocomotionTimingSettings.OrdinaryKinematicMoveTicks, Is.EqualTo(2));
+                Assert.That(thirtyTpsDefinition.LocomotionTimingSettings.OrdinaryKinematicMoveTicks, Is.EqualTo(2));
                 Assert.That(sixtyTpsDefinition.CommonSettings.RecoverTicks / 60f, Is.EqualTo(thirtyTpsDefinition.CommonSettings.RecoverTicks / 30f).Within(0.0001f));
                 Assert.That(sixtyTpsDefinition.AttackTimingSettings.WindupTicks / 60f, Is.EqualTo(thirtyTpsDefinition.AttackTimingSettings.WindupTicks / 30f).Within(0.0001f));
                 Assert.That(
@@ -3803,10 +3806,55 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(definition.CommonSettings.RecoverTicks, Is.Zero);
                 Assert.That(definition.AttackTimingSettings.WindupTicks, Is.Zero);
                 Assert.That(definition.LocomotionTimingSettings.MoveCooldownTicks, Is.Zero);
+                Assert.That(definition.LocomotionTimingSettings.OrdinaryKinematicMoveTicks, Is.Zero);
             }
             finally
             {
                 DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyLocomotionTimingAuthoring_ExplicitOrdinaryKinematicDuration_UsesEvenCeilTicks()
+        {
+            var settings = new EnemyLocomotionTimingAuthoringSettings(
+                moveCooldownSeconds: 0.8f,
+                ordinaryKinematicMoveDurationSeconds: 0.35f);
+
+            var runtime = settings.ToRuntimeSettings(60);
+
+            Assert.That(runtime.MoveCooldownTicks, Is.EqualTo(48));
+            Assert.That(runtime.OrdinaryKinematicMoveTicks, Is.EqualTo(22));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyLocomotionTimingAuthoring_UnsetOrdinaryKinematicDuration_FallsBackToMoveCooldown()
+        {
+            var settings = new EnemyLocomotionTimingAuthoringSettings(
+                moveCooldownSeconds: 0.8f,
+                ordinaryKinematicMoveDurationSeconds: 0f);
+
+            var runtime = settings.ToRuntimeSettings(60);
+
+            Assert.That(runtime.MoveCooldownTicks, Is.EqualTo(48));
+            Assert.That(runtime.OrdinaryKinematicMoveTicks, Is.EqualTo(48));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyLocomotionTimingAuthoring_InvalidOrdinaryKinematicDuration_Throws()
+        {
+            var invalidDurations = new[] { -0.1f, float.NaN, float.PositiveInfinity };
+
+            for (var i = 0; i < invalidDurations.Length; i++)
+            {
+                var settings = new EnemyLocomotionTimingAuthoringSettings(
+                    moveCooldownSeconds: 0f,
+                    ordinaryKinematicMoveDurationSeconds: invalidDurations[i]);
+
+                Assert.Throws<ArgumentException>(() => settings.ToRuntimeSettings(60));
             }
         }
 

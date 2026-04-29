@@ -237,19 +237,33 @@ namespace Game.Feature.Gameplay.Entities
     public struct EnemyLocomotionTimingSettings
     {
         [SerializeField] private int moveCooldownTicks;
+        [SerializeField] private int ordinaryKinematicMoveTicks;
 
         public EnemyLocomotionTimingSettings(int moveCooldownTicks)
+            : this(moveCooldownTicks, ordinaryKinematicMoveTicks: 0)
+        {
+        }
+
+        public EnemyLocomotionTimingSettings(int moveCooldownTicks, int ordinaryKinematicMoveTicks)
         {
             this.moveCooldownTicks = moveCooldownTicks;
+            this.ordinaryKinematicMoveTicks = ordinaryKinematicMoveTicks;
         }
 
         public int MoveCooldownTicks => moveCooldownTicks;
+
+        public int OrdinaryKinematicMoveTicks => ordinaryKinematicMoveTicks;
 
         public void Validate(string paramName)
         {
             if (moveCooldownTicks < 0)
             {
                 throw new ArgumentException("Enemy locomotion timing settings require a non-negative move cooldown tick count.", paramName);
+            }
+
+            if (ordinaryKinematicMoveTicks < 0)
+            {
+                throw new ArgumentException("Enemy locomotion timing settings require a non-negative ordinary kinematic move tick count.", paramName);
             }
         }
 
@@ -263,19 +277,39 @@ namespace Game.Feature.Gameplay.Entities
     public struct EnemyLocomotionTimingAuthoringSettings
     {
         [SerializeField] private float moveCooldownSeconds;
+        [SerializeField] private float ordinaryKinematicMoveDurationSeconds;
 
         public EnemyLocomotionTimingAuthoringSettings(float moveCooldownSeconds)
+            : this(moveCooldownSeconds, ordinaryKinematicMoveDurationSeconds: 0f)
+        {
+        }
+
+        public EnemyLocomotionTimingAuthoringSettings(
+            float moveCooldownSeconds,
+            float ordinaryKinematicMoveDurationSeconds)
         {
             this.moveCooldownSeconds = moveCooldownSeconds;
+            this.ordinaryKinematicMoveDurationSeconds = ordinaryKinematicMoveDurationSeconds;
         }
 
         public float MoveCooldownSeconds => moveCooldownSeconds;
 
+        public float OrdinaryKinematicMoveDurationSeconds => ordinaryKinematicMoveDurationSeconds;
+
         public void Validate(string paramName)
         {
-            if (moveCooldownSeconds < 0f)
+            if (moveCooldownSeconds < 0f ||
+                float.IsNaN(moveCooldownSeconds) ||
+                float.IsInfinity(moveCooldownSeconds))
             {
                 throw new ArgumentException("Enemy locomotion timing authoring settings require a non-negative move cooldown duration.", paramName);
+            }
+
+            if (ordinaryKinematicMoveDurationSeconds < 0f ||
+                float.IsNaN(ordinaryKinematicMoveDurationSeconds) ||
+                float.IsInfinity(ordinaryKinematicMoveDurationSeconds))
+            {
+                throw new ArgumentException("Enemy locomotion timing authoring settings require a non-negative ordinary kinematic move duration.", paramName);
             }
         }
 
@@ -283,11 +317,23 @@ namespace Game.Feature.Gameplay.Entities
         {
             Validate(nameof(EnemyLocomotionTimingAuthoringSettings));
 
-            return new EnemyLocomotionTimingSettings(
-                GameplayTimingProfile.SecondsToTicks(
-                    moveCooldownSeconds,
+            var moveCooldownTicks = GameplayTimingProfile.SecondsToTicks(
+                moveCooldownSeconds,
+                simulationTicksPerSecond,
+                allowZero: true);
+            var ordinaryDurationSeconds = ordinaryKinematicMoveDurationSeconds > 0f
+                ? ordinaryKinematicMoveDurationSeconds
+                : moveCooldownSeconds;
+            var ordinaryKinematicMoveTicks = ordinaryDurationSeconds > 0f
+                ? GameplayTimingProfile.SecondsToEvenCeilTicks(
+                    ordinaryDurationSeconds,
                     simulationTicksPerSecond,
-                    allowZero: true));
+                    minimumTicks: 2)
+                : 0;
+
+            return new EnemyLocomotionTimingSettings(
+                moveCooldownTicks,
+                ordinaryKinematicMoveTicks);
         }
 
         public static EnemyLocomotionTimingAuthoringSettings CreateDefaultMelee()
@@ -309,7 +355,8 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return new EnemyLocomotionTimingAuthoringSettings(
-                runtimeSettings.MoveCooldownTicks / (float)simulationTicksPerSecond);
+                runtimeSettings.MoveCooldownTicks / (float)simulationTicksPerSecond,
+                runtimeSettings.OrdinaryKinematicMoveTicks / (float)simulationTicksPerSecond);
         }
     }
 

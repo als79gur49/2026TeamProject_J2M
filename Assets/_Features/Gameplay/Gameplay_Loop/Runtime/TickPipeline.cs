@@ -1271,19 +1271,22 @@ namespace Game.Feature.Gameplay.Loop
                         rawIntent.Priority,
                         rawIntent.Destination,
                         rawIntent.LocalSequence,
-                        rawIntent.MoveCooldownTicks),
+                        rawIntent.MoveCooldownTicks,
+                        rawIntent.OrdinaryKinematicMoveTicks),
                     Movement.MovementCommandKind.Flip => new FlipIntent(
                         rawIntent.SourceId,
                         rawIntent.Priority,
                         rawIntent.Destination,
                         rawIntent.LocalSequence,
-                        rawIntent.MoveCooldownTicks),
+                        rawIntent.MoveCooldownTicks,
+                        rawIntent.OrdinaryKinematicMoveTicks),
                     _ => new MoveIntent(
                         rawIntent.SourceId,
                         rawIntent.Priority,
                         rawIntent.Destination,
                         rawIntent.LocalSequence,
-                        rawIntent.MoveCooldownTicks),
+                        rawIntent.MoveCooldownTicks,
+                        rawIntent.OrdinaryKinematicMoveTicks),
                 };
                 moveIntent.AssignIntentId(_idAllocator.AllocateIntentId());
                 sortedIntents.Add(moveIntent);
@@ -1488,6 +1491,9 @@ namespace Game.Feature.Gameplay.Loop
                 return true;
             }
 
+            var totalTicks = intent.OrdinaryKinematicMoveTicks > 0
+                ? intent.OrdinaryKinematicMoveTicks
+                : _playerKinematicLocomotionTiming.TicksPerCell;
             var outcome = CreateKinematicMotionOutcome(
                 sweep,
                 entity.position,
@@ -1495,7 +1501,7 @@ namespace Game.Feature.Gameplay.Loop
                 stepDirectionX: delta.x,
                 stepDirectionY: delta.y,
                 elapsedTicks: 1,
-                totalTicks: _playerKinematicLocomotionTiming.TicksPerCell,
+                totalTicks: totalTicks,
                 startedTick: tickIndex);
             payload = CreateKinematicMovementPayload(
                 _idAllocator.AllocateGroupId(),

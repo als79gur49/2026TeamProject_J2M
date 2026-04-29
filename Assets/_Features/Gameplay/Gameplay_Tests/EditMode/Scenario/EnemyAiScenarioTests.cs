@@ -3720,6 +3720,118 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void EnemyPatrol_KinematicDuration_FallsBackToMoveCooldownTiming()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0)));
+            var profile = CreateNonAttackingEnemyProfile(
+                moveCooldownSeconds: 8f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                ordinaryKinematicMoveDurationSeconds: 0f);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled);
+                pipeline.RunTick(new TickInput(1));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(enemy.enemyLocomotionCooldownTicks, Is.EqualTo(8));
+                Assert.That(snapshot.TryGetUnitKinematicState(40, out var state), Is.True);
+                Assert.That(state.totalTicks, Is.EqualTo(8));
+                Assert.That(state.commitTick, Is.EqualTo(4));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyPatrol_KinematicDuration_ExplicitDurationDoesNotChangeMoveCooldown()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0)));
+            var profile = CreateNonAttackingEnemyProfile(
+                moveCooldownSeconds: 12f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                ordinaryKinematicMoveDurationSeconds: 4f / GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled);
+                pipeline.RunTick(new TickInput(1));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(enemy.enemyLocomotionCooldownTicks, Is.EqualTo(12));
+                Assert.That(snapshot.TryGetUnitKinematicState(40, out var state), Is.True);
+                Assert.That(state.totalTicks, Is.EqualTo(4));
+                Assert.That(state.commitTick, Is.EqualTo(2));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyPatrol_KinematicDuration_UnsetTimingUsesConfiguredPlayerFallback()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0)));
+            var profile = CreateNonAttackingEnemyProfile(
+                moveCooldownSeconds: 0f,
+                ordinaryKinematicMoveDurationSeconds: 0f);
+
+            try
+            {
+                var timingProfile = GameplayTimingProfile.CreateDefault();
+                var fallbackTiming = new PlayerKinematicLocomotionTimingSettings
+                {
+                    KinematicMoveDurationSeconds = 6f / timingProfile.SimulationTicksPerSecond,
+                }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond);
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled,
+                    fallbackTiming);
+                pipeline.RunTick(new TickInput(1));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetUnitKinematicState(40, out var state), Is.True);
+                Assert.That(state.totalTicks, Is.EqualTo(6));
+                Assert.That(state.commitTick, Is.EqualTo(3));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyCharge_NotMigrated()
         {
             var worldState = CreateWorldState(
@@ -5321,6 +5433,23 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return EnemyAiProfileTestFactory.CreateNonAttacking(moveCooldownTicks, includePassiveContact);
         }
 
+        private static EnemyAiProfile CreateNonAttackingEnemyProfile(
+            float moveCooldownSeconds,
+            float ordinaryKinematicMoveDurationSeconds,
+            bool includePassiveContact = false)
+        {
+            return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                LocomotionTimingSettings = new EnemyLocomotionTimingAuthoringSettings(
+                    moveCooldownSeconds,
+                    ordinaryKinematicMoveDurationSeconds),
+                PatrolStrategyKind = PatrolStrategyKind.RandomWalk,
+                PatrolSettings = PatrolSettings.CreateDefaultRandomWalk(),
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                IncludePassiveContact = includePassiveContact,
+            });
+        }
+
         private static EnemyAiProfile CreateDefaultMeleeProfile(
             int moveCooldownTicks = 0,
             int recoverTicks = 1,
@@ -5443,6 +5572,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             WorldState worldState,
             EnemyAiProfile profile,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags,
+            PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming,
             params IEntityLogic[] entityLogics)
         {
             var timingProfile = GameplayTimingProfile.CreateDefault();
@@ -5455,7 +5585,22 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 entityLogics ?? Array.Empty<IEntityLogic>(),
                 timingProfile,
                 playerTiming,
-                runtimeFeatureFlags: runtimeFeatureFlags);
+                runtimeFeatureFlags: runtimeFeatureFlags,
+                playerKinematicLocomotionTiming: playerKinematicLocomotionTiming);
+        }
+
+        private static TickPipeline CreateEnemyPipeline(
+            WorldState worldState,
+            EnemyAiProfile profile,
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags,
+            params IEntityLogic[] entityLogics)
+        {
+            return CreateEnemyPipeline(
+                worldState,
+                profile,
+                runtimeFeatureFlags,
+                default,
+                entityLogics);
         }
 
         private static TickPipeline CreateEnemyPipeline(
