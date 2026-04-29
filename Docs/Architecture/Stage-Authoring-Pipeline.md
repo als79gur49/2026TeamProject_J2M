@@ -40,7 +40,7 @@ array indices.
 Use the `StageAuthoringDefinition` inspector buttons:
 
 - `Validate` or `Dry Run Generate` checks source data and generated output without
-  modifying the output assets.
+  modifying source mappings or output assets.
 - `Generate Gameplay + Presentation` writes grouped spawn arrays to
   `StageDefinition` and entity bindings to `StagePresentationDefinition`.
 - `Open Grid Editor` opens the face-aware grid MVP for placement edits.
@@ -49,6 +49,27 @@ Validation checks stable GUIDs, positive unique mappings, board bounds,
 face-aware cells, player count, HP, duplicate occupancy using the existing
 `StageDefinitionValidator` stacking policy, zones/objectives, runtime builder
 smoke, presentation binding ids, and presentation binding drift.
+
+Generated sync validation uses normalized semantic snapshots, not raw Unity
+serialized object equality. `StageDefinition` drift is checked against gameplay
+runtime fields consumed by `StageDefinitionValidator` and `StageRuntimeBuilder`:
+board, initial bottom face, entity spawns, zones, and objective entries.
+Generated spawn array order is normalized and legacy
+`StageSpawnDefinition.PresentationId` is not gameplay drift.
+`StageCatalogValidator` closes this path through
+`StageAuthoringProjection` and `StageAuthoringDriftComparer`; previous coarse
+generated-output comparison helpers are not part of the validation contract.
+
+`StagePresentationDefinition` drift is limited to generated enemy/static
+`EntityId -> PresentationId` bindings. Display metadata, preview/background
+assets, BGM reference, catalogs, and result text are preserved presentation
+metadata and are not binding drift.
+
+The generator is split into a non-mutating plan build and an apply step. Validate
+and Dry Run build only the allocation/output plan. Write Generate is the only
+path that persists `StableGuid -> EntityId` mappings, retires deleted mappings,
+writes generated gameplay data, writes presentation bindings, marks assets dirty,
+or saves assets.
 
 ## Grid Editor Presentation Selection
 
@@ -85,6 +106,29 @@ surface cells, gameplay output drift, and presentation binding drift.
 
 If `EnforceGeneratedSync` is false, generated drift is a warning. If it is true,
 generated drift is a CI/build-blocking error.
+
+## Assembly Boundary
+
+The runtime assembly owns runtime-safe authoring data models and pure normalized
+projection/comparison code. Editor-only generation, migration, grid UI,
+`AssetDatabase`, `Undo`, `EditorUtility`, `EditorWindow`, `MenuItem`, and
+`Selection` stay in the Editor assembly.
+
+`StageCatalogValidator` may call runtime-safe normalized drift comparison, but it
+does not call `StageAuthoringGenerator`. Editor CI supplies asset metadata through
+a validation metadata provider instead of requiring runtime code to reference
+editor APIs.
+
+Asset metadata provider resolution is explicit and deterministic:
+`StageCatalogValidationOptions.AssetMetadataProvider` overrides the validator
+default provider, the default provider is used when no explicit provider is
+supplied, and a no-op provider returns empty path/GUID metadata when neither is
+configured. Editor entrypoints register or pass editor providers; runtime code
+does not auto-register `AssetDatabase`-backed providers.
+
+`StageRuntimeBuilder` and `StageRuntimeContentResolver` do not consume
+`StageContentEntry.AuthoringDefinition` as runtime input. Existing stages without
+an authoring asset remain valid.
 
 ## Forbidden Patterns
 
