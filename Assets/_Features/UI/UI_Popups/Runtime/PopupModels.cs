@@ -15,6 +15,7 @@ namespace Game.Feature.UI.Popups
         Acknowledged = 3,
         Resumed = 4,
         SettingsRequested = 5,
+        ObjectiveRequested = 6,
     }
 
     public enum PopupBackdropMode
@@ -46,17 +47,20 @@ namespace Game.Feature.UI.Popups
             "Paused",
             "Pausing modal popup",
             "Resume",
+            "Objective",
             "Settings");
 
         public PausePopupPayload(
             string titleText,
             string descriptionText,
             string resumeLabel,
+            string objectiveLabel,
             string settingsLabel)
         {
             TitleText = titleText ?? string.Empty;
             DescriptionText = descriptionText ?? string.Empty;
             ResumeLabel = resumeLabel ?? string.Empty;
+            ObjectiveLabel = objectiveLabel ?? string.Empty;
             SettingsLabel = settingsLabel ?? string.Empty;
         }
 
@@ -65,6 +69,8 @@ namespace Game.Feature.UI.Popups
         public string DescriptionText { get; }
 
         public string ResumeLabel { get; }
+
+        public string ObjectiveLabel { get; }
 
         public string SettingsLabel { get; }
     }
@@ -182,17 +188,21 @@ namespace Game.Feature.UI.Popups
 
         public string ResumeLabel { get; private set; } = string.Empty;
 
+        public string ObjectiveLabel { get; private set; } = string.Empty;
+
         public string SettingsLabel { get; private set; } = string.Empty;
 
         public void SetContent(
             string titleText,
             string descriptionText,
             string resumeLabel,
+            string objectiveLabel,
             string settingsLabel)
         {
             TitleText = titleText ?? string.Empty;
             DescriptionText = descriptionText ?? string.Empty;
             ResumeLabel = resumeLabel ?? string.Empty;
+            ObjectiveLabel = objectiveLabel ?? string.Empty;
             SettingsLabel = settingsLabel ?? string.Empty;
             Changed?.Invoke();
         }

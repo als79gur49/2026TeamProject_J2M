@@ -84,7 +84,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(guidelines, Does.Contain("Audio-Architecture-Guidelines.md"));
             Assert.That(
                 guidelines,
-                Does.Contain("PausePopup completion semantics are coordinator-owned: Resumed and Closed are resume-equivalent exits, while SettingsRequested keeps gameplay paused, opens SettingsScreen, and returns back to a fresh PausePopup."));
+                Does.Contain("PausePopup completion semantics are coordinator-owned: Resumed and Closed are resume-equivalent exits, while SettingsRequested and ObjectiveRequested keep gameplay paused, open their destination screen, and return back to a fresh PausePopup."));
             Assert.That(guidelines, Does.Not.Contain("screen-specific presenters, viewmodels, views, and screen composition"));
             Assert.That(guidelines, Does.Not.Contain("popup-specific presenters, viewmodels, views, and popup composition"));
             Assert.That(guidelines, Does.Not.Contain("persistent HUD-specific presenters, viewmodels, views, and HUD composition"));
@@ -172,6 +172,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(audioGuidelines, Does.Contain("classification prefers user intent over raw delta count or event ordering"));
             Assert.That(audioGuidelines, Does.Contain("canonical local-vs-flow ownership truth-source table"));
             Assert.That(audioGuidelines, Does.Contain("PausePopup.SettingsRequested"));
+            Assert.That(audioGuidelines, Does.Contain("PausePopup.ObjectiveRequested"));
             Assert.That(audioGuidelines, Does.Contain("Display Apply"));
             Assert.That(audioGuidelines, Does.Contain("Display Revert"));
             Assert.That(audioGuidelines, Does.Contain("Settings.Back` from pause origin"));

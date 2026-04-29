@@ -297,11 +297,13 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void PausePopupPrefabAsset_WiresSettingsButtonAndLabel_BeneathPopupRoot()
+        public void PausePopupPrefabAsset_WiresObjectiveAndSettingsButtonsAndLabels_BeneathPopupRoot()
         {
             var pausePopup = UiTestPrefabAssetUtility.LoadPopupPrefab<PausePopupView>(UiTestPrefabAssetUtility.PausePopupPrefabPath);
             var serializedPausePopup = new SerializedObject(pausePopup);
 
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedPausePopup, "_objectiveButton", pausePopup.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedPausePopup, "_objectiveButtonLabel", pausePopup.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedPausePopup, "_settingsButton", pausePopup.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedPausePopup, "_settingsButtonLabel", pausePopup.transform);
         }
