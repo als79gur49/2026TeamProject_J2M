@@ -187,6 +187,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Is.True);
             Assert.That(
                 hitResult.EventLog.Any(entry =>
+                    entry.Contains("PlayerRespawnDelayStarted|E=10") &&
+                    entry.Contains("DelayTicks=1")),
+                Is.True);
+            Assert.That(
+                hitResult.EventLog.Any(entry => entry.Contains("RespawnCommitted|E=10")),
+                Is.False);
+            Assert.That(
+                hitResult.EventLog.Any(entry =>
                     entry.Contains("KinematicPoseRemoved|E=10") &&
                     entry.Contains($"Offset=({expectedLocalX},0)")),
                 Is.True);
@@ -201,6 +209,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     track.DestinationAnchorCell == new SurfaceCell(FaceId.Floor, expectedAnchorX, 0) &&
                     track.DestinationLocalOffset.X.RawValue == expectedLocalX &&
                     track.TerminalKind == TickKinematicMotionTerminalKind.Removed),
+                Is.True);
+            Assert.That(
+                hitResult.PresentationData.PlayerDeathHoldSignals.Any(signal =>
+                    signal.EntityId == 10 &&
+                    signal.StartedThisTick &&
+                    signal.RemainingTicks == 1),
                 Is.True);
         }
 
@@ -227,6 +241,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     track.SourceTopology.HasValue &&
                     track.DestinationTopology.HasValue &&
                     track.TerminalKind == TickKinematicMotionTerminalKind.Removed),
+                Is.True);
+            Assert.That(
+                result.PresentationData.PlayerDeathHoldSignals.Any(signal =>
+                    signal.EntityId == 10 &&
+                    signal.StartedThisTick),
                 Is.True);
         }
 

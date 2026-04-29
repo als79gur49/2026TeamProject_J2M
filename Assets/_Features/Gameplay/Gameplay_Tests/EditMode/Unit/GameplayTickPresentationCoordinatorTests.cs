@@ -242,6 +242,102 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
+        public void GameplayTickViewPresenter_PlayerDeathHold_RetainsRemovedTerminalPoseUntilSignalClears()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_PlayerDeathHold_RetainsRemovedTerminalPoseUntilSignalClears");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var expectedPosition = GetProjectedKinematicEntityPosition(
+                    boardBounds,
+                    topology,
+                    sourceCell,
+                    EntityType.Unit,
+                    -2048,
+                    0);
+
+                presenter.Initialize(binder, boardBounds, topology, 1f, CreateTimingProfile());
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreatePlayerUnit(10, sourceCell),
+                    },
+                    topology);
+
+                var removedTrack = CreateKinematicTrack(
+                    10,
+                    sourceCell,
+                    sourceLocalX: -2048,
+                    sourceCell,
+                    destinationLocalX: -2048,
+                    topology,
+                    TickKinematicMotionTerminalKind.Removed);
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 2,
+                        Array.Empty<EntityState>(),
+                        topology,
+                        CreateKinematicPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            new[] { removedTrack },
+                            new[]
+                            {
+                                new TickPlayerDeathHoldPresentationSignal(
+                                    10,
+                                    startTick: 2,
+                                    eligibleTick: 5,
+                                    remainingTicks: 3,
+                                    startedThisTick: true),
+                            })));
+
+                Assert.That(registry.TryGetView(10, out var view), Is.True);
+                Assert.That(view.gameObject.activeSelf, Is.True);
+                AssertPositionApproximately(view.transform.localPosition, expectedPosition);
+
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 3,
+                        Array.Empty<EntityState>(),
+                        topology,
+                        CreateKinematicPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            Array.Empty<TickKinematicMotionTrack>(),
+                            new[]
+                            {
+                                new TickPlayerDeathHoldPresentationSignal(
+                                    10,
+                                    startTick: 2,
+                                    eligibleTick: 5,
+                                    remainingTicks: 2,
+                                    startedThisTick: false),
+                            })));
+
+                Assert.That(view.gameObject.activeSelf, Is.True);
+                AssertPositionApproximately(view.transform.localPosition, expectedPosition);
+
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 4,
+                        Array.Empty<EntityState>(),
+                        topology,
+                        TickPresentationData.Empty));
+
+                Assert.That(view.gameObject.activeSelf, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         [Category("Full")]
         public void GameplayTickViewPresenter_PlayerMoveMotionOverride_UsesPlayerPrefabDuration()
         {
@@ -3917,7 +4013,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static TickPresentationData CreateKinematicPresentationData(
             IReadOnlyList<TickEntityMotion> entityMotions,
-            IReadOnlyList<TickKinematicMotionTrack> kinematicMotionTracks)
+            IReadOnlyList<TickKinematicMotionTrack> kinematicMotionTracks,
+            IReadOnlyList<TickPlayerDeathHoldPresentationSignal> playerDeathHoldSignals = null)
         {
             return new TickPresentationData(
                 entityMotions,
@@ -3935,7 +4032,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>(),
                 impactTransientSignals: Array.Empty<TickImpactTransientPresentationSignal>(),
                 flipImpactSignals: Array.Empty<FlipImpactPresentationSignal>(),
-                kinematicMotionTracks: kinematicMotionTracks);
+                kinematicMotionTracks: kinematicMotionTracks,
+                playerDeathHoldSignals: playerDeathHoldSignals);
         }
 
         private static TickKinematicMotionTrack CreateKinematicTrack(
