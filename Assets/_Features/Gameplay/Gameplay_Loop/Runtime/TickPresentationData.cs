@@ -108,6 +108,37 @@ namespace Game.Feature.Gameplay.Loop
             MotionMode motionMode,
             ForcedMotionOp forcedMotionOp,
             TickKinematicMotionTerminalKind terminalKind = TickKinematicMotionTerminalKind.None)
+            : this(
+                entityId,
+                sourceAnchorCell,
+                sourceLocalOffset,
+                destinationAnchorCell,
+                destinationLocalOffset,
+                motionMode,
+                forcedMotionOp,
+                EntityType.Unit,
+                sourceTopology: null,
+                destinationTopology: null,
+                sourceFacing: null,
+                destinationFacing: null,
+                terminalKind: terminalKind)
+        {
+        }
+
+        public TickKinematicMotionTrack(
+            int entityId,
+            SurfaceCell sourceAnchorCell,
+            KinematicOffset2 sourceLocalOffset,
+            SurfaceCell destinationAnchorCell,
+            KinematicOffset2 destinationLocalOffset,
+            MotionMode motionMode,
+            ForcedMotionOp forcedMotionOp,
+            EntityType entityType,
+            CubeTopologyState? sourceTopology,
+            CubeTopologyState? destinationTopology,
+            Direction? sourceFacing,
+            Direction? destinationFacing,
+            TickKinematicMotionTerminalKind terminalKind = TickKinematicMotionTerminalKind.None)
         {
             EntityId = entityId;
             SourceAnchorCell = sourceAnchorCell;
@@ -116,6 +147,11 @@ namespace Game.Feature.Gameplay.Loop
             DestinationLocalOffset = destinationLocalOffset;
             MotionMode = motionMode;
             ForcedMotionOp = forcedMotionOp;
+            EntityType = entityType;
+            SourceTopology = sourceTopology;
+            DestinationTopology = destinationTopology;
+            SourceFacing = sourceFacing;
+            DestinationFacing = destinationFacing;
             TerminalKind = terminalKind;
         }
 
@@ -132,6 +168,16 @@ namespace Game.Feature.Gameplay.Loop
         public MotionMode MotionMode { get; }
 
         public ForcedMotionOp ForcedMotionOp { get; }
+
+        public EntityType EntityType { get; }
+
+        public CubeTopologyState? SourceTopology { get; }
+
+        public CubeTopologyState? DestinationTopology { get; }
+
+        public Direction? SourceFacing { get; }
+
+        public Direction? DestinationFacing { get; }
 
         public TickKinematicMotionTerminalKind TerminalKind { get; }
     }

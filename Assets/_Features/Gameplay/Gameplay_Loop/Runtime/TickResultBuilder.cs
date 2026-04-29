@@ -682,7 +682,9 @@ namespace Game.Feature.Gameplay.Loop
                 if (operation.Kind != FinalizationOperationKind.SetUnitKinematicState ||
                     terminalEntityIds.Contains(operation.EntityId) ||
                     !context.PreMovementSnapshot.TryGetUnitKinematicPose(operation.EntityId, out var sourcePose) ||
-                    !context.PostMovementSnapshot.TryGetUnitKinematicPose(operation.EntityId, out var destinationPose))
+                    !context.PostMovementSnapshot.TryGetUnitKinematicPose(operation.EntityId, out var destinationPose) ||
+                    !context.PreMovementSnapshot.TryGetEntity(operation.EntityId, out var sourceEntity) ||
+                    !context.PostMovementSnapshot.TryGetEntity(operation.EntityId, out var destinationEntity))
                 {
                     continue;
                 }
@@ -695,14 +697,21 @@ namespace Game.Feature.Gameplay.Loop
                         destinationPose.AnchorCell,
                         destinationPose.LocalOffset,
                         operation.UnitKinematicState.mode,
-                        operation.UnitKinematicState.forcedOp));
+                        operation.UnitKinematicState.forcedOp,
+                        destinationEntity.type,
+                        context.PreMovementSnapshot.Topology,
+                        context.PostMovementSnapshot.Topology,
+                        sourceEntity.facing,
+                        destinationEntity.facing));
             }
 
             for (var i = 0; i < interruptedEntityIds.Count; i++)
             {
                 var entityId = interruptedEntityIds[i];
                 if (!context.PreMovementSnapshot.TryGetUnitKinematicPose(entityId, out var sourcePose) ||
-                    !context.PostAttackSnapshot.TryGetUnitKinematicPose(entityId, out var destinationPose))
+                    !context.PostAttackSnapshot.TryGetUnitKinematicPose(entityId, out var destinationPose) ||
+                    !context.PreMovementSnapshot.TryGetEntity(entityId, out var sourceEntity) ||
+                    !context.PostAttackSnapshot.TryGetEntity(entityId, out var destinationEntity))
                 {
                     continue;
                 }
@@ -716,6 +725,11 @@ namespace Game.Feature.Gameplay.Loop
                         destinationPose.LocalOffset,
                         destinationPose.Mode,
                         destinationPose.State.forcedOp,
+                        destinationEntity.type,
+                        context.PreMovementSnapshot.Topology,
+                        context.PostAttackSnapshot.Topology,
+                        sourceEntity.facing,
+                        destinationEntity.facing,
                         TickKinematicMotionTerminalKind.Interrupted));
             }
 
@@ -724,11 +738,15 @@ namespace Game.Feature.Gameplay.Loop
                 var record = context.CleanupPhaseResult.RemovedUnitKinematicPoses[i];
                 var entityId = record.EntityId;
                 var removedPose = record.Pose;
-                if (!context.PreMovementSnapshot.TryGetUnitKinematicPose(entityId, out var sourcePose))
+                if (!context.PreMovementSnapshot.TryGetUnitKinematicPose(entityId, out var sourcePose) ||
+                    !context.PreMovementSnapshot.TryGetEntity(entityId, out var sourceEntity))
                 {
                     continue;
                 }
 
+                var destinationEntity = context.PostAttackSnapshot.TryGetEntity(entityId, out var postAttackEntity)
+                    ? postAttackEntity
+                    : sourceEntity;
                 kinematicMotionTracks.Add(
                     new TickKinematicMotionTrack(
                         entityId,
@@ -738,6 +756,11 @@ namespace Game.Feature.Gameplay.Loop
                         removedPose.LocalOffset,
                         removedPose.Mode,
                         removedPose.State.forcedOp,
+                        destinationEntity.type,
+                        context.PreMovementSnapshot.Topology,
+                        context.PostAttackSnapshot.Topology,
+                        sourceEntity.facing,
+                        destinationEntity.facing,
                         TickKinematicMotionTerminalKind.Removed));
             }
         }

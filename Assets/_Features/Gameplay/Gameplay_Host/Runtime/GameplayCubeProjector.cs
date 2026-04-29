@@ -216,6 +216,14 @@ namespace Game.Feature.Gameplay.Host
             return true;
         }
 
+        public Vector2 ResolveKinematicPresentationPlaneOffset(KinematicOffset2 localOffset)
+        {
+            var fixedToWorldScale = _cellSize / KinematicFixed.UnitsPerCell;
+            return new Vector2(
+                localOffset.X.RawValue * fixedToWorldScale,
+                localOffset.Y.RawValue * fixedToWorldScale);
+        }
+
         public Bounds GetVisibleCubeBounds(CubeTopologyState topology)
         {
             return new Bounds(

@@ -1,8 +1,32 @@
 using System.Collections.Generic;
+using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 
 namespace Game.Feature.Gameplay.Host
 {
+    internal readonly struct KinematicPresentationPose
+    {
+        public KinematicPresentationPose(
+            GameplayEntityPose localPose,
+            MotionMode motionMode,
+            TickKinematicMotionTerminalKind terminalKind)
+        {
+            LocalPose = localPose;
+            MotionMode = motionMode;
+            TerminalKind = terminalKind;
+        }
+
+        public GameplayEntityPose LocalPose { get; }
+
+        public MotionMode MotionMode { get; }
+
+        public TickKinematicMotionTerminalKind TerminalKind { get; }
+
+        public bool IsActiveLocomotion =>
+            TerminalKind == TickKinematicMotionTerminalKind.None &&
+            MotionMode == MotionMode.Voluntary;
+    }
+
     internal sealed class GameplayPresentationTrackState
     {
         private readonly List<int> _completedFlipInteractionTrackIds = new();
@@ -17,6 +41,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly List<int> _completedTransitionVisibilityStateIds = new();
         private readonly List<int> _completedVisibilityTrackIds = new();
         private readonly Dictionary<int, JumpTrack> _jumpTracks = new();
+        private readonly Dictionary<int, KinematicPresentationPose> _kinematicPoseOverrides = new();
         private readonly Dictionary<int, MotionTrack> _localMotionTracks = new();
         private readonly HashSet<int> _motionVisualScaleEntityIds = new();
         private readonly Dictionary<int, PlayerDeathDisplacementTrack> _playerDeathDisplacementTracks = new();
@@ -49,6 +74,8 @@ namespace Game.Feature.Gameplay.Host
 
         public Dictionary<int, JumpTrack> JumpTracks => _jumpTracks;
 
+        public Dictionary<int, KinematicPresentationPose> KinematicPoseOverrides => _kinematicPoseOverrides;
+
         public Dictionary<int, MotionTrack> LocalMotionTracks => _localMotionTracks;
 
         public HashSet<int> MotionVisualScaleEntityIds => _motionVisualScaleEntityIds;
@@ -78,6 +105,7 @@ namespace Game.Feature.Gameplay.Host
             _completedTransitionVisibilityStateIds.Clear();
             _completedVisibilityTrackIds.Clear();
             _jumpTracks.Clear();
+            _kinematicPoseOverrides.Clear();
             _localMotionTracks.Clear();
             _motionVisualScaleEntityIds.Clear();
             _playerDeathDisplacementTracks.Clear();

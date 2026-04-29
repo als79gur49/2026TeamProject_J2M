@@ -138,6 +138,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(
                 hitResult.PresentationData.KinematicMotionTracks.Any(track =>
                     track.EntityId == 10 &&
+                    track.EntityType == EntityType.Unit &&
+                    track.SourceTopology.HasValue &&
+                    track.DestinationTopology.HasValue &&
+                    track.SourceFacing == Direction.Right &&
+                    track.DestinationFacing == Direction.Right &&
                     track.TerminalKind == TickKinematicMotionTerminalKind.Interrupted),
                 Is.True);
 
@@ -188,6 +193,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(
                 hitResult.PresentationData.KinematicMotionTracks.Any(track =>
                     track.EntityId == 10 &&
+                    track.EntityType == EntityType.Unit &&
+                    track.SourceTopology.HasValue &&
+                    track.DestinationTopology.HasValue &&
+                    track.SourceFacing == Direction.Right &&
+                    track.DestinationFacing == Direction.Right &&
                     track.DestinationAnchorCell == new SurfaceCell(FaceId.Floor, expectedAnchorX, 0) &&
                     track.DestinationLocalOffset.X.RawValue == expectedLocalX &&
                     track.TerminalKind == TickKinematicMotionTerminalKind.Removed),
@@ -213,6 +223,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(
                 result.PresentationData.KinematicMotionTracks.Any(track =>
                     track.EntityId == 10 &&
+                    track.EntityType == EntityType.Unit &&
+                    track.SourceTopology.HasValue &&
+                    track.DestinationTopology.HasValue &&
                     track.TerminalKind == TickKinematicMotionTerminalKind.Removed),
                 Is.True);
         }

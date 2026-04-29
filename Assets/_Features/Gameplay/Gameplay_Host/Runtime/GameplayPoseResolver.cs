@@ -85,6 +85,46 @@ namespace Game.Feature.Gameplay.Host
             return true;
         }
 
+        public bool TryResolveKinematicLocalPose(
+            GameplayCubeProjector projector,
+            TickKinematicMotionTrack track,
+            bool useDestination,
+            out GameplayEntityPose pose)
+        {
+            if (projector == null)
+            {
+                throw new ArgumentNullException(nameof(projector));
+            }
+
+            var anchorCell = useDestination
+                ? track.DestinationAnchorCell
+                : track.SourceAnchorCell;
+            var localOffset = useDestination
+                ? track.DestinationLocalOffset
+                : track.SourceLocalOffset;
+            var topology = useDestination
+                ? track.DestinationTopology ?? track.SourceTopology ?? _stateStore.CommittedTopology
+                : track.SourceTopology ?? track.DestinationTopology ?? _stateStore.CommittedTopology;
+            var facing = useDestination
+                ? track.DestinationFacing ?? track.SourceFacing ?? Direction.Up
+                : track.SourceFacing ?? track.DestinationFacing ?? Direction.Up;
+
+            pose = default;
+            if (!projector.TryProjectEntityCell(anchorCell, topology, track.EntityType, out var projectedPose))
+            {
+                return false;
+            }
+
+            pose = CreateEntityPose(
+                projector,
+                anchorCell,
+                topology,
+                projectedPose,
+                facing,
+                projector.ResolveKinematicPresentationPlaneOffset(localOffset));
+            return true;
+        }
+
         public bool TryResolveTransitionLocalPose(
             GameplayCubeProjector projector,
             int entityId,

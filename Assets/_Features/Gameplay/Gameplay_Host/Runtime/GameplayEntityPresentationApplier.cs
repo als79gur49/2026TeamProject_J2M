@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
@@ -16,6 +17,8 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplayPoseResolver _poseResolver;
         private readonly GameplayPresentationStateStore _stateStore;
         private readonly GameplayPresentationTrackState _trackState;
+        private readonly HashSet<int> _processingEntityIds = new();
+        private readonly List<int> _processingEntityIdBuffer = new();
 
         public GameplayEntityPresentationApplier(
             GameplayPresentationStateStore stateStore,
@@ -65,7 +68,7 @@ namespace Game.Feature.Gameplay.Host
             _stateStore.PresentedLocalPosesByEntityId.Clear();
             AdvancePlayerDeathDisplacementTracks(deltaTime);
 
-            var processingEntityIds = _stateStore.BuildProcessingEntityIds();
+            var processingEntityIds = BuildProcessingEntityIds();
             for (var i = 0; i < processingEntityIds.Count; i++)
             {
                 var entityId = processingEntityIds[i];
@@ -74,13 +77,25 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
+                var hasKinematicPoseOverride = _trackState.KinematicPoseOverrides.TryGetValue(
+                    entityId,
+                    out var kinematicPoseOverride);
                 if (!_poseResolver.TryResolveFallbackLocalPose(entityId, out var localPose))
                 {
-                    continue;
+                    if (!hasKinematicPoseOverride)
+                    {
+                        continue;
+                    }
+
+                    localPose = kinematicPoseOverride.LocalPose;
                 }
 
                 var motionVisualScaleMultiplier = Vector3.one;
-                if (_trackState.StayFlipImpactTracks.TryGetValue(entityId, out var stayFlipImpactTrack))
+                if (hasKinematicPoseOverride)
+                {
+                    localPose = kinematicPoseOverride.LocalPose;
+                }
+                else if (_trackState.StayFlipImpactTracks.TryGetValue(entityId, out var stayFlipImpactTrack))
                 {
                     localPose = stayFlipImpactTrack.Sample();
                     motionVisualScaleMultiplier = stayFlipImpactTrack.SampleVisualScaleMultiplier();
@@ -121,7 +136,8 @@ namespace Game.Feature.Gameplay.Host
                     }
                 }
 
-                var isVisible = _stateStore.CommittedLocalTargetPoses.ContainsKey(entityId) ||
+                var isVisible = hasKinematicPoseOverride ||
+                                _stateStore.CommittedLocalTargetPoses.ContainsKey(entityId) ||
                                 _stateStore.JumpDetachedVisibilityStates.ContainsKey(entityId) ||
                                 _stateStore.TransitionVisibilityStates.ContainsKey(entityId);
                 if (_trackState.VisibilityTracks.TryGetValue(entityId, out var visibilityTrack))
@@ -133,7 +149,8 @@ namespace Game.Feature.Gameplay.Host
                     }
                 }
 
-                var hasActiveMotion = _trackState.LocalMotionTracks.TryGetValue(entityId, out var activeMotionTrack) &&
+                var hasActiveMotion = hasKinematicPoseOverride && kinematicPoseOverride.IsActiveLocomotion ||
+                                      _trackState.LocalMotionTracks.TryGetValue(entityId, out var activeMotionTrack) &&
                                       activeMotionTrack.HasClips;
                 var resolvedPlayerAnimationState = _animationSync.ResolvePlayerAnimationState(
                     entityId,
@@ -202,6 +219,34 @@ namespace Game.Feature.Gameplay.Host
 
             _trackState.PlayerDeathDisplacementTracks.Clear();
             _stateStore.PresentedLocalPosesByEntityId.Clear();
+        }
+
+        private IReadOnlyList<int> BuildProcessingEntityIds()
+        {
+            _processingEntityIds.Clear();
+            _processingEntityIdBuffer.Clear();
+
+            var stateStoreEntityIds = _stateStore.BuildProcessingEntityIds();
+            for (var i = 0; i < stateStoreEntityIds.Count; i++)
+            {
+                AddProcessingEntityId(stateStoreEntityIds[i]);
+            }
+
+            foreach (var pair in _trackState.KinematicPoseOverrides)
+            {
+                AddProcessingEntityId(pair.Key);
+            }
+
+            _processingEntityIdBuffer.Sort();
+            return _processingEntityIdBuffer;
+        }
+
+        private void AddProcessingEntityId(int entityId)
+        {
+            if (_processingEntityIds.Add(entityId))
+            {
+                _processingEntityIdBuffer.Add(entityId);
+            }
         }
 
         public void ClearJumpPresentationState(int entityId)
@@ -567,6 +612,12 @@ namespace Game.Feature.Gameplay.Host
 
         private bool HasActivePlayerWalkMotion(int entityId)
         {
+            if (_trackState.KinematicPoseOverrides.TryGetValue(entityId, out var kinematicPose) &&
+                kinematicPose.IsActiveLocomotion)
+            {
+                return true;
+            }
+
             return _trackState.LocalMotionTracks.TryGetValue(entityId, out var motionTrack) &&
                    motionTrack.HasClips &&
                    motionTrack.TailMotionKind == TickEntityMotionKind.Move;
