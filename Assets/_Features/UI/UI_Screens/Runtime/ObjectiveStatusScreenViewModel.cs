@@ -9,37 +9,8 @@ namespace Game.Feature.UI.Screens
             bool goalReached,
             bool allConditionsSatisfied,
             bool isCleared,
-            int nextTickIndex,
-            bool isPaused,
-            bool canAcceptGameplayCommands,
-            bool isStageCleared)
-            : this(
-                hasObjective,
-                goalReached,
-                allConditionsSatisfied,
-                isCleared,
-                string.Empty,
-                string.Empty,
-                string.Empty,
-                nextTickIndex,
-                isPaused,
-                canAcceptGameplayCommands,
-                isStageCleared)
-        {
-        }
-
-        public ObjectiveStatusScreenState(
-            bool hasObjective,
-            bool goalReached,
-            bool allConditionsSatisfied,
-            bool isCleared,
             string objectiveTitle,
-            string objectiveSummary,
-            string conditionDetailText,
-            int nextTickIndex,
-            bool isPaused,
-            bool canAcceptGameplayCommands,
-            bool isStageCleared)
+            string objectiveSummary)
         {
             HasObjective = hasObjective;
             GoalReached = goalReached;
@@ -47,11 +18,6 @@ namespace Game.Feature.UI.Screens
             IsCleared = isCleared;
             ObjectiveTitle = objectiveTitle ?? string.Empty;
             ObjectiveSummary = objectiveSummary ?? string.Empty;
-            ConditionDetailText = conditionDetailText ?? string.Empty;
-            NextTickIndex = nextTickIndex;
-            IsPaused = isPaused;
-            CanAcceptGameplayCommands = canAcceptGameplayCommands;
-            IsStageCleared = isStageCleared;
         }
 
         public bool HasObjective { get; }
@@ -65,16 +31,6 @@ namespace Game.Feature.UI.Screens
         public string ObjectiveTitle { get; }
 
         public string ObjectiveSummary { get; }
-
-        public string ConditionDetailText { get; }
-
-        public int NextTickIndex { get; }
-
-        public bool IsPaused { get; }
-
-        public bool CanAcceptGameplayCommands { get; }
-
-        public bool IsStageCleared { get; }
     }
 
     public sealed class ObjectiveStatusScreenViewModel
@@ -91,26 +47,18 @@ namespace Game.Feature.UI.Screens
 
         public string SecondaryText { get; private set; } = string.Empty;
 
-        public bool IsOverviewSelected { get; private set; }
-
-        public bool IsSessionSelected { get; private set; }
-
         public void SetContent(
             string titleText,
             string badgeText,
             string summaryText,
             string detailText,
-            string secondaryText,
-            bool isOverviewSelected,
-            bool isSessionSelected)
+            string secondaryText)
         {
             TitleText = titleText ?? string.Empty;
             BadgeText = badgeText ?? string.Empty;
             SummaryText = summaryText ?? string.Empty;
             DetailText = detailText ?? string.Empty;
             SecondaryText = secondaryText ?? string.Empty;
-            IsOverviewSelected = isOverviewSelected;
-            IsSessionSelected = isSessionSelected;
             Changed?.Invoke();
         }
     }

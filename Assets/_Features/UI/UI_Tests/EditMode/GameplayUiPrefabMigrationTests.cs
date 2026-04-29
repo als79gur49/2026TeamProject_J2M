@@ -309,6 +309,16 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ObjectiveStatusScreenPrefabAsset_HidesLegacyOverviewAndSessionTabButtons()
+        {
+            var screen = UiTestPrefabAssetUtility.LoadScreenPrefab<ObjectiveStatusScreenView>(UiTestPrefabAssetUtility.ObjectiveStatusScreenPrefabPath);
+            var serializedScreen = new SerializedObject(screen);
+
+            AssertSerializedButtonInactive(serializedScreen, "_overviewButton");
+            AssertSerializedButtonInactive(serializedScreen, "_sessionButton");
+        }
+
+        [Test]
         public void ObjectiveInfoPopupPrefabAsset_UsesAuthoredPopupView_AndNoCrossLayerOwners()
         {
             AssertPopupPrefabContract<ObjectiveInfoPopupView>(UiTestPrefabAssetUtility.ObjectiveInfoPopupPrefabPath);
@@ -1051,6 +1061,16 @@ namespace Game.Feature.UI.Tests
                     Assert.Fail($"{propertyPath} must reference a Component or GameObject.");
                     break;
             }
+        }
+
+        private static void AssertSerializedButtonInactive(SerializedObject serializedObject, string propertyPath)
+        {
+            var property = serializedObject.FindProperty(propertyPath);
+            Assert.That(property, Is.Not.Null, propertyPath);
+            Assert.That(property.objectReferenceValue, Is.InstanceOf<Button>(), propertyPath);
+
+            var button = (Button)property.objectReferenceValue;
+            Assert.That(button.gameObject.activeSelf, Is.False, propertyPath);
         }
 
         private static void DestroySupportObjects(UnityEngine.Object rootObject)

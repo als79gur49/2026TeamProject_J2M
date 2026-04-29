@@ -178,7 +178,6 @@ namespace Game.Feature.UI.Application
     public sealed class ObjectiveStatusScreenPresenter : IDisposable
     {
         private readonly ObjectiveStatusPresenter _objectiveStatusPresenter;
-        private ObjectiveStatusScreenMode _mode = ObjectiveStatusScreenMode.Overview;
         private ObjectiveStatusScreenState _state;
         private string _titleText = ObjectiveStatusScreenPayload.Default.TitleText;
 
@@ -203,27 +202,8 @@ namespace Game.Feature.UI.Application
             ApplyViewModel();
         }
 
-        public void ShowOverview()
-        {
-            _mode = ObjectiveStatusScreenMode.Overview;
-            ApplyViewModel();
-        }
-
-        public void ShowSession()
-        {
-            _mode = ObjectiveStatusScreenMode.Session;
-            ApplyViewModel();
-        }
-
         public ObjectiveInfoPopupPayload BuildInfoPopupPayload()
         {
-            if (_mode == ObjectiveStatusScreenMode.Session)
-            {
-                return new ObjectiveInfoPopupPayload(
-                    "Session Info",
-                    $"Tick {_state.NextTickIndex} | Paused: {FormatBoolean(_state.IsPaused)} | Commands: {FormatCommandStatus(_state.CanAcceptGameplayCommands)}");
-            }
-
             if (!_state.HasObjective)
             {
                 return new ObjectiveInfoPopupPayload(
@@ -250,27 +230,12 @@ namespace Game.Feature.UI.Application
 
         private void ApplyViewModel()
         {
-            if (_mode == ObjectiveStatusScreenMode.Session)
-            {
-                ViewModel.SetContent(
-                    _titleText,
-                    badgeText: _state.IsPaused ? "Paused" : "Session",
-                    summaryText: $"Next Tick: {_state.NextTickIndex}",
-                    detailText: $"Gameplay Input: {FormatCommandStatus(_state.CanAcceptGameplayCommands)}",
-                    secondaryText: $"Stage Cleared: {FormatBoolean(_state.IsStageCleared)}",
-                    isOverviewSelected: false,
-                    isSessionSelected: true);
-                return;
-            }
-
             ViewModel.SetContent(
                 _titleText,
                 badgeText: BuildObjectiveBadge(_state),
                 summaryText: BuildObjectiveSummary(_state),
-                detailText: BuildObjectiveDetail(_state),
-                secondaryText: $"All Conditions: {FormatBoolean(_state.AllConditionsSatisfied)} | Cleared: {FormatBoolean(_state.IsCleared)}",
-                isOverviewSelected: true,
-                isSessionSelected: false);
+                detailText: BuildObjectiveOverviewText(_state),
+                secondaryText: $"Goal: {FormatBoolean(_state.GoalReached)} | Required: {FormatBoolean(_state.AllConditionsSatisfied)} | Cleared: {FormatBoolean(_state.IsCleared)}");
         }
 
         private static string BuildObjectiveBadge(ObjectiveStatusScreenState state)
@@ -339,19 +304,29 @@ namespace Game.Feature.UI.Application
             return "Primary goal is still in progress.";
         }
 
-        private static string BuildObjectiveDetail(ObjectiveStatusScreenState state)
+        private static string BuildObjectiveOverviewText(ObjectiveStatusScreenState state)
         {
             if (!state.HasObjective)
             {
-                return "No objective conditions are configured for display.";
+                return "No active objective is configured for this stage.";
             }
 
-            if (!string.IsNullOrWhiteSpace(state.ConditionDetailText))
+            if (state.IsCleared)
             {
-                return state.ConditionDetailText;
+                return "Objective complete.";
             }
 
-            return "No displayable objective conditions.";
+            if (state.AllConditionsSatisfied)
+            {
+                return "All required objective conditions are satisfied.";
+            }
+
+            if (state.GoalReached)
+            {
+                return "Primary goal reached. Required objective progress is still pending.";
+            }
+
+            return "Primary objective is still in progress.";
         }
 
         private static string FormatBoolean(bool value)
@@ -359,16 +334,6 @@ namespace Game.Feature.UI.Application
             return value ? "Yes" : "No";
         }
 
-        private static string FormatCommandStatus(bool canAcceptGameplayCommands)
-        {
-            return canAcceptGameplayCommands ? "Ready" : "Blocked";
-        }
-
-        private enum ObjectiveStatusScreenMode
-        {
-            Overview = 0,
-            Session = 1,
-        }
     }
 
     public readonly struct InventoryCatalogPresenterInput

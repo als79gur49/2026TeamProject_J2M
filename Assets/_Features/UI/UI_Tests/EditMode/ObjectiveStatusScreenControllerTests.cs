@@ -13,14 +13,14 @@ namespace Game.Feature.UI.Tests
     public sealed class ObjectiveStatusScreenControllerTests
     {
         [Test]
-        public void ObjectiveStatusScreenPresenter_DerivesOverviewAndSessionContent_FromExistingQueries()
+        public void ObjectiveStatusScreenPresenter_DerivesOverviewContent_FromObjectiveSnapshotOnly()
         {
             var queryFacade = new FakeGameplayQueryFacade(
                 new GameplaySessionReadModel(nextTickIndex: 7, isPaused: false, canAcceptGameplayCommands: false, isStageCleared: false),
                 FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
                 CreateObjectiveReadModel());
             using var presentationSource = UiTestPortFactory.CreatePresentationSource(queryFacade: queryFacade);
-            using var statePresenter = new ObjectiveStatusPresenter(queryFacade, presentationSource);
+            using var statePresenter = new ObjectiveStatusPresenter(presentationSource);
             using var presenter = new ObjectiveStatusScreenPresenter(statePresenter);
 
             presenter.ApplyPayload(Game.Feature.UI.Screens.ObjectiveStatusScreenPayload.Default);
@@ -28,23 +28,15 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenter.ViewModel.BadgeText, Is.EqualTo("Goal Reached"));
             Assert.That(presenter.ViewModel.SummaryText, Does.Contain("Reach the Exit"));
             Assert.That(presenter.ViewModel.SummaryText, Does.Contain("Move to the exit zone."));
-            Assert.That(presenter.ViewModel.DetailText, Does.Contain("Primary"));
-            Assert.That(presenter.ViewModel.DetailText, Does.Contain("Done: Reach the exit zone"));
-            Assert.That(presenter.ViewModel.DetailText, Does.Contain("Optional"));
-            Assert.That(presenter.ViewModel.DetailText, Does.Contain("Pending: Defeat every enemy"));
-            Assert.That(presenter.ViewModel.SecondaryText, Does.Not.Contain("PlayerAtAnyZone"));
-            Assert.That(presenter.ViewModel.SecondaryText, Does.Not.Contain("PrimaryGoal"));
+            Assert.That(presenter.ViewModel.DetailText, Is.EqualTo("Primary goal reached. Required objective progress is still pending."));
+            Assert.That(presenter.ViewModel.SecondaryText, Is.EqualTo("Goal: Yes | Required: No | Cleared: No"));
+            Assert.That(presenter.ViewModel.DetailText, Does.Not.Contain("Reach the exit zone"));
+            Assert.That(presenter.ViewModel.DetailText, Does.Not.Contain("Defeat every enemy"));
             Assert.That(presenter.BuildInfoPopupPayload().BodyText, Does.Contain("Goal reached: Yes"));
             Assert.That(presenter.BuildInfoPopupPayload().BodyText, Does.Not.Contain("PlayerAtAnyZone"));
             Assert.That(presenter.BuildInfoPopupPayload().BodyText, Does.Not.Contain("PrimaryGoal"));
-
-            presenter.ShowSession();
-
-            Assert.That(presenter.ViewModel.BadgeText, Is.EqualTo("Session"));
-            Assert.That(presenter.ViewModel.SummaryText, Does.Contain("7"));
-            Assert.That(presenter.ViewModel.DetailText, Does.Not.Contain("PlayerAtAnyZone"));
-            Assert.That(presenter.ViewModel.DetailText, Does.Not.Contain("PrimaryGoal"));
-            Assert.That(presenter.BuildInfoPopupPayload().TitleText, Is.EqualTo("Session Info"));
+            Assert.That(presenter.BuildInfoPopupPayload().BodyText, Does.Not.Contain("Reach the exit zone"));
+            Assert.That(presenter.BuildInfoPopupPayload().BodyText, Does.Not.Contain("Defeat every enemy"));
         }
 
         [Test]
@@ -55,7 +47,7 @@ namespace Game.Feature.UI.Tests
                 FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
                 CreateObjectiveReadModel());
             using var presentationSource = UiTestPortFactory.CreatePresentationSource(queryFacade: queryFacade);
-            using var statePresenter = new ObjectiveStatusPresenter(queryFacade, presentationSource);
+            using var statePresenter = new ObjectiveStatusPresenter(presentationSource);
             using var presenter = new ObjectiveStatusScreenPresenter(statePresenter);
 
             Assert.That(presenter.ViewModel.DetailText, Does.Not.Contain("PlayerEntityId"));

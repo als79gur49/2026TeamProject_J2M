@@ -43,7 +43,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void GameplayScreenRuntimeFactory_ObjectiveStatusLocalInteractions_EmitOnlySelectCues()
+        public void GameplayScreenRuntimeFactory_ObjectiveStatusOverviewOnly_HasNoTabLocalSelectCues()
         {
             using var harness = UiAudioHarness.Create();
 
@@ -53,16 +53,9 @@ namespace Game.Feature.UI.Tests
             var view = harness.ScreenLayerView.FindScreenView<ObjectiveStatusScreenView>();
             Assert.That(view, Is.Not.Null);
 
-            view.ClickOverview();
-            view.ClickSession();
-
-            Assert.That(
-                harness.UiAudioPort.PlayedCueIds,
-                Is.EqualTo(new[]
-                {
-                    UiAudioCueId.Select,
-                    UiAudioCueId.Select,
-                }));
+            Assert.That(typeof(ObjectiveStatusScreenView).GetMethod("ClickOverview"), Is.Null);
+            Assert.That(typeof(ObjectiveStatusScreenView).GetMethod("ClickSession"), Is.Null);
+            Assert.That(harness.UiAudioPort.PlayedCueIds, Is.Empty);
         }
 
         [Test]
