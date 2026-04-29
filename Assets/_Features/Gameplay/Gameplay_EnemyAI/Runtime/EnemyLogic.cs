@@ -307,6 +307,14 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
+            if (snapshot.TryGetUnitKinematicPose(source.entityId, out var pose) &&
+                pose.HasAuthoritativeState &&
+                !pose.IsSettledAtAnchor &&
+                pose.Mode == MotionMode.Voluntary)
+            {
+                return;
+            }
+
             if (ShouldSuppressMovementForJump(snapshot, input.TickIndex) ||
                 ShouldSuppressMovementForGlide(snapshot) ||
                 ShouldSuppressMovementForEnemyPhase(snapshot))

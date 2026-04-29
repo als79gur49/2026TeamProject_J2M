@@ -497,6 +497,15 @@ namespace Game.Feature.Gameplay.Loop
                     rejectedReasons,
                     kinematicMovementActionPlanPayloads);
             }
+            if (_runtimeFeatureFlags.EnableEnemySameFaceContinuousLocomotion)
+            {
+                expansionIntents = BuildEnemySameFaceKinematicLocomotionPlans(
+                    planSnapshot,
+                    expansionIntents,
+                    input.TickIndex,
+                    rejectedReasons,
+                    kinematicMovementActionPlanPayloads);
+            }
 
             var playerTraversalSourceIds = CollectPlayerTraversalSourceIds(entityLogicsForTick.MovementLogics);
             var frontFaceSupportContributors = CollectFrontFaceSupportContributors(
@@ -1352,6 +1361,338 @@ namespace Game.Feature.Gameplay.Loop
             return legacyIntents;
         }
 
+        private List<MoveIntent> BuildEnemySameFaceKinematicLocomotionPlans(
+            WorldSnapshot snapshot,
+            IReadOnlyList<MoveIntent> sortedIntents,
+            int tickIndex,
+            List<string> rejectedReasons,
+            Dictionary<int, MovementActionPlanPayload> kinematicPayloads)
+        {
+            var legacyIntents = new List<MoveIntent>(sortedIntents.Count);
+            var continuingEnemyIds = new HashSet<int>();
+            var entities = new List<EntityState>();
+            snapshot.EnumerateEntitiesOrdered(entities);
+
+            for (var i = 0; i < entities.Count; i++)
+            {
+                var entity = entities[i];
+                if (!IsEnemyLogicParticipant(entity) ||
+                    !TryBuildEnemyKinematicContinuationPayload(
+                        snapshot,
+                        entity.entityId,
+                        tickIndex,
+                        rejectedReasons,
+                        out var continuationPayload))
+                {
+                    continue;
+                }
+
+                kinematicPayloads.Add(continuationPayload.ActionPlanId, continuationPayload);
+                continuingEnemyIds.Add(entity.entityId);
+            }
+
+            for (var i = 0; i < sortedIntents.Count; i++)
+            {
+                var intent = sortedIntents[i];
+                if (continuingEnemyIds.Contains(intent.SourceId))
+                {
+                    if (intent.CommandKind == Movement.MovementCommandKind.Move)
+                    {
+                        continue;
+                    }
+
+                    legacyIntents.Add(intent);
+                    continue;
+                }
+
+                if (TryBuildEnemyKinematicStartPayload(
+                        snapshot,
+                        intent,
+                        tickIndex,
+                        rejectedReasons,
+                        out var handledByKinematic,
+                        out var startPayload))
+                {
+                    if (startPayload != null)
+                    {
+                        kinematicPayloads.Add(startPayload.ActionPlanId, startPayload);
+                    }
+
+                    if (handledByKinematic)
+                    {
+                        continue;
+                    }
+                }
+
+                legacyIntents.Add(intent);
+            }
+
+            return legacyIntents;
+        }
+
+        private bool TryBuildEnemyKinematicStartPayload(
+            WorldSnapshot snapshot,
+            MoveIntent intent,
+            int tickIndex,
+            List<string> rejectedReasons,
+            out bool handledByKinematic,
+            out MovementActionPlanPayload payload)
+        {
+            handledByKinematic = false;
+            payload = null;
+
+            if (!TryResolveEnemyKinematicStartScope(
+                    snapshot,
+                    intent,
+                    out var entity,
+                    out var pose,
+                    out var delta,
+                    out var destination,
+                    out var facing))
+            {
+                return false;
+            }
+
+            handledByKinematic = true;
+            var legality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
+                snapshot,
+                EntityType.Unit,
+                destination,
+                entity.entityId,
+                snapshot.Topology,
+                CubeRotationKind.None,
+                snapshot.Topology);
+            if (legality.Verdict != LegalityVerdict.Allowed)
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Plan|Source={intent.SourceId}|I={intent.IntentId}|Reason=EnemyKinematicTraversalBlocked|Cell={FormatCell(destination)}|{LegalityDiagnosticsFormatter.FormatStableSummary(legality)}");
+                return true;
+            }
+
+            if (!TryResolveKinematicVelocity(delta, out var velocity, out _))
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Plan|Source={intent.SourceId}|I={intent.IntentId}|Reason=EnemyKinematicSweepRejected|RejectedBy={KinematicSweepRejectionReason.NonCardinalDelta}|Anchor={FormatCell(entity.position)}");
+                return true;
+            }
+
+            if (!SurfaceKinematicSweepQueries.TryResolveSameFaceDelta(
+                    snapshot,
+                    entity.entityId,
+                    velocity,
+                    out var sweep) ||
+                sweep.Blocked)
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Plan|Source={intent.SourceId}|I={intent.IntentId}|Reason=EnemyKinematicSweepRejected|RejectedBy={sweep.RejectedBy}|Anchor={FormatCell(entity.position)}");
+                return true;
+            }
+
+            var outcome = CreateKinematicMotionOutcome(
+                sweep,
+                entity.position,
+                sourceState: pose.State,
+                stepDirectionX: delta.x,
+                stepDirectionY: delta.y,
+                elapsedTicks: 1,
+                totalTicks: _playerKinematicLocomotionTiming.TicksPerCell,
+                startedTick: tickIndex);
+            payload = CreateKinematicMovementPayload(
+                _idAllocator.AllocateGroupId(),
+                intent.IntentId,
+                entity.entityId,
+                intent.Priority,
+                outcome,
+                facing,
+                writeFacing: true,
+                enemyLocomotionWrites: CreateEnemyKinematicLocomotionWrites(entity, intent),
+                enemyPatrolWrites: CreateEnemyKinematicPatrolWrites(snapshot, entity, delta),
+                executionLockWrites: CreateEnemyKinematicExecutionLockWrites(snapshot, entity, tickIndex));
+            return true;
+        }
+
+        private bool TryBuildEnemyKinematicContinuationPayload(
+            WorldSnapshot snapshot,
+            int entityId,
+            int tickIndex,
+            List<string> rejectedReasons,
+            out MovementActionPlanPayload payload)
+        {
+            payload = null;
+            if (!snapshot.TryGetEntity(entityId, out var entity) ||
+                !IsEnemyOrdinaryKinematicParticipant(snapshot, entity) ||
+                !snapshot.TryGetUnitKinematicPose(entityId, out var pose) ||
+                pose.IsSettledAtAnchor ||
+                pose.Mode != MotionMode.Voluntary ||
+                !TryResolveStepDirection(pose.State, out var stepDirectionX, out var stepDirectionY, out var facing))
+            {
+                return false;
+            }
+
+            var nextElapsedTicks = pose.State.elapsedTicks + 1;
+            if (pose.State.totalTicks < 2 ||
+                (pose.State.totalTicks % 2) != 0 ||
+                nextElapsedTicks <= 0)
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Plan|Source={entityId}|Reason=EnemyKinematicContinuationCorrupt|Anchor={FormatCell(entity.position)}");
+                return false;
+            }
+
+            var outcome = CreateKinematicMotionOutcome(
+                entityId,
+                pose.AnchorCell,
+                pose.LocalOffset,
+                pose.State,
+                stepDirectionX,
+                stepDirectionY,
+                nextElapsedTicks,
+                pose.State.totalTicks,
+                pose.State.startedTick);
+            payload = CreateKinematicMovementPayload(
+                _idAllocator.AllocateGroupId(),
+                _idAllocator.AllocateIntentId(),
+                entityId,
+                priority: 100,
+                outcome: outcome,
+                facing: facing,
+                writeFacing: true);
+
+            return true;
+        }
+
+        private static bool TryResolveEnemyKinematicStartScope(
+            WorldSnapshot snapshot,
+            MoveIntent intent,
+            out EntityState entity,
+            out UnitKinematicPose pose,
+            out Vector2Int delta,
+            out SurfaceCell destination,
+            out Direction facing)
+        {
+            entity = default;
+            pose = default;
+            delta = Vector2Int.zero;
+            destination = default;
+            facing = Direction.None;
+
+            if (intent == null ||
+                intent.CommandKind != Movement.MovementCommandKind.Move ||
+                !snapshot.TryGetEntity(intent.SourceId, out entity) ||
+                !IsEnemyOrdinaryKinematicParticipant(snapshot, entity) ||
+                !snapshot.TryGetUnitKinematicPose(intent.SourceId, out pose) ||
+                !pose.IsSettledAtAnchor)
+            {
+                return false;
+            }
+
+            delta = intent.Destination - entity.position.PlanarPosition;
+            if (!TryResolveKinematicVelocity(delta, out _, out facing) ||
+                !snapshot.TryResolveUnitStep(
+                    entity.position,
+                    delta,
+                    out destination,
+                    out var rotationKind,
+                    out _) ||
+                rotationKind != CubeRotationKind.None ||
+                destination.face != entity.position.face ||
+                destination.PlanarPosition != intent.Destination)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool IsEnemyOrdinaryKinematicParticipant(WorldSnapshot snapshot, in EntityState entity)
+        {
+            if (!IsEnemyLogicParticipant(entity) ||
+                !EnemyParticipationPolicy.IsControllableParticipant(snapshot, entity) ||
+                entity.aiMode == EnemyAiMode.Charge)
+            {
+                return false;
+            }
+
+            if (snapshot.TryGetEnemyJumpState(entity.entityId, out var jumpState) &&
+                jumpState.IsActive)
+            {
+                return false;
+            }
+
+            if (snapshot.TryGetEnemyGlideState(entity.entityId, out var glideState) &&
+                glideState.HasAuthoritativeRecord &&
+                glideState.Phase != EnemyGlidePhase.Ready)
+            {
+                return false;
+            }
+
+            if (snapshot.TryGetEnemyChargeState(entity.entityId, out var chargeState) &&
+                chargeState.IsActive)
+            {
+                return false;
+            }
+
+            return !snapshot.TryGetPhasedState(entity.entityId, out var phasedState) ||
+                   !phasedState.IsActive;
+        }
+
+        private static bool IsEnemyLogicParticipant(in EntityState entity)
+        {
+            return entity.type == EntityType.Unit &&
+                   EnemyParticipationPolicy.IsEnemyLogicEntity(entity);
+        }
+
+        private static IReadOnlyList<EnemyLocomotionWritePayload> CreateEnemyKinematicLocomotionWrites(
+            in EntityState entity,
+            MoveIntent intent)
+        {
+            if (entity.aiMode != EnemyAiMode.Patrol &&
+                entity.aiMode != EnemyAiMode.Chase)
+            {
+                return Array.Empty<EnemyLocomotionWritePayload>();
+            }
+
+            return new[]
+            {
+                new EnemyLocomotionWritePayload(entity.entityId, intent.MoveCooldownTicks),
+            };
+        }
+
+        private List<ExecutionLockWritePayload> CreateEnemyKinematicExecutionLockWrites(
+            WorldSnapshot snapshot,
+            in EntityState entity,
+            int tickIndex)
+        {
+            snapshot.TryGetEntityExecutionLockState(entity.entityId, out var previousState);
+            return new List<ExecutionLockWritePayload>
+            {
+                new ExecutionLockWritePayload(
+                    entity.entityId,
+                    EntityExecutionLockQueries.StartMoveLock(previousState, tickIndex, _moveOccupancyTicks)),
+            };
+        }
+
+        private static IReadOnlyList<EnemyPatrolWritePayload> CreateEnemyKinematicPatrolWrites(
+            WorldSnapshot snapshot,
+            in EntityState entity,
+            Vector2Int delta)
+        {
+            if (entity.aiMode != EnemyAiMode.Patrol ||
+                !snapshot.TryGetEnemyPatrolState(entity.entityId, out var enemyPatrolState) ||
+                !enemyPatrolState.IsInitialized ||
+                !EnemyMovementStrategyShared.TryResolveDirection(delta, out var patrolDirection))
+            {
+                return Array.Empty<EnemyPatrolWritePayload>();
+            }
+
+            return new[]
+            {
+                new EnemyPatrolWritePayload(
+                    entity.entityId,
+                    EnemyPatrolQueries.CommitMove(enemyPatrolState, patrolDirection)),
+            };
+        }
+
         private bool TryBuildPlayerKinematicStartPayload(
             WorldSnapshot snapshot,
             MoveIntent intent,
@@ -1838,7 +2179,10 @@ namespace Game.Feature.Gameplay.Loop
             int priority,
             KinematicMotionOutcome outcome,
             Direction facing,
-            bool writeFacing)
+            bool writeFacing,
+            IReadOnlyList<EnemyLocomotionWritePayload> enemyLocomotionWrites = null,
+            IReadOnlyList<EnemyPatrolWritePayload> enemyPatrolWrites = null,
+            IReadOnlyList<ExecutionLockWritePayload> executionLockWrites = null)
         {
             var destinationCell = outcome.AnchorChanged
                 ? outcome.ResolvedAnchorCell
@@ -1869,9 +2213,9 @@ namespace Game.Feature.Gameplay.Loop
                 facingWrites,
                 Array.Empty<BoxKineticOwnerWritePayload>(),
                 Array.Empty<TopologyWritePayload>(),
-                Array.Empty<ExecutionLockWritePayload>(),
-                Array.Empty<EnemyLocomotionWritePayload>(),
-                Array.Empty<EnemyPatrolWritePayload>(),
+                executionLockWrites ?? Array.Empty<ExecutionLockWritePayload>(),
+                enemyLocomotionWrites ?? Array.Empty<EnemyLocomotionWritePayload>(),
+                enemyPatrolWrites ?? Array.Empty<EnemyPatrolWritePayload>(),
                 Array.Empty<PlayerControlWritePayload>(),
                 Array.Empty<DestroyWritePayload>(),
                 hasImpactReservationPayload: false,
