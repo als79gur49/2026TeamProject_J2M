@@ -18,6 +18,9 @@ namespace Game.Feature.UI.HUD
         [SerializeField] private CanvasGroup _shellCanvasGroup;
         [SerializeField] private Button _pauseButton;
         [SerializeField] private TMP_Text _stageNameLabel;
+        [SerializeField] private ObjectiveHudView _objectiveHudView;
+        [SerializeField] private ChancePanelView _chancePanelView;
+        [SerializeField] private TopologyBeltView _topologyBeltView;
         [SerializeField] private PlayerStatusView _playerStatusView;
         [SerializeField] private NotificationView _notificationView;
 
@@ -32,6 +35,26 @@ namespace Game.Feature.UI.HUD
         public event Action PauseRequested;
 
         public PlayerStatusView PlayerStatusView => _playerStatusView;
+
+        public ObjectiveHudView ObjectiveHudView => _objectiveHudView;
+
+        public ChancePanelView ChancePanelView
+        {
+            get
+            {
+                EnsureHudModules();
+                return _chancePanelView;
+            }
+        }
+
+        public TopologyBeltView TopologyBeltView
+        {
+            get
+            {
+                EnsureHudModules();
+                return _topologyBeltView;
+            }
+        }
 
         public NotificationView NotificationView => _notificationView;
 
@@ -93,6 +116,7 @@ namespace Game.Feature.UI.HUD
 
         private void OnEnable()
         {
+            EnsureHudModules();
             if (_pauseButton != null)
             {
                 _pauseButton.onClick.RemoveListener(ClickPause);
@@ -118,6 +142,7 @@ namespace Game.Feature.UI.HUD
             ValidateSerializedReference(_shellCanvasGroup, nameof(_shellCanvasGroup));
             ValidateSerializedReference(_pauseButton, nameof(_pauseButton));
             ValidateSerializedReference(_stageNameLabel, nameof(_stageNameLabel));
+            ValidateSerializedReference(_objectiveHudView, nameof(_objectiveHudView));
             ValidateSerializedReference(_playerStatusView, nameof(_playerStatusView));
             ValidateSerializedReference(_notificationView, nameof(_notificationView));
         }
@@ -154,6 +179,7 @@ namespace Game.Feature.UI.HUD
 
         private void RefreshView()
         {
+            EnsureHudModules();
             var isRootVisible = IsVisible && (_viewModel == null || _viewModel.IsVisible);
             var targetShellAlpha = _viewModel != null && _viewModel.IsDimmed ? HudDimmedAlpha : HudNormalAlpha;
             var becameVisible = !_lastRootVisibleState && isRootVisible;
@@ -260,6 +286,68 @@ namespace Game.Feature.UI.HUD
 
             _shellTween.Kill();
             _shellTween = null;
+        }
+
+        private void EnsureHudModules()
+        {
+            if (_chancePanelView == null)
+            {
+                _chancePanelView = GetComponentInChildren<ChancePanelView>(true);
+            }
+
+            if (_topologyBeltView == null)
+            {
+                _topologyBeltView = GetComponentInChildren<TopologyBeltView>(true);
+            }
+
+            if (!Application.isPlaying && !gameObject.scene.IsValid())
+            {
+                return;
+            }
+
+            if (_chancePanelView == null)
+            {
+                _chancePanelView = CreateRuntimeHudModule<ChancePanelView>("ChancePanel");
+            }
+
+            if (_topologyBeltView == null)
+            {
+                _topologyBeltView = CreateRuntimeHudModule<TopologyBeltView>("TopologyBelt");
+            }
+        }
+
+        private T CreateRuntimeHudModule<T>(string moduleName)
+            where T : Component
+        {
+            var module = new GameObject(moduleName, typeof(RectTransform), typeof(T));
+            var parent = _root != null ? _root.transform : transform;
+            module.transform.SetParent(parent, false);
+            var rect = (RectTransform)module.transform;
+            if (typeof(T) == typeof(ChancePanelView))
+            {
+                rect.anchorMin = new Vector2(0.0f, 1.0f);
+                rect.anchorMax = new Vector2(0.0f, 1.0f);
+                rect.pivot = new Vector2(0.0f, 1.0f);
+                rect.anchoredPosition = new Vector2(32.0f, -32.0f);
+                rect.sizeDelta = new Vector2(220.0f, 72.0f);
+            }
+            else if (typeof(T) == typeof(TopologyBeltView))
+            {
+                rect.anchorMin = new Vector2(1.0f, 1.0f);
+                rect.anchorMax = new Vector2(1.0f, 1.0f);
+                rect.pivot = new Vector2(1.0f, 1.0f);
+                rect.anchoredPosition = new Vector2(-32.0f, -32.0f);
+                rect.sizeDelta = new Vector2(360.0f, 72.0f);
+            }
+            else
+            {
+                rect.anchorMin = Vector2.zero;
+                rect.anchorMax = Vector2.one;
+                rect.offsetMin = Vector2.zero;
+                rect.offsetMax = Vector2.zero;
+            }
+
+            return module.GetComponent<T>();
         }
 
 #if UNITY_EDITOR

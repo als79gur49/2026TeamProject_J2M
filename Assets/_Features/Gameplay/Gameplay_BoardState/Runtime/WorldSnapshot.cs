@@ -74,6 +74,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly IReadOnlyDictionary<int, PlayerControlState> _playerControlStatesByEntityId;
         private readonly IReadOnlyDictionary<int, SummonedEntityState> _summonedEntitiesByEntityId;
         private readonly IReadOnlyDictionary<int, EnemyDefinitionBindingState> _enemyDefinitionBindingsByEntityId;
+        private readonly IReadOnlyDictionary<int, UnitKinematicRuntimeState> _unitKinematicStatesByEntityId;
         private readonly IReadOnlyDictionary<SurfaceCell, int> _projectileOccupancy;
         private readonly IReadOnlyDictionary<SurfaceCell, int> _solidOccupancy;
         private readonly IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> _stackedUnitsByCell;
@@ -99,6 +100,7 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, PlayerControlState> playerControlStatesByEntityId,
             Dictionary<int, SummonedEntityState> summonedEntitiesByEntityId,
             Dictionary<int, EnemyDefinitionBindingState> enemyDefinitionBindingsByEntityId,
+            Dictionary<int, UnitKinematicRuntimeState> unitKinematicStatesByEntityId,
             CubeTopologyState topology,
             BoardBounds boardBounds,
             TerrainData terrainData)
@@ -121,6 +123,7 @@ namespace Game.Feature.Gameplay.BoardState
             _playerControlStatesByEntityId = new ReadOnlyDictionary<int, PlayerControlState>(playerControlStatesByEntityId ?? throw new ArgumentNullException(nameof(playerControlStatesByEntityId)));
             _summonedEntitiesByEntityId = new ReadOnlyDictionary<int, SummonedEntityState>(summonedEntitiesByEntityId ?? throw new ArgumentNullException(nameof(summonedEntitiesByEntityId)));
             _enemyDefinitionBindingsByEntityId = new ReadOnlyDictionary<int, EnemyDefinitionBindingState>(enemyDefinitionBindingsByEntityId ?? throw new ArgumentNullException(nameof(enemyDefinitionBindingsByEntityId)));
+            _unitKinematicStatesByEntityId = new ReadOnlyDictionary<int, UnitKinematicRuntimeState>(unitKinematicStatesByEntityId ?? throw new ArgumentNullException(nameof(unitKinematicStatesByEntityId)));
             _topology = topology;
             _boardBounds = boardBounds;
             _terrainData = terrainData ?? throw new ArgumentNullException(nameof(terrainData));
@@ -147,6 +150,28 @@ namespace Game.Feature.Gameplay.BoardState
         public bool TryGetPlayerDamageState(int entityId, out PlayerDamageState state)
         {
             return _playerDamageStatesByEntityId.TryGetValue(entityId, out state);
+        }
+
+        public bool TryGetUnitKinematicPose(int entityId, out UnitKinematicPose pose)
+        {
+            if (!_entitiesById.TryGetValue(entityId, out var entity) ||
+                entity.type != EntityType.Unit)
+            {
+                pose = default;
+                return false;
+            }
+
+            var hasAuthoritativeState = _unitKinematicStatesByEntityId.TryGetValue(entityId, out var state);
+            pose = new UnitKinematicPose(
+                entity.position,
+                hasAuthoritativeState ? state : UnitKinematicRuntimeState.SettledZero,
+                hasAuthoritativeState);
+            return true;
+        }
+
+        internal bool TryGetUnitKinematicState(int entityId, out UnitKinematicRuntimeState state)
+        {
+            return _unitKinematicStatesByEntityId.TryGetValue(entityId, out state);
         }
 
         public bool TryGetEnemyActionState(int entityId, out EnemyActionRuntimeState state)
@@ -893,6 +918,23 @@ namespace Game.Feature.Gameplay.BoardState
             foreach (var pair in _enemyDefinitionBindingsByEntityId)
             {
                 buffer.Add(new EnemyDefinitionBindingSnapshotEntry(pair.Key, pair.Value));
+            }
+
+            buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+        }
+
+        internal void EnumerateUnitKinematicStatesOrdered(List<UnitKinematicSnapshotEntry> buffer)
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+
+            foreach (var pair in _unitKinematicStatesByEntityId)
+            {
+                buffer.Add(new UnitKinematicSnapshotEntry(pair.Key, pair.Value));
             }
 
             buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));

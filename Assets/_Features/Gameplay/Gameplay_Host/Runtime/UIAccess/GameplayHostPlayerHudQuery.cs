@@ -46,8 +46,10 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
             var nextTickIndex = _tickRunner?.NextTickIndex ?? 0;
             var canAcceptActionableCommands = _admissionPolicy.CanAcceptActionableCommands();
+            var isSettledAtAnchor = UnitSpatialQuery.IsSettledAtAnchor(snapshot, playerEntityId);
             var canStartAnyActionThisTick = nextTickIndex > 0 &&
                                             canAcceptActionableCommands &&
+                                            isSettledAtAnchor &&
                                             snapshot.CanStartAction(playerEntityId, nextTickIndex);
             var hasExplicitPushCandidateInCurrentDirection = canStartAnyActionThisTick &&
                                                              PlayerActionPreviewQueries.HasExplicitPushCandidate(
@@ -75,6 +77,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                                          playerControlState.activeAction.executeTick < nextTickIndex,
                 canMoveThisTick: nextTickIndex > 0 &&
                                 canAcceptActionableCommands &&
+                                isSettledAtAnchor &&
                                 snapshot.CanExecuteMovementIntent(playerEntityId, nextTickIndex),
                 canStartActionThisTick: canStartAnyActionThisTick,
                 recoveryCooldown: recoveryCooldown,

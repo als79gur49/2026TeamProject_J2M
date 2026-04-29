@@ -22,7 +22,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 2, markedForDeath: true),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = CreateMinimalRespawnPipeline(worldState);
             var beforeSnapshot = CreateSnapshot(worldState);
 
             Assert.That(beforeSnapshot.TryGetUnitTraversalBlocker(new SurfaceCell(FaceId.Floor, 1, 0), out _), Is.False);
@@ -49,7 +49,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     hp: 2,
                     boardPresence: EntityBoardPresence.Detached),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = CreateMinimalRespawnPipeline(worldState);
             var beforeSnapshot = CreateSnapshot(worldState);
             var beforeUnits = new List<EntityState>();
 
@@ -79,7 +79,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 2, 0), hp: 0),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = CreateMinimalRespawnPipeline(worldState);
 
             var result = pipeline.RunTick(new TickInput(7));
             var afterSnapshot = CreateSnapshot(worldState);
@@ -97,7 +97,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreatePlayerUnit(entityId: 10, position: spawnCell, hp: 4, facing: Direction.Left),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = CreateMinimalRespawnPipeline(worldState);
 
             worldState.CreateWriteContext().ApplyDamage(10, amount: 4);
 
@@ -142,7 +142,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreatePlayerUnit(entityId: 10, position: spawnCell, hp: 4, facing: Direction.Left),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = CreateMinimalRespawnPipeline(worldState);
 
             worldState.CreateWriteContext().ApplyDamage(10, amount: 4);
 
@@ -183,7 +183,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreatePlayerUnit(entityId: 10, position: spawnCell, hp: 4, facing: Direction.Left),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = CreateMinimalRespawnPipeline(worldState);
             var writeContext = worldState.CreateWriteContext();
 
             writeContext.SetTopology(new CubeTopologyState(FaceId.Back));
@@ -221,7 +221,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreatePlayerUnit(entityId: 10, position: spawnCell, hp: 4, facing: Direction.Left),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = CreateMinimalRespawnPipeline(worldState);
             var writeContext = worldState.CreateWriteContext();
 
             writeContext.SetTopology(new CubeTopologyState(FaceId.Back));
@@ -258,7 +258,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreatePlayerUnit(entityId: 10, position: spawnCell, hp: 3, facing: Direction.Left),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = CreateMinimalRespawnPipeline(worldState);
             var writeContext = worldState.CreateWriteContext();
 
             writeContext.SetTopology(new CubeTopologyState(FaceId.Back));
@@ -290,7 +290,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreatePlayerUnit(entityId: 10, position: spawnCell, hp: 3, facing: Direction.Left),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = CreateMinimalRespawnPipeline(worldState);
             var writeContext = worldState.CreateWriteContext();
 
             writeContext.SetTopology(new CubeTopologyState(FaceId.Back));
@@ -357,11 +357,127 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var finalSnapshot = CreateSnapshot(worldState);
 
             Assert.That(SemanticEventAssertions.GetCleanupRemovedEntityIds(deathTick.EventLog), Has.Member(10));
+            Assert.That(
+                deathTick.EventLog,
+                Does.Contain("PlayerRespawnDelayStarted|E=10|StartTick=50|EligibleTick=53|DelayTicks=3"));
+            Assert.That(
+                deathTick.PresentationData.PlayerDeathHoldSignals.Any(signal =>
+                    signal.EntityId == 10 &&
+                    signal.StartedThisTick &&
+                    signal.RemainingTicks == 3),
+                Is.True);
+            Assert.That(
+                waitingTickOne.EventLog,
+                Does.Contain("PlayerRespawnDelayTicking|E=10|StartTick=50|EligibleTick=53|RemainingTicks=2|Tick=51"));
+            Assert.That(
+                waitingTickTwo.EventLog,
+                Does.Contain("PlayerRespawnDelayTicking|E=10|StartTick=50|EligibleTick=53|RemainingTicks=1|Tick=52"));
             Assert.That(waitingTickOne.EventLog, Has.None.StartWith("RespawnCommitted|E=10|"));
             Assert.That(waitingTickTwo.EventLog, Has.None.StartWith("RespawnCommitted|E=10|"));
+            Assert.That(
+                respawnTick.EventLog,
+                Does.Contain("PlayerRespawnDelayElapsed|E=10|StartTick=50|EligibleTick=53|Tick=53"));
             Assert.That(respawnTick.EventLog, Does.Contain("RespawnCommitted|E=10|Pos=(1,1)|Face=Floor|Facing=Right|Tick=53"));
+            Assert.That(respawnTick.PresentationData.PlayerDeathHoldSignals, Is.Empty);
             Assert.That(finalSnapshot.TryGetEntity(10, out var respawnedPlayer), Is.True);
             Assert.That(respawnedPlayer.spawnTick, Is.EqualTo(53));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Respawn_DefaultCompositionRootDelay_UsesOneSecondTiming()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreatePlayerUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 1, 1), hp: 5),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+
+            worldState.CreateWriteContext().ApplyDamage(10, amount: 5);
+
+            var deathTick = pipeline.RunTick(new TickInput(90));
+            var waitingTick = pipeline.RunTick(new TickInput(91));
+
+            Assert.That(
+                deathTick.EventLog,
+                Does.Contain("PlayerRespawnDelayStarted|E=10|StartTick=90|EligibleTick=150|DelayTicks=60"));
+            Assert.That(waitingTick.EventLog, Has.None.StartWith("RespawnCommitted|E=10|"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Respawn_DisabledPolicy_WaitsConfiguredDelayBeforeSuppression()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreatePlayerUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 1, 1), hp: 5),
+            });
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            var playerControlTiming = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                timingProfile.SimulationTicksPerSecond,
+                timingProfile.RepeatedMoveIntervalSeconds);
+            var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper().CreateTickPipeline(
+                worldState,
+                Array.Empty<IEntityLogic>(),
+                timingProfile,
+                playerControlTiming,
+                playerRespawnDelayTicks: 3,
+                allowPlayerRespawn: false);
+
+            worldState.CreateWriteContext().ApplyDamage(10, amount: 5);
+
+            var deathTick = pipeline.RunTick(new TickInput(70));
+            var waitingTick = pipeline.RunTick(new TickInput(71));
+            var suppressedTick = pipeline.RunTick(new TickInput(73));
+            var finalSnapshot = CreateSnapshot(worldState);
+
+            Assert.That(deathTick.EventLog, Does.Contain("PlayerRespawnDelayStarted|E=10|StartTick=70|EligibleTick=73|DelayTicks=3"));
+            Assert.That(deathTick.EventLog, Has.None.StartWith("RespawnSuppressed|E=10|"));
+            Assert.That(deathTick.PresentationData.PlayerDeathHoldSignals.Any(signal => signal.EntityId == 10), Is.True);
+            Assert.That(waitingTick.EventLog, Does.Contain("PlayerRespawnDelayTicking|E=10|StartTick=70|EligibleTick=73|RemainingTicks=2|Tick=71"));
+            Assert.That(waitingTick.EventLog, Has.None.StartWith("RespawnSuppressed|E=10|"));
+            Assert.That(waitingTick.PresentationData.PlayerDeathHoldSignals.Any(signal => signal.EntityId == 10), Is.True);
+            Assert.That(suppressedTick.EventLog, Does.Contain("PlayerRespawnDelayElapsed|E=10|StartTick=70|EligibleTick=73|Tick=73"));
+            Assert.That(suppressedTick.EventLog, Does.Contain("RespawnSuppressed|E=10|Reason=PolicyDisabled|Tick=73"));
+            var suppressedEventLog = suppressedTick.EventLog.ToList();
+            Assert.That(
+                suppressedEventLog.IndexOf("PlayerRespawnDelayElapsed|E=10|StartTick=70|EligibleTick=73|Tick=73"),
+                Is.LessThan(suppressedEventLog.IndexOf("RespawnSuppressed|E=10|Reason=PolicyDisabled|Tick=73")));
+            Assert.That(suppressedTick.PresentationData.PlayerDeathHoldSignals, Is.Empty);
+            Assert.That(suppressedTick.EventLog, Has.None.StartWith("RespawnCommitted|E=10|"));
+            Assert.That(finalSnapshot.TryGetEntity(10, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Respawn_TopologyMismatch_DefersOnlyAfterConfiguredDelayElapsed()
+        {
+            var spawnCell = new SurfaceCell(FaceId.Front, 2, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreatePlayerUnit(entityId: 10, position: spawnCell, hp: 4, facing: Direction.Left),
+            });
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            var playerControlTiming = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                timingProfile.SimulationTicksPerSecond,
+                timingProfile.RepeatedMoveIntervalSeconds);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                Array.Empty<IEntityLogic>(),
+                timingProfile,
+                playerControlTiming,
+                playerRespawnDelayTicks: 3);
+
+            worldState.CreateWriteContext().ApplyDamage(10, amount: 4);
+
+            var deathTick = pipeline.RunTick(new TickInput(80));
+            var waitingTick = pipeline.RunTick(new TickInput(81));
+            var deferredTick = pipeline.RunTick(new TickInput(83));
+
+            Assert.That(deathTick.EventLog, Does.Contain("PlayerRespawnDelayStarted|E=10|StartTick=80|EligibleTick=83|DelayTicks=3"));
+            Assert.That(waitingTick.EventLog, Has.None.StartWith("RespawnDeferred|E=10|"));
+            Assert.That(deferredTick.EventLog, Does.Contain("PlayerRespawnDelayElapsed|E=10|StartTick=80|EligibleTick=83|Tick=83"));
+            Assert.That(deferredTick.EventLog, Does.Contain("RespawnDeferred|E=10|Reason=TopologyResetRequired|TargetFace=Front|Tick=83"));
         }
 
         [Test]
@@ -373,7 +489,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreatePlayerUnit(entityId: 10, position: spawnCell, hp: 3),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = CreateMinimalRespawnPipeline(worldState);
 
             worldState.CreateWriteContext().ApplyDamage(10, amount: 3);
             var deathTick = pipeline.RunTick(new TickInput(30));
@@ -406,7 +522,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreatePlayerUnit(entityId: 10, position: spawnCell, hp: 3, facing: Direction.Left),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = CreateMinimalRespawnPipeline(worldState);
 
             worldState.CreateWriteContext().ApplyDamage(10, amount: 3);
             var deathTick = pipeline.RunTick(new TickInput(60));
@@ -453,7 +569,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreatePlayerUnit(entityId: 10, position: spawnCell, hp: 3, facing: Direction.Left),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = CreateMinimalRespawnPipeline(worldState);
 
             worldState.CreateWriteContext().ApplyDamage(10, amount: 3);
             var deathTick = pipeline.RunTick(new TickInput(70));
@@ -501,7 +617,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreatePlayerUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = CreateMinimalRespawnPipeline(worldState);
             worldState.CreateWriteContext().SetPlayerControlState(
                 10,
                 new PlayerControlState
@@ -558,7 +674,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 3, 1), hp: 1, markedForDeath: true),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = CreateMinimalRespawnPipeline(worldState);
 
             pipeline.RunTick(new TickInput(8));
 
@@ -583,7 +699,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     stateTimer: 2,
                     spawnTick: 11),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = CreateMinimalRespawnPipeline(worldState);
 
             var result = pipeline.RunTick(new TickInput(11));
             var afterSnapshot = CreateSnapshot(worldState);
@@ -614,7 +730,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     stateTimer: 3,
                     spawnTick: 1),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = CreateMinimalRespawnPipeline(worldState);
 
             var result = pipeline.RunTick(new TickInput(12));
             var afterSnapshot = CreateSnapshot(worldState);
@@ -644,7 +760,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     stateTimer: 1,
                     spawnTick: 1),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = CreateMinimalRespawnPipeline(worldState);
 
             var result = pipeline.RunTick(new TickInput(13));
             var afterSnapshot = CreateSnapshot(worldState);
@@ -679,7 +795,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     stateTimer: 1,
                     spawnTick: 1),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = CreateMinimalRespawnPipeline(worldState);
 
             var result = pipeline.RunTick(new TickInput(14));
             var afterSnapshot = CreateSnapshot(worldState);
@@ -740,7 +856,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     stateTimer: 5,
                     spawnTick: 1),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = CreateMinimalRespawnPipeline(worldState);
 
             var result = pipeline.RunTick(new TickInput(14));
             return (result, DumpEntityStates(CreateSnapshot(worldState)));
@@ -853,6 +969,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(createSnapshotMethod, Is.Not.Null);
 
             return (WorldSnapshot)createSnapshotMethod.Invoke(worldState, null);
+        }
+
+        private static TickPipeline CreateMinimalRespawnPipeline(WorldState worldState)
+        {
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            var playerControlTiming = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                timingProfile.SimulationTicksPerSecond,
+                timingProfile.RepeatedMoveIntervalSeconds);
+            return GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                Array.Empty<IEntityLogic>(),
+                timingProfile,
+                playerControlTiming,
+                playerRespawnDelayTicks: 1);
         }
     }
 }

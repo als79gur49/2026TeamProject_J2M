@@ -379,6 +379,14 @@ namespace Game.Feature.Gameplay.Host
                 _candidateEntityIds.Add(entityId);
                 _removedEntityIds.Add(entityId);
             }
+
+            var deathHoldSignals = presentationData.PlayerDeathHoldSignals;
+            for (var i = 0; i < deathHoldSignals.Count; i++)
+            {
+                var entityId = deathHoldSignals[i].EntityId;
+                _candidateEntityIds.Add(entityId);
+                _removedEntityIds.Add(entityId);
+            }
         }
 
         private static bool HasPlayerDriver(IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId, int entityId)

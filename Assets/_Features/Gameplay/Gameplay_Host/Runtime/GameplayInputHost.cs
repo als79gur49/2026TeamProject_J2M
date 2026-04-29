@@ -20,6 +20,7 @@ namespace Game.Feature.Gameplay.Host
         private bool _hasBufferedUiFlip;
         private bool _hasBufferedUiPush;
         private bool _isInitialized;
+        private bool _isPlayerRespawnDelayInputBlocked;
         private bool _isSimulationPaused;
         private bool _isTerminalHoldActive;
         private TickInputBuffer _inputBuffer;
@@ -112,6 +113,7 @@ namespace Game.Feature.Gameplay.Host
             _uiHeldMoveDirection = Direction.None;
             _isSimulationPaused = false;
             _isTerminalHoldActive = false;
+            _isPlayerRespawnDelayInputBlocked = false;
             _isInitialized = true;
 
             BindActions();
@@ -189,6 +191,7 @@ namespace Game.Feature.Gameplay.Host
 
             var result = _runner.RunNextTick();
             ApplyAcceptedBufferedInput(result);
+            RefreshPlayerRespawnDelayInputBlock(result);
             // Presentation-state queries can run during Present before completed-snapshot caches refresh on TickCompleted.
             _presenter.Present(result);
             TickCompleted?.Invoke(result);
@@ -230,7 +233,7 @@ namespace Game.Feature.Gameplay.Host
 
         public void SetRawMoveInput(Vector2 rawMoveInput)
         {
-            if (_isTerminalHoldActive)
+            if (_isTerminalHoldActive || _isPlayerRespawnDelayInputBlocked)
             {
                 _sampledMoveInput = Vector2.zero;
                 _moveIntentBuffer?.Reset();
@@ -246,7 +249,7 @@ namespace Game.Feature.Gameplay.Host
         public void BufferFlip()
         {
             EnsureInitialized();
-            if (_isTerminalHoldActive)
+            if (_isTerminalHoldActive || _isPlayerRespawnDelayInputBlocked)
             {
                 return;
             }
@@ -257,7 +260,7 @@ namespace Game.Feature.Gameplay.Host
         public void BufferPush()
         {
             EnsureInitialized();
-            if (_isTerminalHoldActive)
+            if (_isTerminalHoldActive || _isPlayerRespawnDelayInputBlocked)
             {
                 return;
             }
@@ -268,7 +271,7 @@ namespace Game.Feature.Gameplay.Host
         internal void SetUiHeldMoveDirection(Direction direction)
         {
             EnsureInitialized();
-            if (_isTerminalHoldActive)
+            if (_isTerminalHoldActive || _isPlayerRespawnDelayInputBlocked)
             {
                 return;
             }
@@ -290,7 +293,7 @@ namespace Game.Feature.Gameplay.Host
         internal void BufferUiFlip(Direction direction)
         {
             EnsureInitialized();
-            if (_isTerminalHoldActive)
+            if (_isTerminalHoldActive || _isPlayerRespawnDelayInputBlocked)
             {
                 return;
             }
@@ -307,7 +310,7 @@ namespace Game.Feature.Gameplay.Host
         internal void BufferUiPush(Direction direction)
         {
             EnsureInitialized();
-            if (_isTerminalHoldActive)
+            if (_isTerminalHoldActive || _isPlayerRespawnDelayInputBlocked)
             {
                 return;
             }
@@ -334,6 +337,11 @@ namespace Game.Feature.Gameplay.Host
         internal Direction PreviewPushDirection()
         {
             EnsureInitialized();
+
+            if (_isPlayerRespawnDelayInputBlocked)
+            {
+                return Direction.None;
+            }
 
             if (_hasBufferedUiPush)
             {
@@ -512,6 +520,13 @@ namespace Game.Feature.Gameplay.Host
 
         private PlayerTickCommand BuildPlayerCommand()
         {
+            if (_isPlayerRespawnDelayInputBlocked)
+            {
+                ClearPendingPlayerInput();
+                ClearPendingUiInput();
+                return PlayerTickCommand.None;
+            }
+
             var now = ResolveCurrentInputTime();
             var sampledDirection = GridMoveInputQuantizer.Quantize(_sampledMoveInput, _moveDeadzone);
             _moveIntentBuffer.UpdateSampledDirection(sampledDirection, now);
@@ -610,6 +625,34 @@ namespace Game.Feature.Gameplay.Host
                     return;
                 }
             }
+        }
+
+        private void RefreshPlayerRespawnDelayInputBlock(TickResult result)
+        {
+            if (result == null)
+            {
+                return;
+            }
+
+            var shouldBlock = false;
+            var deathHoldSignals = result.PresentationData.PlayerDeathHoldSignals;
+            for (var i = 0; i < deathHoldSignals.Count; i++)
+            {
+                if (deathHoldSignals[i].EntityId == _playerEntityId)
+                {
+                    shouldBlock = true;
+                    break;
+                }
+            }
+
+            _isPlayerRespawnDelayInputBlocked = shouldBlock;
+            if (!shouldBlock)
+            {
+                return;
+            }
+
+            ClearPendingPlayerInput();
+            ClearPendingUiInput();
         }
 
         private static float ResolveCurrentInputTime()

@@ -56,6 +56,7 @@ namespace Game.Feature.Gameplay.Host
             var initialTerrain = configuration.InitialTerrain ?? GameplayTerrainData.Empty;
             var generalTimingProfile = configuration.CreateTimingProfile();
             var playerControlTiming = configuration.CreatePlayerControlTimingSnapshot();
+            var playerKinematicLocomotionTiming = configuration.CreatePlayerKinematicLocomotionTimingSnapshot();
             var playerRespawnTiming = configuration.CreatePlayerRespawnTimingSnapshot();
             var enemyAiRuntime = configuration.CreateEnemyAiRuntimeSnapshot();
             var enemyPresentationArchetypeRegistry = configuration.CreateEnemyPresentationArchetypeRegistry(enemyAiRuntime);
@@ -92,7 +93,9 @@ namespace Game.Feature.Gameplay.Host
                 playerRespawnTiming.RespawnDelayTicks,
                 configuration.ObjectiveRuntimeDefinition,
                 startTickIndex: 1,
-                allowPlayerRespawn: !configuration.DisablePlayerRespawn);
+                allowPlayerRespawn: !configuration.DisablePlayerRespawn,
+                runtimeFeatureFlags: configuration.CreateRuntimeFeatureFlags(),
+                playerKinematicLocomotionTiming: playerKinematicLocomotionTiming);
 
             var boardRoot = EnsureBoardRootHierarchy(hostTransform);
             var boardSurfaceRenderer = boardRoot.EnsureBoardSurfaceRenderer();
@@ -193,7 +196,8 @@ namespace Game.Feature.Gameplay.Host
                 viewCamera,
                 viewCameraRig,
                 presentedInitialEntities,
-                uiAccess);
+                uiAccess,
+                playerRespawnTiming.RespawnDelayTicks);
         }
 
         private static IReadOnlyDictionary<int, GameplayEntityView> BuildEnemyViewPrefabs(

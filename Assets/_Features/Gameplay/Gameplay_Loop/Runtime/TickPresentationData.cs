@@ -90,6 +90,98 @@ namespace Game.Feature.Gameplay.Loop
         public Direction? DestinationFacing { get; }
     }
 
+    public enum TickKinematicMotionTerminalKind
+    {
+        None = 0,
+        Interrupted = 1,
+        Removed = 2,
+    }
+
+    public readonly struct TickKinematicMotionTrack
+    {
+        public TickKinematicMotionTrack(
+            int entityId,
+            SurfaceCell sourceAnchorCell,
+            KinematicOffset2 sourceLocalOffset,
+            SurfaceCell destinationAnchorCell,
+            KinematicOffset2 destinationLocalOffset,
+            MotionMode motionMode,
+            ForcedMotionOp forcedMotionOp,
+            TickKinematicMotionTerminalKind terminalKind = TickKinematicMotionTerminalKind.None)
+            : this(
+                entityId,
+                sourceAnchorCell,
+                sourceLocalOffset,
+                destinationAnchorCell,
+                destinationLocalOffset,
+                motionMode,
+                forcedMotionOp,
+                EntityType.Unit,
+                sourceTopology: null,
+                destinationTopology: null,
+                sourceFacing: null,
+                destinationFacing: null,
+                terminalKind: terminalKind)
+        {
+        }
+
+        public TickKinematicMotionTrack(
+            int entityId,
+            SurfaceCell sourceAnchorCell,
+            KinematicOffset2 sourceLocalOffset,
+            SurfaceCell destinationAnchorCell,
+            KinematicOffset2 destinationLocalOffset,
+            MotionMode motionMode,
+            ForcedMotionOp forcedMotionOp,
+            EntityType entityType,
+            CubeTopologyState? sourceTopology,
+            CubeTopologyState? destinationTopology,
+            Direction? sourceFacing,
+            Direction? destinationFacing,
+            TickKinematicMotionTerminalKind terminalKind = TickKinematicMotionTerminalKind.None)
+        {
+            EntityId = entityId;
+            SourceAnchorCell = sourceAnchorCell;
+            SourceLocalOffset = sourceLocalOffset;
+            DestinationAnchorCell = destinationAnchorCell;
+            DestinationLocalOffset = destinationLocalOffset;
+            MotionMode = motionMode;
+            ForcedMotionOp = forcedMotionOp;
+            EntityType = entityType;
+            SourceTopology = sourceTopology;
+            DestinationTopology = destinationTopology;
+            SourceFacing = sourceFacing;
+            DestinationFacing = destinationFacing;
+            TerminalKind = terminalKind;
+        }
+
+        public int EntityId { get; }
+
+        public SurfaceCell SourceAnchorCell { get; }
+
+        public KinematicOffset2 SourceLocalOffset { get; }
+
+        public SurfaceCell DestinationAnchorCell { get; }
+
+        public KinematicOffset2 DestinationLocalOffset { get; }
+
+        public MotionMode MotionMode { get; }
+
+        public ForcedMotionOp ForcedMotionOp { get; }
+
+        public EntityType EntityType { get; }
+
+        public CubeTopologyState? SourceTopology { get; }
+
+        public CubeTopologyState? DestinationTopology { get; }
+
+        public Direction? SourceFacing { get; }
+
+        public Direction? DestinationFacing { get; }
+
+        public TickKinematicMotionTerminalKind TerminalKind { get; }
+    }
+
     public readonly struct TickTopologyMotion
     {
         public TickTopologyMotion(
@@ -549,6 +641,33 @@ namespace Game.Feature.Gameplay.Loop
         public DeathDirectionHintKind DeathDirectionHintKind { get; }
     }
 
+    public readonly struct TickPlayerDeathHoldPresentationSignal
+    {
+        public TickPlayerDeathHoldPresentationSignal(
+            int entityId,
+            int startTick,
+            int eligibleTick,
+            int remainingTicks,
+            bool startedThisTick)
+        {
+            EntityId = entityId;
+            StartTick = startTick;
+            EligibleTick = eligibleTick;
+            RemainingTicks = Math.Max(0, remainingTicks);
+            StartedThisTick = startedThisTick;
+        }
+
+        public int EntityId { get; }
+
+        public int StartTick { get; }
+
+        public int EligibleTick { get; }
+
+        public int RemainingTicks { get; }
+
+        public bool StartedThisTick { get; }
+    }
+
     public readonly struct TickEnemyDamagePresentationSignal
     {
         public TickEnemyDamagePresentationSignal(
@@ -925,11 +1044,13 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<TickEnemyJumpPresentationSignal> _enemyJumpSignals;
         private readonly ReadOnlyCollection<TickEnemyChargePresentationSignal> _enemyChargeSignals;
         private readonly ReadOnlyCollection<TickEntityMotion> _entityMotions;
+        private readonly ReadOnlyCollection<TickKinematicMotionTrack> _kinematicMotionTracks;
         private ReadOnlyCollection<TickFrontFaceShieldBlockSignal> _frontFaceShieldBlocks;
         private ReadOnlyCollection<TickFrontFaceShieldSourceSignal> _frontFaceShieldSources;
         private ReadOnlyCollection<TickFrontFaceShieldWindupWarningSignal> _frontFaceShieldWindupWarnings;
         private readonly ReadOnlyCollection<TickPlayerActionPresentationSignal> _playerActionSignals;
         private readonly ReadOnlyCollection<TickPlayerDamagePresentationSignal> _playerDamageSignals;
+        private readonly ReadOnlyCollection<TickPlayerDeathHoldPresentationSignal> _playerDeathHoldSignals;
         private readonly ReadOnlyCollection<TickPlayerDeathPresentationSignal> _playerDeathSignals;
         private readonly ReadOnlyCollection<TickPlayerLocomotionPresentationSignal> _playerLocomotionSignals;
         private ReadOnlyCollection<TickSummonedEnemyPresentationBinding> _summonedEnemyPresentationBindings;
@@ -1262,7 +1383,9 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickFrontFaceShieldSourceSignal> frontFaceShieldSources = null,
             IEnumerable<TickFrontFaceShieldBlockSignal> frontFaceShieldBlocks = null,
             IEnumerable<TickSummonWindupWarningSignal> summonWindupWarnings = null,
-            IEnumerable<TickFrontFaceShieldWindupWarningSignal> frontFaceShieldWindupWarnings = null)
+            IEnumerable<TickFrontFaceShieldWindupWarningSignal> frontFaceShieldWindupWarnings = null,
+            IEnumerable<TickKinematicMotionTrack> kinematicMotionTracks = null,
+            IEnumerable<TickPlayerDeathHoldPresentationSignal> playerDeathHoldSignals = null)
         {
             if (entityMotions == null)
             {
@@ -1330,6 +1453,9 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             _entityMotions = new ReadOnlyCollection<TickEntityMotion>(new List<TickEntityMotion>(entityMotions));
+            _kinematicMotionTracks = new ReadOnlyCollection<TickKinematicMotionTrack>(
+                new List<TickKinematicMotionTrack>(
+                    kinematicMotionTracks ?? Array.Empty<TickKinematicMotionTrack>()));
             _topologyMotion = topologyMotion;
             _visibilityChanges = new ReadOnlyCollection<TickVisibilityChange>(new List<TickVisibilityChange>(visibilityChanges));
             _transitionVisibilityChanges = new ReadOnlyCollection<TickTransitionVisibilityChange>(
@@ -1342,6 +1468,9 @@ namespace Game.Feature.Gameplay.Loop
                 new List<TickPlayerDamagePresentationSignal>(playerDamageSignals));
             _playerDeathSignals = new ReadOnlyCollection<TickPlayerDeathPresentationSignal>(
                 new List<TickPlayerDeathPresentationSignal>(playerDeathSignals));
+            _playerDeathHoldSignals = new ReadOnlyCollection<TickPlayerDeathHoldPresentationSignal>(
+                new List<TickPlayerDeathHoldPresentationSignal>(
+                    playerDeathHoldSignals ?? Array.Empty<TickPlayerDeathHoldPresentationSignal>()));
             _enemyDamageSignals = new ReadOnlyCollection<TickEnemyDamagePresentationSignal>(
                 new List<TickEnemyDamagePresentationSignal>(enemyDamageSignals));
             _enemyActionSignals = new ReadOnlyCollection<TickEnemyActionPresentationSignal>(
@@ -1453,7 +1582,9 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickEnemyChargePresentationSignal> enemyChargeSignals,
             IEnumerable<TickEntityExitPresentationSignal> entityExitSignals,
             IEnumerable<TickImpactTransientPresentationSignal> impactTransientSignals,
-            IEnumerable<FlipImpactPresentationSignal> flipImpactSignals)
+            IEnumerable<FlipImpactPresentationSignal> flipImpactSignals,
+            IEnumerable<TickKinematicMotionTrack> kinematicMotionTracks = null,
+            IEnumerable<TickPlayerDeathHoldPresentationSignal> playerDeathHoldSignals = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -1468,7 +1599,9 @@ namespace Game.Feature.Gameplay.Loop
                 enemyJumpSignals,
                 enemyChargeSignals,
                 entityExitSignals,
-                flipImpactSignals)
+                flipImpactSignals,
+                kinematicMotionTracks: kinematicMotionTracks,
+                playerDeathHoldSignals: playerDeathHoldSignals)
         {
             if (impactTransientSignals == null)
             {
@@ -1499,7 +1632,9 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickFrontFaceShieldSourceSignal> frontFaceShieldSources = null,
             IEnumerable<TickFrontFaceShieldBlockSignal> frontFaceShieldBlocks = null,
             IEnumerable<TickSummonWindupWarningSignal> summonWindupWarnings = null,
-            IEnumerable<TickFrontFaceShieldWindupWarningSignal> frontFaceShieldWindupWarnings = null)
+            IEnumerable<TickFrontFaceShieldWindupWarningSignal> frontFaceShieldWindupWarnings = null,
+            IEnumerable<TickKinematicMotionTrack> kinematicMotionTracks = null,
+            IEnumerable<TickPlayerDeathHoldPresentationSignal> playerDeathHoldSignals = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -1515,7 +1650,9 @@ namespace Game.Feature.Gameplay.Loop
                 enemyChargeSignals,
                 entityExitSignals,
                 impactTransientSignals,
-                flipImpactSignals)
+                flipImpactSignals,
+                kinematicMotionTracks,
+                playerDeathHoldSignals)
         {
             if (summonedEnemyPresentationBindings == null)
             {
@@ -1540,6 +1677,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public IReadOnlyList<TickEntityMotion> EntityMotions => _entityMotions;
 
+        public IReadOnlyList<TickKinematicMotionTrack> KinematicMotionTracks => _kinematicMotionTracks;
+
         public TickTopologyMotion? TopologyMotion => _topologyMotion;
 
         public IReadOnlyList<TickVisibilityChange> VisibilityChanges => _visibilityChanges;
@@ -1553,6 +1692,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<TickPlayerDamagePresentationSignal> PlayerDamageSignals => _playerDamageSignals;
 
         public IReadOnlyList<TickPlayerDeathPresentationSignal> PlayerDeathSignals => _playerDeathSignals;
+
+        public IReadOnlyList<TickPlayerDeathHoldPresentationSignal> PlayerDeathHoldSignals => _playerDeathHoldSignals;
 
         public IReadOnlyList<TickEnemyDamagePresentationSignal> EnemyDamageSignals => _enemyDamageSignals;
 

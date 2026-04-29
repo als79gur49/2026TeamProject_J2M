@@ -84,13 +84,17 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var presentationData = result.PresentationData;
+            var kinematicEntityIds = CollectKinematicEntityIds(presentationData);
             var flipImpactTimingSettings = _motionTimingResolver.ResolveFlipImpactTimingSettings(timingProfile);
+            RefreshKinematicTracks(presentationData, projector);
+            RefreshPlayerDeathHoldTracks(presentationData);
             RefreshMotionClips(
                 presentationData,
                 previousCommittedLocalTargetPoses,
                 previousCommittedTopology,
                 projector,
-                timingProfile);
+                timingProfile,
+                kinematicEntityIds);
             RefreshStayFlipImpactTracks(
                 result,
                 projector,
@@ -111,12 +115,123 @@ namespace Game.Feature.Gameplay.Host
             _playerDeathDisplacementPlanner.RefreshTracks(presentationData, projector, timingProfile);
         }
 
+        private HashSet<int> CollectKinematicEntityIds(TickPresentationData presentationData)
+        {
+            var entityIds = new HashSet<int>();
+            if (presentationData == null)
+            {
+                return entityIds;
+            }
+
+            for (var i = 0; i < presentationData.KinematicMotionTracks.Count; i++)
+            {
+                entityIds.Add(presentationData.KinematicMotionTracks[i].EntityId);
+            }
+
+            return entityIds;
+        }
+
+        private void RefreshKinematicTracks(TickPresentationData presentationData, GameplayCubeProjector projector)
+        {
+            if (presentationData == null)
+            {
+                throw new ArgumentNullException(nameof(presentationData));
+            }
+
+            if (projector == null)
+            {
+                throw new ArgumentNullException(nameof(projector));
+            }
+
+            _trackState.KinematicPoseOverrides.Clear();
+            for (var i = 0; i < presentationData.KinematicMotionTracks.Count; i++)
+            {
+                var track = presentationData.KinematicMotionTracks[i];
+                _trackState.LocalMotionTracks.Remove(track.EntityId);
+                _stateStore.RetainedLocalTargetPoses.Remove(track.EntityId);
+                if (!_poseResolver.TryResolveKinematicLocalPose(
+                        projector,
+                        track,
+                        useDestination: true,
+                        out var localPose))
+                {
+                    continue;
+                }
+
+                _trackState.KinematicPoseOverrides[track.EntityId] = new KinematicPresentationPose(
+                    localPose,
+                    track.MotionMode,
+                    track.TerminalKind);
+            }
+        }
+
+        private void RefreshPlayerDeathHoldTracks(TickPresentationData presentationData)
+        {
+            if (presentationData == null)
+            {
+                throw new ArgumentNullException(nameof(presentationData));
+            }
+
+            _trackState.PlayerDeathHoldSignalEntityIds.Clear();
+            for (var i = 0; i < presentationData.PlayerDeathHoldSignals.Count; i++)
+            {
+                var signal = presentationData.PlayerDeathHoldSignals[i];
+                _trackState.PlayerDeathHoldSignalEntityIds.Add(signal.EntityId);
+
+                if (_trackState.KinematicPoseOverrides.TryGetValue(signal.EntityId, out var kinematicPose))
+                {
+                    _trackState.PlayerDeathHoldPoses[signal.EntityId] = kinematicPose.LocalPose;
+                    continue;
+                }
+
+                if (_trackState.PlayerDeathHoldPoses.ContainsKey(signal.EntityId))
+                {
+                    continue;
+                }
+
+                if (_stateStore.PresentedLocalPosesByEntityId.TryGetValue(signal.EntityId, out var presentedPose))
+                {
+                    _trackState.PlayerDeathHoldPoses[signal.EntityId] = presentedPose;
+                    continue;
+                }
+
+                if (_stateStore.RetainedLocalTargetPoses.TryGetValue(signal.EntityId, out var retainedPose))
+                {
+                    _trackState.PlayerDeathHoldPoses[signal.EntityId] = retainedPose;
+                    continue;
+                }
+
+                if (_stateStore.CommittedLocalTargetPoses.TryGetValue(signal.EntityId, out var committedPose))
+                {
+                    _trackState.PlayerDeathHoldPoses[signal.EntityId] = committedPose;
+                }
+            }
+
+            _trackState.CompletedMotionTrackIds.Clear();
+            foreach (var pair in _trackState.PlayerDeathHoldPoses)
+            {
+                if (!_trackState.PlayerDeathHoldSignalEntityIds.Contains(pair.Key))
+                {
+                    _trackState.CompletedMotionTrackIds.Add(pair.Key);
+                }
+            }
+
+            for (var i = 0; i < _trackState.CompletedMotionTrackIds.Count; i++)
+            {
+                var entityId = _trackState.CompletedMotionTrackIds[i];
+                _trackState.PlayerDeathHoldPoses.Remove(entityId);
+                _trackState.VisibilityTracks.Remove(entityId);
+                _stateStore.RetainedLocalTargetPoses.Remove(entityId);
+            }
+        }
+
         private void RefreshMotionClips(
             TickPresentationData presentationData,
             IReadOnlyDictionary<int, GameplayEntityPose> previousCommittedLocalTargetPoses,
             CubeTopologyState previousCommittedTopology,
             GameplayCubeProjector projector,
-            GameplayTimingProfile timingProfile)
+            GameplayTimingProfile timingProfile,
+            ISet<int> kinematicEntityIds)
         {
             if (presentationData == null)
             {
@@ -126,12 +241,24 @@ namespace Game.Feature.Gameplay.Host
             var motionEntityIds = new HashSet<int>();
             for (var i = 0; i < presentationData.EntityMotions.Count; i++)
             {
-                motionEntityIds.Add(presentationData.EntityMotions[i].EntityId);
+                var entityId = presentationData.EntityMotions[i].EntityId;
+                if (kinematicEntityIds == null ||
+                    !kinematicEntityIds.Contains(entityId))
+                {
+                    motionEntityIds.Add(entityId);
+                }
             }
 
             _trackState.CompletedMotionTrackIds.Clear();
             foreach (var pair in _trackState.LocalMotionTracks)
             {
+                if (kinematicEntityIds != null &&
+                    kinematicEntityIds.Contains(pair.Key))
+                {
+                    _trackState.CompletedMotionTrackIds.Add(pair.Key);
+                    continue;
+                }
+
                 if (motionEntityIds.Contains(pair.Key))
                 {
                     continue;
@@ -154,6 +281,12 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < presentationData.EntityMotions.Count; i++)
             {
                 var motion = presentationData.EntityMotions[i];
+                if (kinematicEntityIds != null &&
+                    kinematicEntityIds.Contains(motion.EntityId))
+                {
+                    continue;
+                }
+
                 var endLocalPose = ResolveMotionEndPose(motion, presentationData.TopologyMotion, projector);
                 var startLocalPose = ResolveMotionStartPose(
                     motion,

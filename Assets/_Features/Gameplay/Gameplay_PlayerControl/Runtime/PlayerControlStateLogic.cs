@@ -118,13 +118,15 @@ namespace Game.Feature.Gameplay.PlayerControl
 
             var previousAction = nextState.activeAction;
             var canStartAction = snapshot.CanStartAction(_entityId, input.TickIndex);
+            var isSettledAtAnchor = UnitSpatialQuery.IsSettledAtAnchor(snapshot, _entityId);
+            var canStartSettledAction = canStartAction && isSettledAtAnchor;
             var canUseMoveDirectionForActionState =
                 !input.PlayerCommand.IsMoveBuffered ||
                 input.PlayerCommand.PushPressed ||
                 input.PlayerCommand.FlipPressed;
 
             if (!previousAction.IsActive &&
-                canStartAction &&
+                canStartSettledAction &&
                 canUseMoveDirectionForActionState &&
                 input.PlayerCommand.MoveDirection != Direction.None)
             {
@@ -147,7 +149,7 @@ namespace Game.Feature.Gameplay.PlayerControl
             else if (input.PlayerCommand.PushPressed)
             {
                 if (input.PlayerCommand.MoveDirection != Direction.None &&
-                    canStartAction &&
+                    canStartSettledAction &&
                     PlayerControlQueries.TryResolvePushContact(snapshot, entity, input.PlayerCommand.MoveDirection, out var pushTarget))
                 {
                     nextState = PlayerControlQueries.StartAction(
@@ -160,17 +162,22 @@ namespace Game.Feature.Gameplay.PlayerControl
                         _pushRecoveryTicks);
                 }
                 else if (input.PlayerCommand.MoveDirection != Direction.None &&
-                         canStartAction &&
+                         canStartSettledAction &&
                          PlayerControlQueries.TryResolveAdjacentPushTarget(snapshot, entity, input.PlayerCommand.MoveDirection, out var adjacentTarget))
                 {
                     updates.Add(
                         $"MovementRejected|Stage=PreMovement|Source={_entityId}|Reason=ExplicitPushNotStartable|Direction={input.PlayerCommand.MoveDirection}|Target={adjacentTarget.TargetEntityId}");
                 }
+                else if (!isSettledAtAnchor)
+                {
+                    updates.Add(
+                        $"MovementRejected|Stage=PreMovement|Source={_entityId}|Reason=UnitKinematicNotSettled|Anchor={entity.position}");
+                }
             }
             else if (input.PlayerCommand.FlipPressed)
             {
 
-                if (canStartAction &&
+                if (canStartSettledAction &&
                     PlayerControlQueries.TryResolveFlipTarget(snapshot, entity, input.PlayerCommand.MoveDirection, out var flipTarget))
                 {
                     nextState = PlayerControlQueries.StartAction(
@@ -181,6 +188,11 @@ namespace Game.Feature.Gameplay.PlayerControl
                         input.TickIndex,
                         _flipWindupTicks,
                         _flipRecoveryTicks);
+                }
+                else if (!isSettledAtAnchor)
+                {
+                    updates.Add(
+                        $"MovementRejected|Stage=PreMovement|Source={_entityId}|Reason=UnitKinematicNotSettled|Anchor={entity.position}");
                 }
             }
 

@@ -33,6 +33,22 @@ namespace Game.Feature.Gameplay.Cleanup
             var removedEntityIds = new List<int>();
             _removalProcessor.Process(orderedEntities, writeContext, survivingEntities, removedEntityIds);
 
+            var removedUnitKinematicPoses = new List<RemovedUnitKinematicPoseRecord>();
+            var removalEventLogEntries = new List<string>();
+            for (var i = 0; i < removedEntityIds.Count; i++)
+            {
+                var removedEntityId = removedEntityIds[i];
+                if (!snapshot.TryGetUnitKinematicPose(removedEntityId, out var pose) ||
+                    !pose.HasAuthoritativeState)
+                {
+                    continue;
+                }
+
+                removedUnitKinematicPoses.Add(new RemovedUnitKinematicPoseRecord(removedEntityId, pose));
+                removalEventLogEntries.Add(
+                    $"KinematicPoseRemoved|E={removedEntityId}|Anchor={pose.AnchorCell}|Offset={pose.LocalOffset}|Mode={pose.Mode}");
+            }
+
             var timerChanges = new List<string>();
             _stateTimerProcessor.Process(survivingEntities, writeContext, tickIndex, timerChanges);
 
@@ -43,7 +59,8 @@ namespace Game.Feature.Gameplay.Cleanup
                 removedEntityIds,
                 timerChanges,
                 stateTransitions,
-                Array.Empty<string>());
+                removalEventLogEntries,
+                removedUnitKinematicPoses);
         }
     }
 }

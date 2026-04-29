@@ -163,6 +163,7 @@ namespace Game.Feature.Stages
 
                 ValidatePresentationCatalogIntegrity(entry, options, report);
                 ValidateLegacyPresentationIds(entry, options, report);
+                ValidateObjectiveDisplay(entry, options, report);
                 ValidateEvaluationDefinition(entry, options, report);
                 ValidateRewardDefinition(entry, aliasTable, options, report);
                 ValidateProgressionDefinition(entry, options, report);
@@ -411,6 +412,103 @@ namespace Game.Feature.Stages
         private static string Normalize(string value)
         {
             return string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
+        }
+
+        private static void ValidateObjectiveDisplay(
+            StageContentEntry entry,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            if (entry.GameplayDefinition == null ||
+                !IsProductionCampaignStage(entry.StageId))
+            {
+                return;
+            }
+
+            var gameplayAssetPath = GetAssetPath(entry.GameplayDefinition, options);
+            var objective = entry.GameplayDefinition.Objective;
+            if (objective.CompletionPolicy == Game.Feature.Gameplay.Objectives.StageCompletionPolicy.Disabled)
+            {
+                report.Add(
+                    StageValidationSeverity.Error,
+                    "objective.production-disabled",
+                    $"Production campaign stage '{entry.StageId.Value}' must author StageDefinition.Objective for objective UI.",
+                    entry.GameplayDefinition,
+                    gameplayAssetPath,
+                    options.Timing);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(objective.ObjectiveTitle))
+            {
+                report.Add(
+                    StageValidationSeverity.Error,
+                    "objective.title-missing",
+                    $"Production campaign stage '{entry.StageId.Value}' objective is missing ObjectiveTitle.",
+                    entry.GameplayDefinition,
+                    gameplayAssetPath,
+                    options.Timing);
+            }
+
+            if (string.IsNullOrWhiteSpace(objective.ObjectiveSummary))
+            {
+                report.Add(
+                    StageValidationSeverity.Error,
+                    "objective.summary-missing",
+                    $"Production campaign stage '{entry.StageId.Value}' objective is missing ObjectiveSummary.",
+                    entry.GameplayDefinition,
+                    gameplayAssetPath,
+                    options.Timing);
+            }
+
+            var conditionEntries = objective.GetConditionEntriesOrEmpty();
+            for (var i = 0; i < conditionEntries.Length; i++)
+            {
+                var conditionEntry = conditionEntries[i];
+                if (string.IsNullOrWhiteSpace(conditionEntry.StableConditionId))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "objective.stable-id-missing",
+                        $"Production campaign stage '{entry.StageId.Value}' objective condition entry[{i}] is missing StableConditionId.",
+                        entry.GameplayDefinition,
+                        gameplayAssetPath,
+                        options.Timing);
+                }
+
+                if (string.IsNullOrWhiteSpace(conditionEntry.DisplayText))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "objective.display-text-missing",
+                        $"Production campaign stage '{entry.StageId.Value}' objective condition entry[{i}] is missing user-facing DisplayText.",
+                        entry.GameplayDefinition,
+                        gameplayAssetPath,
+                        options.Timing);
+                }
+            }
+        }
+
+        private static bool IsProductionCampaignStage(StageId stageId)
+        {
+            if (!stageId.IsValid)
+            {
+                return false;
+            }
+
+            var stageIdValue = stageId.Value;
+            for (var i = 0; i < CampaignStageSequenceDefinition.CanonicalStageIdValues.Length; i++)
+            {
+                if (string.Equals(
+                        CampaignStageSequenceDefinition.CanonicalStageIdValues[i],
+                        stageIdValue,
+                        StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static void ValidateEntryPath(

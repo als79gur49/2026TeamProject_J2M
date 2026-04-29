@@ -197,11 +197,25 @@ namespace Game.Feature.Gameplay.Loop
             Array.Empty<string>());
 
         private readonly ReadOnlyCollection<string> _eventLogEntries;
+        private readonly ReadOnlyCollection<PlayerRespawnDelayRecord> _playerRespawnDelayRecords;
         private readonly ReadOnlyCollection<EntityState> _respawnedEntities;
 
         public RespawnPhaseResult(
             IEnumerable<EntityState> respawnedEntities,
             IEnumerable<string> eventLogEntries,
+            RespawnTopologyResetRequest? topologyResetRequest)
+            : this(
+                respawnedEntities,
+                eventLogEntries,
+                playerRespawnDelayRecords: null,
+                topologyResetRequest: topologyResetRequest)
+        {
+        }
+
+        public RespawnPhaseResult(
+            IEnumerable<EntityState> respawnedEntities,
+            IEnumerable<string> eventLogEntries,
+            IEnumerable<PlayerRespawnDelayRecord> playerRespawnDelayRecords = null,
             RespawnTopologyResetRequest? topologyResetRequest = null)
         {
             if (respawnedEntities == null)
@@ -216,6 +230,9 @@ namespace Game.Feature.Gameplay.Loop
 
             _respawnedEntities = new ReadOnlyCollection<EntityState>(new List<EntityState>(respawnedEntities));
             _eventLogEntries = new ReadOnlyCollection<string>(new List<string>(eventLogEntries));
+            _playerRespawnDelayRecords = new ReadOnlyCollection<PlayerRespawnDelayRecord>(
+                new List<PlayerRespawnDelayRecord>(
+                    playerRespawnDelayRecords ?? Array.Empty<PlayerRespawnDelayRecord>()));
             TopologyResetRequest = topologyResetRequest;
         }
 
@@ -223,7 +240,48 @@ namespace Game.Feature.Gameplay.Loop
 
         public IReadOnlyList<string> EventLogEntries => _eventLogEntries;
 
+        public IReadOnlyList<PlayerRespawnDelayRecord> PlayerRespawnDelayRecords => _playerRespawnDelayRecords;
+
         public RespawnTopologyResetRequest? TopologyResetRequest { get; }
+    }
+
+    internal readonly struct PlayerRespawnDelayRecord
+    {
+        public PlayerRespawnDelayRecord(
+            int entityId,
+            int startTick,
+            int eligibleTick,
+            int delayTicks,
+            int currentTick,
+            bool startedThisTick,
+            bool elapsedThisTick)
+        {
+            EntityId = entityId;
+            StartTick = startTick;
+            EligibleTick = eligibleTick;
+            DelayTicks = delayTicks;
+            CurrentTick = currentTick;
+            StartedThisTick = startedThisTick;
+            ElapsedThisTick = elapsedThisTick;
+        }
+
+        public int EntityId { get; }
+
+        public int StartTick { get; }
+
+        public int EligibleTick { get; }
+
+        public int DelayTicks { get; }
+
+        public int CurrentTick { get; }
+
+        public bool StartedThisTick { get; }
+
+        public bool ElapsedThisTick { get; }
+
+        public int RemainingTicks => Math.Max(0, EligibleTick - CurrentTick);
+
+        public bool IsActive => CurrentTick < EligibleTick;
     }
 
     internal readonly struct TickPresentationBuildContext
@@ -394,23 +452,27 @@ namespace Game.Feature.Gameplay.Loop
             var frontFaceShieldWindupWarnings = new List<TickFrontFaceShieldWindupWarningSignal>();
             var playerActionSignals = new List<TickPlayerActionPresentationSignal>();
             var playerDamageSignals = new List<TickPlayerDamagePresentationSignal>();
+            var playerDeathHoldSignals = new List<TickPlayerDeathHoldPresentationSignal>();
             var playerDeathSignals = new List<TickPlayerDeathPresentationSignal>();
             var playerLocomotionSignals = new List<TickPlayerLocomotionPresentationSignal>();
             var summonedEnemyPresentationBindings = new List<TickSummonedEnemyPresentationBinding>();
             var visibilityChanges = new List<TickVisibilityChange>();
             var transitionVisibilityChanges = new List<TickTransitionVisibilityChange>();
+            var kinematicMotionTracks = new List<TickKinematicMotionTrack>();
             var exitOwnedEntityIds = new HashSet<int>();
 
             BuildEntityExitPresentation(context, entityExitSignals, exitOwnedEntityIds);
             BuildFlipImpactPresentation(context, flipImpactSignals);
             BuildImpactTransientPresentation(context, impactTransientSignals);
             BuildMovementPresentation(context, entityMotions, visibilityChanges, exitOwnedEntityIds);
+            BuildKinematicMotionPresentation(context, kinematicMotionTracks);
             BuildAttackPresentation(context, visibilityChanges);
             BuildCleanupPresentation(context, visibilityChanges, exitOwnedEntityIds);
             BuildRespawnPresentation(context, visibilityChanges);
             BuildPlayerPresentation(context, playerActionSignals);
             BuildPlayerDamagePresentation(context, playerDamageSignals);
             BuildPlayerDeathPresentation(context, playerDeathSignals);
+            BuildPlayerDeathHoldPresentation(context, playerDeathHoldSignals);
             BuildPlayerLocomotionPresentation(context, playerLocomotionSignals);
             BuildEnemyDamagePresentation(context, enemyDamageSignals);
             BuildEnemyPresentation(context, enemyActionSignals);
@@ -437,11 +499,13 @@ namespace Game.Feature.Gameplay.Loop
                    flipImpactSignals.Count == 0 &&
                    playerActionSignals.Count == 0 &&
                    playerDamageSignals.Count == 0 &&
+                   playerDeathHoldSignals.Count == 0 &&
                    playerDeathSignals.Count == 0 &&
                    playerLocomotionSignals.Count == 0 &&
                    summonedEnemyPresentationBindings.Count == 0 &&
                    visibilityChanges.Count == 0 &&
                    transitionVisibilityChanges.Count == 0 &&
+                   kinematicMotionTracks.Count == 0 &&
                    !topologyMotion.HasValue
                 ? TickPresentationData.Empty
                 : new TickPresentationData(
@@ -464,7 +528,32 @@ namespace Game.Feature.Gameplay.Loop
                     frontFaceShieldSourceSignals,
                     frontFaceShieldBlockSignals,
                     summonWindupWarnings,
-                    frontFaceShieldWindupWarnings);
+                    frontFaceShieldWindupWarnings,
+                    kinematicMotionTracks,
+                    playerDeathHoldSignals);
+        }
+
+        private static void BuildPlayerDeathHoldPresentation(
+            in TickPresentationBuildContext context,
+            List<TickPlayerDeathHoldPresentationSignal> playerDeathHoldSignals)
+        {
+            var records = context.RespawnPhaseResult.PlayerRespawnDelayRecords;
+            for (var i = 0; i < records.Count; i++)
+            {
+                var record = records[i];
+                if (!record.IsActive)
+                {
+                    continue;
+                }
+
+                playerDeathHoldSignals.Add(
+                    new TickPlayerDeathHoldPresentationSignal(
+                        record.EntityId,
+                        record.StartTick,
+                        record.EligibleTick,
+                        record.RemainingTicks,
+                        record.StartedThisTick));
+            }
         }
 
         private static void BuildEnemyUtilityWindupPresentation(
@@ -642,6 +731,122 @@ namespace Game.Feature.Gameplay.Loop
                             context.PreMovementSnapshot.Topology,
                             sourceEntity.facing));
                 }
+            }
+        }
+
+        private static void BuildKinematicMotionPresentation(
+            in TickPresentationBuildContext context,
+            List<TickKinematicMotionTrack> kinematicMotionTracks)
+        {
+            var terminalEntityIds = new HashSet<int>();
+            for (var i = 0; i < context.CleanupPhaseResult.RemovedUnitKinematicPoses.Count; i++)
+            {
+                var record = context.CleanupPhaseResult.RemovedUnitKinematicPoses[i];
+                terminalEntityIds.Add(record.EntityId);
+            }
+
+            var interruptedEntityIds = new List<int>();
+            var seenInterruptedEntityIds = new HashSet<int>();
+            for (var i = 0; i < context.AttackPhaseResult.MotionInterruptRecords.Count; i++)
+            {
+                var record = context.AttackPhaseResult.MotionInterruptRecords[i];
+                if (terminalEntityIds.Contains(record.EntityId) ||
+                    !seenInterruptedEntityIds.Add(record.EntityId))
+                {
+                    continue;
+                }
+
+                interruptedEntityIds.Add(record.EntityId);
+                terminalEntityIds.Add(record.EntityId);
+            }
+
+            var operations = context.MovementPhaseResult.ResolvedOperations;
+            for (var i = 0; i < operations.Count; i++)
+            {
+                var operation = operations[i];
+                if (operation.Kind != FinalizationOperationKind.SetUnitKinematicState ||
+                    terminalEntityIds.Contains(operation.EntityId) ||
+                    !context.PreMovementSnapshot.TryGetUnitKinematicPose(operation.EntityId, out var sourcePose) ||
+                    !context.PostMovementSnapshot.TryGetUnitKinematicPose(operation.EntityId, out var destinationPose) ||
+                    !context.PreMovementSnapshot.TryGetEntity(operation.EntityId, out var sourceEntity) ||
+                    !context.PostMovementSnapshot.TryGetEntity(operation.EntityId, out var destinationEntity))
+                {
+                    continue;
+                }
+
+                kinematicMotionTracks.Add(
+                    new TickKinematicMotionTrack(
+                        operation.EntityId,
+                        sourcePose.AnchorCell,
+                        sourcePose.LocalOffset,
+                        destinationPose.AnchorCell,
+                        destinationPose.LocalOffset,
+                        operation.UnitKinematicState.mode,
+                        operation.UnitKinematicState.forcedOp,
+                        destinationEntity.type,
+                        context.PreMovementSnapshot.Topology,
+                        context.PostMovementSnapshot.Topology,
+                        sourceEntity.facing,
+                        destinationEntity.facing));
+            }
+
+            for (var i = 0; i < interruptedEntityIds.Count; i++)
+            {
+                var entityId = interruptedEntityIds[i];
+                if (!context.PreMovementSnapshot.TryGetUnitKinematicPose(entityId, out var sourcePose) ||
+                    !context.PostAttackSnapshot.TryGetUnitKinematicPose(entityId, out var destinationPose) ||
+                    !context.PreMovementSnapshot.TryGetEntity(entityId, out var sourceEntity) ||
+                    !context.PostAttackSnapshot.TryGetEntity(entityId, out var destinationEntity))
+                {
+                    continue;
+                }
+
+                kinematicMotionTracks.Add(
+                    new TickKinematicMotionTrack(
+                        entityId,
+                        sourcePose.AnchorCell,
+                        sourcePose.LocalOffset,
+                        destinationPose.AnchorCell,
+                        destinationPose.LocalOffset,
+                        destinationPose.Mode,
+                        destinationPose.State.forcedOp,
+                        destinationEntity.type,
+                        context.PreMovementSnapshot.Topology,
+                        context.PostAttackSnapshot.Topology,
+                        sourceEntity.facing,
+                        destinationEntity.facing,
+                        TickKinematicMotionTerminalKind.Interrupted));
+            }
+
+            for (var i = 0; i < context.CleanupPhaseResult.RemovedUnitKinematicPoses.Count; i++)
+            {
+                var record = context.CleanupPhaseResult.RemovedUnitKinematicPoses[i];
+                var entityId = record.EntityId;
+                var removedPose = record.Pose;
+                if (!context.PreMovementSnapshot.TryGetUnitKinematicPose(entityId, out var sourcePose) ||
+                    !context.PreMovementSnapshot.TryGetEntity(entityId, out var sourceEntity))
+                {
+                    continue;
+                }
+
+                var destinationEntity = context.PostAttackSnapshot.TryGetEntity(entityId, out var postAttackEntity)
+                    ? postAttackEntity
+                    : sourceEntity;
+                kinematicMotionTracks.Add(
+                    new TickKinematicMotionTrack(
+                        entityId,
+                        sourcePose.AnchorCell,
+                        sourcePose.LocalOffset,
+                        removedPose.AnchorCell,
+                        removedPose.LocalOffset,
+                        removedPose.Mode,
+                        removedPose.State.forcedOp,
+                        destinationEntity.type,
+                        context.PreMovementSnapshot.Topology,
+                        context.PostAttackSnapshot.Topology,
+                        sourceEntity.facing,
+                        destinationEntity.facing,
+                        TickKinematicMotionTerminalKind.Removed));
             }
         }
 

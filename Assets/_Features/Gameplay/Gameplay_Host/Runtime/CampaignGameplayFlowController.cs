@@ -17,6 +17,7 @@ namespace Game.Feature.Gameplay.Host
         private GameplayHostPresentationFeed _presentationFeed;
         private bool _handledClear;
         private bool _handledDeath;
+        private PendingDeathRecoveryState _pendingDeathRecovery;
 
         public CampaignGameplayFlowController(
             GameplaySceneHost host,
@@ -70,10 +71,11 @@ namespace Game.Feature.Gameplay.Host
 
             if (!_handledDeath && ContainsPlayerDeathSignal(result))
             {
-                HandlePlayerDeath();
+                HandlePlayerDeath(result);
                 return;
             }
 
+            TryFlushPendingDeathRecovery(result);
         }
 
         private bool ContainsPlayerDeathSignal(TickResult result)
@@ -91,10 +93,9 @@ namespace Game.Feature.Gameplay.Host
             return false;
         }
 
-        private void HandlePlayerDeath()
+        private void HandlePlayerDeath(TickResult result)
         {
             _handledDeath = true;
-            _host.InputHost.EnterTerminalHold();
 
             var activeSlotNumber = _activeSlotProvider.ActiveSlotNumber;
             var slot = _saveSlotStore.LoadSlot(activeSlotNumber);
@@ -113,14 +114,58 @@ namespace Game.Feature.Gameplay.Host
 
             if (route.RouteKind == StageRetryRouteKind.ReturnToLevelGroupFirstStage)
             {
-                PublishLevelFailed(route);
+                _pendingDeathRecovery = PendingDeathRecoveryState.CreateLevelFailed(
+                    route,
+                    result.TickIndex,
+                    ResolveDeathRecoveryEligibleTick(result));
                 return;
             }
 
-            _stageLaunchRouter.Launch(new StageNavigationRequest(
-                route.NextStageId,
-                StageNavigationKind.Retry,
-                "campaign-death-retry"));
+            _pendingDeathRecovery = PendingDeathRecoveryState.CreateRetry(
+                new StageNavigationRequest(
+                    route.NextStageId,
+                    StageNavigationKind.Retry,
+                    "campaign-death-retry"),
+                result.TickIndex,
+                ResolveDeathRecoveryEligibleTick(result));
+        }
+
+        private int ResolveDeathRecoveryEligibleTick(TickResult result)
+        {
+            var playerEntityId = _host.InputHost.PlayerEntityId;
+            var holdSignals = result.PresentationData.PlayerDeathHoldSignals;
+            for (var i = 0; i < holdSignals.Count; i++)
+            {
+                var signal = holdSignals[i];
+                if (signal.EntityId == playerEntityId)
+                {
+                    return signal.EligibleTick;
+                }
+            }
+
+            return result.TickIndex + Math.Max(1, _host.PlayerRespawnDelayTicks);
+        }
+
+        private void TryFlushPendingDeathRecovery(TickResult result)
+        {
+            if (!_pendingDeathRecovery.HasValue ||
+                _pendingDeathRecovery.Launched ||
+                result.TickIndex < _pendingDeathRecovery.EligibleTick)
+            {
+                return;
+            }
+
+            _host.InputHost.EnterTerminalHold();
+            if (_pendingDeathRecovery.Kind == PendingDeathRecoveryKind.LevelFailed)
+            {
+                PublishLevelFailed(_pendingDeathRecovery.LevelFailedRoute);
+            }
+            else
+            {
+                _stageLaunchRouter.Launch(_pendingDeathRecovery.RetryRequest);
+            }
+
+            _pendingDeathRecovery = _pendingDeathRecovery.MarkLaunched();
         }
 
         private void PublishLevelFailed(StageRetryRouteResult route)
@@ -143,7 +188,10 @@ namespace Game.Feature.Gameplay.Host
 
         private void HandleStageClearCommitted(TickResult result, StageCompletionReadModel readModel)
         {
-            if (_handledClear)
+            if (_handledClear ||
+                _handledDeath ||
+                _pendingDeathRecovery.HasValue ||
+                (result != null && ContainsPlayerDeathSignal(result)))
             {
                 return;
             }
@@ -205,6 +253,84 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return _saveSlotStore.LoadSlot(activeSlotNumber).CurrentStageId;
+        }
+
+        private enum PendingDeathRecoveryKind
+        {
+            Retry,
+            LevelFailed,
+        }
+
+        private readonly struct PendingDeathRecoveryState
+        {
+            private PendingDeathRecoveryState(
+                PendingDeathRecoveryKind kind,
+                StageNavigationRequest retryRequest,
+                StageRetryRouteResult levelFailedRoute,
+                int deathTick,
+                int eligibleTick,
+                bool launched)
+            {
+                Kind = kind;
+                RetryRequest = retryRequest;
+                LevelFailedRoute = levelFailedRoute;
+                DeathTick = deathTick;
+                EligibleTick = eligibleTick;
+                Launched = launched;
+            }
+
+            public PendingDeathRecoveryKind Kind { get; }
+
+            public StageNavigationRequest RetryRequest { get; }
+
+            public StageRetryRouteResult LevelFailedRoute { get; }
+
+            public int DeathTick { get; }
+
+            public int EligibleTick { get; }
+
+            public bool Launched { get; }
+
+            public bool HasValue => EligibleTick > 0;
+
+            public static PendingDeathRecoveryState CreateRetry(
+                StageNavigationRequest retryRequest,
+                int deathTick,
+                int eligibleTick)
+            {
+                return new PendingDeathRecoveryState(
+                    PendingDeathRecoveryKind.Retry,
+                    retryRequest,
+                    default,
+                    deathTick,
+                    eligibleTick,
+                    launched: false);
+            }
+
+            public static PendingDeathRecoveryState CreateLevelFailed(
+                StageRetryRouteResult route,
+                int deathTick,
+                int eligibleTick)
+            {
+                return new PendingDeathRecoveryState(
+                    PendingDeathRecoveryKind.LevelFailed,
+                    StageNavigationRequest.None,
+                    route,
+                    deathTick,
+                    eligibleTick,
+                    launched: false);
+            }
+
+            public PendingDeathRecoveryState MarkLaunched()
+            {
+                return new PendingDeathRecoveryState(
+                    Kind,
+                    RetryRequest,
+                    LevelFailedRoute,
+                    DeathTick,
+                    EligibleTick,
+                    launched: true);
+            }
         }
     }
 }

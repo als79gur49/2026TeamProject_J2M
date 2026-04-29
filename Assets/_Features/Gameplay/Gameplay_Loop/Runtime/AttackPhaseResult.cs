@@ -78,7 +78,8 @@ namespace Game.Feature.Gameplay.Loop
             Array.Empty<string>(),
             Array.Empty<string>(),
             Array.Empty<string>(),
-            FrozenMovementReservationExport.Empty);
+            FrozenMovementReservationExport.Empty,
+            Array.Empty<MotionInterruptRecord>());
 
         private readonly ReadOnlyCollection<string> _commitEvents;
         private readonly ReadOnlyCollection<DamageResolutionRecord> _damageResolutions;
@@ -86,6 +87,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<ImpactReservation> _drainedImpactReservations;
         private readonly ReadOnlyCollection<string> _eventLogEntries;
         private readonly FrozenMovementReservationExport _frozenMovementReservationExport;
+        private readonly ReadOnlyCollection<MotionInterruptRecord> _motionInterruptRecords;
         private readonly ReadOnlyCollection<DelayedAttackEffectRecord> _queuedDelayedAttackEffects;
         private readonly ReadOnlyCollection<RawAttackIntent> _rawIntents;
         private readonly ReadOnlyCollection<string> _rejectedReasons;
@@ -102,7 +104,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<DelayedAttackEffectRecord> queuedDelayedAttackEffects,
             IEnumerable<string> commitEvents,
             IEnumerable<string> eventLogEntries,
-            IEnumerable<string> rejectedReasons)
+            IEnumerable<string> rejectedReasons,
+            IEnumerable<MotionInterruptRecord> motionInterruptRecords = null)
             : this(
                 rawIntents,
                 drainedImpactReservations,
@@ -114,7 +117,8 @@ namespace Game.Feature.Gameplay.Loop
                 commitEvents,
                 eventLogEntries,
                 rejectedReasons,
-                FrozenMovementReservationExport.Empty)
+                FrozenMovementReservationExport.Empty,
+                motionInterruptRecords)
         {
         }
 
@@ -129,7 +133,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<string> commitEvents,
             IEnumerable<string> eventLogEntries,
             IEnumerable<string> rejectedReasons,
-            FrozenMovementReservationExport frozenMovementReservationExport)
+            FrozenMovementReservationExport frozenMovementReservationExport,
+            IEnumerable<MotionInterruptRecord> motionInterruptRecords = null)
         {
             if (rawIntents == null)
             {
@@ -197,6 +202,9 @@ namespace Game.Feature.Gameplay.Loop
             _eventLogEntries = new ReadOnlyCollection<string>(new List<string>(eventLogEntries));
             _rejectedReasons = new ReadOnlyCollection<string>(new List<string>(rejectedReasons));
             _frozenMovementReservationExport = frozenMovementReservationExport;
+            _motionInterruptRecords = new ReadOnlyCollection<MotionInterruptRecord>(
+                new List<MotionInterruptRecord>(
+                    motionInterruptRecords ?? Array.Empty<MotionInterruptRecord>()));
         }
 
         public IReadOnlyList<RawAttackIntent> RawIntents => _rawIntents;
@@ -220,5 +228,7 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<string> EventLogEntries => _eventLogEntries;
 
         public IReadOnlyList<string> RejectedReasons => _rejectedReasons;
+
+        public IReadOnlyList<MotionInterruptRecord> MotionInterruptRecords => _motionInterruptRecords;
     }
 }

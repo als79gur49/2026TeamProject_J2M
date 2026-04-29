@@ -90,7 +90,9 @@ namespace Game.Feature.Gameplay.Loop
             GameplayTimingProfile generalTimingProfile,
             PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
             int playerRespawnDelayTicks = 1,
-            StageObjectiveRuntimeDefinition objectiveDefinition = null)
+            StageObjectiveRuntimeDefinition objectiveDefinition = null,
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
+            PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming = default)
         {
             return CreateDefaultBootstrapper().CreateTickPipeline(
                 worldState,
@@ -98,7 +100,9 @@ namespace Game.Feature.Gameplay.Loop
                 generalTimingProfile,
                 playerControlTiming,
                 playerRespawnDelayTicks,
-                objectiveDefinition);
+                objectiveDefinition,
+                runtimeFeatureFlags: runtimeFeatureFlags,
+                playerKinematicLocomotionTiming: playerKinematicLocomotionTiming);
         }
 
         public static TickRunner CreateTickRunner(
@@ -125,7 +129,9 @@ namespace Game.Feature.Gameplay.Loop
             PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
             int playerRespawnDelayTicks = 1,
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
-            int startTickIndex = 1)
+            int startTickIndex = 1,
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
+            PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming = default)
         {
             return CreateDefaultBootstrapper().CreateTickRunner(
                 worldState,
@@ -135,7 +141,9 @@ namespace Game.Feature.Gameplay.Loop
                 playerControlTiming,
                 playerRespawnDelayTicks,
                 objectiveDefinition,
-                startTickIndex);
+                startTickIndex,
+                runtimeFeatureFlags: runtimeFeatureFlags,
+                playerKinematicLocomotionTiming: playerKinematicLocomotionTiming);
         }
     }
 }

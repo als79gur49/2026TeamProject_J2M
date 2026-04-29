@@ -201,11 +201,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(configuration.PlayerControlTiming.PushInputLockDurationSeconds, Is.EqualTo(0.48333335f).Within(0.0000001f));
             Assert.That(configuration.PlayerControlTiming.FlipExecuteDelaySeconds, Is.EqualTo(0.38333333f).Within(0.0000001f));
             Assert.That(configuration.PlayerControlTiming.FlipInputLockDurationSeconds, Is.EqualTo(0.95f).Within(0.0000001f));
+            Assert.That(
+                configuration.CreatePlayerKinematicLocomotionTimingSnapshot().TicksPerCell,
+                Is.EqualTo(20));
         }
 
         private static GameplaySimulationTimingPreset CreateSimulationTimingPreset(
             float initialMoveDelaySeconds = 0f,
             PlayerControlTimingSettings playerControlTiming = null,
+            PlayerKinematicLocomotionTimingSettings playerKinematicLocomotionTiming = null,
             PlayerRespawnTimingSettings playerRespawnTiming = null,
             float repeatedMoveIntervalSeconds = 0.6f,
             float boxSlideStepIntervalSeconds = 0.2f,
@@ -214,6 +218,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var preset = ScriptableObject.CreateInstance<GameplaySimulationTimingPreset>();
             SetPrivateField(preset, "initialMoveDelaySeconds", initialMoveDelaySeconds);
             SetPrivateField(preset, "playerControlTiming", playerControlTiming ?? PlayerControlTimingSettings.CreateDefault());
+            SetPrivateField(preset, "playerKinematicLocomotionTiming", playerKinematicLocomotionTiming ?? PlayerKinematicLocomotionTimingSettings.CreateDefault());
             SetPrivateField(preset, "playerRespawnTiming", playerRespawnTiming ?? PlayerRespawnTimingSettings.CreateDefault());
             SetPrivateField(preset, "repeatedMoveIntervalSeconds", repeatedMoveIntervalSeconds);
             SetPrivateField(preset, "boxSlideStepIntervalSeconds", boxSlideStepIntervalSeconds);

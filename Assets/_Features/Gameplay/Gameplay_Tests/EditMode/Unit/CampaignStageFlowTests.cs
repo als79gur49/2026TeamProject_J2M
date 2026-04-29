@@ -1,9 +1,18 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using Game.Feature.Flow.Audio;
+using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Debug;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Host.UIAccess;
+using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Model.Phases;
+using Game.Feature.Gameplay.Objectives;
+using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Stages;
 using Game.Shared.AudioContracts;
 using NUnit.Framework;
@@ -492,6 +501,564 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void CampaignDeath_RetryNavigationWaitsForDeathRecoveryHold()
+        {
+            var saveKey = CreatePrefsKey(nameof(CampaignDeath_RetryNavigationWaitsForDeathRecoveryHold));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("campaign-death-host");
+            var router = new FakeStageLaunchRouter();
+
+            try
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                saveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = StageId.CreateOrThrow("stage-2-2"),
+                    CurrentLevelGroupId = "level-2",
+                    RemainingChances = 2,
+                });
+                activeSlotProvider.SetActiveSlot(1);
+
+                var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    activeSlotProvider,
+                    CreateResolver(),
+                    router);
+                var handleTickCompleted = GetHandleTickCompletedMethod();
+
+                handleTickCompleted.Invoke(controller, new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
+                handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(51) });
+                handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(52) });
+
+                Assert.That(router.LaunchCount, Is.EqualTo(0));
+                Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.False);
+                Assert.That(saveStore.LoadSlot(1).RemainingChances, Is.EqualTo(1));
+
+                handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(53) });
+                handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(54) });
+
+                Assert.That(router.LaunchCount, Is.EqualTo(1));
+                Assert.That(router.LastRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Retry));
+                Assert.That(router.LastRequest.StageId.Value, Is.EqualTo("stage-2-2"));
+                Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.True);
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CampaignDeath_LevelFailedWaitsForDeathRecoveryHold()
+        {
+            var saveKey = CreatePrefsKey(nameof(CampaignDeath_LevelFailedWaitsForDeathRecoveryHold));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("campaign-level-failed-host");
+
+            try
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                saveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = StageId.CreateOrThrow("stage-2-2"),
+                    CurrentLevelGroupId = "level-2",
+                    RemainingChances = 1,
+                });
+                activeSlotProvider.SetActiveSlot(1);
+
+                var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
+                var presenter = hostObject.AddComponent<GameplayTickViewPresenter>();
+                var presentationFeed = new GameplayHostPresentationFeed(host.InputHost, presenter);
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    activeSlotProvider,
+                    CreateResolver(),
+                    new FakeStageLaunchRouter());
+                SetPrivateField(controller, "_presentationFeed", presentationFeed);
+                var handleTickCompleted = GetHandleTickCompletedMethod();
+
+                handleTickCompleted.Invoke(controller, new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
+                handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(52) });
+
+                Assert.That(presentationFeed.CurrentLevelFailed, Is.Null);
+                Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.False);
+
+                handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(53) });
+                handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(54) });
+
+                Assert.That(presentationFeed.CurrentLevelFailed, Is.Not.Null);
+                Assert.That(presentationFeed.CurrentLevelFailed.RestartLevelRequest.StageId.Value, Is.EqualTo("stage-2-1"));
+                Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.True);
+                presentationFeed.Dispose();
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CampaignDeath_PendingRetry_IgnoresLaterStageClear()
+        {
+            var saveKey = CreatePrefsKey(nameof(CampaignDeath_PendingRetry_IgnoresLaterStageClear));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("campaign-death-pending-retry-clear-host");
+            var router = new FakeStageLaunchRouter();
+
+            try
+            {
+                SeedSaveSlot(saveStore, activeSlotProvider, "stage-2-2", "level-2", remainingChances: 2);
+                var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    activeSlotProvider,
+                    CreateResolver(),
+                    router);
+                var handleTickCompleted = GetHandleTickCompletedMethod();
+                var handleStageClearCommitted = GetHandleStageClearCommittedMethod();
+
+                handleTickCompleted.Invoke(controller, new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
+                handleStageClearCommitted.Invoke(
+                    controller,
+                    new object[] { CreateEmptyTickResult(51), CreateStageCompletionReadModel("stage-2-2", tickIndex: 51) });
+
+                var pendingSlot = saveStore.LoadSlot(1);
+                Assert.That(pendingSlot.CurrentStageId.Value, Is.EqualTo("stage-2-2"));
+                Assert.That(pendingSlot.CurrentLevelGroupId, Is.EqualTo("level-2"));
+                Assert.That(pendingSlot.RemainingChances, Is.EqualTo(1));
+                Assert.That(pendingSlot.TotalDeaths, Is.EqualTo(1));
+                Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.False);
+                Assert.That(router.LaunchCount, Is.EqualTo(0));
+
+                handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(53) });
+
+                Assert.That(router.LaunchCount, Is.EqualTo(1));
+                Assert.That(router.LastRequest.StageId.Value, Is.EqualTo("stage-2-2"));
+                Assert.That(router.LastRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Retry));
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CampaignDeath_PendingLevelFailed_IgnoresLaterStageClear()
+        {
+            var saveKey = CreatePrefsKey(nameof(CampaignDeath_PendingLevelFailed_IgnoresLaterStageClear));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("campaign-death-pending-level-failed-clear-host");
+
+            try
+            {
+                SeedSaveSlot(saveStore, activeSlotProvider, "stage-2-2", "level-2", remainingChances: 1);
+                var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
+                var presenter = hostObject.AddComponent<GameplayTickViewPresenter>();
+                var presentationFeed = new GameplayHostPresentationFeed(host.InputHost, presenter);
+                var router = new FakeStageLaunchRouter();
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    activeSlotProvider,
+                    CreateResolver(),
+                    router);
+                SetPrivateField(controller, "_presentationFeed", presentationFeed);
+                var handleTickCompleted = GetHandleTickCompletedMethod();
+                var handleStageClearCommitted = GetHandleStageClearCommittedMethod();
+
+                handleTickCompleted.Invoke(controller, new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
+                handleStageClearCommitted.Invoke(
+                    controller,
+                    new object[] { CreateEmptyTickResult(51), CreateStageCompletionReadModel("stage-2-2", tickIndex: 51) });
+
+                var pendingSlot = saveStore.LoadSlot(1);
+                Assert.That(pendingSlot.CurrentStageId.Value, Is.EqualTo("stage-2-1"));
+                Assert.That(pendingSlot.CurrentLevelGroupId, Is.EqualTo("level-2"));
+                Assert.That(pendingSlot.RemainingChances, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
+                Assert.That(pendingSlot.TotalDeaths, Is.EqualTo(1));
+                Assert.That(presentationFeed.CurrentLevelFailed, Is.Null);
+                Assert.That(router.LaunchCount, Is.EqualTo(0));
+
+                handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(53) });
+
+                Assert.That(presentationFeed.CurrentLevelFailed, Is.Not.Null);
+                Assert.That(presentationFeed.CurrentLevelFailed.RestartLevelRequest.StageId.Value, Is.EqualTo("stage-2-1"));
+                Assert.That(router.LaunchCount, Is.EqualTo(0));
+                presentationFeed.Dispose();
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CampaignDeathAndClearSameTick_DeathWins_StageClearIgnored()
+        {
+            var saveKey = CreatePrefsKey(nameof(CampaignDeathAndClearSameTick_DeathWins_StageClearIgnored));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("campaign-death-clear-same-tick-host");
+            var router = new FakeStageLaunchRouter();
+
+            try
+            {
+                SeedSaveSlot(saveStore, activeSlotProvider, "stage-2-2", "level-2", remainingChances: 2);
+                var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    activeSlotProvider,
+                    CreateResolver(),
+                    router);
+                var handleTickCompleted = GetHandleTickCompletedMethod();
+                var handleStageClearCommitted = GetHandleStageClearCommittedMethod();
+                var deathAndClearTick = CreateDeathTickResult(50, eligibleTick: 53);
+
+                handleStageClearCommitted.Invoke(
+                    controller,
+                    new object[] { deathAndClearTick, CreateStageCompletionReadModel("stage-2-2", tickIndex: 50) });
+                handleTickCompleted.Invoke(controller, new object[] { deathAndClearTick });
+
+                var slot = saveStore.LoadSlot(1);
+                Assert.That(slot.CurrentStageId.Value, Is.EqualTo("stage-2-2"));
+                Assert.That(slot.RemainingChances, Is.EqualTo(1));
+                Assert.That(slot.TotalDeaths, Is.EqualTo(1));
+
+                handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(53) });
+
+                Assert.That(router.LaunchCount, Is.EqualTo(1));
+                Assert.That(router.LastRequest.StageId.Value, Is.EqualTo("stage-2-2"));
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CampaignDeath_DuplicateSameTickSignal_DoesNotDuplicateRouteOrSave()
+        {
+            var saveKey = CreatePrefsKey(nameof(CampaignDeath_DuplicateSameTickSignal_DoesNotDuplicateRouteOrSave));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("campaign-death-duplicate-same-tick-host");
+            var router = new FakeStageLaunchRouter();
+
+            try
+            {
+                SeedSaveSlot(saveStore, activeSlotProvider, "stage-2-2", "level-2", remainingChances: 2);
+                var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    activeSlotProvider,
+                    CreateResolver(),
+                    router);
+                var handleTickCompleted = GetHandleTickCompletedMethod();
+                var deathTick = CreateDeathTickResult(50, eligibleTick: 53);
+
+                handleTickCompleted.Invoke(controller, new object[] { deathTick });
+                handleTickCompleted.Invoke(controller, new object[] { deathTick });
+
+                var slot = saveStore.LoadSlot(1);
+                Assert.That(slot.RemainingChances, Is.EqualTo(1));
+                Assert.That(slot.TotalDeaths, Is.EqualTo(1));
+                Assert.That(router.LaunchCount, Is.EqualTo(0));
+
+                handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(53) });
+
+                Assert.That(router.LaunchCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CampaignDeath_DuplicateConsecutiveSignal_DoesNotDuplicateRouteOrSave()
+        {
+            var saveKey = CreatePrefsKey(nameof(CampaignDeath_DuplicateConsecutiveSignal_DoesNotDuplicateRouteOrSave));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("campaign-death-duplicate-consecutive-host");
+            var router = new FakeStageLaunchRouter();
+
+            try
+            {
+                SeedSaveSlot(saveStore, activeSlotProvider, "stage-2-2", "level-2", remainingChances: 2);
+                var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    activeSlotProvider,
+                    CreateResolver(),
+                    router);
+                var handleTickCompleted = GetHandleTickCompletedMethod();
+
+                handleTickCompleted.Invoke(controller, new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
+                handleTickCompleted.Invoke(controller, new object[] { CreateDeathTickResult(51, eligibleTick: 54) });
+
+                var slot = saveStore.LoadSlot(1);
+                Assert.That(slot.RemainingChances, Is.EqualTo(1));
+                Assert.That(slot.TotalDeaths, Is.EqualTo(1));
+
+                handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(53) });
+
+                Assert.That(router.LaunchCount, Is.EqualTo(1));
+                Assert.That(router.LastRequest.StageId.Value, Is.EqualTo("stage-2-2"));
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CampaignDeath_DuplicateElapsedTick_DoesNotDuplicateLaunch()
+        {
+            var saveKey = CreatePrefsKey(nameof(CampaignDeath_DuplicateElapsedTick_DoesNotDuplicateLaunch));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("campaign-death-duplicate-elapsed-host");
+            var router = new FakeStageLaunchRouter();
+
+            try
+            {
+                SeedSaveSlot(saveStore, activeSlotProvider, "stage-2-2", "level-2", remainingChances: 2);
+                var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    activeSlotProvider,
+                    CreateResolver(),
+                    router);
+                var handleTickCompleted = GetHandleTickCompletedMethod();
+                var elapsedTick = CreateElapsedSuppressedTickResult(53);
+
+                handleTickCompleted.Invoke(controller, new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
+                handleTickCompleted.Invoke(controller, new object[] { elapsedTick });
+                handleTickCompleted.Invoke(controller, new object[] { elapsedTick });
+
+                Assert.That(router.LaunchCount, Is.EqualTo(1));
+                Assert.That(router.LastRequest.StageId.Value, Is.EqualTo("stage-2-2"));
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CampaignDeathHold_PlayerInput_IsClearedAndDoesNotCreateGameplayCommand()
+        {
+            var hostObject = new GameObject("campaign-death-input-block-host");
+
+            try
+            {
+                var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
+                var inputHost = host.InputHost;
+                SetPrivateField(inputHost, "_isPlayerRespawnDelayInputBlocked", true);
+
+                inputHost.SetRawMoveInput(Vector2.right);
+                inputHost.BufferPush();
+                inputHost.BufferFlip();
+                InvokeInstanceMethod(inputHost, "BufferUiPush", Direction.Right);
+                InvokeInstanceMethod(inputHost, "BufferUiFlip", Direction.Left);
+
+                var command = (PlayerTickCommand)InvokeInstanceMethod(inputHost, "BuildPlayerCommand");
+
+                Assert.That(ReadPrivateField<Vector2>(inputHost, "_sampledMoveInput"), Is.EqualTo(Vector2.zero));
+                Assert.That(ReadPrivateField<bool>(inputHost, "_hasBufferedPush"), Is.False);
+                Assert.That(ReadPrivateField<bool>(inputHost, "_hasBufferedFlip"), Is.False);
+                Assert.That(ReadPrivateField<bool>(inputHost, "_hasBufferedUiPush"), Is.False);
+                Assert.That(ReadPrivateField<bool>(inputHost, "_hasBufferedUiFlip"), Is.False);
+                Assert.That(ReadPrivateField<Direction>(inputHost, "_uiBufferedPushDirection"), Is.EqualTo(Direction.None));
+                Assert.That(ReadPrivateField<Direction>(inputHost, "_uiBufferedFlipDirection"), Is.EqualTo(Direction.None));
+                Assert.That(command.MoveDirection, Is.EqualTo(Direction.None));
+                Assert.That(command.PushPressed, Is.False);
+                Assert.That(command.FlipPressed, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CampaignDeathHold_PauseResume_PreservesPendingRoute()
+        {
+            var saveKey = CreatePrefsKey(nameof(CampaignDeathHold_PauseResume_PreservesPendingRoute));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("campaign-death-pause-resume-host");
+            var router = new FakeStageLaunchRouter();
+
+            try
+            {
+                SeedSaveSlot(saveStore, activeSlotProvider, "stage-2-2", "level-2", remainingChances: 2);
+                var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
+                var pauseService = new GameplayHostPauseService(host.InputHost);
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    activeSlotProvider,
+                    CreateResolver(),
+                    router);
+                var handleTickCompleted = GetHandleTickCompletedMethod();
+
+                handleTickCompleted.Invoke(controller, new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
+                pauseService.Pause();
+                pauseService.Resume();
+
+                var pendingSlot = saveStore.LoadSlot(1);
+                Assert.That(pendingSlot.CurrentStageId.Value, Is.EqualTo("stage-2-2"));
+                Assert.That(pendingSlot.RemainingChances, Is.EqualTo(1));
+                Assert.That(router.LaunchCount, Is.EqualTo(0));
+
+                handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(53) });
+
+                Assert.That(router.LaunchCount, Is.EqualTo(1));
+                Assert.That(router.LastRequest.StageId.Value, Is.EqualTo("stage-2-2"));
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CampaignDeathElapsed_EnterTerminalHold_BlocksFurtherTicks()
+        {
+            var saveKey = CreatePrefsKey(nameof(CampaignDeathElapsed_EnterTerminalHold_BlocksFurtherTicks));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("campaign-death-terminal-hold-host");
+            var router = new FakeStageLaunchRouter();
+
+            try
+            {
+                SeedSaveSlot(saveStore, activeSlotProvider, "stage-2-2", "level-2", remainingChances: 2);
+                var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    activeSlotProvider,
+                    CreateResolver(),
+                    router);
+                var handleTickCompleted = GetHandleTickCompletedMethod();
+
+                handleTickCompleted.Invoke(controller, new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
+                handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(53) });
+
+                Assert.That(router.LaunchCount, Is.EqualTo(1));
+                Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.True);
+                Assert.That(host.InputHost.RunSingleTick(), Is.Null);
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CampaignDeathElapsed_LaunchOccursAfterSuppressedElapsedResult()
+        {
+            var saveKey = CreatePrefsKey(nameof(CampaignDeathElapsed_LaunchOccursAfterSuppressedElapsedResult));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("campaign-death-suppressed-elapsed-host");
+            var router = new FakeStageLaunchRouter();
+
+            try
+            {
+                SeedSaveSlot(saveStore, activeSlotProvider, "stage-2-2", "level-2", remainingChances: 2);
+                var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    activeSlotProvider,
+                    CreateResolver(),
+                    router);
+                var handleTickCompleted = GetHandleTickCompletedMethod();
+                var elapsedTick = CreateElapsedSuppressedTickResult(53);
+                var elapsedEventLog = elapsedTick.EventLog.ToList();
+
+                Assert.That(
+                    elapsedEventLog.IndexOf("PlayerRespawnDelayElapsed|E=10|StartTick=50|EligibleTick=53|Tick=53"),
+                    Is.LessThan(elapsedEventLog.IndexOf("RespawnSuppressed|E=10|Reason=PolicyDisabled|Tick=53")));
+
+                handleTickCompleted.Invoke(controller, new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
+                handleTickCompleted.Invoke(controller, new object[] { elapsedTick });
+
+                Assert.That(router.LaunchCount, Is.EqualTo(1));
+                Assert.That(router.LastRequest.StageId.Value, Is.EqualTo("stage-2-2"));
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void RuntimeBootstrap_FailsIfCampaignActiveSlotStageAndLaunchStageMismatch()
         {
             var saveKey = CreatePrefsKey(nameof(RuntimeBootstrap_FailsIfCampaignActiveSlotStageAndLaunchStageMismatch));
@@ -585,6 +1152,266 @@ namespace Game.Feature.Gameplay.Tests.Unit
             field.SetValue(target, value);
         }
 
+        private static T ReadPrivateField<T>(object target, string fieldName)
+        {
+            var targetType = target.GetType();
+            FieldInfo field = null;
+            for (var type = targetType; type != null && field == null; type = type.BaseType)
+            {
+                field = type.GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            }
+
+            Assert.That(field, Is.Not.Null, $"{target.GetType().Name}.{fieldName}");
+            return (T)field.GetValue(target);
+        }
+
+        private static object InvokeInstanceMethod(object target, string methodName, params object[] args)
+        {
+            var targetType = target.GetType();
+            var argumentTypes = args.Select(arg => arg?.GetType() ?? typeof(object)).ToArray();
+            MethodInfo method = null;
+            for (var type = targetType; type != null && method == null; type = type.BaseType)
+            {
+                method = type.GetMethod(
+                    methodName,
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                    null,
+                    argumentTypes,
+                    null);
+                method ??= type.GetMethod(
+                    methodName,
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            }
+
+            Assert.That(method, Is.Not.Null, $"{target.GetType().Name}.{methodName}");
+            return method.Invoke(target, args);
+        }
+
+        private static void SeedSaveSlot(
+            SaveSlotStore saveStore,
+            ActiveSlotProvider activeSlotProvider,
+            string stageId,
+            string levelGroupId,
+            int remainingChances)
+        {
+            saveStore.ClearAll();
+            activeSlotProvider.ClearActiveSlot();
+            saveStore.SaveSlot(new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = StageId.CreateOrThrow(stageId),
+                CurrentLevelGroupId = levelGroupId,
+                RemainingChances = remainingChances,
+            });
+            activeSlotProvider.SetActiveSlot(1);
+        }
+
+        private static GameplaySceneHost CreateHostWithInput(
+            GameObject hostObject,
+            int playerEntityId,
+            int respawnDelayTicks)
+        {
+            var host = hostObject.AddComponent<GameplaySceneHost>();
+            var inputHost = hostObject.AddComponent<GameplayInputHost>();
+            SetPrivateField(inputHost, "_isInitialized", true);
+            SetPrivateField(inputHost, "_playerEntityId", playerEntityId);
+            SetPrivateField(
+                host,
+                "_runtime",
+                new GameplayHostRuntimeContext(
+                    null,
+                    null,
+                    null,
+                    inputHost,
+                    null,
+                    GameplayTimingProfile.CreateDefault(),
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    respawnDelayTicks));
+            return host;
+        }
+
+        private static MethodInfo GetHandleTickCompletedMethod()
+        {
+            var method = typeof(CampaignGameplayFlowController).GetMethod(
+                "HandleTickCompleted",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            return method;
+        }
+
+        private static MethodInfo GetHandleStageClearCommittedMethod()
+        {
+            var method = typeof(CampaignGameplayFlowController).GetMethod(
+                "HandleStageClearCommitted",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            return method;
+        }
+
+        private static bool ReadInputHostTerminalHold(GameplayInputHost inputHost)
+        {
+            var field = typeof(GameplayInputHost).GetField(
+                "_isTerminalHoldActive",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            return (bool)field.GetValue(inputHost);
+        }
+
+        private static TickResult CreateDeathTickResult(int tickIndex, int eligibleTick)
+        {
+            var presentationData = new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                new[]
+                {
+                    new TickPlayerDeathPresentationSignal(
+                        10,
+                        didDieThisTick: true,
+                        sourceEntityId: 0,
+                        fallbackFacing: Direction.Right,
+                        resolvedDamageSourceAvailable: false,
+                        damageAmountAtFatalHit: 1,
+                        deathDirectionHintKind: DeathDirectionHintKind.FacingReverse),
+                },
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                Array.Empty<TickEnemyChargePresentationSignal>(),
+                Array.Empty<TickEntityExitPresentationSignal>(),
+                Array.Empty<FlipImpactPresentationSignal>(),
+                playerDeathHoldSignals: new[]
+                {
+                    new TickPlayerDeathHoldPresentationSignal(
+                        10,
+                        tickIndex,
+                        eligibleTick,
+                        eligibleTick - tickIndex,
+                        startedThisTick: true),
+                });
+
+            return CreateTickResult(tickIndex, presentationData);
+        }
+
+        private static TickResult CreateEmptyTickResult(int tickIndex)
+        {
+            return CreateTickResult(tickIndex, TickPresentationData.Empty);
+        }
+
+        private static TickResult CreateElapsedSuppressedTickResult(int tickIndex)
+        {
+            return CreateTickResult(
+                tickIndex,
+                TickPresentationData.Empty,
+                new[]
+                {
+                    "PlayerRespawnDelayElapsed|E=10|StartTick=50|EligibleTick=53|Tick=53",
+                    "RespawnSuppressed|E=10|Reason=PolicyDisabled|Tick=53",
+                });
+        }
+
+        private static TickResult CreateTickResult(int tickIndex, TickPresentationData presentationData)
+        {
+            return CreateTickResult(tickIndex, presentationData, Array.Empty<string>());
+        }
+
+        private static TickResult CreateTickResult(
+            int tickIndex,
+            TickPresentationData presentationData,
+            IEnumerable<string> eventLog)
+        {
+            var constructor = typeof(TickResult).GetConstructor(
+                BindingFlags.Instance | BindingFlags.NonPublic,
+                null,
+                new[]
+                {
+                    typeof(int),
+                    typeof(IEnumerable<TickPhase>),
+                    typeof(IEnumerable<string>),
+                    typeof(MovementPhaseResult),
+                    typeof(AttackPhaseResult),
+                    typeof(IEnumerable<EntityState>),
+                    typeof(IEnumerable<string>),
+                    typeof(CubeTopologyState),
+                    typeof(TickPresentationData),
+                    typeof(string),
+                    typeof(TickTrace),
+                    typeof(StageObjectiveTickResult),
+                },
+                null);
+            Assert.That(constructor, Is.Not.Null);
+
+            return (TickResult)constructor.Invoke(new object[]
+            {
+                tickIndex,
+                Array.Empty<TickPhase>(),
+                Array.Empty<string>(),
+                MovementPhaseResult.Empty,
+                AttackPhaseResult.Empty,
+                Array.Empty<EntityState>(),
+                eventLog ?? Array.Empty<string>(),
+                new CubeTopologyState(FaceId.Floor),
+                presentationData,
+                string.Empty,
+                TickTrace.Empty,
+                StageObjectiveTickResult.NoObjective,
+            });
+        }
+
+        private static StageCompletionReadModel CreateStageCompletionReadModel(string stageIdValue, int tickIndex)
+        {
+            var stageId = StageId.CreateOrThrow(stageIdValue);
+            var runId = new StageRunId($"campaign-test-run-{tickIndex}");
+            var clearResult = new StageClearResult(
+                stageId,
+                runId,
+                StageTerminalReason.Cleared,
+                wasCleared: true,
+                tickIndex,
+                new StageObjectiveProgressSnapshot(true, true, true, true, 1, 1),
+                Array.Empty<StageSessionMetricValue>(),
+                Array.Empty<StageChallengeRuntimeState>());
+            var evaluationResult = new StageClearEvaluationResult(
+                stageId,
+                runId,
+                wasCleared: true,
+                score: 100,
+                starsEarned: 3,
+                rankId: "S",
+                challengeResults: Array.Empty<StageChallengeEvaluationResult>());
+            var rewardResult = new RewardGrantResult(
+                stageId,
+                runId,
+                Array.Empty<RewardGrantEntry>(),
+                Array.Empty<string>(),
+                Array.Empty<RewardGrantId>(),
+                wasFirstClear: false);
+
+            return new StageCompletionReadModel(
+                stageId,
+                "Campaign Test Stage",
+                "Stage Clear",
+                string.Empty,
+                string.Empty,
+                "Continue",
+                clearResult,
+                evaluationResult,
+                rewardResult,
+                PlayerStageProgress.CreateEmpty(stageId));
+        }
+
         private static string CreatePrefsKey(string suffix)
         {
             return "Game.Feature.Tests." + suffix + "." + Guid.NewGuid().ToString("N");
@@ -616,8 +1443,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             public StageNavigationRequest LastRequest { get; private set; } = StageNavigationRequest.None;
 
+            public int LaunchCount { get; private set; }
+
             public void Launch(StageNavigationRequest request)
             {
+                LaunchCount++;
                 LastRequest = request;
             }
         }

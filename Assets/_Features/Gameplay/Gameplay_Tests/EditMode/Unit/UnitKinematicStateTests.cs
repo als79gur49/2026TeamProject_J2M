@@ -1,0 +1,291 @@
+using System;
+using System.Collections.Generic;
+using Game.Feature.Gameplay.Attack;
+using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.Loop;
+using NUnit.Framework;
+
+namespace Game.Feature.Gameplay.Tests.Unit
+{
+    public sealed class UnitKinematicStateTests
+    {
+        [Test]
+        [Category("Extended")]
+        public void WorldSnapshot_TryGetUnitKinematicPose_AbsentStateSynthesizesSettledZero()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { CreateUnit(10) });
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetUnitKinematicPose(10, out var pose), Is.True);
+            Assert.That(pose.AnchorCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(pose.HasAuthoritativeState, Is.False);
+            Assert.That(pose.LocalOffset.IsZero, Is.True);
+            Assert.That(pose.Mode, Is.EqualTo(MotionMode.Settled));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WorldState_SetUnitKinematicState_PersistsNonDefaultAndLegacyMoveClearsIt()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { CreateUnit(10) });
+            var writeContext = worldState.CreateWriteContext();
+
+            writeContext.SetUnitKinematicState(10, CreateOffsetState(localX: 1024, localY: 0));
+
+            var movingSnapshot = worldState.CreateSnapshot();
+            Assert.That(movingSnapshot.TryGetUnitKinematicState(10, out var storedState), Is.True);
+            Assert.That(storedState.localOffset.X.RawValue, Is.EqualTo(1024));
+
+            writeContext.MoveEntity(10, new SurfaceCell(FaceId.Floor, 1, 0));
+
+            var movedSnapshot = worldState.CreateSnapshot();
+            Assert.That(movedSnapshot.TryGetUnitKinematicState(10, out _), Is.False);
+            Assert.That(movedSnapshot.TryGetUnitKinematicPose(10, out var pose), Is.True);
+            Assert.That(pose.HasAuthoritativeState, Is.False);
+            Assert.That(pose.AnchorCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void FinalizationBatch_SetUnitKinematicState_AppliesOnlyThroughWorldWriteContext()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { CreateUnit(10) });
+            var batch = new FinalizationBatch();
+            batch.SetUnitKinematicState(10, CreateOffsetState(localX: 0, localY: -512));
+
+            batch.ApplyTo(worldState.CreateWriteContext(), delayedAttackEffectSink: null);
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetUnitKinematicPose(10, out var pose), Is.True);
+            Assert.That(pose.HasAuthoritativeState, Is.True);
+            Assert.That(pose.LocalOffset.Y.RawValue, Is.EqualTo(-512));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void DeterminismHashBuilder_UnitKinematicsAffectHashAndSettledZeroIsOmitted()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { CreateUnit(10) });
+            var baselineSnapshot = worldState.CreateSnapshot();
+            var baselineHash = BuildHash(baselineSnapshot);
+
+            worldState.CreateWriteContext().SetUnitKinematicState(10, CreateOffsetState(localX: 1024, localY: 0));
+            var movingSnapshot = worldState.CreateSnapshot();
+            var movingHash = BuildHash(movingSnapshot);
+
+            worldState.CreateWriteContext().SetUnitKinematicState(10, UnitKinematicRuntimeState.SettledZero);
+            var settledSnapshot = worldState.CreateSnapshot();
+            var settledHash = BuildHash(settledSnapshot);
+
+            Assert.That(movingHash, Is.Not.EqualTo(baselineHash));
+            Assert.That(settledSnapshot.TryGetUnitKinematicState(10, out _), Is.False);
+            Assert.That(settledHash, Is.EqualTo(baselineHash));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void UnitSpatialQuery_TryResolveSettledProbeCell_RejectsNonSettledPose()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { CreateUnit(10) });
+            worldState.CreateWriteContext().SetUnitKinematicState(10, CreateOffsetState(localX: 1024, localY: 0));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(
+                UnitSpatialQuery.TryResolveSettledProbeCell(snapshot, 10, Direction.Right, out var result),
+                Is.False);
+            Assert.That(result.RejectedBy, Is.EqualTo(UnitProbeRejectionReason.NotSettledAtAnchor));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CreateInterruptedFreeze_PreservesOffsetAndZerosMotion()
+        {
+            var sourceState = CreateOffsetState(localX: 1024, localY: 0);
+
+            var interrupted = UnitKinematicRuntimeState.CreateInterruptedFreeze(sourceState);
+
+            Assert.That(interrupted.localOffset.X.RawValue, Is.EqualTo(1024));
+            Assert.That(interrupted.localOffset.Y.RawValue, Is.EqualTo(0));
+            Assert.That(interrupted.velocity.IsZero, Is.True);
+            Assert.That(interrupted.mode, Is.EqualTo(MotionMode.Interrupted));
+            Assert.That(interrupted.forcedOp, Is.EqualTo(ForcedMotionOp.None));
+            Assert.That(interrupted.remainingDistanceUnits, Is.EqualTo(0));
+            Assert.That(interrupted.remainingTicks, Is.EqualTo(0));
+            Assert.That(interrupted.speedScalePermille, Is.EqualTo(0));
+            Assert.That(interrupted.sequenceId, Is.EqualTo(sourceState.sequenceId + 1));
+            Assert.That(interrupted.elapsedTicks, Is.EqualTo(0));
+            Assert.That(interrupted.totalTicks, Is.EqualTo(0));
+            Assert.That(interrupted.commitTick, Is.EqualTo(0));
+            Assert.That(interrupted.startedTick, Is.EqualTo(0));
+            Assert.That(interrupted.stepDirectionX, Is.EqualTo(0));
+            Assert.That(interrupted.stepDirectionY, Is.EqualTo(0));
+        }
+
+        [TestCase(30, 10)]
+        [TestCase(60, 20)]
+        [TestCase(120, 40)]
+        [Category("Extended")]
+        public void PlayerKinematicLocomotionTimingSettings_DefaultDuration_QuantizesToEvenTicks(
+            int simulationTicksPerSecond,
+            int expectedTicksPerCell)
+        {
+            var snapshot = PlayerKinematicLocomotionTimingSettings.CreateDefault()
+                .CreateAuthoritativeSnapshot(simulationTicksPerSecond);
+
+            Assert.That(snapshot.TicksPerCell, Is.EqualTo(expectedTicksPerCell));
+            Assert.That(snapshot.CommitTick, Is.EqualTo(expectedTicksPerCell / 2));
+        }
+
+        [TestCase(30, 12)]
+        [TestCase(60, 22)]
+        [TestCase(120, 42)]
+        [Category("Extended")]
+        public void PlayerKinematicLocomotionTimingSettings_ExplicitPointThirtyFive_UsesEvenCeil(
+            int simulationTicksPerSecond,
+            int expectedTicksPerCell)
+        {
+            var snapshot = new PlayerKinematicLocomotionTimingSettings
+            {
+                KinematicMoveDurationSeconds = 0.35f,
+            }.CreateAuthoritativeSnapshot(simulationTicksPerSecond);
+
+            Assert.That(snapshot.TicksPerCell, Is.EqualTo(expectedTicksPerCell));
+            Assert.That(snapshot.CommitTick, Is.EqualTo(expectedTicksPerCell / 2));
+        }
+
+        [TestCase(0f)]
+        [TestCase(-0.1f)]
+        [TestCase(2.01f)]
+        [Category("Extended")]
+        public void PlayerKinematicLocomotionTimingSettings_InvalidDuration_Throws(float durationSeconds)
+        {
+            var settings = new PlayerKinematicLocomotionTimingSettings
+            {
+                KinematicMoveDurationSeconds = durationSeconds,
+            };
+
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => settings.CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void KinematicProgressResolver_TwentyTickRightMove_UsesProgressTableAndSettlesZero()
+        {
+            var source = new SurfaceCell(FaceId.Floor, 0, 0);
+
+            var tickOne = KinematicProgressResolver.ResolvePose(source, 1, 0, elapsedTicks: 1, totalTicks: 20);
+            var tickNine = KinematicProgressResolver.ResolvePose(source, 1, 0, elapsedTicks: 9, totalTicks: 20);
+            var tickTen = KinematicProgressResolver.ResolvePose(source, 1, 0, elapsedTicks: 10, totalTicks: 20);
+            var tickNineteen = KinematicProgressResolver.ResolvePose(tickTen.AnchorCell, 1, 0, elapsedTicks: 19, totalTicks: 20);
+            var tickTwenty = KinematicProgressResolver.ResolvePose(tickTen.AnchorCell, 1, 0, elapsedTicks: 20, totalTicks: 20);
+
+            Assert.That(tickOne.AnchorCell, Is.EqualTo(source));
+            Assert.That(tickOne.LocalOffset.X.RawValue, Is.EqualTo(205));
+            Assert.That(tickNine.LocalOffset.X.RawValue, Is.EqualTo(1843));
+            Assert.That(tickTen.AnchorCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(tickTen.LocalOffset.X.RawValue, Is.EqualTo(-2048));
+            Assert.That(tickTen.IsAnchorCommitTick, Is.True);
+            Assert.That(tickNineteen.LocalOffset.X.RawValue, Is.EqualTo(-205));
+            Assert.That(tickTwenty.IsSettled, Is.True);
+            Assert.That(tickTwenty.LocalOffset.IsZero, Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void KinematicProgressResolver_TwentyTwoTickRightMove_UsesProgressTable()
+        {
+            var source = new SurfaceCell(FaceId.Floor, 0, 0);
+
+            var tickOne = KinematicProgressResolver.ResolvePose(source, 1, 0, elapsedTicks: 1, totalTicks: 22);
+            var tickTen = KinematicProgressResolver.ResolvePose(source, 1, 0, elapsedTicks: 10, totalTicks: 22);
+            var tickEleven = KinematicProgressResolver.ResolvePose(source, 1, 0, elapsedTicks: 11, totalTicks: 22);
+            var tickTwentyOne = KinematicProgressResolver.ResolvePose(tickEleven.AnchorCell, 1, 0, elapsedTicks: 21, totalTicks: 22);
+
+            Assert.That(tickOne.LocalOffset.X.RawValue, Is.EqualTo(186));
+            Assert.That(tickTen.LocalOffset.X.RawValue, Is.EqualTo(1862));
+            Assert.That(tickEleven.AnchorCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(tickEleven.LocalOffset.X.RawValue, Is.EqualTo(-2048));
+            Assert.That(tickTwentyOne.LocalOffset.X.RawValue, Is.EqualTo(-186));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void KinematicProgressResolver_NegativeDirectionCommitOffset_IsRepresentable()
+        {
+            var source = new SurfaceCell(FaceId.Floor, 0, 0);
+
+            var commit = KinematicProgressResolver.ResolvePose(source, -1, 0, elapsedTicks: 10, totalTicks: 20);
+
+            Assert.That(commit.AnchorCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
+            Assert.That(commit.LocalOffset.X.RawValue, Is.EqualTo(KinematicFixed.MaxPositiveLocalOffset));
+            Assert.That(commit.LocalOffset.IsRepresentableLocalOffset, Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WorldState_RemoveEntity_PurgesUnitKinematicState()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { CreateUnit(10) });
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetUnitKinematicState(10, CreateOffsetState(localX: 1024, localY: 0));
+
+            writeContext.RemoveEntity(10);
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out _), Is.False);
+            Assert.That(snapshot.TryGetUnitKinematicState(10, out _), Is.False);
+            Assert.That(snapshot.TryGetUnitKinematicPose(10, out _), Is.False);
+        }
+
+        private static string BuildHash(WorldSnapshot snapshot)
+        {
+            var finalEntities = new List<EntityState>();
+            snapshot.EnumerateEntitiesOrdered(finalEntities);
+            return new DeterminismHashBuilder().Build(
+                tickIndex: 7,
+                snapshot,
+                new TickResultData(
+                    finalEntities,
+                    Array.Empty<DelayedAttackEffectRecord>(),
+                    Array.Empty<string>()));
+        }
+
+        private static UnitKinematicRuntimeState CreateOffsetState(int localX, int localY)
+        {
+            return new UnitKinematicRuntimeState
+            {
+                localOffset = new KinematicOffset2(KinematicFixed.FromRaw(localX), KinematicFixed.FromRaw(localY)),
+                velocity = new KinematicVelocity2(KinematicFixed.FromRaw(localX == 0 ? 0 : 1024), KinematicFixed.Zero),
+                mode = MotionMode.Voluntary,
+                forcedOp = ForcedMotionOp.None,
+                remainingDistanceUnits = 4096,
+                remainingTicks = 3,
+                speedScalePermille = 1000,
+                sequenceId = 1,
+                elapsedTicks = 1,
+                totalTicks = 20,
+                commitTick = 10,
+                startedTick = 7,
+                stepDirectionX = localX == 0 ? 0 : 1,
+                stepDirectionY = localY == 0 ? 0 : 1,
+            };
+        }
+
+        private static EntityState CreateUnit(int entityId)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = new SurfaceCell(FaceId.Floor, 0, 0),
+                hp = 3,
+                maxHp = 3,
+                teamId = 1,
+                type = EntityType.Unit,
+                facing = Direction.Right,
+                boardPresence = EntityBoardPresence.Occupying,
+            };
+        }
+    }
+}

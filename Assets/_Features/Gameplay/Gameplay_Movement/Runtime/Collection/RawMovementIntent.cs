@@ -17,17 +17,17 @@ namespace Game.Feature.Gameplay.Movement.Collection
     public readonly struct RawMovementIntent
     {
         public RawMovementIntent(int sourceId, int priority)
-            : this(sourceId, priority, Vector2Int.zero, MovementCommandKind.Move, 0, 0)
+            : this(sourceId, priority, Vector2Int.zero, MovementCommandKind.Move, 0, 0, 0)
         {
         }
 
         public RawMovementIntent(int sourceId, int priority, Vector2Int destination)
-            : this(sourceId, priority, destination, MovementCommandKind.Move, 0, 0)
+            : this(sourceId, priority, destination, MovementCommandKind.Move, 0, 0, 0)
         {
         }
 
         public RawMovementIntent(int sourceId, int priority, Vector2Int destination, MovementCommandKind commandKind)
-            : this(sourceId, priority, destination, commandKind, 0, 0)
+            : this(sourceId, priority, destination, commandKind, 0, 0, 0)
         {
         }
 
@@ -37,7 +37,8 @@ namespace Game.Feature.Gameplay.Movement.Collection
             Vector2Int destination,
             MovementCommandKind commandKind,
             int localSequence,
-            int moveCooldownTicks = 0)
+            int moveCooldownTicks = 0,
+            int ordinaryKinematicMoveTicks = 0)
         {
             SourceId = sourceId;
             Priority = priority;
@@ -45,6 +46,7 @@ namespace Game.Feature.Gameplay.Movement.Collection
             CommandKind = commandKind;
             LocalSequence = localSequence;
             MoveCooldownTicks = moveCooldownTicks;
+            OrdinaryKinematicMoveTicks = ordinaryKinematicMoveTicks;
         }
 
         public int SourceId { get; }
@@ -58,5 +60,7 @@ namespace Game.Feature.Gameplay.Movement.Collection
         public int LocalSequence { get; }
 
         public int MoveCooldownTicks { get; }
+
+        public int OrdinaryKinematicMoveTicks { get; }
     }
 }

@@ -27,10 +27,6 @@ namespace Game.Feature.UI.Screens
         private bool _hasRootRestAlpha;
         private float _rootRestAlpha = 1f;
 
-        public event Action OverviewRequested;
-
-        public event Action SessionRequested;
-
         public event Action InfoRequested;
 
         public event Action BackRequested;
@@ -66,26 +62,6 @@ namespace Game.Feature.UI.Screens
             RefreshView();
         }
 
-        public void ClickOverview()
-        {
-            if (!IsVisible)
-            {
-                return;
-            }
-
-            OverviewRequested?.Invoke();
-        }
-
-        public void ClickSession()
-        {
-            if (!IsVisible)
-            {
-                return;
-            }
-
-            SessionRequested?.Invoke();
-        }
-
         public void ClickInfo()
         {
             if (!IsVisible)
@@ -108,8 +84,6 @@ namespace Game.Feature.UI.Screens
 
         private void OnEnable()
         {
-            RebindButton(_overviewButton, ClickOverview);
-            RebindButton(_sessionButton, ClickSession);
             RebindButton(_infoButton, ClickInfo);
             RebindButton(_backButton, ClickBack);
             RefreshView();
@@ -118,8 +92,6 @@ namespace Game.Feature.UI.Screens
         private void OnDisable()
         {
             StopRootEnterMotion();
-            UnbindButton(_overviewButton, ClickOverview);
-            UnbindButton(_sessionButton, ClickSession);
             UnbindButton(_infoButton, ClickInfo);
             UnbindButton(_backButton, ClickBack);
         }
@@ -157,6 +129,8 @@ namespace Game.Feature.UI.Screens
         private void RefreshView()
         {
             ApplyRootVisibility();
+            HideLegacyTabButton(_overviewButton);
+            HideLegacyTabButton(_sessionButton);
 
             if (_viewModel == null)
             {
@@ -188,15 +162,6 @@ namespace Game.Feature.UI.Screens
                 _secondaryLabel.text = _viewModel.SecondaryText;
             }
 
-            if (_overviewButton != null)
-            {
-                _overviewButton.interactable = !_viewModel.IsOverviewSelected;
-            }
-
-            if (_sessionButton != null)
-            {
-                _sessionButton.interactable = !_viewModel.IsSessionSelected;
-            }
         }
 
         private void ApplyRootVisibility()
@@ -265,6 +230,16 @@ namespace Game.Feature.UI.Screens
             }
 
             button.onClick.RemoveListener(action);
+        }
+
+        private static void HideLegacyTabButton(Button button)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            button.gameObject.SetActive(false);
         }
 
 #if UNITY_EDITOR

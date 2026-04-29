@@ -140,7 +140,7 @@ namespace Game.Feature.UI.Composition
 
         private ScreenRuntimeFactoryResult CreateObjectiveStatusRuntime()
         {
-            var objectiveStatusPresenter = new ObjectiveStatusPresenter(_queryFacade, _presentationSource);
+            var objectiveStatusPresenter = new ObjectiveStatusPresenter(_presentationSource);
             var presenter = new ObjectiveStatusScreenPresenter(objectiveStatusPresenter);
             var view = InstantiateScreenPrefab(_screenPrefabCatalog.ObjectiveStatusPrefab, ScreenId.ObjectiveStatus);
             view.Bind(presenter.ViewModel);
@@ -447,8 +447,6 @@ namespace Game.Feature.UI.Composition
                 : base(view, uiAudioPort, dispose)
             {
                 _presenter = presenter;
-                view.OverviewRequested += HandleOverviewRequested;
-                view.SessionRequested += HandleSessionRequested;
                 view.InfoRequested += HandleInfoRequested;
                 view.BackRequested += HandleBackRequested;
             }
@@ -460,25 +458,11 @@ namespace Game.Feature.UI.Composition
 
             public override void Dispose()
             {
-                View.OverviewRequested -= HandleOverviewRequested;
-                View.SessionRequested -= HandleSessionRequested;
                 View.InfoRequested -= HandleInfoRequested;
                 View.BackRequested -= HandleBackRequested;
                 View.Bind(null);
                 _presenter.Dispose();
                 base.Dispose();
-            }
-
-            private void HandleOverviewRequested()
-            {
-                _presenter.ShowOverview();
-                PlayLocalCue(UiAudioCueId.Select);
-            }
-
-            private void HandleSessionRequested()
-            {
-                _presenter.ShowSession();
-                PlayLocalCue(UiAudioCueId.Select);
             }
 
             private void HandleInfoRequested()

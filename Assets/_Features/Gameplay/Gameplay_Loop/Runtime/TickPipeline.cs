@@ -49,7 +49,9 @@ namespace Game.Feature.Gameplay.Loop
         private readonly int _playerMoveCooldownTicks;
         private readonly int _playerDamageCooldownTicks;
         private readonly int _playerRespawnDelayTicks;
+        private readonly PlayerKinematicLocomotionTimingSnapshot _playerKinematicLocomotionTiming;
         private readonly bool _allowPlayerRespawn;
+        private readonly GameplayRuntimeFeatureFlags _runtimeFeatureFlags;
         private readonly int _slidingStateTimerTicks;
         private readonly WorldState _worldState;
 
@@ -62,7 +64,9 @@ namespace Game.Feature.Gameplay.Loop
             int playerRespawnDelayTicks = 1,
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
             IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> enemySpawnDefaultsByArchetypeId = null,
-            bool allowPlayerRespawn = true)
+            bool allowPlayerRespawn = true,
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
+            PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming = default)
         {
             _worldState = worldState ?? throw new ArgumentNullException(nameof(worldState));
 
@@ -88,7 +92,12 @@ namespace Game.Feature.Gameplay.Loop
             _playerMoveCooldownTicks = Math.Max(0, playerControlTiming.MoveCooldownTicks);
             _playerDamageCooldownTicks = Math.Max(0, playerControlTiming.DamageCooldownTicks);
             _playerRespawnDelayTicks = playerRespawnDelayTicks;
+            _playerKinematicLocomotionTiming = playerKinematicLocomotionTiming.IsConfigured
+                ? playerKinematicLocomotionTiming
+                : PlayerKinematicLocomotionTimingSettings.CreateDefault()
+                    .CreateAuthoritativeSnapshot(resolvedGeneralTimingProfile.SimulationTicksPerSecond);
             _allowPlayerRespawn = allowPlayerRespawn;
+            _runtimeFeatureFlags = runtimeFeatureFlags;
             _moveOccupancyTicks = resolvedGeneralTimingProfile.MoveOccupancyTicks;
             _playerRespawnTemplates = BuildPlayerRespawnTemplates(
                 SnapshotBuilder.Create(_worldState),
@@ -338,6 +347,54 @@ namespace Game.Feature.Gameplay.Loop
             return new PreMovementStatePhaseResult(updates, actionTransitions, rejectedReasons);
         }
 
+        private static void CloseInterruptedPlayerKinematics(
+            WorldSnapshot snapshot,
+            FinalizationBatch batch,
+            List<string> eventLogEntries)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (batch == null)
+            {
+                throw new ArgumentNullException(nameof(batch));
+            }
+
+            if (eventLogEntries == null)
+            {
+                throw new ArgumentNullException(nameof(eventLogEntries));
+            }
+
+            var entities = new List<EntityState>();
+            snapshot.EnumerateEntitiesOrdered(entities);
+            for (var i = 0; i < entities.Count; i++)
+            {
+                var entity = entities[i];
+                if (entity.hp <= 0 ||
+                    entity.markedForDeath ||
+                    !snapshot.TryGetPlayerControlState(entity.entityId, out _) ||
+                    !snapshot.TryGetUnitKinematicPose(entity.entityId, out var pose) ||
+                    !pose.HasAuthoritativeState ||
+                    pose.Mode != MotionMode.Interrupted)
+                {
+                    continue;
+                }
+
+                batch.SetUnitKinematicState(
+                    entity.entityId,
+                    UnitKinematicRuntimeState.SettledZero,
+                    new FinalizationOperationMetadata(
+                        TickPhase.Plan,
+                        ResolvedActionSemanticKind.Stop,
+                        entity.entityId,
+                        actionPlanId: 0));
+                eventLogEntries.Add(
+                    $"KinematicInterruptClosed|E={entity.entityId}|Anchor={FormatCell(pose.AnchorCell)}|Offset={pose.LocalOffset}");
+            }
+        }
+
         private PlanPhaseResult RunPlanPhase(
             WorldSnapshot snapshot,
             in TickInput input,
@@ -360,6 +417,19 @@ namespace Game.Feature.Gameplay.Loop
             projectedWorld.ApplyBatch(beforeMovementAiBatch);
             var snapshotAfterEnemyAi = projectedWorld.CreateSnapshot();
 
+            var kinematicClosureBatch = new FinalizationBatch();
+            var kinematicClosureEvents = new List<string>();
+            if (_runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion)
+            {
+                CloseInterruptedPlayerKinematics(
+                    snapshotAfterEnemyAi,
+                    kinematicClosureBatch,
+                    kinematicClosureEvents);
+                planFinalizationBatch.MergeFrom(kinematicClosureBatch);
+                projectedWorld.ApplyBatch(kinematicClosureBatch);
+                snapshotAfterEnemyAi = projectedWorld.CreateSnapshot();
+            }
+
             var preMovementBatch = new FinalizationBatch();
             var utilityTriggerIntents = new List<EnemyUtilityTriggerIntent>();
             var preMovementContext = new RecordingFinalizationContext(
@@ -372,6 +442,10 @@ namespace Game.Feature.Gameplay.Loop
                 snapshotAfterEnemyAi,
                 in input,
                 preMovementContext);
+            if (kinematicClosureEvents.Count > 0)
+            {
+                preMovementStateResult.EventLogEntries.InsertRange(0, kinematicClosureEvents);
+            }
             utilityTriggerIntents.Sort(EnemyUtilityTriggerIntentComparer.Instance);
             preMovementStateResult.UtilityTriggerIntents.AddRange(utilityTriggerIntents);
             planFinalizationBatch.MergeFrom(preMovementBatch);
@@ -412,6 +486,27 @@ namespace Game.Feature.Gameplay.Loop
             var rejectedReasons = new List<string>();
             var executableMovementIntents = FilterExecutionLockedMovementIntents(planSnapshot, input.TickIndex, rawMovementIntents, rejectedReasons);
             var sortedIntents = BuildMovementIntents(executableMovementIntents);
+            var expansionIntents = sortedIntents;
+            var kinematicMovementActionPlanPayloads = new Dictionary<int, MovementActionPlanPayload>();
+            if (_runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion)
+            {
+                expansionIntents = BuildPlayerSameFaceKinematicLocomotionPlans(
+                    planSnapshot,
+                    sortedIntents,
+                    input.TickIndex,
+                    rejectedReasons,
+                    kinematicMovementActionPlanPayloads);
+            }
+            if (_runtimeFeatureFlags.EnableEnemySameFaceContinuousLocomotion)
+            {
+                expansionIntents = BuildEnemySameFaceKinematicLocomotionPlans(
+                    planSnapshot,
+                    expansionIntents,
+                    input.TickIndex,
+                    rejectedReasons,
+                    kinematicMovementActionPlanPayloads);
+            }
+
             var playerTraversalSourceIds = CollectPlayerTraversalSourceIds(entityLogicsForTick.MovementLogics);
             var frontFaceSupportContributors = CollectFrontFaceSupportContributors(
                 entityLogicsForTick.FrontFaceSupportLogics,
@@ -423,29 +518,39 @@ namespace Game.Feature.Gameplay.Loop
                 input.TickIndex);
             var frontFaceShieldBlockExports = new List<FrontFaceShieldBlockPresentationExport>();
             var expandedCandidates = new List<ActionGroup>();
+            var preExpansionRejectedReasons = new List<string>(rejectedReasons);
             _movementExpander.Expand(
                 planSnapshot,
                 input.TickIndex,
-                sortedIntents,
+                expansionIntents,
                 playerTraversalSourceIds,
                 frontFaceSupportContributors,
                 expandedCandidates,
                 rejectedReasons,
                 frontFaceShieldBlockExports);
+            if (preExpansionRejectedReasons.Count > 0)
+            {
+                rejectedReasons.InsertRange(0, preExpansionRejectedReasons);
+            }
+
             expandedCandidates.Sort(ActionGroupComparer.Instance);
             AssignMovementGroupIds(expandedCandidates);
             var movementActionPlanPayloads = BuildMovementActionPlanPayloads(
                 planSnapshot,
-                sortedIntents,
+                expansionIntents,
                 expandedCandidates,
                 rejectedReasons,
                 input.TickIndex);
-            var orderedMovementActionPlanIds = BuildOrderedMovementActionPlanIds(planSnapshot, expandedCandidates);
+            MergeMovementActionPlanPayloads(movementActionPlanPayloads, kinematicMovementActionPlanPayloads);
+            var orderedMovementActionPlanIds = BuildOrderedMovementActionPlanIds(planSnapshot, movementActionPlanPayloads);
             var jumpLandingActionPlanPayloads = BuildJumpLandingActionPlanPayloads(jumpLandingPlans);
             var orderedJumpLandingActionPlanIds = BuildOrderedJumpLandingActionPlanIds(jumpLandingPlans);
             var phaseRelocationActionPlanPayloads = BuildPhaseRelocationActionPlanPayloads(phaseRelocationPlans);
             var orderedPhaseRelocationActionPlanIds = BuildOrderedPhaseRelocationActionPlanIds(phaseRelocationPlans);
-            var spaceContests = BuildSpaceContests(expandedCandidates, ref nextContestId);
+            var spaceContests = BuildSpaceContests(
+                movementActionPlanPayloads,
+                orderedMovementActionPlanIds,
+                ref nextContestId);
             phaseTrace.Add("Plan:Exit");
             completedPhases.Add(TickPhase.Plan);
 
@@ -836,6 +941,14 @@ namespace Game.Feature.Gameplay.Loop
                 delayedAttackEffects,
                 attackCommitEvents,
                 delayedAttackEnqueueEvents);
+            var motionInterruptRecords = _runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion
+                ? MaterializePlayerKinematicMotionInterrupts(
+                    attackSnapshot,
+                    damageResolutions,
+                    destroyResolutions,
+                    attackStageBatch,
+                    attackCommitEvents)
+                : new List<MotionInterruptRecord>();
             finalizationBatch.MergeFrom(attackStageBatch);
             projectedWorld.ApplyBatch(attackStageBatch);
             AddRange(resolutionRecords, attackResolutionRecords);
@@ -926,7 +1039,8 @@ namespace Game.Feature.Gameplay.Loop
                 attackCommitEvents,
                 attackEventLogEntries,
                 attackRejectedReasons,
-                frozenMovementReservationExport);
+                frozenMovementReservationExport,
+                motionInterruptRecords);
 
             return new ResolvePhaseResult(
                 movementPhaseResult,
@@ -1083,7 +1197,8 @@ namespace Game.Feature.Gameplay.Loop
                 cleanupPhaseResult.RemovedEntityIds,
                 cleanupPhaseResult.TimerChanges,
                 cleanupPhaseResult.StateTransitions,
-                eventLogEntries);
+                eventLogEntries,
+                cleanupPhaseResult.RemovedUnitKinematicPoses);
         }
 
         private RespawnPhaseResult RunRespawnPhase(
@@ -1156,25 +1271,974 @@ namespace Game.Feature.Gameplay.Loop
                         rawIntent.Priority,
                         rawIntent.Destination,
                         rawIntent.LocalSequence,
-                        rawIntent.MoveCooldownTicks),
+                        rawIntent.MoveCooldownTicks,
+                        rawIntent.OrdinaryKinematicMoveTicks),
                     Movement.MovementCommandKind.Flip => new FlipIntent(
                         rawIntent.SourceId,
                         rawIntent.Priority,
                         rawIntent.Destination,
                         rawIntent.LocalSequence,
-                        rawIntent.MoveCooldownTicks),
+                        rawIntent.MoveCooldownTicks,
+                        rawIntent.OrdinaryKinematicMoveTicks),
                     _ => new MoveIntent(
                         rawIntent.SourceId,
                         rawIntent.Priority,
                         rawIntent.Destination,
                         rawIntent.LocalSequence,
-                        rawIntent.MoveCooldownTicks),
+                        rawIntent.MoveCooldownTicks,
+                        rawIntent.OrdinaryKinematicMoveTicks),
                 };
                 moveIntent.AssignIntentId(_idAllocator.AllocateIntentId());
                 sortedIntents.Add(moveIntent);
             }
 
             return sortedIntents;
+        }
+
+        private List<MoveIntent> BuildPlayerSameFaceKinematicLocomotionPlans(
+            WorldSnapshot snapshot,
+            IReadOnlyList<MoveIntent> sortedIntents,
+            int tickIndex,
+            List<string> rejectedReasons,
+            Dictionary<int, MovementActionPlanPayload> kinematicPayloads)
+        {
+            var legacyIntents = new List<MoveIntent>(sortedIntents.Count);
+            var continuingPlayerIds = new HashSet<int>();
+            var entities = new List<EntityState>();
+            snapshot.EnumerateEntitiesOrdered(entities);
+
+            for (var i = 0; i < entities.Count; i++)
+            {
+                var entity = entities[i];
+                if (!snapshot.TryGetPlayerControlState(entity.entityId, out _) ||
+                    !TryBuildPlayerKinematicContinuationPayload(
+                        snapshot,
+                        entity.entityId,
+                        tickIndex,
+                        rejectedReasons,
+                        out var continuationPayload))
+                {
+                    continue;
+                }
+
+                kinematicPayloads.Add(continuationPayload.ActionPlanId, continuationPayload);
+                continuingPlayerIds.Add(entity.entityId);
+            }
+
+            for (var i = 0; i < sortedIntents.Count; i++)
+            {
+                var intent = sortedIntents[i];
+                if (continuingPlayerIds.Contains(intent.SourceId))
+                {
+                    if (intent.CommandKind == Movement.MovementCommandKind.Move)
+                    {
+                        continue;
+                    }
+
+                    legacyIntents.Add(intent);
+                    continue;
+                }
+
+                if (TryBuildPlayerKinematicStartPayload(
+                        snapshot,
+                        intent,
+                        tickIndex,
+                        rejectedReasons,
+                        out var handledByKinematic,
+                        out var startPayload))
+                {
+                    if (startPayload != null)
+                    {
+                        kinematicPayloads.Add(startPayload.ActionPlanId, startPayload);
+                    }
+
+                    if (handledByKinematic)
+                    {
+                        continue;
+                    }
+                }
+
+                legacyIntents.Add(intent);
+            }
+
+            return legacyIntents;
+        }
+
+        private List<MoveIntent> BuildEnemySameFaceKinematicLocomotionPlans(
+            WorldSnapshot snapshot,
+            IReadOnlyList<MoveIntent> sortedIntents,
+            int tickIndex,
+            List<string> rejectedReasons,
+            Dictionary<int, MovementActionPlanPayload> kinematicPayloads)
+        {
+            var legacyIntents = new List<MoveIntent>(sortedIntents.Count);
+            var continuingEnemyIds = new HashSet<int>();
+            var entities = new List<EntityState>();
+            snapshot.EnumerateEntitiesOrdered(entities);
+
+            for (var i = 0; i < entities.Count; i++)
+            {
+                var entity = entities[i];
+                if (!IsEnemyLogicParticipant(entity) ||
+                    !TryBuildEnemyKinematicContinuationPayload(
+                        snapshot,
+                        entity.entityId,
+                        tickIndex,
+                        rejectedReasons,
+                        out var continuationPayload))
+                {
+                    continue;
+                }
+
+                kinematicPayloads.Add(continuationPayload.ActionPlanId, continuationPayload);
+                continuingEnemyIds.Add(entity.entityId);
+            }
+
+            for (var i = 0; i < sortedIntents.Count; i++)
+            {
+                var intent = sortedIntents[i];
+                if (continuingEnemyIds.Contains(intent.SourceId))
+                {
+                    if (intent.CommandKind == Movement.MovementCommandKind.Move)
+                    {
+                        continue;
+                    }
+
+                    legacyIntents.Add(intent);
+                    continue;
+                }
+
+                if (TryBuildEnemyKinematicStartPayload(
+                        snapshot,
+                        intent,
+                        tickIndex,
+                        rejectedReasons,
+                        out var handledByKinematic,
+                        out var startPayload))
+                {
+                    if (startPayload != null)
+                    {
+                        kinematicPayloads.Add(startPayload.ActionPlanId, startPayload);
+                    }
+
+                    if (handledByKinematic)
+                    {
+                        continue;
+                    }
+                }
+
+                legacyIntents.Add(intent);
+            }
+
+            return legacyIntents;
+        }
+
+        private bool TryBuildEnemyKinematicStartPayload(
+            WorldSnapshot snapshot,
+            MoveIntent intent,
+            int tickIndex,
+            List<string> rejectedReasons,
+            out bool handledByKinematic,
+            out MovementActionPlanPayload payload)
+        {
+            handledByKinematic = false;
+            payload = null;
+
+            if (!TryResolveEnemyKinematicStartScope(
+                    snapshot,
+                    intent,
+                    out var entity,
+                    out var pose,
+                    out var delta,
+                    out var destination,
+                    out var facing))
+            {
+                return false;
+            }
+
+            handledByKinematic = true;
+            var legality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
+                snapshot,
+                EntityType.Unit,
+                destination,
+                entity.entityId,
+                snapshot.Topology,
+                CubeRotationKind.None,
+                snapshot.Topology);
+            if (legality.Verdict != LegalityVerdict.Allowed)
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Plan|Source={intent.SourceId}|I={intent.IntentId}|Reason=EnemyKinematicTraversalBlocked|Cell={FormatCell(destination)}|{LegalityDiagnosticsFormatter.FormatStableSummary(legality)}");
+                return true;
+            }
+
+            if (!TryResolveKinematicVelocity(delta, out var velocity, out _))
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Plan|Source={intent.SourceId}|I={intent.IntentId}|Reason=EnemyKinematicSweepRejected|RejectedBy={KinematicSweepRejectionReason.NonCardinalDelta}|Anchor={FormatCell(entity.position)}");
+                return true;
+            }
+
+            if (!SurfaceKinematicSweepQueries.TryResolveSameFaceDelta(
+                    snapshot,
+                    entity.entityId,
+                    velocity,
+                    out var sweep) ||
+                sweep.Blocked)
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Plan|Source={intent.SourceId}|I={intent.IntentId}|Reason=EnemyKinematicSweepRejected|RejectedBy={sweep.RejectedBy}|Anchor={FormatCell(entity.position)}");
+                return true;
+            }
+
+            var totalTicks = intent.OrdinaryKinematicMoveTicks > 0
+                ? intent.OrdinaryKinematicMoveTicks
+                : _playerKinematicLocomotionTiming.TicksPerCell;
+            var outcome = CreateKinematicMotionOutcome(
+                sweep,
+                entity.position,
+                sourceState: pose.State,
+                stepDirectionX: delta.x,
+                stepDirectionY: delta.y,
+                elapsedTicks: 1,
+                totalTicks: totalTicks,
+                startedTick: tickIndex);
+            payload = CreateKinematicMovementPayload(
+                _idAllocator.AllocateGroupId(),
+                intent.IntentId,
+                entity.entityId,
+                intent.Priority,
+                outcome,
+                facing,
+                writeFacing: true,
+                enemyLocomotionWrites: CreateEnemyKinematicLocomotionWrites(entity, intent),
+                enemyPatrolWrites: CreateEnemyKinematicPatrolWrites(snapshot, entity, delta),
+                executionLockWrites: CreateEnemyKinematicExecutionLockWrites(snapshot, entity, tickIndex));
+            return true;
+        }
+
+        private bool TryBuildEnemyKinematicContinuationPayload(
+            WorldSnapshot snapshot,
+            int entityId,
+            int tickIndex,
+            List<string> rejectedReasons,
+            out MovementActionPlanPayload payload)
+        {
+            payload = null;
+            if (!snapshot.TryGetEntity(entityId, out var entity) ||
+                !IsEnemyOrdinaryKinematicParticipant(snapshot, entity) ||
+                !snapshot.TryGetUnitKinematicPose(entityId, out var pose) ||
+                pose.IsSettledAtAnchor ||
+                pose.Mode != MotionMode.Voluntary ||
+                !TryResolveStepDirection(pose.State, out var stepDirectionX, out var stepDirectionY, out var facing))
+            {
+                return false;
+            }
+
+            var nextElapsedTicks = pose.State.elapsedTicks + 1;
+            if (pose.State.totalTicks < 2 ||
+                (pose.State.totalTicks % 2) != 0 ||
+                nextElapsedTicks <= 0)
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Plan|Source={entityId}|Reason=EnemyKinematicContinuationCorrupt|Anchor={FormatCell(entity.position)}");
+                return false;
+            }
+
+            var outcome = CreateKinematicMotionOutcome(
+                entityId,
+                pose.AnchorCell,
+                pose.LocalOffset,
+                pose.State,
+                stepDirectionX,
+                stepDirectionY,
+                nextElapsedTicks,
+                pose.State.totalTicks,
+                pose.State.startedTick);
+            payload = CreateKinematicMovementPayload(
+                _idAllocator.AllocateGroupId(),
+                _idAllocator.AllocateIntentId(),
+                entityId,
+                priority: 100,
+                outcome: outcome,
+                facing: facing,
+                writeFacing: true);
+
+            return true;
+        }
+
+        private static bool TryResolveEnemyKinematicStartScope(
+            WorldSnapshot snapshot,
+            MoveIntent intent,
+            out EntityState entity,
+            out UnitKinematicPose pose,
+            out Vector2Int delta,
+            out SurfaceCell destination,
+            out Direction facing)
+        {
+            entity = default;
+            pose = default;
+            delta = Vector2Int.zero;
+            destination = default;
+            facing = Direction.None;
+
+            if (intent == null ||
+                intent.CommandKind != Movement.MovementCommandKind.Move ||
+                !snapshot.TryGetEntity(intent.SourceId, out entity) ||
+                !IsEnemyOrdinaryKinematicParticipant(snapshot, entity) ||
+                !snapshot.TryGetUnitKinematicPose(intent.SourceId, out pose) ||
+                !pose.IsSettledAtAnchor)
+            {
+                return false;
+            }
+
+            delta = intent.Destination - entity.position.PlanarPosition;
+            if (!TryResolveKinematicVelocity(delta, out _, out facing) ||
+                !snapshot.TryResolveUnitStep(
+                    entity.position,
+                    delta,
+                    out destination,
+                    out var rotationKind,
+                    out _) ||
+                rotationKind != CubeRotationKind.None ||
+                destination.face != entity.position.face ||
+                destination.PlanarPosition != intent.Destination)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool IsEnemyOrdinaryKinematicParticipant(WorldSnapshot snapshot, in EntityState entity)
+        {
+            if (!IsEnemyLogicParticipant(entity) ||
+                !EnemyParticipationPolicy.IsControllableParticipant(snapshot, entity) ||
+                entity.aiMode == EnemyAiMode.Charge)
+            {
+                return false;
+            }
+
+            if (snapshot.TryGetEnemyJumpState(entity.entityId, out var jumpState) &&
+                jumpState.IsActive)
+            {
+                return false;
+            }
+
+            if (snapshot.TryGetEnemyGlideState(entity.entityId, out var glideState) &&
+                glideState.HasAuthoritativeRecord &&
+                glideState.Phase != EnemyGlidePhase.Ready)
+            {
+                return false;
+            }
+
+            if (snapshot.TryGetEnemyChargeState(entity.entityId, out var chargeState) &&
+                chargeState.IsActive)
+            {
+                return false;
+            }
+
+            return !snapshot.TryGetPhasedState(entity.entityId, out var phasedState) ||
+                   !phasedState.IsActive;
+        }
+
+        private static bool IsEnemyLogicParticipant(in EntityState entity)
+        {
+            return entity.type == EntityType.Unit &&
+                   EnemyParticipationPolicy.IsEnemyLogicEntity(entity);
+        }
+
+        private static IReadOnlyList<EnemyLocomotionWritePayload> CreateEnemyKinematicLocomotionWrites(
+            in EntityState entity,
+            MoveIntent intent)
+        {
+            if (entity.aiMode != EnemyAiMode.Patrol &&
+                entity.aiMode != EnemyAiMode.Chase)
+            {
+                return Array.Empty<EnemyLocomotionWritePayload>();
+            }
+
+            return new[]
+            {
+                new EnemyLocomotionWritePayload(entity.entityId, intent.MoveCooldownTicks),
+            };
+        }
+
+        private List<ExecutionLockWritePayload> CreateEnemyKinematicExecutionLockWrites(
+            WorldSnapshot snapshot,
+            in EntityState entity,
+            int tickIndex)
+        {
+            snapshot.TryGetEntityExecutionLockState(entity.entityId, out var previousState);
+            return new List<ExecutionLockWritePayload>
+            {
+                new ExecutionLockWritePayload(
+                    entity.entityId,
+                    EntityExecutionLockQueries.StartMoveLock(previousState, tickIndex, _moveOccupancyTicks)),
+            };
+        }
+
+        private static IReadOnlyList<EnemyPatrolWritePayload> CreateEnemyKinematicPatrolWrites(
+            WorldSnapshot snapshot,
+            in EntityState entity,
+            Vector2Int delta)
+        {
+            if (entity.aiMode != EnemyAiMode.Patrol ||
+                !snapshot.TryGetEnemyPatrolState(entity.entityId, out var enemyPatrolState) ||
+                !enemyPatrolState.IsInitialized ||
+                !EnemyMovementStrategyShared.TryResolveDirection(delta, out var patrolDirection))
+            {
+                return Array.Empty<EnemyPatrolWritePayload>();
+            }
+
+            return new[]
+            {
+                new EnemyPatrolWritePayload(
+                    entity.entityId,
+                    EnemyPatrolQueries.CommitMove(enemyPatrolState, patrolDirection)),
+            };
+        }
+
+        private bool TryBuildPlayerKinematicStartPayload(
+            WorldSnapshot snapshot,
+            MoveIntent intent,
+            int tickIndex,
+            List<string> rejectedReasons,
+            out bool handledByKinematic,
+            out MovementActionPlanPayload payload)
+        {
+            handledByKinematic = false;
+            payload = null;
+
+            if (intent == null ||
+                intent.CommandKind != Movement.MovementCommandKind.Move ||
+                !snapshot.TryGetPlayerControlState(intent.SourceId, out _) ||
+                !snapshot.TryGetEntity(intent.SourceId, out var entity) ||
+                entity.type != EntityType.Unit ||
+                !snapshot.TryGetUnitKinematicPose(intent.SourceId, out var pose) ||
+                !pose.IsSettledAtAnchor)
+            {
+                return false;
+            }
+
+            var delta = intent.Destination - entity.position.PlanarPosition;
+            if (!TryResolveKinematicVelocity(delta, out var velocity, out var facing))
+            {
+                return false;
+            }
+
+            if (!snapshot.TryResolvePlayerStep(
+                    entity.position,
+                    delta,
+                    out var destination,
+                    out var rotationKind,
+                    out var updatedTopology))
+            {
+                return false;
+            }
+
+            if (rotationKind != CubeRotationKind.None ||
+                destination.face != entity.position.face)
+            {
+                return false;
+            }
+
+            handledByKinematic = true;
+            var legality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
+                snapshot,
+                EntityType.Unit,
+                destination,
+                entity.entityId,
+                snapshot.Topology,
+                CubeRotationKind.None,
+                updatedTopology);
+            if (legality.Verdict != LegalityVerdict.Allowed)
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Plan|Source={intent.SourceId}|I={intent.IntentId}|Reason=KinematicTraversalBlocked|Cell={FormatCell(destination)}|{LegalityDiagnosticsFormatter.FormatStableSummary(legality)}");
+                return true;
+            }
+
+            if (!SurfaceKinematicSweepQueries.TryResolveSameFaceDelta(
+                    snapshot,
+                    entity.entityId,
+                    velocity,
+                    out var sweep) ||
+                sweep.Blocked)
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Plan|Source={intent.SourceId}|I={intent.IntentId}|Reason=KinematicSweepRejected|RejectedBy={sweep.RejectedBy}|Anchor={FormatCell(entity.position)}");
+                return true;
+            }
+
+            var outcome = CreateKinematicMotionOutcome(
+                sweep,
+                entity.position,
+                sourceState: pose.State,
+                stepDirectionX: delta.x,
+                stepDirectionY: delta.y,
+                elapsedTicks: 1,
+                totalTicks: _playerKinematicLocomotionTiming.TicksPerCell,
+                startedTick: tickIndex);
+            payload = CreateKinematicMovementPayload(
+                _idAllocator.AllocateGroupId(),
+                intent.IntentId,
+                entity.entityId,
+                intent.Priority,
+                outcome,
+                facing,
+                writeFacing: true);
+            return true;
+        }
+
+        private bool TryBuildPlayerKinematicContinuationPayload(
+            WorldSnapshot snapshot,
+            int entityId,
+            int tickIndex,
+            List<string> rejectedReasons,
+            out MovementActionPlanPayload payload)
+        {
+            payload = null;
+            if (!snapshot.TryGetPlayerControlState(entityId, out _) ||
+                !snapshot.TryGetEntity(entityId, out var entity) ||
+                entity.type != EntityType.Unit ||
+                !snapshot.TryGetUnitKinematicPose(entityId, out var pose) ||
+                pose.IsSettledAtAnchor ||
+                pose.Mode != MotionMode.Voluntary ||
+                !TryResolveStepDirection(pose.State, out var stepDirectionX, out var stepDirectionY, out var facing))
+            {
+                return false;
+            }
+
+            var nextElapsedTicks = pose.State.elapsedTicks + 1;
+            if (pose.State.totalTicks < 2 ||
+                (pose.State.totalTicks % 2) != 0 ||
+                nextElapsedTicks <= 0)
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Plan|Source={entityId}|Reason=KinematicContinuationCorrupt|Anchor={FormatCell(entity.position)}");
+                return false;
+            }
+
+            var outcome = CreateKinematicMotionOutcome(
+                entityId,
+                pose.AnchorCell,
+                pose.LocalOffset,
+                pose.State,
+                stepDirectionX,
+                stepDirectionY,
+                nextElapsedTicks,
+                pose.State.totalTicks,
+                pose.State.startedTick);
+            payload = CreateKinematicMovementPayload(
+                _idAllocator.AllocateGroupId(),
+                _idAllocator.AllocateIntentId(),
+                entityId,
+                priority: 100,
+                outcome: outcome,
+                facing: facing,
+                writeFacing: true);
+
+            return true;
+        }
+
+        private static bool TryResolveKinematicVelocity(
+            Vector2Int delta,
+            out KinematicVelocity2 velocity,
+            out Direction facing)
+        {
+            if (delta == Vector2Int.right)
+            {
+                velocity = new KinematicVelocity2(KinematicFixed.FromRaw(KinematicFixed.DefaultPlayerUnitsPerTick), KinematicFixed.Zero);
+                facing = Direction.Right;
+                return true;
+            }
+
+            if (delta == Vector2Int.left)
+            {
+                velocity = new KinematicVelocity2(KinematicFixed.FromRaw(-KinematicFixed.DefaultPlayerUnitsPerTick), KinematicFixed.Zero);
+                facing = Direction.Left;
+                return true;
+            }
+
+            if (delta == Vector2Int.up)
+            {
+                velocity = new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(KinematicFixed.DefaultPlayerUnitsPerTick));
+                facing = Direction.Up;
+                return true;
+            }
+
+            if (delta == Vector2Int.down)
+            {
+                velocity = new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(-KinematicFixed.DefaultPlayerUnitsPerTick));
+                facing = Direction.Down;
+                return true;
+            }
+
+            velocity = KinematicVelocity2.Zero;
+            facing = Direction.None;
+            return false;
+        }
+
+        private static bool TryResolveFacing(KinematicVelocity2 velocity, out Direction facing)
+        {
+            if (velocity.X.RawValue > 0 && velocity.Y.RawValue == 0)
+            {
+                facing = Direction.Right;
+                return true;
+            }
+
+            if (velocity.X.RawValue < 0 && velocity.Y.RawValue == 0)
+            {
+                facing = Direction.Left;
+                return true;
+            }
+
+            if (velocity.Y.RawValue > 0 && velocity.X.RawValue == 0)
+            {
+                facing = Direction.Up;
+                return true;
+            }
+
+            if (velocity.Y.RawValue < 0 && velocity.X.RawValue == 0)
+            {
+                facing = Direction.Down;
+                return true;
+            }
+
+            facing = Direction.None;
+            return false;
+        }
+
+        private static bool TryResolveStepDirection(
+            UnitKinematicRuntimeState state,
+            out int stepDirectionX,
+            out int stepDirectionY,
+            out Direction facing)
+        {
+            stepDirectionX = state.stepDirectionX;
+            stepDirectionY = state.stepDirectionY;
+            if (stepDirectionX == 1 && stepDirectionY == 0)
+            {
+                facing = Direction.Right;
+                return true;
+            }
+
+            if (stepDirectionX == -1 && stepDirectionY == 0)
+            {
+                facing = Direction.Left;
+                return true;
+            }
+
+            if (stepDirectionY == 1 && stepDirectionX == 0)
+            {
+                facing = Direction.Up;
+                return true;
+            }
+
+            if (stepDirectionY == -1 && stepDirectionX == 0)
+            {
+                facing = Direction.Down;
+                return true;
+            }
+
+            if (!TryResolveFacing(state.velocity, out facing))
+            {
+                return false;
+            }
+
+            switch (facing)
+            {
+                case Direction.Right:
+                    stepDirectionX = 1;
+                    stepDirectionY = 0;
+                    return true;
+                case Direction.Left:
+                    stepDirectionX = -1;
+                    stepDirectionY = 0;
+                    return true;
+                case Direction.Up:
+                    stepDirectionX = 0;
+                    stepDirectionY = 1;
+                    return true;
+                case Direction.Down:
+                    stepDirectionX = 0;
+                    stepDirectionY = -1;
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private static KinematicMotionOutcome CreateKinematicMotionOutcome(KinematicSweepResult sweep)
+        {
+            return new KinematicMotionOutcome(
+                sweep.EntityId,
+                sweep.SourcePose.AnchorCell,
+                sweep.SourcePose.LocalOffset,
+                sweep.ResolvedAnchorCell,
+                sweep.ResolvedLocalOffset,
+                sweep.ResolvedVelocity,
+                CreateVoluntaryKinematicState(sweep.SourcePose.State, sweep.ResolvedLocalOffset, sweep.ResolvedVelocity),
+                sweep.AnchorChanged,
+                blocked: false,
+                rejectedBy: sweep.RejectedBy);
+        }
+
+        private static KinematicMotionOutcome CreateKinematicMotionOutcome(
+            KinematicSweepResult sweep,
+            SurfaceCell currentAnchor,
+            UnitKinematicRuntimeState sourceState,
+            int stepDirectionX,
+            int stepDirectionY,
+            int elapsedTicks,
+            int totalTicks,
+            int startedTick)
+        {
+            return CreateKinematicMotionOutcome(
+                sweep.EntityId,
+                sweep.SourcePose.AnchorCell,
+                sweep.SourcePose.LocalOffset,
+                sourceState,
+                stepDirectionX,
+                stepDirectionY,
+                elapsedTicks,
+                totalTicks,
+                startedTick,
+                currentAnchor);
+        }
+
+        private static KinematicMotionOutcome CreateKinematicMotionOutcome(
+            int entityId,
+            SurfaceCell sourceAnchorCell,
+            KinematicOffset2 sourceLocalOffset,
+            UnitKinematicRuntimeState sourceState,
+            int stepDirectionX,
+            int stepDirectionY,
+            int elapsedTicks,
+            int totalTicks,
+            int startedTick,
+            SurfaceCell? currentAnchorOverride = null)
+        {
+            var currentAnchor = currentAnchorOverride ?? sourceAnchorCell;
+            var resolution = KinematicProgressResolver.ResolvePose(
+                currentAnchor,
+                stepDirectionX,
+                stepDirectionY,
+                elapsedTicks,
+                totalTicks);
+            var resolvedState = CreateVoluntaryKinematicState(
+                sourceState,
+                resolution,
+                stepDirectionX,
+                stepDirectionY,
+                elapsedTicks,
+                totalTicks,
+                startedTick);
+
+            return new KinematicMotionOutcome(
+                entityId,
+                sourceAnchorCell,
+                sourceLocalOffset,
+                resolution.AnchorCell,
+                resolution.LocalOffset,
+                CreateDebugKinematicVelocity(stepDirectionX, stepDirectionY, totalTicks),
+                resolvedState,
+                resolution.IsAnchorCommitTick,
+                blocked: false,
+                rejectedBy: KinematicSweepRejectionReason.None);
+        }
+
+        private static KinematicMotionOutcome CreateBlockedKinematicMotionOutcome(KinematicSweepResult sweep)
+        {
+            return new KinematicMotionOutcome(
+                sweep.EntityId,
+                sweep.SourcePose.AnchorCell,
+                sweep.SourcePose.LocalOffset,
+                sweep.SourcePose.AnchorCell,
+                KinematicOffset2.Zero,
+                KinematicVelocity2.Zero,
+                UnitKinematicRuntimeState.SettledZero,
+                anchorChanged: false,
+                blocked: true,
+                rejectedBy: sweep.RejectedBy);
+        }
+
+        private static UnitKinematicRuntimeState CreateVoluntaryKinematicState(
+            UnitKinematicRuntimeState sourceState,
+            KinematicOffset2 localOffset,
+            KinematicVelocity2 velocity)
+        {
+            if (localOffset.IsZero)
+            {
+                return UnitKinematicRuntimeState.SettledZero;
+            }
+
+            var remainingDistanceUnits = ResolveRemainingVoluntaryDistanceUnits(localOffset, velocity);
+            if (remainingDistanceUnits <= 0)
+            {
+                return UnitKinematicRuntimeState.SettledZero;
+            }
+
+            return new UnitKinematicRuntimeState
+            {
+                localOffset = localOffset,
+                velocity = velocity,
+                mode = MotionMode.Voluntary,
+                forcedOp = ForcedMotionOp.None,
+                remainingDistanceUnits = remainingDistanceUnits,
+                remainingTicks = (remainingDistanceUnits + KinematicFixed.DefaultPlayerUnitsPerTick - 1) /
+                                 KinematicFixed.DefaultPlayerUnitsPerTick,
+                speedScalePermille = 1000,
+                sequenceId = sourceState.sequenceId + 1,
+            }.NormalizedForStorage();
+        }
+
+        private static UnitKinematicRuntimeState CreateVoluntaryKinematicState(
+            UnitKinematicRuntimeState sourceState,
+            KinematicProgressResolution resolution,
+            int stepDirectionX,
+            int stepDirectionY,
+            int elapsedTicks,
+            int totalTicks,
+            int startedTick)
+        {
+            if (resolution.IsSettled)
+            {
+                return UnitKinematicRuntimeState.SettledZero;
+            }
+
+            return new UnitKinematicRuntimeState
+            {
+                localOffset = resolution.LocalOffset,
+                velocity = CreateDebugKinematicVelocity(stepDirectionX, stepDirectionY, totalTicks),
+                mode = MotionMode.Voluntary,
+                forcedOp = ForcedMotionOp.None,
+                remainingDistanceUnits = resolution.RemainingDistanceUnits,
+                remainingTicks = resolution.RemainingTicks,
+                speedScalePermille = 1000,
+                sequenceId = sourceState.sequenceId + 1,
+                elapsedTicks = elapsedTicks,
+                totalTicks = totalTicks,
+                commitTick = totalTicks / 2,
+                startedTick = startedTick,
+                stepDirectionX = stepDirectionX,
+                stepDirectionY = stepDirectionY,
+            }.NormalizedForStorage();
+        }
+
+        private static KinematicVelocity2 CreateDebugKinematicVelocity(
+            int stepDirectionX,
+            int stepDirectionY,
+            int totalTicks)
+        {
+            var unitsPerTick = Math.Max(
+                1,
+                KinematicProgressResolver.ResolveProgressUnits(
+                    1,
+                    Math.Max(2, totalTicks),
+                    KinematicFixed.UnitsPerCell));
+            return new KinematicVelocity2(
+                KinematicFixed.FromRaw(stepDirectionX * unitsPerTick),
+                KinematicFixed.FromRaw(stepDirectionY * unitsPerTick));
+        }
+
+        private static int ResolveRemainingVoluntaryDistanceUnits(
+            KinematicOffset2 localOffset,
+            KinematicVelocity2 velocity)
+        {
+            if (velocity.X.RawValue > 0)
+            {
+                return localOffset.X.RawValue < 0
+                    ? -localOffset.X.RawValue
+                    : KinematicFixed.UnitsPerCell - localOffset.X.RawValue;
+            }
+
+            if (velocity.X.RawValue < 0)
+            {
+                return localOffset.X.RawValue > 0
+                    ? localOffset.X.RawValue
+                    : KinematicFixed.UnitsPerCell + localOffset.X.RawValue;
+            }
+
+            if (velocity.Y.RawValue > 0)
+            {
+                return localOffset.Y.RawValue < 0
+                    ? -localOffset.Y.RawValue
+                    : KinematicFixed.UnitsPerCell - localOffset.Y.RawValue;
+            }
+
+            if (velocity.Y.RawValue < 0)
+            {
+                return localOffset.Y.RawValue > 0
+                    ? localOffset.Y.RawValue
+                    : KinematicFixed.UnitsPerCell + localOffset.Y.RawValue;
+            }
+
+            return 0;
+        }
+
+        private static MovementActionPlanPayload CreateKinematicMovementPayload(
+            int actionPlanId,
+            int intentId,
+            int sourceActorEntityId,
+            int priority,
+            KinematicMotionOutcome outcome,
+            Direction facing,
+            bool writeFacing,
+            IReadOnlyList<EnemyLocomotionWritePayload> enemyLocomotionWrites = null,
+            IReadOnlyList<EnemyPatrolWritePayload> enemyPatrolWrites = null,
+            IReadOnlyList<ExecutionLockWritePayload> executionLockWrites = null)
+        {
+            var destinationCell = outcome.AnchorChanged
+                ? outcome.ResolvedAnchorCell
+                : outcome.SourceAnchorCell;
+            var facingWrites = writeFacing
+                ? new[] { new FacingWritePayload(sourceActorEntityId, facing) }
+                : Array.Empty<FacingWritePayload>();
+
+            return new MovementActionPlanPayload(
+                actionPlanId,
+                intentId,
+                sourceActorEntityId,
+                priority,
+                ResolvedActionSemanticKind.Move,
+                MovementCandidateKind.Move,
+                outcome.SourceAnchorCell,
+                destinationCell,
+                outcome.AnchorChanged,
+                outcome.AnchorChanged
+                    ? new MovementEdge(outcome.SourceAnchorCell, outcome.ResolvedAnchorCell)
+                    : default,
+                new[] { sourceActorEntityId },
+                outcome.AnchorChanged ? MovementReservationKind.Edge : MovementReservationKind.None,
+                MovementBlockingType.NonBlocking,
+                Array.Empty<StateChangeWritePayload>(),
+                Array.Empty<MoveWritePayload>(),
+                Array.Empty<BoardPresenceWritePayload>(),
+                facingWrites,
+                Array.Empty<BoxKineticOwnerWritePayload>(),
+                Array.Empty<TopologyWritePayload>(),
+                executionLockWrites ?? Array.Empty<ExecutionLockWritePayload>(),
+                enemyLocomotionWrites ?? Array.Empty<EnemyLocomotionWritePayload>(),
+                enemyPatrolWrites ?? Array.Empty<EnemyPatrolWritePayload>(),
+                Array.Empty<PlayerControlWritePayload>(),
+                Array.Empty<DestroyWritePayload>(),
+                hasImpactReservationPayload: false,
+                impactReservationPayload: default,
+                hasDeferredImpactPayload: false,
+                deferredImpactPayload: default,
+                kinematicMotionOutcomes: new[] { outcome });
+        }
+
+        private static void MergeMovementActionPlanPayloads(
+            Dictionary<int, MovementActionPlanPayload> destination,
+            IReadOnlyDictionary<int, MovementActionPlanPayload> source)
+        {
+            foreach (var pair in source)
+            {
+                destination.Add(pair.Key, pair.Value);
+            }
         }
 
         private void AssignMovementGroupIds(List<ActionGroup> expandedCandidates)
@@ -1634,16 +2698,20 @@ namespace Game.Feature.Gameplay.Loop
 
         private List<int> BuildOrderedMovementActionPlanIds(
             WorldSnapshot snapshot,
-            IReadOnlyList<ActionGroup> expandedCandidates)
+            IReadOnlyDictionary<int, MovementActionPlanPayload> payloads)
         {
-            var ordered = new List<ActionGroup>(expandedCandidates.Count);
-            AddRange(ordered, expandedCandidates);
+            var ordered = new List<MovementActionPlanPayload>(payloads.Count);
+            foreach (var pair in payloads)
+            {
+                ordered.Add(pair.Value);
+            }
+
             ordered.Sort((left, right) => CompareMovementCanonicalOrder(snapshot, left, right));
 
             var orderedIds = new List<int>(ordered.Count);
             for (var i = 0; i < ordered.Count; i++)
             {
-                orderedIds.Add(ordered[i].GroupId);
+                orderedIds.Add(ordered[i].ActionPlanId);
             }
 
             return orderedIds;
@@ -1699,6 +2767,44 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return left.GroupId.CompareTo(right.GroupId);
+        }
+
+        private static int CompareMovementCanonicalOrder(
+            WorldSnapshot snapshot,
+            MovementActionPlanPayload left,
+            MovementActionPlanPayload right)
+        {
+            var result = right.Priority.CompareTo(left.Priority);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            result = ResolveMovementSourceRank(snapshot, left).CompareTo(ResolveMovementSourceRank(snapshot, right));
+            if (result != 0)
+            {
+                return result;
+            }
+
+            result = ResolveMovementIntentPriority(left).CompareTo(ResolveMovementIntentPriority(right));
+            if (result != 0)
+            {
+                return result;
+            }
+
+            result = left.SourceActorEntityId.CompareTo(right.SourceActorEntityId);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            result = left.IntentId.CompareTo(right.IntentId);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            return left.ActionPlanId.CompareTo(right.ActionPlanId);
         }
 
         private static int CompareAttackCanonicalOrder(WorldSnapshot snapshot, ActionGroup left, ActionGroup right)
@@ -1768,6 +2874,38 @@ namespace Game.Feature.Gameplay.Loop
             return 3;
         }
 
+        private static int ResolveMovementSourceRank(WorldSnapshot snapshot, MovementActionPlanPayload payload)
+        {
+            if (payload.MovementCandidateKind == MovementCandidateKind.BoxImpact)
+            {
+                return 2;
+            }
+
+            if (payload.MovementCandidateKind == MovementCandidateKind.ProjectileImpact)
+            {
+                return 3;
+            }
+
+            if (snapshot.TryGetPlayerControlState(payload.SourceActorEntityId, out _))
+            {
+                return 0;
+            }
+
+            if (snapshot.TryGetEntity(payload.SourceActorEntityId, out var entity) &&
+                entity.type == EntityType.Unit)
+            {
+                return 1;
+            }
+
+            if (snapshot.TryGetEntity(payload.SourceActorEntityId, out entity) &&
+                entity.type == EntityType.Box)
+            {
+                return 2;
+            }
+
+            return 3;
+        }
+
         private static int ResolveAttackSourceRank(WorldSnapshot snapshot, ActionGroup group)
         {
             if (group.AttackSourceKind == AttackSourceKind.DelayedEffect)
@@ -1805,6 +2943,21 @@ namespace Game.Feature.Gameplay.Loop
                 ActionGroupKind.Stop => 4,
                 ActionGroupKind.BoxImpact => 5,
                 ActionGroupKind.ProjectileImpact => 6,
+                _ => 99,
+            };
+        }
+
+        private static int ResolveMovementIntentPriority(MovementActionPlanPayload payload)
+        {
+            return payload.MovementCandidateKind switch
+            {
+                MovementCandidateKind.Move => 0,
+                MovementCandidateKind.Item => 1,
+                MovementCandidateKind.Flip => 2,
+                MovementCandidateKind.Push => 3,
+                MovementCandidateKind.Stop => 4,
+                MovementCandidateKind.BoxImpact => 5,
+                MovementCandidateKind.ProjectileImpact => 6,
                 _ => 99,
             };
         }
@@ -3036,6 +4189,28 @@ namespace Game.Feature.Gameplay.Loop
                     }
                 }
 
+                for (var kinematicIndex = 0; kinematicIndex < payload.KinematicMotionOutcomes.Count; kinematicIndex++)
+                {
+                    var kinematicOutcome = payload.KinematicMotionOutcomes[kinematicIndex];
+                    var kinematicMetadata = CreateMovementMetadata(payload, baseResolution, kinematicIndex);
+                    if (kinematicOutcome.AnchorChanged)
+                    {
+                        batch.MoveEntity(
+                            kinematicOutcome.EntityId,
+                            kinematicOutcome.ResolvedAnchorCell,
+                            kinematicMetadata);
+                        commitEvents.Add(
+                            $"KinematicAnchorCommitted|G={actionPlanId}|I={payload.IntentId}|E={kinematicOutcome.EntityId}|From={FormatCell(kinematicOutcome.SourceAnchorCell)}|To={FormatCell(kinematicOutcome.ResolvedAnchorCell)}");
+                    }
+
+                    batch.SetUnitKinematicState(
+                        kinematicOutcome.EntityId,
+                        kinematicOutcome.ResolvedState,
+                        kinematicMetadata);
+                    commitEvents.Add(
+                        $"KinematicPoseCommitted|G={actionPlanId}|I={payload.IntentId}|E={kinematicOutcome.EntityId}|Anchor={FormatCell(kinematicOutcome.ResolvedAnchorCell)}|Offset={kinematicOutcome.ResolvedLocalOffset}|Mode={kinematicOutcome.ResolvedState.mode}|Blocked={(kinematicOutcome.Blocked ? 1 : 0)}|RejectedBy={kinematicOutcome.RejectedBy}");
+                }
+
                 if (hasDestroySelfDisposition)
                 {
                     var destroySelfMetadata = CreateMovementMetadata(
@@ -3235,6 +4410,131 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return batch;
+        }
+
+        private static List<MotionInterruptRecord> MaterializePlayerKinematicMotionInterrupts(
+            WorldSnapshot attackSnapshot,
+            IReadOnlyList<DamageResolutionRecord> damageResolutions,
+            IReadOnlyList<DestroyResolutionRecord> destroyResolutions,
+            FinalizationBatch attackStageBatch,
+            List<string> commitEvents)
+        {
+            if (attackSnapshot == null)
+            {
+                throw new ArgumentNullException(nameof(attackSnapshot));
+            }
+
+            if (damageResolutions == null)
+            {
+                throw new ArgumentNullException(nameof(damageResolutions));
+            }
+
+            if (destroyResolutions == null)
+            {
+                throw new ArgumentNullException(nameof(destroyResolutions));
+            }
+
+            if (attackStageBatch == null)
+            {
+                throw new ArgumentNullException(nameof(attackStageBatch));
+            }
+
+            if (commitEvents == null)
+            {
+                throw new ArgumentNullException(nameof(commitEvents));
+            }
+
+            var interruptRecords = new List<MotionInterruptRecord>();
+            var interruptedEntityIds = new HashSet<int>();
+            for (var i = 0; i < damageResolutions.Count; i++)
+            {
+                var damageResolution = damageResolutions[i];
+                if (!damageResolution.Accepted)
+                {
+                    continue;
+                }
+
+                TryMaterializePlayerKinematicMotionInterrupt(
+                    attackSnapshot,
+                    attackStageBatch,
+                    commitEvents,
+                    interruptRecords,
+                    interruptedEntityIds,
+                    damageResolution.TargetId,
+                    damageResolution.SourceId,
+                    damageResolution.ActionPlanId,
+                    damageResolution.LocalActionIndex,
+                    damageResolution.SourceKind);
+            }
+
+            for (var i = 0; i < destroyResolutions.Count; i++)
+            {
+                var destroyResolution = destroyResolutions[i];
+                if (!destroyResolution.Accepted)
+                {
+                    continue;
+                }
+
+                TryMaterializePlayerKinematicMotionInterrupt(
+                    attackSnapshot,
+                    attackStageBatch,
+                    commitEvents,
+                    interruptRecords,
+                    interruptedEntityIds,
+                    destroyResolution.TargetId,
+                    destroyResolution.SourceId,
+                    destroyResolution.ActionPlanId,
+                    destroyResolution.LocalActionIndex,
+                    AttackSourceKind.Combat);
+            }
+
+            return interruptRecords;
+        }
+
+        private static bool TryMaterializePlayerKinematicMotionInterrupt(
+            WorldSnapshot attackSnapshot,
+            FinalizationBatch attackStageBatch,
+            List<string> commitEvents,
+            List<MotionInterruptRecord> interruptRecords,
+            HashSet<int> interruptedEntityIds,
+            int targetEntityId,
+            int sourceEntityId,
+            int actionPlanId,
+            int localActionIndex,
+            AttackSourceKind sourceKind)
+        {
+            if (interruptedEntityIds.Contains(targetEntityId) ||
+                !attackSnapshot.TryGetPlayerControlState(targetEntityId, out _) ||
+                !attackSnapshot.TryGetUnitKinematicPose(targetEntityId, out var pose) ||
+                !pose.HasAuthoritativeState ||
+                pose.IsSettledAtAnchor ||
+                pose.Mode != MotionMode.Voluntary)
+            {
+                return false;
+            }
+
+            var interruptedState = UnitKinematicRuntimeState.CreateInterruptedFreeze(pose.State);
+            interruptedEntityIds.Add(targetEntityId);
+            attackStageBatch.SetUnitKinematicState(
+                targetEntityId,
+                interruptedState,
+                new FinalizationOperationMetadata(
+                    TickPhase.Resolve,
+                    ResolvedActionSemanticKind.Attack,
+                    sourceEntityId,
+                    actionPlanId,
+                    localActionIndex: localActionIndex,
+                    attackSourceKind: sourceKind,
+                    damageSourceType: ResolveDamageSourceType(sourceKind)));
+
+            interruptRecords.Add(
+                new MotionInterruptRecord(
+                    targetEntityId,
+                    MotionInterruptPolicy.FreezeCurrentPose,
+                    sourceEntityId));
+            commitEvents.Add(
+                $"KinematicMotionInterrupted|E={targetEntityId}|Source={sourceEntityId}|SourceKind={sourceKind}|Anchor={FormatCell(pose.AnchorCell)}|Offset={pose.LocalOffset}|Mode={interruptedState.mode}");
+            return true;
         }
 
         private static WorldSnapshot CreateCompositeDamageProjectionSnapshot(
@@ -4336,32 +5636,51 @@ namespace Game.Feature.Gameplay.Loop
         }
 
         private static List<Contest> BuildSpaceContests(
-            IReadOnlyList<ActionGroup> candidates,
+            IReadOnlyDictionary<int, MovementActionPlanPayload> payloads,
+            IReadOnlyList<int> orderedActionPlanIds,
             ref int nextContestId)
         {
-            var contests = new List<Contest>(candidates.Count);
+            var contests = new List<Contest>(orderedActionPlanIds.Count);
 
-            for (var i = 0; i < candidates.Count; i++)
+            for (var i = 0; i < orderedActionPlanIds.Count; i++)
             {
-                var candidate = candidates[i];
-                var hasAffectedCell = candidate.Moves.Count > 0;
+                if (!payloads.TryGetValue(orderedActionPlanIds[i], out var payload))
+                {
+                    continue;
+                }
+
+                var hasAffectedCell = payload.MoveWrites.Count > 0 ||
+                                      PayloadHasKinematicAnchorTransition(payload);
                 var affectedCell = hasAffectedCell
-                    ? candidate.Moves[0].DestinationCell
+                    ? payload.DestinationCell
                     : default;
                 contests.Add(
                     new Contest(
                         nextContestId++,
                         ContestKind.Space,
-                        candidate.GroupId,
-                        candidate.SourceId,
-                        candidate.Priority,
-                        candidate.SourceId,
+                        payload.ActionPlanId,
+                        payload.SourceActorEntityId,
+                        payload.Priority,
+                        payload.SourceActorEntityId,
                         affectedCell,
                         hasAffectedCell,
                         localActionIndex: 0));
             }
 
             return contests;
+        }
+
+        private static bool PayloadHasKinematicAnchorTransition(MovementActionPlanPayload payload)
+        {
+            for (var i = 0; i < payload.KinematicMotionOutcomes.Count; i++)
+            {
+                if (payload.KinematicMotionOutcomes[i].AnchorChanged)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static List<Contest> BuildImpactContests(
@@ -5158,7 +6477,7 @@ namespace Game.Feature.Gameplay.Loop
 
     internal sealed class RespawnProcessor
     {
-        private readonly Dictionary<int, int> _eligibleRespawnTicksByEntityId = new();
+        private readonly Dictionary<int, PlayerRespawnDelayState> _respawnDelayStatesByEntityId = new();
 
         public RespawnPhaseResult Process(
             WorldSnapshot tickStartSnapshot,
@@ -5204,6 +6523,7 @@ namespace Game.Feature.Gameplay.Loop
 
             var respawnedEntities = new List<EntityState>();
             var eventLogEntries = new List<string>();
+            var delayRecords = new List<PlayerRespawnDelayRecord>();
             RespawnTopologyResetRequest? topologyResetRequest = null;
             var removedEntityIdsThisTick = cleanupPhaseResult.RemovedEntityIds.Count > 0
                 ? new HashSet<int>(cleanupPhaseResult.RemovedEntityIds)
@@ -5220,32 +6540,61 @@ namespace Game.Feature.Gameplay.Loop
 
                 if (existsAfterCleanup)
                 {
-                    _eligibleRespawnTicksByEntityId.Remove(entityId);
+                    _respawnDelayStatesByEntityId.Remove(entityId);
                     continue;
                 }
 
                 if (removedThisTick)
                 {
-                    _eligibleRespawnTicksByEntityId[entityId] = tickIndex + respawnDelayTicks;
+                    var startedState = new PlayerRespawnDelayState(
+                        tickIndex,
+                        tickIndex + respawnDelayTicks,
+                        respawnDelayTicks,
+                        elapsedEventEmitted: false);
+                    _respawnDelayStatesByEntityId[entityId] = startedState;
+                    delayRecords.Add(CreateDelayRecord(entityId, startedState, tickIndex, startedThisTick: true, elapsedThisTick: false));
+                    eventLogEntries.Add(
+                        $"PlayerRespawnDelayStarted|E={entityId}|StartTick={startedState.StartTick}|EligibleTick={startedState.EligibleTick}|DelayTicks={startedState.DelayTicks}");
                 }
                 else if (existedAtTickStart)
                 {
-                    _eligibleRespawnTicksByEntityId.Remove(entityId);
+                    _respawnDelayStatesByEntityId.Remove(entityId);
                     continue;
                 }
-                else if (!_eligibleRespawnTicksByEntityId.ContainsKey(entityId))
+                else if (!_respawnDelayStatesByEntityId.ContainsKey(entityId))
                 {
-                    _eligibleRespawnTicksByEntityId[entityId] = tickIndex;
+                    _respawnDelayStatesByEntityId[entityId] = new PlayerRespawnDelayState(
+                        tickIndex,
+                        tickIndex,
+                        delayTicks: 0,
+                        elapsedEventEmitted: false);
                 }
 
-                if (tickIndex < _eligibleRespawnTicksByEntityId[entityId])
+                var delayState = _respawnDelayStatesByEntityId[entityId];
+                if (tickIndex < delayState.EligibleTick)
                 {
+                    if (!removedThisTick)
+                    {
+                        delayRecords.Add(CreateDelayRecord(entityId, delayState, tickIndex, startedThisTick: false, elapsedThisTick: false));
+                        eventLogEntries.Add(
+                            $"PlayerRespawnDelayTicking|E={entityId}|StartTick={delayState.StartTick}|EligibleTick={delayState.EligibleTick}|RemainingTicks={Math.Max(0, delayState.EligibleTick - tickIndex)}|Tick={tickIndex}");
+                    }
+
                     continue;
+                }
+
+                if (!delayState.ElapsedEventEmitted)
+                {
+                    delayState = delayState.WithElapsedEventEmitted();
+                    _respawnDelayStatesByEntityId[entityId] = delayState;
+                    delayRecords.Add(CreateDelayRecord(entityId, delayState, tickIndex, startedThisTick: false, elapsedThisTick: true));
+                    eventLogEntries.Add(
+                        $"PlayerRespawnDelayElapsed|E={entityId}|StartTick={delayState.StartTick}|EligibleTick={delayState.EligibleTick}|Tick={tickIndex}");
                 }
 
                 if (!allowRespawn)
                 {
-                    _eligibleRespawnTicksByEntityId.Remove(entityId);
+                    _respawnDelayStatesByEntityId.Remove(entityId);
                     eventLogEntries.Add($"RespawnSuppressed|E={entityId}|Reason=PolicyDisabled|Tick={tickIndex}");
                     continue;
                 }
@@ -5296,12 +6645,29 @@ namespace Game.Feature.Gameplay.Loop
                 writeContext.SetPlayerControlState(respawnEntity.entityId, default);
                 writeContext.SetPlayerDamageState(respawnEntity.entityId, default);
                 respawnedEntities.Add(respawnEntity);
-                _eligibleRespawnTicksByEntityId.Remove(entityId);
+                _respawnDelayStatesByEntityId.Remove(entityId);
                 eventLogEntries.Add(
                     $"RespawnCommitted|E={respawnEntity.entityId}|Pos=({respawnEntity.position.x},{respawnEntity.position.y})|Face={respawnEntity.position.face}|Facing={respawnEntity.facing}|Tick={tickIndex}");
             }
 
-            return new RespawnPhaseResult(respawnedEntities, eventLogEntries, topologyResetRequest);
+            return new RespawnPhaseResult(respawnedEntities, eventLogEntries, delayRecords, topologyResetRequest);
+        }
+
+        private static PlayerRespawnDelayRecord CreateDelayRecord(
+            int entityId,
+            PlayerRespawnDelayState state,
+            int currentTick,
+            bool startedThisTick,
+            bool elapsedThisTick)
+        {
+            return new PlayerRespawnDelayRecord(
+                entityId,
+                state.StartTick,
+                state.EligibleTick,
+                state.DelayTicks,
+                currentTick,
+                startedThisTick,
+                elapsedThisTick);
         }
 
         private static EntityState BuildRespawnEntity(EntityState template, int tickIndex)
@@ -5320,6 +6686,38 @@ namespace Game.Feature.Gameplay.Loop
             respawnEntity.aiStateTimer = 0;
             respawnEntity.enemyLocomotionCooldownTicks = 0;
             return respawnEntity;
+        }
+
+        private readonly struct PlayerRespawnDelayState
+        {
+            public PlayerRespawnDelayState(
+                int startTick,
+                int eligibleTick,
+                int delayTicks,
+                bool elapsedEventEmitted)
+            {
+                StartTick = startTick;
+                EligibleTick = eligibleTick;
+                DelayTicks = delayTicks;
+                ElapsedEventEmitted = elapsedEventEmitted;
+            }
+
+            public int StartTick { get; }
+
+            public int EligibleTick { get; }
+
+            public int DelayTicks { get; }
+
+            public bool ElapsedEventEmitted { get; }
+
+            public PlayerRespawnDelayState WithElapsedEventEmitted()
+            {
+                return new PlayerRespawnDelayState(
+                    StartTick,
+                    EligibleTick,
+                    DelayTicks,
+                    elapsedEventEmitted: true);
+            }
         }
 
         private static string FormatRespawnSkippedEvent(
@@ -6749,6 +8147,115 @@ namespace Game.Feature.Gameplay.Loop
         public int Sequence { get; }
     }
 
+    internal readonly struct KinematicMotionOutcome
+    {
+        public KinematicMotionOutcome(
+            int entityId,
+            SurfaceCell sourceAnchorCell,
+            KinematicOffset2 sourceLocalOffset,
+            SurfaceCell resolvedAnchorCell,
+            KinematicOffset2 resolvedLocalOffset,
+            KinematicVelocity2 resolvedVelocity,
+            UnitKinematicRuntimeState resolvedState,
+            bool anchorChanged,
+            bool blocked,
+            KinematicSweepRejectionReason rejectedBy)
+        {
+            EntityId = entityId;
+            SourceAnchorCell = sourceAnchorCell;
+            SourceLocalOffset = sourceLocalOffset;
+            ResolvedAnchorCell = resolvedAnchorCell;
+            ResolvedLocalOffset = resolvedLocalOffset;
+            ResolvedVelocity = resolvedVelocity;
+            ResolvedState = resolvedState;
+            AnchorChanged = anchorChanged;
+            Blocked = blocked;
+            RejectedBy = rejectedBy;
+        }
+
+        public int EntityId { get; }
+
+        public SurfaceCell SourceAnchorCell { get; }
+
+        public KinematicOffset2 SourceLocalOffset { get; }
+
+        public SurfaceCell ResolvedAnchorCell { get; }
+
+        public KinematicOffset2 ResolvedLocalOffset { get; }
+
+        public KinematicVelocity2 ResolvedVelocity { get; }
+
+        public UnitKinematicRuntimeState ResolvedState { get; }
+
+        public bool AnchorChanged { get; }
+
+        public bool Blocked { get; }
+
+        public KinematicSweepRejectionReason RejectedBy { get; }
+    }
+
+    internal readonly struct UnitLocomotionIntent
+    {
+        public UnitLocomotionIntent(
+            int entityId,
+            KinematicVelocity2 requestedDelta,
+            MotionMode requestedMode,
+            ForcedMotionOp forcedOp = ForcedMotionOp.None)
+        {
+            EntityId = entityId;
+            RequestedDelta = requestedDelta;
+            RequestedMode = requestedMode;
+            ForcedOp = forcedOp;
+        }
+
+        public int EntityId { get; }
+
+        public KinematicVelocity2 RequestedDelta { get; }
+
+        public MotionMode RequestedMode { get; }
+
+        public ForcedMotionOp ForcedOp { get; }
+    }
+
+    internal readonly struct ForcedMotionOpRequest
+    {
+        public ForcedMotionOpRequest(
+            int entityId,
+            ForcedMotionOp forcedOp,
+            KinematicVelocity2 requestedDelta,
+            int startTick)
+        {
+            EntityId = entityId;
+            ForcedOp = forcedOp;
+            RequestedDelta = requestedDelta;
+            StartTick = startTick;
+        }
+
+        public int EntityId { get; }
+
+        public ForcedMotionOp ForcedOp { get; }
+
+        public KinematicVelocity2 RequestedDelta { get; }
+
+        public int StartTick { get; }
+    }
+
+    internal readonly struct MotionInterruptRecord
+    {
+        public MotionInterruptRecord(int entityId, MotionInterruptPolicy policy, int sourceEntityId)
+        {
+            EntityId = entityId;
+            Policy = policy;
+            SourceEntityId = sourceEntityId;
+        }
+
+        public int EntityId { get; }
+
+        public MotionInterruptPolicy Policy { get; }
+
+        public int SourceEntityId { get; }
+    }
+
     internal sealed class MovementActionPlanPayload : ActionPlanPayload
     {
         public MovementActionPlanPayload(
@@ -6779,7 +8286,8 @@ namespace Game.Feature.Gameplay.Loop
             bool hasImpactReservationPayload,
             MovementImpactReservationPayload impactReservationPayload,
             bool hasDeferredImpactPayload,
-            MovementDeferredImpactPayload deferredImpactPayload)
+            MovementDeferredImpactPayload deferredImpactPayload,
+            IReadOnlyList<KinematicMotionOutcome> kinematicMotionOutcomes = null)
             : base(actionPlanId, intentId, sourceActorEntityId, priority, semanticKind)
         {
             MovementCandidateKind = movementCandidateKind;
@@ -6805,6 +8313,7 @@ namespace Game.Feature.Gameplay.Loop
             ImpactReservationPayload = impactReservationPayload;
             HasDeferredImpactPayload = hasDeferredImpactPayload;
             DeferredImpactPayload = deferredImpactPayload;
+            KinematicMotionOutcomes = kinematicMotionOutcomes ?? Array.Empty<KinematicMotionOutcome>();
         }
 
         public MovementCandidateKind MovementCandidateKind { get; }
@@ -6852,6 +8361,8 @@ namespace Game.Feature.Gameplay.Loop
         public bool HasDeferredImpactPayload { get; }
 
         public MovementDeferredImpactPayload DeferredImpactPayload { get; }
+
+        public IReadOnlyList<KinematicMotionOutcome> KinematicMotionOutcomes { get; }
     }
 
     internal readonly struct StateChangeWritePayload
@@ -7312,6 +8823,7 @@ namespace Game.Feature.Gameplay.Loop
         RemoveBoxInteractionLockState = 22,
         SetEnemyGlideState = 23,
         SetEnemyFrontFaceSupportState = 24,
+        SetUnitKinematicState = 25,
     }
 
     internal enum ResolvedActionSemanticKind
@@ -7459,6 +8971,7 @@ namespace Game.Feature.Gameplay.Loop
             EnemyUtilityRuntimeState enemyUtilityState = null,
             EnemyFrontFaceSupportRuntimeState enemyFrontFaceSupportState = null,
             BoxInteractionLockState boxInteractionLockState = default,
+            UnitKinematicRuntimeState unitKinematicState = default,
             PhasedRuntimeState phasedState = default,
             EntityState spawnEntity = default,
             bool hasSpawnedEntitySummonedState = false,
@@ -7495,6 +9008,7 @@ namespace Game.Feature.Gameplay.Loop
             EnemyUtilityState = enemyUtilityState;
             EnemyFrontFaceSupportState = enemyFrontFaceSupportState;
             BoxInteractionLockState = boxInteractionLockState;
+            UnitKinematicState = unitKinematicState;
             PhasedState = phasedState;
             SpawnedEntity = spawnEntity;
             HasSpawnedEntitySummonedState = hasSpawnedEntitySummonedState;
@@ -7560,6 +9074,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public BoxInteractionLockState BoxInteractionLockState { get; }
 
+        public UnitKinematicRuntimeState UnitKinematicState { get; }
+
         public PhasedRuntimeState PhasedState { get; }
 
         public EntityState SpawnedEntity { get; }
@@ -7605,6 +9121,7 @@ namespace Game.Feature.Gameplay.Loop
                 EnemyUtilityState,
                 EnemyFrontFaceSupportState,
                 BoxInteractionLockState,
+                UnitKinematicState,
                 PhasedState,
                 SpawnedEntity,
                 HasSpawnedEntitySummonedState,
@@ -7833,6 +9350,21 @@ namespace Game.Feature.Gameplay.Loop
                 entityId: entityId);
         }
 
+        public static FinalizationOperation SetUnitKinematicState(
+            long sequence,
+            int entityId,
+            UnitKinematicRuntimeState unitKinematicState,
+            FinalizationOperationMetadata metadata = default)
+        {
+            return new FinalizationOperation(
+                sequence,
+                FinalizationOperationBucket.NonHpState,
+                FinalizationOperationKind.SetUnitKinematicState,
+                metadata,
+                entityId: entityId,
+                unitKinematicState: unitKinematicState);
+        }
+
         public static FinalizationOperation SetPhasedState(long sequence, int entityId, PhasedRuntimeState phasedState, FinalizationOperationMetadata metadata = default)
         {
             return new FinalizationOperation(
@@ -8007,6 +9539,11 @@ namespace Game.Feature.Gameplay.Loop
             _operations.Add(FinalizationOperation.RemoveBoxInteractionLockState(_nextSequence++, entityId, metadata));
         }
 
+        public void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state, FinalizationOperationMetadata metadata = default)
+        {
+            _operations.Add(FinalizationOperation.SetUnitKinematicState(_nextSequence++, entityId, state, metadata));
+        }
+
         public void SetPhasedState(int entityId, PhasedRuntimeState state, FinalizationOperationMetadata metadata = default)
         {
             _operations.Add(FinalizationOperation.SetPhasedState(_nextSequence++, entityId, state, metadata));
@@ -8171,6 +9708,10 @@ namespace Game.Feature.Gameplay.Loop
 
                     case FinalizationOperationKind.RemoveBoxInteractionLockState:
                         writeContext.RemoveBoxInteractionLockState(operation.EntityId);
+                        break;
+
+                    case FinalizationOperationKind.SetUnitKinematicState:
+                        writeContext.SetUnitKinematicState(operation.EntityId, operation.UnitKinematicState);
                         break;
 
                     case FinalizationOperationKind.SetPhasedState:
@@ -8353,6 +9894,11 @@ namespace Game.Feature.Gameplay.Loop
         public void RemoveBoxInteractionLockState(int entityId)
         {
             _batch.RemoveBoxInteractionLockState(entityId);
+        }
+
+        public void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state)
+        {
+            _batch.SetUnitKinematicState(entityId, state);
         }
 
         public void SetBoardPresence(int entityId, EntityBoardPresence boardPresence)
@@ -8548,6 +10094,11 @@ namespace Game.Feature.Gameplay.Loop
                 if (snapshot.TryGetBoxInteractionLockState(entityId, out var boxInteractionLockState))
                 {
                     writeContext.SetBoxInteractionLockState(entityId, boxInteractionLockState);
+                }
+
+                if (snapshot.TryGetUnitKinematicState(entityId, out var unitKinematicState))
+                {
+                    writeContext.SetUnitKinematicState(entityId, unitKinematicState);
                 }
 
                 if (snapshot.TryGetEnemyChargeState(entityId, out var enemyChargeState))

@@ -8,6 +8,7 @@ using NUnit.Framework;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 namespace Game.Feature.UI.Tests
 {
@@ -25,15 +26,18 @@ namespace Game.Feature.UI.Tests
                 var source = new ManualGameplayUiPresentationSource();
                 var playerStatusPresenter = new PlayerStatusPresenter();
                 var stageInfoPresenter = new StageInfoPresenter();
+                var objectiveHudPresenter = new ObjectiveHudPresenter();
                 var notificationPresenter = new NotificationPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
                     stageInfoPresenter,
+                    objectiveHudPresenter,
                     playerStatusPresenter,
                     notificationPresenter);
                 using var controller = new HUDController(
                     rootPresenter.ViewModel,
                     stageInfoPresenter.ViewModel,
+                    objectiveHudPresenter.ViewModel,
                     playerStatusPresenter.ViewModel,
                     notificationPresenter.ViewModel);
 
@@ -42,6 +46,7 @@ namespace Game.Feature.UI.Tests
 
                 Assert.That(hudView.ViewModel, Is.SameAs(controller.RootViewModel));
                 Assert.That(hudView.StageInfoViewModel, Is.SameAs(controller.StageInfoViewModel));
+                Assert.That(hudView.ObjectiveHudView.ViewModel, Is.SameAs(controller.ObjectiveHudViewModel));
                 Assert.That(hudView.PlayerStatusView.ViewModel, Is.SameAs(controller.PlayerStatusViewModel));
                 Assert.That(hudView.NotificationView.ViewModel, Is.SameAs(controller.NotificationViewModel));
             }
@@ -52,9 +57,9 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void HUDController_CanonicalPrefab_RendersChancesAsFilledAndEmptyHearts()
+        public void HUDController_CanonicalPrefab_BindsChancePanelViewModel()
         {
-            var rootObject = new GameObject("HUDController_CanonicalPrefab_RendersChancesAsFilledAndEmptyHearts");
+            var rootObject = new GameObject("HUDController_CanonicalPrefab_BindsChancePanelViewModel");
 
             try
             {
@@ -63,26 +68,35 @@ namespace Game.Feature.UI.Tests
                 var source = new ManualGameplayUiPresentationSource();
                 var playerStatusPresenter = new PlayerStatusPresenter();
                 var stageInfoPresenter = new StageInfoPresenter();
+                var objectiveHudPresenter = new ObjectiveHudPresenter();
+                var chancePanelPresenter = new ChancePanelPresenter();
+                var topologyHudPresenter = new TopologyHudPresenter();
                 var notificationPresenter = new NotificationPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
                     stageInfoPresenter,
+                    objectiveHudPresenter,
+                    chancePanelPresenter,
+                    topologyHudPresenter,
                     playerStatusPresenter,
                     notificationPresenter);
                 using var controller = new HUDController(
                     rootPresenter.ViewModel,
                     stageInfoPresenter.ViewModel,
+                    objectiveHudPresenter.ViewModel,
+                    chancePanelPresenter.ViewModel,
+                    topologyHudPresenter.ViewModel,
                     playerStatusPresenter.ViewModel,
                     notificationPresenter.ViewModel);
 
                 controller.AttachView(hudView);
                 source.PublishSnapshot(CreateSnapshot(hasRemainingChances: true, remainingChances: 2, maxChances: 3));
 
-                var chancesLabel = hudView.PlayerStatusView.transform.Find("Chances")?.GetComponent<TMPro.TMP_Text>();
-                Assert.That(chancesLabel, Is.Not.Null);
-                Assert.That(chancesLabel.text, Does.Contain("Chances:"));
-                Assert.That(CountCharacter(chancesLabel.text, '\u2665'), Is.EqualTo(2));
-                Assert.That(CountCharacter(chancesLabel.text, '\u2661'), Is.EqualTo(1));
+                Assert.That(hudView.ChancePanelView, Is.Not.Null);
+                Assert.That(hudView.ChancePanelView.ViewModel, Is.SameAs(chancePanelPresenter.ViewModel));
+                Assert.That(chancePanelPresenter.ViewModel.HasChances, Is.True);
+                Assert.That(chancePanelPresenter.ViewModel.RemainingChances, Is.EqualTo(2));
+                Assert.That(chancePanelPresenter.ViewModel.MaxChances, Is.EqualTo(3));
             }
             finally
             {
@@ -102,15 +116,18 @@ namespace Game.Feature.UI.Tests
                 var source = new ManualGameplayUiPresentationSource();
                 var playerStatusPresenter = new PlayerStatusPresenter();
                 var stageInfoPresenter = new StageInfoPresenter();
+                var objectiveHudPresenter = new ObjectiveHudPresenter();
                 var notificationPresenter = new NotificationPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
                     stageInfoPresenter,
+                    objectiveHudPresenter,
                     playerStatusPresenter,
                     notificationPresenter);
                 using var controller = new HUDController(
                     rootPresenter.ViewModel,
                     stageInfoPresenter.ViewModel,
+                    objectiveHudPresenter.ViewModel,
                     playerStatusPresenter.ViewModel,
                     notificationPresenter.ViewModel);
 
@@ -121,6 +138,25 @@ namespace Game.Feature.UI.Tests
                 Assert.That(stageLabel, Is.Not.Null);
                 Assert.That(stageLabel.gameObject.activeSelf, Is.True);
                 Assert.That(stageLabel.text, Is.EqualTo("Stage 1-1"));
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void HUDPrefab_HasObjectiveHudView()
+        {
+            var rootObject = new GameObject("HUDPrefab_HasObjectiveHudView");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+
+                Assert.That(hudView.ObjectiveHudView, Is.Not.Null);
+                Assert.That(hudView.ObjectiveHudView.transform.name, Is.EqualTo("ObjectiveHud"));
+                Assert.That(hudView.ObjectiveHudView.GetComponent<Button>(), Is.Not.Null);
             }
             finally
             {
@@ -140,15 +176,18 @@ namespace Game.Feature.UI.Tests
                 var source = new ManualGameplayUiPresentationSource();
                 var playerStatusPresenter = new PlayerStatusPresenter();
                 var stageInfoPresenter = new StageInfoPresenter();
+                var objectiveHudPresenter = new ObjectiveHudPresenter();
                 var notificationPresenter = new NotificationPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
                     stageInfoPresenter,
+                    objectiveHudPresenter,
                     playerStatusPresenter,
                     notificationPresenter);
                 var controller = new HUDController(
                     rootPresenter.ViewModel,
                     stageInfoPresenter.ViewModel,
+                    objectiveHudPresenter.ViewModel,
                     playerStatusPresenter.ViewModel,
                     notificationPresenter.ViewModel);
 
@@ -157,6 +196,7 @@ namespace Game.Feature.UI.Tests
 
                 Assert.That(hudView.ViewModel, Is.Null);
                 Assert.That(hudView.StageInfoViewModel, Is.Null);
+                Assert.That(hudView.ObjectiveHudView.ViewModel, Is.Null);
                 Assert.That(hudView.PlayerStatusView.ViewModel, Is.Null);
                 Assert.That(hudView.NotificationView.ViewModel, Is.Null);
             }

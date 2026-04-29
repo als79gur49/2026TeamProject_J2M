@@ -24,6 +24,7 @@ namespace Game.Feature.UI.Application
                 payload.TitleText,
                 payload.DescriptionText,
                 payload.ResumeLabel,
+                payload.ObjectiveLabel,
                 payload.SettingsLabel);
         }
     }

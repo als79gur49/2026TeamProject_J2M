@@ -24,6 +24,7 @@ namespace Game.Feature.Gameplay.Loop
         public const float DefaultPlayerDeathDisplacementDurationSeconds = 0.18f;
         public const float DefaultPlayerDeathDisplacementDistanceInCells = 0.4f;
         public const float DefaultPlayerDeathDisplacementCameraBiasWeight = 0.3f;
+        public const float DefaultPlayerRespawnDelaySeconds = 1f;
         public const float DefaultFlipArcHeightInCells = 0.65f;
         public const int DefaultMaxTicksPerFrame = 8;
 
@@ -364,6 +365,37 @@ namespace Game.Feature.Gameplay.Loop
 
             var ceilTicks = Mathf.CeilToInt(seconds * simulationTicksPerSecond);
             return Mathf.Max(1, ceilTicks);
+        }
+
+        public static int SecondsToEvenCeilTicks(
+            float seconds,
+            int simulationTicksPerSecond,
+            int minimumTicks = 2)
+        {
+            if (simulationTicksPerSecond <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(simulationTicksPerSecond),
+                    "Simulation tick rate must be greater than zero.");
+            }
+
+            if (seconds <= 0f || float.IsNaN(seconds) || float.IsInfinity(seconds))
+            {
+                throw new ArgumentOutOfRangeException(nameof(seconds), "Seconds must be greater than zero.");
+            }
+
+            if (minimumTicks <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(minimumTicks), "Minimum ticks must be greater than zero.");
+            }
+
+            const float floatingPointTolerance = 0.0001f;
+            var ticks = Mathf.Max(
+                minimumTicks,
+                Mathf.CeilToInt((seconds * simulationTicksPerSecond) - floatingPointTolerance));
+            return (ticks % 2) == 0
+                ? ticks
+                : ticks + 1;
         }
 
         public static int SecondsToTicks(float seconds, int simulationTicksPerSecond, bool allowZero = false)

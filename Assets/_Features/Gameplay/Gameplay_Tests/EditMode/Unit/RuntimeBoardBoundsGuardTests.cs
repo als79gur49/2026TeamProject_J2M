@@ -307,6 +307,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
+        public void GameplaySceneHostConfiguration_CreatePlayerRespawnTimingSnapshot_DefaultsToOneSecond()
+        {
+            var snapshot = new GameplaySceneHostConfiguration
+            {
+                SimulationTicksPerSecond = 60,
+            }.CreatePlayerRespawnTimingSnapshot();
+
+            Assert.That(snapshot.RespawnDelaySeconds, Is.EqualTo(1f));
+            Assert.That(snapshot.RespawnDelayTicks, Is.EqualTo(60));
+        }
+
+        [Test]
+        [Category("Full")]
         public void GameplaySceneHostConfiguration_CreatePlayerRespawnTimingSnapshot_ZeroSecondsStillRespectsNextTickRule()
         {
             var snapshot = new GameplaySceneHostConfiguration

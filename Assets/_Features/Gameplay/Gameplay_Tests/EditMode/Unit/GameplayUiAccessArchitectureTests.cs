@@ -109,7 +109,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(publicInstanceMethods, Is.Empty);
             CollectionAssert.AreEqual(
-                new[] { "Objectives", "PlayerHud", "Session" },
+                new[] { "Objectives", "PlayerHud", "Session", "Stage" },
                 properties.Select(property => property.Name).ToArray());
             Assert.That(properties.All(property => property.PropertyType.IsInterface), Is.True);
             Assert.That(properties.All(property => property.PropertyType.Name.EndsWith("Query", StringComparison.Ordinal)), Is.True);

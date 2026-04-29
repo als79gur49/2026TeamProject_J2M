@@ -112,6 +112,14 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                     continue;
                 }
 
+                if (entity.type == EntityType.Unit &&
+                    !UnitSpatialQuery.IsSettledAtAnchor(snapshot, entity.entityId))
+                {
+                    rejectedReasons.Add(
+                        $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=UnitKinematicNotSettled|Anchor={FormatCell(entity.position)}");
+                    continue;
+                }
+
                 ValidateSingleStepMove(entity.position.PlanarPosition, intent.Destination, intent.SourceId);
 
                 if (entity.type == EntityType.Projectile)

@@ -47,6 +47,123 @@ namespace Game.Feature.UI.Application
         }
     }
 
+    public readonly struct UIChanceSlice : IEquatable<UIChanceSlice>
+    {
+        public static readonly UIChanceSlice Empty = new(false, 0, 0);
+
+        public UIChanceSlice(
+            bool hasChances,
+            int remainingChances,
+            int maxChances)
+        {
+            MaxChances = hasChances ? Math.Max(0, maxChances) : 0;
+            HasChances = hasChances && MaxChances > 0;
+            RemainingChances = HasChances
+                ? Math.Max(0, Math.Min(remainingChances, MaxChances))
+                : 0;
+        }
+
+        public bool HasChances { get; }
+
+        public int RemainingChances { get; }
+
+        public int MaxChances { get; }
+
+        public bool Equals(UIChanceSlice other)
+        {
+            return HasChances == other.HasChances &&
+                   RemainingChances == other.RemainingChances &&
+                   MaxChances == other.MaxChances;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is UIChanceSlice other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(HasChances, RemainingChances, MaxChances);
+        }
+    }
+
+    public readonly struct UITopologySlice : IEquatable<UITopologySlice>
+    {
+        public static readonly UITopologySlice Empty = FromTopology(
+            new GameplayUiTopology(GameplayUiFace.Floor),
+            false);
+
+        public UITopologySlice(
+            string currentFaceLabel,
+            int currentFaceIndex,
+            bool isTransitionActive,
+            string sourceFaceLabel,
+            string destinationFaceLabel,
+            float progress01)
+        {
+            CurrentFaceLabel = currentFaceLabel ?? string.Empty;
+            CurrentFaceIndex = currentFaceIndex;
+            IsTransitionActive = isTransitionActive;
+            SourceFaceLabel = sourceFaceLabel ?? string.Empty;
+            DestinationFaceLabel = destinationFaceLabel ?? string.Empty;
+            Progress01 = Math.Max(0.0f, Math.Min(1.0f, progress01));
+        }
+
+        public string CurrentFaceLabel { get; }
+
+        public int CurrentFaceIndex { get; }
+
+        public bool IsTransitionActive { get; }
+
+        public string SourceFaceLabel { get; }
+
+        public string DestinationFaceLabel { get; }
+
+        public float Progress01 { get; }
+
+        public static UITopologySlice FromTopology(
+            GameplayUiTopology topology,
+            bool isTransitionActive,
+            GameplayUiTopology? sourceTopology = null,
+            GameplayUiTopology? destinationTopology = null,
+            float progress01 = 1.0f)
+        {
+            return new UITopologySlice(
+                topology.BottomFace.ToString(),
+                (int)topology.BottomFace,
+                isTransitionActive,
+                sourceTopology.HasValue ? sourceTopology.Value.BottomFace.ToString() : string.Empty,
+                destinationTopology.HasValue ? destinationTopology.Value.BottomFace.ToString() : string.Empty,
+                isTransitionActive ? progress01 : 1.0f);
+        }
+
+        public bool Equals(UITopologySlice other)
+        {
+            return string.Equals(CurrentFaceLabel, other.CurrentFaceLabel, StringComparison.Ordinal) &&
+                   CurrentFaceIndex == other.CurrentFaceIndex &&
+                   IsTransitionActive == other.IsTransitionActive &&
+                   string.Equals(SourceFaceLabel, other.SourceFaceLabel, StringComparison.Ordinal) &&
+                   string.Equals(DestinationFaceLabel, other.DestinationFaceLabel, StringComparison.Ordinal) &&
+                   Progress01.Equals(other.Progress01);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is UITopologySlice other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(
+                CurrentFaceLabel,
+                CurrentFaceIndex,
+                IsTransitionActive,
+                SourceFaceLabel,
+                DestinationFaceLabel,
+                Progress01);
+        }
+    }
+
     public readonly struct UIInteractionSlice : IEquatable<UIInteractionSlice>
     {
         public UIInteractionSlice(
@@ -156,6 +273,186 @@ namespace Game.Feature.UI.Application
         public override int GetHashCode()
         {
             return HashCode.Combine(StageId, DisplayName);
+        }
+    }
+
+    public enum UIObjectiveConditionRole
+    {
+        None = 0,
+        PrimaryGoal = 1,
+        SecondaryGoal = 2,
+        Challenge = 3,
+    }
+
+    public readonly struct UIObjectiveConditionSlice : IEquatable<UIObjectiveConditionSlice>
+    {
+        public UIObjectiveConditionSlice(
+            string titleText,
+            string progressText,
+            bool isSatisfied,
+            bool required,
+            UIObjectiveConditionRole role,
+            int sortOrder)
+            : this(
+                string.Empty,
+                titleText,
+                progressText,
+                isSatisfied,
+                required,
+                role,
+                sortOrder)
+        {
+        }
+
+        public UIObjectiveConditionSlice(
+            string stableId,
+            string titleText,
+            string progressText,
+            bool isSatisfied,
+            bool required,
+            UIObjectiveConditionRole role,
+            int sortOrder)
+        {
+            StableId = stableId ?? string.Empty;
+            TitleText = titleText ?? string.Empty;
+            ProgressText = progressText ?? string.Empty;
+            IsSatisfied = isSatisfied;
+            Required = required;
+            Role = role;
+            SortOrder = sortOrder;
+        }
+
+        public string StableId { get; }
+
+        public string TitleText { get; }
+
+        public string ProgressText { get; }
+
+        public bool IsSatisfied { get; }
+
+        public bool Required { get; }
+
+        public UIObjectiveConditionRole Role { get; }
+
+        public int SortOrder { get; }
+
+        public bool Equals(UIObjectiveConditionSlice other)
+        {
+            return string.Equals(StableId, other.StableId, StringComparison.Ordinal) &&
+                   string.Equals(TitleText, other.TitleText, StringComparison.Ordinal) &&
+                   string.Equals(ProgressText, other.ProgressText, StringComparison.Ordinal) &&
+                   IsSatisfied == other.IsSatisfied &&
+                   Required == other.Required &&
+                   Role == other.Role &&
+                   SortOrder == other.SortOrder;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is UIObjectiveConditionSlice other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            var hash = HashCode.Combine(StableId, TitleText, ProgressText, IsSatisfied);
+            hash = HashCode.Combine(hash, Required, Role, SortOrder);
+            return hash;
+        }
+    }
+
+    public readonly struct UIObjectiveSlice : IEquatable<UIObjectiveSlice>
+    {
+        public static readonly UIObjectiveSlice Empty = new(
+            false,
+            string.Empty,
+            string.Empty,
+            false,
+            false,
+            false,
+            Array.Empty<UIObjectiveConditionSlice>());
+
+        private readonly ReadOnlyCollection<UIObjectiveConditionSlice> _conditions;
+
+        public UIObjectiveSlice(
+            bool hasObjective,
+            string title,
+            string summary,
+            bool goalReached,
+            bool allConditionsSatisfied,
+            bool isCleared,
+            IEnumerable<UIObjectiveConditionSlice> conditions)
+        {
+            HasObjective = hasObjective;
+            Title = title ?? string.Empty;
+            Summary = summary ?? string.Empty;
+            GoalReached = goalReached;
+            AllConditionsSatisfied = allConditionsSatisfied;
+            IsCleared = isCleared;
+            _conditions = new ReadOnlyCollection<UIObjectiveConditionSlice>(
+                new List<UIObjectiveConditionSlice>(conditions ?? Array.Empty<UIObjectiveConditionSlice>()));
+        }
+
+        public bool HasObjective { get; }
+
+        public string Title { get; }
+
+        public string Summary { get; }
+
+        public bool GoalReached { get; }
+
+        public bool AllConditionsSatisfied { get; }
+
+        public bool IsCleared { get; }
+
+        public IReadOnlyList<UIObjectiveConditionSlice> Conditions => _conditions != null
+            ? _conditions
+            : Array.Empty<UIObjectiveConditionSlice>();
+
+        public bool Equals(UIObjectiveSlice other)
+        {
+            if (HasObjective != other.HasObjective ||
+                !string.Equals(Title, other.Title, StringComparison.Ordinal) ||
+                !string.Equals(Summary, other.Summary, StringComparison.Ordinal) ||
+                GoalReached != other.GoalReached ||
+                AllConditionsSatisfied != other.AllConditionsSatisfied ||
+                IsCleared != other.IsCleared)
+            {
+                return false;
+            }
+
+            var left = Conditions;
+            var right = other.Conditions;
+            if (left.Count != right.Count)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < left.Count; i++)
+            {
+                if (!left[i].Equals(right[i]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is UIObjectiveSlice other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            var hash = HashCode.Combine(HasObjective, Title, Summary, GoalReached, AllConditionsSatisfied, IsCleared);
+            var conditions = Conditions;
+            for (var i = 0; i < conditions.Count; i++)
+            {
+                hash = HashCode.Combine(hash, conditions[i]);
+            }
+
+            return hash;
         }
     }
 
@@ -447,6 +744,9 @@ namespace Game.Feature.UI.Application
             new UITickSlice(0, new GameplayUiTopology(GameplayUiFace.Floor), false, false),
             new UIInteractionSlice(false, false, false, false),
             UIStageSlice.Empty,
+            UIObjectiveSlice.Empty,
+            UIChanceSlice.Empty,
+            UITopologySlice.Empty,
             new UIPlayerActionSlice(
                 0,
                 0,
@@ -471,6 +771,9 @@ namespace Game.Feature.UI.Application
                 tick,
                 interaction,
                 UIStageSlice.Empty,
+                UIObjectiveSlice.Empty,
+                new UIChanceSlice(player.HasRemainingChances, player.RemainingChances, player.MaxChances),
+                UITopologySlice.FromTopology(tick.FinalTopology, tick.IsTopologyTransitionActive),
                 player,
                 notifications)
         {
@@ -482,10 +785,53 @@ namespace Game.Feature.UI.Application
             UIStageSlice stage,
             UIPlayerActionSlice player,
             UINotificationLedgerSlice notifications)
+            : this(
+                tick,
+                interaction,
+                stage,
+                UIObjectiveSlice.Empty,
+                new UIChanceSlice(player.HasRemainingChances, player.RemainingChances, player.MaxChances),
+                UITopologySlice.FromTopology(tick.FinalTopology, tick.IsTopologyTransitionActive),
+                player,
+                notifications)
+        {
+        }
+
+        public UIPresentationSnapshot(
+            UITickSlice tick,
+            UIInteractionSlice interaction,
+            UIStageSlice stage,
+            UIObjectiveSlice objective,
+            UIPlayerActionSlice player,
+            UINotificationLedgerSlice notifications)
+            : this(
+                tick,
+                interaction,
+                stage,
+                objective,
+                new UIChanceSlice(player.HasRemainingChances, player.RemainingChances, player.MaxChances),
+                UITopologySlice.FromTopology(tick.FinalTopology, tick.IsTopologyTransitionActive),
+                player,
+                notifications)
+        {
+        }
+
+        public UIPresentationSnapshot(
+            UITickSlice tick,
+            UIInteractionSlice interaction,
+            UIStageSlice stage,
+            UIObjectiveSlice objective,
+            UIChanceSlice chance,
+            UITopologySlice topology,
+            UIPlayerActionSlice player,
+            UINotificationLedgerSlice notifications)
         {
             Tick = tick;
             Interaction = interaction;
             Stage = stage;
+            Objective = objective;
+            Chance = chance;
+            Topology = topology;
             Player = player;
             Notifications = notifications;
         }
@@ -496,6 +842,12 @@ namespace Game.Feature.UI.Application
 
         public UIStageSlice Stage { get; }
 
+        public UIObjectiveSlice Objective { get; }
+
+        public UIChanceSlice Chance { get; }
+
+        public UITopologySlice Topology { get; }
+
         public UIPlayerActionSlice Player { get; }
 
         public UINotificationLedgerSlice Notifications { get; }
@@ -505,6 +857,9 @@ namespace Game.Feature.UI.Application
             return Tick.Equals(other.Tick) &&
                    Interaction.Equals(other.Interaction) &&
                    Stage.Equals(other.Stage) &&
+                   Objective.Equals(other.Objective) &&
+                   Chance.Equals(other.Chance) &&
+                   Topology.Equals(other.Topology) &&
                    Player.Equals(other.Player) &&
                    Notifications.Equals(other.Notifications);
         }
@@ -516,7 +871,10 @@ namespace Game.Feature.UI.Application
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(Tick, Interaction, Stage, Player, Notifications);
+            var hash = HashCode.Combine(Tick, Interaction, Stage, Objective);
+            hash = HashCode.Combine(hash, Chance, Topology, Player);
+            hash = HashCode.Combine(hash, Notifications);
+            return hash;
         }
     }
 }

@@ -195,6 +195,16 @@ namespace Game.Feature.UI.Flow
 
                     break;
 
+                case PopupCompletionKind.ObjectiveRequested:
+                    SetPauseReturnMode(PauseReturnMode.RestorePausePopupAfterBack);
+                    if (!PushScreenCore(BuildObjectiveStatusRequest(), preservePauseReturnMode: true))
+                    {
+                        ClearPauseReturnMode();
+                        RequestPausePopupCore();
+                    }
+
+                    break;
+
                 case PopupCompletionKind.Resumed:
                 case PopupCompletionKind.Closed:
                     ClearPauseReturnMode();
@@ -669,6 +679,7 @@ namespace Game.Feature.UI.Flow
                     return completion.CompletionKind switch
                     {
                         PopupCompletionKind.SettingsRequested => UiFlowAudioIntentKind.OpenForward,
+                        PopupCompletionKind.ObjectiveRequested => UiFlowAudioIntentKind.OpenForward,
                         PopupCompletionKind.Resumed => UiFlowAudioIntentKind.Confirm,
                         PopupCompletionKind.Closed => UiFlowAudioIntentKind.Back,
                         _ => UiFlowAudioIntentKind.None,

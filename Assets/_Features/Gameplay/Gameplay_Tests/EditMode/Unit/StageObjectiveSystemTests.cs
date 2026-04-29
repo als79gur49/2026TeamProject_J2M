@@ -1196,6 +1196,116 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        [Category("Extended")]
+        public void StageObjectiveAuthoring_StoresObjectiveTitleSummary()
+        {
+            var objective = CreateObjective(
+                StageCompletionPolicy.RequireAllConditions,
+                Array.Empty<StageObjectiveConditionEntry>(),
+                "Reach the Exit",
+                "Move to the exit zone.");
+
+            Assert.That(objective.ObjectiveTitle, Is.EqualTo("Reach the Exit"));
+            Assert.That(objective.ObjectiveSummary, Is.EqualTo("Move to the exit zone."));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageRuntimeBuilder_CompilesObjectiveDisplayMetadata()
+        {
+            var condition = CreatePrimaryGoalCondition(new[] { "goal" });
+            var stage = CreateStage(
+                "DisplayObjectiveStage",
+                CreateBoard(),
+                new[] { CreateZone("goal", FaceId.Floor, CreateRegion(0, 0, 0, 0)) },
+                CreateObjective(
+                    StageCompletionPolicy.RequireAllConditions,
+                    new[]
+                    {
+                        CreateConditionEntry(
+                            condition,
+                            required: true,
+                            StageObjectiveConditionRole.PrimaryGoal,
+                            "primary-goal",
+                            "Reach the exit zone",
+                            sortOrder: 3),
+                    },
+                    "Reach the Exit",
+                    "Move to the exit zone."),
+                CreatePlayerSpawn(10, new SurfaceCell(FaceId.Floor, 0, 0)));
+
+            try
+            {
+                var objective = StageRuntimeBuilder.Build(stage).ObjectiveRuntimeDefinition;
+
+                Assert.That(objective.DisplayMetadata.ObjectiveTitle, Is.EqualTo("Reach the Exit"));
+                Assert.That(objective.DisplayMetadata.ObjectiveSummary, Is.EqualTo("Move to the exit zone."));
+                Assert.That(objective.DisplayMetadata.ConditionEntries.Count, Is.EqualTo(1));
+                Assert.That(objective.DisplayMetadata.ConditionEntries[0].DisplayText, Is.EqualTo("Reach the exit zone"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+                UnityEngine.Object.DestroyImmediate(condition);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageRuntimeBuilder_ConditionDisplayMetadata_PreservesStableIdRoleRequiredSort()
+        {
+            var first = CreatePrimaryGoalCondition(new[] { "goal" });
+            var second = ScriptableObject.CreateInstance<AllEnemiesDefeatedConditionAsset>();
+            var stage = CreateStage(
+                "DisplayConditionMetadataStage",
+                CreateBoard(),
+                new[] { CreateZone("goal", FaceId.Floor, CreateRegion(0, 0, 0, 0)) },
+                CreateObjective(
+                    StageCompletionPolicy.RequireAllConditions,
+                    new[]
+                    {
+                        CreateConditionEntry(
+                            first,
+                            required: true,
+                            StageObjectiveConditionRole.PrimaryGoal,
+                            "primary-goal",
+                            "Reach the exit zone",
+                            sortOrder: 10),
+                        CreateConditionEntry(
+                            second,
+                            required: false,
+                            StageObjectiveConditionRole.Challenge,
+                            "defeat-all",
+                            "Defeat every enemy",
+                            sortOrder: 20),
+                    }),
+                CreatePlayerSpawn(10, new SurfaceCell(FaceId.Floor, 0, 0)));
+
+            try
+            {
+                var metadata = StageRuntimeBuilder.Build(stage).ObjectiveRuntimeDefinition.DisplayMetadata.ConditionEntries;
+
+                Assert.That(metadata.Count, Is.EqualTo(2));
+                Assert.That(metadata[0].StableConditionId, Is.EqualTo("primary-goal"));
+                Assert.That(metadata[0].Role, Is.EqualTo(StageObjectiveConditionRole.PrimaryGoal));
+                Assert.That(metadata[0].Required, Is.True);
+                Assert.That(metadata[0].SortOrder, Is.EqualTo(10));
+                Assert.That(metadata[0].AuthoringOrder, Is.EqualTo(0));
+                Assert.That(metadata[1].StableConditionId, Is.EqualTo("defeat-all"));
+                Assert.That(metadata[1].Role, Is.EqualTo(StageObjectiveConditionRole.Challenge));
+                Assert.That(metadata[1].Required, Is.False);
+                Assert.That(metadata[1].SortOrder, Is.EqualTo(20));
+                Assert.That(metadata[1].AuthoringOrder, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+                UnityEngine.Object.DestroyImmediate(first);
+                UnityEngine.Object.DestroyImmediate(second);
+            }
+        }
+
         private static IStageConditionRuntime BuildSingleConditionRuntime(
             StageConditionAsset conditionAsset,
             StageZoneDefinition[] zones = null)
@@ -1446,11 +1556,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static StageObjectiveAuthoring CreateObjective(
             StageCompletionPolicy completionPolicy,
-            StageObjectiveConditionEntry[] conditionEntries = null)
+            StageObjectiveConditionEntry[] conditionEntries = null,
+            string objectiveTitle = "",
+            string objectiveSummary = "")
         {
             return new StageObjectiveAuthoring
             {
                 CompletionPolicy = completionPolicy,
+                ObjectiveTitle = objectiveTitle,
+                ObjectiveSummary = objectiveSummary,
                 ConditionEntries = conditionEntries ?? Array.Empty<StageObjectiveConditionEntry>(),
             };
         }
@@ -1459,7 +1573,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             StageConditionAsset condition,
             bool required,
             StageObjectiveConditionRole role,
-            string stableConditionId = "")
+            string stableConditionId = "",
+            string displayText = "",
+            int sortOrder = 0)
         {
             return new StageObjectiveConditionEntry
             {
@@ -1467,6 +1583,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Required = required,
                 Role = role,
                 StableConditionId = stableConditionId,
+                DisplayText = displayText,
+                SortOrder = sortOrder,
             };
         }
 

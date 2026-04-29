@@ -9,19 +9,17 @@ namespace Game.Feature.UI.Screens
             bool goalReached,
             bool allConditionsSatisfied,
             bool isCleared,
-            int nextTickIndex,
-            bool isPaused,
-            bool canAcceptGameplayCommands,
-            bool isStageCleared)
+            string objectiveTitle,
+            string objectiveSummary,
+            string conditionDetailText)
         {
             HasObjective = hasObjective;
             GoalReached = goalReached;
             AllConditionsSatisfied = allConditionsSatisfied;
             IsCleared = isCleared;
-            NextTickIndex = nextTickIndex;
-            IsPaused = isPaused;
-            CanAcceptGameplayCommands = canAcceptGameplayCommands;
-            IsStageCleared = isStageCleared;
+            ObjectiveTitle = objectiveTitle ?? string.Empty;
+            ObjectiveSummary = objectiveSummary ?? string.Empty;
+            ConditionDetailText = conditionDetailText ?? string.Empty;
         }
 
         public bool HasObjective { get; }
@@ -32,13 +30,11 @@ namespace Game.Feature.UI.Screens
 
         public bool IsCleared { get; }
 
-        public int NextTickIndex { get; }
+        public string ObjectiveTitle { get; }
 
-        public bool IsPaused { get; }
+        public string ObjectiveSummary { get; }
 
-        public bool CanAcceptGameplayCommands { get; }
-
-        public bool IsStageCleared { get; }
+        public string ConditionDetailText { get; }
     }
 
     public sealed class ObjectiveStatusScreenViewModel
@@ -55,26 +51,18 @@ namespace Game.Feature.UI.Screens
 
         public string SecondaryText { get; private set; } = string.Empty;
 
-        public bool IsOverviewSelected { get; private set; }
-
-        public bool IsSessionSelected { get; private set; }
-
         public void SetContent(
             string titleText,
             string badgeText,
             string summaryText,
             string detailText,
-            string secondaryText,
-            bool isOverviewSelected,
-            bool isSessionSelected)
+            string secondaryText)
         {
             TitleText = titleText ?? string.Empty;
             BadgeText = badgeText ?? string.Empty;
             SummaryText = summaryText ?? string.Empty;
             DetailText = detailText ?? string.Empty;
             SecondaryText = secondaryText ?? string.Empty;
-            IsOverviewSelected = isOverviewSelected;
-            IsSessionSelected = isSessionSelected;
             Changed?.Invoke();
         }
     }

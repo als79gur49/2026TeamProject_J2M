@@ -171,6 +171,73 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void CampaignStageObjectiveAudit_FlagsDisabledObjectiveInProductionStages()
+        {
+            var entry = CreateEntry("stage-2-2");
+
+            var report = new StageCatalogValidator().ValidateEntries(
+                new[] { entry },
+                aliasTable: null,
+                new StageCatalogValidationOptions
+                {
+                    Timing = StageValidationTiming.TestOrCi,
+                });
+
+            Assert.That(report.Issues.Any(issue => issue.Code == "objective.production-disabled"), Is.True);
+        }
+
+        [Test]
+        public void ObjectiveConditionEntry_MissingDisplayText_WarnsOrErrors()
+        {
+            var entry = CreateEntry("stage-2-2");
+            var condition = CreatePlayerAtExitCondition();
+            AssignExitObjective(
+                entry.GameplayDefinition,
+                condition,
+                displayText: string.Empty);
+
+            var report = new StageCatalogValidator().ValidateEntries(
+                new[] { entry },
+                aliasTable: null,
+                new StageCatalogValidationOptions
+                {
+                    Timing = StageValidationTiming.TestOrCi,
+                });
+
+            Assert.That(report.Issues.Any(issue => issue.Code == "objective.display-text-missing"), Is.True);
+
+            UnityEngine.Object.DestroyImmediate(condition);
+        }
+
+        [Test]
+        public void ObjectiveStableConditionId_Duplicate_WarnsOrErrors()
+        {
+            var entry = CreateEntry("stage-2-2");
+            var condition = CreatePlayerAtExitCondition();
+            AssignExitObjective(
+                entry.GameplayDefinition,
+                condition,
+                displayText: "Reach the exit zone",
+                duplicateStableId: true);
+
+            var report = new StageCatalogValidator().ValidateEntries(
+                new[] { entry },
+                aliasTable: null,
+                new StageCatalogValidationOptions
+                {
+                    Timing = StageValidationTiming.TestOrCi,
+                });
+
+            Assert.That(
+                report.Issues.Any(issue =>
+                    issue.Code == "gameplay.definition.invalid" &&
+                    issue.Message.Contains("duplicate condition stable id")),
+                Is.True);
+
+            UnityEngine.Object.DestroyImmediate(condition);
+        }
+
+        [Test]
         public void StageSessionTracker_TerminalResult_IsEmittedOnlyOnce_AndResetCreatesNewRun()
         {
             var tracker = new StageSessionTracker();
@@ -416,6 +483,77 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetPrivateField(stage, "enemySpawns", Array.Empty<StageSpawnDefinition>());
             SetPrivateField(stage, "wallSpawns", Array.Empty<StageSpawnDefinition>());
             return stage;
+        }
+
+        private static PlayerAtAnyZoneConditionAsset CreatePlayerAtExitCondition()
+        {
+            var condition = ScriptableObject.CreateInstance<PlayerAtAnyZoneConditionAsset>();
+            SetPrivateField(condition, "zoneIds", new[] { "exit" });
+            SetPrivateField(condition, "requireAlive", true);
+            return condition;
+        }
+
+        private static void AssignExitObjective(
+            StageDefinition stage,
+            StageConditionAsset condition,
+            string displayText,
+            bool duplicateStableId = false)
+        {
+            SetPrivateField(
+                stage,
+                "zones",
+                new[]
+                {
+                    new StageZoneDefinition
+                    {
+                        ZoneId = "exit",
+                        FaceId = FaceId.Floor,
+                        Regions = new[]
+                        {
+                            new StageZoneRegionDefinition
+                            {
+                                MinInclusive = new Vector2Int(1, 1),
+                                MaxInclusive = new Vector2Int(1, 1),
+                            },
+                        },
+                    },
+                });
+
+            var entries = duplicateStableId
+                ? new[]
+                {
+                    CreateObjectiveConditionEntry(condition, displayText),
+                    CreateObjectiveConditionEntry(condition, displayText),
+                }
+                : new[]
+                {
+                    CreateObjectiveConditionEntry(condition, displayText),
+                };
+            SetPrivateField(
+                stage,
+                "objective",
+                new StageObjectiveAuthoring
+                {
+                    CompletionPolicy = StageCompletionPolicy.RequireAllConditions,
+                    ObjectiveTitle = "Reach the Exit",
+                    ObjectiveSummary = "Move to the exit zone.",
+                    ConditionEntries = entries,
+                });
+        }
+
+        private static StageObjectiveConditionEntry CreateObjectiveConditionEntry(
+            StageConditionAsset condition,
+            string displayText)
+        {
+            return new StageObjectiveConditionEntry
+            {
+                Condition = condition,
+                Required = true,
+                Role = StageObjectiveConditionRole.PrimaryGoal,
+                StableConditionId = "primary-goal",
+                DisplayText = displayText,
+                SortOrder = 0,
+            };
         }
 
         private static void SetPrivateField<TValue>(object target, string fieldName, TValue value)

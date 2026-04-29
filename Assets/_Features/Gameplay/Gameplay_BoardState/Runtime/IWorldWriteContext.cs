@@ -120,6 +120,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         new void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state);
 
+        void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state);
+
         new void RemoveBoxInteractionLockState(int entityId);
     }
 }

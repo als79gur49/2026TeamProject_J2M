@@ -311,7 +311,7 @@ Interaction rules:
 - `Non-Negotiable` Screens do not directly manage popup stack state.
 - `Non-Negotiable` HUD does not manage screen navigation.
 - `Non-Negotiable` Pause remains popup-owned. Gameplay-root back may open the pause popup, but pause is not a screen taxonomy example.
-- `Non-Negotiable` PausePopup completion semantics are coordinator-owned: Resumed and Closed are resume-equivalent exits, while SettingsRequested keeps gameplay paused, opens SettingsScreen, and returns back to a fresh PausePopup.
+- `Non-Negotiable` PausePopup completion semantics are coordinator-owned: Resumed and Closed are resume-equivalent exits, while SettingsRequested and ObjectiveRequested keep gameplay paused, open their destination screen, and return back to a fresh PausePopup.
 - `Non-Negotiable` `UIBlockPolicy` decides interaction blocking. Visual hierarchy alone does not.
 - `Default Guidance` Keep controllers narrow. Put cross-controller rules in the coordinator, not duplicated in each controller.
 

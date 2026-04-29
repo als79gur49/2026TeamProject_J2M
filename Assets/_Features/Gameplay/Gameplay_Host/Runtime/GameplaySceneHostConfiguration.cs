@@ -54,11 +54,16 @@ namespace Game.Feature.Gameplay.Host
     [Serializable]
     public sealed class PlayerRespawnTimingSettings
     {
-        public float RespawnDelaySeconds;
+        public const float DefaultRespawnDelaySeconds = GameplayTimingProfile.DefaultPlayerRespawnDelaySeconds;
+
+        public float RespawnDelaySeconds = DefaultRespawnDelaySeconds;
 
         public static PlayerRespawnTimingSettings CreateDefault()
         {
-            return new PlayerRespawnTimingSettings();
+            return new PlayerRespawnTimingSettings
+            {
+                RespawnDelaySeconds = DefaultRespawnDelaySeconds,
+            };
         }
 
         public PlayerRespawnTimingSettings Clone()
@@ -110,6 +115,8 @@ namespace Game.Feature.Gameplay.Host
         public float CellSize = 1f;
         public float FaceSeamGap = -1f;
         public bool DirectionChangeConsumesDelay;
+        public bool EnablePlayerSameFaceContinuousLocomotion;
+        public bool EnableEnemySameFaceContinuousLocomotion;
         public EnemyAiProfile DefaultEnemyAiProfile;
         public EnemyAiProfileOverride[] EnemyAiProfileOverrides = Array.Empty<EnemyAiProfileOverride>();
         public EnemyUnitArchetypeCatalog EnemyUnitArchetypeCatalog;
@@ -131,6 +138,8 @@ namespace Game.Feature.Gameplay.Host
         public StageObjectiveRuntimeDefinition ObjectiveRuntimeDefinition = StageObjectiveRuntimeDefinition.Disabled;
         public int PlayerEntityId = 1;
         public PlayerControlTimingSettings PlayerControlTiming = PlayerControlTimingSettings.CreateDefault();
+        public PlayerKinematicLocomotionTimingSettings PlayerKinematicLocomotionTiming =
+            PlayerKinematicLocomotionTimingSettings.CreateDefault();
         public PlayerRespawnTimingSettings PlayerRespawnTiming = PlayerRespawnTimingSettings.CreateDefault();
         public float MoveMotionDurationSeconds = -1f;
         public float ChargeMoveDurationSeconds = -1f;
@@ -207,6 +216,19 @@ namespace Game.Feature.Gameplay.Host
         public PlayerRespawnTimingAuthoritativeSnapshot CreatePlayerRespawnTimingSnapshot()
         {
             return ResolvePlayerRespawnTimingSettings().CreateAuthoritativeSnapshot(SimulationTicksPerSecond);
+        }
+
+        public PlayerKinematicLocomotionTimingSnapshot CreatePlayerKinematicLocomotionTimingSnapshot()
+        {
+            return ResolvePlayerKinematicLocomotionTimingSettings()
+                .CreateAuthoritativeSnapshot(SimulationTicksPerSecond);
+        }
+
+        public GameplayRuntimeFeatureFlags CreateRuntimeFeatureFlags()
+        {
+            return new GameplayRuntimeFeatureFlags(
+                EnablePlayerSameFaceContinuousLocomotion,
+                EnableEnemySameFaceContinuousLocomotion);
         }
 
         public EnemyAiRuntimeCollectionSnapshot CreateEnemyAiRuntimeSnapshot()
@@ -357,6 +379,12 @@ namespace Game.Feature.Gameplay.Host
         private PlayerControlTimingSettings ResolvePlayerControlTimingSettings()
         {
             return PlayerControlTiming?.Clone() ?? PlayerControlTimingSettings.CreateDefault();
+        }
+
+        private PlayerKinematicLocomotionTimingSettings ResolvePlayerKinematicLocomotionTimingSettings()
+        {
+            return PlayerKinematicLocomotionTiming?.Clone() ??
+                   PlayerKinematicLocomotionTimingSettings.CreateDefault();
         }
 
         private PlayerRespawnTimingSettings ResolvePlayerRespawnTimingSettings()

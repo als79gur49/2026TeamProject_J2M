@@ -13,34 +13,79 @@ namespace Game.Feature.UI.Tests
     public sealed class ObjectiveStatusScreenControllerTests
     {
         [Test]
-        public void ObjectiveStatusScreenPresenter_DerivesOverviewAndSessionContent_FromExistingQueries()
+        public void ObjectiveStatusScreenPresenter_ListsObjectiveConditionDetails_FromObjectiveSnapshotOnly()
         {
             var queryFacade = new FakeGameplayQueryFacade(
                 new GameplaySessionReadModel(nextTickIndex: 7, isPaused: false, canAcceptGameplayCommands: false, isStageCleared: false),
                 FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
-                new GameplayObjectiveReadModel(hasObjective: true, goalReached: true, allConditionsSatisfied: false, isCleared: false));
+                CreateObjectiveReadModel());
             using var presentationSource = UiTestPortFactory.CreatePresentationSource(queryFacade: queryFacade);
-            using var statePresenter = new ObjectiveStatusPresenter(queryFacade, presentationSource);
+            using var statePresenter = new ObjectiveStatusPresenter(presentationSource);
             using var presenter = new ObjectiveStatusScreenPresenter(statePresenter);
 
             presenter.ApplyPayload(Game.Feature.UI.Screens.ObjectiveStatusScreenPayload.Default);
 
             Assert.That(presenter.ViewModel.BadgeText, Is.EqualTo("Goal Reached"));
-            Assert.That(presenter.ViewModel.SummaryText, Does.Contain("Primary goal reached"));
-            Assert.That(presenter.ViewModel.DetailText, Is.EqualTo("Goal Reached: Yes"));
-            Assert.That(presenter.ViewModel.SecondaryText, Does.Not.Contain("PlayerAtAnyZone"));
-            Assert.That(presenter.ViewModel.SecondaryText, Does.Not.Contain("PrimaryGoal"));
+            Assert.That(presenter.ViewModel.SummaryText, Does.Contain("Reach the Exit"));
+            Assert.That(presenter.ViewModel.SummaryText, Does.Contain("Move to the exit zone."));
+            Assert.That(presenter.ViewModel.DetailText, Does.Contain("Primary:"));
+            Assert.That(presenter.ViewModel.DetailText, Does.Contain("Done: Reach the exit zone"));
+            Assert.That(presenter.ViewModel.DetailText, Does.Contain("Optional:"));
+            Assert.That(presenter.ViewModel.DetailText, Does.Contain("Pending: Defeat every enemy"));
+            Assert.That(presenter.ViewModel.SecondaryText, Is.EqualTo("Goal: Yes | Required: No | Cleared: No"));
+            Assert.That(presenter.ViewModel.DetailText, Does.Not.Contain("PlayerAtAnyZone"));
+            Assert.That(presenter.ViewModel.DetailText, Does.Not.Contain("PrimaryGoal"));
             Assert.That(presenter.BuildInfoPopupPayload().BodyText, Does.Contain("Goal reached: Yes"));
             Assert.That(presenter.BuildInfoPopupPayload().BodyText, Does.Not.Contain("PlayerAtAnyZone"));
             Assert.That(presenter.BuildInfoPopupPayload().BodyText, Does.Not.Contain("PrimaryGoal"));
+            Assert.That(presenter.BuildInfoPopupPayload().BodyText, Does.Not.Contain("Reach the exit zone"));
+            Assert.That(presenter.BuildInfoPopupPayload().BodyText, Does.Not.Contain("Defeat every enemy"));
+        }
 
-            presenter.ShowSession();
+        [Test]
+        public void ObjectiveStatusPresenter_DoesNotRenderRawConditionDetails()
+        {
+            var queryFacade = new FakeGameplayQueryFacade(
+                new GameplaySessionReadModel(nextTickIndex: 7, isPaused: false, canAcceptGameplayCommands: true, isStageCleared: false),
+                FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
+                CreateObjectiveReadModel());
+            using var presentationSource = UiTestPortFactory.CreatePresentationSource(queryFacade: queryFacade);
+            using var statePresenter = new ObjectiveStatusPresenter(presentationSource);
+            using var presenter = new ObjectiveStatusScreenPresenter(statePresenter);
 
-            Assert.That(presenter.ViewModel.BadgeText, Is.EqualTo("Session"));
-            Assert.That(presenter.ViewModel.SummaryText, Does.Contain("7"));
-            Assert.That(presenter.ViewModel.DetailText, Does.Not.Contain("PlayerAtAnyZone"));
-            Assert.That(presenter.ViewModel.DetailText, Does.Not.Contain("PrimaryGoal"));
-            Assert.That(presenter.BuildInfoPopupPayload().TitleText, Is.EqualTo("Session Info"));
+            Assert.That(presenter.ViewModel.DetailText, Does.Not.Contain("PlayerEntityId"));
+            Assert.That(presenter.ViewModel.DetailText, Does.Not.Contain("MatchedZoneId"));
+            Assert.That(presenter.ViewModel.DetailText, Does.Not.Contain("ConditionType"));
+        }
+
+        private static GameplayObjectiveReadModel CreateObjectiveReadModel()
+        {
+            return new GameplayObjectiveReadModel(
+                hasObjective: true,
+                goalReached: true,
+                allConditionsSatisfied: false,
+                isCleared: false,
+                objectiveTitle: "Reach the Exit",
+                objectiveSummary: "Move to the exit zone.",
+                conditions: new[]
+                {
+                    new GameplayObjectiveConditionReadModel(
+                        stableId: "primary-goal",
+                        role: GameplayObjectiveConditionRole.PrimaryGoal,
+                        required: true,
+                        isSatisfied: true,
+                        titleText: "Reach the exit zone",
+                        progressText: string.Empty,
+                        sortOrder: 0),
+                    new GameplayObjectiveConditionReadModel(
+                        stableId: "optional-enemies",
+                        role: GameplayObjectiveConditionRole.SecondaryGoal,
+                        required: false,
+                        isSatisfied: false,
+                        titleText: "Defeat every enemy",
+                        progressText: string.Empty,
+                        sortOrder: 10),
+                });
         }
     }
 

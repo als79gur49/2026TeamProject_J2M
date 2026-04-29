@@ -1387,6 +1387,33 @@
       ],
       "reason": "Locked Core coverage for current face-aware player goal occupancy evaluation.",
       "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyLocomotionTimingAuthoring_ExplicitOrdinaryKinematicDuration_UsesEvenCeilTicks",
+      "category": "Core",
+      "contracts": [
+        "enemy_locomotion_timing"
+      ],
+      "reason": "Locked Core coverage for explicit enemy ordinary kinematic timing quantization.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyLocomotionTimingAuthoring_UnsetOrdinaryKinematicDuration_FallsBackToMoveCooldown",
+      "category": "Core",
+      "contracts": [
+        "enemy_locomotion_timing"
+      ],
+      "reason": "Locked Core coverage for enemy ordinary kinematic move cooldown fallback timing.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyLocomotionTimingAuthoring_InvalidOrdinaryKinematicDuration_Throws",
+      "category": "Core",
+      "contracts": [
+        "enemy_locomotion_timing"
+      ],
+      "reason": "Locked Core coverage for enemy ordinary kinematic timing validation.",
+      "locked": true
     }
   ]
 }

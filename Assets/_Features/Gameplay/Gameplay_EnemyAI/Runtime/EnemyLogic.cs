@@ -28,11 +28,16 @@ namespace Game.Feature.Gameplay.Entities
     {
         private readonly struct GroundLocomotionResolution
         {
-            public GroundLocomotionResolution(bool hasIntent, RawMovementIntent intent, int cooldownTicks)
+            public GroundLocomotionResolution(
+                bool hasIntent,
+                RawMovementIntent intent,
+                int cooldownTicks,
+                int ordinaryKinematicMoveTicks)
             {
                 HasIntent = hasIntent;
                 Intent = intent;
                 CooldownTicks = cooldownTicks;
+                OrdinaryKinematicMoveTicks = ordinaryKinematicMoveTicks;
             }
 
             public bool HasIntent { get; }
@@ -40,6 +45,8 @@ namespace Game.Feature.Gameplay.Entities
             public RawMovementIntent Intent { get; }
 
             public int CooldownTicks { get; }
+
+            public int OrdinaryKinematicMoveTicks { get; }
         }
 
         private readonly int _entityId;
@@ -307,6 +314,14 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
+            if (snapshot.TryGetUnitKinematicPose(source.entityId, out var pose) &&
+                pose.HasAuthoritativeState &&
+                !pose.IsSettledAtAnchor &&
+                pose.Mode == MotionMode.Voluntary)
+            {
+                return;
+            }
+
             if (ShouldSuppressMovementForJump(snapshot, input.TickIndex) ||
                 ShouldSuppressMovementForGlide(snapshot) ||
                 ShouldSuppressMovementForEnemyPhase(snapshot))
@@ -317,7 +332,10 @@ namespace Game.Feature.Gameplay.Entities
             var locomotion = ResolveBaselineGroundLocomotion(snapshot, source, input.TickIndex);
             if (locomotion.HasIntent)
             {
-                buffer.Add(ApplyMovementCooldown(locomotion.Intent, locomotion.CooldownTicks));
+                buffer.Add(ApplyMovementTiming(
+                    locomotion.Intent,
+                    locomotion.CooldownTicks,
+                    locomotion.OrdinaryKinematicMoveTicks));
             }
         }
 
@@ -1123,7 +1141,10 @@ namespace Game.Feature.Gameplay.Entities
                    left.targetPattern == right.targetPattern;
         }
 
-        private static RawMovementIntent ApplyMovementCooldown(RawMovementIntent intent, int cooldownTicks)
+        private static RawMovementIntent ApplyMovementTiming(
+            RawMovementIntent intent,
+            int cooldownTicks,
+            int ordinaryKinematicMoveTicks)
         {
             return new RawMovementIntent(
                 intent.SourceId,
@@ -1131,7 +1152,8 @@ namespace Game.Feature.Gameplay.Entities
                 intent.Destination,
                 intent.CommandKind,
                 intent.LocalSequence,
-                cooldownTicks);
+                cooldownTicks,
+                ordinaryKinematicMoveTicks);
         }
 
         private bool ShouldHoldWallFollowForSameCellPassiveContact(
@@ -1487,7 +1509,8 @@ namespace Game.Feature.Gameplay.Entities
                             return new GroundLocomotionResolution(
                                 hasIntent: true,
                                 patrolIntent,
-                                _locomotionTimingSettings.MoveCooldownTicks);
+                                _locomotionTimingSettings.MoveCooldownTicks,
+                                _locomotionTimingSettings.OrdinaryKinematicMoveTicks);
                         }
 
                         return default;
@@ -1503,7 +1526,8 @@ namespace Game.Feature.Gameplay.Entities
                         return new GroundLocomotionResolution(
                             hasIntent: true,
                             fallbackPatrolIntent,
-                            _locomotionTimingSettings.MoveCooldownTicks);
+                            _locomotionTimingSettings.MoveCooldownTicks,
+                            _locomotionTimingSettings.OrdinaryKinematicMoveTicks);
                     }
 
                     return default;
@@ -1525,7 +1549,8 @@ namespace Game.Feature.Gameplay.Entities
                         return new GroundLocomotionResolution(
                             hasIntent: true,
                             chaseIntent,
-                            _locomotionTimingSettings.MoveCooldownTicks);
+                            _locomotionTimingSettings.MoveCooldownTicks,
+                            _locomotionTimingSettings.OrdinaryKinematicMoveTicks);
                     }
 
                     return default;
@@ -1543,7 +1568,8 @@ namespace Game.Feature.Gameplay.Entities
                         return new GroundLocomotionResolution(
                             hasIntent: true,
                             chargeIntent,
-                            _chargeTimingSettings.ActiveStepCooldownTicks);
+                            _chargeTimingSettings.ActiveStepCooldownTicks,
+                            ordinaryKinematicMoveTicks: 0);
                     }
 
                     return default;

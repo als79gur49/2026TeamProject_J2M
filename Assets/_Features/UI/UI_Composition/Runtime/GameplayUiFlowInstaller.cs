@@ -48,6 +48,7 @@ namespace Game.Feature.UI.Composition
         private bool _isInstalled;
         private IKeyboardBindingSettingsPort _keyboardBindingSettingsPort;
         private StageResultAutoNextDriver _stageResultAutoNextDriver;
+        private HudUiAudioFeedbackController _hudUiAudioFeedbackController;
 
         public GameplayUiFlowPorts Ports { get; private set; }
 
@@ -193,10 +194,16 @@ namespace Game.Feature.UI.Composition
 
             var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter();
+            var objectiveHudPresenter = new ObjectiveHudPresenter();
+            var chancePanelPresenter = new ChancePanelPresenter();
+            var topologyHudPresenter = new TopologyHudPresenter();
             var notificationPresenter = new NotificationPresenter();
             HudRootPresenter = new HUDRootPresenter(
                 PresentationSource,
                 stageInfoPresenter,
+                objectiveHudPresenter,
+                chancePanelPresenter,
+                topologyHudPresenter,
                 playerStatusPresenter,
                 notificationPresenter);
 
@@ -216,8 +223,16 @@ namespace Game.Feature.UI.Composition
             HudController = new HUDController(
                 HudRootPresenter.ViewModel,
                 stageInfoPresenter.ViewModel,
+                objectiveHudPresenter.ViewModel,
+                chancePanelPresenter.ViewModel,
+                topologyHudPresenter.ViewModel,
                 playerStatusPresenter.ViewModel,
                 notificationPresenter.ViewModel);
+            _hudUiAudioFeedbackController = new HudUiAudioFeedbackController(
+                uiAudioPort,
+                chancePanelPresenter.ViewModel,
+                objectiveHudPresenter.ViewModel,
+                topologyHudPresenter.ViewModel);
             BlockPolicy = new UIBlockPolicy();
             Coordinator = new UIFlowCoordinator(
                 ScreenController,
@@ -255,6 +270,7 @@ namespace Game.Feature.UI.Composition
             ScreenController?.Dispose();
             PopupController?.Dispose();
             HudController?.Dispose();
+            _hudUiAudioFeedbackController?.Dispose();
             HudRootPresenter?.Dispose();
             (PresentationSource as IDisposable)?.Dispose();
         }

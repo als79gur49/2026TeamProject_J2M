@@ -114,6 +114,8 @@ namespace Game.Feature.Stages
             return new StageObjectiveAuthoring
             {
                 CompletionPolicy = objective.CompletionPolicy,
+                ObjectiveTitle = objective.ObjectiveTitle?.Trim() ?? string.Empty,
+                ObjectiveSummary = objective.ObjectiveSummary?.Trim() ?? string.Empty,
                 ConditionEntries = normalizedConditionEntries,
             };
         }
@@ -161,6 +163,8 @@ namespace Game.Feature.Stages
                     Required = entry.Required,
                     Role = entry.Role,
                     StableConditionId = stableConditionId,
+                    DisplayText = entry.DisplayText?.Trim() ?? string.Empty,
+                    SortOrder = entry.SortOrder,
                 };
             }
 

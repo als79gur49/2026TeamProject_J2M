@@ -20,6 +20,61 @@ namespace Game.Feature.Gameplay.Objectives
         Challenge = 3,
     }
 
+    public readonly struct StageObjectiveConditionDisplayMetadata
+    {
+        public StageObjectiveConditionDisplayMetadata(
+            string stableConditionId,
+            StageObjectiveConditionRole role,
+            bool required,
+            string displayText,
+            int sortOrder,
+            int authoringOrder)
+        {
+            StableConditionId = stableConditionId?.Trim() ?? string.Empty;
+            Role = role;
+            Required = required;
+            DisplayText = displayText?.Trim() ?? string.Empty;
+            SortOrder = sortOrder;
+            AuthoringOrder = authoringOrder;
+        }
+
+        public string StableConditionId { get; }
+
+        public StageObjectiveConditionRole Role { get; }
+
+        public bool Required { get; }
+
+        public string DisplayText { get; }
+
+        public int SortOrder { get; }
+
+        public int AuthoringOrder { get; }
+    }
+
+    public sealed class StageObjectiveDisplayMetadata
+    {
+        public static readonly StageObjectiveDisplayMetadata Empty = new(
+            string.Empty,
+            string.Empty,
+            Array.Empty<StageObjectiveConditionDisplayMetadata>());
+
+        public StageObjectiveDisplayMetadata(
+            string objectiveTitle,
+            string objectiveSummary,
+            StageObjectiveConditionDisplayMetadata[] conditionEntries)
+        {
+            ObjectiveTitle = objectiveTitle?.Trim() ?? string.Empty;
+            ObjectiveSummary = objectiveSummary?.Trim() ?? string.Empty;
+            ConditionEntries = conditionEntries ?? Array.Empty<StageObjectiveConditionDisplayMetadata>();
+        }
+
+        public string ObjectiveTitle { get; }
+
+        public string ObjectiveSummary { get; }
+
+        public IReadOnlyList<StageObjectiveConditionDisplayMetadata> ConditionEntries { get; }
+    }
+
     public readonly struct StageZoneRuntimeRegion
     {
         public StageZoneRuntimeRegion(UnityEngine.Vector2Int minInclusive, UnityEngine.Vector2Int maxInclusive)
@@ -378,18 +433,35 @@ namespace Game.Feature.Gameplay.Objectives
             StageCompletionPolicy.Disabled,
             0,
             Array.Empty<StageZoneRuntimeDefinition>(),
-            Array.Empty<StageObjectiveConditionRuntimeDefinitionEntry>());
+            Array.Empty<StageObjectiveConditionRuntimeDefinitionEntry>(),
+            StageObjectiveDisplayMetadata.Empty);
 
         public StageObjectiveRuntimeDefinition(
             StageCompletionPolicy completionPolicy,
             int playerEntityId,
             StageZoneRuntimeDefinition[] zones,
             StageObjectiveConditionRuntimeDefinitionEntry[] conditionEntries)
+            : this(
+                completionPolicy,
+                playerEntityId,
+                zones,
+                conditionEntries,
+                StageObjectiveDisplayMetadata.Empty)
+        {
+        }
+
+        public StageObjectiveRuntimeDefinition(
+            StageCompletionPolicy completionPolicy,
+            int playerEntityId,
+            StageZoneRuntimeDefinition[] zones,
+            StageObjectiveConditionRuntimeDefinitionEntry[] conditionEntries,
+            StageObjectiveDisplayMetadata displayMetadata)
         {
             CompletionPolicy = completionPolicy;
             PlayerEntityId = playerEntityId;
             Zones = zones ?? Array.Empty<StageZoneRuntimeDefinition>();
             ConditionEntries = ValidateConditionEntries(conditionEntries);
+            DisplayMetadata = displayMetadata ?? StageObjectiveDisplayMetadata.Empty;
         }
 
         public StageCompletionPolicy CompletionPolicy { get; }
@@ -399,6 +471,8 @@ namespace Game.Feature.Gameplay.Objectives
         public IReadOnlyList<StageZoneRuntimeDefinition> Zones { get; }
 
         public IReadOnlyList<StageObjectiveConditionRuntimeDefinitionEntry> ConditionEntries { get; }
+
+        public StageObjectiveDisplayMetadata DisplayMetadata { get; }
 
         public bool HasObjective
         {

@@ -67,12 +67,14 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, "Attack.Resolutions", attackPhaseResult.ResolutionRecords, FormatResolutionRecord);
             AppendSection(builder, "Attack.ResolvedOperations", attackPhaseResult.ResolvedOperations, FormatFinalizationOperation);
             AppendSection(builder, "Attack.DamageResolutions", attackPhaseResult.DamageResolutions, FormatDamageResolutionRecord);
+            AppendSection(builder, "Attack.MotionInterrupts", attackPhaseResult.MotionInterruptRecords, FormatMotionInterruptRecord);
             AppendSection(builder, "Attack.QueuedDelayedEffects", attackPhaseResult.QueuedDelayedAttackEffects, FormatDelayedAttackEffectRecord);
             AppendSection(builder, "Attack.CommitEvents", attackPhaseResult.CommitEvents, FormatString);
             AppendSection(builder, "EnemyAction.AfterAttackTransitions", enemyActionPhaseResult.AfterAttackTransitions, FormatEnemyActionTransition);
             AppendSection(builder, "EnemyAi.AfterAttackTransitions", enemyAiPhaseResult.AfterAttackTransitions, FormatString);
 
             AppendSection(builder, "Cleanup.RemovedIds", cleanupPhaseResult.RemovedEntityIds, value => value.ToString());
+            AppendSection(builder, "Cleanup.RemovedUnitKinematics", cleanupPhaseResult.RemovedUnitKinematicPoses, FormatRemovedUnitKinematicPoseRecord);
             AppendSection(builder, "Cleanup.TimerChanges", cleanupPhaseResult.TimerChanges, FormatString);
             AppendSection(builder, "Cleanup.StateTransitions", cleanupPhaseResult.StateTransitions, FormatString);
             AppendSection(builder, "Cleanup.EventLogEntries", cleanupPhaseResult.EventLogEntries, FormatString);
@@ -652,6 +654,19 @@ namespace Game.Feature.Gameplay.Debug
                     builder.Append("|RemoveLock=1");
                     break;
 
+                case FinalizationOperationKind.SetUnitKinematicState:
+                    builder.Append("|LocalX=").Append(operation.UnitKinematicState.localOffset.X.RawValue)
+                        .Append("|LocalY=").Append(operation.UnitKinematicState.localOffset.Y.RawValue)
+                        .Append("|VelX=").Append(operation.UnitKinematicState.velocity.X.RawValue)
+                        .Append("|VelY=").Append(operation.UnitKinematicState.velocity.Y.RawValue)
+                        .Append("|MotionMode=").Append(operation.UnitKinematicState.mode)
+                        .Append("|ForcedOp=").Append(operation.UnitKinematicState.forcedOp)
+                        .Append("|RemainingDistance=").Append(operation.UnitKinematicState.remainingDistanceUnits)
+                        .Append("|RemainingTicks=").Append(operation.UnitKinematicState.remainingTicks)
+                        .Append("|SpeedScale=").Append(operation.UnitKinematicState.speedScalePermille)
+                        .Append("|MotionSeq=").Append(operation.UnitKinematicState.sequenceId);
+                    break;
+
                 case FinalizationOperationKind.SetTopology:
                     builder.Append("|Rotation=").Append(operation.Metadata.RotationKind)
                         .Append("|Bottom=").Append(operation.Topology.BottomFace)
@@ -746,6 +761,18 @@ namespace Game.Feature.Gameplay.Debug
         {
             return
                 $"Reservation|Source={reservation.SourceId}|Target={reservation.TargetId}|Position={FormatCell(reservation.ImpactCell)}|Damage={reservation.Damage}|Tick={reservation.TickGenerated}";
+        }
+
+        private static string FormatMotionInterruptRecord(MotionInterruptRecord record)
+        {
+            return $"Interrupt|E={record.EntityId}|Policy={record.Policy}|Source={record.SourceEntityId}";
+        }
+
+        private static string FormatRemovedUnitKinematicPoseRecord(RemovedUnitKinematicPoseRecord record)
+        {
+            var pose = record.Pose;
+            return
+                $"RemovedKinematic|E={record.EntityId}|Anchor={FormatCell(pose.AnchorCell)}|Offset={pose.LocalOffset}|Mode={pose.Mode}|ForcedOp={pose.State.forcedOp}";
         }
 
         private static string FormatDelayedAttackEffectRecord(DelayedAttackEffectRecord effectRecord)
