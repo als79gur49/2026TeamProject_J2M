@@ -37,7 +37,15 @@ namespace Game.Feature.Stages
             string message,
             UnityEngine.Object context = null,
             string assetPath = "",
-            StageValidationTiming timing = StageValidationTiming.EditorAuthoring)
+            StageValidationTiming timing = StageValidationTiming.EditorAuthoring,
+            string stageId = "",
+            string authoringAssetName = "",
+            string outputAssetName = "",
+            int entityId = 0,
+            string stableGuid = "",
+            string fieldName = "",
+            string expectedValue = "",
+            string actualValue = "")
         {
             Severity = severity;
             Code = code ?? string.Empty;
@@ -45,6 +53,14 @@ namespace Game.Feature.Stages
             Context = context;
             AssetPath = assetPath ?? string.Empty;
             Timing = timing;
+            StageId = stageId ?? string.Empty;
+            AuthoringAssetName = authoringAssetName ?? string.Empty;
+            OutputAssetName = outputAssetName ?? string.Empty;
+            EntityId = entityId;
+            StableGuid = stableGuid ?? string.Empty;
+            FieldName = fieldName ?? string.Empty;
+            ExpectedValue = expectedValue ?? string.Empty;
+            ActualValue = actualValue ?? string.Empty;
         }
 
         public StageValidationSeverity Severity { get; }
@@ -58,6 +74,22 @@ namespace Game.Feature.Stages
         public string AssetPath { get; }
 
         public StageValidationTiming Timing { get; }
+
+        public string StageId { get; }
+
+        public string AuthoringAssetName { get; }
+
+        public string OutputAssetName { get; }
+
+        public int EntityId { get; }
+
+        public string StableGuid { get; }
+
+        public string FieldName { get; }
+
+        public string ExpectedValue { get; }
+
+        public string ActualValue { get; }
     }
 
     public sealed class StageValidationReport
@@ -130,6 +162,36 @@ namespace Game.Feature.Stages
         public StageValidationWaiverList WaiverList { get; set; }
 
         public bool EnforceCanonicalLegacyPresentationBridgeWarnings { get; set; } = true;
+
+        public IStageValidationAssetMetadataProvider AssetMetadataProvider { get; set; }
+
+        internal IStageValidationAssetMetadataProvider ResolvedAssetMetadataProvider { get; private set; }
+
+        internal StageCatalogValidationOptions CloneWithResolvedAssetMetadataProvider(
+            IStageValidationAssetMetadataProvider provider)
+        {
+            return new StageCatalogValidationOptions
+            {
+                RequirePresentationDefinition = RequirePresentationDefinition,
+                RequireClearEvaluationDefinition = RequireClearEvaluationDefinition,
+                RequireRewardDefinition = RequireRewardDefinition,
+                RequireProgressionDefinition = RequireProgressionDefinition,
+                Timing = Timing,
+                Phase = Phase,
+                KnownBgmKeys = KnownBgmKeys,
+                WaiverList = WaiverList,
+                EnforceCanonicalLegacyPresentationBridgeWarnings = EnforceCanonicalLegacyPresentationBridgeWarnings,
+                AssetMetadataProvider = AssetMetadataProvider,
+                ResolvedAssetMetadataProvider = provider,
+            };
+        }
+    }
+
+    public interface IStageValidationAssetMetadataProvider
+    {
+        string GetAssetPath(UnityEngine.Object asset);
+
+        string GetAssetGuid(UnityEngine.Object asset);
     }
 
     [Serializable]

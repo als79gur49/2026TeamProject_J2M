@@ -8,12 +8,37 @@ namespace Game.Feature.Stages
     public sealed class StageCatalogValidator
     {
         private const string CanonicalContentRoot = "Assets/_Features/Stages/Content";
+        private static IStageValidationAssetMetadataProvider defaultMetadataProvider;
+        private static readonly IStageValidationAssetMetadataProvider NoOpMetadataProvider =
+            new NoOpAssetMetadataProvider();
+
+        public static void ConfigureDefaultAssetMetadataProvider(IStageValidationAssetMetadataProvider provider)
+        {
+            defaultMetadataProvider = provider;
+        }
+
+        public static void ClearDefaultAssetMetadataProvider()
+        {
+            defaultMetadataProvider = null;
+        }
+
+        public static IDisposable UseDefaultAssetMetadataProvider(IStageValidationAssetMetadataProvider provider)
+        {
+            var previous = defaultMetadataProvider;
+            defaultMetadataProvider = provider;
+            return new DefaultAssetMetadataProviderScope(previous);
+        }
+
+        public static IStageValidationAssetMetadataProvider GetDefaultAssetMetadataProviderForTests()
+        {
+            return defaultMetadataProvider;
+        }
 
         public StageValidationReport Validate(
             StageCatalog catalog,
             StageCatalogValidationOptions options = null)
         {
-            options ??= StageCatalogValidationOptions.Default;
+            options = ResolveOptions(options);
             var report = new StageValidationReport();
             if (catalog == null)
             {
@@ -37,10 +62,18 @@ namespace Game.Feature.Stages
             StageCatalogValidationOptions options = null)
         {
             var report = new StageValidationReport();
-            ValidateEntries(entries, aliasTable, options ?? StageCatalogValidationOptions.Default, report);
-            ValidateStageIdAliases(aliasTable, options ?? StageCatalogValidationOptions.Default, report);
-            ValidateProgressionGraph(entries, options ?? StageCatalogValidationOptions.Default, report);
+            options = ResolveOptions(options);
+            ValidateEntries(entries, aliasTable, options, report);
+            ValidateStageIdAliases(aliasTable, options, report);
+            ValidateProgressionGraph(entries, options, report);
             return report;
+        }
+
+        private static StageCatalogValidationOptions ResolveOptions(StageCatalogValidationOptions options)
+        {
+            options ??= StageCatalogValidationOptions.Default;
+            return options.CloneWithResolvedAssetMetadataProvider(
+                options.AssetMetadataProvider ?? defaultMetadataProvider ?? NoOpMetadataProvider);
         }
 
         private static void ValidateEntries(
@@ -70,7 +103,7 @@ namespace Game.Feature.Stages
                     continue;
                 }
 
-                var entryPath = GetAssetPath(entry);
+                var entryPath = GetAssetPath(entry, options);
                 if (!entry.StageId.IsValid)
                 {
                     report.Add(
@@ -154,7 +187,7 @@ namespace Game.Feature.Stages
                         "authoring.missing",
                         $"StageContentEntry '{entry.name}' has no StageAuthoringDefinition. Existing direct-authored stages remain supported.",
                         entry,
-                        GetAssetPath(entry),
+                        GetAssetPath(entry, options),
                         options.Timing);
                 }
 
@@ -162,7 +195,7 @@ namespace Game.Feature.Stages
             }
 
             ValidateCompanion(entry, authoring, ownerByCompanion, false, "authoring", options, report);
-            var authoringPath = GetAssetPath(authoring);
+            var authoringPath = GetAssetPath(authoring, options);
             if (authoring.GeneratedGameplayDefinition != entry.GameplayDefinition)
             {
                 report.Add(
@@ -199,7 +232,7 @@ namespace Game.Feature.Stages
             StageValidationReport report)
         {
             var severity = ResolveAuthoringSyncSeverity(authoring);
-            var authoringPath = GetAssetPath(authoring);
+            var authoringPath = GetAssetPath(authoring, options);
             var stableGuids = new HashSet<string>(StringComparer.Ordinal);
             var mappingsByGuid = new HashSet<string>(StringComparer.Ordinal);
             var mappingEntityIds = new HashSet<int>();
@@ -328,295 +361,44 @@ namespace Game.Feature.Stages
             StageValidationReport report)
         {
             var severity = ResolveAuthoringSyncSeverity(authoring);
-            var authoringPath = GetAssetPath(authoring);
-            var mappingsByGuid = BuildEntityIdMappings(authoring);
-            var expected = BuildExpectedAuthoringOutput(authoring, mappingsByGuid, severity, options, report);
-            if (expected == null)
-            {
-                return;
-            }
+            var authoringPath = GetAssetPath(authoring, options);
+            var allocationPlan = StageAuthoringProjection.BuildAllocationPlan(authoring);
+            var expectedGameplay = StageAuthoringProjection.ProjectExpectedGameplay(authoring, allocationPlan);
+            var actualGameplay = StageAuthoringProjection.ProjectActualGameplay(entry.GameplayDefinition);
+            var expectedPresentation = StageAuthoringProjection.ProjectExpectedPresentation(authoring, allocationPlan);
+            var actualPresentation = StageAuthoringProjection.ProjectActualPresentation(entry.PresentationDefinition);
 
-            if (!StageBoardsEqual(entry.GameplayDefinition.Board, expected.Board))
+            var gameplayContext = new StageAuthoringDriftContext(
+                severity,
+                options.Timing,
+                authoring,
+                authoringPath,
+                entry.StageId.IsValid ? entry.StageId.Value : string.Empty,
+                authoring.name,
+                entry.GameplayDefinition != null ? entry.GameplayDefinition.name : string.Empty);
+            report.AddRange(StageAuthoringDriftComparer.CompareGameplay(expectedGameplay, actualGameplay, gameplayContext));
+
+            var presentationContext = new StageAuthoringDriftContext(
+                severity,
+                options.Timing,
+                authoring,
+                authoringPath,
+                entry.StageId.IsValid ? entry.StageId.Value : string.Empty,
+                authoring.name,
+                entry.PresentationDefinition != null ? entry.PresentationDefinition.name : string.Empty);
+            report.AddRange(StageAuthoringDriftComparer.ComparePresentation(expectedPresentation, actualPresentation, presentationContext));
+
+            for (var i = 0; i < allocationPlan.NewMappings.Count; i++)
             {
+                var mapping = allocationPlan.NewMappings[i];
                 report.Add(
                     severity,
-                    "authoring.generated-output-mismatch",
-                    $"Stage '{entry.StageId.Value}' generated board data is out of sync with StageAuthoringDefinition.",
+                    "authoring.entity-id-drift",
+                    $"StageAuthoringDefinition '{authoring.name}' placement '{mapping.StableGuid}' has no persisted positive EntityId mapping.",
                     authoring,
                     authoringPath,
                     options.Timing);
             }
-
-            CompareSpawnGroup(entry, authoring, "playerSpawns", entry.GameplayDefinition.PlayerSpawns, expected.PlayerSpawns, severity, options, report);
-            CompareSpawnGroup(entry, authoring, "enemySpawns", entry.GameplayDefinition.EnemySpawns, expected.EnemySpawns, severity, options, report);
-            CompareSpawnGroup(entry, authoring, "boxSpawns", entry.GameplayDefinition.BoxSpawns, expected.BoxSpawns, severity, options, report);
-            CompareSpawnGroup(entry, authoring, "wallSpawns", entry.GameplayDefinition.WallSpawns, expected.WallSpawns, severity, options, report);
-            ComparePresentationBindings(entry, authoring, expected, severity, options, report);
-        }
-
-        private static Dictionary<string, StageAuthoringIdMapping> BuildEntityIdMappings(StageAuthoringDefinition authoring)
-        {
-            var result = new Dictionary<string, StageAuthoringIdMapping>(StringComparer.Ordinal);
-            var mappings = authoring.EntityIdMappings;
-            for (var i = 0; i < mappings.Count; i++)
-            {
-                var stableGuid = Normalize(mappings[i].StableGuid);
-                if (!string.IsNullOrEmpty(stableGuid) && mappings[i].EntityId > 0)
-                {
-                    result[stableGuid] = mappings[i];
-                }
-            }
-
-            return result;
-        }
-
-        private static ExpectedAuthoringOutput BuildExpectedAuthoringOutput(
-            StageAuthoringDefinition authoring,
-            IReadOnlyDictionary<string, StageAuthoringIdMapping> mappingsByGuid,
-            StageValidationSeverity severity,
-            StageCatalogValidationOptions options,
-            StageValidationReport report)
-        {
-            var expected = new ExpectedAuthoringOutput(authoring.Board);
-            var placements = authoring.Placements;
-            for (var i = 0; i < placements.Count; i++)
-            {
-                var placement = placements[i];
-                if (placement == null)
-                {
-                    continue;
-                }
-
-                var stableGuid = Normalize(placement.StableGuid);
-                if (string.IsNullOrEmpty(stableGuid))
-                {
-                    continue;
-                }
-
-                if (!mappingsByGuid.TryGetValue(stableGuid, out var mapping) || mapping.EntityId <= 0)
-                {
-                    report.Add(
-                        severity,
-                        "authoring.entity-id-drift",
-                        $"StageAuthoringDefinition '{authoring.name}' placement '{stableGuid}' has no positive EntityId mapping.",
-                        authoring,
-                        GetAssetPath(authoring),
-                        options.Timing);
-                    continue;
-                }
-
-                var spawn = new StageSpawnDefinition
-                {
-                    EntityId = mapping.EntityId,
-                    Kind = ToSpawnKind(placement.Kind),
-                    Cell = placement.Cell,
-                    Facing = placement.Facing,
-                    Hp = placement.Hp,
-                    BoxCapabilities = placement.BoxCapabilities,
-                    EnemyAiMode = placement.EnemyAiMode,
-                    EnemyAiStateTimer = placement.EnemyAiStateTimer,
-                    EnemyAiProfile = placement.EnemyAiProfileOverride,
-                    PresentationId = string.Empty,
-                    UnitStackGroup = Normalize(placement.UnitStackGroup),
-                };
-
-                switch (placement.Kind)
-                {
-                    case StageAuthoringEntityKind.Player:
-                        expected.PlayerSpawns.Add(spawn);
-                        break;
-                    case StageAuthoringEntityKind.Enemy:
-                        expected.EnemySpawns.Add(spawn);
-                        AddEnemyBinding(expected, spawn.EntityId, placement.PresentationId);
-                        break;
-                    case StageAuthoringEntityKind.Box:
-                        expected.BoxSpawns.Add(spawn);
-                        AddStaticBinding(expected, spawn.EntityId, placement.PresentationId);
-                        break;
-                    case StageAuthoringEntityKind.Wall:
-                        expected.WallSpawns.Add(spawn);
-                        AddStaticBinding(expected, spawn.EntityId, placement.PresentationId);
-                        break;
-                }
-            }
-
-            SortSpawns(expected.PlayerSpawns);
-            SortSpawns(expected.EnemySpawns);
-            SortSpawns(expected.BoxSpawns);
-            SortSpawns(expected.WallSpawns);
-            expected.EnemyBindings.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
-            expected.StaticBindings.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
-            return expected;
-        }
-
-        private static void AddEnemyBinding(ExpectedAuthoringOutput expected, int entityId, string presentationId)
-        {
-            var normalized = Normalize(presentationId);
-            if (!string.IsNullOrEmpty(normalized))
-            {
-                expected.EnemyBindings.Add(new Game.Feature.Gameplay.Host.EnemyPresentationBinding
-                {
-                    EntityId = entityId,
-                    PresentationId = normalized,
-                });
-            }
-        }
-
-        private static void AddStaticBinding(ExpectedAuthoringOutput expected, int entityId, string presentationId)
-        {
-            var normalized = Normalize(presentationId);
-            if (!string.IsNullOrEmpty(normalized))
-            {
-                expected.StaticBindings.Add(new Game.Feature.Gameplay.Host.StaticEntityPresentationBinding
-                {
-                    EntityId = entityId,
-                    PresentationId = normalized,
-                });
-            }
-        }
-
-        private static void CompareSpawnGroup(
-            StageContentEntry entry,
-            StageAuthoringDefinition authoring,
-            string groupName,
-            IReadOnlyList<StageSpawnDefinition> actual,
-            IReadOnlyList<StageSpawnDefinition> expected,
-            StageValidationSeverity severity,
-            StageCatalogValidationOptions options,
-            StageValidationReport report)
-        {
-            var sortedActual = new List<StageSpawnDefinition>(actual ?? Array.Empty<StageSpawnDefinition>());
-            SortSpawns(sortedActual);
-            if (sortedActual.Count != expected.Count)
-            {
-                report.Add(
-                    severity,
-                    "authoring.generated-output-mismatch",
-                    $"Stage '{entry.StageId.Value}' {groupName} count {sortedActual.Count} does not match generated count {expected.Count}.",
-                    authoring,
-                    GetAssetPath(authoring),
-                    options.Timing);
-                return;
-            }
-
-            for (var i = 0; i < expected.Count; i++)
-            {
-                if (!StageSpawnsEqual(sortedActual[i], expected[i]))
-                {
-                    report.Add(
-                        severity,
-                        "authoring.generated-output-mismatch",
-                        $"Stage '{entry.StageId.Value}' {groupName}[{i}] is out of sync with StageAuthoringDefinition.",
-                        authoring,
-                        GetAssetPath(authoring),
-                        options.Timing);
-                    return;
-                }
-            }
-        }
-
-        private static void ComparePresentationBindings(
-            StageContentEntry entry,
-            StageAuthoringDefinition authoring,
-            ExpectedAuthoringOutput expected,
-            StageValidationSeverity severity,
-            StageCatalogValidationOptions options,
-            StageValidationReport report)
-        {
-            var actualEnemy = new List<Game.Feature.Gameplay.Host.EnemyPresentationBinding>(
-                entry.PresentationDefinition.EnemyPresentationBindings);
-            var actualStatic = new List<Game.Feature.Gameplay.Host.StaticEntityPresentationBinding>(
-                entry.PresentationDefinition.StaticEntityPresentationBindings);
-            actualEnemy.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
-            actualStatic.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
-
-            if (!EnemyBindingsEqual(actualEnemy, expected.EnemyBindings) ||
-                !StaticBindingsEqual(actualStatic, expected.StaticBindings))
-            {
-                report.Add(
-                    severity,
-                    "authoring.presentation-binding-drift",
-                    $"Stage '{entry.StageId.Value}' presentation bindings are out of sync with StageAuthoringDefinition.",
-                    authoring,
-                    GetAssetPath(authoring),
-                    options.Timing);
-            }
-        }
-
-        private static bool StageBoardsEqual(StageBoardDefinition left, StageBoardDefinition right)
-        {
-            return left.MinInclusive == right.MinInclusive &&
-                   left.MaxInclusive == right.MaxInclusive &&
-                   left.InitialBottomFace == right.InitialBottomFace;
-        }
-
-        private static bool StageSpawnsEqual(StageSpawnDefinition left, StageSpawnDefinition right)
-        {
-            return left.EntityId == right.EntityId &&
-                   left.Kind == right.Kind &&
-                   left.Cell == right.Cell &&
-                   left.Facing == right.Facing &&
-                   left.Hp == right.Hp &&
-                   left.BoxCapabilities == right.BoxCapabilities &&
-                   left.EnemyAiMode == right.EnemyAiMode &&
-                   left.EnemyAiStateTimer == right.EnemyAiStateTimer &&
-                   left.EnemyAiProfile == right.EnemyAiProfile &&
-                   string.Equals(Normalize(left.PresentationId), string.Empty, StringComparison.Ordinal) &&
-                   string.Equals(Normalize(left.UnitStackGroup), Normalize(right.UnitStackGroup), StringComparison.Ordinal);
-        }
-
-        private static bool EnemyBindingsEqual(
-            IReadOnlyList<Game.Feature.Gameplay.Host.EnemyPresentationBinding> left,
-            IReadOnlyList<Game.Feature.Gameplay.Host.EnemyPresentationBinding> right)
-        {
-            if (left.Count != right.Count)
-            {
-                return false;
-            }
-
-            for (var i = 0; i < left.Count; i++)
-            {
-                if (left[i].EntityId != right[i].EntityId ||
-                    !string.Equals(Normalize(left[i].PresentationId), Normalize(right[i].PresentationId), StringComparison.Ordinal))
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        private static bool StaticBindingsEqual(
-            IReadOnlyList<Game.Feature.Gameplay.Host.StaticEntityPresentationBinding> left,
-            IReadOnlyList<Game.Feature.Gameplay.Host.StaticEntityPresentationBinding> right)
-        {
-            if (left.Count != right.Count)
-            {
-                return false;
-            }
-
-            for (var i = 0; i < left.Count; i++)
-            {
-                if (left[i].EntityId != right[i].EntityId ||
-                    !string.Equals(Normalize(left[i].PresentationId), Normalize(right[i].PresentationId), StringComparison.Ordinal))
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        private static StageSpawnKind ToSpawnKind(StageAuthoringEntityKind kind)
-        {
-            return kind switch
-            {
-                StageAuthoringEntityKind.Player => StageSpawnKind.Player,
-                StageAuthoringEntityKind.Enemy => StageSpawnKind.Enemy,
-                StageAuthoringEntityKind.Box => StageSpawnKind.Box,
-                StageAuthoringEntityKind.Wall => StageSpawnKind.Wall,
-                _ => StageSpawnKind.Player,
-            };
         }
 
         private static StageValidationSeverity ResolveAuthoringSyncSeverity(StageAuthoringDefinition authoring)
@@ -626,36 +408,9 @@ namespace Game.Feature.Stages
                 : StageValidationSeverity.Warning;
         }
 
-        private static void SortSpawns(List<StageSpawnDefinition> spawns)
-        {
-            spawns.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
-        }
-
         private static string Normalize(string value)
         {
             return string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
-        }
-
-        private sealed class ExpectedAuthoringOutput
-        {
-            public ExpectedAuthoringOutput(StageBoardDefinition board)
-            {
-                Board = board;
-            }
-
-            public StageBoardDefinition Board { get; }
-
-            public List<StageSpawnDefinition> PlayerSpawns { get; } = new();
-
-            public List<StageSpawnDefinition> EnemySpawns { get; } = new();
-
-            public List<StageSpawnDefinition> BoxSpawns { get; } = new();
-
-            public List<StageSpawnDefinition> WallSpawns { get; } = new();
-
-            public List<Game.Feature.Gameplay.Host.EnemyPresentationBinding> EnemyBindings { get; } = new();
-
-            public List<Game.Feature.Gameplay.Host.StaticEntityPresentationBinding> StaticBindings { get; } = new();
         }
 
         private static void ValidateEntryPath(
@@ -702,7 +457,7 @@ namespace Game.Feature.Stages
                 return;
             }
 
-            var gameplayAssetPath = GetAssetPath(entry.GameplayDefinition);
+            var gameplayAssetPath = GetAssetPath(entry.GameplayDefinition, options);
             if (entry.StageId.IsValid)
             {
                 var expectedFolder = $"{CanonicalContentRoot}/{entry.StageId.Value}";
@@ -766,7 +521,7 @@ namespace Game.Feature.Stages
                     $"companion.{companionKind}.null",
                     $"StageContentEntry '{entry.name}' is missing its {companionKind} companion asset.",
                     entry,
-                    GetAssetPath(entry),
+                    GetAssetPath(entry, options),
                     options.Timing);
                 return;
             }
@@ -778,7 +533,7 @@ namespace Game.Feature.Stages
                     $"companion.{companionKind}.reused",
                     $"{companionKind} companion '{companion.name}' is reused by both '{firstOwner.name}' and '{entry.name}'.",
                     companion,
-                    GetAssetPath(companion),
+                    GetAssetPath(companion, options),
                     options.Timing);
             }
             else
@@ -786,7 +541,7 @@ namespace Game.Feature.Stages
                 ownerByCompanion[companion] = entry;
             }
 
-            var companionPath = GetAssetPath(companion);
+            var companionPath = GetAssetPath(companion, options);
             var expectedFolder = entry.StageId.IsValid
                 ? $"{CanonicalContentRoot}/{entry.StageId.Value}"
                 : string.Empty;
@@ -817,7 +572,7 @@ namespace Game.Feature.Stages
                     options.Timing);
             }
 
-            var entryGuid = GetAssetGuid(entry);
+            var entryGuid = GetAssetGuid(entry, options);
             if (!string.IsNullOrEmpty(entryGuid) &&
                 !string.Equals(companion.OwnerEntryGuid, entryGuid, StringComparison.Ordinal))
             {
@@ -859,7 +614,7 @@ namespace Game.Feature.Stages
                         "presentation.enemy-binding.missing-entity",
                         $"Enemy presentation binding references missing entity id {binding.EntityId}.",
                         entry.PresentationDefinition,
-                        GetAssetPath(entry.PresentationDefinition),
+                        GetAssetPath(entry.PresentationDefinition, options),
                         options.Timing);
                     continue;
                 }
@@ -871,7 +626,7 @@ namespace Game.Feature.Stages
                         "presentation.enemy-binding.kind-mismatch",
                         $"Enemy presentation binding entity id {binding.EntityId} points to spawn kind {spawn.Kind}.",
                         entry.PresentationDefinition,
-                        GetAssetPath(entry.PresentationDefinition),
+                        GetAssetPath(entry.PresentationDefinition, options),
                         options.Timing);
                 }
             }
@@ -887,7 +642,7 @@ namespace Game.Feature.Stages
                         "presentation.static-binding.missing-entity",
                         $"Static presentation binding references missing entity id {binding.EntityId}.",
                         entry.PresentationDefinition,
-                        GetAssetPath(entry.PresentationDefinition),
+                        GetAssetPath(entry.PresentationDefinition, options),
                         options.Timing);
                     continue;
                 }
@@ -900,7 +655,7 @@ namespace Game.Feature.Stages
                         "presentation.static-binding.kind-mismatch",
                         $"Static presentation binding entity id {binding.EntityId} points to spawn kind {spawn.Kind}.",
                         entry.PresentationDefinition,
-                        GetAssetPath(entry.PresentationDefinition),
+                        GetAssetPath(entry.PresentationDefinition, options),
                         options.Timing);
                 }
             }
@@ -940,7 +695,7 @@ namespace Game.Feature.Stages
                 "presentation.legacy-fallback.non-empty",
                 $"Gameplay StageDefinition '{entry.GameplayDefinition.name}' still contains legacy PresentationId authoring. StagePresentationDefinition is the canonical source of truth.",
                 entry.GameplayDefinition,
-                GetAssetPath(entry.GameplayDefinition),
+                GetAssetPath(entry.GameplayDefinition, options),
                 options.Timing);
         }
 
@@ -967,7 +722,7 @@ namespace Game.Feature.Stages
                         "evaluation.rank-id.empty",
                         "Rank thresholds must declare a non-empty rank id.",
                         definition,
-                        GetAssetPath(definition),
+                        GetAssetPath(definition, options),
                         options.Timing);
                     continue;
                 }
@@ -979,7 +734,7 @@ namespace Game.Feature.Stages
                         "evaluation.rank-id.duplicate",
                         $"Duplicate rank id '{rankId}' detected.",
                         definition,
-                        GetAssetPath(definition),
+                        GetAssetPath(definition, options),
                         options.Timing);
                 }
             }
@@ -996,7 +751,7 @@ namespace Game.Feature.Stages
                         "evaluation.challenge-id.empty",
                         "Challenge definitions must declare a non-empty challenge id.",
                         definition,
-                        GetAssetPath(definition),
+                        GetAssetPath(definition, options),
                         options.Timing);
                     continue;
                 }
@@ -1008,7 +763,7 @@ namespace Game.Feature.Stages
                         "evaluation.challenge-id.duplicate",
                         $"Duplicate challenge id '{challengeId}' detected.",
                         definition,
-                        GetAssetPath(definition),
+                        GetAssetPath(definition, options),
                         options.Timing);
                 }
             }
@@ -1057,7 +812,7 @@ namespace Game.Feature.Stages
                         "reward.rule-id.invalid",
                         $"Reward rule id '{rule.RuleId}' is invalid. Use lower-kebab-case.",
                         definition,
-                        GetAssetPath(definition),
+                        GetAssetPath(definition, options),
                         options.Timing);
                     continue;
                 }
@@ -1069,7 +824,7 @@ namespace Game.Feature.Stages
                         "reward.rule-id.duplicate",
                         $"Duplicate reward rule id '{normalizedRuleId}' detected.",
                         definition,
-                        GetAssetPath(definition),
+                        GetAssetPath(definition, options),
                         options.Timing);
                 }
 
@@ -1084,7 +839,7 @@ namespace Game.Feature.Stages
                             "reward.rule-id.alias-invalid",
                             $"Deprecated reward rule id '{deprecatedId}' is invalid.",
                             definition,
-                            GetAssetPath(definition),
+                            GetAssetPath(definition, options),
                             options.Timing);
                         continue;
                     }
@@ -1096,7 +851,7 @@ namespace Game.Feature.Stages
                             "reward.rule-id.alias-self",
                             $"Reward rule '{normalizedRuleId}' lists itself as a deprecated alias.",
                             definition,
-                            GetAssetPath(definition),
+                            GetAssetPath(definition, options),
                             options.Timing);
                     }
 
@@ -1107,7 +862,7 @@ namespace Game.Feature.Stages
                             "reward.rule-id.alias-duplicate",
                             $"Deprecated reward rule id '{normalizedDeprecatedId}' is declared more than once.",
                             definition,
-                            GetAssetPath(definition),
+                            GetAssetPath(definition, options),
                             options.Timing);
                     }
                 }
@@ -1120,7 +875,7 @@ namespace Game.Feature.Stages
                         "reward.rank-target.missing",
                         $"Reward rule '{normalizedRuleId}' references missing rank id '{rule.RequiredRankId}'.",
                         definition,
-                        GetAssetPath(definition),
+                        GetAssetPath(definition, options),
                         options.Timing);
                 }
 
@@ -1132,7 +887,7 @@ namespace Game.Feature.Stages
                         "reward.challenge-target.missing",
                         $"Reward rule '{normalizedRuleId}' references missing challenge id '{rule.RequiredChallengeId}'.",
                         definition,
-                        GetAssetPath(definition),
+                        GetAssetPath(definition, options),
                         options.Timing);
                 }
             }
@@ -1160,7 +915,7 @@ namespace Game.Feature.Stages
                         "progression.self-reference",
                         $"Stage '{entry.StageId.Value}' cannot list itself as an unlock prerequisite.",
                         definition,
-                        GetAssetPath(definition),
+                        GetAssetPath(definition, options),
                         options.Timing);
                 }
             }
@@ -1188,7 +943,7 @@ namespace Game.Feature.Stages
                         "stage-id.alias.invalid",
                         $"Deprecated stage id alias '{entry.DeprecatedStageId}' is invalid.",
                         aliasTable,
-                        GetAssetPath(aliasTable),
+                        GetAssetPath(aliasTable, options),
                         options.Timing);
                     continue;
                 }
@@ -1200,7 +955,7 @@ namespace Game.Feature.Stages
                         "stage-id.alias.target-invalid",
                         $"Alias '{normalizedAlias}' points to an invalid current StageId.",
                         aliasTable,
-                        GetAssetPath(aliasTable),
+                        GetAssetPath(aliasTable, options),
                         options.Timing);
                 }
 
@@ -1211,7 +966,7 @@ namespace Game.Feature.Stages
                         "stage-id.alias.self",
                         $"Alias '{normalizedAlias}' cannot point to itself.",
                         aliasTable,
-                        GetAssetPath(aliasTable),
+                        GetAssetPath(aliasTable, options),
                         options.Timing);
                 }
 
@@ -1222,7 +977,7 @@ namespace Game.Feature.Stages
                         "stage-id.alias.duplicate",
                         $"Alias '{normalizedAlias}' is declared more than once.",
                         aliasTable,
-                        GetAssetPath(aliasTable),
+                        GetAssetPath(aliasTable, options),
                         options.Timing);
                 }
             }
@@ -1254,7 +1009,7 @@ namespace Game.Feature.Stages
                         "stage-id.alias.target-missing",
                         $"Alias '{entries[i].DeprecatedStageId}' targets missing StageId '{entries[i].CurrentStageId.Value}'.",
                         aliasTable,
-                        GetAssetPath(aliasTable),
+                        GetAssetPath(aliasTable, options),
                         options.Timing);
                 }
             }
@@ -1303,7 +1058,7 @@ namespace Game.Feature.Stages
                             "progression.missing-prerequisite",
                             $"Stage '{pair.Key.Value}' references missing prerequisite stage '{requiredStageId.Value}'.",
                             progression,
-                            GetAssetPath(progression),
+                            GetAssetPath(progression, options),
                             options.Timing);
                     }
                 }
@@ -1340,7 +1095,7 @@ namespace Game.Feature.Stages
                         "progression.cycle",
                         $"Progression graph cycle detected at stage '{stageId.Value}'.",
                         entry.ProgressionDefinition,
-                        GetAssetPath(entry.ProgressionDefinition),
+                        GetAssetPath(entry.ProgressionDefinition, options),
                         options.Timing);
                 }
 
@@ -1383,7 +1138,7 @@ namespace Game.Feature.Stages
                     "bgm-key.invalid",
                     $"BgmKey '{bgmReference.BgmKey}' is invalid. Use lower-kebab-case or slash-separated tokens.",
                     context,
-                    GetAssetPath(context),
+                    GetAssetPath(context, options),
                     options.Timing);
                 return;
             }
@@ -1396,7 +1151,7 @@ namespace Game.Feature.Stages
                     "bgm-key.unknown",
                     $"BgmKey '{bgmReference.BgmKey}' is not present in the optional validation catalog.",
                     context,
-                    GetAssetPath(context),
+                    GetAssetPath(context, options),
                     options.Timing);
             }
         }
@@ -1451,25 +1206,49 @@ namespace Game.Feature.Stages
                 : StageValidationSeverity.Warning;
         }
 
-        private static string GetAssetPath(UnityEngine.Object asset)
+        private static string GetAssetPath(UnityEngine.Object asset, StageCatalogValidationOptions options)
         {
-#if UNITY_EDITOR
-            return asset == null ? string.Empty : UnityEditor.AssetDatabase.GetAssetPath(asset);
-#else
-            return string.Empty;
-#endif
+            return (options?.ResolvedAssetMetadataProvider ?? NoOpMetadataProvider).GetAssetPath(asset);
         }
 
-        private static string GetAssetGuid(UnityEngine.Object asset)
+        private static string GetAssetGuid(UnityEngine.Object asset, StageCatalogValidationOptions options)
         {
-#if UNITY_EDITOR
-            var path = GetAssetPath(asset);
-            return string.IsNullOrEmpty(path)
-                ? string.Empty
-                : UnityEditor.AssetDatabase.AssetPathToGUID(path);
-#else
-            return string.Empty;
-#endif
+            return (options?.ResolvedAssetMetadataProvider ?? NoOpMetadataProvider).GetAssetGuid(asset);
+        }
+
+        private sealed class NoOpAssetMetadataProvider : IStageValidationAssetMetadataProvider
+        {
+            public string GetAssetPath(UnityEngine.Object asset)
+            {
+                return string.Empty;
+            }
+
+            public string GetAssetGuid(UnityEngine.Object asset)
+            {
+                return string.Empty;
+            }
+        }
+
+        private sealed class DefaultAssetMetadataProviderScope : IDisposable
+        {
+            private readonly IStageValidationAssetMetadataProvider previous;
+            private bool disposed;
+
+            public DefaultAssetMetadataProviderScope(IStageValidationAssetMetadataProvider previous)
+            {
+                this.previous = previous;
+            }
+
+            public void Dispose()
+            {
+                if (disposed)
+                {
+                    return;
+                }
+
+                defaultMetadataProvider = previous;
+                disposed = true;
+            }
         }
     }
 }

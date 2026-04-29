@@ -27,7 +27,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 Assert.That(
                     report.Issues.Any(issue =>
                         issue.Severity == StageValidationSeverity.Error &&
-                        issue.Code == "authoring.generated-output-mismatch"),
+                        issue.Code == "GameplayDrift.SpawnFieldMismatch"),
                     Is.True);
             }
             finally
