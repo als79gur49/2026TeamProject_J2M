@@ -65,6 +65,23 @@ generated-output comparison helpers are not part of the validation contract.
 assets, BGM reference, catalogs, and result text are preserved presentation
 metadata and are not binding drift.
 
+Presentation catalog integrity is validated separately from drift. Enemy
+placements and enemy bindings must reference ids in the
+`EnemyPresentationCatalog`. Box and Wall placements and static bindings must
+reference ids in the `StaticEntityPresentationCatalog`. Player presentation is
+not authored by this tool and does not require either catalog.
+
+Generated enemy bindings must point at Enemy spawn EntityIds. Generated static
+bindings must point at Box or Wall spawn EntityIds. Missing bindings and orphan
+bindings are validator issues; bindings that point at the wrong spawn kind are
+always errors.
+
+Catalog entries must have non-empty, normalized-unique `PresentationId` values.
+`ViewPrefab` is required for every usable catalog entry because the runtime
+catalog resolvers reject null prefabs. Validation reports these problems and
+does not auto-clear stale placement ids, rewrite bindings, or mutate generated
+outputs.
+
 The generator is split into a non-mutating plan build and an apply step. Validate
 and Dry Run build only the allocation/output plan. Write Generate is the only
 path that persists `StableGuid -> EntityId` mappings, retires deleted mappings,
@@ -82,6 +99,11 @@ If a selected `PresentationId` is no longer present in the relevant catalog, the
 grid editor shows a warning and preserves the existing value until the user
 changes the selection. ViewPrefab preview is a future UX enhancement, not part
 of the MVP dropdown contract.
+
+The authoritative validation source for future presentation UX is
+`StageCatalogValidator`. ViewPrefab preview, prefab ping/select buttons,
+generated binding previews, inline presentation inspectors, and SceneView
+authoring tools are intentionally deferred.
 
 ## Migration
 
