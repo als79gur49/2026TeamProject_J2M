@@ -13,7 +13,7 @@ namespace Game.Feature.UI.Tests
     public sealed class ObjectiveStatusScreenControllerTests
     {
         [Test]
-        public void ObjectiveStatusScreenPresenter_DerivesOverviewContent_FromObjectiveSnapshotOnly()
+        public void ObjectiveStatusScreenPresenter_ListsObjectiveConditionDetails_FromObjectiveSnapshotOnly()
         {
             var queryFacade = new FakeGameplayQueryFacade(
                 new GameplaySessionReadModel(nextTickIndex: 7, isPaused: false, canAcceptGameplayCommands: false, isStageCleared: false),
@@ -28,10 +28,13 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenter.ViewModel.BadgeText, Is.EqualTo("Goal Reached"));
             Assert.That(presenter.ViewModel.SummaryText, Does.Contain("Reach the Exit"));
             Assert.That(presenter.ViewModel.SummaryText, Does.Contain("Move to the exit zone."));
-            Assert.That(presenter.ViewModel.DetailText, Is.EqualTo("Primary goal reached. Required objective progress is still pending."));
+            Assert.That(presenter.ViewModel.DetailText, Does.Contain("Primary:"));
+            Assert.That(presenter.ViewModel.DetailText, Does.Contain("Done: Reach the exit zone"));
+            Assert.That(presenter.ViewModel.DetailText, Does.Contain("Optional:"));
+            Assert.That(presenter.ViewModel.DetailText, Does.Contain("Pending: Defeat every enemy"));
             Assert.That(presenter.ViewModel.SecondaryText, Is.EqualTo("Goal: Yes | Required: No | Cleared: No"));
-            Assert.That(presenter.ViewModel.DetailText, Does.Not.Contain("Reach the exit zone"));
-            Assert.That(presenter.ViewModel.DetailText, Does.Not.Contain("Defeat every enemy"));
+            Assert.That(presenter.ViewModel.DetailText, Does.Not.Contain("PlayerAtAnyZone"));
+            Assert.That(presenter.ViewModel.DetailText, Does.Not.Contain("PrimaryGoal"));
             Assert.That(presenter.BuildInfoPopupPayload().BodyText, Does.Contain("Goal reached: Yes"));
             Assert.That(presenter.BuildInfoPopupPayload().BodyText, Does.Not.Contain("PlayerAtAnyZone"));
             Assert.That(presenter.BuildInfoPopupPayload().BodyText, Does.Not.Contain("PrimaryGoal"));

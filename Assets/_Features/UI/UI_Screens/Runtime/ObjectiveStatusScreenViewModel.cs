@@ -10,7 +10,8 @@ namespace Game.Feature.UI.Screens
             bool allConditionsSatisfied,
             bool isCleared,
             string objectiveTitle,
-            string objectiveSummary)
+            string objectiveSummary,
+            string conditionDetailText)
         {
             HasObjective = hasObjective;
             GoalReached = goalReached;
@@ -18,6 +19,7 @@ namespace Game.Feature.UI.Screens
             IsCleared = isCleared;
             ObjectiveTitle = objectiveTitle ?? string.Empty;
             ObjectiveSummary = objectiveSummary ?? string.Empty;
+            ConditionDetailText = conditionDetailText ?? string.Empty;
         }
 
         public bool HasObjective { get; }
@@ -31,6 +33,8 @@ namespace Game.Feature.UI.Screens
         public string ObjectiveTitle { get; }
 
         public string ObjectiveSummary { get; }
+
+        public string ConditionDetailText { get; }
     }
 
     public sealed class ObjectiveStatusScreenViewModel

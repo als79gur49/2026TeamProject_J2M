@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Stages;
@@ -153,14 +154,16 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void ObjectiveHudPresenter_ShowsObjectiveSummary()
+        public void ObjectiveHudPresenter_ShowsMainGoalAndRequiredProgress()
         {
             var presenter = new ObjectiveHudPresenter();
 
             presenter.Apply(CreateObjectiveSlice(summary: "Move to the exit zone."));
 
             Assert.That(presenter.ViewModel.IsVisible, Is.True);
-            Assert.That(presenter.ViewModel.ObjectiveText, Is.EqualTo("Move to the exit zone."));
+            Assert.That(presenter.ViewModel.MainGoalText, Is.EqualTo("Reach the Exit"));
+            Assert.That(presenter.ViewModel.ProgressText, Is.EqualTo("0/1"));
+            Assert.That(presenter.ViewModel.ObjectiveText, Is.EqualTo("Reach the Exit 0/1 [>]"));
             Assert.That(presenter.ViewModel.IsComplete, Is.False);
         }
 
@@ -170,10 +173,54 @@ namespace Game.Feature.UI.Tests
             var presenter = new ObjectiveHudPresenter();
 
             presenter.Apply(CreateObjectiveSlice(summary: string.Empty, title: "Reach the Exit"));
-            Assert.That(presenter.ViewModel.ObjectiveText, Is.EqualTo("Reach the Exit"));
+            Assert.That(presenter.ViewModel.ObjectiveText, Is.EqualTo("Reach the Exit 0/1 [>]"));
 
             presenter.Apply(CreateObjectiveSlice(summary: string.Empty, title: string.Empty));
-            Assert.That(presenter.ViewModel.ObjectiveText, Is.EqualTo("Reach the exit zone"));
+            Assert.That(presenter.ViewModel.ObjectiveText, Is.EqualTo("Reach the exit zone 0/1"));
+        }
+
+        [Test]
+        public void ObjectiveHudPresenter_LimitsSubGoalsAndCountsRequiredCompletion()
+        {
+            var presenter = new ObjectiveHudPresenter();
+
+            presenter.Apply(CreateObjectiveSlice(
+                summary: "Complete the required objectives.",
+                title: "Reach the Exit",
+                conditions: new[]
+                {
+                    CreateCondition("primary-goal", isSatisfied: true, role: UIObjectiveConditionRole.PrimaryGoal, sortOrder: 0),
+                    CreateCondition("Open the gate", isSatisfied: false, role: UIObjectiveConditionRole.SecondaryGoal, sortOrder: 10),
+                    CreateCondition("Enter the exit room", isSatisfied: false, role: UIObjectiveConditionRole.SecondaryGoal, sortOrder: 20),
+                    CreateCondition("Leave no enemies behind", isSatisfied: true, role: UIObjectiveConditionRole.SecondaryGoal, sortOrder: 30),
+                }));
+
+            Assert.That(presenter.ViewModel.ProgressText, Is.EqualTo("2/4"));
+            Assert.That(presenter.ViewModel.SubGoalTexts, Is.EqualTo(new[] { "[ ] Open the gate", "[ ] Enter the exit room" }));
+            Assert.That(presenter.ViewModel.HiddenSubGoalCount, Is.EqualTo(2));
+            Assert.That(presenter.ViewModel.ObjectiveText, Is.EqualTo("Reach the Exit 2/4 [>]"));
+        }
+
+        [Test]
+        public void ObjectiveHudViewModel_ToggleExpanded_ChangesObjectiveText()
+        {
+            var viewModel = new ObjectiveHudViewModel();
+            viewModel.SetState(
+                true,
+                "Reach the Exit",
+                "1/3",
+                new[] { "[ ] Open the gate", "[x] Reach the exit zone" },
+                hiddenSubGoalCount: 1,
+                isComplete: false);
+
+            Assert.That(viewModel.ObjectiveText, Is.EqualTo("Reach the Exit 1/3 [>]"));
+
+            viewModel.ToggleExpanded();
+
+            Assert.That(viewModel.IsExpanded, Is.True);
+            Assert.That(viewModel.ObjectiveText, Does.Contain("Reach the Exit 1/3 [v]"));
+            Assert.That(viewModel.ObjectiveText, Does.Contain("[ ] Open the gate"));
+            Assert.That(viewModel.ObjectiveText, Does.Contain("+1 more"));
         }
 
         [Test]
@@ -194,7 +241,7 @@ namespace Game.Feature.UI.Tests
             source.PublishSnapshot(CreateSnapshot(objective: CreateObjectiveSlice(summary: "Move to the exit zone.")));
 
             Assert.That(objectiveHudPresenter.ViewModel.IsVisible, Is.True);
-            Assert.That(objectiveHudPresenter.ViewModel.ObjectiveText, Is.EqualTo("Move to the exit zone."));
+            Assert.That(objectiveHudPresenter.ViewModel.ObjectiveText, Is.EqualTo("Reach the Exit 0/1 [>]"));
         }
 
         [Test]
@@ -541,7 +588,8 @@ namespace Game.Feature.UI.Tests
         private static UIObjectiveSlice CreateObjectiveSlice(
             string summary,
             string title = "Reach the Exit",
-            bool isCleared = false)
+            bool isCleared = false,
+            IReadOnlyList<UIObjectiveConditionSlice> conditions = null)
         {
             return new UIObjectiveSlice(
                 hasObjective: true,
@@ -550,16 +598,29 @@ namespace Game.Feature.UI.Tests
                 goalReached: false,
                 allConditionsSatisfied: false,
                 isCleared,
-                new[]
+                conditions ?? new[]
                 {
-                    new UIObjectiveConditionSlice(
-                        titleText: "Reach the exit zone",
-                        progressText: string.Empty,
+                    CreateCondition(
+                        "Reach the exit zone",
                         isSatisfied: false,
-                        required: true,
                         role: UIObjectiveConditionRole.PrimaryGoal,
                         sortOrder: 0),
                 });
+        }
+
+        private static UIObjectiveConditionSlice CreateCondition(
+            string titleText,
+            bool isSatisfied,
+            UIObjectiveConditionRole role,
+            int sortOrder)
+        {
+            return new UIObjectiveConditionSlice(
+                titleText,
+                progressText: string.Empty,
+                isSatisfied,
+                required: true,
+                role,
+                sortOrder);
         }
     }
 }

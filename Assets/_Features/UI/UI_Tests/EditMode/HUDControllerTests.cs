@@ -8,6 +8,7 @@ using NUnit.Framework;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 namespace Game.Feature.UI.Tests
 {
@@ -149,6 +150,7 @@ namespace Game.Feature.UI.Tests
 
                 Assert.That(hudView.ObjectiveHudView, Is.Not.Null);
                 Assert.That(hudView.ObjectiveHudView.transform.name, Is.EqualTo("ObjectiveHud"));
+                Assert.That(hudView.ObjectiveHudView.GetComponent<Button>(), Is.Not.Null);
             }
             finally
             {

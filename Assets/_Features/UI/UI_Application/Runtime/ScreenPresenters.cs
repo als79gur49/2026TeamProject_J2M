@@ -234,7 +234,7 @@ namespace Game.Feature.UI.Application
                 _titleText,
                 badgeText: BuildObjectiveBadge(_state),
                 summaryText: BuildObjectiveSummary(_state),
-                detailText: BuildObjectiveOverviewText(_state),
+                detailText: BuildObjectiveDetailText(_state),
                 secondaryText: $"Goal: {FormatBoolean(_state.GoalReached)} | Required: {FormatBoolean(_state.AllConditionsSatisfied)} | Cleared: {FormatBoolean(_state.IsCleared)}");
         }
 
@@ -304,29 +304,16 @@ namespace Game.Feature.UI.Application
             return "Primary goal is still in progress.";
         }
 
-        private static string BuildObjectiveOverviewText(ObjectiveStatusScreenState state)
+        private static string BuildObjectiveDetailText(ObjectiveStatusScreenState state)
         {
             if (!state.HasObjective)
             {
-                return "No active objective is configured for this stage.";
+                return "No objective conditions are configured for display.";
             }
 
-            if (state.IsCleared)
-            {
-                return "Objective complete.";
-            }
-
-            if (state.AllConditionsSatisfied)
-            {
-                return "All required objective conditions are satisfied.";
-            }
-
-            if (state.GoalReached)
-            {
-                return "Primary goal reached. Required objective progress is still pending.";
-            }
-
-            return "Primary objective is still in progress.";
+            return string.IsNullOrWhiteSpace(state.ConditionDetailText)
+                ? "No displayable objective conditions."
+                : state.ConditionDetailText;
         }
 
         private static string FormatBoolean(bool value)
