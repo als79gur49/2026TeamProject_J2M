@@ -161,7 +161,7 @@ namespace Game.Feature.Stages
                     options,
                     report);
 
-                ValidatePresentationBindings(entry, options, report);
+                ValidatePresentationCatalogIntegrity(entry, options, report);
                 ValidateLegacyPresentationIds(entry, options, report);
                 ValidateEvaluationDefinition(entry, options, report);
                 ValidateRewardDefinition(entry, aliasTable, options, report);
@@ -586,81 +586,17 @@ namespace Game.Feature.Stages
             }
         }
 
-        private static void ValidatePresentationBindings(
+        private static void ValidatePresentationCatalogIntegrity(
             StageContentEntry entry,
             StageCatalogValidationOptions options,
             StageValidationReport report)
         {
-            if (entry.PresentationDefinition == null || entry.GameplayDefinition == null)
+            report.AddRange(StageAuthoringPresentationCatalogValidator.ValidateEntry(entry, options));
+
+            if (entry.PresentationDefinition != null)
             {
-                return;
+                ValidateBgmReference(entry.PresentationDefinition.BgmReference, entry.PresentationDefinition, options, report);
             }
-
-            var spawns = entry.GameplayDefinition.Spawns;
-            var spawnByEntityId = new Dictionary<int, StageSpawnDefinition>();
-            for (var i = 0; i < spawns.Length; i++)
-            {
-                spawnByEntityId[spawns[i].EntityId] = spawns[i];
-            }
-
-            var enemyBindings = entry.PresentationDefinition.EnemyPresentationBindings;
-            for (var i = 0; i < enemyBindings.Length; i++)
-            {
-                var binding = enemyBindings[i];
-                if (!spawnByEntityId.TryGetValue(binding.EntityId, out var spawn))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.enemy-binding.missing-entity",
-                        $"Enemy presentation binding references missing entity id {binding.EntityId}.",
-                        entry.PresentationDefinition,
-                        GetAssetPath(entry.PresentationDefinition, options),
-                        options.Timing);
-                    continue;
-                }
-
-                if (spawn.Kind != StageSpawnKind.Enemy)
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.enemy-binding.kind-mismatch",
-                        $"Enemy presentation binding entity id {binding.EntityId} points to spawn kind {spawn.Kind}.",
-                        entry.PresentationDefinition,
-                        GetAssetPath(entry.PresentationDefinition, options),
-                        options.Timing);
-                }
-            }
-
-            var staticBindings = entry.PresentationDefinition.StaticEntityPresentationBindings;
-            for (var i = 0; i < staticBindings.Length; i++)
-            {
-                var binding = staticBindings[i];
-                if (!spawnByEntityId.TryGetValue(binding.EntityId, out var spawn))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.static-binding.missing-entity",
-                        $"Static presentation binding references missing entity id {binding.EntityId}.",
-                        entry.PresentationDefinition,
-                        GetAssetPath(entry.PresentationDefinition, options),
-                        options.Timing);
-                    continue;
-                }
-
-                if (spawn.Kind != StageSpawnKind.Box &&
-                    spawn.Kind != StageSpawnKind.Wall)
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.static-binding.kind-mismatch",
-                        $"Static presentation binding entity id {binding.EntityId} points to spawn kind {spawn.Kind}.",
-                        entry.PresentationDefinition,
-                        GetAssetPath(entry.PresentationDefinition, options),
-                        options.Timing);
-                }
-            }
-
-            ValidateBgmReference(entry.PresentationDefinition.BgmReference, entry.PresentationDefinition, options, report);
         }
 
         private static void ValidateLegacyPresentationIds(

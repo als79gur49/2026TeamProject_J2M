@@ -78,7 +78,9 @@ namespace Game.Feature.Stages.Editor
                 }
                 else
                 {
-                    rawIds = GetEnemyPresentationIdsRaw(catalog);
+                    rawIds = StageAuthoringPresentationCatalogValidator
+                        .BuildEnemyCatalogSnapshot(catalog)
+                        .PresentationIds;
                     catalogHasEntries = rawIds.Length > 0;
                     if (!catalogHasEntries)
                     {
@@ -96,7 +98,9 @@ namespace Game.Feature.Stages.Editor
                 }
                 else
                 {
-                    rawIds = GetStaticPresentationIdsRaw(catalog);
+                    rawIds = StageAuthoringPresentationCatalogValidator
+                        .BuildStaticCatalogSnapshot(catalog)
+                        .PresentationIds;
                     catalogHasEntries = rawIds.Length > 0;
                     if (!catalogHasEntries)
                     {
@@ -152,40 +156,6 @@ namespace Game.Feature.Stages.Editor
             }
 
             return labels;
-        }
-
-        private static string[] GetEnemyPresentationIdsRaw(EnemyPresentationCatalog catalog)
-        {
-            var entries = catalog.Entries;
-            var ids = new List<string>(entries.Length);
-            var seen = new HashSet<string>(StringComparer.Ordinal);
-            for (var i = 0; i < entries.Length; i++)
-            {
-                var id = EnemyPresentationCatalogResolver.NormalizePresentationId(entries[i].PresentationId);
-                if (!string.IsNullOrEmpty(id) && seen.Add(id))
-                {
-                    ids.Add(id);
-                }
-            }
-
-            return ids.ToArray();
-        }
-
-        private static string[] GetStaticPresentationIdsRaw(StaticEntityPresentationCatalog catalog)
-        {
-            var entries = catalog.Entries;
-            var ids = new List<string>(entries.Length);
-            var seen = new HashSet<string>(StringComparer.Ordinal);
-            for (var i = 0; i < entries.Length; i++)
-            {
-                var id = StaticEntityPresentationCatalogResolver.NormalizePresentationId(entries[i].PresentationId);
-                if (!string.IsNullOrEmpty(id) && seen.Add(id))
-                {
-                    ids.Add(id);
-                }
-            }
-
-            return ids.ToArray();
         }
 
         private static string NormalizePresentationId(StageAuthoringEntityKind kind, string presentationId)

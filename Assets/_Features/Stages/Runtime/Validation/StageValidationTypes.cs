@@ -45,7 +45,8 @@ namespace Game.Feature.Stages
             string stableGuid = "",
             string fieldName = "",
             string expectedValue = "",
-            string actualValue = "")
+            string actualValue = "",
+            string presentationId = "")
         {
             Severity = severity;
             Code = code ?? string.Empty;
@@ -61,6 +62,7 @@ namespace Game.Feature.Stages
             FieldName = fieldName ?? string.Empty;
             ExpectedValue = expectedValue ?? string.Empty;
             ActualValue = actualValue ?? string.Empty;
+            PresentationId = presentationId ?? string.Empty;
         }
 
         public StageValidationSeverity Severity { get; }
@@ -90,6 +92,8 @@ namespace Game.Feature.Stages
         public string ExpectedValue { get; }
 
         public string ActualValue { get; }
+
+        public string PresentationId { get; }
     }
 
     public sealed class StageValidationReport
