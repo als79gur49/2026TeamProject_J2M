@@ -97,13 +97,45 @@ selection and does not count as a catalog entry.
 
 If a selected `PresentationId` is no longer present in the relevant catalog, the
 grid editor shows a warning and preserves the existing value until the user
-changes the selection. ViewPrefab preview is a future UX enhancement, not part
-of the MVP dropdown contract.
+changes the selection.
+
+The selected placement inspector also shows a read-only presentation preview.
+Enemy placements resolve against `EnemyPresentationCatalog`; Box and Wall
+placements resolve against `StaticEntityPresentationCatalog`. The preview shows
+the selected catalog asset, resolved catalog entry status, and resolved
+`ViewPrefab` in disabled object fields. Ping/Select buttons are editor
+navigation helpers only. They do not write prefab references onto placements and
+do not edit catalog entries.
+
+Player presentation is not authored by the grid editor.
+
+## Grid Editor Generated Preview And Facing
+
+The grid editor can preview how the selected placement will project into
+generated gameplay and presentation data without writing outputs. The gameplay
+preview shows the `EntityId`, cell, kind, and Facing that will be written to the
+generated `StageDefinition` spawn. If the placement does not yet have a persisted
+mapping, the preview uses the non-mutating allocation projection and labels the
+id as not persisted.
+
+The generated presentation binding preview shows the expected
+`EntityId -> PresentationId` binding in `StagePresentationDefinition` and reports
+whether the current generated binding is synced, missing, drifted, or assigned to
+the wrong binding kind. The preview does not create missing bindings, remove
+stale bindings, or manually edit generated binding arrays.
+
+Facing remains gameplay authoring data. The grid marker includes a compact
+Facing arrow next to the placement kind marker, and the selected placement can be
+rotated with editor controls or the grid-window `R` / `Shift+R` hotkeys. Rotation
+updates only the existing placement `Facing` field and preserves selection,
+target cell, `PresentationId`, and entity-id mappings.
+
+Composite/Facing group validation, group rotate controls, `VisualFacingOffset`,
+SceneView preview tools, and unresolved issue filters are future UX work.
 
 The authoritative validation source for future presentation UX is
-`StageCatalogValidator`. ViewPrefab preview, prefab ping/select buttons,
-generated binding previews, inline presentation inspectors, and SceneView
-authoring tools are intentionally deferred.
+`StageCatalogValidator`. Inline presentation inspectors and SceneView authoring
+tools remain intentionally deferred.
 
 ## Migration
 
