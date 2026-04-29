@@ -14,6 +14,7 @@ namespace Game.Feature.Gameplay.Host
         {
             base.ConfigureRuntimeConfiguration(configuration, initialState);
             configuration.EnablePlayerSameFaceContinuousLocomotion = true;
+            configuration.EnableEnemySameFaceContinuousLocomotion = true;
         }
 
         protected override IGameplayEntityViewFactory CreateViewFactory(
