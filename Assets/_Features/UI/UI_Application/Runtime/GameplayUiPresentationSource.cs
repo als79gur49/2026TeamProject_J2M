@@ -203,7 +203,8 @@ namespace Game.Feature.UI.Application
                 playerHud.MaxChances,
                 stage.StageId,
                 stage.DisplayName,
-                objective);
+                objective,
+                frame.HasValue ? frame.Value.Topology : null);
         }
 
         private static UIRecoveryCooldownSlice? MapRecoveryCooldown(GameplayUiRecoveryCooldown? recoveryCooldown)

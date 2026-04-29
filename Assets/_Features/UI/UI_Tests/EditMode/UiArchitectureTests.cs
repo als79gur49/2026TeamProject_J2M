@@ -333,14 +333,18 @@ namespace Game.Feature.UI.Tests
             Assert.That(publicMethodNames, Is.EqualTo(new[] { "Dispose" }));
 
             var constructors = typeof(HUDRootPresenter).GetConstructors(BindingFlags.Instance | BindingFlags.Public);
-            Assert.That(constructors, Has.Length.EqualTo(1));
+            Assert.That(constructors, Has.Length.EqualTo(2));
+            var fullConstructor = constructors
+                .First(constructor => constructor.GetParameters().Length == 7);
             Assert.That(
-                constructors[0].GetParameters().Select(parameter => parameter.ParameterType).ToArray(),
+                fullConstructor.GetParameters().Select(parameter => parameter.ParameterType).ToArray(),
                 Is.EqualTo(new[]
                 {
                     typeof(IGameplayUiPresentationSource),
                     typeof(StageInfoPresenter),
                     typeof(ObjectiveHudPresenter),
+                    typeof(ChancePanelPresenter),
+                    typeof(TopologyHudPresenter),
                     typeof(PlayerStatusPresenter),
                     typeof(NotificationPresenter),
                 }));
@@ -446,12 +450,14 @@ namespace Game.Feature.UI.Tests
                 propertyNames,
                 Is.EqualTo(new[]
                 {
+                    "ChancePanelViewModel",
                     "IsGameplayReadOnly",
                     "NotificationViewModel",
                     "ObjectiveHudViewModel",
                     "PlayerStatusViewModel",
                     "RootViewModel",
                     "StageInfoViewModel",
+                    "TopologyBeltViewModel",
                 }));
 
             var methodNames = typeof(HUDController)
@@ -471,6 +477,8 @@ namespace Game.Feature.UI.Tests
                 typeof(HUDRootPresenter),
                 typeof(StageInfoPresenter),
                 typeof(ObjectiveHudPresenter),
+                typeof(ChancePanelPresenter),
+                typeof(TopologyHudPresenter),
                 typeof(PlayerStatusPresenter),
                 typeof(ActionBarPresenter),
                 typeof(NotificationPresenter),
@@ -500,6 +508,8 @@ namespace Game.Feature.UI.Tests
         {
             AssertViewBindSignature(typeof(HUDRootView), typeof(HUDRootViewModel));
             AssertViewBindSignature(typeof(ObjectiveHudView), typeof(ObjectiveHudViewModel));
+            AssertViewBindSignature(typeof(ChancePanelView), typeof(ChancePanelViewModel));
+            AssertViewBindSignature(typeof(TopologyBeltView), typeof(TopologyBeltViewModel));
             AssertViewBindSignature(typeof(PlayerStatusView), typeof(PlayerStatusViewModel));
             AssertViewBindSignature(typeof(ActionBarView), typeof(ActionBarViewModel));
             AssertViewBindSignature(typeof(NotificationView), typeof(NotificationViewModel));
@@ -512,6 +522,8 @@ namespace Game.Feature.UI.Tests
             {
                 typeof(HUDRootView),
                 typeof(ObjectiveHudView),
+                typeof(ChancePanelView),
+                typeof(TopologyBeltView),
                 typeof(PlayerStatusView),
                 typeof(ActionBarView),
                 typeof(NotificationView),
@@ -534,6 +546,8 @@ namespace Game.Feature.UI.Tests
             {
                 typeof(HUDRootView),
                 typeof(ObjectiveHudView),
+                typeof(ChancePanelView),
+                typeof(TopologyBeltView),
                 typeof(PlayerStatusView),
                 typeof(ActionBarView),
                 typeof(NotificationView),

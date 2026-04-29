@@ -13,10 +13,7 @@ namespace Game.Feature.UI.Application
         {
             ViewModel.SetState(
                 player.Facing.ToString(),
-                tick.FinalTopology.BottomFace.ToString(),
-                player.HasRemainingChances,
-                player.RemainingChances,
-                player.MaxChances);
+                string.Empty);
         }
     }
 }

@@ -150,7 +150,7 @@ namespace Game.Feature.UI.Tests
 
             var cueMap = (UiAudioCueMap)cueMapProperty.objectReferenceValue;
             Assert.DoesNotThrow(() => cueMap.ValidateOrThrow());
-            Assert.That(cueMap.Entries.Count, Is.EqualTo(7));
+            Assert.That(cueMap.Entries.Count, Is.EqualTo(Enum.GetValues(typeof(UiAudioCueId)).Length));
         }
 
         [Test]
