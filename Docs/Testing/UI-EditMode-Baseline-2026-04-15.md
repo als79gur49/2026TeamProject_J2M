@@ -1,7 +1,7 @@
 # UI EditMode Baseline 2026-04-15
 
 ## Scope
-- Purpose: preserve the Stage 4 mapped seam, Stage 5 HUD shell boundaries, Stage 6 popup stack ownership, Stage 7 screen runtime ownership, and the Stage 8 inventory presenter decomposition while Stage 9 adds test and diagnostic hardening.
+- Purpose: preserve the Stage 4 mapped seam, Stage 5 HUD shell boundaries, Stage 6 popup stack ownership, Stage 7 screen runtime ownership, and the remaining screen presenter boundaries while Stage 9 adds test and diagnostic hardening.
 - Command: `./run_tests.sh ui`
 - Runner path: governance -> Windows `dotnet build Game.Feature.UI.Tests.csproj -c Debug` -> Unity `TestRunnerCliBootstrap.RunEditMode -codexSelection ui`
 - Companion smoke lane: `./run_tests.sh core` on the same worktree
@@ -21,7 +21,7 @@
   - deterministic controller/policy guards for `PopTo`, runtime action relay, close-all ordering, backdrop routing, and older-frame refresh behavior
   - diagnostics boundary tests proving the Stage 9 overlay remains read-only, bounded, and opt-in for drill-down details
   - governance documentation tests for baseline structure, stale wording removal, PlayMode escalation-marker enforcement, and `TutorialScene` manual runtime smoke-plan governance
-  - Stage 8 structural drift guards for root-owned state, child public surfaces, and input-bag/non-flow leakage
+  - structural drift guards for root-owned state, child public surfaces, and input-bag/non-flow leakage
   - `TutorialScene` scene contract guard proving one canonical gameplay/bootstrap root path, one serialized installer/host binding, and no serialized duplicate UI residue
   - canonical stage-clear integration guard proving gameplay host + installer flow transitions into the Stage 7 `StageResult` screen without relying on the legacy overlay path
   - canonical root-shell prefab structure guards proving the runtime shell contains only infrastructure children and no serialized feature views
@@ -31,7 +31,7 @@
   - per-kind popup prefab contract and boundary guards proving `Pause`, `ObjectiveInfo`, `Confirm`, `Tooltip`, and `Reward` stay visual/local only, tooltip keeps bounded anchor/clamp behavior, and popup callbacks/timers do not acquire lifecycle ownership
   - screen prefab migration guards proving the installer mounts one fixed-shape screen-only catalog, the screen factory instantiates one canonical authored prefab per screen id under `ScreenLayer`, and screen legacy builder symbols are absent from code and docs
   - screen checkpoint guards proving the simple-shell, terminal-screen, and complex-screen checkpoints stay mechanically inspectable instead of hiding risk inside one broad migration phase
-  - stronger screen-view ownership guards proving screen and inventory child views do not surface navigation, popup, back-stack, controller, gameplay-access, or diagnostics shortcuts
+  - stronger screen-view ownership guards proving screen views do not surface navigation, popup, back-stack, controller, gameplay-access, or diagnostics shortcuts
 - Test count delta:
   - previous pinned UI EditMode baseline: `64 total / 0 failed`
   - current rerun: `155 total / 0 failed`
@@ -50,7 +50,7 @@
   - governance warnings remain non-blocking unless the runner exit code changes
   - the current soft governance warning state must be recorded separately from UI regressions
 
-## Prefab Migration Mixed-Mode Inventory
+## Prefab Migration Mixed-Mode Status
 - Root shell status:
   - canonical root shell is now migrated to the installer-instantiated prefab path
   - no mixed-mode allowlist row remains for the root shell
@@ -71,7 +71,7 @@
   - simple-shell checkpoint is complete for `Help` and `ObjectiveStatus`
   - `GameplayScreen` remains a gameplay-root-adjacent special case and must not be treated as the ordinary migration template
   - terminal-screen checkpoint is complete for `StageResult`, which remains a runtime-owned terminal special case rather than a generic screen model
-  - complex-screen checkpoint is complete for `Inventory` and bounded `Settings`, which remain one screen shell with nested authored child views and bounded child presenters while `Settings` accessibility remains root-shell-owned
+  - complex-screen checkpoint is complete for bounded `Settings`, which remains one screen shell with nested authored child views and bounded child presenters while `Settings` accessibility remains root-shell-owned
 - Hybrid allowlist status:
   - root shell, HUD, popup, and screen migration allowlists are now empty
   - screen hybrid allowlist is now empty
@@ -143,10 +143,9 @@
 - tooltip remains a bounded popup special case for local anchor/clamp presentation only and does not own auto-hide, backdrop, or timer-driven lifetime policy
 - screen legacy runtime builder paths were removed in the same phase, leaving one canonical prefab-authored screen creation path beneath `ScreenLayer` via a fixed-shape screen-only catalog
 - the screen catalog remains fixed-shape and screen-only and does not widen into a variant/theme/child-section registry
-- screen prefab migration is guarded by simple-shell checkpoint, terminal-screen checkpoint, and complex-screen checkpoint evidence so `GameplayScreen`, `StageResultScreen`, `InventoryScreen`, and `SettingsScreen` cannot distort the general migration model
+- screen prefab migration is guarded by simple-shell checkpoint, terminal-screen checkpoint, and complex-screen checkpoint evidence so `GameplayScreen`, `StageResultScreen`, and `SettingsScreen` cannot distort the general migration model
 - `GameplayScreen` remains gameplay-root-adjacent and does not acquire gameplay-access shortcuts, pause ownership, or history shortcuts
 - `StageResultScreen` remains a runtime-owned terminal special case; its continue action stays intent-only and does not locally decide root replacement policy
-- `InventoryScreen` remains one runtime-managed screen shell with nested child views; child sections do not become separately runtime-managed units and the root presenter does not regrow into a monolith
 - `SettingsScreen` now remains one runtime-managed shell with authored `SettingsAudioSection` and `SettingsDisplaySection` children; audio/display fallback rebuilding is removed while preview/session ownership remains in `SettingsRuntime`
 - Settings authored child-view canonicalization and migration helper cleanup are closed here; no UI mixed-mode allowlist remains as runtime or editor code
 - stage clear reaches only the canonical Stage 7 terminal `StageResult` screen path; the legacy host-owned clear overlay no longer survives as a parallel runtime UI system

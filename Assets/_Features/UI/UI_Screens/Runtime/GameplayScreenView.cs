@@ -11,12 +11,10 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private GameObject _root;
         [SerializeField] private Button _helpButton;
         [SerializeField] private Button _objectiveButton;
-        [SerializeField] private Button _inventoryButton;
         [SerializeField] private Button _settingsButton;
         [SerializeField] private TMP_Text _titleLabel;
         [SerializeField] private TMP_Text _helpButtonLabel;
         [SerializeField] private TMP_Text _objectiveButtonLabel;
-        [SerializeField] private TMP_Text _inventoryButtonLabel;
         [SerializeField] private TMP_Text _settingsButtonLabel;
 
         private GameplayScreenViewModel _viewModel;
@@ -30,8 +28,6 @@ namespace Game.Feature.UI.Screens
         public event Action HelpRequested;
 
         public event Action ObjectivesRequested;
-
-        public event Action InventoryRequested;
 
         public event Action SettingsRequested;
 
@@ -86,16 +82,6 @@ namespace Game.Feature.UI.Screens
             ObjectivesRequested?.Invoke();
         }
 
-        public void ClickInventory()
-        {
-            if (!IsVisible)
-            {
-                return;
-            }
-
-            InventoryRequested?.Invoke();
-        }
-
         public void ClickSettings()
         {
             if (!IsVisible)
@@ -110,7 +96,6 @@ namespace Game.Feature.UI.Screens
         {
             RebindButton(_helpButton, ClickHelp);
             RebindButton(_objectiveButton, ClickObjectives);
-            RebindButton(_inventoryButton, ClickInventory);
             RebindButton(_settingsButton, ClickSettings);
             RefreshView();
         }
@@ -120,7 +105,6 @@ namespace Game.Feature.UI.Screens
             StopRootEnterMotion();
             UnbindButton(_helpButton, ClickHelp);
             UnbindButton(_objectiveButton, ClickObjectives);
-            UnbindButton(_inventoryButton, ClickInventory);
             UnbindButton(_settingsButton, ClickSettings);
         }
 
@@ -130,12 +114,10 @@ namespace Game.Feature.UI.Screens
             ValidateSerializedReference(_root, nameof(_root));
             ValidateSerializedReference(_helpButton, nameof(_helpButton));
             ValidateSerializedReference(_objectiveButton, nameof(_objectiveButton));
-            ValidateSerializedReference(_inventoryButton, nameof(_inventoryButton));
             ValidateSerializedReference(_settingsButton, nameof(_settingsButton));
             ValidateSerializedReference(_titleLabel, nameof(_titleLabel));
             ValidateSerializedReference(_helpButtonLabel, nameof(_helpButtonLabel));
             ValidateSerializedReference(_objectiveButtonLabel, nameof(_objectiveButtonLabel));
-            ValidateSerializedReference(_inventoryButtonLabel, nameof(_inventoryButtonLabel));
             ValidateSerializedReference(_settingsButtonLabel, nameof(_settingsButtonLabel));
         }
 #endif
@@ -176,11 +158,6 @@ namespace Game.Feature.UI.Screens
             if (_objectiveButtonLabel != null)
             {
                 _objectiveButtonLabel.text = _viewModel.ObjectivesLabel;
-            }
-
-            if (_inventoryButtonLabel != null)
-            {
-                _inventoryButtonLabel.text = _viewModel.InventoryLabel;
             }
 
             if (_settingsButtonLabel != null)

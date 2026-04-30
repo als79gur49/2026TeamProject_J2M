@@ -55,15 +55,11 @@ namespace Game.Feature.UI.Tests
                 typeof(GameplayScreenView),
                 typeof(HelpScreenView),
                 typeof(ObjectiveStatusScreenView),
-                typeof(InventoryScreenView),
                 typeof(SettingsScreenView),
                 typeof(SettingsAudioView),
                 typeof(SettingsDisplayView),
                 typeof(StageResultScreenView),
                 typeof(LevelFailedScreenView),
-                typeof(InventoryCatalogView),
-                typeof(InventoryDetailView),
-                typeof(InventoryActionView),
             };
 
             var foundForbiddenComponents = rootShellPrefab
@@ -243,7 +239,6 @@ namespace Game.Feature.UI.Tests
                     "_gameplayPrefab",
                     "_helpPrefab",
                     "_objectiveStatusPrefab",
-                    "_inventoryPrefab",
                     "_settingsPrefab",
                     "_stageResultPrefab",
                     "_levelFailedPrefab",
@@ -255,7 +250,6 @@ namespace Game.Feature.UI.Tests
                     typeof(GameplayScreenView),
                     typeof(HelpScreenView),
                     typeof(ObjectiveStatusScreenView),
-                    typeof(InventoryScreenView),
                     typeof(SettingsScreenView),
                     typeof(StageResultScreenView),
                     typeof(LevelFailedScreenView),
@@ -266,7 +260,6 @@ namespace Game.Feature.UI.Tests
                 {
                     "GameplayPrefab",
                     "HelpPrefab",
-                    "InventoryPrefab",
                     "LevelFailedPrefab",
                     "ObjectiveStatusPrefab",
                     "SettingsPrefab",
@@ -285,7 +278,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(AssetDatabase.GetAssetPath(screenCatalog.GameplayPrefab), Is.EqualTo(UiTestPrefabAssetUtility.GameplayScreenPrefabPath));
             Assert.That(AssetDatabase.GetAssetPath(screenCatalog.HelpPrefab), Is.EqualTo(UiTestPrefabAssetUtility.HelpScreenPrefabPath));
             Assert.That(AssetDatabase.GetAssetPath(screenCatalog.ObjectiveStatusPrefab), Is.EqualTo(UiTestPrefabAssetUtility.ObjectiveStatusScreenPrefabPath));
-            Assert.That(AssetDatabase.GetAssetPath(screenCatalog.InventoryPrefab), Is.EqualTo(UiTestPrefabAssetUtility.InventoryScreenPrefabPath));
             Assert.That(AssetDatabase.GetAssetPath(screenCatalog.SettingsPrefab), Is.EqualTo(UiTestPrefabAssetUtility.SettingsScreenPrefabPath));
             Assert.That(AssetDatabase.GetAssetPath(screenCatalog.StageResultPrefab), Is.EqualTo(UiTestPrefabAssetUtility.StageResultScreenPrefabPath));
             Assert.That(AssetDatabase.GetAssetPath(screenCatalog.LevelFailedPrefab), Is.EqualTo(UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath));
@@ -346,7 +338,6 @@ namespace Game.Feature.UI.Tests
         [TestCase(ScreenId.Gameplay)]
         [TestCase(ScreenId.Help)]
         [TestCase(ScreenId.ObjectiveStatus)]
-        [TestCase(ScreenId.Inventory)]
         [TestCase(ScreenId.Settings)]
         [TestCase(ScreenId.StageResult)]
         [TestCase(ScreenId.LevelFailed)]
@@ -371,21 +362,6 @@ namespace Game.Feature.UI.Tests
                         UiTestPrefabAssetUtility.ObjectiveStatusScreenPrefabPath,
                         typeof(ObjectiveStatusScreenView));
                     break;
-
-                case ScreenId.Inventory:
-                {
-                    var inventoryPrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<InventoryScreenView>(UiTestPrefabAssetUtility.InventoryScreenPrefabPath);
-                    Assert.That(inventoryPrefab.CatalogView, Is.Not.Null);
-                    Assert.That(inventoryPrefab.DetailView, Is.Not.Null);
-                    Assert.That(inventoryPrefab.ActionView, Is.Not.Null);
-                    AssertScreenPrefabHasNoCrossLayerOwners(
-                        inventoryPrefab.gameObject,
-                        typeof(InventoryScreenView),
-                        typeof(InventoryCatalogView),
-                        typeof(InventoryDetailView),
-                        typeof(InventoryActionView));
-                    break;
-                }
 
                 case ScreenId.Settings:
                     AssertScreenPrefabContract<SettingsScreenView>(
@@ -595,7 +571,6 @@ namespace Game.Feature.UI.Tests
         [TestCase(ScreenId.Gameplay)]
         [TestCase(ScreenId.Help)]
         [TestCase(ScreenId.ObjectiveStatus)]
-        [TestCase(ScreenId.Inventory)]
         [TestCase(ScreenId.Settings)]
         public void CanonicalScreenFactoryPath_InstantiatesCanonicalScreenPrefabUnderScreenLayer(ScreenId screenId)
         {
@@ -756,7 +731,6 @@ namespace Game.Feature.UI.Tests
         [TestCase(ScreenId.Gameplay, "_screenPrefabCatalog.GameplayPrefab", "CreateGameplayScreen(")]
         [TestCase(ScreenId.Help, "_screenPrefabCatalog.HelpPrefab", "CreateHelpScreen(")]
         [TestCase(ScreenId.ObjectiveStatus, "_screenPrefabCatalog.ObjectiveStatusPrefab", "CreateObjectiveStatusScreen(")]
-        [TestCase(ScreenId.Inventory, "_screenPrefabCatalog.InventoryPrefab", "CreateInventoryScreen(")]
         [TestCase(ScreenId.Settings, "_screenPrefabCatalog.SettingsPrefab", "CreateSettingsScreen(")]
         [TestCase(ScreenId.StageResult, "_screenPrefabCatalog.StageResultPrefab", "CreateStageResultScreen(")]
         [TestCase(ScreenId.LevelFailed, "_screenPrefabCatalog.LevelFailedPrefab", "CreateLevelFailedScreen(")]
@@ -775,7 +749,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void ScreenLegacyBuilderSymbols_AreAbsent_FromFactorySource_Inventory_AndBaselineEvidence()
+        public void ScreenLegacyBuilderSymbols_AreAbsent_FromFactorySource_AndBaselineEvidence()
         {
             var installerSource = ReadRepoFile(InstallerSourcePath);
             var screenFactorySource = ReadRepoFile(ScreenFactorySourcePath);
@@ -786,7 +760,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(screenFactorySource, Does.Not.Contain("CreateGameplayScreen("));
             Assert.That(screenFactorySource, Does.Not.Contain("CreateHelpScreen("));
             Assert.That(screenFactorySource, Does.Not.Contain("CreateObjectiveStatusScreen("));
-            Assert.That(screenFactorySource, Does.Not.Contain("CreateInventoryScreen("));
             Assert.That(screenFactorySource, Does.Not.Contain("CreateSettingsScreen("));
             Assert.That(screenFactorySource, Does.Not.Contain("CreateStageResultScreen("));
             Assert.That(screenFactorySource, Does.Not.Contain("CreateLevelFailedScreen("));
@@ -796,7 +769,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Contain("screen legacy runtime builder paths were removed in the same phase"));
             Assert.That(baseline, Does.Contain("screen hybrid allowlist is now empty"));
             Assert.That(baseline, Does.Not.Contain("Screen:Gameplay -> GameplayScreenRuntimeFactory.CreateGameplayScreen"));
-            Assert.That(baseline, Does.Not.Contain("ScreenInternal:InventoryScreen.Sections -> InventoryScreenView authored child sections remain runtime-built"));
         }
 
         [TestCase(PopupId.Pause, "_popupPrefabCatalog.PausePrefab", "AddComponent<PausePopupView>")]
@@ -817,7 +789,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void PopupLegacyBuilderSymbols_AreAbsent_FromFactorySource_Inventory_AndBaselineEvidence()
+        public void PopupLegacyBuilderSymbols_AreAbsent_FromFactorySource_AndBaselineEvidence()
         {
             var installerSource = ReadRepoFile(InstallerSourcePath);
             var popupFactorySource = ReadRepoFile(PopupFactorySourcePath);
@@ -903,10 +875,6 @@ namespace Game.Feature.UI.Tests
                     installer.GameplayScreenView.ClickObjectives();
                     return installer.ObjectiveStatusScreenView;
 
-                case ScreenId.Inventory:
-                    installer.GameplayScreenView.ClickInventory();
-                    return installer.InventoryScreenView;
-
                 case ScreenId.Settings:
                     installer.GameplayScreenView.ClickSettings();
                     return installer.SettingsScreenView;
@@ -965,9 +933,6 @@ namespace Game.Feature.UI.Tests
 
                 case ScreenId.ObjectiveStatus:
                     return UiTestPrefabAssetUtility.LoadScreenPrefab<ObjectiveStatusScreenView>(UiTestPrefabAssetUtility.ObjectiveStatusScreenPrefabPath);
-
-                case ScreenId.Inventory:
-                    return UiTestPrefabAssetUtility.LoadScreenPrefab<InventoryScreenView>(UiTestPrefabAssetUtility.InventoryScreenPrefabPath);
 
                 case ScreenId.Settings:
                     return UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
@@ -1044,7 +1009,6 @@ namespace Game.Feature.UI.Tests
                 typeof(GameplayScreenView),
                 typeof(HelpScreenView),
                 typeof(ObjectiveStatusScreenView),
-                typeof(InventoryScreenView),
                 typeof(SettingsScreenView),
                 typeof(SettingsAudioView),
                 typeof(SettingsDisplayView),
@@ -1074,15 +1038,11 @@ namespace Game.Feature.UI.Tests
                 typeof(GameplayScreenView),
                 typeof(HelpScreenView),
                 typeof(ObjectiveStatusScreenView),
-                typeof(InventoryScreenView),
                 typeof(SettingsScreenView),
                 typeof(SettingsAudioView),
                 typeof(SettingsDisplayView),
                 typeof(StageResultScreenView),
                 typeof(LevelFailedScreenView),
-                typeof(InventoryCatalogView),
-                typeof(InventoryDetailView),
-                typeof(InventoryActionView),
             };
 
             var forbiddenTypes = new[]

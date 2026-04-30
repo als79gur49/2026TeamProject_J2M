@@ -18,7 +18,6 @@ namespace Game.Feature.UI.Tests
         internal const string GameplayScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/GameplayScreen.prefab";
         internal const string HelpScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/HelpScreen.prefab";
         internal const string ObjectiveStatusScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/ObjectiveStatusScreen.prefab";
-        internal const string InventoryScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/InventoryScreen.prefab";
         internal const string SettingsScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab";
         internal const string StageResultScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/StageResultScreen.prefab";
         internal const string LevelFailedScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/LevelFailedScreen.prefab";

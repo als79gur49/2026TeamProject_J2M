@@ -12,37 +12,6 @@ namespace Game.Feature.UI.Tests
     public sealed class UiScreenRuntimeAudioCueTests
     {
         [Test]
-        public void GameplayScreenRuntimeFactory_InventoryLocalInteractions_EmitOnlySelectCues()
-        {
-            using var harness = UiAudioHarness.Create();
-
-            Assert.That(harness.Coordinator.OpenInventoryScreen(), Is.True);
-            harness.UiAudioPort.Clear();
-
-            var view = harness.ScreenLayerView.FindScreenView<InventoryScreenView>();
-            Assert.That(view, Is.Not.Null);
-
-            view.ClickSearch();
-            view.ClickFilter();
-            view.ClickSort();
-            view.ClickItemRow(0);
-            view.ClickPrimaryAction();
-            view.ClickSecondaryAction();
-
-            Assert.That(
-                harness.UiAudioPort.PlayedCueIds,
-                Is.EqualTo(new[]
-                {
-                    UiAudioCueId.Select,
-                    UiAudioCueId.Select,
-                    UiAudioCueId.Select,
-                    UiAudioCueId.Select,
-                    UiAudioCueId.Select,
-                    UiAudioCueId.Select,
-                }));
-        }
-
-        [Test]
         public void GameplayScreenRuntimeFactory_ObjectiveStatusOverviewOnly_HasNoTabLocalSelectCues()
         {
             using var harness = UiAudioHarness.Create();

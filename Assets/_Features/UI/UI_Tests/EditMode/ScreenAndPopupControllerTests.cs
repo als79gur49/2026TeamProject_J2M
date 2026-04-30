@@ -36,25 +36,25 @@ namespace Game.Feature.UI.Tests
         {
             var runtimeFactory = new FakeScreenRuntimeFactory();
             runtimeFactory.SetPolicy(
-                ScreenId.Inventory,
+                ScreenId.Settings,
                 new ScreenPolicy(
-                    ScreenPolicyClass.GameplayAdjacentOverlay,
+                    ScreenPolicyClass.Configuration,
                     ScreenRetentionMode.DisposeOnHide,
                     ScreenBackAction.Pop,
-                    HudShellMode.Visible,
+                    HudShellMode.Hidden,
                     blocksUiGameplayInput: true));
             using var controller = new ScreenController(runtimeFactory);
 
             controller.SetRoot(new ScreenRequest(ScreenId.Gameplay, GameplayScreenPayload.Default, ScreenId.Gameplay.ToString()));
-            Assert.That(controller.Push(new ScreenRequest(ScreenId.Inventory, InventoryScreenPayload.Default, ScreenId.Inventory.ToString())), Is.True);
+            Assert.That(controller.Push(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, ScreenId.Settings.ToString())), Is.True);
             Assert.That(controller.Push(new ScreenRequest(ScreenId.Help, HelpScreenPayload.Default, ScreenId.Help.ToString())), Is.True);
 
             Assert.That(runtimeFactory.CreatedRuntimes[1].Runtime.IsDisposed, Is.True);
 
             Assert.That(controller.Pop(), Is.True);
-            Assert.That(controller.CurrentScreenId, Is.EqualTo(ScreenId.Inventory));
+            Assert.That(controller.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
             Assert.That(runtimeFactory.CreatedRuntimes, Has.Count.EqualTo(4));
-            Assert.That(runtimeFactory.CreatedRuntimes[3].Request.ScreenId, Is.EqualTo(ScreenId.Inventory));
+            Assert.That(runtimeFactory.CreatedRuntimes[3].Request.ScreenId, Is.EqualTo(ScreenId.Settings));
         }
 
         [Test]

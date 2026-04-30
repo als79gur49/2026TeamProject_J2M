@@ -15,7 +15,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Contain("## Scope"));
             Assert.That(baseline, Does.Contain("## Result"));
             Assert.That(baseline, Does.Contain("## Structural Delta"));
-            Assert.That(baseline, Does.Contain("## Prefab Migration Mixed-Mode Inventory"));
+            Assert.That(baseline, Does.Contain("## Prefab Migration Mixed-Mode Status"));
             Assert.That(baseline, Does.Contain("## Guard Evolution"));
             Assert.That(baseline, Does.Contain("## Runner Warning Status"));
             Assert.That(baseline, Does.Contain("## PlayMode Escalation"));
@@ -43,11 +43,10 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Contain("complex-screen checkpoint"));
             Assert.That(baseline, Does.Not.Contain("simple-shell checkpoint is complete for `Help`, `ObjectiveStatus`, and `Settings`"));
             Assert.That(baseline, Does.Contain("simple-shell checkpoint is complete for `Help` and `ObjectiveStatus`"));
-            Assert.That(baseline, Does.Contain("complex-screen checkpoint is complete for `Inventory` and bounded `Settings`"));
+            Assert.That(baseline, Does.Contain("complex-screen checkpoint is complete for bounded `Settings`"));
             Assert.That(baseline, Does.Contain("Settings authored child-view canonicalization and migration helper cleanup are closed here"));
             Assert.That(baseline, Does.Not.Contain("removal and unrelated migration/helper cleanup remain later work"));
             Assert.That(baseline, Does.Not.Contain("Popup:Pause -> GameplayPopupRuntimeFactory.CreatePausePopup"));
-            Assert.That(baseline, Does.Not.Contain("ScreenInternal:InventoryScreen.Sections -> InventoryScreenView authored child sections remain runtime-built"));
         }
 
         [Test]
@@ -109,7 +108,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(smokePlan, Does.Contain("Tier 1"));
             Assert.That(smokePlan, Does.Contain("GameplayScreen"));
             Assert.That(smokePlan, Does.Contain("PausePopup"));
-            Assert.That(smokePlan, Does.Contain("InventoryScreen"));
+            Assert.That(smokePlan, Does.Contain("SettingsScreen"));
             Assert.That(smokePlan, Does.Contain("StageResultScreen"));
             Assert.That(smokePlan, Does.Contain("TooltipPopup"));
             Assert.That(smokePlan, Does.Contain("SettingsScreen tooltip info icon"));

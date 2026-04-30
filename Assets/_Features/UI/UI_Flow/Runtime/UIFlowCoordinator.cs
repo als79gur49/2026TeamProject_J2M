@@ -79,11 +79,6 @@ namespace Game.Feature.UI.Flow
             return ExecuteIntent(UiFlowAudioIntentKind.OpenForward, () => PushScreenCore(BuildObjectiveStatusRequest()));
         }
 
-        public bool OpenInventoryScreen()
-        {
-            return ExecuteIntent(UiFlowAudioIntentKind.OpenForward, () => PushScreenCore(BuildInventoryRequest()));
-        }
-
         public bool OpenSettingsScreen()
         {
             return ExecuteIntent(UiFlowAudioIntentKind.OpenForward, () => PushScreenCore(BuildSettingsRequest()));
@@ -759,11 +754,6 @@ namespace Game.Feature.UI.Flow
                 ScreenId.ObjectiveStatus,
                 ObjectiveStatusScreenPayload.Default,
                 ScreenId.ObjectiveStatus.ToString());
-        }
-
-        private static ScreenRequest BuildInventoryRequest()
-        {
-            return new ScreenRequest(ScreenId.Inventory, InventoryScreenPayload.Default, ScreenId.Inventory.ToString());
         }
 
         private static ScreenRequest BuildSettingsRequest()

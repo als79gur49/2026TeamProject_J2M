@@ -168,7 +168,6 @@ namespace Game.Feature.UI.Tests
                 ScreenId.Gameplay => GameplayScreenPayload.Default,
                 ScreenId.Help => HelpScreenPayload.Default,
                 ScreenId.ObjectiveStatus => ObjectiveStatusScreenPayload.Default,
-                ScreenId.Inventory => InventoryScreenPayload.Default,
                 ScreenId.Settings => SettingsScreenPayload.Default,
                 ScreenId.StageResult => new StageResultScreenPayload(
                     "Title",

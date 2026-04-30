@@ -87,9 +87,6 @@ namespace Game.Feature.UI.Composition
                 case ScreenId.ObjectiveStatus:
                     return CreateObjectiveStatusRuntime();
 
-                case ScreenId.Inventory:
-                    return CreateInventoryRuntime();
-
                 case ScreenId.Settings:
                     return CreateSettingsRuntime();
 
@@ -154,32 +151,6 @@ namespace Game.Feature.UI.Composition
                     HudShellMode.Visible,
                     blocksUiGameplayInput: true),
                 new ObjectiveStatusRuntime(view, presenter, _uiAudioPort, () => DestroyObject(view.gameObject)));
-        }
-
-        private ScreenRuntimeFactoryResult CreateInventoryRuntime()
-        {
-            var presenter = new InventoryScreenPresenter();
-            var view = InstantiateScreenPrefab(_screenPrefabCatalog.InventoryPrefab, ScreenId.Inventory);
-            if (view.CatalogView == null || view.DetailView == null || view.ActionView == null)
-            {
-                throw new InvalidOperationException(
-                    "Inventory screen prefab is missing one or more required child views.");
-            }
-
-            view.Bind(presenter.ViewModel);
-            view.CatalogView.Bind(presenter.CatalogPresenter.ViewModel);
-            view.DetailView.Bind(presenter.DetailPresenter.ViewModel);
-            view.ActionView.Bind(presenter.ActionPresenter.ViewModel);
-            view.SetIsCurrent(false);
-
-            return new ScreenRuntimeFactoryResult(
-                new ScreenPolicy(
-                    ScreenPolicyClass.GameplayAdjacentOverlay,
-                    ScreenRetentionMode.RetainMountedHistory,
-                    ScreenBackAction.Pop,
-                    HudShellMode.Visible,
-                    blocksUiGameplayInput: true),
-                new InventoryRuntime(view, presenter, _uiAudioPort, () => DestroyObject(view.gameObject)));
         }
 
         private ScreenRuntimeFactoryResult CreateSettingsRuntime()
@@ -363,7 +334,6 @@ namespace Game.Feature.UI.Composition
                 _presenter = presenter;
                 view.HelpRequested += HandleHelpRequested;
                 view.ObjectivesRequested += HandleObjectivesRequested;
-                view.InventoryRequested += HandleInventoryRequested;
                 view.SettingsRequested += HandleSettingsRequested;
             }
 
@@ -376,7 +346,6 @@ namespace Game.Feature.UI.Composition
             {
                 View.HelpRequested -= HandleHelpRequested;
                 View.ObjectivesRequested -= HandleObjectivesRequested;
-                View.InventoryRequested -= HandleInventoryRequested;
                 View.SettingsRequested -= HandleSettingsRequested;
                 View.Bind(null);
                 base.Dispose();
@@ -393,11 +362,6 @@ namespace Game.Feature.UI.Composition
                     ScreenId.ObjectiveStatus,
                     ObjectiveStatusScreenPayload.Default,
                     ScreenId.ObjectiveStatus.ToString())));
-            }
-
-            private void HandleInventoryRequested()
-            {
-                RaiseAction(ScreenAction.Push(new ScreenRequest(ScreenId.Inventory, InventoryScreenPayload.Default, ScreenId.Inventory.ToString())));
             }
 
             private void HandleSettingsRequested()
@@ -473,91 +437,6 @@ namespace Game.Feature.UI.Composition
             private void HandleBackRequested()
             {
                 RaiseAction(ScreenAction.Back());
-            }
-        }
-
-        private sealed class InventoryRuntime : ScreenRuntimeBase<InventoryScreenView>
-        {
-            private readonly InventoryScreenPresenter _presenter;
-
-            public InventoryRuntime(
-                InventoryScreenView view,
-                InventoryScreenPresenter presenter,
-                IUiAudioPort uiAudioPort,
-                Action dispose)
-                : base(view, uiAudioPort, dispose)
-            {
-                _presenter = presenter;
-                view.BackRequested += HandleBackRequested;
-                view.CatalogView.SearchRequested += HandleSearchRequested;
-                view.CatalogView.FilterRequested += HandleFilterRequested;
-                view.CatalogView.SortRequested += HandleSortRequested;
-                view.CatalogView.RowRequested += HandleRowRequested;
-                view.ActionView.PrimaryActionRequested += HandlePrimaryActionRequested;
-                view.ActionView.SecondaryActionRequested += HandleSecondaryActionRequested;
-            }
-
-            public override void ApplyPayload(IScreenPayload payload)
-            {
-                _presenter.Apply(ExpectPayload<InventoryScreenPayload>(payload));
-            }
-
-            public override void Dispose()
-            {
-                View.BackRequested -= HandleBackRequested;
-                View.CatalogView.SearchRequested -= HandleSearchRequested;
-                View.CatalogView.FilterRequested -= HandleFilterRequested;
-                View.CatalogView.SortRequested -= HandleSortRequested;
-                View.CatalogView.RowRequested -= HandleRowRequested;
-                View.ActionView.PrimaryActionRequested -= HandlePrimaryActionRequested;
-                View.ActionView.SecondaryActionRequested -= HandleSecondaryActionRequested;
-                View.ActionView.Bind(null);
-                View.DetailView.Bind(null);
-                View.CatalogView.Bind(null);
-                View.Bind(null);
-                _presenter.Dispose();
-                base.Dispose();
-            }
-
-            private void HandleBackRequested()
-            {
-                RaiseAction(ScreenAction.Back());
-            }
-
-            private void HandleFilterRequested()
-            {
-                _presenter.CatalogPresenter.CycleFilter();
-                PlayLocalCue(UiAudioCueId.Select);
-            }
-
-            private void HandlePrimaryActionRequested()
-            {
-                _presenter.ActionPresenter.RequestPrimaryAction();
-                PlayLocalCue(UiAudioCueId.Select);
-            }
-
-            private void HandleRowRequested(int visibleIndex)
-            {
-                _presenter.CatalogPresenter.SelectVisibleRow(visibleIndex);
-                PlayLocalCue(UiAudioCueId.Select);
-            }
-
-            private void HandleSearchRequested()
-            {
-                _presenter.CatalogPresenter.CycleSearch();
-                PlayLocalCue(UiAudioCueId.Select);
-            }
-
-            private void HandleSecondaryActionRequested()
-            {
-                _presenter.ActionPresenter.RequestSecondaryAction();
-                PlayLocalCue(UiAudioCueId.Select);
-            }
-
-            private void HandleSortRequested()
-            {
-                _presenter.CatalogPresenter.CycleSort();
-                PlayLocalCue(UiAudioCueId.Select);
             }
         }
 

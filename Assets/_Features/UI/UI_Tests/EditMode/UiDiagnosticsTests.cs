@@ -77,10 +77,8 @@ namespace Game.Feature.UI.Tests
                 Assert.That(overlay.SummaryText, Does.Not.Contain("Screen Instance:"));
                 Assert.That(overlay.SummaryText, Does.Not.Contain("Popup Policy:"));
                 Assert.That(overlay.SummaryText, Does.Not.Contain("Recent Events:"));
-                Assert.That(overlay.SummaryText, Does.Not.Contain("Inventory Summary:"));
-
-                installer.GameplayScreenView.ClickInventory();
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Inventory));
+                installer.GameplayScreenView.ClickSettings();
+                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
 
                 overlay.ToggleExpanded();
 
@@ -89,8 +87,6 @@ namespace Game.Feature.UI.Tests
                 Assert.That(overlay.DetailText, Does.Contain("Top Popup Instance:"));
                 Assert.That(overlay.DetailText, Does.Contain("Popup Policy:"));
                 Assert.That(overlay.DetailText, Does.Contain("Recent Events:"));
-                Assert.That(overlay.DetailText, Does.Contain("Inventory Summary:"));
-                Assert.That(overlay.DetailText, Does.Contain("Detail=Crystal Shard"));
             }
             finally
             {

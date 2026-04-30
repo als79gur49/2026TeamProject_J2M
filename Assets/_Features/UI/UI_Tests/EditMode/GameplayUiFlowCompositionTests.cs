@@ -387,45 +387,6 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void GameplayUiFlowInstaller_InventoryScreen_ComposesCatalogDetailAndActionWithoutChangingScreenFlow()
-        {
-            var rootObject = new GameObject("GameplayUiFlowInstaller_InventoryScreen_ComposesCatalogDetailAndActionWithoutChangingScreenFlow");
-
-            try
-            {
-                var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
-                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
-                installer.Install(UiTestPortFactory.CreatePorts());
-
-                installer.GameplayScreenView.ClickInventory();
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Inventory));
-                Assert.That(installer.InventoryScreenView, Is.Not.Null);
-                Assert.That(installer.InventoryScreenView.DetailTitleText, Is.EqualTo("Crystal Shard"));
-                Assert.That(installer.InventoryScreenView.GetCatalogRowLabel(3), Is.EqualTo("Recon Map"));
-
-                installer.InventoryScreenView.ClickItemRow(3);
-                Assert.That(installer.InventoryScreenView.DetailTitleText, Is.EqualTo("Recon Map"));
-
-                installer.InventoryScreenView.ClickPrimaryAction();
-                Assert.That(installer.InventoryScreenView.ActionFeedbackText, Does.Contain("Recon Map"));
-                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
-
-                installer.InventoryScreenView.ClickFilter();
-                Assert.That(installer.InventoryScreenView.CatalogSummaryText, Does.Contain("Consumable"));
-                Assert.That(installer.InventoryScreenView.DetailTitleText, Is.EqualTo("Crystal Shard"));
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Inventory));
-
-                installer.InventoryScreenView.ClickBack();
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
-            }
-            finally
-            {
-                DestroyEventSystemIfPresent();
-                Object.DestroyImmediate(rootObject);
-            }
-        }
-
-        [Test]
         public void GameplayUiFlowInstaller_SettingsScreen_InfoAffordance_RemainsBoundedPopupRequestPath()
         {
             var rootObject = new GameObject("GameplayUiFlowInstaller_SettingsScreen_InfoAffordance_RemainsBoundedPopupRequestPath");
@@ -467,39 +428,6 @@ namespace Game.Feature.UI.Tests
 
                 Assert.That(installer.Coordinator.HandleBackRequested(), Is.True);
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
-            }
-            finally
-            {
-                DestroyEventSystemIfPresent();
-                Object.DestroyImmediate(rootObject);
-            }
-        }
-
-        [Test]
-        public void GameplayUiFlowInstaller_InventoryScreen_KeepsChildViewsNestedUnderOneScreenShell()
-        {
-            var rootObject = new GameObject("GameplayUiFlowInstaller_InventoryScreen_KeepsChildViewsNestedUnderOneScreenShell");
-
-            try
-            {
-                var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
-                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
-                installer.Install(UiTestPortFactory.CreatePorts());
-
-                installer.GameplayScreenView.ClickInventory();
-                var inventoryView = installer.InventoryScreenView;
-
-                Assert.That(inventoryView, Is.Not.Null);
-                Assert.That(inventoryView.transform.parent, Is.EqualTo(installer.ScreenLayerView.ContentRoot));
-                Assert.That(inventoryView.CatalogView, Is.Not.Null);
-                Assert.That(inventoryView.DetailView, Is.Not.Null);
-                Assert.That(inventoryView.ActionView, Is.Not.Null);
-                Assert.That(inventoryView.CatalogView.transform.IsChildOf(inventoryView.transform), Is.True);
-                Assert.That(inventoryView.DetailView.transform.IsChildOf(inventoryView.transform), Is.True);
-                Assert.That(inventoryView.ActionView.transform.IsChildOf(inventoryView.transform), Is.True);
-                Assert.That(inventoryView.CatalogView.transform.parent, Is.Not.EqualTo(installer.ScreenLayerView.ContentRoot));
-                Assert.That(inventoryView.DetailView.transform.parent, Is.Not.EqualTo(installer.ScreenLayerView.ContentRoot));
-                Assert.That(inventoryView.ActionView.transform.parent, Is.Not.EqualTo(installer.ScreenLayerView.ContentRoot));
             }
             finally
             {

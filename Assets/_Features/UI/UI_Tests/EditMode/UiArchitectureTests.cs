@@ -93,10 +93,6 @@ namespace Game.Feature.UI.Tests
                 typeof(GameplayScreenPresenter).Assembly,
                 typeof(HelpScreenPresenter).Assembly,
                 typeof(ObjectiveStatusScreenPresenter).Assembly,
-                typeof(InventoryScreenPresenter).Assembly,
-                typeof(InventoryCatalogPresenter).Assembly,
-                typeof(InventoryDetailPresenter).Assembly,
-                typeof(InventoryActionPresenter).Assembly,
                 typeof(SettingsScreenPresenter).Assembly,
                 typeof(StageResultScreenPresenter).Assembly,
                 typeof(PausePopupPresenter).Assembly,
@@ -199,10 +195,6 @@ namespace Game.Feature.UI.Tests
                 typeof(NotificationPresenter),
                 typeof(ObjectiveStatusPresenter),
                 typeof(SettingsScreenPresenter),
-                typeof(InventoryScreenPresenter),
-                typeof(InventoryCatalogPresenter),
-                typeof(InventoryDetailPresenter),
-                typeof(InventoryActionPresenter),
             };
 
             foreach (var presenterType in presenterTypes)
@@ -668,7 +660,6 @@ namespace Game.Feature.UI.Tests
                 {
                     "GameplayPrefab",
                     "HelpPrefab",
-                    "InventoryPrefab",
                     "LevelFailedPrefab",
                     "ObjectiveStatusPrefab",
                     "SettingsPrefab",
@@ -709,50 +700,6 @@ namespace Game.Feature.UI.Tests
                         $"{presenterType.FullName} depends on {forbiddenType.FullName}");
                 }
             }
-        }
-
-        [Test]
-        public void InventoryPresenters_DoNotDependOnFlowPopupOrGameplayAuthorityTypes()
-        {
-            var presenterTypes = new[]
-            {
-                typeof(InventoryScreenPresenter),
-                typeof(InventoryCatalogPresenter),
-                typeof(InventoryDetailPresenter),
-                typeof(InventoryActionPresenter),
-            };
-            var forbiddenTypes = new[]
-            {
-                typeof(UIFlowCoordinator),
-                typeof(ScreenController),
-                typeof(PopupController),
-                typeof(PopupRequest),
-                typeof(PopupId),
-                typeof(IGameplayQueryFacade),
-                typeof(IGameplayCommandGateway),
-            };
-
-            foreach (var presenterType in presenterTypes)
-            {
-                foreach (var forbiddenType in forbiddenTypes)
-                {
-                    Assert.That(
-                        TypeDependsOn(presenterType, forbiddenType),
-                        Is.False,
-                        $"{presenterType.FullName} depends on {forbiddenType.FullName}");
-                }
-            }
-        }
-
-        [Test]
-        public void InventoryChildPresenters_DoNotFormSiblingMeshes()
-        {
-            Assert.That(TypeDependsOn(typeof(InventoryCatalogPresenter), typeof(InventoryDetailPresenter)), Is.False);
-            Assert.That(TypeDependsOn(typeof(InventoryCatalogPresenter), typeof(InventoryActionPresenter)), Is.False);
-            Assert.That(TypeDependsOn(typeof(InventoryDetailPresenter), typeof(InventoryCatalogPresenter)), Is.False);
-            Assert.That(TypeDependsOn(typeof(InventoryDetailPresenter), typeof(InventoryActionPresenter)), Is.False);
-            Assert.That(TypeDependsOn(typeof(InventoryActionPresenter), typeof(InventoryCatalogPresenter)), Is.False);
-            Assert.That(TypeDependsOn(typeof(InventoryActionPresenter), typeof(InventoryDetailPresenter)), Is.False);
         }
 
         [Test]
@@ -803,7 +750,6 @@ namespace Game.Feature.UI.Tests
                     "HandleScreenActionRequested(ScreenAction)",
                     "Initialize()",
                     "OpenHelpScreen()",
-                    "OpenInventoryScreen()",
                     "OpenObjectiveStatusScreen()",
                     "OpenSettingsScreen()",
                     "RequestConfirmPopup(ConfirmPopupPayload, Action<PopupCompletion>)",
@@ -924,35 +870,6 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void InventoryScreenPresenter_PublicSurface_RemainsBoundedToRootOrchestrationOnly()
-        {
-            Assert.That(
-                GetPublicPropertyNames(typeof(InventoryScreenPresenter)),
-                Is.EqualTo(new[]
-                {
-                    "ActionPresenter",
-                    "CatalogPresenter",
-                    "DetailPresenter",
-                    "ViewModel",
-                }));
-            Assert.That(GetPublicEventNames(typeof(InventoryScreenPresenter)), Is.Empty);
-            Assert.That(
-                GetPublicMethodSignatures(typeof(InventoryScreenPresenter)),
-                Is.EqualTo(new[]
-                {
-                    "Apply(InventoryScreenPayload)",
-                    "Dispose()",
-                }));
-            Assert.That(
-                GetConstructorSignatures(typeof(InventoryScreenPresenter)),
-                Is.EqualTo(new[]
-                {
-                    "InventoryScreenPresenter()",
-                    "InventoryScreenPresenter(InventoryCatalogPresenter, InventoryDetailPresenter, InventoryActionPresenter)",
-                }));
-        }
-
-        [Test]
         public void SettingsScreenPresenter_PublicSurface_RemainsBoundedToScreenStateAndSingleTooltipPayloadBuilder()
         {
             Assert.That(
@@ -1005,46 +922,6 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void InventoryChildPresenters_PublicSurface_RemainsLocalAndBounded()
-        {
-            Assert.That(
-                GetPublicPropertyNames(typeof(InventoryCatalogPresenter)),
-                Is.EqualTo(new[] { "ViewModel" }));
-            Assert.That(GetPublicEventNames(typeof(InventoryCatalogPresenter)), Is.EqualTo(new[] { "SelectionChanged" }));
-            Assert.That(
-                GetPublicMethodSignatures(typeof(InventoryCatalogPresenter)),
-                Is.EqualTo(new[]
-                {
-                    "Apply(InventoryCatalogPresenterInput)",
-                    "CycleFilter()",
-                    "CycleSearch()",
-                    "CycleSort()",
-                    "SelectVisibleRow(Int32)",
-                }));
-
-            Assert.That(
-                GetPublicPropertyNames(typeof(InventoryDetailPresenter)),
-                Is.EqualTo(new[] { "ViewModel" }));
-            Assert.That(GetPublicEventNames(typeof(InventoryDetailPresenter)), Is.Empty);
-            Assert.That(
-                GetPublicMethodSignatures(typeof(InventoryDetailPresenter)),
-                Is.EqualTo(new[] { "Apply(InventoryDetailPresenterInput)" }));
-
-            Assert.That(
-                GetPublicPropertyNames(typeof(InventoryActionPresenter)),
-                Is.EqualTo(new[] { "ViewModel" }));
-            Assert.That(GetPublicEventNames(typeof(InventoryActionPresenter)), Is.Empty);
-            Assert.That(
-                GetPublicMethodSignatures(typeof(InventoryActionPresenter)),
-                Is.EqualTo(new[]
-                {
-                    "Apply(InventoryActionPresenterInput)",
-                    "RequestPrimaryAction()",
-                    "RequestSecondaryAction()",
-                }));
-        }
-
-        [Test]
         public void SettingsChildPresenters_PublicSurface_RemainsLocalAndBounded()
         {
             Assert.That(
@@ -1083,37 +960,16 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void InventoryScreenPresenter_DoesNotStoreChildInputBagsOrCrossLayerActionTypes()
-        {
-            var storedTypes = typeof(InventoryScreenPresenter)
-                .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
-                .Select(field => NormalizeType(field.FieldType))
-                .Where(type => type != null)
-                .Distinct()
-                .ToArray();
-
-            Assert.That(storedTypes, Has.No.Member(typeof(InventoryCatalogPresenterInput)));
-            Assert.That(storedTypes, Has.No.Member(typeof(InventoryDetailPresenterInput)));
-            Assert.That(storedTypes, Has.No.Member(typeof(InventoryActionPresenterInput)));
-            Assert.That(storedTypes, Has.No.Member(typeof(PopupRequest)));
-            Assert.That(storedTypes, Has.No.Member(typeof(ScreenAction)));
-        }
-
-        [Test]
-        public void ScreenViews_AndInventoryChildViews_DoNotDependOnFlowGameplayAccessOrDiagnosticsTypes()
+        public void ScreenViews_DoNotDependOnFlowGameplayAccessOrDiagnosticsTypes()
         {
             var guardedViewTypes = new[]
             {
                 typeof(GameplayScreenView),
                 typeof(HelpScreenView),
                 typeof(ObjectiveStatusScreenView),
-                typeof(InventoryScreenView),
                 typeof(SettingsScreenView),
                 typeof(StageResultScreenView),
                 typeof(LevelFailedScreenView),
-                typeof(InventoryCatalogView),
-                typeof(InventoryDetailView),
-                typeof(InventoryActionView),
                 typeof(SettingsAudioView),
                 typeof(SettingsDisplayView),
             };
@@ -1150,13 +1006,9 @@ namespace Game.Feature.UI.Tests
                 typeof(GameplayScreenView),
                 typeof(HelpScreenView),
                 typeof(ObjectiveStatusScreenView),
-                typeof(InventoryScreenView),
                 typeof(SettingsScreenView),
                 typeof(StageResultScreenView),
                 typeof(LevelFailedScreenView),
-                typeof(InventoryCatalogView),
-                typeof(InventoryDetailView),
-                typeof(InventoryActionView),
                 typeof(SettingsAudioView),
                 typeof(SettingsDisplayView),
             };
@@ -1179,13 +1031,9 @@ namespace Game.Feature.UI.Tests
                 typeof(GameplayScreenView),
                 typeof(HelpScreenView),
                 typeof(ObjectiveStatusScreenView),
-                typeof(InventoryScreenView),
                 typeof(SettingsScreenView),
                 typeof(StageResultScreenView),
                 typeof(LevelFailedScreenView),
-                typeof(InventoryCatalogView),
-                typeof(InventoryDetailView),
-                typeof(InventoryActionView),
                 typeof(SettingsAudioView),
                 typeof(SettingsDisplayView),
             };
@@ -1275,7 +1123,7 @@ namespace Game.Feature.UI.Tests
                 GetConstructorSignatures(typeof(UiArchitectureDiagnosticsTracker)),
                 Is.EqualTo(new[]
                 {
-                    "UiArchitectureDiagnosticsTracker(IGameplayUiPresentationSource, UIFlowCoordinator, ScreenController, PopupController, Func<Boolean>, Func<Boolean>, Func<InventoryScreenView>)",
+                    "UiArchitectureDiagnosticsTracker(IGameplayUiPresentationSource, UIFlowCoordinator, ScreenController, PopupController, Func<Boolean>, Func<Boolean>)",
                 }));
         }
 

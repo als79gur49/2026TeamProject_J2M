@@ -78,8 +78,6 @@ namespace Game.Feature.UI.Composition
 
         public ObjectiveStatusScreenView ObjectiveStatusScreenView => ScreenLayerView != null ? ScreenLayerView.FindScreenView<ObjectiveStatusScreenView>() : null;
 
-        public InventoryScreenView InventoryScreenView => ScreenLayerView != null ? ScreenLayerView.FindScreenView<InventoryScreenView>() : null;
-
         public SettingsScreenView SettingsScreenView => ScreenLayerView != null ? ScreenLayerView.FindScreenView<SettingsScreenView>() : null;
 
         public StageResultScreenView StageResultScreenView => ScreenLayerView != null ? ScreenLayerView.FindScreenView<StageResultScreenView>() : null;
@@ -468,8 +466,7 @@ namespace Game.Feature.UI.Composition
                 ScreenController,
                 PopupController,
                 isHudVisible: () => _rootView.HudView != null && _rootView.HudView.IsVisible,
-                isHudReadOnly: () => HudController != null && HudController.IsGameplayReadOnly,
-                inventoryViewAccessor: () => ScreenLayerView != null ? ScreenLayerView.FindScreenView<InventoryScreenView>() : null);
+                isHudReadOnly: () => HudController != null && HudController.IsGameplayReadOnly);
             _rootView.DiagnosticsOverlayView.Bind(_diagnosticsTracker);
         }
 
