@@ -128,6 +128,11 @@ namespace Game.Feature.Gameplay.Host
                 entityIds.Add(presentationData.KinematicMotionTracks[i].EntityId);
             }
 
+            for (var i = 0; i < presentationData.ContinuousLocomotionTracks.Count; i++)
+            {
+                entityIds.Add(presentationData.ContinuousLocomotionTracks[i].EntityId);
+            }
+
             return entityIds;
         }
 
@@ -161,6 +166,26 @@ namespace Game.Feature.Gameplay.Host
                 _trackState.KinematicPoseOverrides[track.EntityId] = new KinematicPresentationPose(
                     localPose,
                     track.MotionMode,
+                    track.TerminalKind);
+            }
+
+            for (var i = 0; i < presentationData.ContinuousLocomotionTracks.Count; i++)
+            {
+                var track = presentationData.ContinuousLocomotionTracks[i];
+                _trackState.LocalMotionTracks.Remove(track.EntityId);
+                _stateStore.RetainedLocalTargetPoses.Remove(track.EntityId);
+                if (!_poseResolver.TryResolveContinuousLocomotionPose(
+                        projector,
+                        track,
+                        useDestination: true,
+                        out var localPose))
+                {
+                    continue;
+                }
+
+                _trackState.KinematicPoseOverrides[track.EntityId] = new KinematicPresentationPose(
+                    localPose,
+                    track.Mode == ContinuousLocomotionMode.Moving ? MotionMode.Voluntary : MotionMode.Held,
                     track.TerminalKind);
             }
         }

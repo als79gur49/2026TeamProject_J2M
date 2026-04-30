@@ -39,7 +39,9 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             return snapshot.TryGetUnitKinematicPose(entityId, out var pose) &&
-                   pose.IsSettledAtAnchor;
+                   pose.IsSettledAtAnchor &&
+                   snapshot.TryGetUnitContinuousLocomotionPose(entityId, out var continuousPose) &&
+                   continuousPose.IsSettledAtAnchor;
         }
 
         public static bool TryResolveSettledProbeCell(
@@ -59,7 +61,9 @@ namespace Game.Feature.Gameplay.BoardState
                 return false;
             }
 
-            if (!pose.IsSettledAtAnchor)
+            if (!pose.IsSettledAtAnchor ||
+                !snapshot.TryGetUnitContinuousLocomotionPose(entityId, out var continuousPose) ||
+                !continuousPose.IsSettledAtAnchor)
             {
                 result = new UnitProbeCellResult(pose.AnchorCell, default, UnitProbeRejectionReason.NotSettledAtAnchor);
                 return false;

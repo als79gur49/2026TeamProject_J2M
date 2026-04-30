@@ -34,19 +34,27 @@ namespace Game.Feature.Gameplay.Cleanup
             _removalProcessor.Process(orderedEntities, writeContext, survivingEntities, removedEntityIds);
 
             var removedUnitKinematicPoses = new List<RemovedUnitKinematicPoseRecord>();
+            var removedUnitContinuousLocomotionPoses = new List<RemovedUnitContinuousLocomotionPoseRecord>();
             var removalEventLogEntries = new List<string>();
             for (var i = 0; i < removedEntityIds.Count; i++)
             {
                 var removedEntityId = removedEntityIds[i];
-                if (!snapshot.TryGetUnitKinematicPose(removedEntityId, out var pose) ||
-                    !pose.HasAuthoritativeState)
+                if (snapshot.TryGetUnitKinematicPose(removedEntityId, out var pose) &&
+                    pose.HasAuthoritativeState)
                 {
-                    continue;
+                    removedUnitKinematicPoses.Add(new RemovedUnitKinematicPoseRecord(removedEntityId, pose));
+                    removalEventLogEntries.Add(
+                        $"KinematicPoseRemoved|E={removedEntityId}|Anchor={pose.AnchorCell}|Offset={pose.LocalOffset}|Mode={pose.Mode}");
                 }
 
-                removedUnitKinematicPoses.Add(new RemovedUnitKinematicPoseRecord(removedEntityId, pose));
-                removalEventLogEntries.Add(
-                    $"KinematicPoseRemoved|E={removedEntityId}|Anchor={pose.AnchorCell}|Offset={pose.LocalOffset}|Mode={pose.Mode}");
+                if (snapshot.TryGetUnitContinuousLocomotionPose(removedEntityId, out var continuousPose) &&
+                    continuousPose.HasAuthoritativeState)
+                {
+                    removedUnitContinuousLocomotionPoses.Add(
+                        new RemovedUnitContinuousLocomotionPoseRecord(removedEntityId, continuousPose));
+                    removalEventLogEntries.Add(
+                        $"ContinuousLocomotionPoseRemoved|E={removedEntityId}|Anchor={continuousPose.AnchorCell}|Offset={continuousPose.LocalOffset}|Mode={continuousPose.Mode}");
+                }
             }
 
             var timerChanges = new List<string>();
@@ -60,7 +68,8 @@ namespace Game.Feature.Gameplay.Cleanup
                 timerChanges,
                 stateTransitions,
                 removalEventLogEntries,
-                removedUnitKinematicPoses);
+                removedUnitKinematicPoses,
+                removedUnitContinuousLocomotionPoses);
         }
     }
 }

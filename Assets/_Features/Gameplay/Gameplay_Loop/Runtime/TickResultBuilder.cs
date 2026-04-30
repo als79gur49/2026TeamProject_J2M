@@ -459,6 +459,7 @@ namespace Game.Feature.Gameplay.Loop
             var visibilityChanges = new List<TickVisibilityChange>();
             var transitionVisibilityChanges = new List<TickTransitionVisibilityChange>();
             var kinematicMotionTracks = new List<TickKinematicMotionTrack>();
+            var continuousLocomotionTracks = new List<TickContinuousLocomotionTrack>();
             var exitOwnedEntityIds = new HashSet<int>();
 
             BuildEntityExitPresentation(context, entityExitSignals, exitOwnedEntityIds);
@@ -466,6 +467,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildImpactTransientPresentation(context, impactTransientSignals);
             BuildMovementPresentation(context, entityMotions, visibilityChanges, exitOwnedEntityIds);
             BuildKinematicMotionPresentation(context, kinematicMotionTracks);
+            BuildContinuousLocomotionPresentation(context, continuousLocomotionTracks);
             BuildAttackPresentation(context, visibilityChanges);
             BuildCleanupPresentation(context, visibilityChanges, exitOwnedEntityIds);
             BuildRespawnPresentation(context, visibilityChanges);
@@ -506,6 +508,7 @@ namespace Game.Feature.Gameplay.Loop
                    visibilityChanges.Count == 0 &&
                    transitionVisibilityChanges.Count == 0 &&
                    kinematicMotionTracks.Count == 0 &&
+                   continuousLocomotionTracks.Count == 0 &&
                    !topologyMotion.HasValue
                 ? TickPresentationData.Empty
                 : new TickPresentationData(
@@ -530,7 +533,8 @@ namespace Game.Feature.Gameplay.Loop
                     summonWindupWarnings,
                     frontFaceShieldWindupWarnings,
                     kinematicMotionTracks,
-                    playerDeathHoldSignals);
+                    playerDeathHoldSignals,
+                    continuousLocomotionTracks);
         }
 
         private static void BuildPlayerDeathHoldPresentation(
@@ -878,6 +882,115 @@ namespace Game.Feature.Gameplay.Loop
                         context.PostAttackSnapshot.Topology,
                         sourceEntity.facing,
                         destinationEntity.facing,
+                        TickKinematicMotionTerminalKind.Removed));
+            }
+        }
+
+        private static void BuildContinuousLocomotionPresentation(
+            in TickPresentationBuildContext context,
+            List<TickContinuousLocomotionTrack> continuousLocomotionTracks)
+        {
+            var terminalEntityIds = new HashSet<int>();
+            for (var i = 0; i < context.CleanupPhaseResult.RemovedUnitContinuousLocomotionPoses.Count; i++)
+            {
+                terminalEntityIds.Add(context.CleanupPhaseResult.RemovedUnitContinuousLocomotionPoses[i].EntityId);
+            }
+
+            var interruptedEntityIds = new List<int>();
+            var seenInterruptedEntityIds = new HashSet<int>();
+            for (var i = 0; i < context.AttackPhaseResult.MotionInterruptRecords.Count; i++)
+            {
+                var record = context.AttackPhaseResult.MotionInterruptRecords[i];
+                if (terminalEntityIds.Contains(record.EntityId) ||
+                    !seenInterruptedEntityIds.Add(record.EntityId))
+                {
+                    continue;
+                }
+
+                interruptedEntityIds.Add(record.EntityId);
+                terminalEntityIds.Add(record.EntityId);
+            }
+
+            var entries = new List<UnitContinuousLocomotionSnapshotEntry>();
+            context.PostMovementSnapshot.EnumerateUnitContinuousLocomotionStatesOrdered(entries);
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entityId = entries[i].EntityId;
+                if (terminalEntityIds.Contains(entityId) ||
+                    !context.PreMovementSnapshot.TryGetUnitContinuousLocomotionPose(entityId, out var sourcePose) ||
+                    !context.PostMovementSnapshot.TryGetUnitContinuousLocomotionPose(entityId, out var destinationPose) ||
+                    !context.PreMovementSnapshot.TryGetEntity(entityId, out var sourceEntity) ||
+                    !context.PostMovementSnapshot.TryGetEntity(entityId, out var destinationEntity))
+                {
+                    continue;
+                }
+
+                if (!sourcePose.HasAuthoritativeState &&
+                    !destinationPose.HasAuthoritativeState &&
+                    destinationPose.Mode != ContinuousLocomotionMode.Moving)
+                {
+                    continue;
+                }
+
+                continuousLocomotionTracks.Add(
+                    new TickContinuousLocomotionTrack(
+                        entityId,
+                        sourcePose.AnchorCell,
+                        sourcePose.LocalOffset,
+                        destinationPose.AnchorCell,
+                        destinationPose.LocalOffset,
+                        sourceEntity.facing,
+                        destinationEntity.facing,
+                        destinationPose.Mode));
+            }
+
+            for (var i = 0; i < interruptedEntityIds.Count; i++)
+            {
+                var entityId = interruptedEntityIds[i];
+                if (!context.PreMovementSnapshot.TryGetUnitContinuousLocomotionPose(entityId, out var sourcePose) ||
+                    !context.PostAttackSnapshot.TryGetUnitContinuousLocomotionPose(entityId, out var destinationPose) ||
+                    !sourcePose.HasAuthoritativeState ||
+                    !context.PreMovementSnapshot.TryGetEntity(entityId, out var sourceEntity) ||
+                    !context.PostAttackSnapshot.TryGetEntity(entityId, out var destinationEntity))
+                {
+                    continue;
+                }
+
+                continuousLocomotionTracks.Add(
+                    new TickContinuousLocomotionTrack(
+                        entityId,
+                        sourcePose.AnchorCell,
+                        sourcePose.LocalOffset,
+                        destinationPose.AnchorCell,
+                        destinationPose.LocalOffset,
+                        sourceEntity.facing,
+                        destinationEntity.facing,
+                        destinationPose.Mode,
+                        TickKinematicMotionTerminalKind.Interrupted));
+            }
+
+            for (var i = 0; i < context.CleanupPhaseResult.RemovedUnitContinuousLocomotionPoses.Count; i++)
+            {
+                var record = context.CleanupPhaseResult.RemovedUnitContinuousLocomotionPoses[i];
+                if (!context.PreMovementSnapshot.TryGetUnitContinuousLocomotionPose(record.EntityId, out var sourcePose) ||
+                    !context.PreMovementSnapshot.TryGetEntity(record.EntityId, out var sourceEntity))
+                {
+                    continue;
+                }
+
+                var destinationEntity = context.PostAttackSnapshot.TryGetEntity(record.EntityId, out var postAttackEntity)
+                    ? postAttackEntity
+                    : sourceEntity;
+                continuousLocomotionTracks.Add(
+                    new TickContinuousLocomotionTrack(
+                        record.EntityId,
+                        sourcePose.AnchorCell,
+                        sourcePose.LocalOffset,
+                        record.Pose.AnchorCell,
+                        record.Pose.LocalOffset,
+                        sourceEntity.facing,
+                        destinationEntity.facing,
+                        record.Pose.Mode,
                         TickKinematicMotionTerminalKind.Removed));
             }
         }
