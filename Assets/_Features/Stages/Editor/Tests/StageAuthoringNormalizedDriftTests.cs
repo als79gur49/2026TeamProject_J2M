@@ -59,6 +59,33 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void NormalizedDrift_WallFacingAuthoringSupportDoesNotMakeFacingSemanticDrift()
+        {
+            Assert.That(StageAuthoringKindRegistry.Wall.SupportsFacingAuthoring, Is.True);
+
+            var expected = CreateSingleSpawnSnapshot(StageSpawnKind.Wall, Direction.Up);
+            var actual = CreateSingleSpawnSnapshot(StageSpawnKind.Wall, Direction.Down);
+            var issues = StageAuthoringDriftComparer.CompareGameplay(
+                expected,
+                actual,
+                new StageAuthoringDriftContext(
+                    StageValidationSeverity.Error,
+                    StageValidationTiming.TestOrCi,
+                    context: null,
+                    assetPath: string.Empty,
+                    stageId: "wall-facing-authoring",
+                    authoringAssetName: string.Empty,
+                    outputAssetName: string.Empty));
+
+            Assert.That(
+                issues.Any(issue =>
+                    issue.Code == "GameplayDrift.SpawnFieldMismatch" &&
+                    issue.FieldName == "Facing"),
+                Is.False,
+                FormatIssues(issues));
+        }
+
+        [Test]
         public void NormalizedDrift_DetectsEntityIdChange()
         {
             var fixture = StageAuthoringTestFixture.CreateSynced();
@@ -210,6 +237,36 @@ namespace Game.Feature.Stages.Editor.Tests
         private static void AssertHasCode(StageValidationReport report, string code)
         {
             Assert.That(report.Issues.Any(issue => issue.Code == code), Is.True, FormatIssues(report));
+        }
+
+        private static StageAuthoringNormalizedGameplaySnapshot CreateSingleSpawnSnapshot(
+            StageSpawnKind kind,
+            Direction facing)
+        {
+            return new StageAuthoringNormalizedGameplaySnapshot(
+                new StageBoardDefinition
+                {
+                    MinInclusive = new Vector2Int(0, 0),
+                    MaxInclusive = new Vector2Int(4, 4),
+                    InitialBottomFace = FaceId.Floor,
+                },
+                new[]
+                {
+                    new StageAuthoringNormalizedSpawn(
+                        "wall",
+                        99,
+                        kind,
+                        new SurfaceCell(FaceId.Floor, 2, 3),
+                        facing,
+                        1,
+                        string.Empty,
+                        BoxCapabilities.None,
+                        EnemyAiMode.None,
+                        0,
+                        null),
+                },
+                Array.Empty<StageAuthoringNormalizedZone>(),
+                StageAuthoringNormalizedObjective.Empty);
         }
 
         private static void ReverseArray(UnityEngine.Object target, string fieldName)

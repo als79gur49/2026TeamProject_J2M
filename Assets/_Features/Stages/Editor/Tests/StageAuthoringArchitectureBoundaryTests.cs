@@ -38,6 +38,25 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void RuntimeKindRegistry_DoesNotReferenceEditorOrColorTypes()
+        {
+            var registrySources = new[]
+            {
+                "Assets/_Features/Stages/Runtime/Authoring/StageAuthoringPresentationLane.cs",
+                "Assets/_Features/Stages/Runtime/Authoring/StageAuthoringKindDescriptor.cs",
+                "Assets/_Features/Stages/Runtime/Authoring/StageAuthoringKindRegistry.cs",
+            };
+
+            foreach (var sourcePath in registrySources)
+            {
+                var source = File.ReadAllText(sourcePath);
+                Assert.That(source.Contains("UnityEditor", StringComparison.Ordinal), Is.False, sourcePath);
+                Assert.That(source.Contains("UnityEngine.Color", StringComparison.Ordinal), Is.False, sourcePath);
+                Assert.That(source.Contains("Game.Feature.Stages.Editor", StringComparison.Ordinal), Is.False, sourcePath);
+            }
+        }
+
+        [Test]
         public void StageCatalogValidator_DoesNotUseEditorGenerator()
         {
             var source = File.ReadAllText("Assets/_Features/Stages/Runtime/Validation/StageCatalogValidator.cs");
