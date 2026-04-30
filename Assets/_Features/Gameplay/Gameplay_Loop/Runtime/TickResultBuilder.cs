@@ -761,6 +761,7 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             var operations = context.MovementPhaseResult.ResolvedOperations;
+            var movementKinematicEntityIds = new HashSet<int>();
             for (var i = 0; i < operations.Count; i++)
             {
                 var operation = operations[i];
@@ -788,6 +789,37 @@ namespace Game.Feature.Gameplay.Loop
                         context.PostMovementSnapshot.Topology,
                         sourceEntity.facing,
                         destinationEntity.facing));
+                movementKinematicEntityIds.Add(operation.EntityId);
+            }
+
+            var finalKinematicEntries = new List<UnitKinematicSnapshotEntry>();
+            context.FinalAuthoritativeSnapshot.EnumerateUnitKinematicStatesOrdered(finalKinematicEntries);
+            for (var i = 0; i < finalKinematicEntries.Count; i++)
+            {
+                var entry = finalKinematicEntries[i];
+                if (movementKinematicEntityIds.Contains(entry.EntityId) ||
+                    terminalEntityIds.Contains(entry.EntityId) ||
+                    entry.State.mode != MotionMode.Held ||
+                    !context.FinalAuthoritativeSnapshot.TryGetUnitKinematicPose(entry.EntityId, out var heldPose) ||
+                    !context.FinalAuthoritativeSnapshot.TryGetEntity(entry.EntityId, out var heldEntity))
+                {
+                    continue;
+                }
+
+                kinematicMotionTracks.Add(
+                    new TickKinematicMotionTrack(
+                        entry.EntityId,
+                        heldPose.AnchorCell,
+                        heldPose.LocalOffset,
+                        heldPose.AnchorCell,
+                        heldPose.LocalOffset,
+                        heldPose.Mode,
+                        heldPose.State.forcedOp,
+                        heldEntity.type,
+                        context.FinalAuthoritativeSnapshot.Topology,
+                        context.FinalAuthoritativeSnapshot.Topology,
+                        heldEntity.facing,
+                        heldEntity.facing));
             }
 
             for (var i = 0; i < interruptedEntityIds.Count; i++)

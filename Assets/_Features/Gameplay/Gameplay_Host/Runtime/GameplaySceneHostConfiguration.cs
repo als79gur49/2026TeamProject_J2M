@@ -116,6 +116,7 @@ namespace Game.Feature.Gameplay.Host
         public float FaceSeamGap = -1f;
         public bool DirectionChangeConsumesDelay;
         public bool EnablePlayerSameFaceContinuousLocomotion;
+        public bool EnablePlayerStoppableKinematicLocomotion;
         public bool EnableEnemySameFaceContinuousLocomotion;
         public bool EnableEnemyChargeKinematicLocomotion;
         public EnemyAiProfile DefaultEnemyAiProfile;
@@ -230,7 +231,8 @@ namespace Game.Feature.Gameplay.Host
             return new GameplayRuntimeFeatureFlags(
                 EnablePlayerSameFaceContinuousLocomotion,
                 EnableEnemySameFaceContinuousLocomotion,
-                EnableEnemyChargeKinematicLocomotion);
+                EnableEnemyChargeKinematicLocomotion,
+                EnablePlayerStoppableKinematicLocomotion);
         }
 
         public EnemyAiRuntimeCollectionSnapshot CreateEnemyAiRuntimeSnapshot()

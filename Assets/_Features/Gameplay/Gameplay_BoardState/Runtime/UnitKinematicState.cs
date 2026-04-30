@@ -11,6 +11,7 @@ namespace Game.Feature.Gameplay.BoardState
         InteractionLocked = 4,
         LegacyDiscrete = 5,
         Charge = 6,
+        Held = 7,
     }
 
     public enum ForcedMotionOp
@@ -282,8 +283,60 @@ namespace Game.Feature.Gameplay.BoardState
                 normalized.stepDirectionX = 0;
                 normalized.stepDirectionY = 0;
             }
+            else if (normalized.mode == MotionMode.Held)
+            {
+                normalized.velocity = KinematicVelocity2.Zero;
+                normalized.forcedOp = ForcedMotionOp.None;
+                normalized.speedScalePermille = 0;
+            }
 
             return normalized;
+        }
+
+        public static UnitKinematicRuntimeState CreateHeldFreeze(UnitKinematicRuntimeState sourceState)
+        {
+            var normalizedSource = sourceState.NormalizedForStorage();
+            return new UnitKinematicRuntimeState
+            {
+                localOffset = normalizedSource.localOffset,
+                velocity = KinematicVelocity2.Zero,
+                mode = MotionMode.Held,
+                forcedOp = ForcedMotionOp.None,
+                remainingDistanceUnits = normalizedSource.remainingDistanceUnits,
+                remainingTicks = normalizedSource.remainingTicks,
+                speedScalePermille = 0,
+                sequenceId = normalizedSource.sequenceId + 1,
+                elapsedTicks = normalizedSource.elapsedTicks,
+                totalTicks = normalizedSource.totalTicks,
+                commitTick = normalizedSource.commitTick,
+                startedTick = normalizedSource.startedTick,
+                stepDirectionX = normalizedSource.stepDirectionX,
+                stepDirectionY = normalizedSource.stepDirectionY,
+            }.NormalizedForStorage();
+        }
+
+        public static UnitKinematicRuntimeState CreateVoluntaryResumeFromHeld(
+            UnitKinematicRuntimeState sourceState,
+            KinematicVelocity2 velocity)
+        {
+            var normalizedSource = sourceState.NormalizedForStorage();
+            return new UnitKinematicRuntimeState
+            {
+                localOffset = normalizedSource.localOffset,
+                velocity = velocity,
+                mode = MotionMode.Voluntary,
+                forcedOp = ForcedMotionOp.None,
+                remainingDistanceUnits = normalizedSource.remainingDistanceUnits,
+                remainingTicks = normalizedSource.remainingTicks,
+                speedScalePermille = 1000,
+                sequenceId = normalizedSource.sequenceId + 1,
+                elapsedTicks = normalizedSource.elapsedTicks,
+                totalTicks = normalizedSource.totalTicks,
+                commitTick = normalizedSource.commitTick,
+                startedTick = normalizedSource.startedTick,
+                stepDirectionX = normalizedSource.stepDirectionX,
+                stepDirectionY = normalizedSource.stepDirectionY,
+            }.NormalizedForStorage();
         }
 
         public static UnitKinematicRuntimeState CreateInterruptedFreeze(UnitKinematicRuntimeState sourceState)

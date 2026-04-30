@@ -494,6 +494,7 @@ namespace Game.Feature.Gameplay.Loop
                 expansionIntents = BuildPlayerSameFaceKinematicLocomotionPlans(
                     planSnapshot,
                     sortedIntents,
+                    input.PlayerCommand,
                     input.TickIndex,
                     rejectedReasons,
                     kinematicMovementActionPlanPayloads);
@@ -1308,12 +1309,13 @@ namespace Game.Feature.Gameplay.Loop
         private List<MoveIntent> BuildPlayerSameFaceKinematicLocomotionPlans(
             WorldSnapshot snapshot,
             IReadOnlyList<MoveIntent> sortedIntents,
+            PlayerTickCommand playerCommand,
             int tickIndex,
             List<string> rejectedReasons,
             Dictionary<int, MovementActionPlanPayload> kinematicPayloads)
         {
             var legacyIntents = new List<MoveIntent>(sortedIntents.Count);
-            var continuingPlayerIds = new HashSet<int>();
+            var kinematicControlledPlayerIds = new HashSet<int>();
             var entities = new List<EntityState>();
             snapshot.EnumerateEntitiesOrdered(entities);
 
@@ -1321,10 +1323,22 @@ namespace Game.Feature.Gameplay.Loop
             {
                 var entity = entities[i];
                 if (!snapshot.TryGetPlayerControlState(entity.entityId, out _) ||
-                    !TryBuildPlayerKinematicContinuationPayload(
+                    !snapshot.TryGetUnitKinematicPose(entity.entityId, out var pose) ||
+                    pose.IsSettledAtAnchor ||
+                    (pose.Mode != MotionMode.Voluntary &&
+                     (!_runtimeFeatureFlags.EnablePlayerStoppableKinematicLocomotion ||
+                      pose.Mode != MotionMode.Held)))
+                {
+                    continue;
+                }
+
+                kinematicControlledPlayerIds.Add(entity.entityId);
+                if (!TryBuildPlayerKinematicContinuationPayload(
                         snapshot,
                         entity.entityId,
+                        playerCommand,
                         tickIndex,
+                        _runtimeFeatureFlags.EnablePlayerStoppableKinematicLocomotion,
                         rejectedReasons,
                         out var continuationPayload))
                 {
@@ -1332,13 +1346,12 @@ namespace Game.Feature.Gameplay.Loop
                 }
 
                 kinematicPayloads.Add(continuationPayload.ActionPlanId, continuationPayload);
-                continuingPlayerIds.Add(entity.entityId);
             }
 
             for (var i = 0; i < sortedIntents.Count; i++)
             {
                 var intent = sortedIntents[i];
-                if (continuingPlayerIds.Contains(intent.SourceId))
+                if (kinematicControlledPlayerIds.Contains(intent.SourceId))
                 {
                     if (intent.CommandKind == Movement.MovementCommandKind.Move)
                     {
@@ -2082,7 +2095,9 @@ namespace Game.Feature.Gameplay.Loop
         private bool TryBuildPlayerKinematicContinuationPayload(
             WorldSnapshot snapshot,
             int entityId,
+            PlayerTickCommand playerCommand,
             int tickIndex,
+            bool enableStoppableLocomotion,
             List<string> rejectedReasons,
             out MovementActionPlanPayload payload)
         {
@@ -2092,16 +2107,77 @@ namespace Game.Feature.Gameplay.Loop
                 entity.type != EntityType.Unit ||
                 !snapshot.TryGetUnitKinematicPose(entityId, out var pose) ||
                 pose.IsSettledAtAnchor ||
-                pose.Mode != MotionMode.Voluntary ||
+                (pose.Mode != MotionMode.Voluntary &&
+                 (!enableStoppableLocomotion || pose.Mode != MotionMode.Held)) ||
                 !TryResolveStepDirection(pose.State, out var stepDirectionX, out var stepDirectionY, out var facing))
             {
                 return false;
             }
 
-            var nextElapsedTicks = pose.State.elapsedTicks + 1;
             if (pose.State.totalTicks < 2 ||
                 (pose.State.totalTicks % 2) != 0 ||
-                nextElapsedTicks <= 0)
+                pose.State.elapsedTicks <= 0)
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Plan|Source={entityId}|Reason=KinematicContinuationCorrupt|Anchor={FormatCell(entity.position)}");
+                return false;
+            }
+
+            if (enableStoppableLocomotion)
+            {
+                var inputMatchesStep = playerCommand.HeldMoveDirection == facing;
+                if (pose.Mode == MotionMode.Voluntary && !inputMatchesStep)
+                {
+                    if (playerCommand.HeldMoveDirection != Direction.None)
+                    {
+                        rejectedReasons.Add(
+                            $"MovementRejected|Stage=Plan|Source={entityId}|Reason=HeldKinematicDirectionMismatch|HeldDirection={playerCommand.HeldMoveDirection}|StepDirection={facing}");
+                    }
+
+                    var heldState = UnitKinematicRuntimeState.CreateHeldFreeze(pose.State);
+                    var heldOutcome = CreateKinematicStateOnlyOutcome(entityId, pose, heldState);
+                    payload = CreateKinematicMovementPayload(
+                        _idAllocator.AllocateGroupId(),
+                        _idAllocator.AllocateIntentId(),
+                        entityId,
+                        priority: 100,
+                        outcome: heldOutcome,
+                        facing: facing,
+                        writeFacing: false);
+                    return true;
+                }
+
+                if (pose.Mode == MotionMode.Held)
+                {
+                    if (!inputMatchesStep)
+                    {
+                        if (playerCommand.HeldMoveDirection != Direction.None)
+                        {
+                            rejectedReasons.Add(
+                                $"MovementRejected|Stage=Plan|Source={entityId}|Reason=HeldKinematicDirectionMismatch|HeldDirection={playerCommand.HeldMoveDirection}|StepDirection={facing}");
+                        }
+
+                        return false;
+                    }
+
+                    var resumedState = UnitKinematicRuntimeState.CreateVoluntaryResumeFromHeld(
+                        pose.State,
+                        CreateDebugKinematicVelocity(stepDirectionX, stepDirectionY, pose.State.totalTicks));
+                    var resumedOutcome = CreateKinematicStateOnlyOutcome(entityId, pose, resumedState);
+                    payload = CreateKinematicMovementPayload(
+                        _idAllocator.AllocateGroupId(),
+                        _idAllocator.AllocateIntentId(),
+                        entityId,
+                        priority: 100,
+                        outcome: resumedOutcome,
+                        facing: facing,
+                        writeFacing: false);
+                    return true;
+                }
+            }
+
+            var nextElapsedTicks = pose.State.elapsedTicks + 1;
+            if (nextElapsedTicks <= 0)
             {
                 rejectedReasons.Add(
                     $"MovementRejected|Stage=Plan|Source={entityId}|Reason=KinematicContinuationCorrupt|Anchor={FormatCell(entity.position)}");
@@ -2337,6 +2413,24 @@ namespace Game.Feature.Gameplay.Loop
                 CreateDebugKinematicVelocity(stepDirectionX, stepDirectionY, totalTicks),
                 resolvedState,
                 resolution.IsAnchorCommitTick,
+                blocked: false,
+                rejectedBy: KinematicSweepRejectionReason.None);
+        }
+
+        private static KinematicMotionOutcome CreateKinematicStateOnlyOutcome(
+            int entityId,
+            UnitKinematicPose pose,
+            UnitKinematicRuntimeState resolvedState)
+        {
+            return new KinematicMotionOutcome(
+                entityId,
+                pose.AnchorCell,
+                pose.LocalOffset,
+                pose.AnchorCell,
+                pose.LocalOffset,
+                resolvedState.velocity,
+                resolvedState,
+                anchorChanged: false,
                 blocked: false,
                 rejectedBy: KinematicSweepRejectionReason.None);
         }
@@ -4818,7 +4912,8 @@ namespace Game.Feature.Gameplay.Loop
                 !attackSnapshot.TryGetUnitKinematicPose(targetEntityId, out var pose) ||
                 !pose.HasAuthoritativeState ||
                 pose.IsSettledAtAnchor ||
-                pose.Mode != MotionMode.Voluntary)
+                (pose.Mode != MotionMode.Voluntary &&
+                 pose.Mode != MotionMode.Held))
             {
                 return false;
             }
