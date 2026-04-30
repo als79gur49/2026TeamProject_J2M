@@ -39,7 +39,9 @@ namespace Game.Feature.Gameplay.Loop
 
         public void ApplyBatch(FinalizationBatch batch)
         {
-            _overlayBatch.MergeFrom(batch ?? throw new ArgumentNullException(nameof(batch)));
+            var resolvedBatch = batch ?? throw new ArgumentNullException(nameof(batch));
+            SnapshotMaterializationDiagnostics.RecordProjectedWorldApplyBatch(resolvedBatch.Operations.Count == 0);
+            _overlayBatch.MergeFrom(resolvedBatch);
             _isDirty = true;
         }
 
@@ -47,9 +49,11 @@ namespace Game.Feature.Gameplay.Loop
         {
             if (!_isDirty && _materializedSnapshot != null)
             {
+                SnapshotMaterializationDiagnostics.RecordProjectedWorldCacheHit();
                 return _materializedSnapshot;
             }
 
+            SnapshotMaterializationDiagnostics.RecordProjectedWorldMaterializedSnapshot();
             var projectedWorldState = MaterializeWorldState(_baseSnapshot);
             _overlayBatch.ApplyTo(projectedWorldState.CreateWriteContext(), delayedAttackEffectSink: null);
             _materializedSnapshot = SnapshotBuilder.Create(projectedWorldState);

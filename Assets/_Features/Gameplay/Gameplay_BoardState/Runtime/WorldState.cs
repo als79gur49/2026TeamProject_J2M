@@ -94,6 +94,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         internal WorldSnapshot CreateSnapshot()
         {
+            SnapshotMaterializationDiagnostics.RecordWorldStateCreateSnapshot();
             return new WorldSnapshot(
                 new Dictionary<int, EntityState>(_entitiesById),
                 CloneStackedUnitsByCell(),
