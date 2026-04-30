@@ -65,8 +65,6 @@ namespace Game.Feature.Stages
             DryRun = true,
             WriteGameplay = false,
             WritePresentationBindings = false,
-            PreservePresentationMetadata = true,
-            PruneOrphanGeneratedBindings = true,
             ValidateAfterGenerate = true,
         };
 
@@ -75,8 +73,6 @@ namespace Game.Feature.Stages
             DryRun = false,
             WriteGameplay = true,
             WritePresentationBindings = true,
-            PreservePresentationMetadata = true,
-            PruneOrphanGeneratedBindings = true,
             ValidateAfterGenerate = true,
         };
 
@@ -85,10 +81,6 @@ namespace Game.Feature.Stages
         public bool WriteGameplay { get; set; } = true;
 
         public bool WritePresentationBindings { get; set; } = true;
-
-        public bool PreservePresentationMetadata { get; set; } = true;
-
-        public bool PruneOrphanGeneratedBindings { get; set; } = true;
 
         public bool ValidateAfterGenerate { get; set; } = true;
     }
