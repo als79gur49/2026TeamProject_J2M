@@ -277,6 +277,83 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void KinematicProgressResolver_ReverseFromHeld_BeforeCommit_MirrorsProgressAndPreservesPose()
+        {
+            var source = new SurfaceCell(FaceId.Floor, 0, 0);
+            var oldPose = KinematicProgressResolver.ResolvePose(source, 1, 0, elapsedTicks: 1, totalTicks: 20);
+            var held = CreateHeldStepState(oldPose.LocalOffset, elapsedTicks: 1, stepX: 1, stepY: 0);
+
+            var resolved = KinematicProgressResolver.TryResolveReverseFromHeld(
+                source,
+                held,
+                reverseStepDirectionX: -1,
+                reverseStepDirectionY: 0,
+                out var mirroredAnchor,
+                out var mirroredState,
+                out var poseDelta);
+
+            Assert.That(resolved, Is.True);
+            Assert.That(poseDelta, Is.EqualTo(0));
+            Assert.That(mirroredAnchor, Is.EqualTo(source));
+            Assert.That(mirroredState.mode, Is.EqualTo(MotionMode.Voluntary));
+            Assert.That(mirroredState.elapsedTicks, Is.EqualTo(19));
+            Assert.That(mirroredState.stepDirectionX, Is.EqualTo(-1));
+            Assert.That(mirroredState.localOffset, Is.EqualTo(held.localOffset));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void KinematicProgressResolver_ReverseFromHeld_AfterCommit_MirrorsProgressAndPreservesPose()
+        {
+            var destination = new SurfaceCell(FaceId.Floor, 1, 0);
+            var oldPose = KinematicProgressResolver.ResolvePose(destination, 1, 0, elapsedTicks: 11, totalTicks: 20);
+            var held = CreateHeldStepState(oldPose.LocalOffset, elapsedTicks: 11, stepX: 1, stepY: 0);
+
+            var resolved = KinematicProgressResolver.TryResolveReverseFromHeld(
+                destination,
+                held,
+                reverseStepDirectionX: -1,
+                reverseStepDirectionY: 0,
+                out var mirroredAnchor,
+                out var mirroredState,
+                out var poseDelta);
+
+            Assert.That(resolved, Is.True);
+            Assert.That(poseDelta, Is.EqualTo(0));
+            Assert.That(mirroredAnchor, Is.EqualTo(destination));
+            Assert.That(mirroredState.elapsedTicks, Is.EqualTo(9));
+            Assert.That(mirroredState.stepDirectionX, Is.EqualTo(-1));
+            Assert.That(mirroredState.localOffset, Is.EqualTo(held.localOffset));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void KinematicProgressResolver_ReverseFromHeld_AtCommit_UsesRepresentableMirrorTolerance()
+        {
+            var source = new SurfaceCell(FaceId.Floor, 0, 0);
+            var destination = new SurfaceCell(FaceId.Floor, 1, 0);
+            var oldPose = KinematicProgressResolver.ResolvePose(source, 1, 0, elapsedTicks: 10, totalTicks: 20);
+            var held = CreateHeldStepState(oldPose.LocalOffset, elapsedTicks: 10, stepX: 1, stepY: 0);
+
+            var resolved = KinematicProgressResolver.TryResolveReverseFromHeld(
+                destination,
+                held,
+                reverseStepDirectionX: -1,
+                reverseStepDirectionY: 0,
+                out var mirroredAnchor,
+                out var mirroredState,
+                out var poseDelta);
+
+            Assert.That(resolved, Is.True);
+            Assert.That(poseDelta, Is.LessThanOrEqualTo(1));
+            Assert.That(mirroredAnchor, Is.EqualTo(source));
+            Assert.That(mirroredState.elapsedTicks, Is.EqualTo(10));
+            Assert.That(mirroredState.localOffset.X.RawValue, Is.EqualTo(KinematicFixed.MaxPositiveLocalOffset));
+            Assert.That(mirroredState.stepDirectionX, Is.EqualTo(-1));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void WorldState_RemoveEntity_PurgesUnitKinematicState()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { CreateUnit(10) });
@@ -323,6 +400,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 stepDirectionX = localX == 0 ? 0 : 1,
                 stepDirectionY = localY == 0 ? 0 : 1,
             };
+        }
+
+        private static UnitKinematicRuntimeState CreateHeldStepState(
+            KinematicOffset2 localOffset,
+            int elapsedTicks,
+            int stepX,
+            int stepY)
+        {
+            return new UnitKinematicRuntimeState
+            {
+                localOffset = localOffset,
+                velocity = KinematicVelocity2.Zero,
+                mode = MotionMode.Held,
+                forcedOp = ForcedMotionOp.None,
+                remainingDistanceUnits = KinematicFixed.UnitsPerCell,
+                remainingTicks = 20 - elapsedTicks,
+                speedScalePermille = 0,
+                sequenceId = 3,
+                elapsedTicks = elapsedTicks,
+                totalTicks = 20,
+                commitTick = 10,
+                startedTick = 1,
+                stepDirectionX = stepX,
+                stepDirectionY = stepY,
+            }.NormalizedForStorage();
         }
 
         private static EntityState CreateUnit(int entityId)

@@ -187,6 +187,73 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(firstReplay[1].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3"));
         }
 
+        [Test]
+        [Category("Extended")]
+        public void Held_Reverse_ReplayDeterministic()
+        {
+            var inputs = new[]
+            {
+                new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                new TickInput(2),
+                new TickInput(3, PlayerTickCommand.Move(Direction.Left)),
+                new TickInput(4, PlayerTickCommand.Move(Direction.Left)),
+            };
+            var harness = new TickReplayHarness();
+
+            var firstReplay = harness.Run(
+                CreateWorldState(),
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerStoppableKinematicLocomotionEnabled);
+            var secondReplay = harness.Run(
+                CreateWorldState(),
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerStoppableKinematicLocomotionEnabled);
+
+            Assert.That(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                Is.EqualTo(secondReplay.Select(frame => frame.DeterminismHash).ToArray()));
+            Assert.That(
+                firstReplay.Select(frame => frame.FinalEntitiesDump).ToArray(),
+                Is.EqualTo(secondReplay.Select(frame => frame.FinalEntitiesDump).ToArray()));
+            Assert.That(firstReplay[2].EventLogDump, Does.Contain("Mode=Voluntary"));
+            Assert.That(firstReplay[3].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Held_PerpendicularQueue_ReplayDeterministic()
+        {
+            var inputs = new[]
+            {
+                new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                new TickInput(2),
+                new TickInput(3, PlayerTickCommand.Move(Direction.Up)),
+            }.Concat(Enumerable.Range(4, 20).Select(tick => new TickInput(tick))).ToArray();
+            var harness = new TickReplayHarness();
+
+            var firstReplay = harness.Run(
+                CreateWorldState(),
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerStoppableKinematicLocomotionEnabled);
+            var secondReplay = harness.Run(
+                CreateWorldState(),
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerStoppableKinematicLocomotionEnabled);
+
+            Assert.That(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                Is.EqualTo(secondReplay.Select(frame => frame.DeterminismHash).ToArray()));
+            Assert.That(
+                firstReplay.Select(frame => frame.PlayerControlDump).ToArray(),
+                Is.EqualTo(secondReplay.Select(frame => frame.PlayerControlDump).ToArray()));
+            Assert.That(firstReplay[2].PlayerControlDump, Does.Contain("QueuedKinematicTurn=Up"));
+            Assert.That(firstReplay[firstReplay.Count - 1].PlayerControlDump, Does.Contain("QueuedKinematicTurn=None"));
+        }
+
         private static IEntityLogic[] CreatePlayerLogics(params IEntityLogic[] extraLogics)
         {
             return new IEntityLogic[]

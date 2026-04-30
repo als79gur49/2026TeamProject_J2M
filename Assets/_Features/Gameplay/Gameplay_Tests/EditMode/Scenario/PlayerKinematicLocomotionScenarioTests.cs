@@ -175,7 +175,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Held_OtherDirection_DoesNotTurnOrReverse()
+        public void Held_OppositeDirection_ReversesWithoutSnap_BeforeCommit()
         {
             var worldState = CreateWorldState(CreatePlayer(10));
             var pipeline = CreatePipeline(
@@ -184,12 +184,104 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             pipeline.RunTick(new TickInput(2));
-            var result = pipeline.RunTick(new TickInput(3, PlayerTickCommand.Move(Direction.Up)));
+            var result = pipeline.RunTick(new TickInput(3, PlayerTickCommand.Move(Direction.Left)));
 
-            AssertHeldPose(worldState.CreateSnapshot(), expectedAnchorX: 0, expectedLocalX: 205, expectedElapsedTicks: 1);
+            var reverseSnapshot = worldState.CreateSnapshot();
+            Assert.That(reverseSnapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(reverseSnapshot.TryGetUnitKinematicState(10, out var state), Is.True);
+            Assert.That(state.mode, Is.EqualTo(MotionMode.Voluntary));
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(205));
+            Assert.That(state.elapsedTicks, Is.EqualTo(19));
+            Assert.That(state.stepDirectionX, Is.EqualTo(-1));
             Assert.That(
                 result.MovementPhaseResult.RejectedReasons.Any(reason =>
                     reason.Contains("Reason=HeldKinematicDirectionMismatch")),
+                Is.False);
+
+            pipeline.RunTick(new TickInput(4, PlayerTickCommand.Move(Direction.Left)));
+            var settledSnapshot = worldState.CreateSnapshot();
+            Assert.That(settledSnapshot.TryGetEntity(10, out player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(settledSnapshot.TryGetUnitKinematicState(10, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Held_Perpendicular_QueuedMoveStartsAfterSettled()
+        {
+            var worldState = CreateWorldState(CreatePlayer(10));
+            var pipeline = CreatePipeline(
+                worldState,
+                GameplayRuntimeFeatureFlags.PlayerStoppableKinematicLocomotionEnabled);
+
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            pipeline.RunTick(new TickInput(2));
+            pipeline.RunTick(new TickInput(3, PlayerTickCommand.Move(Direction.Up)));
+
+            var queuedSnapshot = worldState.CreateSnapshot();
+            Assert.That(queuedSnapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.queuedKinematicTurnDirection, Is.EqualTo(Direction.Up));
+            Assert.That(queuedSnapshot.TryGetUnitKinematicState(10, out var state), Is.True);
+            Assert.That(state.mode, Is.EqualTo(MotionMode.Voluntary));
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(205));
+            Assert.That(state.stepDirectionX, Is.EqualTo(1));
+
+            for (var tick = 4; tick <= 22; tick++)
+            {
+                pipeline.RunTick(new TickInput(tick));
+            }
+
+            var settledSnapshot = worldState.CreateSnapshot();
+            Assert.That(settledSnapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(settledSnapshot.TryGetUnitKinematicState(10, out _), Is.False);
+            Assert.That(settledSnapshot.TryGetPlayerControlState(10, out controlState), Is.True);
+            Assert.That(controlState.queuedKinematicTurnDirection, Is.EqualTo(Direction.Up));
+
+            pipeline.RunTick(new TickInput(23));
+            var consumedSnapshot = worldState.CreateSnapshot();
+            Assert.That(consumedSnapshot.TryGetPlayerControlState(10, out controlState), Is.True);
+            Assert.That(controlState.queuedKinematicTurnDirection, Is.EqualTo(Direction.None));
+            Assert.That(consumedSnapshot.TryGetUnitKinematicState(10, out state), Is.True);
+            Assert.That(state.mode, Is.EqualTo(MotionMode.Voluntary));
+            Assert.That(state.stepDirectionX, Is.EqualTo(0));
+            Assert.That(state.stepDirectionY, Is.EqualTo(1));
+            Assert.That(state.elapsedTicks, Is.EqualTo(1));
+            Assert.That(state.localOffset.Y.RawValue, Is.EqualTo(205));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Held_Perpendicular_QueuedBlocked_ClearsQueue()
+        {
+            var worldState = CreateWorldState(
+                CreatePlayer(10),
+                CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 1), BoxCapabilities.Push));
+            var pipeline = CreatePipeline(
+                worldState,
+                GameplayRuntimeFeatureFlags.PlayerStoppableKinematicLocomotionEnabled);
+
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            pipeline.RunTick(new TickInput(2));
+            pipeline.RunTick(new TickInput(3, PlayerTickCommand.Move(Direction.Up)));
+            for (var tick = 4; tick <= 22; tick++)
+            {
+                pipeline.RunTick(new TickInput(tick));
+            }
+
+            var blockedResult = pipeline.RunTick(new TickInput(23));
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(snapshot.TryGetUnitKinematicState(10, out _), Is.False);
+            Assert.That(snapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.queuedKinematicTurnDirection, Is.EqualTo(Direction.None));
+            Assert.That(
+                blockedResult.MovementPhaseResult.RejectedReasons.Any(reason =>
+                    reason.Contains("QueuedKinematicTurnRejected") ||
+                    reason.Contains("KinematicTraversalBlocked") ||
+                    reason.Contains("KinematicSweepRejected")),
                 Is.True);
         }
 
