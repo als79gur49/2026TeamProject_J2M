@@ -1241,7 +1241,8 @@ namespace Game.Feature.Gameplay.Loop
                 cleanupPhaseResult.TimerChanges,
                 cleanupPhaseResult.StateTransitions,
                 eventLogEntries,
-                cleanupPhaseResult.RemovedUnitKinematicPoses);
+                cleanupPhaseResult.RemovedUnitKinematicPoses,
+                cleanupPhaseResult.RemovedUnitContinuousLocomotionPoses);
         }
 
         private RespawnPhaseResult RunRespawnPhase(
