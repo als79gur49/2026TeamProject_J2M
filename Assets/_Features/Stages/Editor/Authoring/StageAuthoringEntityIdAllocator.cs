@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using UnityEditor;
 
 namespace Game.Feature.Stages.Editor
 {
@@ -13,7 +12,7 @@ namespace Game.Feature.Stages.Editor
             var existingByGuid = new Dictionary<string, StageAuthoringIdMapping>(StringComparer.Ordinal);
             var usedEntityIds = new HashSet<int>();
             var maxEntityId = 0;
-            var sourcePath = AssetDatabase.GetAssetPath(source);
+            var sourcePath = string.Empty;
             var existingMappings = source.EntityIdMappings;
             for (var i = 0; i < existingMappings.Count; i++)
             {
