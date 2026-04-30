@@ -12,9 +12,11 @@ It is effective only when `EnablePlayerSameFaceContinuousLocomotion` is also ena
 - `MotionMode.Held` preserves anchor, local offset, elapsed ticks, total ticks, commit tick, started tick, and step direction.
 - Held progress does not advance until the same held direction is pressed again.
 - Same-direction resume switches back to `MotionMode.Voluntary` on the resume tick; progress advances on the following tick.
-- Opposite or perpendicular input while held is rejected for v1 and does not turn or reverse.
+- Opposite input while held is accepted as same-edge reverse. The reverse tick reinterprets progress without advancing it, so the world pose does not snap.
+- Perpendicular input while held is queued in `PlayerControlState.queuedKinematicTurnDirection`, resumes the current segment forward, and tries the queued move on the next Plan tick after settled-zero.
+- Queued perpendicular movement is revalidated at consume time; success and blocked/rejected attempts both clear the queue.
 - Held remains non-settled, so push/flip/action preview paths continue to require settled-zero pose.
-- Held is included in replay hashes through the existing `UnitKinematics` determinism section.
+- Held/reverse state is included in replay hashes through the existing `UnitKinematics` determinism section, and queued turns are included through `PlayerControl`.
 
 ## Rollback
 
