@@ -25,6 +25,22 @@ namespace Game.Feature.Gameplay.PlayerControl
         public bool IsActive => kind != PlayerActionKind.None;
     }
 
+    public enum PlayerQueuedFree2DActionKind
+    {
+        None = 0,
+        Push = 1,
+        Flip = 2,
+    }
+
+    public struct PlayerQueuedFree2DActionState
+    {
+        public PlayerQueuedFree2DActionKind kind;
+        public Direction direction;
+        public int requestedTick;
+
+        public bool IsQueued => kind != PlayerQueuedFree2DActionKind.None;
+    }
+
     public struct PlayerControlState
     {
         public int moveCooldownTicks;
@@ -32,6 +48,7 @@ namespace Game.Feature.Gameplay.PlayerControl
         public int actionSequenceCounter;
         public PlayerActionRuntimeState activeAction;
         public Direction queuedKinematicTurnDirection;
+        public PlayerQueuedFree2DActionState queuedFree2DAction;
     }
 
     internal readonly struct PlayerControlSnapshotEntry
@@ -123,6 +140,7 @@ namespace Game.Feature.Gameplay.PlayerControl
 
             var updatedState = state;
             updatedState.actionSequenceCounter = Mathf.Max(1, updatedState.actionSequenceCounter + 1);
+            updatedState.queuedFree2DAction = default;
             updatedState.activeAction = new PlayerActionRuntimeState
             {
                 kind = kind,
@@ -195,6 +213,31 @@ namespace Game.Feature.Gameplay.PlayerControl
             return updatedState;
         }
 
+        public static PlayerControlState QueueFree2DAction(
+            in PlayerControlState state,
+            PlayerQueuedFree2DActionKind kind,
+            Direction direction,
+            int requestedTick)
+        {
+            var updatedState = state;
+            updatedState.queuedFree2DAction = IsQueueableFree2DAction(kind, direction)
+                ? new PlayerQueuedFree2DActionState
+                {
+                    kind = kind,
+                    direction = direction,
+                    requestedTick = Math.Max(0, requestedTick),
+                }
+                : default;
+            return updatedState;
+        }
+
+        public static PlayerControlState ClearQueuedFree2DAction(in PlayerControlState state)
+        {
+            var updatedState = state;
+            updatedState.queuedFree2DAction = default;
+            return updatedState;
+        }
+
         public static bool IsMoveOnCooldown(
             in PlayerControlState state,
             int tickIndex)
@@ -208,12 +251,34 @@ namespace Game.Feature.Gameplay.PlayerControl
             return IsCardinalDirection(state.queuedKinematicTurnDirection);
         }
 
+        public static bool HasQueuedFree2DAction(in PlayerControlState state)
+        {
+            return IsQueueableFree2DAction(state.queuedFree2DAction.kind, state.queuedFree2DAction.direction);
+        }
+
+        public static PlayerQueuedFree2DActionKind ToQueuedFree2DActionKind(PlayerActionKind actionKind)
+        {
+            return actionKind switch
+            {
+                PlayerActionKind.Push => PlayerQueuedFree2DActionKind.Push,
+                PlayerActionKind.Flip => PlayerQueuedFree2DActionKind.Flip,
+                _ => PlayerQueuedFree2DActionKind.None,
+            };
+        }
+
         private static bool IsCardinalDirection(Direction direction)
         {
             return direction == Direction.Up ||
                    direction == Direction.Right ||
                    direction == Direction.Down ||
                    direction == Direction.Left;
+        }
+
+        private static bool IsQueueableFree2DAction(PlayerQueuedFree2DActionKind kind, Direction direction)
+        {
+            return (kind == PlayerQueuedFree2DActionKind.Push ||
+                    kind == PlayerQueuedFree2DActionKind.Flip) &&
+                   IsCardinalDirection(direction);
         }
 
         public static bool TryResolvePushContact(

@@ -634,7 +634,17 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entry.State.activeAction.executeTick).Append('|')
                     .Append(entry.State.activeAction.recoveryEndTick).Append('|')
                     .Append(entry.State.activeAction.executionAttempted ? 1 : 0).Append('|')
-                    .Append((int)entry.State.queuedKinematicTurnDirection).Append('\n');
+                    .Append((int)entry.State.queuedKinematicTurnDirection);
+                if (entry.State.queuedFree2DAction.IsQueued)
+                {
+                    builder
+                        .Append('|')
+                        .Append((int)entry.State.queuedFree2DAction.kind).Append('|')
+                        .Append((int)entry.State.queuedFree2DAction.direction).Append('|')
+                        .Append(entry.State.queuedFree2DAction.requestedTick);
+                }
+
+                builder.Append('\n');
             }
         }
 

@@ -115,6 +115,7 @@ namespace Game.Feature.Gameplay.Host
         public float CellSize = 1f;
         public float FaceSeamGap = -1f;
         public bool DirectionChangeConsumesDelay;
+        public bool EnablePlayerFree2DActionAssist;
         public bool EnablePlayerFree2DLocalLocomotion;
         public bool EnablePlayerSameFaceContinuousLocomotion;
         public bool EnablePlayerStoppableKinematicLocomotion;
@@ -242,7 +243,8 @@ namespace Game.Feature.Gameplay.Host
                 EnableEnemySameFaceContinuousLocomotion,
                 EnableEnemyChargeKinematicLocomotion,
                 EnablePlayerStoppableKinematicLocomotion,
-                EnablePlayerFree2DLocalLocomotion);
+                EnablePlayerFree2DLocalLocomotion,
+                EnablePlayerFree2DActionAssist);
         }
 
         public EnemyAiRuntimeCollectionSnapshot CreateEnemyAiRuntimeSnapshot()

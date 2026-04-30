@@ -149,6 +149,81 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(firstReplay[2].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3"));
         }
 
+        [Test]
+        [Category("Extended")]
+        public void Replay_Free2DActionAssist_QueueAlignExecute_IsDeterministic()
+        {
+            var inputs = new[]
+            {
+                new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
+                new TickInput(2, PlayerTickCommand.None),
+                new TickInput(3, PlayerTickCommand.None),
+                new TickInput(4, PlayerTickCommand.None),
+                new TickInput(5, PlayerTickCommand.None),
+                new TickInput(6, PlayerTickCommand.None),
+            };
+            var harness = new TickReplayHarness();
+
+            var firstReplay = harness.Run(
+                CreateWorldStateWithPlayerOffset(
+                    512,
+                    0,
+                    CreatePlayer(10),
+                    CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxCapabilities.Push)),
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DActionAssistEnabled);
+            var secondReplay = harness.Run(
+                CreateWorldStateWithPlayerOffset(
+                    512,
+                    0,
+                    CreatePlayer(10),
+                    CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxCapabilities.Push)),
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DActionAssistEnabled);
+
+            AssertReplayEqual(firstReplay, secondReplay);
+            Assert.That(firstReplay.Any(frame => frame.PlayerControlDump.Contains("QueuedFree2DAction=Push")), Is.True);
+            Assert.That(firstReplay.Any(frame => frame.PlayerControlDump.Contains("Action=Push")), Is.True);
+            Assert.That(firstReplay.Any(frame => frame.Trace.Contains("Free2DActionAssistQueued")), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Replay_Free2DActionAssist_OutsideWindowReject_IsDeterministic()
+        {
+            var inputs = new[]
+            {
+                new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
+                new TickInput(2, PlayerTickCommand.None),
+            };
+            var harness = new TickReplayHarness();
+
+            var firstReplay = harness.Run(
+                CreateWorldStateWithPlayerOffset(
+                    513,
+                    0,
+                    CreatePlayer(10),
+                    CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxCapabilities.Push)),
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DActionAssistEnabled);
+            var secondReplay = harness.Run(
+                CreateWorldStateWithPlayerOffset(
+                    513,
+                    0,
+                    CreatePlayer(10),
+                    CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxCapabilities.Push)),
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DActionAssistEnabled);
+
+            AssertReplayEqual(firstReplay, secondReplay);
+            Assert.That(firstReplay.Any(frame => frame.PlayerControlDump.Contains("QueuedFree2DAction=Push")), Is.False);
+            Assert.That(firstReplay.Any(frame => frame.Trace.Contains("Reason=OutsideSettleWindow")), Is.True);
+        }
+
         private static void AssertReplayEqual(
             IReadOnlyList<TickReplayFrame> firstReplay,
             IReadOnlyList<TickReplayFrame> secondReplay)
@@ -162,6 +237,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 Is.EqualTo(secondReplay.Select(frame => frame.EventLogDump).ToArray()));
+            Assert.That(
+                firstReplay.Select(frame => frame.Trace).ToArray(),
+                Is.EqualTo(secondReplay.Select(frame => frame.Trace).ToArray()));
         }
 
         private static IEntityLogic[] CreatePlayerLogics(params IEntityLogic[] extraLogics)
@@ -176,6 +254,29 @@ namespace Game.Feature.Gameplay.Tests.Replay
         private static WorldState CreateWorldState(params EntityState[] entities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(entities);
+        }
+
+        private static WorldState CreateWorldStateWithPlayerOffset(
+            int localX,
+            int localY,
+            params EntityState[] entities)
+        {
+            var worldState = CreateWorldState(entities);
+            worldState.CreateWriteContext().SetUnitContinuousLocomotionState(
+                10,
+                new UnitContinuousLocomotionState
+                {
+                    localOffset = new KinematicOffset2(
+                        KinematicFixed.FromRaw(localX),
+                        KinematicFixed.FromRaw(localY)),
+                    velocity = KinematicVelocity2.Zero,
+                    facing = Direction.Right,
+                    lastMoveDirection = Direction.Right,
+                    speedUnitsPerTick = 0,
+                    mode = ContinuousLocomotionMode.Idle,
+                    sequenceId = 1,
+                }.NormalizedForStorage());
+            return worldState;
         }
 
         private static EntityState CreatePlayer(int entityId, int hp = 3)
@@ -221,6 +322,20 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 type = EntityType.None,
                 state = EntityPhaseState.Idle,
                 facing = Direction.None,
+            };
+        }
+
+        private static EntityState CreateBox(int entityId, SurfaceCell position, BoxCapabilities capabilities)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                type = EntityType.Box,
+                boxCapabilities = capabilities,
+                boardPresence = EntityBoardPresence.Occupying,
             };
         }
 

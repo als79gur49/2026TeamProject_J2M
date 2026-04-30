@@ -17,6 +17,7 @@ namespace Game.Feature.Gameplay.Host
             configuration.EnableEnemySameFaceContinuousLocomotion = true;
             configuration.EnablePlayerStoppableKinematicLocomotion = true;
             configuration.EnablePlayerFree2DLocalLocomotion = true;
+            configuration.EnablePlayerFree2DActionAssist = true;
             configuration.PlayerContinuousLocomotion.CollisionRadiusCells = 0.1875f;
         }
 

@@ -42,6 +42,54 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
+        public void UnitContinuousLocomotionState_AlignToAnchor_RemainsAuthoritativeUntilLocalZero()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { CreateUnit(10) });
+            var alignState = new UnitContinuousLocomotionState
+            {
+                localOffset = new KinematicOffset2(KinematicFixed.FromRaw(1280), KinematicFixed.Zero),
+                velocity = new KinematicVelocity2(KinematicFixed.FromRaw(-205), KinematicFixed.Zero),
+                facing = Direction.Right,
+                lastMoveDirection = Direction.Right,
+                speedUnitsPerTick = 205,
+                mode = ContinuousLocomotionMode.AlignToAnchor,
+                sequenceId = 3,
+            }.NormalizedForStorage();
+
+            worldState.CreateWriteContext().SetUnitContinuousLocomotionState(10, alignState);
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var stored), Is.True);
+            Assert.That(stored.mode, Is.EqualTo(ContinuousLocomotionMode.AlignToAnchor));
+            Assert.That(stored.IsSettledAtAnchor, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void UnitContinuousLocomotionState_AlignToAnchor_LocalZeroCanonicalizesToIdleAbsent()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { CreateUnit(10) });
+            var alignZero = new UnitContinuousLocomotionState
+            {
+                localOffset = KinematicOffset2.Zero,
+                velocity = KinematicVelocity2.Zero,
+                facing = Direction.Right,
+                lastMoveDirection = Direction.Right,
+                speedUnitsPerTick = 205,
+                mode = ContinuousLocomotionMode.AlignToAnchor,
+                sequenceId = 3,
+            }.NormalizedForStorage();
+
+            worldState.CreateWriteContext().SetUnitContinuousLocomotionState(10, alignZero);
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(alignZero.mode, Is.EqualTo(ContinuousLocomotionMode.Idle));
+            Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out _), Is.False);
+            Assert.That(UnitSpatialQuery.IsSettledAtAnchor(snapshot, 10), Is.True);
+        }
+
+        [Test]
         [Category("Core")]
         public void WorldState_RemoveEntity_PurgesContinuousLocomotionState()
         {

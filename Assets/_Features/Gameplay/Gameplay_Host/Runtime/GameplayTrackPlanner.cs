@@ -185,7 +185,10 @@ namespace Game.Feature.Gameplay.Host
 
                 _trackState.KinematicPoseOverrides[track.EntityId] = new KinematicPresentationPose(
                     localPose,
-                    track.Mode == ContinuousLocomotionMode.Moving ? MotionMode.Voluntary : MotionMode.Held,
+                    track.Mode == ContinuousLocomotionMode.Moving ||
+                    track.Mode == ContinuousLocomotionMode.AlignToAnchor
+                        ? MotionMode.Voluntary
+                        : MotionMode.Held,
                     track.TerminalKind);
             }
         }

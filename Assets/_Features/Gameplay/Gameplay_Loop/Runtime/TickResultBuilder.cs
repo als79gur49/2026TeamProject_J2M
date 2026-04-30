@@ -911,6 +911,7 @@ namespace Game.Feature.Gameplay.Loop
                 terminalEntityIds.Add(record.EntityId);
             }
 
+            var continuousTrackEntityIds = new HashSet<int>();
             var entries = new List<UnitContinuousLocomotionSnapshotEntry>();
             context.PostMovementSnapshot.EnumerateUnitContinuousLocomotionStatesOrdered(entries);
             for (var i = 0; i < entries.Count; i++)
@@ -941,7 +942,41 @@ namespace Game.Feature.Gameplay.Loop
                         destinationPose.LocalOffset,
                         sourceEntity.facing,
                         destinationEntity.facing,
+                        sourcePose.Mode == ContinuousLocomotionMode.AlignToAnchor
+                            ? ContinuousLocomotionMode.AlignToAnchor
+                            : destinationPose.Mode));
+                continuousTrackEntityIds.Add(entityId);
+            }
+
+            entries.Clear();
+            context.PreMovementSnapshot.EnumerateUnitContinuousLocomotionStatesOrdered(entries);
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entityId = entries[i].EntityId;
+                if (terminalEntityIds.Contains(entityId) ||
+                    continuousTrackEntityIds.Contains(entityId) ||
+                    !context.PreMovementSnapshot.TryGetUnitContinuousLocomotionPose(entityId, out var sourcePose) ||
+                    !context.PostMovementSnapshot.TryGetUnitContinuousLocomotionPose(entityId, out var destinationPose) ||
+                    !sourcePose.HasAuthoritativeState ||
+                    destinationPose.HasAuthoritativeState ||
+                    sourcePose.LocalOffset.Equals(destinationPose.LocalOffset) ||
+                    !context.PreMovementSnapshot.TryGetEntity(entityId, out var sourceEntity) ||
+                    !context.PostMovementSnapshot.TryGetEntity(entityId, out var destinationEntity))
+                {
+                    continue;
+                }
+
+                continuousLocomotionTracks.Add(
+                    new TickContinuousLocomotionTrack(
+                        entityId,
+                        sourcePose.AnchorCell,
+                        sourcePose.LocalOffset,
+                        destinationPose.AnchorCell,
+                        destinationPose.LocalOffset,
+                        sourceEntity.facing,
+                        destinationEntity.facing,
                         destinationPose.Mode));
+                continuousTrackEntityIds.Add(entityId);
             }
 
             for (var i = 0; i < interruptedEntityIds.Count; i++)

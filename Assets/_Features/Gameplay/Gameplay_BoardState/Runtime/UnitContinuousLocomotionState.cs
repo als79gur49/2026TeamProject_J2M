@@ -6,6 +6,7 @@ namespace Game.Feature.Gameplay.BoardState
     {
         Idle = 0,
         Moving = 1,
+        AlignToAnchor = 2,
     }
 
     public struct UnitContinuousLocomotionState : IEquatable<UnitContinuousLocomotionState>
@@ -51,7 +52,11 @@ namespace Game.Feature.Gameplay.BoardState
                     : lastMoveDirection;
             }
 
-            if (normalized.mode == ContinuousLocomotionMode.Idle)
+            if (normalized.localOffset.IsZero && normalized.velocity.IsZero)
+            {
+                normalized.mode = ContinuousLocomotionMode.Idle;
+            }
+            else if (normalized.mode == ContinuousLocomotionMode.Idle)
             {
                 normalized.velocity = KinematicVelocity2.Zero;
             }

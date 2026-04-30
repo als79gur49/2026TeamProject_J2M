@@ -146,6 +146,41 @@ namespace Game.Feature.Gameplay.PlayerControl
                     nextState = PlayerControlQueries.AdvanceActiveAction(nextState, input.TickIndex);
                 }
             }
+            else if (PlayerControlQueries.HasQueuedFree2DAction(nextState))
+            {
+                if (!isSettledAtAnchor)
+                {
+                    updates.Add(
+                        $"Free2DActionAssistQueued|Stage=PreMovement|Source={_entityId}|State=AwaitingSettled|Kind={nextState.queuedFree2DAction.kind}|Direction={nextState.queuedFree2DAction.direction}|RequestedTick={nextState.queuedFree2DAction.requestedTick}|Anchor={entity.position}");
+                }
+                else if (!canStartAction)
+                {
+                    updates.Add(
+                        $"Free2DActionAssistRejected|Stage=PreMovement|Source={_entityId}|Reason=ActionNotStartable|Kind={nextState.queuedFree2DAction.kind}|Direction={nextState.queuedFree2DAction.direction}|RequestedTick={nextState.queuedFree2DAction.requestedTick}");
+                    nextState = PlayerControlQueries.ClearQueuedFree2DAction(nextState);
+                    updates.Add(
+                        $"Free2DActionAssistCleared|Stage=PreMovement|Source={_entityId}|Reason=ActionNotStartable");
+                }
+                else if (TryStartQueuedFree2DAction(
+                             snapshot,
+                             entity,
+                             nextState,
+                             input.TickIndex,
+                             writeContext,
+                             updates,
+                             out var queuedStartState))
+                {
+                    nextState = queuedStartState;
+                }
+                else
+                {
+                    updates.Add(
+                        $"Free2DActionAssistRejected|Stage=PreMovement|Source={_entityId}|Reason=NoCurrentTarget|Kind={nextState.queuedFree2DAction.kind}|Direction={nextState.queuedFree2DAction.direction}|RequestedTick={nextState.queuedFree2DAction.requestedTick}");
+                    nextState = PlayerControlQueries.ClearQueuedFree2DAction(nextState);
+                    updates.Add(
+                        $"Free2DActionAssistCleared|Stage=PreMovement|Source={_entityId}|Reason=NoCurrentTarget");
+                }
+            }
             else if (input.PlayerCommand.PushPressed)
             {
                 if (input.PlayerCommand.MoveDirection != Direction.None &&
@@ -205,7 +240,71 @@ namespace Game.Feature.Gameplay.PlayerControl
             writeContext.SetPlayerControlState(_entityId, nextState);
             actionTransitions.Add(new PlayerActionTransition(_entityId, previousAction, nextState.activeAction));
             updates.Add(
-                $"PlayerControlUpdated|E={_entityId}|Cooldown={nextState.moveCooldownTicks}|NextMoveAllowed={nextState.nextMoveAllowedTick}|Action={nextState.activeAction.kind}|ActionSeq={nextState.activeAction.sequence}|ActionDirection={nextState.activeAction.direction}|ActionTarget={nextState.activeAction.targetEntityId}|Start={nextState.activeAction.startTick}|Execute={nextState.activeAction.executeTick}|Recovery={nextState.activeAction.recoveryEndTick}|Attempted={(nextState.activeAction.executionAttempted ? 1 : 0)}|QueuedKinematicTurn={nextState.queuedKinematicTurnDirection}");
+                $"PlayerControlUpdated|E={_entityId}|Cooldown={nextState.moveCooldownTicks}|NextMoveAllowed={nextState.nextMoveAllowedTick}|Action={nextState.activeAction.kind}|ActionSeq={nextState.activeAction.sequence}|ActionDirection={nextState.activeAction.direction}|ActionTarget={nextState.activeAction.targetEntityId}|Start={nextState.activeAction.startTick}|Execute={nextState.activeAction.executeTick}|Recovery={nextState.activeAction.recoveryEndTick}|Attempted={(nextState.activeAction.executionAttempted ? 1 : 0)}|QueuedKinematicTurn={nextState.queuedKinematicTurnDirection}|QueuedFree2DAction={nextState.queuedFree2DAction.kind}|QueuedFree2DActionDirection={nextState.queuedFree2DAction.direction}|QueuedFree2DActionTick={nextState.queuedFree2DAction.requestedTick}");
+        }
+
+        private bool TryStartQueuedFree2DAction(
+            WorldSnapshot snapshot,
+            in EntityState entity,
+            in PlayerControlState state,
+            int tickIndex,
+            IPreMovementStateCommitContext writeContext,
+            List<string> updates,
+            out PlayerControlState nextState)
+        {
+            nextState = state;
+            var queuedAction = state.queuedFree2DAction;
+            switch (queuedAction.kind)
+            {
+                case PlayerQueuedFree2DActionKind.Push:
+                    if (!PlayerControlQueries.TryResolvePushContact(snapshot, entity, queuedAction.direction, out var pushTarget))
+                    {
+                        return false;
+                    }
+
+                    if (entity.facing != queuedAction.direction)
+                    {
+                        writeContext.SetFacing(_entityId, queuedAction.direction);
+                    }
+
+                    nextState = PlayerControlQueries.StartAction(
+                        state,
+                        PlayerActionKind.Push,
+                        pushTarget.Direction,
+                        pushTarget.TargetEntityId,
+                        tickIndex,
+                        _pushWindupTicks,
+                        _pushRecoveryTicks);
+                    updates.Add(
+                        $"Free2DActionAssistExecute|Stage=PreMovement|Source={_entityId}|Kind=Push|Direction={pushTarget.Direction}|Target={pushTarget.TargetEntityId}|RequestedTick={queuedAction.requestedTick}|ExecuteTick={tickIndex}");
+                    return true;
+
+                case PlayerQueuedFree2DActionKind.Flip:
+                    if (!PlayerControlQueries.TryResolveFlipTarget(snapshot, entity, queuedAction.direction, out var flipTarget))
+                    {
+                        return false;
+                    }
+
+                    if (entity.facing != queuedAction.direction)
+                    {
+                        writeContext.SetFacing(_entityId, queuedAction.direction);
+                    }
+
+                    nextState = PlayerControlQueries.StartAction(
+                        state,
+                        PlayerActionKind.Flip,
+                        flipTarget.Direction,
+                        flipTarget.TargetEntityId,
+                        tickIndex,
+                        _flipWindupTicks,
+                        _flipRecoveryTicks);
+                    updates.Add(
+                        $"Free2DActionAssistExecute|Stage=PreMovement|Source={_entityId}|Kind=Flip|Direction={flipTarget.Direction}|Target={flipTarget.TargetEntityId}|RequestedTick={queuedAction.requestedTick}|ExecuteTick={tickIndex}");
+                    return true;
+
+                default:
+                    return false;
+            }
         }
 
         private void UpdateMovementOwnedPhasedState(

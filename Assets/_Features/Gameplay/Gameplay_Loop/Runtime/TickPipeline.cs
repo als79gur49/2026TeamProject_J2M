@@ -1505,12 +1505,40 @@ namespace Game.Feature.Gameplay.Loop
                 return;
             }
 
+            var effectivePlayerControlState = playerControlState;
+            if (_runtimeFeatureFlags.EnablePlayerFree2DActionAssist &&
+                TryQueueFree2DActionAssist(
+                    entity,
+                    pose,
+                    playerControlState,
+                    playerCommand,
+                    tickIndex,
+                    rejectedReasons,
+                    batch,
+                    out var queuedPlayerControlState))
+            {
+                effectivePlayerControlState = queuedPlayerControlState;
+            }
+
+            if (_runtimeFeatureFlags.EnablePlayerFree2DActionAssist &&
+                PlayerControlQueries.HasQueuedFree2DAction(effectivePlayerControlState))
+            {
+                ResolvePlayerFree2DActionAssistAlign(
+                    entity,
+                    pose,
+                    effectivePlayerControlState,
+                    tickIndex,
+                    rejectedReasons,
+                    batch);
+                return;
+            }
+
             var hasDirection = TryResolveDirectionDelta(playerCommand.HeldMoveDirection, out var directionDelta);
             var canMove =
                 !playerCommand.PushPressed &&
                 !playerCommand.FlipPressed &&
-                !playerControlState.activeAction.IsActive &&
-                !PlayerControlQueries.IsMoveOnCooldown(playerControlState, tickIndex) &&
+                !effectivePlayerControlState.activeAction.IsActive &&
+                !PlayerControlQueries.IsMoveOnCooldown(effectivePlayerControlState, tickIndex) &&
                 hasDirection;
             if (!canMove)
             {
@@ -1583,6 +1611,189 @@ namespace Game.Feature.Gameplay.Loop
                 rejectedReasons.Add(
                     $"MovementRejected|Stage=Plan|Source={entity.entityId}|Reason=Free2DContinuousBlocked|RejectedBy={sweep.RejectedBy}|Anchor={FormatCell(entity.position)}");
             }
+        }
+
+        private bool TryQueueFree2DActionAssist(
+            in EntityState entity,
+            UnitContinuousLocomotionPose pose,
+            in PlayerControlState playerControlState,
+            PlayerTickCommand playerCommand,
+            int tickIndex,
+            List<string> rejectedReasons,
+            FinalizationBatch batch,
+            out PlayerControlState queuedPlayerControlState)
+        {
+            queuedPlayerControlState = playerControlState;
+            if (playerControlState.activeAction.IsActive ||
+                PlayerControlQueries.HasQueuedFree2DAction(playerControlState) ||
+                pose.State.localOffset.IsZero ||
+                !TryResolveQueuedFree2DActionKind(playerCommand, out var actionKind) ||
+                !TryResolveDirectionDelta(playerCommand.MoveDirection, out _))
+            {
+                return false;
+            }
+
+            if (!IsWithinFree2DActionAssistSettleWindow(pose.State.localOffset))
+            {
+                rejectedReasons.Add(
+                    $"Free2DActionAssistRejected|Stage=Plan|Reason=OutsideSettleWindow|Source={entity.entityId}|Kind={actionKind}|Direction={playerCommand.MoveDirection}|Offset={pose.LocalOffset}|Window={_playerContinuousLocomotion.ActionAssistSettleWindowUnits}");
+                return false;
+            }
+
+            queuedPlayerControlState = PlayerControlQueries.QueueFree2DAction(
+                playerControlState,
+                actionKind,
+                playerCommand.MoveDirection,
+                tickIndex);
+            batch.SetPlayerControlState(
+                entity.entityId,
+                queuedPlayerControlState,
+                new FinalizationOperationMetadata(
+                    TickPhase.Plan,
+                    ResolvedActionSemanticKind.Stop,
+                    entity.entityId,
+                    actionPlanId: 0));
+            rejectedReasons.Add(
+                $"Free2DActionAssistQueued|Stage=Plan|Source={entity.entityId}|Kind={actionKind}|Direction={playerCommand.MoveDirection}|RequestedTick={tickIndex}|Anchor={FormatCell(entity.position)}|Offset={pose.LocalOffset}");
+            return true;
+        }
+
+        private bool IsWithinFree2DActionAssistSettleWindow(KinematicOffset2 localOffset)
+        {
+            var windowUnits = Math.Max(0, _playerContinuousLocomotion.ActionAssistSettleWindowUnits);
+            return Math.Abs(localOffset.X.RawValue) <= windowUnits &&
+                Math.Abs(localOffset.Y.RawValue) <= windowUnits;
+        }
+
+        private void ResolvePlayerFree2DActionAssistAlign(
+            in EntityState entity,
+            UnitContinuousLocomotionPose pose,
+            in PlayerControlState playerControlState,
+            int tickIndex,
+            List<string> rejectedReasons,
+            FinalizationBatch batch)
+        {
+            if (pose.State.localOffset.IsZero)
+            {
+                rejectedReasons.Add(
+                    $"Free2DActionAssistAlign|Stage=Plan|Source={entity.entityId}|State=Settled|Kind={playerControlState.queuedFree2DAction.kind}|Direction={playerControlState.queuedFree2DAction.direction}|RequestedTick={playerControlState.queuedFree2DAction.requestedTick}|Anchor={FormatCell(entity.position)}");
+                return;
+            }
+
+            var alignedState = CreateAlignToAnchorState(pose.State);
+            batch.SetUnitContinuousLocomotionState(
+                entity.entityId,
+                alignedState,
+                new FinalizationOperationMetadata(
+                    TickPhase.Plan,
+                    ResolvedActionSemanticKind.Move,
+                    entity.entityId,
+                    actionPlanId: 0,
+                    movementSemanticKind: MovementSemanticKind.Move));
+            rejectedReasons.Add(
+                $"Free2DActionAssistAlign|Stage=Plan|Source={entity.entityId}|Kind={playerControlState.queuedFree2DAction.kind}|Direction={playerControlState.queuedFree2DAction.direction}|RequestedTick={playerControlState.queuedFree2DAction.requestedTick}|Anchor={FormatCell(entity.position)}|From={pose.LocalOffset}|To={alignedState.localOffset}|Mode={alignedState.mode}");
+        }
+
+        private UnitContinuousLocomotionState CreateAlignToAnchorState(UnitContinuousLocomotionState sourceState)
+        {
+            var normalizedSource = sourceState.NormalizedForStorage();
+            var nextX = normalizedSource.localOffset.X.RawValue;
+            var nextY = normalizedSource.localOffset.Y.RawValue;
+            var nextRemainderX = normalizedSource.subUnitRemainderX;
+            var nextRemainderY = normalizedSource.subUnitRemainderY;
+            var deltaX = 0;
+            var deltaY = 0;
+            var alignOnX = SelectAlignAxisX(normalizedSource.localOffset);
+            if (alignOnX)
+            {
+                deltaX = CreateAlignAxisDelta(
+                    nextX,
+                    ref nextRemainderX);
+                nextX += deltaX;
+                if (nextX == 0)
+                {
+                    nextRemainderX = 0;
+                }
+            }
+            else
+            {
+                deltaY = CreateAlignAxisDelta(
+                    nextY,
+                    ref nextRemainderY);
+                nextY += deltaY;
+                if (nextY == 0)
+                {
+                    nextRemainderY = 0;
+                }
+            }
+
+            var nextOffset = new KinematicOffset2(
+                KinematicFixed.FromRaw(nextX),
+                KinematicFixed.FromRaw(nextY));
+            var isSettled = nextOffset.IsZero;
+            return new UnitContinuousLocomotionState
+            {
+                localOffset = nextOffset,
+                velocity = isSettled
+                    ? KinematicVelocity2.Zero
+                    : new KinematicVelocity2(
+                        KinematicFixed.FromRaw(deltaX),
+                        KinematicFixed.FromRaw(deltaY)),
+                facing = normalizedSource.facing,
+                lastMoveDirection = normalizedSource.lastMoveDirection,
+                speedUnitsPerTick = Math.Abs(deltaX) + Math.Abs(deltaY),
+                mode = isSettled
+                    ? ContinuousLocomotionMode.Idle
+                    : ContinuousLocomotionMode.AlignToAnchor,
+                sequenceId = normalizedSource.sequenceId + 1,
+                subUnitRemainderX = isSettled ? 0 : nextRemainderX,
+                subUnitRemainderY = isSettled ? 0 : nextRemainderY,
+            }.NormalizedForStorage();
+        }
+
+        private int CreateAlignAxisDelta(int offsetRaw, ref int axisRemainder)
+        {
+            if (offsetRaw == 0)
+            {
+                axisRemainder = 0;
+                return 0;
+            }
+
+            var rawUnits = _playerContinuousLocomotion.SpeedUnitsPerTick;
+            axisRemainder += _playerContinuousLocomotion.UnitsPerTickRemainder;
+            if (axisRemainder >= _playerContinuousLocomotion.TicksPerCell)
+            {
+                rawUnits++;
+                axisRemainder -= _playerContinuousLocomotion.TicksPerCell;
+            }
+
+            var step = Math.Min(Math.Abs(offsetRaw), rawUnits);
+            return offsetRaw > 0 ? -step : step;
+        }
+
+        private static bool SelectAlignAxisX(KinematicOffset2 offset)
+        {
+            return Math.Abs(offset.X.RawValue) >= Math.Abs(offset.Y.RawValue);
+        }
+
+        private static bool TryResolveQueuedFree2DActionKind(
+            PlayerTickCommand playerCommand,
+            out PlayerQueuedFree2DActionKind actionKind)
+        {
+            if (playerCommand.PushPressed)
+            {
+                actionKind = PlayerQueuedFree2DActionKind.Push;
+                return true;
+            }
+
+            if (playerCommand.FlipPressed)
+            {
+                actionKind = PlayerQueuedFree2DActionKind.Flip;
+                return true;
+            }
+
+            actionKind = PlayerQueuedFree2DActionKind.None;
+            return false;
         }
 
         private KinematicVelocity2 CreateContinuousDelta(
@@ -5474,11 +5685,23 @@ namespace Game.Feature.Gameplay.Loop
                         localActionIndex: localActionIndex,
                         attackSourceKind: sourceKind,
                         damageSourceType: ResolveDamageSourceType(sourceKind)));
-                if (PlayerControlQueries.HasQueuedKinematicTurn(playerControlState))
+                if (PlayerControlQueries.HasQueuedKinematicTurn(playerControlState) ||
+                    PlayerControlQueries.HasQueuedFree2DAction(playerControlState))
                 {
+                    var clearedPlayerControlState = playerControlState;
+                    if (PlayerControlQueries.HasQueuedKinematicTurn(clearedPlayerControlState))
+                    {
+                        clearedPlayerControlState = PlayerControlQueries.ClearQueuedKinematicTurn(clearedPlayerControlState);
+                    }
+
+                    if (PlayerControlQueries.HasQueuedFree2DAction(clearedPlayerControlState))
+                    {
+                        clearedPlayerControlState = PlayerControlQueries.ClearQueuedFree2DAction(clearedPlayerControlState);
+                    }
+
                     attackStageBatch.SetPlayerControlState(
                         targetEntityId,
-                        PlayerControlQueries.ClearQueuedKinematicTurn(playerControlState),
+                        clearedPlayerControlState,
                         new FinalizationOperationMetadata(
                             TickPhase.Resolve,
                             ResolvedActionSemanticKind.Attack,
@@ -5519,6 +5742,22 @@ namespace Game.Feature.Gameplay.Loop
                     localActionIndex: localActionIndex,
                     attackSourceKind: sourceKind,
                     damageSourceType: ResolveDamageSourceType(sourceKind)));
+            if (PlayerControlQueries.HasQueuedFree2DAction(playerControlState))
+            {
+                attackStageBatch.SetPlayerControlState(
+                    targetEntityId,
+                    PlayerControlQueries.ClearQueuedFree2DAction(playerControlState),
+                    new FinalizationOperationMetadata(
+                        TickPhase.Resolve,
+                        ResolvedActionSemanticKind.Attack,
+                        sourceEntityId,
+                        actionPlanId,
+                        localActionIndex: localActionIndex,
+                        attackSourceKind: sourceKind,
+                        damageSourceType: ResolveDamageSourceType(sourceKind)));
+                commitEvents.Add(
+                    $"Free2DActionAssistCleared|Stage=Resolve|Source={targetEntityId}|Reason=Interrupted");
+            }
             interruptRecords.Add(
                 new MotionInterruptRecord(
                     targetEntityId,

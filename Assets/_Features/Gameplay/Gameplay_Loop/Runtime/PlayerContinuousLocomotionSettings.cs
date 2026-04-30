@@ -25,12 +25,30 @@ namespace Game.Feature.Gameplay.Loop
             int speedUnitsPerTick,
             int unitsPerTickRemainder,
             int collisionRadiusUnits)
+            : this(
+                moveDurationSecondsPerCell,
+                ticksPerCell,
+                speedUnitsPerTick,
+                unitsPerTickRemainder,
+                collisionRadiusUnits,
+                DefaultActionAssistSettleWindowUnits)
+        {
+        }
+
+        public PlayerContinuousLocomotionSnapshot(
+            float moveDurationSecondsPerCell,
+            int ticksPerCell,
+            int speedUnitsPerTick,
+            int unitsPerTickRemainder,
+            int collisionRadiusUnits,
+            int actionAssistSettleWindowUnits)
         {
             MoveDurationSecondsPerCell = moveDurationSecondsPerCell;
             TicksPerCell = ticksPerCell;
             SpeedUnitsPerTick = speedUnitsPerTick;
             UnitsPerTickRemainder = unitsPerTickRemainder;
             CollisionRadiusUnits = collisionRadiusUnits;
+            ActionAssistSettleWindowUnits = Math.Max(0, actionAssistSettleWindowUnits);
         }
 
         public float MoveDurationSecondsPerCell { get; }
@@ -43,7 +61,14 @@ namespace Game.Feature.Gameplay.Loop
 
         public int CollisionRadiusUnits { get; }
 
+        public int ActionAssistSettleWindowUnits { get; }
+
         public bool IsConfigured => TicksPerCell > 0 && SpeedUnitsPerTick > 0;
+
+        private static int DefaultActionAssistSettleWindowUnits => (int)Math.Round(
+            PlayerContinuousLocomotionSettings.DefaultActionAssistSettleWindowCells *
+            KinematicFixed.UnitsPerCell,
+            MidpointRounding.AwayFromZero);
     }
 
     [Serializable]
@@ -52,11 +77,13 @@ namespace Game.Feature.Gameplay.Loop
         public const float DefaultMoveDurationSecondsPerCell =
             PlayerKinematicLocomotionTimingSettings.DefaultKinematicMoveDurationSeconds;
         public const float DefaultCollisionRadiusCells = 0f;
+        public const float DefaultActionAssistSettleWindowCells = 0.125f;
         public const float MaxMoveDurationSecondsPerCell = PlayerKinematicLocomotionTimingSettings.MaxKinematicMoveDurationSeconds;
         public const int MinTicksPerCell = 2;
 
         public float MoveDurationSecondsPerCell = DefaultMoveDurationSecondsPerCell;
         public float CollisionRadiusCells = DefaultCollisionRadiusCells;
+        public float ActionAssistSettleWindowCells = DefaultActionAssistSettleWindowCells;
 
         public static PlayerContinuousLocomotionSettings CreateDefault()
         {
@@ -69,6 +96,7 @@ namespace Game.Feature.Gameplay.Loop
             {
                 MoveDurationSecondsPerCell = MoveDurationSecondsPerCell,
                 CollisionRadiusCells = CollisionRadiusCells,
+                ActionAssistSettleWindowCells = ActionAssistSettleWindowCells,
             };
         }
 
@@ -105,6 +133,22 @@ namespace Game.Feature.Gameplay.Loop
                     nameof(CollisionRadiusCells),
                     "Player continuous collision radius must be less than half a cell.");
             }
+
+            if (float.IsNaN(ActionAssistSettleWindowCells) ||
+                float.IsInfinity(ActionAssistSettleWindowCells) ||
+                ActionAssistSettleWindowCells < 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(ActionAssistSettleWindowCells),
+                    "Player continuous action assist settle window must be zero or greater.");
+            }
+
+            if (ActionAssistSettleWindowCells >= 0.5f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(ActionAssistSettleWindowCells),
+                    "Player continuous action assist settle window must be less than half a cell.");
+            }
         }
 
         public PlayerContinuousLocomotionSnapshot CreateAuthoritativeSnapshot(
@@ -121,12 +165,16 @@ namespace Game.Feature.Gameplay.Loop
             var collisionRadiusUnits = (int)Math.Round(
                 CollisionRadiusCells * KinematicFixed.UnitsPerCell,
                 MidpointRounding.AwayFromZero);
+            var actionAssistSettleWindowUnits = (int)Math.Round(
+                ActionAssistSettleWindowCells * KinematicFixed.UnitsPerCell,
+                MidpointRounding.AwayFromZero);
             return new PlayerContinuousLocomotionSnapshot(
                 MoveDurationSecondsPerCell,
                 ticksPerCell,
                 speedUnitsPerTick,
                 remainder,
-                collisionRadiusUnits);
+                collisionRadiusUnits,
+                actionAssistSettleWindowUnits);
         }
     }
 }
