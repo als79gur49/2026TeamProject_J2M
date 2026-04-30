@@ -12,13 +12,18 @@ When enabled, player ordinary movement uses `UnitContinuousLocomotionState` befo
 - `EntityState.position` remains the semantic anchor cell for occupancy, contact, push, flip, action preview, spawn, respawn, and topology decisions.
 - `UnitContinuousLocomotionState` stores deterministic fixed-point local offset, velocity, facing, last move direction, speed, mode, sequence, and residual remainders.
 - Absent continuous state means local-zero idle at the anchor. Local-nonzero idle must remain present.
+- Canonical idle-zero omission is `localOffset == 0`, `velocity == 0`, and `mode == Idle`. Residual remainders, sequence, speed, facing, and last move direction are discarded as progression metadata when this condition is true.
 - A unit cannot have active `UnitKinematicRuntimeState` and active `UnitContinuousLocomotionState` at the same time.
 - Local offset normalizes the anchor at the half-cell boundary. `+2048` is never stored; positive blocked clamp is `+2047`.
+- Anchor normalization writes must apply `MoveEntity` first and `SetUnitContinuousLocomotionState(normalized state)` second in the same `FinalizationBatch`; this preserves the normalized pose after `MoveEntity` purges transient unit locomotion state.
 - Collision is grid-authoritative: wall, terrain, box, solid, board edge, and topology edge block; unit overlap remains allowed.
 - Passive contact remains anchor-cell based. Visual overlap before anchor normalization does not trigger neighbor contact.
+- Contact can begin only after anchor normalization commits the new `EntityState.position`.
 - Push, flip, and action preview require local-zero settled pose; local-nonzero idle and moving continuous pose reject settled probes.
 - Presentation consumes authoritative continuous local pose through `TickContinuousLocomotionTrack`. Transform, Animator, PhysX, and root motion are not simulation authority.
+- Continuous nonzero idle pose must emit or retain presentation override so the view does not snap to anchor center.
 - Nonlethal hit, lethal hit, removal, death hold, cleanup, and respawn preserve or purge continuous pose through the same authoritative write path as other state.
+- Replay/hash includes ordered `UnitContinuousLocomotion` canonical state. Explicit idle-zero and absent state are hash-equivalent.
 
 ## Flag Hierarchy
 
@@ -40,6 +45,16 @@ The free2D flag is independent of enemy and charge kinematic flags. Turning it o
 - No mid-pose push/flip/action execution. These remain settled-only.
 - Contact timing is anchor-based, not visual-footprint based.
 
+## Stabilization Coverage
+
+The stabilization suite locks the following acceptance tests:
+
+- Unit/state: `UnitContinuousLocomotionState_IdleZero_OmissionPolicy`, `WorldState_RemoveEntity_PurgesContinuousLocomotionState`, `WorldState_MutualExclusion_KinematicAndContinuous`, `FinalizationBatch_MoveEntityThenSetContinuousState_PreservesNormalizedPose`.
+- Movement/scenario: `Player_Free2D_WallClamp`, `Player_Free2D_TerrainClamp`, `Player_Free2D_TopologyEdge_ClampsOrRejects`, `Player_Free2D_BeforeAnchorBoundary_NoEnemyContact`, `Player_Free2D_AfterAnchorBoundary_EnemyContactPossible`, `Player_Free2D_LocalZero_PushFlipAllowed`, `Player_Free2D_LocalNonZero_ActionPreviewRejected`, `Player_Free2D_HitNonlethal_PreservesPose`, `Player_Free2D_HitLethal_RemovedTerminalPreservesPose`.
+- Presentation: `GameplayTickViewPresenter_ContinuousPose_AppliesAnchorPlusLocalOffset`, `GameplayTickViewPresenter_ContinuousIdleNonZero_DoesNotSnapToAnchor`, `GameplayTickViewPresenter_ContinuousRemovedTerminal_RetainsPose`.
+- Replay: `Replay_PlayerFree2D_StopTurnClamp_IsDeterministic`, `Replay_PlayerFree2D_AnchorNormalizeContact_IsDeterministic`, `Replay_PlayerFree2D_HitDeath_IsDeterministic`.
+- Baseline: `Player_Free2D_FlagOff_ExistingKinematicBaseline`, `Player_Free2D_DoesNotAffectEnemyOrCharge`.
+
 ## Golden Policy
 
 - Do not regenerate flag-off goldens for this slice.
@@ -51,4 +66,3 @@ The free2D flag is independent of enemy and charge kinematic flags. Turning it o
 
 Set `EnablePlayerFree2DLocalLocomotion` to false.
 The player ordinary movement path then falls back to `EnablePlayerStoppableKinematicLocomotion`, then `EnablePlayerSameFaceContinuousLocomotion`, then legacy discrete movement. No data migration is required because continuous local-zero idle is represented by absent state.
-

@@ -22,6 +22,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         public static UnitContinuousLocomotionState SettledZero => default;
 
+        // Idle-zero is canonical absent state; residual, sequence, speed, and facing metadata
+        // are progression-only once the pose is exactly settled at the anchor.
         public bool IsOmittableIdleZero =>
             localOffset.IsZero &&
             velocity.IsZero &&
