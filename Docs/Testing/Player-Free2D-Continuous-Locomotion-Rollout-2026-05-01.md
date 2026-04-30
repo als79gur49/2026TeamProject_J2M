@@ -3,6 +3,7 @@
 Date: 2026-05-01
 
 This rollout is guarded by `GameplayRuntimeFeatureFlags.EnablePlayerFree2DLocalLocomotion`.
+Player Free2D Action Assist v1.1 is separately guarded by `GameplayRuntimeFeatureFlags.EnablePlayerFree2DActionAssist`, and that flag is effective only when `EnablePlayerFree2DLocalLocomotion` is also enabled.
 When enabled, player ordinary movement uses `UnitContinuousLocomotionState` before the stoppable kinematic, same-face kinematic, and legacy discrete movement paths. Enemy ordinary movement, charge, jump, phase, forced motion, and existing fallback kinematic behavior remain on `UnitKinematicRuntimeState`.
 
 ## Validation Contract
@@ -16,15 +17,26 @@ When enabled, player ordinary movement uses `UnitContinuousLocomotionState` befo
 - A unit cannot have active `UnitKinematicRuntimeState` and active `UnitContinuousLocomotionState` at the same time.
 - Local offset normalizes the anchor at the half-cell boundary when the neighbor cell is traversable. `+2048` is never stored.
 - `PlayerContinuousLocomotionSettings.CollisionRadiusCells` is player Free2D-only blocker approach margin. The project default is `0`, which keeps the point/pivot clamp (`+2047` / `-2048`); configured nonzero radius clamps grid-solid blocker approach at `halfCell - radius` while unit overlap and free-neighbor normalization remain unchanged.
+- `PlayerContinuousLocomotionSettings.ActionAssistSettleWindowCells` is the near-settled input leniency window for Action Assist. The project default is `0.125f`, converted to `512` fixed units.
 - Anchor normalization writes must apply `MoveEntity` first and `SetUnitContinuousLocomotionState(normalized state)` second in the same `FinalizationBatch`; this preserves the normalized pose after `MoveEntity` purges transient unit locomotion state.
 - Collision is grid-authoritative: wall, terrain, box, solid, board edge, and topology edge block; unit overlap remains allowed.
 - Passive contact remains anchor-cell based. Visual overlap before anchor normalization does not trigger neighbor contact.
 - Contact can begin only after anchor normalization commits the new `EntityState.position`.
 - Push, flip, and action preview require local-zero settled pose; local-nonzero idle and moving continuous pose reject settled probes.
+- When Action Assist is enabled, only near-settled local-nonzero push/flip input queues canonical intent in `PlayerControlState.queuedFree2DAction`, aligns the player back to the current anchor center through `ContinuousLocomotionMode.AlignToAnchor`, and re-enters the existing settled-only push/flip path on the next tick after local-zero is reached.
+- Near-settled means `abs(localX) <= ActionAssistSettleWindowUnits && abs(localY) <= ActionAssistSettleWindowUnits`. The gate is inclusive, so `512` queues with the default window and `513` rejects.
+- The settle-window gate applies only when creating a new queue. An already queued Action Assist continues align and revalidation without rechecking the window.
+- Action Assist v1 supports only push and flip. It does not add generic interact/action preview assist.
+- Queued Action Assist stores only kind, direction, and requested tick. It does not store a target entity; legality is revalidated against the current snapshot when executed.
+- Action Assist align target is always the current anchor center. `EntityState.position` is not changed by align, and align never snaps.
+- Queued Action Assist has priority over held ordinary movement until it executes, fails after revalidation, or is cleared by interruption/death/respawn.
 - Presentation consumes authoritative continuous local pose through `TickContinuousLocomotionTrack`. Transform, Animator, PhysX, and root motion are not simulation authority.
+- `AlignToAnchor` presentation is emitted through `TickContinuousLocomotionTrack` and is treated as active locomotion. There is no pending-action UI in v1.
 - Continuous nonzero idle pose must emit or retain presentation override so the view does not snap to anchor center.
 - Nonlethal hit, lethal hit, removal, death hold, cleanup, and respawn preserve or purge continuous pose through the same authoritative write path as other state.
+- Nonlethal hit, lethal hit, cleanup, and respawn must clear queued Action Assist intent.
 - Replay/hash includes ordered `UnitContinuousLocomotion` canonical state. Explicit idle-zero and absent state are hash-equivalent.
+- Replay/hash includes queued Action Assist kind, direction, and requested tick through ordered `PlayerControl` state.
 
 ## Flag Hierarchy
 
@@ -35,7 +47,13 @@ Player ordinary movement dispatch order:
 3. `EnablePlayerSameFaceContinuousLocomotion`
 4. Legacy discrete movement
 
+Action Assist flag hierarchy:
+
+1. `EnablePlayerFree2DLocalLocomotion`
+2. `EnablePlayerFree2DActionAssist`
+
 The free2D flag is independent of enemy and charge kinematic flags. Turning it off must restore the existing player stoppable/same-face/legacy behavior without changing enemy or charge movement.
+Turning Action Assist off while keeping free2D on restores local-nonzero push/flip rejection without disabling Free2D movement.
 
 ## Known Limitations
 
@@ -44,6 +62,10 @@ The free2D flag is independent of enemy and charge kinematic flags. Turning it o
 - No topology seam free crossing; same-face edge movement clamps or rejects.
 - No continuous box collider, footprint contact, swept combat, or projectile collision redesign.
 - No mid-pose push/flip/action execution. These remain settled-only.
+- No pose-based action probe and no local-nonzero tolerance-as-settled behavior.
+- No Action Assist cancel by held movement input in v1.
+- Queued push/flip execution is intentionally delayed until the tick after local-zero align completes.
+- A box-front radius clamp at `CollisionRadiusCells = 0.1875f` leaves the player at `1280` fixed units from anchor center, which is intentionally outside the default Action Assist window. That scenario remains a settled-only reject unless future stance solving or explicit wider tuning is introduced.
 - Contact timing is anchor-based, not visual-footprint based.
 
 ## Stabilization Coverage
@@ -52,18 +74,22 @@ The stabilization suite locks the following acceptance tests:
 
 - Unit/state: `UnitContinuousLocomotionState_IdleZero_OmissionPolicy`, `WorldState_RemoveEntity_PurgesContinuousLocomotionState`, `WorldState_MutualExclusion_KinematicAndContinuous`, `FinalizationBatch_MoveEntityThenSetContinuousState_PreservesNormalizedPose`.
 - Movement/scenario: `Player_Free2D_WallClamp`, `Player_Free2D_TerrainClamp`, `Player_Free2D_TopologyEdge_ClampsOrRejects`, radius blocker approach coverage, `Player_Free2D_BeforeAnchorBoundary_NoEnemyContact`, `Player_Free2D_AfterAnchorBoundary_EnemyContactPossible`, `Player_Free2D_LocalZero_PushFlipAllowed`, `Player_Free2D_LocalNonZero_ActionPreviewRejected`, `Player_Free2D_HitNonlethal_PreservesPose`, `Player_Free2D_HitLethal_RemovedTerminalPreservesPose`.
+- Action Assist: `Free2DActionAssist_PushQueuedAtLocalNonZero`, `Free2DActionAssist_AlignsToAnchorWithoutSnap`, `Free2DActionAssist_PushExecutesAfterAlign`, `Free2DActionAssist_FlipExecutesAfterAlign`, `Free2DActionAssist_BoxRadiusClampThenPush`, `Free2DActionAssist_WithinSettleWindow_QueuesAndAligns`, `Free2DActionAssist_OutsideSettleWindow_DoesNotQueueOrAlign`, `Free2DActionAssist_WindowBoundaryInclusive`, `Free2DActionAssist_WindowBoundaryExclusiveAbove`, `Free2DActionAssist_ExistingQueue_IgnoresWindowAndContinuesAlign`, `Free2DActionAssist_ActionTargetRevalidatedAtExecute`, `Free2DActionAssist_InvalidAfterAlign_ClearsQueue`, `Free2DActionAssist_MovementInputDoesNotCancelQueue`, `Free2DActionAssist_HitClearsQueue`, `Free2DActionAssist_DeathClearsQueue`, `Free2DActionAssist_LocalZero_PushStillImmediate`, `Free2DActionAssist_LocalNonZero_ActionNotExecutedBeforeSettled`, `Free2DActionAssist_FlagOff_Baseline`, and `Free2DActionAssist_DoesNotAffectKinematicFallback`.
 - Presentation: `GameplayTickViewPresenter_ContinuousPose_AppliesAnchorPlusLocalOffset`, `GameplayTickViewPresenter_ContinuousIdleNonZero_DoesNotSnapToAnchor`, `GameplayTickViewPresenter_ContinuousRemovedTerminal_RetainsPose`.
-- Replay: `Replay_PlayerFree2D_StopTurnClamp_IsDeterministic`, `Replay_PlayerFree2D_RadiusApproachBlocker_IsDeterministic`, `Replay_PlayerFree2D_AnchorNormalizeContact_IsDeterministic`, `Replay_PlayerFree2D_HitDeath_IsDeterministic`.
+- Replay: `Replay_PlayerFree2D_StopTurnClamp_IsDeterministic`, `Replay_PlayerFree2D_RadiusApproachBlocker_IsDeterministic`, `Replay_PlayerFree2D_AnchorNormalizeContact_IsDeterministic`, `Replay_PlayerFree2D_HitDeath_IsDeterministic`, `Replay_Free2DActionAssist_QueueAlignExecute_IsDeterministic`, `Replay_Free2DActionAssist_OutsideWindowReject_IsDeterministic`.
 - Baseline: `Player_Free2D_FlagOff_ExistingKinematicBaseline`, `Player_Free2D_DoesNotAffectEnemyOrCharge`.
 
 ## Golden Policy
 
 - Do not regenerate flag-off goldens for this slice.
 - Free2D flag-on hashes may add a `UnitContinuousLocomotion` section while continuous state is present.
+- Action Assist flag-on hashes add queued action fields to `PlayerControl` while an action is pending and may add `AlignToAnchor` continuous mode while align is active.
 - Explicit idle-zero state and absent state should be canonical-equivalent after storage normalization.
 - Replay validation should cover stop, turn, clamp, hit/death, cleanup, and respawn sequences.
 
 ## Rollback
 
-Set `EnablePlayerFree2DLocalLocomotion` to false.
+First set `EnablePlayerFree2DActionAssist` to false to restore settled-only local-nonzero push/flip rejection while keeping Free2D movement enabled.
+If the full Free2D movement rollout must be disabled, set `EnablePlayerFree2DLocalLocomotion` to false.
 The player ordinary movement path then falls back to `EnablePlayerStoppableKinematicLocomotion`, then `EnablePlayerSameFaceContinuousLocomotion`, then legacy discrete movement. No data migration is required because continuous local-zero idle is represented by absent state.
+No data migration is required for Action Assist because the default queued action is `None`.
