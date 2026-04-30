@@ -14,7 +14,8 @@ When enabled, player ordinary movement uses `UnitContinuousLocomotionState` befo
 - Absent continuous state means local-zero idle at the anchor. Local-nonzero idle must remain present.
 - Canonical idle-zero omission is `localOffset == 0`, `velocity == 0`, and `mode == Idle`. Residual remainders, sequence, speed, facing, and last move direction are discarded as progression metadata when this condition is true.
 - A unit cannot have active `UnitKinematicRuntimeState` and active `UnitContinuousLocomotionState` at the same time.
-- Local offset normalizes the anchor at the half-cell boundary. `+2048` is never stored; positive blocked clamp is `+2047`.
+- Local offset normalizes the anchor at the half-cell boundary when the neighbor cell is traversable. `+2048` is never stored.
+- `PlayerContinuousLocomotionSettings.CollisionRadiusCells` is player Free2D-only blocker approach margin. The project default is `0`, which keeps the point/pivot clamp (`+2047` / `-2048`); configured nonzero radius clamps grid-solid blocker approach at `halfCell - radius` while unit overlap and free-neighbor normalization remain unchanged.
 - Anchor normalization writes must apply `MoveEntity` first and `SetUnitContinuousLocomotionState(normalized state)` second in the same `FinalizationBatch`; this preserves the normalized pose after `MoveEntity` purges transient unit locomotion state.
 - Collision is grid-authoritative: wall, terrain, box, solid, board edge, and topology edge block; unit overlap remains allowed.
 - Passive contact remains anchor-cell based. Visual overlap before anchor normalization does not trigger neighbor contact.
@@ -50,9 +51,9 @@ The free2D flag is independent of enemy and charge kinematic flags. Turning it o
 The stabilization suite locks the following acceptance tests:
 
 - Unit/state: `UnitContinuousLocomotionState_IdleZero_OmissionPolicy`, `WorldState_RemoveEntity_PurgesContinuousLocomotionState`, `WorldState_MutualExclusion_KinematicAndContinuous`, `FinalizationBatch_MoveEntityThenSetContinuousState_PreservesNormalizedPose`.
-- Movement/scenario: `Player_Free2D_WallClamp`, `Player_Free2D_TerrainClamp`, `Player_Free2D_TopologyEdge_ClampsOrRejects`, `Player_Free2D_BeforeAnchorBoundary_NoEnemyContact`, `Player_Free2D_AfterAnchorBoundary_EnemyContactPossible`, `Player_Free2D_LocalZero_PushFlipAllowed`, `Player_Free2D_LocalNonZero_ActionPreviewRejected`, `Player_Free2D_HitNonlethal_PreservesPose`, `Player_Free2D_HitLethal_RemovedTerminalPreservesPose`.
+- Movement/scenario: `Player_Free2D_WallClamp`, `Player_Free2D_TerrainClamp`, `Player_Free2D_TopologyEdge_ClampsOrRejects`, radius blocker approach coverage, `Player_Free2D_BeforeAnchorBoundary_NoEnemyContact`, `Player_Free2D_AfterAnchorBoundary_EnemyContactPossible`, `Player_Free2D_LocalZero_PushFlipAllowed`, `Player_Free2D_LocalNonZero_ActionPreviewRejected`, `Player_Free2D_HitNonlethal_PreservesPose`, `Player_Free2D_HitLethal_RemovedTerminalPreservesPose`.
 - Presentation: `GameplayTickViewPresenter_ContinuousPose_AppliesAnchorPlusLocalOffset`, `GameplayTickViewPresenter_ContinuousIdleNonZero_DoesNotSnapToAnchor`, `GameplayTickViewPresenter_ContinuousRemovedTerminal_RetainsPose`.
-- Replay: `Replay_PlayerFree2D_StopTurnClamp_IsDeterministic`, `Replay_PlayerFree2D_AnchorNormalizeContact_IsDeterministic`, `Replay_PlayerFree2D_HitDeath_IsDeterministic`.
+- Replay: `Replay_PlayerFree2D_StopTurnClamp_IsDeterministic`, `Replay_PlayerFree2D_RadiusApproachBlocker_IsDeterministic`, `Replay_PlayerFree2D_AnchorNormalizeContact_IsDeterministic`, `Replay_PlayerFree2D_HitDeath_IsDeterministic`.
 - Baseline: `Player_Free2D_FlagOff_ExistingKinematicBaseline`, `Player_Free2D_DoesNotAffectEnemyOrCharge`.
 
 ## Golden Policy

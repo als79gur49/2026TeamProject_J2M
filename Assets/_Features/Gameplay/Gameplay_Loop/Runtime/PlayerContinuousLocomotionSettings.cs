@@ -10,11 +10,27 @@ namespace Game.Feature.Gameplay.Loop
             int ticksPerCell,
             int speedUnitsPerTick,
             int unitsPerTickRemainder)
+            : this(
+                moveDurationSecondsPerCell,
+                ticksPerCell,
+                speedUnitsPerTick,
+                unitsPerTickRemainder,
+                collisionRadiusUnits: 0)
+        {
+        }
+
+        public PlayerContinuousLocomotionSnapshot(
+            float moveDurationSecondsPerCell,
+            int ticksPerCell,
+            int speedUnitsPerTick,
+            int unitsPerTickRemainder,
+            int collisionRadiusUnits)
         {
             MoveDurationSecondsPerCell = moveDurationSecondsPerCell;
             TicksPerCell = ticksPerCell;
             SpeedUnitsPerTick = speedUnitsPerTick;
             UnitsPerTickRemainder = unitsPerTickRemainder;
+            CollisionRadiusUnits = collisionRadiusUnits;
         }
 
         public float MoveDurationSecondsPerCell { get; }
@@ -25,6 +41,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public int UnitsPerTickRemainder { get; }
 
+        public int CollisionRadiusUnits { get; }
+
         public bool IsConfigured => TicksPerCell > 0 && SpeedUnitsPerTick > 0;
     }
 
@@ -33,10 +51,12 @@ namespace Game.Feature.Gameplay.Loop
     {
         public const float DefaultMoveDurationSecondsPerCell =
             PlayerKinematicLocomotionTimingSettings.DefaultKinematicMoveDurationSeconds;
+        public const float DefaultCollisionRadiusCells = 0f;
         public const float MaxMoveDurationSecondsPerCell = PlayerKinematicLocomotionTimingSettings.MaxKinematicMoveDurationSeconds;
         public const int MinTicksPerCell = 2;
 
         public float MoveDurationSecondsPerCell = DefaultMoveDurationSecondsPerCell;
+        public float CollisionRadiusCells = DefaultCollisionRadiusCells;
 
         public static PlayerContinuousLocomotionSettings CreateDefault()
         {
@@ -48,6 +68,7 @@ namespace Game.Feature.Gameplay.Loop
             return new PlayerContinuousLocomotionSettings
             {
                 MoveDurationSecondsPerCell = MoveDurationSecondsPerCell,
+                CollisionRadiusCells = CollisionRadiusCells,
             };
         }
 
@@ -68,6 +89,22 @@ namespace Game.Feature.Gameplay.Loop
                     nameof(MoveDurationSecondsPerCell),
                     "Player continuous move duration exceeds the supported maximum.");
             }
+
+            if (float.IsNaN(CollisionRadiusCells) ||
+                float.IsInfinity(CollisionRadiusCells) ||
+                CollisionRadiusCells < 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(CollisionRadiusCells),
+                    "Player continuous collision radius must be zero or greater.");
+            }
+
+            if (CollisionRadiusCells >= 0.5f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(CollisionRadiusCells),
+                    "Player continuous collision radius must be less than half a cell.");
+            }
         }
 
         public PlayerContinuousLocomotionSnapshot CreateAuthoritativeSnapshot(
@@ -81,11 +118,15 @@ namespace Game.Feature.Gameplay.Loop
                 MinTicksPerCell);
             var speedUnitsPerTick = Math.Max(1, KinematicFixed.UnitsPerCell / ticksPerCell);
             var remainder = KinematicFixed.UnitsPerCell % ticksPerCell;
+            var collisionRadiusUnits = (int)Math.Round(
+                CollisionRadiusCells * KinematicFixed.UnitsPerCell,
+                MidpointRounding.AwayFromZero);
             return new PlayerContinuousLocomotionSnapshot(
                 MoveDurationSecondsPerCell,
                 ticksPerCell,
                 speedUnitsPerTick,
-                remainder);
+                remainder,
+                collisionRadiusUnits);
         }
     }
 }

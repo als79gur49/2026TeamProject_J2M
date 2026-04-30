@@ -1545,6 +1545,7 @@ namespace Game.Feature.Gameplay.Loop
                     snapshot,
                     entity.entityId,
                     delta,
+                    _playerContinuousLocomotion.CollisionRadiusUnits,
                     out var sweep))
             {
                 rejectedReasons.Add(

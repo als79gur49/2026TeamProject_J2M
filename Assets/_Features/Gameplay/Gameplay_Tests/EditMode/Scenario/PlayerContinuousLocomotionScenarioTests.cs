@@ -265,6 +265,217 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void Player_Free2D_RadiusApproachBox_ClampsBeforeBoundary()
+        {
+            var worldState = CreateWorldState(
+                CreatePlayer(10),
+                CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0)));
+            var pipeline = CreatePipelineWithCollisionRadius(worldState, collisionRadiusCells: 0.1875f);
+
+            for (var tick = 1; tick <= 10; tick++)
+            {
+                pipeline.RunTick(new TickInput(tick, PlayerTickCommand.Move(Direction.Right)));
+            }
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(1280));
+            Assert.That(state.mode, Is.EqualTo(ContinuousLocomotionMode.Idle));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Player_Free2D_RadiusApproachBoxNegative_ClampsBeforeBoundary()
+        {
+            var worldState = CreateWorldState(
+                CreatePlayer(10),
+                CreateBox(20, new SurfaceCell(FaceId.Floor, -1, 0)));
+            var pipeline = CreatePipelineWithCollisionRadius(worldState, collisionRadiusCells: 0.1875f);
+
+            for (var tick = 1; tick <= 10; tick++)
+            {
+                pipeline.RunTick(new TickInput(tick, PlayerTickCommand.Move(Direction.Left)));
+            }
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(-1280));
+            Assert.That(state.mode, Is.EqualTo(ContinuousLocomotionMode.Idle));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Player_Free2D_RadiusApproachWall_ClampsBeforeBoundary()
+        {
+            var worldState = CreateWorldState(
+                CreatePlayer(10),
+                CreateWall(90, new SurfaceCell(FaceId.Floor, 1, 0)));
+            var pipeline = CreatePipelineWithCollisionRadius(worldState, collisionRadiusCells: 0.1875f);
+
+            for (var tick = 1; tick <= 10; tick++)
+            {
+                pipeline.RunTick(new TickInput(tick, PlayerTickCommand.Move(Direction.Right)));
+            }
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(1280));
+            Assert.That(state.mode, Is.EqualTo(ContinuousLocomotionMode.Idle));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Player_Free2D_RadiusApproachTerrain_ClampsBeforeBoundary()
+        {
+            var terrain = new GameplayTerrainData(
+                new[]
+                {
+                    new TerrainCellState(
+                        new SurfaceCell(FaceId.Floor, 1, 0),
+                        TerrainKind.Generic,
+                        TerrainFlags.BlocksGroundTraversal),
+                });
+            var worldState = CreateWorldState(
+                new[] { CreatePlayer(10) },
+                terrain);
+            var pipeline = CreatePipelineWithCollisionRadius(worldState, collisionRadiusCells: 0.1875f);
+
+            for (var tick = 1; tick <= 10; tick++)
+            {
+                pipeline.RunTick(new TickInput(tick, PlayerTickCommand.Move(Direction.Right)));
+            }
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(1280));
+            Assert.That(state.mode, Is.EqualTo(ContinuousLocomotionMode.Idle));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Player_Free2D_RadiusApproachTopologyEdge_ClampsBeforeBoundary()
+        {
+            var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
+            var worldState = CreateWorldState(
+                new[] { CreatePlayer(10) },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            var pipeline = CreatePipelineWithCollisionRadius(worldState, collisionRadiusCells: 0.1875f);
+
+            for (var tick = 1; tick <= 10; tick++)
+            {
+                pipeline.RunTick(new TickInput(tick, PlayerTickCommand.Move(Direction.Right)));
+            }
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(1280));
+            Assert.That(snapshot.TryGetUnitKinematicState(10, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Player_Free2D_Radius_FreeNeighborStillNormalizesAtHalfBoundary()
+        {
+            var worldState = CreateWorldState(CreatePlayer(10));
+            var pipeline = CreatePipelineWithCollisionRadius(worldState, collisionRadiusCells: 0.1875f);
+
+            for (var tick = 1; tick <= 10; tick++)
+            {
+                pipeline.RunTick(new TickInput(tick, PlayerTickCommand.Move(Direction.Right)));
+            }
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(KinematicFixed.MinLocalOffset));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Player_Free2D_Radius_UnitOverlapStillNormalizesAnchor()
+        {
+            var worldState = CreateWorldState(
+                CreatePlayer(10),
+                CreateUnit(20, new SurfaceCell(FaceId.Floor, 1, 0), teamId: 2));
+            var pipeline = CreatePipelineWithCollisionRadius(worldState, collisionRadiusCells: 0.1875f);
+
+            for (var tick = 1; tick <= 10; tick++)
+            {
+                pipeline.RunTick(new TickInput(tick, PlayerTickCommand.Move(Direction.Right)));
+            }
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out _), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Player_Free2D_RadiusClampedLocalNonZero_PushFlipRejected()
+        {
+            var worldState = CreateWorldState(
+                CreatePlayer(10),
+                CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxCapabilities.Push));
+            var pipeline = CreatePipelineWithCollisionRadius(worldState, collisionRadiusCells: 0.1875f);
+
+            for (var tick = 1; tick <= 10; tick++)
+            {
+                pipeline.RunTick(new TickInput(tick, PlayerTickCommand.Move(Direction.Right)));
+            }
+
+            pipeline.RunTick(new TickInput(11, PlayerTickCommand.Push(Direction.Right)));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(1280));
+            Assert.That(snapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.activeAction.IsActive, Is.False);
+            Assert.That(UnitSpatialQuery.IsSettledAtAnchor(snapshot, 10), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Player_Free2D_Radius_PassiveContactRemainsAnchorBased()
+        {
+            var worldState = CreateWorldState(
+                CreatePlayer(10),
+                CreateUnit(40, new SurfaceCell(FaceId.Floor, 1, 0), teamId: 2));
+            var pipeline = CreatePipelineWithCollisionRadius(
+                worldState,
+                0.1875f,
+                new TickGatedPassiveContactProbeLogic(40, 10, firstTick: 9));
+
+            TickResult result = null;
+            for (var tick = 1; tick <= 9; tick++)
+            {
+                result = pipeline.RunTick(new TickInput(tick, PlayerTickCommand.Move(Direction.Right)));
+            }
+
+            Assert.That(HasAcceptedPassiveContact(result, 40, 10), Is.False);
+
+            result = pipeline.RunTick(new TickInput(10, PlayerTickCommand.Move(Direction.Right)));
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(HasAcceptedPassiveContact(result, 40, 10), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Player_Free2D_BeforeAnchorBoundary_NoEnemyContact()
         {
             var worldState = CreateWorldState(
@@ -475,6 +686,26 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     GameplayTimingProfile.CreateDefault().RepeatedMoveIntervalSeconds),
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
+        }
+
+        private static TickPipeline CreatePipelineWithCollisionRadius(
+            WorldState worldState,
+            float collisionRadiusCells,
+            params IEntityLogic[] extraLogics)
+        {
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            return GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                CreatePlayerLogics(extraLogics),
+                timingProfile,
+                PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                    GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                    timingProfile.RepeatedMoveIntervalSeconds),
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled,
+                playerContinuousLocomotion: new PlayerContinuousLocomotionSettings
+                {
+                    CollisionRadiusCells = collisionRadiusCells,
+                }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond));
         }
 
         private static IEntityLogic[] CreatePlayerLogics(params IEntityLogic[] extraLogics)

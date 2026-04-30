@@ -59,6 +59,7 @@ namespace Game.Feature.Gameplay.BoardState
             WorldSnapshot snapshot,
             int entityId,
             KinematicVelocity2 delta,
+            int collisionRadiusUnits,
             out ContinuousLocomotionSweepResult result)
         {
             if (snapshot == null)
@@ -87,6 +88,56 @@ namespace Game.Feature.Gameplay.BoardState
 
             var targetX = checked(pose.LocalOffset.X.RawValue + delta.X.RawValue);
             var targetY = checked(pose.LocalOffset.Y.RawValue + delta.Y.RawValue);
+            if (TryResolveApproachAnchorDelta(
+                    targetX,
+                    targetY,
+                    delta,
+                    collisionRadiusUnits,
+                    out var approachAnchorDelta))
+            {
+                if (!TryResolveCandidateAnchor(
+                        snapshot,
+                        entity,
+                        pose,
+                        approachAnchorDelta,
+                        out var approachCandidateAnchor,
+                        out var rejectionReason))
+                {
+                    result = CreateClamped(
+                        entityId,
+                        pose,
+                        approachAnchorDelta,
+                        collisionRadiusUnits,
+                        rejectionReason);
+                    return true;
+                }
+
+                if (!TryResolveAnchorDelta(targetX, targetY, out var crossedAnchorDelta))
+                {
+                    result = new ContinuousLocomotionSweepResult(
+                        entityId,
+                        pose,
+                        pose.AnchorCell,
+                        new KinematicOffset2(KinematicFixed.FromRaw(targetX), KinematicFixed.FromRaw(targetY)),
+                        delta,
+                        anchorChanged: false,
+                        blocked: false,
+                        rejectedBy: ContinuousLocomotionRejectionReason.None);
+                    return true;
+                }
+
+                result = new ContinuousLocomotionSweepResult(
+                    entityId,
+                    pose,
+                    approachCandidateAnchor,
+                    NormalizeCrossedOffset(targetX, targetY, crossedAnchorDelta),
+                    delta,
+                    anchorChanged: true,
+                    blocked: false,
+                    rejectedBy: ContinuousLocomotionRejectionReason.None);
+                return true;
+            }
+
             if (!TryResolveAnchorDelta(targetX, targetY, out var anchorDelta))
             {
                 result = new ContinuousLocomotionSweepResult(
@@ -108,23 +159,15 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             var candidateAnchor = pose.AnchorCell + anchorDelta;
-            if (candidateAnchor.face != pose.AnchorCell.face)
+            if (!TryResolveCandidateAnchor(
+                    snapshot,
+                    entity,
+                    pose,
+                    anchorDelta,
+                    out candidateAnchor,
+                    out var rejectedBy))
             {
-                result = CreateClamped(entityId, pose, anchorDelta, ContinuousLocomotionRejectionReason.TopologySeam);
-                return true;
-            }
-
-            var legality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
-                snapshot,
-                EntityType.Unit,
-                candidateAnchor,
-                entityId,
-                snapshot.Topology,
-                CubeRotationKind.None,
-                snapshot.Topology);
-            if (legality.Verdict != LegalityVerdict.Allowed)
-            {
-                result = CreateClamped(entityId, pose, anchorDelta, ContinuousLocomotionRejectionReason.TraversalBlocked);
+                result = CreateClamped(entityId, pose, anchorDelta, collisionRadiusUnits, rejectedBy);
                 return true;
             }
 
@@ -138,6 +181,81 @@ namespace Game.Feature.Gameplay.BoardState
                 blocked: false,
                 rejectedBy: ContinuousLocomotionRejectionReason.None);
             return true;
+        }
+
+        private static bool TryResolveCandidateAnchor(
+            WorldSnapshot snapshot,
+            EntityState entity,
+            UnitContinuousLocomotionPose pose,
+            Vector2Int anchorDelta,
+            out SurfaceCell candidateAnchor,
+            out ContinuousLocomotionRejectionReason rejectedBy)
+        {
+            candidateAnchor = pose.AnchorCell + anchorDelta;
+            if (candidateAnchor.face != pose.AnchorCell.face)
+            {
+                rejectedBy = ContinuousLocomotionRejectionReason.TopologySeam;
+                return false;
+            }
+
+            var legality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
+                snapshot,
+                EntityType.Unit,
+                candidateAnchor,
+                entity.entityId,
+                snapshot.Topology,
+                CubeRotationKind.None,
+                snapshot.Topology);
+            if (legality.Verdict != LegalityVerdict.Allowed)
+            {
+                rejectedBy = ContinuousLocomotionRejectionReason.TraversalBlocked;
+                return false;
+            }
+
+            rejectedBy = ContinuousLocomotionRejectionReason.None;
+            return true;
+        }
+
+        private static bool TryResolveApproachAnchorDelta(
+            int targetX,
+            int targetY,
+            KinematicVelocity2 delta,
+            int collisionRadiusUnits,
+            out Vector2Int anchorDelta)
+        {
+            var radiusUnits = NormalizeCollisionRadiusUnits(collisionRadiusUnits);
+            if (radiusUnits <= 0)
+            {
+                anchorDelta = default;
+                return false;
+            }
+
+            if (delta.X.RawValue > 0 && targetX >= GetPositiveBlockedClamp(radiusUnits))
+            {
+                anchorDelta = Vector2Int.right;
+                return true;
+            }
+
+            if (delta.X.RawValue < 0 && targetX <= GetNegativeBlockedClamp(radiusUnits))
+            {
+                anchorDelta = Vector2Int.left;
+                return true;
+            }
+
+            if (delta.Y.RawValue > 0 && targetY >= GetPositiveBlockedClamp(radiusUnits))
+            {
+                anchorDelta = Vector2Int.up;
+                return true;
+            }
+
+            if (delta.Y.RawValue < 0 && targetY <= GetNegativeBlockedClamp(radiusUnits))
+            {
+                anchorDelta = Vector2Int.down;
+                return true;
+            }
+
+            anchorDelta = default;
+            return false;
         }
 
         private static bool TryResolveAnchorDelta(int targetX, int targetY, out Vector2Int anchorDelta)
@@ -190,25 +308,27 @@ namespace Game.Feature.Gameplay.BoardState
             int entityId,
             UnitContinuousLocomotionPose pose,
             Vector2Int anchorDelta,
+            int collisionRadiusUnits,
             ContinuousLocomotionRejectionReason reason)
         {
+            var radiusUnits = NormalizeCollisionRadiusUnits(collisionRadiusUnits);
             var clampX = pose.LocalOffset.X.RawValue;
             var clampY = pose.LocalOffset.Y.RawValue;
             if (anchorDelta.x > 0)
             {
-                clampX = KinematicFixed.MaxPositiveLocalOffset;
+                clampX = GetPositiveBlockedClamp(radiusUnits);
             }
             else if (anchorDelta.x < 0)
             {
-                clampX = KinematicFixed.MinLocalOffset;
+                clampX = GetNegativeBlockedClamp(radiusUnits);
             }
             else if (anchorDelta.y > 0)
             {
-                clampY = KinematicFixed.MaxPositiveLocalOffset;
+                clampY = GetPositiveBlockedClamp(radiusUnits);
             }
             else if (anchorDelta.y < 0)
             {
-                clampY = KinematicFixed.MinLocalOffset;
+                clampY = GetNegativeBlockedClamp(radiusUnits);
             }
 
             return new ContinuousLocomotionSweepResult(
@@ -220,6 +340,27 @@ namespace Game.Feature.Gameplay.BoardState
                 anchorChanged: false,
                 blocked: true,
                 rejectedBy: reason);
+        }
+
+        private static int NormalizeCollisionRadiusUnits(int collisionRadiusUnits)
+        {
+            return Math.Max(0, Math.Min(KinematicFixed.HalfCellUnits - 1, collisionRadiusUnits));
+        }
+
+        private static int GetPositiveBlockedClamp(int collisionRadiusUnits)
+        {
+            return collisionRadiusUnits <= 0
+                ? KinematicFixed.MaxPositiveLocalOffset
+                : Math.Min(
+                    KinematicFixed.MaxPositiveLocalOffset,
+                    KinematicFixed.HalfCellUnits - collisionRadiusUnits);
+        }
+
+        private static int GetNegativeBlockedClamp(int collisionRadiusUnits)
+        {
+            return collisionRadiusUnits <= 0
+                ? KinematicFixed.MinLocalOffset
+                : KinematicFixed.MinLocalOffset + collisionRadiusUnits;
         }
 
         private static KinematicOffset2 NormalizeCrossedOffset(int targetX, int targetY, Vector2Int anchorDelta)

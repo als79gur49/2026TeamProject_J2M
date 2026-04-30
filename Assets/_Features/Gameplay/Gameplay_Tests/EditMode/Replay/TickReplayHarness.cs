@@ -17,7 +17,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
             IEnumerable<IEntityLogic> entityLogics,
             IReadOnlyList<TickInput> inputs,
             IReadOnlyList<DelayedAttackEffectRecord> initialDelayedAttackEffects = null,
-            GameplayRuntimeFeatureFlags runtimeFeatureFlags = default)
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
+            PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default)
         {
             var entityLogicList = new List<IEntityLogic>(entityLogics);
             var timingProfile = GameplayTimingProfile.CreateDefault();
@@ -29,7 +30,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 entityLogicList,
                 timingProfile,
                 playerControlTiming,
-                runtimeFeatureFlags: runtimeFeatureFlags);
+                runtimeFeatureFlags: runtimeFeatureFlags,
+                playerContinuousLocomotion: playerContinuousLocomotion);
             return Run(pipeline, entityLogicList, inputs, initialDelayedAttackEffects);
         }
 
@@ -39,7 +41,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
             IEnumerable<IEntityLogic> entityLogics,
             IReadOnlyList<TickInput> inputs,
             IReadOnlyList<DelayedAttackEffectRecord> initialDelayedAttackEffects = null,
-            GameplayRuntimeFeatureFlags runtimeFeatureFlags = default)
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
+            PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default)
         {
             if (bootstrapper == null)
             {
@@ -56,7 +59,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 entityLogicList,
                 timingProfile,
                 playerControlTiming,
-                runtimeFeatureFlags: runtimeFeatureFlags);
+                runtimeFeatureFlags: runtimeFeatureFlags,
+                playerContinuousLocomotion: playerContinuousLocomotion);
             return Run(pipeline, entityLogicList, inputs, initialDelayedAttackEffects);
         }
 

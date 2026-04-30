@@ -51,6 +51,41 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Extended")]
+        public void Replay_PlayerFree2D_RadiusApproachBlocker_IsDeterministic()
+        {
+            var inputs = Enumerable.Range(1, 10)
+                .Select(tick => new TickInput(tick, PlayerTickCommand.Move(Direction.Right)))
+                .ToArray();
+            var harness = new TickReplayHarness();
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            var playerContinuousLocomotion = new PlayerContinuousLocomotionSettings
+            {
+                CollisionRadiusCells = 0.1875f,
+            }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond);
+
+            var firstReplay = harness.Run(
+                CreateWorldState(
+                    CreatePlayer(10),
+                    CreateWall(90, new SurfaceCell(FaceId.Floor, 1, 0))),
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled,
+                playerContinuousLocomotion: playerContinuousLocomotion);
+            var secondReplay = harness.Run(
+                CreateWorldState(
+                    CreatePlayer(10),
+                    CreateWall(90, new SurfaceCell(FaceId.Floor, 1, 0))),
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled,
+                playerContinuousLocomotion: playerContinuousLocomotion);
+
+            AssertReplayEqual(firstReplay, secondReplay);
+            Assert.That(firstReplay[firstReplay.Count - 1].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3"));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Replay_PlayerFree2D_AnchorNormalizeContact_IsDeterministic()
         {
             var inputs = Enumerable.Range(1, 10)
