@@ -62,3 +62,7 @@ terrain / occupancy semantics는 stage-content와 분리된 dedicated gameplay s
 - `Traverse/Settle/Modifier/Reservation` 경계를 한 PR에서 동시에 재정의
 - box/wall/terrain/unit rule 혼합
 - compat helper 부활을 통한 shortcut fix
+
+## Related Decisions
+
+- TileFeature overlay is not a terrain/occupancy extension. It follows [ADR-006 TileFeature Overlay Layer Gate](./ADR-006-TileFeature-Overlay-Layer-Gate.md).

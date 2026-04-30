@@ -40,6 +40,8 @@
   - active decision record for persistent BGM ownership matrix, unsupported path, and implementation gate
 - [ADR/ADR-004-Terrain-Occupancy-Implementation-Gate.md](./ADR/ADR-004-Terrain-Occupancy-Implementation-Gate.md)
   - active decision record for terrain/occupancy vocabulary closure, boundary gate, and slice implementation gate
+- [ADR/ADR-006-TileFeature-Overlay-Layer-Gate.md](./ADR/ADR-006-TileFeature-Overlay-Layer-Gate.md)
+  - active decision record for SurfaceCell-based TileFeature overlay ownership, occupancy/terrain separation, lazy TileEffect snapshot rules, and presentation-only VFX boundaries
 - [Gameplay-EnemyPatrol-Phase2-SpecialCase-Responsibility-Map.md](./Gameplay-EnemyPatrol-Phase2-SpecialCase-Responsibility-Map.md)
   - supporting truth for `EnemyLogic` patrol owner surface, `RandomWalk` special-case boundary, `Forward` readiness, and `WallFollow` out-of-scope note
 - [Gameplay-EnemyPatrol-Decision-Proposal-Contract.md](./Gameplay-EnemyPatrol-Decision-Proposal-Contract.md)
