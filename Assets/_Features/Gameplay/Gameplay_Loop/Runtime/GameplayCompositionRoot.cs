@@ -92,7 +92,8 @@ namespace Game.Feature.Gameplay.Loop
             int playerRespawnDelayTicks = 1,
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
-            PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming = default)
+            PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming = default,
+            PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default)
         {
             return CreateDefaultBootstrapper().CreateTickPipeline(
                 worldState,
@@ -102,7 +103,8 @@ namespace Game.Feature.Gameplay.Loop
                 playerRespawnDelayTicks,
                 objectiveDefinition,
                 runtimeFeatureFlags: runtimeFeatureFlags,
-                playerKinematicLocomotionTiming: playerKinematicLocomotionTiming);
+                playerKinematicLocomotionTiming: playerKinematicLocomotionTiming,
+                playerContinuousLocomotion: playerContinuousLocomotion);
         }
 
         public static TickRunner CreateTickRunner(
@@ -131,7 +133,8 @@ namespace Game.Feature.Gameplay.Loop
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
             int startTickIndex = 1,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
-            PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming = default)
+            PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming = default,
+            PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default)
         {
             return CreateDefaultBootstrapper().CreateTickRunner(
                 worldState,
@@ -143,7 +146,8 @@ namespace Game.Feature.Gameplay.Loop
                 objectiveDefinition,
                 startTickIndex,
                 runtimeFeatureFlags: runtimeFeatureFlags,
-                playerKinematicLocomotionTiming: playerKinematicLocomotionTiming);
+                playerKinematicLocomotionTiming: playerKinematicLocomotionTiming,
+                playerContinuousLocomotion: playerContinuousLocomotion);
         }
     }
 }

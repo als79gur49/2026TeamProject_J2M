@@ -56,7 +56,8 @@ namespace Game.Feature.Gameplay.Loop
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
             bool allowPlayerRespawn = true,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
-            PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming = default)
+            PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming = default,
+            PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default)
         {
             return new TickPipeline(
                 worldState,
@@ -69,7 +70,8 @@ namespace Game.Feature.Gameplay.Loop
                 _spawnDefaultsByArchetypeId,
                 allowPlayerRespawn,
                 runtimeFeatureFlags,
-                playerKinematicLocomotionTiming);
+                playerKinematicLocomotionTiming,
+                playerContinuousLocomotion);
         }
 
         public TickRunner CreateTickRunner(
@@ -112,7 +114,8 @@ namespace Game.Feature.Gameplay.Loop
             int startTickIndex = 1,
             bool allowPlayerRespawn = true,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
-            PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming = default)
+            PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming = default,
+            PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default)
         {
             if (inputBuffer == null)
             {
@@ -129,7 +132,8 @@ namespace Game.Feature.Gameplay.Loop
                     objectiveDefinition,
                     allowPlayerRespawn,
                     runtimeFeatureFlags,
-                    playerKinematicLocomotionTiming),
+                    playerKinematicLocomotionTiming,
+                    playerContinuousLocomotion),
                 inputBuffer,
                 startTickIndex);
         }

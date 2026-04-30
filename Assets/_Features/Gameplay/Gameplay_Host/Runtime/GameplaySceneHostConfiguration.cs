@@ -115,6 +115,7 @@ namespace Game.Feature.Gameplay.Host
         public float CellSize = 1f;
         public float FaceSeamGap = -1f;
         public bool DirectionChangeConsumesDelay;
+        public bool EnablePlayerFree2DLocalLocomotion;
         public bool EnablePlayerSameFaceContinuousLocomotion;
         public bool EnablePlayerStoppableKinematicLocomotion;
         public bool EnableEnemySameFaceContinuousLocomotion;
@@ -142,6 +143,8 @@ namespace Game.Feature.Gameplay.Host
         public PlayerControlTimingSettings PlayerControlTiming = PlayerControlTimingSettings.CreateDefault();
         public PlayerKinematicLocomotionTimingSettings PlayerKinematicLocomotionTiming =
             PlayerKinematicLocomotionTimingSettings.CreateDefault();
+        public PlayerContinuousLocomotionSettings PlayerContinuousLocomotion =
+            PlayerContinuousLocomotionSettings.CreateDefault();
         public PlayerRespawnTimingSettings PlayerRespawnTiming = PlayerRespawnTimingSettings.CreateDefault();
         public float MoveMotionDurationSeconds = -1f;
         public float ChargeMoveDurationSeconds = -1f;
@@ -226,13 +229,20 @@ namespace Game.Feature.Gameplay.Host
                 .CreateAuthoritativeSnapshot(SimulationTicksPerSecond);
         }
 
+        public PlayerContinuousLocomotionSnapshot CreatePlayerContinuousLocomotionSnapshot()
+        {
+            return ResolvePlayerContinuousLocomotionSettings()
+                .CreateAuthoritativeSnapshot(SimulationTicksPerSecond);
+        }
+
         public GameplayRuntimeFeatureFlags CreateRuntimeFeatureFlags()
         {
             return new GameplayRuntimeFeatureFlags(
                 EnablePlayerSameFaceContinuousLocomotion,
                 EnableEnemySameFaceContinuousLocomotion,
                 EnableEnemyChargeKinematicLocomotion,
-                EnablePlayerStoppableKinematicLocomotion);
+                EnablePlayerStoppableKinematicLocomotion,
+                EnablePlayerFree2DLocalLocomotion);
         }
 
         public EnemyAiRuntimeCollectionSnapshot CreateEnemyAiRuntimeSnapshot()
@@ -389,6 +399,12 @@ namespace Game.Feature.Gameplay.Host
         {
             return PlayerKinematicLocomotionTiming?.Clone() ??
                    PlayerKinematicLocomotionTimingSettings.CreateDefault();
+        }
+
+        private PlayerContinuousLocomotionSettings ResolvePlayerContinuousLocomotionSettings()
+        {
+            return PlayerContinuousLocomotion?.Clone() ??
+                   PlayerContinuousLocomotionSettings.CreateDefault();
         }
 
         private PlayerRespawnTimingSettings ResolvePlayerRespawnTimingSettings()

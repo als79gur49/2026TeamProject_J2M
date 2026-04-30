@@ -57,6 +57,7 @@ namespace Game.Feature.Gameplay.Host
             var generalTimingProfile = configuration.CreateTimingProfile();
             var playerControlTiming = configuration.CreatePlayerControlTimingSnapshot();
             var playerKinematicLocomotionTiming = configuration.CreatePlayerKinematicLocomotionTimingSnapshot();
+            var playerContinuousLocomotion = configuration.CreatePlayerContinuousLocomotionSnapshot();
             var playerRespawnTiming = configuration.CreatePlayerRespawnTimingSnapshot();
             var enemyAiRuntime = configuration.CreateEnemyAiRuntimeSnapshot();
             var enemyPresentationArchetypeRegistry = configuration.CreateEnemyPresentationArchetypeRegistry(enemyAiRuntime);
@@ -95,7 +96,8 @@ namespace Game.Feature.Gameplay.Host
                 startTickIndex: 1,
                 allowPlayerRespawn: !configuration.DisablePlayerRespawn,
                 runtimeFeatureFlags: configuration.CreateRuntimeFeatureFlags(),
-                playerKinematicLocomotionTiming: playerKinematicLocomotionTiming);
+                playerKinematicLocomotionTiming: playerKinematicLocomotionTiming,
+                playerContinuousLocomotion: playerContinuousLocomotion);
 
             var boardRoot = EnsureBoardRootHierarchy(hostTransform);
             var boardSurfaceRenderer = boardRoot.EnsureBoardSurfaceRenderer();

@@ -50,6 +50,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly int _playerDamageCooldownTicks;
         private readonly int _playerRespawnDelayTicks;
         private readonly PlayerKinematicLocomotionTimingSnapshot _playerKinematicLocomotionTiming;
+        private readonly PlayerContinuousLocomotionSnapshot _playerContinuousLocomotion;
         private readonly bool _allowPlayerRespawn;
         private readonly GameplayRuntimeFeatureFlags _runtimeFeatureFlags;
         private readonly int _slidingStateTimerTicks;
@@ -66,7 +67,8 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> enemySpawnDefaultsByArchetypeId = null,
             bool allowPlayerRespawn = true,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
-            PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming = default)
+            PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming = default,
+            PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default)
         {
             _worldState = worldState ?? throw new ArgumentNullException(nameof(worldState));
 
@@ -95,6 +97,10 @@ namespace Game.Feature.Gameplay.Loop
             _playerKinematicLocomotionTiming = playerKinematicLocomotionTiming.IsConfigured
                 ? playerKinematicLocomotionTiming
                 : PlayerKinematicLocomotionTimingSettings.CreateDefault()
+                    .CreateAuthoritativeSnapshot(resolvedGeneralTimingProfile.SimulationTicksPerSecond);
+            _playerContinuousLocomotion = playerContinuousLocomotion.IsConfigured
+                ? playerContinuousLocomotion
+                : PlayerContinuousLocomotionSettings.CreateDefault()
                     .CreateAuthoritativeSnapshot(resolvedGeneralTimingProfile.SimulationTicksPerSecond);
             _allowPlayerRespawn = allowPlayerRespawn;
             _runtimeFeatureFlags = runtimeFeatureFlags;
@@ -500,7 +506,21 @@ namespace Game.Feature.Gameplay.Loop
             var sortedIntents = BuildMovementIntents(executableMovementIntents);
             var expansionIntents = sortedIntents;
             var kinematicMovementActionPlanPayloads = new Dictionary<int, MovementActionPlanPayload>();
-            if (_runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion)
+            if (_runtimeFeatureFlags.EnablePlayerFree2DLocalLocomotion)
+            {
+                var free2DBatch = new FinalizationBatch();
+                expansionIntents = BuildPlayerFree2DLocalLocomotionPlans(
+                    planSnapshot,
+                    sortedIntents,
+                    input.PlayerCommand,
+                    input.TickIndex,
+                    rejectedReasons,
+                    free2DBatch);
+                planFinalizationBatch.MergeFrom(free2DBatch);
+                projectedWorld.ApplyBatch(free2DBatch);
+                planSnapshot = projectedWorld.CreateSnapshot();
+            }
+            else if (_runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion)
             {
                 expansionIntents = BuildPlayerSameFaceKinematicLocomotionPlans(
                     planSnapshot,
@@ -963,7 +983,8 @@ namespace Game.Feature.Gameplay.Loop
                 delayedAttackEffects,
                 attackCommitEvents,
                 delayedAttackEnqueueEvents);
-            var motionInterruptRecords = _runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion
+            var motionInterruptRecords = _runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion ||
+                _runtimeFeatureFlags.EnablePlayerFree2DLocalLocomotion
                 ? MaterializePlayerKinematicMotionInterrupts(
                     attackSnapshot,
                     damageResolutions,
@@ -1417,6 +1438,213 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return legacyIntents;
+        }
+
+        private List<MoveIntent> BuildPlayerFree2DLocalLocomotionPlans(
+            WorldSnapshot snapshot,
+            IReadOnlyList<MoveIntent> sortedIntents,
+            PlayerTickCommand playerCommand,
+            int tickIndex,
+            List<string> rejectedReasons,
+            FinalizationBatch batch)
+        {
+            var legacyIntents = new List<MoveIntent>(sortedIntents.Count);
+            var free2DHandledPlayerIds = new HashSet<int>();
+            var entities = new List<EntityState>();
+            snapshot.EnumerateEntitiesOrdered(entities);
+
+            for (var i = 0; i < entities.Count; i++)
+            {
+                var entity = entities[i];
+                if (!snapshot.TryGetPlayerControlState(entity.entityId, out var playerControlState) ||
+                    entity.type != EntityType.Unit ||
+                    entity.hp <= 0 ||
+                    entity.markedForDeath)
+                {
+                    continue;
+                }
+
+                free2DHandledPlayerIds.Add(entity.entityId);
+                ResolvePlayerFree2DLocalLocomotion(
+                    snapshot,
+                    entity,
+                    playerControlState,
+                    playerCommand,
+                    tickIndex,
+                    rejectedReasons,
+                    batch);
+            }
+
+            for (var i = 0; i < sortedIntents.Count; i++)
+            {
+                var intent = sortedIntents[i];
+                if (free2DHandledPlayerIds.Contains(intent.SourceId) &&
+                    intent.CommandKind == Movement.MovementCommandKind.Move)
+                {
+                    continue;
+                }
+
+                legacyIntents.Add(intent);
+            }
+
+            return legacyIntents;
+        }
+
+        private void ResolvePlayerFree2DLocalLocomotion(
+            WorldSnapshot snapshot,
+            in EntityState entity,
+            in PlayerControlState playerControlState,
+            PlayerTickCommand playerCommand,
+            int tickIndex,
+            List<string> rejectedReasons,
+            FinalizationBatch batch)
+        {
+            if (!snapshot.TryGetUnitContinuousLocomotionPose(entity.entityId, out var pose))
+            {
+                return;
+            }
+
+            var hasDirection = TryResolveDirectionDelta(playerCommand.HeldMoveDirection, out var directionDelta);
+            var canMove =
+                !playerCommand.PushPressed &&
+                !playerCommand.FlipPressed &&
+                !playerControlState.activeAction.IsActive &&
+                !PlayerControlQueries.IsMoveOnCooldown(playerControlState, tickIndex) &&
+                hasDirection;
+            if (!canMove)
+            {
+                if (pose.HasAuthoritativeState &&
+                    (!pose.State.velocity.IsZero || pose.State.mode != ContinuousLocomotionMode.Idle))
+                {
+                    batch.SetUnitContinuousLocomotionState(
+                        entity.entityId,
+                        UnitContinuousLocomotionState.CreateIdleFreeze(pose.State),
+                        new FinalizationOperationMetadata(
+                            TickPhase.Plan,
+                            ResolvedActionSemanticKind.Stop,
+                            entity.entityId,
+                            actionPlanId: 0));
+                }
+
+                return;
+            }
+
+            var delta = CreateContinuousDelta(
+                pose.State,
+                directionDelta,
+                out var nextRemainderX,
+                out var nextRemainderY,
+                out var facing);
+            if (delta.IsZero)
+            {
+                return;
+            }
+
+            if (!SurfaceContinuousLocomotionQueries.TryResolveSameFaceAxisMove(
+                    snapshot,
+                    entity.entityId,
+                    delta,
+                    out var sweep))
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Plan|Source={entity.entityId}|Reason=Free2DContinuousSweepRejected|RejectedBy={sweep.RejectedBy}|Anchor={FormatCell(entity.position)}");
+                return;
+            }
+
+            var resolvedState = CreateContinuousLocomotionState(
+                pose.State,
+                sweep,
+                facing,
+                playerCommand.HeldMoveDirection,
+                nextRemainderX,
+                nextRemainderY);
+            var metadata = new FinalizationOperationMetadata(
+                TickPhase.Plan,
+                ResolvedActionSemanticKind.Move,
+                entity.entityId,
+                actionPlanId: 0,
+                movementSemanticKind: MovementSemanticKind.Move);
+
+            if (sweep.AnchorChanged)
+            {
+                batch.MoveEntity(entity.entityId, sweep.ResolvedAnchorCell, metadata);
+            }
+
+            batch.SetUnitContinuousLocomotionState(entity.entityId, resolvedState, metadata);
+            if (entity.facing != facing)
+            {
+                batch.SetFacing(entity.entityId, facing, metadata);
+            }
+
+            if (sweep.Blocked)
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Plan|Source={entity.entityId}|Reason=Free2DContinuousBlocked|RejectedBy={sweep.RejectedBy}|Anchor={FormatCell(entity.position)}");
+            }
+        }
+
+        private KinematicVelocity2 CreateContinuousDelta(
+            UnitContinuousLocomotionState sourceState,
+            Vector2Int directionDelta,
+            out int nextRemainderX,
+            out int nextRemainderY,
+            out Direction facing)
+        {
+            nextRemainderX = sourceState.subUnitRemainderX;
+            nextRemainderY = sourceState.subUnitRemainderY;
+            var rawUnits = _playerContinuousLocomotion.SpeedUnitsPerTick;
+            if (directionDelta.x != 0)
+            {
+                nextRemainderX += _playerContinuousLocomotion.UnitsPerTickRemainder;
+                if (nextRemainderX >= _playerContinuousLocomotion.TicksPerCell)
+                {
+                    rawUnits++;
+                    nextRemainderX -= _playerContinuousLocomotion.TicksPerCell;
+                }
+
+                facing = directionDelta.x > 0 ? Direction.Right : Direction.Left;
+                return new KinematicVelocity2(
+                    KinematicFixed.FromRaw(directionDelta.x * rawUnits),
+                    KinematicFixed.Zero);
+            }
+
+            nextRemainderY += _playerContinuousLocomotion.UnitsPerTickRemainder;
+            if (nextRemainderY >= _playerContinuousLocomotion.TicksPerCell)
+            {
+                rawUnits++;
+                nextRemainderY -= _playerContinuousLocomotion.TicksPerCell;
+            }
+
+            facing = directionDelta.y > 0 ? Direction.Up : Direction.Down;
+            return new KinematicVelocity2(
+                KinematicFixed.Zero,
+                KinematicFixed.FromRaw(directionDelta.y * rawUnits));
+        }
+
+        private static UnitContinuousLocomotionState CreateContinuousLocomotionState(
+            UnitContinuousLocomotionState sourceState,
+            ContinuousLocomotionSweepResult sweep,
+            Direction facing,
+            Direction lastMoveDirection,
+            int nextRemainderX,
+            int nextRemainderY)
+        {
+            var velocity = sweep.Blocked ? KinematicVelocity2.Zero : sweep.ResolvedVelocity;
+            var mode = velocity.IsZero
+                ? ContinuousLocomotionMode.Idle
+                : ContinuousLocomotionMode.Moving;
+            return new UnitContinuousLocomotionState
+            {
+                localOffset = sweep.ResolvedLocalOffset,
+                velocity = velocity,
+                facing = facing,
+                lastMoveDirection = lastMoveDirection == Direction.None ? null : lastMoveDirection,
+                speedUnitsPerTick = Math.Abs(sweep.ResolvedVelocity.X.RawValue) + Math.Abs(sweep.ResolvedVelocity.Y.RawValue),
+                mode = mode,
+                sequenceId = sourceState.sequenceId + 1,
+                subUnitRemainderX = nextRemainderX,
+                subUnitRemainderY = nextRemainderY,
+            }.NormalizedForStorage();
         }
 
         private List<MoveIntent> BuildEnemySameFaceKinematicLocomotionPlans(
@@ -5221,34 +5449,21 @@ namespace Game.Feature.Gameplay.Loop
             AttackSourceKind sourceKind)
         {
             if (interruptedEntityIds.Contains(targetEntityId) ||
-                !attackSnapshot.TryGetPlayerControlState(targetEntityId, out var playerControlState) ||
-                !attackSnapshot.TryGetUnitKinematicPose(targetEntityId, out var pose) ||
-                !pose.HasAuthoritativeState ||
-                pose.IsSettledAtAnchor ||
-                (pose.Mode != MotionMode.Voluntary &&
-                 pose.Mode != MotionMode.Held))
+                !attackSnapshot.TryGetPlayerControlState(targetEntityId, out var playerControlState))
             {
                 return false;
             }
 
-            var interruptedState = UnitKinematicRuntimeState.CreateInterruptedFreeze(pose.State);
-            interruptedEntityIds.Add(targetEntityId);
-            attackStageBatch.SetUnitKinematicState(
-                targetEntityId,
-                interruptedState,
-                new FinalizationOperationMetadata(
-                    TickPhase.Resolve,
-                    ResolvedActionSemanticKind.Attack,
-                    sourceEntityId,
-                    actionPlanId,
-                    localActionIndex: localActionIndex,
-                    attackSourceKind: sourceKind,
-                    damageSourceType: ResolveDamageSourceType(sourceKind)));
-            if (PlayerControlQueries.HasQueuedKinematicTurn(playerControlState))
+            if (attackSnapshot.TryGetUnitKinematicPose(targetEntityId, out var pose) &&
+                pose.HasAuthoritativeState &&
+                !pose.IsSettledAtAnchor &&
+                (pose.Mode == MotionMode.Voluntary || pose.Mode == MotionMode.Held))
             {
-                attackStageBatch.SetPlayerControlState(
+                var interruptedState = UnitKinematicRuntimeState.CreateInterruptedFreeze(pose.State);
+                interruptedEntityIds.Add(targetEntityId);
+                attackStageBatch.SetUnitKinematicState(
                     targetEntityId,
-                    PlayerControlQueries.ClearQueuedKinematicTurn(playerControlState),
+                    interruptedState,
                     new FinalizationOperationMetadata(
                         TickPhase.Resolve,
                         ResolvedActionSemanticKind.Attack,
@@ -5257,15 +5472,58 @@ namespace Game.Feature.Gameplay.Loop
                         localActionIndex: localActionIndex,
                         attackSourceKind: sourceKind,
                         damageSourceType: ResolveDamageSourceType(sourceKind)));
+                if (PlayerControlQueries.HasQueuedKinematicTurn(playerControlState))
+                {
+                    attackStageBatch.SetPlayerControlState(
+                        targetEntityId,
+                        PlayerControlQueries.ClearQueuedKinematicTurn(playerControlState),
+                        new FinalizationOperationMetadata(
+                            TickPhase.Resolve,
+                            ResolvedActionSemanticKind.Attack,
+                            sourceEntityId,
+                            actionPlanId,
+                            localActionIndex: localActionIndex,
+                            attackSourceKind: sourceKind,
+                            damageSourceType: ResolveDamageSourceType(sourceKind)));
+                }
+
+                interruptRecords.Add(
+                    new MotionInterruptRecord(
+                        targetEntityId,
+                        MotionInterruptPolicy.FreezeCurrentPose,
+                        sourceEntityId));
+                commitEvents.Add(
+                    $"KinematicMotionInterrupted|E={targetEntityId}|Source={sourceEntityId}|SourceKind={sourceKind}|Anchor={FormatCell(pose.AnchorCell)}|Offset={pose.LocalOffset}|Mode={interruptedState.mode}");
+                return true;
             }
 
+            if (!attackSnapshot.TryGetUnitContinuousLocomotionPose(targetEntityId, out var continuousPose) ||
+                !continuousPose.HasAuthoritativeState ||
+                continuousPose.IsSettledAtAnchor)
+            {
+                return false;
+            }
+
+            var continuousInterruptedState = UnitContinuousLocomotionState.CreateIdleFreeze(continuousPose.State);
+            interruptedEntityIds.Add(targetEntityId);
+            attackStageBatch.SetUnitContinuousLocomotionState(
+                targetEntityId,
+                continuousInterruptedState,
+                new FinalizationOperationMetadata(
+                    TickPhase.Resolve,
+                    ResolvedActionSemanticKind.Attack,
+                    sourceEntityId,
+                    actionPlanId,
+                    localActionIndex: localActionIndex,
+                    attackSourceKind: sourceKind,
+                    damageSourceType: ResolveDamageSourceType(sourceKind)));
             interruptRecords.Add(
                 new MotionInterruptRecord(
                     targetEntityId,
                     MotionInterruptPolicy.FreezeCurrentPose,
                     sourceEntityId));
             commitEvents.Add(
-                $"KinematicMotionInterrupted|E={targetEntityId}|Source={sourceEntityId}|SourceKind={sourceKind}|Anchor={FormatCell(pose.AnchorCell)}|Offset={pose.LocalOffset}|Mode={interruptedState.mode}");
+                $"ContinuousLocomotionInterrupted|E={targetEntityId}|Source={sourceEntityId}|SourceKind={sourceKind}|Anchor={FormatCell(continuousPose.AnchorCell)}|Offset={continuousPose.LocalOffset}|Mode={continuousInterruptedState.mode}");
             return true;
         }
 
