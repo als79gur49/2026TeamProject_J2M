@@ -19,14 +19,25 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             var validatorSource = File.ReadAllText("Assets/_Features/Stages/Runtime/Validation/StageCatalogValidator.cs");
             var validationTypeSource = File.ReadAllText("Assets/_Features/Stages/Runtime/Validation/StageValidationTypes.cs");
-            var presentationCatalogValidatorSource = File.ReadAllText("Assets/_Features/Stages/Runtime/Authoring/Validation/StageAuthoringPresentationCatalogValidator.cs");
 
             Assert.That(validatorSource.Contains("UnityEditor", StringComparison.Ordinal), Is.False);
             Assert.That(validatorSource.Contains("AssetDatabase", StringComparison.Ordinal), Is.False);
             Assert.That(validationTypeSource.Contains("UnityEditor", StringComparison.Ordinal), Is.False);
             Assert.That(validationTypeSource.Contains("AssetDatabase", StringComparison.Ordinal), Is.False);
-            Assert.That(presentationCatalogValidatorSource.Contains("UnityEditor", StringComparison.Ordinal), Is.False);
-            Assert.That(presentationCatalogValidatorSource.Contains("AssetDatabase", StringComparison.Ordinal), Is.False);
+
+            var runtimeAuthoringValidationSources = Directory.GetFiles(
+                "Assets/_Features/Stages/Runtime/Authoring/Validation",
+                "*.cs",
+                SearchOption.TopDirectoryOnly);
+            foreach (var sourcePath in runtimeAuthoringValidationSources)
+            {
+                var source = File.ReadAllText(sourcePath);
+                Assert.That(source.Contains("UnityEditor", StringComparison.Ordinal), Is.False, sourcePath);
+                Assert.That(source.Contains("AssetDatabase", StringComparison.Ordinal), Is.False, sourcePath);
+                Assert.That(source.Contains("Undo", StringComparison.Ordinal), Is.False, sourcePath);
+                Assert.That(source.Contains("EditorWindow", StringComparison.Ordinal), Is.False, sourcePath);
+                Assert.That(source.Contains("MenuItem", StringComparison.Ordinal), Is.False, sourcePath);
+            }
         }
 
         [Test]
