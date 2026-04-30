@@ -1414,6 +1414,46 @@
       ],
       "reason": "Locked Core coverage for enemy ordinary kinematic timing validation.",
       "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.UnitContinuousLocomotionStateTests.UnitContinuousLocomotionState_IdleZero_OmissionPolicy",
+      "category": "Core",
+      "contracts": [
+        "player_free2d_continuous_locomotion",
+        "determinism"
+      ],
+      "reason": "Locked Core coverage for free2D continuous idle-zero canonical omission.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.UnitContinuousLocomotionStateTests.WorldState_RemoveEntity_PurgesContinuousLocomotionState",
+      "category": "Core",
+      "contracts": [
+        "player_free2d_continuous_locomotion",
+        "spawn_destroy_delayed_ordering"
+      ],
+      "reason": "Locked Core coverage for continuous locomotion cleanup purge.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.UnitContinuousLocomotionStateTests.WorldState_MutualExclusion_KinematicAndContinuous",
+      "category": "Core",
+      "contracts": [
+        "player_free2d_continuous_locomotion",
+        "canonical_path"
+      ],
+      "reason": "Locked Core coverage for kinematic and continuous state mutual exclusion.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.UnitContinuousLocomotionStateTests.FinalizationBatch_MoveEntityThenSetContinuousState_PreservesNormalizedPose",
+      "category": "Core",
+      "contracts": [
+        "player_free2d_continuous_locomotion",
+        "canonical_path"
+      ],
+      "reason": "Locked Core coverage for continuous anchor normalization finalization ordering.",
+      "locked": true
     }
   ]
 }

@@ -243,6 +243,190 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void GameplayTickViewPresenter_ContinuousPose_AppliesAnchorPlusLocalOffset()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_ContinuousPose_AppliesAnchorPlusLocalOffset");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+
+                presenter.Initialize(binder, boardBounds, topology, 1f, CreateTimingProfile());
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreatePlayerUnit(10, sourceCell),
+                    },
+                    topology);
+
+                var continuousTrack = CreateContinuousTrack(
+                    10,
+                    sourceCell,
+                    sourceLocalX: 0,
+                    sourceCell,
+                    destinationLocalX: 1024,
+                    ContinuousLocomotionMode.Moving);
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 1,
+                        new[]
+                        {
+                            CreatePlayerUnit(10, sourceCell),
+                        },
+                        topology,
+                        CreateContinuousPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            new[] { continuousTrack })));
+
+                Assert.That(registry.TryGetView(10, out var view), Is.True);
+                AssertPositionApproximately(
+                    view.transform.localPosition,
+                    GetProjectedKinematicEntityPosition(boardBounds, topology, sourceCell, EntityType.Unit, 1024, 0));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTickViewPresenter_ContinuousIdleNonZero_DoesNotSnapToAnchor()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_ContinuousIdleNonZero_DoesNotSnapToAnchor");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var expectedPosition = GetProjectedKinematicEntityPosition(
+                    boardBounds,
+                    topology,
+                    sourceCell,
+                    EntityType.Unit,
+                    1024,
+                    0);
+
+                presenter.Initialize(binder, boardBounds, topology, 1f, CreateTimingProfile());
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreatePlayerUnit(10, sourceCell),
+                    },
+                    topology);
+
+                var idleTrack = CreateContinuousTrack(
+                    10,
+                    sourceCell,
+                    sourceLocalX: 1024,
+                    sourceCell,
+                    destinationLocalX: 1024,
+                    ContinuousLocomotionMode.Idle);
+
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 1,
+                        new[] { CreatePlayerUnit(10, sourceCell) },
+                        topology,
+                        CreateContinuousPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            new[] { idleTrack })));
+                presenter.UpdatePresentation(CreateTimingProfile().MoveMotionDurationSeconds);
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 2,
+                        new[] { CreatePlayerUnit(10, sourceCell) },
+                        topology,
+                        CreateContinuousPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            new[] { idleTrack })));
+
+                Assert.That(registry.TryGetView(10, out var view), Is.True);
+                AssertPositionApproximately(view.transform.localPosition, expectedPosition);
+                Assert.That(
+                    Vector3.Distance(
+                        view.transform.localPosition,
+                        GetProjectedEntityPosition(boardBounds, topology, sourceCell, EntityType.Unit)),
+                    Is.GreaterThan(0.1f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTickViewPresenter_ContinuousRemovedTerminal_RetainsPose()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_ContinuousRemovedTerminal_RetainsPose");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+
+                presenter.Initialize(binder, boardBounds, topology, 1f, CreateTimingProfile());
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreatePlayerUnit(10, sourceCell),
+                    },
+                    topology);
+
+                var removedTrack = CreateContinuousTrack(
+                    10,
+                    sourceCell,
+                    sourceLocalX: -2048,
+                    sourceCell,
+                    destinationLocalX: -2048,
+                    ContinuousLocomotionMode.Idle,
+                    TickKinematicMotionTerminalKind.Removed);
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 2,
+                        Array.Empty<EntityState>(),
+                        topology,
+                        CreateContinuousPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            new[] { removedTrack })));
+
+                Assert.That(registry.TryGetView(10, out var view), Is.True);
+                Assert.That(view.gameObject.activeSelf, Is.True);
+                AssertPositionApproximately(
+                    view.transform.localPosition,
+                    GetProjectedKinematicEntityPosition(boardBounds, topology, sourceCell, EntityType.Unit, -2048, 0));
+
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 3,
+                        Array.Empty<EntityState>(),
+                        topology,
+                        TickPresentationData.Empty));
+
+                Assert.That(view.gameObject.activeSelf, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayTickViewPresenter_PlayerDeathHold_RetainsRemovedTerminalPoseUntilSignalClears()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_PlayerDeathHold_RetainsRemovedTerminalPoseUntilSignalClears");
@@ -4036,6 +4220,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 playerDeathHoldSignals: playerDeathHoldSignals);
         }
 
+        private static TickPresentationData CreateContinuousPresentationData(
+            IReadOnlyList<TickEntityMotion> entityMotions,
+            IReadOnlyList<TickContinuousLocomotionTrack> continuousLocomotionTracks)
+        {
+            return new TickPresentationData(
+                entityMotions,
+                topologyMotion: null,
+                visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
+                playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
+                playerLocomotionSignals: Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                playerDamageSignals: Array.Empty<TickPlayerDamagePresentationSignal>(),
+                playerDeathSignals: Array.Empty<TickPlayerDeathPresentationSignal>(),
+                enemyDamageSignals: Array.Empty<TickEnemyDamagePresentationSignal>(),
+                enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                enemyJumpSignals: Array.Empty<TickEnemyJumpPresentationSignal>(),
+                enemyChargeSignals: Array.Empty<TickEnemyChargePresentationSignal>(),
+                entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>(),
+                impactTransientSignals: Array.Empty<TickImpactTransientPresentationSignal>(),
+                flipImpactSignals: Array.Empty<FlipImpactPresentationSignal>(),
+                continuousLocomotionTracks: continuousLocomotionTracks);
+        }
+
         private static TickKinematicMotionTrack CreateKinematicTrack(
             int entityId,
             SurfaceCell sourceAnchorCell,
@@ -4062,6 +4269,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 topology,
                 Direction.Right,
                 Direction.Right,
+                terminalKind);
+        }
+
+        private static TickContinuousLocomotionTrack CreateContinuousTrack(
+            int entityId,
+            SurfaceCell sourceAnchorCell,
+            int sourceLocalX,
+            SurfaceCell destinationAnchorCell,
+            int destinationLocalX,
+            ContinuousLocomotionMode mode,
+            TickKinematicMotionTerminalKind terminalKind = TickKinematicMotionTerminalKind.None)
+        {
+            return new TickContinuousLocomotionTrack(
+                entityId,
+                sourceAnchorCell,
+                CreateKinematicOffset(sourceLocalX, 0),
+                destinationAnchorCell,
+                CreateKinematicOffset(destinationLocalX, 0),
+                Direction.Right,
+                Direction.Right,
+                mode,
                 terminalKind);
         }
 
