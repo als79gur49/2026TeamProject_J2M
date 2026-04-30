@@ -62,6 +62,7 @@ namespace Game.Feature.Gameplay.Loop
         SetEnemyGlideState = 23,
         SetEnemyFrontFaceSupportState = 24,
         SetUnitKinematicState = 25,
+        SetUnitContinuousLocomotionState = 26,
     }
 
     internal enum ResolvedActionSemanticKind
@@ -210,6 +211,7 @@ namespace Game.Feature.Gameplay.Loop
             EnemyFrontFaceSupportRuntimeState enemyFrontFaceSupportState = null,
             BoxInteractionLockState boxInteractionLockState = default,
             UnitKinematicRuntimeState unitKinematicState = default,
+            UnitContinuousLocomotionState unitContinuousLocomotionState = default,
             PhasedRuntimeState phasedState = default,
             EntityState spawnEntity = default,
             bool hasSpawnedEntitySummonedState = false,
@@ -247,6 +249,7 @@ namespace Game.Feature.Gameplay.Loop
             EnemyFrontFaceSupportState = enemyFrontFaceSupportState;
             BoxInteractionLockState = boxInteractionLockState;
             UnitKinematicState = unitKinematicState;
+            UnitContinuousLocomotionState = unitContinuousLocomotionState;
             PhasedState = phasedState;
             SpawnedEntity = spawnEntity;
             HasSpawnedEntitySummonedState = hasSpawnedEntitySummonedState;
@@ -314,6 +317,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public UnitKinematicRuntimeState UnitKinematicState { get; }
 
+        public UnitContinuousLocomotionState UnitContinuousLocomotionState { get; }
+
         public PhasedRuntimeState PhasedState { get; }
 
         public EntityState SpawnedEntity { get; }
@@ -360,6 +365,7 @@ namespace Game.Feature.Gameplay.Loop
                 EnemyFrontFaceSupportState,
                 BoxInteractionLockState,
                 UnitKinematicState,
+                UnitContinuousLocomotionState,
                 PhasedState,
                 SpawnedEntity,
                 HasSpawnedEntitySummonedState,
@@ -603,6 +609,21 @@ namespace Game.Feature.Gameplay.Loop
                 unitKinematicState: unitKinematicState);
         }
 
+        public static FinalizationOperation SetUnitContinuousLocomotionState(
+            long sequence,
+            int entityId,
+            UnitContinuousLocomotionState unitContinuousLocomotionState,
+            FinalizationOperationMetadata metadata = default)
+        {
+            return new FinalizationOperation(
+                sequence,
+                FinalizationOperationBucket.NonHpState,
+                FinalizationOperationKind.SetUnitContinuousLocomotionState,
+                metadata,
+                entityId: entityId,
+                unitContinuousLocomotionState: unitContinuousLocomotionState);
+        }
+
         public static FinalizationOperation SetPhasedState(long sequence, int entityId, PhasedRuntimeState phasedState, FinalizationOperationMetadata metadata = default)
         {
             return new FinalizationOperation(
@@ -782,6 +803,11 @@ namespace Game.Feature.Gameplay.Loop
             _operations.Add(FinalizationOperation.SetUnitKinematicState(_nextSequence++, entityId, state, metadata));
         }
 
+        public void SetUnitContinuousLocomotionState(int entityId, UnitContinuousLocomotionState state, FinalizationOperationMetadata metadata = default)
+        {
+            _operations.Add(FinalizationOperation.SetUnitContinuousLocomotionState(_nextSequence++, entityId, state, metadata));
+        }
+
         public void SetPhasedState(int entityId, PhasedRuntimeState state, FinalizationOperationMetadata metadata = default)
         {
             _operations.Add(FinalizationOperation.SetPhasedState(_nextSequence++, entityId, state, metadata));
@@ -950,6 +976,10 @@ namespace Game.Feature.Gameplay.Loop
 
                     case FinalizationOperationKind.SetUnitKinematicState:
                         writeContext.SetUnitKinematicState(operation.EntityId, operation.UnitKinematicState);
+                        break;
+
+                    case FinalizationOperationKind.SetUnitContinuousLocomotionState:
+                        writeContext.SetUnitContinuousLocomotionState(operation.EntityId, operation.UnitContinuousLocomotionState);
                         break;
 
                     case FinalizationOperationKind.SetPhasedState:
@@ -1137,6 +1167,11 @@ namespace Game.Feature.Gameplay.Loop
         public void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state)
         {
             _batch.SetUnitKinematicState(entityId, state);
+        }
+
+        public void SetUnitContinuousLocomotionState(int entityId, UnitContinuousLocomotionState state)
+        {
+            _batch.SetUnitContinuousLocomotionState(entityId, state);
         }
 
         public void SetBoardPresence(int entityId, EntityBoardPresence boardPresence)

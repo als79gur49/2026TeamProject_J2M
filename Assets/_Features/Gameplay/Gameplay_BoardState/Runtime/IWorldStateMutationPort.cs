@@ -24,6 +24,7 @@ namespace Game.Feature.Gameplay.BoardState
         void SetEnemyDefinitionBindingState(int entityId, EnemyDefinitionBindingState state);
         void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state);
         void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state);
+        void SetUnitContinuousLocomotionState(int entityId, UnitContinuousLocomotionState state);
         void RemoveBoxInteractionLockState(int entityId);
         void SetPhasedState(int entityId, PhasedRuntimeState state);
         void SetEntityExecutionLockState(int entityId, EntityExecutionLockState state);

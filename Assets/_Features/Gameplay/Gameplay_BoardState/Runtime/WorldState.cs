@@ -27,6 +27,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly Dictionary<int, SummonedEntityState> _summonedEntitiesByEntityId = new();
         private readonly Dictionary<int, EnemyDefinitionBindingState> _enemyDefinitionBindingsByEntityId = new();
         private readonly Dictionary<int, UnitKinematicRuntimeState> _unitKinematicStatesByEntityId = new();
+        private readonly Dictionary<int, UnitContinuousLocomotionState> _unitContinuousLocomotionStatesByEntityId = new();
         private readonly Dictionary<SurfaceCell, SortedSet<int>> _stackedUnitsByCell = new();
         private readonly TerrainData _terrainData;
         private CubeTopologyState _topology;
@@ -115,6 +116,7 @@ namespace Game.Feature.Gameplay.BoardState
                 new Dictionary<int, SummonedEntityState>(_summonedEntitiesByEntityId),
                 new Dictionary<int, EnemyDefinitionBindingState>(_enemyDefinitionBindingsByEntityId),
                 new Dictionary<int, UnitKinematicRuntimeState>(_unitKinematicStatesByEntityId),
+                new Dictionary<int, UnitContinuousLocomotionState>(_unitContinuousLocomotionStatesByEntityId),
                 _topology,
                 _boardBounds,
                 _terrainData);
@@ -161,6 +163,7 @@ namespace Game.Feature.Gameplay.BoardState
             ClearOccupancyForEntity(entity);
             UpdateStoredEntity(updatedEntity);
             _unitKinematicStatesByEntityId.Remove(entityId);
+            _unitContinuousLocomotionStatesByEntityId.Remove(entityId);
             SetOccupancyForEntity(updatedEntity);
         }
 
@@ -188,6 +191,7 @@ namespace Game.Feature.Gameplay.BoardState
             _summonedEntitiesByEntityId.Remove(entityId);
             _enemyDefinitionBindingsByEntityId.Remove(entityId);
             _unitKinematicStatesByEntityId.Remove(entityId);
+            _unitContinuousLocomotionStatesByEntityId.Remove(entityId);
         }
 
         private void ApplyDamage(int entityId, int amount)
@@ -483,7 +487,42 @@ namespace Game.Feature.Gameplay.BoardState
                 return;
             }
 
+            if (_unitContinuousLocomotionStatesByEntityId.ContainsKey(entityId))
+            {
+                throw new InvalidOperationException(
+                    $"Entity {entityId} cannot hold active unit kinematic and continuous locomotion states at the same time.");
+            }
+
             _unitKinematicStatesByEntityId[entityId] = normalizedState;
+        }
+
+        internal void SetUnitContinuousLocomotionState(int entityId, UnitContinuousLocomotionState state)
+        {
+            if (!_entitiesById.TryGetValue(entityId, out var entity))
+            {
+                return;
+            }
+
+            if (entity.type != EntityType.Unit)
+            {
+                throw new InvalidOperationException(
+                    $"Entity {entityId} cannot hold unit continuous locomotion state because only unit entities are supported.");
+            }
+
+            var normalizedState = state.NormalizedForStorage();
+            if (normalizedState.IsOmittableIdleZero)
+            {
+                _unitContinuousLocomotionStatesByEntityId.Remove(entityId);
+                return;
+            }
+
+            if (_unitKinematicStatesByEntityId.ContainsKey(entityId))
+            {
+                throw new InvalidOperationException(
+                    $"Entity {entityId} cannot hold active unit continuous locomotion and kinematic states at the same time.");
+            }
+
+            _unitContinuousLocomotionStatesByEntityId[entityId] = normalizedState;
         }
 
         internal void RemoveBoxInteractionLockState(int entityId)
@@ -718,6 +757,11 @@ namespace Game.Feature.Gameplay.BoardState
             return _unitKinematicStatesByEntityId.TryGetValue(entityId, out state);
         }
 
+        internal bool TryGetUnitContinuousLocomotionState(int entityId, out UnitContinuousLocomotionState state)
+        {
+            return _unitContinuousLocomotionStatesByEntityId.TryGetValue(entityId, out state);
+        }
+
         internal void EnumerateUnitKinematicStatesOrdered(List<UnitKinematicSnapshotEntry> buffer)
         {
             if (buffer == null)
@@ -729,6 +773,22 @@ namespace Game.Feature.Gameplay.BoardState
             foreach (var pair in _unitKinematicStatesByEntityId)
             {
                 buffer.Add(new UnitKinematicSnapshotEntry(pair.Key, pair.Value));
+            }
+
+            buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+        }
+
+        internal void EnumerateUnitContinuousLocomotionStatesOrdered(List<UnitContinuousLocomotionSnapshotEntry> buffer)
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+            foreach (var pair in _unitContinuousLocomotionStatesByEntityId)
+            {
+                buffer.Add(new UnitContinuousLocomotionSnapshotEntry(pair.Key, pair.Value));
             }
 
             buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
@@ -993,6 +1053,11 @@ namespace Game.Feature.Gameplay.BoardState
         void IWorldStateMutationPort.SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state)
         {
             SetUnitKinematicState(entityId, state);
+        }
+
+        void IWorldStateMutationPort.SetUnitContinuousLocomotionState(int entityId, UnitContinuousLocomotionState state)
+        {
+            SetUnitContinuousLocomotionState(entityId, state);
         }
 
         void IWorldStateMutationPort.RemoveBoxInteractionLockState(int entityId)

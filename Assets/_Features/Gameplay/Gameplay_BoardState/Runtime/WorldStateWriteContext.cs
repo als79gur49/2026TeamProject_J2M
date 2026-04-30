@@ -83,6 +83,11 @@ namespace Game.Feature.Gameplay.BoardState
             _port.SetUnitKinematicState(entityId, state);
         }
 
+        public void SetUnitContinuousLocomotionState(int entityId, UnitContinuousLocomotionState state)
+        {
+            _port.SetUnitContinuousLocomotionState(entityId, state);
+        }
+
         public void SetSummonedEntityState(int entityId, SummonedEntityState state)
         {
             _port.SetSummonedEntityState(entityId, state);

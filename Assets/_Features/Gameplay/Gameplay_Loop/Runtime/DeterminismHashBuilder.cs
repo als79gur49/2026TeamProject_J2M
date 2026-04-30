@@ -86,6 +86,9 @@ namespace Game.Feature.Gameplay.Loop
             builder.Append("UnitKinematics").Append('\n');
             AppendUnitKinematicLines(builder, GetOrderedUnitKinematicStates(finalSnapshot));
 
+            builder.Append("UnitContinuousLocomotion").Append('\n');
+            AppendUnitContinuousLocomotionLines(builder, GetOrderedUnitContinuousLocomotionStates(finalSnapshot));
+
             builder.Append("PhasedStates").Append('\n');
             AppendPhasedStateLines(builder, GetOrderedPhasedStates(finalSnapshot));
 
@@ -252,6 +255,13 @@ namespace Game.Feature.Gameplay.Loop
             return unitKinematicEntries;
         }
 
+        private static List<UnitContinuousLocomotionSnapshotEntry> GetOrderedUnitContinuousLocomotionStates(WorldSnapshot finalSnapshot)
+        {
+            var unitContinuousEntries = new List<UnitContinuousLocomotionSnapshotEntry>();
+            finalSnapshot.EnumerateUnitContinuousLocomotionStatesOrdered(unitContinuousEntries);
+            return unitContinuousEntries;
+        }
+
         private static List<PlayerControlSnapshotEntry> GetOrderedPlayerControlStates(WorldSnapshot finalSnapshot)
         {
             var playerControlEntries = new List<PlayerControlSnapshotEntry>();
@@ -352,6 +362,36 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(state.startedTick).Append('|')
                     .Append(state.stepDirectionX).Append('|')
                     .Append(state.stepDirectionY).Append('\n');
+            }
+        }
+
+        private static void AppendUnitContinuousLocomotionLines(
+            StringBuilder builder,
+            IReadOnlyList<UnitContinuousLocomotionSnapshotEntry> unitContinuousEntries)
+        {
+            if (unitContinuousEntries.Count == 0)
+            {
+                builder.Append("<empty>").Append('\n');
+                return;
+            }
+
+            for (var i = 0; i < unitContinuousEntries.Count; i++)
+            {
+                var entry = unitContinuousEntries[i];
+                var state = entry.State;
+                builder
+                    .Append(entry.EntityId).Append('|')
+                    .Append(state.localOffset.X.RawValue).Append('|')
+                    .Append(state.localOffset.Y.RawValue).Append('|')
+                    .Append(state.velocity.X.RawValue).Append('|')
+                    .Append(state.velocity.Y.RawValue).Append('|')
+                    .Append((int)state.facing).Append('|')
+                    .Append(state.lastMoveDirection.HasValue ? (int)state.lastMoveDirection.Value : -1).Append('|')
+                    .Append(state.speedUnitsPerTick).Append('|')
+                    .Append((int)state.mode).Append('|')
+                    .Append(state.sequenceId).Append('|')
+                    .Append(state.subUnitRemainderX).Append('|')
+                    .Append(state.subUnitRemainderY).Append('\n');
             }
         }
 

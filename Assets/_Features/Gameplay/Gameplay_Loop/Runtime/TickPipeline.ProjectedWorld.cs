@@ -140,6 +140,11 @@ namespace Game.Feature.Gameplay.Loop
                     writeContext.SetUnitKinematicState(entityId, unitKinematicState);
                 }
 
+                if (snapshot.TryGetUnitContinuousLocomotionState(entityId, out var unitContinuousLocomotionState))
+                {
+                    writeContext.SetUnitContinuousLocomotionState(entityId, unitContinuousLocomotionState);
+                }
+
                 if (snapshot.TryGetEnemyChargeState(entityId, out var enemyChargeState))
                 {
                     writeContext.SetEnemyChargeState(entityId, enemyChargeState);
