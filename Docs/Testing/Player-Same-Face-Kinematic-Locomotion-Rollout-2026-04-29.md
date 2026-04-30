@@ -4,6 +4,7 @@ Date: 2026-04-29
 
 This rollout is guarded by `GameplayRuntimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion`.
 The default remains off for scene hosts, composition-root helpers, replay harnesses, and tests.
+If `EnablePlayerFree2DLocalLocomotion` is enabled, player ordinary movement is dispatched to `UnitContinuousLocomotionState` first and this same-face kinematic path remains available only as fallback/legacy coverage.
 
 ## Validation Contract
 

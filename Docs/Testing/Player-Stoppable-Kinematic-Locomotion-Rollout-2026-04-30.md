@@ -4,6 +4,7 @@ Date: 2026-04-30
 
 This rollout is guarded by `GameplayRuntimeFeatureFlags.EnablePlayerStoppableKinematicLocomotion`.
 It is effective only when `EnablePlayerSameFaceContinuousLocomotion` is also enabled.
+If `EnablePlayerFree2DLocalLocomotion` is enabled, player ordinary movement bypasses the Held/reverse/queue branch and uses `UnitContinuousLocomotionState`; this rollout remains the fallback when the free2D flag is off.
 
 ## Validation Contract
 
