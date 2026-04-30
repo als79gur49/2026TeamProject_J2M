@@ -10,6 +10,7 @@ namespace Game.Feature.Gameplay.BoardState
         Interrupted = 3,
         InteractionLocked = 4,
         LegacyDiscrete = 5,
+        Charge = 6,
     }
 
     public enum ForcedMotionOp

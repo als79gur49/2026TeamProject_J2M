@@ -2167,9 +2167,21 @@ namespace Game.Feature.Gameplay.Loop
         {
             // ChargeMove is presentation-only and must be tied to an actual committed move op.
             // Active charge ticks without movement (cooldown pause, blocked, recover) never route here.
-            return IsEnemyUnit(context.PostMovementSnapshot, operation.EntityId) &&
-                   context.PostMovementSnapshot.TryGetEnemyChargeState(operation.EntityId, out var chargeState) &&
-                   chargeState.phase == EnemyChargePhase.Active;
+            if (!IsEnemyUnit(context.PostMovementSnapshot, operation.EntityId) ||
+                !context.PostMovementSnapshot.TryGetEnemyChargeState(operation.EntityId, out var chargeState) ||
+                chargeState.phase != EnemyChargePhase.Active)
+            {
+                return false;
+            }
+
+            if (context.PostMovementSnapshot.TryGetUnitKinematicPose(operation.EntityId, out var pose) &&
+                pose.HasAuthoritativeState &&
+                pose.Mode == MotionMode.Charge)
+            {
+                return false;
+            }
+
+            return true;
         }
 
         private static bool DidGeneratePlayerMoveMotionThisTick(

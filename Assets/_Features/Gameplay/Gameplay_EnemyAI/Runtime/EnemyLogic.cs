@@ -1281,12 +1281,6 @@ namespace Game.Feature.Gameplay.Entities
                         if (TryBuildChargeStartState(snapshot, in input, source, hasPreviousState ? previousState : default, out nextState))
                         {
                             AppendChargeUpdate(updates, _entityId, "Start", nextState);
-
-                            if (CanConsumeChargeStepThisTick(snapshot, source, nextState))
-                            {
-                                nextState = EnemyChargeQueries.ConsumeActiveStep(nextState);
-                                AppendChargeUpdate(updates, _entityId, "ConsumeActiveStep", nextState);
-                            }
                         }
                         else if (hasPreviousState && previousState.phase != EnemyChargePhase.None)
                         {
@@ -1304,23 +1298,9 @@ namespace Game.Feature.Gameplay.Entities
                         {
                             nextState = EnemyChargeQueries.BeginActive(previousState);
                             AppendChargeUpdate(updates, _entityId, "BeginActive", nextState);
-
-                            if (CanConsumeChargeStepThisTick(snapshot, source, nextState))
-                            {
-                                nextState = EnemyChargeQueries.ConsumeActiveStep(nextState);
-                                AppendChargeUpdate(updates, _entityId, "ConsumeActiveStep", nextState);
-                            }
                         }
 
                         break;
-                    }
-
-                    if (previousState.phase == EnemyChargePhase.Active &&
-                        previousState.remainingActiveSteps > 0 &&
-                        CanConsumeChargeStepThisTick(snapshot, source, previousState))
-                    {
-                        nextState = EnemyChargeQueries.ConsumeActiveStep(previousState);
-                        AppendChargeUpdate(updates, _entityId, "ConsumeActiveStep", nextState);
                     }
                     break;
 
@@ -1379,17 +1359,6 @@ namespace Game.Feature.Gameplay.Entities
                 _chargeTimingSettings,
                 reachableSteps);
             return true;
-        }
-
-        private static bool CanConsumeChargeStepThisTick(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            in EnemyChargeRuntimeState chargeState)
-        {
-            return chargeState.phase == EnemyChargePhase.Active &&
-                   chargeState.remainingActiveSteps > 0 &&
-                   CanMoveThisTick(source) &&
-                   EnemyChargeStrategyShared.CanAdvanceChargeStep(snapshot, source, chargeState.lockedDirection);
         }
 
         private static bool CanMoveThisTick(in EntityState source)
@@ -2501,6 +2470,14 @@ namespace Game.Feature.Gameplay.Entities
                     return new EnemyAiTransitionDecision(EnemyAiMode.Charge, 0, "ChargeContinue");
 
                 case EnemyChargePhase.Active:
+                    if (snapshot.TryGetUnitKinematicPose(source.entityId, out var chargePose) &&
+                        chargePose.HasAuthoritativeState &&
+                        !chargePose.IsSettledAtAnchor &&
+                        chargePose.Mode == MotionMode.Charge)
+                    {
+                        return new EnemyAiTransitionDecision(EnemyAiMode.Charge, 0, "ChargeKinematicInProgress");
+                    }
+
                     if (chargeState.remainingActiveSteps == 0)
                     {
                         if (source.enemyLocomotionCooldownTicks > 0)

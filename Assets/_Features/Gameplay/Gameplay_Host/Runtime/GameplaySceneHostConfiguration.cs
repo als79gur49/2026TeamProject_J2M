@@ -117,6 +117,7 @@ namespace Game.Feature.Gameplay.Host
         public bool DirectionChangeConsumesDelay;
         public bool EnablePlayerSameFaceContinuousLocomotion;
         public bool EnableEnemySameFaceContinuousLocomotion;
+        public bool EnableEnemyChargeKinematicLocomotion;
         public EnemyAiProfile DefaultEnemyAiProfile;
         public EnemyAiProfileOverride[] EnemyAiProfileOverrides = Array.Empty<EnemyAiProfileOverride>();
         public EnemyUnitArchetypeCatalog EnemyUnitArchetypeCatalog;
@@ -228,7 +229,8 @@ namespace Game.Feature.Gameplay.Host
         {
             return new GameplayRuntimeFeatureFlags(
                 EnablePlayerSameFaceContinuousLocomotion,
-                EnableEnemySameFaceContinuousLocomotion);
+                EnableEnemySameFaceContinuousLocomotion,
+                EnableEnemyChargeKinematicLocomotion);
         }
 
         public EnemyAiRuntimeCollectionSnapshot CreateEnemyAiRuntimeSnapshot()

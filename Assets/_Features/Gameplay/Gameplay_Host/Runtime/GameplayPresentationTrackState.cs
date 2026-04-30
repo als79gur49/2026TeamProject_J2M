@@ -24,7 +24,8 @@ namespace Game.Feature.Gameplay.Host
 
         public bool IsActiveLocomotion =>
             TerminalKind == TickKinematicMotionTerminalKind.None &&
-            MotionMode == MotionMode.Voluntary;
+            (MotionMode == MotionMode.Voluntary ||
+             MotionMode == MotionMode.Charge);
     }
 
     internal sealed class GameplayPresentationTrackState

@@ -237,6 +237,22 @@ namespace Game.Feature.Gameplay.Loop
         public EnemyPatrolRuntimeState EnemyPatrolState { get; }
     }
 
+    internal readonly struct EnemyChargeWritePayload
+    {
+        public EnemyChargeWritePayload(int entityId, EnemyChargeRuntimeState enemyChargeState, string label)
+        {
+            EntityId = entityId;
+            EnemyChargeState = enemyChargeState;
+            Label = label ?? string.Empty;
+        }
+
+        public int EntityId { get; }
+
+        public EnemyChargeRuntimeState EnemyChargeState { get; }
+
+        public string Label { get; }
+    }
+
     internal readonly struct PlayerControlWritePayload
     {
         public PlayerControlWritePayload(int entityId, PlayerControlState playerControlState)
@@ -502,6 +518,7 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<ExecutionLockWritePayload> executionLockWrites,
             IReadOnlyList<EnemyLocomotionWritePayload> enemyLocomotionWrites,
             IReadOnlyList<EnemyPatrolWritePayload> enemyPatrolWrites,
+            IReadOnlyList<EnemyChargeWritePayload> enemyChargeWrites,
             IReadOnlyList<PlayerControlWritePayload> playerControlWrites,
             IReadOnlyList<DestroyWritePayload> destroyWrites,
             bool hasImpactReservationPayload,
@@ -528,6 +545,7 @@ namespace Game.Feature.Gameplay.Loop
             ExecutionLockWrites = executionLockWrites ?? throw new ArgumentNullException(nameof(executionLockWrites));
             EnemyLocomotionWrites = enemyLocomotionWrites ?? throw new ArgumentNullException(nameof(enemyLocomotionWrites));
             EnemyPatrolWrites = enemyPatrolWrites ?? throw new ArgumentNullException(nameof(enemyPatrolWrites));
+            EnemyChargeWrites = enemyChargeWrites ?? throw new ArgumentNullException(nameof(enemyChargeWrites));
             PlayerControlWrites = playerControlWrites ?? throw new ArgumentNullException(nameof(playerControlWrites));
             DestroyWrites = destroyWrites ?? throw new ArgumentNullException(nameof(destroyWrites));
             HasImpactReservationPayload = hasImpactReservationPayload;
@@ -570,6 +588,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<EnemyLocomotionWritePayload> EnemyLocomotionWrites { get; }
 
         public IReadOnlyList<EnemyPatrolWritePayload> EnemyPatrolWrites { get; }
+
+        public IReadOnlyList<EnemyChargeWritePayload> EnemyChargeWrites { get; }
 
         public IReadOnlyList<PlayerControlWritePayload> PlayerControlWrites { get; }
 
