@@ -3879,6 +3879,252 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void EnemyCharge_KinematicFlag_ActiveStepUsesChargeKinematicMove()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), hp: 5),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Charge, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
+            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 0, chargeStepCooldownTicks: 3);
+            worldState.CreateWriteContext().SetEnemyChargeState(
+                40,
+                new EnemyChargeRuntimeState
+                {
+                    phase = EnemyChargePhase.Active,
+                    sequence = 1,
+                    lockedDirection = Direction.Right,
+                    remainingActiveSteps = 2,
+                });
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemyChargeKinematicLocomotionEnabled);
+                var result = pipeline.RunTick(new TickInput(1));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(0, 0)));
+                Assert.That(snapshot.TryGetUnitKinematicState(40, out var state), Is.True);
+                Assert.That(state.mode, Is.EqualTo(MotionMode.Charge));
+                Assert.That(state.elapsedTicks, Is.EqualTo(1));
+                Assert.That(state.totalTicks, Is.EqualTo(4));
+                Assert.That(state.commitTick, Is.EqualTo(2));
+                Assert.That(result.PresentationData.KinematicMotionTracks.Any(track =>
+                    track.EntityId == 40 &&
+                    track.MotionMode == MotionMode.Charge), Is.True);
+                Assert.That(
+                    result.PresentationData.EntityMotions.Any(motion =>
+                        motion.EntityId == 40 &&
+                        motion.MotionKind == TickEntityMotionKind.ChargeMove),
+                    Is.False);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyCharge_KinematicFlag_ContactStartsAtCommitAndConsumesStepAtSettle()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), hp: 5),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Charge, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
+            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 0, chargeStepCooldownTicks: 4);
+            worldState.CreateWriteContext().SetEnemyChargeState(
+                40,
+                new EnemyChargeRuntimeState
+                {
+                    phase = EnemyChargePhase.Active,
+                    sequence = 1,
+                    lockedDirection = Direction.Right,
+                    remainingActiveSteps = 1,
+                });
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemyChargeKinematicLocomotionEnabled);
+
+                var beforeCommit = pipeline.RunTick(new TickInput(1));
+                var snapshot = worldState.CreateSnapshot();
+                Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(0, 0)));
+                Assert.That(HasAcceptedPassiveContact(beforeCommit, 40, 10), Is.False);
+                Assert.That(snapshot.TryGetEnemyChargeState(40, out var chargeState), Is.True);
+                Assert.That(chargeState.remainingActiveSteps, Is.EqualTo(1));
+
+                var commit = pipeline.RunTick(new TickInput(2));
+                snapshot = worldState.CreateSnapshot();
+                Assert.That(snapshot.TryGetEntity(40, out enemy), Is.True);
+                Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
+                Assert.That(HasAcceptedPassiveContact(commit, 40, 10), Is.True);
+                Assert.That(snapshot.TryGetEnemyChargeState(40, out chargeState), Is.True);
+                Assert.That(chargeState.remainingActiveSteps, Is.EqualTo(1));
+
+                pipeline.RunTick(new TickInput(3));
+                var settled = pipeline.RunTick(new TickInput(4));
+                snapshot = worldState.CreateSnapshot();
+                Assert.That(snapshot.TryGetUnitKinematicState(40, out _), Is.False);
+                Assert.That(snapshot.TryGetEnemyChargeState(40, out chargeState), Is.True);
+                Assert.That(chargeState.remainingActiveSteps, Is.Zero);
+                Assert.That(
+                    settled.MovementPhaseResult.CommitEvents.Any(entry =>
+                        entry.Contains("EnemyChargeStateUpdated", StringComparison.Ordinal) &&
+                        entry.Contains("ConsumeChargeKinematicSettledStep", StringComparison.Ordinal)),
+                    Is.True);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyCharge_ChargeKinematicFlagOff_PatrolToChargeUsesLegacyChargeMove()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(5, 0), hp: 5),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                    CreateBox(entityId: 50, position: new Vector2Int(6, 0)),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
+            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 2, chargeStepCooldownTicks: 0);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled,
+                    new PlayerKinematicLocomotionTimingSettings
+                    {
+                        KinematicMoveDurationSeconds = 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                    }.CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond));
+
+                var firstTick = pipeline.RunTick(new TickInput(1));
+
+                Assert.That(
+                    firstTick.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40),
+                    Is.True,
+                    BuildChargeKinematicDebug(1, worldState, firstTick));
+
+                var secondTick = pipeline.RunTick(new TickInput(2));
+                Assert.That(
+                    secondTick.Trace.Text,
+                    Does.Contain("Reason=ChargeStart"),
+                    BuildChargeKinematicDebug(2, worldState, secondTick));
+
+                var thirdTick = pipeline.RunTick(new TickInput(3));
+                Assert.That(
+                    GetEntityAfterTick(thirdTick, 40).aiMode,
+                    Is.EqualTo(EnemyAiMode.Charge),
+                    BuildChargeKinematicDebug(3, worldState, thirdTick));
+                Assert.That(
+                    GetEntityAfterTick(thirdTick, 40).position.PlanarPosition,
+                    Is.EqualTo(new Vector2Int(2, 0)),
+                    BuildChargeKinematicDebug(3, worldState, thirdTick));
+                Assert.That(
+                    thirdTick.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40),
+                    Is.False,
+                    BuildChargeKinematicDebug(3, worldState, thirdTick));
+                Assert.That(
+                    thirdTick.PresentationData.EntityMotions.Any(motion =>
+                        motion.EntityId == 40 &&
+                        motion.MotionKind == TickEntityMotionKind.ChargeMove),
+                    Is.True,
+                    BuildChargeKinematicDebug(3, worldState, thirdTick));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyCharge_KinematicFlag_PatrolToChargeUsesChargeKinematicMove()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(5, 0), hp: 5),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                    CreateBox(entityId: 50, position: new Vector2Int(6, 0)),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
+            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 2, chargeStepCooldownTicks: 0);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemyAndChargeKinematicLocomotionEnabled,
+                    new PlayerKinematicLocomotionTimingSettings
+                    {
+                        KinematicMoveDurationSeconds = 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                    }.CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond));
+
+                var firstTick = pipeline.RunTick(new TickInput(1));
+
+                Assert.That(
+                    firstTick.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40),
+                    Is.True,
+                    BuildChargeKinematicDebug(1, worldState, firstTick));
+
+                var secondTick = pipeline.RunTick(new TickInput(2));
+                Assert.That(
+                    secondTick.Trace.Text,
+                    Does.Contain("Reason=ChargeStart"),
+                    BuildChargeKinematicDebug(2, worldState, secondTick));
+
+                var thirdTick = pipeline.RunTick(new TickInput(3));
+                Assert.That(
+                    GetEntityAfterTick(thirdTick, 40).aiMode,
+                    Is.EqualTo(EnemyAiMode.Charge),
+                    BuildChargeKinematicDebug(3, worldState, thirdTick));
+                Assert.That(
+                    GetEntityAfterTick(thirdTick, 40).position.PlanarPosition,
+                    Is.EqualTo(new Vector2Int(2, 0)),
+                    BuildChargeKinematicDebug(3, worldState, thirdTick));
+                Assert.That(
+                    thirdTick.PresentationData.KinematicMotionTracks.Any(track =>
+                        track.EntityId == 40 &&
+                        track.MotionMode == MotionMode.Charge),
+                    Is.True,
+                    BuildChargeKinematicDebug(3, worldState, thirdTick));
+                Assert.That(
+                    thirdTick.PresentationData.EntityMotions.Any(motion =>
+                        motion.EntityId == 40 &&
+                        motion.MotionKind == TickEntityMotionKind.ChargeMove),
+                    Is.False,
+                    BuildChargeKinematicDebug(3, worldState, thirdTick));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyJump_NotMigrated()
         {
             var worldState = CreateWorldState(new[]
@@ -5513,6 +5759,37 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                    $"|MoverLocal={(moverId == 10 && hasPlayerKinematic ? $"{playerKinematic.localOffset.X.RawValue},{playerKinematic.localOffset.Y.RawValue}" : moverId == 40 && hasEnemyKinematic ? $"{enemyKinematic.localOffset.X.RawValue},{enemyKinematic.localOffset.Y.RawValue}" : "None")}" +
                    $"|EnemyAnchor={enemy.position}|PlayerAnchor={player.position}|HasSameCellContact={(hasSameCellContact ? 1 : 0)}" +
                    $"|DamageApplied={(damageApplied ? 1 : 0)}|ViewPose={viewPose}|PresentationSource={presentationSource}";
+        }
+
+        private static string BuildChargeKinematicDebug(int tick, WorldState worldState, TickResult result)
+        {
+            var snapshot = worldState.CreateSnapshot();
+            snapshot.TryGetEntity(40, out var enemy);
+            snapshot.TryGetUnitKinematicState(40, out var kinematicState);
+            snapshot.TryGetEnemyChargeState(40, out var chargeState);
+            var rawIntent = result.MovementPhaseResult.RawIntents.FirstOrDefault(intent => intent.SourceId == 40);
+            var hasRawIntent = rawIntent.SourceId == 40;
+            var sortedIntent = result.MovementPhaseResult.SortedIntents.FirstOrDefault(intent => intent.SourceId == 40);
+            var hasSortedIntent = sortedIntent != null;
+            var kinematicTrack = result.PresentationData.KinematicMotionTracks.FirstOrDefault(track => track.EntityId == 40);
+            var legacyMotion = result.PresentationData.EntityMotions.FirstOrDefault(motion => motion.EntityId == 40);
+            var damageApplied = result.AttackPhaseResult.DamageResolutions.Any(record => record.Accepted);
+            var rejectedReasons = string.Join(";", result.MovementPhaseResult.RejectedReasons);
+            var commitEvents = string.Join(";", result.MovementPhaseResult.CommitEvents);
+
+            return $"ChargeDebug|Tick={tick}|Enemy=40|Pos={enemy.position}|Mode={enemy.aiMode}|AiTimer={enemy.aiStateTimer}" +
+                   $"|LocomotionCooldown={enemy.enemyLocomotionCooldownTicks}" +
+                   $"|HasKinematic={snapshot.TryGetUnitKinematicState(40, out _)}" +
+                   $"|KinematicMode={kinematicState.mode}|KinematicSettled={kinematicState.IsSettledAtAnchor}" +
+                   $"|KinematicElapsed={kinematicState.elapsedTicks}|KinematicTotal={kinematicState.totalTicks}|KinematicCommit={kinematicState.commitTick}" +
+                   $"|KinematicOffset={kinematicState.localOffset.X.RawValue},{kinematicState.localOffset.Y.RawValue}" +
+                   $"|ChargePhase={chargeState.phase}|ChargeSeq={chargeState.sequence}|ChargeDirection={chargeState.lockedDirection}" +
+                   $"|WindupEnd={chargeState.windupEndTick}|ActiveSteps={chargeState.remainingActiveSteps}|RecoverTicks={chargeState.recoverRemainingTicks}" +
+                   $"|RawIntent={(hasRawIntent ? 1 : 0)}|RawKind={(hasRawIntent ? rawIntent.CommandKind.ToString() : "None")}|RawDest={(hasRawIntent ? rawIntent.Destination.ToString() : "None")}|RawOrdinaryKinematicTicks={(hasRawIntent ? rawIntent.OrdinaryKinematicMoveTicks : 0)}" +
+                   $"|SortedIntent={(hasSortedIntent ? 1 : 0)}|SortedKind={(hasSortedIntent ? sortedIntent.CommandKind.ToString() : "None")}|SortedDest={(hasSortedIntent ? sortedIntent.Destination.ToString() : "None")}|SortedOrdinaryKinematicTicks={(hasSortedIntent ? sortedIntent.OrdinaryKinematicMoveTicks : 0)}" +
+                   $"|KinematicTrack={(kinematicTrack.EntityId == 40 ? 1 : 0)}|KinematicTrackMode={kinematicTrack.MotionMode}" +
+                   $"|LegacyMotion={(legacyMotion.EntityId == 40 ? 1 : 0)}|LegacyMotionKind={legacyMotion.MotionKind}" +
+                   $"|DamageApplied={(damageApplied ? 1 : 0)}|Rejected={rejectedReasons}|Commits={commitEvents}|Trace={result.Trace.Text}";
         }
 
         private static string ResolvePresentationSource(TickResult result, int entityId, out string viewPose)

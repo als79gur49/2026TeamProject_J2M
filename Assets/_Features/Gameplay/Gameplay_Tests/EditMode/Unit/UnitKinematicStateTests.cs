@@ -122,6 +122,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(interrupted.stepDirectionY, Is.EqualTo(0));
         }
 
+        [Test]
+        [Category("Extended")]
+        public void NormalizedForStorage_ChargeMode_PreservesStepProgress()
+        {
+            var state = new UnitKinematicRuntimeState
+            {
+                localOffset = new KinematicOffset2(KinematicFixed.FromRaw(512), KinematicFixed.Zero),
+                velocity = new KinematicVelocity2(KinematicFixed.FromRaw(128), KinematicFixed.Zero),
+                mode = MotionMode.Charge,
+                remainingDistanceUnits = 3584,
+                remainingTicks = 3,
+                speedScalePermille = 1000,
+                sequenceId = 7,
+                elapsedTicks = 1,
+                totalTicks = 4,
+                commitTick = 2,
+                startedTick = 11,
+                stepDirectionX = 1,
+            }.NormalizedForStorage();
+
+            Assert.That(state.mode, Is.EqualTo(MotionMode.Charge));
+            Assert.That(state.elapsedTicks, Is.EqualTo(1));
+            Assert.That(state.totalTicks, Is.EqualTo(4));
+            Assert.That(state.commitTick, Is.EqualTo(2));
+            Assert.That(state.startedTick, Is.EqualTo(11));
+            Assert.That(state.stepDirectionX, Is.EqualTo(1));
+            Assert.That(state.remainingDistanceUnits, Is.EqualTo(3584));
+        }
+
         [TestCase(30, 10)]
         [TestCase(60, 20)]
         [TestCase(120, 40)]
