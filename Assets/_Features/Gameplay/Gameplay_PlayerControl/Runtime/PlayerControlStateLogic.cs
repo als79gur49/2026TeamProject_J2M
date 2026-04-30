@@ -205,7 +205,7 @@ namespace Game.Feature.Gameplay.PlayerControl
             writeContext.SetPlayerControlState(_entityId, nextState);
             actionTransitions.Add(new PlayerActionTransition(_entityId, previousAction, nextState.activeAction));
             updates.Add(
-                $"PlayerControlUpdated|E={_entityId}|Cooldown={nextState.moveCooldownTicks}|NextMoveAllowed={nextState.nextMoveAllowedTick}|Action={nextState.activeAction.kind}|ActionSeq={nextState.activeAction.sequence}|ActionDirection={nextState.activeAction.direction}|ActionTarget={nextState.activeAction.targetEntityId}|Start={nextState.activeAction.startTick}|Execute={nextState.activeAction.executeTick}|Recovery={nextState.activeAction.recoveryEndTick}|Attempted={(nextState.activeAction.executionAttempted ? 1 : 0)}");
+                $"PlayerControlUpdated|E={_entityId}|Cooldown={nextState.moveCooldownTicks}|NextMoveAllowed={nextState.nextMoveAllowedTick}|Action={nextState.activeAction.kind}|ActionSeq={nextState.activeAction.sequence}|ActionDirection={nextState.activeAction.direction}|ActionTarget={nextState.activeAction.targetEntityId}|Start={nextState.activeAction.startTick}|Execute={nextState.activeAction.executeTick}|Recovery={nextState.activeAction.recoveryEndTick}|Attempted={(nextState.activeAction.executionAttempted ? 1 : 0)}|QueuedKinematicTurn={nextState.queuedKinematicTurnDirection}");
         }
 
         private void UpdateMovementOwnedPhasedState(

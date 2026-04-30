@@ -39,6 +39,69 @@ namespace Game.Feature.Gameplay.BoardState
 
     public static class KinematicProgressResolver
     {
+        public static bool TryResolveReverseFromHeld(
+            SurfaceCell currentAnchor,
+            UnitKinematicRuntimeState heldState,
+            int reverseStepDirectionX,
+            int reverseStepDirectionY,
+            out SurfaceCell mirroredAnchor,
+            out UnitKinematicRuntimeState mirroredState,
+            out int poseDeltaRawUnits)
+        {
+            mirroredAnchor = default;
+            mirroredState = default;
+            poseDeltaRawUnits = int.MaxValue;
+
+            var normalizedHeld = heldState.NormalizedForStorage();
+            if (normalizedHeld.mode != MotionMode.Held ||
+                normalizedHeld.totalTicks < 2 ||
+                (normalizedHeld.totalTicks % 2) != 0 ||
+                normalizedHeld.elapsedTicks <= 0 ||
+                normalizedHeld.elapsedTicks >= normalizedHeld.totalTicks ||
+                !IsCardinalDirection(normalizedHeld.stepDirectionX, normalizedHeld.stepDirectionY) ||
+                !IsCardinalDirection(reverseStepDirectionX, reverseStepDirectionY) ||
+                reverseStepDirectionX != -normalizedHeld.stepDirectionX ||
+                reverseStepDirectionY != -normalizedHeld.stepDirectionY)
+            {
+                return false;
+            }
+
+            var totalTicks = normalizedHeld.totalTicks;
+            var commitTick = totalTicks / 2;
+            var mirroredElapsedTicks = totalTicks - normalizedHeld.elapsedTicks;
+            var resolution = ResolvePose(
+                currentAnchor,
+                reverseStepDirectionX,
+                reverseStepDirectionY,
+                mirroredElapsedTicks,
+                totalTicks);
+
+            mirroredAnchor = resolution.AnchorCell;
+            mirroredState = new UnitKinematicRuntimeState
+            {
+                localOffset = resolution.LocalOffset,
+                velocity = CreateDebugVelocity(reverseStepDirectionX, reverseStepDirectionY),
+                mode = MotionMode.Voluntary,
+                forcedOp = ForcedMotionOp.None,
+                remainingDistanceUnits = resolution.RemainingDistanceUnits,
+                remainingTicks = resolution.RemainingTicks,
+                speedScalePermille = 1000,
+                sequenceId = normalizedHeld.sequenceId + 1,
+                elapsedTicks = mirroredElapsedTicks,
+                totalTicks = totalTicks,
+                commitTick = commitTick,
+                startedTick = normalizedHeld.startedTick,
+                stepDirectionX = reverseStepDirectionX,
+                stepDirectionY = reverseStepDirectionY,
+            }.NormalizedForStorage();
+            poseDeltaRawUnits = ResolvePoseDeltaRawUnits(
+                currentAnchor,
+                normalizedHeld.localOffset,
+                mirroredAnchor,
+                mirroredState.localOffset);
+            return true;
+        }
+
         public static KinematicProgressResolution ResolvePose(
             SurfaceCell currentAnchor,
             int stepDirectionX,
@@ -120,6 +183,31 @@ namespace Game.Feature.Gameplay.BoardState
         private static bool IsCardinalDirection(int x, int y)
         {
             return Math.Abs(x) + Math.Abs(y) == 1;
+        }
+
+        private static KinematicVelocity2 CreateDebugVelocity(int stepDirectionX, int stepDirectionY)
+        {
+            return new KinematicVelocity2(
+                KinematicFixed.FromRaw(stepDirectionX * KinematicFixed.DefaultPlayerUnitsPerTick),
+                KinematicFixed.FromRaw(stepDirectionY * KinematicFixed.DefaultPlayerUnitsPerTick));
+        }
+
+        private static int ResolvePoseDeltaRawUnits(
+            SurfaceCell oldAnchor,
+            KinematicOffset2 oldOffset,
+            SurfaceCell newAnchor,
+            KinematicOffset2 newOffset)
+        {
+            if (oldAnchor.face != newAnchor.face)
+            {
+                return int.MaxValue;
+            }
+
+            var oldWorldX = ((long)oldAnchor.x * KinematicFixed.UnitsPerCell) + oldOffset.X.RawValue;
+            var oldWorldY = ((long)oldAnchor.y * KinematicFixed.UnitsPerCell) + oldOffset.Y.RawValue;
+            var newWorldX = ((long)newAnchor.x * KinematicFixed.UnitsPerCell) + newOffset.X.RawValue;
+            var newWorldY = ((long)newAnchor.y * KinematicFixed.UnitsPerCell) + newOffset.Y.RawValue;
+            return (int)Math.Max(Math.Abs(oldWorldX - newWorldX), Math.Abs(oldWorldY - newWorldY));
         }
 
         private static KinematicOffset2 CreateAxisOffset(int stepDirectionX, int stepDirectionY, int localUnits)

@@ -31,6 +31,7 @@ namespace Game.Feature.Gameplay.PlayerControl
         public int nextMoveAllowedTick;
         public int actionSequenceCounter;
         public PlayerActionRuntimeState activeAction;
+        public Direction queuedKinematicTurnDirection;
     }
 
     internal readonly struct PlayerControlSnapshotEntry
@@ -176,12 +177,43 @@ namespace Game.Feature.Gameplay.PlayerControl
             return updatedState;
         }
 
+        public static PlayerControlState QueueKinematicTurn(
+            in PlayerControlState state,
+            Direction direction)
+        {
+            var updatedState = state;
+            updatedState.queuedKinematicTurnDirection = IsCardinalDirection(direction)
+                ? direction
+                : Direction.None;
+            return updatedState;
+        }
+
+        public static PlayerControlState ClearQueuedKinematicTurn(in PlayerControlState state)
+        {
+            var updatedState = state;
+            updatedState.queuedKinematicTurnDirection = Direction.None;
+            return updatedState;
+        }
+
         public static bool IsMoveOnCooldown(
             in PlayerControlState state,
             int tickIndex)
         {
             return state.moveCooldownTicks > 0 ||
                    (state.nextMoveAllowedTick > 0 && tickIndex < state.nextMoveAllowedTick);
+        }
+
+        public static bool HasQueuedKinematicTurn(in PlayerControlState state)
+        {
+            return IsCardinalDirection(state.queuedKinematicTurnDirection);
+        }
+
+        private static bool IsCardinalDirection(Direction direction)
+        {
+            return direction == Direction.Up ||
+                   direction == Direction.Right ||
+                   direction == Direction.Down ||
+                   direction == Direction.Left;
         }
 
         public static bool TryResolvePushContact(

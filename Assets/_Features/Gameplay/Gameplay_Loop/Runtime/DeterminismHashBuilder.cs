@@ -593,7 +593,8 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entry.State.activeAction.startTick).Append('|')
                     .Append(entry.State.activeAction.executeTick).Append('|')
                     .Append(entry.State.activeAction.recoveryEndTick).Append('|')
-                    .Append(entry.State.activeAction.executionAttempted ? 1 : 0).Append('\n');
+                    .Append(entry.State.activeAction.executionAttempted ? 1 : 0).Append('|')
+                    .Append((int)entry.State.queuedKinematicTurnDirection).Append('\n');
             }
         }
 
