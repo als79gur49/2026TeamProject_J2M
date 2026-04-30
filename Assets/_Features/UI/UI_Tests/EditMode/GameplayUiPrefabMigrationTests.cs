@@ -302,13 +302,18 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void ObjectiveStatusScreenPrefabAsset_HidesLegacyOverviewAndSessionTabButtons()
+        public void ObjectiveStatusScreenPrefabAsset_RemovesLegacyOverviewAndSessionTabButtons()
         {
             var screen = UiTestPrefabAssetUtility.LoadScreenPrefab<ObjectiveStatusScreenView>(UiTestPrefabAssetUtility.ObjectiveStatusScreenPrefabPath);
             var serializedScreen = new SerializedObject(screen);
+            var childNames = screen.GetComponentsInChildren<Transform>(true)
+                .Select(child => child.name)
+                .ToArray();
 
-            AssertSerializedButtonInactive(serializedScreen, "_overviewButton");
-            AssertSerializedButtonInactive(serializedScreen, "_sessionButton");
+            Assert.That(serializedScreen.FindProperty("_overviewButton"), Is.Null);
+            Assert.That(serializedScreen.FindProperty("_sessionButton"), Is.Null);
+            Assert.That(childNames, Does.Not.Contain("OverviewButton"));
+            Assert.That(childNames, Does.Not.Contain("SessionButton"));
         }
 
         [Test]
@@ -564,6 +569,99 @@ namespace Game.Feature.UI.Tests
             finally
             {
                 UnityEngine.Object.DestroyImmediate(settingsView.gameObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [TestCase(1920f, 1080f, 520f, 360f)]
+        [TestCase(1280f, 720f, 520f, 360f)]
+        [TestCase(1366f, 768f, 520f, 360f)]
+        [TestCase(500f, 360f, 372f, 232f)]
+        public void ObjectiveStatusScreenRuntimeLayout_ClampsTopCenterPanelWithinParent(
+            float parentWidth,
+            float parentHeight,
+            float expectedWidth,
+            float expectedHeight)
+        {
+            var parentObject = new GameObject("ObjectiveStatusScreenRuntimeLayoutParent", typeof(RectTransform));
+            var parentRect = (RectTransform)parentObject.transform;
+            parentRect.anchorMin = Vector2.zero;
+            parentRect.anchorMax = Vector2.zero;
+            parentRect.pivot = Vector2.zero;
+            parentRect.sizeDelta = new Vector2(parentWidth, parentHeight);
+            var objectivePrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<ObjectiveStatusScreenView>(UiTestPrefabAssetUtility.ObjectiveStatusScreenPrefabPath);
+            var objectiveView = UnityEngine.Object.Instantiate(objectivePrefab, parentRect, false);
+
+            try
+            {
+                objectiveView.Bind(new ObjectiveStatusScreenViewModel());
+                objectiveView.SetIsCurrent(true);
+                var objectiveRect = (RectTransform)objectiveView.transform;
+                LayoutRebuilder.ForceRebuildLayoutImmediate(objectiveRect);
+
+                Assert.That(objectiveRect.anchorMin, Is.EqualTo(new Vector2(0.5f, 1f)));
+                Assert.That(objectiveRect.anchorMax, Is.EqualTo(new Vector2(0.5f, 1f)));
+                Assert.That(objectiveRect.pivot, Is.EqualTo(new Vector2(0.5f, 1f)));
+                Assert.That(objectiveRect.anchoredPosition, Is.EqualTo(new Vector2(0f, -20f)));
+                Assert.That(objectiveRect.sizeDelta.x, Is.EqualTo(expectedWidth).Within(0.01f));
+                Assert.That(objectiveRect.sizeDelta.y, Is.EqualTo(expectedHeight).Within(0.01f));
+                Assert.That(objectiveRect.sizeDelta.x, Is.LessThanOrEqualTo(Mathf.Max(1f, parentWidth - 128f)));
+                Assert.That(objectiveRect.sizeDelta.y, Is.LessThanOrEqualTo(Mathf.Max(1f, parentHeight - 128f)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(objectiveView.gameObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveStatusScreenRuntimeLayout_UsesLayoutContainersAndFlexibleDetail()
+        {
+            var parentObject = new GameObject("ObjectiveStatusScreenRuntimeLayoutContainerParent", typeof(RectTransform));
+            var parentRect = (RectTransform)parentObject.transform;
+            parentRect.sizeDelta = new Vector2(1920f, 1080f);
+            var objectivePrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<ObjectiveStatusScreenView>(UiTestPrefabAssetUtility.ObjectiveStatusScreenPrefabPath);
+            var objectiveView = UnityEngine.Object.Instantiate(objectivePrefab, parentRect, false);
+
+            try
+            {
+                objectiveView.Bind(new ObjectiveStatusScreenViewModel());
+                objectiveView.SetIsCurrent(true);
+                var objectiveRect = (RectTransform)objectiveView.transform;
+                LayoutRebuilder.ForceRebuildLayoutImmediate(objectiveRect);
+
+                Assert.That(objectiveView.GetComponent<VerticalLayoutGroup>(), Is.Not.Null);
+                Assert.That(objectiveView.GetComponent<LayoutElement>(), Is.Not.Null);
+
+                var header = objectiveView.transform.Find("ObjectiveHeader") as RectTransform;
+                var summary = objectiveView.transform.Find("ObjectiveSummary") as RectTransform;
+                var detail = objectiveView.transform.Find("ObjectiveDetail") as RectTransform;
+                var secondary = objectiveView.transform.Find("ObjectiveSecondary") as RectTransform;
+                var footer = objectiveView.transform.Find("ObjectiveFooter") as RectTransform;
+
+                Assert.That(header, Is.Not.Null);
+                Assert.That(summary, Is.Not.Null);
+                Assert.That(detail, Is.Not.Null);
+                Assert.That(secondary, Is.Not.Null);
+                Assert.That(footer, Is.Not.Null);
+                Assert.That(header.GetComponent<HorizontalLayoutGroup>(), Is.Not.Null);
+                Assert.That(footer.GetComponent<HorizontalLayoutGroup>(), Is.Not.Null);
+                Assert.That(detail.GetComponent<LayoutElement>().flexibleHeight, Is.EqualTo(1f));
+                Assert.That(objectiveView.transform.Find("ObjectiveHeader/Title"), Is.Not.Null);
+                Assert.That(objectiveView.transform.Find("ObjectiveHeader/Badge"), Is.Not.Null);
+                Assert.That(objectiveView.transform.Find("ObjectiveSummary/Summary"), Is.Not.Null);
+                Assert.That(objectiveView.transform.Find("ObjectiveDetail/Detail"), Is.Not.Null);
+                Assert.That(objectiveView.transform.Find("ObjectiveSecondary/Secondary"), Is.Not.Null);
+                Assert.That(objectiveView.transform.Find("ObjectiveFooter/InfoButton"), Is.Not.Null);
+                Assert.That(objectiveView.transform.Find("ObjectiveFooter/BackButton"), Is.Not.Null);
+                Assert.That(objectiveView.transform.Find("ObjectiveSummary/Summary").GetComponent<TMP_Text>().textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
+                Assert.That(objectiveView.transform.Find("ObjectiveDetail/Detail").GetComponent<TMP_Text>().textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
+                Assert.That(objectiveView.transform.Find("ObjectiveSecondary/Secondary").GetComponent<TMP_Text>().textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(objectiveView.gameObject);
                 UnityEngine.Object.DestroyImmediate(parentObject);
             }
         }
