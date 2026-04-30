@@ -7,6 +7,7 @@ using Game.Shared.Display;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Game.Feature.UI.Tests
 {
@@ -147,6 +148,24 @@ namespace Game.Feature.UI.Tests
             AssignScreenPrefabCatalog(installer);
             AssignPopupPrefabCatalog(installer);
             AssignUiAudioCueMap(installer);
+        }
+
+        internal static void AssertOverlayCanvasScaling(GameObject root)
+        {
+            Assert.That(root, Is.Not.Null);
+
+            var canvas = root.GetComponent<Canvas>();
+            Assert.That(canvas, Is.Not.Null);
+            Assert.That(canvas.renderMode, Is.EqualTo(RenderMode.ScreenSpaceOverlay));
+
+            var scaler = root.GetComponent<CanvasScaler>();
+            Assert.That(scaler, Is.Not.Null);
+            Assert.That(scaler.uiScaleMode, Is.EqualTo(CanvasScaler.ScaleMode.ScaleWithScreenSize));
+            Assert.That(scaler.referenceResolution, Is.EqualTo(new Vector2(1920f, 1080f)));
+            Assert.That(scaler.screenMatchMode, Is.EqualTo(CanvasScaler.ScreenMatchMode.MatchWidthOrHeight));
+            Assert.That(scaler.matchWidthOrHeight, Is.EqualTo(1.0f));
+
+            Assert.That(root.GetComponent<GraphicRaycaster>(), Is.Not.Null);
         }
 
         internal static void ConfigureAudioInstallerBindingMode(

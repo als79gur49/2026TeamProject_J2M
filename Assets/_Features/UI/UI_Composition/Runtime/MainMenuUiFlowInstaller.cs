@@ -279,10 +279,7 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
-            var canvas = gameObject.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            gameObject.AddComponent<CanvasScaler>();
-            gameObject.AddComponent<GraphicRaycaster>();
+            UiOverlayCanvasConfigurator.ConfigureOverlayCanvas(gameObject);
         }
 
         private static void EnsureEventSystem()

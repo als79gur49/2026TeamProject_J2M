@@ -87,6 +87,7 @@ namespace Game.Feature.UI.Tests
                 var rootView = rootShellInstance.GetComponent<GameplayUiCanvasRootView>();
                 rootView.EnsureHierarchy();
 
+                UiTestPrefabAssetUtility.AssertOverlayCanvasScaling(rootShellInstance);
                 Assert.That(rootView.ScreenLayerView, Is.Not.Null);
                 Assert.That(rootView.PopupLayerView, Is.Not.Null);
                 Assert.That(rootShellInstance.GetComponentInChildren<UiArchitectureDiagnosticsOverlayView>(true), Is.Not.Null);

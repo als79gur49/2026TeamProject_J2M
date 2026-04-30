@@ -82,27 +82,7 @@ namespace Game.Feature.UI.Composition
 
         private void EnsureCanvas()
         {
-            _canvas = GetComponent<Canvas>();
-            if (_canvas == null)
-            {
-                _canvas = gameObject.AddComponent<Canvas>();
-            }
-
-            _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-
-            var scaler = GetComponent<CanvasScaler>();
-            if (scaler == null)
-            {
-                scaler = gameObject.AddComponent<CanvasScaler>();
-            }
-
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
-
-            if (GetComponent<GraphicRaycaster>() == null)
-            {
-                gameObject.AddComponent<GraphicRaycaster>();
-            }
+            _canvas = UiOverlayCanvasConfigurator.ConfigureOverlayCanvas(gameObject);
         }
 
         private static void EnsureEventSystem()

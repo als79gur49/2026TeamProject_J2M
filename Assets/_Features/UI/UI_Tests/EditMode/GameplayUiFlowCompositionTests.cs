@@ -196,6 +196,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(installer.RootView, Is.Not.Null);
                 Assert.That(installer.RootView.name, Is.EqualTo("GameplayUiCanvasRoot"));
                 Assert.That(installer.RootView.GetComponent<Canvas>(), Is.Not.Null);
+                UiTestPrefabAssetUtility.AssertOverlayCanvasScaling(installer.RootView.gameObject);
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
                 Assert.That(installer.HudView.IsVisible, Is.True);
                 Assert.That(installer.HudController.IsGameplayReadOnly, Is.False);
