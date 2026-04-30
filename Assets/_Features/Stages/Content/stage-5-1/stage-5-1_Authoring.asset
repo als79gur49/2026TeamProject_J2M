@@ -382,10 +382,23 @@ MonoBehaviour:
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
     PresentationId: 
-  zones: []
+  zones:
+  - ZoneId: exit
+    FaceId: 0
+    Regions:
+    - MinInclusive: {x: 14, y: 7}
+      MaxInclusive: {x: 14, y: 7}
   objective:
-    CompletionPolicy: 0
-    ConditionEntries: []
+    CompletionPolicy: 2
+    ObjectiveTitle: ""
+    ObjectiveSummary: ""
+    ConditionEntries:
+    - Condition: {fileID: 11400000, guid: 9a1d7c781b0b44b88416699c33c274bf, type: 2}
+      Required: 1
+      Role: 1
+      StableConditionId: primary-goal
+      DisplayText: Reach the exit zone
+      SortOrder: 0
   entityIdMappings:
   - StableGuid: stage-5-1:Player:10
     EntityId: 10
