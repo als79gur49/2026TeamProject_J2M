@@ -3995,7 +3995,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyCharge_ChargeKinematicFlagOff_PatrolToChargeUsesLegacyChargeMove()
+        public void EnemyCharge_ChargeKinematicFlagOff_PatrolToChargeWaitsForOrdinarySettleThenUsesLegacyChargeMove()
         {
             var worldState = CreateWorldState(
                 new[]
@@ -4028,10 +4028,24 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var secondTick = pipeline.RunTick(new TickInput(2));
                 Assert.That(
                     secondTick.Trace.Text,
-                    Does.Contain("Reason=ChargeStart"),
+                    Does.Contain("EnemyChargeStartDeferred"),
+                    BuildChargeKinematicDebug(2, worldState, secondTick));
+                Assert.That(
+                    GetEntityAfterTick(secondTick, 40).aiMode,
+                    Is.Not.EqualTo(EnemyAiMode.Charge),
+                    BuildChargeKinematicDebug(2, worldState, secondTick));
+                Assert.That(
+                    secondTick.PresentationData.EntityMotions.Any(motion =>
+                        motion.EntityId == 40 &&
+                        motion.MotionKind == TickEntityMotionKind.ChargeMove),
+                    Is.False,
                     BuildChargeKinematicDebug(2, worldState, secondTick));
 
                 var thirdTick = pipeline.RunTick(new TickInput(3));
+                Assert.That(
+                    thirdTick.Trace.Text,
+                    Does.Contain("Reason=ChargeStart"),
+                    BuildChargeKinematicDebug(3, worldState, thirdTick));
                 Assert.That(
                     GetEntityAfterTick(thirdTick, 40).aiMode,
                     Is.EqualTo(EnemyAiMode.Charge),
@@ -4059,7 +4073,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyCharge_KinematicFlag_PatrolToChargeUsesChargeKinematicMove()
+        public void EnemyCharge_KinematicFlag_PatrolToChargeWaitsForOrdinarySettleThenUsesChargeKinematicMove()
         {
             var worldState = CreateWorldState(
                 new[]
@@ -4092,10 +4106,36 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var secondTick = pipeline.RunTick(new TickInput(2));
                 Assert.That(
                     secondTick.Trace.Text,
-                    Does.Contain("Reason=ChargeStart"),
+                    Does.Contain("EnemyChargeStartDeferred"),
+                    BuildChargeKinematicDebug(2, worldState, secondTick));
+                Assert.That(
+                    GetEntityAfterTick(secondTick, 40).aiMode,
+                    Is.Not.EqualTo(EnemyAiMode.Charge),
+                    BuildChargeKinematicDebug(2, worldState, secondTick));
+                Assert.That(
+                    secondTick.PresentationData.KinematicMotionTracks.Any(track =>
+                        track.EntityId == 40 &&
+                        track.MotionMode == MotionMode.Charge),
+                    Is.False,
+                    BuildChargeKinematicDebug(2, worldState, secondTick));
+                Assert.That(
+                    secondTick.PresentationData.KinematicMotionTracks.Any(track =>
+                        track.EntityId == 40 &&
+                        track.MotionMode == MotionMode.Voluntary),
+                    Is.False,
+                    BuildChargeKinematicDebug(2, worldState, secondTick));
+                Assert.That(
+                    secondTick.PresentationData.KinematicMotionTracks.Any(track =>
+                        track.EntityId == 40 &&
+                        track.MotionMode == MotionMode.Settled),
+                    Is.True,
                     BuildChargeKinematicDebug(2, worldState, secondTick));
 
                 var thirdTick = pipeline.RunTick(new TickInput(3));
+                Assert.That(
+                    thirdTick.Trace.Text,
+                    Does.Contain("Reason=ChargeStart"),
+                    BuildChargeKinematicDebug(3, worldState, thirdTick));
                 Assert.That(
                     GetEntityAfterTick(thirdTick, 40).aiMode,
                     Is.EqualTo(EnemyAiMode.Charge),
@@ -4116,6 +4156,308 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         motion.MotionKind == TickEntityMotionKind.ChargeMove),
                     Is.False,
                     BuildChargeKinematicDebug(3, worldState, thirdTick));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyCharge_SettleWait_DuringOrdinaryKinematic_DoesNotSnap()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(5, 0), hp: 5),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                    CreateBox(entityId: 50, position: new Vector2Int(6, 0)),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
+            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 4, chargeStepCooldownTicks: 0);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemyAndChargeKinematicLocomotionEnabled,
+                    new PlayerKinematicLocomotionTimingSettings
+                    {
+                        KinematicMoveDurationSeconds = 4f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                    }.CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond));
+
+                pipeline.RunTick(new TickInput(1));
+                var deferredTick = pipeline.RunTick(new TickInput(2));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(GetEntityAfterTick(deferredTick, 40).aiMode, Is.Not.EqualTo(EnemyAiMode.Charge), BuildChargeKinematicDebug(2, worldState, deferredTick));
+                Assert.That(deferredTick.Trace.Text, Does.Contain("EnemyChargeStartDeferred"), BuildChargeKinematicDebug(2, worldState, deferredTick));
+                if (snapshot.TryGetEnemyChargeState(40, out var chargeState))
+                {
+                    Assert.That(chargeState.phase, Is.EqualTo(EnemyChargePhase.None), BuildChargeKinematicDebug(2, worldState, deferredTick));
+                }
+
+                Assert.That(snapshot.TryGetUnitKinematicState(40, out var state), Is.True, BuildChargeKinematicDebug(2, worldState, deferredTick));
+                Assert.That(state.mode, Is.EqualTo(MotionMode.Voluntary), BuildChargeKinematicDebug(2, worldState, deferredTick));
+                Assert.That(state.localOffset.IsZero, Is.False, BuildChargeKinematicDebug(2, worldState, deferredTick));
+                Assert.That(
+                    deferredTick.PresentationData.KinematicMotionTracks.Any(track =>
+                        track.EntityId == 40 &&
+                        track.MotionMode == MotionMode.Voluntary &&
+                        !track.DestinationLocalOffset.IsZero),
+                    Is.True,
+                    BuildChargeKinematicDebug(2, worldState, deferredTick));
+                Assert.That(deferredTick.PresentationData.EnemyChargeSignals.Any(signal => signal.EntityId == 40), Is.False);
+                Assert.That(deferredTick.Trace.Text, Does.Not.Contain("EnemyChargeOrdinaryKinematicResidueCleared"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyCharge_SettleWait_StartsAfterOrdinarySettled_WhenStillValid()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(5, 0), hp: 5),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                    CreateBox(entityId: 50, position: new Vector2Int(6, 0)),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
+            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 2, chargeStepCooldownTicks: 3);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemyAndChargeKinematicLocomotionEnabled,
+                    new PlayerKinematicLocomotionTimingSettings
+                    {
+                        KinematicMoveDurationSeconds = 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                    }.CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond));
+
+                pipeline.RunTick(new TickInput(1));
+                var deferredTick = pipeline.RunTick(new TickInput(2));
+                var activeTick = pipeline.RunTick(new TickInput(3));
+
+                Assert.That(deferredTick.Trace.Text, Does.Contain("EnemyChargeStartDeferred"), BuildChargeKinematicDebug(2, worldState, deferredTick));
+                Assert.That(deferredTick.PresentationData.EnemyChargeSignals.Any(signal => signal.EntityId == 40), Is.False);
+                Assert.That(activeTick.Trace.Text, Does.Contain("Reason=ChargeStart"), BuildChargeKinematicDebug(3, worldState, activeTick));
+                Assert.That(GetEntityAfterTick(activeTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Charge), BuildChargeKinematicDebug(3, worldState, activeTick));
+                Assert.That(
+                    activeTick.PresentationData.EnemyChargeSignals.Any(signal =>
+                        signal.EntityId == 40 &&
+                        signal.Phase == EnemyChargePhase.Active),
+                    Is.True,
+                    BuildChargeKinematicDebug(3, worldState, activeTick));
+                Assert.That(
+                    activeTick.PresentationData.KinematicMotionTracks.Any(track =>
+                        track.EntityId == 40 &&
+                        track.MotionMode == MotionMode.Charge),
+                    Is.True,
+                    BuildChargeKinematicDebug(3, worldState, activeTick));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyCharge_SettleWait_DoesNotStart_WhenTargetInvalidAfterSettled()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(5, 0), hp: 5),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                    CreateBox(entityId: 50, position: new Vector2Int(6, 0)),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 1)));
+            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 2, chargeStepCooldownTicks: 0);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemyAndChargeKinematicLocomotionEnabled,
+                    new PlayerKinematicLocomotionTimingSettings
+                    {
+                        KinematicMoveDurationSeconds = 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                    }.CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond));
+
+                pipeline.RunTick(new TickInput(1));
+                var deferredTick = pipeline.RunTick(new TickInput(2));
+                worldState.CreateWriteContext().MoveEntity(10, new SurfaceCell(FaceId.Floor, 5, 1));
+                var revalidatedTick = pipeline.RunTick(new TickInput(3));
+
+                Assert.That(deferredTick.Trace.Text, Does.Contain("EnemyChargeStartDeferred"), BuildChargeKinematicDebug(2, worldState, deferredTick));
+                Assert.That(GetEntityAfterTick(revalidatedTick, 40).aiMode, Is.Not.EqualTo(EnemyAiMode.Charge), BuildChargeKinematicDebug(3, worldState, revalidatedTick));
+                Assert.That(revalidatedTick.Trace.Text, Does.Not.Contain("Reason=ChargeStart"), BuildChargeKinematicDebug(3, worldState, revalidatedTick));
+                Assert.That(revalidatedTick.PresentationData.EnemyChargeSignals.Any(signal => signal.EntityId == 40), Is.False);
+                if (worldState.CreateSnapshot().TryGetEnemyChargeState(40, out var chargeState))
+                {
+                    Assert.That(chargeState.phase, Is.EqualTo(EnemyChargePhase.None), BuildChargeKinematicDebug(3, worldState, revalidatedTick));
+                }
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyCharge_SettleWait_DoesNotClearVoluntaryKinematicResidue()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(5, 0), hp: 5),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                    CreateBox(entityId: 50, position: new Vector2Int(6, 0)),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
+            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 4, chargeStepCooldownTicks: 0);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemyAndChargeKinematicLocomotionEnabled,
+                    new PlayerKinematicLocomotionTimingSettings
+                    {
+                        KinematicMoveDurationSeconds = 4f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                    }.CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond));
+
+                pipeline.RunTick(new TickInput(1));
+                var deferredTick = pipeline.RunTick(new TickInput(2));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(deferredTick.Trace.Text, Does.Contain("EnemyChargeStartDeferred"), BuildChargeKinematicDebug(2, worldState, deferredTick));
+                Assert.That(deferredTick.Trace.Text, Does.Not.Contain("EnemyChargeOrdinaryKinematicResidueCleared"), BuildChargeKinematicDebug(2, worldState, deferredTick));
+                Assert.That(deferredTick.EventLog.Any(entry => entry.Contains("EnemyChargeOrdinaryKinematicResidueCleared", StringComparison.Ordinal)), Is.False);
+                Assert.That(snapshot.TryGetUnitKinematicState(40, out var state), Is.True, BuildChargeKinematicDebug(2, worldState, deferredTick));
+                Assert.That(state.mode, Is.EqualTo(MotionMode.Voluntary), BuildChargeKinematicDebug(2, worldState, deferredTick));
+                Assert.That(state.IsSettledZero, Is.False, BuildChargeKinematicDebug(2, worldState, deferredTick));
+                Assert.That(state.localOffset.IsZero, Is.False, BuildChargeKinematicDebug(2, worldState, deferredTick));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyCharge_AlreadyActiveChargeKinematic_Continues()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), hp: 5),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Charge, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
+            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 0, chargeStepCooldownTicks: 4);
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetEnemyChargeState(
+                40,
+                new EnemyChargeRuntimeState
+                {
+                    phase = EnemyChargePhase.Active,
+                    sequence = 1,
+                    lockedDirection = Direction.Right,
+                    remainingActiveSteps = 2,
+                });
+            writeContext.SetUnitKinematicState(
+                40,
+                new UnitKinematicRuntimeState
+                {
+                    localOffset = new KinematicOffset2(KinematicFixed.FromRaw(1024), KinematicFixed.Zero),
+                    velocity = new KinematicVelocity2(KinematicFixed.FromRaw(1024), KinematicFixed.Zero),
+                    mode = MotionMode.Charge,
+                    remainingDistanceUnits = 3072,
+                    remainingTicks = 3,
+                    speedScalePermille = 1000,
+                    sequenceId = 1,
+                    elapsedTicks = 1,
+                    totalTicks = 4,
+                    commitTick = 2,
+                    startedTick = 1,
+                    stepDirectionX = 1,
+                });
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemyChargeKinematicLocomotionEnabled);
+                var result = pipeline.RunTick(new TickInput(2));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(result.Trace.Text, Does.Not.Contain("EnemyChargeStartDeferred"), BuildChargeKinematicDebug(2, worldState, result));
+                Assert.That(snapshot.TryGetUnitKinematicState(40, out var state), Is.True, BuildChargeKinematicDebug(2, worldState, result));
+                Assert.That(state.mode, Is.EqualTo(MotionMode.Charge), BuildChargeKinematicDebug(2, worldState, result));
+                Assert.That(state.elapsedTicks, Is.EqualTo(2), BuildChargeKinematicDebug(2, worldState, result));
+                Assert.That(GetEntityAfterTick(result, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)), BuildChargeKinematicDebug(2, worldState, result));
+                Assert.That(
+                    result.PresentationData.KinematicMotionTracks.Any(track =>
+                        track.EntityId == 40 &&
+                        track.MotionMode == MotionMode.Charge),
+                    Is.True,
+                    BuildChargeKinematicDebug(2, worldState, result));
+                Assert.That(
+                    result.PresentationData.EntityMotions.Any(motion =>
+                        motion.EntityId == 40 &&
+                        motion.MotionKind == TickEntityMotionKind.ChargeMove),
+                    Is.False,
+                    BuildChargeKinematicDebug(2, worldState, result));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyCharge_EnemyOrdinaryKinematicOff_NoDeferralNeeded()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(5, 0), hp: 5),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                    CreateBox(entityId: 50, position: new Vector2Int(6, 0)),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
+            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 2, chargeStepCooldownTicks: 0);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemyChargeKinematicLocomotionEnabled);
+
+                pipeline.RunTick(new TickInput(1));
+                var chargeStartTick = pipeline.RunTick(new TickInput(2));
+
+                Assert.That(chargeStartTick.Trace.Text, Does.Contain("Reason=ChargeStart"), BuildChargeKinematicDebug(2, worldState, chargeStartTick));
+                Assert.That(chargeStartTick.Trace.Text, Does.Not.Contain("EnemyChargeStartDeferred"), BuildChargeKinematicDebug(2, worldState, chargeStartTick));
+                Assert.That(GetEntityAfterTick(chargeStartTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Charge), BuildChargeKinematicDebug(2, worldState, chargeStartTick));
             }
             finally
             {

@@ -1,11 +1,14 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Replay
 {
@@ -163,6 +166,82 @@ namespace Game.Feature.Gameplay.Tests.Replay
             }
         }
 
+        [Test]
+        [Category("Extended")]
+        public void EnemyCharge_SettleWait_ReplayDeterministic()
+        {
+            var inputs = Enumerable.Range(1, 5)
+                .Select(tick => new TickInput(tick))
+                .ToArray();
+            var profile = CreateChargeSettleWaitProfile();
+            var harness = new TickReplayHarness();
+
+            try
+            {
+                var firstReplay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    CreateChargeSettleWaitWorldState(),
+                    entityLogics: new IEntityLogic[0],
+                    inputs,
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyAndChargeKinematicLocomotionEnabled);
+                var secondReplay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    CreateChargeSettleWaitWorldState(),
+                    entityLogics: new IEntityLogic[0],
+                    inputs,
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyAndChargeKinematicLocomotionEnabled);
+
+                AssertEquivalentReplayOutputs(firstReplay, secondReplay);
+                Assert.That(firstReplay[1].Trace, Does.Contain("EnemyChargeStartDeferred"));
+                Assert.That(firstReplay[2].Trace, Does.Contain("Reason=ChargeStart"));
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyCharge_SettleWait_TargetMovesDuringWait_ReplayDeterministic()
+        {
+            var inputs = Enumerable.Range(1, 5)
+                .Select(tick => new TickInput(tick))
+                .ToArray();
+            var profile = CreateChargeSettleWaitProfile();
+            var harness = new TickReplayHarness();
+            var scriptedMoves = new Dictionary<int, RawMovementIntent>
+            {
+                { 2, new RawMovementIntent(10, priority: 100, destination: new Vector2Int(5, 1)) },
+            };
+
+            try
+            {
+                var firstReplay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    CreateChargeSettleWaitWorldState(),
+                    entityLogics: new IEntityLogic[] { new TickScriptedMovementLogic(10, scriptedMoves) },
+                    inputs,
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyAndChargeKinematicLocomotionEnabled);
+                var secondReplay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    CreateChargeSettleWaitWorldState(),
+                    entityLogics: new IEntityLogic[] { new TickScriptedMovementLogic(10, scriptedMoves) },
+                    inputs,
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyAndChargeKinematicLocomotionEnabled);
+
+                AssertEquivalentReplayOutputs(firstReplay, secondReplay);
+                Assert.That(firstReplay[1].Trace, Does.Contain("EnemyChargeStartDeferred"));
+                Assert.That(firstReplay[2].Trace, Does.Not.Contain("Reason=ChargeStart"));
+                Assert.That(firstReplay[2].EnemyChargeDump, Does.Not.Contain("Phase=Active"));
+                Assert.That(firstReplay[2].EnemyChargeDump, Does.Not.Contain("Phase=Windup"));
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
         private static void AssertEquivalentReplayOutputs(
             IReadOnlyList<TickReplayFrame> firstReplay,
             IReadOnlyList<TickReplayFrame> secondReplay)
@@ -194,6 +273,61 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 CreatePlayer(10, hp: 3, new SurfaceCell(FaceId.Floor, 0, 0)),
                 CreateEnemy(40, hp: 1, new SurfaceCell(FaceId.Floor, 1, 0)),
             });
+        }
+
+        private static WorldState CreateChargeSettleWaitWorldState()
+        {
+            return GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreatePlayer(10, hp: 5, new SurfaceCell(FaceId.Floor, 5, 0)),
+                    CreateChargePatrolEnemy(40, hp: 3, new SurfaceCell(FaceId.Floor, 0, 0)),
+                    new EntityState
+                    {
+                        entityId = 50,
+                        position = new SurfaceCell(FaceId.Floor, 6, 0),
+                        hp = 1,
+                        maxHp = 1,
+                        teamId = 0,
+                        type = EntityType.Box,
+                        boardPresence = EntityBoardPresence.Occupying,
+                    },
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 1)),
+                Game.Feature.Gameplay.BoardState.TerrainData.Empty);
+        }
+
+        private static EnemyAiProfile CreateChargeSettleWaitProfile()
+        {
+            return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                LocomotionTimingSettings = new EnemyLocomotionTimingAuthoringSettings(
+                    moveCooldownSeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                    ordinaryKinematicMoveDurationSeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
+                ChargeTimingSettings = new EnemyChargeTimingAuthoringSettings(
+                    windupSeconds: 0f,
+                    activeStepCooldownSeconds: 0f,
+                    recoverSeconds: 0f),
+                StateResolverKind = EnemyAiStateResolverKind.Charge,
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                IncludePassiveContact = true,
+            });
+        }
+
+        private static EntityState CreateChargePatrolEnemy(int entityId, int hp, SurfaceCell position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = hp,
+                maxHp = 3,
+                teamId = 2,
+                type = EntityType.Unit,
+                aiMode = EnemyAiMode.Patrol,
+                facing = Direction.Right,
+                boardPresence = EntityBoardPresence.Occupying,
+            };
         }
 
         private static EnemyAiProfile CreateContactDamageProfile(
@@ -244,6 +378,33 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 facing = Direction.Left,
                 boardPresence = EntityBoardPresence.Occupying,
             };
+        }
+
+        private sealed class TickScriptedMovementLogic : IMovementEntityLogic, IEntityLogicSourceBinding
+        {
+            private readonly int _controlledEntityId;
+            private readonly IReadOnlyDictionary<int, RawMovementIntent> _movementIntentsByTick;
+
+            public TickScriptedMovementLogic(
+                int controlledEntityId,
+                IReadOnlyDictionary<int, RawMovementIntent> movementIntentsByTick)
+            {
+                _controlledEntityId = controlledEntityId;
+                _movementIntentsByTick = movementIntentsByTick ?? throw new ArgumentNullException(nameof(movementIntentsByTick));
+            }
+
+            public int ControlledEntityId => _controlledEntityId;
+
+            public void CollectMovementIntents(
+                WorldSnapshot snapshot,
+                in TickInput input,
+                List<RawMovementIntent> buffer)
+            {
+                if (_movementIntentsByTick.TryGetValue(input.TickIndex, out var movementIntent))
+                {
+                    buffer.Add(movementIntent);
+                }
+            }
         }
 
         private sealed class ScriptedAttackLogic : IAttackEntityLogic

@@ -395,56 +395,6 @@ namespace Game.Feature.Gameplay.Loop
             }
         }
 
-        private static void ClearEnemyChargeOrdinaryKinematicResidue(
-            WorldSnapshot snapshot,
-            FinalizationBatch batch,
-            List<string> eventLogEntries)
-        {
-            if (snapshot == null)
-            {
-                throw new ArgumentNullException(nameof(snapshot));
-            }
-
-            if (batch == null)
-            {
-                throw new ArgumentNullException(nameof(batch));
-            }
-
-            if (eventLogEntries == null)
-            {
-                throw new ArgumentNullException(nameof(eventLogEntries));
-            }
-
-            var entities = new List<EntityState>();
-            snapshot.EnumerateEntitiesOrdered(entities);
-            for (var i = 0; i < entities.Count; i++)
-            {
-                var entity = entities[i];
-                if (!IsEnemyLogicParticipant(entity) ||
-                    entity.aiMode != EnemyAiMode.Charge ||
-                    !snapshot.TryGetEnemyChargeState(entity.entityId, out var chargeState) ||
-                    chargeState.phase != EnemyChargePhase.Active ||
-                    !snapshot.TryGetUnitKinematicPose(entity.entityId, out var pose) ||
-                    !pose.HasAuthoritativeState ||
-                    pose.IsSettledAtAnchor ||
-                    pose.Mode != MotionMode.Voluntary)
-                {
-                    continue;
-                }
-
-                batch.SetUnitKinematicState(
-                    entity.entityId,
-                    UnitKinematicRuntimeState.SettledZero,
-                    new FinalizationOperationMetadata(
-                        TickPhase.Plan,
-                        ResolvedActionSemanticKind.Stop,
-                        entity.entityId,
-                        actionPlanId: 0));
-                eventLogEntries.Add(
-                    $"EnemyChargeOrdinaryKinematicResidueCleared|E={entity.entityId}|Anchor={FormatCell(pose.AnchorCell)}|Offset={pose.LocalOffset}");
-            }
-        }
-
         private PlanPhaseResult RunPlanPhase(
             WorldSnapshot snapshot,
             in TickInput input,
@@ -507,20 +457,6 @@ namespace Game.Feature.Gameplay.Loop
             planFinalizationBatch.MergeFrom(preMovementUtilityResolveResult.Batch);
             projectedWorld.ApplyBatch(preMovementUtilityResolveResult.Batch);
             AddRange(preMovementStateResult.EventLogEntries, preMovementUtilityResolveResult.EventLogEntries);
-
-            if (_runtimeFeatureFlags.EnableEnemySameFaceContinuousLocomotion ||
-                _runtimeFeatureFlags.EnableEnemyChargeKinematicLocomotion)
-            {
-                var chargeResidueBatch = new FinalizationBatch();
-                var chargeResidueEvents = new List<string>();
-                ClearEnemyChargeOrdinaryKinematicResidue(
-                    projectedWorld.CreateSnapshot(),
-                    chargeResidueBatch,
-                    chargeResidueEvents);
-                planFinalizationBatch.MergeFrom(chargeResidueBatch);
-                projectedWorld.ApplyBatch(chargeResidueBatch);
-                AddRange(preMovementStateResult.EventLogEntries, chargeResidueEvents);
-            }
 
             var nextContestId = 1;
             var jumpLandingPlans = new List<JumpLandingPlan>();

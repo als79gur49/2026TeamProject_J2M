@@ -162,6 +162,14 @@ namespace Game.Feature.Gameplay.Entities
                 _commonSettings,
                 _chargeTimingSettings,
                 _detectionSettings);
+
+            if (ShouldDeferChargeStartForOrdinaryKinematic(snapshot, source, decision, out var deferredPose))
+            {
+                transitions.Add(
+                    $"EnemyChargeStartDeferred|Stage={stage}|E={source.entityId}|Reason=KinematicNotSettled|Mode={deferredPose.Mode}|Anchor={deferredPose.AnchorCell}|Offset={deferredPose.LocalOffset}|Elapsed={deferredPose.State.elapsedTicks}|Total={deferredPose.State.totalTicks}");
+                return;
+            }
+
             var resolvedFacing = ResolvePatrolFacing(snapshot, source, input.TickIndex, stage, decision);
             TryCapturePatrolOriginBeforeLeavingPatrol(
                 snapshot,
@@ -1375,6 +1383,22 @@ namespace Game.Feature.Gameplay.Entities
                     source.aiMode == EnemyAiMode.Recover ||
                     decision.Mode == EnemyAiMode.Charge ||
                     decision.Mode == EnemyAiMode.Recover);
+        }
+
+        private static bool ShouldDeferChargeStartForOrdinaryKinematic(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EnemyAiTransitionDecision decision,
+            out UnitKinematicPose pose)
+        {
+            pose = default;
+            return source.aiMode != EnemyAiMode.Charge &&
+                   decision.Mode == EnemyAiMode.Charge &&
+                   string.Equals(decision.Reason, "ChargeStart", StringComparison.Ordinal) &&
+                   snapshot.TryGetUnitKinematicPose(source.entityId, out pose) &&
+                   pose.HasAuthoritativeState &&
+                   !pose.IsSettledAtAnchor &&
+                   pose.Mode == MotionMode.Voluntary;
         }
 
         private static bool ShouldWriteChargeState(
