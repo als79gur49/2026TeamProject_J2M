@@ -124,17 +124,7 @@ namespace Game.Feature.UI.HUD
                 _floatingFeedbackRoot = (RectTransform)floating.transform;
             }
 
-            _runtimeSlots.Clear();
-            if (_slotViews != null)
-            {
-                for (var i = 0; i < _slotViews.Length; i++)
-                {
-                    if (_slotViews[i] != null)
-                    {
-                        _runtimeSlots.Add(_slotViews[i]);
-                    }
-                }
-            }
+            RebuildRuntimeSlotCache();
 
             while (_runtimeSlots.Count < AuthoredSlotCount)
             {
@@ -189,6 +179,7 @@ namespace Game.Feature.UI.HUD
             }
 
             EnsureSlotCapacity(_viewModel.MaxChances);
+            TrimSlotCapacity(_viewModel.MaxChances);
             for (var i = 0; i < _runtimeSlots.Count; i++)
             {
                 _runtimeSlots[i].gameObject.SetActive(i < _viewModel.Slots.Count);
@@ -209,11 +200,74 @@ namespace Game.Feature.UI.HUD
             PlayPanelWarningIfNeeded();
         }
 
+        private void RebuildRuntimeSlotCache()
+        {
+            _runtimeSlots.Clear();
+            if (_slotViews != null)
+            {
+                for (var i = 0; i < _slotViews.Length; i++)
+                {
+                    AddRuntimeSlot(_slotViews[i]);
+                }
+            }
+
+            if (_slotContainer == null)
+            {
+                return;
+            }
+
+            var discoveredSlots = _slotContainer.GetComponentsInChildren<ChanceSlotView>(true);
+            for (var i = 0; i < discoveredSlots.Length; i++)
+            {
+                AddRuntimeSlot(discoveredSlots[i]);
+            }
+        }
+
+        private void AddRuntimeSlot(ChanceSlotView slot)
+        {
+            if (slot == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _runtimeSlots.Count; i++)
+            {
+                if (ReferenceEquals(_runtimeSlots[i], slot))
+                {
+                    return;
+                }
+            }
+
+            _runtimeSlots.Add(slot);
+        }
+
         private void EnsureSlotCapacity(int targetCount)
         {
             while (_runtimeSlots.Count < targetCount)
             {
                 _runtimeSlots.Add(CreateSlot(_runtimeSlots.Count));
+            }
+        }
+
+        private void TrimSlotCapacity(int targetCount)
+        {
+            for (var i = _runtimeSlots.Count - 1; i >= targetCount; i--)
+            {
+                var slot = _runtimeSlots[i];
+                _runtimeSlots.RemoveAt(i);
+                if (slot == null)
+                {
+                    continue;
+                }
+
+                if (Application.isPlaying)
+                {
+                    Destroy(slot.gameObject);
+                }
+                else
+                {
+                    DestroyImmediate(slot.gameObject);
+                }
             }
         }
 

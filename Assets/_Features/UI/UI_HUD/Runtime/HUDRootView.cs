@@ -305,6 +305,8 @@ namespace Game.Feature.UI.HUD
                 return;
             }
 
+            _chancePanelView = ResolveSingleChancePanelView(_chancePanelView);
+
             if (_chancePanelView == null)
             {
                 _chancePanelView = CreateRuntimeHudModule<ChancePanelView>("ChancePanel");
@@ -348,6 +350,65 @@ namespace Game.Feature.UI.HUD
             }
 
             return module.GetComponent<T>();
+        }
+
+        private ChancePanelView ResolveSingleChancePanelView(ChancePanelView preferred)
+        {
+            var modules = GetComponentsInChildren<ChancePanelView>(true);
+            if (modules == null || modules.Length == 0)
+            {
+                return null;
+            }
+
+            var selected = preferred;
+            var hasSelected = false;
+            if (selected != null)
+            {
+                for (var i = 0; i < modules.Length; i++)
+                {
+                    if (ReferenceEquals(modules[i], selected))
+                    {
+                        hasSelected = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!hasSelected)
+            {
+                selected = modules[0];
+            }
+
+            for (var i = 0; i < modules.Length; i++)
+            {
+                var module = modules[i];
+                if (module == null || ReferenceEquals(module, selected))
+                {
+                    continue;
+                }
+
+                DestroyDuplicateChancePanelView(module);
+            }
+
+            return selected;
+        }
+
+        private static void DestroyDuplicateChancePanelView(ChancePanelView module)
+        {
+            module.Bind(null);
+
+            var target = module.gameObject == null || module.gameObject.GetComponent<HUDRootView>() != null
+                ? (UnityEngine.Object)module
+                : module.gameObject;
+
+            if (Application.isPlaying)
+            {
+                Destroy(target);
+            }
+            else
+            {
+                DestroyImmediate(target);
+            }
         }
 
 #if UNITY_EDITOR

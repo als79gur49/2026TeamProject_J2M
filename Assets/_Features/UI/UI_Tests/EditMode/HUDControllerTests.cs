@@ -97,6 +97,64 @@ namespace Game.Feature.UI.Tests
                 Assert.That(chancePanelPresenter.ViewModel.HasChances, Is.True);
                 Assert.That(chancePanelPresenter.ViewModel.RemainingChances, Is.EqualTo(2));
                 Assert.That(chancePanelPresenter.ViewModel.MaxChances, Is.EqualTo(3));
+                Assert.That(hudView.ChancePanelView.GetComponentsInChildren<ChanceSlotView>(true).Length, Is.EqualTo(3));
+                Assert.That(CountSlotsWithChild(hudView.ChancePanelView, "Glow"), Is.EqualTo(3));
+
+                source.PublishSnapshot(CreateSnapshot(hasRemainingChances: true, remainingChances: 1, maxChances: 3));
+
+                Assert.That(hudView.ChancePanelView.GetComponentsInChildren<ChanceSlotView>(true).Length, Is.EqualTo(3));
+                Assert.That(CountSlotsWithChild(hudView.ChancePanelView, "Glow"), Is.EqualTo(3));
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void HUDController_CanonicalPrefab_RemovesDuplicateChancePanelViews()
+        {
+            var rootObject = new GameObject("HUDController_CanonicalPrefab_RemovesDuplicateChancePanelViews");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var duplicateObject = new GameObject("DuplicateChancePanel", typeof(RectTransform), typeof(ChancePanelView));
+                duplicateObject.transform.SetParent(hudView.transform, false);
+
+                Assert.That(hudView.GetComponentsInChildren<ChancePanelView>(true).Length, Is.GreaterThanOrEqualTo(2));
+
+                var source = new ManualGameplayUiPresentationSource();
+                var playerStatusPresenter = new PlayerStatusPresenter();
+                var stageInfoPresenter = new StageInfoPresenter();
+                var objectiveHudPresenter = new ObjectiveHudPresenter();
+                var chancePanelPresenter = new ChancePanelPresenter();
+                var topologyHudPresenter = new TopologyHudPresenter();
+                var notificationPresenter = new NotificationPresenter();
+                using var rootPresenter = new HUDRootPresenter(
+                    source,
+                    stageInfoPresenter,
+                    objectiveHudPresenter,
+                    chancePanelPresenter,
+                    topologyHudPresenter,
+                    playerStatusPresenter,
+                    notificationPresenter);
+                using var controller = new HUDController(
+                    rootPresenter.ViewModel,
+                    stageInfoPresenter.ViewModel,
+                    objectiveHudPresenter.ViewModel,
+                    chancePanelPresenter.ViewModel,
+                    topologyHudPresenter.ViewModel,
+                    playerStatusPresenter.ViewModel,
+                    notificationPresenter.ViewModel);
+
+                controller.AttachView(hudView);
+                source.PublishSnapshot(CreateSnapshot(hasRemainingChances: true, remainingChances: 3, maxChances: 3));
+
+                var chancePanelViews = hudView.GetComponentsInChildren<ChancePanelView>(true);
+                Assert.That(chancePanelViews.Length, Is.EqualTo(1));
+                Assert.That(chancePanelViews[0].ViewModel, Is.SameAs(chancePanelPresenter.ViewModel));
+                Assert.That(chancePanelViews[0].SlotViews.Count, Is.EqualTo(3));
             }
             finally
             {
@@ -305,6 +363,21 @@ namespace Game.Feature.UI.Tests
             for (var i = 0; i < value.Length; i++)
             {
                 if (value[i] == character)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static int CountSlotsWithChild(ChancePanelView chancePanelView, string childName)
+        {
+            var count = 0;
+            var slots = chancePanelView.GetComponentsInChildren<ChanceSlotView>(true);
+            for (var i = 0; i < slots.Length; i++)
+            {
+                if (slots[i].transform.Find(childName) != null)
                 {
                     count++;
                 }
