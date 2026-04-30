@@ -124,6 +124,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void MotionModeHeld_NormalizedForStorage_PreservesProgressAndZerosVelocity()
+        {
+            var sourceState = CreateOffsetState(localX: 1024, localY: 0);
+
+            var held = UnitKinematicRuntimeState.CreateHeldFreeze(sourceState);
+
+            Assert.That(held.mode, Is.EqualTo(MotionMode.Held));
+            Assert.That(held.localOffset.X.RawValue, Is.EqualTo(1024));
+            Assert.That(held.velocity.IsZero, Is.True);
+            Assert.That(held.remainingDistanceUnits, Is.EqualTo(sourceState.remainingDistanceUnits));
+            Assert.That(held.remainingTicks, Is.EqualTo(sourceState.remainingTicks));
+            Assert.That(held.speedScalePermille, Is.EqualTo(0));
+            Assert.That(held.elapsedTicks, Is.EqualTo(sourceState.elapsedTicks));
+            Assert.That(held.totalTicks, Is.EqualTo(sourceState.totalTicks));
+            Assert.That(held.commitTick, Is.EqualTo(sourceState.commitTick));
+            Assert.That(held.startedTick, Is.EqualTo(sourceState.startedTick));
+            Assert.That(held.stepDirectionX, Is.EqualTo(sourceState.stepDirectionX));
+            Assert.That(held.stepDirectionY, Is.EqualTo(sourceState.stepDirectionY));
+            Assert.That(held.sequenceId, Is.EqualTo(sourceState.sequenceId + 1));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void NormalizedForStorage_ChargeMode_PreservesStepProgress()
         {
             var state = new UnitKinematicRuntimeState

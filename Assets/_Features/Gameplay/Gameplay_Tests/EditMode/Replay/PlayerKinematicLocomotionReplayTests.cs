@@ -46,6 +46,42 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Extended")]
+        public void Held_ReplayDeterministic()
+        {
+            var inputs = new[]
+            {
+                new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                new TickInput(2),
+                new TickInput(3),
+                new TickInput(4, PlayerTickCommand.Move(Direction.Right)),
+                new TickInput(5, PlayerTickCommand.Move(Direction.Right)),
+            };
+            var harness = new TickReplayHarness();
+
+            var firstReplay = harness.Run(
+                CreateWorldState(),
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerStoppableKinematicLocomotionEnabled);
+            var secondReplay = harness.Run(
+                CreateWorldState(),
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerStoppableKinematicLocomotionEnabled);
+
+            Assert.That(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                Is.EqualTo(secondReplay.Select(frame => frame.DeterminismHash).ToArray()));
+            Assert.That(
+                firstReplay.Select(frame => frame.FinalEntitiesDump).ToArray(),
+                Is.EqualTo(secondReplay.Select(frame => frame.FinalEntitiesDump).ToArray()));
+            Assert.That(firstReplay[1].EventLogDump, Does.Contain("Mode=Held"));
+            Assert.That(firstReplay[3].EventLogDump, Does.Contain("Mode=Voluntary"));
+            Assert.That(firstReplay[3].DeterminismHash, Is.Not.EqualTo(firstReplay[2].DeterminismHash));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Replay_PlayerSameFaceContinuousLocomotion_MidMotionNonlethalHit_HashesInterruptedThenOmitSettledZero()
         {
             var inputs = new[]

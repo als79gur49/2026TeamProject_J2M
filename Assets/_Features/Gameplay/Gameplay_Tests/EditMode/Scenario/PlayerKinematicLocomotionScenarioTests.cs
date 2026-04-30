@@ -1,4 +1,5 @@
 using System.Linq;
+using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
@@ -64,6 +65,397 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(tickTwenty.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(tickTwenty.TryGetUnitKinematicState(10, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StopOnRelease_BeforeCommit_HoldsCurrentPose()
+        {
+            var worldState = CreateWorldState(CreatePlayer(10));
+            var pipeline = CreatePipeline(
+                worldState,
+                GameplayRuntimeFeatureFlags.PlayerStoppableKinematicLocomotionEnabled);
+
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var stopResult = pipeline.RunTick(new TickInput(2, PlayerTickCommand.None));
+
+            AssertHeldPose(worldState.CreateSnapshot(), expectedAnchorX: 0, expectedLocalX: 205, expectedElapsedTicks: 1);
+            Assert.That(
+                stopResult.PresentationData.KinematicMotionTracks.Any(track =>
+                    track.EntityId == 10 &&
+                    track.MotionMode == MotionMode.Held &&
+                    track.DestinationAnchorCell == new SurfaceCell(FaceId.Floor, 0, 0) &&
+                    track.DestinationLocalOffset.X.RawValue == 205),
+                Is.True);
+
+            for (var tick = 3; tick <= 5; tick++)
+            {
+                pipeline.RunTick(new TickInput(tick));
+                AssertHeldPose(worldState.CreateSnapshot(), expectedAnchorX: 0, expectedLocalX: 205, expectedElapsedTicks: 1);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StopOnRelease_AfterCommit_HoldsDestinationSidePose()
+        {
+            var worldState = CreateWorldState(CreatePlayer(10));
+            var pipeline = CreatePipeline(
+                worldState,
+                GameplayRuntimeFeatureFlags.PlayerStoppableKinematicLocomotionEnabled);
+
+            for (var tick = 1; tick <= 10; tick++)
+            {
+                pipeline.RunTick(new TickInput(tick, PlayerTickCommand.Move(Direction.Right)));
+            }
+
+            var stopResult = pipeline.RunTick(new TickInput(11));
+
+            AssertHeldPose(worldState.CreateSnapshot(), expectedAnchorX: 1, expectedLocalX: -2048, expectedElapsedTicks: 10);
+            Assert.That(
+                stopResult.PresentationData.KinematicMotionTracks.Any(track =>
+                    track.EntityId == 10 &&
+                    track.MotionMode == MotionMode.Held &&
+                    track.DestinationAnchorCell == new SurfaceCell(FaceId.Floor, 1, 0) &&
+                    track.DestinationLocalOffset.X.RawValue == -2048),
+                Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Held_DoesNotAdvanceProgress()
+        {
+            var worldState = CreateWorldState(CreatePlayer(10));
+            var pipeline = CreatePipeline(
+                worldState,
+                GameplayRuntimeFeatureFlags.PlayerStoppableKinematicLocomotionEnabled);
+
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            pipeline.RunTick(new TickInput(2));
+
+            for (var tick = 3; tick <= 6; tick++)
+            {
+                var result = pipeline.RunTick(new TickInput(tick));
+                AssertHeldPose(worldState.CreateSnapshot(), expectedAnchorX: 0, expectedLocalX: 205, expectedElapsedTicks: 1);
+                Assert.That(
+                    result.MovementPhaseResult.CommitEvents.Any(entry => entry.Contains("KinematicAnchorCommitted")),
+                    Is.False);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Held_ResumeSameDirection_Continues()
+        {
+            var worldState = CreateWorldState(CreatePlayer(10));
+            var pipeline = CreatePipeline(
+                worldState,
+                GameplayRuntimeFeatureFlags.PlayerStoppableKinematicLocomotionEnabled);
+
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            pipeline.RunTick(new TickInput(2));
+            AssertHeldPose(worldState.CreateSnapshot(), expectedAnchorX: 0, expectedLocalX: 205, expectedElapsedTicks: 1);
+
+            pipeline.RunTick(new TickInput(3, PlayerTickCommand.Move(Direction.Right)));
+            AssertPose(worldState.CreateSnapshot(), expectedAnchorX: 0, expectedLocalX: 205, expectedRemainingTicks: 19, expectedElapsedTicks: 1, expectedTotalTicks: 20);
+
+            pipeline.RunTick(new TickInput(4, PlayerTickCommand.Move(Direction.Right)));
+            AssertPose(worldState.CreateSnapshot(), expectedAnchorX: 0, expectedLocalX: 410, expectedRemainingTicks: 18, expectedElapsedTicks: 2, expectedTotalTicks: 20);
+
+            for (var tick = 5; tick <= 22; tick++)
+            {
+                pipeline.RunTick(new TickInput(tick, PlayerTickCommand.Move(Direction.Right)));
+            }
+
+            var finalSnapshot = worldState.CreateSnapshot();
+            Assert.That(finalSnapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(finalSnapshot.TryGetUnitKinematicState(10, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Held_OtherDirection_DoesNotTurnOrReverse()
+        {
+            var worldState = CreateWorldState(CreatePlayer(10));
+            var pipeline = CreatePipeline(
+                worldState,
+                GameplayRuntimeFeatureFlags.PlayerStoppableKinematicLocomotionEnabled);
+
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            pipeline.RunTick(new TickInput(2));
+            var result = pipeline.RunTick(new TickInput(3, PlayerTickCommand.Move(Direction.Up)));
+
+            AssertHeldPose(worldState.CreateSnapshot(), expectedAnchorX: 0, expectedLocalX: 205, expectedElapsedTicks: 1);
+            Assert.That(
+                result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                    reason.Contains("Reason=HeldKinematicDirectionMismatch")),
+                Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Held_BeforeCommit_NoDestinationContact()
+        {
+            var enemyCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(
+                CreatePlayer(10),
+                CreateUnit(40, enemyCell, teamId: 2));
+            var pipeline = CreatePipeline(
+                worldState,
+                GameplayRuntimeFeatureFlags.PlayerStoppableKinematicLocomotionEnabled,
+                new SameCellPassiveContactProbeLogic(40, 10));
+
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var heldTick = pipeline.RunTick(new TickInput(2));
+
+            AssertHeldPose(worldState.CreateSnapshot(), expectedAnchorX: 0, expectedLocalX: 205, expectedElapsedTicks: 1);
+            Assert.That(HasAcceptedPassiveContact(heldTick, 40, 10), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Held_AfterCommit_DestinationContactPossible()
+        {
+            var enemyCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(
+                CreatePlayer(10),
+                CreateUnit(40, enemyCell, teamId: 2));
+            var pipeline = CreatePipeline(
+                worldState,
+                GameplayRuntimeFeatureFlags.PlayerStoppableKinematicLocomotionEnabled,
+                new TickGatedPassiveContactProbeLogic(40, 10, firstTick: 11));
+
+            for (var tick = 1; tick <= 10; tick++)
+            {
+                pipeline.RunTick(new TickInput(tick, PlayerTickCommand.Move(Direction.Right)));
+            }
+
+            var heldContactTick = pipeline.RunTick(new TickInput(11));
+
+            Assert.That(HasAcceptedPassiveContact(heldContactTick, 40, 10), Is.True);
+            Assert.That(worldState.CreateSnapshot().TryGetUnitKinematicState(10, out var state), Is.True);
+            Assert.That(state.mode, Is.EqualTo(MotionMode.Interrupted));
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(-2048));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Held_PushFlipRemainSettledOnly()
+        {
+            var worldState = CreateWorldState(
+                CreatePlayer(10),
+                CreateBox(20, new SurfaceCell(FaceId.Floor, 2, 0), BoxCapabilities.Push));
+            var pipeline = CreatePipeline(
+                worldState,
+                GameplayRuntimeFeatureFlags.PlayerStoppableKinematicLocomotionEnabled);
+
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            pipeline.RunTick(new TickInput(2));
+            var pushResult = pipeline.RunTick(new TickInput(3, PlayerTickCommand.Push(Direction.Right)));
+            var flipResult = pipeline.RunTick(new TickInput(4, PlayerTickCommand.Flip(Direction.Right)));
+
+            AssertHeldPose(worldState.CreateSnapshot(), expectedAnchorX: 0, expectedLocalX: 205, expectedElapsedTicks: 1);
+            Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.activeAction.IsActive, Is.False);
+            Assert.That(pushResult.MovementPhaseResult.RejectedReasons.Concat(flipResult.MovementPhaseResult.RejectedReasons).Any(reason =>
+                reason.Contains("Reason=UnitKinematicNotSettled")), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Held_NonlethalHit_InterruptsWithoutSnap()
+        {
+            var worldState = CreateWorldState(
+                CreatePlayer(10),
+                CreateUnit(40, new SurfaceCell(FaceId.Floor, 0, 1), teamId: 2));
+            var pipeline = CreatePipeline(
+                worldState,
+                GameplayRuntimeFeatureFlags.PlayerStoppableKinematicLocomotionEnabled,
+                new TickScriptedAttackLogic(40, 10, attackTick: 3));
+
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            pipeline.RunTick(new TickInput(2));
+            var hitResult = pipeline.RunTick(new TickInput(3));
+
+            var hitSnapshot = worldState.CreateSnapshot();
+            Assert.That(hitSnapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(hitSnapshot.TryGetUnitKinematicState(10, out var interrupted), Is.True);
+            Assert.That(interrupted.mode, Is.EqualTo(MotionMode.Interrupted));
+            Assert.That(interrupted.localOffset.X.RawValue, Is.EqualTo(205));
+            Assert.That(
+                hitResult.PresentationData.KinematicMotionTracks.Any(track =>
+                    track.EntityId == 10 &&
+                    track.TerminalKind == TickKinematicMotionTerminalKind.Interrupted &&
+                    track.DestinationLocalOffset.X.RawValue == 205),
+                Is.True);
+
+            pipeline.RunTick(new TickInput(4));
+            Assert.That(worldState.CreateSnapshot().TryGetUnitKinematicState(10, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Held_LethalHit_RemovedTerminalPreservesPose()
+        {
+            var worldState = CreateWorldState(
+                CreatePlayer(10, hp: 1),
+                CreateUnit(40, new SurfaceCell(FaceId.Floor, 0, 1), teamId: 2));
+            var pipeline = CreatePipeline(
+                worldState,
+                GameplayRuntimeFeatureFlags.PlayerStoppableKinematicLocomotionEnabled,
+                new TickScriptedAttackLogic(40, 10, attackTick: 3));
+
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            pipeline.RunTick(new TickInput(2));
+            var hitResult = pipeline.RunTick(new TickInput(3));
+
+            Assert.That(worldState.CreateSnapshot().TryGetEntity(10, out _), Is.False);
+            Assert.That(worldState.CreateSnapshot().TryGetUnitKinematicState(10, out _), Is.False);
+            Assert.That(
+                hitResult.EventLog.Any(entry =>
+                    entry.Contains("KinematicPoseRemoved|E=10") &&
+                    entry.Contains("Offset=(205,0)")),
+                Is.True);
+            Assert.That(
+                hitResult.PresentationData.KinematicMotionTracks.Any(track =>
+                    track.EntityId == 10 &&
+                    track.TerminalKind == TickKinematicMotionTerminalKind.Removed &&
+                    track.DestinationAnchorCell == new SurfaceCell(FaceId.Floor, 0, 0) &&
+                    track.DestinationLocalOffset.X.RawValue == 205),
+                Is.True);
+            Assert.That(
+                hitResult.PresentationData.PlayerDeathHoldSignals.Any(signal =>
+                    signal.EntityId == 10 &&
+                    signal.StartedThisTick),
+                Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerKinematicEnabled_StoppableDisabled_Baseline()
+        {
+            var worldState = CreateWorldState(CreatePlayer(10));
+            var pipeline = CreatePipeline(
+                worldState,
+                GameplayRuntimeFeatureFlags.PlayerSameFaceContinuousLocomotionEnabled);
+
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            pipeline.RunTick(new TickInput(2));
+
+            AssertPose(worldState.CreateSnapshot(), expectedAnchorX: 0, expectedLocalX: 410, expectedRemainingTicks: 18, expectedElapsedTicks: 2, expectedTotalTicks: 20);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerMovesIntoEnemy_KinematicMidpoint_NoContactBeforeCommit()
+        {
+            var enemyCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(
+                CreatePlayer(10),
+                CreateUnit(40, enemyCell, teamId: 2));
+            var pipeline = CreatePipeline(
+                worldState,
+                GameplayRuntimeFeatureFlags.PlayerSameFaceContinuousLocomotionEnabled,
+                new SameCellPassiveContactProbeLogic(40, 10));
+
+            for (var tick = 1; tick <= 9; tick++)
+            {
+                var result = pipeline.RunTick(
+                    tick == 1
+                        ? new TickInput(tick, PlayerTickCommand.Move(Direction.Right))
+                        : new TickInput(tick));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+                Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(
+                    player.position,
+                    Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)),
+                    BuildContactTimingDebug(tick, "Player", 10, 40, snapshot, result));
+                Assert.That(enemy.position, Is.EqualTo(enemyCell));
+                Assert.That(
+                    HasAcceptedPassiveContact(result, 40, 10),
+                    Is.False,
+                    BuildContactTimingDebug(tick, "Player", 10, 40, snapshot, result));
+                Assert.That(player.hp, Is.EqualTo(3));
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerMovesIntoEnemy_KinematicMidpoint_ContactAtCommit()
+        {
+            var enemyCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(
+                CreatePlayer(10),
+                CreateUnit(40, enemyCell, teamId: 2));
+            var pipeline = CreatePipeline(
+                worldState,
+                GameplayRuntimeFeatureFlags.PlayerSameFaceContinuousLocomotionEnabled,
+                new SameCellPassiveContactProbeLogic(40, 10));
+
+            TickResult result = null;
+            for (var tick = 1; tick <= 10; tick++)
+            {
+                result = pipeline.RunTick(
+                    tick == 1
+                        ? new TickInput(tick, PlayerTickCommand.Move(Direction.Right))
+                        : new TickInput(tick));
+            }
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(enemyCell), BuildContactTimingDebug(10, "Player", 10, 40, snapshot, result));
+            Assert.That(snapshot.TryGetUnitKinematicState(10, out var state), Is.True);
+            Assert.That(state.mode, Is.EqualTo(MotionMode.Interrupted));
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(-2048));
+            Assert.That(
+                result.MovementPhaseResult.CommitEvents.Any(entry =>
+                    entry.Contains("KinematicAnchorCommitted", System.StringComparison.Ordinal) &&
+                    entry.Contains("E=10", System.StringComparison.Ordinal) &&
+                    entry.Contains("To=(1,0)", System.StringComparison.Ordinal)),
+                Is.True);
+            Assert.That(
+                HasAcceptedPassiveContact(result, 40, 10),
+                Is.True,
+                BuildContactTimingDebug(10, "Player", 10, 40, snapshot, result));
+            Assert.That(player.hp, Is.EqualTo(2));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void FlagOff_BaselineContactTiming()
+        {
+            var enemyCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(
+                CreatePlayer(10),
+                CreateUnit(40, enemyCell, teamId: 2));
+            var pipeline = CreatePipeline(
+                worldState,
+                GameplayRuntimeFeatureFlags.None,
+                new SameCellPassiveContactProbeLogic(40, 10));
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(enemyCell), BuildContactTimingDebug(1, "Player", 10, 40, snapshot, result));
+            Assert.That(snapshot.TryGetUnitKinematicState(10, out _), Is.False);
+            Assert.That(
+                HasAcceptedPassiveContact(result, 40, 10),
+                Is.True,
+                BuildContactTimingDebug(1, "Player", 10, 40, snapshot, result));
+            Assert.That(player.hp, Is.EqualTo(2));
+            Assert.That(
+                result.PresentationData.EntityMotions.Any(motion =>
+                    motion.EntityId == 10 &&
+                    motion.MotionKind == TickEntityMotionKind.Move &&
+                    motion.SourceCell == new SurfaceCell(FaceId.Floor, 0, 0) &&
+                    motion.DestinationCell == enemyCell),
+                Is.True);
+            Assert.That(result.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 10), Is.False);
         }
 
         [Test]
@@ -343,6 +735,82 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(state.stepDirectionY, Is.EqualTo(0));
         }
 
+        private static void AssertHeldPose(
+            WorldSnapshot snapshot,
+            int expectedAnchorX,
+            int expectedLocalX,
+            int expectedElapsedTicks)
+        {
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, expectedAnchorX, 0)));
+            Assert.That(snapshot.TryGetUnitKinematicState(10, out var state), Is.True);
+            Assert.That(state.mode, Is.EqualTo(MotionMode.Held));
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(expectedLocalX));
+            Assert.That(state.localOffset.Y.RawValue, Is.EqualTo(0));
+            Assert.That(state.velocity.IsZero, Is.True);
+            Assert.That(state.remainingTicks, Is.EqualTo(20 - expectedElapsedTicks));
+            Assert.That(state.elapsedTicks, Is.EqualTo(expectedElapsedTicks));
+            Assert.That(state.totalTicks, Is.EqualTo(20));
+            Assert.That(state.commitTick, Is.EqualTo(10));
+            Assert.That(state.stepDirectionX, Is.EqualTo(1));
+            Assert.That(state.stepDirectionY, Is.EqualTo(0));
+        }
+
+        private static bool HasAcceptedPassiveContact(TickResult result, int sourceId, int targetId)
+        {
+            return result.AttackPhaseResult.DamageResolutions.Any(
+                record => record.Accepted &&
+                          record.SourceId == sourceId &&
+                          record.TargetId == targetId &&
+                          record.SourceKind == AttackSourceKind.PassiveContact);
+        }
+
+        private static string BuildContactTimingDebug(
+            int tick,
+            string mover,
+            int moverId,
+            int targetId,
+            WorldSnapshot snapshot,
+            TickResult result)
+        {
+            snapshot.TryGetEntity(10, out var player);
+            snapshot.TryGetEntity(40, out var enemy);
+            var hasPlayerKinematic = snapshot.TryGetUnitKinematicState(10, out var playerKinematic);
+            var hasEnemyKinematic = snapshot.TryGetUnitKinematicState(40, out var enemyKinematic);
+            var hasSameCellContact = player.entityId != 0 &&
+                                     enemy.entityId != 0 &&
+                                     player.position == enemy.position;
+            var damageApplied = result.AttackPhaseResult.DamageResolutions.Any(record => record.Accepted);
+            var presentationSource = ResolvePresentationSource(result, moverId, out var viewPose);
+
+            return $"ContactTimingDebug|Tick={tick}|Mover={mover}|MoverId={moverId}|TargetId={targetId}" +
+                   $"|MoverAnchor={(moverId == 10 ? player.position.ToString() : enemy.position.ToString())}" +
+                   $"|MoverKinematicMode={(moverId == 10 && hasPlayerKinematic ? playerKinematic.mode.ToString() : moverId == 40 && hasEnemyKinematic ? enemyKinematic.mode.ToString() : "None")}" +
+                   $"|MoverLocal={(moverId == 10 && hasPlayerKinematic ? $"{playerKinematic.localOffset.X.RawValue},{playerKinematic.localOffset.Y.RawValue}" : moverId == 40 && hasEnemyKinematic ? $"{enemyKinematic.localOffset.X.RawValue},{enemyKinematic.localOffset.Y.RawValue}" : "None")}" +
+                   $"|EnemyAnchor={enemy.position}|PlayerAnchor={player.position}|HasSameCellContact={(hasSameCellContact ? 1 : 0)}" +
+                   $"|DamageApplied={(damageApplied ? 1 : 0)}|ViewPose={viewPose}|PresentationSource={presentationSource}";
+        }
+
+        private static string ResolvePresentationSource(TickResult result, int entityId, out string viewPose)
+        {
+            var kinematicTrack = result.PresentationData.KinematicMotionTracks.FirstOrDefault(track => track.EntityId == entityId);
+            if (kinematicTrack.EntityId == entityId)
+            {
+                viewPose = $"{kinematicTrack.SourceAnchorCell}->{kinematicTrack.DestinationAnchorCell}|Local={kinematicTrack.SourceLocalOffset}->{kinematicTrack.DestinationLocalOffset}";
+                return "kinematic";
+            }
+
+            var legacyMotion = result.PresentationData.EntityMotions.FirstOrDefault(motion => motion.EntityId == entityId);
+            if (legacyMotion.EntityId == entityId)
+            {
+                viewPose = $"{legacyMotion.SourceCell}->{legacyMotion.DestinationCell}";
+                return "legacy TickEntityMotion";
+            }
+
+            viewPose = "committed";
+            return "committed fallback";
+        }
+
         private static TickPipeline CreatePipeline(
             WorldState worldState,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags,
@@ -464,6 +932,67 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 {
                     buffer.Add(new RawAttackIntent(_sourceId, priority: 50, _targetId));
                 }
+            }
+        }
+
+        private sealed class SameCellPassiveContactProbeLogic : IAttackEntityLogic, IEntityLogicSourceBinding
+        {
+            private readonly int _sourceId;
+            private readonly int _targetId;
+
+            public SameCellPassiveContactProbeLogic(int sourceId, int targetId)
+            {
+                _sourceId = sourceId;
+                _targetId = targetId;
+            }
+
+            public int ControlledEntityId => _sourceId;
+
+            public void CollectAttackIntents(
+                WorldSnapshot snapshot,
+                in TickInput input,
+                System.Collections.Generic.List<RawAttackIntent> buffer)
+            {
+                buffer.Add(new RawAttackIntent(
+                    _sourceId,
+                    priority: 50,
+                    _targetId,
+                    AttackSourceKind.PassiveContact,
+                    localSequence: 1));
+            }
+        }
+
+        private sealed class TickGatedPassiveContactProbeLogic : IAttackEntityLogic, IEntityLogicSourceBinding
+        {
+            private readonly int _firstTick;
+            private readonly int _sourceId;
+            private readonly int _targetId;
+
+            public TickGatedPassiveContactProbeLogic(int sourceId, int targetId, int firstTick)
+            {
+                _sourceId = sourceId;
+                _targetId = targetId;
+                _firstTick = firstTick;
+            }
+
+            public int ControlledEntityId => _sourceId;
+
+            public void CollectAttackIntents(
+                WorldSnapshot snapshot,
+                in TickInput input,
+                System.Collections.Generic.List<RawAttackIntent> buffer)
+            {
+                if (input.TickIndex < _firstTick)
+                {
+                    return;
+                }
+
+                buffer.Add(new RawAttackIntent(
+                    _sourceId,
+                    priority: 50,
+                    _targetId,
+                    AttackSourceKind.PassiveContact,
+                    localSequence: 1));
             }
         }
     }
