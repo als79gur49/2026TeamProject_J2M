@@ -666,6 +666,152 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        [TestCase(1920f, 1080f, 460f, 220f)]
+        [TestCase(1280f, 720f, 460f, 220f)]
+        [TestCase(1366f, 768f, 460f, 220f)]
+        [TestCase(420f, 260f, 292f, 132f)]
+        public void StageResultScreenRuntimeLayout_ClampsCenteredPanelWithinParent(
+            float parentWidth,
+            float parentHeight,
+            float expectedWidth,
+            float expectedHeight)
+        {
+            var parentObject = CreateSizedRectParent("StageResultScreenRuntimeLayoutParent", parentWidth, parentHeight);
+            var stagePrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<StageResultScreenView>(UiTestPrefabAssetUtility.StageResultScreenPrefabPath);
+            var stageView = UnityEngine.Object.Instantiate(stagePrefab, parentObject.transform, false);
+
+            try
+            {
+                stageView.Bind(new StageResultScreenViewModel());
+                stageView.SetIsCurrent(true);
+                var stageRect = (RectTransform)stageView.transform;
+                LayoutRebuilder.ForceRebuildLayoutImmediate(stageRect);
+
+                AssertCenteredTerminalPanel(stageRect, parentWidth, parentHeight, expectedWidth, expectedHeight);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stageView.gameObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [Test]
+        public void StageResultScreenRuntimeLayout_UsesLayoutContainersAndFlexibleDetail()
+        {
+            var parentObject = CreateSizedRectParent("StageResultScreenRuntimeLayoutContainerParent", 1920f, 1080f);
+            var stagePrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<StageResultScreenView>(UiTestPrefabAssetUtility.StageResultScreenPrefabPath);
+            var stageView = UnityEngine.Object.Instantiate(stagePrefab, parentObject.transform, false);
+
+            try
+            {
+                stageView.Bind(new StageResultScreenViewModel());
+                stageView.SetIsCurrent(true);
+                var stageRect = (RectTransform)stageView.transform;
+                LayoutRebuilder.ForceRebuildLayoutImmediate(stageRect);
+
+                AssertTerminalResultLayout(stageView.transform, "ResultSummary");
+                Assert.That(stageView.transform.Find("ResultHeader/Title"), Is.Not.Null);
+                Assert.That(stageView.transform.Find("ResultSummary/Summary"), Is.Not.Null);
+                Assert.That(stageView.transform.Find("ResultDetail/Detail"), Is.Not.Null);
+                Assert.That(stageView.transform.Find("ResultFooter/ContinueButton"), Is.Not.Null);
+                Assert.That(stageView.transform.Find("ResultSummary/Summary").GetComponent<TMP_Text>().textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
+                Assert.That(stageView.transform.Find("ResultDetail/Detail").GetComponent<TMP_Text>().textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stageView.gameObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [TestCase(1920f, 1080f, 460f, 230f)]
+        [TestCase(1280f, 720f, 460f, 230f)]
+        [TestCase(1366f, 768f, 460f, 230f)]
+        [TestCase(420f, 260f, 292f, 132f)]
+        public void LevelFailedScreenRuntimeLayout_ClampsCenteredPanelWithinParent(
+            float parentWidth,
+            float parentHeight,
+            float expectedWidth,
+            float expectedHeight)
+        {
+            var parentObject = CreateSizedRectParent("LevelFailedScreenRuntimeLayoutParent", parentWidth, parentHeight);
+            var levelFailedPrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<LevelFailedScreenView>(UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath);
+            var levelFailedView = UnityEngine.Object.Instantiate(levelFailedPrefab, parentObject.transform, false);
+
+            try
+            {
+                levelFailedView.Bind(new LevelFailedScreenViewModel());
+                levelFailedView.SetIsCurrent(true);
+                var levelFailedRect = (RectTransform)levelFailedView.transform;
+                LayoutRebuilder.ForceRebuildLayoutImmediate(levelFailedRect);
+
+                AssertCenteredTerminalPanel(levelFailedRect, parentWidth, parentHeight, expectedWidth, expectedHeight);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(levelFailedView.gameObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [Test]
+        public void LevelFailedScreenRuntimeLayout_UsesLayoutContainersAndFlexibleDetail()
+        {
+            var parentObject = CreateSizedRectParent("LevelFailedScreenRuntimeLayoutContainerParent", 1920f, 1080f);
+            var levelFailedPrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<LevelFailedScreenView>(UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath);
+            var levelFailedView = UnityEngine.Object.Instantiate(levelFailedPrefab, parentObject.transform, false);
+
+            try
+            {
+                levelFailedView.Bind(new LevelFailedScreenViewModel());
+                levelFailedView.SetIsCurrent(true);
+                var levelFailedRect = (RectTransform)levelFailedView.transform;
+                LayoutRebuilder.ForceRebuildLayoutImmediate(levelFailedRect);
+
+                AssertTerminalResultLayout(levelFailedView.transform);
+                Assert.That(levelFailedView.transform.Find("ResultHeader/Title"), Is.Not.Null);
+                Assert.That(levelFailedView.transform.Find("ResultDetail/Detail"), Is.Not.Null);
+                Assert.That(levelFailedView.transform.Find("ResultFooter/RestartLevelButton"), Is.Not.Null);
+                Assert.That(levelFailedView.transform.Find("ResultFooter/MainButton"), Is.Not.Null);
+                Assert.That(levelFailedView.transform.Find("ResultDetail/Detail").GetComponent<TMP_Text>().textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(levelFailedView.gameObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [Test]
+        public void LevelFailedScreenRuntimeFallback_UsesLayoutContainersAndButtonRows()
+        {
+            var parentObject = CreateSizedRectParent("LevelFailedScreenRuntimeFallbackParent", 1920f, 1080f);
+            var viewObject = new GameObject("LevelFailedScreenRuntimeFallback", typeof(RectTransform));
+            viewObject.transform.SetParent(parentObject.transform, false);
+            var levelFailedView = viewObject.AddComponent<LevelFailedScreenView>();
+
+            try
+            {
+                levelFailedView.Bind(new LevelFailedScreenViewModel());
+                levelFailedView.SetIsCurrent(true);
+                var levelFailedRect = (RectTransform)levelFailedView.transform;
+                LayoutRebuilder.ForceRebuildLayoutImmediate(levelFailedRect);
+
+                AssertCenteredTerminalPanel(levelFailedRect, 1920f, 1080f, 460f, 230f);
+                AssertTerminalResultLayout(levelFailedView.transform);
+                Assert.That(levelFailedView.transform.Find("ResultHeader/Title"), Is.Not.Null);
+                Assert.That(levelFailedView.transform.Find("ResultDetail/Detail"), Is.Not.Null);
+                Assert.That(levelFailedView.transform.Find("ResultFooter/RestartLevelButton"), Is.Not.Null);
+                Assert.That(levelFailedView.transform.Find("ResultFooter/MainButton"), Is.Not.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(viewObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
         [TestCase(ScreenId.Gameplay)]
         [TestCase(ScreenId.Help)]
         [TestCase(ScreenId.ObjectiveStatus)]
@@ -1179,6 +1325,55 @@ namespace Game.Feature.UI.Tests
         {
             var absolutePath = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, "..", relativePath));
             return File.ReadAllText(absolutePath);
+        }
+
+        private static GameObject CreateSizedRectParent(string objectName, float width, float height)
+        {
+            var parentObject = new GameObject(objectName, typeof(RectTransform));
+            var parentRect = (RectTransform)parentObject.transform;
+            parentRect.anchorMin = Vector2.zero;
+            parentRect.anchorMax = Vector2.zero;
+            parentRect.pivot = Vector2.zero;
+            parentRect.sizeDelta = new Vector2(width, height);
+            return parentObject;
+        }
+
+        private static void AssertCenteredTerminalPanel(
+            RectTransform rectTransform,
+            float parentWidth,
+            float parentHeight,
+            float expectedWidth,
+            float expectedHeight)
+        {
+            Assert.That(rectTransform.anchorMin, Is.EqualTo(new Vector2(0.5f, 0.5f)));
+            Assert.That(rectTransform.anchorMax, Is.EqualTo(new Vector2(0.5f, 0.5f)));
+            Assert.That(rectTransform.pivot, Is.EqualTo(new Vector2(0.5f, 0.5f)));
+            Assert.That(rectTransform.anchoredPosition, Is.EqualTo(Vector2.zero));
+            Assert.That(rectTransform.sizeDelta.x, Is.EqualTo(expectedWidth).Within(0.01f));
+            Assert.That(rectTransform.sizeDelta.y, Is.EqualTo(expectedHeight).Within(0.01f));
+            Assert.That(rectTransform.sizeDelta.x, Is.LessThanOrEqualTo(Mathf.Max(1f, parentWidth - 128f)));
+            Assert.That(rectTransform.sizeDelta.y, Is.LessThanOrEqualTo(Mathf.Max(1f, parentHeight - 128f)));
+        }
+
+        private static void AssertTerminalResultLayout(Transform root, string optionalMiddleContainerName = null)
+        {
+            Assert.That(root.GetComponent<VerticalLayoutGroup>(), Is.Not.Null);
+            Assert.That(root.GetComponent<LayoutElement>(), Is.Not.Null);
+
+            var header = root.Find("ResultHeader") as RectTransform;
+            var detail = root.Find("ResultDetail") as RectTransform;
+            var footer = root.Find("ResultFooter") as RectTransform;
+
+            Assert.That(header, Is.Not.Null);
+            Assert.That(detail, Is.Not.Null);
+            Assert.That(footer, Is.Not.Null);
+            Assert.That(detail.GetComponent<LayoutElement>().flexibleHeight, Is.EqualTo(1f));
+            Assert.That(footer.GetComponent<HorizontalLayoutGroup>(), Is.Not.Null);
+
+            if (!string.IsNullOrEmpty(optionalMiddleContainerName))
+            {
+                Assert.That(root.Find(optionalMiddleContainerName), Is.Not.Null);
+            }
         }
 
         private static void AssertSerializedComponentPropertyAssignedAndUnderRoot(SerializedObject serializedObject, string propertyPath, Transform expectedRoot)
