@@ -512,6 +512,86 @@ namespace Game.Feature.UI.Tests
             Assert.That(countdownFill.type, Is.EqualTo(Image.Type.Simple));
         }
 
+        [TestCase(1920f, 1080f, 560f, 640f)]
+        [TestCase(1280f, 720f, 560f, 592f)]
+        [TestCase(1366f, 768f, 560f, 640f)]
+        public void SettingsScreenRuntimeLayout_ClampsCenteredPanelWithinParent(
+            float parentWidth,
+            float parentHeight,
+            float expectedWidth,
+            float expectedHeight)
+        {
+            var parentObject = new GameObject("SettingsScreenRuntimeLayoutParent", typeof(RectTransform));
+            var parentRect = (RectTransform)parentObject.transform;
+            var settingsPrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
+            var settingsView = UnityEngine.Object.Instantiate(settingsPrefab, parentRect, false);
+
+            try
+            {
+                parentRect.anchorMin = Vector2.zero;
+                parentRect.anchorMax = Vector2.zero;
+                parentRect.pivot = Vector2.zero;
+                parentRect.sizeDelta = new Vector2(parentWidth, parentHeight);
+
+                settingsView.SetIsCurrent(true);
+                var settingsRect = (RectTransform)settingsView.transform;
+                LayoutRebuilder.ForceRebuildLayoutImmediate(settingsRect);
+
+                Assert.That(settingsRect.anchorMin, Is.EqualTo(new Vector2(0.5f, 0.5f)));
+                Assert.That(settingsRect.anchorMax, Is.EqualTo(new Vector2(0.5f, 0.5f)));
+                Assert.That(settingsRect.pivot, Is.EqualTo(new Vector2(0.5f, 0.5f)));
+                Assert.That(settingsRect.anchoredPosition, Is.EqualTo(Vector2.zero));
+                Assert.That(settingsRect.sizeDelta.x, Is.EqualTo(expectedWidth).Within(0.01f));
+                Assert.That(settingsRect.sizeDelta.y, Is.EqualTo(expectedHeight).Within(0.01f));
+                Assert.That(settingsRect.sizeDelta.x, Is.LessThanOrEqualTo(parentWidth - 128f));
+                Assert.That(settingsRect.sizeDelta.y, Is.LessThanOrEqualTo(parentHeight - 128f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(settingsView.gameObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [Test]
+        public void SettingsScreenRuntimeLayout_UsesSectionHostAndLayoutGroups()
+        {
+            var parentObject = new GameObject("SettingsScreenRuntimeLayoutSectionParent", typeof(RectTransform));
+            var parentRect = (RectTransform)parentObject.transform;
+            var settingsPrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
+            var settingsView = UnityEngine.Object.Instantiate(settingsPrefab, parentRect, false);
+
+            try
+            {
+                parentRect.sizeDelta = new Vector2(1920f, 1080f);
+                settingsView.SetIsCurrent(true);
+                var settingsRect = (RectTransform)settingsView.transform;
+                LayoutRebuilder.ForceRebuildLayoutImmediate(settingsRect);
+
+                var sectionHost = settingsView.transform.Find("SettingsSectionHost") as RectTransform;
+                Assert.That(sectionHost, Is.Not.Null);
+                Assert.That(settingsView.AudioView.transform.parent, Is.EqualTo(sectionHost));
+                Assert.That(settingsView.DisplayView.transform.parent, Is.EqualTo(sectionHost));
+                Assert.That(settingsView.InputView.transform.parent, Is.EqualTo(sectionHost));
+
+                var audioRect = (RectTransform)settingsView.AudioView.transform;
+                Assert.That(audioRect.anchorMin, Is.EqualTo(Vector2.zero));
+                Assert.That(audioRect.anchorMax, Is.EqualTo(Vector2.one));
+                Assert.That(audioRect.sizeDelta, Is.EqualTo(Vector2.zero));
+                Assert.That(settingsView.AudioView.GetComponent<VerticalLayoutGroup>(), Is.Not.Null);
+                Assert.That(settingsView.AudioView.transform.Find("MainAudioRow").GetComponent<HorizontalLayoutGroup>(), Is.Not.Null);
+                Assert.That(settingsView.DisplayView.GetComponent<VerticalLayoutGroup>(), Is.Not.Null);
+                Assert.That(settingsView.DisplayView.transform.Find("ResolutionRow").GetComponent<HorizontalLayoutGroup>(), Is.Not.Null);
+                Assert.That(settingsView.InputView.GetComponent<VerticalLayoutGroup>(), Is.Not.Null);
+                Assert.That(settingsView.InputView.transform.Find("PushInputRow").GetComponent<HorizontalLayoutGroup>(), Is.Not.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(settingsView.gameObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
         [TestCase(ScreenId.Gameplay)]
         [TestCase(ScreenId.Help)]
         [TestCase(ScreenId.ObjectiveStatus)]

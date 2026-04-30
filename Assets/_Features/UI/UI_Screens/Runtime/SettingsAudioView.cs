@@ -137,14 +137,22 @@ namespace Game.Feature.UI.Screens
 
         private void ApplyLayout()
         {
-            LayoutAudioRow(AudioSettingsChannel.Main, new Vector2(0f, 0f));
-            LayoutAudioRow(AudioSettingsChannel.Bgm, new Vector2(0f, -46f));
-            LayoutAudioRow(AudioSettingsChannel.Sfx, new Vector2(0f, -92f));
+            SettingsLayoutUtility.EnsureVerticalLayout(
+                gameObject,
+                new RectOffset(0, 0, 0, 0),
+                14f,
+                TextAnchor.UpperLeft);
+            LayoutAudioRow(AudioSettingsChannel.Main);
+            LayoutAudioRow(AudioSettingsChannel.Bgm);
+            LayoutAudioRow(AudioSettingsChannel.Sfx);
+            SetRowSiblingIndex(AudioSettingsChannel.Main, 0);
+            SetRowSiblingIndex(AudioSettingsChannel.Bgm, 1);
+            SetRowSiblingIndex(AudioSettingsChannel.Sfx, 2);
         }
 
         private void BindAudioControl(AudioSettingsChannel channel)
         {
-            if (!_audioControls.TryGetValue(channel, out var widgets))
+            if (!_audioControls.TryGetValue(channel, out var widgets) || widgets.RowRoot == null)
             {
                 return;
             }
@@ -217,24 +225,39 @@ namespace Game.Feature.UI.Screens
             RefreshView();
         }
 
-        private void LayoutAudioRow(AudioSettingsChannel channel, Vector2 anchoredPosition)
+        private void LayoutAudioRow(AudioSettingsChannel channel)
         {
             if (!_audioControls.TryGetValue(channel, out var widgets))
             {
                 return;
             }
 
-            LayoutRect(widgets.RowRoot, anchoredPosition, new Vector2(412f, 32f));
-            LayoutRect(widgets.Label != null ? widgets.Label.rectTransform : null, new Vector2(0f, 0f), new Vector2(116f, 24f));
-            LayoutRect(
-                widgets.Slider != null ? widgets.Slider.GetComponent<RectTransform>() : null,
-                new Vector2(126f, -2f),
-                new Vector2(172f, 20f));
-            LayoutRect(widgets.Value != null ? widgets.Value.rectTransform : null, new Vector2(306f, 0f), new Vector2(54f, 24f));
-            LayoutRect(
-                widgets.Toggle != null ? widgets.Toggle.GetComponent<RectTransform>() : null,
-                new Vector2(362f, -2f),
-                new Vector2(50f, 24f));
+            SettingsLayoutUtility.MoveToParent(widgets.RowRoot, transform as RectTransform);
+            SettingsLayoutUtility.EnsureHorizontalLayout(
+                widgets.RowRoot.gameObject,
+                new RectOffset(0, 0, 0, 0),
+                10f,
+                TextAnchor.MiddleLeft);
+            SettingsLayoutUtility.EnsureLayoutElement(widgets.RowRoot, preferredHeight: 32f, flexibleWidth: 1f);
+            SettingsLayoutUtility.FillLayoutChild(widgets.RowRoot);
+
+            SettingsLayoutUtility.MoveToParent(widgets.Label != null ? widgets.Label.rectTransform : null, widgets.RowRoot);
+            SettingsLayoutUtility.MoveToParent(widgets.Slider, widgets.RowRoot);
+            SettingsLayoutUtility.MoveToParent(widgets.Value != null ? widgets.Value.rectTransform : null, widgets.RowRoot);
+            SettingsLayoutUtility.MoveToParent(widgets.Toggle, widgets.RowRoot);
+
+            SettingsLayoutUtility.EnsureLayoutElement(widgets.Label, preferredWidth: 120f, preferredHeight: 24f);
+            SettingsLayoutUtility.EnsureLayoutElement(widgets.Slider, preferredWidth: 180f, preferredHeight: 22f, flexibleWidth: 1f);
+            SettingsLayoutUtility.EnsureLayoutElement(widgets.Value, preferredWidth: 58f, preferredHeight: 24f);
+            SettingsLayoutUtility.EnsureLayoutElement(widgets.Toggle, preferredWidth: 58f, preferredHeight: 24f);
+        }
+
+        private void SetRowSiblingIndex(AudioSettingsChannel channel, int siblingIndex)
+        {
+            if (_audioControls.TryGetValue(channel, out var widgets) && widgets.RowRoot != null)
+            {
+                widgets.RowRoot.SetSiblingIndex(siblingIndex);
+            }
         }
 
         private void RefreshAudioControl(AudioSettingsChannel channel, AudioSettingsRowViewModel rowViewModel)
@@ -384,20 +407,6 @@ namespace Game.Feature.UI.Screens
             }
 
             return $"{baseMessage} Details: {string.Join("; ", issues)}.";
-        }
-
-        private static void LayoutRect(RectTransform rectTransform, Vector2 anchoredPosition, Vector2 sizeDelta)
-        {
-            if (rectTransform == null)
-            {
-                return;
-            }
-
-            rectTransform.anchorMin = new Vector2(0f, 1f);
-            rectTransform.anchorMax = new Vector2(0f, 1f);
-            rectTransform.pivot = new Vector2(0f, 1f);
-            rectTransform.anchoredPosition = anchoredPosition;
-            rectTransform.sizeDelta = sizeDelta;
         }
 
         [Serializable]

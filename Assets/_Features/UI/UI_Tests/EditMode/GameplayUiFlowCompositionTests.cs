@@ -532,7 +532,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(settingsView.DisplayView.transform.parent, Is.Not.EqualTo(installer.ScreenLayerView.ContentRoot));
 
                 var mainAudioRow = settingsView.AudioView.transform.Find("MainAudioRow");
-                var resolutionDropdown = settingsView.DisplayView.transform.Find("ResolutionDropdown");
+                var resolutionDropdown = settingsView.DisplayView.transform.Find("ResolutionRow/ResolutionDropdown");
 
                 Assert.That(mainAudioRow, Is.Not.Null);
                 Assert.That(resolutionDropdown, Is.Not.Null);
