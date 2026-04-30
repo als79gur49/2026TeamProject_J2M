@@ -234,10 +234,12 @@ namespace Game.Feature.Stages.Editor
                     focusedGridKind = null;
                 }
 
-                DrawLegendItem(StageAuthoringEntityKind.Player, "P Player");
-                DrawLegendItem(StageAuthoringEntityKind.Enemy, "E Enemy");
-                DrawLegendItem(StageAuthoringEntityKind.Box, "B Box");
-                DrawLegendItem(StageAuthoringEntityKind.Wall, "W Wall");
+                var descriptors = StageAuthoringKindRegistry.Descriptors;
+                for (var i = 0; i < descriptors.Count; i++)
+                {
+                    var descriptor = descriptors[i];
+                    DrawLegendItem(descriptor.Kind, $"{descriptor.Marker} {descriptor.DisplayName}");
+                }
             }
         }
 
@@ -402,7 +404,7 @@ namespace Game.Feature.Stages.Editor
         {
             using (new EditorGUILayout.HorizontalScope())
             {
-                using (new EditorGUI.DisabledScope(selectedPlacementIndex < 0))
+                using (new EditorGUI.DisabledScope(!SupportsSelectedFacingAuthoring(selectedPlacementIndex)))
                 {
                     if (GUILayout.Button("Rotate Left", GUILayout.Width(112)))
                     {
@@ -523,7 +525,9 @@ namespace Game.Feature.Stages.Editor
         private void RotateSelectedFacing(int selectedPlacementIndex, bool clockwise)
         {
             var placementsProperty = serializedAuthoring.FindProperty("placements");
-            if (selectedPlacementIndex < 0 || selectedPlacementIndex >= placementsProperty.arraySize)
+            if (selectedPlacementIndex < 0 ||
+                selectedPlacementIndex >= placementsProperty.arraySize ||
+                !SupportsSelectedFacingAuthoring(selectedPlacementIndex))
             {
                 return;
             }
@@ -554,13 +558,30 @@ namespace Game.Feature.Stages.Editor
                 currentEvent.type != EventType.KeyDown ||
                 currentEvent.keyCode != KeyCode.R ||
                 EditorGUIUtility.editingTextField ||
-                selectedPlacementIndex < 0)
+                selectedPlacementIndex < 0 ||
+                !SupportsSelectedFacingAuthoring(selectedPlacementIndex))
             {
                 return;
             }
 
             RotateSelectedFacing(selectedPlacementIndex, clockwise: !currentEvent.shift);
             currentEvent.Use();
+        }
+
+        private bool SupportsSelectedFacingAuthoring(int selectedPlacementIndex)
+        {
+            var placementsProperty = serializedAuthoring.FindProperty("placements");
+            if (selectedPlacementIndex < 0 || selectedPlacementIndex >= placementsProperty.arraySize)
+            {
+                return false;
+            }
+
+            var kind = (StageAuthoringEntityKind)placementsProperty
+                .GetArrayElementAtIndex(selectedPlacementIndex)
+                .FindPropertyRelative("Kind")
+                .intValue;
+            return StageAuthoringKindRegistry.TryGet(kind, out var descriptor) &&
+                   descriptor.SupportsFacingAuthoring;
         }
 
         private void GenerateAndStoreReport()

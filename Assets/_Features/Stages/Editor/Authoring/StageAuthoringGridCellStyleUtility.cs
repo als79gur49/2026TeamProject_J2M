@@ -46,7 +46,13 @@ namespace Game.Feature.Stages.Editor
 
         public static bool TryGetTint(StageAuthoringEntityKind kind, out Color tint)
         {
-            switch (kind)
+            if (!StageAuthoringKindRegistry.TryGet(kind, out var descriptor))
+            {
+                tint = Color.white;
+                return false;
+            }
+
+            switch (descriptor.Kind)
             {
                 case StageAuthoringEntityKind.Player:
                     tint = PlayerTint;
@@ -60,10 +66,10 @@ namespace Game.Feature.Stages.Editor
                 case StageAuthoringEntityKind.Wall:
                     tint = WallTint;
                     return true;
-                default:
-                    tint = Color.white;
-                    return false;
             }
+
+            tint = Color.white;
+            return false;
         }
 
         public static bool IsFocusedKind(StageAuthoringEntityKind kind, StageAuthoringEntityKind? focusedKind)

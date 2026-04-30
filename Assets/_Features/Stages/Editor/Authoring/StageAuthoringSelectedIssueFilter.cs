@@ -17,12 +17,13 @@ namespace Game.Feature.Stages.Editor
             }
 
             var stableGuid = StageAuthoringProjection.Normalize(placement.StableGuid);
-            var presentationId = NormalizePresentationId(placement.Kind, placement.PresentationId);
+            var lane = StageAuthoringKindRegistry.GetPresentationLane(placement.Kind);
+            var presentationId = NormalizePresentationId(lane, placement.PresentationId);
             var result = new List<StageValidationIssue>();
             for (var i = 0; i < issues.Count; i++)
             {
                 var issue = issues[i];
-                if (Matches(issue, placement.Kind, stableGuid, entityId, presentationId))
+                if (Matches(issue, lane, stableGuid, entityId, presentationId))
                 {
                     result.Add(issue);
                 }
@@ -33,7 +34,7 @@ namespace Game.Feature.Stages.Editor
 
         private static bool Matches(
             StageValidationIssue issue,
-            StageAuthoringEntityKind kind,
+            StageAuthoringPresentationLane lane,
             string stableGuid,
             int entityId,
             string presentationId)
@@ -50,12 +51,12 @@ namespace Game.Feature.Stages.Editor
             }
 
             if (!string.IsNullOrEmpty(presentationId) &&
-                string.Equals(NormalizeIssuePresentationId(kind, issue.PresentationId), presentationId, StringComparison.Ordinal))
+                string.Equals(NormalizeIssuePresentationId(lane, issue.PresentationId), presentationId, StringComparison.Ordinal))
             {
                 return true;
             }
 
-            if (!string.IsNullOrEmpty(issue.FieldName) && IsKindBindingField(kind, issue.FieldName))
+            if (!string.IsNullOrEmpty(issue.FieldName) && IsKindBindingField(lane, issue.FieldName))
             {
                 if (entityId > 0 && issue.FieldName.Contains($"[{entityId}]", StringComparison.Ordinal))
                 {
@@ -73,24 +74,29 @@ namespace Game.Feature.Stages.Editor
                    issue.Message.Contains(presentationId, StringComparison.Ordinal);
         }
 
-        private static bool IsKindBindingField(StageAuthoringEntityKind kind, string fieldName)
+        private static bool IsKindBindingField(StageAuthoringPresentationLane lane, string fieldName)
         {
-            var expectsEnemy = kind == StageAuthoringEntityKind.Enemy;
-            return expectsEnemy
-                ? fieldName.Contains("EnemyPresentationBindings", StringComparison.Ordinal)
-                : fieldName.Contains("StaticEntityPresentationBindings", StringComparison.Ordinal);
+            return lane switch
+            {
+                StageAuthoringPresentationLane.Enemy => fieldName.Contains("EnemyPresentationBindings", StringComparison.Ordinal),
+                StageAuthoringPresentationLane.Static => fieldName.Contains("StaticEntityPresentationBindings", StringComparison.Ordinal),
+                _ => false,
+            };
         }
 
-        private static string NormalizeIssuePresentationId(StageAuthoringEntityKind kind, string presentationId)
+        private static string NormalizeIssuePresentationId(StageAuthoringPresentationLane lane, string presentationId)
         {
-            return NormalizePresentationId(kind, presentationId);
+            return NormalizePresentationId(lane, presentationId);
         }
 
-        private static string NormalizePresentationId(StageAuthoringEntityKind kind, string presentationId)
+        private static string NormalizePresentationId(StageAuthoringPresentationLane lane, string presentationId)
         {
-            return kind == StageAuthoringEntityKind.Enemy
-                ? EnemyPresentationCatalogResolver.NormalizePresentationId(presentationId)
-                : StaticEntityPresentationCatalogResolver.NormalizePresentationId(presentationId);
+            return lane switch
+            {
+                StageAuthoringPresentationLane.Enemy => EnemyPresentationCatalogResolver.NormalizePresentationId(presentationId),
+                StageAuthoringPresentationLane.Static => StaticEntityPresentationCatalogResolver.NormalizePresentationId(presentationId),
+                _ => StageAuthoringProjection.Normalize(presentationId),
+            };
         }
     }
 }

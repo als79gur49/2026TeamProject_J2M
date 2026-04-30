@@ -224,14 +224,14 @@ namespace Game.Feature.Stages
                     continue;
                 }
 
-                if (placement.Kind == StageAuthoringEntityKind.Enemy)
+                switch (StageAuthoringKindRegistry.GetPresentationLane(placement.Kind))
                 {
-                    enemy.Add(new StageAuthoringNormalizedPresentationBinding(entityId, presentationId));
-                }
-                else if (placement.Kind == StageAuthoringEntityKind.Box ||
-                         placement.Kind == StageAuthoringEntityKind.Wall)
-                {
-                    statics.Add(new StageAuthoringNormalizedPresentationBinding(entityId, presentationId));
+                    case StageAuthoringPresentationLane.Enemy:
+                        enemy.Add(new StageAuthoringNormalizedPresentationBinding(entityId, presentationId));
+                        break;
+                    case StageAuthoringPresentationLane.Static:
+                        statics.Add(new StageAuthoringNormalizedPresentationBinding(entityId, presentationId));
+                        break;
                 }
             }
 

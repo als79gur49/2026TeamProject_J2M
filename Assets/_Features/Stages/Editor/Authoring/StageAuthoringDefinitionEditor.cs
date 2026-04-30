@@ -69,13 +69,13 @@ namespace Game.Feature.Stages.Editor
         private static void DrawPlacementSummary(StageAuthoringDefinition authoring)
         {
             var placements = authoring.Placements;
-            var playerCount = placements.Count(placement => placement != null && placement.Kind == StageAuthoringEntityKind.Player);
-            var enemyCount = placements.Count(placement => placement != null && placement.Kind == StageAuthoringEntityKind.Enemy);
-            var boxCount = placements.Count(placement => placement != null && placement.Kind == StageAuthoringEntityKind.Box);
-            var wallCount = placements.Count(placement => placement != null && placement.Kind == StageAuthoringEntityKind.Wall);
+            var placementSummary = string.Join(
+                " / ",
+                StageAuthoringKindRegistry.Descriptors.Select(
+                    descriptor => $"{descriptor.Marker} {CountPlacements(placements, descriptor.Kind)}"));
             var missingPresentation = placements.Count(placement =>
                 placement != null &&
-                placement.Kind != StageAuthoringEntityKind.Player &&
+                StageAuthoringKindRegistry.RequiresPresentation(placement.Kind) &&
                 string.IsNullOrWhiteSpace(placement.PresentationId));
             var duplicateGuidCount = placements
                 .Where(placement => placement != null)
@@ -88,7 +88,7 @@ namespace Game.Feature.Stages.Editor
 
             EditorGUILayout.LabelField(
                 "Placements",
-                $"P {playerCount} / E {enemyCount} / B {boxCount} / W {wallCount}");
+                placementSummary);
             if (missingPresentation > 0)
             {
                 EditorGUILayout.HelpBox(
@@ -102,6 +102,13 @@ namespace Game.Feature.Stages.Editor
                     $"Duplicate/stale mapping warning: duplicate guid groups={duplicateGuidCount}, duplicate entity id groups={duplicateIdCount}.",
                     MessageType.Warning);
             }
+        }
+
+        private static int CountPlacements(
+            System.Collections.Generic.IEnumerable<StagePlacedEntityAuthoring> placements,
+            StageAuthoringEntityKind kind)
+        {
+            return placements.Count(placement => placement != null && placement.Kind == kind);
         }
 
         private static void DrawReport(StageAuthoringGenerationReport report)

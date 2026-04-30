@@ -20,14 +20,9 @@ namespace Game.Feature.Stages.Editor
                 return ".";
             }
 
-            var kindMarker = placement.Kind switch
-            {
-                StageAuthoringEntityKind.Player => "P",
-                StageAuthoringEntityKind.Enemy => "E",
-                StageAuthoringEntityKind.Box => "B",
-                StageAuthoringEntityKind.Wall => "W",
-                _ => "?",
-            };
+            var kindMarker = StageAuthoringKindRegistry.TryGetMarker(placement.Kind, out var marker)
+                ? marker
+                : "?";
             return kindMarker + StageAuthoringFacingDisplayUtility.ToFacingArrow(placement.Facing);
         }
     }

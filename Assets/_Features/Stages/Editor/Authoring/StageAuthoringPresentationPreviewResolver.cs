@@ -11,7 +11,7 @@ namespace Game.Feature.Stages.Editor
             StagePlacedEntityAuthoring placement,
             StagePresentationDefinition generatedPresentationDefinition)
         {
-            if (placement == null || placement.Kind == StageAuthoringEntityKind.Player)
+            if (placement == null || !StageAuthoringKindRegistry.RequiresPresentation(placement.Kind))
             {
                 return StageAuthoringPresentationPreviewModel.Empty;
             }
@@ -29,7 +29,8 @@ namespace Game.Feature.Stages.Editor
                     "Generated presentation definition is not assigned.");
             }
 
-            return placement.Kind == StageAuthoringEntityKind.Enemy
+            var lane = StageAuthoringKindRegistry.GetPresentationLane(placement.Kind);
+            return lane == StageAuthoringPresentationLane.Enemy
                 ? ResolveEnemy(placement, generatedPresentationDefinition.EnemyPresentationCatalog)
                 : ResolveStatic(placement, generatedPresentationDefinition.StaticEntityPresentationCatalog);
         }
@@ -197,7 +198,8 @@ namespace Game.Feature.Stages.Editor
                 return false;
             }
 
-            if (kind == StageAuthoringEntityKind.Enemy && catalog is EnemyPresentationCatalog enemyCatalog)
+            var lane = StageAuthoringKindRegistry.GetPresentationLane(kind);
+            if (lane == StageAuthoringPresentationLane.Enemy && catalog is EnemyPresentationCatalog enemyCatalog)
             {
                 var entries = enemyCatalog.Entries;
                 for (var i = 0; i < entries.Length; i++)
@@ -211,7 +213,7 @@ namespace Game.Feature.Stages.Editor
                     return true;
                 }
             }
-            else if (catalog is StaticEntityPresentationCatalog staticCatalog)
+            else if (lane == StageAuthoringPresentationLane.Static && catalog is StaticEntityPresentationCatalog staticCatalog)
             {
                 var entries = staticCatalog.Entries;
                 for (var i = 0; i < entries.Length; i++)
@@ -269,14 +271,16 @@ namespace Game.Feature.Stages.Editor
 
         private static string NormalizePresentationId(StageAuthoringEntityKind kind, string presentationId)
         {
-            return kind == StageAuthoringEntityKind.Enemy
+            return StageAuthoringKindRegistry.GetPresentationLane(kind) == StageAuthoringPresentationLane.Enemy
                 ? EnemyPresentationCatalogResolver.NormalizePresentationId(presentationId)
                 : StaticEntityPresentationCatalogResolver.NormalizePresentationId(presentationId);
         }
 
         private static string ToPresentationKindLabel(StageAuthoringEntityKind kind)
         {
-            return kind == StageAuthoringEntityKind.Enemy ? "Enemy" : "Static";
+            return StageAuthoringKindRegistry.GetPresentationLane(kind) == StageAuthoringPresentationLane.Enemy
+                ? "Enemy"
+                : "Static";
         }
     }
 }

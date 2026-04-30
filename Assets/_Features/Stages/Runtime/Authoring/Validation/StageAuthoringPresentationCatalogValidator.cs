@@ -384,14 +384,14 @@ namespace Game.Feature.Stages
                         continue;
                     }
 
-                    if (placement.Kind == StageAuthoringEntityKind.Enemy)
+                    switch (StageAuthoringKindRegistry.GetPresentationLane(placement.Kind))
                     {
-                        result.Enemy = true;
-                    }
-                    else if (placement.Kind == StageAuthoringEntityKind.Box ||
-                             placement.Kind == StageAuthoringEntityKind.Wall)
-                    {
-                        result.Static = true;
+                        case StageAuthoringPresentationLane.Enemy:
+                            result.Enemy = true;
+                            break;
+                        case StageAuthoringPresentationLane.Static:
+                            result.Static = true;
+                            break;
                     }
                 }
             }
@@ -505,18 +505,18 @@ namespace Game.Feature.Stages
             for (var i = 0; i < placements.Count; i++)
             {
                 var placement = placements[i];
-                if (placement == null || placement.Kind == StageAuthoringEntityKind.Player)
+                if (placement == null || !StageAuthoringKindRegistry.RequiresPresentation(placement.Kind))
                 {
                     continue;
                 }
 
                 var stableGuid = StageAuthoringProjection.Normalize(placement.StableGuid);
                 allocationPlan.EntityIdsByStableGuid.TryGetValue(stableGuid, out var entityId);
-                var presentationId = NormalizePlacementPresentationId(placement.Kind, placement.PresentationId);
+                var lane = StageAuthoringKindRegistry.GetPresentationLane(placement.Kind);
+                var presentationId = NormalizePlacementPresentationId(lane, placement.PresentationId);
                 if (string.IsNullOrEmpty(presentationId))
                 {
-                    var staticPlacement = placement.Kind == StageAuthoringEntityKind.Box ||
-                                          placement.Kind == StageAuthoringEntityKind.Wall;
+                    var staticPlacement = lane == StageAuthoringPresentationLane.Static;
                     issues.Add(CreateIssue(
                         ResolveSoftSeverity(strict),
                         staticPlacement
@@ -538,7 +538,7 @@ namespace Game.Feature.Stages
                     continue;
                 }
 
-                if (placement.Kind == StageAuthoringEntityKind.Enemy)
+                if (lane == StageAuthoringPresentationLane.Enemy)
                 {
                     if (enemySnapshot.PresentationIds.Length > 0 &&
                         !enemySnapshot.ContainsPresentationId(presentationId))
@@ -561,7 +561,8 @@ namespace Game.Feature.Stages
                             presentationId));
                     }
                 }
-                else if (staticSnapshot.PresentationIds.Length > 0 &&
+                else if (lane == StageAuthoringPresentationLane.Static &&
+                         staticSnapshot.PresentationIds.Length > 0 &&
                          !staticSnapshot.ContainsPresentationId(presentationId))
                 {
                     issues.Add(CreateIssue(
@@ -733,8 +734,7 @@ namespace Game.Feature.Stages
                     actualValue: entityId.ToString(),
                     presentationId: presentationId));
             }
-            else if ((enemyBinding && spawn.Kind != StageSpawnKind.Enemy) ||
-                     (!enemyBinding && spawn.Kind != StageSpawnKind.Box && spawn.Kind != StageSpawnKind.Wall))
+            else if (!SpawnMatchesPresentationLane(spawn.Kind, ResolveBindingLane(enemyBinding)))
             {
                 issues.Add(CreateIssue(
                     StageValidationSeverity.Error,
@@ -748,7 +748,7 @@ namespace Game.Feature.Stages
                     presentation.name,
                     entityId,
                     fieldName: $"{fieldPrefix}.EntityId",
-                    expectedValue: enemyBinding ? "Enemy" : "Box or Wall",
+                    expectedValue: ResolveBindingExpectedSpawnKind(enemyBinding),
                     actualValue: spawn.Kind.ToString(),
                     presentationId: presentationId));
             }
@@ -848,7 +848,7 @@ namespace Game.Feature.Stages
             for (var i = 0; i < placements.Count; i++)
             {
                 var placement = placements[i];
-                if (placement != null && placement.Kind != StageAuthoringEntityKind.Player)
+                if (placement != null && StageAuthoringKindRegistry.RequiresPresentation(placement.Kind))
                 {
                     return true;
                 }
@@ -858,12 +858,36 @@ namespace Game.Feature.Stages
         }
 
         private static string NormalizePlacementPresentationId(
-            StageAuthoringEntityKind kind,
+            StageAuthoringPresentationLane lane,
             string presentationId)
         {
-            return kind == StageAuthoringEntityKind.Enemy
-                ? EnemyPresentationCatalogResolver.NormalizePresentationId(presentationId)
-                : StaticEntityPresentationCatalogResolver.NormalizePresentationId(presentationId);
+            return lane switch
+            {
+                StageAuthoringPresentationLane.Enemy => EnemyPresentationCatalogResolver.NormalizePresentationId(presentationId),
+                StageAuthoringPresentationLane.Static => StaticEntityPresentationCatalogResolver.NormalizePresentationId(presentationId),
+                _ => StageAuthoringProjection.Normalize(presentationId),
+            };
+        }
+
+        private static StageAuthoringPresentationLane ResolveBindingLane(bool enemyBinding)
+        {
+            return enemyBinding ? StageAuthoringPresentationLane.Enemy : StageAuthoringPresentationLane.Static;
+        }
+
+        private static bool SpawnMatchesPresentationLane(StageSpawnKind spawnKind, StageAuthoringPresentationLane lane)
+        {
+            return lane switch
+            {
+                StageAuthoringPresentationLane.Enemy => spawnKind == StageSpawnKind.Enemy,
+                StageAuthoringPresentationLane.Static => spawnKind == StageSpawnKind.Box ||
+                                                         spawnKind == StageSpawnKind.Wall,
+                _ => false,
+            };
+        }
+
+        private static string ResolveBindingExpectedSpawnKind(bool enemyBinding)
+        {
+            return enemyBinding ? "Enemy" : "Box or Wall";
         }
 
         private static StageValidationSeverity ResolveSoftSeverity(bool strict)
