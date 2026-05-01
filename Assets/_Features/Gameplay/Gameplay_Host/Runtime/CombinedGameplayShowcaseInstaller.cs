@@ -15,6 +15,7 @@ namespace Game.Feature.Gameplay.Host
             base.ConfigureRuntimeConfiguration(configuration, initialState);
             configuration.EnablePlayerSameFaceContinuousLocomotion = true;
             configuration.EnableEnemySameFaceContinuousLocomotion = true;
+            configuration.EnableEnemyChargeKinematicLocomotion = true;
             configuration.EnablePlayerStoppableKinematicLocomotion = true;
             configuration.EnablePlayerFree2DLocalLocomotion = true;
             configuration.EnablePlayerFree2DActionAssist = true;

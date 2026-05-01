@@ -120,6 +120,15 @@ namespace Game.Feature.Gameplay.Loop
                 enablePlayerFree2DLocalLocomotion: true,
                 enablePlayerFree2DActionAssist: true);
 
+        public static GameplayRuntimeFeatureFlags DefaultGameplayLocomotion =>
+            new(
+                enablePlayerSameFaceContinuousLocomotion: true,
+                enableEnemySameFaceContinuousLocomotion: true,
+                enableEnemyChargeKinematicLocomotion: true,
+                enablePlayerStoppableKinematicLocomotion: true,
+                enablePlayerFree2DLocalLocomotion: true,
+                enablePlayerFree2DActionAssist: true);
+
         public static GameplayRuntimeFeatureFlags EnemySameFaceContinuousLocomotionEnabled =>
             new(
                 enablePlayerSameFaceContinuousLocomotion: false,

@@ -5409,7 +5409,9 @@ namespace Game.Feature.Gameplay.Loop
                 movementSemanticKind: MovementSemanticKind.JumpLanding,
                 damageSourceType: DamageSourceType.None,
                 jumpPresentationKind: jumpPresentationKind,
-                presentationTargetCell: payload.DestinationCell);
+                presentationTargetCell: payload.DestinationCell,
+                movementExecutionBoundaryKind: MovementExecutionBoundaryKind.UnitSpecialLocomotion,
+                boundaryReason: "EnemyJumpLanding");
         }
 
         private static FinalizationOperationMetadata CreatePhaseRelocationMetadata(

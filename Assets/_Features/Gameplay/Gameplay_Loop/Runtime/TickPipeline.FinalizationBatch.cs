@@ -1241,7 +1241,9 @@ namespace Game.Feature.Gameplay.Loop
                 movementSemanticKind: MovementSemanticKind.JumpLanding,
                 damageSourceType: DamageSourceType.None,
                 jumpPresentationKind: jumpPresentationKind,
-                presentationTargetCell: state.lockedTargetCell);
+                presentationTargetCell: state.lockedTargetCell,
+                movementExecutionBoundaryKind: MovementExecutionBoundaryKind.UnitSpecialLocomotion,
+                boundaryReason: "EnemyJumpState");
         }
 
         private FinalizationOperationMetadata CreatePhasedStateMetadata(int entityId)
