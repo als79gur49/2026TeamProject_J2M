@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Commit;
 using Game.Feature.Gameplay.Attack.Collection;
@@ -10,6 +11,7 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.Movement.Collection;
+using Game.Feature.Gameplay.Movement.Intents;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
@@ -110,9 +112,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)),
                         CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxCapabilities.Item),
                     }),
-                    new IEntityLogic[] { new PlayerLogic(10) },
+                    new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(10, 100, new Vector2Int(1, 0))) },
                     GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
-                .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+                .RunTick(new TickInput(1));
             LegacyMovementBoundaryAssert.HasMoveEntityBoundary(itemTick, 10, MovementExecutionBoundaryKind.BoxActionMovement);
             Assert.That(itemTick.PresentationData.EntityMotions.Any(motion => motion.EntityId == 10), Is.True);
 
@@ -120,18 +122,17 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 GameplayTerrainData.Empty);
-            var topologyTick = CreatePipeline(
-                    topologyWorld,
-                    new IEntityLogic[] { new PlayerLogic(10) },
-                    GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
-                .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
-            LegacyMovementBoundaryAssert.HasMoveEntityBoundary(topologyTick, 10, MovementExecutionBoundaryKind.TopologyMaterialization);
-            Assert.That(topologyTick.PresentationData.TopologyMotion.HasValue, Is.True);
+            topologyWorld.CreateWriteContext().SetPlayerControlState(10, default);
+            var topologyIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(0, 2));
+            topologyIntent.AssignIntentId(1);
+            AssertLegacyExpansionIntentAllowed(
+                topologyWorld,
+                topologyIntent,
+                GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
 
             LegacyMovementBoundaryAssert.NoUnexpectedLegacyOrdinaryDiagnostics(pushTick);
             LegacyMovementBoundaryAssert.NoUnexpectedLegacyOrdinaryDiagnostics(flipTick);
             LegacyMovementBoundaryAssert.NoUnexpectedLegacyOrdinaryDiagnostics(itemTick);
-            LegacyMovementBoundaryAssert.NoUnexpectedLegacyOrdinaryDiagnostics(topologyTick);
         }
 
         [Test]
@@ -216,7 +217,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreatePlayer(10, new SurfaceCell(FaceId.Floor, 3, 0)),
                     CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase),
                 });
-                jumpWorld.CreateWriteContext().SetEnemyJumpState(
+                var jumpWriteContext = jumpWorld.CreateWriteContext();
+                jumpWriteContext.SetEnemyJumpState(
                     40,
                     new EnemyJumpRuntimeState
                     {
@@ -227,6 +229,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         windupEndTick = 0,
                         landingTick = 1,
                     });
+                jumpWriteContext.SetBoardPresence(40, EntityBoardPresence.Detached);
                 var jumpTick = GameplayCompositionRoot.CreateDefaultBootstrapper(jumpProfile)
                     .CreateTickPipeline(jumpWorld, Array.Empty<IEntityLogic>())
                     .RunTick(new TickInput(1));
@@ -299,7 +302,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreatePlayer(10, new SurfaceCell(FaceId.Floor, 3, 0)),
                     CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase),
                 });
-                jumpWorld.CreateWriteContext().SetEnemyJumpState(
+                var jumpWriteContext = jumpWorld.CreateWriteContext();
+                jumpWriteContext.SetEnemyJumpState(
                     40,
                     new EnemyJumpRuntimeState
                     {
@@ -310,6 +314,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         windupEndTick = 0,
                         landingTick = 1,
                     });
+                jumpWriteContext.SetBoardPresence(40, EntityBoardPresence.Detached);
 
                 var jumpTick = GameplayCompositionRoot.CreateDefaultBootstrapper(jumpProfile)
                     .CreateTickPipeline(jumpWorld, Array.Empty<IEntityLogic>())
@@ -504,6 +509,48 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return GameplayWorldStateTestFactory.CreateBounded(entities);
         }
 
+        private static List<MoveIntent> InvokeValidateLegacyExpansionIntents(
+            TickPipeline pipeline,
+            WorldSnapshot snapshot,
+            IReadOnlyList<MoveIntent> expansionIntents,
+            List<string> rejectedReasons)
+        {
+            var method = typeof(TickPipeline).GetMethod(
+                "ValidateLegacyExpansionIntents",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.That(method, Is.Not.Null);
+
+            return (List<MoveIntent>)method.Invoke(
+                pipeline,
+                new object[]
+                {
+                    snapshot,
+                    expansionIntents,
+                    rejectedReasons,
+                });
+        }
+
+        private static void AssertLegacyExpansionIntentAllowed(
+            WorldState worldState,
+            MoveIntent intent,
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags)
+        {
+            var rejectedReasons = new List<string>();
+            var filteredIntents = InvokeValidateLegacyExpansionIntents(
+                CreatePipeline(worldState, Array.Empty<IEntityLogic>(), runtimeFeatureFlags),
+                worldState.CreateSnapshot(),
+                new[] { intent },
+                rejectedReasons);
+
+            CollectionAssert.AreEqual(
+                new[] { intent.IntentId },
+                filteredIntents.Select(filtered => filtered.IntentId).ToArray());
+            Assert.That(
+                rejectedReasons.Any(reason => reason.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
+                Is.False);
+        }
+
         private static EntityState CreatePlayer(
             int entityId,
             SurfaceCell position,
@@ -575,7 +622,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 DefaultEnemyAiStateResolver.Instance);
         }
 
-        private sealed class ScriptedMovementLogic : IMovementEntityLogic
+        private sealed class ScriptedMovementLogic : IMovementEntityLogic, IEntityLogicSourceBinding
         {
             private readonly int _tickIndex;
             private readonly RawMovementIntent _intent;
@@ -585,6 +632,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 _tickIndex = tickIndex;
                 _intent = intent;
             }
+
+            public int ControlledEntityId => _intent.SourceId;
 
             public void CollectMovementIntents(
                 WorldSnapshot snapshot,

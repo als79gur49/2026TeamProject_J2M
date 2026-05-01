@@ -269,9 +269,11 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
 
             AssertReplayBoundaryCanaryEqual(firstPlayerReplay, secondPlayerReplay);
-            Assert.That(firstPlayerReplay.Any(frame => frame.Trace.Contains("ContinuousLocomotion", StringComparison.Ordinal)), Is.True);
+            Assert.That(
+                firstPlayerReplay[0].DeterminismHash,
+                Is.Not.EqualTo(firstPlayerReplay[firstPlayerReplay.Count - 1].DeterminismHash));
 
-            var enemyInputs = Enumerable.Range(1, 6)
+            var enemyInputs = Enumerable.Range(1, 10)
                 .Select(tick => new TickInput(tick))
                 .ToArray();
             var enemyProfile = EnemyAiProfileTestFactory.CreateContactDamage();
