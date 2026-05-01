@@ -57,11 +57,30 @@ namespace Game.Feature.Gameplay.Tests
             NoLegacyOrdinaryUnitMove(result, entityIds);
         }
 
+        public static void NoCoveredFallbackInDefaultGameplayLocomotion(TickResult result, params int[] entityIds)
+        {
+            NoCoveredLocomotionLegacyFallback(result, entityIds);
+        }
+
         public static void AllowsRetainedGlideFallback(TickResult result, int entityId)
         {
             HasLegacyFallbackMoveEntity(result, entityId);
             HasLegacyFallbackMove(result, entityId);
             NoUnexpectedLegacyOrdinaryDiagnostics(result);
+        }
+
+        public static void AllowsRetainedGlideFallbackOnlyWhenGlideFlagOff(
+            TickResult result,
+            int entityId,
+            bool glideFlagEnabled)
+        {
+            if (glideFlagEnabled)
+            {
+                NoLegacyOrdinaryUnitMove(result, entityId);
+                return;
+            }
+
+            AllowsRetainedGlideFallback(result, entityId);
         }
 
         public static void AllowsFlagOffLegacyFallback(TickResult result, int entityId, bool chargeMove = false)
@@ -77,6 +96,12 @@ namespace Game.Feature.Gameplay.Tests
             }
         }
 
+        public static void AllowsOnlyFlagOffCoveredFallback(TickResult result, int entityId, bool chargeMove = false)
+        {
+            AllowsFlagOffLegacyFallback(result, entityId, chargeMove);
+            NoUnexpectedLegacyOrdinaryDiagnostics(result);
+        }
+
         public static void GridTransactionsRemainAllowed(
             TickResult result,
             int entityId,
@@ -84,6 +109,39 @@ namespace Game.Feature.Gameplay.Tests
         {
             HasMoveEntityBoundary(result, entityId, boundaryKind);
             NoUnexpectedLegacyOrdinaryDiagnostics(result);
+        }
+
+        public static void GridTransactionBranchesRemainAllowed(
+            TickResult result,
+            int entityId,
+            MovementExecutionBoundaryKind boundaryKind)
+        {
+            GridTransactionsRemainAllowed(result, entityId, boundaryKind);
+        }
+
+        public static void NoLegacyUnitPresentationForCoveredEntities(TickResult result, params int[] entityIds)
+        {
+            for (var i = 0; i < entityIds.Length; i++)
+            {
+                Assert.That(
+                    result.PresentationData.EntityMotions.Any(motion =>
+                        motion.EntityId == entityIds[i] &&
+                        (motion.MotionKind == TickEntityMotionKind.Move ||
+                         motion.MotionKind == TickEntityMotionKind.ChargeMove)),
+                    Is.False,
+                    BuildDebug(result, entityIds[i]));
+            }
+        }
+
+        public static void LegacyFallbackIsOnlyForAllowedEntities(TickResult result, params int[] allowedEntityIds)
+        {
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.MoveEntity &&
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.LegacyFallback &&
+                    !IsExceptedEntity(operation.EntityId, allowedEntityIds)),
+                Is.False,
+                BuildDebug(result));
         }
 
         public static void NoLegacyOrdinaryMoveForEntitiesExcept(TickResult result, params int[] exceptEntityIds)

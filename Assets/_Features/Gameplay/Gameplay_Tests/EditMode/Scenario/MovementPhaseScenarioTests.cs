@@ -628,6 +628,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
+        public void ScopedDeletionPrep_MovementExpander_GridBranchIsRetained()
+        {
+            DeprecationPhase1_MovementExpanderGridBranchStillAllowed();
+        }
+
+        [Test]
         [Category("Extended")]
         public void Movement_SlidingPushBox_ContinuesOnLaterTicksUntilBlocked()
         {

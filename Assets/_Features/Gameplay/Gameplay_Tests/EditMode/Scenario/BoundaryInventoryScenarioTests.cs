@@ -218,6 +218,120 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
+        public void ScopedDeletionPrep_PlayerLegacyFallback_IsFlagOffOnly()
+        {
+            var flagOffTick = CreatePipeline(
+                    CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) }),
+                    new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
+                    GameplayRuntimeFeatureFlags.None)
+                .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            LegacyMovementBoundaryAssert.AllowsOnlyFlagOffCoveredFallback(flagOffTick, 10);
+
+            var defaultTick = CreatePipeline(
+                    CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) }),
+                    new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
+                    GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
+                .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+
+            Assert.That(defaultTick.PresentationData.ContinuousLocomotionTracks.Any(track => track.EntityId == 10), Is.True);
+            LegacyMovementBoundaryAssert.NoCoveredFallbackInDefaultGameplayLocomotion(defaultTick, 10);
+            LegacyMovementBoundaryAssert.NoLegacyUnitPresentationForCoveredEntities(defaultTick, 10);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ScopedDeletionPrep_EnemyLegacyFallback_IsFlagOffOnly()
+        {
+            var flagOffTick = CreatePipeline(
+                    CreateWorldState(new[] { CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Chase) }),
+                    new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(40, 50, new Vector2Int(1, 0))) },
+                    GameplayRuntimeFeatureFlags.None)
+                .RunTick(new TickInput(1));
+            LegacyMovementBoundaryAssert.AllowsOnlyFlagOffCoveredFallback(flagOffTick, 40);
+
+            var defaultTick = CreatePipeline(
+                    CreateWorldState(new[] { CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Chase) }),
+                    new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(40, 50, new Vector2Int(1, 0))) },
+                    GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
+                .RunTick(new TickInput(1));
+
+            Assert.That(defaultTick.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40), Is.True);
+            LegacyMovementBoundaryAssert.NoCoveredFallbackInDefaultGameplayLocomotion(defaultTick, 40);
+            LegacyMovementBoundaryAssert.NoLegacyUnitPresentationForCoveredEntities(defaultTick, 40);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ScopedDeletionPrep_ChargeLegacyFallback_IsFlagOffOnly()
+        {
+            var flagOffWorld = CreateWorldState(new[]
+            {
+                CreateUnit(50, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Charge),
+            });
+            flagOffWorld.CreateWriteContext().SetEnemyChargeState(
+                50,
+                new EnemyChargeRuntimeState
+                {
+                    phase = EnemyChargePhase.Active,
+                    sequence = 1,
+                    lockedDirection = Direction.Right,
+                    remainingActiveSteps = 1,
+                });
+            var flagOffTick = CreatePipeline(
+                    flagOffWorld,
+                    new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(50, 50, new Vector2Int(1, 0))) },
+                    GameplayRuntimeFeatureFlags.None)
+                .RunTick(new TickInput(1));
+            LegacyMovementBoundaryAssert.AllowsOnlyFlagOffCoveredFallback(flagOffTick, 50, chargeMove: true);
+
+            var defaultWorld = CreateWorldState(new[]
+            {
+                CreateUnit(50, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Charge),
+            });
+            defaultWorld.CreateWriteContext().SetEnemyChargeState(
+                50,
+                new EnemyChargeRuntimeState
+                {
+                    phase = EnemyChargePhase.Active,
+                    sequence = 1,
+                    lockedDirection = Direction.Right,
+                    remainingActiveSteps = 1,
+                });
+            var defaultTick = CreatePipeline(
+                    defaultWorld,
+                    new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(50, 50, new Vector2Int(1, 0))) },
+                    GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
+                .RunTick(new TickInput(1));
+
+            Assert.That(
+                defaultTick.PresentationData.KinematicMotionTracks.Any(track =>
+                    track.EntityId == 50 &&
+                    track.MotionMode == MotionMode.Charge),
+                Is.True);
+            LegacyMovementBoundaryAssert.NoCoveredFallbackInDefaultGameplayLocomotion(defaultTick, 50);
+            LegacyMovementBoundaryAssert.NoLegacyUnitPresentationForCoveredEntities(defaultTick, 50);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ScopedDeletionPrep_GlideFallback_IsRetainedException()
+        {
+            BoundaryInventory_DefaultGameplayLocomotion_GlideActivePolicy();
+            BoundaryInventory_Glide_ActiveLegacyFallback_FlagOff_IsDocumented();
+            ExplicitGlideFlag_ActiveGlide_NoLegacyOrdinaryMove();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ScopedDeletionPrep_GridTransactions_AreNotDeletionCandidates()
+        {
+            BoundaryInventory_GridTransactionsRemainAllowed_UnderDefaultGameplayLocomotion();
+            BoundaryInventory_SpawnRespawnCleanup_NotOrdinaryMovement();
+            BoundaryInventory_PhaseRelocation_IsScriptedRelocation();
+        }
+
+        [Test]
+        [Category("Core")]
         public void BoundaryInventory_SpawnRespawnCleanup_NotOrdinaryMovement()
         {
             var worldState = CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0), hp: 1) });
@@ -742,7 +856,69 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
+        public void ScopedDeletionPrep_MoveEntity_IsPrimitiveNotDeletionCandidate()
+        {
+            ExplicitGlideFlag_ActiveGlide_NoLegacyOrdinaryMove();
+        }
+
+        [Test]
+        [Category("Core")]
         public void DeprecationPhase1_NoCoveredLocomotionLegacyPresentation()
+        {
+            BoundaryInventory_DefaultGameplayLocomotion_NoLegacyOrdinaryUnitMovement();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ScopedDeletionPrep_LegacyUnitMotionPresentation_IsOnlyFallbackOrGrid()
+        {
+            var flagOffTick = CreatePipeline(
+                    CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) }),
+                    new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
+                    GameplayRuntimeFeatureFlags.None)
+                .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            LegacyMovementBoundaryAssert.AllowsOnlyFlagOffCoveredFallback(flagOffTick, 10);
+            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(flagOffTick, 10);
+
+            var itemTick = CreatePipeline(
+                    CreateWorldState(new[]
+                    {
+                        CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)),
+                        CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxCapabilities.Item),
+                    }),
+                    new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(10, 100, new Vector2Int(1, 0))) },
+                    GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
+                .RunTick(new TickInput(1));
+            LegacyMovementBoundaryAssert.GridTransactionBranchesRemainAllowed(
+                itemTick,
+                10,
+                MovementExecutionBoundaryKind.BoxActionMovement);
+            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(itemTick);
+
+            var defaultChargeWorld = CreateWorldState(new[]
+            {
+                CreateUnit(50, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Charge),
+            });
+            defaultChargeWorld.CreateWriteContext().SetEnemyChargeState(
+                50,
+                new EnemyChargeRuntimeState
+                {
+                    phase = EnemyChargePhase.Active,
+                    sequence = 1,
+                    lockedDirection = Direction.Right,
+                    remainingActiveSteps = 1,
+                });
+            var defaultChargeTick = CreatePipeline(
+                    defaultChargeWorld,
+                    new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(50, 50, new Vector2Int(1, 0))) },
+                    GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
+                .RunTick(new TickInput(1));
+            LegacyMovementBoundaryAssert.NoLegacyUnitPresentationForCoveredEntities(defaultChargeTick, 50);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ScopedDeletionPrep_DefaultGameplayLocomotion_NoCoveredLegacyPresentation()
         {
             BoundaryInventory_DefaultGameplayLocomotion_NoLegacyOrdinaryUnitMovement();
         }

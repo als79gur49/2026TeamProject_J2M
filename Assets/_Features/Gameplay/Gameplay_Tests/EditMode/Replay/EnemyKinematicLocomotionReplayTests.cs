@@ -445,6 +445,83 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
+        public void Replay_ScopedDeletionPrep_NoCoveredFallbackInDefaultGameplayLocomotion()
+        {
+            Replay_DefaultGameplayLocomotion_NoUnexpectedLegacyOrdinaryMovement();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_ScopedDeletionPrep_FlagOffFallbackStillDeterministic()
+        {
+            var harness = new TickReplayHarness();
+            var playerInputs = new[] { new TickInput(1, PlayerTickCommand.Move(Direction.Right)) };
+            var firstPlayerReplay = harness.Run(
+                GameplayWorldStateTestFactory.CreateBounded(new[]
+                {
+                    CreatePlayer(10, hp: 3, new SurfaceCell(FaceId.Floor, 0, 0)),
+                }),
+                new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
+                playerInputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
+            var secondPlayerReplay = harness.Run(
+                GameplayWorldStateTestFactory.CreateBounded(new[]
+                {
+                    CreatePlayer(10, hp: 3, new SurfaceCell(FaceId.Floor, 0, 0)),
+                }),
+                new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
+                playerInputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
+
+            AssertReplayBoundaryCanaryEqual(firstPlayerReplay, secondPlayerReplay);
+            Assert.That(firstPlayerReplay.Any(frame => frame.Trace.Contains("LegacyFallback", StringComparison.Ordinal)), Is.True);
+
+            var enemyInputs = new[] { new TickInput(1) };
+            var enemyMove = new Dictionary<int, RawMovementIntent>
+            {
+                { 1, new RawMovementIntent(40, priority: 50, destination: new Vector2Int(1, 0)) },
+            };
+            var firstEnemyReplay = harness.Run(
+                GameplayWorldStateTestFactory.CreateBounded(new[]
+                {
+                    CreateEnemy(40, hp: 3, new SurfaceCell(FaceId.Floor, 0, 0)),
+                }),
+                new IEntityLogic[] { new TickScriptedMovementLogic(40, enemyMove) },
+                enemyInputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
+            var secondEnemyReplay = harness.Run(
+                GameplayWorldStateTestFactory.CreateBounded(new[]
+                {
+                    CreateEnemy(40, hp: 3, new SurfaceCell(FaceId.Floor, 0, 0)),
+                }),
+                new IEntityLogic[] { new TickScriptedMovementLogic(40, enemyMove) },
+                enemyInputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
+
+            AssertReplayBoundaryCanaryEqual(firstEnemyReplay, secondEnemyReplay);
+            Assert.That(firstEnemyReplay.Any(frame => frame.Trace.Contains("LegacyFallback", StringComparison.Ordinal)), Is.True);
+
+            var chargeMove = new Dictionary<int, RawMovementIntent>
+            {
+                { 1, new RawMovementIntent(50, priority: 50, destination: new Vector2Int(1, 0)) },
+            };
+            var firstChargeReplay = harness.Run(
+                CreateActiveChargeFallbackWorldState(),
+                new IEntityLogic[] { new TickScriptedMovementLogic(50, chargeMove) },
+                enemyInputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
+            var secondChargeReplay = harness.Run(
+                CreateActiveChargeFallbackWorldState(),
+                new IEntityLogic[] { new TickScriptedMovementLogic(50, chargeMove) },
+                enemyInputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
+
+            AssertReplayBoundaryCanaryEqual(firstChargeReplay, secondChargeReplay);
+            Assert.That(firstChargeReplay.Any(frame => frame.Trace.Contains("LegacyFallback", StringComparison.Ordinal)), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
         public void Replay_DefaultGameplayLocomotion_GlidePolicy_IsDeterministic()
         {
             var flags = GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion;
@@ -776,6 +853,24 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 CreatePlayer(10, hp: 3, new SurfaceCell(FaceId.Floor, 3, 0)),
                 CreateEnemy(40, hp: 3, new SurfaceCell(FaceId.Floor, 0, 0)),
             });
+        }
+
+        private static WorldState CreateActiveChargeFallbackWorldState()
+        {
+            var chargeEnemy = CreateEnemy(50, hp: 3, new SurfaceCell(FaceId.Floor, 0, 0));
+            chargeEnemy.aiMode = EnemyAiMode.Charge;
+            chargeEnemy.facing = Direction.Right;
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { chargeEnemy });
+            worldState.CreateWriteContext().SetEnemyChargeState(
+                50,
+                new EnemyChargeRuntimeState
+                {
+                    phase = EnemyChargePhase.Active,
+                    sequence = 1,
+                    lockedDirection = Direction.Right,
+                    remainingActiveSteps = 1,
+                });
+            return worldState;
         }
 
         private static WorldState CreateGlideContactWorldState()
