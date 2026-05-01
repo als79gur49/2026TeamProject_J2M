@@ -15,8 +15,6 @@ namespace Game.Feature.UI.Tests
     {
         internal const string HudPrefabPath = "Assets/_Features/UI/UI_HUD/Prefabs/GameplayHudRoot.prefab";
         internal const string ScreenCatalogPath = "Assets/_Features/UI/UI_Screens/Prefabs/GameplayScreenPrefabCatalog.asset";
-        internal const string GameplayScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/GameplayScreen.prefab";
-        internal const string HelpScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/HelpScreen.prefab";
         internal const string ObjectiveStatusScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/ObjectiveStatusScreen.prefab";
         internal const string SettingsScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab";
         internal const string StageResultScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/StageResultScreen.prefab";

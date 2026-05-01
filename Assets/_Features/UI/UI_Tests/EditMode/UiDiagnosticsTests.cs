@@ -77,7 +77,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(overlay.SummaryText, Does.Not.Contain("Screen Instance:"));
                 Assert.That(overlay.SummaryText, Does.Not.Contain("Popup Policy:"));
                 Assert.That(overlay.SummaryText, Does.Not.Contain("Recent Events:"));
-                installer.GameplayScreenView.ClickSettings();
+                Assert.That(installer.Coordinator.OpenSettingsScreen(), Is.True);
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
 
                 overlay.ToggleExpanded();

@@ -727,15 +727,6 @@ namespace Game.Feature.UI.Tests
                     blocksUiGameplayInput: false)
             },
             {
-                ScreenId.Help,
-                new ScreenPolicy(
-                    ScreenPolicyClass.InformationalOverlay,
-                    ScreenRetentionMode.RetainMountedHistory,
-                    ScreenBackAction.Pop,
-                    HudShellMode.Visible,
-                    blocksUiGameplayInput: true)
-            },
-            {
                 ScreenId.ObjectiveStatus,
                 new ScreenPolicy(
                     ScreenPolicyClass.GameplayAdjacentOverlay,

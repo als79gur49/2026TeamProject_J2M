@@ -140,40 +140,6 @@ namespace Game.Feature.UI.Application
         bool RevertPreview();
     }
 
-    public sealed class GameplayScreenPresenter
-    {
-        public GameplayScreenViewModel ViewModel { get; } = new GameplayScreenViewModel();
-
-        public void Apply(GameplayScreenPayload payload)
-        {
-            if (payload == null)
-            {
-                throw new ArgumentNullException(nameof(payload));
-            }
-
-            ViewModel.SetContent(
-                payload.TitleText,
-                payload.HelpLabel,
-                payload.ObjectivesLabel,
-                payload.SettingsLabel);
-        }
-    }
-
-    public sealed class HelpScreenPresenter
-    {
-        public HelpScreenViewModel ViewModel { get; } = new HelpScreenViewModel();
-
-        public void Apply(HelpScreenPayload payload)
-        {
-            if (payload == null)
-            {
-                throw new ArgumentNullException(nameof(payload));
-            }
-
-            ViewModel.SetContent(payload.TitleText, payload.DescriptionText, payload.BackLabel);
-        }
-    }
-
     public sealed class ObjectiveStatusScreenPresenter : IDisposable
     {
         private readonly ObjectiveStatusPresenter _objectiveStatusPresenter;

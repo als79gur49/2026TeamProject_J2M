@@ -201,14 +201,6 @@ namespace Game.Feature.UI.Tests
                 Assert.That(installer.HudView.IsVisible, Is.True);
                 Assert.That(installer.HudController.IsGameplayReadOnly, Is.False);
 
-                installer.GameplayScreenView.ClickHelp();
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Help));
-                Assert.That(installer.HelpScreenView.IsVisible, Is.True);
-                Assert.That(installer.HudController.IsGameplayReadOnly, Is.True);
-
-                installer.HelpScreenView.ClickBack();
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
-
                 installer.HudView.ClickPause();
                 Assert.That(installer.PopupController.Contains(PopupId.Pause), Is.True);
                 Assert.That(installer.PausePopupView, Is.Not.Null);
@@ -325,7 +317,7 @@ namespace Game.Feature.UI.Tests
                     queryFacade: queryFacade,
                     pauseService: pauseService));
 
-                installer.GameplayScreenView.ClickObjectives();
+                Assert.That(installer.Coordinator.OpenObjectiveStatusScreen(), Is.True);
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
 
                 installer.ObjectiveStatusScreenView.ClickInfo();
@@ -397,7 +389,7 @@ namespace Game.Feature.UI.Tests
                 UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
                 installer.Install(UiTestPortFactory.CreatePorts());
 
-                installer.GameplayScreenView.ClickSettings();
+                Assert.That(installer.Coordinator.OpenSettingsScreen(), Is.True);
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
                 Assert.That(installer.SettingsScreenView, Is.Not.Null);
                 Assert.That(installer.SettingsScreenView.transform.parent, Is.EqualTo(installer.ScreenLayerView.ContentRoot));
@@ -447,7 +439,7 @@ namespace Game.Feature.UI.Tests
                 UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
                 installer.Install(UiTestPortFactory.CreatePorts());
 
-                installer.GameplayScreenView.ClickSettings();
+                Assert.That(installer.Coordinator.OpenSettingsScreen(), Is.True);
                 var settingsView = installer.SettingsScreenView;
 
                 Assert.That(settingsView, Is.Not.Null);

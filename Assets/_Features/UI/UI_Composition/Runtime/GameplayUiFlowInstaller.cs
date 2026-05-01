@@ -72,10 +72,6 @@ namespace Game.Feature.UI.Composition
 
         public ScreenLayerView ScreenLayerView => _rootView != null ? _rootView.ScreenLayerView : null;
 
-        public GameplayScreenView GameplayScreenView => ScreenLayerView != null ? ScreenLayerView.FindScreenView<GameplayScreenView>() : null;
-
-        public HelpScreenView HelpScreenView => ScreenLayerView != null ? ScreenLayerView.FindScreenView<HelpScreenView>() : null;
-
         public ObjectiveStatusScreenView ObjectiveStatusScreenView => ScreenLayerView != null ? ScreenLayerView.FindScreenView<ObjectiveStatusScreenView>() : null;
 
         public SettingsScreenView SettingsScreenView => ScreenLayerView != null ? ScreenLayerView.FindScreenView<SettingsScreenView>() : null;

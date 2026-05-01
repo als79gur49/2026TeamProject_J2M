@@ -13,57 +13,9 @@ namespace Game.Feature.UI.Screens
         void SetIsCurrent(bool isCurrent);
     }
 
-    public sealed class GameplayScreenPayload : IScreenPayload
+    public sealed class GameplayRootPayload : IScreenPayload
     {
-        public static readonly GameplayScreenPayload Default = new(
-            "Gameplay Screen",
-            "Help",
-            "Objectives",
-            "Settings");
-
-        public GameplayScreenPayload(
-            string titleText,
-            string helpLabel,
-            string objectivesLabel,
-            string settingsLabel)
-        {
-            TitleText = titleText ?? string.Empty;
-            HelpLabel = helpLabel ?? string.Empty;
-            ObjectivesLabel = objectivesLabel ?? string.Empty;
-            SettingsLabel = settingsLabel ?? string.Empty;
-        }
-
-        public string TitleText { get; }
-
-        public string HelpLabel { get; }
-
-        public string ObjectivesLabel { get; }
-
-        public string SettingsLabel { get; }
-    }
-
-    public sealed class HelpScreenPayload : IScreenPayload
-    {
-        public static readonly HelpScreenPayload Default = new(
-            "Help & Controls",
-            "Use Move Up to advance, Flip Right to rotate, Objectives to review stage status, and Back to return to gameplay.",
-            "Back");
-
-        public HelpScreenPayload(
-            string titleText,
-            string descriptionText,
-            string backLabel)
-        {
-            TitleText = titleText ?? string.Empty;
-            DescriptionText = descriptionText ?? string.Empty;
-            BackLabel = backLabel ?? string.Empty;
-        }
-
-        public string TitleText { get; }
-
-        public string DescriptionText { get; }
-
-        public string BackLabel { get; }
+        public static readonly GameplayRootPayload Default = new();
     }
 
     public sealed class ObjectiveStatusScreenPayload : IScreenPayload
@@ -386,51 +338,6 @@ namespace Game.Feature.UI.Screens
         public string MainLabel { get; }
 
         public StageNavigationRequest RestartLevelRequest { get; }
-    }
-
-    public sealed class GameplayScreenViewModel
-    {
-        public event Action Changed;
-
-        public string TitleText { get; private set; } = string.Empty;
-
-        public string HelpLabel { get; private set; } = string.Empty;
-
-        public string ObjectivesLabel { get; private set; } = string.Empty;
-
-        public string SettingsLabel { get; private set; } = string.Empty;
-
-        public void SetContent(
-            string titleText,
-            string helpLabel,
-            string objectivesLabel,
-            string settingsLabel)
-        {
-            TitleText = titleText ?? string.Empty;
-            HelpLabel = helpLabel ?? string.Empty;
-            ObjectivesLabel = objectivesLabel ?? string.Empty;
-            SettingsLabel = settingsLabel ?? string.Empty;
-            Changed?.Invoke();
-        }
-    }
-
-    public sealed class HelpScreenViewModel
-    {
-        public event Action Changed;
-
-        public string TitleText { get; private set; } = string.Empty;
-
-        public string DescriptionText { get; private set; } = string.Empty;
-
-        public string BackLabel { get; private set; } = string.Empty;
-
-        public void SetContent(string titleText, string descriptionText, string backLabel)
-        {
-            TitleText = titleText ?? string.Empty;
-            DescriptionText = descriptionText ?? string.Empty;
-            BackLabel = backLabel ?? string.Empty;
-            Changed?.Invoke();
-        }
     }
 
     public sealed class SettingsAudioViewModel

@@ -81,9 +81,6 @@ namespace Game.Feature.UI.Composition
                 case ScreenId.Gameplay:
                     return CreateGameplayRuntime();
 
-                case ScreenId.Help:
-                    return CreateHelpRuntime();
-
                 case ScreenId.ObjectiveStatus:
                     return CreateObjectiveStatusRuntime();
 
@@ -103,11 +100,6 @@ namespace Game.Feature.UI.Composition
 
         private ScreenRuntimeFactoryResult CreateGameplayRuntime()
         {
-            var presenter = new GameplayScreenPresenter();
-            var view = InstantiateScreenPrefab(_screenPrefabCatalog.GameplayPrefab, ScreenId.Gameplay);
-            view.Bind(presenter.ViewModel);
-            view.SetIsCurrent(false);
-
             return new ScreenRuntimeFactoryResult(
                 new ScreenPolicy(
                     ScreenPolicyClass.GameplayRoot,
@@ -115,24 +107,7 @@ namespace Game.Feature.UI.Composition
                     ScreenBackAction.None,
                     HudShellMode.Visible,
                     blocksUiGameplayInput: false),
-                new GameplayRuntime(view, presenter, _uiAudioPort, () => DestroyObject(view.gameObject)));
-        }
-
-        private ScreenRuntimeFactoryResult CreateHelpRuntime()
-        {
-            var presenter = new HelpScreenPresenter();
-            var view = InstantiateScreenPrefab(_screenPrefabCatalog.HelpPrefab, ScreenId.Help);
-            view.Bind(presenter.ViewModel);
-            view.SetIsCurrent(false);
-
-            return new ScreenRuntimeFactoryResult(
-                new ScreenPolicy(
-                    ScreenPolicyClass.InformationalOverlay,
-                    ScreenRetentionMode.RetainMountedHistory,
-                    ScreenBackAction.Pop,
-                    HudShellMode.Visible,
-                    blocksUiGameplayInput: true),
-                new HelpRuntime(view, presenter, _uiAudioPort, () => DestroyObject(view.gameObject)));
+                new GameplayRootRuntime());
         }
 
         private ScreenRuntimeFactoryResult CreateObjectiveStatusRuntime()
@@ -320,82 +295,25 @@ namespace Game.Feature.UI.Composition
             }
         }
 
-        private sealed class GameplayRuntime : ScreenRuntimeBase<GameplayScreenView>
+        private sealed class GameplayRootRuntime : IScreenRuntime
         {
-            private readonly GameplayScreenPresenter _presenter;
-
-            public GameplayRuntime(
-                GameplayScreenView view,
-                GameplayScreenPresenter presenter,
-                IUiAudioPort uiAudioPort,
-                Action dispose)
-                : base(view, uiAudioPort, dispose)
+            public event Action<ScreenAction> ActionRequested
             {
-                _presenter = presenter;
-                view.HelpRequested += HandleHelpRequested;
-                view.ObjectivesRequested += HandleObjectivesRequested;
-                view.SettingsRequested += HandleSettingsRequested;
+                add { }
+                remove { }
             }
 
-            public override void ApplyPayload(IScreenPayload payload)
+            public void ApplyPayload(IScreenPayload payload)
             {
-                _presenter.Apply(ExpectPayload<GameplayScreenPayload>(payload));
+                ExpectPayload<GameplayRootPayload>(payload);
             }
 
-            public override void Dispose()
+            public void SetIsCurrent(bool isCurrent)
             {
-                View.HelpRequested -= HandleHelpRequested;
-                View.ObjectivesRequested -= HandleObjectivesRequested;
-                View.SettingsRequested -= HandleSettingsRequested;
-                View.Bind(null);
-                base.Dispose();
             }
 
-            private void HandleHelpRequested()
+            public void Dispose()
             {
-                RaiseAction(ScreenAction.Push(new ScreenRequest(ScreenId.Help, HelpScreenPayload.Default, ScreenId.Help.ToString())));
-            }
-
-            private void HandleObjectivesRequested()
-            {
-                RaiseAction(ScreenAction.Push(new ScreenRequest(
-                    ScreenId.ObjectiveStatus,
-                    ObjectiveStatusScreenPayload.Default,
-                    ScreenId.ObjectiveStatus.ToString())));
-            }
-
-            private void HandleSettingsRequested()
-            {
-                RaiseAction(ScreenAction.Push(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, ScreenId.Settings.ToString())));
-            }
-        }
-
-        private sealed class HelpRuntime : ScreenRuntimeBase<HelpScreenView>
-        {
-            private readonly HelpScreenPresenter _presenter;
-
-            public HelpRuntime(HelpScreenView view, HelpScreenPresenter presenter, IUiAudioPort uiAudioPort, Action dispose)
-                : base(view, uiAudioPort, dispose)
-            {
-                _presenter = presenter;
-                view.BackRequested += HandleBackRequested;
-            }
-
-            public override void ApplyPayload(IScreenPayload payload)
-            {
-                _presenter.Apply(ExpectPayload<HelpScreenPayload>(payload));
-            }
-
-            public override void Dispose()
-            {
-                View.BackRequested -= HandleBackRequested;
-                View.Bind(null);
-                base.Dispose();
-            }
-
-            private void HandleBackRequested()
-            {
-                RaiseAction(ScreenAction.Back());
             }
         }
 

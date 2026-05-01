@@ -52,8 +52,6 @@ namespace Game.Feature.UI.Tests
                 typeof(ConfirmPopupView),
                 typeof(TooltipPopupView),
                 typeof(RewardPopupView),
-                typeof(GameplayScreenView),
-                typeof(HelpScreenView),
                 typeof(ObjectiveStatusScreenView),
                 typeof(SettingsScreenView),
                 typeof(SettingsAudioView),
@@ -138,7 +136,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(hudPrefab.GetComponentsInChildren<ScreenLayerView>(true), Is.Empty);
             Assert.That(hudPrefab.GetComponentsInChildren<PopupLayerView>(true), Is.Empty);
             Assert.That(hudPrefab.GetComponentsInChildren<PausePopupView>(true), Is.Empty);
-            Assert.That(hudPrefab.GetComponentsInChildren<GameplayScreenView>(true), Is.Empty);
         }
 
         [Test]
@@ -236,8 +233,6 @@ namespace Game.Feature.UI.Tests
                 instanceFields.Select(field => field.Name).ToArray(),
                 Is.EqualTo(new[]
                 {
-                    "_gameplayPrefab",
-                    "_helpPrefab",
                     "_objectiveStatusPrefab",
                     "_settingsPrefab",
                     "_stageResultPrefab",
@@ -247,8 +242,6 @@ namespace Game.Feature.UI.Tests
                 instanceFields.Select(field => field.FieldType).ToArray(),
                 Is.EqualTo(new[]
                 {
-                    typeof(GameplayScreenView),
-                    typeof(HelpScreenView),
                     typeof(ObjectiveStatusScreenView),
                     typeof(SettingsScreenView),
                     typeof(StageResultScreenView),
@@ -258,8 +251,6 @@ namespace Game.Feature.UI.Tests
                 publicPropertyNames,
                 Is.EqualTo(new[]
                 {
-                    "GameplayPrefab",
-                    "HelpPrefab",
                     "LevelFailedPrefab",
                     "ObjectiveStatusPrefab",
                     "SettingsPrefab",
@@ -275,8 +266,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(catalogType.Name, Does.Not.Contain("Variant"));
             Assert.That(catalogType.Name, Does.Not.Contain("Theme"));
 
-            Assert.That(AssetDatabase.GetAssetPath(screenCatalog.GameplayPrefab), Is.EqualTo(UiTestPrefabAssetUtility.GameplayScreenPrefabPath));
-            Assert.That(AssetDatabase.GetAssetPath(screenCatalog.HelpPrefab), Is.EqualTo(UiTestPrefabAssetUtility.HelpScreenPrefabPath));
             Assert.That(AssetDatabase.GetAssetPath(screenCatalog.ObjectiveStatusPrefab), Is.EqualTo(UiTestPrefabAssetUtility.ObjectiveStatusScreenPrefabPath));
             Assert.That(AssetDatabase.GetAssetPath(screenCatalog.SettingsPrefab), Is.EqualTo(UiTestPrefabAssetUtility.SettingsScreenPrefabPath));
             Assert.That(AssetDatabase.GetAssetPath(screenCatalog.StageResultPrefab), Is.EqualTo(UiTestPrefabAssetUtility.StageResultScreenPrefabPath));
@@ -340,8 +329,6 @@ namespace Game.Feature.UI.Tests
             AssertPopupPrefabContract<RewardPopupView>(UiTestPrefabAssetUtility.RewardPopupPrefabPath);
         }
 
-        [TestCase(ScreenId.Gameplay)]
-        [TestCase(ScreenId.Help)]
         [TestCase(ScreenId.ObjectiveStatus)]
         [TestCase(ScreenId.Settings)]
         [TestCase(ScreenId.StageResult)]
@@ -350,18 +337,6 @@ namespace Game.Feature.UI.Tests
         {
             switch (screenId)
             {
-                case ScreenId.Gameplay:
-                    AssertScreenPrefabContract<GameplayScreenView>(
-                        UiTestPrefabAssetUtility.GameplayScreenPrefabPath,
-                        typeof(GameplayScreenView));
-                    break;
-
-                case ScreenId.Help:
-                    AssertScreenPrefabContract<HelpScreenView>(
-                        UiTestPrefabAssetUtility.HelpScreenPrefabPath,
-                        typeof(HelpScreenView));
-                    break;
-
                 case ScreenId.ObjectiveStatus:
                     AssertScreenPrefabContract<ObjectiveStatusScreenView>(
                         UiTestPrefabAssetUtility.ObjectiveStatusScreenPrefabPath,
@@ -812,8 +787,6 @@ namespace Game.Feature.UI.Tests
             }
         }
 
-        [TestCase(ScreenId.Gameplay)]
-        [TestCase(ScreenId.Help)]
         [TestCase(ScreenId.ObjectiveStatus)]
         [TestCase(ScreenId.Settings)]
         public void CanonicalScreenFactoryPath_InstantiatesCanonicalScreenPrefabUnderScreenLayer(ScreenId screenId)
@@ -972,8 +945,6 @@ namespace Game.Feature.UI.Tests
             }
         }
 
-        [TestCase(ScreenId.Gameplay, "_screenPrefabCatalog.GameplayPrefab", "CreateGameplayScreen(")]
-        [TestCase(ScreenId.Help, "_screenPrefabCatalog.HelpPrefab", "CreateHelpScreen(")]
         [TestCase(ScreenId.ObjectiveStatus, "_screenPrefabCatalog.ObjectiveStatusPrefab", "CreateObjectiveStatusScreen(")]
         [TestCase(ScreenId.Settings, "_screenPrefabCatalog.SettingsPrefab", "CreateSettingsScreen(")]
         [TestCase(ScreenId.StageResult, "_screenPrefabCatalog.StageResultPrefab", "CreateStageResultScreen(")]
@@ -1001,8 +972,8 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(installerSource, Does.Contain("_screenPrefabCatalog"));
             Assert.That(installerSource, Does.Not.Contain("ScreenPrefabRegistry"));
-            Assert.That(screenFactorySource, Does.Not.Contain("CreateGameplayScreen("));
-            Assert.That(screenFactorySource, Does.Not.Contain("CreateHelpScreen("));
+            Assert.That(screenFactorySource, Does.Not.Contain("Create" + "GameplayScreen("));
+            Assert.That(screenFactorySource, Does.Not.Contain("Create" + "HelpScreen("));
             Assert.That(screenFactorySource, Does.Not.Contain("CreateObjectiveStatusScreen("));
             Assert.That(screenFactorySource, Does.Not.Contain("CreateSettingsScreen("));
             Assert.That(screenFactorySource, Does.Not.Contain("CreateStageResultScreen("));
@@ -1012,7 +983,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(screenFactorySource, Does.Not.Contain("UiCanvasElementFactory.CreateButton("));
             Assert.That(baseline, Does.Contain("screen legacy runtime builder paths were removed in the same phase"));
             Assert.That(baseline, Does.Contain("screen hybrid allowlist is now empty"));
-            Assert.That(baseline, Does.Not.Contain("Screen:Gameplay -> GameplayScreenRuntimeFactory.CreateGameplayScreen"));
+            Assert.That(baseline, Does.Not.Contain("Screen:Gameplay -> GameplayScreenRuntimeFactory." + "Create" + "GameplayScreen"));
         }
 
         [TestCase(PopupId.Pause, "_popupPrefabCatalog.PausePrefab", "AddComponent<PausePopupView>")]
@@ -1108,19 +1079,12 @@ namespace Game.Feature.UI.Tests
         {
             switch (screenId)
             {
-                case ScreenId.Gameplay:
-                    return installer.GameplayScreenView;
-
-                case ScreenId.Help:
-                    installer.GameplayScreenView.ClickHelp();
-                    return installer.HelpScreenView;
-
                 case ScreenId.ObjectiveStatus:
-                    installer.GameplayScreenView.ClickObjectives();
+                    installer.Coordinator.OpenObjectiveStatusScreen();
                     return installer.ObjectiveStatusScreenView;
 
                 case ScreenId.Settings:
-                    installer.GameplayScreenView.ClickSettings();
+                    installer.Coordinator.OpenSettingsScreen();
                     return installer.SettingsScreenView;
 
                 default:
@@ -1137,7 +1101,7 @@ namespace Game.Feature.UI.Tests
                     return installer.PausePopupView;
 
                 case PopupId.ObjectiveInfo:
-                    installer.GameplayScreenView.ClickObjectives();
+                    installer.Coordinator.OpenObjectiveStatusScreen();
                     installer.ObjectiveStatusScreenView.ClickInfo();
                     return installer.ObjectiveInfoPopupView;
 
@@ -1147,7 +1111,7 @@ namespace Game.Feature.UI.Tests
                     return installer.ConfirmPopupView;
 
                 case PopupId.Tooltip:
-                    installer.GameplayScreenView.ClickSettings();
+                    installer.Coordinator.OpenSettingsScreen();
                     installer.SettingsScreenView.ClickTooltipInfo();
                     return installer.TooltipPopupView;
 
@@ -1169,12 +1133,6 @@ namespace Game.Feature.UI.Tests
         {
             switch (screenId)
             {
-                case ScreenId.Gameplay:
-                    return UiTestPrefabAssetUtility.LoadScreenPrefab<GameplayScreenView>(UiTestPrefabAssetUtility.GameplayScreenPrefabPath);
-
-                case ScreenId.Help:
-                    return UiTestPrefabAssetUtility.LoadScreenPrefab<HelpScreenView>(UiTestPrefabAssetUtility.HelpScreenPrefabPath);
-
                 case ScreenId.ObjectiveStatus:
                     return UiTestPrefabAssetUtility.LoadScreenPrefab<ObjectiveStatusScreenView>(UiTestPrefabAssetUtility.ObjectiveStatusScreenPrefabPath);
 
@@ -1250,8 +1208,6 @@ namespace Game.Feature.UI.Tests
                 typeof(ActionBarView),
                 typeof(NotificationView),
                 typeof(PopupLayerView),
-                typeof(GameplayScreenView),
-                typeof(HelpScreenView),
                 typeof(ObjectiveStatusScreenView),
                 typeof(SettingsScreenView),
                 typeof(SettingsAudioView),
@@ -1279,8 +1235,6 @@ namespace Game.Feature.UI.Tests
         {
             var screenViewTypes = new[]
             {
-                typeof(GameplayScreenView),
-                typeof(HelpScreenView),
                 typeof(ObjectiveStatusScreenView),
                 typeof(SettingsScreenView),
                 typeof(SettingsAudioView),

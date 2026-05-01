@@ -90,8 +90,6 @@ namespace Game.Feature.UI.Tests
                 typeof(PlayerStatusPresenter).Assembly,
                 typeof(ActionBarPresenter).Assembly,
                 typeof(NotificationPresenter).Assembly,
-                typeof(GameplayScreenPresenter).Assembly,
-                typeof(HelpScreenPresenter).Assembly,
                 typeof(ObjectiveStatusScreenPresenter).Assembly,
                 typeof(SettingsScreenPresenter).Assembly,
                 typeof(StageResultScreenPresenter).Assembly,
@@ -268,7 +266,7 @@ namespace Game.Feature.UI.Tests
             var assemblies = new[]
             {
                 typeof(HUDRootView).Assembly,
-                typeof(GameplayScreenView).Assembly,
+                typeof(SettingsScreenView).Assembly,
                 typeof(PausePopupView).Assembly,
             };
 
@@ -658,8 +656,6 @@ namespace Game.Feature.UI.Tests
                 GetPublicPropertyNames(typeof(ScreenPrefabCatalog)),
                 Is.EqualTo(new[]
                 {
-                    "GameplayPrefab",
-                    "HelpPrefab",
                     "LevelFailedPrefab",
                     "ObjectiveStatusPrefab",
                     "SettingsPrefab",
@@ -749,7 +745,6 @@ namespace Game.Feature.UI.Tests
                     "HandlePopupBackdropClicked()",
                     "HandleScreenActionRequested(ScreenAction)",
                     "Initialize()",
-                    "OpenHelpScreen()",
                     "OpenObjectiveStatusScreen()",
                     "OpenSettingsScreen()",
                     "RequestConfirmPopup(ConfirmPopupPayload, Action<PopupCompletion>)",
@@ -964,8 +959,6 @@ namespace Game.Feature.UI.Tests
         {
             var guardedViewTypes = new[]
             {
-                typeof(GameplayScreenView),
-                typeof(HelpScreenView),
                 typeof(ObjectiveStatusScreenView),
                 typeof(SettingsScreenView),
                 typeof(StageResultScreenView),
@@ -1003,8 +996,6 @@ namespace Game.Feature.UI.Tests
         {
             var guardedViewTypes = new[]
             {
-                typeof(GameplayScreenView),
-                typeof(HelpScreenView),
                 typeof(ObjectiveStatusScreenView),
                 typeof(SettingsScreenView),
                 typeof(StageResultScreenView),
@@ -1028,8 +1019,6 @@ namespace Game.Feature.UI.Tests
         {
             var guardedViewTypes = new[]
             {
-                typeof(GameplayScreenView),
-                typeof(HelpScreenView),
                 typeof(ObjectiveStatusScreenView),
                 typeof(SettingsScreenView),
                 typeof(StageResultScreenView),
@@ -1081,7 +1070,7 @@ namespace Game.Feature.UI.Tests
                 typeof(HUDRootPresenter).Assembly,
                 typeof(HUDController).Assembly,
                 typeof(HUDRootView).Assembly,
-                typeof(GameplayScreenView).Assembly,
+                typeof(SettingsScreenView).Assembly,
                 typeof(PausePopupView).Assembly,
             }.Distinct().ToArray();
 
@@ -1161,7 +1150,7 @@ namespace Game.Feature.UI.Tests
                 typeof(HUDRootPresenter).Assembly,
                 typeof(HUDController).Assembly,
                 typeof(HUDRootView).Assembly,
-                typeof(GameplayScreenView).Assembly,
+                typeof(SettingsScreenView).Assembly,
                 typeof(PausePopupView).Assembly,
                 typeof(GameplayUiFlowInstaller).Assembly,
             }.Distinct().ToArray();

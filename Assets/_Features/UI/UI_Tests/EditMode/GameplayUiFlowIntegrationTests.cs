@@ -39,15 +39,6 @@ namespace Game.Feature.UI.Tests
                 Assert.That(installer.HudView.IsVisible, Is.True);
                 Assert.That(installer.HudController.IsGameplayReadOnly, Is.False);
 
-                installer.GameplayScreenView.ClickHelp();
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Help));
-                Assert.That(installer.HudController.IsGameplayReadOnly, Is.True);
-                Assert.That(installer.HelpScreenView.IsVisible, Is.True);
-
-                installer.HelpScreenView.ClickBack();
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
-                Assert.That(installer.HudController.IsGameplayReadOnly, Is.False);
-
                 installer.HudView.ClickPause();
                 Assert.That(installer.PopupController.Contains(PopupId.Pause), Is.True);
                 Assert.That(installer.Ports.PauseService.IsPaused, Is.True);
@@ -129,7 +120,7 @@ namespace Game.Feature.UI.Tests
                 UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
                 installer.Install(host);
 
-                installer.GameplayScreenView.ClickObjectives();
+                Assert.That(installer.Coordinator.OpenObjectiveStatusScreen(), Is.True);
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
 
                 installer.ObjectiveStatusScreenView.ClickInfo();
@@ -163,8 +154,8 @@ namespace Game.Feature.UI.Tests
                     new TooltipPopupPayload("Gameplay Tip", "Tooltip body"),
                     gameplayTooltipCompletions.Add), Is.True);
 
-                installer.GameplayScreenView.ClickHelp();
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Help));
+                Assert.That(installer.Coordinator.OpenObjectiveStatusScreen(), Is.True);
+                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
                 Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
                 Assert.That(gameplayTooltipCompletions, Has.Count.EqualTo(1));
                 Assert.That(gameplayTooltipCompletions[0].CloseReason, Is.EqualTo(PopupCloseReason.ScreenTransition));
@@ -210,7 +201,7 @@ namespace Game.Feature.UI.Tests
                 UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
                 installer.Install(host);
 
-                installer.GameplayScreenView.ClickSettings();
+                Assert.That(installer.Coordinator.OpenSettingsScreen(), Is.True);
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
 
                 installer.SettingsScreenView.ClickTooltipInfo();

@@ -68,8 +68,8 @@
   - canonical screen layer is now migrated to one screen-catalog-backed prefab-authored path under `ScreenLayer`
   - screen legacy runtime builder paths were removed in the same phase
   - the screen catalog remains fixed-shape and screen-only; it must not drift into a theme registry, variant registry, child-section catalog, or cross-layer asset registry
-  - simple-shell checkpoint is complete for `Help` and `ObjectiveStatus`
-  - `GameplayScreen` remains a gameplay-root-adjacent special case and must not be treated as the ordinary migration template
+  - simple-shell checkpoint remains complete for `ObjectiveStatus`; `Help` has been removed from product UI
+  - `ScreenId.Gameplay` remains a gameplay-root logical state with no visible gameplay screen view/prefab and must not be treated as the ordinary migration template
   - terminal-screen checkpoint is complete for `StageResult`, which remains a runtime-owned terminal special case rather than a generic screen model
   - complex-screen checkpoint is complete for bounded `Settings`, which remains one screen shell with nested authored child views and bounded child presenters while `Settings` accessibility remains root-shell-owned
 - Hybrid allowlist status:
@@ -143,8 +143,8 @@
 - tooltip remains a bounded popup special case for local anchor/clamp presentation only and does not own auto-hide, backdrop, or timer-driven lifetime policy
 - screen legacy runtime builder paths were removed in the same phase, leaving one canonical prefab-authored screen creation path beneath `ScreenLayer` via a fixed-shape screen-only catalog
 - the screen catalog remains fixed-shape and screen-only and does not widen into a variant/theme/child-section registry
-- screen prefab migration is guarded by simple-shell checkpoint, terminal-screen checkpoint, and complex-screen checkpoint evidence so `GameplayScreen`, `StageResultScreen`, and `SettingsScreen` cannot distort the general migration model
-- `GameplayScreen` remains gameplay-root-adjacent and does not acquire gameplay-access shortcuts, pause ownership, or history shortcuts
+- screen prefab migration is guarded by simple-shell checkpoint, terminal-screen checkpoint, and complex-screen checkpoint evidence so the logical gameplay root, `StageResultScreen`, and `SettingsScreen` cannot distort the general migration model
+- `ScreenId.Gameplay` remains gameplay-root-adjacent with no visible screen prefab/view and does not acquire gameplay-access shortcuts, pause ownership, or history shortcuts
 - `StageResultScreen` remains a runtime-owned terminal special case; its continue action stays intent-only and does not locally decide root replacement policy
 - `SettingsScreen` now remains one runtime-managed shell with authored `SettingsAudioSection` and `SettingsDisplaySection` children; audio/display fallback rebuilding is removed while preview/session ownership remains in `SettingsRuntime`
 - Settings authored child-view canonicalization and migration helper cleanup are closed here; no UI mixed-mode allowlist remains as runtime or editor code
