@@ -114,6 +114,14 @@ namespace Game.Feature.Gameplay.Tests
             Assert.That(result.Trace.Text, Does.Not.Contain("Boundary=Unknown"));
         }
 
+        public static void NoUnexpectedUnknownMovementBoundaryAllowingStateOnly(TickResult result)
+        {
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(IsUnexpectedUnknownMovementBoundary),
+                Is.False,
+                BuildDebug(result));
+        }
+
         public static void NoFlagOnLegacyOrdinaryReadinessLeaks(TickResult result, params int[] entityIds)
         {
             NoUnexpectedLegacyOrdinaryDiagnostics(result);
@@ -137,6 +145,23 @@ namespace Game.Feature.Gameplay.Tests
                     reason.Contains($"E={entityId}", System.StringComparison.Ordinal)),
                 Is.False,
                 BuildDebug(result, entityId));
+        }
+
+        private static bool IsUnexpectedUnknownMovementBoundary(FinalizationOperation operation)
+        {
+            if (operation.Metadata.MovementExecutionBoundaryKind != MovementExecutionBoundaryKind.Unknown)
+            {
+                return false;
+            }
+
+            return operation.Kind == FinalizationOperationKind.MoveEntity ||
+                   operation.Kind == FinalizationOperationKind.SetTopology ||
+                   operation.Kind == FinalizationOperationKind.SetBoardPresence ||
+                   operation.Kind == FinalizationOperationKind.SpawnEntity ||
+                   operation.Metadata.MovementSemanticKind != MovementSemanticKind.None ||
+                   operation.Metadata.SemanticKind == ResolvedActionSemanticKind.Move ||
+                   operation.Metadata.SemanticKind == ResolvedActionSemanticKind.JumpLanding ||
+                   operation.Metadata.JumpPresentationKind != JumpPresentationKind.None;
         }
 
         private static string BuildDebug(TickResult result, int entityId)
