@@ -1536,9 +1536,11 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             var hasDirection = TryResolveDirectionDelta(playerCommand.HeldMoveDirection, out var directionDelta);
+            var actionInputBlocksFree2DMovement =
+                (playerCommand.PushPressed || playerCommand.FlipPressed) &&
+                playerCommand.HeldMoveDirection == Direction.None;
             var canMove =
-                !playerCommand.PushPressed &&
-                !playerCommand.FlipPressed &&
+                !actionInputBlocksFree2DMovement &&
                 !effectivePlayerControlState.activeAction.IsActive &&
                 !PlayerControlQueries.IsMoveOnCooldown(effectivePlayerControlState, tickIndex) &&
                 hasDirection;
