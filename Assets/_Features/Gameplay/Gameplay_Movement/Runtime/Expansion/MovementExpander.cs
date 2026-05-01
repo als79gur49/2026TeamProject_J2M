@@ -76,7 +76,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             IReadOnlyList<FrontFaceSupportContributor> frontFaceSupportContributors,
             List<ActionGroup> buffer,
             List<string> rejectedReasons,
-            List<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports = null)
+            List<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports = null,
+            ISet<int> forbiddenLegacyUnitOrdinaryIntentIds = null)
         {
             if (snapshot == null)
             {
@@ -109,6 +110,16 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 {
                     rejectedReasons.Add(
                         $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=MissingSource");
+                    continue;
+                }
+
+                if (forbiddenLegacyUnitOrdinaryIntentIds != null &&
+                    forbiddenLegacyUnitOrdinaryIntentIds.Contains(intent.IntentId) &&
+                    entity.type == EntityType.Unit &&
+                    intent.CommandKind == MovementCommandKind.Move)
+                {
+                    rejectedReasons.Add(
+                        $"LegacyUnitOrdinaryMovementDetected|Stage=Expand|E={intent.SourceId}|EntityType={entity.type}|Intent={intent.CommandKind}|Reason=ForbiddenIntentReachedMovementExpander|I={intent.IntentId}");
                     continue;
                 }
 

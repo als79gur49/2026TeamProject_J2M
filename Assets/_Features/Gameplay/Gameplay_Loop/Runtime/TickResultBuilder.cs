@@ -2290,6 +2290,7 @@ namespace Game.Feature.Gameplay.Loop
             List<TickEntityMotion> entityMotions)
         {
             if (operation.Kind != FinalizationOperationKind.MoveEntity ||
+                ShouldSuppressLegacyMotionForLocomotion(operation) ||
                 !TryResolveMotionKind(
                     context,
                     operation,
@@ -2312,6 +2313,17 @@ namespace Game.Feature.Gameplay.Loop
                     context.PostMovementSnapshot.Topology,
                     sourceEntity.facing,
                     destinationEntity.facing));
+        }
+
+        private static bool ShouldSuppressLegacyMotionForLocomotion(FinalizationOperation operation)
+        {
+            if (operation.Kind != FinalizationOperationKind.MoveEntity)
+            {
+                return false;
+            }
+
+            return operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.LocomotionAnchorCommit ||
+                   operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.UnitOrdinaryLocomotion;
         }
 
         private static bool TryResolveMotionKind(
@@ -2374,6 +2386,7 @@ namespace Game.Feature.Gameplay.Loop
                 var operation = operations[i];
                 if (operation.Kind == FinalizationOperationKind.MoveEntity &&
                     operation.EntityId == entityId &&
+                    !ShouldSuppressLegacyMotionForLocomotion(operation) &&
                     TryResolveMotionKind(context, operation, operation.Metadata.MovementSemanticKind, out var motionKind) &&
                     motionKind == TickEntityMotionKind.Move)
                 {

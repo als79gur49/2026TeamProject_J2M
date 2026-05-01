@@ -561,10 +561,14 @@ namespace Game.Feature.Gameplay.Loop
             var frontFaceShieldBlockExports = new List<FrontFaceShieldBlockPresentationExport>();
             var expandedCandidates = new List<ActionGroup>();
             var preExpansionRejectedReasons = new List<string>(rejectedReasons);
+            var legacyExpansionIntents = ValidateLegacyExpansionIntents(
+                planSnapshot,
+                expansionIntents,
+                preExpansionRejectedReasons);
             _movementExpander.Expand(
                 planSnapshot,
                 input.TickIndex,
-                expansionIntents,
+                legacyExpansionIntents,
                 playerTraversalSourceIds,
                 frontFaceSupportContributors,
                 expandedCandidates,
@@ -1339,6 +1343,120 @@ namespace Game.Feature.Gameplay.Loop
             return sortedIntents;
         }
 
+        private List<MoveIntent> ValidateLegacyExpansionIntents(
+            WorldSnapshot snapshot,
+            IReadOnlyList<MoveIntent> expansionIntents,
+            List<string> rejectedReasons)
+        {
+            var filteredIntents = new List<MoveIntent>(expansionIntents.Count);
+            for (var i = 0; i < expansionIntents.Count; i++)
+            {
+                var intent = expansionIntents[i];
+                if (TryResolveForbiddenLegacyUnitOrdinaryMovement(
+                        snapshot,
+                        intent,
+                        out var entity,
+                        out var reason))
+                {
+                    rejectedReasons.Add(
+                        $"LegacyUnitOrdinaryMovementDetected|E={intent.SourceId}|EntityType={entity.type}|Intent={intent.CommandKind}|Flags={FormatLocomotionFeatureFlags()}|Reason={reason}|I={intent.IntentId}");
+                    continue;
+                }
+
+                filteredIntents.Add(intent);
+            }
+
+            return filteredIntents;
+        }
+
+        private bool TryResolveForbiddenLegacyUnitOrdinaryMovement(
+            WorldSnapshot snapshot,
+            MoveIntent intent,
+            out EntityState entity,
+            out string reason)
+        {
+            entity = default;
+            reason = string.Empty;
+            if (intent == null ||
+                intent.CommandKind != Movement.MovementCommandKind.Move ||
+                !snapshot.TryGetEntity(intent.SourceId, out entity) ||
+                entity.type != EntityType.Unit)
+            {
+                return false;
+            }
+
+            if (IsAllowedLegacyGridTransactionIntent(snapshot, entity, intent))
+            {
+                return false;
+            }
+
+            if ((_runtimeFeatureFlags.EnablePlayerFree2DLocalLocomotion ||
+                 _runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion) &&
+                snapshot.TryGetPlayerControlState(intent.SourceId, out _))
+            {
+                reason = _runtimeFeatureFlags.EnablePlayerFree2DLocalLocomotion
+                    ? "PlayerFree2DOrdinaryMoveReachedLegacyExpansion"
+                    : "PlayerKinematicOrdinaryMoveReachedLegacyExpansion";
+                return true;
+            }
+
+            if (_runtimeFeatureFlags.EnableEnemyChargeKinematicLocomotion &&
+                TryResolveEnemyChargeKinematicStartScope(snapshot, intent, out _, out _, out _, out _))
+            {
+                reason = "EnemyChargeActiveStepReachedLegacyExpansion";
+                return true;
+            }
+
+            if (_runtimeFeatureFlags.EnableEnemySameFaceContinuousLocomotion &&
+                TryResolveEnemyKinematicStartScope(snapshot, intent, out _, out _, out _, out _, out _))
+            {
+                reason = "EnemyOrdinaryKinematicEligibleMoveReachedLegacyExpansion";
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool IsAllowedLegacyGridTransactionIntent(
+            WorldSnapshot snapshot,
+            in EntityState entity,
+            MoveIntent intent)
+        {
+            var delta = intent.Destination - entity.position.PlanarPosition;
+            if (!snapshot.TryResolveUnitStep(
+                    entity.position,
+                    delta,
+                    out var destination,
+                    out var rotationKind,
+                    out var updatedTopology))
+            {
+                return false;
+            }
+
+            if (rotationKind != CubeRotationKind.None)
+            {
+                return true;
+            }
+
+            if (!snapshot.TryGetSolidSemanticAt(updatedTopology, destination, out var targetSemantic) ||
+                targetSemantic.Kind != SolidKind.Box)
+            {
+                return false;
+            }
+
+            return (targetSemantic.Entity.boxCapabilities & BoxCapabilities.Item) == BoxCapabilities.Item;
+        }
+
+        private string FormatLocomotionFeatureFlags()
+        {
+            return
+                $"PlayerFree2D={(_runtimeFeatureFlags.EnablePlayerFree2DLocalLocomotion ? 1 : 0)}," +
+                $"PlayerKinematic={(_runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion ? 1 : 0)}," +
+                $"PlayerStoppable={(_runtimeFeatureFlags.EnablePlayerStoppableKinematicLocomotion ? 1 : 0)}," +
+                $"EnemyKinematic={(_runtimeFeatureFlags.EnableEnemySameFaceContinuousLocomotion ? 1 : 0)}," +
+                $"ChargeKinematic={(_runtimeFeatureFlags.EnableEnemyChargeKinematicLocomotion ? 1 : 0)}";
+        }
+
         private List<MoveIntent> BuildPlayerSameFaceKinematicLocomotionPlans(
             WorldSnapshot snapshot,
             IReadOnlyList<MoveIntent> sortedIntents,
@@ -1592,22 +1710,32 @@ namespace Game.Feature.Gameplay.Loop
                 playerCommand.HeldMoveDirection,
                 nextRemainderX,
                 nextRemainderY);
-            var metadata = new FinalizationOperationMetadata(
+            var stateMetadata = new FinalizationOperationMetadata(
                 TickPhase.Plan,
                 ResolvedActionSemanticKind.Move,
                 entity.entityId,
                 actionPlanId: 0,
-                movementSemanticKind: MovementSemanticKind.Move);
+                movementSemanticKind: MovementSemanticKind.Move,
+                movementExecutionBoundaryKind: MovementExecutionBoundaryKind.UnitOrdinaryLocomotion,
+                boundaryReason: "PlayerFree2DLocalLocomotion");
+            var anchorMetadata = new FinalizationOperationMetadata(
+                TickPhase.Plan,
+                ResolvedActionSemanticKind.Move,
+                entity.entityId,
+                actionPlanId: 0,
+                movementSemanticKind: MovementSemanticKind.Move,
+                movementExecutionBoundaryKind: MovementExecutionBoundaryKind.LocomotionAnchorCommit,
+                boundaryReason: "PlayerFree2DAnchorNormalization");
 
             if (sweep.AnchorChanged)
             {
-                batch.MoveEntity(entity.entityId, sweep.ResolvedAnchorCell, metadata);
+                batch.MoveEntity(entity.entityId, sweep.ResolvedAnchorCell, anchorMetadata);
             }
 
-            batch.SetUnitContinuousLocomotionState(entity.entityId, resolvedState, metadata);
+            batch.SetUnitContinuousLocomotionState(entity.entityId, resolvedState, stateMetadata);
             if (entity.facing != facing)
             {
-                batch.SetFacing(entity.entityId, facing, metadata);
+                batch.SetFacing(entity.entityId, facing, stateMetadata);
             }
 
             if (sweep.Blocked)
@@ -2184,7 +2312,9 @@ namespace Game.Feature.Gameplay.Loop
                 intent.Priority,
                 outcome,
                 facing,
-                writeFacing: true);
+                writeFacing: true,
+                executionBoundaryKind: MovementExecutionBoundaryKind.UnitSpecialLocomotion,
+                boundaryReason: "EnemyChargeKinematicActiveStep");
             return true;
         }
 
@@ -2236,7 +2366,9 @@ namespace Game.Feature.Gameplay.Loop
                 outcome: outcome,
                 facing: facing,
                 writeFacing: true,
-                enemyChargeWrites: enemyChargeWrites);
+                enemyChargeWrites: enemyChargeWrites,
+                executionBoundaryKind: MovementExecutionBoundaryKind.UnitSpecialLocomotion,
+                boundaryReason: "EnemyChargeKinematicContinuation");
 
             return true;
         }
@@ -3285,7 +3417,9 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<EnemyPatrolWritePayload> enemyPatrolWrites = null,
             IReadOnlyList<EnemyChargeWritePayload> enemyChargeWrites = null,
             IReadOnlyList<ExecutionLockWritePayload> executionLockWrites = null,
-            IReadOnlyList<PlayerControlWritePayload> playerControlWrites = null)
+            IReadOnlyList<PlayerControlWritePayload> playerControlWrites = null,
+            MovementExecutionBoundaryKind executionBoundaryKind = MovementExecutionBoundaryKind.UnitOrdinaryLocomotion,
+            string boundaryReason = "KinematicUnitLocomotion")
         {
             var destinationCell = outcome.AnchorChanged
                 ? outcome.ResolvedAnchorCell
@@ -3326,7 +3460,9 @@ namespace Game.Feature.Gameplay.Loop
                 impactReservationPayload: default,
                 hasDeferredImpactPayload: false,
                 deferredImpactPayload: default,
-                kinematicMotionOutcomes: new[] { outcome });
+                kinematicMotionOutcomes: new[] { outcome },
+                executionBoundaryKind: executionBoundaryKind,
+                boundaryReason: boundaryReason);
         }
 
         private static MovementActionPlanPayload CreatePlayerControlStateOnlyMovementPayload(
@@ -3410,7 +3546,9 @@ namespace Game.Feature.Gameplay.Loop
                 payload.ImpactReservationPayload,
                 payload.HasDeferredImpactPayload,
                 payload.DeferredImpactPayload,
-                payload.KinematicMotionOutcomes);
+                payload.KinematicMotionOutcomes,
+                payload.ExecutionBoundaryKind,
+                payload.BoundaryReason);
         }
 
         private static void MergeMovementActionPlanPayloads(
@@ -3679,6 +3817,7 @@ namespace Game.Feature.Gameplay.Loop
                 var hasDeferredImpactPayload = TryBuildDeferredImpactPayload(
                     group,
                     out var deferredImpactPayload);
+                var executionBoundaryKind = ResolveMovementExecutionBoundaryKind(snapshot, sortedIntents, group);
 
                 payloads[group.GroupId] = new MovementActionPlanPayload(
                     group.GroupId,
@@ -3709,10 +3848,62 @@ namespace Game.Feature.Gameplay.Loop
                     hasImpactReservationPayload,
                     impactReservationPayload,
                     hasDeferredImpactPayload,
-                    deferredImpactPayload);
+                    deferredImpactPayload,
+                    executionBoundaryKind: executionBoundaryKind,
+                    boundaryReason: ResolveMovementExecutionBoundaryReason(executionBoundaryKind));
             }
 
             return payloads;
+        }
+
+        private static MovementExecutionBoundaryKind ResolveMovementExecutionBoundaryKind(
+            WorldSnapshot snapshot,
+            IReadOnlyList<MoveIntent> sortedIntents,
+            ActionGroup group)
+        {
+            if (group.TopologyChanges.Count > 0)
+            {
+                return MovementExecutionBoundaryKind.TopologyMaterialization;
+            }
+
+            if (group.GroupKind == ActionGroupKind.Push ||
+                group.GroupKind == ActionGroupKind.Flip ||
+                group.GroupKind == ActionGroupKind.Item ||
+                group.HasDeferredImpact)
+            {
+                return MovementExecutionBoundaryKind.BoxActionMovement;
+            }
+
+            if (!snapshot.TryGetEntity(group.SourceId, out var sourceEntity))
+            {
+                return MovementExecutionBoundaryKind.Unknown;
+            }
+
+            if (sourceEntity.type != EntityType.Unit)
+            {
+                return MovementExecutionBoundaryKind.Unknown;
+            }
+
+            var intent = FindMovementIntent(sortedIntents, group.IntentId);
+            if (intent != null &&
+                intent.CommandKind == Movement.MovementCommandKind.Move &&
+                group.GroupKind == ActionGroupKind.Move)
+            {
+                return MovementExecutionBoundaryKind.LegacyFallback;
+            }
+
+            return MovementExecutionBoundaryKind.Unknown;
+        }
+
+        private static string ResolveMovementExecutionBoundaryReason(MovementExecutionBoundaryKind kind)
+        {
+            return kind switch
+            {
+                MovementExecutionBoundaryKind.TopologyMaterialization => "TopologyMaterialization",
+                MovementExecutionBoundaryKind.BoxActionMovement => "BoxActionMovement",
+                MovementExecutionBoundaryKind.LegacyFallback => "LegacyFallback",
+                _ => string.Empty,
+            };
         }
 
         private static bool TryBuildDeferredImpactPayload(
@@ -5141,9 +5332,12 @@ namespace Game.Feature.Gameplay.Loop
             int localActionIndex,
             ResolvedActionSemanticKind? semanticKindOverride = null,
             CubeRotationKind rotationKind = CubeRotationKind.None,
-            TickEntityExitCause exitCauseHint = TickEntityExitCause.None)
+            TickEntityExitCause exitCauseHint = TickEntityExitCause.None,
+            MovementExecutionBoundaryKind? executionBoundaryKindOverride = null,
+            string boundaryReasonOverride = null)
         {
             var resolvedSemanticKind = semanticKindOverride ?? payload.SemanticKind;
+            var executionBoundaryKind = executionBoundaryKindOverride ?? payload.ExecutionBoundaryKind;
             return new FinalizationOperationMetadata(
                 TickPhase.Resolve,
                 resolvedSemanticKind,
@@ -5156,7 +5350,9 @@ namespace Game.Feature.Gameplay.Loop
                 rotationKind,
                 exitCauseHint,
                 movementSemanticKind: ResolveMovementPresentationSemanticKind(resolvedSemanticKind),
-                damageSourceType: DamageSourceType.None);
+                damageSourceType: DamageSourceType.None,
+                movementExecutionBoundaryKind: executionBoundaryKind,
+                boundaryReason: boundaryReasonOverride ?? payload.BoundaryReason);
         }
 
         private static FinalizationOperationMetadata CreateAttackMetadata(
@@ -5164,7 +5360,9 @@ namespace Game.Feature.Gameplay.Loop
             ResolutionRecord resolutionRecord,
             int localActionIndex,
             AttackSourceKind attackSourceKind = AttackSourceKind.Combat,
-            TickEntityExitCause exitCauseHint = TickEntityExitCause.None)
+            TickEntityExitCause exitCauseHint = TickEntityExitCause.None,
+            MovementExecutionBoundaryKind movementExecutionBoundaryKind = MovementExecutionBoundaryKind.Unknown,
+            string boundaryReason = null)
         {
             return new FinalizationOperationMetadata(
                 TickPhase.Resolve,
@@ -5178,7 +5376,9 @@ namespace Game.Feature.Gameplay.Loop
                 attackSourceKind: attackSourceKind,
                 exitCauseHint: exitCauseHint,
                 movementSemanticKind: MovementSemanticKind.None,
-                damageSourceType: ResolveDamageSourceType(attackSourceKind));
+                damageSourceType: ResolveDamageSourceType(attackSourceKind),
+                movementExecutionBoundaryKind: movementExecutionBoundaryKind,
+                boundaryReason: boundaryReason);
         }
 
         private static FinalizationOperationMetadata CreateJumpLandingMetadata(
@@ -5218,7 +5418,9 @@ namespace Game.Feature.Gameplay.Loop
                 payload.Priority,
                 movementSemanticKind: MovementSemanticKind.Move,
                 damageSourceType: DamageSourceType.None,
-                presentationTargetCell: payload.DestinationCell);
+                presentationTargetCell: payload.DestinationCell,
+                movementExecutionBoundaryKind: MovementExecutionBoundaryKind.ScriptedRelocation,
+                boundaryReason: "PhaseRelocation");
         }
 
         private static void AddOperationsBySemanticKind(
@@ -5393,7 +5595,14 @@ namespace Game.Feature.Gameplay.Loop
                 for (var kinematicIndex = 0; kinematicIndex < payload.KinematicMotionOutcomes.Count; kinematicIndex++)
                 {
                     var kinematicOutcome = payload.KinematicMotionOutcomes[kinematicIndex];
-                    var kinematicMetadata = CreateMovementMetadata(payload, baseResolution, kinematicIndex);
+                    var kinematicMetadata = CreateMovementMetadata(
+                        payload,
+                        baseResolution,
+                        kinematicIndex,
+                        executionBoundaryKindOverride: MovementExecutionBoundaryKind.LocomotionAnchorCommit,
+                        boundaryReasonOverride: payload.ExecutionBoundaryKind == MovementExecutionBoundaryKind.UnitSpecialLocomotion
+                            ? "SpecialKinematicAnchorCommit"
+                            : "OrdinaryKinematicAnchorCommit");
                     if (kinematicOutcome.AnchorChanged)
                     {
                         batch.MoveEntity(
@@ -5580,7 +5789,14 @@ namespace Game.Feature.Gameplay.Loop
                 for (var spawnIndex = 0; spawnIndex < payload.SpawnWrites.Count; spawnIndex++)
                 {
                     var finalizedSpawn = FinalizeSpawn(new SpawnAction(0, payload.SpawnWrites[spawnIndex].EntityTemplate));
-                    batch.SpawnEntity(finalizedSpawn.Entity, CreateAttackMetadata(payload, planResolution, spawnIndex));
+                    batch.SpawnEntity(
+                        finalizedSpawn.Entity,
+                        CreateAttackMetadata(
+                            payload,
+                            planResolution,
+                            spawnIndex,
+                            movementExecutionBoundaryKind: MovementExecutionBoundaryKind.SpawnRespawnPlacement,
+                            boundaryReason: "AttackSpawnPlacement"));
                     commitEvents.Add(
                         $"SpawnCommitted|G={actionPlanId}|I={payload.IntentId}|SpawnId={finalizedSpawn.SpawnId}|E={finalizedSpawn.Entity.entityId}|Pos=({finalizedSpawn.Entity.position.x},{finalizedSpawn.Entity.position.y})|Type={finalizedSpawn.Entity.type}|SpawnTick={finalizedSpawn.Entity.spawnTick}");
                 }

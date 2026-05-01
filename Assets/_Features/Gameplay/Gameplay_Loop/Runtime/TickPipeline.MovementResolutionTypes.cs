@@ -82,6 +82,20 @@ namespace Game.Feature.Gameplay.Loop
         Item = 6,
     }
 
+    internal enum MovementExecutionBoundaryKind
+    {
+        Unknown = 0,
+        UnitOrdinaryLocomotion = 1,
+        UnitSpecialLocomotion = 2,
+        LocomotionAnchorCommit = 3,
+        BoxActionMovement = 4,
+        TopologyMaterialization = 5,
+        SpawnRespawnPlacement = 6,
+        CleanupRemoval = 7,
+        ScriptedRelocation = 8,
+        LegacyFallback = 9,
+    }
+
     // Narrow internal contract for current Push / Sliding Push / Flip box-impact
     // resolve only. This is not a generalized impact framework seed.
     internal enum ImpactDispositionPolicyKind
@@ -525,7 +539,9 @@ namespace Game.Feature.Gameplay.Loop
             MovementImpactReservationPayload impactReservationPayload,
             bool hasDeferredImpactPayload,
             MovementDeferredImpactPayload deferredImpactPayload,
-            IReadOnlyList<KinematicMotionOutcome> kinematicMotionOutcomes = null)
+            IReadOnlyList<KinematicMotionOutcome> kinematicMotionOutcomes = null,
+            MovementExecutionBoundaryKind executionBoundaryKind = MovementExecutionBoundaryKind.Unknown,
+            string boundaryReason = null)
             : base(actionPlanId, intentId, sourceActorEntityId, priority, semanticKind)
         {
             MovementCandidateKind = movementCandidateKind;
@@ -553,6 +569,8 @@ namespace Game.Feature.Gameplay.Loop
             HasDeferredImpactPayload = hasDeferredImpactPayload;
             DeferredImpactPayload = deferredImpactPayload;
             KinematicMotionOutcomes = kinematicMotionOutcomes ?? Array.Empty<KinematicMotionOutcome>();
+            ExecutionBoundaryKind = executionBoundaryKind;
+            BoundaryReason = boundaryReason ?? string.Empty;
         }
 
         public MovementCandidateKind MovementCandidateKind { get; }
@@ -604,6 +622,10 @@ namespace Game.Feature.Gameplay.Loop
         public MovementDeferredImpactPayload DeferredImpactPayload { get; }
 
         public IReadOnlyList<KinematicMotionOutcome> KinematicMotionOutcomes { get; }
+
+        public MovementExecutionBoundaryKind ExecutionBoundaryKind { get; }
+
+        public string BoundaryReason { get; }
     }
 
 }

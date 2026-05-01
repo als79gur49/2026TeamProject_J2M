@@ -129,7 +129,9 @@ namespace Game.Feature.Gameplay.Loop
             MovementSemanticKind movementSemanticKind = MovementSemanticKind.None,
             DamageSourceType damageSourceType = DamageSourceType.None,
             JumpPresentationKind jumpPresentationKind = JumpPresentationKind.None,
-            SurfaceCell presentationTargetCell = default)
+            SurfaceCell presentationTargetCell = default,
+            MovementExecutionBoundaryKind movementExecutionBoundaryKind = MovementExecutionBoundaryKind.Unknown,
+            string boundaryReason = null)
         {
             OriginPhase = originPhase;
             SemanticKind = semanticKind;
@@ -146,6 +148,8 @@ namespace Game.Feature.Gameplay.Loop
             DamageSourceType = damageSourceType;
             JumpPresentationKind = jumpPresentationKind;
             PresentationTargetCell = presentationTargetCell;
+            MovementExecutionBoundaryKind = movementExecutionBoundaryKind;
+            BoundaryReason = boundaryReason ?? string.Empty;
         }
 
         public TickPhase OriginPhase { get; }
@@ -177,6 +181,10 @@ namespace Game.Feature.Gameplay.Loop
         public JumpPresentationKind JumpPresentationKind { get; }
 
         public SurfaceCell PresentationTargetCell { get; }
+
+        public MovementExecutionBoundaryKind MovementExecutionBoundaryKind { get; }
+
+        public string BoundaryReason { get; }
     }
 
     internal sealed class FinalizationOperation
