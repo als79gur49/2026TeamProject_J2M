@@ -79,6 +79,7 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, "Cleanup.StateTransitions", cleanupPhaseResult.StateTransitions, FormatString);
             AppendSection(builder, "Cleanup.EventLogEntries", cleanupPhaseResult.EventLogEntries, FormatString);
             AppendSection(builder, "Respawn.Events", respawnPhaseResult.EventLogEntries, FormatString);
+            AppendSection(builder, "Respawn.Placements", respawnPhaseResult.RespawnPlacementRecords, FormatRespawnPlacementRecord);
             AppendSection(
                 builder,
                 "Respawn.Entities",
@@ -540,6 +541,8 @@ namespace Game.Feature.Gameplay.Debug
                 .Append("|Contest=").Append(operation.Metadata.ContestId)
                 .Append("|Local=").Append(operation.Metadata.LocalActionIndex)
                 .Append("|Priority=").Append(operation.Metadata.Priority)
+                .Append("|Boundary=").Append(operation.Metadata.MovementExecutionBoundaryKind)
+                .Append("|BoundaryReason=").Append(operation.Metadata.BoundaryReason)
                 .Append("|Entity=").Append(operation.EntityId);
 
             switch (operation.Kind)
@@ -707,6 +710,12 @@ namespace Game.Feature.Gameplay.Debug
             }
 
             return builder.ToString();
+        }
+
+        private static string FormatRespawnPlacementRecord(RespawnPlacementRecord record)
+        {
+            return
+                $"E={record.EntityId}|Cell={FormatCell(record.PlacementCell)}|Boundary={record.BoundaryKind}|BoundaryReason={record.BoundaryReason}";
         }
 
         private static string FormatEnemyUtilityTriggerIntent(EnemyUtilityTriggerIntent intent)

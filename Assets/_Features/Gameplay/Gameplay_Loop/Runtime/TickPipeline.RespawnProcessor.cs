@@ -74,6 +74,7 @@ namespace Game.Feature.Gameplay.Loop
             var respawnedEntities = new List<EntityState>();
             var eventLogEntries = new List<string>();
             var delayRecords = new List<PlayerRespawnDelayRecord>();
+            var placementRecords = new List<RespawnPlacementRecord>();
             RespawnTopologyResetRequest? topologyResetRequest = null;
             var removedEntityIdsThisTick = cleanupPhaseResult.RemovedEntityIds.Count > 0
                 ? new HashSet<int>(cleanupPhaseResult.RemovedEntityIds)
@@ -195,12 +196,23 @@ namespace Game.Feature.Gameplay.Loop
                 writeContext.SetPlayerControlState(respawnEntity.entityId, default);
                 writeContext.SetPlayerDamageState(respawnEntity.entityId, default);
                 respawnedEntities.Add(respawnEntity);
+                placementRecords.Add(
+                    new RespawnPlacementRecord(
+                        respawnEntity.entityId,
+                        respawnEntity.position,
+                        MovementExecutionBoundaryKind.SpawnRespawnPlacement,
+                        "PlayerRespawnPlacement"));
                 _respawnDelayStatesByEntityId.Remove(entityId);
                 eventLogEntries.Add(
                     $"RespawnCommitted|E={respawnEntity.entityId}|Pos=({respawnEntity.position.x},{respawnEntity.position.y})|Face={respawnEntity.position.face}|Facing={respawnEntity.facing}|Tick={tickIndex}");
             }
 
-            return new RespawnPhaseResult(respawnedEntities, eventLogEntries, delayRecords, topologyResetRequest);
+            return new RespawnPhaseResult(
+                respawnedEntities,
+                eventLogEntries,
+                delayRecords,
+                placementRecords,
+                topologyResetRequest);
         }
 
         private static PlayerRespawnDelayRecord CreateDelayRecord(

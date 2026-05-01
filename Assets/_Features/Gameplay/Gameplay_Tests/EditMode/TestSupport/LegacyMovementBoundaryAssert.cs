@@ -53,6 +53,39 @@ namespace Game.Feature.Gameplay.Tests
                 BuildDebug(result, entityId));
         }
 
+        public static void HasMoveEntityBoundary(
+            TickResult result,
+            int entityId,
+            MovementExecutionBoundaryKind boundaryKind)
+        {
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.MoveEntity &&
+                    operation.EntityId == entityId &&
+                    operation.Metadata.MovementExecutionBoundaryKind == boundaryKind),
+                Is.True,
+                BuildDebug(result, entityId));
+        }
+
+        public static void NoLegacyOrdinaryUnitMoveOperationOrDiagnostic(TickResult result, int entityId)
+        {
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.MoveEntity &&
+                    operation.EntityId == entityId &&
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.LegacyFallback &&
+                    operation.Metadata.MovementSemanticKind == MovementSemanticKind.Move),
+                Is.False,
+                BuildDebug(result, entityId));
+
+            Assert.That(
+                result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                    reason.Contains("LegacyUnitOrdinaryMovementDetected", System.StringComparison.Ordinal) &&
+                    reason.Contains($"E={entityId}", System.StringComparison.Ordinal)),
+                Is.False,
+                BuildDebug(result, entityId));
+        }
+
         private static string BuildDebug(TickResult result, int entityId)
         {
             var motions = string.Join(

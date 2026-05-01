@@ -774,7 +774,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     postMovementSnapshot,
                     postMovementSnapshot,
                     postMovementSnapshot,
-                    CreateMovementPhaseResult(actionGroup, ResolvedActionSemanticKind.ProjectileMove),
+                    CreateMovementPhaseResult(actionGroup, ResolvedActionSemanticKind.Move),
                     AttackPhaseResult.Empty,
                     CleanupFixtureFactory.None()));
 
@@ -884,7 +884,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     postMovementSnapshot,
                     postMovementSnapshot,
                     postMovementSnapshot,
-                    CreateMovementPhaseResult(actionGroup),
+                    CreateMovementPhaseResult(actionGroup, ResolvedActionSemanticKind.ProjectileMove),
                     AttackPhaseResult.Empty,
                     CleanupFixtureFactory.None()));
 
@@ -945,6 +945,92 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presentationData.EntityMotions
                     .Select(motion => (motion.EntityId, motion.MotionKind, motion.SourceCell, motion.DestinationCell))
                     .ToArray());
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickResultBuilder_BoxActionMovement_DoesNotSuppressLegacyMotion()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var destinationCell = new SurfaceCell(FaceId.Floor, 2, 0);
+
+            var sourceEntity = CreateEntity(30, EntityType.Box, sourceCell, Direction.Right);
+            sourceEntity.boxCapabilities = BoxCapabilities.Push;
+
+            var destinationEntity = CreateEntity(30, EntityType.Box, destinationCell, Direction.Right);
+            destinationEntity.boxCapabilities = BoxCapabilities.Push;
+            destinationEntity.state = EntityPhaseState.Sliding;
+            destinationEntity.stateTimer = 11;
+
+            var preMovementSnapshot = CreateWorldState(new[] { sourceEntity }).CreateSnapshot();
+            var postMovementSnapshot = CreateWorldState(new[] { destinationEntity }).CreateSnapshot();
+            var metadata = new FinalizationOperationMetadata(
+                TickPhase.Resolve,
+                ResolvedActionSemanticKind.Slide,
+                sourceActorEntityId: 10,
+                actionPlanId: 1,
+                movementSemanticKind: MovementSemanticKind.Slide,
+                movementExecutionBoundaryKind: MovementExecutionBoundaryKind.BoxActionMovement,
+                boundaryReason: "BoxActionMovement");
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    postMovementSnapshot,
+                    postMovementSnapshot,
+                    postMovementSnapshot,
+                    CreateMovementPhaseResultWithOperations(
+                        FinalizationOperation.MoveEntity(1, 30, destinationCell, metadata)),
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None()));
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (EntityId: 30, Kind: TickEntityMotionKind.BoxSlide, Source: sourceCell, Destination: destinationCell),
+                },
+                presentationData.EntityMotions
+                    .Select(motion => (motion.EntityId, motion.MotionKind, motion.SourceCell, motion.DestinationCell))
+                    .ToArray());
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickResultBuilder_LocomotionAnchorCommit_SuppressesLegacyMotion()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var preMovementSnapshot = CreateWorldState(
+                new[]
+                {
+                    CreateEntity(10, EntityType.Unit, sourceCell, Direction.Right),
+                }).CreateSnapshot();
+            var postMovementSnapshot = CreateWorldState(
+                new[]
+                {
+                    CreateEntity(10, EntityType.Unit, destinationCell, Direction.Right),
+                }).CreateSnapshot();
+            var metadata = new FinalizationOperationMetadata(
+                TickPhase.Plan,
+                ResolvedActionSemanticKind.Move,
+                sourceActorEntityId: 10,
+                actionPlanId: 0,
+                movementSemanticKind: MovementSemanticKind.Move,
+                movementExecutionBoundaryKind: MovementExecutionBoundaryKind.LocomotionAnchorCommit,
+                boundaryReason: "TestAnchorCommit");
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    postMovementSnapshot,
+                    postMovementSnapshot,
+                    postMovementSnapshot,
+                    CreateMovementPhaseResultWithOperations(
+                        FinalizationOperation.MoveEntity(1, 10, destinationCell, metadata)),
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None()));
+
+            Assert.That(presentationData.EntityMotions, Is.Empty);
         }
 
         [Test]

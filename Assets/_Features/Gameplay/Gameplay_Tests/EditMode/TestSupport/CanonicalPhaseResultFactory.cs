@@ -372,7 +372,43 @@ namespace Game.Feature.Gameplay.Tests
                 rotationKind: rotationKind,
                 exitCauseHint: exitCauseHint,
                 movementSemanticKind: ResolveMovementSemanticKind(semanticKind),
-                damageSourceType: DamageSourceType.None);
+                damageSourceType: DamageSourceType.None,
+                movementExecutionBoundaryKind: ResolveMovementExecutionBoundaryKind(group),
+                boundaryReason: ResolveMovementExecutionBoundaryReason(ResolveMovementExecutionBoundaryKind(group)));
+        }
+
+        private static MovementExecutionBoundaryKind ResolveMovementExecutionBoundaryKind(ActionGroup group)
+        {
+            if (group.TopologyChanges.Count > 0)
+            {
+                return MovementExecutionBoundaryKind.TopologyMaterialization;
+            }
+
+            if (group.GroupKind == ActionGroupKind.Push ||
+                group.GroupKind == ActionGroupKind.Flip ||
+                group.GroupKind == ActionGroupKind.Item ||
+                group.HasDeferredImpact)
+            {
+                return MovementExecutionBoundaryKind.BoxActionMovement;
+            }
+
+            if (group.GroupKind == ActionGroupKind.Move)
+            {
+                return MovementExecutionBoundaryKind.LegacyFallback;
+            }
+
+            return MovementExecutionBoundaryKind.Unknown;
+        }
+
+        private static string ResolveMovementExecutionBoundaryReason(MovementExecutionBoundaryKind kind)
+        {
+            return kind switch
+            {
+                MovementExecutionBoundaryKind.TopologyMaterialization => "TopologyMaterialization",
+                MovementExecutionBoundaryKind.BoxActionMovement => "BoxActionMovement",
+                MovementExecutionBoundaryKind.LegacyFallback => "LegacyFallback",
+                _ => string.Empty,
+            };
         }
 
         private static FinalizationOperationMetadata CreateAttackMetadata(

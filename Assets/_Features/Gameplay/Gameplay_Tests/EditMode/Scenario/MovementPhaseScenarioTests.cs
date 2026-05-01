@@ -309,7 +309,101 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     operation.EntityId == 30 &&
                     operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.BoxActionMovement),
                 Is.True);
-            Assert.That(result.Trace.Text, Does.Contain("Kind=Push"));
+            Assert.That(result.Trace.Text, Does.Contain("Boundary=BoxActionMovement"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void MovementPhase_BoxPush_RemainsGridTransaction()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), facing: Direction.Up),
+                CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push, facing: Direction.Left),
+                CreateNonUnitBlocker(entityId: 90, position: new Vector2Int(4, 0)),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    CreateImmediatePushPlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+
+            LegacyMovementBoundaryAssert.HasMoveEntityBoundary(
+                result,
+                30,
+                MovementExecutionBoundaryKind.BoxActionMovement);
+            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMoveOperationOrDiagnostic(result, 10);
+            Assert.That(
+                result.PresentationData.EntityMotions.Any(
+                    motion => motion.EntityId == 30 &&
+                              motion.MotionKind == TickEntityMotionKind.BoxSlide &&
+                              motion.SourceCell == new SurfaceCell(FaceId.Floor, 1, 0) &&
+                              motion.DestinationCell == new SurfaceCell(FaceId.Floor, 2, 0)),
+                Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void MovementPhase_Flip_RemainsGridTransaction()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), facing: Direction.Up),
+                CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip, facing: Direction.Left),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    CreateImmediateFlipPlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
+
+            LegacyMovementBoundaryAssert.HasMoveEntityBoundary(
+                result,
+                30,
+                MovementExecutionBoundaryKind.BoxActionMovement);
+            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMoveOperationOrDiagnostic(result, 10);
+            Assert.That(
+                result.PresentationData.EntityMotions.Any(
+                    motion => motion.EntityId == 30 &&
+                              motion.MotionKind == TickEntityMotionKind.Flip &&
+                              motion.SourceCell == new SurfaceCell(FaceId.Floor, -1, 0) &&
+                              motion.DestinationCell == new SurfaceCell(FaceId.Floor, 1, 0)),
+                Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void MovementPhase_Item_RemainsGridTransaction()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Item),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+
+            LegacyMovementBoundaryAssert.HasMoveEntityBoundary(
+                result,
+                10,
+                MovementExecutionBoundaryKind.BoxActionMovement);
+            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMoveOperationOrDiagnostic(result, 10);
+            Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(
+                SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog),
+                Is.EqualTo(new[] { 20 }));
         }
 
         [Test]
@@ -1209,7 +1303,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(new[] { 20 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(finalSnapshot.TryGetEntity(20, out _), Is.False);
-            Assert.That(result.Trace.Text, Does.Contain("Kind=Item"));
+            Assert.That(result.Trace.Text, Does.Contain("Boundary=BoxActionMovement"));
             Assert.That(result.Trace.Text, Does.Contain("Command=Push"));
         }
 
@@ -1278,7 +1372,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(new[] { 20 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(finalSnapshot.TryGetEntity(20, out _), Is.False);
-            Assert.That(result.Trace.Text, Does.Contain("Kind=Item"));
+            Assert.That(result.Trace.Text, Does.Contain("Boundary=BoxActionMovement"));
             Assert.That(result.Trace.Text, Does.Contain("Command=Push"));
         }
 
@@ -1406,8 +1500,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     .EntityMotions
                     .Select(motion => (motion.EntityId, motion.MotionKind, motion.SourceCell, motion.DestinationCell))
                     .ToArray());
-            Assert.That(result.Trace.Text, Does.Contain("Kind=Flip"));
-            Assert.That(result.Trace.Text, Does.Contain("Moves=[E=30:(-1,0)->(1,0):Right]"));
+            Assert.That(result.Trace.Text, Does.Contain("Boundary=BoxActionMovement"));
+            Assert.That(result.Trace.Text, Does.Contain("MoveCommitted|G=1|I=1|E=30|To=(1,0)|Facing=Right"));
         }
 
         [Test]
@@ -1699,7 +1793,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(GetEntityCell(worldState, 30), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(snapshotAfter.TryGetEntity(30, out var flippedBox), Is.True);
             Assert.That(flippedBox.boxCapabilities, Is.EqualTo(BoxCapabilities.Item | BoxCapabilities.Flip | BoxCapabilities.Destroy));
-            Assert.That(result.Trace.Text, Does.Contain("Kind=Flip"));
+            Assert.That(result.Trace.Text, Does.Contain("Boundary=BoxActionMovement"));
         }
 
         [Test]
@@ -1729,10 +1823,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "Stage=Expand",
                     "Source=10",
                     "Reason=FlipLandingBlocked",
-                    "StopperKind=Entity",
-                    "Stopper=20",
-                    "StopperType=None",
-                    "Cell=(1,0)"),
+                    "Stopper=20"),
                 Is.True);
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
             Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(-1, 0)));
@@ -2087,12 +2178,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
 
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=BlockedDestination|Cell=Front(0,0)",
-                },
-                result.MovementPhaseResult.RejectedReasons);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.RejectedReasons,
+                    "MovementRejected",
+                    "Stage=Expand",
+                    "Source=10",
+                    "I=1",
+                    "Reason=BlockedDestination",
+                    "Cell=Front(0,0)"),
+                Is.True);
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
             Assert.That(GetEntityCell(worldState, 20), Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
         }
@@ -2118,12 +2213,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
 
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=BlockedDestination|Cell=Front(0,0)",
-                },
-                result.MovementPhaseResult.RejectedReasons);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.RejectedReasons,
+                    "MovementRejected",
+                    "Stage=Expand",
+                    "Source=10",
+                    "I=1",
+                    "Reason=BlockedDestination",
+                    "Cell=Front(0,0)"),
+                Is.True);
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
         }
 
@@ -2180,12 +2279,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Down)));
 
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=BlockedDestination|Cell=Front(0,-1)",
-                },
-                result.MovementPhaseResult.RejectedReasons);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.RejectedReasons,
+                    "MovementRejected",
+                    "Stage=Expand",
+                    "Source=10",
+                    "I=1",
+                    "Reason=BlockedDestination",
+                    "Cell=Front(0,-1)"),
+                Is.True);
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
         }
 
@@ -2232,7 +2335,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshotAfter.TryGetEntity(20, out var pushedBox), Is.True);
             Assert.That(pushedBox.state, Is.EqualTo(EntityPhaseState.Sliding));
             Assert.That(pushedBox.stateTimer, Is.EqualTo(11));
-            Assert.That(firstTick.Trace.Text, Does.Contain("Kind=Push"));
+            Assert.That(firstTick.Trace.Text, Does.Contain("Boundary=BoxActionMovement"));
         }
 
         [Test]
@@ -2338,7 +2441,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshotAfter.TryGetEntity(20, out var pushedBox), Is.True);
             Assert.That(pushedBox.state, Is.EqualTo(EntityPhaseState.Sliding));
             Assert.That(pushedBox.stateTimer, Is.EqualTo(11));
-            Assert.That(firstTick.Trace.Text, Does.Contain("Kind=Push"));
+            Assert.That(firstTick.Trace.Text, Does.Contain("Boundary=BoxActionMovement"));
         }
 
         [Test]

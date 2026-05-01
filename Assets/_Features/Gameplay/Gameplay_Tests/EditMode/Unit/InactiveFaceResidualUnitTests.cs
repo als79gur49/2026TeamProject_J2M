@@ -97,6 +97,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(worldState.CreateSnapshot().Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
         }
 
+        [Test]
+        [Category("Core")]
+        public void RespawnPlacement_BoundaryMetadata_IsSpawnRespawnPlacement()
+        {
+            var spawnCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                Array.Empty<EntityState>(),
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            var snapshot = worldState.CreateSnapshot();
+            var processor = new RespawnProcessor();
+
+            var result = processor.Process(
+                snapshot,
+                snapshot,
+                CleanupFixtureFactory.None(),
+                new[] { CreatePlayerUnit(entityId: 10, position: spawnCell, hp: 3) },
+                tickIndex: 1,
+                respawnDelayTicks: 1,
+                allowRespawn: true,
+                worldState.CreateWriteContext());
+
+            Assert.That(result.RespawnedEntities.Count, Is.EqualTo(1));
+            Assert.That(result.RespawnPlacementRecords.Count, Is.EqualTo(1));
+            Assert.That(result.RespawnPlacementRecords[0].EntityId, Is.EqualTo(10));
+            Assert.That(result.RespawnPlacementRecords[0].PlacementCell, Is.EqualTo(spawnCell));
+            Assert.That(
+                result.RespawnPlacementRecords[0].BoundaryKind,
+                Is.EqualTo(MovementExecutionBoundaryKind.SpawnRespawnPlacement));
+            Assert.That(result.RespawnPlacementRecords[0].BoundaryReason, Is.EqualTo("PlayerRespawnPlacement"));
+            Assert.That(result.EventLogEntries, Has.None.Contains("LegacyUnitOrdinaryMovementDetected"));
+        }
+
         [TestCase("solid")]
         [TestCase("terrain")]
         [Category("Extended")]

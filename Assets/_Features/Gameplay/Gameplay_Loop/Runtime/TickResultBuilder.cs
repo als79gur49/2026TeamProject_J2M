@@ -194,10 +194,12 @@ namespace Game.Feature.Gameplay.Loop
     {
         public static readonly RespawnPhaseResult Empty = new(
             Array.Empty<EntityState>(),
-            Array.Empty<string>());
+            Array.Empty<string>(),
+            respawnPlacementRecords: Array.Empty<RespawnPlacementRecord>());
 
         private readonly ReadOnlyCollection<string> _eventLogEntries;
         private readonly ReadOnlyCollection<PlayerRespawnDelayRecord> _playerRespawnDelayRecords;
+        private readonly ReadOnlyCollection<RespawnPlacementRecord> _respawnPlacementRecords;
         private readonly ReadOnlyCollection<EntityState> _respawnedEntities;
 
         public RespawnPhaseResult(
@@ -208,6 +210,7 @@ namespace Game.Feature.Gameplay.Loop
                 respawnedEntities,
                 eventLogEntries,
                 playerRespawnDelayRecords: null,
+                respawnPlacementRecords: null,
                 topologyResetRequest: topologyResetRequest)
         {
         }
@@ -216,6 +219,7 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<EntityState> respawnedEntities,
             IEnumerable<string> eventLogEntries,
             IEnumerable<PlayerRespawnDelayRecord> playerRespawnDelayRecords = null,
+            IEnumerable<RespawnPlacementRecord> respawnPlacementRecords = null,
             RespawnTopologyResetRequest? topologyResetRequest = null)
         {
             if (respawnedEntities == null)
@@ -233,6 +237,9 @@ namespace Game.Feature.Gameplay.Loop
             _playerRespawnDelayRecords = new ReadOnlyCollection<PlayerRespawnDelayRecord>(
                 new List<PlayerRespawnDelayRecord>(
                     playerRespawnDelayRecords ?? Array.Empty<PlayerRespawnDelayRecord>()));
+            _respawnPlacementRecords = new ReadOnlyCollection<RespawnPlacementRecord>(
+                new List<RespawnPlacementRecord>(
+                    respawnPlacementRecords ?? Array.Empty<RespawnPlacementRecord>()));
             TopologyResetRequest = topologyResetRequest;
         }
 
@@ -242,7 +249,32 @@ namespace Game.Feature.Gameplay.Loop
 
         public IReadOnlyList<PlayerRespawnDelayRecord> PlayerRespawnDelayRecords => _playerRespawnDelayRecords;
 
+        public IReadOnlyList<RespawnPlacementRecord> RespawnPlacementRecords => _respawnPlacementRecords;
+
         public RespawnTopologyResetRequest? TopologyResetRequest { get; }
+    }
+
+    internal readonly struct RespawnPlacementRecord
+    {
+        public RespawnPlacementRecord(
+            int entityId,
+            SurfaceCell placementCell,
+            MovementExecutionBoundaryKind boundaryKind,
+            string boundaryReason)
+        {
+            EntityId = entityId;
+            PlacementCell = placementCell;
+            BoundaryKind = boundaryKind;
+            BoundaryReason = boundaryReason ?? string.Empty;
+        }
+
+        public int EntityId { get; }
+
+        public SurfaceCell PlacementCell { get; }
+
+        public MovementExecutionBoundaryKind BoundaryKind { get; }
+
+        public string BoundaryReason { get; }
     }
 
     internal readonly struct PlayerRespawnDelayRecord

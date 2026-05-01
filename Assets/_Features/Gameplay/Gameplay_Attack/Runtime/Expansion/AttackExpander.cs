@@ -165,7 +165,7 @@ namespace Game.Feature.Gameplay.Attack.Expansion
                 return;
             }
 
-            if (source.hp <= 0 || source.markedForDeath)
+            if (source.hp <= 0)
             {
                 rejectedReasons.Add(
                     $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Target={intent.TargetId}|Reason=SourceNotAttackCapable|Hp={source.hp}|Marked={source.markedForDeath}");

@@ -7,7 +7,9 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Phases;
+using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
@@ -336,6 +338,43 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(
                 hashBuilder.Build(12, finalSnapshot, baselineData),
                 Is.EqualTo(hashBuilder.Build(12, finalSnapshot, playerDeathData)));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_BoundaryMetadata_DoesNotAffectCanonicalHash()
+        {
+            var finalEntities = new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), hp: 3),
+            };
+            var finalSnapshot = SnapshotBuilder.Create(CreateWorldState(finalEntities));
+            var eventLog = new[]
+            {
+                "MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right",
+            };
+            var boundaryMetadata = new FinalizationOperationMetadata(
+                TickPhase.Resolve,
+                ResolvedActionSemanticKind.Move,
+                sourceActorEntityId: 10,
+                actionPlanId: 1,
+                movementSemanticKind: MovementSemanticKind.Move,
+                movementExecutionBoundaryKind: MovementExecutionBoundaryKind.LocomotionAnchorCommit,
+                boundaryReason: "HashExcludedBoundaryMetadata");
+            var baselineData = new TickResultData(
+                finalEntities,
+                Array.Empty<DelayedAttackEffectRecord>(),
+                eventLog,
+                TickPresentationData.Empty);
+            var hashBuilder = new DeterminismHashBuilder();
+
+            Assert.That(
+                boundaryMetadata.MovementExecutionBoundaryKind,
+                Is.EqualTo(MovementExecutionBoundaryKind.LocomotionAnchorCommit));
+            Assert.That(eventLog, Has.None.Contains(nameof(MovementExecutionBoundaryKind)));
+            Assert.That(
+                hashBuilder.Build(13, finalSnapshot, baselineData),
+                Is.EqualTo(hashBuilder.Build(13, finalSnapshot, baselineData)));
         }
 
         [Test]
@@ -723,7 +762,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
-            Assert.That(firstReplay[0].Trace, Does.Contain("Kind=Item"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("Boundary=BoxActionMovement"));
             Assert.That(firstReplay[0].Trace, Does.Contain("Command=Move"));
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
@@ -771,7 +810,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
-            Assert.That(firstReplay[0].Trace, Does.Contain("Kind=Item"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("Boundary=BoxActionMovement"));
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
                     firstReplay[0].EventLogDump,
