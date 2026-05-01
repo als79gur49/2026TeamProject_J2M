@@ -10,7 +10,7 @@ This readiness pass does not delete legacy movement. It closes the `Special Move
 
 `Legacy Grid Transaction` is retained: `MoveEntity` can still materialize box, topology, spawn, respawn, cleanup, scripted relocation, and anchor-normalization semantics when those paths are not ordinary Unit locomotion. `DefaultGameplayLocomotion` is an explicit readiness/adoption bundle, not deletion. `GameplayRuntimeFeatureFlags.None` and default struct behavior remain rollback, golden, historical, and flag-off fallback baselines.
 
-Jump and phase relocation are not deletion blockers. Glide is state-only today and must not leak into legacy ordinary movement. Forced motion and knockback have runtime vocabulary through `MotionMode.Forced` and `ForcedMotionOp.Knockback`, but no gameplay producer in this readiness slice; any future producer must define a special/kinematic boundary before shipping.
+Jump and phase relocation are not deletion blockers. Glide explicit flag-on active kinematic locomotion is stable after v1.1 targeted coverage, but Glide Default Adoption Readiness v1 keeps `EnableEnemyGlideKinematicLocomotion` out of `DefaultGameplayLocomotion`. Forced motion and knockback have runtime vocabulary through `MotionMode.Forced` and `ForcedMotionOp.Knockback`, but no gameplay producer in this readiness slice; any future producer must define a special/kinematic boundary before shipping.
 
 ## Current Validated Readiness
 
@@ -21,8 +21,8 @@ Jump and phase relocation are not deletion blockers. Glide is state-only today a
 | targeted readiness canary | complete | targeted green is recorded as a deletion precondition, not deletion approval |
 | full `EnemyAiScenarioTests` historical failures | partial | separated from deletion readiness unless same-row behavior regresses |
 | no-legacy ordinary canary | complete for representative coverage | special replay coverage added before deletion |
-| special inventory | partial for v3 | forced/knockback closed as no gameplay producer; glide active fallback remains documented risk |
-| actual deletion | blocked | no fallback removal until v3 docs/tests are green, glide active policy is decided, and replay/golden policy is decided |
+| special inventory | partial for v3 | forced/knockback closed as no gameplay producer; glide explicit flag-on active kinematic is stable, default adoption is blocked |
+| actual deletion | blocked | no fallback removal until v3 docs/tests are green, glide default adoption or equivalent replacement is approved, and replay/golden policy is decided |
 
 ## Definitions
 
@@ -37,7 +37,7 @@ Jump and phase relocation are not deletion blockers. Glide is state-only today a
 
 | host / installer / harness | current flag source | uses bundle? | should use bundle now? | preserve `None`? | risk | tests | recommendation |
 |---|---|---:|---:|---:|---|---|---|
-| `CombinedGameplayShowcaseInstaller` | explicit config hook | yes | yes | no | showcase-only behavior shift | `CombinedGameplayShowcaseInstaller_Configuration_UsesDefaultGameplayLocomotionBundle` | keep bundle |
+| `CombinedGameplayShowcaseInstaller` | explicit config hook | yes | yes | no | showcase-only behavior shift | `CombinedGameplayShowcaseInstaller_DefaultBundle_GlidePolicy` | keep bundle; glide remains off because the bundle excludes it |
 | `StageBackedGameplayShowcaseInstallerBase` | base config | no | no | yes | over-broad scene opt-in | host config tests | do not apply globally |
 | campaign scene host | installer/config authored flags | no/partial | later | yes | campaign behavior drift | playmode smoke later | keep explicit opt-in only |
 | editor direct play | scene config defaults | no | no | yes | hidden default-on | host default tests | keep `None` unless authored |
@@ -47,6 +47,21 @@ Jump and phase relocation are not deletion blockers. Glide is state-only today a
 | scenario factories | explicit per test | partial | readiness scenarios only | yes | accidental broad migration | targeted scenarios | explicit bundle only |
 | replay harness | explicit optional flags | no default bundle | explicit canaries only | yes | golden migration | replay tests | default `None` |
 | playmode host | scene config | no | later opt-in | yes | user-facing drift | playmode host smoke | defer broad default-on |
+
+## Glide Default Adoption Readiness v1
+
+| area | current status | if glide flag included impact | risk | tests required | recommendation |
+|---|---|---|---|---|---|
+| `DefaultGameplayLocomotion` | glide excluded | default active glide would switch to kinematic | default gameplay shift | `DefaultGameplayLocomotion_GlideFlagPolicy_IsExplicit` | keep excluded in v1 |
+| `CombinedGameplayShowcaseInstaller` | uses bundle | showcase glide would auto-enable | showcase behavior surprise | `CombinedGameplayShowcaseInstaller_DefaultBundle_GlidePolicy` | do not auto-enable glide |
+| campaign host | explicit/authored flags | only bundle-applied hosts would change | campaign drift | host config smoke if touched | no change |
+| replay harness | default `None` | accidental golden churn | baseline drift | replay default `None` assertions | keep `None` |
+| default gameplay replay canary | player/enemy/charge focused | active glide trace/hash could change | canary ambiguity | `Replay_DefaultGameplayLocomotion_GlidePolicy_IsDeterministic` | policy-only glide check |
+| flag-off fallback canary | maintained | unaffected by inclusion | accidental fallback break | `BoundaryInventory_Glide_ActiveLegacyFallback_FlagOff_IsDocumented` | keep |
+| boundary inventory canary | explicit glide canary exists | default no-legacy would need active glide | false complete signal | `BoundaryInventory_DefaultGameplayLocomotion_GlideActivePolicy` | default canary excludes active glide completion |
+| readiness checklist | glide partial | included would become complete candidate | premature deletion | `LegacyOrdinaryUnitMovement_DeprecationReadiness_Report` | block default adoption |
+| broad full suite | targeted green | hidden regression possible | broad regression | targeted XML plus broad separation | no default inclusion before broad gate |
+| docs / rollout | v1.1 explicit | inclusion doc churn | policy drift | rollout, ADR, readiness docs | record Option B |
 
 ## Special Movement Inventory v3
 
@@ -58,7 +73,7 @@ Jump and phase relocation are not deletion blockers. Glide is state-only today a
 | phase relocation | `ResolvePlanEnemyPhaseRelocations` | phase relocation payload + phased state | `ScriptedRelocation` | yes | no | retained relocation/entity motion | position + phased state | low | Safe Retained Grid Transaction | none before deletion | phase relocation canary + replay canary | retain |
 | phase state lifecycle | phased state enter/sustain/exit | `PhasedRuntimeState` | state-only or `ScriptedRelocation` when relocating | relocation only | no | state/trace | phased state hash | low | Safe Retained Grid Transaction | none | phase scenario tests | document non-ordinary lifecycle |
 | glide start | `EnemyLogic.CommitGlideState` | `EnemyGlideRuntimeState(Windup/Active)` | state-only | no | no | `TickEnemyGlidePresentationSignal` face-normal lift | enemy glide state hash included; glide presentation excluded | low for start tick | State-only Special Candidate | none for start tick | `BoundaryInventory_Glide_NoLegacyOrdinaryMoveLeak`, `GlidePresentation_Windup_RisesAlongFaceNormal` | keep state-only start canary |
-| glide active/state-only lifecycle | glide ticking/target suppression plus opt-in active chase kinematic path | `EnemyGlideRuntimeState(Active/LandingPending/Recovery/Cooldown)` + optional `UnitKinematicRuntimeState(MotionMode.Voluntary)` | flag-on active chase uses `LocomotionAnchorCommit`; flag-off keeps documented `LegacyFallback` ordinary move | flag-on no; flag-off yes | flag-on no; flag-off yes | flag-on horizontal `TickKinematicMotionTrack` plus additive `TickEnemyGlidePresentationSignal` height; flag-off legacy horizontal move baseline retained | glide state and UnitKinematics hash included; glide presentation and boundary metadata excluded | explicit flag-on stabilized; default adoption still blocked | Flag-Gated Kinematic Candidate | keep explicit flag-on before deletion; default bundle adoption pending | `BoundaryInventory_Glide_ActiveKinematic_NoLegacyOrdinaryMove`, `BoundaryInventory_Glide_ActiveLegacyFallback_FlagOff_IsDocumented`, `GlideActive_Kinematic_PreservesSolidBypass`, `GlideActive_Kinematic_NoContactBeforeCommit`, `GlideActive_Kinematic_ContactAtCommit`, `GlideActive_Kinematic_LandingPendingWhenEndsOnSolid`, `GlideActive_Kinematic_HitLethal_RemovalClearsKinematicAndGlideSignal`, `Replay_EnemyGlideActiveKinematicLocomotion_IsDeterministic`, `GlideActive_Kinematic_ReplayContactAndLandingDeterministic` | do not delete flag-off baseline; include glide flag in default bundle only after readiness approval |
+| glide active/state-only lifecycle | glide ticking/target suppression plus opt-in active chase kinematic path | `EnemyGlideRuntimeState(Active/LandingPending/Recovery/Cooldown)` + optional `UnitKinematicRuntimeState(MotionMode.Voluntary)` | flag-on active chase uses `LocomotionAnchorCommit`; flag-off and default-bundle paths keep documented `LegacyFallback` ordinary move | flag-on no; flag-off/default yes | flag-on no; flag-off/default yes | flag-on horizontal `TickKinematicMotionTrack` plus additive `TickEnemyGlidePresentationSignal` height; flag-off/default legacy horizontal move baseline retained | glide state and UnitKinematics hash included for flag-on; glide presentation and boundary metadata excluded | explicit flag-on stable; default adoption blocked in v1 | Flag-Gated Kinematic Candidate | keep explicit opt-in; default bundle adoption requires a later approval | `ExplicitGlideFlag_ActiveGlide_NoLegacyOrdinaryMove`, `BoundaryInventory_DefaultGameplayLocomotion_GlideActivePolicy`, `BoundaryInventory_Glide_ActiveLegacyFallback_FlagOff_IsDocumented`, `Replay_DefaultGameplayLocomotion_GlidePolicy_IsDeterministic`, `Replay_EnemyGlideActiveKinematicLocomotion_IsDeterministic`, `GlideActive_Kinematic_ReplayContactAndLandingDeterministic` | do not delete flag-off/default fallback; include glide flag in default bundle only after readiness approval |
 | glide end | recovery/cooldown/clear | `EnemyGlideRuntimeState` | state-only | no | no | `TickEnemyGlidePresentationSignal` recovery/terminal zero | glide state hash/clear; glide presentation excluded | low | State-only Special Candidate | none before deletion | `GlidePresentation_Recovery_DescendsAndSupportsDip`, `GlidePresentation_Clear_DoesNotLeaveStaleHoverSignal` | keep presentation-only stale-clear coverage |
 | forced motion | no gameplay producer; vocabulary exists | `MotionMode.Forced`, `ForcedMotionOp` vocabulary | none today | no current path | no | none | no current gameplay footprint | future high | Future Runtime State Needed | explicit state producer + boundary before feature | `BoundaryInventory_ForcedMotion_NoRuntimeProducerYet` | keep canary |
 | knockback | no gameplay producer; enum value exists | `ForcedMotionOp.Knockback` vocabulary | none today | no current path | no | none | no current gameplay footprint | future high | Future Runtime State Needed | explicit special/kinematic boundary before feature | forced inventory canary | keep canary |
@@ -76,9 +91,9 @@ Jump and phase relocation are not deletion blockers. Glide is state-only today a
 | Safe UnitSpecialLocomotion | jump start, airborne, landing | explicit `UnitSpecialLocomotion`; no legacy ordinary leak |
 | State-only Special Candidate | glide start/end | state commits do not require ordinary movement |
 | Future Runtime State Needed | forced motion, knockback | vocabulary exists, but no gameplay producer/boundary policy |
-| Potential Legacy Ordinary Leak | glide active chase fallback | v3 canary confirms active glide can still produce `LegacyFallback` ordinary `MoveEntity`/`TickEntityMotionKind.Move` |
+| Potential Legacy Ordinary Leak | glide active chase fallback when glide flag is off or default bundle is used | v1 adoption keeps this documented baseline until default adoption or an equivalent replacement is approved |
 | Needs Tests | forced no-producer, jump/phase/glide replay | covered by v3 canaries |
-| Needs Implementation Before Deletion | glide active fallback policy | ordinary fallback deletion must first decide whether active glide suppresses ordinary movement or receives explicit special/kinematic displacement |
+| Needs Implementation Before Deletion | glide default adoption or equivalent replacement policy | ordinary fallback deletion must not proceed while default gameplay still documents active glide fallback |
 
 ## Legacy Deletion Candidates
 
@@ -109,13 +124,16 @@ Jump and phase relocation are not deletion blockers. Glide is state-only today a
 Current canaries are sufficient for default bundle representative no-legacy checks, retained grid transactions, flag-off fallback, jump/phase basic boundaries, and boundary metadata hash exclusion. v3 adds:
 
 - `BoundaryInventory_Glide_NoLegacyOrdinaryMoveLeak`
+- `BoundaryInventory_DefaultGameplayLocomotion_GlideActivePolicy`
 - `BoundaryInventory_Glide_ActiveLegacyFallback_FlagOff_IsDocumented`
-- `BoundaryInventory_Glide_ActiveKinematic_NoLegacyOrdinaryMove`
+- `ExplicitGlideFlag_ActiveGlide_NoLegacyOrdinaryMove`
+- `DefaultGameplayLocomotion_GlideFlagPolicy_IsExplicit`
+- `Replay_DefaultGameplayLocomotion_GlidePolicy_IsDeterministic`
 - `BoundaryInventory_ForcedMotion_NoRuntimeProducerYet`
 - `BoundaryInventory_SpecialMovement_ReplayCanary`
 - `LegacyOrdinaryUnitMovement_DeprecationReadiness_Report` v3 inventory assertions
 
-The glide no-leak canary is intentionally limited to the state-only start tick. A separate active-glide canary documents the current ordinary fallback leak so deletion readiness does not mistake glide for fully state-only movement. The mega-canary remains intentionally split. Separate canaries give clearer failure ownership across player ordinary, enemy ordinary, charge, grid transactions, jump, phase, glide, and future forced motion.
+The glide no-leak canary is intentionally limited to the state-only start tick under `DefaultGameplayLocomotion`. A separate default active-glide policy canary documents that the default bundle still excludes glide and therefore keeps the fallback path. The explicit active-glide canary proves the opt-in flag resolves the legacy ordinary blocker. The mega-canary remains intentionally split. Separate canaries give clearer failure ownership across player ordinary, enemy ordinary, charge, grid transactions, jump, phase, glide, and future forced motion.
 
 ## Deletion Readiness Checklist
 
@@ -131,13 +149,15 @@ The glide no-leak canary is intentionally limited to the state-only start tick. 
 | flag-off fallback baseline green | complete | preserved until policy phase |
 | jump inventory complete | complete | replay canary added |
 | phase inventory complete | complete | replay canary added |
-| glide inventory complete | partial | state-only start is covered; active chase fallback is a documented deletion blocker |
+| glide kinematic explicit flag-on stable | complete | v1.1 targeted coverage resolves the explicit active glide blocker |
+| default bundle glide adoption | blocked | Glide Default Adoption Readiness v1 keeps the flag explicit |
+| glide inventory complete | partial | state-only start and explicit active kinematic are covered; default/flag-off active fallback remains a documented deletion blocker |
 | forced motion inventory complete | complete for no-producer path | no runtime feature |
 | Unknown boundary policy complete | complete representative | split canaries retained |
 | replay/golden policy complete | partial | deletion still requires policy |
 | full suite failure buckets documented | partial | unrelated failures reported separately |
-| special movement risk resolved | partial | glide active fallback must be resolved before ordinary fallback deletion |
-| actual deletion plan ready | blocked | unblock only after v3 lands green, glide active policy is decided, and replay/golden policy is approved |
+| special movement risk resolved | partial | glide default adoption or equivalent replacement must be resolved before ordinary fallback deletion |
+| actual deletion plan ready | blocked | unblock only after v3 lands green, glide default adoption or equivalent replacement is approved, and replay/golden policy is approved |
 
 Actual deletion remains blocked.
 
@@ -145,9 +165,9 @@ Actual deletion remains blocked.
 
 | phase | scope | precondition | rollback | tests | blockers | non-goals |
 |---|---|---|---|---|---|---|
-| Phase 0 | readiness inventory complete | v3 docs/tests green | revert docs/tests only | build, boundary, replay canaries | special inventory incomplete | no deletion |
-| Phase 1 | runtime default bundle opt-in for normal gameplay hosts | host policy approved | disable config opt-in | host config + smoke | replay/golden policy | no composition-root default change |
-| Phase 2 | flag-off fallback marked test-only | fallback test inventory complete | keep production flag-off | fallback tests | rollback owner unclear | no fallback removal |
+| Phase 0 | explicit glide flag-on stable | v1.1 glide targeted tests green | keep explicit flag off | build, boundary, replay canaries | default adoption not approved | no deletion |
+| Phase 1 | default bundle adoption decision | Glide Default Adoption Readiness v1 recorded | keep Option B explicit opt-in | default policy, host, replay policy tests | broad/default adoption gate | no composition-root default change |
+| Phase 2 | default bundle glide canary green for a future inclusion attempt | Option A/C approved later | remove glide from bundle again | default active glide boundary/replay/showcase canaries | replay/golden policy | no fallback removal |
 | Phase 3 | replay/golden migration policy decided | golden owners approve | keep `None` goldens | replay suite | historical baseline dependency | no auto baseline update |
 | Phase 4 | player legacy ordinary fallback removal | player free2D/kinematic green, goldens migrated | restore fallback branch | player scenario/replay | `None` policy unresolved | no grid branch deletion |
 | Phase 5 | enemy legacy ordinary fallback removal | enemy kinematic green | restore fallback branch | enemy scenario/replay | EnemyAi historical failures unclear | no charge fallback deletion |
@@ -160,7 +180,7 @@ Actual deletion remains blocked.
 | risk | mitigation |
 |---|---|
 | special movement misclassified as safe | v3 inventory requires state carrier, boundary, presentation, hash, tests |
-| glide has hidden displacement path | `BoundaryInventory_Glide_NoLegacyOrdinaryMoveLeak` covers state-only start; `BoundaryInventory_Glide_ActiveKinematic_NoLegacyOrdinaryMove` covers explicit flag-on active chase; v1.1 contact, LandingPending, active-end, hit/death, provenance, and replay tests cover stabilization; `BoundaryInventory_Glide_ActiveLegacyFallback_FlagOff_IsDocumented` preserves the rollback baseline |
+| glide has hidden displacement path | `BoundaryInventory_Glide_NoLegacyOrdinaryMoveLeak` covers state-only start; `ExplicitGlideFlag_ActiveGlide_NoLegacyOrdinaryMove` covers explicit flag-on active chase; `BoundaryInventory_DefaultGameplayLocomotion_GlideActivePolicy` documents the default exclusion; v1.1 contact, LandingPending, active-end, hit/death, provenance, and replay tests cover stabilization; `BoundaryInventory_Glide_ActiveLegacyFallback_FlagOff_IsDocumented` preserves the rollback baseline |
 | forced motion appears later without boundary kind | no-producer canary and ADR rule requiring a boundary before feature implementation |
 | default bundle applied too broadly | `GameplaySceneHostConfiguration`, bootstrapper, composition root, and replay defaults stay `None` |
 | replay/golden accidental migration | explicit bundle only in canary replays |
