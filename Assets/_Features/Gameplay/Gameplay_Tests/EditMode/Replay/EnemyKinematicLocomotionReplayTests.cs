@@ -438,6 +438,52 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
+        public void Replay_DefaultGameplayLocomotion_GlidePolicy_IsDeterministic()
+        {
+            var flags = GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion;
+            Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.False);
+
+            var harness = new TickReplayHarness();
+            var inputs = Enumerable.Range(1, 3)
+                .Select(tick => new TickInput(tick))
+                .ToArray();
+            var glideProfile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(windupTicks: 1, durationTicks: 2, recoveryTicks: 1, cooldownTicks: 1));
+
+            try
+            {
+                var firstReplay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(glideProfile),
+                    CreateGlideWorldState(),
+                    entityLogics: new IEntityLogic[0],
+                    inputs,
+                    runtimeFeatureFlags: flags);
+                var secondReplay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(glideProfile),
+                    CreateGlideWorldState(),
+                    entityLogics: new IEntityLogic[0],
+                    inputs,
+                    runtimeFeatureFlags: flags);
+
+                AssertReplayBoundaryCanaryEqual(firstReplay, secondReplay);
+                Assert.That(
+                    firstReplay.Any(frame => frame.Trace.Contains("GlideActiveKinematicAnchorCommit", StringComparison.Ordinal)),
+                    Is.False);
+                Assert.That(
+                    firstReplay.Any(frame => frame.EventLogDump.Contains("KinematicPoseCommitted|E=40", StringComparison.Ordinal)),
+                    Is.False);
+                Assert.That(
+                    firstReplay.Any(frame => frame.Trace.Contains("LegacyFallback", StringComparison.Ordinal)),
+                    Is.True);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(glideProfile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void BoundaryInventory_SpecialMovement_ReplayCanary()
         {
             var harness = new TickReplayHarness();

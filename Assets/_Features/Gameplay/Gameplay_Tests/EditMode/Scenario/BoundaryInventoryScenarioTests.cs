@@ -429,8 +429,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void BoundaryInventory_Glide_ActiveLegacyFallback_FlagOff_IsDocumented()
+        public void BoundaryInventory_DefaultGameplayLocomotion_GlideActivePolicy()
         {
+            var flags = GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion;
+            Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.False);
+
             var glideProfile = EnemyAiProfileTestFactory.CreateGlideChaser(
                 new EnemyGlideTimingSettings(windupTicks: 1, durationTicks: 2, recoveryTicks: 1, cooldownTicks: 1));
             try
@@ -455,6 +458,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(glideState.Phase, Is.EqualTo(EnemyGlidePhase.Active));
                 LegacyMovementBoundaryAssert.HasLegacyFallbackMove(activeTick, 40);
                 LegacyMovementBoundaryAssert.HasLegacyFallbackMoveEntity(activeTick, 40);
+                Assert.That(
+                    activeTick.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40),
+                    Is.False);
             }
             finally
             {
@@ -464,7 +470,42 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void BoundaryInventory_Glide_ActiveKinematic_NoLegacyOrdinaryMove()
+        public void BoundaryInventory_Glide_ActiveLegacyFallback_FlagOff_IsDocumented()
+        {
+            var glideProfile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(windupTicks: 1, durationTicks: 2, recoveryTicks: 1, cooldownTicks: 1));
+            try
+            {
+                var glideWorld = CreateWorldState(new[]
+                {
+                    CreatePlayer(10, new SurfaceCell(FaceId.Floor, 3, 0)),
+                    CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase),
+                });
+                var glidePipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(glideProfile)
+                    .CreateTickPipeline(
+                        glideWorld,
+                        Array.Empty<IEntityLogic>(),
+                        GameplayTimingProfile.CreateDefault(),
+                        CreatePlayerTiming(),
+                        runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
+
+                _ = glidePipeline.RunTick(new TickInput(1));
+                var activeTick = glidePipeline.RunTick(new TickInput(2));
+
+                Assert.That(glideWorld.CreateSnapshot().TryGetEnemyGlideState(40, out var glideState), Is.True);
+                Assert.That(glideState.Phase, Is.EqualTo(EnemyGlidePhase.Active));
+                LegacyMovementBoundaryAssert.HasLegacyFallbackMove(activeTick, 40);
+                LegacyMovementBoundaryAssert.HasLegacyFallbackMoveEntity(activeTick, 40);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(glideProfile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ExplicitGlideFlag_ActiveGlide_NoLegacyOrdinaryMove()
         {
             var glideProfile = EnemyAiProfileTestFactory.CreateGlideChaser(
                 new EnemyGlideTimingSettings(windupTicks: 1, durationTicks: 2, recoveryTicks: 1, cooldownTicks: 1));
@@ -535,7 +576,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Test]
         [Category("Core")]
         [Category("GlideKinematicV11")]
-        public void GlideActive_Kinematic_DefaultBundleStillExcludesFlag()
+        public void DefaultGameplayLocomotion_GlideFlagPolicy_IsExplicit()
         {
             var flags = GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion;
 
@@ -661,7 +702,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 "jump: Safe UnitSpecialLocomotion",
                 "phase relocation: Safe Retained Grid Transaction",
-                "glide: Flag-Gated Kinematic Candidate, default adoption pending",
+                "glide: explicit flag-on stable complete",
+                "glide default adoption: blocked",
+                "actual deletion readiness: partial/blocked",
                 "forced motion: Future Runtime State Needed",
                 "knockback: Future Runtime State Needed",
             };
@@ -679,7 +722,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(flagOffFallbacks, Has.Length.EqualTo(3));
             Assert.That(flagOnTargets.All(enabled => enabled), Is.True);
-            Assert.That(specialInventoryV3, Does.Contain("glide: Flag-Gated Kinematic Candidate, default adoption pending"));
+            Assert.That(specialInventoryV3, Does.Contain("glide: explicit flag-on stable complete"));
+            Assert.That(specialInventoryV3, Does.Contain("glide default adoption: blocked"));
+            Assert.That(specialInventoryV3, Does.Contain("actual deletion readiness: partial/blocked"));
             Assert.That(retainedPaths, Does.Contain("MoveEntity primitive"));
             Assert.That(retainedPaths, Does.Contain("MovementExpander grid transaction branch"));
         }

@@ -695,9 +695,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayShowcaseInstaller_Configuration_UsesDefaultGameplayLocomotionBundle()
+        public void CombinedGameplayShowcaseInstaller_DefaultBundle_GlidePolicy()
         {
-            var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_Configuration_UsesDefaultGameplayLocomotionBundle");
+            var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_DefaultBundle_GlidePolicy");
 
             try
             {
