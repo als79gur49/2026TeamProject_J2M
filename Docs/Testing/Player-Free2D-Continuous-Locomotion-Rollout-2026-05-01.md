@@ -63,6 +63,7 @@ Turning Action Assist off while keeping free2D on restores local-nonzero push/fl
 
 `GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion` is the readiness default-on bundle for gameplay hosts and boundary inventory tests. `GameplayRuntimeFeatureFlags.None` remains the flag-off rollback and golden baseline until the later deletion phase defines a replacement policy.
 Default bundle adoption is explicit: showcase/dev gameplay hosts may call `GameplaySceneHostConfiguration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)`, but replay harnesses, composition-root helpers, historical tests, migration comparison tests, and flag-off goldens must keep `None` unless they intentionally opt into the bundle.
+Default bundle adoption is not legacy deletion. The v3 deletion-readiness gate lives in `Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Readiness-2026-05-01.md` and keeps `MoveEntity`, `MovementExpander`, retained grid transactions, and flag-off baselines out of the deletion target.
 
 ## Known Limitations
 
