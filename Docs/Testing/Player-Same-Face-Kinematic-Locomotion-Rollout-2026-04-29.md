@@ -15,7 +15,7 @@ If `EnablePlayerFree2DLocalLocomotion` is enabled, player ordinary movement is d
 - `MoveEntity` midpoint anchor commit is classified as a grid transaction primitive, not legacy ordinary Unit movement.
 - Boundary v1 suppresses legacy `TickEntityMotionKind.Move` only for locomotion anchor commits and ordinary Unit locomotion leaks. Box/action/topology/spawn/respawn grid transactions retain their existing presentation paths.
 - Boundary metadata is trace-only diagnostic data and must not enter canonical replay hashes.
-- Boundary v1 / deprecation Phase 1 stabilization adds direct canaries that block flag-on covered ordinary Unit `Move` leaks, allow retained grid transactions, and assert normal movement/finalization traces do not contain unexpected `Boundary=Unknown`. This is fallback isolation, not legacy branch deletion.
+- Boundary v1 / deprecation Phase 1 stabilization adds direct canaries that block flag-on covered ordinary Unit `Move` leaks, allow retained grid transactions, and assert normal movement/finalization traces do not contain unexpected `Boundary=Unknown`. The Phase 1 targeted Unity XML canaries are runtime green, but this is fallback isolation, not legacy branch deletion.
 - Same-destination ordinary Unit stacking remains the current gameplay contract. Priority-winner regression coverage is asserted through blocking grid transaction candidates in `MovementPhase_SameDestination_OnlyHigherPriorityWins_BoundaryInvariant`.
 - Default `KinematicMoveDurationSeconds` is `1f / 3f`, quantized with even ceil. At 60 TPS this is 20 ticks with midpoint anchor commit at tick 10.
 - Mid-motion hashes are expected to include the `UnitKinematics` determinism section.
@@ -36,5 +36,7 @@ If `EnablePlayerFree2DLocalLocomotion` is enabled, player ordinary movement is d
 
 Set `EnablePlayerSameFaceContinuousLocomotion` to false or pass `GameplayRuntimeFeatureFlags.None`.
 The legacy `MovementExpander` path remains present for flag-off fallback and retained grid transactions. It is not migrated in-place.
+Actual legacy fallback deletion remains out of scope until a later scoped deletion phase; `MoveEntity`, `MovementExpander`, retained grid transactions, and flag-off baselines stay retained.
+Scoped deletion preparation is covered by `ScopedDeletionPrep_PlayerLegacyFallback_IsFlagOffOnly`, which keeps the flag-off player legacy fallback as baseline while asserting no default-lane legacy presentation.
 To reproduce the old 4tick flag-on cadence for migration comparison, set
 `PlayerKinematicLocomotionTiming.KinematicMoveDurationSeconds` to `4f / SimulationTicksPerSecond`.

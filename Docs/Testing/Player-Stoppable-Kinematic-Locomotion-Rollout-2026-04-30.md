@@ -13,7 +13,7 @@ If `EnablePlayerFree2DLocalLocomotion` is enabled, player ordinary movement bypa
 - Flag on: releasing actual held movement input during player voluntary same-face kinematic movement stores `MotionMode.Held`.
 - Flag on: player ordinary movement remains on the kinematic lane and must not emit legacy `TickEntityMotionKind.Move`.
 - `MoveEntity` anchor commits are retained as grid transactions, not ordinary Unit movement.
-- Deprecation Phase 1 treats this as covered locomotion fallback isolation: flag-on/default player ordinary fallback leaks are hard regressions, but flag-off legacy fallback and retained grid transactions remain supported.
+- Deprecation Phase 1 treats this as covered locomotion fallback isolation: flag-on/default player ordinary fallback leaks are hard regressions, but flag-off legacy fallback and retained grid transactions remain supported. The Phase 1 targeted Unity XML canaries are runtime green; actual legacy fallback deletion is not complete.
 - `MotionMode.Held` preserves anchor, local offset, elapsed ticks, total ticks, commit tick, started tick, and step direction.
 - Held progress does not advance until the same held direction is pressed again.
 - Same-direction resume switches back to `MotionMode.Voluntary` on the resume tick; progress advances on the following tick.
@@ -27,3 +27,5 @@ If `EnablePlayerFree2DLocalLocomotion` is enabled, player ordinary movement bypa
 
 Set `EnablePlayerStoppableKinematicLocomotion` to false to restore automatic player kinematic continuation while keeping player kinematic locomotion enabled.
 Set `EnablePlayerSameFaceContinuousLocomotion` to false to return to the legacy discrete player movement baseline.
+`GameplayRuntimeFeatureFlags.None` remains the rollback/golden fallback lane until a later scoped deletion phase changes that policy explicitly.
+Scoped deletion preparation keeps this rollback lane explicit through `ScopedDeletionPrep_PlayerLegacyFallback_IsFlagOffOnly`; it does not remove player legacy fallback yet.
