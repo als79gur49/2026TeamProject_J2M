@@ -330,6 +330,88 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
+        public void BoundaryInventory_SpecialMovement_ReplayCanary()
+        {
+            var harness = new TickReplayHarness();
+            var jumpProfile = EnemyAiProfileTestFactory.CreateJumpChaser(
+                new EnemyJumpTimingSettings(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1));
+            try
+            {
+                var inputs = new[] { new TickInput(1) };
+                var firstReplay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(jumpProfile),
+                    CreateJumpLandingWorldState(),
+                    entityLogics: new IEntityLogic[0],
+                    inputs,
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                var secondReplay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(jumpProfile),
+                    CreateJumpLandingWorldState(),
+                    entityLogics: new IEntityLogic[0],
+                    inputs,
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+
+                AssertReplayBoundaryCanaryEqual(firstReplay, secondReplay);
+                Assert.That(
+                    firstReplay.Any(frame => frame.Trace.Contains("Boundary=UnitSpecialLocomotion", StringComparison.Ordinal)),
+                    Is.True);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(jumpProfile);
+            }
+
+            var phaseInputs = Enumerable.Range(1, 2)
+                .Select(tick => new TickInput(tick))
+                .ToArray();
+            var firstPhaseReplay = harness.Run(
+                CreatePhaseThroughLockedTargetBootstrapper(),
+                CreatePhaseRelocationWorldState(),
+                entityLogics: new IEntityLogic[0],
+                phaseInputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+            var secondPhaseReplay = harness.Run(
+                CreatePhaseThroughLockedTargetBootstrapper(),
+                CreatePhaseRelocationWorldState(),
+                entityLogics: new IEntityLogic[0],
+                phaseInputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+
+            AssertReplayBoundaryCanaryEqual(firstPhaseReplay, secondPhaseReplay);
+            Assert.That(
+                firstPhaseReplay.Any(frame => frame.Trace.Contains("Boundary=ScriptedRelocation", StringComparison.Ordinal)),
+                Is.True);
+
+            var glideProfile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(windupTicks: 1, durationTicks: 2, recoveryTicks: 1, cooldownTicks: 1));
+            try
+            {
+                var inputs = Enumerable.Range(1, 3)
+                    .Select(tick => new TickInput(tick))
+                    .ToArray();
+                var firstReplay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(glideProfile),
+                    CreateGlideWorldState(),
+                    entityLogics: new IEntityLogic[0],
+                    inputs,
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                var secondReplay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(glideProfile),
+                    CreateGlideWorldState(),
+                    entityLogics: new IEntityLogic[0],
+                    inputs,
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+
+                AssertReplayBoundaryCanaryEqual(firstReplay, secondReplay);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(glideProfile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void Replay_NoUnexpectedLegacyUnitOrdinaryMovementDetected()
         {
             var harness = new TickReplayHarness();
@@ -487,6 +569,47 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 Game.Feature.Gameplay.BoardState.TerrainData.Empty);
         }
 
+        private static WorldState CreateJumpLandingWorldState()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[]
+            {
+                CreatePlayer(10, hp: 3, new SurfaceCell(FaceId.Floor, 3, 0)),
+                CreateEnemy(40, hp: 3, new SurfaceCell(FaceId.Floor, 0, 0)),
+            });
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetEnemyJumpState(
+                40,
+                new EnemyJumpRuntimeState
+                {
+                    phase = EnemyJumpPhase.Airborne,
+                    sequence = 1,
+                    sourceCell = new SurfaceCell(FaceId.Floor, 0, 0),
+                    lockedTargetCell = new SurfaceCell(FaceId.Floor, 2, 0),
+                    windupEndTick = 0,
+                    landingTick = 1,
+                });
+            writeContext.SetBoardPresence(40, EntityBoardPresence.Detached);
+            return worldState;
+        }
+
+        private static WorldState CreatePhaseRelocationWorldState()
+        {
+            return GameplayWorldStateTestFactory.CreateBounded(new[]
+            {
+                CreatePlayer(10, hp: 3, new SurfaceCell(FaceId.Floor, 1, 0)),
+                CreateEnemy(40, hp: 3, new SurfaceCell(FaceId.Floor, 0, 0)),
+            });
+        }
+
+        private static WorldState CreateGlideWorldState()
+        {
+            return GameplayWorldStateTestFactory.CreateBounded(new[]
+            {
+                CreatePlayer(10, hp: 3, new SurfaceCell(FaceId.Floor, 3, 0)),
+                CreateEnemy(40, hp: 3, new SurfaceCell(FaceId.Floor, 0, 0)),
+            });
+        }
+
         private static EnemyAiProfile CreateChargeSettleWaitProfile()
         {
             return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
@@ -502,6 +625,34 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
                 IncludePassiveContact = true,
             });
+        }
+
+        private static GameplayBootstrapper CreatePhaseThroughLockedTargetBootstrapper()
+        {
+            return new GameplayBootstrapper(
+                GameplayEntityLogicProviderFactory.CreateDefault(CreatePhaseThroughLockedTargetDefinition()));
+        }
+
+        private static EnemyAiRuntimeDefinition CreatePhaseThroughLockedTargetDefinition()
+        {
+            return new EnemyAiRuntimeDefinition(
+                new EnemyAiCommonSettings(
+                    movementPriority: 50,
+                    attackPriority: 50,
+                    recoverTicks: 1),
+                PatrolSettings.CreateDefault(),
+                DetectionSettings.CreateDefaultMelee(),
+                ChaseSettings.CreateDefault(),
+                AttackDecisionSettings.CreateDefaultMelee(),
+                new EnemyAttackTimingSettings(windupTicks: 1),
+                EnemyLocomotionTimingSettings.CreateDefaultMelee(),
+                MovementSkillStrategyKind.PhaseThroughLockedTarget,
+                EnemyJumpTimingSettings.CreateDefault(),
+                ForwardPatrolStrategy.Instance,
+                NearestOpponentDetectionStrategy.Instance,
+                AxisPriorityChaseStrategy.Instance,
+                MeleeAttackDecisionStrategy.Instance,
+                DefaultEnemyAiStateResolver.Instance);
         }
 
         private static EntityState CreateChargePatrolEnemy(int entityId, int hp, SurfaceCell position)

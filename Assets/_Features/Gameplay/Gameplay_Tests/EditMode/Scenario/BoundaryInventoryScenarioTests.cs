@@ -396,18 +396,128 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
+        public void BoundaryInventory_Glide_NoLegacyOrdinaryMoveLeak()
+        {
+            var glideProfile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(windupTicks: 1, durationTicks: 2, recoveryTicks: 1, cooldownTicks: 1));
+            try
+            {
+                var glideWorld = CreateWorldState(new[]
+                {
+                    CreatePlayer(10, new SurfaceCell(FaceId.Floor, 3, 0)),
+                    CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase),
+                });
+                var glidePipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(glideProfile)
+                    .CreateTickPipeline(
+                        glideWorld,
+                        Array.Empty<IEntityLogic>(),
+                        GameplayTimingProfile.CreateDefault(),
+                        CreatePlayerTiming(),
+                        runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+
+                var windupTick = glidePipeline.RunTick(new TickInput(1));
+
+                Assert.That(glideWorld.CreateSnapshot().TryGetEnemyGlideState(40, out var glideState), Is.True);
+                Assert.That(glideState.Phase, Is.EqualTo(EnemyGlidePhase.Windup));
+                LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(windupTick, 40);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(glideProfile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BoundaryInventory_Glide_ActiveLegacyOrdinaryLeak_IsDocumented()
+        {
+            var glideProfile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(windupTicks: 1, durationTicks: 2, recoveryTicks: 1, cooldownTicks: 1));
+            try
+            {
+                var glideWorld = CreateWorldState(new[]
+                {
+                    CreatePlayer(10, new SurfaceCell(FaceId.Floor, 3, 0)),
+                    CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase),
+                });
+                var glidePipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(glideProfile)
+                    .CreateTickPipeline(
+                        glideWorld,
+                        Array.Empty<IEntityLogic>(),
+                        GameplayTimingProfile.CreateDefault(),
+                        CreatePlayerTiming(),
+                        runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+
+                _ = glidePipeline.RunTick(new TickInput(1));
+                var activeTick = glidePipeline.RunTick(new TickInput(2));
+
+                Assert.That(glideWorld.CreateSnapshot().TryGetEnemyGlideState(40, out var glideState), Is.True);
+                Assert.That(glideState.Phase, Is.EqualTo(EnemyGlidePhase.Active));
+                LegacyMovementBoundaryAssert.HasLegacyFallbackMove(activeTick, 40);
+                LegacyMovementBoundaryAssert.HasLegacyFallbackMoveEntity(activeTick, 40);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(glideProfile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void BoundaryInventory_ForcedMotion_IsReportedOrAbsent()
         {
             var inventory = new[]
             {
-                "forced motion runtime state: absent",
-                "knockback runtime state: absent",
-                "presentation ForcedMotionOp: presentation-only candidate",
-                "future classification: UnitSpecialLocomotion or Future Kinematic Migration Candidate",
+                "forced motion vocabulary: MotionMode.Forced",
+                "knockback vocabulary: ForcedMotionOp.Knockback",
+                "forced motion gameplay producer: absent",
+                "knockback gameplay producer: absent",
+                "future classification: UnitSpecialLocomotion or UnitKinematicRuntimeState with explicit boundary",
             };
 
-            Assert.That(inventory, Has.Length.EqualTo(4));
-            Assert.That(inventory.Any(entry => entry.Contains("runtime state: absent", StringComparison.Ordinal)), Is.True);
+            Assert.That(inventory, Has.Length.EqualTo(5));
+            Assert.That(MotionMode.Forced, Is.EqualTo(MotionMode.Forced));
+            Assert.That(ForcedMotionOp.Knockback, Is.EqualTo(ForcedMotionOp.Knockback));
+            Assert.That(inventory.Any(entry => entry.Contains("gameplay producer: absent", StringComparison.Ordinal)), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BoundaryInventory_ForcedMotion_NoRuntimeProducerYet()
+        {
+            var playerTick = CreatePipeline(
+                    CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) }),
+                    new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
+                    GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
+                .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            LegacyMovementBoundaryAssert.NoForcedKinematicProducer(playerTick, 10);
+
+            var enemyTick = CreatePipeline(
+                    CreateWorldState(new[] { CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Chase) }),
+                    new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(40, 50, new Vector2Int(1, 0))) },
+                    GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
+                .RunTick(new TickInput(1));
+            LegacyMovementBoundaryAssert.NoForcedKinematicProducer(enemyTick, 40);
+
+            var chargeWorld = CreateWorldState(new[]
+            {
+                CreateUnit(50, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Charge),
+            });
+            chargeWorld.CreateWriteContext().SetEnemyChargeState(
+                50,
+                new EnemyChargeRuntimeState
+                {
+                    phase = EnemyChargePhase.Active,
+                    sequence = 1,
+                    lockedDirection = Direction.Right,
+                    remainingActiveSteps = 1,
+                });
+            var chargeTick = CreatePipeline(
+                    chargeWorld,
+                    new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(50, 50, new Vector2Int(1, 0))) },
+                    GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
+                .RunTick(new TickInput(1));
+            LegacyMovementBoundaryAssert.NoForcedKinematicProducer(chargeTick, 50);
         }
 
         [Test]
@@ -466,9 +576,31 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion.EnableEnemySameFaceContinuousLocomotion,
                 GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion.EnableEnemyChargeKinematicLocomotion,
             };
+            var specialInventoryV3 = new[]
+            {
+                "jump: Safe UnitSpecialLocomotion",
+                "phase relocation: Safe Retained Grid Transaction",
+                "glide: State-only Special Candidate",
+                "forced motion: Future Runtime State Needed",
+                "knockback: Future Runtime State Needed",
+            };
+            var retainedPaths = new[]
+            {
+                "MoveEntity primitive",
+                "MovementExpander grid transaction branch",
+                "box push / flip / item",
+                "topology materialization",
+                "spawn / respawn placement",
+                "cleanup removal",
+                "scripted relocation / phase relocation",
+                "flag-off historical baseline",
+            };
 
             Assert.That(flagOffFallbacks, Has.Length.EqualTo(3));
             Assert.That(flagOnTargets.All(enabled => enabled), Is.True);
+            Assert.That(specialInventoryV3, Does.Contain("glide: State-only Special Candidate"));
+            Assert.That(retainedPaths, Does.Contain("MoveEntity primitive"));
+            Assert.That(retainedPaths, Does.Contain("MovementExpander grid transaction branch"));
         }
 
         private static void AssertDefaultGameplayLocomotionFlags()

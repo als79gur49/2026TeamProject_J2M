@@ -1,4 +1,5 @@
 using System.Linq;
+using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using NUnit.Framework;
 
@@ -147,6 +148,26 @@ namespace Game.Feature.Gameplay.Tests
                 BuildDebug(result, entityId));
         }
 
+        public static void NoForcedKinematicProducer(TickResult result, params int[] entityIds)
+        {
+            Assert.That(
+                result.PresentationData.KinematicMotionTracks.Any(track =>
+                    IsTrackedEntity(track.EntityId, entityIds) &&
+                    (track.MotionMode == MotionMode.Forced ||
+                     track.ForcedMotionOp == ForcedMotionOp.Knockback)),
+                Is.False,
+                BuildDebug(result));
+
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.SetUnitKinematicState &&
+                    IsTrackedEntity(operation.EntityId, entityIds) &&
+                    (operation.UnitKinematicState.mode == MotionMode.Forced ||
+                     operation.UnitKinematicState.forcedOp == ForcedMotionOp.Knockback)),
+                Is.False,
+                BuildDebug(result));
+        }
+
         private static bool IsUnexpectedUnknownMovementBoundary(FinalizationOperation operation)
         {
             if (operation.Metadata.MovementExecutionBoundaryKind != MovementExecutionBoundaryKind.Unknown)
@@ -162,6 +183,13 @@ namespace Game.Feature.Gameplay.Tests
                    operation.Metadata.SemanticKind == ResolvedActionSemanticKind.Move ||
                    operation.Metadata.SemanticKind == ResolvedActionSemanticKind.JumpLanding ||
                    operation.Metadata.JumpPresentationKind != JumpPresentationKind.None;
+        }
+
+        private static bool IsTrackedEntity(int entityId, int[] entityIds)
+        {
+            return entityIds == null ||
+                   entityIds.Length == 0 ||
+                   entityIds.Contains(entityId);
         }
 
         private static string BuildDebug(TickResult result, int entityId)
