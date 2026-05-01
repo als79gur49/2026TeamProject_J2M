@@ -247,6 +247,16 @@ namespace Game.Feature.Gameplay.Host
                 EnablePlayerFree2DActionAssist);
         }
 
+        public void ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags flags)
+        {
+            EnablePlayerSameFaceContinuousLocomotion = flags.EnablePlayerSameFaceContinuousLocomotion;
+            EnableEnemySameFaceContinuousLocomotion = flags.EnableEnemySameFaceContinuousLocomotion;
+            EnableEnemyChargeKinematicLocomotion = flags.EnableEnemyChargeKinematicLocomotion;
+            EnablePlayerStoppableKinematicLocomotion = flags.EnablePlayerStoppableKinematicLocomotion;
+            EnablePlayerFree2DLocalLocomotion = flags.EnablePlayerFree2DLocalLocomotion;
+            EnablePlayerFree2DActionAssist = flags.EnablePlayerFree2DActionAssist;
+        }
+
         public EnemyAiRuntimeCollectionSnapshot CreateEnemyAiRuntimeSnapshot()
         {
             var defaultDefinition = ResolveDefaultEnemyAiRuntimeDefinition();

@@ -695,6 +695,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
+        public void CombinedGameplayShowcaseInstaller_Configuration_UsesDefaultGameplayLocomotionBundle()
+        {
+            var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_Configuration_UsesDefaultGameplayLocomotionBundle");
+
+            try
+            {
+                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                AssignStageContentEntry(installer);
+                AssignTimingPresets(installer);
+
+                var configuration = BuildConfiguration(installer);
+                var flags = configuration.CreateRuntimeFeatureFlags();
+
+                Assert.That(flags.EnablePlayerFree2DLocalLocomotion, Is.True);
+                Assert.That(flags.EnablePlayerFree2DActionAssist, Is.True);
+                Assert.That(flags.EnablePlayerSameFaceContinuousLocomotion, Is.True);
+                Assert.That(flags.EnablePlayerStoppableKinematicLocomotion, Is.True);
+                Assert.That(flags.EnableEnemySameFaceContinuousLocomotion, Is.True);
+                Assert.That(flags.EnableEnemyChargeKinematicLocomotion, Is.True);
+                Assert.That(configuration.PlayerContinuousLocomotion.ActionAssistSettleWindowCells, Is.EqualTo(0.3125f));
+                Assert.That(configuration.PlayerContinuousLocomotion.CollisionRadiusCells, Is.EqualTo(0.1875f));
+            }
+            finally
+            {
+                DestroyAssignedStageContent(installerObject);
+                Object.DestroyImmediate(installerObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
         public void CombinedGameplayShowcaseInstaller_Configuration_UsesStageDefinitionEnemyUnitArchetypeCatalog()
         {
             var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_Configuration_UsesEnemyUnitArchetypeCatalog");

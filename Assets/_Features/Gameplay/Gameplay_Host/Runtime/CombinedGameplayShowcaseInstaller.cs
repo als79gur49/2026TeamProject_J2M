@@ -1,5 +1,6 @@
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.Loop;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -13,12 +14,8 @@ namespace Game.Feature.Gameplay.Host
             in InitialGameplayState initialState)
         {
             base.ConfigureRuntimeConfiguration(configuration, initialState);
-            configuration.EnablePlayerSameFaceContinuousLocomotion = true;
-            configuration.EnableEnemySameFaceContinuousLocomotion = true;
-            configuration.EnableEnemyChargeKinematicLocomotion = true;
-            configuration.EnablePlayerStoppableKinematicLocomotion = true;
-            configuration.EnablePlayerFree2DLocalLocomotion = true;
-            configuration.EnablePlayerFree2DActionAssist = true;
+            configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+            configuration.PlayerContinuousLocomotion.ActionAssistSettleWindowCells = 0.3125f;
             configuration.PlayerContinuousLocomotion.CollisionRadiusCells = 0.1875f;
         }
 

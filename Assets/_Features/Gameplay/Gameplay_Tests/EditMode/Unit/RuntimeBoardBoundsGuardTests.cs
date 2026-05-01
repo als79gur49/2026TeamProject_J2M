@@ -29,6 +29,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         [Test]
         [Category("Full")]
+        public void HostConfiguration_DefaultGameplayLocomotion_AppliesExpectedFlags()
+        {
+            var configuration = new GameplaySceneHostConfiguration();
+
+            configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+            var flags = configuration.CreateRuntimeFeatureFlags();
+
+            Assert.That(flags.EnablePlayerFree2DLocalLocomotion, Is.True);
+            Assert.That(flags.EnablePlayerFree2DActionAssist, Is.True);
+            Assert.That(flags.EnablePlayerSameFaceContinuousLocomotion, Is.True);
+            Assert.That(flags.EnablePlayerStoppableKinematicLocomotion, Is.True);
+            Assert.That(flags.EnableEnemySameFaceContinuousLocomotion, Is.True);
+            Assert.That(flags.EnableEnemyChargeKinematicLocomotion, Is.True);
+            Assert.That(GameplayRuntimeFeatureFlags.None.EnablePlayerFree2DLocalLocomotion, Is.False);
+            Assert.That(new GameplaySceneHostConfiguration().CreateRuntimeFeatureFlags().EnablePlayerFree2DLocalLocomotion, Is.False);
+        }
+
+        [Test]
+        [Category("Full")]
         public void GameplaySceneHost_Initialize_UnboundedBoard_Throws()
         {
             var gameObject = new GameObject("RuntimeBoardBoundsGuardTests");
