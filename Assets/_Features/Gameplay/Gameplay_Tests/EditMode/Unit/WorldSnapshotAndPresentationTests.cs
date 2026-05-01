@@ -996,6 +996,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void TickResultBuilder_BoxActionMovement_DoesNotSuppressLegacyMotion_Regression()
+        {
+            TickResultBuilder_BoxActionMovement_DoesNotSuppressLegacyMotion();
+        }
+
+        [Test]
+        [Category("Core")]
         public void TickResultBuilder_LocomotionAnchorCommit_SuppressesLegacyMotion()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
@@ -1031,6 +1038,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CleanupFixtureFactory.None()));
 
             Assert.That(presentationData.EntityMotions, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickResultBuilder_LocomotionAnchorCommit_SuppressesLegacyMotion_Regression()
+        {
+            TickResultBuilder_LocomotionAnchorCommit_SuppressesLegacyMotion();
         }
 
         [Test]

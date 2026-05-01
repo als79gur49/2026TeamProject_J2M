@@ -407,6 +407,156 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
+        public void TickPipeline_ValidateLegacyExpansionIntents_AllowsGridTransactions()
+        {
+            var pushWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+            });
+            var pushIntent = new PushIntent(10, priority: 100, destination: new Vector2Int(1, 0), localSequence: 0);
+            pushIntent.AssignIntentId(1);
+
+            var flipWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip),
+            });
+            var flipIntent = new FlipIntent(10, priority: 100, destination: new Vector2Int(-1, 0), localSequence: 0);
+            flipIntent.AssignIntentId(1);
+
+            var itemWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Item),
+            });
+            itemWorldState.CreateWriteContext().SetPlayerControlState(10, default);
+            var itemIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
+            itemIntent.AssignIntentId(1);
+
+            var topologyWorldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty);
+            topologyWorldState.CreateWriteContext().SetPlayerControlState(10, default);
+            var topologyIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(0, 2));
+            topologyIntent.AssignIntentId(1);
+
+            AssertLegacyExpansionIntentAllowed(pushWorldState, pushIntent, GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
+            AssertLegacyExpansionIntentAllowed(flipWorldState, flipIntent, GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
+            AssertLegacyExpansionIntentAllowed(itemWorldState, itemIntent, GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
+            AssertLegacyExpansionIntentAllowed(topologyWorldState, topologyIntent, GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickPipeline_ValidateLegacyExpansionIntents_BlocksFlagOnUnitOrdinaryMove()
+        {
+            var playerWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+            });
+            playerWorldState.CreateWriteContext().SetPlayerControlState(10, default);
+            var playerIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
+            playerIntent.AssignIntentId(1);
+
+            AssertLegacyExpansionIntentBlocked(
+                playerWorldState,
+                playerIntent,
+                GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled,
+                "PlayerFree2DOrdinaryMoveReachedLegacyExpansion");
+
+            var enemyWorldState = CreateWorldState(new[]
+            {
+                CreateFrontFaceEnemy(entityId: 40, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+            });
+            var enemyIntent = new MoveIntent(40, priority: 100, destination: new Vector2Int(1, 0));
+            enemyIntent.AssignIntentId(1);
+
+            AssertLegacyExpansionIntentBlocked(
+                enemyWorldState,
+                enemyIntent,
+                GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled,
+                "EnemyOrdinaryKinematicEligibleMoveReachedLegacyExpansion");
+
+            var chargeEnemy = CreateFrontFaceEnemy(entityId: 50, position: new SurfaceCell(FaceId.Floor, 0, 0));
+            chargeEnemy.aiMode = EnemyAiMode.Charge;
+            var chargeWorldState = CreateWorldState(new[] { chargeEnemy });
+            chargeWorldState.CreateWriteContext().SetEnemyChargeState(
+                50,
+                new EnemyChargeRuntimeState
+                {
+                    phase = EnemyChargePhase.Active,
+                    sequence = 1,
+                    lockedDirection = Direction.Right,
+                    remainingActiveSteps = 1,
+                });
+            var chargeIntent = new MoveIntent(50, priority: 100, destination: new Vector2Int(1, 0));
+            chargeIntent.AssignIntentId(1);
+
+            AssertLegacyExpansionIntentBlocked(
+                chargeWorldState,
+                chargeIntent,
+                GameplayRuntimeFeatureFlags.EnemyChargeKinematicLocomotionEnabled,
+                "EnemyChargeActiveStepReachedLegacyExpansion");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Boundary_UnknownInventory_NormalGameplayHasNoUnexpectedUnknownMovement()
+        {
+            var pushWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), facing: Direction.Up),
+                CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+            });
+            var pushResult = GameplayCompositionRoot.CreateTickPipeline(
+                    pushWorldState,
+                    new IEntityLogic[] { CreateImmediatePushPlayerLogic(10) })
+                .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            AssertNoUnexpectedUnknownMovementBoundary(pushResult);
+
+            var flipWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip),
+            });
+            var flipResult = GameplayCompositionRoot.CreateTickPipeline(
+                    flipWorldState,
+                    new IEntityLogic[] { CreateImmediateFlipPlayerLogic(10) })
+                .RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
+            AssertNoUnexpectedUnknownMovementBoundary(flipResult);
+
+            var itemWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Item),
+            });
+            var itemResult = GameplayCompositionRoot.CreateTickPipeline(
+                    itemWorldState,
+                    new IEntityLogic[] { new PlayerLogic(10) })
+                .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            AssertNoUnexpectedUnknownMovementBoundary(itemResult);
+
+            var topologyWorldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty);
+            var topologyResult = GameplayCompositionRoot.CreateTickPipeline(
+                    topologyWorldState,
+                    new IEntityLogic[] { new PlayerLogic(10) })
+                .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            AssertNoUnexpectedUnknownMovementBoundary(topologyResult);
+        }
+
+        [Test]
         [Category("Extended")]
         public void MovementExpander_ForbiddenLegacyUnitOrdinaryIntent_DetectsDebug()
         {
@@ -1823,11 +1973,61 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "Stage=Expand",
                     "Source=10",
                     "Reason=FlipLandingBlocked",
-                    "Stopper=20"),
+                    "Cell=(1,0)",
+                    "LegalityVerdict=Blocked"),
                 Is.True);
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
             Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(-1, 0)));
             Assert.That(GetEntityPosition(worldState, 20), Is.EqualTo(new Vector2Int(1, 0)));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void MovementPhase_FlipLandingBlocked_DoesNotGenerateImpact()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), hp: 3, teamId: 1),
+                CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip),
+                CreateNonUnitBlocker(entityId: 20, position: new Vector2Int(1, 0)),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    CreateImmediateFlipPlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
+            Assert.That(result.AttackPhaseResult.DrainedImpactReservations, Is.Empty);
+            Assert.That(result.EventLog.Any(entry => entry.Contains("ImpactReservationCreated", StringComparison.Ordinal)), Is.False);
+            Assert.That(result.EventLog.Any(entry => entry.Contains("DamageCommitted", StringComparison.Ordinal)), Is.False);
+            Assert.That(result.EventLog.Any(entry => entry.Contains("DestroyMarked", StringComparison.Ordinal)), Is.False);
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.BoxActionMovement),
+                Is.False);
+            Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.hp, Is.EqualTo(3));
+            Assert.That(player.markedForDeath, Is.False);
+            Assert.That(snapshotAfter.TryGetEntity(20, out var blocker), Is.True);
+            Assert.That(blocker.hp, Is.EqualTo(1));
+            Assert.That(blocker.markedForDeath, Is.False);
+            Assert.That(snapshotAfter.TryGetEntity(30, out var box), Is.True);
+            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
+            Assert.That(box.markedForDeath, Is.False);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.RejectedReasons,
+                    "MovementRejected",
+                    "Stage=Expand",
+                    "Source=10",
+                    "Reason=FlipLandingBlocked",
+                    "LegalityVerdict=Blocked"),
+                Is.True);
         }
 
         [Test]
@@ -3168,17 +3368,74 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Is.True);
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.CommitEvents,
+                    "MoveCommitted",
+                    "E=10",
+                    "To=(1,0)",
+                    "Facing=Right"),
+                Is.True);
+            Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
+            Assert.That(occupancyBefore, Is.EqualTo("10@(0,0),20@(2,0)"));
+            Assert.That(occupancyAfter, Is.EqualTo("10@(1,0),20@(1,0)"));
+            Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(1, 0)));
+            Assert.That(GetEntityPosition(worldState, 20), Is.EqualTo(new Vector2Int(1, 0)));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void MovementPhase_SameDestination_OnlyHigherPriorityWins_BoundaryInvariant()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                CreateUnit(entityId: 20, position: new Vector2Int(4, 0), facing: Direction.Left),
+                CreateBox(entityId: 40, position: new Vector2Int(3, 0), capabilities: BoxCapabilities.Push),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new StubMovementLogic(new RawMovementIntent(10, 5, new Vector2Int(1, 0), MovementCommandKind.Push)),
+                    new StubMovementLogic(new RawMovementIntent(20, 10, new Vector2Int(3, 0), MovementCommandKind.Push)),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1));
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 20, IntentId: 1),
+                    (SourceId: 10, IntentId: 2),
+                },
+                result.MovementPhaseResult.SortedIntents.Select(intent => (intent.SourceId, intent.IntentId)).ToArray());
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.CommitEvents,
+                    "MoveCommitted",
+                    "E=40",
+                    "To=(2,0)",
+                    "Facing=Left"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
                     result.MovementPhaseResult.RejectedReasons,
                     "MovementRejected",
                     "Stage=Resolve",
                     "Source=10",
                     "Reason=DestinationReserved",
-                    "Cell=(1,0)"),
+                    "Cell=(2,0)"),
                 Is.True);
-            Assert.That(occupancyBefore, Is.EqualTo("10@(0,0),20@(2,0)"));
-            Assert.That(occupancyAfter, Is.EqualTo("10@(0,0),20@(1,0)"));
-            Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
-            Assert.That(GetEntityPosition(worldState, 20), Is.EqualTo(new Vector2Int(1, 0)));
+            Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(1, 0)));
+            Assert.That(GetEntityPosition(worldState, 40), Is.EqualTo(new Vector2Int(2, 0)));
+            LegacyMovementBoundaryAssert.HasMoveEntityBoundary(
+                result,
+                40,
+                MovementExecutionBoundaryKind.BoxActionMovement);
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Unknown),
+                Is.False);
         }
 
         [Test]
@@ -3601,6 +3858,95 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 flipMotionDurationSeconds,
                 flipArcHeightInCells,
                 maxTicksPerFrame);
+        }
+
+        private static TickPipeline CreateTickPipelineWithFlags(
+            WorldState worldState,
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags)
+        {
+            var timingProfile = CreateTimingProfile();
+            return GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                Array.Empty<IEntityLogic>(),
+                timingProfile,
+                CreateDefaultPlayerControlTimingSnapshot(timingProfile),
+                runtimeFeatureFlags: runtimeFeatureFlags);
+        }
+
+        private static List<MoveIntent> InvokeValidateLegacyExpansionIntents(
+            TickPipeline pipeline,
+            WorldSnapshot snapshot,
+            IReadOnlyList<MoveIntent> expansionIntents,
+            List<string> rejectedReasons)
+        {
+            var method = typeof(TickPipeline).GetMethod(
+                "ValidateLegacyExpansionIntents",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.That(method, Is.Not.Null);
+
+            return (List<MoveIntent>)method.Invoke(
+                pipeline,
+                new object[]
+                {
+                    snapshot,
+                    expansionIntents,
+                    rejectedReasons,
+                });
+        }
+
+        private static void AssertLegacyExpansionIntentAllowed(
+            WorldState worldState,
+            MoveIntent intent,
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags)
+        {
+            var rejectedReasons = new List<string>();
+            var filteredIntents = InvokeValidateLegacyExpansionIntents(
+                CreateTickPipelineWithFlags(worldState, runtimeFeatureFlags),
+                CreateSnapshot(worldState),
+                new[] { intent },
+                rejectedReasons);
+
+            CollectionAssert.AreEqual(new[] { intent.IntentId }, filteredIntents.Select(filtered => filtered.IntentId).ToArray());
+            Assert.That(
+                rejectedReasons.Any(reason => reason.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
+                Is.False);
+        }
+
+        private static void AssertLegacyExpansionIntentBlocked(
+            WorldState worldState,
+            MoveIntent intent,
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags,
+            string expectedReason)
+        {
+            var rejectedReasons = new List<string>();
+            var filteredIntents = InvokeValidateLegacyExpansionIntents(
+                CreateTickPipelineWithFlags(worldState, runtimeFeatureFlags),
+                CreateSnapshot(worldState),
+                new[] { intent },
+                rejectedReasons);
+
+            Assert.That(filteredIntents, Is.Empty);
+            Assert.That(
+                rejectedReasons.Any(reason =>
+                    reason.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal) &&
+                    reason.Contains($"E={intent.SourceId}", StringComparison.Ordinal) &&
+                    reason.Contains(expectedReason, StringComparison.Ordinal)),
+                Is.True,
+                string.Join("\n", rejectedReasons));
+        }
+
+        private static void AssertNoUnexpectedUnknownMovementBoundary(TickResult result)
+        {
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Unknown),
+                Is.False,
+                string.Join(
+                    "\n",
+                    result.MovementPhaseResult.ResolvedOperations.Select(operation =>
+                        $"Op|Kind={operation.Kind}|E={operation.EntityId}|Boundary={operation.Metadata.MovementExecutionBoundaryKind}|Reason={operation.Metadata.BoundaryReason}")));
+            Assert.That(result.Trace.Text, Does.Not.Contain("Boundary=Unknown"));
         }
 
         private static IMovementEntityLogic CreateImmediatePushPlayerLogic(int entityId)

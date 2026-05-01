@@ -1454,6 +1454,105 @@
       ],
       "reason": "Locked Core coverage for continuous anchor normalization finalization ordering.",
       "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_NoUnexpectedLegacyUnitOrdinaryMovementDetected",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "player_free2d_continuous_locomotion",
+        "enemy_kinematic_locomotion",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage for Boundary v1 replay no unexpected legacy ordinary movement diagnostic.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.TickPipeline_ValidateLegacyExpansionIntents_AllowsGridTransactions",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "interaction_flip",
+        "topology_materialization",
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage for Boundary v1 grid transaction legacy expansion allowance.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.TickPipeline_ValidateLegacyExpansionIntents_BlocksFlagOnUnitOrdinaryMove",
+      "category": "Core",
+      "contracts": [
+        "player_free2d_continuous_locomotion",
+        "enemy_kinematic_locomotion",
+        "enemy_charge_kinematic_locomotion",
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage for Boundary v1 flag-on ordinary Unit movement leak blocking.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Boundary_UnknownInventory_NormalGameplayHasNoUnexpectedUnknownMovement",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "interaction_flip",
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage for Boundary v1 Unknown inventory on normal gameplay movement.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.MovementPhase_FlipLandingBlocked_DoesNotGenerateImpact",
+      "category": "Core",
+      "contracts": [
+        "interaction_flip",
+        "damage_affects_movement",
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage for blocked flip no commit, impact, damage, or destroy mark.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.MovementPhase_SameDestination_OnlyHigherPriorityWins_BoundaryInvariant",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "movement_boundary_v1",
+        "movement_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for Boundary v1 priority invariant on blocking grid transaction contests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.InactiveFaceResidualUnitTests.RespawnPlacement_BoundaryTrace_IsSpawnRespawnPlacement",
+      "category": "Core",
+      "contracts": [
+        "spawn_destroy_delayed_ordering",
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage for respawn placement boundary trace classification.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickResultBuilder_BoxActionMovement_DoesNotSuppressLegacyMotion_Regression",
+      "category": "Core",
+      "contracts": [
+        "presentation_contract",
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage for retaining box action movement presentation under Boundary v1.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickResultBuilder_LocomotionAnchorCommit_SuppressesLegacyMotion_Regression",
+      "category": "Core",
+      "contracts": [
+        "presentation_contract",
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage for suppressing duplicate legacy locomotion anchor presentation.",
+      "locked": true
     }
   ]
 }

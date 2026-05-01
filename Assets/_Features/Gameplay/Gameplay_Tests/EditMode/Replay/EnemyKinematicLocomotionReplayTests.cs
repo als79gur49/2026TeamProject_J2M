@@ -6,6 +6,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Movement.Collection;
+using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
 using UnityEngine;
@@ -242,6 +243,86 @@ namespace Game.Feature.Gameplay.Tests.Replay
             }
         }
 
+        [Test]
+        [Category("Core")]
+        public void Replay_NoUnexpectedLegacyUnitOrdinaryMovementDetected()
+        {
+            var harness = new TickReplayHarness();
+            var playerInputs = Enumerable.Range(1, 6)
+                .Select(tick => new TickInput(tick, PlayerTickCommand.Move(Direction.Right)))
+                .ToArray();
+            var firstPlayerReplay = harness.Run(
+                GameplayWorldStateTestFactory.CreateBounded(new[]
+                {
+                    CreatePlayer(10, hp: 3, new SurfaceCell(FaceId.Floor, 0, 0)),
+                }),
+                new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
+                playerInputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
+            var secondPlayerReplay = harness.Run(
+                GameplayWorldStateTestFactory.CreateBounded(new[]
+                {
+                    CreatePlayer(10, hp: 3, new SurfaceCell(FaceId.Floor, 0, 0)),
+                }),
+                new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
+                playerInputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
+
+            AssertReplayBoundaryCanaryEqual(firstPlayerReplay, secondPlayerReplay);
+
+            var enemyInputs = Enumerable.Range(1, 6)
+                .Select(tick => new TickInput(tick))
+                .ToArray();
+            var enemyProfile = EnemyAiProfileTestFactory.CreateContactDamage();
+            try
+            {
+                var firstEnemyReplay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(enemyProfile),
+                    CreateContactWorldState(),
+                    entityLogics: new IEntityLogic[0],
+                    enemyInputs,
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled);
+                var secondEnemyReplay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(enemyProfile),
+                    CreateContactWorldState(),
+                    entityLogics: new IEntityLogic[0],
+                    enemyInputs,
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled);
+
+                AssertReplayBoundaryCanaryEqual(firstEnemyReplay, secondEnemyReplay);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(enemyProfile);
+            }
+
+            var chargeInputs = Enumerable.Range(1, 5)
+                .Select(tick => new TickInput(tick))
+                .ToArray();
+            var chargeProfile = CreateChargeSettleWaitProfile();
+            try
+            {
+                var firstChargeReplay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(chargeProfile),
+                    CreateChargeSettleWaitWorldState(),
+                    entityLogics: new IEntityLogic[0],
+                    chargeInputs,
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyAndChargeKinematicLocomotionEnabled);
+                var secondChargeReplay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(chargeProfile),
+                    CreateChargeSettleWaitWorldState(),
+                    entityLogics: new IEntityLogic[0],
+                    chargeInputs,
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyAndChargeKinematicLocomotionEnabled);
+
+                AssertReplayBoundaryCanaryEqual(firstChargeReplay, secondChargeReplay);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(chargeProfile);
+            }
+        }
+
         private static void AssertEquivalentReplayOutputs(
             IReadOnlyList<TickReplayFrame> firstReplay,
             IReadOnlyList<TickReplayFrame> secondReplay)
@@ -255,6 +336,27 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 Is.EqualTo(secondReplay.Select(frame => frame.EventLogDump).ToArray()));
+            Assert.That(
+                firstReplay.Any(frame => frame.Trace.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
+                Is.False);
+        }
+
+        private static void AssertReplayBoundaryCanaryEqual(
+            IReadOnlyList<TickReplayFrame> firstReplay,
+            IReadOnlyList<TickReplayFrame> secondReplay)
+        {
+            Assert.That(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                Is.EqualTo(secondReplay.Select(frame => frame.DeterminismHash).ToArray()));
+            Assert.That(
+                firstReplay.Select(frame => frame.FinalEntitiesDump).ToArray(),
+                Is.EqualTo(secondReplay.Select(frame => frame.FinalEntitiesDump).ToArray()));
+            Assert.That(
+                firstReplay.Select(frame => frame.EventLogDump).ToArray(),
+                Is.EqualTo(secondReplay.Select(frame => frame.EventLogDump).ToArray()));
+            Assert.That(
+                firstReplay.Select(frame => frame.Trace).ToArray(),
+                Is.EqualTo(secondReplay.Select(frame => frame.Trace).ToArray()));
             Assert.That(
                 firstReplay.Any(frame => frame.Trace.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
                 Is.False);

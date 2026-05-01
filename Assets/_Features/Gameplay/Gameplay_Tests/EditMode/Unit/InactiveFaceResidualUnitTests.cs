@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Debug;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Tests;
@@ -129,6 +131,55 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Is.EqualTo(MovementExecutionBoundaryKind.SpawnRespawnPlacement));
             Assert.That(result.RespawnPlacementRecords[0].BoundaryReason, Is.EqualTo("PlayerRespawnPlacement"));
             Assert.That(result.EventLogEntries, Has.None.Contains("LegacyUnitOrdinaryMovementDetected"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void RespawnPlacement_BoundaryTrace_IsSpawnRespawnPlacement()
+        {
+            var spawnCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                Array.Empty<EntityState>(),
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            var snapshot = worldState.CreateSnapshot();
+            var processor = new RespawnProcessor();
+
+            var result = processor.Process(
+                snapshot,
+                snapshot,
+                CleanupFixtureFactory.None(),
+                new[] { CreatePlayerUnit(entityId: 10, position: spawnCell, hp: 3) },
+                tickIndex: 1,
+                respawnDelayTicks: 1,
+                allowRespawn: true,
+                worldState.CreateWriteContext());
+            var finalSnapshot = worldState.CreateSnapshot();
+            var tickResultData = new TickResultData(
+                result.RespawnedEntities,
+                Array.Empty<Game.Feature.Gameplay.Attack.DelayedAttackEffectRecord>(),
+                result.EventLogEntries);
+
+            var trace = new TickTraceFormatter().Format(
+                1,
+                snapshot,
+                new EnemyAiPhaseResult(new List<string>(), new List<string>(), new List<string>()),
+                new EnemyActionPhaseResult(new List<EnemyActionTransition>(), new List<EnemyActionTransition>()),
+                new PreMovementStatePhaseResult(new List<string>()),
+                MovementPhaseResult.Empty,
+                snapshot,
+                AttackPhaseResult.Empty,
+                CleanupPhaseResult.Empty,
+                result,
+                finalSnapshot,
+                tickResultData,
+                "hash");
+
+            Assert.That(trace, Does.Contain("Respawn.Placements"));
+            Assert.That(trace, Does.Contain("Boundary=SpawnRespawnPlacement"));
+            Assert.That(trace, Does.Contain("BoundaryReason=PlayerRespawnPlacement"));
+            Assert.That(trace, Does.Not.Contain("LegacyUnitOrdinaryMovementDetected"));
         }
 
         [TestCase("solid")]
