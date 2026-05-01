@@ -6,6 +6,14 @@ namespace Game.Feature.Gameplay.Tests
 {
     internal static class LegacyMovementBoundaryAssert
     {
+        public static void NoLegacyOrdinaryUnitMove(TickResult result, params int[] entityIds)
+        {
+            for (var i = 0; i < entityIds.Length; i++)
+            {
+                NoLegacyOrdinaryUnitMove(result, entityIds[i]);
+            }
+        }
+
         public static void NoLegacyOrdinaryUnitMove(TickResult result, int entityId)
         {
             Assert.That(
@@ -33,6 +41,15 @@ namespace Game.Feature.Gameplay.Tests
                 BuildDebug(result, entityId));
         }
 
+        public static void NoUnexpectedLegacyOrdinaryDiagnostics(TickResult result)
+        {
+            Assert.That(
+                result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                    reason.Contains("LegacyUnitOrdinaryMovementDetected", System.StringComparison.Ordinal)),
+                Is.False,
+                BuildDebug(result));
+        }
+
         public static void HasLegacyFallbackMove(TickResult result, int entityId)
         {
             Assert.That(
@@ -53,6 +70,11 @@ namespace Game.Feature.Gameplay.Tests
                 BuildDebug(result, entityId));
         }
 
+        public static void HasLegacyFallbackMoveEntity(TickResult result, int entityId)
+        {
+            HasMoveEntityBoundary(result, entityId, MovementExecutionBoundaryKind.LegacyFallback);
+        }
+
         public static void HasMoveEntityBoundary(
             TickResult result,
             int entityId,
@@ -65,6 +87,37 @@ namespace Game.Feature.Gameplay.Tests
                     operation.Metadata.MovementExecutionBoundaryKind == boundaryKind),
                 Is.True,
                 BuildDebug(result, entityId));
+        }
+
+        public static void HasOperationBoundary(
+            TickResult result,
+            int entityId,
+            FinalizationOperationKind operationKind,
+            MovementExecutionBoundaryKind boundaryKind)
+        {
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == operationKind &&
+                    operation.EntityId == entityId &&
+                    operation.Metadata.MovementExecutionBoundaryKind == boundaryKind),
+                Is.True,
+                BuildDebug(result, entityId));
+        }
+
+        public static void NoUnexpectedUnknownMovementBoundary(TickResult result)
+        {
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Unknown),
+                Is.False,
+                BuildDebug(result));
+            Assert.That(result.Trace.Text, Does.Not.Contain("Boundary=Unknown"));
+        }
+
+        public static void NoFlagOnLegacyOrdinaryReadinessLeaks(TickResult result, params int[] entityIds)
+        {
+            NoUnexpectedLegacyOrdinaryDiagnostics(result);
+            NoLegacyOrdinaryUnitMove(result, entityIds);
         }
 
         public static void NoLegacyOrdinaryUnitMoveOperationOrDiagnostic(TickResult result, int entityId)
@@ -100,6 +153,20 @@ namespace Game.Feature.Gameplay.Tests
                     .Select(operation => $"Op|E={operation.EntityId}|Kind={operation.Kind}|Boundary={operation.Metadata.MovementExecutionBoundaryKind}|Semantic={operation.Metadata.MovementSemanticKind}|Reason={operation.Metadata.BoundaryReason}"));
             var rejected = string.Join("\n", result.MovementPhaseResult.RejectedReasons);
             return $"Legacy movement boundary debug for E={entityId}\n{motions}\n{operations}\n{rejected}";
+        }
+
+        private static string BuildDebug(TickResult result)
+        {
+            var motions = string.Join(
+                "\n",
+                result.PresentationData.EntityMotions
+                    .Select(motion => $"Motion|E={motion.EntityId}|Kind={motion.MotionKind}|From={motion.SourceCell}|To={motion.DestinationCell}"));
+            var operations = string.Join(
+                "\n",
+                result.MovementPhaseResult.ResolvedOperations
+                    .Select(operation => $"Op|E={operation.EntityId}|Kind={operation.Kind}|Boundary={operation.Metadata.MovementExecutionBoundaryKind}|Semantic={operation.Metadata.MovementSemanticKind}|Reason={operation.Metadata.BoundaryReason}"));
+            var rejected = string.Join("\n", result.MovementPhaseResult.RejectedReasons);
+            return $"Legacy movement boundary debug\n{motions}\n{operations}\n{rejected}";
         }
     }
 }
