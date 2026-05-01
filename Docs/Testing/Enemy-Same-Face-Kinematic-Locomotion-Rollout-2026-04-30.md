@@ -21,6 +21,7 @@ This rollout is guarded by `GameplayRuntimeFeatureFlags.EnableEnemySameFaceConti
 
 Set `EnableEnemySameFaceContinuousLocomotion` to false or pass `GameplayRuntimeFeatureFlags.None`.
 The legacy `MovementExpander` path remains present and is covered by the flag-off passive contact baseline.
+`GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion` enables this path for readiness canaries while preserving `None` as the explicit legacy fallback baseline.
 
 ## Expected Test Impact
 

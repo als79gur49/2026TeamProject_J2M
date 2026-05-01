@@ -61,6 +61,8 @@ Action Assist flag hierarchy:
 The free2D flag is independent of enemy and charge kinematic flags. Turning it off must restore the existing player stoppable/same-face/legacy behavior without changing enemy or charge movement.
 Turning Action Assist off while keeping free2D on restores local-nonzero push/flip rejection without disabling Free2D movement.
 
+`GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion` is the readiness default-on bundle for gameplay hosts and boundary inventory tests. `GameplayRuntimeFeatureFlags.None` remains the flag-off rollback and golden baseline until the later deletion phase defines a replacement policy.
+
 ## Known Limitations
 
 - No enemy, charge, jump, phase, glide, forced motion, or knockback migration.
