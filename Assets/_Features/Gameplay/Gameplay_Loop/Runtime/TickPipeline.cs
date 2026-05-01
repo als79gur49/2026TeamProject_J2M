@@ -534,7 +534,8 @@ namespace Game.Feature.Gameplay.Loop
                     rejectedReasons,
                     kinematicMovementActionPlanPayloads);
             }
-            if (_runtimeFeatureFlags.EnableEnemySameFaceContinuousLocomotion)
+            if (_runtimeFeatureFlags.EnableEnemySameFaceContinuousLocomotion ||
+                _runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion)
             {
                 expansionIntents = BuildEnemySameFaceKinematicLocomotionPlans(
                     planSnapshot,
@@ -1412,9 +1413,18 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             if (_runtimeFeatureFlags.EnableEnemySameFaceContinuousLocomotion &&
-                TryResolveEnemyKinematicStartScope(snapshot, intent, out _, out _, out _, out _, out _))
+                TryResolveEnemyKinematicStartScope(snapshot, intent, out _, out _, out _, out _, out _, out var ordinaryScopeIsActiveGlide) &&
+                !ordinaryScopeIsActiveGlide)
             {
                 reason = "EnemyOrdinaryKinematicEligibleMoveReachedLegacyExpansion";
+                return true;
+            }
+
+            if (_runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion &&
+                TryResolveEnemyKinematicStartScope(snapshot, intent, out _, out _, out _, out _, out _, out var activeGlideKinematic) &&
+                activeGlideKinematic)
+            {
+                reason = "EnemyGlideActiveKinematicEligibleMoveReachedLegacyExpansion";
                 return true;
             }
 
@@ -1464,7 +1474,8 @@ namespace Game.Feature.Gameplay.Loop
                 $"PlayerKinematic={(_runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion ? 1 : 0)}," +
                 $"PlayerStoppable={(_runtimeFeatureFlags.EnablePlayerStoppableKinematicLocomotion ? 1 : 0)}," +
                 $"EnemyKinematic={(_runtimeFeatureFlags.EnableEnemySameFaceContinuousLocomotion ? 1 : 0)}," +
-                $"ChargeKinematic={(_runtimeFeatureFlags.EnableEnemyChargeKinematicLocomotion ? 1 : 0)}";
+                $"ChargeKinematic={(_runtimeFeatureFlags.EnableEnemyChargeKinematicLocomotion ? 1 : 0)}," +
+                $"GlideKinematic={(_runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion ? 1 : 0)}";
         }
 
         private List<MoveIntent> BuildPlayerSameFaceKinematicLocomotionPlans(
@@ -2207,7 +2218,8 @@ namespace Game.Feature.Gameplay.Loop
                     out var pose,
                     out var delta,
                     out var destination,
-                    out var facing))
+                    out var facing,
+                    out var activeGlideKinematic))
             {
                 return false;
             }
@@ -2269,7 +2281,13 @@ namespace Game.Feature.Gameplay.Loop
                 writeFacing: true,
                 enemyLocomotionWrites: CreateEnemyKinematicLocomotionWrites(entity, intent),
                 enemyPatrolWrites: CreateEnemyKinematicPatrolWrites(snapshot, entity, delta),
-                executionLockWrites: CreateEnemyKinematicExecutionLockWrites(snapshot, entity, tickIndex));
+                executionLockWrites: CreateEnemyKinematicExecutionLockWrites(snapshot, entity, tickIndex),
+                executionBoundaryKind: activeGlideKinematic
+                    ? MovementExecutionBoundaryKind.UnitSpecialLocomotion
+                    : MovementExecutionBoundaryKind.UnitOrdinaryLocomotion,
+                boundaryReason: activeGlideKinematic
+                    ? "EnemyGlideActiveKinematicStart"
+                    : "KinematicUnitLocomotion");
             return true;
         }
 
@@ -2392,8 +2410,8 @@ namespace Game.Feature.Gameplay.Loop
         {
             payload = null;
             if (!snapshot.TryGetEntity(entityId, out var entity) ||
-                !IsEnemyOrdinaryKinematicParticipant(snapshot, entity) ||
                 !snapshot.TryGetUnitKinematicPose(entityId, out var pose) ||
+                !IsEnemyKinematicContinuationParticipant(snapshot, entity, pose) ||
                 pose.IsSettledAtAnchor ||
                 pose.Mode != MotionMode.Voluntary ||
                 !TryResolveStepDirection(pose.State, out var stepDirectionX, out var stepDirectionY, out var facing))
@@ -2428,30 +2446,38 @@ namespace Game.Feature.Gameplay.Loop
                 priority: 100,
                 outcome: outcome,
                 facing: facing,
-                writeFacing: true);
+                writeFacing: true,
+                executionBoundaryKind: IsEnemyGlideKinematicContinuation(snapshot, entity, pose)
+                    ? MovementExecutionBoundaryKind.UnitSpecialLocomotion
+                    : MovementExecutionBoundaryKind.UnitOrdinaryLocomotion,
+                boundaryReason: IsEnemyGlideKinematicContinuation(snapshot, entity, pose)
+                    ? "EnemyGlideActiveKinematicContinuation"
+                    : "KinematicUnitLocomotion");
 
             return true;
         }
 
-        private static bool TryResolveEnemyKinematicStartScope(
+        private bool TryResolveEnemyKinematicStartScope(
             WorldSnapshot snapshot,
             MoveIntent intent,
             out EntityState entity,
             out UnitKinematicPose pose,
             out Vector2Int delta,
             out SurfaceCell destination,
-            out Direction facing)
+            out Direction facing,
+            out bool activeGlideKinematic)
         {
             entity = default;
             pose = default;
             delta = Vector2Int.zero;
             destination = default;
             facing = Direction.None;
+            activeGlideKinematic = false;
 
             if (intent == null ||
                 intent.CommandKind != Movement.MovementCommandKind.Move ||
                 !snapshot.TryGetEntity(intent.SourceId, out entity) ||
-                !IsEnemyOrdinaryKinematicParticipant(snapshot, entity) ||
+                !IsEnemyKinematicStartParticipant(snapshot, entity, out activeGlideKinematic) ||
                 !snapshot.TryGetUnitKinematicPose(intent.SourceId, out pose) ||
                 !pose.IsSettledAtAnchor)
             {
@@ -2577,6 +2603,122 @@ namespace Game.Feature.Gameplay.Loop
 
             return !snapshot.TryGetPhasedState(entity.entityId, out var phasedState) ||
                    !phasedState.IsActive;
+        }
+
+        private bool IsEnemyKinematicStartParticipant(
+            WorldSnapshot snapshot,
+            in EntityState entity,
+            out bool activeGlideKinematic)
+        {
+            activeGlideKinematic = false;
+            if (_runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion &&
+                IsEnemyActiveGlideKinematicParticipant(snapshot, entity))
+            {
+                activeGlideKinematic = true;
+                return true;
+            }
+
+            return _runtimeFeatureFlags.EnableEnemySameFaceContinuousLocomotion &&
+                   IsEnemyOrdinaryKinematicParticipant(snapshot, entity);
+        }
+
+        private bool IsEnemyKinematicContinuationParticipant(
+            WorldSnapshot snapshot,
+            in EntityState entity,
+            UnitKinematicPose pose)
+        {
+            if (_runtimeFeatureFlags.EnableEnemySameFaceContinuousLocomotion &&
+                IsEnemyOrdinaryKinematicParticipant(snapshot, entity))
+            {
+                return true;
+            }
+
+            return _runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion &&
+                   IsEnemyGlideKinematicContinuation(snapshot, entity, pose);
+        }
+
+        private static bool IsEnemyActiveGlideKinematicParticipant(WorldSnapshot snapshot, in EntityState entity)
+        {
+            if (!IsEnemyLogicParticipant(entity) ||
+                !EnemyParticipationPolicy.IsControllableParticipant(snapshot, entity) ||
+                entity.aiMode != EnemyAiMode.Chase)
+            {
+                return false;
+            }
+
+            if (!snapshot.TryGetEnemyGlideState(entity.entityId, out var glideState) ||
+                glideState.Phase != EnemyGlidePhase.Active)
+            {
+                return false;
+            }
+
+            if (snapshot.TryGetEnemyJumpState(entity.entityId, out var jumpState) &&
+                jumpState.IsActive)
+            {
+                return false;
+            }
+
+            if (snapshot.TryGetEnemyChargeState(entity.entityId, out var chargeState) &&
+                chargeState.IsActive)
+            {
+                return false;
+            }
+
+            return !snapshot.TryGetPhasedState(entity.entityId, out var phasedState) ||
+                   !phasedState.IsActive;
+        }
+
+        private static bool IsEnemyGlideKinematicContinuation(
+            WorldSnapshot snapshot,
+            in EntityState entity,
+            UnitKinematicPose pose)
+        {
+            if (!IsEnemyLogicParticipant(entity) ||
+                !EnemyParticipationPolicy.IsControllableParticipant(snapshot, entity) ||
+                entity.aiMode != EnemyAiMode.Chase ||
+                pose.Mode != MotionMode.Voluntary)
+            {
+                return false;
+            }
+
+            if (snapshot.TryGetEnemyJumpState(entity.entityId, out var jumpState) &&
+                jumpState.IsActive)
+            {
+                return false;
+            }
+
+            if (snapshot.TryGetEnemyChargeState(entity.entityId, out var chargeState) &&
+                chargeState.IsActive)
+            {
+                return false;
+            }
+
+            if (snapshot.TryGetPhasedState(entity.entityId, out var phasedState) &&
+                phasedState.IsActive)
+            {
+                return false;
+            }
+
+            if (!snapshot.TryGetEnemyGlideState(entity.entityId, out var glideState) ||
+                !glideState.HasAuthoritativeRecord)
+            {
+                return true;
+            }
+
+            if (glideState.Phase == EnemyGlidePhase.Active)
+            {
+                return true;
+            }
+
+            if (glideState.ActiveUntilTickExclusive <= 0 ||
+                glideState.DurationTicks <= 0)
+            {
+                return false;
+            }
+
+            var activeStartTick = glideState.ActiveUntilTickExclusive - glideState.DurationTicks;
+            return pose.State.startedTick >= activeStartTick &&
+                   pose.State.startedTick < glideState.ActiveUntilTickExclusive;
         }
 
         private static bool IsEnemyLogicParticipant(in EntityState entity)
@@ -5615,9 +5757,7 @@ namespace Game.Feature.Gameplay.Loop
                         baseResolution,
                         kinematicIndex,
                         executionBoundaryKindOverride: MovementExecutionBoundaryKind.LocomotionAnchorCommit,
-                        boundaryReasonOverride: payload.ExecutionBoundaryKind == MovementExecutionBoundaryKind.UnitSpecialLocomotion
-                            ? "SpecialKinematicAnchorCommit"
-                            : "OrdinaryKinematicAnchorCommit");
+                        boundaryReasonOverride: ResolveKinematicAnchorCommitBoundaryReason(payload));
                     if (kinematicOutcome.AnchorChanged)
                     {
                         batch.MoveEntity(
@@ -5734,6 +5874,19 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return batch;
+        }
+
+        private static string ResolveKinematicAnchorCommitBoundaryReason(MovementActionPlanPayload payload)
+        {
+            if (payload.BoundaryReason == "EnemyGlideActiveKinematicStart" ||
+                payload.BoundaryReason == "EnemyGlideActiveKinematicContinuation")
+            {
+                return "GlideActiveKinematicAnchorCommit";
+            }
+
+            return payload.ExecutionBoundaryKind == MovementExecutionBoundaryKind.UnitSpecialLocomotion
+                ? "SpecialKinematicAnchorCommit"
+                : "OrdinaryKinematicAnchorCommit";
         }
 
         private FinalizationBatch MaterializeAttackOperations(

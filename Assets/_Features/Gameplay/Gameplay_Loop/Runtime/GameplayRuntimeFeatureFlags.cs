@@ -7,6 +7,7 @@ namespace Game.Feature.Gameplay.Loop
                 enablePlayerSameFaceContinuousLocomotion,
                 enableEnemySameFaceContinuousLocomotion: false,
                 enableEnemyChargeKinematicLocomotion: false,
+                enableEnemyGlideKinematicLocomotion: false,
                 enablePlayerStoppableKinematicLocomotion: false,
                 enablePlayerFree2DLocalLocomotion: false,
                 enablePlayerFree2DActionAssist: false)
@@ -20,6 +21,7 @@ namespace Game.Feature.Gameplay.Loop
                 enablePlayerSameFaceContinuousLocomotion,
                 enableEnemySameFaceContinuousLocomotion,
                 enableEnemyChargeKinematicLocomotion: false,
+                enableEnemyGlideKinematicLocomotion: false,
                 enablePlayerStoppableKinematicLocomotion: false,
                 enablePlayerFree2DLocalLocomotion: false,
                 enablePlayerFree2DActionAssist: false)
@@ -34,6 +36,7 @@ namespace Game.Feature.Gameplay.Loop
                 enablePlayerSameFaceContinuousLocomotion,
                 enableEnemySameFaceContinuousLocomotion,
                 enableEnemyChargeKinematicLocomotion,
+                enableEnemyGlideKinematicLocomotion: false,
                 enablePlayerStoppableKinematicLocomotion: false,
                 enablePlayerFree2DLocalLocomotion: false,
                 enablePlayerFree2DActionAssist: false)
@@ -49,6 +52,7 @@ namespace Game.Feature.Gameplay.Loop
                 enablePlayerSameFaceContinuousLocomotion,
                 enableEnemySameFaceContinuousLocomotion,
                 enableEnemyChargeKinematicLocomotion,
+                enableEnemyGlideKinematicLocomotion: false,
                 enablePlayerStoppableKinematicLocomotion,
                 enablePlayerFree2DLocalLocomotion: false,
                 enablePlayerFree2DActionAssist: false)
@@ -65,6 +69,7 @@ namespace Game.Feature.Gameplay.Loop
                 enablePlayerSameFaceContinuousLocomotion,
                 enableEnemySameFaceContinuousLocomotion,
                 enableEnemyChargeKinematicLocomotion,
+                enableEnemyGlideKinematicLocomotion: false,
                 enablePlayerStoppableKinematicLocomotion,
                 enablePlayerFree2DLocalLocomotion,
                 enablePlayerFree2DActionAssist: false)
@@ -75,6 +80,7 @@ namespace Game.Feature.Gameplay.Loop
             bool enablePlayerSameFaceContinuousLocomotion,
             bool enableEnemySameFaceContinuousLocomotion,
             bool enableEnemyChargeKinematicLocomotion,
+            bool enableEnemyGlideKinematicLocomotion,
             bool enablePlayerStoppableKinematicLocomotion,
             bool enablePlayerFree2DLocalLocomotion,
             bool enablePlayerFree2DActionAssist)
@@ -82,6 +88,7 @@ namespace Game.Feature.Gameplay.Loop
             EnablePlayerSameFaceContinuousLocomotion = enablePlayerSameFaceContinuousLocomotion;
             EnableEnemySameFaceContinuousLocomotion = enableEnemySameFaceContinuousLocomotion;
             EnableEnemyChargeKinematicLocomotion = enableEnemyChargeKinematicLocomotion;
+            EnableEnemyGlideKinematicLocomotion = enableEnemyGlideKinematicLocomotion;
             EnablePlayerStoppableKinematicLocomotion = enablePlayerSameFaceContinuousLocomotion &&
                                                        enablePlayerStoppableKinematicLocomotion;
             EnablePlayerFree2DLocalLocomotion = enablePlayerFree2DLocalLocomotion;
@@ -101,21 +108,27 @@ namespace Game.Feature.Gameplay.Loop
                 enablePlayerSameFaceContinuousLocomotion: true,
                 enableEnemySameFaceContinuousLocomotion: false,
                 enableEnemyChargeKinematicLocomotion: false,
-                enablePlayerStoppableKinematicLocomotion: true);
+                enableEnemyGlideKinematicLocomotion: false,
+                enablePlayerStoppableKinematicLocomotion: true,
+                enablePlayerFree2DLocalLocomotion: false,
+                enablePlayerFree2DActionAssist: false);
 
         public static GameplayRuntimeFeatureFlags PlayerFree2DLocalLocomotionEnabled =>
             new(
                 enablePlayerSameFaceContinuousLocomotion: true,
                 enableEnemySameFaceContinuousLocomotion: false,
                 enableEnemyChargeKinematicLocomotion: false,
+                enableEnemyGlideKinematicLocomotion: false,
                 enablePlayerStoppableKinematicLocomotion: true,
-                enablePlayerFree2DLocalLocomotion: true);
+                enablePlayerFree2DLocalLocomotion: true,
+                enablePlayerFree2DActionAssist: false);
 
         public static GameplayRuntimeFeatureFlags PlayerFree2DActionAssistEnabled =>
             new(
                 enablePlayerSameFaceContinuousLocomotion: true,
                 enableEnemySameFaceContinuousLocomotion: false,
                 enableEnemyChargeKinematicLocomotion: false,
+                enableEnemyGlideKinematicLocomotion: false,
                 enablePlayerStoppableKinematicLocomotion: true,
                 enablePlayerFree2DLocalLocomotion: true,
                 enablePlayerFree2DActionAssist: true);
@@ -125,6 +138,7 @@ namespace Game.Feature.Gameplay.Loop
                 enablePlayerSameFaceContinuousLocomotion: true,
                 enableEnemySameFaceContinuousLocomotion: true,
                 enableEnemyChargeKinematicLocomotion: true,
+                enableEnemyGlideKinematicLocomotion: false,
                 enablePlayerStoppableKinematicLocomotion: true,
                 enablePlayerFree2DLocalLocomotion: true,
                 enablePlayerFree2DActionAssist: true);
@@ -140,6 +154,16 @@ namespace Game.Feature.Gameplay.Loop
                 enablePlayerSameFaceContinuousLocomotion: false,
                 enableEnemySameFaceContinuousLocomotion: false,
                 enableEnemyChargeKinematicLocomotion: true);
+
+        public static GameplayRuntimeFeatureFlags EnemyGlideKinematicLocomotionEnabled =>
+            new(
+                enablePlayerSameFaceContinuousLocomotion: false,
+                enableEnemySameFaceContinuousLocomotion: false,
+                enableEnemyChargeKinematicLocomotion: false,
+                enableEnemyGlideKinematicLocomotion: true,
+                enablePlayerStoppableKinematicLocomotion: false,
+                enablePlayerFree2DLocalLocomotion: false,
+                enablePlayerFree2DActionAssist: false);
 
         public static GameplayRuntimeFeatureFlags PlayerAndEnemySameFaceContinuousLocomotionEnabled =>
             new(
@@ -157,13 +181,19 @@ namespace Game.Feature.Gameplay.Loop
             new(
                 enablePlayerSameFaceContinuousLocomotion: true,
                 enableEnemySameFaceContinuousLocomotion: true,
-                enableEnemyChargeKinematicLocomotion: true);
+                enableEnemyChargeKinematicLocomotion: true,
+                enableEnemyGlideKinematicLocomotion: true,
+                enablePlayerStoppableKinematicLocomotion: false,
+                enablePlayerFree2DLocalLocomotion: false,
+                enablePlayerFree2DActionAssist: false);
 
         public bool EnablePlayerSameFaceContinuousLocomotion { get; }
 
         public bool EnableEnemySameFaceContinuousLocomotion { get; }
 
         public bool EnableEnemyChargeKinematicLocomotion { get; }
+
+        public bool EnableEnemyGlideKinematicLocomotion { get; }
 
         public bool EnablePlayerStoppableKinematicLocomotion { get; }
 

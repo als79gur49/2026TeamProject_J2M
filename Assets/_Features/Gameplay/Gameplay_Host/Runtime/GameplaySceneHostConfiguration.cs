@@ -121,6 +121,7 @@ namespace Game.Feature.Gameplay.Host
         public bool EnablePlayerStoppableKinematicLocomotion;
         public bool EnableEnemySameFaceContinuousLocomotion;
         public bool EnableEnemyChargeKinematicLocomotion;
+        public bool EnableEnemyGlideKinematicLocomotion;
         public EnemyAiProfile DefaultEnemyAiProfile;
         public EnemyAiProfileOverride[] EnemyAiProfileOverrides = Array.Empty<EnemyAiProfileOverride>();
         public EnemyUnitArchetypeCatalog EnemyUnitArchetypeCatalog;
@@ -242,6 +243,7 @@ namespace Game.Feature.Gameplay.Host
                 EnablePlayerSameFaceContinuousLocomotion,
                 EnableEnemySameFaceContinuousLocomotion,
                 EnableEnemyChargeKinematicLocomotion,
+                EnableEnemyGlideKinematicLocomotion,
                 EnablePlayerStoppableKinematicLocomotion,
                 EnablePlayerFree2DLocalLocomotion,
                 EnablePlayerFree2DActionAssist);
@@ -252,6 +254,7 @@ namespace Game.Feature.Gameplay.Host
             EnablePlayerSameFaceContinuousLocomotion = flags.EnablePlayerSameFaceContinuousLocomotion;
             EnableEnemySameFaceContinuousLocomotion = flags.EnableEnemySameFaceContinuousLocomotion;
             EnableEnemyChargeKinematicLocomotion = flags.EnableEnemyChargeKinematicLocomotion;
+            EnableEnemyGlideKinematicLocomotion = flags.EnableEnemyGlideKinematicLocomotion;
             EnablePlayerStoppableKinematicLocomotion = flags.EnablePlayerStoppableKinematicLocomotion;
             EnablePlayerFree2DLocalLocomotion = flags.EnablePlayerFree2DLocalLocomotion;
             EnablePlayerFree2DActionAssist = flags.EnablePlayerFree2DActionAssist;
