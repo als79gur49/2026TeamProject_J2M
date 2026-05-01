@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Game.Feature.Gameplay.Attack;
@@ -274,6 +275,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(
                 firstReplay.Select(frame => frame.Trace).ToArray(),
                 Is.EqualTo(secondReplay.Select(frame => frame.Trace).ToArray()));
+            Assert.That(
+                firstReplay.Any(frame => frame.Trace.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
+                Is.False);
         }
 
         private static IEntityLogic[] CreatePlayerLogics(params IEntityLogic[] extraLogics)

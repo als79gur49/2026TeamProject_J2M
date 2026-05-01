@@ -36,6 +36,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 track.EntityId == 10 &&
                 track.DestinationAnchorCell == new SurfaceCell(FaceId.Floor, 0, 0) &&
                 track.DestinationLocalOffset.X.RawValue == state.localOffset.X.RawValue), Is.True);
+            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(result, 10);
         }
 
         [Test]
@@ -104,9 +105,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(CreatePlayer(10));
             var pipeline = CreatePipeline(worldState);
 
+            TickResult result = null;
             for (var tick = 1; tick <= 10; tick++)
             {
-                pipeline.RunTick(new TickInput(tick, PlayerTickCommand.Move(Direction.Right)));
+                result = pipeline.RunTick(new TickInput(tick, PlayerTickCommand.Move(Direction.Right)));
             }
 
             var snapshot = worldState.CreateSnapshot();
@@ -115,6 +117,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
             Assert.That(state.localOffset.X.RawValue, Is.EqualTo(KinematicFixed.MinLocalOffset));
             Assert.That(snapshot.TryGetUnitKinematicState(10, out _), Is.False);
+            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(result, 10);
         }
 
         [Test]
@@ -661,6 +664,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 signal.EntityId == 10 &&
                 signal.ActiveActionKind == PlayerActionKind.Push &&
                 signal.StartedThisTick), Is.True);
+            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(executeResult, 10);
         }
 
         [Test]

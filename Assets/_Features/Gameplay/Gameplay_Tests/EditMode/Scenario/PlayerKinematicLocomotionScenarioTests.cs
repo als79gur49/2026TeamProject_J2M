@@ -19,12 +19,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(CreatePlayer(10));
             var pipeline = CreatePipeline(worldState, GameplayRuntimeFeatureFlags.None);
 
-            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var snapshot = worldState.CreateSnapshot();
 
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(snapshot.TryGetUnitKinematicState(10, out _), Is.False);
+            LegacyMovementBoundaryAssert.HasLegacyFallbackMove(result, 10);
         }
 
         [Test]
@@ -36,9 +37,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 GameplayRuntimeFeatureFlags.PlayerSameFaceContinuousLocomotionEnabled);
 
-            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var tickOne = worldState.CreateSnapshot();
             AssertPose(tickOne, expectedAnchorX: 0, expectedLocalX: 205, expectedRemainingTicks: 19, expectedElapsedTicks: 1, expectedTotalTicks: 20);
+            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(result, 10);
 
             for (var tick = 2; tick <= 9; tick++)
             {

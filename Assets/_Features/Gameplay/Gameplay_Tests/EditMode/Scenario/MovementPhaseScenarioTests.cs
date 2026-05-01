@@ -303,7 +303,45 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     .EntityMotions
                     .Select(motion => (motion.EntityId, motion.MotionKind, motion.SourceCell, motion.DestinationCell))
                     .ToArray());
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.MoveEntity &&
+                    operation.EntityId == 30 &&
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.BoxActionMovement),
+                Is.True);
             Assert.That(result.Trace.Text, Does.Contain("Kind=Push"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MovementExpander_ForbiddenLegacyUnitOrdinaryIntent_DetectsDebug()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+            });
+            var intent = new MoveIntent(10, priority: 1, destination: new Vector2Int(1, 0));
+            intent.AssignIntentId(1);
+            var expandedCandidates = new List<ActionGroup>();
+            var rejectedReasons = new List<string>();
+
+            new MovementExpander().Expand(
+                CreateSnapshot(worldState),
+                tickIndex: 1,
+                sortedIntents: new[] { intent },
+                playerTraversalSourceIds: null,
+                frontFaceSupportContributors: null,
+                buffer: expandedCandidates,
+                rejectedReasons: rejectedReasons,
+                frontFaceShieldBlockExports: null,
+                forbiddenLegacyUnitOrdinaryIntentIds: new HashSet<int> { intent.IntentId });
+
+            Assert.That(expandedCandidates, Is.Empty);
+            Assert.That(
+                rejectedReasons.Any(reason =>
+                    reason.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal) &&
+                    reason.Contains("E=10", StringComparison.Ordinal)),
+                Is.True);
         }
 
         [Test]

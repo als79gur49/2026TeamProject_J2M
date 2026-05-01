@@ -3492,6 +3492,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     Is.True,
                     BuildContactTimingDebug(1, "Enemy", 40, 10, snapshot, result));
                 Assert.That(result.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40), Is.False);
+                LegacyMovementBoundaryAssert.HasLegacyFallbackMove(result, 40);
             }
             finally
             {
@@ -3632,6 +3633,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     result.PresentationData.EntityMotions.Any(motion => motion.EntityId == 40),
                     Is.False,
                     BuildContactTimingDebug(1, "Enemy", 40, 10, snapshot, result));
+                LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(result, 40);
             }
             finally
             {
@@ -3870,6 +3872,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         motion.EntityId == 40 &&
                         motion.MotionKind == TickEntityMotionKind.ChargeMove),
                     Is.True);
+                LegacyMovementBoundaryAssert.HasLegacyChargeMove(result, 40);
             }
             finally
             {
@@ -3923,6 +3926,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         motion.EntityId == 40 &&
                         motion.MotionKind == TickEntityMotionKind.ChargeMove),
                     Is.False);
+                LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(result, 40);
             }
             finally
             {

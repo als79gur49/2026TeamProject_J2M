@@ -255,6 +255,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 Is.EqualTo(secondReplay.Select(frame => frame.EventLogDump).ToArray()));
+            Assert.That(
+                firstReplay.Any(frame => frame.Trace.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
+                Is.False);
         }
 
         private static WorldState CreateContactWorldState()
