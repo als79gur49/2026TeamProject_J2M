@@ -10,6 +10,8 @@ If `EnablePlayerFree2DLocalLocomotion` is enabled, player ordinary movement bypa
 
 - Flag off: player same-face kinematic locomotion keeps the existing automatic continuation behavior.
 - Flag on: releasing actual held movement input during player voluntary same-face kinematic movement stores `MotionMode.Held`.
+- Flag on: player ordinary movement remains on the kinematic lane and must not emit legacy `TickEntityMotionKind.Move`.
+- `MoveEntity` anchor commits are retained as grid transactions, not ordinary Unit movement.
 - `MotionMode.Held` preserves anchor, local offset, elapsed ticks, total ticks, commit tick, started tick, and step direction.
 - Held progress does not advance until the same held direction is pressed again.
 - Same-direction resume switches back to `MotionMode.Voluntary` on the resume tick; progress advances on the following tick.

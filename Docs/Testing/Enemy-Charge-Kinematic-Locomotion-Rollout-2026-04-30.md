@@ -6,11 +6,14 @@ This rollout is guarded by `GameplayRuntimeFeatureFlags.EnableEnemyChargeKinemat
 
 - Flag off: Charge active movement keeps the legacy discrete `TickEntityMotionKind.ChargeMove` presentation path.
 - Flag on: Charge active one-cell steps use `UnitKinematicRuntimeState` with `MotionMode.Charge`.
+- Flag on: Charge active steps must not reach the legacy `TickEntityMotionKind.ChargeMove` path.
 - Charge active start now waits for any non-settled ordinary enemy `MotionMode.Voluntary` kinematic movement to settle before entering Charge.
 - Charge windup, recover, target selection, and passive contact rules are unchanged once Charge actually starts.
 - Charge active step duration is `EnemyChargeTimingSettings.ActiveStepCooldownTicks`, normalized to an even value of at least 2 ticks.
 - Anchor commit happens at `totalTicks / 2`; passive contact can only resolve after that commit.
 - Charge kinematic presentation uses `TickKinematicMotionTrack` plus `TickEnemyChargePresentationSignal`; legacy `ChargeMove` is not emitted for the kinematic path.
+- `MoveEntity` midpoint anchor commit is classified as a grid transaction primitive, not legacy ordinary Unit movement.
+- Legacy `ChargeMove` remains retained only for flag-off baseline. Legacy grid transactions for box/action/topology/spawn/respawn/cleanup are not removed by this rollout.
 - During settle-wait, the enemy remains in Patrol/Chase, ordinary kinematic presentation continues from its current local offset, and Charge windup/active presentation is not emitted.
 - After ordinary settle, ChargeStart is re-evaluated from the current snapshot. If the target moved out of a valid same-face row/column lane, if the first step is blocked, or if the enemy is no longer controllable, Charge does not start.
 

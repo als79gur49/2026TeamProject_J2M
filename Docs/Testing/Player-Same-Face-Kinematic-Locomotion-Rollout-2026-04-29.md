@@ -10,6 +10,8 @@ If `EnablePlayerFree2DLocalLocomotion` is enabled, player ordinary movement is d
 
 - Flag off: existing discrete player movement remains the baseline and existing goldens should not be regenerated.
 - Flag on: player same-face voluntary moves advance using `PlayerKinematicLocomotionTimingSettings`.
+- Flag on: player ordinary movement must not reach the legacy ordinary `MoveIntent` -> `MovementExpander` -> `TickEntityMotionKind.Move` path.
+- `MoveEntity` midpoint anchor commit is classified as a grid transaction primitive, not legacy ordinary Unit movement.
 - Default `KinematicMoveDurationSeconds` is `1f / 3f`, quantized with even ceil. At 60 TPS this is 20 ticks with midpoint anchor commit at tick 10.
 - Mid-motion hashes are expected to include the `UnitKinematics` determinism section.
 - Mid-motion accepted damage interrupts voluntary locomotion with a `MotionMode.Interrupted` kinematic state; the next flag-on plan tick clears surviving interrupted state to settled-zero.
@@ -28,6 +30,6 @@ If `EnablePlayerFree2DLocalLocomotion` is enabled, player ordinary movement is d
 ## Rollback
 
 Set `EnablePlayerSameFaceContinuousLocomotion` to false or pass `GameplayRuntimeFeatureFlags.None`.
-The legacy `MovementExpander` path remains present and is not migrated in-place.
+The legacy `MovementExpander` path remains present for flag-off fallback and retained grid transactions. It is not migrated in-place.
 To reproduce the old 4tick flag-on cadence for migration comparison, set
 `PlayerKinematicLocomotionTiming.KinematicMoveDurationSeconds` to `4f / SimulationTicksPerSecond`.

@@ -19,6 +19,7 @@ When enabled, player ordinary movement uses `UnitContinuousLocomotionState` befo
 - `PlayerContinuousLocomotionSettings.CollisionRadiusCells` is player Free2D-only blocker approach margin. The project default is `0`, which keeps the point/pivot clamp (`+2047` / `-2048`); configured nonzero radius clamps grid-solid blocker approach at `halfCell - radius` while unit overlap and free-neighbor normalization remain unchanged.
 - `PlayerContinuousLocomotionSettings.ActionAssistSettleWindowCells` is the near-settled input leniency window for Action Assist. The project default is `0.125f`, converted to `512` fixed units.
 - Anchor normalization writes must apply `MoveEntity` first and `SetUnitContinuousLocomotionState(normalized state)` second in the same `FinalizationBatch`; this preserves the normalized pose after `MoveEntity` purges transient unit locomotion state.
+- `MoveEntity` anchor normalization is classified as a grid transaction primitive, not legacy ordinary Unit movement. It must not emit legacy `TickEntityMotionKind.Move`; presentation remains `TickContinuousLocomotionTrack`.
 - Collision is grid-authoritative: wall, terrain, box, solid, board edge, and topology edge block; unit overlap remains allowed.
 - Passive contact remains anchor-cell based. Visual overlap before anchor normalization does not trigger neighbor contact.
 - Contact can begin only after anchor normalization commits the new `EntityState.position`.
@@ -33,6 +34,7 @@ When enabled, player ordinary movement uses `UnitContinuousLocomotionState` befo
 - Action Assist align target is always the current anchor center. `EntityState.position` is not changed by align, and align never snaps.
 - Queued Action Assist has priority over held ordinary movement until it executes, fails after revalidation, or is cleared by interruption/death/respawn.
 - Presentation consumes authoritative continuous local pose through `TickContinuousLocomotionTrack`. Transform, Animator, PhysX, and root motion are not simulation authority.
+- Flag-on player ordinary movement must not reach the legacy ordinary `MoveIntent` -> `MovementExpander` -> `TickEntityMotionKind.Move` path. Push, flip, item/action materialization, topology, spawn, respawn, and cleanup remain allowed legacy grid transactions.
 - `AlignToAnchor` presentation is emitted through `TickContinuousLocomotionTrack` and is treated as active locomotion. There is no pending-action UI in v1.
 - Continuous nonzero idle pose must emit or retain presentation override so the view does not snap to anchor center.
 - Nonlethal hit, lethal hit, removal, death hold, cleanup, and respawn preserve or purge continuous pose through the same authoritative write path as other state.
