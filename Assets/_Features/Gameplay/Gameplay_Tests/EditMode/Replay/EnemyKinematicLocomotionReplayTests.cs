@@ -213,6 +213,70 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Extended")]
+        [Category("GlideKinematicV11")]
+        public void GlideActive_Kinematic_ReplayContactAndLandingDeterministic()
+        {
+            var inputs = Enumerable.Range(1, 13)
+                .Select(tick => new TickInput(tick))
+                .ToArray();
+            var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 12, recoveryTicks: 1, cooldownTicks: 0),
+                includePassiveContact: true);
+            var harness = new TickReplayHarness();
+
+            try
+            {
+                var firstContactReplay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    CreateGlideContactWorldState(),
+                    entityLogics: new IEntityLogic[0],
+                    inputs,
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled);
+                var secondContactReplay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    CreateGlideContactWorldState(),
+                    entityLogics: new IEntityLogic[0],
+                    inputs,
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled);
+                var firstLandingReplay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    CreateGlideLandingWorldState(),
+                    entityLogics: new IEntityLogic[0],
+                    inputs,
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled);
+                var secondLandingReplay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    CreateGlideLandingWorldState(),
+                    entityLogics: new IEntityLogic[0],
+                    inputs,
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled);
+
+                AssertEquivalentReplayOutputs(firstContactReplay, secondContactReplay);
+                AssertEquivalentReplayOutputs(firstLandingReplay, secondLandingReplay);
+                Assert.That(firstContactReplay[9].EventLogDump, Does.Contain("DamageCommitted"));
+                Assert.That(firstContactReplay[9].EventLogDump, Does.Contain("SourceKind=PassiveContact"));
+                Assert.That(firstContactReplay[9].Trace, Does.Contain("GlideActiveKinematicAnchorCommit"));
+                Assert.That(firstLandingReplay[9].Trace, Does.Contain("GlideActiveKinematicAnchorCommit"));
+                Assert.That(firstLandingReplay[11].Trace, Does.Contain("LandingPending=1"));
+                Assert.That(
+                    firstContactReplay.Any(frame => frame.Trace.Contains("UnitKinematics", StringComparison.Ordinal) ||
+                                                    frame.EventLogDump.Contains("KinematicPoseCommitted", StringComparison.Ordinal)) &&
+                    firstLandingReplay.Any(frame => frame.Trace.Contains("UnitKinematics", StringComparison.Ordinal) ||
+                                                    frame.EventLogDump.Contains("KinematicPoseCommitted", StringComparison.Ordinal)),
+                    Is.True);
+                Assert.That(
+                    firstContactReplay.Any(frame => frame.Trace.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)) ||
+                    firstLandingReplay.Any(frame => frame.Trace.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
+                    Is.False);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyCharge_SettleWait_ReplayDeterministic()
         {
             var inputs = Enumerable.Range(1, 5)
@@ -654,6 +718,50 @@ namespace Game.Feature.Gameplay.Tests.Replay
             });
         }
 
+        private static WorldState CreateGlideContactWorldState()
+        {
+            var landingCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[]
+            {
+                CreatePlayer(10, hp: 3, landingCell),
+                CreateEnemy(40, hp: 3, new SurfaceCell(FaceId.Floor, 0, 0)),
+            });
+            SeedActiveGlide(worldState, 40);
+            return worldState;
+        }
+
+        private static WorldState CreateGlideLandingWorldState()
+        {
+            var landingCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[]
+            {
+                CreatePlayer(10, hp: 3, new SurfaceCell(FaceId.Floor, 2, 0)),
+                CreateWall(30, landingCell),
+                CreateEnemy(40, hp: 3, new SurfaceCell(FaceId.Floor, 0, 0)),
+            });
+            SeedActiveGlide(worldState, 40);
+            return worldState;
+        }
+
+        private static void SeedActiveGlide(WorldState worldState, int entityId)
+        {
+            worldState.CreateWriteContext().SetEnemyGlideState(
+                entityId,
+                EnemyGlideRuntimeState.Create(
+                    EnemyGlidePhase.Active,
+                    sequence: 1,
+                    windupUntilTickExclusive: 0,
+                    activeUntilTickExclusive: 12,
+                    recoveryUntilTickExclusive: 0,
+                    cooldownUntilTickExclusive: 0,
+                    windupTicks: 0,
+                    durationTicks: 12,
+                    recoveryTicks: 1,
+                    cooldownTicks: 0,
+                    lastExitedTick: 0,
+                    landingPendingCell: default));
+        }
+
         private static EnemyAiProfile CreateChargeSettleWaitProfile()
         {
             return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
@@ -762,6 +870,21 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 aiMode = EnemyAiMode.Chase,
                 facing = Direction.Left,
                 boardPresence = EntityBoardPresence.Occupying,
+            };
+        }
+
+        private static EntityState CreateWall(int entityId, SurfaceCell position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.Box,
+                boardPresence = EntityBoardPresence.Occupying,
+                boxCapabilities = BoxCapabilities.None,
             };
         }
 

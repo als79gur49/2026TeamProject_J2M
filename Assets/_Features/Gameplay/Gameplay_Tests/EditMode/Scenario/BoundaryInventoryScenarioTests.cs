@@ -534,6 +534,17 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
+        [Category("GlideKinematicV11")]
+        public void GlideActive_Kinematic_DefaultBundleStillExcludesFlag()
+        {
+            var flags = GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion;
+
+            Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.False);
+            Assert.That(GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled.EnableEnemyGlideKinematicLocomotion, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
         public void BoundaryInventory_ForcedMotion_IsReportedOrAbsent()
         {
             var inventory = new[]
@@ -650,7 +661,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 "jump: Safe UnitSpecialLocomotion",
                 "phase relocation: Safe Retained Grid Transaction",
-                "glide: State-only Special Candidate",
+                "glide: Flag-Gated Kinematic Candidate, default adoption pending",
                 "forced motion: Future Runtime State Needed",
                 "knockback: Future Runtime State Needed",
             };
@@ -668,7 +679,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(flagOffFallbacks, Has.Length.EqualTo(3));
             Assert.That(flagOnTargets.All(enabled => enabled), Is.True);
-            Assert.That(specialInventoryV3, Does.Contain("glide: State-only Special Candidate"));
+            Assert.That(specialInventoryV3, Does.Contain("glide: Flag-Gated Kinematic Candidate, default adoption pending"));
             Assert.That(retainedPaths, Does.Contain("MoveEntity primitive"));
             Assert.That(retainedPaths, Does.Contain("MovementExpander grid transaction branch"));
         }

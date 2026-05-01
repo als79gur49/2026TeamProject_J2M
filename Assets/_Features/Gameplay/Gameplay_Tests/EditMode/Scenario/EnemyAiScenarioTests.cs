@@ -3598,6 +3598,270 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
+        [Category("GlideKinematicV11")]
+        public void GlideActive_Kinematic_NoContactBeforeCommit()
+        {
+            var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var enemySourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: enemySourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+            });
+            var profile = CreateGlideContactDamageProfile(durationTicks: 20);
+            worldState.CreateWriteContext().SetEnemyGlideState(
+                40,
+                CreateActiveGlide(activeUntilTickExclusive: 20, durationTicks: 20, recoveryTicks: 1, cooldownTicks: 0));
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled);
+
+                for (var tick = 1; tick <= 9; tick++)
+                {
+                    var result = pipeline.RunTick(new TickInput(tick));
+                    var snapshot = worldState.CreateSnapshot();
+
+                    Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+                    Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
+                    Assert.That(enemy.position, Is.EqualTo(enemySourceCell), BuildContactTimingDebug(tick, "EnemyGlide", 40, 10, snapshot, result));
+                    Assert.That(player.position, Is.EqualTo(playerCell));
+                    Assert.That(snapshot.TryGetUnitKinematicState(40, out var enemyKinematic), Is.True);
+                    Assert.That(enemyKinematic.mode, Is.EqualTo(MotionMode.Voluntary));
+                    Assert.That(
+                        HasAcceptedPassiveContact(result, 40, 10),
+                        Is.False,
+                        BuildContactTimingDebug(tick, "EnemyGlide", 40, 10, snapshot, result));
+                    Assert.That(player.hp, Is.EqualTo(3));
+                    LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(result, 40);
+                }
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        [Category("GlideKinematicV11")]
+        public void GlideActive_Kinematic_ContactAtCommit()
+        {
+            var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var enemySourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: enemySourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+            });
+            var profile = CreateGlideContactDamageProfile(durationTicks: 20);
+            worldState.CreateWriteContext().SetEnemyGlideState(
+                40,
+                CreateActiveGlide(activeUntilTickExclusive: 20, durationTicks: 20, recoveryTicks: 1, cooldownTicks: 0));
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled);
+
+                TickResult result = null;
+                for (var tick = 1; tick <= 10; tick++)
+                {
+                    result = pipeline.RunTick(new TickInput(tick));
+                }
+
+                var snapshot = worldState.CreateSnapshot();
+                Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+                Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(enemy.position, Is.EqualTo(playerCell), BuildContactTimingDebug(10, "EnemyGlide", 40, 10, snapshot, result));
+                Assert.That(player.position, Is.EqualTo(playerCell));
+                Assert.That(snapshot.TryGetUnitKinematicState(40, out var state), Is.True);
+                Assert.That(state.mode, Is.EqualTo(MotionMode.Voluntary));
+                Assert.That(state.elapsedTicks, Is.EqualTo(10));
+                Assert.That(state.commitTick, Is.EqualTo(10));
+                Assert.That(
+                    result.MovementPhaseResult.CommitEvents.Any(entry =>
+                        entry.Contains("KinematicAnchorCommitted", StringComparison.Ordinal) &&
+                        entry.Contains("E=40", StringComparison.Ordinal) &&
+                        entry.Contains("To=(0,0)", StringComparison.Ordinal)),
+                    Is.True);
+                LegacyMovementBoundaryAssert.HasMoveEntityBoundaryReason(
+                    result,
+                    40,
+                    MovementExecutionBoundaryKind.LocomotionAnchorCommit,
+                    "GlideActiveKinematicAnchorCommit");
+                Assert.That(
+                    HasAcceptedPassiveContact(result, 40, 10),
+                    Is.True,
+                    BuildContactTimingDebug(10, "EnemyGlide", 40, 10, snapshot, result));
+                Assert.That(player.hp, Is.EqualTo(2));
+                LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(result, 40);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        [Category("GlideKinematicV11")]
+        public void GlideActive_Kinematic_HitNonlethal_CleansUpWithoutStaleHover()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 1), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var profile = CreateGlideContactDamageProfile(durationTicks: 20);
+            worldState.CreateWriteContext().SetEnemyGlideState(
+                40,
+                CreateActiveGlide(activeUntilTickExclusive: 20, durationTicks: 20, recoveryTicks: 2, cooldownTicks: 0));
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled,
+                    new ScriptedAttackLogic(10, 40));
+                var result = pipeline.RunTick(new TickInput(1));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(enemy.hp, Is.EqualTo(2));
+                Assert.That(snapshot.TryGetUnitKinematicState(40, out var interrupted), Is.True);
+                Assert.That(interrupted.mode, Is.EqualTo(MotionMode.Interrupted));
+                Assert.That(snapshot.TryGetEnemyGlideState(40, out var glideState), Is.True);
+                Assert.That(glideState.Phase, Is.EqualTo(EnemyGlidePhase.Recovery));
+                Assert.That(result.AttackPhaseResult.MotionInterruptRecords.Any(record => record.EntityId == 40), Is.True);
+                Assert.That(
+                    result.PresentationData.KinematicMotionTracks.Any(track =>
+                        track.EntityId == 40 &&
+                        track.TerminalKind == TickKinematicMotionTerminalKind.Interrupted),
+                    Is.True);
+                Assert.That(
+                    result.PresentationData.EnemyGlideSignals.Any(signal =>
+                        signal.EntityId == 40 &&
+                        signal.Phase == EnemyGlidePhase.Active &&
+                        !signal.IsTerminalZero),
+                    Is.False);
+
+                var closureTick = pipeline.RunTick(new TickInput(2));
+                Assert.That(worldState.CreateSnapshot().TryGetUnitKinematicState(40, out _), Is.False);
+                Assert.That(
+                    closureTick.EventLog.Any(entry =>
+                        entry.Contains("KinematicInterruptClosed|E=40", StringComparison.Ordinal)),
+                    Is.True);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        [Category("GlideKinematicV11")]
+        public void GlideActive_Kinematic_HitLethal_RemovalClearsKinematicAndGlideSignal()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 1), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 1, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var profile = CreateGlideContactDamageProfile(durationTicks: 20);
+            worldState.CreateWriteContext().SetEnemyGlideState(
+                40,
+                CreateActiveGlide(activeUntilTickExclusive: 20, durationTicks: 20, recoveryTicks: 2, cooldownTicks: 0));
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled,
+                    new ScriptedAttackLogic(10, 40));
+                var result = pipeline.RunTick(new TickInput(1));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetEntity(40, out _), Is.False);
+                Assert.That(snapshot.TryGetUnitKinematicState(40, out _), Is.False);
+                Assert.That(snapshot.TryGetEnemyGlideState(40, out _), Is.False);
+                Assert.That(result.EventLog.Any(entry => entry.Contains("CleanupRemoved|E=40", StringComparison.Ordinal)), Is.True);
+                Assert.That(result.EventLog.Any(entry => entry.Contains("KinematicPoseRemoved|E=40", StringComparison.Ordinal)), Is.True);
+                Assert.That(result.EventLog.Any(entry => entry.Contains("PlayerRespawnDelayStarted|E=40", StringComparison.Ordinal)), Is.False);
+                Assert.That(result.PresentationData.EnemyGlideSignals.Any(signal => signal.EntityId == 40), Is.False);
+                Assert.That(
+                    result.PresentationData.KinematicMotionTracks.Any(track =>
+                        track.EntityId == 40 &&
+                        track.TerminalKind == TickKinematicMotionTerminalKind.Removed),
+                    Is.True);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        [Category("GlideKinematicV11")]
+        public void GlideActive_Kinematic_ContinuationDoesNotTreatArbitraryVoluntaryStateAsGlide()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            worldState.CreateWriteContext().SetUnitKinematicState(
+                40,
+                new UnitKinematicRuntimeState
+                {
+                    localOffset = new KinematicOffset2(KinematicFixed.FromRaw(1024), KinematicFixed.Zero),
+                    velocity = new KinematicVelocity2(KinematicFixed.FromRaw(1024), KinematicFixed.Zero),
+                    mode = MotionMode.Voluntary,
+                    remainingDistanceUnits = 3072,
+                    remainingTicks = 3,
+                    speedScalePermille = 1000,
+                    sequenceId = 1,
+                    elapsedTicks = 1,
+                    totalTicks = 4,
+                    commitTick = 2,
+                    startedTick = 1,
+                    stepDirectionX = 1,
+                });
+            var profile = CreateGlideContactDamageProfile(durationTicks: 4);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled);
+                var result = pipeline.RunTick(new TickInput(2));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetUnitKinematicState(40, out var state), Is.True);
+                Assert.That(state.elapsedTicks, Is.EqualTo(1));
+                Assert.That(result.Trace.Text, Does.Not.Contain("EnemyGlideActiveKinematicContinuation"));
+                Assert.That(result.Trace.Text, Does.Not.Contain("GlideActiveKinematicAnchorCommit"));
+                Assert.That(
+                    result.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40),
+                    Is.False);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void EnemyMovesIntoPlayer_Kinematic_ViewUsesKinematicTrack()
         {
@@ -6070,6 +6334,34 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static EnemyAiProfile CreateContactDamageProfile(int moveCooldownTicks = 0, int recoverTicks = 1)
         {
             return EnemyAiProfileTestFactory.CreateContactDamage(moveCooldownTicks, recoverTicks);
+        }
+
+        private static EnemyAiProfile CreateGlideContactDamageProfile(int durationTicks)
+        {
+            return EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: durationTicks, recoveryTicks: 2, cooldownTicks: 0),
+                includePassiveContact: true);
+        }
+
+        private static EnemyGlideRuntimeState CreateActiveGlide(
+            int activeUntilTickExclusive,
+            int durationTicks,
+            int recoveryTicks,
+            int cooldownTicks)
+        {
+            return EnemyGlideRuntimeState.Create(
+                EnemyGlidePhase.Active,
+                sequence: 1,
+                windupUntilTickExclusive: 0,
+                activeUntilTickExclusive,
+                recoveryUntilTickExclusive: 0,
+                cooldownUntilTickExclusive: 0,
+                windupTicks: 0,
+                durationTicks,
+                recoveryTicks,
+                cooldownTicks,
+                lastExitedTick: 0,
+                landingPendingCell: default);
         }
 
         private static bool HasAcceptedPassiveContact(TickResult result, int sourceId, int targetId)

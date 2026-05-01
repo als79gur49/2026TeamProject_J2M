@@ -398,6 +398,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        [Category("GlideKinematicV11")]
         public void GlideActive_Kinematic_PreservesSolidBypass()
         {
             var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
@@ -458,6 +459,131 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "GlideActiveKinematicAnchorCommit");
                 Assert.That(worldState.CreateSnapshot().TryGetEntity(40, out var enemy), Is.True);
                 Assert.That(enemy.position, Is.EqualTo(wallCell));
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        [Category("GlideKinematicV11")]
+        public void GlideActive_Kinematic_LandingPendingWhenEndsOnSolid()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 3, recoveryTicks: 1, cooldownTicks: 0));
+            var wallCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(10, teamId: 1, new SurfaceCell(FaceId.Floor, 3, 0), EnemyAiMode.None),
+                CreateWall(30, wallCell),
+                CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Chase),
+            });
+            worldState.CreateWriteContext().SetEnemyGlideState(
+                40,
+                CreateActiveGlide(activeUntilTickExclusive: 3, durationTicks: 3, cooldownTicks: 0, recoveryTicks: 1));
+
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile)
+                    .CreateTickPipeline(
+                        worldState,
+                        Array.Empty<IEntityLogic>(),
+                        GameplayTimingProfile.CreateDefault(),
+                        CreatePlayerTiming(),
+                        runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled,
+                        playerKinematicLocomotionTiming: CreateTwoTickKinematicTiming());
+
+                var commitTick = pipeline.RunTick(new TickInput(1));
+                Assert.That(HasGlideActiveKinematicAnchorCommit(commitTick, 40), Is.True);
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(enemy.position, Is.EqualTo(wallCell));
+
+                pipeline.RunTick(new TickInput(2));
+                var activeEndTick = pipeline.RunTick(new TickInput(3));
+                var snapshot = worldState.CreateSnapshot();
+                Assert.That(snapshot.TryGetEnemyGlideState(40, out var pending), Is.True);
+                Assert.That(pending.Phase, Is.EqualTo(EnemyGlidePhase.LandingPending));
+                Assert.That(pending.IsLandingPending, Is.True);
+                Assert.That(pending.LandingPendingCell, Is.EqualTo(wallCell));
+                LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(activeEndTick, 40);
+
+                var suppressedTick = pipeline.RunTick(new TickInput(4));
+                Assert.That(suppressedTick.MovementPhaseResult.RawIntents.Any(intent => intent.SourceId == 40), Is.False);
+                Assert.That(suppressedTick.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40), Is.False);
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyGlideState(40, out var stillPending), Is.True);
+                Assert.That(stillPending.Phase, Is.EqualTo(EnemyGlidePhase.LandingPending));
+
+                worldState.CreateWriteContext().RemoveEntity(30);
+                pipeline.RunTick(new TickInput(5));
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyGlideState(40, out var recovery), Is.True);
+                Assert.That(recovery.Phase, Is.EqualTo(EnemyGlidePhase.Recovery));
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        [Category("GlideKinematicV11")]
+        public void GlideActive_Kinematic_ActiveEndsWhileNonSettled_CompletesSegmentWithoutSnap()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 2, recoveryTicks: 2, cooldownTicks: 10));
+            var destination = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(10, teamId: 1, new SurfaceCell(FaceId.Floor, 3, 0), EnemyAiMode.None),
+                CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Chase),
+            });
+            worldState.CreateWriteContext().SetEnemyGlideState(
+                40,
+                CreateActiveGlide(activeUntilTickExclusive: 2, durationTicks: 2, cooldownTicks: 10, recoveryTicks: 2));
+
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile)
+                    .CreateTickPipeline(
+                        worldState,
+                        Array.Empty<IEntityLogic>(),
+                        GameplayTimingProfile.CreateDefault(),
+                        CreatePlayerTiming(),
+                        runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled,
+                        playerKinematicLocomotionTiming: CreateKinematicTiming(ticksPerCell: 6));
+
+                var startTick = pipeline.RunTick(new TickInput(1));
+                Assert.That(startTick.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40), Is.True);
+                Assert.That(worldState.CreateSnapshot().TryGetUnitKinematicState(40, out var started), Is.True);
+                Assert.That(started.elapsedTicks, Is.EqualTo(1));
+
+                var activeEndTick = pipeline.RunTick(new TickInput(2));
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyGlideState(40, out var recovery), Is.True);
+                Assert.That(recovery.Phase, Is.EqualTo(EnemyGlidePhase.Recovery));
+                Assert.That(worldState.CreateSnapshot().TryGetUnitKinematicState(40, out var continuing), Is.True);
+                Assert.That(continuing.mode, Is.EqualTo(MotionMode.Voluntary));
+                Assert.That(continuing.elapsedTicks, Is.EqualTo(2));
+                Assert.That(activeEndTick.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40), Is.True);
+                LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(activeEndTick, 40);
+
+                TickResult settleTick = null;
+                for (var tickIndex = 3; tickIndex <= 6; tickIndex++)
+                {
+                    settleTick = pipeline.RunTick(new TickInput(tickIndex));
+                    LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(settleTick, 40);
+                }
+
+                var snapshot = worldState.CreateSnapshot();
+                Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(enemy.position, Is.EqualTo(destination));
+                Assert.That(snapshot.TryGetUnitKinematicState(40, out _), Is.False);
+                Assert.That(
+                    settleTick.PresentationData.KinematicMotionTracks.Any(track =>
+                        track.EntityId == 40 &&
+                        track.MotionMode == MotionMode.Settled),
+                    Is.True);
             }
             finally
             {
@@ -535,10 +661,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static PlayerKinematicLocomotionTimingSnapshot CreateTwoTickKinematicTiming()
         {
+            return CreateKinematicTiming(ticksPerCell: 2);
+        }
+
+        private static PlayerKinematicLocomotionTimingSnapshot CreateKinematicTiming(int ticksPerCell)
+        {
             var timingProfile = GameplayTimingProfile.CreateDefault();
             return new PlayerKinematicLocomotionTimingSettings
             {
-                KinematicMoveDurationSeconds = 2f / timingProfile.SimulationTicksPerSecond,
+                KinematicMoveDurationSeconds = ticksPerCell / (float)timingProfile.SimulationTicksPerSecond,
             }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond);
         }
 
