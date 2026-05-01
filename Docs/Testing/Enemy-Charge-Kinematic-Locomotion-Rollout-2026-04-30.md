@@ -16,6 +16,8 @@ This rollout is guarded by `GameplayRuntimeFeatureFlags.EnableEnemyChargeKinemat
 - Legacy `ChargeMove` remains retained only for flag-off baseline. Legacy grid transactions for box/action/topology/spawn/respawn/cleanup are not removed by this rollout.
 - Boundary v1 suppresses legacy `ChargeMove` only for kinematic charge anchor commits and ordinary Unit locomotion boundaries. `BoxActionMovement`, topology, spawn, respawn, cleanup, scripted relocation, and flag-off legacy grid transactions keep their required presentation.
 - Boundary metadata is trace diagnostic data and must remain outside canonical replay hashes.
+- Boundary v1 stabilization adds direct guard coverage for flag-on Charge ordinary active-step leaks and replay coverage through `Replay_NoUnexpectedLegacyUnitOrdinaryMovementDetected`. A Charge kinematic active step must not present as legacy `ChargeMove`.
+- Unknown boundary policy is now explicit: normal charge movement, retained grid transactions, and placement/finalization paths should carry concrete boundary metadata; only synthetic test-only operations may remain `Unknown`.
 - During settle-wait, the enemy remains in Patrol/Chase, ordinary kinematic presentation continues from its current local offset, and Charge windup/active presentation is not emitted.
 - After ordinary settle, ChargeStart is re-evaluated from the current snapshot. If the target moved out of a valid same-face row/column lane, if the first step is blocked, or if the enemy is no longer controllable, Charge does not start.
 

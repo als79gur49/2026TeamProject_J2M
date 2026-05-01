@@ -14,6 +14,8 @@ This rollout is guarded by `GameplayRuntimeFeatureFlags.EnableEnemySameFaceConti
 - Legacy grid transactions remain retained for box/action/topology/spawn/respawn/cleanup and flag-off fallback.
 - Boundary v1 classifies enemy anchor commits as `LocomotionAnchorCommit` and suppresses duplicate legacy entity motion only for locomotion boundaries. Grid transactions such as `BoxActionMovement`, `TopologyMaterialization`, and `SpawnRespawnPlacement` keep required legacy presentation.
 - Boundary metadata is diagnostic and must not affect canonical replay hashes.
+- Boundary v1 stabilization adds `TickPipeline_ValidateLegacyExpansionIntents_BlocksFlagOnUnitOrdinaryMove` and `Replay_NoUnexpectedLegacyUnitOrdinaryMovementDetected` canaries for enemy ordinary kinematic movement. Any flag-on enemy ordinary `Move` reaching `MovementExpander` is a regression.
+- `Boundary_UnknownInventory_NormalGameplayHasNoUnexpectedUnknownMovement` covers representative retained grid transactions so normal movement/finalization traces do not leave meaningful enemy-adjacent movement as `Boundary=Unknown`.
 
 ## Rollback
 

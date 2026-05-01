@@ -29,6 +29,9 @@ Gameplay spatial authority remains `EntityState.position: SurfaceCell` plus the 
 - Boundary metadata is diagnostic contract data, not canonical gameplay state. `MovementExecutionBoundaryKind` and boundary reason text may appear in traces, but they must not affect replay canonical hashes.
 - Presentation suppression is limited to `LocomotionAnchorCommit` and `UnitOrdinaryLocomotion` `MoveEntity` operations. `BoxActionMovement`, `TopologyMaterialization`, `SpawnRespawnPlacement`, `ScriptedRelocation`, and retained legacy grid transactions must keep their required presentation motions.
 - `Unknown` is acceptable only for genuinely unclassified diagnostics during migration. Presentation-relevant movement, placement, and grid transaction paths should emit an explicit boundary kind.
+- Boundary v1 stabilization closes the remaining `MovementPhaseScenarioTests` failures as follows: blocked flip landing remains blocked without `MoveCommitted`, impact reservation, damage, or destroy mark; ordinary Unit same-destination movement remains stack-capable, and priority-winner coverage is now asserted through blocking grid transactions instead of stale ordinary-Unit rejection wording.
+- `BoxImpact` and box slide `Stop` action groups are `BoxActionMovement` boundaries. Player topology transactions are allowed through the legacy/grid transaction guard even when player ordinary locomotion flags are enabled.
+- Normal gameplay movement/finalization traces must not leave meaningful operations as `Boundary=Unknown`; only explicitly synthetic test-only operations may remain unknown.
 
 ## Consequences
 Replay hashes include non-default kinematic runtime state in a deterministic `UnitKinematics` section and non-default player free-local state in a deterministic `UnitContinuousLocomotion` section. Zero/absent kinematic and continuous states are intentionally omitted from those sections to preserve compact canonical dumps and avoid changing settled entity semantics.
