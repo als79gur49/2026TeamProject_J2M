@@ -224,6 +224,40 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(firstReplay.Any(frame => frame.Trace.Contains("Reason=OutsideSettleWindow")), Is.True);
         }
 
+        [Test]
+        [Category("Extended")]
+        public void Replay_Free2DActionAssist_NoCandidateReject_IsDeterministic()
+        {
+            var inputs = new[]
+            {
+                new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
+                new TickInput(2, PlayerTickCommand.None),
+            };
+            var harness = new TickReplayHarness();
+
+            var firstReplay = harness.Run(
+                CreateWorldStateWithPlayerOffset(
+                    512,
+                    0,
+                    CreatePlayer(10)),
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DActionAssistEnabled);
+            var secondReplay = harness.Run(
+                CreateWorldStateWithPlayerOffset(
+                    512,
+                    0,
+                    CreatePlayer(10)),
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DActionAssistEnabled);
+
+            AssertReplayEqual(firstReplay, secondReplay);
+            Assert.That(firstReplay.Any(frame => frame.PlayerControlDump.Contains("QueuedFree2DAction=Push")), Is.False);
+            Assert.That(firstReplay.Any(frame => frame.PlayerControlDump.Contains("QueuedFree2DAction=Flip")), Is.False);
+            Assert.That(firstReplay.Any(frame => frame.Trace.Contains("Reason=NoActionCandidate")), Is.True);
+        }
+
         private static void AssertReplayEqual(
             IReadOnlyList<TickReplayFrame> firstReplay,
             IReadOnlyList<TickReplayFrame> secondReplay)

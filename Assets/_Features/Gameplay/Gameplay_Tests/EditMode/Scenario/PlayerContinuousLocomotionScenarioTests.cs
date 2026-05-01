@@ -474,6 +474,96 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void Free2DActionAssist_EmptyFloorWithinSettleWindow_PushDoesNotQueueOrAlign()
+        {
+            var worldState = CreateWorldState(CreatePlayer(10));
+            SetPlayerContinuousLocalOffset(worldState, localX: 512, localY: 0);
+            var pipeline = CreateActionAssistPipeline(worldState);
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.queuedFree2DAction.IsQueued, Is.False);
+            Assert.That(controlState.activeAction.IsActive, Is.False);
+            Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
+            Assert.That(state.mode, Is.EqualTo(ContinuousLocomotionMode.Idle));
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(512));
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                reason.Contains("Free2DActionAssistRejected") &&
+                reason.Contains("Reason=NoActionCandidate")), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Free2DActionAssist_EmptyFloorWithinSettleWindow_FlipDoesNotQueueOrAlign()
+        {
+            var worldState = CreateWorldState(CreatePlayer(10));
+            SetPlayerContinuousLocalOffset(worldState, localX: 512, localY: 0);
+            var pipeline = CreateActionAssistPipeline(worldState);
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.queuedFree2DAction.IsQueued, Is.False);
+            Assert.That(controlState.activeAction.IsActive, Is.False);
+            Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
+            Assert.That(state.mode, Is.EqualTo(ContinuousLocomotionMode.Idle));
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(512));
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                reason.Contains("Free2DActionAssistRejected") &&
+                reason.Contains("Reason=NoActionCandidate")), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Free2DActionAssist_NoActionCandidate_EmitsDeterministicRejectTrace()
+        {
+            var worldState = CreateWorldState(CreatePlayer(10));
+            SetPlayerContinuousLocalOffset(worldState, localX: 512, localY: 0);
+            var pipeline = CreateActionAssistPipeline(worldState);
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
+
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Count(reason =>
+                reason.Contains("Free2DActionAssistRejected") &&
+                reason.Contains("Reason=NoActionCandidate") &&
+                reason.Contains("Source=10") &&
+                reason.Contains("Kind=Push") &&
+                reason.Contains("Direction=Right") &&
+                reason.Contains("Anchor=(0,0)") &&
+                reason.Contains("Offset=(512,0)")), Is.EqualTo(1));
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                reason.Contains("Free2DActionAssistQueued")), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Free2DActionAssist_BoxWithoutPushCapability_DoesNotQueueOrAlign()
+        {
+            var worldState = CreateWorldState(
+                CreatePlayer(10),
+                CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0)));
+            SetPlayerContinuousLocalOffset(worldState, localX: 512, localY: 0);
+            var pipeline = CreateActionAssistPipeline(worldState);
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.queuedFree2DAction.IsQueued, Is.False);
+            Assert.That(controlState.activeAction.IsActive, Is.False);
+            Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
+            Assert.That(state.mode, Is.EqualTo(ContinuousLocomotionMode.Idle));
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(512));
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                reason.Contains("Free2DActionAssistRejected") &&
+                reason.Contains("Reason=NoActionCandidate")), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Free2DActionAssist_AlignsToAnchorWithoutSnap()
         {
             var worldState = CreateWorldState(
@@ -688,6 +778,40 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void Free2DActionAssist_ExistingQueue_NoCandidateClearsWithoutAlign()
+        {
+            var worldState = CreateWorldState(CreatePlayer(10));
+            SetPlayerContinuousLocalOffset(worldState, localX: 512, localY: 0);
+            worldState.CreateWriteContext().SetPlayerControlState(
+                10,
+                PlayerControlQueries.QueueFree2DAction(
+                    default,
+                    PlayerQueuedFree2DActionKind.Push,
+                    Direction.Right,
+                    requestedTick: 7));
+            var pipeline = CreateActionAssistPipeline(worldState);
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.None));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.queuedFree2DAction.IsQueued, Is.False);
+            Assert.That(controlState.activeAction.IsActive, Is.False);
+            Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
+            Assert.That(state.mode, Is.EqualTo(ContinuousLocomotionMode.Idle));
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(512));
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                reason.Contains("Free2DActionAssistRejected") &&
+                reason.Contains("Reason=NoActionCandidate")), Is.True);
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                reason.Contains("Free2DActionAssistCleared") &&
+                reason.Contains("Reason=NoActionCandidate")), Is.True);
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                reason.Contains("Free2DActionAssistAlign")), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Free2DActionAssist_InvalidAfterAlign_ClearsQueue()
         {
             var worldState = CreateWorldState(
@@ -698,8 +822,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
             worldState.CreateWriteContext().RemoveEntity(20);
-            var settledTick = RunUntilSettledWithoutAction(pipeline, worldState, firstTick: 2);
-            var rejectedResult = pipeline.RunTick(new TickInput(settledTick + 1, PlayerTickCommand.None));
+            var rejectedResult = pipeline.RunTick(new TickInput(2, PlayerTickCommand.None));
             var snapshot = worldState.CreateSnapshot();
 
             Assert.That(snapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
@@ -721,8 +844,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
             worldState.CreateWriteContext().RemoveEntity(20);
-            var settledTick = RunUntilSettledWithoutAction(pipeline, worldState, firstTick: 2);
-            pipeline.RunTick(new TickInput(settledTick + 1, PlayerTickCommand.None));
+            pipeline.RunTick(new TickInput(2, PlayerTickCommand.None));
             var snapshot = worldState.CreateSnapshot();
 
             Assert.That(snapshot.TryGetEntity(20, out _), Is.False);

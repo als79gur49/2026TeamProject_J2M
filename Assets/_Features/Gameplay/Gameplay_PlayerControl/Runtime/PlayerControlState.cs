@@ -304,44 +304,55 @@ namespace Game.Feature.Gameplay.PlayerControl
                 return false;
             }
 
-            if (!TryResolveTraversalStep(snapshot, player, delta, out var targetCell, out var movementTopology))
+            return TryResolvePushContactAtAnchor(
+                snapshot,
+                player,
+                player.position,
+                inputDirection,
+                delta,
+                out contact);
+        }
+
+        public static bool HasFree2DActionAssistCandidate(
+            WorldSnapshot snapshot,
+            in EntityState player,
+            SurfaceCell currentAnchor,
+            PlayerQueuedFree2DActionKind actionKind,
+            Direction actionDirection)
+        {
+            if (snapshot == null)
             {
-                contact = default;
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (!TryResolveDelta(actionDirection, out var delta))
+            {
                 return false;
             }
 
-            if (!TryResolvePushBoxContact(snapshot, movementTopology, targetCell, out var target))
+            switch (actionKind)
             {
-                contact = default;
-                return false;
-            }
+                case PlayerQueuedFree2DActionKind.Push:
+                    return TryResolvePushContactAtAnchor(
+                        snapshot,
+                        player,
+                        currentAnchor,
+                        actionDirection,
+                        delta,
+                        out _);
 
-            if (snapshot.TryResolveNextSurfaceBoxSlideStep(
-                    snapshot.Topology,
-                    target.position,
-                    delta,
-                    out _,
-                    out _) ||
-                HasBoxCapability(target, BoxCapabilities.Destroy))
-            {
-                contact = new PlayerActionTarget(target.entityId, inputDirection);
-                return true;
-            }
+                case PlayerQueuedFree2DActionKind.Flip:
+                    return TryResolveFlipTargetAtAnchor(
+                        snapshot,
+                        player,
+                        currentAnchor,
+                        actionDirection,
+                        delta,
+                        out _);
 
-            if (!snapshot.TryResolveNextSurfaceBoxSlideStep(
-                    snapshot.Topology,
-                    target.position,
-                    delta,
-                    out _,
-                    out var stopper) &&
-                snapshot.TryPickHostileUnitImpactTargetAtForBoxSlide(stopper.Cell, player.teamId, out _))
-            {
-                contact = new PlayerActionTarget(target.entityId, inputDirection);
-                return true;
+                default:
+                    return false;
             }
-
-            contact = default;
-            return false;
         }
 
         public static bool TryResolveAdjacentPushTarget(
@@ -395,14 +406,83 @@ namespace Game.Feature.Gameplay.PlayerControl
             }
 
             if (!TryResolveDelta(inputDirection, out var delta) ||
-                !UnitSpatialQuery.TryResolveSettledProbeCell(snapshot, player.entityId, inputDirection, out _) ||
-                !snapshot.TryResolveLocalFlipCells(player.position, delta, out var targetCell, out var landingCell))
+                !UnitSpatialQuery.TryResolveSettledProbeCell(snapshot, player.entityId, inputDirection, out _))
             {
                 target = default;
                 return false;
             }
 
-            if (!TryResolveFlippableBoxTarget(snapshot, targetCell, landingCell, out var entity))
+            return TryResolveFlipTargetAtAnchor(
+                snapshot,
+                player,
+                player.position,
+                inputDirection,
+                delta,
+                out target);
+        }
+
+        private static bool TryResolvePushContactAtAnchor(
+            WorldSnapshot snapshot,
+            in EntityState player,
+            SurfaceCell currentAnchor,
+            Direction inputDirection,
+            Vector2Int delta,
+            out PlayerActionTarget contact)
+        {
+            var anchoredPlayer = player;
+            anchoredPlayer.position = currentAnchor;
+            if (!TryResolveTraversalStep(snapshot, anchoredPlayer, delta, out var targetCell, out var movementTopology))
+            {
+                contact = default;
+                return false;
+            }
+
+            if (!TryResolvePushBoxContact(snapshot, movementTopology, targetCell, out var target))
+            {
+                contact = default;
+                return false;
+            }
+
+            if (snapshot.TryResolveNextSurfaceBoxSlideStep(
+                    snapshot.Topology,
+                    target.position,
+                    delta,
+                    out _,
+                    out _) ||
+                HasBoxCapability(target, BoxCapabilities.Destroy))
+            {
+                contact = new PlayerActionTarget(target.entityId, inputDirection);
+                return true;
+            }
+
+            if (!snapshot.TryResolveNextSurfaceBoxSlideStep(
+                    snapshot.Topology,
+                    target.position,
+                    delta,
+                    out _,
+                    out var stopper) &&
+                snapshot.TryPickHostileUnitImpactTargetAtForBoxSlide(stopper.Cell, player.teamId, out _))
+            {
+                contact = new PlayerActionTarget(target.entityId, inputDirection);
+                return true;
+            }
+
+            contact = default;
+            return false;
+        }
+
+        private static bool TryResolveFlipTargetAtAnchor(
+            WorldSnapshot snapshot,
+            in EntityState player,
+            SurfaceCell currentAnchor,
+            Direction inputDirection,
+            Vector2Int delta,
+            out PlayerActionTarget target)
+        {
+            var anchoredPlayer = player;
+            anchoredPlayer.position = currentAnchor;
+            if (!snapshot.TryResolveLocalFlipCells(anchoredPlayer.position, delta, out var targetCell, out var landingCell) ||
+                !TryResolveFlippableBoxTarget(snapshot, targetCell, landingCell, out var entity))
             {
                 target = default;
                 return false;

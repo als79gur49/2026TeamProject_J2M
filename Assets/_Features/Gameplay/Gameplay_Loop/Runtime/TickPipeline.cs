@@ -1508,6 +1508,7 @@ namespace Game.Feature.Gameplay.Loop
             var effectivePlayerControlState = playerControlState;
             if (_runtimeFeatureFlags.EnablePlayerFree2DActionAssist &&
                 TryQueueFree2DActionAssist(
+                    snapshot,
                     entity,
                     pose,
                     playerControlState,
@@ -1524,6 +1525,7 @@ namespace Game.Feature.Gameplay.Loop
                 PlayerControlQueries.HasQueuedFree2DAction(effectivePlayerControlState))
             {
                 ResolvePlayerFree2DActionAssistAlign(
+                    snapshot,
                     entity,
                     pose,
                     effectivePlayerControlState,
@@ -1614,6 +1616,7 @@ namespace Game.Feature.Gameplay.Loop
         }
 
         private bool TryQueueFree2DActionAssist(
+            WorldSnapshot snapshot,
             in EntityState entity,
             UnitContinuousLocomotionPose pose,
             in PlayerControlState playerControlState,
@@ -1637,6 +1640,18 @@ namespace Game.Feature.Gameplay.Loop
             {
                 rejectedReasons.Add(
                     $"Free2DActionAssistRejected|Stage=Plan|Reason=OutsideSettleWindow|Source={entity.entityId}|Kind={actionKind}|Direction={playerCommand.MoveDirection}|Offset={pose.LocalOffset}|Window={_playerContinuousLocomotion.ActionAssistSettleWindowUnits}");
+                return false;
+            }
+
+            if (!PlayerControlQueries.HasFree2DActionAssistCandidate(
+                    snapshot,
+                    entity,
+                    pose.AnchorCell,
+                    actionKind,
+                    playerCommand.MoveDirection))
+            {
+                rejectedReasons.Add(
+                    $"Free2DActionAssistRejected|Stage=Plan|Reason=NoActionCandidate|Source={entity.entityId}|Kind={actionKind}|Direction={playerCommand.MoveDirection}|Anchor={FormatCell(pose.AnchorCell)}|Offset={pose.LocalOffset}");
                 return false;
             }
 
@@ -1666,6 +1681,7 @@ namespace Game.Feature.Gameplay.Loop
         }
 
         private void ResolvePlayerFree2DActionAssistAlign(
+            WorldSnapshot snapshot,
             in EntityState entity,
             UnitContinuousLocomotionPose pose,
             in PlayerControlState playerControlState,
@@ -1677,6 +1693,42 @@ namespace Game.Feature.Gameplay.Loop
             {
                 rejectedReasons.Add(
                     $"Free2DActionAssistAlign|Stage=Plan|Source={entity.entityId}|State=Settled|Kind={playerControlState.queuedFree2DAction.kind}|Direction={playerControlState.queuedFree2DAction.direction}|RequestedTick={playerControlState.queuedFree2DAction.requestedTick}|Anchor={FormatCell(entity.position)}");
+                return;
+            }
+
+            var queuedAction = playerControlState.queuedFree2DAction;
+            if (!PlayerControlQueries.HasFree2DActionAssistCandidate(
+                    snapshot,
+                    entity,
+                    pose.AnchorCell,
+                    queuedAction.kind,
+                    queuedAction.direction))
+            {
+                batch.SetPlayerControlState(
+                    entity.entityId,
+                    PlayerControlQueries.ClearQueuedFree2DAction(playerControlState),
+                    new FinalizationOperationMetadata(
+                        TickPhase.Plan,
+                        ResolvedActionSemanticKind.Stop,
+                        entity.entityId,
+                        actionPlanId: 0));
+                if (pose.HasAuthoritativeState &&
+                    (!pose.State.velocity.IsZero || pose.State.mode != ContinuousLocomotionMode.Idle))
+                {
+                    batch.SetUnitContinuousLocomotionState(
+                        entity.entityId,
+                        UnitContinuousLocomotionState.CreateIdleFreeze(pose.State),
+                        new FinalizationOperationMetadata(
+                            TickPhase.Plan,
+                            ResolvedActionSemanticKind.Stop,
+                            entity.entityId,
+                            actionPlanId: 0));
+                }
+
+                rejectedReasons.Add(
+                    $"Free2DActionAssistRejected|Stage=Plan|Reason=NoActionCandidate|Source={entity.entityId}|Kind={queuedAction.kind}|Direction={queuedAction.direction}|Anchor={FormatCell(pose.AnchorCell)}|Offset={pose.LocalOffset}|RequestedTick={queuedAction.requestedTick}");
+                rejectedReasons.Add(
+                    $"Free2DActionAssistCleared|Stage=Plan|Source={entity.entityId}|Reason=NoActionCandidate");
                 return;
             }
 
