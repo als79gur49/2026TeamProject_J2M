@@ -1652,7 +1652,9 @@ namespace Game.Feature.Gameplay.Loop
             FinalizationBatch batch)
         {
             var legacyIntents = new List<MoveIntent>(sortedIntents.Count);
-            var free2DHandledPlayerIds = new HashSet<int>();
+            var consumedFree2DIntentIds = new HashSet<int>();
+            var topologyHandoffPlayerIds = new HashSet<int>();
+            var settledApproachPlayerIds = new HashSet<int>();
             var entities = new List<EntityState>();
             snapshot.EnumerateEntitiesOrdered(entities);
 
@@ -1667,7 +1669,57 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
-                free2DHandledPlayerIds.Add(entity.entityId);
+                for (var intentIndex = 0; intentIndex < sortedIntents.Count; intentIndex++)
+                {
+                    var intent = sortedIntents[intentIndex];
+                    if (intent.SourceId != entity.entityId ||
+                        intent.CommandKind != Movement.MovementCommandKind.Move)
+                    {
+                        continue;
+                    }
+
+                    var handoffDisposition = ResolvePlayerFree2DTopologyHandoffIntent(
+                            snapshot,
+                            entity,
+                            playerControlState,
+                            intent);
+                    if (handoffDisposition == PlayerFree2DTopologyHandoffIntentDisposition.LocalZeroHandoff)
+                    {
+                        topologyHandoffPlayerIds.Add(entity.entityId);
+                        continue;
+                    }
+
+                    if (handoffDisposition == PlayerFree2DTopologyHandoffIntentDisposition.ApproachSettleAndHandoff ||
+                        handoffDisposition == PlayerFree2DTopologyHandoffIntentDisposition.ApproachSettleOnly)
+                    {
+                        if (settledApproachPlayerIds.Add(entity.entityId))
+                        {
+                            MaterializePlayerFree2DTopologyApproachSettle(
+                                entity,
+                                playerCommand.HeldMoveDirection,
+                                snapshot,
+                                batch);
+                        }
+
+                        if (handoffDisposition == PlayerFree2DTopologyHandoffIntentDisposition.ApproachSettleAndHandoff)
+                        {
+                            topologyHandoffPlayerIds.Add(entity.entityId);
+                            continue;
+                        }
+
+                        consumedFree2DIntentIds.Add(intent.IntentId);
+                        continue;
+                    }
+
+                    consumedFree2DIntentIds.Add(intent.IntentId);
+                }
+
+                if (topologyHandoffPlayerIds.Contains(entity.entityId) ||
+                    settledApproachPlayerIds.Contains(entity.entityId))
+                {
+                    continue;
+                }
+
                 ResolvePlayerFree2DLocalLocomotion(
                     snapshot,
                     entity,
@@ -1681,8 +1733,7 @@ namespace Game.Feature.Gameplay.Loop
             for (var i = 0; i < sortedIntents.Count; i++)
             {
                 var intent = sortedIntents[i];
-                if (free2DHandledPlayerIds.Contains(intent.SourceId) &&
-                    intent.CommandKind == Movement.MovementCommandKind.Move)
+                if (consumedFree2DIntentIds.Contains(intent.IntentId))
                 {
                     continue;
                 }
@@ -1691,6 +1742,236 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return legacyIntents;
+        }
+
+        private enum PlayerFree2DTopologyHandoffIntentDisposition
+        {
+            None = 0,
+            LocalZeroHandoff = 1,
+            ApproachSettleAndHandoff = 2,
+            ApproachSettleOnly = 3,
+        }
+
+        private PlayerFree2DTopologyHandoffIntentDisposition ResolvePlayerFree2DTopologyHandoffIntent(
+            WorldSnapshot snapshot,
+            in EntityState entity,
+            in PlayerControlState playerControlState,
+            MoveIntent intent)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (intent == null ||
+                intent.CommandKind != Movement.MovementCommandKind.Move ||
+                intent.SourceId != entity.entityId)
+            {
+                return PlayerFree2DTopologyHandoffIntentDisposition.None;
+            }
+
+            var delta = intent.Destination - entity.position.PlanarPosition;
+            if (Math.Abs(delta.x) + Math.Abs(delta.y) != 1)
+            {
+                return PlayerFree2DTopologyHandoffIntentDisposition.None;
+            }
+
+            if (!TryResolvePlayerFree2DTopologyTransition(snapshot, entity.position, delta))
+            {
+                return PlayerFree2DTopologyHandoffIntentDisposition.None;
+            }
+
+            if (IsPlayerFree2DTopologyLocalZeroHandoffEligible(snapshot, entity.entityId, playerControlState))
+            {
+                return PlayerFree2DTopologyHandoffIntentDisposition.LocalZeroHandoff;
+            }
+
+            if (!IsPlayerFree2DTopologyApproachSettleEligible(
+                    snapshot,
+                    entity,
+                    playerControlState,
+                    delta,
+                    out var disposition))
+            {
+                return PlayerFree2DTopologyHandoffIntentDisposition.None;
+            }
+
+            return disposition;
+        }
+
+        private static bool TryResolvePlayerFree2DTopologyTransition(
+            WorldSnapshot snapshot,
+            SurfaceCell source,
+            Vector2Int delta)
+        {
+            if (Math.Abs(delta.x) + Math.Abs(delta.y) != 1)
+            {
+                return false;
+            }
+
+            if (!snapshot.TryResolvePlayerStep(
+                    source,
+                    delta,
+                    out var destination,
+                    out var rotationKind,
+                    out var updatedTopology))
+            {
+                return false;
+            }
+
+            return rotationKind != CubeRotationKind.None ||
+                   !updatedTopology.Equals(snapshot.Topology) ||
+                   destination.face != source.face;
+        }
+
+        private static bool IsPlayerFree2DTopologyLocalZeroHandoffEligible(
+            WorldSnapshot snapshot,
+            int entityId,
+            in PlayerControlState playerControlState)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (playerControlState.activeAction.IsActive ||
+                PlayerControlQueries.HasQueuedFree2DAction(playerControlState))
+            {
+                return false;
+            }
+
+            if (!snapshot.TryGetUnitContinuousLocomotionPose(entityId, out var continuousPose) ||
+                !continuousPose.IsSettledAtAnchor ||
+                continuousPose.Mode != ContinuousLocomotionMode.Idle)
+            {
+                return false;
+            }
+
+            return snapshot.TryGetUnitKinematicPose(entityId, out var kinematicPose) &&
+                   kinematicPose.IsSettledAtAnchor;
+        }
+
+        private bool IsPlayerFree2DTopologyApproachSettleEligible(
+            WorldSnapshot snapshot,
+            in EntityState entity,
+            in PlayerControlState playerControlState,
+            Vector2Int directionDelta,
+            out PlayerFree2DTopologyHandoffIntentDisposition disposition)
+        {
+            disposition = PlayerFree2DTopologyHandoffIntentDisposition.None;
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (playerControlState.activeAction.IsActive ||
+                PlayerControlQueries.HasQueuedFree2DAction(playerControlState))
+            {
+                return false;
+            }
+
+            if (!snapshot.TryGetUnitKinematicPose(entity.entityId, out var kinematicPose) ||
+                !kinematicPose.IsSettledAtAnchor ||
+                !snapshot.TryGetUnitContinuousLocomotionPose(entity.entityId, out var continuousPose) ||
+                continuousPose.Mode == ContinuousLocomotionMode.AlignToAnchor ||
+                continuousPose.IsSettledAtAnchor ||
+                continuousPose.AnchorCell != entity.position)
+            {
+                return false;
+            }
+
+            var axisOffset = directionDelta.x != 0
+                ? continuousPose.LocalOffset.X.RawValue
+                : continuousPose.LocalOffset.Y.RawValue;
+            var perpendicularOffset = directionDelta.x != 0
+                ? continuousPose.LocalOffset.Y.RawValue
+                : continuousPose.LocalOffset.X.RawValue;
+            if (perpendicularOffset != 0)
+            {
+                return false;
+            }
+
+            var directionSign = directionDelta.x != 0 ? Math.Sign(directionDelta.x) : Math.Sign(directionDelta.y);
+            if (directionSign == 0)
+            {
+                return false;
+            }
+
+            var delta = CreateContinuousDelta(
+                continuousPose.State,
+                directionDelta,
+                out _,
+                out _,
+                out _);
+            var axisDelta = directionDelta.x != 0 ? delta.X.RawValue : delta.Y.RawValue;
+            if (axisDelta == 0 || Math.Sign(axisDelta) != directionSign)
+            {
+                return false;
+            }
+
+            var projectedOffset = axisOffset + axisDelta;
+            var reachesCenterThisTick = directionSign > 0
+                ? axisOffset < 0 && projectedOffset >= 0
+                : axisOffset > 0 && projectedOffset <= 0;
+            if (reachesCenterThisTick &&
+                Math.Abs(axisOffset) <= Math.Abs(axisDelta) + 1)
+            {
+                disposition = PlayerFree2DTopologyHandoffIntentDisposition.ApproachSettleAndHandoff;
+                return true;
+            }
+
+            var seamSideNonZero = directionSign > 0
+                ? axisOffset > 0
+                : axisOffset < 0;
+            if (seamSideNonZero)
+            {
+                disposition = PlayerFree2DTopologyHandoffIntentDisposition.ApproachSettleOnly;
+                return true;
+            }
+
+            return false;
+        }
+
+        private void MaterializePlayerFree2DTopologyApproachSettle(
+            in EntityState entity,
+            Direction direction,
+            WorldSnapshot snapshot,
+            FinalizationBatch batch)
+        {
+            if (!snapshot.TryGetUnitContinuousLocomotionPose(entity.entityId, out var pose))
+            {
+                return;
+            }
+
+            var facing = direction == Direction.Up ||
+                         direction == Direction.Right ||
+                         direction == Direction.Down ||
+                         direction == Direction.Left
+                ? direction
+                : entity.facing;
+            var settledState = new UnitContinuousLocomotionState
+            {
+                localOffset = KinematicOffset2.Zero,
+                velocity = KinematicVelocity2.Zero,
+                facing = facing,
+                lastMoveDirection = facing == Direction.None ? null : facing,
+                speedUnitsPerTick = _playerContinuousLocomotion.SpeedUnitsPerTick,
+                mode = ContinuousLocomotionMode.Idle,
+                sequenceId = pose.State.sequenceId + 1,
+            }.NormalizedForStorage();
+            var metadata = new FinalizationOperationMetadata(
+                TickPhase.Plan,
+                ResolvedActionSemanticKind.Move,
+                entity.entityId,
+                actionPlanId: 0,
+                movementSemanticKind: MovementSemanticKind.Move,
+                movementExecutionBoundaryKind: MovementExecutionBoundaryKind.UnitOrdinaryLocomotion,
+                boundaryReason: "PlayerFree2DTopologyApproachSettle");
+            batch.SetUnitContinuousLocomotionState(entity.entityId, settledState, metadata);
+            if (facing != Direction.None && entity.facing != facing)
+            {
+                batch.SetFacing(entity.entityId, facing, metadata);
+            }
         }
 
         private void ResolvePlayerFree2DLocalLocomotion(
@@ -1784,6 +2065,24 @@ namespace Game.Feature.Gameplay.Loop
             {
                 rejectedReasons.Add(
                     $"MovementRejected|Stage=Plan|Source={entity.entityId}|Reason=Free2DContinuousSweepRejected|RejectedBy={sweep.RejectedBy}|Anchor={FormatCell(entity.position)}");
+                return;
+            }
+
+            if (sweep.Blocked &&
+                sweep.RejectedBy == ContinuousLocomotionRejectionReason.TopologySeam &&
+                TryResolvePlayerFree2DTopologyTransition(snapshot, entity.position, directionDelta) &&
+                IsPlayerFree2DTopologyApproachSettleEligible(
+                    snapshot,
+                    entity,
+                    effectivePlayerControlState,
+                    directionDelta,
+                    out _))
+            {
+                MaterializePlayerFree2DTopologyApproachSettle(
+                    entity,
+                    playerCommand.HeldMoveDirection,
+                    snapshot,
+                    batch);
                 return;
             }
 

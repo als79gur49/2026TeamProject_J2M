@@ -9,6 +9,8 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
+using UnityEngine;
+using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Replay
 {
@@ -113,6 +115,75 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(firstReplay[8].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3"));
             Assert.That(firstReplay[9].FinalEntitiesDump, Does.Contain("E=10|Pos=(1,0)|Hp=2"));
             Assert.That(firstReplay[9].EventLogDump, Does.Contain("ContinuousLocomotionInterrupted|E=10"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Replay_PlayerFree2D_TopologyHandoff_IsDeterministic()
+        {
+            var inputs = new[]
+            {
+                new TickInput(1, PlayerTickCommand.Move(Direction.Up)),
+            };
+            var harness = new TickReplayHarness();
+            var boardBounds = new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1));
+
+            var firstReplay = harness.Run(
+                CreateWorldState(
+                    new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
+                    boardBounds,
+                    GameplayTerrainData.Empty,
+                    new CubeTopologyState(FaceId.Floor)),
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+            var secondReplay = harness.Run(
+                CreateWorldState(
+                    new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
+                    boardBounds,
+                    GameplayTerrainData.Empty,
+                    new CubeTopologyState(FaceId.Floor)),
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+
+            AssertReplayEqual(firstReplay, secondReplay);
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Not.Contain("Pos=(0,1)"));
+            Assert.That(firstReplay[0].OccupancyDump, Does.Not.Contain("Cell=(0,1)|E=10|Face=Floor"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_PlayerFree2D_TopologyApproachHandoff_IsDeterministic()
+        {
+            var inputs = Enumerable.Range(1, 20)
+                .Select(tick => new TickInput(tick, PlayerTickCommand.Move(Direction.Up)))
+                .ToArray();
+            var harness = new TickReplayHarness();
+            var boardBounds = new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1));
+
+            var firstReplay = harness.Run(
+                CreateWorldState(
+                    new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) },
+                    boardBounds,
+                    GameplayTerrainData.Empty,
+                    new CubeTopologyState(FaceId.Floor)),
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+            var secondReplay = harness.Run(
+                CreateWorldState(
+                    new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) },
+                    boardBounds,
+                    GameplayTerrainData.Empty,
+                    new CubeTopologyState(FaceId.Floor)),
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+
+            AssertReplayEqual(firstReplay, secondReplay);
+            Assert.That(firstReplay.Any(frame => !frame.FinalEntitiesDump.Contains("Pos=(0,0)")), Is.True);
+            Assert.That(firstReplay.Any(frame => frame.EventLogDump.Contains("LegacyUnitOrdinaryMovementDetected")), Is.False);
         }
 
         [Test]
@@ -294,6 +365,15 @@ namespace Game.Feature.Gameplay.Tests.Replay
             return GameplayWorldStateTestFactory.CreateBounded(entities);
         }
 
+        private static WorldState CreateWorldState(
+            IEnumerable<EntityState> entities,
+            BoardBounds boardBounds,
+            GameplayTerrainData terrainData,
+            CubeTopologyState topology)
+        {
+            return GameplayWorldStateTestFactory.CreateBounded(entities, boardBounds, terrainData, topology);
+        }
+
         private static WorldState CreateWorldStateWithPlayerOffset(
             int localX,
             int localY,
@@ -319,10 +399,15 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         private static EntityState CreatePlayer(int entityId, int hp = 3)
         {
+            return CreatePlayer(entityId, new SurfaceCell(FaceId.Floor, 0, 0), hp);
+        }
+
+        private static EntityState CreatePlayer(int entityId, SurfaceCell position, int hp = 3)
+        {
             return new EntityState
             {
                 entityId = entityId,
-                position = new SurfaceCell(FaceId.Floor, 0, 0),
+                position = position,
                 hp = hp,
                 maxHp = 3,
                 teamId = 1,

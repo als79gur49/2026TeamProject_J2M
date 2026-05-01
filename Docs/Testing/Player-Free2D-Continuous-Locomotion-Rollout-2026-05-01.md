@@ -9,7 +9,7 @@ When enabled, player ordinary movement uses `UnitContinuousLocomotionState` befo
 ## Validation Contract
 
 - Applies only to player ordinary movement from `PlayerTickCommand.HeldMoveDirection`.
-- Movement is 4-direction same-face axis motion only; diagonal input and topology seam free crossing are rejected or clamped.
+- Movement is 4-direction axis motion. Free2D-native nonzero local topology seam crossing is not implemented; local-zero settled topology moves may hand off to the retained topology grid transaction path, and topology-edge approach may first zero-settle to local-zero before that handoff.
 - `EntityState.position` remains the semantic anchor cell for occupancy, contact, push, flip, action preview, spawn, respawn, and topology decisions.
 - `UnitContinuousLocomotionState` stores deterministic fixed-point local offset, velocity, facing, last move direction, speed, mode, sequence, and residual remainders.
 - Absent continuous state means local-zero idle at the anchor. Local-nonzero idle must remain present.
@@ -20,7 +20,7 @@ When enabled, player ordinary movement uses `UnitContinuousLocomotionState` befo
 - `PlayerContinuousLocomotionSettings.ActionAssistSettleWindowCells` is the near-settled input leniency window for Action Assist. The project default is `0.125f`, converted to `512` fixed units.
 - Anchor normalization writes must apply `MoveEntity` first and `SetUnitContinuousLocomotionState(normalized state)` second in the same `FinalizationBatch`; this preserves the normalized pose after `MoveEntity` purges transient unit locomotion state.
 - `MoveEntity` anchor normalization is classified as a grid transaction primitive, not legacy ordinary Unit movement. It must not emit legacy `TickEntityMotionKind.Move`; presentation remains `TickContinuousLocomotionTrack`.
-- Collision is grid-authoritative: wall, terrain, box, solid, board edge, and topology edge block; unit overlap remains allowed.
+- Collision is grid-authoritative: wall, terrain, box, solid, and board edge approaches block; topology-edge approaches may zero-settle only when the retained topology transition is the blocker, and unit overlap remains allowed.
 - Passive contact remains anchor-cell based. Visual overlap before anchor normalization does not trigger neighbor contact.
 - Contact can begin only after anchor normalization commits the new `EntityState.position`.
 - Push, flip, and action preview require local-zero settled pose; local-nonzero idle and moving continuous pose reject settled probes.
@@ -70,7 +70,8 @@ Scoped deletion preparation pins this branch with `ScopedDeletionPrep_PlayerLega
 
 - No enemy, charge, jump, phase, glide, forced motion, or knockback migration.
 - No diagonal movement.
-- No topology seam free crossing; same-face edge movement clamps or rejects.
+- No Free2D-native nonzero local topology seam crossing or local offset face-basis remap. v1.1 only zero-settles eligible topology-edge approach poses to local-zero before using retained topology grid materialization.
+- Local-zero settled topology moves may hand off to the retained `TopologyMaterialization` grid transaction path.
 - No continuous box collider, footprint contact, swept combat, or projectile collision redesign.
 - No mid-pose push/flip/action execution. These remain settled-only.
 - No pose-based action probe and no local-nonzero tolerance-as-settled behavior.
@@ -84,10 +85,10 @@ Scoped deletion preparation pins this branch with `ScopedDeletionPrep_PlayerLega
 The stabilization suite locks the following acceptance tests:
 
 - Unit/state: `UnitContinuousLocomotionState_IdleZero_OmissionPolicy`, `WorldState_RemoveEntity_PurgesContinuousLocomotionState`, `WorldState_MutualExclusion_KinematicAndContinuous`, `FinalizationBatch_MoveEntityThenSetContinuousState_PreservesNormalizedPose`.
-- Movement/scenario: `Player_Free2D_WallClamp`, `Player_Free2D_TerrainClamp`, `Player_Free2D_TopologyEdge_ClampsOrRejects`, radius blocker approach coverage, `Player_Free2D_BeforeAnchorBoundary_NoEnemyContact`, `Player_Free2D_AfterAnchorBoundary_EnemyContactPossible`, `Player_Free2D_LocalZero_PushFlipAllowed`, `Player_Free2D_LocalNonZero_ActionPreviewRejected`, `Player_Free2D_HitNonlethal_PreservesPose`, `Player_Free2D_HitLethal_RemovedTerminalPreservesPose`.
+- Movement/scenario: `Player_Free2D_WallClamp`, `Player_Free2D_TerrainClamp`, `Player_Free2D_TopologyEdge_LocalZero_HandsOffToTopologyGridTransaction`, `Player_Free2D_TopologyEdge_LocalNonZero_ClampsOrRejects`, radius blocker approach coverage, `Player_Free2D_BeforeAnchorBoundary_NoEnemyContact`, `Player_Free2D_AfterAnchorBoundary_EnemyContactPossible`, `Player_Free2D_LocalZero_PushFlipAllowed`, `Player_Free2D_LocalNonZero_ActionPreviewRejected`, `Player_Free2D_HitNonlethal_PreservesPose`, `Player_Free2D_HitLethal_RemovedTerminalPreservesPose`.
 - Action Assist: `Free2DActionAssist_PushQueuedAtLocalNonZero`, `Free2DActionAssist_EmptyFloorWithinSettleWindow_PushDoesNotQueueOrAlign`, `Free2DActionAssist_EmptyFloorWithinSettleWindow_FlipDoesNotQueueOrAlign`, `Free2DActionAssist_NoCandidatePushWithHeldMove_ContinuesFree2DMovement`, `Free2DActionAssist_NoCandidateFlipWithHeldMove_ContinuesFree2DMovement`, `Free2DActionAssist_NoActionCandidate_EmitsDeterministicRejectTrace`, `Free2DActionAssist_BoxWithoutPushCapability_DoesNotQueueOrAlign`, `Free2DActionAssist_AlignsToAnchorWithoutSnap`, `Free2DActionAssist_PushExecutesAfterAlign`, `Free2DActionAssist_FlipExecutesAfterAlign`, `Free2DActionAssist_BoxRadiusClampThenPush`, `Free2DActionAssist_WithinSettleWindow_QueuesAndAligns`, `Free2DActionAssist_OutsideSettleWindow_DoesNotQueueOrAlign`, `Free2DActionAssist_WindowBoundaryInclusive`, `Free2DActionAssist_WindowBoundaryExclusiveAbove`, `Free2DActionAssist_ExistingQueue_IgnoresWindowAndContinuesAlign`, `Free2DActionAssist_ExistingQueue_NoCandidateClearsWithoutAlign`, `Free2DActionAssist_ActionTargetRevalidatedAtExecute`, `Free2DActionAssist_InvalidAfterAlign_ClearsQueue`, `Free2DActionAssist_MovementInputDoesNotCancelQueue`, `Free2DActionAssist_HitClearsQueue`, `Free2DActionAssist_DeathClearsQueue`, `Free2DActionAssist_LocalZero_PushStillImmediate`, `Free2DActionAssist_LocalNonZero_ActionNotExecutedBeforeSettled`, `Free2DActionAssist_FlagOff_Baseline`, and `Free2DActionAssist_DoesNotAffectKinematicFallback`.
 - Presentation: `GameplayTickViewPresenter_ContinuousPose_AppliesAnchorPlusLocalOffset`, `GameplayTickViewPresenter_ContinuousIdleNonZero_DoesNotSnapToAnchor`, `GameplayTickViewPresenter_ContinuousRemovedTerminal_RetainsPose`.
-- Replay: `Replay_PlayerFree2D_StopTurnClamp_IsDeterministic`, `Replay_PlayerFree2D_RadiusApproachBlocker_IsDeterministic`, `Replay_PlayerFree2D_AnchorNormalizeContact_IsDeterministic`, `Replay_PlayerFree2D_HitDeath_IsDeterministic`, `Replay_Free2DActionAssist_QueueAlignExecute_IsDeterministic`, `Replay_Free2DActionAssist_OutsideWindowReject_IsDeterministic`, `Replay_Free2DActionAssist_NoCandidateReject_IsDeterministic`.
+- Replay: `Replay_PlayerFree2D_StopTurnClamp_IsDeterministic`, `Replay_PlayerFree2D_RadiusApproachBlocker_IsDeterministic`, `Replay_PlayerFree2D_AnchorNormalizeContact_IsDeterministic`, `Replay_PlayerFree2D_TopologyApproachHandoff_IsDeterministic`, `Replay_PlayerFree2D_HitDeath_IsDeterministic`, `Replay_Free2DActionAssist_QueueAlignExecute_IsDeterministic`, `Replay_Free2DActionAssist_OutsideWindowReject_IsDeterministic`, `Replay_Free2DActionAssist_NoCandidateReject_IsDeterministic`.
 - Boundary v1 / deprecation Phase 1: `TickPipeline_ValidateLegacyExpansionIntents_BlocksFlagOnUnitOrdinaryMove`, `DeprecationPhase1_DefaultGameplayLocomotion_PlayerEnemyCharge_NoLegacyFallback`, `Replay_DeprecationPhase1_DefaultGameplayLocomotion_NoCoveredLegacyFallback`, and `Boundary_UnknownInventory_NormalGameplayHasNoUnexpectedUnknownMovement` verify that flag-on Free2D ordinary movement does not leak into legacy ordinary Unit movement while push/flip/item/topology grid transactions remain retained.
 - Baseline: `Player_Free2D_FlagOff_ExistingKinematicBaseline`, `Player_Free2D_DoesNotAffectEnemyOrCharge`.
 

@@ -14,14 +14,14 @@ Gameplay spatial authority remains `EntityState.position: SurfaceCell` plus the 
 - `UnitContinuousLocomotionState` is player ordinary movement only. It must not be active on the same entity as `UnitKinematicRuntimeState`.
 - `1 cell = 4096` fixed units, with representable local offset range `[-2048, 2047]`.
 - Box, wall, terrain, projectile, reservation, topology, and impact disposition remain grid-authoritative in v1.
-- v1 player free-local locomotion is 4-direction same-face only; topology seam crossing and continuous box colliders are non-goals.
+- v1 player free-local locomotion is 4-direction same-face for arbitrary nonzero local poses; eligible topology-edge approach poses may zero-settle to local-zero and then hand off to retained `TopologyMaterialization`, while native topology seam crossing, local offset face-basis remap, and continuous box colliders are non-goals.
 - Presentation may consume `TickKinematicMotionTrack` or `TickContinuousLocomotionTrack`, but presentation data is never canonical simulation state.
 - Enemy glide visual height is carried by `TickEnemyGlidePresentationSignal` as presentation-only fixed units. The host converts that height to an additive offset along the current `SurfaceCell` face normal after resolving the base pose. This signal does not change `EntityState.position`, `UnitKinematicRuntimeState`, `UnitContinuousLocomotionState`, collision/contact behavior, or canonical replay hashes. With `EnableEnemyGlideKinematicLocomotion`, active glide horizontal chase movement uses the enemy kinematic lane with `MotionMode.Voluntary`; continuation is allowed only for voluntary segments that started inside the authoritative glide active window. Flag-off and default-bundle paths retain the documented legacy fallback baseline until readiness adopts the flag.
 
 ## Locomotion vs Grid Transaction Boundary v1
 
 - Unit locomotion is time-based Unit movement state: player Free2D ordinary movement, player kinematic fallback, enemy ordinary kinematic movement, Charge active kinematic steps, and future special locomotion such as jump, phase, forced motion, or knockback.
-- Grid transaction is immediate canonical grid or anchor materialization: spawn, respawn, cleanup removal, box push/flip/action materialization, topology materialization, scripted relocation, and continuous/kinematic anchor normalization.
+- Grid transaction is immediate canonical grid or anchor materialization: spawn, respawn, cleanup removal, box push/flip/action materialization, topology materialization including Player Free2D local-zero and approach-zero-settle topology handoff, scripted relocation, and continuous/kinematic anchor normalization.
 - `MoveEntity` is an anchor/grid transaction primitive. It is not the ordinary Unit movement abstraction.
 - Legacy ordinary Unit movement is the path where an ordinary Unit `MovementCommandKind.Move` reaches `MovementExpander`, commits through `MoveEntity`, and presents as legacy `TickEntityMotionKind.Move` or Charge `TickEntityMotionKind.ChargeMove`.
 - Legacy ordinary Unit movement is the deprecation target. Legacy grid transactions are retained in Boundary v1.

@@ -165,6 +165,62 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
+        public void Player_Free2D_TopologyHandoff_NoLegacyOrdinaryFallback()
+        {
+            var worldState = CreateWorldState(
+                new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            var tick = CreatePipeline(
+                    worldState,
+                    new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
+                    GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
+                .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+
+            LegacyMovementBoundaryAssert.GridTransactionBranchesRemainAllowed(
+                tick,
+                10,
+                MovementExecutionBoundaryKind.TopologyMaterialization);
+            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(tick);
+            Assert.That(
+                tick.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.SetTopology &&
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.TopologyMaterialization),
+                Is.True);
+            Assert.That(tick.PresentationData.ContinuousLocomotionTracks.Any(track => track.EntityId == 10), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Player_Free2D_TopologyHandoff_GridTransactionAllowedByPhase1()
+        {
+            var worldState = CreateWorldState(
+                new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            var topologyIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(0, 2));
+            topologyIntent.AssignIntentId(1);
+
+            AssertLegacyExpansionIntentAllowed(
+                worldState,
+                topologyIntent,
+                GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+
+            var tick = CreatePipeline(
+                    worldState,
+                    new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
+                    GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
+                .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            LegacyMovementBoundaryAssert.GridTransactionBranchesRemainAllowed(
+                tick,
+                10,
+                MovementExecutionBoundaryKind.TopologyMaterialization);
+        }
+
+        [Test]
+        [Category("Core")]
         public void DeprecationPhase1_GridTransactionsRemainAllowed()
         {
             BoundaryInventory_GridTransactionsRemainAllowed_UnderDefaultGameplayLocomotion();
@@ -1029,6 +1085,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static WorldState CreateWorldState(IEnumerable<EntityState> entities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(entities);
+        }
+
+        private static WorldState CreateWorldState(
+            IEnumerable<EntityState> entities,
+            BoardBounds boardBounds,
+            GameplayTerrainData terrainData,
+            CubeTopologyState topology)
+        {
+            return GameplayWorldStateTestFactory.CreateBounded(entities, boardBounds, terrainData, topology);
         }
 
         private static List<MoveIntent> InvokeValidateLegacyExpansionIntents(

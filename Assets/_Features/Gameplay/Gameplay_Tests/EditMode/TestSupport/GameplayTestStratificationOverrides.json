@@ -1553,6 +1553,37 @@
       ],
       "reason": "Locked Core coverage for suppressing duplicate legacy locomotion anchor presentation.",
       "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.Player_Free2D_TopologyEdge_ApproachFromInterior_HandsOffToTopologyGridTransaction",
+      "category": "Core",
+      "contracts": [
+        "player_free2d_continuous_locomotion",
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage for Free2D topology approach handoff through retained topology grid transaction.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.Player_Free2D_TopologyEdge_CenterCrossing_SameTickHandoff",
+      "category": "Core",
+      "contracts": [
+        "player_free2d_continuous_locomotion",
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage for same-tick zero-settle and topology handoff at the edge center crossing.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.PlayerContinuousLocomotionReplayTests.Replay_PlayerFree2D_TopologyApproachHandoff_IsDeterministic",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "player_free2d_continuous_locomotion",
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core replay coverage for deterministic Free2D topology approach handoff.",
+      "locked": true
     }
   ]
 }

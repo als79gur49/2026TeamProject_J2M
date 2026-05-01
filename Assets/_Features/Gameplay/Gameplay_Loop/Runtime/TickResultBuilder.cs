@@ -957,6 +957,7 @@ namespace Game.Feature.Gameplay.Loop
                 terminalEntityIds.Add(record.EntityId);
             }
 
+            var topologyMaterializedEntityIds = BuildTopologyMaterializedEntityIdSet(context.MovementPhaseResult);
             var continuousTrackEntityIds = new HashSet<int>();
             var entries = new List<UnitContinuousLocomotionSnapshotEntry>();
             context.PostMovementSnapshot.EnumerateUnitContinuousLocomotionStatesOrdered(entries);
@@ -964,6 +965,7 @@ namespace Game.Feature.Gameplay.Loop
             {
                 var entityId = entries[i].EntityId;
                 if (terminalEntityIds.Contains(entityId) ||
+                    topologyMaterializedEntityIds.Contains(entityId) ||
                     !context.PreMovementSnapshot.TryGetUnitContinuousLocomotionPose(entityId, out var sourcePose) ||
                     !context.PostMovementSnapshot.TryGetUnitContinuousLocomotionPose(entityId, out var destinationPose) ||
                     !context.PreMovementSnapshot.TryGetEntity(entityId, out var sourceEntity) ||
@@ -1000,6 +1002,7 @@ namespace Game.Feature.Gameplay.Loop
             {
                 var entityId = entries[i].EntityId;
                 if (terminalEntityIds.Contains(entityId) ||
+                    topologyMaterializedEntityIds.Contains(entityId) ||
                     continuousTrackEntityIds.Contains(entityId) ||
                     !context.PreMovementSnapshot.TryGetUnitContinuousLocomotionPose(entityId, out var sourcePose) ||
                     !context.PostMovementSnapshot.TryGetUnitContinuousLocomotionPose(entityId, out var destinationPose) ||
@@ -1074,6 +1077,23 @@ namespace Game.Feature.Gameplay.Loop
                         record.Pose.Mode,
                         TickKinematicMotionTerminalKind.Removed));
             }
+        }
+
+        private static HashSet<int> BuildTopologyMaterializedEntityIdSet(MovementPhaseResult movementPhaseResult)
+        {
+            var entityIds = new HashSet<int>();
+            var operations = movementPhaseResult.ResolvedOperations;
+            for (var i = 0; i < operations.Count; i++)
+            {
+                var operation = operations[i];
+                if (operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.TopologyMaterialization &&
+                    operation.EntityId != 0)
+                {
+                    entityIds.Add(operation.EntityId);
+                }
+            }
+
+            return entityIds;
         }
 
         private static void BuildFlipImpactPresentation(
