@@ -429,7 +429,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void BoundaryInventory_Glide_ActiveLegacyOrdinaryLeak_IsDocumented()
+        public void BoundaryInventory_Glide_ActiveLegacyFallback_FlagOff_IsDocumented()
         {
             var glideProfile = EnemyAiProfileTestFactory.CreateGlideChaser(
                 new EnemyGlideTimingSettings(windupTicks: 1, durationTicks: 2, recoveryTicks: 1, cooldownTicks: 1));
@@ -455,6 +455,76 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(glideState.Phase, Is.EqualTo(EnemyGlidePhase.Active));
                 LegacyMovementBoundaryAssert.HasLegacyFallbackMove(activeTick, 40);
                 LegacyMovementBoundaryAssert.HasLegacyFallbackMoveEntity(activeTick, 40);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(glideProfile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BoundaryInventory_Glide_ActiveKinematic_NoLegacyOrdinaryMove()
+        {
+            var glideProfile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(windupTicks: 1, durationTicks: 2, recoveryTicks: 1, cooldownTicks: 1));
+            try
+            {
+                var glideWorld = CreateWorldState(new[]
+                {
+                    CreatePlayer(10, new SurfaceCell(FaceId.Floor, 3, 0)),
+                    CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase),
+                });
+                var glidePipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(glideProfile)
+                    .CreateTickPipeline(
+                        glideWorld,
+                        Array.Empty<IEntityLogic>(),
+                        GameplayTimingProfile.CreateDefault(),
+                        CreatePlayerTiming(),
+                        runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled,
+                        playerKinematicLocomotionTiming: CreateTwoTickKinematicTiming());
+
+                _ = glidePipeline.RunTick(new TickInput(1));
+                var activeTick = glidePipeline.RunTick(new TickInput(2));
+
+                Assert.That(glideWorld.CreateSnapshot().TryGetEnemyGlideState(40, out var glideState), Is.True);
+                Assert.That(glideState.Phase, Is.EqualTo(EnemyGlidePhase.Active));
+                Assert.That(
+                    activeTick.PresentationData.KinematicMotionTracks.Any(track =>
+                        track.EntityId == 40 &&
+                        track.MotionMode == MotionMode.Voluntary),
+                    Is.True);
+                Assert.That(
+                    activeTick.PresentationData.EnemyGlideSignals.Any(signal =>
+                        signal.EntityId == 40 &&
+                        signal.Phase == EnemyGlidePhase.Active &&
+                        signal.CurrentHeightUnits > 0),
+                    Is.True);
+                LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(activeTick, 40);
+                var commitTick = HasGlideActiveKinematicAnchorCommit(activeTick, 40)
+                    ? activeTick
+                    : null;
+                for (var tickIndex = 3; tickIndex <= 8; tickIndex++)
+                {
+                    if (commitTick != null)
+                    {
+                        break;
+                    }
+
+                    var tick = glidePipeline.RunTick(new TickInput(tickIndex));
+                    LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(tick, 40);
+                    if (HasGlideActiveKinematicAnchorCommit(tick, 40))
+                    {
+                        commitTick = tick;
+                    }
+                }
+
+                Assert.That(commitTick, Is.Not.Null);
+                LegacyMovementBoundaryAssert.HasMoveEntityBoundaryReason(
+                    commitTick,
+                    40,
+                    MovementExecutionBoundaryKind.LocomotionAnchorCommit,
+                    "GlideActiveKinematicAnchorCommit");
             }
             finally
             {
@@ -612,6 +682,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(flags.EnablePlayerStoppableKinematicLocomotion, Is.True);
             Assert.That(flags.EnableEnemySameFaceContinuousLocomotion, Is.True);
             Assert.That(flags.EnableEnemyChargeKinematicLocomotion, Is.True);
+            Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.False);
             Assert.That(GameplayRuntimeFeatureFlags.None.EnablePlayerFree2DLocalLocomotion, Is.False);
         }
 
@@ -634,6 +705,24 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                 timingProfile.SimulationTicksPerSecond,
                 timingProfile.RepeatedMoveIntervalSeconds);
+        }
+
+        private static PlayerKinematicLocomotionTimingSnapshot CreateTwoTickKinematicTiming()
+        {
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            return new PlayerKinematicLocomotionTimingSettings
+            {
+                KinematicMoveDurationSeconds = 2f / timingProfile.SimulationTicksPerSecond,
+            }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond);
+        }
+
+        private static bool HasGlideActiveKinematicAnchorCommit(TickResult tick, int entityId)
+        {
+            return tick.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                operation.Kind == FinalizationOperationKind.MoveEntity &&
+                operation.EntityId == entityId &&
+                operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.LocomotionAnchorCommit &&
+                operation.Metadata.BoundaryReason == "GlideActiveKinematicAnchorCommit");
         }
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> entities)

@@ -90,6 +90,22 @@ namespace Game.Feature.Gameplay.Tests
                 BuildDebug(result, entityId));
         }
 
+        public static void HasMoveEntityBoundaryReason(
+            TickResult result,
+            int entityId,
+            MovementExecutionBoundaryKind boundaryKind,
+            string boundaryReason)
+        {
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.MoveEntity &&
+                    operation.EntityId == entityId &&
+                    operation.Metadata.MovementExecutionBoundaryKind == boundaryKind &&
+                    operation.Metadata.BoundaryReason == boundaryReason),
+                Is.True,
+                BuildDebug(result, entityId));
+        }
+
         public static void HasOperationBoundary(
             TickResult result,
             int entityId,

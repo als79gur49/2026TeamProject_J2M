@@ -9,6 +9,7 @@ using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.Movement.Expansion;
 using Game.Feature.Gameplay.Movement.Intents;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
 using UnityEngine;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
@@ -397,6 +398,75 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void GlideActive_Kinematic_PreservesSolidBypass()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 6, recoveryTicks: 1, cooldownTicks: 0));
+            var wallCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(10, teamId: 1, new SurfaceCell(FaceId.Floor, 3, 0), EnemyAiMode.None),
+                CreateWall(30, wallCell),
+                CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Chase),
+            });
+            worldState.CreateWriteContext().SetEnemyGlideState(
+                40,
+                CreateActiveGlide(activeUntilTickExclusive: 10, durationTicks: 6, cooldownTicks: 0, recoveryTicks: 1));
+
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile)
+                    .CreateTickPipeline(
+                        worldState,
+                        Array.Empty<IEntityLogic>(),
+                        GameplayTimingProfile.CreateDefault(),
+                        CreatePlayerTiming(),
+                        runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled,
+                        playerKinematicLocomotionTiming: CreateTwoTickKinematicTiming());
+
+                var startTick = pipeline.RunTick(new TickInput(1));
+
+                Assert.That(
+                    startTick.PresentationData.KinematicMotionTracks.Any(track =>
+                        track.EntityId == 40 &&
+                        track.MotionMode == MotionMode.Voluntary),
+                    Is.True);
+                LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(startTick, 40);
+                var commitTick = HasGlideActiveKinematicAnchorCommit(startTick, 40)
+                    ? startTick
+                    : null;
+                for (var tickIndex = 2; tickIndex <= 8; tickIndex++)
+                {
+                    if (commitTick != null)
+                    {
+                        break;
+                    }
+
+                    var tick = pipeline.RunTick(new TickInput(tickIndex));
+                    LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(tick, 40);
+                    if (HasGlideActiveKinematicAnchorCommit(tick, 40))
+                    {
+                        commitTick = tick;
+                    }
+                }
+
+                Assert.That(commitTick, Is.Not.Null);
+                LegacyMovementBoundaryAssert.HasMoveEntityBoundaryReason(
+                    commitTick,
+                    40,
+                    MovementExecutionBoundaryKind.LocomotionAnchorCommit,
+                    "GlideActiveKinematicAnchorCommit");
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(enemy.position, Is.EqualTo(wallCell));
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void MovementExpansion_FlipCanImpactActiveAndLandingPendingGliderSharingLandingCellWithSolid()
         {
             var landingCell = new SurfaceCell(FaceId.Floor, -1, 0);
@@ -453,6 +523,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 worldState.CreateWriteContext(),
                 new List<string>(),
                 new List<PlayerActionTransition>());
+        }
+
+        private static PlayerControlTimingAuthoritativeSnapshot CreatePlayerTiming()
+        {
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            return PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                timingProfile.SimulationTicksPerSecond,
+                timingProfile.RepeatedMoveIntervalSeconds);
+        }
+
+        private static PlayerKinematicLocomotionTimingSnapshot CreateTwoTickKinematicTiming()
+        {
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            return new PlayerKinematicLocomotionTimingSettings
+            {
+                KinematicMoveDurationSeconds = 2f / timingProfile.SimulationTicksPerSecond,
+            }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond);
+        }
+
+        private static bool HasGlideActiveKinematicAnchorCommit(TickResult tick, int entityId)
+        {
+            return tick.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                operation.Kind == FinalizationOperationKind.MoveEntity &&
+                operation.EntityId == entityId &&
+                operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.LocomotionAnchorCommit &&
+                operation.Metadata.BoundaryReason == "GlideActiveKinematicAnchorCommit");
         }
 
         private static EnemyGlideRuntimeState CreateActiveGlide(

@@ -169,6 +169,50 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Extended")]
+        public void Replay_EnemyGlideActiveKinematicLocomotion_IsDeterministic()
+        {
+            var inputs = Enumerable.Range(1, 4)
+                .Select(tick => new TickInput(tick))
+                .ToArray();
+            var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(windupTicks: 1, durationTicks: 3, recoveryTicks: 1, cooldownTicks: 0));
+            var harness = new TickReplayHarness();
+
+            try
+            {
+                var firstReplay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    CreateGlideWorldState(),
+                    entityLogics: new IEntityLogic[0],
+                    inputs,
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled);
+                var secondReplay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    CreateGlideWorldState(),
+                    entityLogics: new IEntityLogic[0],
+                    inputs,
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled);
+
+                AssertEquivalentReplayOutputs(firstReplay, secondReplay);
+                Assert.That(
+                    firstReplay.Any(frame => frame.Trace.Contains("GlideActiveKinematicAnchorCommit", StringComparison.Ordinal)),
+                    Is.True);
+                Assert.That(
+                    firstReplay.Any(frame => frame.Trace.Contains("UnitKinematics", StringComparison.Ordinal) ||
+                                             frame.EventLogDump.Contains("KinematicPoseCommitted", StringComparison.Ordinal)),
+                    Is.True);
+                Assert.That(
+                    firstReplay.Any(frame => frame.Trace.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
+                    Is.False);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyCharge_SettleWait_ReplayDeterministic()
         {
             var inputs = Enumerable.Range(1, 5)
