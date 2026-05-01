@@ -10,7 +10,7 @@ This rollout is guarded by `GameplayRuntimeFeatureFlags.EnableEnemySameFaceConti
 - `MoveEntity` midpoint anchor commit is classified as a grid transaction primitive, not legacy ordinary Unit movement.
 - Timing reuses `PlayerKinematicLocomotionTimingSettings`: default 60 TPS resolves to 20 ticks per cell with midpoint anchor commit on tick 10.
 - Passive contact rules are unchanged. Contact timing changes only because the enemy semantic anchor commits at midpoint.
-- Charge, jump, glide, phase relocation, topology transitions, push, flip, item, projectile, and forced motion are not migrated in this slice.
+- Charge, jump, phase relocation, topology transitions, push, flip, item, projectile, and forced motion are not migrated in this slice. Active glide chase movement has a separate opt-in slice guarded by `EnableEnemyGlideKinematicLocomotion`; it reuses enemy kinematic machinery but is not enabled by this flag.
 - Legacy grid transactions remain retained for box/action/topology/spawn/respawn/cleanup and flag-off fallback.
 - Boundary v1 classifies enemy anchor commits as `LocomotionAnchorCommit` and suppresses duplicate legacy entity motion only for locomotion boundaries. Grid transactions such as `BoxActionMovement`, `TopologyMaterialization`, and `SpawnRespawnPlacement` keep required legacy presentation.
 - Boundary metadata is diagnostic and must not affect canonical replay hashes.
@@ -22,6 +22,7 @@ This rollout is guarded by `GameplayRuntimeFeatureFlags.EnableEnemySameFaceConti
 Set `EnableEnemySameFaceContinuousLocomotion` to false or pass `GameplayRuntimeFeatureFlags.None`.
 The legacy `MovementExpander` path remains present and is covered by the flag-off passive contact baseline.
 `GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion` enables this path for readiness canaries while preserving `None` as the explicit legacy fallback baseline.
+`GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion` does not include `EnableEnemyGlideKinematicLocomotion` in v1; glide active kinematic rollout must be enabled explicitly.
 Default bundle adoption remains explicit. Showcase/dev gameplay hosts may opt in through host configuration, while replay harness defaults, composition-root defaults, historical tests, migration comparisons, and flag-off goldens continue to use `GameplayRuntimeFeatureFlags.None`.
 Default bundle adoption is not legacy deletion. The v3 deletion-readiness gate lives in `Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Readiness-2026-05-01.md` and keeps `MoveEntity`, `MovementExpander`, retained grid transactions, and flag-off baselines out of the deletion target.
 
