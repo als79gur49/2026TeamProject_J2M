@@ -188,6 +188,57 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Extended")]
+        public void Replay_Phase2_PlayerDefaultGameplayLocomotion_NoLegacyFallback()
+        {
+            var inputs = new[]
+            {
+                new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                new TickInput(2, PlayerTickCommand.Move(Direction.Right)),
+                new TickInput(3, PlayerTickCommand.None),
+            };
+            var harness = new TickReplayHarness();
+
+            var firstReplay = harness.Run(
+                CreateWorldState(CreatePlayer(10)),
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+            var secondReplay = harness.Run(
+                CreateWorldState(CreatePlayer(10)),
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+
+            AssertReplayEqual(firstReplay, secondReplay);
+            Assert.That(firstReplay.Any(frame => frame.Trace.Contains("LegacyFallback", StringComparison.Ordinal)), Is.False);
+            Assert.That(firstReplay.Any(frame => frame.EventLogDump.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Replay_Phase2_PlayerFlagOffLegacyFallback_BaselineDocumented()
+        {
+            var inputs = new[] { new TickInput(1, PlayerTickCommand.Move(Direction.Right)) };
+            var harness = new TickReplayHarness();
+
+            var firstReplay = harness.Run(
+                CreateWorldState(CreatePlayer(10)),
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
+            var secondReplay = harness.Run(
+                CreateWorldState(CreatePlayer(10)),
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
+
+            AssertReplayEqual(firstReplay, secondReplay);
+            Assert.That(firstReplay.Any(frame => frame.Trace.Contains("LegacyFallback", StringComparison.Ordinal)), Is.True);
+            Assert.That(firstReplay.Any(frame => frame.EventLogDump.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Replay_PlayerFree2D_HitDeath_IsDeterministic()
         {
             var inputs = new[]

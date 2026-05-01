@@ -29,6 +29,8 @@ Default gameplay host rollout is explicit and does not change replay harness def
 Default bundle adoption is not legacy deletion. Phase 1 of the deletion-readiness gate isolates covered player/enemy/Charge locomotion fallback under default/flag-on lanes while keeping `MoveEntity`, `MovementExpander`, retained grid transactions, active glide retained fallback, and flag-off baselines out of the deletion target. Actual Charge fallback deletion is not complete and remains a later scoped deletion phase.
 Scoped deletion preparation pins this path with `ScopedDeletionPrep_ChargeLegacyFallback_IsFlagOffOnly`; `ChargeMove` remains allowed only for the flag-off baseline until owner-approved deletion.
 
+Phase 2C of legacy ordinary Unit movement deprecation is a Charge active fallback pilot only. It pins the Charge fallback branch, flag reachability, `None` baseline policy, and deletion preconditions; it does not delete `ChargeMove`, `MoveEntity`, `MovementExpander`, retained grid transactions, or any player/enemy/glide fallback.
+
 When ordinary enemy kinematic locomotion is enabled but Charge kinematic locomotion is disabled, ChargeStart still waits for non-settled ordinary voluntary kinematic movement to settle. The legacy `ChargeMove` path starts only after the revalidated ChargeStart transition.
 
 ## Known Risks

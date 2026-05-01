@@ -107,6 +107,227 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
+        public void Phase2_PlayerLegacyFallback_DefaultGameplayLocomotion_NoLegacyFallback()
+        {
+            AssertDefaultGameplayLocomotionFlags();
+
+            var tick = CreatePipeline(
+                    CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) }),
+                    new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
+                    GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
+                .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+
+            Assert.That(tick.PresentationData.ContinuousLocomotionTracks.Any(track => track.EntityId == 10), Is.True);
+            LegacyMovementBoundaryAssert.NoPlayerLegacyOrdinaryFallback(tick, 10);
+            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(tick);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Phase2_PlayerLegacyFallback_Free2DFlagOn_BlockedBeforeMovementExpander()
+        {
+            var worldState = CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) });
+            worldState.CreateWriteContext().SetPlayerControlState(10, default);
+            var intent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
+            intent.AssignIntentId(1);
+
+            AssertLegacyExpansionIntentBlocked(
+                worldState,
+                intent,
+                GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled,
+                "PlayerCoveredLocomotionReachedLegacyExpansion");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Phase2_PlayerLegacyFallback_KinematicFlagOn_BlockedBeforeMovementExpander()
+        {
+            var worldState = CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) });
+            worldState.CreateWriteContext().SetPlayerControlState(10, default);
+            var intent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
+            intent.AssignIntentId(1);
+
+            AssertLegacyExpansionIntentBlocked(
+                worldState,
+                intent,
+                GameplayRuntimeFeatureFlags.PlayerSameFaceContinuousLocomotionEnabled,
+                "PlayerCoveredLocomotionReachedLegacyExpansion");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Phase2_PlayerLegacyFallback_FlagOffBaseline_StillAllowed()
+        {
+            var tick = CreatePipeline(
+                    CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) }),
+                    new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
+                    GameplayRuntimeFeatureFlags.None)
+                .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+
+            LegacyMovementBoundaryAssert.AllowsPlayerFlagOffLegacyOrdinaryFallback(tick, 10);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Phase2_PlayerLegacyFallback_TopologyHandoff_IsRetainedGridTransaction()
+        {
+            Player_Free2D_TopologyHandoff_NoLegacyOrdinaryFallback();
+
+            var boardBounds = new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1));
+            var approachWorld = CreateWorldState(
+                new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            SetPlayerContinuousLocalOffset(approachWorld, localX: 0, localY: KinematicFixed.MaxPositiveLocalOffset);
+            var approachPipeline = CreatePipeline(
+                approachWorld,
+                new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
+                GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+
+            var settleTick = approachPipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            LegacyMovementBoundaryAssert.NoPlayerLegacyOrdinaryFallback(settleTick, 10);
+            Assert.That(
+                settleTick.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.SetTopology),
+                Is.False);
+
+            var handoffTick = approachPipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Up)));
+            LegacyMovementBoundaryAssert.GridTransactionBranchesRemainAllowed(
+                handoffTick,
+                10,
+                MovementExecutionBoundaryKind.TopologyMaterialization);
+            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(handoffTick);
+            Assert.That(handoffTick.PresentationData.ContinuousLocomotionTracks.Any(track => track.EntityId == 10), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Phase2B_EnemyLegacyFallback_DefaultGameplayLocomotion_NoLegacyFallback()
+        {
+            AssertDefaultGameplayLocomotionFlags();
+
+            var tick = CreatePipeline(
+                    CreateWorldState(new[] { CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Chase) }),
+                    new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(40, 50, new Vector2Int(1, 0))) },
+                    GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
+                .RunTick(new TickInput(1));
+
+            Assert.That(tick.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40), Is.True);
+            LegacyMovementBoundaryAssert.NoEnemyLegacyOrdinaryFallback(tick, 40);
+            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(tick);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Phase2B_EnemyLegacyFallback_KinematicFlagOn_BlockedBeforeMovementExpander()
+        {
+            var worldState = CreateWorldState(new[] { CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Chase) });
+            var intent = new MoveIntent(40, priority: 100, destination: new Vector2Int(1, 0));
+            intent.AssignIntentId(1);
+
+            AssertLegacyExpansionIntentBlocked(
+                worldState,
+                intent,
+                GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled,
+                "EnemyCoveredOrdinaryKinematicReachedLegacyExpansion");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Phase2B_EnemyLegacyFallback_FlagOffBaseline_StillAllowed()
+        {
+            var tick = CreatePipeline(
+                    CreateWorldState(new[] { CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Chase) }),
+                    new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(40, 50, new Vector2Int(1, 0))) },
+                    GameplayRuntimeFeatureFlags.None)
+                .RunTick(new TickInput(1));
+
+            LegacyMovementBoundaryAssert.AllowsEnemyFlagOffLegacyOrdinaryFallback(tick, 40);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Phase2B_EnemyLegacyFallback_GlideDefault_IsRetainedException_NotEnemyOrdinaryPilot()
+        {
+            BoundaryInventory_DefaultGameplayLocomotion_GlideActivePolicy();
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Phase2B_EnemyLegacyFallback_ChargeActive_IsOutOfScope()
+        {
+            ScopedDeletionPrep_ChargeLegacyFallback_IsFlagOffOnly();
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Phase2C_ChargeLegacyFallback_DefaultGameplayLocomotion_NoChargeMoveFallback()
+        {
+            AssertDefaultGameplayLocomotionFlags();
+
+            var worldState = CreateActiveChargeWorldState(50);
+            var tick = CreatePipeline(
+                    worldState,
+                    new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(50, 50, new Vector2Int(1, 0))) },
+                    GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
+                .RunTick(new TickInput(1));
+
+            Assert.That(
+                tick.PresentationData.KinematicMotionTracks.Any(track =>
+                    track.EntityId == 50 &&
+                    track.MotionMode == MotionMode.Charge),
+                Is.True);
+            LegacyMovementBoundaryAssert.NoChargeActiveLegacyFallback(tick, 50);
+            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(tick);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Phase2C_ChargeLegacyFallback_ChargeKinematicFlagOn_BlockedBeforeMovementExpander()
+        {
+            var worldState = CreateActiveChargeWorldState(50);
+            var intent = new MoveIntent(50, priority: 100, destination: new Vector2Int(1, 0));
+            intent.AssignIntentId(1);
+
+            AssertLegacyExpansionIntentBlocked(
+                worldState,
+                intent,
+                GameplayRuntimeFeatureFlags.EnemyChargeKinematicLocomotionEnabled,
+                "ChargeCoveredKinematicReachedLegacyExpansion");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Phase2C_ChargeLegacyFallback_FlagOffBaseline_StillAllowed()
+        {
+            var worldState = CreateActiveChargeWorldState(50);
+            var tick = CreatePipeline(
+                    worldState,
+                    new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(50, 50, new Vector2Int(1, 0))) },
+                    GameplayRuntimeFeatureFlags.None)
+                .RunTick(new TickInput(1));
+
+            LegacyMovementBoundaryAssert.AllowsChargeFlagOffLegacyFallback(tick, 50);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Phase2C_ChargeLegacyFallback_PlayerEnemyOrdinary_AreOutOfScope()
+        {
+            Phase2_PlayerLegacyFallback_DefaultGameplayLocomotion_NoLegacyFallback();
+            Phase2B_EnemyLegacyFallback_DefaultGameplayLocomotion_NoLegacyFallback();
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Phase2C_ChargeLegacyFallback_GlideDefault_IsRetainedException_NotChargePilot()
+        {
+            BoundaryInventory_DefaultGameplayLocomotion_GlideActivePolicy();
+        }
+
+        [Test]
         [Category("Core")]
         public void BoundaryInventory_GridTransactionsRemainAllowed_UnderDefaultGameplayLocomotion()
         {
@@ -1087,6 +1308,24 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return GameplayWorldStateTestFactory.CreateBounded(entities);
         }
 
+        private static WorldState CreateActiveChargeWorldState(int entityId)
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Charge),
+            });
+            worldState.CreateWriteContext().SetEnemyChargeState(
+                entityId,
+                new EnemyChargeRuntimeState
+                {
+                    phase = EnemyChargePhase.Active,
+                    sequence = 1,
+                    lockedDirection = Direction.Right,
+                    remainingActiveSteps = 1,
+                });
+            return worldState;
+        }
+
         private static WorldState CreateWorldState(
             IEnumerable<EntityState> entities,
             BoardBounds boardBounds,
@@ -1136,6 +1375,47 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(
                 rejectedReasons.Any(reason => reason.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
                 Is.False);
+        }
+
+        private static void AssertLegacyExpansionIntentBlocked(
+            WorldState worldState,
+            MoveIntent intent,
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags,
+            string expectedReason)
+        {
+            var rejectedReasons = new List<string>();
+            var filteredIntents = InvokeValidateLegacyExpansionIntents(
+                CreatePipeline(worldState, Array.Empty<IEntityLogic>(), runtimeFeatureFlags),
+                worldState.CreateSnapshot(),
+                new[] { intent },
+                rejectedReasons);
+
+            Assert.That(filteredIntents, Is.Empty);
+            Assert.That(
+                rejectedReasons.Any(reason =>
+                    reason.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal) &&
+                    reason.Contains($"E={intent.SourceId}", StringComparison.Ordinal) &&
+                    reason.Contains(expectedReason, StringComparison.Ordinal)),
+                Is.True,
+                string.Join("\n", rejectedReasons));
+        }
+
+        private static void SetPlayerContinuousLocalOffset(WorldState worldState, int localX, int localY)
+        {
+            worldState.CreateWriteContext().SetUnitContinuousLocomotionState(
+                10,
+                new UnitContinuousLocomotionState
+                {
+                    localOffset = new KinematicOffset2(
+                        KinematicFixed.FromRaw(localX),
+                        KinematicFixed.FromRaw(localY)),
+                    velocity = KinematicVelocity2.Zero,
+                    facing = Direction.Right,
+                    lastMoveDirection = Direction.Right,
+                    speedUnitsPerTick = 0,
+                    mode = ContinuousLocomotionMode.Idle,
+                    sequenceId = 1,
+                }.NormalizedForStorage());
         }
 
         private static EntityState CreatePlayer(

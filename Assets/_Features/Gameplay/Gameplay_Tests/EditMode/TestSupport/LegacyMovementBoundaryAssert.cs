@@ -62,6 +62,36 @@ namespace Game.Feature.Gameplay.Tests
             NoCoveredLocomotionLegacyFallback(result, entityIds);
         }
 
+        public static void NoPlayerLegacyOrdinaryFallback(TickResult result, int playerEntityId)
+        {
+            NoLegacyOrdinaryUnitMove(result, playerEntityId);
+        }
+
+        public static void AllowsPlayerFlagOffLegacyOrdinaryFallback(TickResult result, int playerEntityId)
+        {
+            AllowsOnlyFlagOffCoveredFallback(result, playerEntityId);
+        }
+
+        public static void NoEnemyLegacyOrdinaryFallback(TickResult result, int enemyEntityId)
+        {
+            NoLegacyOrdinaryUnitMove(result, enemyEntityId);
+        }
+
+        public static void AllowsEnemyFlagOffLegacyOrdinaryFallback(TickResult result, int enemyEntityId)
+        {
+            AllowsOnlyFlagOffCoveredFallback(result, enemyEntityId);
+        }
+
+        public static void NoChargeActiveLegacyFallback(TickResult result, int chargeEntityId)
+        {
+            NoLegacyOrdinaryUnitMove(result, chargeEntityId);
+        }
+
+        public static void AllowsChargeFlagOffLegacyFallback(TickResult result, int chargeEntityId)
+        {
+            AllowsOnlyFlagOffCoveredFallback(result, chargeEntityId, chargeMove: true);
+        }
+
         public static void AllowsRetainedGlideFallback(TickResult result, int entityId)
         {
             HasLegacyFallbackMoveEntity(result, entityId);

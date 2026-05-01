@@ -521,6 +521,94 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Extended")]
+        public void Replay_Phase2B_EnemyDefaultGameplayLocomotion_NoLegacyFallback()
+        {
+            var replay = RunScriptedEnemyOrdinaryReplay(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion, out var secondReplay);
+
+            AssertReplayBoundaryCanaryEqual(replay, secondReplay);
+            AssertEnemyReplayHasNoLegacyFallback(replay);
+            Assert.That(
+                replay.Any(frame => frame.Trace.Contains("Kinematic", StringComparison.Ordinal) ||
+                                    frame.EventLogDump.Contains("KinematicPose", StringComparison.Ordinal)),
+                Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Replay_Phase2B_EnemyKinematicFlagOn_NoLegacyFallback()
+        {
+            var replay = RunScriptedEnemyOrdinaryReplay(GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled, out var secondReplay);
+
+            AssertReplayBoundaryCanaryEqual(replay, secondReplay);
+            AssertEnemyReplayHasNoLegacyFallback(replay);
+            Assert.That(
+                replay.Any(frame => frame.Trace.Contains("Kinematic", StringComparison.Ordinal) ||
+                                    frame.EventLogDump.Contains("KinematicPose", StringComparison.Ordinal)),
+                Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Replay_Phase2B_EnemyFlagOffLegacyFallback_BaselineDocumented()
+        {
+            var replay = RunScriptedEnemyOrdinaryReplay(GameplayRuntimeFeatureFlags.None, out var secondReplay);
+
+            AssertReplayBoundaryCanaryEqual(replay, secondReplay);
+            Assert.That(replay.Any(frame => frame.Trace.Contains("LegacyFallback", StringComparison.Ordinal)), Is.True);
+            Assert.That(
+                replay.Any(frame => frame.Trace.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal) ||
+                                    frame.EventLogDump.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
+                Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Replay_Phase2C_ChargeDefaultGameplayLocomotion_NoChargeMoveFallback()
+        {
+            var replay = RunScriptedChargeActiveReplay(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion, out var secondReplay);
+
+            AssertReplayBoundaryCanaryEqual(replay, secondReplay);
+            AssertChargeReplayHasNoChargeFallback(replay);
+            Assert.That(
+                replay.Any(frame => frame.Trace.Contains("Kinematic", StringComparison.Ordinal) ||
+                                    frame.EventLogDump.Contains("KinematicPose", StringComparison.Ordinal)),
+                Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Replay_Phase2C_ChargeKinematicFlagOn_NoChargeMoveFallback()
+        {
+            var replay = RunScriptedChargeActiveReplay(GameplayRuntimeFeatureFlags.EnemyChargeKinematicLocomotionEnabled, out var secondReplay);
+
+            AssertReplayBoundaryCanaryEqual(replay, secondReplay);
+            AssertChargeReplayHasNoChargeFallback(replay);
+            Assert.That(
+                replay.Any(frame => frame.Trace.Contains("Kinematic", StringComparison.Ordinal) ||
+                                    frame.EventLogDump.Contains("KinematicPose", StringComparison.Ordinal)),
+                Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Replay_Phase2C_ChargeFlagOffLegacyFallback_BaselineDocumented()
+        {
+            var replay = RunScriptedChargeActiveReplay(GameplayRuntimeFeatureFlags.None, out var secondReplay);
+
+            AssertReplayBoundaryCanaryEqual(replay, secondReplay);
+            Assert.That(replay.Any(frame => frame.Trace.Contains("LegacyFallback", StringComparison.Ordinal)), Is.True);
+            Assert.That(
+                replay.Any(frame => frame.Trace.Contains("ConsumeLegacyActiveStep", StringComparison.Ordinal) ||
+                                    frame.EventLogDump.Contains("ConsumeLegacyActiveStep", StringComparison.Ordinal)),
+                Is.True);
+            Assert.That(
+                replay.Any(frame => frame.Trace.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal) ||
+                                    frame.EventLogDump.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
+                Is.False);
+        }
+
+        [Test]
         [Category("Core")]
         public void Replay_DefaultGameplayLocomotion_GlidePolicy_IsDeterministic()
         {
@@ -751,6 +839,88 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(
                 firstReplay.Any(frame => frame.Trace.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
                 Is.False);
+        }
+
+        private static void AssertEnemyReplayHasNoLegacyFallback(IReadOnlyList<TickReplayFrame> replay)
+        {
+            Assert.That(
+                replay.Any(frame => frame.Trace.Contains("LegacyFallback", StringComparison.Ordinal) ||
+                                    frame.EventLogDump.Contains("LegacyFallback", StringComparison.Ordinal)),
+                Is.False);
+            Assert.That(
+                replay.Any(frame => frame.Trace.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal) ||
+                                    frame.EventLogDump.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
+                Is.False);
+        }
+
+        private static IReadOnlyList<TickReplayFrame> RunScriptedEnemyOrdinaryReplay(
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags,
+            out IReadOnlyList<TickReplayFrame> secondReplay)
+        {
+            var harness = new TickReplayHarness();
+            var inputs = new[] { new TickInput(1) };
+            var enemyMove = new Dictionary<int, RawMovementIntent>
+            {
+                { 1, new RawMovementIntent(40, priority: 50, destination: new Vector2Int(1, 0)) },
+            };
+
+            var firstReplay = harness.Run(
+                GameplayWorldStateTestFactory.CreateBounded(new[]
+                {
+                    CreateEnemy(40, hp: 3, new SurfaceCell(FaceId.Floor, 0, 0)),
+                }),
+                new IEntityLogic[] { new TickScriptedMovementLogic(40, enemyMove) },
+                inputs,
+                runtimeFeatureFlags: runtimeFeatureFlags);
+            secondReplay = harness.Run(
+                GameplayWorldStateTestFactory.CreateBounded(new[]
+                {
+                    CreateEnemy(40, hp: 3, new SurfaceCell(FaceId.Floor, 0, 0)),
+                }),
+                new IEntityLogic[] { new TickScriptedMovementLogic(40, enemyMove) },
+                inputs,
+                runtimeFeatureFlags: runtimeFeatureFlags);
+
+            return firstReplay;
+        }
+
+        private static void AssertChargeReplayHasNoChargeFallback(IReadOnlyList<TickReplayFrame> replay)
+        {
+            Assert.That(
+                replay.Any(frame => frame.Trace.Contains("LegacyFallback", StringComparison.Ordinal) ||
+                                    frame.EventLogDump.Contains("LegacyFallback", StringComparison.Ordinal) ||
+                                    frame.Trace.Contains("ChargeMove", StringComparison.Ordinal) ||
+                                    frame.EventLogDump.Contains("ChargeMove", StringComparison.Ordinal)),
+                Is.False);
+            Assert.That(
+                replay.Any(frame => frame.Trace.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal) ||
+                                    frame.EventLogDump.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
+                Is.False);
+        }
+
+        private static IReadOnlyList<TickReplayFrame> RunScriptedChargeActiveReplay(
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags,
+            out IReadOnlyList<TickReplayFrame> secondReplay)
+        {
+            var harness = new TickReplayHarness();
+            var inputs = new[] { new TickInput(1) };
+            var chargeMove = new Dictionary<int, RawMovementIntent>
+            {
+                { 1, new RawMovementIntent(50, priority: 50, destination: new Vector2Int(1, 0)) },
+            };
+
+            var firstReplay = harness.Run(
+                CreateActiveChargeFallbackWorldState(),
+                new IEntityLogic[] { new TickScriptedMovementLogic(50, chargeMove) },
+                inputs,
+                runtimeFeatureFlags: runtimeFeatureFlags);
+            secondReplay = harness.Run(
+                CreateActiveChargeFallbackWorldState(),
+                new IEntityLogic[] { new TickScriptedMovementLogic(50, chargeMove) },
+                inputs,
+                runtimeFeatureFlags: runtimeFeatureFlags);
+
+            return firstReplay;
         }
 
         private static void AssertReplayBoundaryCanaryEqual(

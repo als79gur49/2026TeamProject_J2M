@@ -506,6 +506,98 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
+        public void Phase2_PlayerLegacyFallback_ValidateLegacyExpansionIntents_PlayerFlagReachability()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+            });
+            worldState.CreateWriteContext().SetPlayerControlState(10, default);
+
+            var free2DIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
+            free2DIntent.AssignIntentId(1);
+            AssertLegacyExpansionIntentBlocked(
+                worldState,
+                free2DIntent,
+                GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled,
+                "PlayerCoveredLocomotionReachedLegacyExpansion");
+
+            var kinematicIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
+            kinematicIntent.AssignIntentId(2);
+            AssertLegacyExpansionIntentBlocked(
+                worldState,
+                kinematicIntent,
+                GameplayRuntimeFeatureFlags.PlayerSameFaceContinuousLocomotionEnabled,
+                "PlayerCoveredLocomotionReachedLegacyExpansion");
+
+            var flagOffIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
+            flagOffIntent.AssignIntentId(3);
+            AssertLegacyExpansionIntentAllowed(
+                worldState,
+                flagOffIntent,
+                GameplayRuntimeFeatureFlags.None);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Phase2B_EnemyLegacyFallback_ValidateLegacyExpansionIntents_EnemyFlagReachability()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateFrontFaceEnemy(entityId: 40, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+            });
+
+            var kinematicIntent = new MoveIntent(40, priority: 100, destination: new Vector2Int(1, 0));
+            kinematicIntent.AssignIntentId(1);
+            AssertLegacyExpansionIntentBlocked(
+                worldState,
+                kinematicIntent,
+                GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled,
+                "EnemyCoveredOrdinaryKinematicReachedLegacyExpansion");
+
+            var flagOffIntent = new MoveIntent(40, priority: 100, destination: new Vector2Int(1, 0));
+            flagOffIntent.AssignIntentId(2);
+            AssertLegacyExpansionIntentAllowed(
+                worldState,
+                flagOffIntent,
+                GameplayRuntimeFeatureFlags.None);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Phase2C_ChargeLegacyFallback_ValidateLegacyExpansionIntents_ChargeFlagReachability()
+        {
+            var chargeEnemy = CreateFrontFaceEnemy(entityId: 50, position: new SurfaceCell(FaceId.Floor, 0, 0));
+            chargeEnemy.aiMode = EnemyAiMode.Charge;
+            var worldState = CreateWorldState(new[] { chargeEnemy });
+            worldState.CreateWriteContext().SetEnemyChargeState(
+                50,
+                new EnemyChargeRuntimeState
+                {
+                    phase = EnemyChargePhase.Active,
+                    sequence = 1,
+                    lockedDirection = Direction.Right,
+                    remainingActiveSteps = 1,
+                });
+
+            var kinematicIntent = new MoveIntent(50, priority: 100, destination: new Vector2Int(1, 0));
+            kinematicIntent.AssignIntentId(1);
+            AssertLegacyExpansionIntentBlocked(
+                worldState,
+                kinematicIntent,
+                GameplayRuntimeFeatureFlags.EnemyChargeKinematicLocomotionEnabled,
+                "ChargeCoveredKinematicReachedLegacyExpansion");
+
+            var flagOffIntent = new MoveIntent(50, priority: 100, destination: new Vector2Int(1, 0));
+            flagOffIntent.AssignIntentId(2);
+            AssertLegacyExpansionIntentAllowed(
+                worldState,
+                flagOffIntent,
+                GameplayRuntimeFeatureFlags.None);
+        }
+
+        [Test]
         [Category("Core")]
         public void Boundary_UnknownInventory_NormalGameplayHasNoUnexpectedUnknownMovement()
         {
@@ -586,7 +678,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     reason.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal) &&
                     reason.Contains("E=10", StringComparison.Ordinal) &&
                     reason.Contains("ForbiddenCoveredLocomotionReachedMovementExpander", StringComparison.Ordinal)),
-                Is.True);
+                Is.True,
+                "MovementExpander forbidden-intent diagnostics are guard coverage only; they do not make grid transactions or MoveEntity deletion candidates.\n" +
+                string.Join("\n", rejectedReasons));
         }
 
         [Test]
