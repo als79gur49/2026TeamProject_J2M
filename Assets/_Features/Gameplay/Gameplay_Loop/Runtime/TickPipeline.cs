@@ -357,10 +357,12 @@ namespace Game.Feature.Gameplay.Loop
             return new PreMovementStatePhaseResult(updates, actionTransitions, rejectedReasons);
         }
 
-        private static void CloseInterruptedPlayerKinematics(
+        private static void CloseInterruptedUnitKinematics(
             WorldSnapshot snapshot,
             FinalizationBatch batch,
-            List<string> eventLogEntries)
+            List<string> eventLogEntries,
+            bool closePlayerKinematics,
+            bool closeEnemyGlideKinematics)
         {
             if (snapshot == null)
             {
@@ -384,10 +386,18 @@ namespace Game.Feature.Gameplay.Loop
                 var entity = entities[i];
                 if (entity.hp <= 0 ||
                     entity.markedForDeath ||
-                    !snapshot.TryGetPlayerControlState(entity.entityId, out var playerControlState) ||
                     !snapshot.TryGetUnitKinematicPose(entity.entityId, out var pose) ||
                     !pose.HasAuthoritativeState ||
                     pose.Mode != MotionMode.Interrupted)
+                {
+                    continue;
+                }
+
+                var hasPlayerControl = snapshot.TryGetPlayerControlState(entity.entityId, out var playerControlState);
+                var canClosePlayer = closePlayerKinematics && hasPlayerControl;
+                var canCloseEnemyGlide = closeEnemyGlideKinematics &&
+                                         IsEnemyInterruptedGlideKinematicParticipant(snapshot, entity);
+                if (!canClosePlayer && !canCloseEnemyGlide)
                 {
                     continue;
                 }
@@ -402,7 +412,8 @@ namespace Game.Feature.Gameplay.Loop
                         actionPlanId: 0));
                 eventLogEntries.Add(
                     $"KinematicInterruptClosed|E={entity.entityId}|Anchor={FormatCell(pose.AnchorCell)}|Offset={pose.LocalOffset}");
-                if (PlayerControlQueries.HasQueuedKinematicTurn(playerControlState))
+                if (hasPlayerControl &&
+                    PlayerControlQueries.HasQueuedKinematicTurn(playerControlState))
                 {
                     batch.SetPlayerControlState(
                         entity.entityId,
@@ -414,6 +425,18 @@ namespace Game.Feature.Gameplay.Loop
                             actionPlanId: 0));
                 }
             }
+        }
+
+        private static bool IsEnemyInterruptedGlideKinematicParticipant(WorldSnapshot snapshot, in EntityState entity)
+        {
+            return IsEnemyLogicParticipant(entity) &&
+                   EnemyParticipationPolicy.IsControllableParticipant(snapshot, entity) &&
+                   entity.aiMode == EnemyAiMode.Chase &&
+                   snapshot.TryGetEnemyGlideState(entity.entityId, out var glideState) &&
+                   glideState.HasAuthoritativeRecord &&
+                   (glideState.Phase == EnemyGlidePhase.Active ||
+                    glideState.Phase == EnemyGlidePhase.Recovery ||
+                    glideState.Phase == EnemyGlidePhase.LandingPending);
         }
 
         private PlanPhaseResult RunPlanPhase(
@@ -440,12 +463,15 @@ namespace Game.Feature.Gameplay.Loop
 
             var kinematicClosureBatch = new FinalizationBatch();
             var kinematicClosureEvents = new List<string>();
-            if (_runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion)
+            if (_runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion ||
+                _runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion)
             {
-                CloseInterruptedPlayerKinematics(
+                CloseInterruptedUnitKinematics(
                     snapshotAfterEnemyAi,
                     kinematicClosureBatch,
-                    kinematicClosureEvents);
+                    kinematicClosureEvents,
+                    closePlayerKinematics: _runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion,
+                    closeEnemyGlideKinematics: _runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion);
                 planFinalizationBatch.MergeFrom(kinematicClosureBatch);
                 projectedWorld.ApplyBatch(kinematicClosureBatch);
                 snapshotAfterEnemyAi = projectedWorld.CreateSnapshot();
@@ -993,13 +1019,18 @@ namespace Game.Feature.Gameplay.Loop
                 attackCommitEvents,
                 delayedAttackEnqueueEvents);
             var motionInterruptRecords = _runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion ||
-                _runtimeFeatureFlags.EnablePlayerFree2DLocalLocomotion
-                ? MaterializePlayerKinematicMotionInterrupts(
+                _runtimeFeatureFlags.EnablePlayerFree2DLocalLocomotion ||
+                _runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion
+                ? MaterializeUnitKinematicMotionInterrupts(
                     attackSnapshot,
                     damageResolutions,
                     destroyResolutions,
                     attackStageBatch,
-                    attackCommitEvents)
+                    attackCommitEvents,
+                    tickIndex,
+                    interruptPlayerKinematics: _runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion ||
+                                                _runtimeFeatureFlags.EnablePlayerFree2DLocalLocomotion,
+                    interruptEnemyGlideKinematics: _runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion)
                 : new List<MotionInterruptRecord>();
             finalizationBatch.MergeFrom(attackStageBatch);
             projectedWorld.ApplyBatch(attackStageBatch);
@@ -2700,23 +2731,20 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             if (!snapshot.TryGetEnemyGlideState(entity.entityId, out var glideState) ||
-                !glideState.HasAuthoritativeRecord)
-            {
-                return true;
-            }
-
-            if (glideState.Phase == EnemyGlidePhase.Active)
-            {
-                return true;
-            }
-
-            if (glideState.ActiveUntilTickExclusive <= 0 ||
+                !glideState.HasAuthoritativeRecord ||
+                glideState.ActiveUntilTickExclusive <= 0 ||
                 glideState.DurationTicks <= 0)
             {
                 return false;
             }
 
             var activeStartTick = glideState.ActiveUntilTickExclusive - glideState.DurationTicks;
+            if (glideState.Phase == EnemyGlidePhase.Active)
+            {
+                return pose.State.startedTick >= activeStartTick &&
+                       pose.State.startedTick < glideState.ActiveUntilTickExclusive;
+            }
+
             return pose.State.startedTick >= activeStartTick &&
                    pose.State.startedTick < glideState.ActiveUntilTickExclusive;
         }
@@ -6008,12 +6036,15 @@ namespace Game.Feature.Gameplay.Loop
             return batch;
         }
 
-        private static List<MotionInterruptRecord> MaterializePlayerKinematicMotionInterrupts(
+        private static List<MotionInterruptRecord> MaterializeUnitKinematicMotionInterrupts(
             WorldSnapshot attackSnapshot,
             IReadOnlyList<DamageResolutionRecord> damageResolutions,
             IReadOnlyList<DestroyResolutionRecord> destroyResolutions,
             FinalizationBatch attackStageBatch,
-            List<string> commitEvents)
+            List<string> commitEvents,
+            int tickIndex,
+            bool interruptPlayerKinematics,
+            bool interruptEnemyGlideKinematics)
         {
             if (attackSnapshot == null)
             {
@@ -6050,7 +6081,7 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
-                TryMaterializePlayerKinematicMotionInterrupt(
+                TryMaterializeUnitKinematicMotionInterrupt(
                     attackSnapshot,
                     attackStageBatch,
                     commitEvents,
@@ -6060,7 +6091,11 @@ namespace Game.Feature.Gameplay.Loop
                     damageResolution.SourceId,
                     damageResolution.ActionPlanId,
                     damageResolution.LocalActionIndex,
-                    damageResolution.SourceKind);
+                    damageResolution.SourceKind,
+                    tickIndex,
+                    interruptPlayerKinematics,
+                    interruptEnemyGlideKinematics,
+                    damageResolution.Amount);
             }
 
             for (var i = 0; i < destroyResolutions.Count; i++)
@@ -6071,7 +6106,7 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
-                TryMaterializePlayerKinematicMotionInterrupt(
+                TryMaterializeUnitKinematicMotionInterrupt(
                     attackSnapshot,
                     attackStageBatch,
                     commitEvents,
@@ -6081,13 +6116,17 @@ namespace Game.Feature.Gameplay.Loop
                     destroyResolution.SourceId,
                     destroyResolution.ActionPlanId,
                     destroyResolution.LocalActionIndex,
-                    AttackSourceKind.Combat);
+                    AttackSourceKind.Combat,
+                    tickIndex,
+                    interruptPlayerKinematics,
+                    interruptEnemyGlideKinematics,
+                    damageAmount: 0);
             }
 
             return interruptRecords;
         }
 
-        private static bool TryMaterializePlayerKinematicMotionInterrupt(
+        private static bool TryMaterializeUnitKinematicMotionInterrupt(
             WorldSnapshot attackSnapshot,
             FinalizationBatch attackStageBatch,
             List<string> commitEvents,
@@ -6097,34 +6136,63 @@ namespace Game.Feature.Gameplay.Loop
             int sourceEntityId,
             int actionPlanId,
             int localActionIndex,
-            AttackSourceKind sourceKind)
+            AttackSourceKind sourceKind,
+            int tickIndex,
+            bool interruptPlayerKinematics,
+            bool interruptEnemyGlideKinematics,
+            int damageAmount)
         {
-            if (interruptedEntityIds.Contains(targetEntityId) ||
-                !attackSnapshot.TryGetPlayerControlState(targetEntityId, out var playerControlState))
+            if (interruptedEntityIds.Contains(targetEntityId))
             {
                 return false;
             }
 
+            var hasPlayerControl = attackSnapshot.TryGetPlayerControlState(targetEntityId, out var playerControlState);
             if (attackSnapshot.TryGetUnitKinematicPose(targetEntityId, out var pose) &&
                 pose.HasAuthoritativeState &&
                 !pose.IsSettledAtAnchor &&
                 (pose.Mode == MotionMode.Voluntary || pose.Mode == MotionMode.Held))
             {
+                var playerInterrupt = interruptPlayerKinematics && hasPlayerControl;
+                var enemyGlideInterrupt = interruptEnemyGlideKinematics &&
+                                          pose.Mode == MotionMode.Voluntary &&
+                                          attackSnapshot.TryGetEntity(targetEntityId, out var targetEntity) &&
+                                          IsEnemyGlideKinematicContinuation(attackSnapshot, targetEntity, pose);
+                if (!playerInterrupt && !enemyGlideInterrupt)
+                {
+                    return false;
+                }
+
                 var interruptedState = UnitKinematicRuntimeState.CreateInterruptedFreeze(pose.State);
+                var metadata = new FinalizationOperationMetadata(
+                    TickPhase.Resolve,
+                    ResolvedActionSemanticKind.Attack,
+                    sourceEntityId,
+                    actionPlanId,
+                    localActionIndex: localActionIndex,
+                    attackSourceKind: sourceKind,
+                    damageSourceType: ResolveDamageSourceType(sourceKind));
                 interruptedEntityIds.Add(targetEntityId);
                 attackStageBatch.SetUnitKinematicState(
                     targetEntityId,
                     interruptedState,
-                    new FinalizationOperationMetadata(
-                        TickPhase.Resolve,
-                        ResolvedActionSemanticKind.Attack,
-                        sourceEntityId,
-                        actionPlanId,
-                        localActionIndex: localActionIndex,
-                        attackSourceKind: sourceKind,
-                        damageSourceType: ResolveDamageSourceType(sourceKind)));
-                if (PlayerControlQueries.HasQueuedKinematicTurn(playerControlState) ||
-                    PlayerControlQueries.HasQueuedFree2DAction(playerControlState))
+                    metadata);
+                if (enemyGlideInterrupt &&
+                    IsNonLethalDamage(attackSnapshot, targetEntityId, damageAmount) &&
+                    attackSnapshot.TryGetEnemyGlideState(targetEntityId, out var glideState) &&
+                    glideState.Phase == EnemyGlidePhase.Active)
+                {
+                    attackStageBatch.SetEnemyGlideState(
+                        targetEntityId,
+                        EnemyGlideQueries.BeginRecovery(glideState, tickIndex),
+                        metadata);
+                    commitEvents.Add(
+                        $"EnemyGlideStateUpdated|E={targetEntityId}|Label=InterruptedToRecovery|Phase={EnemyGlidePhase.Recovery}|Seq={glideState.Sequence}");
+                }
+
+                if (hasPlayerControl &&
+                    (PlayerControlQueries.HasQueuedKinematicTurn(playerControlState) ||
+                     PlayerControlQueries.HasQueuedFree2DAction(playerControlState)))
                 {
                     var clearedPlayerControlState = playerControlState;
                     if (PlayerControlQueries.HasQueuedKinematicTurn(clearedPlayerControlState))
@@ -6140,14 +6208,7 @@ namespace Game.Feature.Gameplay.Loop
                     attackStageBatch.SetPlayerControlState(
                         targetEntityId,
                         clearedPlayerControlState,
-                        new FinalizationOperationMetadata(
-                            TickPhase.Resolve,
-                            ResolvedActionSemanticKind.Attack,
-                            sourceEntityId,
-                            actionPlanId,
-                            localActionIndex: localActionIndex,
-                            attackSourceKind: sourceKind,
-                            damageSourceType: ResolveDamageSourceType(sourceKind)));
+                        metadata);
                 }
 
                 interruptRecords.Add(
@@ -6160,7 +6221,8 @@ namespace Game.Feature.Gameplay.Loop
                 return true;
             }
 
-            if (!attackSnapshot.TryGetUnitContinuousLocomotionPose(targetEntityId, out var continuousPose) ||
+            if (!hasPlayerControl ||
+                !attackSnapshot.TryGetUnitContinuousLocomotionPose(targetEntityId, out var continuousPose) ||
                 !continuousPose.HasAuthoritativeState ||
                 continuousPose.IsSettledAtAnchor)
             {
@@ -6204,6 +6266,13 @@ namespace Game.Feature.Gameplay.Loop
             commitEvents.Add(
                 $"ContinuousLocomotionInterrupted|E={targetEntityId}|Source={sourceEntityId}|SourceKind={sourceKind}|Anchor={FormatCell(continuousPose.AnchorCell)}|Offset={continuousPose.LocalOffset}|Mode={continuousInterruptedState.mode}");
             return true;
+        }
+
+        private static bool IsNonLethalDamage(WorldSnapshot snapshot, int targetEntityId, int damageAmount)
+        {
+            return damageAmount > 0 &&
+                   snapshot.TryGetEntity(targetEntityId, out var target) &&
+                   target.hp > damageAmount;
         }
 
         private static WorldSnapshot CreateCompositeDamageProjectionSnapshot(

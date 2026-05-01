@@ -2164,7 +2164,6 @@ namespace Game.Feature.Gameplay.Loop
                 var previousWasVisual = IsGlideVisualPhase(previousGlideState.Phase) ||
                                         IsGlideVisualPhase(postMovementGlideState.Phase);
                 var stateClearedBeforeFinal = previousWasVisual &&
-                                              !hasPostMovementState &&
                                               !hasFinalState;
                 var isTerminalZero = stateClearedBeforeFinal ||
                                      (!IsGlideVisualPhase(resolvedState.Phase) && previousWasVisual);
