@@ -387,6 +387,9 @@ namespace Game.Feature.Gameplay.Tests
             if (group.GroupKind == ActionGroupKind.Push ||
                 group.GroupKind == ActionGroupKind.Flip ||
                 group.GroupKind == ActionGroupKind.Item ||
+                group.GroupKind == ActionGroupKind.BoxImpact ||
+                group.GroupKind == ActionGroupKind.Stop ||
+                group.HasResolvedImpact ||
                 group.HasDeferredImpact)
             {
                 return MovementExecutionBoundaryKind.BoxActionMovement;

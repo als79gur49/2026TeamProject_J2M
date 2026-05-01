@@ -1430,7 +1430,13 @@ namespace Game.Feature.Gameplay.Loop
                     out var rotationKind,
                     out var updatedTopology))
             {
-                return false;
+                return snapshot.TryResolvePlayerStep(
+                           entity.position,
+                           delta,
+                           out _,
+                           out var playerRotationKind,
+                           out _) &&
+                       playerRotationKind != CubeRotationKind.None;
             }
 
             if (rotationKind != CubeRotationKind.None)
@@ -3869,6 +3875,9 @@ namespace Game.Feature.Gameplay.Loop
             if (group.GroupKind == ActionGroupKind.Push ||
                 group.GroupKind == ActionGroupKind.Flip ||
                 group.GroupKind == ActionGroupKind.Item ||
+                group.GroupKind == ActionGroupKind.BoxImpact ||
+                group.GroupKind == ActionGroupKind.Stop ||
+                group.HasResolvedImpact ||
                 group.HasDeferredImpact)
             {
                 return MovementExecutionBoundaryKind.BoxActionMovement;
