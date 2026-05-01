@@ -24,7 +24,7 @@ The legacy `MovementExpander` path remains present and is covered by the flag-of
 `GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion` enables this path for readiness canaries while preserving `None` as the explicit legacy fallback baseline.
 `GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion` does not include `EnableEnemyGlideKinematicLocomotion` in v1; glide active kinematic rollout must be enabled explicitly.
 Default bundle adoption remains explicit. Showcase/dev gameplay hosts may opt in through host configuration, while replay harness defaults, composition-root defaults, historical tests, migration comparisons, and flag-off goldens continue to use `GameplayRuntimeFeatureFlags.None`.
-Default bundle adoption is not legacy deletion. The v3 deletion-readiness gate lives in `Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Readiness-2026-05-01.md` and keeps `MoveEntity`, `MovementExpander`, retained grid transactions, and flag-off baselines out of the deletion target.
+Default bundle adoption is not legacy deletion. Phase 1 of the deletion-readiness gate isolates covered player/enemy/Charge locomotion fallback under default/flag-on lanes while keeping `MoveEntity`, `MovementExpander`, retained grid transactions, active glide retained fallback, and flag-off baselines out of the deletion target.
 
 ## Expected Test Impact
 

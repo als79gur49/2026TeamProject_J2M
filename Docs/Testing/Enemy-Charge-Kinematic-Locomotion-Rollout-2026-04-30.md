@@ -26,7 +26,7 @@ This rollout is guarded by `GameplayRuntimeFeatureFlags.EnableEnemyChargeKinemat
 Set `EnableEnemyChargeKinematicLocomotion` to false. This does not require disabling `EnableEnemySameFaceContinuousLocomotion`.
 `GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion` enables Charge kinematic locomotion for readiness canaries and default gameplay host rollout. `GameplayRuntimeFeatureFlags.None` keeps the legacy `ChargeMove` fallback for rollback and golden baseline coverage.
 Default gameplay host rollout is explicit and does not change replay harness defaults, composition-root defaults, historical baselines, migration comparisons, or flag-off goldens. Only explicit bundle tests and opted-in hosts should use `DefaultGameplayLocomotion`.
-Default bundle adoption is not legacy deletion. The v3 deletion-readiness gate lives in `Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Readiness-2026-05-01.md` and keeps `MoveEntity`, `MovementExpander`, retained grid transactions, and flag-off baselines out of the deletion target.
+Default bundle adoption is not legacy deletion. Phase 1 of the deletion-readiness gate isolates covered player/enemy/Charge locomotion fallback under default/flag-on lanes while keeping `MoveEntity`, `MovementExpander`, retained grid transactions, active glide retained fallback, and flag-off baselines out of the deletion target.
 
 When ordinary enemy kinematic locomotion is enabled but Charge kinematic locomotion is disabled, ChargeStart still waits for non-settled ordinary voluntary kinematic movement to settle. The legacy `ChargeMove` path starts only after the revalidated ChargeStart transition.
 

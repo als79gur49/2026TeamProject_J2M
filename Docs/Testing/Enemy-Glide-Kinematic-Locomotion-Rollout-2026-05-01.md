@@ -46,4 +46,4 @@ Flag-off active glide chase fallback remains covered by `BoundaryInventory_Glide
 - Boundary metadata and reason strings remain diagnostic and must not affect canonical hashes.
 - Flag-on active glide must not emit legacy ordinary `TickEntityMotionKind.Move`.
 - Flag-off replay/golden baselines remain stable until default-bundle adoption is explicitly approved.
-- Default deletion readiness remains partial/blocked because adoption v1 keeps the glide flag out of `DefaultGameplayLocomotion`.
+- Default deletion readiness remains partial/blocked for glide because adoption v1 keeps the glide flag out of `DefaultGameplayLocomotion`. Deprecation Phase 1 therefore treats default/flag-off active glide legacy fallback as a retained exception, while explicit `EnableEnemyGlideKinematicLocomotion` remains a no-legacy canary.
