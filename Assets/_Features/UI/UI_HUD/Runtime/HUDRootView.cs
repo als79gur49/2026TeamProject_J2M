@@ -13,6 +13,18 @@ namespace Game.Feature.UI.HUD
         private const float HudDimTweenDurationSeconds = 0.12f;
         private const Ease HudDimTweenEase = Ease.OutQuad;
         private const bool HudDimUseUnscaledTime = true;
+        private const float HudLayoutMargin = 24.0f;
+        private const float HudLayoutSpacing = 8.0f;
+        private const string HudTopLeftStackName = "HudTopLeftStack";
+        private const string HudTopRightStackName = "HudTopRightStack";
+        private const string HudBottomRightStackName = "HudBottomRightStack";
+
+        private static readonly Vector2 ObjectiveHudSize = new Vector2(380.0f, 72.0f);
+        private static readonly Vector2 StageNameSize = new Vector2(360.0f, 28.0f);
+        private static readonly Vector2 PauseButtonSize = new Vector2(80.0f, 32.0f);
+        private static readonly Vector2 TopologyBeltSize = new Vector2(360.0f, 72.0f);
+        private static readonly Vector2 NotificationSize = new Vector2(320.0f, 128.0f);
+        private static readonly Vector2 ChancePanelSize = new Vector2(220.0f, 72.0f);
 
         [SerializeField] private GameObject _root;
         [SerializeField] private CanvasGroup _shellCanvasGroup;
@@ -31,6 +43,9 @@ namespace Game.Feature.UI.HUD
         private bool _lastRootVisibleState;
         private bool _hasShellAlphaTarget;
         private float _lastShellAlphaTarget = HudNormalAlpha;
+        private RectTransform _topLeftStack;
+        private RectTransform _topRightStack;
+        private RectTransform _bottomRightStack;
 
         public event Action PauseRequested;
 
@@ -43,6 +58,7 @@ namespace Game.Feature.UI.HUD
             get
             {
                 EnsureHudModules();
+                EnsureHudLayout();
                 return _chancePanelView;
             }
         }
@@ -52,6 +68,7 @@ namespace Game.Feature.UI.HUD
             get
             {
                 EnsureHudModules();
+                EnsureHudLayout();
                 return _topologyBeltView;
             }
         }
@@ -117,6 +134,7 @@ namespace Game.Feature.UI.HUD
         private void OnEnable()
         {
             EnsureHudModules();
+            EnsureHudLayout();
             if (_pauseButton != null)
             {
                 _pauseButton.onClick.RemoveListener(ClickPause);
@@ -180,6 +198,7 @@ namespace Game.Feature.UI.HUD
         private void RefreshView()
         {
             EnsureHudModules();
+            EnsureHudLayout();
             var isRootVisible = IsVisible && (_viewModel == null || _viewModel.IsVisible);
             var targetShellAlpha = _viewModel != null && _viewModel.IsDimmed ? HudDimmedAlpha : HudNormalAlpha;
             var becameVisible = !_lastRootVisibleState && isRootVisible;
@@ -316,6 +335,8 @@ namespace Game.Feature.UI.HUD
             {
                 _topologyBeltView = CreateRuntimeHudModule<TopologyBeltView>("TopologyBelt");
             }
+
+            EnsureHudLayout();
         }
 
         private T CreateRuntimeHudModule<T>(string moduleName)
@@ -327,19 +348,19 @@ namespace Game.Feature.UI.HUD
             var rect = (RectTransform)module.transform;
             if (typeof(T) == typeof(ChancePanelView))
             {
-                rect.anchorMin = new Vector2(0.0f, 1.0f);
-                rect.anchorMax = new Vector2(0.0f, 1.0f);
-                rect.pivot = new Vector2(0.0f, 1.0f);
-                rect.anchoredPosition = new Vector2(32.0f, -32.0f);
-                rect.sizeDelta = new Vector2(220.0f, 72.0f);
+                rect.anchorMin = new Vector2(1.0f, 0.0f);
+                rect.anchorMax = new Vector2(1.0f, 0.0f);
+                rect.pivot = new Vector2(1.0f, 0.0f);
+                rect.anchoredPosition = new Vector2(-HudLayoutMargin, HudLayoutMargin);
+                rect.sizeDelta = ChancePanelSize;
             }
             else if (typeof(T) == typeof(TopologyBeltView))
             {
                 rect.anchorMin = new Vector2(1.0f, 1.0f);
                 rect.anchorMax = new Vector2(1.0f, 1.0f);
                 rect.pivot = new Vector2(1.0f, 1.0f);
-                rect.anchoredPosition = new Vector2(-32.0f, -32.0f);
-                rect.sizeDelta = new Vector2(360.0f, 72.0f);
+                rect.anchoredPosition = new Vector2(-HudLayoutMargin, -HudLayoutMargin);
+                rect.sizeDelta = TopologyBeltSize;
             }
             else
             {
@@ -350,6 +371,131 @@ namespace Game.Feature.UI.HUD
             }
 
             return module.GetComponent<T>();
+        }
+
+        private void EnsureHudLayout()
+        {
+            var parent = _root != null ? _root.transform : transform;
+            if (parent == null)
+            {
+                return;
+            }
+
+            _topLeftStack = EnsureStack(
+                _topLeftStack,
+                parent,
+                HudTopLeftStackName,
+                new Vector2(0.0f, 1.0f),
+                new Vector2(0.0f, 1.0f),
+                new Vector2(HudLayoutMargin, -HudLayoutMargin),
+                ObjectiveHudSize,
+                TextAnchor.UpperLeft);
+            _topRightStack = EnsureStack(
+                _topRightStack,
+                parent,
+                HudTopRightStackName,
+                new Vector2(1.0f, 1.0f),
+                new Vector2(1.0f, 1.0f),
+                new Vector2(-HudLayoutMargin, -HudLayoutMargin),
+                new Vector2(StageNameSize.x, StageNameSize.y + PauseButtonSize.y + TopologyBeltSize.y + HudLayoutSpacing * 2.0f),
+                TextAnchor.UpperRight);
+            _bottomRightStack = EnsureStack(
+                _bottomRightStack,
+                parent,
+                HudBottomRightStackName,
+                new Vector2(1.0f, 0.0f),
+                new Vector2(1.0f, 0.0f),
+                new Vector2(-HudLayoutMargin, HudLayoutMargin),
+                new Vector2(NotificationSize.x, NotificationSize.y + ChancePanelSize.y + HudLayoutSpacing),
+                TextAnchor.LowerRight);
+
+            MoveToStack(_objectiveHudView, _topLeftStack, 0, ObjectiveHudSize);
+            MoveToStack(_stageNameLabel, _topRightStack, 0, StageNameSize);
+            MoveToStack(_pauseButton, _topRightStack, 1, PauseButtonSize);
+            MoveToStack(_topologyBeltView, _topRightStack, 2, TopologyBeltSize);
+            MoveToStack(_notificationView, _bottomRightStack, 0, NotificationSize);
+            MoveToStack(_chancePanelView, _bottomRightStack, 1, ChancePanelSize);
+        }
+
+        private static RectTransform EnsureStack(
+            RectTransform current,
+            Transform parent,
+            string stackName,
+            Vector2 anchor,
+            Vector2 pivot,
+            Vector2 anchoredPosition,
+            Vector2 size,
+            TextAnchor childAlignment)
+        {
+            if (current == null || current.name != stackName)
+            {
+                current = parent.Find(stackName) as RectTransform;
+            }
+
+            if (current == null)
+            {
+                var stack = new GameObject(stackName, typeof(RectTransform));
+                stack.transform.SetParent(parent, false);
+                current = (RectTransform)stack.transform;
+            }
+            else if (current.parent != parent)
+            {
+                current.SetParent(parent, false);
+            }
+
+            current.anchorMin = anchor;
+            current.anchorMax = anchor;
+            current.pivot = pivot;
+            current.anchoredPosition = anchoredPosition;
+            current.sizeDelta = size;
+
+            var layoutGroup = current.GetComponent<VerticalLayoutGroup>();
+            if (layoutGroup == null)
+            {
+                layoutGroup = current.gameObject.AddComponent<VerticalLayoutGroup>();
+            }
+
+            layoutGroup.childAlignment = childAlignment;
+            layoutGroup.spacing = HudLayoutSpacing;
+            layoutGroup.childControlWidth = false;
+            layoutGroup.childControlHeight = false;
+            layoutGroup.childForceExpandWidth = false;
+            layoutGroup.childForceExpandHeight = false;
+            layoutGroup.padding = new RectOffset(0, 0, 0, 0);
+
+            return current;
+        }
+
+        private static void MoveToStack(Component component, RectTransform stack, int siblingIndex, Vector2 size)
+        {
+            if (component == null || stack == null)
+            {
+                return;
+            }
+
+            var rect = component.transform as RectTransform;
+            if (rect == null)
+            {
+                return;
+            }
+
+            rect.SetParent(stack, false);
+            rect.SetSiblingIndex(siblingIndex);
+            rect.anchorMin = new Vector2(0.0f, 1.0f);
+            rect.anchorMax = new Vector2(0.0f, 1.0f);
+            rect.pivot = new Vector2(0.0f, 1.0f);
+            rect.sizeDelta = size;
+
+            var layoutElement = rect.GetComponent<LayoutElement>();
+            if (layoutElement == null)
+            {
+                layoutElement = rect.gameObject.AddComponent<LayoutElement>();
+            }
+
+            layoutElement.preferredWidth = size.x;
+            layoutElement.preferredHeight = size.y;
+            layoutElement.minWidth = size.x;
+            layoutElement.minHeight = size.y;
         }
 
         private ChancePanelView ResolveSingleChancePanelView(ChancePanelView preferred)

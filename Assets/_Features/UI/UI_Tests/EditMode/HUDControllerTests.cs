@@ -112,6 +112,142 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void HUDController_CanonicalPrefab_ArrangesVisibleHudElementsIntoStacks()
+        {
+            var rootObject = new GameObject("HUDController_CanonicalPrefab_ArrangesVisibleHudElementsIntoStacks");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+
+                var source = new ManualGameplayUiPresentationSource();
+                var playerStatusPresenter = new PlayerStatusPresenter();
+                var stageInfoPresenter = new StageInfoPresenter();
+                var objectiveHudPresenter = new ObjectiveHudPresenter();
+                var chancePanelPresenter = new ChancePanelPresenter();
+                var topologyHudPresenter = new TopologyHudPresenter();
+                var notificationPresenter = new NotificationPresenter();
+                using var rootPresenter = new HUDRootPresenter(
+                    source,
+                    stageInfoPresenter,
+                    objectiveHudPresenter,
+                    chancePanelPresenter,
+                    topologyHudPresenter,
+                    playerStatusPresenter,
+                    notificationPresenter);
+                using var controller = new HUDController(
+                    rootPresenter.ViewModel,
+                    stageInfoPresenter.ViewModel,
+                    objectiveHudPresenter.ViewModel,
+                    chancePanelPresenter.ViewModel,
+                    topologyHudPresenter.ViewModel,
+                    playerStatusPresenter.ViewModel,
+                    notificationPresenter.ViewModel);
+
+                controller.AttachView(hudView);
+                source.PublishSnapshot(CreateSnapshot(
+                    hasRemainingChances: true,
+                    remainingChances: 2,
+                    maxChances: 3,
+                    stageDisplayName: "Stage 1-1"));
+
+                var topLeftStack = FindRequiredRect(hudView.transform, "HudTopLeftStack");
+                var topRightStack = FindRequiredRect(hudView.transform, "HudTopRightStack");
+                var bottomRightStack = FindRequiredRect(hudView.transform, "HudBottomRightStack");
+
+                AssertStackTransform(topLeftStack, new Vector2(0.0f, 1.0f), new Vector2(0.0f, 1.0f), new Vector2(24.0f, -24.0f));
+                AssertStackTransform(topRightStack, new Vector2(1.0f, 1.0f), new Vector2(1.0f, 1.0f), new Vector2(-24.0f, -24.0f));
+                AssertStackTransform(bottomRightStack, new Vector2(1.0f, 0.0f), new Vector2(1.0f, 0.0f), new Vector2(-24.0f, 24.0f));
+
+                Assert.That(hudView.ObjectiveHudView.transform.parent, Is.SameAs(topLeftStack));
+                AssertChildOrder(topRightStack, "StageName", "PauseButton", "TopologyBelt");
+                AssertChildOrder(bottomRightStack, "Notifications", "ChancePanel");
+                Assert.That(hudView.TopologyBeltView.transform.parent, Is.SameAs(topRightStack));
+                Assert.That(hudView.NotificationView.transform.parent, Is.SameAs(bottomRightStack));
+                Assert.That(hudView.ChancePanelView.transform.parent, Is.SameAs(bottomRightStack));
+                Assert.That(hudView.ChancePanelView.ViewModel, Is.SameAs(chancePanelPresenter.ViewModel));
+                Assert.That(hudView.TopologyBeltView.ViewModel, Is.SameAs(topologyHudPresenter.ViewModel));
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [TestCase(1920.0f, 1080.0f)]
+        [TestCase(1280.0f, 720.0f)]
+        [TestCase(1440.0f, 1080.0f)]
+        [TestCase(1080.0f, 1080.0f)]
+        public void HUDController_CanonicalPrefab_HudStacksDoNotOverlapAtSupportedLandscapeResolutions(
+            float width,
+            float height)
+        {
+            var rootObject = new GameObject(
+                $"HUDController_CanonicalPrefab_HudStacksDoNotOverlapAtSupportedLandscapeResolutions_{width}_{height}",
+                typeof(RectTransform));
+
+            try
+            {
+                var rootRect = (RectTransform)rootObject.transform;
+                rootRect.sizeDelta = new Vector2(width, height);
+
+                CreateCanonicalRootView(rootObject, out var hudView);
+
+                var source = new ManualGameplayUiPresentationSource();
+                var playerStatusPresenter = new PlayerStatusPresenter();
+                var stageInfoPresenter = new StageInfoPresenter();
+                var objectiveHudPresenter = new ObjectiveHudPresenter();
+                var chancePanelPresenter = new ChancePanelPresenter();
+                var topologyHudPresenter = new TopologyHudPresenter();
+                var notificationPresenter = new NotificationPresenter();
+                using var rootPresenter = new HUDRootPresenter(
+                    source,
+                    stageInfoPresenter,
+                    objectiveHudPresenter,
+                    chancePanelPresenter,
+                    topologyHudPresenter,
+                    playerStatusPresenter,
+                    notificationPresenter);
+                using var controller = new HUDController(
+                    rootPresenter.ViewModel,
+                    stageInfoPresenter.ViewModel,
+                    objectiveHudPresenter.ViewModel,
+                    chancePanelPresenter.ViewModel,
+                    topologyHudPresenter.ViewModel,
+                    playerStatusPresenter.ViewModel,
+                    notificationPresenter.ViewModel);
+
+                controller.AttachView(hudView);
+                source.PublishSnapshot(CreateSnapshot(
+                    hasRemainingChances: true,
+                    remainingChances: 2,
+                    maxChances: 3,
+                    stageDisplayName: "Stage 1-1"));
+
+                var hudRect = (RectTransform)hudView.transform;
+                hudRect.anchorMin = Vector2.zero;
+                hudRect.anchorMax = Vector2.zero;
+                hudRect.pivot = Vector2.zero;
+                hudRect.sizeDelta = new Vector2(width, height);
+
+                LayoutRebuilder.ForceRebuildLayoutImmediate(hudRect);
+                Canvas.ForceUpdateCanvases();
+
+                var topLeftStack = FindRequiredRect(hudView.transform, "HudTopLeftStack");
+                var topRightStack = FindRequiredRect(hudView.transform, "HudTopRightStack");
+                var bottomRightStack = FindRequiredRect(hudView.transform, "HudBottomRightStack");
+
+                AssertNoOverlap(topLeftStack, topRightStack);
+                AssertNoOverlap(topLeftStack, bottomRightStack);
+                AssertNoOverlap(topRightStack, bottomRightStack);
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
         public void HUDController_CanonicalPrefab_RemovesDuplicateChancePanelViews()
         {
             var rootObject = new GameObject("HUDController_CanonicalPrefab_RemovesDuplicateChancePanelViews");
@@ -192,7 +328,7 @@ namespace Game.Feature.UI.Tests
                 controller.AttachView(hudView);
                 source.PublishSnapshot(CreateSnapshot(stageDisplayName: "Stage 1-1"));
 
-                var stageLabel = hudView.transform.Find("StageName")?.GetComponent<TMPro.TMP_Text>();
+                var stageLabel = FindRequiredRect(hudView.transform, "StageName").GetComponent<TMPro.TMP_Text>();
                 Assert.That(stageLabel, Is.Not.Null);
                 Assert.That(stageLabel.gameObject.activeSelf, Is.True);
                 Assert.That(stageLabel.text, Is.EqualTo("Stage 1-1"));
@@ -384,6 +520,68 @@ namespace Game.Feature.UI.Tests
             }
 
             return count;
+        }
+
+        private static RectTransform FindRequiredRect(Transform root, string name)
+        {
+            var transforms = root.GetComponentsInChildren<RectTransform>(true);
+            for (var i = 0; i < transforms.Length; i++)
+            {
+                if (transforms[i].name == name)
+                {
+                    return transforms[i];
+                }
+            }
+
+            Assert.Fail($"Expected to find RectTransform named '{name}'.");
+            return null;
+        }
+
+        private static void AssertStackTransform(
+            RectTransform stack,
+            Vector2 expectedAnchor,
+            Vector2 expectedPivot,
+            Vector2 expectedPosition)
+        {
+            Assert.That(stack.anchorMin, Is.EqualTo(expectedAnchor));
+            Assert.That(stack.anchorMax, Is.EqualTo(expectedAnchor));
+            Assert.That(stack.pivot, Is.EqualTo(expectedPivot));
+            Assert.That(stack.anchoredPosition, Is.EqualTo(expectedPosition));
+            var layoutGroup = stack.GetComponent<VerticalLayoutGroup>();
+            Assert.That(layoutGroup, Is.Not.Null);
+            Assert.That(layoutGroup.spacing, Is.EqualTo(8.0f));
+            Assert.That(layoutGroup.childControlWidth, Is.False);
+            Assert.That(layoutGroup.childControlHeight, Is.False);
+            Assert.That(layoutGroup.childForceExpandWidth, Is.False);
+            Assert.That(layoutGroup.childForceExpandHeight, Is.False);
+        }
+
+        private static void AssertChildOrder(RectTransform parent, params string[] childNames)
+        {
+            Assert.That(parent.childCount, Is.GreaterThanOrEqualTo(childNames.Length));
+            for (var i = 0; i < childNames.Length; i++)
+            {
+                Assert.That(parent.GetChild(i).name, Is.EqualTo(childNames[i]));
+            }
+        }
+
+        private static void AssertNoOverlap(RectTransform first, RectTransform second)
+        {
+            var firstRect = GetWorldRect(first);
+            var secondRect = GetWorldRect(second);
+            var overlaps = firstRect.xMin < secondRect.xMax
+                && firstRect.xMax > secondRect.xMin
+                && firstRect.yMin < secondRect.yMax
+                && firstRect.yMax > secondRect.yMin;
+
+            Assert.That(overlaps, Is.False, $"{first.name} overlaps {second.name}.");
+        }
+
+        private static Rect GetWorldRect(RectTransform rectTransform)
+        {
+            var corners = new Vector3[4];
+            rectTransform.GetWorldCorners(corners);
+            return Rect.MinMaxRect(corners[0].x, corners[0].y, corners[2].x, corners[2].y);
         }
 
         private static void DestroySupportObjects(GameObject rootObject)
