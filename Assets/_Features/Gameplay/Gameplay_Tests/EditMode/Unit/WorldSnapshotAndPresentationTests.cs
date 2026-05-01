@@ -2327,6 +2327,146 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(recoverSignal.LockedDirection, Is.EqualTo(Direction.Right));
         }
 
+        [Test]
+        [Category("Core")]
+        public void GlidePresentation_Windup_RisesAlongFaceNormal()
+        {
+            const int enemyId = 40;
+            var enemyCell = new SurfaceCell(FaceId.Front, 1, 1);
+            var windupState = CreateEnemyGlideState(
+                EnemyGlidePhase.Windup,
+                sequence: 3,
+                windupUntilTickExclusive: 10,
+                windupTicks: 4);
+            var snapshot = CreateSnapshotWithEnemyGlideStates(
+                new[]
+                {
+                    CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Chase, Direction.Right),
+                },
+                new EnemyGlideStateSeed(enemyId, windupState));
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    CreateMovementPhaseResult(),
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    currentTickIndex: 8));
+
+            var signal = presentationData.EnemyGlideSignals.Single();
+            Assert.That(signal.EntityId, Is.EqualTo(enemyId));
+            Assert.That(signal.AnchorCell, Is.EqualTo(enemyCell));
+            Assert.That(signal.Phase, Is.EqualTo(EnemyGlidePhase.Windup));
+            Assert.That(signal.Sequence, Is.EqualTo(3));
+            Assert.That(signal.PhaseElapsedTicks, Is.EqualTo(2));
+            Assert.That(signal.PhaseTotalTicks, Is.EqualTo(4));
+            Assert.That(signal.NormalizedPhaseProgress, Is.EqualTo(0.5f).Within(0.0001f));
+            Assert.That(signal.LiftHeightUnits, Is.EqualTo(KinematicFixed.UnitsPerCell / 4));
+            Assert.That(signal.CurrentHeightUnits, Is.EqualTo(KinematicFixed.UnitsPerCell / 8));
+            Assert.That(signal.IsTerminalZero, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GlidePresentation_ActiveAndLandingPending_HoldLiftHeight()
+        {
+            const int enemyId = 40;
+            var enemyCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var activeState = CreateEnemyGlideState(
+                EnemyGlidePhase.Active,
+                sequence: 4,
+                activeUntilTickExclusive: 12,
+                durationTicks: 5);
+            var landingPendingState = CreateEnemyGlideState(
+                EnemyGlidePhase.LandingPending,
+                sequence: 4,
+                activeUntilTickExclusive: 12,
+                durationTicks: 5,
+                landingPendingCell: new SurfaceCell(FaceId.Floor, 2, 1));
+
+            var activeSignal = BuildSingleGlideSignal(enemyId, enemyCell, activeState, currentTickIndex: 9);
+            var landingPendingSignal = BuildSingleGlideSignal(enemyId, enemyCell, landingPendingState, currentTickIndex: 12);
+
+            Assert.That(activeSignal.Phase, Is.EqualTo(EnemyGlidePhase.Active));
+            Assert.That(activeSignal.CurrentHeightUnits, Is.EqualTo(KinematicFixed.UnitsPerCell / 4));
+            Assert.That(activeSignal.IsLandingPending, Is.False);
+            Assert.That(landingPendingSignal.Phase, Is.EqualTo(EnemyGlidePhase.LandingPending));
+            Assert.That(landingPendingSignal.CurrentHeightUnits, Is.EqualTo(KinematicFixed.UnitsPerCell / 4));
+            Assert.That(landingPendingSignal.IsLandingPending, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GlidePresentation_Recovery_DescendsAndSupportsDip()
+        {
+            const int enemyId = 40;
+            var enemyCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var recoveryState = CreateEnemyGlideState(
+                EnemyGlidePhase.Recovery,
+                sequence: 5,
+                recoveryUntilTickExclusive: 14,
+                recoveryTicks: 4);
+
+            var defaultSignal = BuildSingleGlideSignal(enemyId, enemyCell, recoveryState, currentTickIndex: 12);
+            var dipSignal = BuildSingleGlideSignal(
+                enemyId,
+                enemyCell,
+                recoveryState,
+                currentTickIndex: 12,
+                new FixedEnemyGlidePresentationSettingsResolver(
+                    new EnemyGlidePresentationSettings(
+                        KinematicFixed.UnitsPerCell / 4,
+                        KinematicFixed.UnitsPerCell / 16)));
+
+            Assert.That(defaultSignal.Phase, Is.EqualTo(EnemyGlidePhase.Recovery));
+            Assert.That(defaultSignal.CurrentHeightUnits, Is.EqualTo(KinematicFixed.UnitsPerCell / 8));
+            Assert.That(defaultSignal.RecoveryDipHeightUnits, Is.Zero);
+            Assert.That(dipSignal.RecoveryDipHeightUnits, Is.EqualTo(KinematicFixed.UnitsPerCell / 16));
+            Assert.That(dipSignal.CurrentHeightUnits, Is.EqualTo(-(KinematicFixed.UnitsPerCell / 16)));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GlidePresentation_Clear_DoesNotLeaveStaleHoverSignal()
+        {
+            const int enemyId = 40;
+            var enemyCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var activeState = CreateEnemyGlideState(
+                EnemyGlidePhase.Active,
+                sequence: 6,
+                activeUntilTickExclusive: 12,
+                durationTicks: 5);
+            var preMovementSnapshot = CreateSnapshotWithEnemyGlideStates(
+                new[]
+                {
+                    CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Chase, Direction.Right),
+                },
+                new EnemyGlideStateSeed(enemyId, activeState));
+            var finalSnapshot = CreateSnapshotWithEnemyGlideStates(
+                new[]
+                {
+                    CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Chase, Direction.Right),
+                });
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    CreateMovementPhaseResult(),
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    currentTickIndex: 12));
+
+            var signal = presentationData.EnemyGlideSignals.Single();
+            Assert.That(signal.IsTerminalZero, Is.True);
+            Assert.That(signal.CurrentHeightUnits, Is.Zero);
+        }
+
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
@@ -2435,6 +2575,50 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             return CreateSnapshot(worldState);
+        }
+
+        private static WorldSnapshot CreateSnapshotWithEnemyGlideStates(
+            IEnumerable<EntityState> initialEntities,
+            params EnemyGlideStateSeed[] glideStates)
+        {
+            var worldState = CreateWorldState(initialEntities);
+            if (glideStates != null && glideStates.Length > 0)
+            {
+                var writeContext = CreateWriteContext(worldState);
+                for (var i = 0; i < glideStates.Length; i++)
+                {
+                    writeContext.SetEnemyGlideState(glideStates[i].EntityId, glideStates[i].State);
+                }
+            }
+
+            return CreateSnapshot(worldState);
+        }
+
+        private static TickEnemyGlidePresentationSignal BuildSingleGlideSignal(
+            int enemyId,
+            SurfaceCell enemyCell,
+            EnemyGlideRuntimeState glideState,
+            int currentTickIndex,
+            IEnemyGlidePresentationSettingsResolver settingsResolver = null)
+        {
+            var snapshot = CreateSnapshotWithEnemyGlideStates(
+                new[]
+                {
+                    CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Chase, Direction.Right),
+                },
+                new EnemyGlideStateSeed(enemyId, glideState));
+
+            return new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    CreateMovementPhaseResult(),
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    currentTickIndex: currentTickIndex,
+                    enemyGlidePresentationSettingsResolver: settingsResolver)).EnemyGlideSignals.Single();
         }
 
         private static ActionGroup CreateActionGroup(int intentId, int sourceId, int priority, int groupId)
@@ -2613,6 +2797,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
             };
         }
 
+        private static EnemyGlideRuntimeState CreateEnemyGlideState(
+            EnemyGlidePhase phase,
+            int sequence,
+            int windupUntilTickExclusive = 0,
+            int activeUntilTickExclusive = 0,
+            int recoveryUntilTickExclusive = 0,
+            int cooldownUntilTickExclusive = 0,
+            int windupTicks = 0,
+            int durationTicks = 0,
+            int recoveryTicks = 0,
+            int cooldownTicks = 0,
+            int lastExitedTick = 0,
+            SurfaceCell landingPendingCell = default)
+        {
+            return EnemyGlideRuntimeState.Create(
+                phase,
+                sequence,
+                windupUntilTickExclusive,
+                activeUntilTickExclusive,
+                recoveryUntilTickExclusive,
+                cooldownUntilTickExclusive,
+                windupTicks,
+                durationTicks,
+                recoveryTicks,
+                cooldownTicks,
+                lastExitedTick,
+                landingPendingCell);
+        }
+
         private static EntityState CreateEnemyEntity(
             int entityId,
             SurfaceCell position,
@@ -2623,6 +2836,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var entity = CreateEntity(entityId, EntityType.Unit, position, facing, boardPresence);
             entity.aiMode = aiMode;
             entity.teamId = 2;
+            entity.unitRole = UnitRole.Enemy;
             return entity;
         }
 
@@ -2719,6 +2933,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public int EntityId { get; }
 
             public EnemyChargeRuntimeState State { get; }
+        }
+
+        private readonly struct EnemyGlideStateSeed
+        {
+            public EnemyGlideStateSeed(int entityId, EnemyGlideRuntimeState state)
+            {
+                EntityId = entityId;
+                State = state;
+            }
+
+            public int EntityId { get; }
+
+            public EnemyGlideRuntimeState State { get; }
+        }
+
+        private sealed class FixedEnemyGlidePresentationSettingsResolver : IEnemyGlidePresentationSettingsResolver
+        {
+            private readonly EnemyGlidePresentationSettings _settings;
+
+            public FixedEnemyGlidePresentationSettingsResolver(EnemyGlidePresentationSettings settings)
+            {
+                _settings = settings;
+            }
+
+            public bool TryResolveEnemyGlidePresentationSettings(
+                WorldSnapshot snapshot,
+                in EntityState entity,
+                out EnemyGlidePresentationSettings settings)
+            {
+                settings = _settings;
+                return true;
+            }
         }
 
         private sealed class StubEntityLogic : IMovementEntityLogic, IAttackEntityLogic, IEntityLogicSourceBinding

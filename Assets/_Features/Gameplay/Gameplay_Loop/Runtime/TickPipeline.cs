@@ -30,6 +30,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly IdAllocator _idAllocator = new();
         private readonly EntityIdAllocator _entityIdAllocator;
         private readonly ISnapshotEntityLogicProvider _entityLogicProvider;
+        private readonly IEnemyGlidePresentationSettingsResolver _enemyGlidePresentationSettingsResolver;
         private readonly IReadOnlyList<IEntityLogic> _staticEntityLogics;
         private readonly IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> _enemySpawnDefaultsByArchetypeId;
         private readonly MovementIntentCollector _movementIntentCollector = new();
@@ -78,6 +79,8 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             _entityLogicProvider = entityLogicProvider ?? throw new ArgumentNullException(nameof(entityLogicProvider));
+            _enemyGlidePresentationSettingsResolver =
+                _entityLogicProvider as IEnemyGlidePresentationSettingsResolver;
             _staticEntityLogics = new List<IEntityLogic>(entityLogics).AsReadOnly();
             _enemySpawnDefaultsByArchetypeId = enemySpawnDefaultsByArchetypeId;
             _entityIdAllocator = EntityIdAllocator.Create(SnapshotBuilder.Create(_worldState));
@@ -208,7 +211,8 @@ namespace Game.Feature.Gameplay.Loop
                 input.TickIndex,
                 snapshotAfterEnemyAi,
                 input.PlayerCommand,
-                resolvePhaseResult.ResolutionRecords);
+                resolvePhaseResult.ResolutionRecords,
+                _enemyGlidePresentationSettingsResolver);
             var pendingDelayedAttackEffects = _delayedAttackEffectQueue.Snapshot();
             var tickResultData = _tickResultBuilder.Build(
                 finalAuthoritativeSnapshot,

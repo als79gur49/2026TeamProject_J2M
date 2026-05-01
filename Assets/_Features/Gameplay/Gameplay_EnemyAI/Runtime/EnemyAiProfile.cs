@@ -59,6 +59,10 @@ namespace Game.Feature.Gameplay.Entities
         public EnemyGlideTimingAuthoringSettings GlideTimingSettings =>
             GetMovementSkillCapabilityAsset()?.GlideTimingSettings ?? global::Game.Feature.Gameplay.Entities.EnemyGlideTimingAuthoringSettings.CreateDefault();
 
+        public EnemyGlidePresentationAuthoringSettings GlidePresentationSettings =>
+            GetMovementSkillCapabilityAsset()?.GlidePresentationSettings ??
+            global::Game.Feature.Gameplay.Entities.EnemyGlidePresentationAuthoringSettings.CreateDefault();
+
         public EnemyAiRuntimeDefinition CreateRuntimeDefinition(int simulationTicksPerSecond)
         {
             return EnemyAiProfileCompiler.Compile(this, simulationTicksPerSecond);

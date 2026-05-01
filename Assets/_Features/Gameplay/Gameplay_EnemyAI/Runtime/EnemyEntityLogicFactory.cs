@@ -13,7 +13,7 @@ namespace Game.Feature.Gameplay.Entities
         bool TryGetJumpCooldownTicks(out int cooldownTicks);
     }
 
-    internal sealed class EnemyEntityLogicFactory : IEntityLogicFactory
+    internal sealed class EnemyEntityLogicFactory : IEntityLogicFactory, IEnemyGlidePresentationSettingsResolver
     {
         private readonly EnemyAiRuntimeDefinition _defaultDefinition;
         private readonly IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> _definitionsByEntityId;
@@ -77,6 +77,23 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return _defaultDefinition;
+        }
+
+        public bool TryResolveEnemyGlidePresentationSettings(
+            WorldSnapshot snapshot,
+            in EntityState entity,
+            out EnemyGlidePresentationSettings settings)
+        {
+            var definition = ResolveDefinition(snapshot, entity);
+            if (definition.Capabilities.TryGetMovementSkill(out var movementSkill) &&
+                movementSkill.Kind == MovementSkillStrategyKind.GlideOverSolid)
+            {
+                settings = movementSkill.GlidePresentationSettings;
+                return true;
+            }
+
+            settings = EnemyGlidePresentationSettings.CreateDefault();
+            return false;
         }
     }
 

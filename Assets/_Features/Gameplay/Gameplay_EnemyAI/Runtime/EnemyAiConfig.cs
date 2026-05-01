@@ -1,4 +1,5 @@
 using System;
+using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using UnityEngine;
 
@@ -579,6 +580,92 @@ namespace Game.Feature.Gameplay.Entities
     }
 
     [Serializable]
+    public readonly struct EnemyGlidePresentationSettings
+    {
+        public EnemyGlidePresentationSettings(int liftHeightUnits, int recoveryDipHeightUnits)
+        {
+            LiftHeightUnits = Mathf.Max(0, liftHeightUnits);
+            RecoveryDipHeightUnits = Mathf.Max(0, recoveryDipHeightUnits);
+        }
+
+        public int LiftHeightUnits { get; }
+
+        public int RecoveryDipHeightUnits { get; }
+
+        public void Validate(string paramName)
+        {
+            if (LiftHeightUnits < 0)
+            {
+                throw new ArgumentException("Enemy glide presentation settings require a non-negative lift height.", paramName);
+            }
+
+            if (RecoveryDipHeightUnits < 0)
+            {
+                throw new ArgumentException("Enemy glide presentation settings require a non-negative recovery dip height.", paramName);
+            }
+        }
+
+        public static EnemyGlidePresentationSettings CreateDefault()
+        {
+            return new EnemyGlidePresentationSettings(
+                liftHeightUnits: KinematicFixed.UnitsPerCell / 4,
+                recoveryDipHeightUnits: 0);
+        }
+    }
+
+    [Serializable]
+    public struct EnemyGlidePresentationAuthoringSettings
+    {
+        [SerializeField] private float liftHeightCells;
+        [SerializeField] private float recoveryDipHeightCells;
+
+        public EnemyGlidePresentationAuthoringSettings(float liftHeightCells, float recoveryDipHeightCells)
+        {
+            this.liftHeightCells = liftHeightCells;
+            this.recoveryDipHeightCells = recoveryDipHeightCells;
+        }
+
+        public float LiftHeightCells => liftHeightCells;
+
+        public float RecoveryDipHeightCells => recoveryDipHeightCells;
+
+        public void Validate(string paramName)
+        {
+            if (liftHeightCells < 0f)
+            {
+                throw new ArgumentException("Enemy glide presentation settings require a non-negative lift height.", paramName);
+            }
+
+            if (recoveryDipHeightCells < 0f)
+            {
+                throw new ArgumentException("Enemy glide presentation settings require a non-negative recovery dip height.", paramName);
+            }
+        }
+
+        public EnemyGlidePresentationSettings ToRuntimeSettings()
+        {
+            Validate(nameof(EnemyGlidePresentationAuthoringSettings));
+
+            return new EnemyGlidePresentationSettings(
+                Mathf.RoundToInt(liftHeightCells * KinematicFixed.UnitsPerCell),
+                Mathf.RoundToInt(recoveryDipHeightCells * KinematicFixed.UnitsPerCell));
+        }
+
+        public static EnemyGlidePresentationAuthoringSettings CreateDefault()
+        {
+            return new EnemyGlidePresentationAuthoringSettings(0.25f, 0f);
+        }
+
+        public static EnemyGlidePresentationAuthoringSettings FromRuntimeSettings(
+            EnemyGlidePresentationSettings runtimeSettings)
+        {
+            return new EnemyGlidePresentationAuthoringSettings(
+                runtimeSettings.LiftHeightUnits / (float)KinematicFixed.UnitsPerCell,
+                runtimeSettings.RecoveryDipHeightUnits / (float)KinematicFixed.UnitsPerCell);
+        }
+    }
+
+    [Serializable]
     public struct EnemyGlideTimingSettings
     {
         [SerializeField] private int windupTicks;
@@ -885,6 +972,12 @@ namespace Game.Feature.Gameplay.Entities
                                                                movementSkill.Kind == MovementSkillStrategyKind.GlideOverSolid
             ? movementSkill.GlideTimingSettings
             : global::Game.Feature.Gameplay.Entities.EnemyGlideTimingSettings.CreateDefault();
+
+        public EnemyGlidePresentationSettings GlidePresentationSettings =>
+            Capabilities.TryGetMovementSkill(out var movementSkill) &&
+            movementSkill.Kind == MovementSkillStrategyKind.GlideOverSolid
+                ? movementSkill.GlidePresentationSettings
+                : global::Game.Feature.Gameplay.Entities.EnemyGlidePresentationSettings.CreateDefault();
 
         public IPatrolStrategy PatrolStrategy => Brain.Patrol.Strategy;
 

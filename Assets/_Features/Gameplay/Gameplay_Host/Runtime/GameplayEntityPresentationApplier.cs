@@ -194,6 +194,11 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
+                if (_trackState.GlidePresentationOffsetsByEntityId.TryGetValue(entityId, out var glideOffset))
+                {
+                    localPose = new GameplayEntityPose(localPose.Position + glideOffset, localPose.Rotation);
+                }
+
                 view.SetVisible(true);
                 view.ApplyLocalPose(localPose.Position, localPose.Rotation);
                 ApplyMotionVisualScale(entityId, view, motionVisualScaleMultiplier);

@@ -5,7 +5,7 @@ using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.Entities
 {
-    internal sealed class SnapshotEntityLogicProvider : ISnapshotEntityLogicProvider
+    internal sealed class SnapshotEntityLogicProvider : ISnapshotEntityLogicProvider, IEnemyGlidePresentationSettingsResolver
     {
         private readonly IReadOnlyList<IEntityLogicFactory> _entityLogicFactories;
 
@@ -84,6 +84,24 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return BuildEntityLogicSet(entityLogics);
+        }
+
+        public bool TryResolveEnemyGlidePresentationSettings(
+            WorldSnapshot snapshot,
+            in EntityState entity,
+            out EnemyGlidePresentationSettings settings)
+        {
+            for (var i = 0; i < _entityLogicFactories.Count; i++)
+            {
+                if (_entityLogicFactories[i] is IEnemyGlidePresentationSettingsResolver resolver &&
+                    resolver.TryResolveEnemyGlidePresentationSettings(snapshot, entity, out settings))
+                {
+                    return true;
+                }
+            }
+
+            settings = EnemyGlidePresentationSettings.CreateDefault();
+            return false;
         }
 
         private static void AddStaticEntityLogic(

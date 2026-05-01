@@ -139,12 +139,16 @@ namespace Game.Feature.Gameplay.Entities
         public virtual EnemyGlideTimingAuthoringSettings GlideTimingSettings =>
             EnemyGlideTimingAuthoringSettings.CreateDefault();
 
+        public virtual EnemyGlidePresentationAuthoringSettings GlidePresentationSettings =>
+            EnemyGlidePresentationAuthoringSettings.CreateDefault();
+
         internal sealed override EnemyCapabilityRuntime Compile(int simulationTicksPerSecond)
         {
             return new EnemyMovementSkillCapabilityRuntime(
                 Kind,
                 JumpTimingSettings.ToRuntimeSettings(simulationTicksPerSecond),
-                GlideTimingSettings.ToRuntimeSettings(simulationTicksPerSecond));
+                GlideTimingSettings.ToRuntimeSettings(simulationTicksPerSecond),
+                GlidePresentationSettings.ToRuntimeSettings());
         }
     }
 

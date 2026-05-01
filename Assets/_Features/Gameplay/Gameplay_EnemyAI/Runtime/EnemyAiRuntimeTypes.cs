@@ -328,7 +328,11 @@ namespace Game.Feature.Gameplay.Entities
         public EnemyMovementSkillCapabilityRuntime(
             MovementSkillStrategyKind kind,
             EnemyJumpTimingSettings jumpTimingSettings)
-            : this(kind, jumpTimingSettings, EnemyGlideTimingSettings.CreateDefault())
+            : this(
+                kind,
+                jumpTimingSettings,
+                EnemyGlideTimingSettings.CreateDefault(),
+                EnemyGlidePresentationSettings.CreateDefault())
         {
         }
 
@@ -336,6 +340,19 @@ namespace Game.Feature.Gameplay.Entities
             MovementSkillStrategyKind kind,
             EnemyJumpTimingSettings jumpTimingSettings,
             EnemyGlideTimingSettings glideTimingSettings)
+            : this(
+                kind,
+                jumpTimingSettings,
+                glideTimingSettings,
+                EnemyGlidePresentationSettings.CreateDefault())
+        {
+        }
+
+        public EnemyMovementSkillCapabilityRuntime(
+            MovementSkillStrategyKind kind,
+            EnemyJumpTimingSettings jumpTimingSettings,
+            EnemyGlideTimingSettings glideTimingSettings,
+            EnemyGlidePresentationSettings glidePresentationSettings)
         {
             if (kind == MovementSkillStrategyKind.None)
             {
@@ -345,11 +362,13 @@ namespace Game.Feature.Gameplay.Entities
             Kind = kind;
             _jumpTimingSettings = jumpTimingSettings;
             _glideTimingSettings = glideTimingSettings;
+            _glidePresentationSettings = glidePresentationSettings;
             Validate(nameof(EnemyMovementSkillCapabilityRuntime));
         }
 
         private readonly EnemyJumpTimingSettings _jumpTimingSettings;
         private readonly EnemyGlideTimingSettings _glideTimingSettings;
+        private readonly EnemyGlidePresentationSettings _glidePresentationSettings;
 
         public override EnemyCapabilityFamily Family => EnemyCapabilityFamily.MovementSkill;
 
@@ -384,6 +403,20 @@ namespace Game.Feature.Gameplay.Entities
             }
         }
 
+        public EnemyGlidePresentationSettings GlidePresentationSettings
+        {
+            get
+            {
+                if (Kind != MovementSkillStrategyKind.GlideOverSolid)
+                {
+                    throw new InvalidOperationException(
+                        $"Movement skill '{Kind}' does not expose glide presentation settings.");
+                }
+
+                return _glidePresentationSettings;
+            }
+        }
+
         public override void Validate(string paramName)
         {
             switch (Kind)
@@ -395,6 +428,7 @@ namespace Game.Feature.Gameplay.Entities
 
                 case MovementSkillStrategyKind.GlideOverSolid:
                     _glideTimingSettings.Validate(paramName);
+                    _glidePresentationSettings.Validate(paramName);
                     break;
 
                 case MovementSkillStrategyKind.None:

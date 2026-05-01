@@ -16,6 +16,7 @@ Gameplay spatial authority remains `EntityState.position: SurfaceCell` plus the 
 - Box, wall, terrain, projectile, reservation, topology, and impact disposition remain grid-authoritative in v1.
 - v1 player free-local locomotion is 4-direction same-face only; topology seam crossing and continuous box colliders are non-goals.
 - Presentation may consume `TickKinematicMotionTrack` or `TickContinuousLocomotionTrack`, but presentation data is never canonical simulation state.
+- Enemy glide visual height is carried by `TickEnemyGlidePresentationSignal` as presentation-only fixed units. The host converts that height to an additive offset along the current `SurfaceCell` face normal after resolving the base pose. This signal does not change `EntityState.position`, `UnitKinematicRuntimeState`, `UnitContinuousLocomotionState`, collision/contact behavior, or canonical replay hashes; active glide horizontal motion may still use the documented legacy fallback until a separate kinematic migration slice replaces it.
 
 ## Locomotion vs Grid Transaction Boundary v1
 

@@ -162,6 +162,31 @@ namespace Game.Feature.Gameplay.Host
             return true;
         }
 
+        public bool TryResolveGlidePresentationOffset(
+            GameplayCubeProjector projector,
+            TickEnemyGlidePresentationSignal signal,
+            CubeTopologyState topology,
+            out Vector3 offset)
+        {
+            if (projector == null)
+            {
+                throw new ArgumentNullException(nameof(projector));
+            }
+
+            offset = default;
+            var entityType = _stateStore.EntityTypesByEntityId.TryGetValue(signal.EntityId, out var knownEntityType)
+                ? knownEntityType
+                : EntityType.Unit;
+            if (!projector.TryResolveEntitySurfaceNormal(signal.AnchorCell, topology, entityType, out var normal))
+            {
+                return false;
+            }
+
+            var heightWorld = signal.CurrentHeightUnits * projector.CellSize / KinematicFixed.UnitsPerCell;
+            offset = normal * heightWorld;
+            return true;
+        }
+
         public bool TryResolveTransitionLocalPose(
             GameplayCubeProjector projector,
             int entityId,

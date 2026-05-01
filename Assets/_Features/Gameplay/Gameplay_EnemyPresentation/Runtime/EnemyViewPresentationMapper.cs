@@ -101,7 +101,11 @@ namespace Game.Feature.Gameplay.Host
             bool startedChargeRecoverThisTick,
             bool tookDamage,
             bool didDie,
-            TickEnemyJumpPresentationOutcome jumpOutcome = TickEnemyJumpPresentationOutcome.None)
+            TickEnemyJumpPresentationOutcome jumpOutcome = TickEnemyJumpPresentationOutcome.None,
+            EnemyGlidePhase glidePhase = EnemyGlidePhase.Ready,
+            bool startedGlideWindupThisTick = false,
+            bool startedGlideActiveThisTick = false,
+            bool startedGlideRecoverThisTick = false)
         {
             EntityId = entityId;
             TickIndex = tickIndex;
@@ -121,6 +125,10 @@ namespace Game.Feature.Gameplay.Host
             StartedChargeWindupThisTick = startedChargeWindupThisTick;
             StartedChargeActiveThisTick = startedChargeActiveThisTick;
             StartedChargeRecoverThisTick = startedChargeRecoverThisTick;
+            GlidePhase = glidePhase;
+            StartedGlideWindupThisTick = startedGlideWindupThisTick;
+            StartedGlideActiveThisTick = startedGlideActiveThisTick;
+            StartedGlideRecoverThisTick = startedGlideRecoverThisTick;
             TookDamage = tookDamage;
             DidDie = didDie;
         }
@@ -161,6 +169,14 @@ namespace Game.Feature.Gameplay.Host
 
         public bool StartedChargeRecoverThisTick { get; }
 
+        public EnemyGlidePhase GlidePhase { get; }
+
+        public bool StartedGlideWindupThisTick { get; }
+
+        public bool StartedGlideActiveThisTick { get; }
+
+        public bool StartedGlideRecoverThisTick { get; }
+
         public bool DidAttack => ExecutedThisTick;
 
         public bool TookDamage { get; }
@@ -175,6 +191,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, TickEnemyDamagePresentationSignal> _enemyDamageSignalsByEntityId = new();
         private readonly Dictionary<int, TickEnemyJumpPresentationSignal> _enemyJumpSignalsByEntityId = new();
         private readonly Dictionary<int, TickEnemyChargePresentationSignal> _enemyChargeSignalsByEntityId = new();
+        private readonly Dictionary<int, TickEnemyGlidePresentationSignal> _enemyGlideSignalsByEntityId = new();
         private readonly Dictionary<int, EntityState> _finalEntitiesById = new();
         private readonly HashSet<int> _movingEntityIds = new();
         private readonly HashSet<int> _removedEntityIds = new();
@@ -206,6 +223,7 @@ namespace Game.Feature.Gameplay.Host
             _enemyDamageSignalsByEntityId.Clear();
             _enemyJumpSignalsByEntityId.Clear();
             _enemyChargeSignalsByEntityId.Clear();
+            _enemyGlideSignalsByEntityId.Clear();
             _removedEntityIds.Clear();
             _finalEntitiesById.Clear();
 
@@ -215,6 +233,7 @@ namespace Game.Feature.Gameplay.Host
             CollectEnemyDamageSignals(result.PresentationData);
             CollectEnemyJumpSignals(result.PresentationData);
             CollectEnemyChargeSignals(result.PresentationData);
+            CollectEnemyGlideSignals(result.PresentationData);
             CollectRemovalSignals(result.PresentationData);
 
             foreach (var entityId in _candidateEntityIds)
@@ -245,6 +264,10 @@ namespace Game.Feature.Gameplay.Host
                 var startedChargeWindupThisTick = false;
                 var startedChargeActiveThisTick = false;
                 var startedChargeRecoverThisTick = false;
+                var glidePhase = EnemyGlidePhase.Ready;
+                var startedGlideWindupThisTick = false;
+                var startedGlideActiveThisTick = false;
+                var startedGlideRecoverThisTick = false;
                 var tookDamageThisTick = false;
 
                 if (_enemyActionSignalsByEntityId.TryGetValue(entityId, out var actionSignal))
@@ -280,6 +303,19 @@ namespace Game.Feature.Gameplay.Host
                     startedRecoveryThisTick |= chargeSignal.StartedRecoverThisTick;
                 }
 
+                if (_enemyGlideSignalsByEntityId.TryGetValue(entityId, out var glideSignal))
+                {
+                    glidePhase = glideSignal.Phase;
+                    startedGlideWindupThisTick = glideSignal.Phase == EnemyGlidePhase.Windup &&
+                                                glideSignal.PhaseElapsedTicks == 0;
+                    startedGlideActiveThisTick = glideSignal.Phase == EnemyGlidePhase.Active &&
+                                                glideSignal.PhaseElapsedTicks == 0;
+                    startedGlideRecoverThisTick = glideSignal.Phase == EnemyGlidePhase.Recovery &&
+                                                 glideSignal.PhaseElapsedTicks == 0;
+                    startedWindupThisTick |= startedGlideWindupThisTick;
+                    startedRecoveryThisTick |= startedGlideRecoverThisTick;
+                }
+
                 buffer[entityId] = new EnemyViewPresentationState(
                     entityId,
                     result.TickIndex,
@@ -300,7 +336,11 @@ namespace Game.Feature.Gameplay.Host
                     startedChargeRecoverThisTick,
                     tookDamageThisTick,
                     didDie,
-                    jumpOutcome);
+                    jumpOutcome,
+                    glidePhase,
+                    startedGlideWindupThisTick,
+                    startedGlideActiveThisTick,
+                    startedGlideRecoverThisTick);
             }
         }
 
@@ -400,6 +440,17 @@ namespace Game.Feature.Gameplay.Host
                 var signal = enemyChargeSignals[i];
                 _candidateEntityIds.Add(signal.EntityId);
                 _enemyChargeSignalsByEntityId[signal.EntityId] = signal;
+            }
+        }
+
+        private void CollectEnemyGlideSignals(TickPresentationData presentationData)
+        {
+            var enemyGlideSignals = presentationData.EnemyGlideSignals;
+            for (var i = 0; i < enemyGlideSignals.Count; i++)
+            {
+                var signal = enemyGlideSignals[i];
+                _candidateEntityIds.Add(signal.EntityId);
+                _enemyGlideSignalsByEntityId[signal.EntityId] = signal;
             }
         }
 

@@ -160,6 +160,22 @@ namespace Game.Feature.Gameplay.Host
             return true;
         }
 
+        public bool TryResolveEntitySurfaceNormal(
+            SurfaceCell cell,
+            CubeTopologyState topology,
+            EntityType entityType,
+            out Vector3 normal)
+        {
+            if (!TryProjectEntityCell(cell, topology, entityType, out var projectedPose))
+            {
+                normal = default;
+                return false;
+            }
+
+            normal = projectedPose.Normal;
+            return true;
+        }
+
         public bool TryProjectTransitionSurfaceCell(
             SurfaceCell cell,
             CubeTopologyState sourceTopology,

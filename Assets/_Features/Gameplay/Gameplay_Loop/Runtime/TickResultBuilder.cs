@@ -329,7 +329,8 @@ namespace Game.Feature.Gameplay.Loop
             int currentTickIndex = 0,
             WorldSnapshot jumpBaselineSnapshot = null,
             PlayerTickCommand playerCommand = default,
-            IReadOnlyList<ResolutionRecord> resolutionRecords = null)
+            IReadOnlyList<ResolutionRecord> resolutionRecords = null,
+            IEnemyGlidePresentationSettingsResolver enemyGlidePresentationSettingsResolver = null)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -342,7 +343,8 @@ namespace Game.Feature.Gameplay.Loop
                 currentTickIndex,
                 jumpBaselineSnapshot,
                 playerCommand,
-                resolutionRecords)
+                resolutionRecords,
+                enemyGlidePresentationSettingsResolver)
         {
         }
 
@@ -358,7 +360,8 @@ namespace Game.Feature.Gameplay.Loop
             int currentTickIndex = 0,
             WorldSnapshot jumpBaselineSnapshot = null,
             PlayerTickCommand playerCommand = default,
-            IReadOnlyList<ResolutionRecord> resolutionRecords = null)
+            IReadOnlyList<ResolutionRecord> resolutionRecords = null,
+            IEnemyGlidePresentationSettingsResolver enemyGlidePresentationSettingsResolver = null)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -372,7 +375,8 @@ namespace Game.Feature.Gameplay.Loop
                 currentTickIndex,
                 jumpBaselineSnapshot,
                 playerCommand,
-                resolutionRecords)
+                resolutionRecords,
+                enemyGlidePresentationSettingsResolver)
         {
         }
 
@@ -388,7 +392,8 @@ namespace Game.Feature.Gameplay.Loop
             int currentTickIndex = 0,
             WorldSnapshot jumpBaselineSnapshot = null,
             PlayerTickCommand playerCommand = default,
-            IReadOnlyList<ResolutionRecord> resolutionRecords = null)
+            IReadOnlyList<ResolutionRecord> resolutionRecords = null,
+            IEnemyGlidePresentationSettingsResolver enemyGlidePresentationSettingsResolver = null)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -402,7 +407,8 @@ namespace Game.Feature.Gameplay.Loop
                 currentTickIndex,
                 jumpBaselineSnapshot,
                 playerCommand,
-                resolutionRecords)
+                resolutionRecords,
+                enemyGlidePresentationSettingsResolver)
         {
         }
 
@@ -419,7 +425,8 @@ namespace Game.Feature.Gameplay.Loop
             int currentTickIndex = 0,
             WorldSnapshot jumpBaselineSnapshot = null,
             PlayerTickCommand playerCommand = default,
-            IReadOnlyList<ResolutionRecord> resolutionRecords = null)
+            IReadOnlyList<ResolutionRecord> resolutionRecords = null,
+            IEnemyGlidePresentationSettingsResolver enemyGlidePresentationSettingsResolver = null)
         {
             PreMovementSnapshot = preMovementSnapshot ?? throw new ArgumentNullException(nameof(preMovementSnapshot));
             PostMovementSnapshot = postMovementSnapshot ?? throw new ArgumentNullException(nameof(postMovementSnapshot));
@@ -434,6 +441,7 @@ namespace Game.Feature.Gameplay.Loop
             JumpBaselineSnapshot = jumpBaselineSnapshot ?? PreMovementSnapshot;
             PlayerCommand = playerCommand;
             ResolutionRecords = resolutionRecords ?? Array.Empty<ResolutionRecord>();
+            EnemyGlidePresentationSettingsResolver = enemyGlidePresentationSettingsResolver;
         }
 
         public WorldSnapshot PreMovementSnapshot { get; }
@@ -464,6 +472,8 @@ namespace Game.Feature.Gameplay.Loop
         public PlayerTickCommand PlayerCommand { get; }
 
         public IReadOnlyList<ResolutionRecord> ResolutionRecords { get; }
+
+        internal IEnemyGlidePresentationSettingsResolver EnemyGlidePresentationSettingsResolver { get; }
     }
 
     internal sealed class TickPresentationDataBuilder
@@ -478,6 +488,7 @@ namespace Game.Feature.Gameplay.Loop
             var enemyDamageSignals = new List<TickEnemyDamagePresentationSignal>();
             var enemyJumpSignals = new List<TickEnemyJumpPresentationSignal>();
             var enemyChargeSignals = new List<TickEnemyChargePresentationSignal>();
+            var enemyGlideSignals = new List<TickEnemyGlidePresentationSignal>();
             var frontFaceShieldSourceSignals = new List<TickFrontFaceShieldSourceSignal>();
             var frontFaceShieldBlockSignals = new List<TickFrontFaceShieldBlockSignal>();
             var summonWindupWarnings = new List<TickSummonWindupWarningSignal>();
@@ -512,6 +523,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildEnemyPresentation(context, enemyActionSignals);
             BuildEnemyJumpPresentation(context, enemyJumpSignals);
             BuildEnemyChargePresentation(context, enemyChargeSignals);
+            BuildEnemyGlidePresentation(context, enemyGlideSignals);
             BuildFrontFaceShieldPresentation(context, frontFaceShieldSourceSignals, frontFaceShieldBlockSignals);
             BuildEnemyUtilityWindupPresentation(context, summonWindupWarnings, frontFaceShieldWindupWarnings);
             BuildSummonedEnemyPresentationBindings(context, summonedEnemyPresentationBindings);
@@ -524,6 +536,7 @@ namespace Game.Feature.Gameplay.Loop
                    enemyDamageSignals.Count == 0 &&
                    enemyJumpSignals.Count == 0 &&
                    enemyChargeSignals.Count == 0 &&
+                   enemyGlideSignals.Count == 0 &&
                    frontFaceShieldSourceSignals.Count == 0 &&
                    frontFaceShieldBlockSignals.Count == 0 &&
                    summonWindupWarnings.Count == 0 &&
@@ -566,7 +579,8 @@ namespace Game.Feature.Gameplay.Loop
                     frontFaceShieldWindupWarnings,
                     kinematicMotionTracks,
                     playerDeathHoldSignals,
-                    continuousLocomotionTracks);
+                    continuousLocomotionTracks,
+                    enemyGlideSignals);
         }
 
         private static void BuildPlayerDeathHoldPresentation(
@@ -2114,6 +2128,211 @@ namespace Game.Feature.Gameplay.Loop
 
                 candidateEntityIds.Add(entry.EntityId);
             }
+        }
+
+        private static void BuildEnemyGlidePresentation(
+            in TickPresentationBuildContext context,
+            List<TickEnemyGlidePresentationSignal> enemyGlideSignals)
+        {
+            var candidateEntityIds = new List<int>();
+            var seenEntityIds = new HashSet<int>();
+            var preMovementEntries = new List<EnemyGlideSnapshotEntry>();
+            var postMovementEntries = new List<EnemyGlideSnapshotEntry>();
+            var finalEntries = new List<EnemyGlideSnapshotEntry>();
+
+            context.PreMovementSnapshot.EnumerateEnemyGlideStatesOrdered(preMovementEntries);
+            context.PostMovementSnapshot.EnumerateEnemyGlideStatesOrdered(postMovementEntries);
+            context.FinalAuthoritativeSnapshot.EnumerateEnemyGlideStatesOrdered(finalEntries);
+
+            CollectEnemyGlideCandidateIds(preMovementEntries, seenEntityIds, candidateEntityIds);
+            CollectEnemyGlideCandidateIds(postMovementEntries, seenEntityIds, candidateEntityIds);
+            CollectEnemyGlideCandidateIds(finalEntries, seenEntityIds, candidateEntityIds);
+
+            for (var i = 0; i < candidateEntityIds.Count; i++)
+            {
+                var entityId = candidateEntityIds[i];
+                var hasPreviousState = context.PreMovementSnapshot.TryGetEnemyGlideState(entityId, out var previousGlideState);
+                var hasPostMovementState = context.PostMovementSnapshot.TryGetEnemyGlideState(entityId, out var postMovementGlideState);
+                var hasFinalState = context.FinalAuthoritativeSnapshot.TryGetEnemyGlideState(entityId, out var finalGlideState);
+                var resolvedState = ResolvePresentationGlideState(
+                    hasPreviousState,
+                    previousGlideState,
+                    hasPostMovementState,
+                    postMovementGlideState,
+                    hasFinalState,
+                    finalGlideState);
+                var previousWasVisual = IsGlideVisualPhase(previousGlideState.Phase) ||
+                                        IsGlideVisualPhase(postMovementGlideState.Phase);
+                var stateClearedBeforeFinal = previousWasVisual &&
+                                              !hasPostMovementState &&
+                                              !hasFinalState;
+                var isTerminalZero = stateClearedBeforeFinal ||
+                                     (!IsGlideVisualPhase(resolvedState.Phase) && previousWasVisual);
+                if (!IsGlideVisualPhase(resolvedState.Phase) && !isTerminalZero)
+                {
+                    continue;
+                }
+
+                if (!context.FinalAuthoritativeSnapshot.TryGetEntity(entityId, out var entity) ||
+                    !EntityRolePolicy.IsEnemyUnit(entity))
+                {
+                    continue;
+                }
+
+                var presentationSettings = ResolveEnemyGlidePresentationSettings(context, entity);
+                var progressInfo = ResolveGlidePhaseProgress(resolvedState, context.CurrentTickIndex);
+                var currentHeightUnits = isTerminalZero
+                    ? 0
+                    : ResolveGlideHeightUnits(
+                        resolvedState.Phase,
+                        progressInfo.Progress,
+                        presentationSettings.LiftHeightUnits,
+                        presentationSettings.RecoveryDipHeightUnits);
+
+                enemyGlideSignals.Add(
+                    new TickEnemyGlidePresentationSignal(
+                        entityId,
+                        entity.position,
+                        resolvedState.Phase,
+                        resolvedState.Sequence,
+                        progressInfo.ElapsedTicks,
+                        progressInfo.TotalTicks,
+                        progressInfo.Progress,
+                        presentationSettings.LiftHeightUnits,
+                        presentationSettings.RecoveryDipHeightUnits,
+                        currentHeightUnits,
+                        IsGlideVisualPhase(resolvedState.Phase) && currentHeightUnits != 0,
+                        resolvedState.Phase == EnemyGlidePhase.LandingPending,
+                        isTerminalZero));
+            }
+        }
+
+        private static EnemyGlidePresentationSettings ResolveEnemyGlidePresentationSettings(
+            in TickPresentationBuildContext context,
+            in EntityState entity)
+        {
+            return context.EnemyGlidePresentationSettingsResolver != null &&
+                   context.EnemyGlidePresentationSettingsResolver.TryResolveEnemyGlidePresentationSettings(
+                       context.FinalAuthoritativeSnapshot,
+                       entity,
+                       out var settings)
+                ? settings
+                : EnemyGlidePresentationSettings.CreateDefault();
+        }
+
+        private static void CollectEnemyGlideCandidateIds(
+            List<EnemyGlideSnapshotEntry> entries,
+            HashSet<int> seenEntityIds,
+            List<int> candidateEntityIds)
+        {
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                if (entry.State.Phase == EnemyGlidePhase.Ready ||
+                    !seenEntityIds.Add(entry.EntityId))
+                {
+                    continue;
+                }
+
+                candidateEntityIds.Add(entry.EntityId);
+            }
+        }
+
+        private static EnemyGlideRuntimeState ResolvePresentationGlideState(
+            bool hasPreviousState,
+            in EnemyGlideRuntimeState previousGlideState,
+            bool hasPostMovementState,
+            in EnemyGlideRuntimeState postMovementGlideState,
+            bool hasFinalState,
+            in EnemyGlideRuntimeState finalGlideState)
+        {
+            if (hasFinalState)
+            {
+                return finalGlideState;
+            }
+
+            if (hasPostMovementState)
+            {
+                return postMovementGlideState;
+            }
+
+            return hasPreviousState
+                ? previousGlideState
+                : default;
+        }
+
+        private static bool IsGlideVisualPhase(EnemyGlidePhase phase)
+        {
+            return phase == EnemyGlidePhase.Windup ||
+                   phase == EnemyGlidePhase.Active ||
+                   phase == EnemyGlidePhase.LandingPending ||
+                   phase == EnemyGlidePhase.Recovery;
+        }
+
+        private static (int ElapsedTicks, int TotalTicks, float Progress) ResolveGlidePhaseProgress(
+            in EnemyGlideRuntimeState state,
+            int currentTickIndex)
+        {
+            var totalTicks = state.Phase switch
+            {
+                EnemyGlidePhase.Windup => state.WindupTicks,
+                EnemyGlidePhase.Active => state.DurationTicks,
+                EnemyGlidePhase.Recovery => state.RecoveryTicks,
+                _ => 0,
+            };
+            var untilTickExclusive = state.Phase switch
+            {
+                EnemyGlidePhase.Windup => state.WindupUntilTickExclusive,
+                EnemyGlidePhase.Active => state.ActiveUntilTickExclusive,
+                EnemyGlidePhase.Recovery => state.RecoveryUntilTickExclusive,
+                _ => currentTickIndex,
+            };
+            var elapsedTicks = totalTicks > 0
+                ? Math.Max(0, totalTicks - Math.Max(0, untilTickExclusive - currentTickIndex))
+                : 0;
+            var progress = totalTicks > 0
+                ? Math.Max(0f, Math.Min(1f, elapsedTicks / (float)totalTicks))
+                : 1f;
+            return (elapsedTicks, Math.Max(0, totalTicks), progress);
+        }
+
+        private static int ResolveGlideHeightUnits(
+            EnemyGlidePhase phase,
+            float progress,
+            int liftHeightUnits,
+            int recoveryDipHeightUnits)
+        {
+            switch (phase)
+            {
+                case EnemyGlidePhase.Windup:
+                    return LerpUnits(0, liftHeightUnits, progress);
+
+                case EnemyGlidePhase.Active:
+                case EnemyGlidePhase.LandingPending:
+                    return liftHeightUnits;
+
+                case EnemyGlidePhase.Recovery:
+                    if (recoveryDipHeightUnits <= 0)
+                    {
+                        return LerpUnits(liftHeightUnits, 0, progress);
+                    }
+
+                    if (progress <= 0.5f)
+                    {
+                        return LerpUnits(liftHeightUnits, -recoveryDipHeightUnits, progress * 2f);
+                    }
+
+                    return LerpUnits(-recoveryDipHeightUnits, 0, (progress - 0.5f) * 2f);
+
+                default:
+                    return 0;
+            }
+        }
+
+        private static int LerpUnits(int fromUnits, int toUnits, float progress)
+        {
+            var clampedProgress = Math.Max(0f, Math.Min(1f, progress));
+            return (int)Math.Round(fromUnits + ((toUnits - fromUnits) * clampedProgress), MidpointRounding.AwayFromZero);
         }
 
         private static EnemyChargeRuntimeState ResolvePresentationChargeState(

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
+using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
@@ -43,6 +44,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly List<int> _completedVisibilityTrackIds = new();
         private readonly Dictionary<int, JumpTrack> _jumpTracks = new();
         private readonly Dictionary<int, KinematicPresentationPose> _kinematicPoseOverrides = new();
+        private readonly Dictionary<int, Vector3> _glidePresentationOffsetsByEntityId = new();
         private readonly Dictionary<int, MotionTrack> _localMotionTracks = new();
         private readonly HashSet<int> _motionVisualScaleEntityIds = new();
         private readonly Dictionary<int, GameplayEntityPose> _playerDeathHoldPoses = new();
@@ -79,6 +81,8 @@ namespace Game.Feature.Gameplay.Host
 
         public Dictionary<int, KinematicPresentationPose> KinematicPoseOverrides => _kinematicPoseOverrides;
 
+        public Dictionary<int, Vector3> GlidePresentationOffsetsByEntityId => _glidePresentationOffsetsByEntityId;
+
         public Dictionary<int, MotionTrack> LocalMotionTracks => _localMotionTracks;
 
         public HashSet<int> MotionVisualScaleEntityIds => _motionVisualScaleEntityIds;
@@ -113,6 +117,7 @@ namespace Game.Feature.Gameplay.Host
             _completedVisibilityTrackIds.Clear();
             _jumpTracks.Clear();
             _kinematicPoseOverrides.Clear();
+            _glidePresentationOffsetsByEntityId.Clear();
             _localMotionTracks.Clear();
             _motionVisualScaleEntityIds.Clear();
             _playerDeathHoldPoses.Clear();

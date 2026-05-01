@@ -116,6 +116,179 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void GlidePresentation_ComposesWithLegacyActiveMove()
+        {
+            var rootObject = new GameObject("GlidePresentation_ComposesWithLegacyActiveMove");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var timingProfile = CreateTimingProfile();
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
+
+                presenter.Initialize(binder, boardBounds, topology, 1f, timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateEnemyUnit(20, sourceCell),
+                    },
+                    topology);
+
+                presenter.Present(
+                    CreateTickResult(
+                        1,
+                        new[]
+                        {
+                            CreateEnemyUnit(20, destinationCell),
+                        },
+                        topology,
+                        CreateGlidePresentationData(
+                            new[]
+                            {
+                                new TickEntityMotion(20, TickEntityMotionKind.Move, sourceCell, destinationCell),
+                            },
+                            new[]
+                            {
+                                CreateGlideSignal(20, destinationCell, EnemyGlidePhase.Active, KinematicFixed.UnitsPerCell / 4),
+                            })));
+                presenter.UpdatePresentation(timingProfile.MoveMotionDurationSeconds);
+
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                var expected = GetProjectedEntityPosition(boardBounds, topology, destinationCell, EntityType.Unit) +
+                               GetProjectedEntityNormal(boardBounds, topology, destinationCell, EntityType.Unit) * 0.25f;
+                AssertPositionApproximately(view.transform.localPosition, expected);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GlidePresentation_ComposesWithFutureKinematicTrack()
+        {
+            var rootObject = new GameObject("GlidePresentation_ComposesWithFutureKinematicTrack");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+
+                presenter.Initialize(binder, boardBounds, topology, 1f, CreateTimingProfile());
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateEnemyUnit(20, sourceCell),
+                    },
+                    topology);
+
+                var kinematicTrack = CreateKinematicTrack(
+                    20,
+                    sourceCell,
+                    sourceLocalX: 0,
+                    sourceCell,
+                    destinationLocalX: 1024,
+                    topology);
+                presenter.Present(
+                    CreateTickResult(
+                        1,
+                        new[]
+                        {
+                            CreateEnemyUnit(20, sourceCell),
+                        },
+                        topology,
+                        CreateKinematicPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            new[] { kinematicTrack },
+                            enemyGlideSignals: new[]
+                            {
+                                CreateGlideSignal(20, sourceCell, EnemyGlidePhase.Active, KinematicFixed.UnitsPerCell / 4),
+                            })));
+
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                var expected = GetProjectedKinematicEntityPosition(boardBounds, topology, sourceCell, EntityType.Unit, 1024, 0) +
+                               GetProjectedEntityNormal(boardBounds, topology, sourceCell, EntityType.Unit) * 0.25f;
+                AssertPositionApproximately(view.transform.localPosition, expected);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GlidePresentation_UsesFaceNormal_OnNonTopFaceAndClearsWhenSignalMissing()
+        {
+            var rootObject = new GameObject("GlidePresentation_UsesFaceNormal_OnNonTopFaceAndClearsWhenSignalMissing");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
+                var topology = new CubeTopologyState(FaceId.Front);
+                var cell = new SurfaceCell(FaceId.Front, 0, 0);
+
+                presenter.Initialize(binder, boardBounds, topology, 1f, CreateTimingProfile());
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateEnemyUnit(20, cell),
+                    },
+                    topology);
+                presenter.Present(
+                    CreateTickResult(
+                        1,
+                        new[]
+                        {
+                            CreateEnemyUnit(20, cell),
+                        },
+                        topology,
+                        CreateGlidePresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            new[]
+                            {
+                                CreateGlideSignal(20, cell, EnemyGlidePhase.Active, KinematicFixed.UnitsPerCell / 4),
+                            })));
+
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                var basePosition = GetProjectedEntityPosition(boardBounds, topology, cell, EntityType.Unit);
+                var normal = GetProjectedEntityNormal(boardBounds, topology, cell, EntityType.Unit);
+                Assert.That(Mathf.Abs(Vector3.Dot(normal.normalized, Vector3.up)), Is.LessThan(0.01f));
+                AssertPositionApproximately(view.transform.localPosition, basePosition + (normal * 0.25f));
+
+                presenter.Present(
+                    CreateTickResult(
+                        2,
+                        new[]
+                        {
+                            CreateEnemyUnit(20, cell),
+                        },
+                        topology,
+                        TickPresentationData.Empty));
+
+                AssertPositionApproximately(view.transform.localPosition, basePosition);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void GameplayTickViewPresenter_KinematicTrack_BeatsLegacyMotionOnAnchorCommit()
         {
@@ -4198,7 +4371,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static TickPresentationData CreateKinematicPresentationData(
             IReadOnlyList<TickEntityMotion> entityMotions,
             IReadOnlyList<TickKinematicMotionTrack> kinematicMotionTracks,
-            IReadOnlyList<TickPlayerDeathHoldPresentationSignal> playerDeathHoldSignals = null)
+            IReadOnlyList<TickPlayerDeathHoldPresentationSignal> playerDeathHoldSignals = null,
+            IReadOnlyList<TickEnemyGlidePresentationSignal> enemyGlideSignals = null)
         {
             return new TickPresentationData(
                 entityMotions,
@@ -4217,7 +4391,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 impactTransientSignals: Array.Empty<TickImpactTransientPresentationSignal>(),
                 flipImpactSignals: Array.Empty<FlipImpactPresentationSignal>(),
                 kinematicMotionTracks: kinematicMotionTracks,
-                playerDeathHoldSignals: playerDeathHoldSignals);
+                playerDeathHoldSignals: playerDeathHoldSignals,
+                enemyGlideSignals: enemyGlideSignals);
+        }
+
+        private static TickPresentationData CreateGlidePresentationData(
+            IReadOnlyList<TickEntityMotion> entityMotions,
+            IReadOnlyList<TickEnemyGlidePresentationSignal> enemyGlideSignals)
+        {
+            return new TickPresentationData(
+                entityMotions,
+                topologyMotion: null,
+                visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
+                playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
+                playerLocomotionSignals: Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                playerDamageSignals: Array.Empty<TickPlayerDamagePresentationSignal>(),
+                playerDeathSignals: Array.Empty<TickPlayerDeathPresentationSignal>(),
+                enemyDamageSignals: Array.Empty<TickEnemyDamagePresentationSignal>(),
+                enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                enemyJumpSignals: Array.Empty<TickEnemyJumpPresentationSignal>(),
+                enemyChargeSignals: Array.Empty<TickEnemyChargePresentationSignal>(),
+                entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>(),
+                impactTransientSignals: Array.Empty<TickImpactTransientPresentationSignal>(),
+                flipImpactSignals: Array.Empty<FlipImpactPresentationSignal>(),
+                enemyGlideSignals: enemyGlideSignals);
         }
 
         private static TickPresentationData CreateContinuousPresentationData(
@@ -4322,6 +4520,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var projector = new GameplayCubeProjector(boardBounds, 1f);
             Assert.That(projector.TryProjectEntityCell(cell, topology, entityType, out var projectedPose), Is.True);
             return projectedPose.LocalPosition;
+        }
+
+        private static Vector3 GetProjectedEntityNormal(
+            BoardBounds boardBounds,
+            CubeTopologyState topology,
+            SurfaceCell cell,
+            EntityType entityType)
+        {
+            var projector = new GameplayCubeProjector(boardBounds, 1f);
+            Assert.That(projector.TryProjectEntityCell(cell, topology, entityType, out var projectedPose), Is.True);
+            return projectedPose.Normal;
+        }
+
+        private static TickEnemyGlidePresentationSignal CreateGlideSignal(
+            int entityId,
+            SurfaceCell anchorCell,
+            EnemyGlidePhase phase,
+            int currentHeightUnits)
+        {
+            return new TickEnemyGlidePresentationSignal(
+                entityId,
+                anchorCell,
+                phase,
+                sequence: 1,
+                phaseElapsedTicks: 0,
+                phaseTotalTicks: 1,
+                normalizedPhaseProgress: 0f,
+                liftHeightUnits: KinematicFixed.UnitsPerCell / 4,
+                recoveryDipHeightUnits: 0,
+                currentHeightUnits,
+                isAirborneVisual: currentHeightUnits != 0,
+                isLandingPending: phase == EnemyGlidePhase.LandingPending,
+                isTerminalZero: currentHeightUnits == 0);
         }
 
         private static Vector3 GetProjectedKinematicEntityPosition(

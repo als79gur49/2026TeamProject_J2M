@@ -170,4 +170,12 @@ namespace Game.Feature.Gameplay.Entities
             WorldSnapshot snapshot,
             IReadOnlyList<IEntityLogic> staticEntityLogics);
     }
+
+    internal interface IEnemyGlidePresentationSettingsResolver
+    {
+        bool TryResolveEnemyGlidePresentationSettings(
+            WorldSnapshot snapshot,
+            in EntityState entity,
+            out EnemyGlidePresentationSettings settings);
+    }
 }

@@ -105,6 +105,7 @@ namespace Game.Feature.Gameplay.Host
                 previousCommittedLocalTargetPoses,
                 projector,
                 timingProfile);
+            RefreshGlidePresentationOffsets(presentationData, projector);
             RefreshVisibilityTracks(
                 presentationData,
                 previousCommittedLocalTargetPoses,
@@ -113,6 +114,41 @@ namespace Game.Feature.Gameplay.Host
             RefreshTransitionVisibilityState(presentationData, projector);
             RefreshFlipInteractionTracks(presentationData, timingProfile, flipImpactTimingSettings);
             _playerDeathDisplacementPlanner.RefreshTracks(presentationData, projector, timingProfile);
+        }
+
+        private void RefreshGlidePresentationOffsets(
+            TickPresentationData presentationData,
+            GameplayCubeProjector projector)
+        {
+            if (presentationData == null)
+            {
+                throw new ArgumentNullException(nameof(presentationData));
+            }
+
+            if (projector == null)
+            {
+                throw new ArgumentNullException(nameof(projector));
+            }
+
+            _trackState.GlidePresentationOffsetsByEntityId.Clear();
+            var glideSignals = presentationData.EnemyGlideSignals;
+            for (var i = 0; i < glideSignals.Count; i++)
+            {
+                var signal = glideSignals[i];
+                if (signal.IsTerminalZero || signal.CurrentHeightUnits == 0)
+                {
+                    continue;
+                }
+
+                if (_poseResolver.TryResolveGlidePresentationOffset(
+                        projector,
+                        signal,
+                        _stateStore.CommittedTopology,
+                        out var offset))
+                {
+                    _trackState.GlidePresentationOffsetsByEntityId[signal.EntityId] = offset;
+                }
+            }
         }
 
         private HashSet<int> CollectKinematicEntityIds(TickPresentationData presentationData)
