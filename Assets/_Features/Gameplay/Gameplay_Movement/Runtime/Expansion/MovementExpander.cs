@@ -119,7 +119,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                     intent.CommandKind == MovementCommandKind.Move)
                 {
                     rejectedReasons.Add(
-                        $"LegacyUnitOrdinaryMovementDetected|Stage=Expand|E={intent.SourceId}|EntityType={entity.type}|Intent={intent.CommandKind}|Reason=ForbiddenIntentReachedMovementExpander|I={intent.IntentId}");
+                        $"LegacyUnitOrdinaryMovementDetected|Stage=Expand|E={intent.SourceId}|EntityType={entity.type}|Intent={intent.CommandKind}|Reason=ForbiddenCoveredLocomotionReachedMovementExpander|I={intent.IntentId}");
                     continue;
                 }
 

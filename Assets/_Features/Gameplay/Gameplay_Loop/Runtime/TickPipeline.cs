@@ -596,6 +596,9 @@ namespace Game.Feature.Gameplay.Loop
                 planSnapshot,
                 expansionIntents,
                 preExpansionRejectedReasons);
+            var forbiddenLegacyUnitOrdinaryIntentIds = BuildForbiddenLegacyUnitOrdinaryIntentIds(
+                expansionIntents,
+                legacyExpansionIntents);
             _movementExpander.Expand(
                 planSnapshot,
                 input.TickIndex,
@@ -604,7 +607,8 @@ namespace Game.Feature.Gameplay.Loop
                 frontFaceSupportContributors,
                 expandedCandidates,
                 rejectedReasons,
-                frontFaceShieldBlockExports);
+                frontFaceShieldBlockExports,
+                forbiddenLegacyUnitOrdinaryIntentIds);
             if (preExpansionRejectedReasons.Count > 0)
             {
                 rejectedReasons.InsertRange(0, preExpansionRejectedReasons);
@@ -1405,6 +1409,36 @@ namespace Game.Feature.Gameplay.Loop
             return filteredIntents;
         }
 
+        private static ISet<int> BuildForbiddenLegacyUnitOrdinaryIntentIds(
+            IReadOnlyList<MoveIntent> expansionIntents,
+            IReadOnlyList<MoveIntent> legacyExpansionIntents)
+        {
+            if (expansionIntents == null ||
+                legacyExpansionIntents == null ||
+                expansionIntents.Count == legacyExpansionIntents.Count)
+            {
+                return null;
+            }
+
+            var allowedIntentIds = new HashSet<int>();
+            for (var i = 0; i < legacyExpansionIntents.Count; i++)
+            {
+                allowedIntentIds.Add(legacyExpansionIntents[i].IntentId);
+            }
+
+            var forbiddenIntentIds = new HashSet<int>();
+            for (var i = 0; i < expansionIntents.Count; i++)
+            {
+                var intentId = expansionIntents[i].IntentId;
+                if (!allowedIntentIds.Contains(intentId))
+                {
+                    forbiddenIntentIds.Add(intentId);
+                }
+            }
+
+            return forbiddenIntentIds.Count > 0 ? forbiddenIntentIds : null;
+        }
+
         private bool TryResolveForbiddenLegacyUnitOrdinaryMovement(
             WorldSnapshot snapshot,
             MoveIntent intent,
@@ -1430,16 +1464,14 @@ namespace Game.Feature.Gameplay.Loop
                  _runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion) &&
                 snapshot.TryGetPlayerControlState(intent.SourceId, out _))
             {
-                reason = _runtimeFeatureFlags.EnablePlayerFree2DLocalLocomotion
-                    ? "PlayerFree2DOrdinaryMoveReachedLegacyExpansion"
-                    : "PlayerKinematicOrdinaryMoveReachedLegacyExpansion";
+                reason = "PlayerCoveredLocomotionReachedLegacyExpansion";
                 return true;
             }
 
             if (_runtimeFeatureFlags.EnableEnemyChargeKinematicLocomotion &&
                 TryResolveEnemyChargeKinematicStartScope(snapshot, intent, out _, out _, out _, out _))
             {
-                reason = "EnemyChargeActiveStepReachedLegacyExpansion";
+                reason = "ChargeCoveredKinematicReachedLegacyExpansion";
                 return true;
             }
 
@@ -1447,7 +1479,7 @@ namespace Game.Feature.Gameplay.Loop
                 TryResolveEnemyKinematicStartScope(snapshot, intent, out _, out _, out _, out _, out _, out var ordinaryScopeIsActiveGlide) &&
                 !ordinaryScopeIsActiveGlide)
             {
-                reason = "EnemyOrdinaryKinematicEligibleMoveReachedLegacyExpansion";
+                reason = "EnemyCoveredOrdinaryKinematicReachedLegacyExpansion";
                 return true;
             }
 
@@ -1455,7 +1487,7 @@ namespace Game.Feature.Gameplay.Loop
                 TryResolveEnemyKinematicStartScope(snapshot, intent, out _, out _, out _, out _, out _, out var activeGlideKinematic) &&
                 activeGlideKinematic)
             {
-                reason = "EnemyGlideActiveKinematicEligibleMoveReachedLegacyExpansion";
+                reason = "EnemyGlideActiveKinematicReachedLegacyExpansion";
                 return true;
             }
 

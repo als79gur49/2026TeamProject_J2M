@@ -438,6 +438,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
+        public void Replay_DeprecationPhase1_DefaultGameplayLocomotion_NoCoveredLegacyFallback()
+        {
+            Replay_DefaultGameplayLocomotion_NoUnexpectedLegacyOrdinaryMovement();
+        }
+
+        [Test]
+        [Category("Core")]
         public void Replay_DefaultGameplayLocomotion_GlidePolicy_IsDeterministic()
         {
             var flags = GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion;
@@ -480,6 +487,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
             {
                 EnemyAiProfileTestFactory.Destroy(glideProfile);
             }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_DeprecationPhase1_GlideRetainedException_IsDeterministic()
+        {
+            Replay_DefaultGameplayLocomotion_GlidePolicy_IsDeterministic();
         }
 
         [Test]

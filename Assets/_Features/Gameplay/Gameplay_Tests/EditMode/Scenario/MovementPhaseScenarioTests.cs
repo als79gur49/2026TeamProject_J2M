@@ -468,7 +468,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 playerWorldState,
                 playerIntent,
                 GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled,
-                "PlayerFree2DOrdinaryMoveReachedLegacyExpansion");
+                "PlayerCoveredLocomotionReachedLegacyExpansion");
 
             var enemyWorldState = CreateWorldState(new[]
             {
@@ -481,7 +481,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 enemyWorldState,
                 enemyIntent,
                 GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled,
-                "EnemyOrdinaryKinematicEligibleMoveReachedLegacyExpansion");
+                "EnemyCoveredOrdinaryKinematicReachedLegacyExpansion");
 
             var chargeEnemy = CreateFrontFaceEnemy(entityId: 50, position: new SurfaceCell(FaceId.Floor, 0, 0));
             chargeEnemy.aiMode = EnemyAiMode.Charge;
@@ -502,7 +502,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 chargeWorldState,
                 chargeIntent,
                 GameplayRuntimeFeatureFlags.EnemyChargeKinematicLocomotionEnabled,
-                "EnemyChargeActiveStepReachedLegacyExpansion");
+                "ChargeCoveredKinematicReachedLegacyExpansion");
         }
 
         [Test]
@@ -584,8 +584,47 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(
                 rejectedReasons.Any(reason =>
                     reason.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal) &&
-                    reason.Contains("E=10", StringComparison.Ordinal)),
+                    reason.Contains("E=10", StringComparison.Ordinal) &&
+                    reason.Contains("ForbiddenCoveredLocomotionReachedMovementExpander", StringComparison.Ordinal)),
                 Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CoveredLocomotion_ForcedLeak_IsBlocked()
+        {
+            MovementExpander_ForbiddenLegacyUnitOrdinaryIntent_DetectsDebug();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DeprecationPhase1_MovementExpanderGridBranchStillAllowed()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Item),
+            });
+            var intent = new MoveIntent(10, priority: 1, destination: new Vector2Int(1, 0));
+            intent.AssignIntentId(1);
+            var expandedCandidates = new List<ActionGroup>();
+            var rejectedReasons = new List<string>();
+
+            new MovementExpander().Expand(
+                CreateSnapshot(worldState),
+                tickIndex: 1,
+                sortedIntents: new[] { intent },
+                playerTraversalSourceIds: null,
+                frontFaceSupportContributors: null,
+                buffer: expandedCandidates,
+                rejectedReasons: rejectedReasons);
+
+            Assert.That(expandedCandidates, Is.Not.Empty);
+            Assert.That(
+                rejectedReasons.Any(reason =>
+                    reason.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
+                Is.False,
+                string.Join("\n", rejectedReasons));
         }
 
         [Test]

@@ -51,6 +51,61 @@ namespace Game.Feature.Gameplay.Tests
                 BuildDebug(result));
         }
 
+        public static void NoCoveredLocomotionLegacyFallback(TickResult result, params int[] entityIds)
+        {
+            NoUnexpectedLegacyOrdinaryDiagnostics(result);
+            NoLegacyOrdinaryUnitMove(result, entityIds);
+        }
+
+        public static void AllowsRetainedGlideFallback(TickResult result, int entityId)
+        {
+            HasLegacyFallbackMoveEntity(result, entityId);
+            HasLegacyFallbackMove(result, entityId);
+            NoUnexpectedLegacyOrdinaryDiagnostics(result);
+        }
+
+        public static void AllowsFlagOffLegacyFallback(TickResult result, int entityId, bool chargeMove = false)
+        {
+            HasLegacyFallbackMoveEntity(result, entityId);
+            if (chargeMove)
+            {
+                HasLegacyChargeMove(result, entityId);
+            }
+            else
+            {
+                HasLegacyFallbackMove(result, entityId);
+            }
+        }
+
+        public static void GridTransactionsRemainAllowed(
+            TickResult result,
+            int entityId,
+            MovementExecutionBoundaryKind boundaryKind)
+        {
+            HasMoveEntityBoundary(result, entityId, boundaryKind);
+            NoUnexpectedLegacyOrdinaryDiagnostics(result);
+        }
+
+        public static void NoLegacyOrdinaryMoveForEntitiesExcept(TickResult result, params int[] exceptEntityIds)
+        {
+            Assert.That(
+                result.PresentationData.EntityMotions.Any(motion =>
+                    !IsExceptedEntity(motion.EntityId, exceptEntityIds) &&
+                    motion.MotionKind == TickEntityMotionKind.Move),
+                Is.False,
+                BuildDebug(result));
+        }
+
+        public static void NoLegacyChargeMoveForEntitiesExcept(TickResult result, params int[] exceptEntityIds)
+        {
+            Assert.That(
+                result.PresentationData.EntityMotions.Any(motion =>
+                    !IsExceptedEntity(motion.EntityId, exceptEntityIds) &&
+                    motion.MotionKind == TickEntityMotionKind.ChargeMove),
+                Is.False,
+                BuildDebug(result));
+        }
+
         public static void HasLegacyFallbackMove(TickResult result, int entityId)
         {
             Assert.That(
@@ -206,6 +261,11 @@ namespace Game.Feature.Gameplay.Tests
             return entityIds == null ||
                    entityIds.Length == 0 ||
                    entityIds.Contains(entityId);
+        }
+
+        private static bool IsExceptedEntity(int entityId, int[] entityIds)
+        {
+            return entityIds != null && entityIds.Contains(entityId);
         }
 
         private static string BuildDebug(TickResult result, int entityId)
