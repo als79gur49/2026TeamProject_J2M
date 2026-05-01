@@ -25,6 +25,7 @@ This rollout is guarded by `GameplayRuntimeFeatureFlags.EnableEnemyChargeKinemat
 
 Set `EnableEnemyChargeKinematicLocomotion` to false. This does not require disabling `EnableEnemySameFaceContinuousLocomotion`.
 `GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion` enables Charge kinematic locomotion for readiness canaries and default gameplay host rollout. `GameplayRuntimeFeatureFlags.None` keeps the legacy `ChargeMove` fallback for rollback and golden baseline coverage.
+Default gameplay host rollout is explicit and does not change replay harness defaults, composition-root defaults, historical baselines, migration comparisons, or flag-off goldens. Only explicit bundle tests and opted-in hosts should use `DefaultGameplayLocomotion`.
 
 When ordinary enemy kinematic locomotion is enabled but Charge kinematic locomotion is disabled, ChargeStart still waits for non-settled ordinary voluntary kinematic movement to settle. The legacy `ChargeMove` path starts only after the revalidated ChargeStart transition.
 

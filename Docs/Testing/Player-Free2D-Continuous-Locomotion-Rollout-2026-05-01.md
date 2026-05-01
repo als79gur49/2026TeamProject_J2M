@@ -62,6 +62,7 @@ The free2D flag is independent of enemy and charge kinematic flags. Turning it o
 Turning Action Assist off while keeping free2D on restores local-nonzero push/flip rejection without disabling Free2D movement.
 
 `GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion` is the readiness default-on bundle for gameplay hosts and boundary inventory tests. `GameplayRuntimeFeatureFlags.None` remains the flag-off rollback and golden baseline until the later deletion phase defines a replacement policy.
+Default bundle adoption is explicit: showcase/dev gameplay hosts may call `GameplaySceneHostConfiguration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)`, but replay harnesses, composition-root helpers, historical tests, migration comparison tests, and flag-off goldens must keep `None` unless they intentionally opt into the bundle.
 
 ## Known Limitations
 

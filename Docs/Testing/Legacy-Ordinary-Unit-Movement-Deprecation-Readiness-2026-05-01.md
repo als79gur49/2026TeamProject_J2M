@@ -1,77 +1,106 @@
-# Legacy Ordinary Unit Movement Deprecation Readiness v1
+# Legacy Ordinary Unit Movement Deprecation Readiness v2
 
 Date: 2026-05-01
 
-This readiness pass does not delete legacy movement. It inventories the remaining ordinary Unit movement fallback paths, keeps grid transaction paths explicitly retained, and adds canaries that must stay green before any later deletion pass.
+This readiness pass does not delete legacy movement. It extends the previous boundary inventory to cover `DefaultGameplayLocomotion` host adoption, special movement classification, no-legacy canaries, and `Boundary=Unknown` policy. `MoveEntity` remains the anchor/grid transaction primitive and `MovementExpander` remains retained for grid transactions and flag-off fallback.
 
-## Definitions
+## Executive Decision
 
-- Legacy ordinary Unit locomotion: an ordinary Unit `MovementCommandKind.Move` reaches `MovementExpander`, commits through `MoveEntity`, and presents as legacy `TickEntityMotionKind.Move` or legacy `TickEntityMotionKind.ChargeMove`.
-- Unit continuous locomotion: player ordinary Free2D movement stored in `UnitContinuousLocomotionState` and presented through `TickContinuousLocomotionTrack`.
-- Unit kinematic locomotion: segment-progress Unit movement stored in `UnitKinematicRuntimeState` and presented through `TickKinematicMotionTrack`.
-- Unit special locomotion: jump, phase, glide, charge, forced motion, and knockback style Unit movement that is not ordinary locomotion.
-- Grid transaction: immediate canonical grid, anchor, placement, removal, topology, box/action, or scripted relocation materialization. `MoveEntity` remains valid here.
-- Legacy fallback: flag-off rollback, golden baseline, and historical tests that intentionally keep the old ordinary path.
+`GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion` is the explicit default-on gameplay bundle for normal gameplay adoption. `GameplayRuntimeFeatureFlags.None` and default struct behavior remain the flag-off rollback, golden, historical, and legacy fallback baseline. Replay harnesses must keep `None` by default; only explicit flag-on replay tests should opt into the bundle.
 
-## Inventory
+Jump is `UnitSpecialLocomotion`. Phase relocation remains `ScriptedRelocation`. Glide is currently a state-only special movement candidate and future kinematic migration candidate. Forced motion and knockback do not have a runtime state in this slice and are documented as future special movement requirements.
 
-| path | entity | boundary | flag condition | presentation | remain | deprecation target | replacement |
-|---|---|---|---|---|---|---|---|
-| player Free2D ordinary | Unit/player | `UnitOrdinaryLocomotion`, anchor `LocomotionAnchorCommit` | `EnablePlayerFree2DLocalLocomotion` | `TickContinuousLocomotionTrack` | yes | no | target default |
-| player kinematic fallback | Unit/player | `UnitOrdinaryLocomotion`, anchor `LocomotionAnchorCommit` | free2D off, kinematic on | `TickKinematicMotionTrack` | yes | no | fallback |
-| player legacy fallback | Unit/player | `LegacyFallback` | player locomotion flags off | `TickEntityMotionKind.Move` | temporary | yes | Free2D/kinematic |
-| enemy ordinary kinematic | Unit/enemy | `UnitOrdinaryLocomotion`, anchor `LocomotionAnchorCommit` | `EnableEnemySameFaceContinuousLocomotion` | `TickKinematicMotionTrack` | yes | no | target default |
-| enemy legacy fallback | Unit/enemy | `LegacyFallback` | enemy kinematic off | `TickEntityMotionKind.Move` | temporary | yes | enemy kinematic |
-| charge kinematic | Unit/enemy | `UnitSpecialLocomotion`, anchor `LocomotionAnchorCommit` | `EnableEnemyChargeKinematicLocomotion` | kinematic track + charge signal | yes | no | target default |
-| charge legacy fallback | Unit/enemy | `LegacyFallback` | charge kinematic off | `TickEntityMotionKind.ChargeMove` | temporary | yes | charge kinematic |
-| jump landing | Unit/enemy | `UnitSpecialLocomotion` | jump skill | jump presentation | yes | no | future special inventory |
-| phase relocation | Unit/enemy | `ScriptedRelocation` | phase skill | retained relocation | yes | no | keep scripted relocation |
-| glide | Unit/enemy | state-only special inventory | glide skill | state/signal only | yes | no | future special inventory |
-| forced/knockback | Unit/future | none yet | n/a | none | n/a | no current path | future special state |
-| box push/flip/slide/impact | Box/Unit | `BoxActionMovement` | any | retained entity motion | yes | no | none |
-| item movement | Box item | `BoxActionMovement` | any | retained item/move motion | yes | no | none |
-| topology transition | Unit/player | `TopologyMaterialization` | any | topology motion retained | yes | no | none |
-| spawn/respawn | Unit | `SpawnRespawnPlacement` | any | placement/visibility | yes | no | none |
-| cleanup/removal | any | cleanup phase result/event | any | exit/cleanup signal | yes | no | none |
-| anchor normalization | Unit | `LocomotionAnchorCommit` | locomotion flags on | suppressed legacy move | yes | no | none |
+## Host Adoption Inventory
 
-## Flag Defaults
+| host / installer / harness | current flag source | uses bundle | should use bundle | preserve explicit flags | recommendation |
+|---|---|---:|---:|---:|---|
+| `CombinedGameplayShowcaseInstaller` | explicit gameplay showcase config | yes | yes | tuning values only | call `ApplyRuntimeFeatureFlags(DefaultGameplayLocomotion)` and preserve action assist/radius tuning |
+| `StageBackedGameplayShowcaseInstallerBase` | no base locomotion policy | no | no | yes | do not apply bundle globally in the base class |
+| campaign scene host | installer config | no | later opt-in | yes | keep `None` until Phase B opt-in |
+| editor direct play | stage-backed path | no | follows campaign opt-in | yes | no implicit default |
+| `GameplaySceneHostConfiguration` | authored bool fields | explicit helper | no implicit default | yes | helper only; constructor/default fields stay false |
+| `GameplayHostRuntimeFactory` | `CreateRuntimeFeatureFlags()` passthrough | no | no policy decision | yes | keep passthrough |
+| `GameplayBootstrapper` / `GameplayCompositionRoot` | optional default parameter | no | no | yes | default parameter remains `default`/`None` |
+| scenario factories | explicit per test | partial | representative only | yes | only readiness canaries use bundle |
+| replay harness | optional default parameter | no | explicit test only | yes | keep default `None` |
+| playmode host | `GameplaySceneHostConfiguration` | no | later opt-in | yes | defer broad default-on |
 
-`GameplayRuntimeFeatureFlags.None` remains the flag-off baseline. `GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion` is the explicit default-on gameplay bundle for readiness canaries and rollout hosts:
+## Rollout Policy
 
-- `EnablePlayerFree2DLocalLocomotion`
-- `EnablePlayerFree2DActionAssist`
-- `EnablePlayerSameFaceContinuousLocomotion`
-- `EnablePlayerStoppableKinematicLocomotion`
-- `EnableEnemySameFaceContinuousLocomotion`
-- `EnableEnemyChargeKinematicLocomotion`
+| phase | scope | expected impact | rollback | golden policy | required canary |
+|---|---|---|---|---|---|
+| A | docs + `CombinedGameplayShowcaseInstaller` | showcase only | remove helper call | no flag-off golden change | host config + boundary inventory |
+| B | campaign/dev host opt-in | gameplay scenes opt in explicitly | opt-in false | goldens remain `None` | host smoke + boundary inventory |
+| C | representative scenario/replay tests | explicit bundle tests | tests return to per-flag helpers | no harness default change | default bundle no-legacy replay |
+| D | broad gameplay default-on | normal gameplay default lane changes | host policy off | replay/golden excluded | full targeted locomotion suite |
+| E | legacy ordinary fallback test-only | deletion-readiness only | restore fallback policy | deletion phase defines policy | deletion plan, not this slice |
 
-Existing tests that rely on default struct behavior must keep passing explicit `None`. Replay and golden baselines keep flag-off cases until the deletion phase defines a replacement policy.
+## Special Movement Inventory v2
+
+| movement | current runtime path | boundary kind | uses `MoveEntity` | uses `MovementExpander` | presentation source | hash/replay state | ordinary deletion risk | classification | future migration |
+|---|---|---|---:|---:|---|---|---|---|---|
+| jump start | `EnemyLogic.CommitJumpState` / `SetEnemyJumpState` | `UnitSpecialLocomotion` | no | no | jump state presentation | jump state | low | `UnitSpecialLocomotion` | none for deletion |
+| jump airborne | jump state + detached board presence | `UnitSpecialLocomotion` | no | no | jump state/presence | jump state | low | `UnitSpecialLocomotion` | none for deletion |
+| jump landing | jump landing contest resolution | `UnitSpecialLocomotion` | yes | no | jump landing presentation | position + jump state | low | `UnitSpecialLocomotion` | possible future kinematic |
+| phase relocation | phase plan payload commit | `ScriptedRelocation` | yes | no | retained relocation/entity motion | position + phased state | low | `ScriptedRelocation` | keep scripted relocation |
+| glide | `EnemyGlideRuntimeState` lifecycle | state-only candidate | no current relocation | no | state/signal only | glide state | medium if future displacement leaks | `Future Kinematic Migration Candidate` | document only now |
+| forced motion / knockback | no explicit runtime state | none | no current path | no | none / presentation-only candidate | none | future risk | `Unknown / Needs Classification` | define state before implementation |
+| scripted relocation | scripted/phase finalization payload | `ScriptedRelocation` | yes | no | entity motion/trace | position | low | `ScriptedRelocation` | none |
+| topology transition | movement group topology materialization | `TopologyMaterialization` | yes | yes, allowed grid path | topology motion | topology + position | none | `GridTransaction` | none |
+| cleanup removal | cleanup processor/result | cleanup event/result | no movement commit | no | cleanup/event/visibility | entity removal | none | cleanup grid lifecycle | none |
+
+## Boundary Unknown Policy
+
+Acceptable `Unknown` is limited to test-only synthetic operations, non-movement diagnostics, intentionally unclassified debug-only records, and state-only operations that do not change an anchor and do not source movement presentation.
+
+Unacceptable `Unknown` includes any `MoveEntity` anchor change, movement presentation source, grid transaction, unit special movement, spawn, respawn, topology, scripted relocation, or ordinary Unit locomotion finalization.
+
+Representative readiness tests must fail on unacceptable `Unknown`. Boundary metadata remains diagnostic and must not be included in canonical determinism hashes.
+
+## Canary Coverage
+
+- `BoundaryInventory_DefaultGameplayLocomotion_NoLegacyOrdinaryUnitMovement`
+- `BoundaryInventory_GridTransactionsRemainAllowed_UnderDefaultGameplayLocomotion`
+- `BoundaryInventory_FlagOff_LegacyFallbackStillAllowed`
+- `BoundaryInventory_SpecialMovement_Jump_IsUnitSpecialLocomotion`
+- `BoundaryInventory_PhaseRelocation_IsScriptedRelocation`
+- `BoundaryInventory_Glide_IsReportedSpecialCandidate`
+- `BoundaryInventory_ForcedMotion_IsReportedOrAbsent`
+- `BoundaryInventory_NoUnexpectedUnknownMovement_Representative`
+- `HostConfiguration_DefaultGameplayLocomotion_AppliesExpectedFlags`
+- `Replay_DefaultGameplayLocomotion_NoUnexpectedLegacyOrdinaryMovement`
 
 ## Deletion Readiness Checklist
 
-| criterion | v1 status |
+| criterion | v2 status |
 |---|---|
-| flag-on player/enemy/charge no legacy ordinary diagnostic | partial, covered by `BoundaryInventory_PlayerEnemyCharge_NoLegacyOrdinaryUnitMovement` |
-| player ordinary default is Free2D | partial, explicit default helper exists |
-| enemy ordinary default is kinematic | partial, explicit default helper exists |
-| charge default is kinematic | partial, explicit default helper and showcase flag exist |
-| grid transaction allowlist green | partial, covered by `BoundaryInventory_GridTransactionsRemainAllowed` |
-| jump/phase/glide inventory complete | partial, covered by `BoundaryInventory_SpecialMovement_JumpPhaseGlide_ClassifiedOrReported` |
-| meaningful `Unknown` movement boundary closed | partial, distributed canaries retained |
-| flag-off fallback policy documented | partial, covered by `BoundaryInventory_FlagOff_LegacyFallbackStillAllowed` |
-| replay/golden policy documented | partial, existing rollout docs retained |
-| deletion report fails on new ordinary path | partial, `LegacyOrdinaryUnitMovement_DeprecationReadiness_Report` records the allowlist |
+| default bundle exists | complete |
+| default bundle verified by tests | complete for host/helper and representative canaries |
+| player ordinary Free2D stable | partial |
+| enemy ordinary kinematic stable | partial |
+| charge kinematic stable | partial |
+| no-legacy ordinary canary green | partial pending validation |
+| grid transaction allowlist green | partial pending validation |
+| flag-off fallback baseline green | partial pending validation |
+| jump inventory complete | complete for readiness |
+| phase inventory complete | complete for readiness |
+| glide inventory complete | partial, state-only candidate documented |
+| forced motion inventory complete | partial, absent/future requirement documented |
+| Unknown boundary policy complete | complete for representative policy |
+| replay/golden policy complete | complete for default harness policy |
+| full suite failure buckets documented | pending validation report |
+| actual deletion plan ready | blocked, out of scope |
 
 ## Validation
 
 Minimum post-change validation:
 
 - `dotnet build Game.Feature.Gameplay.Tests.csproj -c Debug --no-restore`
-- targeted boundary inventory tests
+- targeted `BoundaryInventoryScenarioTests`
+- targeted `MovementPhaseScenarioTests`
 - targeted player Free2D tests
 - targeted enemy kinematic and charge tests
-- targeted replay no-legacy tests
+- targeted no-legacy replay canaries
 - `git diff --check`
 
-If a broad suite is red from unrelated existing failures, report the readiness tests separately from the unrelated failures.
+If the broad suite is red from unrelated failures, report readiness tests separately from unrelated failures.
