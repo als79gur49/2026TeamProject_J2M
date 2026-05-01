@@ -14,6 +14,8 @@ This rollout is guarded by `GameplayRuntimeFeatureFlags.EnableEnemyChargeKinemat
 - Charge kinematic presentation uses `TickKinematicMotionTrack` plus `TickEnemyChargePresentationSignal`; legacy `ChargeMove` is not emitted for the kinematic path.
 - `MoveEntity` midpoint anchor commit is classified as a grid transaction primitive, not legacy ordinary Unit movement.
 - Legacy `ChargeMove` remains retained only for flag-off baseline. Legacy grid transactions for box/action/topology/spawn/respawn/cleanup are not removed by this rollout.
+- Boundary v1 suppresses legacy `ChargeMove` only for kinematic charge anchor commits and ordinary Unit locomotion boundaries. `BoxActionMovement`, topology, spawn, respawn, cleanup, scripted relocation, and flag-off legacy grid transactions keep their required presentation.
+- Boundary metadata is trace diagnostic data and must remain outside canonical replay hashes.
 - During settle-wait, the enemy remains in Patrol/Chase, ordinary kinematic presentation continues from its current local offset, and Charge windup/active presentation is not emitted.
 - After ordinary settle, ChargeStart is re-evaluated from the current snapshot. If the target moved out of a valid same-face row/column lane, if the first step is blocked, or if the enemy is no longer controllable, Charge does not start.
 

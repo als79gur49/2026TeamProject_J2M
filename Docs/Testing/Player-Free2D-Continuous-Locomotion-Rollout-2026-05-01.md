@@ -36,6 +36,8 @@ When enabled, player ordinary movement uses `UnitContinuousLocomotionState` befo
 - Presentation consumes authoritative continuous local pose through `TickContinuousLocomotionTrack`. Transform, Animator, PhysX, and root motion are not simulation authority.
 - Flag-on player ordinary movement must not reach the legacy ordinary `MoveIntent` -> `MovementExpander` -> `TickEntityMotionKind.Move` path. Push, flip, item/action materialization, topology, spawn, respawn, and cleanup remain allowed legacy grid transactions.
 - `AlignToAnchor` presentation is emitted through `TickContinuousLocomotionTrack` and is treated as active locomotion. There is no pending-action UI in v1.
+- Boundary v1 trace metadata may classify anchor commits as `LocomotionAnchorCommit` and push/flip/item materialization as `BoxActionMovement`; this metadata is diagnostic and must not change canonical replay hashes.
+- `SpawnRespawnPlacement` is the explicit placement boundary for respawn. Respawn remains a direct placement/grid transaction path, not ordinary Unit locomotion.
 - Continuous nonzero idle pose must emit or retain presentation override so the view does not snap to anchor center.
 - Nonlethal hit, lethal hit, removal, death hold, cleanup, and respawn preserve or purge continuous pose through the same authoritative write path as other state.
 - Nonlethal hit, lethal hit, cleanup, and respawn must clear queued Action Assist intent.

@@ -12,6 +12,8 @@ This rollout is guarded by `GameplayRuntimeFeatureFlags.EnableEnemySameFaceConti
 - Passive contact rules are unchanged. Contact timing changes only because the enemy semantic anchor commits at midpoint.
 - Charge, jump, glide, phase relocation, topology transitions, push, flip, item, projectile, and forced motion are not migrated in this slice.
 - Legacy grid transactions remain retained for box/action/topology/spawn/respawn/cleanup and flag-off fallback.
+- Boundary v1 classifies enemy anchor commits as `LocomotionAnchorCommit` and suppresses duplicate legacy entity motion only for locomotion boundaries. Grid transactions such as `BoxActionMovement`, `TopologyMaterialization`, and `SpawnRespawnPlacement` keep required legacy presentation.
+- Boundary metadata is diagnostic and must not affect canonical replay hashes.
 
 ## Rollback
 

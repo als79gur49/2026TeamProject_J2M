@@ -26,6 +26,9 @@ Gameplay spatial authority remains `EntityState.position: SurfaceCell` plus the 
 - Legacy ordinary Unit movement is the deprecation target. Legacy grid transactions are retained in Boundary v1.
 - Flag-on player Free2D, player kinematic fallback, enemy ordinary kinematic, and Charge kinematic paths must not emit legacy ordinary Unit movement presentation. Their presentation sources are `TickContinuousLocomotionTrack` or `TickKinematicMotionTrack`.
 - Box/action/topology/spawn/respawn/cleanup/scripted relocation may continue to use `MoveEntity` and legacy grid transaction presentation.
+- Boundary metadata is diagnostic contract data, not canonical gameplay state. `MovementExecutionBoundaryKind` and boundary reason text may appear in traces, but they must not affect replay canonical hashes.
+- Presentation suppression is limited to `LocomotionAnchorCommit` and `UnitOrdinaryLocomotion` `MoveEntity` operations. `BoxActionMovement`, `TopologyMaterialization`, `SpawnRespawnPlacement`, `ScriptedRelocation`, and retained legacy grid transactions must keep their required presentation motions.
+- `Unknown` is acceptable only for genuinely unclassified diagnostics during migration. Presentation-relevant movement, placement, and grid transaction paths should emit an explicit boundary kind.
 
 ## Consequences
 Replay hashes include non-default kinematic runtime state in a deterministic `UnitKinematics` section and non-default player free-local state in a deterministic `UnitContinuousLocomotion` section. Zero/absent kinematic and continuous states are intentionally omitted from those sections to preserve compact canonical dumps and avoid changing settled entity semantics.
