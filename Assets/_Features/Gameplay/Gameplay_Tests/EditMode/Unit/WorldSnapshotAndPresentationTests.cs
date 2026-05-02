@@ -1062,6 +1062,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 (BoundaryKind: MovementExecutionBoundaryKind.LocomotionAnchorCommit, Suppressed: true),
                 (BoundaryKind: MovementExecutionBoundaryKind.UnitOrdinaryLocomotion, Suppressed: true),
+                (BoundaryKind: MovementExecutionBoundaryKind.Free2DTopologyTransition, Suppressed: true),
                 (BoundaryKind: MovementExecutionBoundaryKind.BoxActionMovement, Suppressed: false),
                 (BoundaryKind: MovementExecutionBoundaryKind.TopologyMaterialization, Suppressed: false),
                 (BoundaryKind: MovementExecutionBoundaryKind.SpawnRespawnPlacement, Suppressed: false),

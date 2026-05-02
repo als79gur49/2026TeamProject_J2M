@@ -153,6 +153,46 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Extended")]
+        public void Replay_Free2DTopology_WithLateralOffset_Deterministic()
+        {
+            var inputs = new[]
+            {
+                new TickInput(1, PlayerTickCommand.Move(Direction.Up)),
+            };
+            var harness = new TickReplayHarness();
+            var boardBounds = new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1));
+
+            var firstWorld = CreateWorldState(
+                new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            SetPlayerContinuousLocalOffset(firstWorld, 256, KinematicFixed.MaxPositiveLocalOffset);
+            var secondWorld = CreateWorldState(
+                new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            SetPlayerContinuousLocalOffset(secondWorld, 256, KinematicFixed.MaxPositiveLocalOffset);
+
+            var firstReplay = harness.Run(
+                firstWorld,
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DNativeTopologyTransitionEnabled);
+            var secondReplay = harness.Run(
+                secondWorld,
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DNativeTopologyTransitionEnabled);
+
+            AssertReplayEqual(firstReplay, secondReplay);
+            Assert.That(firstReplay[0].Trace, Does.Contain("Free2DTopologyNativeTransition"));
+            Assert.That(firstReplay[0].OccupancyDump, Does.Contain("Face=Front"));
+        }
+
+        [Test]
         [Category("Core")]
         public void Replay_PlayerFree2D_TopologyApproachHandoff_IsDeterministic()
         {
@@ -521,6 +561,12 @@ namespace Game.Feature.Gameplay.Tests.Replay
             params EntityState[] entities)
         {
             var worldState = CreateWorldState(entities);
+            SetPlayerContinuousLocalOffset(worldState, localX, localY);
+            return worldState;
+        }
+
+        private static void SetPlayerContinuousLocalOffset(WorldState worldState, int localX, int localY)
+        {
             worldState.CreateWriteContext().SetUnitContinuousLocomotionState(
                 10,
                 new UnitContinuousLocomotionState
@@ -535,7 +581,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     mode = ContinuousLocomotionMode.Idle,
                     sequenceId = 1,
                 }.NormalizedForStorage());
-            return worldState;
         }
 
         private static EntityState CreatePlayer(int entityId, int hp = 3)

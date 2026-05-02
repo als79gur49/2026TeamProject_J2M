@@ -828,6 +828,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(flags.EnableLegacyOrdinaryUnitFallback, Is.True);
             Assert.That(flags.RemovedLegacyFallbackDiagnosticsEnabled, Is.True);
             Assert.That(flags.EnablePlayerFree2DLocalLocomotion, Is.False);
+            Assert.That(flags.EnablePlayerFree2DNativeTopologyTransition, Is.False);
             Assert.That(flags.EnableEnemySameFaceContinuousLocomotion, Is.False);
             Assert.That(flags.EnableEnemyChargeKinematicLocomotion, Is.False);
             Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.False);
@@ -912,6 +913,47 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.TopologyMaterialization),
                 Is.True);
             Assert.That(tick.PresentationData.ContinuousLocomotionTracks.Any(track => track.EntityId == 10), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BoundaryInventory_Free2DTopologyNativeTransition_IsNotLegacyFallback()
+        {
+            var worldState = CreateWorldState(
+                new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            worldState.CreateWriteContext().SetUnitContinuousLocomotionState(
+                10,
+                new UnitContinuousLocomotionState
+                {
+                    localOffset = new KinematicOffset2(
+                        KinematicFixed.FromRaw(256),
+                        KinematicFixed.FromRaw(KinematicFixed.MaxPositiveLocalOffset)),
+                    velocity = KinematicVelocity2.Zero,
+                    facing = Direction.Right,
+                    lastMoveDirection = Direction.Right,
+                    mode = ContinuousLocomotionMode.Idle,
+                    sequenceId = 1,
+                }.NormalizedForStorage());
+            var tick = CreatePipeline(
+                    worldState,
+                    new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
+                    GameplayRuntimeFeatureFlags.PlayerFree2DNativeTopologyTransitionEnabled)
+                .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+
+            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(tick);
+            Assert.That(
+                tick.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition),
+                Is.True);
+            Assert.That(
+                tick.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.LegacyFallback),
+                Is.False);
+            Assert.That(tick.PresentationData.EntityMotions.Any(motion => motion.EntityId == 10), Is.False);
+            Assert.That(tick.PresentationData.ContinuousLocomotionTracks.Any(track => track.EntityId == 10), Is.True);
         }
 
         [Test]
@@ -2750,6 +2792,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var flags = GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion;
             Assert.That(flags.EnablePlayerFree2DLocalLocomotion, Is.True);
             Assert.That(flags.EnablePlayerFree2DActionAssist, Is.True);
+            Assert.That(flags.EnablePlayerFree2DNativeTopologyTransition, Is.False);
             Assert.That(flags.EnablePlayerSameFaceContinuousLocomotion, Is.True);
             Assert.That(flags.EnablePlayerStoppableKinematicLocomotion, Is.True);
             Assert.That(flags.EnableEnemySameFaceContinuousLocomotion, Is.True);
@@ -2811,6 +2854,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(flags.EnablePlayerStoppableKinematicLocomotion, Is.False);
             Assert.That(flags.EnablePlayerFree2DLocalLocomotion, Is.False);
             Assert.That(flags.EnablePlayerFree2DActionAssist, Is.False);
+            Assert.That(flags.EnablePlayerFree2DNativeTopologyTransition, Is.False);
             Assert.That(flags.EnableEnemySameFaceContinuousLocomotion, Is.False);
             Assert.That(flags.EnableEnemyChargeKinematicLocomotion, Is.False);
             Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.False);
@@ -2828,6 +2872,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(actual.EnablePlayerStoppableKinematicLocomotion, Is.EqualTo(expected.EnablePlayerStoppableKinematicLocomotion));
             Assert.That(actual.EnablePlayerFree2DLocalLocomotion, Is.EqualTo(expected.EnablePlayerFree2DLocalLocomotion));
             Assert.That(actual.EnablePlayerFree2DActionAssist, Is.EqualTo(expected.EnablePlayerFree2DActionAssist));
+            Assert.That(actual.EnablePlayerFree2DNativeTopologyTransition, Is.EqualTo(expected.EnablePlayerFree2DNativeTopologyTransition));
             Assert.That(actual.EnableEnemySameFaceContinuousLocomotion, Is.EqualTo(expected.EnableEnemySameFaceContinuousLocomotion));
             Assert.That(actual.EnableEnemyChargeKinematicLocomotion, Is.EqualTo(expected.EnableEnemyChargeKinematicLocomotion));
             Assert.That(actual.EnableEnemyGlideKinematicLocomotion, Is.EqualTo(expected.EnableEnemyGlideKinematicLocomotion));
