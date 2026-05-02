@@ -157,14 +157,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Phase2_PlayerLegacyFallback_FlagOffBaseline_StillAllowed()
+        public void Phase2_PlayerLegacyFallback_FlagOffBaseline_RemovedByPhase4()
         {
-            Phase3_LegacyOrdinaryFallbackBaseline_PlayerFallbackAllowed();
+            Phase4_LegacyOrdinaryFallbackBaseline_PlayerFallbackRemoved();
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase3_LegacyOrdinaryFallbackBaseline_PlayerFallbackAllowed()
+        public void Phase4_LegacyOrdinaryFallbackBaseline_PlayerFallbackRemoved()
         {
             var tick = CreatePipeline(
                     CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) }),
@@ -172,7 +172,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline)
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
-            LegacyMovementBoundaryAssert.AllowsLegacyOrdinaryFallbackBaseline(tick, 10);
+            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(tick, 10);
+            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(tick);
         }
 
         [Test]
@@ -207,6 +208,27 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 MovementExecutionBoundaryKind.TopologyMaterialization);
             LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(handoffTick);
             Assert.That(handoffTick.PresentationData.ContinuousLocomotionTracks.Any(track => track.EntityId == 10), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Phase4_DefaultGameplay_PlayerFallbackStillAbsent()
+        {
+            Phase2_PlayerLegacyFallback_DefaultGameplayLocomotion_NoLegacyFallback();
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Phase4_PlayerKinematicFlagOn_NoLegacyFallback()
+        {
+            Phase2_PlayerLegacyFallback_KinematicFlagOn_BlockedBeforeMovementExpander();
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Phase4_PlayerTopologyHandoff_StillGridTransaction()
+        {
+            Phase2_PlayerLegacyFallback_TopologyHandoff_IsRetainedGridTransaction();
         }
 
         [Test]
@@ -259,6 +281,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 .RunTick(new TickInput(1));
 
             LegacyMovementBoundaryAssert.AllowsLegacyOrdinaryFallbackBaseline(tick, 40);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Phase4_LegacyBaseline_EnemyFallbackStillAllowed()
+        {
+            Phase3_LegacyOrdinaryFallbackBaseline_EnemyFallbackAllowed();
         }
 
         [Test]
@@ -331,6 +360,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 .RunTick(new TickInput(1));
 
             LegacyMovementBoundaryAssert.AllowsLegacyOrdinaryFallbackBaseline(tick, 50, chargeMove: true);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Phase4_LegacyBaseline_ChargeFallbackStillAllowed()
+        {
+            Phase3_LegacyOrdinaryFallbackBaseline_ChargeFallbackAllowed();
         }
 
         [Test]
@@ -581,21 +617,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void BoundaryInventory_FlagOff_LegacyFallbackStillAllowed()
+        public void BoundaryInventory_LegacyBaseline_PlayerRemovedEnemyChargeRetained()
         {
-            Phase3_LegacyOrdinaryFallbackBaseline_PlayerEnemyChargeFallbackAllowed();
+            Phase4_LegacyBaseline_PlayerRemovedEnemyChargeRetained();
         }
 
         [Test]
         [Category("Core")]
-        public void Phase3_LegacyOrdinaryFallbackBaseline_PlayerEnemyChargeFallbackAllowed()
+        public void Phase4_LegacyBaseline_PlayerRemovedEnemyChargeRetained()
         {
             var playerTick = CreatePipeline(
                     CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) }),
                     new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                     GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline)
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-            LegacyMovementBoundaryAssert.AllowsLegacyOrdinaryFallbackBaseline(playerTick, 10);
+            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(playerTick, 10);
 
             var enemyTick = CreatePipeline(
                     CreateWorldState(new[] { CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Chase) }),
@@ -627,21 +663,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void DeprecationPhase1_FlagOff_PlayerEnemyCharge_LegacyFallbackStillAllowed()
+        public void DeprecationPhase1_LegacyBaseline_PlayerRemovedEnemyChargeRetained()
         {
-            BoundaryInventory_FlagOff_LegacyFallbackStillAllowed();
+            BoundaryInventory_LegacyBaseline_PlayerRemovedEnemyChargeRetained();
         }
 
         [Test]
         [Category("Core")]
-        public void ScopedDeletionPrep_PlayerLegacyFallback_IsFlagOffOnly()
+        public void ScopedDeletionPrep_PlayerLegacyFallback_RemovedByPhase4()
         {
             var flagOffTick = CreatePipeline(
                     CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) }),
                     new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                     GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline)
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-            LegacyMovementBoundaryAssert.AllowsOnlyFlagOffCoveredFallback(flagOffTick, 10);
+            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(flagOffTick, 10);
 
             var defaultTick = CreatePipeline(
                     CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) }),
@@ -1293,8 +1329,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                     GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline)
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-            LegacyMovementBoundaryAssert.AllowsOnlyFlagOffCoveredFallback(flagOffTick, 10);
-            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(flagOffTick, 10);
+            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(flagOffTick, 10);
+            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(flagOffTick);
 
             var itemTick = CreatePipeline(
                     CreateWorldState(new[]

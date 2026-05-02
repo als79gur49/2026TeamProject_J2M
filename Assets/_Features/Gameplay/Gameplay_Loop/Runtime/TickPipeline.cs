@@ -1517,6 +1517,12 @@ namespace Game.Feature.Gameplay.Loop
                 return true;
             }
 
+            if (isPlayerOrdinaryFallback)
+            {
+                reason = "PlayerLegacyFallbackRemovedFromRuntime";
+                return true;
+            }
+
             return false;
         }
 

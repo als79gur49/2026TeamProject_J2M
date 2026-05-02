@@ -8,6 +8,7 @@ namespace Game.Feature.Gameplay.Tests
     internal static class LegacyMovementBoundaryAssert
     {
         public const string ExplicitLegacyFallbackRequiredReason = "LegacyOrdinaryFallbackRequiresExplicitBaseline";
+        public const string PlayerLegacyFallbackRemovedReason = "PlayerLegacyFallbackRemovedFromRuntime";
 
         public static void NoLegacyOrdinaryUnitMove(TickResult result, params int[] entityIds)
         {
@@ -92,14 +93,21 @@ namespace Game.Feature.Gameplay.Tests
             }
         }
 
+        public static void PlayerLegacyFallbackRemovedFromRuntime(TickResult result, int playerEntityId)
+        {
+            NoLegacyOrdinaryUnitOperationOrPresentation(result, playerEntityId);
+            Assert.That(
+                result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                    reason.Contains("LegacyUnitOrdinaryMovementDetected", System.StringComparison.Ordinal) &&
+                    reason.Contains($"E={playerEntityId}", System.StringComparison.Ordinal) &&
+                    reason.Contains(PlayerLegacyFallbackRemovedReason, System.StringComparison.Ordinal)),
+                Is.True,
+                BuildDebug(result, playerEntityId));
+        }
+
         public static void NoPlayerLegacyOrdinaryFallback(TickResult result, int playerEntityId)
         {
             NoLegacyOrdinaryUnitMove(result, playerEntityId);
-        }
-
-        public static void AllowsPlayerFlagOffLegacyOrdinaryFallback(TickResult result, int playerEntityId)
-        {
-            AllowsOnlyFlagOffCoveredFallback(result, playerEntityId);
         }
 
         public static void NoEnemyLegacyOrdinaryFallback(TickResult result, int enemyEntityId)

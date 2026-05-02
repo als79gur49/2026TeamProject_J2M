@@ -226,7 +226,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Category("Extended")]
         public void Replay_Phase2_PlayerFlagOffLegacyFallback_BaselineDocumented()
         {
-            Replay_Phase3_LegacyOrdinaryFallbackBaseline_PlayerFallbackDeterministic();
+            Replay_Phase4_LegacyBaseline_PlayerFallbackRemoved();
         }
 
         [Test]
@@ -266,25 +266,29 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Extended")]
-        public void Replay_Phase3_LegacyOrdinaryFallbackBaseline_PlayerFallbackDeterministic()
+        public void Replay_Phase4_LegacyBaseline_PlayerFallbackRemoved()
         {
             var inputs = new[] { new TickInput(1, PlayerTickCommand.Move(Direction.Right)) };
             var harness = new TickReplayHarness();
 
             var firstReplay = harness.Run(
-                CreateWorldState(CreatePlayer(10)),
+                CreateWorldStateWithPlayerControl(CreatePlayer(10)),
                 CreatePlayerLogics(),
                 inputs,
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
             var secondReplay = harness.Run(
-                CreateWorldState(CreatePlayer(10)),
+                CreateWorldStateWithPlayerControl(CreatePlayer(10)),
                 CreatePlayerLogics(),
                 inputs,
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
 
-            AssertReplayEqual(firstReplay, secondReplay);
-            Assert.That(firstReplay.Any(frame => frame.Trace.Contains("LegacyFallback", StringComparison.Ordinal)), Is.True);
-            Assert.That(firstReplay.Any(frame => frame.EventLogDump.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)), Is.False);
+            AssertReplayDeterministicAllowingLegacyDiagnostic(firstReplay, secondReplay);
+            Assert.That(firstReplay.Any(frame => frame.Trace.Contains("Boundary=LegacyFallback", StringComparison.Ordinal)), Is.False);
+            Assert.That(
+                firstReplay.Any(frame =>
+                    frame.Trace.Contains(LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedReason, StringComparison.Ordinal) ||
+                    frame.EventLogDump.Contains(LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedReason, StringComparison.Ordinal)),
+                Is.True);
         }
 
         [Test]
@@ -435,6 +439,16 @@ namespace Game.Feature.Gameplay.Tests.Replay
             IReadOnlyList<TickReplayFrame> firstReplay,
             IReadOnlyList<TickReplayFrame> secondReplay)
         {
+            AssertReplayDeterministicAllowingLegacyDiagnostic(firstReplay, secondReplay);
+            Assert.That(
+                firstReplay.Any(frame => frame.Trace.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
+                Is.False);
+        }
+
+        private static void AssertReplayDeterministicAllowingLegacyDiagnostic(
+            IReadOnlyList<TickReplayFrame> firstReplay,
+            IReadOnlyList<TickReplayFrame> secondReplay)
+        {
             Assert.That(
                 firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
                 Is.EqualTo(secondReplay.Select(frame => frame.DeterminismHash).ToArray()));
@@ -447,9 +461,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(
                 firstReplay.Select(frame => frame.Trace).ToArray(),
                 Is.EqualTo(secondReplay.Select(frame => frame.Trace).ToArray()));
-            Assert.That(
-                firstReplay.Any(frame => frame.Trace.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
-                Is.False);
         }
 
         private static IEntityLogic[] CreatePlayerLogics(params IEntityLogic[] extraLogics)
@@ -464,6 +475,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
         private static WorldState CreateWorldState(params EntityState[] entities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(entities);
+        }
+
+        private static WorldState CreateWorldStateWithPlayerControl(params EntityState[] entities)
+        {
+            var worldState = CreateWorldState(entities);
+            worldState.CreateWriteContext().SetPlayerControlState(10, default);
+            return worldState;
         }
 
         private static WorldState CreateWorldState(

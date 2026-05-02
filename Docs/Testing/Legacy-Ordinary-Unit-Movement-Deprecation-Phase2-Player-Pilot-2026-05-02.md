@@ -36,7 +36,7 @@ The player fallback branch is currently reachable through this chain:
 
 `PlayerFree2DLocalLocomotionEnabled` and `PlayerSameFaceContinuousLocomotionEnabled` both make synthetic player ordinary expansion a forbidden leak. The expected rejection reason is `PlayerCoveredLocomotionReachedLegacyExpansion`.
 
-Historical Phase 2 note: `GameplayRuntimeFeatureFlags.None` was the player fallback baseline in this phase. Phase 3 supersedes that policy: `None` now blocks covered player fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`, and intentional fallback tests use `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline`.
+Historical Phase 2 note: `GameplayRuntimeFeatureFlags.None` was the player fallback baseline in this phase. Phase 3 superseded that policy: `None` blocks covered player fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. Phase 4 supersedes the explicit player baseline too: `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` now rejects player fallback with `PlayerLegacyFallbackRemovedFromRuntime`.
 
 Custom flags with both player Free2D and player same-face kinematic disabled may reach player fallback only when `EnableLegacyOrdinaryUnitFallback` is explicitly enabled.
 
@@ -61,7 +61,7 @@ The player pilot is pinned by these test additions:
 - `BoundaryInventoryScenarioTests.Phase2_PlayerLegacyFallback_DefaultGameplayLocomotion_NoLegacyFallback`
 - `BoundaryInventoryScenarioTests.Phase2_PlayerLegacyFallback_Free2DFlagOn_BlockedBeforeMovementExpander`
 - `BoundaryInventoryScenarioTests.Phase2_PlayerLegacyFallback_KinematicFlagOn_BlockedBeforeMovementExpander`
-- `BoundaryInventoryScenarioTests.Phase2_PlayerLegacyFallback_FlagOffBaseline_StillAllowed`
+- `BoundaryInventoryScenarioTests.Phase2_PlayerLegacyFallback_FlagOffBaseline_RemovedByPhase4`
 - `BoundaryInventoryScenarioTests.Phase2_PlayerLegacyFallback_TopologyHandoff_IsRetainedGridTransaction`
 - `MovementPhaseScenarioTests.Phase2_PlayerLegacyFallback_ValidateLegacyExpansionIntents_PlayerFlagReachability`
 - `PlayerContinuousLocomotionReplayTests.Replay_Phase2_PlayerDefaultGameplayLocomotion_NoLegacyFallback`

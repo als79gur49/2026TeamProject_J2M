@@ -191,13 +191,17 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    new ScriptedMovementLogic(
+                        new Dictionary<int, RawMovementIntent>
+                        {
+                            { 1, new RawMovementIntent(10, priority: 100, destination: new Vector2Int(1, 0)) },
+                        }),
                 },
                 timingProfile,
                 CreateDefaultPlayerControlTimingSnapshot(timingProfile),
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1));
 
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
@@ -552,10 +556,30 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var legacyBaselineIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
             legacyBaselineIntent.AssignIntentId(4);
-            AssertLegacyExpansionIntentAllowed(
+            AssertLegacyExpansionIntentBlocked(
                 worldState,
                 legacyBaselineIntent,
-                GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
+                GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline,
+                LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedReason);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Phase4_None_PlayerFallbackStillBlocked()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+            });
+            worldState.CreateWriteContext().SetPlayerControlState(10, default);
+
+            var intent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
+            intent.AssignIntentId(1);
+            AssertLegacyExpansionIntentBlocked(
+                worldState,
+                intent,
+                GameplayRuntimeFeatureFlags.None,
+                LegacyMovementBoundaryAssert.ExplicitLegacyFallbackRequiredReason);
         }
 
         [Test]
@@ -759,6 +783,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Test]
         [Category("Core")]
         public void ScopedDeletionPrep_MovementExpander_GridBranchIsRetained()
+        {
+            DeprecationPhase1_MovementExpanderGridBranchStillAllowed();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Phase4_MovementExpander_GridBranchStillAllowed()
         {
             DeprecationPhase1_MovementExpanderGridBranchStillAllowed();
         }

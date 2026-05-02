@@ -454,34 +454,36 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Category("Core")]
         public void Replay_ScopedDeletionPrep_FlagOffFallbackStillDeterministic()
         {
-            Replay_Phase3_LegacyBaseline_CoveredFallbackDeterministic();
+            Replay_Phase4_LegacyBaseline_PlayerRemovedEnemyChargeRetained();
         }
 
         [Test]
         [Category("Core")]
-        public void Replay_Phase3_LegacyBaseline_CoveredFallbackDeterministic()
+        public void Replay_Phase4_LegacyBaseline_PlayerRemovedEnemyChargeRetained()
         {
             var harness = new TickReplayHarness();
             var playerInputs = new[] { new TickInput(1, PlayerTickCommand.Move(Direction.Right)) };
             var firstPlayerReplay = harness.Run(
-                GameplayWorldStateTestFactory.CreateBounded(new[]
-                {
-                    CreatePlayer(10, hp: 3, new SurfaceCell(FaceId.Floor, 0, 0)),
-                }),
+                CreatePlayerFallbackWorldState(),
                 new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                 playerInputs,
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
             var secondPlayerReplay = harness.Run(
-                GameplayWorldStateTestFactory.CreateBounded(new[]
-                {
-                    CreatePlayer(10, hp: 3, new SurfaceCell(FaceId.Floor, 0, 0)),
-                }),
+                CreatePlayerFallbackWorldState(),
                 new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                 playerInputs,
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
 
-            AssertReplayBoundaryCanaryEqual(firstPlayerReplay, secondPlayerReplay);
-            Assert.That(firstPlayerReplay.Any(frame => frame.Trace.Contains("LegacyFallback", StringComparison.Ordinal)), Is.True);
+            AssertReplayCanonicalStateEqual(firstPlayerReplay, secondPlayerReplay);
+            Assert.That(
+                firstPlayerReplay.Select(frame => frame.Trace).ToArray(),
+                Is.EqualTo(secondPlayerReplay.Select(frame => frame.Trace).ToArray()));
+            Assert.That(firstPlayerReplay.Any(frame => frame.Trace.Contains("Boundary=LegacyFallback", StringComparison.Ordinal)), Is.False);
+            Assert.That(
+                firstPlayerReplay.Any(frame =>
+                    frame.Trace.Contains(LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedReason, StringComparison.Ordinal) ||
+                    frame.EventLogDump.Contains(LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedReason, StringComparison.Ordinal)),
+                Is.True);
 
             var enemyInputs = new[] { new TickInput(1) };
             var enemyMove = new Dictionary<int, RawMovementIntent>
@@ -995,6 +997,16 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 CreatePlayer(10, hp: 3, new SurfaceCell(FaceId.Floor, 0, 0)),
                 CreateEnemy(40, hp: 3, new SurfaceCell(FaceId.Floor, 1, 0)),
             });
+        }
+
+        private static WorldState CreatePlayerFallbackWorldState()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[]
+            {
+                CreatePlayer(10, hp: 3, new SurfaceCell(FaceId.Floor, 0, 0)),
+            });
+            worldState.CreateWriteContext().SetPlayerControlState(10, default);
+            return worldState;
         }
 
         private static WorldState CreateDeathWorldState()

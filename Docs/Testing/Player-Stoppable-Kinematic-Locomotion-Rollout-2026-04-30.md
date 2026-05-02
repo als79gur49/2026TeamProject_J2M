@@ -27,5 +27,5 @@ If `EnablePlayerFree2DLocalLocomotion` is enabled, player ordinary movement bypa
 
 Set `EnablePlayerStoppableKinematicLocomotion` to false to restore automatic player kinematic continuation while keeping player kinematic locomotion enabled.
 Set `EnablePlayerSameFaceContinuousLocomotion` to false to return to the legacy discrete player movement baseline.
-`GameplayRuntimeFeatureFlags.None` remains the rollback/golden fallback lane until a later scoped deletion phase changes that policy explicitly.
-Scoped deletion preparation keeps this rollback lane explicit through `ScopedDeletionPrep_PlayerLegacyFallback_IsFlagOffOnly`; it does not remove player legacy fallback yet.
+`GameplayRuntimeFeatureFlags.None` is not a player fallback authorization after Phase 3, and `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` is not a player fallback authorization after Phase 4.
+Scoped deletion preparation is now covered by `Phase4_LegacyOrdinaryFallbackBaseline_PlayerFallbackRemoved`; player legacy discrete fallback is no longer a supported runtime fallback after Phase 4. Enemy fallback, Charge fallback, retained grid transactions, `MoveEntity`, and `MovementExpander` remain retained.
