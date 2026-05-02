@@ -1564,6 +1564,38 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
+        public void ChargeMoveResidue_YamlResidueReport_IsCurrent()
+        {
+            var report = ReadRepoFile(
+                "Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-ChargeMove-Deletion-Verification-And-Residue-Report-2026-05-02.md");
+
+            Assert.That(report, Does.Contain("ChargeMove Deletion Verification And Residue Report"));
+            Assert.That(report, Does.Contain("YAML Residue Report"));
+            Assert.That(report, Does.Contain("GameplayPresentationTimingPreset_DefaultShowcase.asset"));
+            Assert.That(report, Does.Contain("EnemyView_Charge.prefab"));
+            Assert.That(report, Does.Contain("stale serialized residue"));
+            Assert.That(report, Does.Contain("owner-approved asset migration"));
+            Assert.That(report, Does.Contain("Do not mix that migration with runtime cleanup"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ChargeMoveResidue_PresentationAuthoring_RuntimeReadRemoved()
+        {
+            var report = ReadRepoFile(
+                "Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-ChargeMove-Deletion-Verification-And-Residue-Report-2026-05-02.md");
+
+            Assert.That(report, Does.Contain("Presentation Authoring Cleanup"));
+            Assert.That(report, Does.Contain("`EntityMotionPresentationAuthoring.chargeMove" + "MotionDurationSeconds`"));
+            Assert.That(report, Does.Contain("`EntityMotionPresentationAuthoring` Charge snapshot/override lookup"));
+            Assert.That(report, Does.Contain("Runtime read confirmation"));
+            Assert.That(report, Does.Contain("runtime host/entityview/loop `ChargeMove` scan returned no hits"));
+            Assert.That(report, Does.Contain("`TickKinematicMotionTrack(MotionMode.Charge)`"));
+            Assert.That(report, Does.Contain("`TickEnemyChargePresentationSignal`"));
+        }
+
+        [Test]
+        [Category("Core")]
         public void ChargeMoveDeletion_NoChargeMoveReferencesRemain()
         {
             var sourceFiles = new[]

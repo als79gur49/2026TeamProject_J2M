@@ -2361,6 +2361,27 @@
       "locked": true
     },
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveResidue_YamlResidueReport_IsCurrent",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "presentation"
+      ],
+      "reason": "Locked Core coverage that ChargeMove YAML residue is classified as stale serialized data pending owner-approved asset migration.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveResidue_PresentationAuthoring_RuntimeReadRemoved",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "presentation",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that removed ChargeMove presentation authoring fields are no longer described as runtime-read inputs.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveDeletion_NoChargeMoveReferencesRemain",
       "category": "Core",
       "contracts": [

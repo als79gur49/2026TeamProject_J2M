@@ -43,3 +43,10 @@ Docs must not describe synthetic Charge entity-motion compatibility as retained 
 Unity serialized residue may remain in existing YAML assets until an owner-approved asset migration.
 Runtime code no longer reads Charge entity-motion authoring or timing fields.
 Replay/golden files are not rewritten by this package; any historical golden drift requires owner approval before migration.
+
+## Verification And Residue Report
+
+The deletion verification pass is recorded in `Legacy-Ordinary-Unit-Movement-Decommission-ChargeMove-Deletion-Verification-And-Residue-Report-2026-05-02.md`.
+The active gameplay C# deleted-symbol scan and runtime host/entityview/loop `ChargeMove` scan are clean.
+Unity XML confirms the `ChargeMoveDeletion` and retained `ChargeMoveIsolation` filters are green.
+The remaining `chargeMoveDurationSeconds` and `chargeMoveMotionDurationSeconds` YAML hits are stale serialized residue only and require owner-approved asset migration before cleanup.

@@ -92,6 +92,8 @@ Current-policy docs must describe Charge presentation as kinematic track plus Ch
 Historical docs may mention the old `ChargeMove` term only as removed legacy vocabulary.
 Synthetic Charge entity-motion compatibility is no longer retained behavior.
 
+The follow-up verification and residue report confirms active gameplay C# has no deleted `ChargeMove` symbols, the `ChargeMoveDeletion` and retained `ChargeMoveIsolation` Unity filters are green, and the only YAML residue is stale serialized asset/prefab data pending owner-approved migration.
+
 ## Move Presentation Inventory
 
 | usage location | producer | consumer | retained dependency | fallback-only branch remains? | tests expecting `Move` | action recommendation |
