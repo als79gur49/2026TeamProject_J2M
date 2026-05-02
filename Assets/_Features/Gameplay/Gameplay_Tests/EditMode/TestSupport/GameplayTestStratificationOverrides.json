@@ -812,7 +812,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyMovesIntoPlayer_CurrentContract_ContactTimingObserved",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyMovesIntoPlayer_HistoricalPrePhase5_FlagOffLegacyImmediateContact_RemovedFromRuntime",
       "category": "Core",
       "contracts": [
         "damage_affects_movement",

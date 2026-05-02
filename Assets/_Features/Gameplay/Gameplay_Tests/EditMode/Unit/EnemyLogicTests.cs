@@ -604,6 +604,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
         public void EnemyLogic_NonAttackingRandomWalkPatrol_InitializesAndCommitsPatrolState()
         {
             var homeCell = new SurfaceCell(FaceId.Floor, 2, 2);
@@ -637,6 +638,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
         public void EnemyLogic_WindupRandomWalkPilot_PatrolStateWrites_OccurOnlyOnInitAndCommittedPatrolMove()
         {
             var profile = CreateWindupRandomWalkPilotProfile(windupTicks: 1);
@@ -841,6 +843,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
         public void EnemyAi_WindupRandomWalkPilot_AttackWindupRecoverContract_MatchesForwardBaseline()
         {
             var controlProfile = CreateEnemyProfile(windupTicks: 1);
@@ -918,6 +921,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
         public void EnemyRandomWalkPatrolPlanner_WindupPilotPreset_MeetsMeleeScorecard()
         {
             var shippingSettings = EnemyAiProfileTestFactory.CreateWindupRandomWalkPilotPatrolSettings();
@@ -3979,7 +3983,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     MeleeAttackDecisionStrategy.Instance,
                     DefaultEnemyAiStateResolver.Instance));
 
-            Assert.That(exception.ParamName, Is.EqualTo("EnemyAiRuntimeDefinition"));
+            Assert.That(exception.ParamName, Is.EqualTo("EnemyCombatCapabilityRuntime"));
         }
 
         [Test]
@@ -4001,7 +4005,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     MeleeAttackDecisionStrategy.Instance,
                     DefaultEnemyAiStateResolver.Instance));
 
-            Assert.That(exception.ParamName, Is.EqualTo("EnemyAiRuntimeDefinition"));
+            Assert.That(exception.ParamName, Is.EqualTo("EnemyCoreRuntime"));
         }
 
         [Test]
@@ -4026,7 +4030,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     MeleeAttackDecisionStrategy.Instance,
                     DefaultEnemyAiStateResolver.Instance));
 
-            Assert.That(exception.ParamName, Is.EqualTo("EnemyAiRuntimeDefinition"));
+            Assert.That(exception.ParamName, Is.EqualTo("EnemyBrainRuntime"));
         }
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
