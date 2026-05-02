@@ -63,6 +63,7 @@ Tests should assert retained boundary kinds such as `TopologyMaterialization`, `
 ## Phase 2C Canaries
 
 The Charge pilot is pinned by these test additions:
+Historical/pre-Phase6 wrapper names are retained only to preserve Phase 2C migration history; current policy delegates them to removed-diagnostic tests.
 
 - `BoundaryInventoryScenarioTests.Phase2C_ChargeLegacyFallback_DefaultGameplayLocomotion_NoChargeMoveFallback`
 - `BoundaryInventoryScenarioTests.Phase2C_ChargeLegacyFallback_ChargeKinematicFlagOn_BlockedBeforeMovementExpander`

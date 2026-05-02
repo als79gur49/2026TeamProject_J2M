@@ -59,6 +59,7 @@ Tests should assert retained boundary kinds such as `TopologyMaterialization`, `
 ## Phase 2 Canaries
 
 The player pilot is pinned by these test additions:
+Historical/pre-Phase4 wrapper names are retained only to preserve Phase 2 migration history; current policy delegates them to removed-diagnostic tests.
 
 - `BoundaryInventoryScenarioTests.Phase2_PlayerLegacyFallback_DefaultGameplayLocomotion_NoLegacyFallback`
 - `BoundaryInventoryScenarioTests.Phase2_PlayerLegacyFallback_Free2DFlagOn_BlockedBeforeMovementExpander`

@@ -54,7 +54,7 @@ Canonical Phase 3 tests use explicit names such as:
 - `Replay_Phase3_None_NoCoveredFallback`
 - `Replay_Phase6_LegacyBaseline_PlayerEnemyChargeRemoved`
 
-Older Phase 2 `FlagOffBaseline` tests remain as compatibility wrappers, but they now use `LegacyOrdinaryFallbackBaseline` internally.
+Older Phase 2 `FlagOffBaseline` tests are historical/pre-Phase6 compatibility wrappers, and current policy delegates them to removed-diagnostic tests instead of treating them as authorization canaries.
 
 ## Replay And Golden Policy
 

@@ -7,6 +7,7 @@ Date: 2026-05-02
 `TickEntityMotionKind.Move` remains retained.
 This package is an ownership narrowing pass, not an enum deletion pass.
 Covered player ordinary, enemy ordinary, and Charge active fallback authorization is already removed; those attempts now reject with deterministic removed-fallback diagnostics.
+`RemovedLegacyFallbackDiagnosticBaseline` is the diagnostic compatibility preset for reproducing those removed diagnostics; wrapper cleanup only removes stale allowed-fallback wording.
 Retained generic movement and retained grid transaction presentation may still use `TickEntityMotionKind.Move`.
 `MoveEntity`, `MovementExpander`, topology materialization, box/action movement, spawn/respawn placement, cleanup removal, scripted relocation, and glide retained fallback are protected.
 Kinematic and continuous locomotion replacements must present through `TickContinuousLocomotionTrack`, `TickKinematicMotionTrack`, and Charge signals instead of entity `Move`.

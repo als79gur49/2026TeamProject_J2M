@@ -15,6 +15,8 @@ The follow-up Charge presentation package removed the legacy Charge entity-motio
 Current Charge presentation is `TickKinematicMotionTrack(MotionMode.Charge)` plus `TickEnemyChargePresentationSignal`.
 `MoveEntity`, `MovementExpander`, retained grid transactions, and glide retained fallback are protected and are not ordinary fallback cleanup targets.
 No replay or golden files are rewritten in this consolidation.
+Fallback compatibility wrapper cleanup removes stale allowed-fallback vocabulary from current-policy tests/docs.
+It does not change runtime validation, Move ownership, retained grid transactions, diagnostic presets, compatibility aliases, or trace tokens.
 
 ## Current State Summary
 
@@ -53,9 +55,9 @@ Phase 8E kept `EnableLegacyOrdinaryUnitFallback` as the underlying compatibility
 
 | bucket item | this patch decision | reason | next action |
 |---|---|---|---|
-| stale docs/test wording final cleanup | do now | current-policy docs must not imply fallback allowed | lock wording in this doc, readiness, and ADR |
+| stale docs/test wording final cleanup | do now | current-policy docs must not imply covered fallback authorization | lock wording in this doc, readiness, and ADR |
 | old alias/helper usage 0 confirmation | do now | alias/helper removal needs internal usage state | keep report canary as definition/historical only |
-| current-policy stale "fallback allowed" detection | do now | historical docs remain, current docs should be precise | limit to readiness and consolidation docs |
+| current-policy stale fallback-authorization wording detection | do now | historical docs remain, current docs should be precise | limit to readiness and consolidation docs |
 | Charge presentation removal record | do now | Charge entity-motion compatibility is removed | keep current-policy docs on kinematic track plus signal |
 | removed diagnostic replay canary consolidation | do now | protects no golden rewrite | add consolidation replay canary |
 | duplicate wrapper test cleanup candidates | inventory only | deletion expands scope | record candidates and blockers |

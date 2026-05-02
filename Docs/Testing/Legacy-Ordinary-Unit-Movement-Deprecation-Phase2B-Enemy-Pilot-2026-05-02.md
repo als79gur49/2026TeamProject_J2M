@@ -60,6 +60,7 @@ Tests should assert retained boundary kinds such as `TopologyMaterialization`, `
 ## Phase 2B Canaries
 
 The enemy pilot is pinned by these test additions:
+Historical/pre-Phase5 wrapper names are retained only to preserve Phase 2B migration history; current policy delegates them to removed-diagnostic tests.
 
 - `BoundaryInventoryScenarioTests.Phase2B_EnemyLegacyFallback_DefaultGameplayLocomotion_NoLegacyFallback`
 - `BoundaryInventoryScenarioTests.Phase2B_EnemyLegacyFallback_KinematicFlagOn_BlockedBeforeMovementExpander`
