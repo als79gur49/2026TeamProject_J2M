@@ -1349,6 +1349,92 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
+        public void CompatibilityLayer_ConsolidationInventory_IsCurrent()
+        {
+            var consolidationDoc = ReadRepoFile(
+                "Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-Compatibility-Layer-Consolidation-2026-05-02.md");
+            var readinessDoc = ReadRepoFile(
+                "Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Readiness-2026-05-01.md");
+            var adr = ReadRepoFile("Docs/Architecture/ADR/ADR-005-Grid-Authoritative-Unit-Kinematics.md");
+
+            Assert.That(consolidationDoc, Does.Contain("Legacy Compatibility Layer Consolidation"));
+            Assert.That(consolidationDoc, Does.Contain("The project stops extending the tiny Phase 8F/8G/8H chain"));
+            Assert.That(consolidationDoc, Does.Contain("Do Now / Defer / Retained Buckets"));
+            Assert.That(consolidationDoc, Does.Contain("Covered fallback authorization is already removed"));
+            Assert.That(consolidationDoc, Does.Contain("`EnableLegacyOrdinaryUnitFallback` rename | defer"));
+            Assert.That(consolidationDoc, Does.Contain("`LegacyFallback=` rename | defer"));
+            Assert.That(consolidationDoc, Does.Contain("replay/golden rewrite | defer"));
+            Assert.That(readinessDoc, Does.Contain("Legacy Compatibility Layer Consolidation"));
+            Assert.That(readinessDoc, Does.Contain("stops extending the micro-phase chain"));
+            Assert.That(adr, Does.Contain("moves from stepwise fallback removal to `Legacy Compatibility Layer Consolidation`"));
+            Assert.That(consolidationDoc, Does.Not.Contain("allows covered fallback"));
+            Assert.That(readinessDoc, Does.Not.Contain("fallback allowed"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void CompatibilityLayer_ChargeMovePresentation_InventoryIsCurrent()
+        {
+            var consolidationDoc = ReadRepoFile(
+                "Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-Compatibility-Layer-Consolidation-2026-05-02.md");
+
+            Assert.That(consolidationDoc, Does.Contain("ChargeMove Presentation Inventory"));
+            Assert.That(consolidationDoc, Does.Contain("`TickEntityMotionKind.ChargeMove`"));
+            Assert.That(consolidationDoc, Does.Contain("inventory-to-action"));
+            Assert.That(consolidationDoc, Does.Contain("deletion Defer"));
+            Assert.That(consolidationDoc, Does.Contain("host, presentation, tests, and golden/replay policy remain blockers before deletion"));
+            Assert.That(consolidationDoc, Does.Contain("Phase 6 means covered player/enemy/Charge fallback must not produce `ChargeMove`"));
+            Assert.That(consolidationDoc, Does.Contain("Default gameplay and Charge kinematic flag-on lanes must use `TickKinematicMotionTrack`"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void CompatibilityLayer_MovePresentation_InventoryIsCurrent()
+        {
+            var consolidationDoc = ReadRepoFile(
+                "Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-Compatibility-Layer-Consolidation-2026-05-02.md");
+
+            Assert.That(consolidationDoc, Does.Contain("Move Presentation Inventory"));
+            Assert.That(consolidationDoc, Does.Contain("`TickEntityMotionKind.Move`"));
+            Assert.That(consolidationDoc, Does.Contain("retained grid transaction and generic presentation paths"));
+            Assert.That(consolidationDoc, Does.Contain("not a deletion candidate in this consolidation"));
+            Assert.That(consolidationDoc, Does.Contain("ownership narrowing between fallback-only producers and retained grid producers"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void CompatibilityLayer_RetainedGridTransactions_StillProtected()
+        {
+            var consolidationDoc = ReadRepoFile(
+                "Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-Compatibility-Layer-Consolidation-2026-05-02.md");
+
+            Phase8E_GridTransactionsRemainAllowed();
+
+            Assert.That(consolidationDoc, Does.Contain("`MoveEntity` | runtime primitive | retained"));
+            Assert.That(consolidationDoc, Does.Contain("`MovementExpander` | expansion component | retained"));
+            Assert.That(consolidationDoc, Does.Contain("retained grid transaction boundary kinds"));
+            Assert.That(consolidationDoc, Does.Contain("topology, box/action, spawn/respawn, cleanup, scripted relocation, anchor normalization"));
+            Assert.That(consolidationDoc, Does.Contain("ordinary fallback confusion"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void CompatibilityLayer_GlideRetainedException_StillSeparate()
+        {
+            var consolidationDoc = ReadRepoFile(
+                "Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-Compatibility-Layer-Consolidation-2026-05-02.md");
+
+            Phase8E_GlidePolicyUnchanged();
+
+            Assert.That(consolidationDoc, Does.Contain("glide retained fallback | exception | separate policy"));
+            Assert.That(consolidationDoc, Does.Contain("default adoption not approved"));
+            Assert.That(consolidationDoc, Does.Contain("glide retained fallback remains separate and default adoption is excluded"));
+            Assert.That(consolidationDoc, Does.Contain("glide default adoption"));
+            Assert.That(consolidationDoc, Does.Contain("must not include"));
+        }
+
+        [Test]
         [Category("Extended")]
         public void Phase6_LegacyBaseline_PlayerEnemyStillRemoved()
         {

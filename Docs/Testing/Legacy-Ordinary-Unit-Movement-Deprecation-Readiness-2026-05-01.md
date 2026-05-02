@@ -31,6 +31,8 @@ Phase 8D, `Diagnostic Flag / Helper Naming Cleanup Readiness`, adds `GameplayRun
 
 Phase 8E, `Underlying Diagnostic Field Rename / Removal Readiness`, inventories `GameplayRuntimeFeatureFlags.EnableLegacyOrdinaryUnitFallback` as an underlying compatibility field and keeps it in place. The canonical helper remains `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled`; field rename/delete and new canonical field addition are blocked pending a later compatibility decision. Runtime boundary behavior, scene serialization exposure, trace token text, replay/golden files, retained grid transactions, and glide policy are unchanged.
 
+After Phase 8E, the project stops extending the micro-phase chain and moves to `Legacy Compatibility Layer Consolidation`. The next goal is a single inventory and prioritization package for compatibility presets, helpers, fields, trace vocabulary, presentation remnants, tests, docs, and replay/golden policy. Covered fallback authorization remains removed; compatibility layer cleanup remains pending. `MoveEntity`, `MovementExpander`, retained grid transactions, and glide retained fallback remain protected.
+
 ## Executive Decision
 
 `Legacy Ordinary Unit Movement` is the only deletion target: an ordinary `Unit` `MovementCommandKind.Move` reaches legacy expansion, commits through `MoveEntity`, and presents as legacy `TickEntityMotionKind.Move` or `TickEntityMotionKind.ChargeMove`.
@@ -63,6 +65,7 @@ Jump and phase relocation are not deletion blockers. Glide explicit flag-on acti
 | Phase 8C legacy alias usage cleanup readiness | complete for scoped canaries | current tests/docs use `RemovedLegacyFallbackDiagnosticBaseline`; `LegacyOrdinaryFallbackBaseline` remains a deprecated compatibility alias only |
 | Phase 8D diagnostic helper naming cleanup readiness | complete for scoped canaries | current runtime/tests/docs use `RemovedLegacyFallbackDiagnosticsEnabled`; `LegacyOrdinaryFallbackEnabled` remains a deprecated compatibility alias only |
 | Phase 8E underlying field readiness | complete for scoped canaries | `EnableLegacyOrdinaryUnitFallback` remains a compatibility field; rename/delete is deferred pending field/config/trace migration approval |
+| Legacy Compatibility Layer Consolidation | next unified package | inventory compatibility presets/helpers/field/trace/presentation/tests/docs/replay policy; no runtime deletion and no micro-phase extension |
 | actual deletion | partial | player, enemy, and Charge runtime fallback authorization is removed; glide retained fallback, grid transactions, `MoveEntity`, and `MovementExpander` remain retained |
 
 ## Phase 1 Runtime Validation

@@ -2165,6 +2165,69 @@
       "locked": true
     },
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.CompatibilityLayer_ConsolidationInventory_IsCurrent",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage that the unified compatibility layer consolidation inventory replaces further micro-phases.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.CompatibilityLayer_ChargeMovePresentation_InventoryIsCurrent",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that ChargeMove presentation cleanup remains inventory-to-action before deletion.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.CompatibilityLayer_MovePresentation_InventoryIsCurrent",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage that Move presentation remains retained pending grid presentation ownership narrowing.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.CompatibilityLayer_RetainedGridTransactions_StillProtected",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "interaction_flip",
+        "topology_materialization",
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage that retained grid transactions remain protected by compatibility layer consolidation.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.CompatibilityLayer_GlideRetainedException_StillSeparate",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that glide retained fallback remains a separate adoption decision.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_CompatibilityLayer_DiagnosticBaseline_StillDeterministic",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that compatibility layer consolidation does not require replay or golden rewrites.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ScopedDeletionPrep_EnemyLegacyFallback_RemovedByPhase5",
       "category": "Core",
       "contracts": [
