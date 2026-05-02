@@ -394,6 +394,33 @@ namespace Game.Feature.Gameplay.PlayerControl
             return true;
         }
 
+        public static bool ShouldSuppressOrdinaryMoveForPushTarget(
+            WorldSnapshot snapshot,
+            in EntityState player,
+            Direction inputDirection)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (!TryResolveDelta(inputDirection, out var delta))
+            {
+                return false;
+            }
+
+            var targetCell = player.position + delta;
+            if (!snapshot.TryGetSolidSemanticAt(targetCell, out var targetSemantic) ||
+                targetSemantic.Kind != SolidKind.Box)
+            {
+                return false;
+            }
+
+            var target = targetSemantic.Entity;
+            return HasBoxCapability(target, BoxCapabilities.Push) &&
+                   !HasBoxCapability(target, BoxCapabilities.Item);
+        }
+
         public static bool TryResolveFlipTarget(
             WorldSnapshot snapshot,
             in EntityState player,

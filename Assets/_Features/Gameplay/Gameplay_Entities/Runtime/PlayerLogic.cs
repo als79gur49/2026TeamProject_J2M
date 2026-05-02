@@ -144,14 +144,15 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
-            var destination = entity.position + delta;
-            if (snapshot.TryGetBoxAt(destination, out var box) &&
-                (box.boxCapabilities & BoxCapabilities.Push) == BoxCapabilities.Push &&
-                (box.boxCapabilities & BoxCapabilities.Item) != BoxCapabilities.Item)
+            if (PlayerControlQueries.ShouldSuppressOrdinaryMoveForPushTarget(
+                    snapshot,
+                    entity,
+                    input.PlayerCommand.MoveDirection))
             {
                 return;
             }
 
+            var destination = entity.position + delta;
             buffer.Add(
                 new RawMovementIntent(
                     entity.entityId,

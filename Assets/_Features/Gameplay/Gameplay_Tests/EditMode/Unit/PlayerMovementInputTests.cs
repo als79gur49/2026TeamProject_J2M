@@ -42,6 +42,54 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void PlayerLogic_OrdinaryMoveIntoPushBox_SuppressesMoveIntent()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+            });
+            var logic = new PlayerLogic(entityId: 10);
+            var buffer = new List<RawMovementIntent>();
+
+            logic.CollectMovementIntents(
+                worldState.CreateSnapshot(),
+                new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                buffer);
+
+            Assert.That(buffer, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerLogic_OrdinaryMoveIntoItemPushBox_ProducesMoveIntent()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(
+                    entityId: 20,
+                    position: new SurfaceCell(FaceId.Floor, 1, 0),
+                    capabilities: BoxCapabilities.Push | BoxCapabilities.Item),
+            });
+            var logic = new PlayerLogic(entityId: 10);
+            var buffer = new List<RawMovementIntent>();
+
+            logic.CollectMovementIntents(
+                worldState.CreateSnapshot(),
+                new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                buffer);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 10, Destination: new Vector2Int(1, 0), Command: MovementCommandKind.Move),
+                },
+                buffer.Select(intent => (intent.SourceId, intent.Destination, intent.CommandKind)).ToArray());
+        }
+
+        [Test]
+        [Category("Extended")]
         public void PlayerLogic_BufferedMoveCommand_DoesNotProduceImmediateIntent()
         {
             var worldState = CreateWorldState(new[]
