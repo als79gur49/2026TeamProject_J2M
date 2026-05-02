@@ -790,7 +790,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void TickPresentationDataBuilder_BuildsChargeMoveMotionForActiveChargeEnemyMove()
+        public void TickPresentationDataBuilder_SyntheticChargeMovePresentationCompatibility_BuildsChargeMoveMotion()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var destinationCell = new SurfaceCell(FaceId.Floor, 2, 0);

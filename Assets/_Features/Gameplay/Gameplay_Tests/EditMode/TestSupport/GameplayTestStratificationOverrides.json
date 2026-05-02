@@ -2257,6 +2257,87 @@
       ],
       "reason": "Locked Core coverage that Phase 5 keeps MovementExpander grid transactions retained.",
       "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveCleanup_DefaultGameplay_NoChargeMoveProducer",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that DefaultGameplayLocomotion does not produce legacy ChargeMove.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveCleanup_None_NoChargeMoveProducer",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that GameplayRuntimeFeatureFlags.None rejects Charge fallback without ChargeMove output.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveCleanup_RemovedDiagnosticBaseline_NoChargeMoveProducer",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that removed-diagnostic baseline does not authorize ChargeMove output.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveCleanup_ChargePresentationSignal_StillUsedForKinematicCharge",
+      "category": "Core",
+      "contracts": [
+        "presentation",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that kinematic Charge keeps its presentation signal without legacy ChargeMove.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveCleanup_PresentationConsumers_InventoryIsCurrent",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "presentation"
+      ],
+      "reason": "Locked Core coverage that ChargeMove consumer inventory stays current before deletion approval.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.ChargeMoveCleanup_ChargeKinematicFlagOn_NoChargeMoveProducer",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that Charge kinematic flag-on blocks legacy ChargeMove production.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_ChargeMoveCleanup_NoChargeMoveOutput",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core replay coverage that current Charge lanes are deterministic without ChargeMove output.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_ChargeMoveCleanup_DiagnosticBaseline_NoChargeMoveOutput",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "movement_boundary_v1",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core replay coverage that diagnostic Charge fallback remains deterministic without ChargeMove output.",
+      "locked": true
     }
   ]
 }

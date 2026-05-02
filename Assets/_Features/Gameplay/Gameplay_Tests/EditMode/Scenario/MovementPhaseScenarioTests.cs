@@ -684,6 +684,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
+        public void ChargeMoveCleanup_ChargeKinematicFlagOn_NoChargeMoveProducer()
+        {
+            Phase2C_ChargeLegacyFallback_ValidateLegacyExpansionIntents_ChargeFlagReachability();
+        }
+
+        [Test]
         [Category("Extended")]
         public void Phase6_MovementExpander_GridBranchStillAllowed()
         {

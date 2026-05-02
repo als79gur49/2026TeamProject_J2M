@@ -365,6 +365,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
+        public void ChargeMoveCleanup_DefaultGameplay_NoChargeMoveProducer()
+        {
+            Phase2C_ChargeLegacyFallback_DefaultGameplayLocomotion_NoChargeMoveFallback();
+        }
+
+        [Test]
         [Category("Extended")]
         public void Phase2C_ChargeLegacyFallback_ChargeKinematicFlagOn_BlockedBeforeMovementExpander()
         {
@@ -395,6 +402,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
+        public void ChargeMoveCleanup_None_NoChargeMoveProducer()
+        {
+            Phase6_None_ChargeFallbackStillBlocked();
+        }
+
+        [Test]
         [Category("Extended")]
         public void Phase2C_ChargeLegacyFallback_FlagOffBaseline_RemovedByPhase6()
         {
@@ -414,6 +428,37 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             LegacyMovementBoundaryAssert.ChargeLegacyFallbackRemovedFromRuntime(tick, 50);
             LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(tick);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ChargeMoveCleanup_RemovedDiagnosticBaseline_NoChargeMoveProducer()
+        {
+            Phase6_LegacyOrdinaryFallbackBaseline_ChargeFallbackRemoved();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ChargeMoveCleanup_ChargePresentationSignal_StillUsedForKinematicCharge()
+        {
+            var worldState = CreateActiveChargeWorldState(50);
+            var tick = CreatePipeline(
+                    worldState,
+                    new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(50, 50, new Vector2Int(1, 0))) },
+                    GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
+                .RunTick(new TickInput(1));
+
+            Assert.That(
+                tick.PresentationData.EnemyChargeSignals.Any(signal =>
+                    signal.EntityId == 50 &&
+                    signal.Phase == EnemyChargePhase.Active),
+                Is.True);
+            Assert.That(
+                tick.PresentationData.EntityMotions.Any(motion =>
+                    motion.EntityId == 50 &&
+                    motion.MotionKind == TickEntityMotionKind.ChargeMove),
+                Is.False);
+            LegacyMovementBoundaryAssert.NoChargeActiveLegacyFallback(tick, 50);
         }
 
         [Test]
@@ -1378,6 +1423,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var consolidationDoc = ReadRepoFile(
                 "Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-Compatibility-Layer-Consolidation-2026-05-02.md");
+            var readinessDoc = ReadRepoFile(
+                "Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-ChargeMove-Presentation-Cleanup-Readiness-2026-05-02.md");
 
             Assert.That(consolidationDoc, Does.Contain("ChargeMove Presentation Inventory"));
             Assert.That(consolidationDoc, Does.Contain("`TickEntityMotionKind.ChargeMove`"));
@@ -1386,6 +1433,17 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(consolidationDoc, Does.Contain("host, presentation, tests, and golden/replay policy remain blockers before deletion"));
             Assert.That(consolidationDoc, Does.Contain("Phase 6 means covered player/enemy/Charge fallback must not produce `ChargeMove`"));
             Assert.That(consolidationDoc, Does.Contain("Default gameplay and Charge kinematic flag-on lanes must use `TickKinematicMotionTrack`"));
+            Assert.That(readinessDoc, Does.Contain("ChargeMove Presentation Cleanup Readiness"));
+            Assert.That(readinessDoc, Does.Contain("producer current runtime unreachable"));
+            Assert.That(readinessDoc, Does.Contain("synthetic presentation compatibility"));
+            Assert.That(readinessDoc, Does.Contain("Do not delete `TickEntityMotionKind.ChargeMove`"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ChargeMoveCleanup_PresentationConsumers_InventoryIsCurrent()
+        {
+            CompatibilityLayer_ChargeMovePresentation_InventoryIsCurrent();
         }
 
         [Test]

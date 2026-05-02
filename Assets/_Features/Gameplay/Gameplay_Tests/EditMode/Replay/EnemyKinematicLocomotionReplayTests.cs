@@ -796,6 +796,37 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
+        public void Replay_ChargeMoveCleanup_NoChargeMoveOutput()
+        {
+            var replay = RunScriptedChargeActiveReplay(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion, out var secondReplay);
+
+            AssertReplayBoundaryCanaryEqual(replay, secondReplay);
+            AssertChargeReplayHasNoChargeFallback(replay);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_ChargeMoveCleanup_DiagnosticBaseline_NoChargeMoveOutput()
+        {
+            var replay = RunScriptedChargeActiveReplay(
+                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline,
+                out var secondReplay);
+
+            AssertReplayCanonicalStateEqual(replay, secondReplay);
+            Assert.That(
+                replay.Select(frame => frame.Trace).ToArray(),
+                Is.EqualTo(secondReplay.Select(frame => frame.Trace).ToArray()));
+            AssertReplayHasNoChargeMove(replay);
+            Assert.That(replay.Any(frame => frame.Trace.Contains("Boundary=LegacyFallback", StringComparison.Ordinal)), Is.False);
+            Assert.That(
+                replay.Any(frame =>
+                    frame.Trace.Contains(LegacyMovementBoundaryAssert.ChargeLegacyFallbackRemovedReason, StringComparison.Ordinal) ||
+                    frame.EventLogDump.Contains(LegacyMovementBoundaryAssert.ChargeLegacyFallbackRemovedReason, StringComparison.Ordinal)),
+                Is.True);
+        }
+
+        [Test]
         [Category("Extended")]
         public void Replay_Phase6_ChargeKinematicAnchorCommit_UsesMoveEntityButNoLegacyChargeMove()
         {
@@ -1117,6 +1148,15 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(
                 replay.Any(frame => frame.Trace.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal) ||
                                     frame.EventLogDump.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
+                Is.False);
+        }
+
+        private static void AssertReplayHasNoChargeMove(IReadOnlyList<TickReplayFrame> replay)
+        {
+            Assert.That(
+                replay.Any(frame =>
+                    frame.Trace.Contains("ChargeMove", StringComparison.Ordinal) ||
+                    frame.EventLogDump.Contains("ChargeMove", StringComparison.Ordinal)),
                 Is.False);
         }
 
