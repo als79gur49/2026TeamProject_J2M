@@ -41,6 +41,7 @@ Historical Phase 2C note: `GameplayRuntimeFeatureFlags.None` was the Charge fall
 Phase 8B/8C names `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as the canonical removed-diagnostic preset. `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` remains a deprecated compatibility alias for historical Phase 2C/6 tests.
 
 Historical Phase 2C custom flags with `EnableEnemyChargeKinematicLocomotion` disabled used `EnableLegacyOrdinaryUnitFallback` for Charge active fallback. Phase 6/7 supersede that behavior: the field is diagnostic compatibility only and Charge active fallback rejects with `ChargeLegacyFallbackRemovedFromRuntime`.
+ChargeMove presentation cleanup readiness supersedes any current-policy reading of Phase 2C fallback output: `ChargeMove` remains a synthetic/presentation compatibility inventory item, not an authorized runtime fallback output.
 
 ## Retained And Out-Of-Scope Paths
 

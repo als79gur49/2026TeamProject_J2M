@@ -66,21 +66,39 @@ Phase 8E kept `EnableLegacyOrdinaryUnitFallback` as the underlying compatibility
 
 ## ChargeMove Presentation Inventory
 
-| usage location | producer | consumer | still reachable after Phase 6? | retained/historical only? | tests covering absence | tests still expecting presence | golden/replay risk | action recommendation |
+Producer inventory result:
+
+| producer location | condition | reachable after Phase 6? | runtime or synthetic? | expected boundary | expected presentation | current tests | cleanup action | blocker |
 |---|---|---|---|---|---|---|---|---|
-| `TickResultBuilder.TryResolveMotionKind` / `ShouldUseChargeMovePresentation` | committed `MoveEntity` plus active enemy charge without authoritative Charge pose | `TickEntityMotion` | no for covered fallback | runtime branch remains | Phase 6 and Phase 2C no-charge tests | world/presentation unit tests | medium | inventory-to-action, no deletion |
-| `TickPresentationData.TickEntityMotionKind.ChargeMove` | enum value | host and presentation tests | data type reachable if producer emits | not purely historical yet | replay no-charge canaries | authoring/timing tests | enum serialization risk | defer deletion |
-| `EntityMotionPresentationAuthoring` / timing config | authoring config | timing resolver | consumer only | retained while enum exists | none | override tests | prefab/config churn | keep until enum decision |
-| `MotionTrack` / `GameplayMotionTimingResolver` | host playback | presentation interpolation | consumer only | retained while enum exists | none | coordinator tests | host playback churn | keep |
-| `WorldSnapshotAndPresentationTests` | builder scenario | test | synthetic reachable | historical/presentation compatibility | none | expects `ChargeMove` | test rewrite risk | classify as presentation compatibility |
-| `EnemyAiScenarioTests` | flag-off/legacy charge scenarios | scenario tests | must verify after Phase 6 scope | likely retained/historical mix | Phase 6 no-charge tests | multiple `ChargeMove` assertions | high | next package investigates first |
-| `TickReplayDeterminismTests` | presentation-only hash test | replay hash | synthetic | retained hash contract | canonical hash unaffected | expects `ChargeMove` | low-medium | keep until trace/golden policy |
-| `EnemyKinematicLocomotionReplayTests` | replay canaries | replay | no for covered fallback | absence canaries current | `Replay_Phase6_DefaultGameplay_NoChargeMove` | historical wrappers | medium | add consolidation canary |
+| `TickResultBuilder.TryResolveMotionKind` / `ShouldUseChargeMovePresentation` | committed `MoveEntity`, `MovementSemanticKind.Move`, enemy unit, `EnemyChargePhase.Active`, no authoritative `MotionMode.Charge` pose | no for covered runtime lanes | retained branch plus synthetic tests | not `LocomotionAnchorCommit`; legacy unsuppressed op only | `TickEntityMotionKind.ChargeMove` if reached | synthetic builder/presentation tests | keep branch, document synthetic reachability | presentation/golden owner |
+| legacy active Charge movement path | active Charge emits ordinary `Move` | no | runtime attempt, blocked | rejected before legacy expansion | no `ChargeMove` | boundary and movement phase canaries | current runtime absence canaries | stale tests |
+| `RemovedLegacyFallbackDiagnosticBaseline` path | covered Charge fallback attempt with diagnostics enabled | no | runtime diagnostic | no `Boundary=LegacyFallback`; reject `ChargeLegacyFallbackRemovedFromRuntime` | no `ChargeMove` | Phase 6 and cleanup tests | keep diagnostic-only | none |
+| `DefaultGameplayLocomotion` | Charge active step | no | runtime kinematic | `UnitSpecialLocomotion` / kinematic payload | `TickKinematicMotionTrack` plus `TickEnemyChargePresentationSignal` | default no-charge canaries | keep absence canary | signal must not be confused with `ChargeMove` |
+| `EnableEnemyChargeKinematicLocomotion` | Charge active step | no | runtime kinematic | `EnemyChargeKinematicActiveStep` | kinematic track, no entity motion | movement phase and replay tests | keep absence canary | none |
+| `GameplayRuntimeFeatureFlags.None` | Charge active ordinary `Move` | no | runtime rejected | explicit-baseline-required diagnostic | no `ChargeMove` | Phase 6 / cleanup tests | keep absence canary | none |
+| synthetic presentation tests | hand-built movement result with active Charge post-state | yes | synthetic only | bypasses `TickPipeline` | `ChargeMove` | world snapshot and coordinator tests | keep and label compatibility | enum/consumer deletion blocked |
+
+Consumer inventory result:
+
+| consumer location | use kind | runtime required? | test/historical only? | retained until | risk if removed | current tests | action |
+|---|---|---|---|---|---|---|---|
+| `TickPresentationData.TickEntityMotionKind.ChargeMove` | enum/data contract | no current covered runtime requirement | presentation compatibility | golden/presentation approval | serialization/test break | unit/replay tests | retain |
+| `GameplayMotionTimingResolver` | global/entity duration routing | only if synthetic or future producer emits | presentation compatibility | timing owner approval | charge timing override lost | coordinator tests | retain |
+| `GameplayTrackPlanner` | appends motion clip from `EntityMotions` | generic consumer | not fallback-specific | enum removal approval | host motion planning break | coordinator tests | retain |
+| `MotionTrack` / `GameplayEntityPresentationApplier` | linear interpolation and pose application | generic consumer | presentation compatibility | presentation owner approval | visual interpolation drift | coordinator tests | retain |
+| `EntityMotionPresentationAuthoring` | per-entity `ChargeMove` duration override | prefab/authoring compatibility | not runtime fallback | prefab/golden approval | prefab serialized field churn | authoring/prefab tests | retain |
+| presentation timing config | `ChargeMoveDurationSeconds` | host config compatibility | not fallback | config migration approval | scene config churn | timing preset tests | retain |
+| `WorldSnapshotAndPresentationTests` | synthetic producer canary | no runtime requirement | synthetic presentation compatibility | producer deletion decision | loses branch guard | synthetic builder test | retain and classify |
+| `GameplayTickPresentationCoordinatorTests` | host consumer canary | no runtime fallback | synthetic consumer | consumer deletion decision | host regression undetected | timing/interpolation tests | retain |
+| `EnemyAiScenarioTests` | stale runtime `ChargeMove` expectations | no | current-policy invalid | cleanup classification | false policy signal | charge flag-off/default tests | rewrite to no `ChargeMove` |
+| `TickReplayDeterminismTests` | presentation hash-neutral fixture | no | synthetic replay/hash | replay owner approval | hash contract ambiguity | hash test | keep |
 
 Phase 6 means covered player/enemy/Charge fallback must not produce `ChargeMove`.
 `RemovedLegacyFallbackDiagnosticBaseline` reproduces removed diagnostics, not fallback output, so it must not produce `ChargeMove`.
 Default gameplay and Charge kinematic flag-on lanes must use `TickKinematicMotionTrack` plus `TickEnemyChargePresentationSignal`, not `ChargeMove`.
 Flag-off/default `None` covered Charge fallback is removed after Phase 6.
+Reachability result: producer current runtime unreachable in default, `None`, diagnostic baseline, and charge kinematic flag-on lanes; synthetic presentation compatibility remains reachable by direct builder fixtures only.
+Immediate recommendation: keep enum/consumer/authoring/timing support, keep the producer branch as retained presentation compatibility, and defer deletion until presentation and golden owners approve.
 No retained grid transaction is currently approved as a `ChargeMove` deletion blocker, but host, presentation, tests, and golden/replay policy remain blockers before deletion.
 
 ## Move Presentation Inventory

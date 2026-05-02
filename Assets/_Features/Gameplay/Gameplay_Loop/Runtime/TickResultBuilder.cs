@@ -2629,6 +2629,8 @@ namespace Game.Feature.Gameplay.Loop
         {
             // ChargeMove is presentation-only and must be tied to an actual committed move op.
             // Active charge ticks without movement (cooldown pause, blocked, recover) never route here.
+            // This retained branch is not fallback authorization; current runtime lanes block covered
+            // Charge fallback before legacy expansion or use authoritative Charge kinematic presentation.
             if (!IsEnemyUnit(context.PostMovementSnapshot, operation.EntityId) ||
                 !context.PostMovementSnapshot.TryGetEnemyChargeState(operation.EntityId, out var chargeState) ||
                 chargeState.phase != EnemyChargePhase.Active)

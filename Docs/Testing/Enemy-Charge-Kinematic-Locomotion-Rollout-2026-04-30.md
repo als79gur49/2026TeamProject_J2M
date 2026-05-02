@@ -4,7 +4,7 @@ This rollout is guarded by `GameplayRuntimeFeatureFlags.EnableEnemyChargeKinemat
 
 ## Behavior
 
-- Flag off: Charge active movement keeps the legacy discrete `TickEntityMotionKind.ChargeMove` presentation path.
+- Flag off: covered Charge active fallback no longer authorizes the legacy discrete `TickEntityMotionKind.ChargeMove` runtime path after Phase 6; fallback attempts reject before legacy expansion unless a later owner-approved cleanup package changes this inventory.
 - Flag on: Charge active one-cell steps use `UnitKinematicRuntimeState` with `MotionMode.Charge`.
 - Flag on: Charge active steps must not reach the legacy `TickEntityMotionKind.ChargeMove` path.
 - Charge active start now waits for any non-settled ordinary enemy `MotionMode.Voluntary` kinematic movement to settle before entering Charge.
@@ -31,7 +31,8 @@ Scoped deletion preparation now pins this path with `ScopedDeletionPrep_ChargeLe
 
 Phase 2C of legacy ordinary Unit movement deprecation is a historical Charge active fallback pilot only. Phase 3 superseded its `None` baseline policy with `LegacyOrdinaryFallbackBaseline`, now a deprecated compatibility alias for `RemovedLegacyFallbackDiagnosticBaseline`, and Phase 6/7 superseded that baseline authorization with removed diagnostics. These phases do not delete `ChargeMove`, `MoveEntity`, `MovementExpander`, retained grid transactions, or glide retained fallback.
 
-When ordinary enemy kinematic locomotion is enabled but Charge kinematic locomotion is disabled, ChargeStart still waits for non-settled ordinary voluntary kinematic movement to settle. The legacy `ChargeMove` path starts only after the revalidated ChargeStart transition.
+When ordinary enemy kinematic locomotion is enabled but Charge kinematic locomotion is disabled, ChargeStart still waits for non-settled ordinary voluntary kinematic movement to settle. After Phase 6, the revalidated covered Charge active fallback is rejected instead of producing legacy `ChargeMove`.
+`TickEntityMotionKind.ChargeMove` remains a presentation compatibility inventory item for synthetic builder/host tests until presentation and replay/golden owners approve deletion.
 
 ## Known Risks
 
