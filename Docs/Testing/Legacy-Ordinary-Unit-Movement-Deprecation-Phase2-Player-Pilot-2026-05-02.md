@@ -66,6 +66,9 @@ Historical/pre-Phase4 wrapper names are retained only to preserve Phase 2 migrat
 - `BoundaryInventoryScenarioTests.Phase2_PlayerLegacyFallback_KinematicFlagOn_BlockedBeforeMovementExpander`
 - `BoundaryInventoryScenarioTests.Phase2_PlayerLegacyFallback_FlagOffBaseline_RemovedByPhase4`
 - `BoundaryInventoryScenarioTests.Phase2_PlayerLegacyFallback_TopologyHandoff_IsRetainedGridTransaction`
+
+Native Player Free2D topology transition is now covered behind `EnablePlayerFree2DNativeTopologyTransition`.
+The retained grid transaction assertion above remains the compatibility/fallback contract when the native flag is off; native flag-on crossings are classified as Free2D locomotion, not `LegacyFallback`.
 - `MovementPhaseScenarioTests.Phase2_PlayerLegacyFallback_ValidateLegacyExpansionIntents_PlayerFlagReachability`
 - `PlayerContinuousLocomotionReplayTests.Replay_Phase2_PlayerDefaultGameplayLocomotion_NoLegacyFallback`
 - `PlayerContinuousLocomotionReplayTests.Replay_Phase2_PlayerFlagOffLegacyFallback_BaselineDocumented`

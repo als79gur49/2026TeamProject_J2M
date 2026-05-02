@@ -34,6 +34,8 @@ Phase 4 canonical canaries:
 - `Phase4_DefaultGameplay_PlayerFallbackStillAbsent`
 - `Phase4_PlayerKinematicFlagOn_NoLegacyFallback`
 - `Phase4_PlayerTopologyHandoff_StillGridTransaction`
+
+`Phase4_PlayerTopologyHandoff_StillGridTransaction` documents the compatibility path. Native Player Free2D topology transition is gated separately by `EnablePlayerFree2DNativeTopologyTransition` and uses `Free2DTopologyTransition` boundary metadata when enabled.
 - `Phase4_MovementExpander_GridBranchStillAllowed`
 - `Phase5_LegacyBaseline_EnemyFallbackRemovedByPhase5`
 - `Phase4_LegacyBaseline_ChargeFallbackRemovedByPhase6`
