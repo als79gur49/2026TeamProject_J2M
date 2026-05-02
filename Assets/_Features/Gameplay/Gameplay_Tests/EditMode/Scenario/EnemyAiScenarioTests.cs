@@ -3585,6 +3585,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         entry.Contains("E=40", StringComparison.Ordinal) &&
                         entry.Contains("To=(0,0)", StringComparison.Ordinal)),
                     Is.True);
+                LegacyMovementBoundaryAssert.HasMoveEntityBoundaryReason(
+                    result,
+                    40,
+                    MovementExecutionBoundaryKind.LocomotionAnchorCommit,
+                    "OrdinaryKinematicAnchorCommit");
+                LegacyMovementBoundaryAssert.NoEnemyLegacyOrdinaryFallback(result, 40);
                 Assert.That(
                     HasAcceptedPassiveContact(result, 40, 10),
                     Is.True,
@@ -3595,6 +3601,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 DestroyProfile(profile);
             }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Phase5_EnemyKinematicAnchorCommit_UsesMoveEntityButNoLegacyMove()
+        {
+            EnemyMovesIntoPlayer_Kinematic_ContactAtCommit();
         }
 
         [Test]

@@ -8,6 +8,8 @@ Phase 4 removes player legacy ordinary fallback authorization from the runtime p
 
 This is a player-only pilot. Enemy ordinary fallback, Charge active fallback, default/flag-off glide fallback, retained grid transactions, `MoveEntity`, and `MovementExpander` remain supported.
 
+Phase 5 supersedes the enemy portion of this status. Enemy ordinary fallback is now rejected under `LegacyOrdinaryFallbackBaseline` with `EnemyLegacyFallbackRemovedFromRuntime`; Charge active fallback remains retained.
+
 ## Runtime Policy
 
 `TickPipeline.ValidateLegacyExpansionIntents` is the Phase 4 enforcement point.
@@ -29,16 +31,16 @@ Phase 4 canonical canaries:
 - `Phase4_PlayerKinematicFlagOn_NoLegacyFallback`
 - `Phase4_PlayerTopologyHandoff_StillGridTransaction`
 - `Phase4_MovementExpander_GridBranchStillAllowed`
-- `Phase4_LegacyBaseline_EnemyFallbackStillAllowed`
+- `Phase5_LegacyBaseline_EnemyFallbackRemovedByPhase5`
 - `Phase4_LegacyBaseline_ChargeFallbackStillAllowed`
-- `Replay_Phase4_LegacyBaseline_PlayerRemovedEnemyChargeRetained`
+- `Replay_Phase5_LegacyBaseline_PlayerEnemyRemovedChargeRetained`
 - `Replay_Phase4_LegacyBaseline_PlayerFallbackRemoved`
 
-Old player fallback-allowed canaries are superseded. Enemy and Charge fallback-allowed canaries remain valid.
+Old player fallback-allowed canaries are superseded. Enemy fallback-allowed canaries are superseded by Phase 5. Charge fallback-allowed canaries remain valid.
 
 ## Replay and Golden Policy
 
-Phase 4 does not rewrite golden files. Replay tests assert that the player fallback is absent under the explicit legacy baseline while enemy and Charge fallback remain deterministic and present in scenarios that include them.
+Phase 4 does not rewrite golden files. Phase 5 replay tests assert that player and enemy fallback are absent under the explicit legacy baseline while Charge fallback remains deterministic and present in scenarios that include it.
 
 Golden migration for historical player fallback output remains a future owner-approved phase.
 

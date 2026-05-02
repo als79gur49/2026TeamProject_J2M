@@ -36,9 +36,9 @@ The enemy ordinary fallback branch is currently reachable through this chain:
 
 `EnemySameFaceContinuousLocomotionEnabled` makes synthetic enemy ordinary expansion a forbidden leak. The expected rejection reason is `EnemyCoveredOrdinaryKinematicReachedLegacyExpansion`.
 
-Historical Phase 2B note: `GameplayRuntimeFeatureFlags.None` was the enemy ordinary fallback baseline in this phase. Phase 3 supersedes that policy: `None` now blocks covered enemy ordinary fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`, and intentional fallback tests use `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline`.
+Historical Phase 2B note: `GameplayRuntimeFeatureFlags.None` was the enemy ordinary fallback baseline in this phase. Phase 3 supersedes that policy: `None` now blocks covered enemy ordinary fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. Phase 5 supersedes the explicit baseline policy: `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` now blocks enemy ordinary fallback with `EnemyLegacyFallbackRemovedFromRuntime`.
 
-Custom flags with `EnableEnemySameFaceContinuousLocomotion` disabled may reach enemy ordinary fallback only when `EnableLegacyOrdinaryUnitFallback` is explicitly enabled.
+Custom flags with `EnableEnemySameFaceContinuousLocomotion` disabled no longer authorize enemy ordinary fallback at runtime; Charge fallback remains the retained explicit baseline path.
 
 ## Retained And Out-Of-Scope Paths
 
@@ -63,13 +63,13 @@ The enemy pilot is pinned by these test additions:
 
 - `BoundaryInventoryScenarioTests.Phase2B_EnemyLegacyFallback_DefaultGameplayLocomotion_NoLegacyFallback`
 - `BoundaryInventoryScenarioTests.Phase2B_EnemyLegacyFallback_KinematicFlagOn_BlockedBeforeMovementExpander`
-- `BoundaryInventoryScenarioTests.Phase2B_EnemyLegacyFallback_FlagOffBaseline_StillAllowed`
+- `BoundaryInventoryScenarioTests.Phase2B_EnemyLegacyFallback_FlagOffBaseline_RemovedByPhase5`
 - `BoundaryInventoryScenarioTests.Phase2B_EnemyLegacyFallback_GlideDefault_IsRetainedException_NotEnemyOrdinaryPilot`
 - `BoundaryInventoryScenarioTests.Phase2B_EnemyLegacyFallback_ChargeActive_IsOutOfScope`
 - `MovementPhaseScenarioTests.Phase2B_EnemyLegacyFallback_ValidateLegacyExpansionIntents_EnemyFlagReachability`
 - `EnemyKinematicLocomotionReplayTests.Replay_Phase2B_EnemyDefaultGameplayLocomotion_NoLegacyFallback`
 - `EnemyKinematicLocomotionReplayTests.Replay_Phase2B_EnemyKinematicFlagOn_NoLegacyFallback`
-- `EnemyKinematicLocomotionReplayTests.Replay_Phase2B_EnemyFlagOffLegacyFallback_BaselineDocumented`
+- `EnemyKinematicLocomotionReplayTests.Replay_Phase5_EnemyLegacyBaseline_FallbackRemoved`
 
 The helper vocabulary remains scoped to `LegacyFallback`, legacy `Move` presentation, and `LegacyUnitOrdinaryMovementDetected`. It must not become a broad `MoveEntity` ban.
 

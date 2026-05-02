@@ -1584,6 +1584,94 @@
       ],
       "reason": "Locked Core replay coverage for deterministic Free2D topology approach handoff.",
       "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_ScopedDeletionPrep_PlayerEnemyRemovedChargeRetained",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage for Phase 5 legacy baseline replay player/enemy removal and Charge retention.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_Phase5_LegacyBaseline_PlayerEnemyRemovedChargeRetained",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage for Phase 5 explicit baseline replay contract.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.BoundaryInventory_LegacyBaseline_PlayerEnemyRemovedChargeRetained",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage for Phase 5 boundary inventory explicit baseline contract.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase5_LegacyBaseline_PlayerEnemyRemovedChargeRetained",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage for Phase 5 player/enemy removed and Charge retained baseline.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.DeprecationPhase1_LegacyBaseline_PlayerEnemyRemovedChargeRetained",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core compatibility coverage for Phase 5 explicit baseline contract.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ScopedDeletionPrep_EnemyLegacyFallback_RemovedByPhase5",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage for Phase 5 enemy legacy fallback removal.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.Phase5_EnemyKinematicAnchorCommit_UsesMoveEntityButNoLegacyMove",
+      "category": "Core",
+      "contracts": [
+        "damage_affects_movement",
+        "enemy_ai_scenario_contract",
+        "enemy_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that enemy kinematic anchor commits use MoveEntity without legacy fallback.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Phase5_MovementExpander_GridBranchStillAllowed",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage that Phase 5 keeps MovementExpander grid transactions retained.",
+      "locked": true
     }
   ]
 }

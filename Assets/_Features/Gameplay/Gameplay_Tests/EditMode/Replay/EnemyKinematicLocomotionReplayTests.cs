@@ -452,14 +452,14 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void Replay_ScopedDeletionPrep_FlagOffFallbackStillDeterministic()
+        public void Replay_ScopedDeletionPrep_PlayerEnemyRemovedChargeRetained()
         {
-            Replay_Phase4_LegacyBaseline_PlayerRemovedEnemyChargeRetained();
+            Replay_Phase5_LegacyBaseline_PlayerEnemyRemovedChargeRetained();
         }
 
         [Test]
         [Category("Core")]
-        public void Replay_Phase4_LegacyBaseline_PlayerRemovedEnemyChargeRetained()
+        public void Replay_Phase5_LegacyBaseline_PlayerEnemyRemovedChargeRetained()
         {
             var harness = new TickReplayHarness();
             var playerInputs = new[] { new TickInput(1, PlayerTickCommand.Move(Direction.Right)) };
@@ -507,8 +507,16 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 enemyInputs,
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
 
-            AssertReplayBoundaryCanaryEqual(firstEnemyReplay, secondEnemyReplay);
-            Assert.That(firstEnemyReplay.Any(frame => frame.Trace.Contains("LegacyFallback", StringComparison.Ordinal)), Is.True);
+            AssertReplayCanonicalStateEqual(firstEnemyReplay, secondEnemyReplay);
+            Assert.That(
+                firstEnemyReplay.Select(frame => frame.Trace).ToArray(),
+                Is.EqualTo(secondEnemyReplay.Select(frame => frame.Trace).ToArray()));
+            Assert.That(firstEnemyReplay.Any(frame => frame.Trace.Contains("Boundary=LegacyFallback", StringComparison.Ordinal)), Is.False);
+            Assert.That(
+                firstEnemyReplay.Any(frame =>
+                    frame.Trace.Contains(LegacyMovementBoundaryAssert.EnemyLegacyFallbackRemovedReason, StringComparison.Ordinal) ||
+                    frame.EventLogDump.Contains(LegacyMovementBoundaryAssert.EnemyLegacyFallbackRemovedReason, StringComparison.Ordinal)),
+                Is.True);
 
             var chargeMove = new Dictionary<int, RawMovementIntent>
             {
@@ -575,6 +583,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Extended")]
+        public void Replay_Phase5_DefaultGameplay_NoEnemyLegacyFallback()
+        {
+            Replay_Phase2B_EnemyDefaultGameplayLocomotion_NoLegacyFallback();
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Replay_Phase2B_EnemyKinematicFlagOn_NoLegacyFallback()
         {
             var replay = RunScriptedEnemyOrdinaryReplay(GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled, out var secondReplay);
@@ -589,16 +604,20 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Extended")]
-        public void Replay_Phase2B_EnemyFlagOffLegacyFallback_BaselineDocumented()
+        public void Replay_Phase5_EnemyLegacyBaseline_FallbackRemoved()
         {
             var replay = RunScriptedEnemyOrdinaryReplay(GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline, out var secondReplay);
 
-            AssertReplayBoundaryCanaryEqual(replay, secondReplay);
-            Assert.That(replay.Any(frame => frame.Trace.Contains("LegacyFallback", StringComparison.Ordinal)), Is.True);
+            AssertReplayCanonicalStateEqual(replay, secondReplay);
             Assert.That(
-                replay.Any(frame => frame.Trace.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal) ||
-                                    frame.EventLogDump.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
-                Is.False);
+                replay.Select(frame => frame.Trace).ToArray(),
+                Is.EqualTo(secondReplay.Select(frame => frame.Trace).ToArray()));
+            Assert.That(replay.Any(frame => frame.Trace.Contains("Boundary=LegacyFallback", StringComparison.Ordinal)), Is.False);
+            Assert.That(
+                replay.Any(frame =>
+                    frame.Trace.Contains(LegacyMovementBoundaryAssert.EnemyLegacyFallbackRemovedReason, StringComparison.Ordinal) ||
+                    frame.EventLogDump.Contains(LegacyMovementBoundaryAssert.EnemyLegacyFallbackRemovedReason, StringComparison.Ordinal)),
+                Is.True);
         }
 
         [Test]

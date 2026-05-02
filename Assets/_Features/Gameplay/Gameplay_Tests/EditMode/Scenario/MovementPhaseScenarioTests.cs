@@ -609,10 +609,29 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var legacyBaselineIntent = new MoveIntent(40, priority: 100, destination: new Vector2Int(1, 0));
             legacyBaselineIntent.AssignIntentId(3);
-            AssertLegacyExpansionIntentAllowed(
+            AssertLegacyExpansionIntentBlocked(
                 worldState,
                 legacyBaselineIntent,
-                GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
+                GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline,
+                LegacyMovementBoundaryAssert.EnemyLegacyFallbackRemovedReason);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Phase5_None_EnemyFallbackStillBlocked()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateFrontFaceEnemy(entityId: 40, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+            });
+            var intent = new MoveIntent(40, priority: 100, destination: new Vector2Int(1, 0));
+            intent.AssignIntentId(1);
+
+            AssertLegacyExpansionIntentBlocked(
+                worldState,
+                intent,
+                GameplayRuntimeFeatureFlags.None,
+                LegacyMovementBoundaryAssert.ExplicitLegacyFallbackRequiredReason);
         }
 
         [Test]
@@ -790,6 +809,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Test]
         [Category("Core")]
         public void Phase4_MovementExpander_GridBranchStillAllowed()
+        {
+            DeprecationPhase1_MovementExpanderGridBranchStillAllowed();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Phase5_MovementExpander_GridBranchStillAllowed()
         {
             DeprecationPhase1_MovementExpanderGridBranchStillAllowed();
         }

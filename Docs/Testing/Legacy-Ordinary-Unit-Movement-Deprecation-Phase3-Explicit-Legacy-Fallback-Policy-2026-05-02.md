@@ -25,7 +25,9 @@ This phase does not delete the player fallback branch, enemy ordinary fallback b
 
 `TickPipeline.ValidateLegacyExpansionIntents` rejects covered player ordinary, enemy ordinary, and Charge active fallback when `EnableLegacyOrdinaryUnitFallback` is false. The diagnostic reason is `LegacyOrdinaryFallbackRequiresExplicitBaseline`.
 
-Phase 4 supersedes the player portion of this policy. `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` no longer authorizes player ordinary fallback; player attempts are rejected with `PlayerLegacyFallbackRemovedFromRuntime`. Enemy ordinary and Charge active fallback remain retained under the explicit baseline.
+Phase 4 supersedes the player portion of this policy. `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` no longer authorizes player ordinary fallback; player attempts are rejected with `PlayerLegacyFallbackRemovedFromRuntime`.
+
+Phase 5 supersedes the enemy portion of this policy. `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` no longer authorizes enemy ordinary fallback; enemy attempts are rejected with `EnemyLegacyFallbackRemovedFromRuntime`. Charge active fallback remains retained under the explicit baseline.
 
 Retained grid transaction paths remain allowed without the fallback preset:
 
@@ -44,10 +46,10 @@ Canonical Phase 3 tests use explicit names such as:
 
 - `Phase3_None_NoPlayerEnemyChargeLegacyFallback`
 - `Phase4_LegacyOrdinaryFallbackBaseline_PlayerFallbackRemoved`
-- `Phase3_LegacyOrdinaryFallbackBaseline_EnemyFallbackAllowed`
+- `Phase5_LegacyOrdinaryFallbackBaseline_EnemyFallbackRemoved`
 - `Phase3_LegacyOrdinaryFallbackBaseline_ChargeFallbackAllowed`
 - `Replay_Phase3_None_NoCoveredFallback`
-- `Replay_Phase4_LegacyBaseline_PlayerRemovedEnemyChargeRetained`
+- `Replay_Phase5_LegacyBaseline_PlayerEnemyRemovedChargeRetained`
 
 Older Phase 2 `FlagOffBaseline` tests remain as compatibility wrappers, but they now use `LegacyOrdinaryFallbackBaseline` internally.
 

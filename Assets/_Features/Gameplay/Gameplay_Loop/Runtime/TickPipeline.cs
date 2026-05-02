@@ -1523,6 +1523,12 @@ namespace Game.Feature.Gameplay.Loop
                 return true;
             }
 
+            if (isEnemyOrdinaryFallback)
+            {
+                reason = "EnemyLegacyFallbackRemovedFromRuntime";
+                return true;
+            }
+
             return false;
         }
 
