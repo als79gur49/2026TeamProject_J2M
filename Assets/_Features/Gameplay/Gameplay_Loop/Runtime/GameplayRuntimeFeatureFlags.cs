@@ -83,7 +83,8 @@ namespace Game.Feature.Gameplay.Loop
             bool enableEnemyGlideKinematicLocomotion,
             bool enablePlayerStoppableKinematicLocomotion,
             bool enablePlayerFree2DLocalLocomotion,
-            bool enablePlayerFree2DActionAssist)
+            bool enablePlayerFree2DActionAssist,
+            bool enableLegacyOrdinaryUnitFallback = false)
         {
             EnablePlayerSameFaceContinuousLocomotion = enablePlayerSameFaceContinuousLocomotion;
             EnableEnemySameFaceContinuousLocomotion = enableEnemySameFaceContinuousLocomotion;
@@ -94,6 +95,7 @@ namespace Game.Feature.Gameplay.Loop
             EnablePlayerFree2DLocalLocomotion = enablePlayerFree2DLocalLocomotion;
             EnablePlayerFree2DActionAssist = enablePlayerFree2DLocalLocomotion &&
                                              enablePlayerFree2DActionAssist;
+            EnableLegacyOrdinaryUnitFallback = enableLegacyOrdinaryUnitFallback;
         }
 
         public static GameplayRuntimeFeatureFlags None => default;
@@ -142,6 +144,17 @@ namespace Game.Feature.Gameplay.Loop
                 enablePlayerStoppableKinematicLocomotion: true,
                 enablePlayerFree2DLocalLocomotion: true,
                 enablePlayerFree2DActionAssist: true);
+
+        public static GameplayRuntimeFeatureFlags LegacyOrdinaryFallbackBaseline =>
+            new(
+                enablePlayerSameFaceContinuousLocomotion: false,
+                enableEnemySameFaceContinuousLocomotion: false,
+                enableEnemyChargeKinematicLocomotion: false,
+                enableEnemyGlideKinematicLocomotion: false,
+                enablePlayerStoppableKinematicLocomotion: false,
+                enablePlayerFree2DLocalLocomotion: false,
+                enablePlayerFree2DActionAssist: false,
+                enableLegacyOrdinaryUnitFallback: true);
 
         public static GameplayRuntimeFeatureFlags EnemySameFaceContinuousLocomotionEnabled =>
             new(
@@ -200,5 +213,9 @@ namespace Game.Feature.Gameplay.Loop
         public bool EnablePlayerFree2DLocalLocomotion { get; }
 
         public bool EnablePlayerFree2DActionAssist { get; }
+
+        public bool EnableLegacyOrdinaryUnitFallback { get; }
+
+        public bool LegacyOrdinaryFallbackEnabled => EnableLegacyOrdinaryUnitFallback;
     }
 }

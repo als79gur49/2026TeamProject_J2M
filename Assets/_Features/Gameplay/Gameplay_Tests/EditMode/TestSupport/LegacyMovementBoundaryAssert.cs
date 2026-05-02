@@ -7,6 +7,8 @@ namespace Game.Feature.Gameplay.Tests
 {
     internal static class LegacyMovementBoundaryAssert
     {
+        public const string ExplicitLegacyFallbackRequiredReason = "LegacyOrdinaryFallbackRequiresExplicitBaseline";
+
         public static void NoLegacyOrdinaryUnitMove(TickResult result, params int[] entityIds)
         {
             for (var i = 0; i < entityIds.Length; i++)
@@ -60,6 +62,34 @@ namespace Game.Feature.Gameplay.Tests
         public static void NoCoveredFallbackInDefaultGameplayLocomotion(TickResult result, params int[] entityIds)
         {
             NoCoveredLocomotionLegacyFallback(result, entityIds);
+        }
+
+        public static void NoCoveredFallbackUnderDefaultGameplayLocomotion(TickResult result, params int[] entityIds)
+        {
+            NoCoveredFallbackInDefaultGameplayLocomotion(result, entityIds);
+        }
+
+        public static void NoCoveredFallbackUnderNone(TickResult result, params int[] entityIds)
+        {
+            for (var i = 0; i < entityIds.Length; i++)
+            {
+                NoLegacyOrdinaryUnitOperationOrPresentation(result, entityIds[i]);
+            }
+        }
+
+        public static void RequiresExplicitLegacyFallbackBaseline(TickResult result, params int[] entityIds)
+        {
+            for (var i = 0; i < entityIds.Length; i++)
+            {
+                NoLegacyOrdinaryUnitOperationOrPresentation(result, entityIds[i]);
+                Assert.That(
+                    result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                        reason.Contains("LegacyUnitOrdinaryMovementDetected", System.StringComparison.Ordinal) &&
+                        reason.Contains($"E={entityIds[i]}", System.StringComparison.Ordinal) &&
+                        reason.Contains(ExplicitLegacyFallbackRequiredReason, System.StringComparison.Ordinal)),
+                    Is.True,
+                    BuildDebug(result, entityIds[i]));
+            }
         }
 
         public static void NoPlayerLegacyOrdinaryFallback(TickResult result, int playerEntityId)
@@ -126,6 +156,12 @@ namespace Game.Feature.Gameplay.Tests
             }
         }
 
+        public static void AllowsLegacyOrdinaryFallbackBaseline(TickResult result, int entityId, bool chargeMove = false)
+        {
+            AllowsFlagOffLegacyFallback(result, entityId, chargeMove);
+            NoUnexpectedLegacyOrdinaryDiagnostics(result);
+        }
+
         public static void AllowsOnlyFlagOffCoveredFallback(TickResult result, int entityId, bool chargeMove = false)
         {
             AllowsFlagOffLegacyFallback(result, entityId, chargeMove);
@@ -147,6 +183,15 @@ namespace Game.Feature.Gameplay.Tests
             MovementExecutionBoundaryKind boundaryKind)
         {
             GridTransactionsRemainAllowed(result, entityId, boundaryKind);
+        }
+
+        public static void GridTransactionsRemainAllowedWithoutLegacyFallback(
+            TickResult result,
+            int entityId,
+            MovementExecutionBoundaryKind boundaryKind)
+        {
+            GridTransactionsRemainAllowed(result, entityId, boundaryKind);
+            LegacyFallbackIsOnlyForAllowedEntities(result);
         }
 
         public static void NoLegacyUnitPresentationForCoveredEntities(TickResult result, params int[] entityIds)
@@ -303,6 +348,26 @@ namespace Game.Feature.Gameplay.Tests
                 result.MovementPhaseResult.RejectedReasons.Any(reason =>
                     reason.Contains("LegacyUnitOrdinaryMovementDetected", System.StringComparison.Ordinal) &&
                     reason.Contains($"E={entityId}", System.StringComparison.Ordinal)),
+                Is.False,
+                BuildDebug(result, entityId));
+        }
+
+        private static void NoLegacyOrdinaryUnitOperationOrPresentation(TickResult result, int entityId)
+        {
+            Assert.That(
+                result.PresentationData.EntityMotions.Any(motion =>
+                    motion.EntityId == entityId &&
+                    (motion.MotionKind == TickEntityMotionKind.Move ||
+                     motion.MotionKind == TickEntityMotionKind.ChargeMove)),
+                Is.False,
+                BuildDebug(result, entityId));
+
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.MoveEntity &&
+                    operation.EntityId == entityId &&
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.LegacyFallback &&
+                    operation.Metadata.MovementSemanticKind == MovementSemanticKind.Move),
                 Is.False,
                 BuildDebug(result, entityId));
         }

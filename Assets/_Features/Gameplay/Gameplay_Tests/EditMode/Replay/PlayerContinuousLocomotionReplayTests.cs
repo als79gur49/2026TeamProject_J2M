@@ -209,14 +209,29 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 inputs,
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
 
-            AssertReplayEqual(firstReplay, secondReplay);
-            Assert.That(firstReplay.Any(frame => frame.Trace.Contains("LegacyFallback", StringComparison.Ordinal)), Is.False);
+            Assert.That(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                Is.EqualTo(secondReplay.Select(frame => frame.DeterminismHash).ToArray()));
+            Assert.That(
+                firstReplay.Select(frame => frame.FinalEntitiesDump).ToArray(),
+                Is.EqualTo(secondReplay.Select(frame => frame.FinalEntitiesDump).ToArray()));
+            Assert.That(
+                firstReplay.Select(frame => frame.EventLogDump).ToArray(),
+                Is.EqualTo(secondReplay.Select(frame => frame.EventLogDump).ToArray()));
+            Assert.That(firstReplay.Any(frame => frame.Trace.Contains("Boundary=LegacyFallback", StringComparison.Ordinal)), Is.False);
             Assert.That(firstReplay.Any(frame => frame.EventLogDump.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)), Is.False);
         }
 
         [Test]
         [Category("Extended")]
         public void Replay_Phase2_PlayerFlagOffLegacyFallback_BaselineDocumented()
+        {
+            Replay_Phase3_LegacyOrdinaryFallbackBaseline_PlayerFallbackDeterministic();
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Replay_Phase3_None_NoCoveredLegacyFallback()
         {
             var inputs = new[] { new TickInput(1, PlayerTickCommand.Move(Direction.Right)) };
             var harness = new TickReplayHarness();
@@ -231,6 +246,41 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 CreatePlayerLogics(),
                 inputs,
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
+
+            Assert.That(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                Is.EqualTo(secondReplay.Select(frame => frame.DeterminismHash).ToArray()));
+            Assert.That(
+                firstReplay.Select(frame => frame.FinalEntitiesDump).ToArray(),
+                Is.EqualTo(secondReplay.Select(frame => frame.FinalEntitiesDump).ToArray()));
+            Assert.That(
+                firstReplay.Select(frame => frame.EventLogDump).ToArray(),
+                Is.EqualTo(secondReplay.Select(frame => frame.EventLogDump).ToArray()));
+            Assert.That(firstReplay.Any(frame => frame.Trace.Contains("Boundary=LegacyFallback", StringComparison.Ordinal)), Is.False);
+            Assert.That(
+                firstReplay.Any(frame =>
+                    frame.Trace.Contains(LegacyMovementBoundaryAssert.ExplicitLegacyFallbackRequiredReason, StringComparison.Ordinal) ||
+                    frame.EventLogDump.Contains(LegacyMovementBoundaryAssert.ExplicitLegacyFallbackRequiredReason, StringComparison.Ordinal)),
+                Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Replay_Phase3_LegacyOrdinaryFallbackBaseline_PlayerFallbackDeterministic()
+        {
+            var inputs = new[] { new TickInput(1, PlayerTickCommand.Move(Direction.Right)) };
+            var harness = new TickReplayHarness();
+
+            var firstReplay = harness.Run(
+                CreateWorldState(CreatePlayer(10)),
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
+            var secondReplay = harness.Run(
+                CreateWorldState(CreatePlayer(10)),
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
 
             AssertReplayEqual(firstReplay, secondReplay);
             Assert.That(firstReplay.Any(frame => frame.Trace.Contains("LegacyFallback", StringComparison.Ordinal)), Is.True);

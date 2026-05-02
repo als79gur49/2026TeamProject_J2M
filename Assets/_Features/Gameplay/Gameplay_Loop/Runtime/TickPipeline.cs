@@ -1460,24 +1460,41 @@ namespace Game.Feature.Gameplay.Loop
                 return false;
             }
 
+            var isPlayerOrdinaryFallback = snapshot.TryGetPlayerControlState(intent.SourceId, out _);
+            var isChargeActiveFallback = TryResolveEnemyChargeKinematicStartScope(snapshot, intent, out _, out _, out _, out _);
+            var hasEnemyKinematicScope = TryResolveEnemyKinematicStartScope(
+                snapshot,
+                intent,
+                out _,
+                out _,
+                out _,
+                out _,
+                out _,
+                out var ordinaryScopeIsActiveGlide);
+            var isActiveGlideFallback = (hasEnemyKinematicScope && ordinaryScopeIsActiveGlide) ||
+                                        IsEnemyActiveGlideKinematicParticipant(snapshot, entity);
+            var isEnemyOrdinaryFallback = IsEnemyLogicParticipant(entity) &&
+                                          !isPlayerOrdinaryFallback &&
+                                          !isChargeActiveFallback &&
+                                          !isActiveGlideFallback;
+
             if ((_runtimeFeatureFlags.EnablePlayerFree2DLocalLocomotion ||
                  _runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion) &&
-                snapshot.TryGetPlayerControlState(intent.SourceId, out _))
+                isPlayerOrdinaryFallback)
             {
                 reason = "PlayerCoveredLocomotionReachedLegacyExpansion";
                 return true;
             }
 
             if (_runtimeFeatureFlags.EnableEnemyChargeKinematicLocomotion &&
-                TryResolveEnemyChargeKinematicStartScope(snapshot, intent, out _, out _, out _, out _))
+                isChargeActiveFallback)
             {
                 reason = "ChargeCoveredKinematicReachedLegacyExpansion";
                 return true;
             }
 
             if (_runtimeFeatureFlags.EnableEnemySameFaceContinuousLocomotion &&
-                TryResolveEnemyKinematicStartScope(snapshot, intent, out _, out _, out _, out _, out _, out var ordinaryScopeIsActiveGlide) &&
-                !ordinaryScopeIsActiveGlide)
+                isEnemyOrdinaryFallback)
             {
                 reason = "EnemyCoveredOrdinaryKinematicReachedLegacyExpansion";
                 return true;
@@ -1488,6 +1505,15 @@ namespace Game.Feature.Gameplay.Loop
                 activeGlideKinematic)
             {
                 reason = "EnemyGlideActiveKinematicReachedLegacyExpansion";
+                return true;
+            }
+
+            if (!_runtimeFeatureFlags.EnableLegacyOrdinaryUnitFallback &&
+                (isPlayerOrdinaryFallback ||
+                 isEnemyOrdinaryFallback ||
+                 isChargeActiveFallback))
+            {
+                reason = "LegacyOrdinaryFallbackRequiresExplicitBaseline";
                 return true;
             }
 
@@ -1538,7 +1564,8 @@ namespace Game.Feature.Gameplay.Loop
                 $"PlayerStoppable={(_runtimeFeatureFlags.EnablePlayerStoppableKinematicLocomotion ? 1 : 0)}," +
                 $"EnemyKinematic={(_runtimeFeatureFlags.EnableEnemySameFaceContinuousLocomotion ? 1 : 0)}," +
                 $"ChargeKinematic={(_runtimeFeatureFlags.EnableEnemyChargeKinematicLocomotion ? 1 : 0)}," +
-                $"GlideKinematic={(_runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion ? 1 : 0)}";
+                $"GlideKinematic={(_runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion ? 1 : 0)}," +
+                $"LegacyFallback={(_runtimeFeatureFlags.EnableLegacyOrdinaryUnitFallback ? 1 : 0)}";
         }
 
         private List<MoveIntent> BuildPlayerSameFaceKinematicLocomotionPlans(

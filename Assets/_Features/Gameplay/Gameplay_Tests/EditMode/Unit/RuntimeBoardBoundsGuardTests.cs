@@ -43,8 +43,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(flags.EnableEnemySameFaceContinuousLocomotion, Is.True);
             Assert.That(flags.EnableEnemyChargeKinematicLocomotion, Is.True);
             Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.False);
+            Assert.That(flags.EnableLegacyOrdinaryUnitFallback, Is.False);
             Assert.That(GameplayRuntimeFeatureFlags.None.EnablePlayerFree2DLocalLocomotion, Is.False);
+            Assert.That(GameplayRuntimeFeatureFlags.None.EnableLegacyOrdinaryUnitFallback, Is.False);
             Assert.That(new GameplaySceneHostConfiguration().CreateRuntimeFeatureFlags().EnablePlayerFree2DLocalLocomotion, Is.False);
+            Assert.That(new GameplaySceneHostConfiguration().CreateRuntimeFeatureFlags().EnableLegacyOrdinaryUnitFallback, Is.False);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void HostConfiguration_LegacyOrdinaryFallbackBaseline_IsNotSceneExposed()
+        {
+            var configuration = new GameplaySceneHostConfiguration();
+
+            configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
+            var flags = configuration.CreateRuntimeFeatureFlags();
+
+            Assert.That(GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline.EnableLegacyOrdinaryUnitFallback, Is.True);
+            Assert.That(flags.EnableLegacyOrdinaryUnitFallback, Is.False);
+            Assert.That(flags.EnablePlayerFree2DLocalLocomotion, Is.False);
+            Assert.That(flags.EnableEnemySameFaceContinuousLocomotion, Is.False);
+            Assert.That(flags.EnableEnemyChargeKinematicLocomotion, Is.False);
+            Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.False);
         }
 
         [Test]
