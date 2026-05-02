@@ -231,6 +231,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Extended")]
+        // Historical/pre-Phase4 wrapper: delegates to the canonical player removed-diagnostic replay.
         public void Replay_Phase2_PlayerFlagOffLegacyFallback_BaselineDocumented()
         {
             Replay_Phase4_LegacyBaseline_PlayerFallbackRemoved();

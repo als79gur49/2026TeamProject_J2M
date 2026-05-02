@@ -1838,6 +1838,55 @@
       "locked": true
     },
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.FallbackWrapperCleanup_ObsoleteAllowsHelpers_HaveNoInternalCallSites",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage that obsolete Allows compatibility wrappers have no internal callsites.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.FallbackWrapperCleanup_CurrentPolicyTests_UseRemovedDiagnosticVocabulary",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage that current policy docs and tests use removed diagnostic vocabulary.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.FallbackWrapperCleanup_HistoricalWrappers_AreExplicitlyMarked",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage that retained historical wrappers are explicitly marked as historical compatibility.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.FallbackWrapperCleanup_RetainedGridAllowedWording_IsPreserved",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "interaction_flip",
+        "topology_materialization",
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage that retained grid allowed wording remains separate from covered fallback authorization.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.FallbackWrapperCleanup_MoveOwnershipTests_DoNotUseFallbackAllowedWording",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "presentation"
+      ],
+      "reason": "Locked Core coverage that Move ownership tests preserve retained Move wording without stale fallback authorization wording.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8B_RemovedDiagnosticBaseline_IsCanonicalAlias",
       "category": "Core",
       "contracts": [
@@ -2247,6 +2296,18 @@
         "enemy_charge_kinematic_locomotion"
       ],
       "reason": "Locked Core coverage that compatibility layer consolidation does not require replay or golden rewrites.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_FallbackWrapperCleanup_DiagnosticsStillDeterministic",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that fallback wrapper cleanup does not change removed diagnostic replay determinism.",
       "locked": true
     },
     {

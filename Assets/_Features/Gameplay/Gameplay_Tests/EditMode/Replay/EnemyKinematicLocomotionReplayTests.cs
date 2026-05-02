@@ -535,6 +535,14 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
+        public void Replay_FallbackWrapperCleanup_DiagnosticsStillDeterministic()
+        {
+            AssertRemovedDiagnosticBaselineReplayDeterministic(
+                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
+        }
+
+        [Test]
+        [Category("Core")]
         public void Replay_CompatibilityLayer_DiagnosticBaseline_StillDeterministic()
         {
             Assert.That(
@@ -770,6 +778,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Extended")]
+        // Historical/pre-Phase6 wrapper: delegates to the canonical Charge removed-diagnostic replay.
         public void Replay_Phase2C_ChargeFlagOffLegacyFallback_BaselineDocumented()
         {
             Replay_Phase6_ChargeLegacyBaseline_FallbackRemoved();

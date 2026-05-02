@@ -259,6 +259,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        // Historical/pre-Phase4 wrapper: delegates to the canonical player removed-diagnostic test.
         public void Phase2_PlayerLegacyFallback_FlagOffBaseline_RemovedByPhase4()
         {
             Phase4_LegacyOrdinaryFallbackBaseline_PlayerFallbackRemoved();
@@ -388,6 +389,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        // Historical/pre-Phase5 wrapper: delegates to the canonical enemy removed-diagnostic test.
         public void Phase2B_EnemyLegacyFallback_FlagOffBaseline_RemovedByPhase5()
         {
             Phase5_LegacyOrdinaryFallbackBaseline_EnemyFallbackRemoved();
@@ -543,6 +545,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        // Historical/pre-Phase6 wrapper: delegates to the canonical Charge removed-diagnostic test.
         public void Phase2C_ChargeLegacyFallback_FlagOffBaseline_RemovedByPhase6()
         {
             Phase6_LegacyOrdinaryFallbackBaseline_ChargeFallbackRemoved();
@@ -1154,6 +1157,164 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void Phase8A_GlidePolicyUnchanged()
         {
             Phase7_GlidePolicyUnchanged();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void FallbackWrapperCleanup_ObsoleteAllowsHelpers_HaveNoInternalCallSites()
+        {
+            var helperSource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/TestSupport/LegacyMovementBoundaryAssert.cs");
+            var internalCallsiteFiles = new[]
+            {
+                "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/BoundaryInventoryScenarioTests.cs",
+                "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/MovementPhaseScenarioTests.cs",
+                "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Replay/EnemyKinematicLocomotionReplayTests.cs",
+                "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Replay/PlayerContinuousLocomotionReplayTests.cs",
+            };
+            var retainedCompatibilityWrappers = new[]
+            {
+                "AllowsLegacyOrdinaryFallbackBaseline",
+                "AllowsEnemyFlagOffLegacyOrdinaryFallback",
+                "AllowsChargeFlagOffLegacyFallback",
+                "AllowsOnlyFlagOffCoveredFallback",
+                "AllowsFlagOffLegacyFallback",
+            };
+
+            foreach (var wrapper in retainedCompatibilityWrappers)
+            {
+                Assert.That(helperSource, Does.Contain("[System.Obsolete"));
+                Assert.That(
+                    helperSource,
+                    Does.Contain("public static void " + wrapper + "("),
+                    wrapper);
+                Assert.That(helperSource, Does.Contain("historical compatibility wrapper only"), wrapper);
+            }
+
+            Assert.That(
+                helperSource,
+                Does.Not.Contain("public static void AllowsPlayerFlagOffLegacyOrdinaryFallback" + "("));
+
+            foreach (var relativePath in internalCallsiteFiles)
+            {
+                var source = ReadRepoFile(relativePath);
+                foreach (var wrapper in retainedCompatibilityWrappers)
+                {
+                    Assert.That(source, Does.Not.Contain("LegacyMovementBoundaryAssert." + wrapper + "("), relativePath);
+                    Assert.That(source, Does.Not.Contain(wrapper + "(result"), relativePath);
+                    Assert.That(source, Does.Not.Contain(wrapper + "(tick"), relativePath);
+                    Assert.That(source, Does.Not.Contain(wrapper + "(replay"), relativePath);
+                }
+
+                Assert.That(
+                    source,
+                    Does.Not.Contain("AllowsPlayerFlagOffLegacyOrdinaryFallback" + "("),
+                    relativePath);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void FallbackWrapperCleanup_CurrentPolicyTests_UseRemovedDiagnosticVocabulary()
+        {
+            var docs = new[]
+            {
+                ReadRepoFile("Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Readiness-2026-05-01.md"),
+                ReadRepoFile("Docs/Architecture/ADR/ADR-005-Grid-Authoritative-Unit-Kinematics.md"),
+                ReadRepoFile("Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-Compatibility-Layer-Consolidation-2026-05-02.md"),
+                ReadRepoFile("Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-Move-Presentation-Ownership-Narrowing-2026-05-02.md"),
+            };
+            var forbiddenCurrentPolicyPhrases = new[]
+            {
+                "fallback " + "allowed",
+                "still " + "allowed",
+                "flag-off baseline " + "allows",
+                "LegacyOrdinaryFallbackBaseline " + "allows",
+            };
+
+            foreach (var doc in docs)
+            {
+                Assert.That(doc, Does.Contain("RemovedLegacyFallbackDiagnosticBaseline"));
+                Assert.That(doc, Does.Contain("removed diagnostic").Or.Contain("removed-diagnostic").Or.Contain("removed diagnostics"));
+                foreach (var phrase in forbiddenCurrentPolicyPhrases)
+                {
+                    Assert.That(doc, Does.Not.Contain(phrase), phrase);
+                }
+            }
+
+            var scenarioSource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/BoundaryInventoryScenarioTests.cs");
+            Assert.That(scenarioSource, Does.Contain(nameof(FallbackWrapperCleanup_ObsoleteAllowsHelpers_HaveNoInternalCallSites)));
+            Assert.That(scenarioSource, Does.Contain(nameof(LegacyMovementBoundaryAssert.AssertCoveredFallbackRemovedDiagnostics)));
+            Assert.That(scenarioSource, Does.Contain(nameof(LegacyMovementBoundaryAssert.AssertPlayerFallbackRemovedFromRuntime)));
+            Assert.That(scenarioSource, Does.Contain(nameof(LegacyMovementBoundaryAssert.AssertEnemyFallbackRemovedFromRuntime)));
+            Assert.That(scenarioSource, Does.Contain(nameof(LegacyMovementBoundaryAssert.AssertChargeFallbackRemovedFromRuntime)));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void FallbackWrapperCleanup_HistoricalWrappers_AreExplicitlyMarked()
+        {
+            var boundarySource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/BoundaryInventoryScenarioTests.cs");
+            var playerReplaySource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Replay/PlayerContinuousLocomotionReplayTests.cs");
+            var enemyReplaySource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Replay/EnemyKinematicLocomotionReplayTests.cs");
+            var phase2Docs = new[]
+            {
+                ReadRepoFile("Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Phase2-Player-Pilot-2026-05-02.md"),
+                ReadRepoFile("Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Phase2B-Enemy-Pilot-2026-05-02.md"),
+                ReadRepoFile("Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Phase2C-Charge-Pilot-2026-05-02.md"),
+                ReadRepoFile("Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Phase3-Explicit-Legacy-Fallback-Policy-2026-05-02.md"),
+            };
+
+            Assert.That(boundarySource, Does.Contain("Historical/pre-Phase4 wrapper"));
+            Assert.That(boundarySource, Does.Contain("Historical/pre-Phase5 wrapper"));
+            Assert.That(boundarySource, Does.Contain("Historical/pre-Phase6 wrapper"));
+            Assert.That(playerReplaySource, Does.Contain("Historical/pre-Phase4 wrapper"));
+            Assert.That(enemyReplaySource, Does.Contain("Historical/pre-Phase6 wrapper"));
+
+            foreach (var doc in phase2Docs)
+            {
+                Assert.That(doc, Does.Contain("Historical/pre-Phase").Or.Contain("historical/pre-Phase"));
+                Assert.That(doc, Does.Not.Contain("FlagOffBaseline tests remain as compatibility wrappers"));
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void FallbackWrapperCleanup_RetainedGridAllowedWording_IsPreserved()
+        {
+            var helperSource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/TestSupport/LegacyMovementBoundaryAssert.cs");
+            var readinessDoc = ReadRepoFile(
+                "Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Readiness-2026-05-01.md");
+            var ownershipDoc = ReadRepoFile(
+                "Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-Move-Presentation-Ownership-Narrowing-2026-05-02.md");
+
+            Phase8E_GridTransactionsRemainAllowed();
+
+            Assert.That(helperSource, Does.Contain(nameof(LegacyMovementBoundaryAssert.GridTransactionsRemainAllowed)));
+            Assert.That(helperSource, Does.Contain(nameof(LegacyMovementBoundaryAssert.GridTransactionsRemainAllowedWithoutLegacyFallback)));
+            Assert.That(readinessDoc, Does.Contain("retained grid transactions remain allowed"));
+            Assert.That(ownershipDoc, Does.Contain("retained grid transaction presentation"));
+            Assert.That(ownershipDoc, Does.Contain("TickEntityMotionKind.Move remains retained"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void FallbackWrapperCleanup_MoveOwnershipTests_DoNotUseFallbackAllowedWording()
+        {
+            var boundarySource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/BoundaryInventoryScenarioTests.cs");
+            var movementSource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/MovementPhaseScenarioTests.cs");
+            var ownershipDoc = ReadRepoFile(
+                "Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-Move-Presentation-Ownership-Narrowing-2026-05-02.md");
+            var consolidationDoc = ReadRepoFile(
+                "Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-Compatibility-Layer-Consolidation-2026-05-02.md");
+
+            Assert.That(boundarySource, Does.Contain("MoveOwnership_PlayerContinuous_DoesNotEmitEntityMove"));
+            Assert.That(boundarySource, Does.Contain("MoveOwnership_GridTransactions_Retained"));
+            Assert.That(movementSource, Does.Contain("MoveOwnership_BoxActionMovement_RetainsRequiredMovePresentation"));
+            Assert.That(ownershipDoc, Does.Contain("TickEntityMotionKind.Move remains retained"));
+            Assert.That(ownershipDoc, Does.Contain("Retained generic movement and retained grid transaction presentation"));
+            Assert.That(consolidationDoc, Does.Contain("`TickEntityMotionKind.Move` is not deleted"));
+            Assert.That(ownershipDoc, Does.Not.Contain("Move ownership " + "fallback allowed"));
+            Assert.That(consolidationDoc, Does.Not.Contain("Move ownership " + "fallback allowed"));
         }
 
         [Test]
