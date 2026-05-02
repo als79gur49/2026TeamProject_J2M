@@ -38,7 +38,7 @@ The player fallback branch is currently reachable through this chain:
 
 Historical Phase 2 note: `GameplayRuntimeFeatureFlags.None` was the player fallback baseline in this phase. Phase 3 superseded that policy: `None` blocks covered player fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. Phase 4 supersedes the explicit player baseline too: `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` now rejects player fallback with `PlayerLegacyFallbackRemovedFromRuntime`.
 
-Custom flags with both player Free2D and player same-face kinematic disabled may reach player fallback only when `EnableLegacyOrdinaryUnitFallback` is explicitly enabled.
+Historical Phase 2 custom flags with both player Free2D and player same-face kinematic disabled used `EnableLegacyOrdinaryUnitFallback` for player fallback. Phase 4/7 supersede that behavior: the field is diagnostic compatibility only and player fallback rejects with `PlayerLegacyFallbackRemovedFromRuntime`.
 
 ## Retained Paths
 

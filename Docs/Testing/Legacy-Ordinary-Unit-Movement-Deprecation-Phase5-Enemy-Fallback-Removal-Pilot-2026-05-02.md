@@ -6,7 +6,7 @@ Date: 2026-05-02
 
 Phase 5 removes enemy legacy ordinary fallback authorization from the runtime path. An enemy ordinary `MoveIntent` that reaches legacy expansion is rejected even under `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline`.
 
-This is an enemy-only removal pilot. Player ordinary fallback remains removed from Phase 4, Charge active fallback was still supported under the explicit legacy baseline at Phase 5, and default/flag-off glide fallback remains a retained exception.
+This is an enemy-only removal pilot. Player ordinary fallback remains removed from Phase 4, Charge active fallback was still supported under the explicit legacy baseline at Phase 5, and default/flag-off glide fallback remains a retained exception. Phase 6/7 supersede the Charge baseline allowance: `LegacyOrdinaryFallbackBaseline` is now diagnostic compatibility only.
 
 Phase 6 supersedes the Charge portion of this status. Charge active fallback is now rejected under `LegacyOrdinaryFallbackBaseline` with `ChargeLegacyFallbackRemovedFromRuntime`.
 

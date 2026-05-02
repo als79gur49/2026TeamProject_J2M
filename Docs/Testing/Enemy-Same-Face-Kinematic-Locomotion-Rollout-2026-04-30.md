@@ -20,11 +20,11 @@ This rollout is guarded by `GameplayRuntimeFeatureFlags.EnableEnemySameFaceConti
 ## Rollback
 
 Set `EnableEnemySameFaceContinuousLocomotion` to false or pass `GameplayRuntimeFeatureFlags.None`.
-The legacy `MovementExpander` path remains present and is covered by explicit legacy baseline/passive contact tests.
+The legacy `MovementExpander` path remains present for retained grid transactions and passive contact tests. Explicit baseline tests now cover deterministic removed diagnostics, not fallback output.
 `GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion` enables this path for readiness canaries. As of legacy ordinary movement deprecation Phase 3, `None` is no longer the explicit legacy fallback baseline; intentional fallback tests use `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline`.
 `GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion` does not include `EnableEnemyGlideKinematicLocomotion` in v1; glide active kinematic rollout must be enabled explicitly.
 Default bundle adoption remains explicit. Showcase/dev gameplay hosts may opt in through host configuration, while replay harness defaults, composition-root defaults, historical tests, migration comparisons, and flag-off goldens continue to use `GameplayRuntimeFeatureFlags.None`.
-Default bundle adoption is not legacy deletion. Phase 1 of the deletion-readiness gate isolates covered player/enemy/Charge locomotion fallback under default/flag-on lanes, and Phase 3 moves covered fallback authorization to an explicit baseline while keeping `MoveEntity`, `MovementExpander`, retained grid transactions, and active glide retained fallback out of the deletion target. Phase 5 removes enemy ordinary fallback authorization from runtime, including `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline`; use enemy kinematic replacement instead. Charge fallback remains retained under the explicit baseline.
+Default bundle adoption is not legacy deletion. Phase 1 of the deletion-readiness gate isolates covered player/enemy/Charge locomotion fallback under default/flag-on lanes, and Phase 3 moved covered fallback diagnostics to an explicit baseline while keeping `MoveEntity`, `MovementExpander`, retained grid transactions, and active glide retained fallback out of the deletion target. Phase 5 removes enemy ordinary fallback authorization from runtime, and Phase 6 removes Charge fallback authorization too, including under `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline`; use the kinematic replacement paths instead.
 Scoped deletion preparation pins enemy ordinary fallback removal with `ScopedDeletionPrep_EnemyLegacyFallback_RemovedByPhase5` and the default/replay no-covered fallback canaries.
 
 ## Expected Test Impact

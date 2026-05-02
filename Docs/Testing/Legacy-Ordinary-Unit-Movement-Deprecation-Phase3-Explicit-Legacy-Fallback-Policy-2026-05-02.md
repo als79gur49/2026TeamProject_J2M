@@ -6,7 +6,7 @@ Date: 2026-05-02
 
 Phase 3 chooses Option B. Player ordinary, enemy ordinary, and Charge active legacy fallback are no longer authorized by `GameplayRuntimeFeatureFlags.None`.
 
-`GameplayRuntimeFeatureFlags.None` now means no advanced locomotion flags and no explicit legacy ordinary fallback authorization. The only supported player/enemy/Charge covered fallback baseline is `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline`, which is a test/replay/migration preset only.
+`GameplayRuntimeFeatureFlags.None` now means no advanced locomotion flags and no explicit legacy ordinary fallback authorization. Phase 3 introduced `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` as a test/replay/migration preset, but Phase 4/5/6 supersede that authorization: after Phase 6 it is diagnostic compatibility only and no longer authorizes player/enemy/Charge covered fallback.
 
 This phase does not delete the player fallback branch, enemy ordinary fallback branch, Charge fallback branch, `MoveEntity`, `MovementExpander`, retained grid transactions, or active glide retained fallback.
 
@@ -57,7 +57,7 @@ Older Phase 2 `FlagOffBaseline` tests remain as compatibility wrappers, but they
 
 ## Replay And Golden Policy
 
-Replay harness defaults remain equivalent to `GameplayRuntimeFeatureFlags.None`. That default no longer authorizes covered fallback. Intentional legacy fallback replay tests must pass `LegacyOrdinaryFallbackBaseline`.
+Replay harness defaults remain equivalent to `GameplayRuntimeFeatureFlags.None`. That default no longer authorizes covered fallback. Removed-diagnostic compatibility replay tests may pass `LegacyOrdinaryFallbackBaseline`; they must assert deterministic removed diagnostics, not fallback output.
 
 No golden files are rewritten in Phase 3. Golden migration remains owner-approved future work.
 

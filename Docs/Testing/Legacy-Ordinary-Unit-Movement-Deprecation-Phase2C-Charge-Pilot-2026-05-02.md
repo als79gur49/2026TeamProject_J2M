@@ -38,7 +38,7 @@ The Charge active fallback branch is currently reachable through this chain:
 
 Historical Phase 2C note: `GameplayRuntimeFeatureFlags.None` was the Charge fallback baseline in this phase. Phase 3 supersedes that policy: `None` now blocks covered Charge active fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. Phase 6 supersedes the explicit baseline policy: `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` now blocks Charge active fallback with `ChargeLegacyFallbackRemovedFromRuntime`.
 
-Custom flags with `EnableEnemyChargeKinematicLocomotion` disabled may reach Charge active fallback only when `EnableLegacyOrdinaryUnitFallback` is explicitly enabled.
+Historical Phase 2C custom flags with `EnableEnemyChargeKinematicLocomotion` disabled used `EnableLegacyOrdinaryUnitFallback` for Charge active fallback. Phase 6/7 supersede that behavior: the field is diagnostic compatibility only and Charge active fallback rejects with `ChargeLegacyFallbackRemovedFromRuntime`.
 
 ## Retained And Out-Of-Scope Paths
 

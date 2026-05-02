@@ -38,7 +38,7 @@ The enemy ordinary fallback branch is currently reachable through this chain:
 
 Historical Phase 2B note: `GameplayRuntimeFeatureFlags.None` was the enemy ordinary fallback baseline in this phase. Phase 3 supersedes that policy: `None` now blocks covered enemy ordinary fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. Phase 5 supersedes the explicit baseline policy: `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` now blocks enemy ordinary fallback with `EnemyLegacyFallbackRemovedFromRuntime`.
 
-Custom flags with `EnableEnemySameFaceContinuousLocomotion` disabled no longer authorize enemy ordinary fallback at runtime; Charge fallback remains the retained explicit baseline path.
+Custom flags with `EnableEnemySameFaceContinuousLocomotion` disabled no longer authorize enemy ordinary fallback at runtime. Phase 6/7 also supersede the Charge explicit baseline path; `LegacyOrdinaryFallbackBaseline` is diagnostic compatibility only.
 
 ## Retained And Out-Of-Scope Paths
 
