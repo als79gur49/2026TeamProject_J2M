@@ -28,7 +28,7 @@ The player fallback branch is currently reachable through this chain:
 | leak guard | `TickPipeline.ValidateLegacyExpansionIntents` and `TryResolveForbiddenLegacyUnitOrdinaryMovement` reject covered player ordinary `Move` with `PlayerCoveredLocomotionReachedLegacyExpansion` | player flag-on leak is a regression |
 | legacy candidate | `MovementExpander.ExpandMoveLike` and `ExpandMove` create ordinary `ActionGroupKind.Move` | retained for flag-off and grid transaction support |
 | boundary | `TickPipeline` movement boundary resolution classifies ordinary Unit `Move` groups as `LegacyFallback` | deletion candidate only for player ordinary fallback |
-| presentation | `TickResultBuilder` maps unsuppressed `MovementSemanticKind.Move` to `TickEntityMotionKind.Move` | allowed for documented player `None` baseline and retained grid presentation only |
+| presentation | `TickResultBuilder` maps unsuppressed `MovementSemanticKind.Move` to `TickEntityMotionKind.Move` | Phase 2 allowed this for documented player `None` baseline; Phase 3 moved it to `LegacyOrdinaryFallbackBaseline` |
 
 ## Flag Reachability
 
@@ -36,9 +36,9 @@ The player fallback branch is currently reachable through this chain:
 
 `PlayerFree2DLocalLocomotionEnabled` and `PlayerSameFaceContinuousLocomotionEnabled` both make synthetic player ordinary expansion a forbidden leak. The expected rejection reason is `PlayerCoveredLocomotionReachedLegacyExpansion`.
 
-`GameplayRuntimeFeatureFlags.None` intentionally remains a player fallback baseline in this phase. The baseline is allowed for rollback, golden comparison, and historical flag-off tests. It is also the scoped player deletion candidate for a later approval phase.
+Historical Phase 2 note: `GameplayRuntimeFeatureFlags.None` was the player fallback baseline in this phase. Phase 3 supersedes that policy: `None` now blocks covered player fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`, and intentional fallback tests use `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline`.
 
-Custom flags with both player Free2D and player same-face kinematic disabled may still reach player fallback in this phase.
+Custom flags with both player Free2D and player same-face kinematic disabled may reach player fallback only when `EnableLegacyOrdinaryUnitFallback` is explicitly enabled.
 
 ## Retained Paths
 
@@ -73,7 +73,7 @@ The helper vocabulary remains scoped to `LegacyFallback`, legacy `Move` presenta
 
 Actual player fallback deletion is not approved by Phase 2. Before deleting or test-only-scoping the player fallback branch, the next phase needs:
 
-- explicit approval to remove or narrow the `GameplayRuntimeFeatureFlags.None` player fallback baseline
+- explicit approval to remove or narrow the `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` player fallback baseline
 - replay/golden migration or exemption policy
 - green player default, Free2D-on, and kinematic-on no-fallback canaries
 - green retained topology, box/action, spawn/respawn, cleanup, and scripted relocation canaries

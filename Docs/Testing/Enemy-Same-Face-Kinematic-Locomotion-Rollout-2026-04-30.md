@@ -20,15 +20,15 @@ This rollout is guarded by `GameplayRuntimeFeatureFlags.EnableEnemySameFaceConti
 ## Rollback
 
 Set `EnableEnemySameFaceContinuousLocomotion` to false or pass `GameplayRuntimeFeatureFlags.None`.
-The legacy `MovementExpander` path remains present and is covered by the flag-off passive contact baseline.
-`GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion` enables this path for readiness canaries while preserving `None` as the explicit legacy fallback baseline.
+The legacy `MovementExpander` path remains present and is covered by explicit legacy baseline/passive contact tests.
+`GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion` enables this path for readiness canaries. As of legacy ordinary movement deprecation Phase 3, `None` is no longer the explicit legacy fallback baseline; intentional fallback tests use `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline`.
 `GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion` does not include `EnableEnemyGlideKinematicLocomotion` in v1; glide active kinematic rollout must be enabled explicitly.
 Default bundle adoption remains explicit. Showcase/dev gameplay hosts may opt in through host configuration, while replay harness defaults, composition-root defaults, historical tests, migration comparisons, and flag-off goldens continue to use `GameplayRuntimeFeatureFlags.None`.
-Default bundle adoption is not legacy deletion. Phase 1 of the deletion-readiness gate isolates covered player/enemy/Charge locomotion fallback under default/flag-on lanes while keeping `MoveEntity`, `MovementExpander`, retained grid transactions, active glide retained fallback, and flag-off baselines out of the deletion target. Actual enemy fallback deletion is not complete and remains a later scoped deletion phase.
+Default bundle adoption is not legacy deletion. Phase 1 of the deletion-readiness gate isolates covered player/enemy/Charge locomotion fallback under default/flag-on lanes, and Phase 3 moves covered fallback authorization to an explicit baseline while keeping `MoveEntity`, `MovementExpander`, retained grid transactions, and active glide retained fallback out of the deletion target. Actual enemy fallback deletion is not complete and remains a later scoped deletion phase.
 Scoped deletion preparation pins enemy ordinary fallback with `ScopedDeletionPrep_EnemyLegacyFallback_IsFlagOffOnly` and the default/replay no-covered fallback canaries.
 
 ## Expected Test Impact
 
 - Enemy flag-on replay hashes may change while enemy `UnitKinematics` are active.
-- Enemy flag-off replay and ordinary movement baselines should remain stable.
+- Enemy explicit legacy baseline replay and ordinary movement baselines should remain stable.
 - Player same-face kinematic tests are expected to remain unchanged unless the combined player/enemy factory is explicitly used.

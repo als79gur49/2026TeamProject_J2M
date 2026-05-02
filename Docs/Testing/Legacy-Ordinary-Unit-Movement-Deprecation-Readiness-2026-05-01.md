@@ -3,21 +3,23 @@
 Date: 2026-05-01
 Runtime validation update: 2026-05-02
 
-This readiness pass does not delete legacy movement. It closes the `Special Movement Inventory v3`, adds deletion-readiness canary expectations, and drafts the future `Legacy Ordinary Unit Movement` deletion phases. `MoveEntity` remains the anchor/grid transaction primitive. `MovementExpander` remains retained for grid transactions and flag-off fallback.
+This readiness pass does not delete legacy movement. It closes the `Special Movement Inventory v3`, adds deletion-readiness canary expectations, and drafts the future `Legacy Ordinary Unit Movement` deletion phases. `MoveEntity` remains the anchor/grid transaction primitive. `MovementExpander` remains retained for grid transactions and explicit legacy/test-only fallback.
 
-Phase 1, `Covered Locomotion Fallback Isolation`, is runtime green for its targeted Unity canaries. It isolates player ordinary, enemy ordinary, and Charge active locomotion from legacy ordinary fallback under `DefaultGameplayLocomotion` and explicit flag-on lanes. It does not delete fallback branches, does not delete `MoveEntity`, does not delete `MovementExpander`, does not update `None` replay/golden baselines, and does not adopt glide into `DefaultGameplayLocomotion`.
+Phase 1, `Covered Locomotion Fallback Isolation`, is runtime green for its targeted Unity canaries. It isolates player ordinary, enemy ordinary, and Charge active locomotion from legacy ordinary fallback under `DefaultGameplayLocomotion` and explicit flag-on lanes. It does not delete fallback branches, does not delete `MoveEntity`, does not delete `MovementExpander`, does not rewrite replay/golden files, and does not adopt glide into `DefaultGameplayLocomotion`.
 
-Phase 2, `Player Legacy Ordinary Fallback Pilot`, scopes deletion readiness to the player ordinary fallback branch only. It pins the player source, flag reachability, leak guard, `MovementExpander` legacy candidate, `LegacyFallback` boundary, and legacy `TickEntityMotionKind.Move` presentation without deleting the branch. `GameplayRuntimeFeatureFlags.None` continues to allow the player fallback as a rollback/golden baseline and player deletion candidate. Enemy ordinary fallback, Charge fallback, glide fallback, retained grid transactions, `MoveEntity`, and `MovementExpander` remain out of scope.
+Phase 2, `Player Legacy Ordinary Fallback Pilot`, scoped deletion readiness to the player ordinary fallback branch only. It pinned the player source, flag reachability, leak guard, `MovementExpander` legacy candidate, `LegacyFallback` boundary, and legacy `TickEntityMotionKind.Move` presentation without deleting the branch. Phase 3 moved that fallback authorization from `GameplayRuntimeFeatureFlags.None` to `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline`.
 
-Phase 2B, `Enemy Ordinary Fallback Pilot`, scopes deletion readiness to the enemy ordinary fallback branch only. It pins the enemy source, enemy kinematic flag reachability, leak guard, `MovementExpander` legacy candidate, `LegacyFallback` boundary, and legacy `TickEntityMotionKind.Move` presentation without deleting the branch. `GameplayRuntimeFeatureFlags.None` continues to allow the enemy fallback as a rollback/golden/historical EnemyAi baseline and enemy deletion candidate. Player fallback, Charge fallback, glide fallback, jump, retained grid transactions, `MoveEntity`, and `MovementExpander` remain out of scope.
+Phase 2B, `Enemy Ordinary Fallback Pilot`, scoped deletion readiness to the enemy ordinary fallback branch only. It pinned the enemy source, enemy kinematic flag reachability, leak guard, `MovementExpander` legacy candidate, `LegacyFallback` boundary, and legacy `TickEntityMotionKind.Move` presentation without deleting the branch. Phase 3 moved that fallback authorization from `GameplayRuntimeFeatureFlags.None` to `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline`.
 
-Phase 2C, `Charge Active Fallback Pilot`, scopes deletion readiness to the Charge active fallback branch only. It pins the active Charge source, Charge kinematic flag reachability, leak guard, legacy active-step consumption, `LegacyFallback` boundary, and legacy `TickEntityMotionKind.ChargeMove` presentation without deleting the branch. `GameplayRuntimeFeatureFlags.None` continues to allow the Charge fallback as a rollback/golden/Charge historical baseline and Charge deletion candidate. Player fallback, enemy ordinary fallback, glide fallback, jump, retained grid transactions, `MoveEntity`, and `MovementExpander` remain out of scope.
+Phase 2C, `Charge Active Fallback Pilot`, scoped deletion readiness to the Charge active fallback branch only. It pinned the active Charge source, Charge kinematic flag reachability, leak guard, legacy active-step consumption, `LegacyFallback` boundary, and legacy `TickEntityMotionKind.ChargeMove` presentation without deleting the branch. Phase 3 moved that fallback authorization from `GameplayRuntimeFeatureFlags.None` to `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline`.
+
+Phase 3, `Explicit Legacy/Test-Only Fallback Policy`, is complete for runtime/test contract. `GameplayRuntimeFeatureFlags.None` no longer authorizes player ordinary, enemy ordinary, or Charge active covered fallback. Those fallback paths require `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline`, and unauthorized attempts are blocked with `LegacyOrdinaryFallbackRequiresExplicitBaseline`.
 
 ## Executive Decision
 
 `Legacy Ordinary Unit Movement` is the only deletion target: an ordinary `Unit` `MovementCommandKind.Move` reaches legacy expansion, commits through `MoveEntity`, and presents as legacy `TickEntityMotionKind.Move` or `TickEntityMotionKind.ChargeMove`.
 
-`Legacy Grid Transaction` is retained: `MoveEntity` can still materialize box, topology, spawn, respawn, cleanup, scripted relocation, and anchor-normalization semantics when those paths are not ordinary Unit locomotion. `DefaultGameplayLocomotion` is an explicit readiness/adoption bundle, not deletion. `GameplayRuntimeFeatureFlags.None` and default struct behavior remain rollback, golden, historical, and flag-off fallback baselines.
+`Legacy Grid Transaction` is retained: `MoveEntity` can still materialize box, topology, spawn, respawn, cleanup, scripted relocation, and anchor-normalization semantics when those paths are not ordinary Unit locomotion. `DefaultGameplayLocomotion` is an explicit readiness/adoption bundle, not deletion. `GameplayRuntimeFeatureFlags.None` and default struct behavior remain no-advanced-locomotion lanes, but no longer authorize covered legacy ordinary fallback. `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` is the explicit test/replay/migration baseline.
 
 Jump and phase relocation are not deletion blockers. Glide explicit flag-on active kinematic locomotion is stable after v1.1 targeted coverage, but Glide Default Adoption Readiness v1 keeps `EnableEnemyGlideKinematicLocomotion` out of `DefaultGameplayLocomotion`. Forced motion and knockback have runtime vocabulary through `MotionMode.Forced` and `ForcedMotionOp.Knockback`, but no gameplay producer in this readiness slice; any future producer must define a special/kinematic boundary before shipping.
 
@@ -32,9 +34,10 @@ Jump and phase relocation are not deletion blockers. Glide explicit flag-on acti
 | no-legacy ordinary canary | complete for representative coverage | special replay coverage added before deletion |
 | Phase 1 covered locomotion fallback isolation | complete | player ordinary, enemy ordinary, and Charge active fallback leaks are hard regressions under default/flag-on lanes |
 | special inventory | partial for v3 | forced/knockback closed as no gameplay producer; glide explicit flag-on active kinematic is stable, default adoption is blocked |
-| Phase 2 player fallback pilot | complete for scoped canaries | player fallback branch and `None` baseline policy are pinned before any deletion |
-| Phase 2B enemy fallback pilot | complete for scoped canaries | enemy fallback branch and `None` historical EnemyAi baseline policy are pinned before any deletion |
-| Phase 2C Charge fallback pilot | complete for scoped canaries | Charge fallback branch and `None` Charge baseline policy are pinned before any deletion |
+| Phase 2 player fallback pilot | complete for scoped canaries | player fallback branch was pinned before policy separation |
+| Phase 2B enemy fallback pilot | complete for scoped canaries | enemy fallback branch was pinned before policy separation |
+| Phase 2C Charge fallback pilot | complete for scoped canaries | Charge fallback branch was pinned before policy separation |
+| Phase 3 explicit fallback policy | complete for scoped canaries | `None` no longer authorizes covered fallback; explicit baseline is required |
 | actual deletion | not complete | no fallback removal until glide default adoption or equivalent replacement is approved, replay/golden policy is decided, and scoped deletion receives a separate approval |
 
 ## Phase 1 Runtime Validation
@@ -69,21 +72,21 @@ Failure classification for the remaining red rows:
 
 ## Scoped Deletion Preparation
 
-This pass is `Scoped Fallback Branch Inventory & Test-Only Isolation Preparation`. It does not delete player ordinary fallback, enemy ordinary fallback, Charge active fallback, `MoveEntity`, `MovementExpander`, retained grid transactions, default/flag-off glide fallback, or `GameplayRuntimeFeatureFlags.None` baselines. It pins the remaining fallback branches to explicit allowed scopes before a later scoped deletion phase.
+This pass is `Scoped Fallback Branch Inventory & Test-Only Isolation Preparation`. It does not delete player ordinary fallback, enemy ordinary fallback, Charge active fallback, `MoveEntity`, `MovementExpander`, retained grid transactions, or default/flag-off glide fallback. Phase 3 pins player/enemy/Charge fallback to `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` before a later scoped deletion phase.
 
-`DefaultGameplayLocomotion` must have no covered player ordinary, enemy ordinary, or Charge active legacy fallback. `GameplayRuntimeFeatureFlags.None` intentionally keeps those branches as rollback/golden baselines. Active glide remains a retained exception under default and flag-off because `EnableEnemyGlideKinematicLocomotion` is still explicit opt-in.
+`DefaultGameplayLocomotion` and `GameplayRuntimeFeatureFlags.None` must have no covered player ordinary, enemy ordinary, or Charge active legacy fallback. Active glide remains a retained exception under default and flag-off because `EnableEnemyGlideKinematicLocomotion` is still explicit opt-in.
 
 ## Covered Fallback Branch Inventory
 
 | branch | file / method | current flag condition | how branch is reached | replacement path | retained baseline? | can be removed now? | deletion blocker | tests covering allowed use | tests covering forbidden use | recommended future phase |
 |---|---|---|---|---|---|---|---|---|---|---|
-| player legacy ordinary fallback | `TickPipeline.ValidateLegacyExpansionIntents`, `TryResolveForbiddenLegacyUnitOrdinaryMovement`, `MovementExpander.ExpandMoveLike/ExpandMove`, `PlayerLogic.CollectMovementIntents` | `GameplayRuntimeFeatureFlags.None` or player locomotion flags off | `PlayerLogic` emits ordinary `RawMovementIntent(Move)` -> `MoveIntent` -> `MovementExpander` -> `MoveEntity(LegacyFallback)` -> `TickEntityMotionKind.Move` | `UnitContinuousLocomotionState` or player kinematic fallback | yes, `None` rollback/golden | no | flag-off baseline owner and replay/golden policy | `ScopedDeletionPrep_PlayerLegacyFallback_IsFlagOffOnly`, existing flag-off player tests | `ScopedDeletionPrep_DefaultGameplayLocomotion_NoCoveredLegacyPresentation`, validation/replay canaries | Phase 2B player scoped deletion |
-| enemy legacy ordinary fallback | `TickPipeline.TryResolveForbiddenLegacyUnitOrdinaryMovement`, `IsEnemyKinematicStartParticipant`, `MovementExpander`, `EnemyLogic.ResolveBaselineGroundLocomotion` | `None` or enemy ordinary flag off; glide default is separate retained exception | enemy AI/script emits ordinary `Move` and is not handled by kinematic planner | enemy ordinary `UnitKinematicRuntimeState(MotionMode.Voluntary)` plus `TickKinematicMotionTrack` | yes, `None` and historical EnemyAi baseline | no | EnemyAi baseline ownership and replay/golden policy | `ScopedDeletionPrep_EnemyLegacyFallback_IsFlagOffOnly`, EnemyAi flag-off rows | default boundary/replay canaries | Phase 2B enemy scoped deletion |
-| legacy Charge active fallback | `EnemyLogic.ResolveBaselineGroundLocomotion`, `TryBuildEnemyChargeKinematicStartPayload`, `TickResultBuilder.ShouldUseChargeMovePresentation` | `None` or Charge kinematic flag off | active Charge emits ordinary `Move` ignoring units -> legacy expansion -> `ChargeMove` presentation | `UnitKinematicRuntimeState(MotionMode.Charge)` plus kinematic presentation | yes, `None` charge baseline | no | Charge baseline migration and `ChargeMove` owner | `ScopedDeletionPrep_ChargeLegacyFallback_IsFlagOffOnly` | default charge kinematic canaries | Phase 2B charge scoped deletion |
+| player legacy ordinary fallback | `TickPipeline.ValidateLegacyExpansionIntents`, `TryResolveForbiddenLegacyUnitOrdinaryMovement`, `MovementExpander.ExpandMoveLike/ExpandMove`, `PlayerLogic.CollectMovementIntents` | `LegacyOrdinaryFallbackBaseline` only | `PlayerLogic` emits ordinary `RawMovementIntent(Move)` -> `MoveIntent` -> `MovementExpander` -> `MoveEntity(LegacyFallback)` -> `TickEntityMotionKind.Move` | `UnitContinuousLocomotionState` or player kinematic fallback | yes, explicit test/replay baseline | no | replay/golden owner approval | `Phase3_LegacyOrdinaryFallbackBaseline_PlayerFallbackAllowed` | `Phase3_None_NoPlayerEnemyChargeLegacyFallback`, default canaries | future player scoped deletion |
+| enemy legacy ordinary fallback | `TickPipeline.TryResolveForbiddenLegacyUnitOrdinaryMovement`, `IsEnemyKinematicStartParticipant`, `MovementExpander`, `EnemyLogic.ResolveBaselineGroundLocomotion` | `LegacyOrdinaryFallbackBaseline` only; glide default is separate retained exception | enemy AI/script emits ordinary `Move` and is not handled by kinematic planner | enemy ordinary `UnitKinematicRuntimeState(MotionMode.Voluntary)` plus `TickKinematicMotionTrack` | yes, explicit test/replay baseline | no | EnemyAi replay/golden approval | `Phase3_LegacyOrdinaryFallbackBaseline_EnemyFallbackAllowed` | `Phase3_None_NoPlayerEnemyChargeLegacyFallback`, default canaries | future enemy scoped deletion |
+| legacy Charge active fallback | `EnemyLogic.ResolveBaselineGroundLocomotion`, `TryBuildEnemyChargeKinematicStartPayload`, `TickResultBuilder.ShouldUseChargeMovePresentation` | `LegacyOrdinaryFallbackBaseline` only | active Charge emits ordinary `Move` ignoring units -> legacy expansion -> `ChargeMove` presentation | `UnitKinematicRuntimeState(MotionMode.Charge)` plus kinematic presentation | yes, explicit test/replay baseline | no | Charge baseline migration and `ChargeMove` owner | `Phase3_LegacyOrdinaryFallbackBaseline_ChargeFallbackAllowed` | default charge kinematic canaries, `Phase3_None_NoPlayerEnemyChargeLegacyFallback` | future charge scoped deletion |
 | legacy Unit `TickEntityMotionKind.Move` generation | `TickResultBuilder.TryResolveMotionKind`, `ShouldSuppressLegacyMotionForLocomotion` | generated for unsuppressed `MoveEntity` with `MovementSemanticKind.Move/Item` | allowed fallback or retained grid/item/topology path reaches presentation builder | `TickContinuousLocomotionTrack` or `TickKinematicMotionTrack` for covered locomotion | yes for flag-off/grid | no | retained grid presentation allowlist | grid transaction canaries, flag-off fallback canaries | `ScopedDeletionPrep_LegacyUnitMotionPresentation_IsOnlyFallbackOrGrid` | Phase 2B presentation narrowing |
 | legacy `TickEntityMotionKind.ChargeMove` generation | `TickResultBuilder.ShouldUseChargeMovePresentation` | active Charge without authoritative `MotionMode.Charge` pose | legacy Charge `MoveEntity` occurs while charge state is Active | Charge kinematic presentation track | yes for `None` | no | `ChargeMove` owner and golden policy | charge flag-off tests | `ScopedDeletionPrep_ChargeLegacyFallback_IsFlagOffOnly` | Phase 2B charge presentation narrowing |
 | stale ordinary Unit move test helpers | `LegacyMovementBoundaryAssert`, scenario wrappers | test-only | broad helpers can confuse `MoveEntity` with legacy fallback | scoped helpers based on `LegacyFallback`, legacy presentation, and diagnostics | test-only retained | no deletion | helper callers still cover retained paths | existing helper callers | new `ScopedDeletionPrep_*` wrappers | Phase 1.5 helper isolation |
-| flag-off fallback baseline | `GameplayRuntimeFeatureFlags.None`, default struct callers, replay harness defaults | all flags false | explicit `None` leaves legacy expansion reachable | none in this phase | yes | no | rollback/golden contract | `Replay_ScopedDeletionPrep_FlagOffFallbackStillDeterministic` | default no-covered canaries | retained until policy phase |
+| explicit fallback baseline | `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` | fallback authorization true | explicit preset leaves legacy expansion reachable | none in this phase | yes | no | replay/golden contract | `Replay_Phase3_LegacyBaseline_CoveredFallbackDeterministic` | `Replay_Phase3_None_NoCoveredFallback` | retained until deletion phase |
 | glide default / flag-off fallback | `DefaultGameplayLocomotion`, `IsEnemyActiveGlideKinematicParticipant`, glide policy tests | default excludes glide flag; `None` off | active glide chase emits ordinary move unless explicit glide flag is on | explicit glide kinematic path | yes, retained exception | no | default glide adoption decision | glide default/flag-off canaries | explicit glide flag-on canary | Option A only if chosen |
 | grid transaction branches | `IsAllowedLegacyGridTransactionIntent`, `ResolveMovementExecutionBoundaryKind`, placement/finalization processors | any flag lane | push/flip/item/topology/spawn/respawn/cleanup/scripted relocation | no replacement planned | yes | no | not deletion target | `ScopedDeletionPrep_GridTransactions_AreNotDeletionCandidates` | no covered diagnostics | retained |
 | movement expander retained grid branch | `MovementExpander.Expand`, `ExpandMoveLike`, `ExpandMove` | grid transaction or flag-off fallback | allowed intent reaches expander; forbidden covered IDs are rejected | keep for grid and `None` | yes | no | expander owns grid expansion | `ScopedDeletionPrep_MovementExpander_GridBranchIsRetained` | forbidden intent diagnostic canary | retained |
@@ -96,12 +99,12 @@ This pass is `Scoped Fallback Branch Inventory & Test-Only Isolation Preparation
 
 | path | decision | reason | required tests before deletion |
 |---|---|---|---|
-| player legacy ordinary fallback | deletion candidate, not now | `None` baseline and replay/golden policy unresolved | player free2D/kinematic targeted green, no default fallback diagnostic, baseline owner approval |
+| player legacy ordinary fallback | deletion candidate, not now | explicit fallback baseline and replay/golden policy unresolved | player free2D/kinematic targeted green, no default/`None` fallback, baseline owner approval |
 | enemy legacy ordinary fallback | deletion candidate, not now | historical EnemyAi baseline classification unresolved | enemy kinematic targeted green, EnemyAi baseline owner approval, replay/golden approval |
-| Charge legacy fallback | deletion candidate, not now | `ChargeMove` and flag-off charge baseline still owned | charge kinematic targeted green, `ChargeMove` owner approval, replay/golden approval |
+| Charge legacy fallback | deletion candidate, not now | `ChargeMove` and explicit charge fallback baseline still owned | charge kinematic targeted green, `ChargeMove` owner approval, replay/golden approval |
 | glide default/flag-off fallback | retained exception | glide flag is not in `DefaultGameplayLocomotion` | Phase 2 Option A adoption decision only |
 | `MoveEntity` | retained primitive | anchor/grid transaction primitive | never delete in ordinary fallback phase |
-| `MovementExpander` | retained component | grid transactions and flag-off baseline still use it | protect grid branch canaries |
+| `MovementExpander` | retained component | grid transactions and explicit fallback baseline still use it | protect grid branch canaries |
 | grid transaction branches | retained | not ordinary Unit locomotion | boundary-kind and presentation canaries |
 
 ## Definitions
@@ -111,9 +114,9 @@ This pass is `Scoped Fallback Branch Inventory & Test-Only Isolation Preparation
 - `Unit Continuous Locomotion`: player ordinary movement backed by `UnitContinuousLocomotionState`.
 - `Unit Kinematic Locomotion`: segment movement backed by `UnitKinematicRuntimeState`, including enemy ordinary, player fallback, and charge active steps.
 - `Unit Special Locomotion`: non-ordinary unit movement such as charge, jump, phase-like movement, glide, and future forced/knockback.
-- `Legacy Fallback`: flag-off, rollback, historical, and golden baseline path kept by policy until the deletion phase changes it explicitly.
+- `Legacy Fallback`: explicit test/replay/migration baseline path kept by policy until the deletion phase changes it explicitly.
 - `Covered Locomotion`: Phase 1 no-fallback scope: player ordinary movement, enemy ordinary movement, and Charge active movement.
-- `Retained Exception`: Phase 1 fallback that remains intentionally allowed: default/flag-off active glide, flag-off historical fallback, and grid transactions.
+- `Retained Exception`: Phase 1 fallback that remains intentionally allowed: default/flag-off active glide, explicit legacy fallback baseline, and grid transactions.
 
 ## DefaultGameplayLocomotion Adoption
 
@@ -181,12 +184,12 @@ This pass is `Scoped Fallback Branch Inventory & Test-Only Isolation Preparation
 
 | fallback branch | file / method | current flag condition | replacement path | retained baseline? | can be removed now? | deletion blocker | tests required | recommended phase |
 |---|---|---|---|---|---|---|---|---|
-| player legacy ordinary fallback | `TickPipeline` movement validation/finalization path for player `Move` | flag-off or uncovered legacy lane | `UnitContinuousLocomotionState` / player kinematic fallback | yes, `GameplayRuntimeFeatureFlags.None` | no | Phase 1 only isolates; replay/golden policy unresolved | player default no-fallback, player flag-off fallback, player replay | Phase 2 scoped deletion candidate |
-| enemy legacy ordinary fallback | `TickPipeline.ValidateLegacyExpansionIntents`, `BuildForbiddenLegacyUnitOrdinaryIntentIds`, `MovementExpander` ordinary Unit branch | flag-off or glide exception boundary | enemy ordinary `UnitKinematicRuntimeState` | yes, `GameplayRuntimeFeatureFlags.None` | no | glide retained exception and historical EnemyAi failures remain separated | enemy ordinary default no-fallback, glide retained exception, enemy replay | Phase 2 scoped deletion candidate |
-| legacy charge active fallback | `TickPipeline` charge movement path and `TickResultBuilder` `ChargeMove` presentation | flag-off charge lane | charge kinematic `MotionMode.Charge` | yes, `GameplayRuntimeFeatureFlags.None` | no | charge replay/golden and flag-off baseline policy | charge active default no-fallback, flag-off charge fallback, charge replay | Phase 2 scoped deletion candidate |
+| player legacy ordinary fallback | `TickPipeline` movement validation/finalization path for player `Move` | `LegacyOrdinaryFallbackBaseline` | `UnitContinuousLocomotionState` / player kinematic fallback | yes, explicit baseline | no | replay/golden policy unresolved | player default/`None` no-fallback, explicit player fallback, player replay | future scoped deletion candidate |
+| enemy legacy ordinary fallback | `TickPipeline.ValidateLegacyExpansionIntents`, `BuildForbiddenLegacyUnitOrdinaryIntentIds`, `MovementExpander` ordinary Unit branch | `LegacyOrdinaryFallbackBaseline` or glide exception boundary | enemy ordinary `UnitKinematicRuntimeState` | yes, explicit baseline | no | glide retained exception and historical EnemyAi failures remain separated | enemy ordinary default/`None` no-fallback, glide retained exception, enemy replay | future scoped deletion candidate |
+| legacy charge active fallback | `TickPipeline` charge movement path and `TickResultBuilder` `ChargeMove` presentation | `LegacyOrdinaryFallbackBaseline` | charge kinematic `MotionMode.Charge` | yes, explicit baseline | no | charge replay/golden and explicit baseline policy | charge active default/`None` no-fallback, explicit charge fallback, charge replay | future scoped deletion candidate |
 | stale ordinary Unit move test helper | `LegacyMovementBoundaryAssert` and scenario/replay helper callers | test-only | Phase 1 boundary helpers and explicit retained-grid assertions | no runtime baseline | no | helper callers still cover retained paths | helper usage inventory and targeted helper replacement tests | Phase 2 cleanup candidate |
-| legacy Unit motion presentation generation | `TickResultBuilder` legacy Unit motion generation | legacy fallback result generation | kinematic/presentation tracks or retained grid presentation | retained for flag-off/glide | no | presentation retained paths must stay visible | presentation suppression canary and retained-grid presentation tests | Phase 2/3 scoped deletion prep |
-| flag-off fallback baseline | `GameplayRuntimeFeatureFlags.None` callers | explicit no flags | legacy rollback baseline | yes | no | rollback/golden contract | flag-off canary and replay baseline | retained |
+| legacy Unit motion presentation generation | `TickResultBuilder` legacy Unit motion generation | legacy fallback result generation | kinematic/presentation tracks or retained grid presentation | retained for explicit baseline/glide | no | presentation retained paths must stay visible | presentation suppression canary and retained-grid presentation tests | Phase 2/3 scoped deletion prep |
+| explicit fallback baseline | `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` callers | fallback authorization flag | legacy test/replay/migration baseline | yes | no | rollback/golden contract | explicit baseline canary and replay baseline | retained |
 | glide default/flag-off fallback | glide active fallback path | default bundle without glide flag, explicit flag-off | future glide kinematic only if adopted | yes | no | Phase 2 glide decision | glide retained replay and explicit glide flag-on canary | Phase 2 decision |
 
 ## Retained Paths
@@ -194,14 +197,14 @@ This pass is `Scoped Fallback Branch Inventory & Test-Only Isolation Preparation
 | retained path | why retained | deletion guard |
 |---|---|---|
 | `MoveEntity` primitive | anchor/grid transaction primitive | never delete in ordinary fallback phase |
-| `MovementExpander` grid transaction branch | push/flip/item/topology and flag-off baseline | branch-level tests |
+| `MovementExpander` grid transaction branch | push/flip/item/topology and explicit fallback baseline | branch-level tests |
 | box push / flip / item | `BoxActionMovement` presentation must remain | grid transaction canary |
 | topology materialization | `TopologyMaterialization` retained | topology scenario tests |
 | spawn / respawn placement | placement, not ordinary locomotion | `SpawnRespawnPlacement` tests |
 | cleanup removal | lifecycle removal | cleanup event tests |
 | scripted relocation / phase relocation | `ScriptedRelocation` retained | phase relocation canary |
 | continuous/kinematic anchor normalization | `LocomotionAnchorCommit` with suppressed legacy motion | no legacy presentation canary |
-| flag-off historical baseline | rollback/golden until policy changes | dedicated fallback tests |
+| explicit historical baseline | rollback/golden comparison until deletion policy changes | dedicated fallback tests |
 
 ## Canary Coverage
 
@@ -241,7 +244,7 @@ The glide no-leak canary is intentionally limited to the state-only start tick u
 | no-legacy ordinary canary green | complete | special replay canary added |
 | covered locomotion fallback isolated | complete | default/flag-on player ordinary, enemy ordinary, and Charge active fallback leaks are blocked |
 | grid transaction allowlist green | complete | retained |
-| flag-off fallback baseline green | complete | preserved until policy phase |
+| explicit fallback baseline green | complete | preserved behind `LegacyOrdinaryFallbackBaseline` |
 | jump inventory complete | complete | replay canary added |
 | phase inventory complete | complete | replay canary added |
 | glide kinematic explicit flag-on stable | complete | v1.1 targeted coverage resolves the explicit active glide blocker |
@@ -260,10 +263,10 @@ Actual deletion remains blocked.
 
 | phase | scope | precondition | rollback | tests | blockers | non-goals |
 |---|---|---|---|---|---|---|
-| Phase 1 | covered locomotion fallback isolation | player/enemy/Charge kinematic lanes stable | keep legacy branches and `None` baseline | Phase 1 boundary/replay canaries | glide retained exception remains | no deletion |
+| Phase 1 | covered locomotion fallback isolation | player/enemy/Charge kinematic lanes stable | keep legacy branches | Phase 1 boundary/replay canaries | glide retained exception remains | no deletion |
 | Phase 2 | glide default adoption decision | Glide Default Adoption Readiness v1 revisited | keep Option B explicit opt-in | default policy, host, replay policy tests | broad/default adoption gate | no fallback removal |
-| Phase 3 | replay/golden migration policy decided | golden owners approve | keep `None` goldens | replay suite | historical baseline dependency | no auto baseline update |
-| Phase 4 | player legacy ordinary fallback branch removal | player free2D/kinematic green, goldens migrated | restore fallback branch | player scenario/replay | `None` policy unresolved | no grid branch deletion |
+| Phase 3 | explicit fallback policy | scoped tests green | keep explicit legacy baseline | replay suite | historical baseline dependency | no auto baseline update |
+| Phase 4 | player legacy ordinary fallback branch removal | player free2D/kinematic green, goldens migrated | restore fallback branch | player scenario/replay | explicit baseline retirement unresolved | no grid branch deletion |
 | Phase 5 | enemy legacy ordinary fallback branch removal | enemy kinematic green | restore fallback branch | enemy scenario/replay | EnemyAi historical failures unclear | no charge fallback deletion |
 | Phase 6 | legacy Charge fallback removal | Charge kinematic green | restore Charge legacy fallback | charge targeted/replay | charge goldens | no non-charge movement |
 | Phase 7 | glide default adoption or retained exception final decision | Phase 2/3 policy resolved | keep explicit glide flag | glide boundary/replay/showcase canaries | active glide fallback policy unresolved | no hidden default adoption |

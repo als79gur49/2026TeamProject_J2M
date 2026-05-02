@@ -13,7 +13,7 @@ This rollout is guarded by `GameplayRuntimeFeatureFlags.EnableEnemyChargeKinemat
 - Anchor commit happens at `totalTicks / 2`; passive contact can only resolve after that commit.
 - Charge kinematic presentation uses `TickKinematicMotionTrack` plus `TickEnemyChargePresentationSignal`; legacy `ChargeMove` is not emitted for the kinematic path.
 - `MoveEntity` midpoint anchor commit is classified as a grid transaction primitive, not legacy ordinary Unit movement.
-- Legacy `ChargeMove` remains retained only for flag-off baseline. Legacy grid transactions for box/action/topology/spawn/respawn/cleanup are not removed by this rollout.
+- Legacy `ChargeMove` remains retained only for the explicit legacy fallback baseline. Legacy grid transactions for box/action/topology/spawn/respawn/cleanup are not removed by this rollout.
 - Boundary v1 suppresses legacy `ChargeMove` only for kinematic charge anchor commits and ordinary Unit locomotion boundaries. `BoxActionMovement`, topology, spawn, respawn, cleanup, scripted relocation, and flag-off legacy grid transactions keep their required presentation.
 - Boundary metadata is trace diagnostic data and must remain outside canonical replay hashes.
 - Boundary v1 stabilization adds direct guard coverage for flag-on Charge ordinary active-step leaks and replay coverage through `Replay_NoUnexpectedLegacyUnitOrdinaryMovementDetected`. The Phase 1 targeted Unity XML canaries are runtime green. A Charge kinematic active step must not present as legacy `ChargeMove`.
@@ -24,12 +24,12 @@ This rollout is guarded by `GameplayRuntimeFeatureFlags.EnableEnemyChargeKinemat
 ## Rollback
 
 Set `EnableEnemyChargeKinematicLocomotion` to false. This does not require disabling `EnableEnemySameFaceContinuousLocomotion`.
-`GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion` enables Charge kinematic locomotion for readiness canaries and default gameplay host rollout. `GameplayRuntimeFeatureFlags.None` keeps the legacy `ChargeMove` fallback for rollback and golden baseline coverage.
+`GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion` enables Charge kinematic locomotion for readiness canaries and default gameplay host rollout. As of legacy ordinary movement deprecation Phase 3, `GameplayRuntimeFeatureFlags.None` no longer keeps the legacy `ChargeMove` fallback; intentional fallback tests use `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline`.
 Default gameplay host rollout is explicit and does not change replay harness defaults, composition-root defaults, historical baselines, migration comparisons, or flag-off goldens. Only explicit bundle tests and opted-in hosts should use `DefaultGameplayLocomotion`.
-Default bundle adoption is not legacy deletion. Phase 1 of the deletion-readiness gate isolates covered player/enemy/Charge locomotion fallback under default/flag-on lanes while keeping `MoveEntity`, `MovementExpander`, retained grid transactions, active glide retained fallback, and flag-off baselines out of the deletion target. Actual Charge fallback deletion is not complete and remains a later scoped deletion phase.
-Scoped deletion preparation pins this path with `ScopedDeletionPrep_ChargeLegacyFallback_IsFlagOffOnly`; `ChargeMove` remains allowed only for the flag-off baseline until owner-approved deletion.
+Default bundle adoption is not legacy deletion. Phase 1 of the deletion-readiness gate isolates covered player/enemy/Charge locomotion fallback under default/flag-on lanes, and Phase 3 moves covered fallback authorization to an explicit baseline while keeping `MoveEntity`, `MovementExpander`, retained grid transactions, and active glide retained fallback out of the deletion target. Actual Charge fallback deletion is not complete and remains a later scoped deletion phase.
+Scoped deletion preparation pins this path with `ScopedDeletionPrep_ChargeLegacyFallback_IsFlagOffOnly`; `ChargeMove` remains allowed only for `LegacyOrdinaryFallbackBaseline` until owner-approved deletion.
 
-Phase 2C of legacy ordinary Unit movement deprecation is a Charge active fallback pilot only. It pins the Charge fallback branch, flag reachability, `None` baseline policy, and deletion preconditions; it does not delete `ChargeMove`, `MoveEntity`, `MovementExpander`, retained grid transactions, or any player/enemy/glide fallback.
+Phase 2C of legacy ordinary Unit movement deprecation is a Charge active fallback pilot only. Phase 3 supersedes its `None` baseline policy with `LegacyOrdinaryFallbackBaseline`; it does not delete `ChargeMove`, `MoveEntity`, `MovementExpander`, retained grid transactions, or any player/enemy/glide fallback.
 
 When ordinary enemy kinematic locomotion is enabled but Charge kinematic locomotion is disabled, ChargeStart still waits for non-settled ordinary voluntary kinematic movement to settle. The legacy `ChargeMove` path starts only after the revalidated ChargeStart transition.
 

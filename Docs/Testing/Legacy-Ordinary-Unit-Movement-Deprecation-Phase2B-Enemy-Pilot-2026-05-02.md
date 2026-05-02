@@ -28,7 +28,7 @@ The enemy ordinary fallback branch is currently reachable through this chain:
 | leak guard | `TickPipeline.ValidateLegacyExpansionIntents` and `TryResolveForbiddenLegacyUnitOrdinaryMovement` reject covered enemy ordinary `Move` with `EnemyCoveredOrdinaryKinematicReachedLegacyExpansion` | enemy flag-on leak is a regression |
 | legacy candidate | `MovementExpander.ExpandMoveLike` and `ExpandMove` create ordinary `ActionGroupKind.Move` | retained for flag-off and grid transaction support |
 | boundary | `TickPipeline` movement boundary resolution classifies ordinary Unit `Move` groups as `LegacyFallback` | deletion candidate only for enemy ordinary fallback |
-| presentation | `TickResultBuilder` maps unsuppressed `MovementSemanticKind.Move` to `TickEntityMotionKind.Move` | allowed for documented enemy `None` baseline and retained grid presentation only |
+| presentation | `TickResultBuilder` maps unsuppressed `MovementSemanticKind.Move` to `TickEntityMotionKind.Move` | Phase 2B allowed this for documented enemy `None` baseline; Phase 3 moved it to `LegacyOrdinaryFallbackBaseline` |
 
 ## Flag Reachability
 
@@ -36,9 +36,9 @@ The enemy ordinary fallback branch is currently reachable through this chain:
 
 `EnemySameFaceContinuousLocomotionEnabled` makes synthetic enemy ordinary expansion a forbidden leak. The expected rejection reason is `EnemyCoveredOrdinaryKinematicReachedLegacyExpansion`.
 
-`GameplayRuntimeFeatureFlags.None` intentionally remains an enemy ordinary fallback baseline in this phase. The baseline is allowed for rollback, golden comparison, historical EnemyAi tests, and flag-off tests. It is also the scoped enemy deletion candidate for a later approval phase.
+Historical Phase 2B note: `GameplayRuntimeFeatureFlags.None` was the enemy ordinary fallback baseline in this phase. Phase 3 supersedes that policy: `None` now blocks covered enemy ordinary fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`, and intentional fallback tests use `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline`.
 
-Custom flags with `EnableEnemySameFaceContinuousLocomotion` disabled may still reach enemy ordinary fallback in this phase.
+Custom flags with `EnableEnemySameFaceContinuousLocomotion` disabled may reach enemy ordinary fallback only when `EnableLegacyOrdinaryUnitFallback` is explicitly enabled.
 
 ## Retained And Out-Of-Scope Paths
 
@@ -77,7 +77,7 @@ The helper vocabulary remains scoped to `LegacyFallback`, legacy `Move` presenta
 
 Actual enemy fallback deletion is not approved by Phase 2B. Before deleting or test-only-scoping the enemy fallback branch, the next phase needs:
 
-- explicit approval to remove or narrow the `GameplayRuntimeFeatureFlags.None` enemy fallback baseline
+- explicit approval to remove or narrow the `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` enemy fallback baseline
 - historical EnemyAi baseline owner approval
 - replay/golden migration or exemption policy
 - green enemy default and kinematic-on no-fallback canaries

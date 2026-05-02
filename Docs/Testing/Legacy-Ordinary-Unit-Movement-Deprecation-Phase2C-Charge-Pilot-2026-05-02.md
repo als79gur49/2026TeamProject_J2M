@@ -28,7 +28,7 @@ The Charge active fallback branch is currently reachable through this chain:
 | leak guard | `TickPipeline.ValidateLegacyExpansionIntents` and `TryResolveForbiddenLegacyUnitOrdinaryMovement` reject covered charge active `Move` with `ChargeCoveredKinematicReachedLegacyExpansion` | charge flag-on leak is a regression |
 | legacy candidate | `MovementExpander.ExpandMoveLike` and `ExpandMove` create ordinary `ActionGroupKind.Move` for flag-off active charge | retained for flag-off support |
 | legacy charge write | legacy action finalization consumes the active step with `ConsumeLegacyActiveStep` | deletion candidate only for charge active fallback |
-| presentation | `TickResultBuilder.ShouldUseChargeMovePresentation` maps active non-kinematic charge movement to `TickEntityMotionKind.ChargeMove` | allowed for documented charge `None` baseline only |
+| presentation | `TickResultBuilder.ShouldUseChargeMovePresentation` maps active non-kinematic charge movement to `TickEntityMotionKind.ChargeMove` | Phase 2C allowed this for documented charge `None` baseline; Phase 3 moved it to `LegacyOrdinaryFallbackBaseline` |
 
 ## Flag Reachability
 
@@ -36,9 +36,9 @@ The Charge active fallback branch is currently reachable through this chain:
 
 `EnemyChargeKinematicLocomotionEnabled` makes synthetic active charge expansion a forbidden leak. The expected rejection reason is `ChargeCoveredKinematicReachedLegacyExpansion`.
 
-`GameplayRuntimeFeatureFlags.None` intentionally remains a Charge fallback baseline in this phase. The baseline is allowed for rollback, golden comparison, historical Charge tests, and flag-off tests. It is also the scoped Charge deletion candidate for a later approval phase.
+Historical Phase 2C note: `GameplayRuntimeFeatureFlags.None` was the Charge fallback baseline in this phase. Phase 3 supersedes that policy: `None` now blocks covered Charge active fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`, and intentional fallback tests use `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline`.
 
-Custom flags with `EnableEnemyChargeKinematicLocomotion` disabled may still reach Charge active fallback in this phase.
+Custom flags with `EnableEnemyChargeKinematicLocomotion` disabled may reach Charge active fallback only when `EnableLegacyOrdinaryUnitFallback` is explicitly enabled.
 
 ## Retained And Out-Of-Scope Paths
 
@@ -77,7 +77,7 @@ The helper vocabulary remains scoped to `LegacyFallback`, legacy `ChargeMove` pr
 
 Actual Charge fallback deletion is not approved by Phase 2C. Before deleting or test-only-scoping the Charge fallback branch, the next phase needs:
 
-- explicit approval to remove or narrow the `GameplayRuntimeFeatureFlags.None` Charge fallback baseline
+- explicit approval to remove or narrow the `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` Charge fallback baseline
 - `ChargeMove` presentation owner approval
 - replay/golden migration or exemption policy
 - green Charge default and kinematic-on no-fallback canaries
