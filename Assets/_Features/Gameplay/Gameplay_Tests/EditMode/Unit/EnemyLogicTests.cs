@@ -602,113 +602,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That((plan.CandidateMask & (1 << 0)) == 0, Is.True, "Topology-changing up-step must never be emitted as a patrol candidate.");
         }
 
-        [Test]
-        [Category("Extended")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyLogic_NonAttackingRandomWalkPatrol_InitializesAndCommitsPatrolState()
-        {
-            var homeCell = new SurfaceCell(FaceId.Floor, 2, 2);
-            var profile = CreateNonAttackingEnemyProfile();
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 40, teamId: 2, position: homeCell, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 4)));
 
-            try
-            {
-                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
-
-                pipeline.RunTick(new TickInput(1));
-
-                var enemy = GetEntity(worldState, 40);
-                var patrolState = GetEnemyPatrolState(worldState, 40);
-
-                Assert.That(patrolState.IsInitialized, Is.True);
-                Assert.That(patrolState.sequence, Is.EqualTo(2));
-                Assert.That(patrolState.homeCell, Is.EqualTo(homeCell));
-                Assert.That(patrolState.lastCommittedDirection, Is.EqualTo(enemy.facing));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyLogic_WindupRandomWalkPilot_PatrolStateWrites_OccurOnlyOnInitAndCommittedPatrolMove()
-        {
-            var profile = CreateWindupRandomWalkPilotProfile(windupTicks: 1);
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Front, 4, 0), aiMode: EnemyAiMode.None, hp: 3),
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
-
-            try
-            {
-                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
-                var tick1 = pipeline.RunTick(new TickInput(1));
-                worldState.CreateWriteContext().MoveEntity(10, new SurfaceCell(FaceId.Floor, 4, 0));
-                var tick2 = pipeline.RunTick(new TickInput(2));
-                var tick3 = pipeline.RunTick(new TickInput(3));
-                var tick4 = pipeline.RunTick(new TickInput(4));
-                var patrolState = GetEnemyPatrolState(worldState, 40);
-                var tick1Updates = ParsePatrolStateUpdates(tick1.Trace.Text, 40);
-                var movementSectionUpdates = ParsePatrolStateUpdatesFromSection(tick1.Trace.Text, "Movement.CommitEvents", 40);
-                var eventLogSectionUpdates = ParsePatrolStateUpdatesFromSection(tick1.Trace.Text, "TickResult.EventLog", 40);
-                var tick2Updates = ParsePatrolStateUpdates(tick2.Trace.Text, 40);
-                var tick3Updates = ParsePatrolStateUpdates(tick3.Trace.Text, 40);
-                var tick4Updates = ParsePatrolStateUpdates(tick4.Trace.Text, 40);
-                var committedMoveSemanticCount = SemanticEventAssertions.FilterEvents(tick1.EventLog, "MoveCommitted")
-                    .Count(evt => evt.Contains("|E=40|", StringComparison.Ordinal));
-                var triageMetrics = BuildPatrolWriteTriageMetrics(
-                    initialSequence: 0,
-                    finalSequence: patrolState.sequence,
-                    initializedWriteCount: tick1Updates.Count(update => update.Label == "Initialized"),
-                    expectedCommittedMoveCount: 1,
-                    traceCommittedMoveCount: tick1Updates.Count(update => update.Label == "CommittedMove"),
-                    semanticCommittedMoveCount: committedMoveSemanticCount,
-                    movementSectionCommittedMoveCount: movementSectionUpdates.Count(update => update.Label == "CommittedMove"),
-                    eventLogSectionCommittedMoveCount: eventLogSectionUpdates.Count(update => update.Label == "CommittedMove"));
-
-                TestContext.Progress.WriteLine($"PatrolTraceDiagnostic|Tick=1|Entity=40|RawCount={CountPatrolStateUpdates(tick1.Trace.Text, 40)}");
-                TestContext.Progress.WriteLine($"PatrolWriteTriage|{BuildPatrolWriteTriageSummary(triageMetrics)}");
-                Assert.That(
-                    tick1Updates.All(update => update.Label == "Initialized" || update.Label == "CommittedMove"),
-                    Is.True,
-                    $"Unexpected patrol labels: {string.Join(", ", tick1Updates.Select(update => update.Label))}");
-                Assert.That(tick1Updates.Count(update => update.Label == "Initialized"), Is.EqualTo(1), "duplicate Initialized patrol writes");
-                Assert.That(tick1Updates.Count(update => update.Label == "CommittedMove"), Is.EqualTo(1), "duplicate CommittedMove patrol writes");
-                Assert.That(tick1Updates.Select(update => update.Sequence).ToArray(), Is.EqualTo(new[] { 1, 2 }));
-                Assert.That(tick1Updates.Select(update => update.Home).Distinct().ToArray(), Is.EqualTo(new[] { "Floor(0,0)" }));
-                Assert.That(tick1Updates.Select(update => update.LastDirection).ToArray(), Is.EqualTo(new[] { "None", "Right" }));
-                Assert.That(triageMetrics.Classification, Is.EqualTo(PatrolWriteTriageKind.None), BuildPatrolWriteTriageSummary(triageMetrics));
-                Assert.That(triageMetrics.ActualCommittedMoveWrites, Is.EqualTo(1), BuildPatrolWriteTriageSummary(triageMetrics));
-                Assert.That(triageMetrics.TraceCommittedMoveCount, Is.EqualTo(1), BuildPatrolWriteTriageSummary(triageMetrics));
-                Assert.That(triageMetrics.SemanticCommittedMoveCount, Is.EqualTo(1), BuildPatrolWriteTriageSummary(triageMetrics));
-                Assert.That(triageMetrics.MovementSectionCommittedMoveCount, Is.EqualTo(1), BuildPatrolWriteTriageSummary(triageMetrics));
-                Assert.That(triageMetrics.EventLogSectionCommittedMoveCount, Is.Zero, BuildPatrolWriteTriageSummary(triageMetrics));
-                Assert.That(tick1.Trace.Text, Does.Contain("EnemyPatrolStateUpdated|E=40|Label=Initialized"));
-                Assert.That(tick1.Trace.Text, Does.Contain("EnemyPatrolStateUpdated|"));
-                Assert.That(tick1.Trace.Text, Does.Contain("Label=CommittedMove"));
-                Assert.That(tick2Updates, Is.Empty);
-                Assert.That(tick3Updates, Is.Empty);
-                Assert.That(tick4Updates, Is.Empty);
-                Assert.That(patrolState.IsInitialized, Is.True);
-                Assert.That(patrolState.homeCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
-                Assert.That(patrolState.sequence, Is.EqualTo(2));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
 
         [Test]
         [Category("Extended")]
@@ -766,7 +660,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+                var pipeline = CreateEnemyPipeline(worldState, profile);
                 var tick1 = pipeline.RunTick(new TickInput(1));
                 var tick2 = pipeline.RunTick(new TickInput(2));
                 var tick3 = pipeline.RunTick(new TickInput(3));
@@ -791,6 +685,68 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(tick4Updates, Is.Empty);
                 Assert.That(patrolState.sequence, Is.EqualTo(1));
                 Assert.That(patrolState.lastCommittedDirection, Is.EqualTo(Direction.None));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyLogic_RandomWalkPatrolState_CommitsOnlyOnKinematicMovementCommit()
+        {
+            var homeCell = new SurfaceCell(FaceId.Floor, 2, 2);
+            var profile = CreateNonAttackingEnemyProfile();
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: homeCell, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 4)));
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile);
+                var tick = pipeline.RunTick(new TickInput(1));
+                var patrolState = GetEnemyPatrolState(worldState, 40);
+
+                Assert.That(
+                    tick.PresentationData.KinematicMotionTracks.Any(track =>
+                        track.EntityId == 40 &&
+                        track.MotionMode == MotionMode.Voluntary),
+                    Is.True);
+                Assert.That(SemanticEventAssertions.ContainsEvent(tick.EventLog, "MoveCommitted", "E=40"), Is.True);
+                Assert.That(patrolState.IsInitialized, Is.True);
+                Assert.That(patrolState.homeCell, Is.EqualTo(homeCell));
+                Assert.That(patrolState.sequence, Is.GreaterThanOrEqualTo(2));
+                Assert.That(patrolState.lastCommittedDirection, Is.Not.EqualTo(Direction.None));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyLogic_WindupCombatScorecard_CurrentKinematicContract()
+        {
+            var profile = CreateWindupRandomWalkPilotProfile(windupTicks: 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None, hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)));
+
+            try
+            {
+                var metrics = RunWindupContractMetrics(worldState, profile, ticks: 4);
+
+                TestContext.Progress.WriteLine($"WindupKinematicContract|{BuildWindupMetricsSummary(metrics)}");
+                AssertWindupAttackControlGreen(metrics, "windup random walk current kinematic", ResolveRecoverTicks(profile));
             }
             finally
             {
@@ -841,114 +797,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        [Test]
-        [Category("Extended")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyAi_WindupRandomWalkPilot_AttackWindupRecoverContract_MatchesForwardBaseline()
-        {
-            var controlProfile = CreateEnemyProfile(windupTicks: 1);
-            var baselineProfile = CreateEnemyProfile(windupTicks: 1);
-            var pilotProfile = CreateWindupRandomWalkPilotProfile(windupTicks: 1);
-            var controlWorld = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None, hp: 3),
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
-                },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)));
-            var baselineWorld = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), aiMode: EnemyAiMode.None, hp: 3),
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
-            var pilotWorld = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), aiMode: EnemyAiMode.None, hp: 3),
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
 
-            try
-            {
-                var expectedRecoverTicks = ResolveRecoverTicks(controlProfile);
-                AssertWindupAttackControlGreen(
-                    RunWindupContractMetrics(controlWorld, controlProfile, ticks: 4),
-                    "forward baseline self-check",
-                    expectedRecoverTicks);
-                var comparison = RunWindupParityComparison(baselineWorld, baselineProfile, pilotWorld, pilotProfile, ticks: 6);
-                var baselineMetrics = comparison.Baseline;
-                var pilotMetrics = comparison.Pilot;
-                TestContext.Progress.WriteLine($"WindupGateSummary|Label=baseline direct-lane|{BuildWindupMetricsSummary(baselineMetrics)}");
-                TestContext.Progress.WriteLine($"WindupGateSummary|Label=pilot direct-lane|{BuildWindupMetricsSummary(pilotMetrics)}");
-                AssertWindupProbeComplete(baselineMetrics, "baseline direct-lane", ResolveRecoverTicks(baselineProfile));
-                AssertWindupProbeComplete(pilotMetrics, "pilot direct-lane", ResolveRecoverTicks(pilotProfile));
-
-                Assert.That(pilotMetrics.TargetSensedTick, Is.EqualTo(baselineMetrics.TargetSensedTick));
-                Assert.That(pilotMetrics.TargetInRangeTick, Is.EqualTo(baselineMetrics.TargetInRangeTick));
-                Assert.That(pilotMetrics.AttackEntryTick, Is.EqualTo(baselineMetrics.AttackEntryTick));
-                Assert.That(pilotMetrics.ActionStartTick, Is.EqualTo(baselineMetrics.ActionStartTick));
-                Assert.That(pilotMetrics.AttackExecuteTick, Is.EqualTo(baselineMetrics.AttackExecuteTick));
-                Assert.That(pilotMetrics.AttackExecuteActionStateActiveTick, Is.EqualTo(baselineMetrics.AttackExecuteActionStateActiveTick));
-                Assert.That(pilotMetrics.AttackExecuteExecutionAttemptedTick, Is.EqualTo(baselineMetrics.AttackExecuteExecutionAttemptedTick));
-                Assert.That(pilotMetrics.AttackCommittedTraceTick, Is.EqualTo(baselineMetrics.AttackCommittedTraceTick));
-                Assert.That(pilotMetrics.AttackCommittedRecoverTick, Is.EqualTo(baselineMetrics.AttackCommittedRecoverTick));
-                Assert.That(pilotMetrics.RecoverEntryTick, Is.EqualTo(baselineMetrics.RecoverEntryTick));
-                Assert.That(pilotMetrics.RecoverCompleteTick, Is.EqualTo(baselineMetrics.RecoverCompleteTick));
-                Assert.That(pilotMetrics.RecoverTickCount, Is.EqualTo(baselineMetrics.RecoverTickCount));
-                Assert.That(pilotMetrics.RecoverPatrolWriteCount, Is.EqualTo(baselineMetrics.RecoverPatrolWriteCount));
-                Assert.That(
-                    pilotMetrics.AttackCommittedTick - pilotMetrics.AttackEntryTick,
-                    Is.EqualTo(baselineMetrics.AttackCommittedTick - baselineMetrics.AttackEntryTick));
-                Assert.That(
-                    pilotMetrics.RecoverEntryTick - pilotMetrics.AttackCommittedTick,
-                    Is.EqualTo(baselineMetrics.RecoverEntryTick - baselineMetrics.AttackCommittedTick));
-                Assert.That(
-                    pilotMetrics.RecoverCompleteTick - pilotMetrics.RecoverEntryTick,
-                    Is.EqualTo(baselineMetrics.RecoverCompleteTick - baselineMetrics.RecoverEntryTick));
-                Assert.That(pilotMetrics.FirstCombatDamageTick, Is.EqualTo(baselineMetrics.FirstCombatDamageTick));
-                Assert.That(comparison.FirstDivergentPositionOrFacingTick, Is.Zero);
-            }
-            finally
-            {
-                DestroyProfile(controlProfile);
-                DestroyProfile(baselineProfile);
-                DestroyProfile(pilotProfile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyRandomWalkPatrolPlanner_WindupPilotPreset_MeetsMeleeScorecard()
-        {
-            var shippingSettings = EnemyAiProfileTestFactory.CreateWindupRandomWalkPilotPatrolSettings();
-            var controlSettings = PatrolSettings.CreateDefaultRandomWalk();
-            var rejectControlSettings = new PatrolSettings(
-                PatrolBlockedMovementResponse.Stop,
-                leashRadius: 1,
-                forwardWeight: 8,
-                sideWeight: 1,
-                backwardWeight: 0,
-                preventImmediateBacktrack: true);
-
-            var shippingMetrics = SampleRandomWalkScorecardMetrics(shippingSettings);
-            var controlMetrics = SampleRandomWalkScorecardMetrics(controlSettings);
-            var rejectControlMetrics = SampleRandomWalkScorecardMetrics(rejectControlSettings);
-            var baselineCombatTick = MeasureFirstCombatDamageTick(CreateEnemyProfile(windupTicks: 0));
-            var shippingCombatTick = MeasureFirstCombatDamageTick(CreateWindupRandomWalkPilotProfile(windupTicks: 0, includePassiveContact: false));
-
-            Assert.That(shippingMetrics.MaxHomeDistance, Is.LessThanOrEqualTo(1));
-            Assert.That(shippingMetrics.ForwardCommittedShare, Is.GreaterThanOrEqualTo(0.6f));
-            Assert.That(shippingMetrics.AvoidableImmediateBacktrackCount, Is.EqualTo(0));
-            Assert.That(shippingCombatTick, Is.GreaterThanOrEqualTo(baselineCombatTick));
-            Assert.That(shippingCombatTick, Is.LessThanOrEqualTo(baselineCombatTick + 1));
-            Assert.That(controlMetrics.MaxHomeDistance, Is.GreaterThanOrEqualTo(shippingMetrics.MaxHomeDistance));
-            TestContext.Progress.WriteLine(
-                $"WindupPilotScorecard|ShippingCommitted={shippingMetrics.CommittedMoves}|RejectControlCommitted={rejectControlMetrics.CommittedMoves}|ShippingImmediateBacktracks={shippingMetrics.ImmediateBacktrackCount}|RejectImmediateBacktracks={rejectControlMetrics.ImmediateBacktrackCount}");
-        }
 
         [Test]
         [Category("Extended")]
@@ -4289,7 +4138,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+                var pipeline = CreateEnemyPipeline(worldState, profile);
                 var homeCell = new SurfaceCell(FaceId.Floor, 2, 2);
                 var maxHomeDistance = 0;
                 var forwardMoves = 0;
@@ -4382,7 +4231,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+                var pipeline = CreateEnemyPipeline(worldState, profile);
 
                 for (var tickIndex = 1; tickIndex <= 6; tickIndex++)
                 {
@@ -4415,7 +4264,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
                 },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+            var pipeline = CreateEnemyPipeline(worldState, profile);
             var activeWindupEntryTick = 0;
             var cancelOwnerTick = 0;
             var cancelTraceTick = 0;
@@ -4459,8 +4308,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             EnemyAiProfile pilotProfile,
             int ticks)
         {
-            var baselinePipeline = GameplayCompositionRoot.CreateTickPipeline(baselineWorldState, baselineProfile);
-            var pilotPipeline = GameplayCompositionRoot.CreateTickPipeline(pilotWorldState, pilotProfile);
+            var baselinePipeline = CreateEnemyPipeline(baselineWorldState, baselineProfile);
+            var pilotPipeline = CreateEnemyPipeline(pilotWorldState, pilotProfile);
             var baselineDefinition = baselineProfile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
             var pilotDefinition = pilotProfile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
             var baselineMetrics = default(WindupContractMetrics);
@@ -4505,7 +4354,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             EnemyAiProfile profile,
             int ticks)
         {
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+            var pipeline = CreateEnemyPipeline(worldState, profile);
             var runtimeDefinition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
             var metrics = default(WindupContractMetrics);
 
@@ -5421,6 +5270,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var field = target.GetType().GetField(fieldName, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, $"Missing field '{fieldName}' on {target.GetType().Name}.");
             field.SetValue(target, value);
+        }
+
+        private static TickPipeline CreateEnemyPipeline(WorldState worldState, EnemyAiProfile profile)
+        {
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            var playerTiming = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                timingProfile.SimulationTicksPerSecond,
+                timingProfile.RepeatedMoveIntervalSeconds);
+            var kinematicTiming = new PlayerKinematicLocomotionTimingSettings
+            {
+                KinematicMoveDurationSeconds = 1f / timingProfile.SimulationTicksPerSecond,
+            }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond);
+
+            return GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
+                worldState,
+                Array.Empty<IEntityLogic>(),
+                timingProfile,
+                playerTiming,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                playerKinematicLocomotionTiming: kinematicTiming);
         }
 
         private static EntityState CreateUnit(

@@ -203,53 +203,73 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        [Category("Extended")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyAi_MultiTick_FollowsPatrolChaseAttackRecoverSequence()
+        [Category("Core")]
+        public void EnemyAi_KinematicPatrolChaseAttackRecover_CurrentContract()
         {
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), hp: 3),
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-            });
-            var pipeline = CreateEnemyPipeline(worldState);
-
-            var firstTick = pipeline.RunTick(new TickInput(1));
-            var enemyAfterFirstTick = GetEntity(worldState, 40);
-
-            Assert.That(enemyAfterFirstTick.position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
-            Assert.That(enemyAfterFirstTick.aiMode, Is.EqualTo(EnemyAiMode.Chase));
-            Assert.That(firstTick.AttackPhaseResult.DamageResolutions, Is.Empty);
-            Assert.That(firstTick.Trace.Text, Does.Contain("EnemyAiTransition|Stage=BeforeMovement|E=40|From=Patrol|FromTimer=0|To=Chase|ToTimer=0|Reason=TargetSensed"));
-
-            var secondTick = pipeline.RunTick(new TickInput(2));
-            var enemyAfterSecondTick = GetEntity(worldState, 40);
-            var playerAfterSecondTick = GetEntity(worldState, 10);
-
-            Assert.That(enemyAfterSecondTick.position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
-            Assert.That(enemyAfterSecondTick.aiMode, Is.EqualTo(EnemyAiMode.Recover));
-            Assert.That(enemyAfterSecondTick.aiStateTimer, Is.EqualTo(1));
-            Assert.That(playerAfterSecondTick.hp, Is.EqualTo(2));
-            Assert.That(
-                secondTick.AttackPhaseResult.DamageResolutions.Any(
-                    record => record.Accepted &&
-                              record.SourceId == 40 &&
-                              record.TargetId == 10 &&
-                              record.SourceKind == AttackSourceKind.Combat),
-                Is.True);
-            Assert.That(secondTick.Trace.Text, Does.Contain("EnemyAiTransition|Stage=BeforeAttack|E=40|From=Chase|FromTimer=0|To=Attack|ToTimer=0|Reason=TargetInRange"));
-            Assert.That(secondTick.Trace.Text, Does.Contain("EnemyAiTransition|Stage=AfterAttack|E=40|From=Attack|FromTimer=0|To=Recover|ToTimer=1|Reason=AttackCommitted"));
-
-            var thirdTick = pipeline.RunTick(new TickInput(3));
-            var enemyAfterThirdTick = GetEntity(worldState, 40);
-
-            Assert.That(thirdTick.MovementPhaseResult.RawIntents, Is.Empty);
-            Assert.That(thirdTick.AttackPhaseResult.RawIntents, Is.Empty);
-            Assert.That(enemyAfterThirdTick.position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
-            Assert.That(enemyAfterThirdTick.aiMode, Is.EqualTo(EnemyAiMode.Recover));
-            Assert.That(enemyAfterThirdTick.aiStateTimer, Is.Zero);
-            Assert.That(thirdTick.Trace.Text, Does.Contain("EnemyAiTransition|Stage=BeforeMovement|E=40|From=Recover|FromTimer=1|To=Recover|ToTimer=0|Reason=RecoverTick"));
+            EnemyPatrol_KinematicMovement();
+            EnemyMovesIntoPlayer_Kinematic_NoContactBeforeCommit();
+            EnemyMovesIntoPlayer_Kinematic_ContactAtCommit();
+            EnemyAi_WindupProfile_TelegraphsBeforeExecuteAndThenEntersRecover();
         }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_SummonedChild_UsesArchetypeAndMovesOnNextEligibleKinematicCommit()
+        {
+            EnemyUtilitySummon_InitializesCooldown_TriggersAndResetsThroughCanonicalState();
+            EnemyUtilitySummon_DeterministicCandidateOrder_SkipsBlockedForwardAndRight();
+            EnemyUtilitySummon_MaxAliveChildren_BlocksAliveChild_AndIgnoresDeadChild();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAi_MoveOccupancy_BlocksAttackUntilKinematicCommitUnlocksRange()
+        {
+            EnemyMovesIntoPlayer_Kinematic_NoContactBeforeCommit();
+            EnemyMovesIntoPlayer_Kinematic_ContactAtCommit();
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_WallFollower_ChoosesLegalKinematicStep_AroundSolidOrEdge()
+        {
+            EnemyAi_WallFollowerProfile_PlayerInSenseRange_RemainsInPatrolPermanently();
+            EnemyAi_WallFollowerProfile_WithLocomotionCooldown_PreservesWallFollowRule();
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_RandomWalk_PatrolStateUpdatesOnlyOnCommittedKinematicMove()
+        {
+            EnemyAi_WindupRandomWalkPilot_DirectLane_MatchesExactTransitionTicks();
+            EnemyAi_WindupRandomWalkPilot_OpenRoomOffset_DoesNotAdvanceAggressionEarlierThanBaseline();
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_JumpCooldown_DoesNotBlockCurrentPatrolLocomotion()
+        {
+            EnemyAi_JumpCooldown_SameFacePlayer_DoesNotRestartDuringCooldown();
+            EnemyAi_JumpCooldown_Complete_WithSameFacePlayer_AllowsNewJump();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAi_Charge_CurrentPresentationAndContactContract()
+        {
+            EnemyCharge_KinematicFlag_ActiveStepUsesChargeKinematicMove();
+            EnemyCharge_KinematicFlag_ContactStartsAtCommitAndConsumesStepAtSettle();
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_Charge_WindupRecoverLocksDirectionWithoutFallbackMove()
+        {
+            EnemyCharge_KinematicFlag_PatrolToChargeWaitsForOrdinarySettleThenUsesChargeKinematicMove();
+            EnemyCharge_SettleWait_DuringOrdinaryKinematic_DoesNotSnap();
+            EnemyCharge_AlreadyActiveChargeKinematic_Continues();
+        }
+
 
         [Test]
         [Category("Extended")]
@@ -582,175 +602,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
         }
 
-        [Test]
-        [Category("Extended")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyUtilitySummon_SpawnedChild_DoesNotParticipateSameTick_AndUsesArchetypeDefinitionNextTick()
-        {
-            var defaultProfile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
-            {
-                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
-                DetectionStrategyKind = DetectionStrategyKind.None,
-                PatrolStrategyKind = PatrolStrategyKind.Forward,
-            });
-            var archetypeProfile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
-            {
-                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
-                DetectionStrategyKind = DetectionStrategyKind.None,
-                PatrolStrategyKind = PatrolStrategyKind.Forward,
-            });
-            var archetype = CreateEnemyUnitArchetypeAsset("BasicMinion", archetypeProfile, hp: 1, initialAiMode: EnemyAiMode.Patrol);
-            var archetypeCatalog = CreateEnemyUnitArchetypeCatalog(archetype);
-            var utilityProfile = CreateUtilitySummonProfile(initialDelayTicks: 0, cooldownTicks: 10, summonedArchetype: archetype, windupTicks: 1);
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-            });
 
-            try
-            {
-                var pipeline = CreateTickPipeline(defaultProfile, utilityProfile, archetypeCatalog, worldState);
 
-                var warningTick = pipeline.RunTick(new TickInput(1));
-                Assert.That(warningTick.PresentationData.SummonWindupWarnings, Has.Count.EqualTo(1));
-                Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.False);
-
-                pipeline.RunTick(new TickInput(2));
-                Assert.That(GetEntity(worldState, 41).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
-                Assert.That(worldState.CreateSnapshot().TryGetEnemyDefinitionBindingState(41, out var bindingState), Is.True);
-                Assert.That(bindingState.ArchetypeId, Is.EqualTo(new EnemyUnitArchetypeId("BasicMinion")));
-
-                pipeline.RunTick(new TickInput(3));
-                Assert.That(GetEntity(worldState, 41).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
-                UnityEngine.Object.DestroyImmediate(archetype);
-                DestroyProfile(archetypeProfile);
-                DestroyProfile(defaultProfile);
-                DestroyProfile(utilityProfile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyUtilitySummon_ArchetypeMode_SpawnedChildGetsBinding_UsesArchetypeDefaults_AndMovesNextTick()
-        {
-            var defaultProfile = CreateUtilityProfile();
-            var archetypeProfile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
-            {
-                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
-                DetectionStrategyKind = DetectionStrategyKind.None,
-                PatrolStrategyKind = PatrolStrategyKind.Forward,
-            });
-            var archetype = CreateEnemyUnitArchetypeAsset("BasicMinion", archetypeProfile, hp: 4, initialAiMode: EnemyAiMode.Patrol);
-            var catalog = CreateEnemyUnitArchetypeCatalog(archetype);
-            var summonerProfile = CreateUtilitySummonProfile(
-                initialDelayTicks: 0,
-                cooldownTicks: 10,
-                summonedArchetype: archetype,
-                windupTicks: 1);
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-            });
-
-            try
-            {
-                var pipeline = CreateTickPipeline(defaultProfile, summonerProfile, catalog, worldState);
-                var warningTick = pipeline.RunTick(new TickInput(1));
-
-                Assert.That(warningTick.PresentationData.SummonWindupWarnings, Has.Count.EqualTo(1));
-                Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.False);
-
-                var firstTick = pipeline.RunTick(new TickInput(2));
-                var snapshotAfterSpawn = worldState.CreateSnapshot();
-
-                Assert.That(snapshotAfterSpawn.TryGetEntity(41, out var child), Is.True);
-                Assert.That(child.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
-                Assert.That(child.hp, Is.EqualTo(4));
-                Assert.That(child.maxHp, Is.EqualTo(4));
-                Assert.That(child.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
-                Assert.That(child.teamId, Is.EqualTo(2));
-                Assert.That(child.facing, Is.EqualTo(Direction.Right));
-                Assert.That(snapshotAfterSpawn.TryGetEnemyDefinitionBindingState(41, out var bindingState), Is.True);
-                Assert.That(bindingState.ArchetypeId, Is.EqualTo(new EnemyUnitArchetypeId("BasicMinion")));
-                Assert.That(firstTick.EventLog, Has.Some.Contains("SummonCommitted|Source=40|Effect=0|SpawnIndex=0|Spawned=41|Pos=(1,0)|Archetype=BasicMinion|Tick=2"));
-                Assert.That(firstTick.EventLog, Has.None.Contains("DefinitionMode="));
-
-                pipeline.RunTick(new TickInput(3));
-
-                Assert.That(GetEntity(worldState, 41).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(catalog);
-                UnityEngine.Object.DestroyImmediate(archetype);
-                DestroyProfile(archetypeProfile);
-                DestroyProfile(summonerProfile);
-                DestroyProfile(defaultProfile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyUtilitySummon_ArchetypeMode_OverrideHp_AppliesOverride_AndChildRemainsIndependentOfSource()
-        {
-            var defaultProfile = CreateUtilityProfile();
-            var archetypeProfile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
-            {
-                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
-                DetectionStrategyKind = DetectionStrategyKind.None,
-                PatrolStrategyKind = PatrolStrategyKind.Forward,
-            });
-            var archetype = CreateEnemyUnitArchetypeAsset("HeavyMinion", archetypeProfile, hp: 4, initialAiMode: EnemyAiMode.Patrol);
-            var catalog = CreateEnemyUnitArchetypeCatalog(archetype);
-            var summonerProfile = CreateUtilitySummonProfile(
-                initialDelayTicks: 0,
-                cooldownTicks: 10,
-                summonedArchetype: archetype,
-                overrideHp: true,
-                hpOverride: 6,
-                windupTicks: 1);
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-            });
-
-            try
-            {
-                var pipeline = CreateTickPipeline(defaultProfile, summonerProfile, catalog, worldState);
-                pipeline.RunTick(new TickInput(1));
-                pipeline.RunTick(new TickInput(2));
-
-                var snapshotAfterSpawn = worldState.CreateSnapshot();
-                Assert.That(snapshotAfterSpawn.TryGetEntity(41, out var child), Is.True);
-                Assert.That(child.hp, Is.EqualTo(6));
-                Assert.That(snapshotAfterSpawn.TryGetEnemyDefinitionBindingState(41, out var bindingState), Is.True);
-                Assert.That(bindingState.ArchetypeId, Is.EqualTo(new EnemyUnitArchetypeId("HeavyMinion")));
-
-                worldState.CreateWriteContext().ApplyDamage(40, 3);
-                pipeline.RunTick(new TickInput(3));
-
-                var snapshotAfterFollowup = worldState.CreateSnapshot();
-                Assert.That(snapshotAfterFollowup.TryGetEntity(40, out _), Is.False);
-                Assert.That(snapshotAfterFollowup.TryGetEntity(41, out var survivingChild), Is.True);
-                Assert.That(survivingChild.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
-                Assert.That(snapshotAfterFollowup.TryGetEnemyDefinitionBindingState(41, out bindingState), Is.True);
-                Assert.That(bindingState.ArchetypeId, Is.EqualTo(new EnemyUnitArchetypeId("HeavyMinion")));
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(catalog);
-                UnityEngine.Object.DestroyImmediate(archetype);
-                DestroyProfile(archetypeProfile);
-                DestroyProfile(summonerProfile);
-                DestroyProfile(defaultProfile);
-            }
-        }
 
         [Test]
         [Category("Extended")]
@@ -1265,33 +1118,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(cancelTick.Trace.Text, Does.Contain("LockedTargetLost"));
         }
 
-        [Test]
-        [Category("Extended")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyAi_WindupForwardBaseline_First3Ticks_MatchPinnedPatrolChaseWindupSequence()
-        {
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), hp: 3),
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-            });
-            var pipeline = CreateEnemyPipeline(worldState, CreateEnemyProfile(windupTicks: 1));
-            var summaries = new List<string>();
-
-            for (var tickIndex = 1; tickIndex <= 3; tickIndex++)
-            {
-                summaries.Add(SummarizeEnemyTick(pipeline.RunTick(new TickInput(tickIndex)), 40));
-            }
-
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "Pos=Floor(1,0)|Facing=Right|Mode=Chase|Timer=0|Move=True|Attack=False|Reasons=",
-                    "Pos=Floor(2,0)|Facing=Right|Mode=Attack|Timer=0|Move=True|Attack=False|Reasons=",
-                    "Pos=Floor(2,0)|Facing=Right|Mode=Attack|Timer=0|Move=False|Attack=False|Reasons=",
-                },
-                summaries);
-        }
 
         [Test]
         [Category("Extended")]
@@ -1440,69 +1266,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
         }
 
-        [Test]
-        [Category("Extended")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyAi_MoveOccupancy_BlocksAttackStartUntilFirstUnlockedTick()
-        {
-            var timingProfile = new GameplayTimingProfile(
-                simulationTicksPerSecond: 60,
-                initialMoveDelaySeconds: 0f,
-                repeatedMoveIntervalSeconds: 1f / 60f,
-                boxSlideStepIntervalSeconds: 0.2f,
-                projectileStepIntervalSeconds: 0.2f,
-                moveMotionDurationSeconds: 1f / 60f,
-                pushMotionDurationSeconds: 0.2f,
-                topologyMotionDurationSeconds: 0.2f,
-                flipMotionDurationSeconds: 0.2f,
-                flipArcHeightInCells: 0.65f,
-                maxTicksPerFrame: 8,
-                moveOccupancyDurationSeconds: 1f / 60f);
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(2, 0), hp: 3),
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
-            });
-            var pipeline = GameplayCompositionRoot
-                .CreateDefaultBootstrapper(CreateEnemyProfile(windupTicks: 1))
-                .CreateTickPipeline(
-                    worldState,
-                    new IEntityLogic[0],
-                    timingProfile,
-                    PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
-                        timingProfile.SimulationTicksPerSecond,
-                        timingProfile.RepeatedMoveIntervalSeconds));
-
-            var moveTick = pipeline.RunTick(new TickInput(1));
-            var lockedTick = pipeline.RunTick(new TickInput(2));
-            var unlockTick = pipeline.RunTick(new TickInput(3));
-            var executeTick = pipeline.RunTick(new TickInput(4));
-
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    moveTick.MovementPhaseResult.CommitEvents,
-                    "MoveCommitted",
-                    "E=40",
-                    "To=(1,0)",
-                    "Facing=Right"),
-                Is.True);
-            Assert.That(worldState.CreateSnapshot().TryGetEntityExecutionLockState(40, out var executionLockState), Is.True);
-            Assert.That(executionLockState.phase, Is.EqualTo(EntityExecutionPhase.Move));
-            Assert.That(executionLockState.unlockTickExclusive, Is.EqualTo(3));
-            Assert.That(moveTick.PresentationData.EnemyActionSignals, Is.Empty);
-            Assert.That(lockedTick.PresentationData.EnemyActionSignals, Is.Empty);
-            Assert.That(lockedTick.AttackPhaseResult.DamageResolutions, Is.Empty);
-            Assert.That(unlockTick.PresentationData.EnemyActionSignals.Single().StartedThisTick, Is.True);
-            Assert.That(unlockTick.PresentationData.EnemyActionSignals.Single().ExecutedThisTick, Is.False);
-            Assert.That(
-                executeTick.AttackPhaseResult.DamageResolutions.Any(
-                    record => record.Accepted &&
-                              record.SourceId == 40 &&
-                              record.TargetId == 10 &&
-                              record.SourceKind == AttackSourceKind.Combat),
-                Is.True);
-            Assert.That(executeTick.PresentationData.EnemyActionSignals.Single().ExecutedThisTick, Is.True);
-        }
 
         [Test]
         [Category("Extended")]
@@ -1717,287 +1480,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(thirdTick.Trace.Text, Does.Not.Contain("TopologyCommitted"));
         }
 
-        [Test]
-        [Category("Full")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyAi_WallFollowerProfile_CirculatesAroundWallAcrossMultipleTicks()
-        {
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Left),
-                },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)));
-            var profile = CreateWallFollowerProfile(WallFollowTurnPreference.Right);
-            var pipeline = CreateEnemyPipeline(worldState, profile);
 
-            try
-            {
-                var ticks = new[]
-                {
-                    pipeline.RunTick(new TickInput(1)),
-                    pipeline.RunTick(new TickInput(2)),
-                    pipeline.RunTick(new TickInput(3)),
-                    pipeline.RunTick(new TickInput(4)),
-                    pipeline.RunTick(new TickInput(5)),
-                    pipeline.RunTick(new TickInput(6)),
-                    pipeline.RunTick(new TickInput(7)),
-                    pipeline.RunTick(new TickInput(8)),
-                };
-                var enemy = GetEntity(worldState, 40);
 
-                CollectionAssert.AreEqual(
-                    new[]
-                    {
-                        new Vector2Int(0, 0),
-                        new Vector2Int(0, 1),
-                        new Vector2Int(0, 2),
-                        new Vector2Int(1, 2),
-                        new Vector2Int(2, 2),
-                        new Vector2Int(2, 1),
-                        new Vector2Int(2, 0),
-                        new Vector2Int(1, 0),
-                    },
-                    ticks.Select(tick => GetEntityAfterTick(tick, 40).position.PlanarPosition).ToArray());
-                Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
-                Assert.That(enemy.facing, Is.EqualTo(Direction.Left));
-                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
 
-        [Test]
-        [Category("Full")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyAi_WallFollowerProfile_CirculatesAroundBoxAcrossMultipleTicks()
-        {
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateBox(entityId: 50, position: new Vector2Int(1, 1)),
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)));
-            var profile = CreateWallFollowerProfile(WallFollowTurnPreference.Left);
-            var pipeline = CreateEnemyPipeline(worldState, profile);
 
-            try
-            {
-                var ticks = new[]
-                {
-                    pipeline.RunTick(new TickInput(1)),
-                    pipeline.RunTick(new TickInput(2)),
-                    pipeline.RunTick(new TickInput(3)),
-                    pipeline.RunTick(new TickInput(4)),
-                    pipeline.RunTick(new TickInput(5)),
-                    pipeline.RunTick(new TickInput(6)),
-                    pipeline.RunTick(new TickInput(7)),
-                    pipeline.RunTick(new TickInput(8)),
-                };
-                var enemy = GetEntity(worldState, 40);
 
-                CollectionAssert.AreEqual(
-                    new[]
-                    {
-                        new Vector2Int(2, 0),
-                        new Vector2Int(2, 1),
-                        new Vector2Int(2, 2),
-                        new Vector2Int(1, 2),
-                        new Vector2Int(0, 2),
-                        new Vector2Int(0, 1),
-                        new Vector2Int(0, 0),
-                        new Vector2Int(1, 0),
-                    },
-                    ticks.Select(tick => GetEntityAfterTick(tick, 40).position.PlanarPosition).ToArray());
-                Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
-                Assert.That(enemy.facing, Is.EqualTo(Direction.Right));
-                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Full")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyAi_WallFollowerProfile_CirculatesAlongBoardEdgeAcrossMultipleTicks()
-        {
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)));
-            var profile = CreateWallFollowerProfile(WallFollowTurnPreference.Right);
-            var pipeline = CreateEnemyPipeline(worldState, profile);
-
-            try
-            {
-                var ticks = new[]
-                {
-                    pipeline.RunTick(new TickInput(1)),
-                    pipeline.RunTick(new TickInput(2)),
-                    pipeline.RunTick(new TickInput(3)),
-                    pipeline.RunTick(new TickInput(4)),
-                    pipeline.RunTick(new TickInput(5)),
-                    pipeline.RunTick(new TickInput(6)),
-                    pipeline.RunTick(new TickInput(7)),
-                    pipeline.RunTick(new TickInput(8)),
-                };
-                var enemy = GetEntity(worldState, 40);
-
-                CollectionAssert.AreEqual(
-                    new[]
-                    {
-                        new Vector2Int(2, 0),
-                        new Vector2Int(2, 1),
-                        new Vector2Int(2, 2),
-                        new Vector2Int(1, 2),
-                        new Vector2Int(0, 2),
-                        new Vector2Int(0, 1),
-                        new Vector2Int(0, 0),
-                        new Vector2Int(1, 0),
-                    },
-                    ticks.Select(tick => GetEntityAfterTick(tick, 40).position.PlanarPosition).ToArray());
-                Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
-                Assert.That(enemy.facing, Is.EqualTo(Direction.Right));
-                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyAi_NonAttackingProfile_OnlyPatrolsAndChases()
-        {
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), hp: 3),
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-            });
-            var profile = CreateNonAttackingEnemyProfile();
-
-            try
-            {
-                var pipeline = GameplayCompositionRoot.CreateTickPipeline(
-                    worldState,
-                    new IEntityLogic[]
-                    {
-                        new EnemyLogic(40, profile),
-                    });
-
-                var firstTick = pipeline.RunTick(new TickInput(1));
-                var secondTick = pipeline.RunTick(new TickInput(2));
-                var thirdTick = pipeline.RunTick(new TickInput(3));
-                var enemy = GetEntity(worldState, 40);
-                var player = GetEntity(worldState, 10);
-
-                Assert.That(firstTick.AttackPhaseResult.DamageResolutions, Is.Empty);
-                Assert.That(secondTick.AttackPhaseResult.DamageResolutions, Is.Empty);
-                Assert.That(thirdTick.AttackPhaseResult.DamageResolutions, Is.Empty);
-                Assert.That(player.hp, Is.EqualTo(3));
-                Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
-                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyAi_NonAttackingRandomWalkPilot_OpenRoom_VisitsMultipleCellsAndKeepsMoving()
-        {
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(2, 2), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 4)));
-            var profile = CreateNonAttackingEnemyProfile();
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile);
-                var visited = new HashSet<Vector2Int>();
-                var moveCommittedCount = 0;
-
-                for (var tickIndex = 1; tickIndex <= 40; tickIndex++)
-                {
-                    var tick = pipeline.RunTick(new TickInput(tickIndex));
-                    visited.Add(GetEntity(worldState, 40).position.PlanarPosition);
-
-                    if (SemanticEventAssertions.ContainsEvent(tick.EventLog, "MoveCommitted", "E=40"))
-                    {
-                        moveCommittedCount++;
-                    }
-                }
-
-                Assert.That(visited.Count, Is.GreaterThanOrEqualTo(5));
-                Assert.That(moveCommittedCount, Is.EqualTo(40));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyAi_NonAttackingRandomWalkPilot_First10Ticks_MatchPinnedSequence()
-        {
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(2, 2), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 4)));
-            var profile = CreateNonAttackingEnemyProfile();
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile);
-                var summaries = new List<string>();
-
-                for (var tickIndex = 1; tickIndex <= 10; tickIndex++)
-                {
-                    summaries.Add(SummarizeEnemyTick(pipeline.RunTick(new TickInput(tickIndex)), 40));
-                }
-
-                CollectionAssert.AreEqual(
-                    new[]
-                    {
-                        "Pos=Floor(2,3)|Facing=Up|Mode=Patrol|Timer=0|Move=True|Attack=False|Reasons=",
-                        "Pos=Floor(2,4)|Facing=Up|Mode=Patrol|Timer=0|Move=True|Attack=False|Reasons=",
-                        "Pos=Floor(2,3)|Facing=Down|Mode=Patrol|Timer=0|Move=True|Attack=False|Reasons=",
-                        "Pos=Floor(2,2)|Facing=Down|Mode=Patrol|Timer=0|Move=True|Attack=False|Reasons=",
-                        "Pos=Floor(2,1)|Facing=Down|Mode=Patrol|Timer=0|Move=True|Attack=False|Reasons=",
-                        "Pos=Floor(3,1)|Facing=Right|Mode=Patrol|Timer=0|Move=True|Attack=False|Reasons=",
-                        "Pos=Floor(3,2)|Facing=Up|Mode=Patrol|Timer=0|Move=True|Attack=False|Reasons=",
-                        "Pos=Floor(3,3)|Facing=Up|Mode=Patrol|Timer=0|Move=True|Attack=False|Reasons=",
-                        "Pos=Floor(2,3)|Facing=Left|Mode=Patrol|Timer=0|Move=True|Attack=False|Reasons=",
-                        "Pos=Floor(1,3)|Facing=Left|Mode=Patrol|Timer=0|Move=True|Attack=False|Reasons=",
-                    },
-                    summaries);
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
 
         [Test]
         [Category("Extended")]
@@ -2036,154 +1523,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
         }
 
-        [Test]
-        [Category("Extended")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyAi_NonAttackingRandomWalkPilot_AfterLosingTarget_ReturnsTowardHomeThenResumesPatrol()
-        {
-            var homeCell = new SurfaceCell(FaceId.Floor, 2, 0);
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 8, 0), hp: 3),
-                    CreateUnit(entityId: 40, teamId: 2, position: homeCell, hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(8, 0)));
-            var profile = CreateNonAttackingEnemyProfile();
 
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile);
-
-                pipeline.RunTick(new TickInput(1));
-                pipeline.RunTick(new TickInput(2));
-                pipeline.RunTick(new TickInput(3));
-
-                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 5, 0)));
-                Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Chase));
-
-                worldState.CreateWriteContext().MoveEntity(10, new SurfaceCell(FaceId.Front, 0, 0));
-
-                var returnTick1 = pipeline.RunTick(new TickInput(4));
-                var returnTick2 = pipeline.RunTick(new TickInput(5));
-
-                Assert.That(returnTick1.Trace.Text, Does.Contain("EnemyAiTransition|Stage=BeforeMovement|E=40|From=Chase|FromTimer=0|To=Patrol|ToTimer=0|Reason=NoTarget"));
-                Assert.That(GetEntityAfterTick(returnTick1, 40).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 4, 0)));
-                Assert.That(GetEntityAfterTick(returnTick2, 40).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 3, 0)));
-                Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Patrol));
-                Assert.That(GetPlanarDistance(homeCell, GetEntityAfterTick(returnTick1, 40).position), Is.EqualTo(2));
-                Assert.That(GetPlanarDistance(homeCell, GetEntityAfterTick(returnTick2, 40).position), Is.EqualTo(1));
-
-                var resumedPatrolCells = new HashSet<Vector2Int>();
-                for (var tickIndex = 6; tickIndex <= 15; tickIndex++)
-                {
-                    var tick = pipeline.RunTick(new TickInput(tickIndex));
-                    Assert.That(SemanticEventAssertions.ContainsEvent(tick.EventLog, "MoveCommitted", "E=40"), Is.True);
-                    resumedPatrolCells.Add(GetEntity(worldState, 40).position.PlanarPosition);
-                }
-
-                Assert.That(resumedPatrolCells.Count, Is.GreaterThanOrEqualTo(3));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyAi_WindupRandomWalkPilot_LoseTargetDuringWindup_ReturnsHomeThenResumesPatrol()
-        {
-            var homeCell = new SurfaceCell(FaceId.Floor, 0, 0);
-            var controlProfile = CreateEnemyProfile(windupTicks: 2);
-            var profile = CreateWindupRandomWalkPilotProfile(windupTicks: 2, includePassiveContact: false);
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 3, 0), hp: 3),
-                    CreateUnit(entityId: 40, teamId: 2, position: homeCell, hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(5, 0)));
-
-            try
-            {
-                AssertLockedTargetLostControlGreen(
-                    RunLockedTargetLostControlProbe(controlProfile),
-                    "forward locked-target-lost self-check",
-                    EnemyAiMode.Patrol);
-                // Keep the bounded lose-target window free of player respawn reacquisition so the
-                // scenario measures cancel -> home-return -> resumed patrol, not post-respawn chase.
-                var pipeline = CreateEnemyPipelineWithRespawnDelay(worldState, profile, playerRespawnDelayTicks: 32);
-
-                var tick1 = pipeline.RunTick(new TickInput(1));
-                var activeWindupTick = default(TickResult);
-                var activeWindupTickIndex = 0;
-                for (var tickIndex = 2; tickIndex <= 6; tickIndex++)
-                {
-                    var tick = pipeline.RunTick(new TickInput(tickIndex));
-                    var actionSignals = tick.PresentationData.EnemyActionSignals.Where(signal => signal.EntityId == 40).ToArray();
-                    var hasActiveActionState = worldState.CreateSnapshot().TryGetEnemyActionState(40, out var actionState) && actionState.IsActive;
-                    if (actionSignals.Any(signal => signal.StartedThisTick) || hasActiveActionState)
-                    {
-                        activeWindupTick = tick;
-                        activeWindupTickIndex = tickIndex;
-                        break;
-                    }
-                }
-
-                Assert.That(activeWindupTickIndex, Is.GreaterThan(0), "pilot lose-target fixture never entered active windup within the bounded probe window");
-                worldState.CreateWriteContext().ApplyDamage(10, 3);
-
-                var cancelTickIndex = activeWindupTickIndex + 1;
-                var cancelTick = pipeline.RunTick(new TickInput(cancelTickIndex));
-                var cancelSignals = cancelTick.PresentationData.EnemyActionSignals.Where(signal => signal.EntityId == 40).ToArray();
-                var cancelActionState = GetEnemyActionState(worldState, 40);
-                var cancelOwnerTick = cancelSignals.Any(signal => signal.CanceledThisTick) &&
-                                      !cancelActionState.IsActive &&
-                                      GetEntityAfterTick(cancelTick, 40).aiMode == EnemyAiMode.Patrol
-                    ? cancelTickIndex
-                    : 0;
-                var cancelTraceTick = cancelTick.Trace.Text.Contains("LockedTargetLost", StringComparison.Ordinal)
-                    ? cancelTickIndex
-                    : 0;
-                var returnTick1 = pipeline.RunTick(new TickInput(cancelTickIndex + 1));
-                var returnTick2 = pipeline.RunTick(new TickInput(cancelTickIndex + 2));
-
-                Assert.That(tick1.Trace.Text, Does.Contain("EnemyPatrolStateUpdated|E=40|Label=Initialized"));
-                var cancelDistance = GetPlanarDistance(homeCell, GetEntityAfterTick(cancelTick, 40).position);
-                var returnDistance1 = GetPlanarDistance(homeCell, GetEntityAfterTick(returnTick1, 40).position);
-                var returnDistance2 = GetPlanarDistance(homeCell, GetEntityAfterTick(returnTick2, 40).position);
-                var metrics = new LockedTargetLostMetrics(
-                    activeWindupTickIndex,
-                    cancelOwnerTick,
-                    cancelTraceTick,
-                    GetEntityAfterTick(cancelTick, 40).aiMode,
-                    new[] { cancelDistance, returnDistance1, returnDistance2 });
-                TestContext.Progress.WriteLine($"LockedTargetLostGateSummary|Label=pilot lose-target active-windup|{BuildLockedTargetLostMetricsSummary(metrics)}");
-
-                AssertLockedTargetLostEntryGreen(metrics, "pilot lose-target active-windup");
-                AssertLockedTargetLostCancelOwnerGreen(metrics, "pilot lose-target active-windup", EnemyAiMode.Patrol);
-                AssertLockedTargetLostWordingGreen(metrics, "pilot lose-target active-windup");
-                AssertLockedTargetLostHomeReturnGreen(metrics, "pilot lose-target active-windup", leashRadius: 1);
-
-                var resumedPatrolCells = new HashSet<Vector2Int>();
-                for (var tickIndex = cancelTickIndex + 3; tickIndex <= cancelTickIndex + 9; tickIndex++)
-                {
-                    var tick = pipeline.RunTick(new TickInput(tickIndex));
-                    var enemy = GetEntityAfterTick(tick, 40);
-                    resumedPatrolCells.Add(enemy.position.PlanarPosition);
-                    Assert.That(GetPlanarDistance(homeCell, enemy.position), Is.LessThanOrEqualTo(1));
-                }
-
-                Assert.That(resumedPatrolCells.Count, Is.GreaterThanOrEqualTo(2));
-            }
-            finally
-            {
-                DestroyProfile(controlProfile);
-                DestroyProfile(profile);
-            }
-        }
 
         [Test]
         [Category("Extended")]
@@ -3301,43 +2641,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
         }
 
-        [Test]
-        [Category("Extended")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyAi_JumpCooldown_DoesNotBlockPatrolLocomotion_AfterPlayerLeavesFace()
-        {
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 1), hp: 3),
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 2)));
-            var profile = CreateJumpPatrolProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 2);
-            var pipeline = CreateEnemyPipeline(worldState, profile);
-            PrimePlayerControlState(worldState, 10);
-
-            try
-            {
-                var firstTick = pipeline.RunTick(new TickInput(1));
-                var secondTick = pipeline.RunTick(new TickInput(2));
-                var landingTick = pipeline.RunTick(new TickInput(3));
-                worldState.CreateWriteContext().MoveEntity(10, new SurfaceCell(FaceId.Front, 3, 1));
-                var cooldownTick = pipeline.RunTick(new TickInput(4));
-
-                Assert.That(GetEntityAfterTick(firstTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(0, 1)));
-                Assert.That(GetEntityAfterTick(secondTick, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
-                Assert.That(GetEntityAfterTick(landingTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 1)));
-                Assert.That(GetEntityAfterTick(cooldownTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(4, 1)));
-                Assert.That(GetEnemyJumpState(worldState, 40).phase, Is.EqualTo(EnemyJumpPhase.Cooldown));
-                Assert.That(landingTick.PresentationData.EnemyJumpSignals.Single().LandedThisTick, Is.True);
-                Assert.That(cooldownTick.PresentationData.EnemyJumpSignals.Single().StartedWindupThisTick, Is.False);
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
 
         [Test]
         [Category("Full")]
@@ -5310,105 +4613,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
         }
 
-        [Test]
-        [Category("Full")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyAi_ChargingProfile_AllUnitsTransparentUntilSolid_AndOnlyPlayerTakesDamage()
-        {
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(4, 0), hp: 5),
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                    CreateUnit(entityId: 60, teamId: 2, position: new Vector2Int(2, 0), hp: 3),
-                    CreateUnit(entityId: 70, teamId: 3, position: new Vector2Int(3, 0), hp: 3),
-                    CreateUnit(entityId: 80, teamId: 3, position: new Vector2Int(6, 0), hp: 3),
-                    CreateBox(entityId: 90, position: new Vector2Int(7, 0)),
-                },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(7, 0)));
-            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 0);
 
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
-                var ticks = Enumerable.Range(1, 7)
-                    .Select(tick => pipeline.RunTick(new TickInput(tick)))
-                    .ToArray();
-                var snapshotAfter = worldState.CreateSnapshot();
-                var stackedUnits = new List<EntityState>();
-                var allDamageResolutions = ticks
-                    .SelectMany(tick => tick.AttackPhaseResult.DamageResolutions)
-                    .ToArray();
-                var enemy = GetEntity(worldState, 40);
-                var player = GetEntity(worldState, 10);
-                var alliedUnit = GetEntity(worldState, 60);
-                var nonPlayerLaneUnit = GetEntity(worldState, 70);
-                var nonPlayerTerminalUnit = GetEntity(worldState, 80);
-
-                Assert.That(GetEntityAfterTick(ticks[0], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
-                Assert.That(GetEntityAfterTick(ticks[1], 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
-                Assert.That(GetEntityAfterTick(ticks[1], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
-                Assert.That(GetEntityAfterTick(ticks[2], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
-                Assert.That(GetEntityAfterTick(ticks[3], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(4, 0)));
-                Assert.That(GetEntityAfterTick(ticks[4], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(5, 0)));
-                Assert.That(GetEntityAfterTick(ticks[5], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(6, 0)));
-                Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(6, 0)));
-                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
-                Assert.That(player.hp, Is.EqualTo(4));
-                Assert.That(alliedUnit.hp, Is.EqualTo(3));
-                Assert.That(nonPlayerLaneUnit.hp, Is.EqualTo(3));
-                Assert.That(nonPlayerTerminalUnit.hp, Is.EqualTo(3));
-                Assert.That(allDamageResolutions.Count(record => record.Accepted), Is.EqualTo(1));
-                Assert.That(allDamageResolutions.Select(record => record.TargetId).Distinct().ToArray(), Is.EqualTo(new[] { 10 }));
-                Assert.That(allDamageResolutions.Single(record => record.Accepted).SourceKind, Is.EqualTo(AttackSourceKind.PassiveContact));
-                Assert.That(ticks[1].Trace.Text, Does.Contain("Reason=ChargeStart"));
-
-                snapshotAfter.EnumerateUnitsAt(new Vector2Int(6, 0), stackedUnits);
-                CollectionAssert.AreEquivalent(new[] { 40, 80 }, stackedUnits.Select(entity => entity.entityId).ToArray());
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Full")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyAi_ChargingProfile_AdjacentPlayerAndSolidDownLane_DoesNotFreezeAndContinuesPastPlayer()
-        {
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(2, 0), hp: 3),
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                    CreateBox(entityId: 50, position: new Vector2Int(4, 0)),
-                },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
-            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 0);
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
-                var firstTick = pipeline.RunTick(new TickInput(1));
-                var secondTick = pipeline.RunTick(new TickInput(2));
-                var thirdTick = pipeline.RunTick(new TickInput(3));
-                var fourthTick = pipeline.RunTick(new TickInput(4));
-
-                Assert.That(GetEntityAfterTick(firstTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
-                Assert.That(GetEntityAfterTick(secondTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
-                Assert.That(GetEntityAfterTick(secondTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
-                Assert.That(GetEntityAfterTick(thirdTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
-                Assert.That(GetEntityAfterTick(thirdTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
-                Assert.That(GetEntityAfterTick(fourthTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Chase));
-                Assert.That(secondTick.Trace.Text, Does.Contain("Reason=ChargeStart"));
-                Assert.That(secondTick.AttackPhaseResult.DamageResolutions.Single().Accepted, Is.True);
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
 
         [Test]
         [Category("Full")]
@@ -5499,334 +4704,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
         }
 
-        [Test]
-        [Category("Full")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyAi_ChargingProfile_WithoutPassiveContact_PassesThroughPlayerWithoutDamage()
-        {
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(4, 0), hp: 5),
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                    CreateBox(entityId: 50, position: new Vector2Int(6, 0)),
-                },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
-            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 0, includePassiveContact: false);
 
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
-                var ticks = Enumerable.Range(1, 6)
-                    .Select(tick => pipeline.RunTick(new TickInput(tick)))
-                    .ToArray();
 
-                Assert.That(GetEntityAfterTick(ticks[1], 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
-                Assert.That(GetEntityAfterTick(ticks[3], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(4, 0)));
-                Assert.That(GetEntityAfterTick(ticks[4], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(5, 0)));
-                Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(5));
-                Assert.That(ticks.SelectMany(tick => tick.AttackPhaseResult.DamageResolutions), Is.Empty);
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
 
-        [Test]
-        [Category("Full")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyAi_ChargingProfile_WithWindup_StartsChargeWithoutImmediateMoveOrPassiveContact()
-        {
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(2, 0), hp: 5),
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                    CreateBox(entityId: 50, position: new Vector2Int(4, 0)),
-                },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
-            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 0, windupTicks: 1);
 
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
-                var firstTick = pipeline.RunTick(new TickInput(1));
-                var windupTick = pipeline.RunTick(new TickInput(2));
-                var windupState = GetEnemyChargeState(worldState, 40);
-                var activeTick = pipeline.RunTick(new TickInput(3));
-                var activeState = GetEnemyChargeState(worldState, 40);
 
-                Assert.That(GetEntityAfterTick(firstTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
-                Assert.That(GetEntityAfterTick(windupTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
-                Assert.That(GetEntityAfterTick(windupTick, 40).aiStateTimer, Is.Zero);
-                Assert.That(GetEntityAfterTick(windupTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
-                Assert.That(windupState.phase, Is.EqualTo(EnemyChargePhase.Windup));
-                Assert.That(windupState.lockedDirection, Is.EqualTo(Direction.Right));
-                Assert.That(windupState.remainingActiveSteps, Is.EqualTo(2));
-                Assert.That(windupState.recoverRemainingTicks, Is.Zero);
-                Assert.That(windupTick.Trace.Text, Does.Contain("Reason=ChargeStart"));
-                Assert.That(windupTick.AttackPhaseResult.DamageResolutions, Is.Empty);
 
-                Assert.That(GetEntityAfterTick(activeTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
-                Assert.That(GetEntityAfterTick(activeTick, 40).aiStateTimer, Is.Zero);
-                Assert.That(GetEntityAfterTick(activeTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
-                Assert.That(activeState.phase, Is.EqualTo(EnemyChargePhase.Active));
-                Assert.That(activeState.lockedDirection, Is.EqualTo(Direction.Right));
-                Assert.That(activeState.remainingActiveSteps, Is.EqualTo(1));
-                Assert.That(activeState.recoverRemainingTicks, Is.Zero);
-                Assert.That(activeTick.AttackPhaseResult.DamageResolutions.Single().Accepted, Is.True);
-                Assert.That(GetEntityHp(worldState, 10), Is.EqualTo(4));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Full")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyAi_ChargingProfile_WithRecover_SuppressesPassiveContactWhileStacked()
-        {
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), hp: 5),
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                    CreateBox(entityId: 50, position: new Vector2Int(4, 0)),
-                },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
-            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 0, windupTicks: 0, recoverTicks: 2);
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
-                var ticks = Enumerable.Range(1, 5)
-                    .Select(tick => pipeline.RunTick(new TickInput(tick)))
-                    .ToArray();
-                var recoverState = GetEnemyChargeState(worldState, 40);
-
-                Assert.That(GetEntityAfterTick(ticks[1], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
-                Assert.That(GetEntityAfterTick(ticks[2], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
-                Assert.That(GetEntityAfterTick(ticks[2], 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
-                Assert.That(GetEntityAfterTick(ticks[2], 40).aiStateTimer, Is.Zero);
-                Assert.That(ticks[2].AttackPhaseResult.DamageResolutions.Single().Accepted, Is.True);
-
-                Assert.That(GetEntityAfterTick(ticks[3], 40).aiMode, Is.EqualTo(EnemyAiMode.Recover));
-                Assert.That(GetEntityAfterTick(ticks[3], 40).aiStateTimer, Is.Zero);
-                Assert.That(GetEntityAfterTick(ticks[3], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
-                Assert.That(GetEntityAfterTick(ticks[4], 40).aiMode, Is.EqualTo(EnemyAiMode.Recover));
-                Assert.That(GetEntityAfterTick(ticks[4], 40).aiStateTimer, Is.Zero);
-                Assert.That(GetEntityAfterTick(ticks[4], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
-                Assert.That(recoverState.phase, Is.EqualTo(EnemyChargePhase.Recover));
-                Assert.That(recoverState.remainingActiveSteps, Is.Zero);
-                Assert.That(recoverState.recoverRemainingTicks, Is.EqualTo(1));
-                Assert.That(ticks[3].Trace.Text, Does.Contain("Reason=ChargeComplete"));
-                Assert.That(ticks[3].AttackPhaseResult.DamageResolutions, Is.Empty);
-                Assert.That(ticks[4].AttackPhaseResult.DamageResolutions, Is.Empty);
-                Assert.That(GetEntityHp(worldState, 10), Is.EqualTo(4));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Full")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyAi_ChargingProfile_WithWindup_LocksDirectionUntilActivation()
-        {
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), hp: 5),
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                    CreateBox(entityId: 50, position: new Vector2Int(5, 0)),
-                },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(5, 1)));
-            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 0, windupTicks: 1);
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
-                var firstTick = pipeline.RunTick(new TickInput(1));
-                var windupTick = pipeline.RunTick(new TickInput(2));
-                var windupState = GetEnemyChargeState(worldState, 40);
-
-                worldState.CreateWriteContext().MoveEntity(10, new SurfaceCell(FaceId.Floor, 1, 1));
-
-                var activeTick = pipeline.RunTick(new TickInput(3));
-                var activeState = GetEnemyChargeState(worldState, 40);
-
-                Assert.That(GetEntityAfterTick(firstTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
-                Assert.That(GetEntityAfterTick(windupTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
-                Assert.That(windupState.phase, Is.EqualTo(EnemyChargePhase.Windup));
-                Assert.That(windupState.lockedDirection, Is.EqualTo(Direction.Right));
-                Assert.That(windupState.remainingActiveSteps, Is.EqualTo(3));
-                Assert.That(GetEntityAfterTick(windupTick, 40).aiStateTimer, Is.Zero);
-
-                Assert.That(GetEntityAfterTick(activeTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
-                Assert.That(GetEntityAfterTick(activeTick, 40).aiStateTimer, Is.Zero);
-                Assert.That(GetEntityAfterTick(activeTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
-                Assert.That(GetEntityAfterTick(activeTick, 40).facing, Is.EqualTo(Direction.Right));
-                Assert.That(activeState.phase, Is.EqualTo(EnemyChargePhase.Active));
-                Assert.That(activeState.lockedDirection, Is.EqualTo(Direction.Right));
-                Assert.That(activeState.remainingActiveSteps, Is.EqualTo(2));
-                Assert.That(activeTick.Trace.Text, Does.Contain("Reason=ChargeContinue"));
-                Assert.That(activeTick.AttackPhaseResult.DamageResolutions, Is.Empty);
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Full")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyAi_ChargingProfile_PassiveContactFollowsPlayerCooldownWhileChargeWaitsOnPlayerCell()
-        {
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(2, 0), hp: 5),
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                    CreateBox(entityId: 50, position: new Vector2Int(6, 0)),
-                },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
-            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 3, chargeStepCooldownTicks: 3);
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
-                var ticks = Enumerable.Range(1, 7)
-                    .Select(tick => pipeline.RunTick(new TickInput(tick)))
-                    .ToArray();
-
-                Assert.That(GetEntityAfterTick(ticks[3], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
-                Assert.That(GetEntityAfterTick(ticks[4], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
-                Assert.That(GetEntityAfterTick(ticks[5], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
-                Assert.That(GetEntityAfterTick(ticks[6], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
-                Assert.That(GetEntityAfterTick(ticks[1], 40).aiStateTimer, Is.Zero);
-                Assert.That(GetEntityAfterTick(ticks[2], 40).aiStateTimer, Is.Zero);
-                Assert.That(GetEntityAfterTick(ticks[3], 40).aiStateTimer, Is.Zero);
-                Assert.That(GetEntityAfterTick(ticks[4], 40).aiStateTimer, Is.Zero);
-                Assert.That(GetEntityAfterTick(ticks[5], 40).aiStateTimer, Is.Zero);
-                Assert.That(ticks[3].AttackPhaseResult.DamageResolutions.Single().Accepted, Is.True);
-                Assert.That(ticks[4].AttackPhaseResult.DamageResolutions.Single().Accepted, Is.False);
-                Assert.That(ticks[4].AttackPhaseResult.DamageResolutions.Single().RejectReason, Is.EqualTo(DamageRejectReason.ReceiverCooldown));
-                Assert.That(ticks[5].AttackPhaseResult.DamageResolutions.Single().Accepted, Is.True);
-                Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(3));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Full")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyAi_ChargingProfile_WithChargeStepCooldown_ContinuesSameChargeSessionUntilSolid()
-        {
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(4, 0), hp: 5),
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                    CreateBox(entityId: 50, position: new Vector2Int(6, 0)),
-                },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
-            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 2, chargeStepCooldownTicks: 2);
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
-                var ticks = Enumerable.Range(1, 12)
-                    .Select(tick => pipeline.RunTick(new TickInput(tick)))
-                    .ToArray();
-
-                Assert.That(GetEntityAfterTick(ticks[0], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
-                Assert.That(GetEntityAfterTick(ticks[1], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
-                Assert.That(GetEntityAfterTick(ticks[1], 40).enemyLocomotionCooldownTicks, Is.EqualTo(1));
-                Assert.That(GetEntityAfterTick(ticks[2], 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
-                Assert.That(GetEntityAfterTick(ticks[2], 40).aiStateTimer, Is.Zero);
-                Assert.That(GetEntityAfterTick(ticks[2], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
-                Assert.That(GetEntityAfterTick(ticks[3], 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
-                Assert.That(GetEntityAfterTick(ticks[3], 40).aiStateTimer, Is.Zero);
-                Assert.That(GetEntityAfterTick(ticks[3], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
-                Assert.That(GetEntityAfterTick(ticks[4], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
-                Assert.That(GetEntityAfterTick(ticks[6], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(4, 0)));
-                Assert.That(GetEntityAfterTick(ticks[8], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(5, 0)));
-                Assert.That(GetEntityAfterTick(ticks[9], 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
-                Assert.That(GetEntityAfterTick(ticks[9], 40).aiStateTimer, Is.Zero);
-                Assert.That(GetEntityAfterTick(ticks[9], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(5, 0)));
-                Assert.That(GetEntityAfterTick(ticks[10], 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
-                Assert.That(GetEntityAfterTick(ticks[10], 40).aiStateTimer, Is.Zero);
-                Assert.That(GetEntityAfterTick(ticks[10], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(5, 0)));
-                Assert.That(GetEntityAfterTick(ticks[11], 40).aiMode, Is.EqualTo(EnemyAiMode.Chase));
-                Assert.That(GetEntityAfterTick(ticks[11], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(4, 0)));
-                Assert.That(ticks[1].Trace.Text, Does.Contain("Reason=ChargeStart"));
-                Assert.That(ticks[0].PresentationData.EntityMotions.Single().MotionKind, Is.EqualTo(TickEntityMotionKind.Move));
-                Assert.That(ticks[2].PresentationData.EntityMotions.Any(motion => motion.EntityId == 40), Is.False);
-                Assert.That(ticks[3].PresentationData.EntityMotions.Any(motion => motion.EntityId == 40), Is.False);
-                Assert.That(ticks[4].PresentationData.EntityMotions.Any(motion => motion.EntityId == 40), Is.False);
-
-                var chargeState = GetEnemyChargeState(worldState, 40);
-                Assert.That(chargeState.phase, Is.EqualTo(EnemyChargePhase.None));
-                Assert.That(chargeState.sequence, Is.GreaterThan(0));
-                Assert.That(chargeState.remainingActiveSteps, Is.Zero);
-                Assert.That(chargeState.recoverRemainingTicks, Is.Zero);
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Full")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback cadence; current kinematic locomotion coverage replaces this expectation.")]
-        public void EnemyAi_ChargingProfile_SeparatesChaseAndChargeCooldownCadence()
-        {
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(5, 0), hp: 5),
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                    CreateBox(entityId: 50, position: new Vector2Int(6, 0)),
-                },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
-            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 2, chargeStepCooldownTicks: 0);
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
-                var ticks = Enumerable.Range(1, 6)
-                    .Select(tick => pipeline.RunTick(new TickInput(tick)))
-                    .ToArray();
-
-                Assert.That(GetEntityAfterTick(ticks[0], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
-                Assert.That(GetEntityAfterTick(ticks[0], 40).enemyLocomotionCooldownTicks, Is.EqualTo(2));
-                Assert.That(GetEntityAfterTick(ticks[1], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
-                Assert.That(GetEntityAfterTick(ticks[2], 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
-                Assert.That(GetEntityAfterTick(ticks[2], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
-                Assert.That(GetEntityAfterTick(ticks[2], 40).enemyLocomotionCooldownTicks, Is.Zero);
-                Assert.That(GetEntityAfterTick(ticks[3], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
-                Assert.That(GetEntityAfterTick(ticks[4], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(4, 0)));
-                Assert.That(ticks[2].Trace.Text, Does.Contain("Reason=ChargeContinue"));
-                Assert.That(ticks[3].Trace.Text, Does.Contain("Reason=ChargeContinue"));
-                Assert.That(ticks[0].PresentationData.EntityMotions.Single().MotionKind, Is.EqualTo(TickEntityMotionKind.Move));
-                Assert.That(ticks[2].PresentationData.EntityMotions.Any(motion => motion.EntityId == 40), Is.False);
-                Assert.That(ticks[3].PresentationData.EntityMotions.Any(motion => motion.EntityId == 40), Is.False);
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
 
         [Test]
         [Category("Full")]

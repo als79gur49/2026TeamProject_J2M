@@ -32,7 +32,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.DeterminismHash_EnemyActionState_IsIncludedInCanonicalState",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_EnemyPatrolAndActionState_AffectDeterminismHash",
       "category": "Core",
       "contracts": [
         "determinism",
@@ -157,7 +157,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_EnemyAiScenario_ProducesStablePerTickHashTraceAndFinalState",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_EnemyAiKinematicScenario_DeterministicCanonicalState",
       "category": "Core",
       "contracts": [
         "determinism",
@@ -809,6 +809,39 @@
         "enemy_ai_scenario_contract"
       ],
       "reason": "Locked Core coverage for interaction_jump in EnemyAiScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyAi_KinematicPatrolChaseAttackRecover_CurrentContract",
+      "category": "Core",
+      "contracts": [
+        "enemy_kinematic_locomotion",
+        "damage_affects_movement",
+        "enemy_ai_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for current enemy kinematic patrol/chase/action contract.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyAi_MoveOccupancy_BlocksAttackUntilKinematicCommitUnlocksRange",
+      "category": "Core",
+      "contracts": [
+        "enemy_kinematic_locomotion",
+        "damage_affects_movement",
+        "enemy_ai_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for current enemy kinematic contact timing.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyAi_Charge_CurrentPresentationAndContactContract",
+      "category": "Core",
+      "contracts": [
+        "enemy_charge_kinematic_locomotion",
+        "damage_affects_movement",
+        "enemy_ai_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for current enemy charge kinematic presentation and contact.",
       "locked": true
     },
     {

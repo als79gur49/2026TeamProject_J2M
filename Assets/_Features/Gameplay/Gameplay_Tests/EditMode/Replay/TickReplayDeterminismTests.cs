@@ -1286,10 +1286,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback replay expectation; current kinematic replay coverage lives in EnemyKinematicLocomotionReplayTests.")]
-        public void DeterminismHash_EnemyActionState_IsIncludedInCanonicalState()
+        public void Replay_EnemyPatrolAndActionState_AffectDeterminismHash()
         {
-            var idleWorldState = CreateWorldState(new[]
+            var idleActionWorldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Attack),
             });
@@ -1297,73 +1296,67 @@ namespace Game.Feature.Gameplay.Tests.Replay
             {
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Attack),
             });
-            var replayWorldState = CreateWorldState(new[]
+            actionWorldState.CreateWriteContext().SetEnemyActionState(
+                40,
+                new EnemyActionRuntimeState
+                {
+                    kind = EnemyActionKind.Melee,
+                    sequence = 2,
+                    lockedTargetEntityId = 10,
+                    direction = Direction.Left,
+                    startTick = 4,
+                    executeTick = 5,
+                });
+
+            var idlePatrolWorldState = CreateWorldState(new[]
             {
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Attack),
+                CreateUnit(entityId: 41, teamId: 2, position: new Vector2Int(0, 2), hp: 2, aiMode: EnemyAiMode.Patrol),
             });
-            var enemyActionState = new EnemyActionRuntimeState
+            var patrolWorldState = CreateWorldState(new[]
             {
-                kind = EnemyActionKind.Melee,
-                sequence = 2,
-                lockedTargetEntityId = 10,
-                direction = Direction.Left,
-                startTick = 4,
-                executeTick = 5,
-            };
-            actionWorldState.CreateWriteContext().SetEnemyActionState(40, enemyActionState);
-            replayWorldState.CreateWriteContext().SetEnemyActionState(40, enemyActionState);
+                CreateUnit(entityId: 41, teamId: 2, position: new Vector2Int(0, 2), hp: 2, aiMode: EnemyAiMode.Patrol),
+            });
+            patrolWorldState.CreateWriteContext().SetEnemyPatrolState(
+                41,
+                new EnemyPatrolRuntimeState
+                {
+                    sequence = 3,
+                    homeCell = new SurfaceCell(FaceId.Floor, 1, 1),
+                    lastCommittedDirection = Direction.Right,
+                });
 
-            var idleResult = GameplayCompositionRoot.CreateTickPipeline(idleWorldState).RunTick(new TickInput(1));
+            var idleActionResult = GameplayCompositionRoot.CreateTickPipeline(idleActionWorldState).RunTick(new TickInput(1));
             var actionResult = GameplayCompositionRoot.CreateTickPipeline(actionWorldState).RunTick(new TickInput(1));
-            var replay = new TickReplayHarness().Run(
-                replayWorldState,
-                new IEntityLogic[0],
-                new[] { new TickInput(1) });
+            var idlePatrolResult = GameplayCompositionRoot.CreateTickPipeline(idlePatrolWorldState).RunTick(new TickInput(1));
+            var patrolResult = GameplayCompositionRoot.CreateTickPipeline(patrolWorldState).RunTick(new TickInput(1));
 
-            Assert.That(idleResult.DeterminismHash, Is.Not.EqualTo(actionResult.DeterminismHash));
+            Assert.That(idleActionResult.DeterminismHash, Is.Not.EqualTo(actionResult.DeterminismHash));
             Assert.That(actionResult.Trace.Text, Does.Contain("Final.EnemyActions"));
             Assert.That(actionResult.Trace.Text, Does.Contain("E=40|Kind=Melee|Seq=2|Target=10|Direction=Left|Start=4|Execute=5|Attempted=0"));
-            Assert.That(replay[0].EnemyActionDump, Does.Contain("E=40|Kind=Melee|Seq=2|Target=10|Direction=Left|Start=4|Execute=5|Attempted=0"));
+            Assert.That(idlePatrolResult.DeterminismHash, Is.Not.EqualTo(patrolResult.DeterminismHash));
+            Assert.That(patrolResult.Trace.Text, Does.Contain("Final.EnemyPatrols"));
+            Assert.That(patrolResult.Trace.Text, Does.Contain("E=41|Seq="));
+            Assert.That(patrolResult.Trace.Text, Does.Contain("Home=Floor(1,1)"));
+            Assert.That(patrolResult.Trace.Text, Does.Contain("LastDirection=Right"));
         }
 
         [Test]
         [Category("Core")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback replay expectation; current kinematic replay coverage lives in EnemyKinematicLocomotionReplayTests.")]
-        public void DeterminismHash_EnemyPatrolState_IsIncludedInCanonicalState()
+        public void Replay_EnemyAiKinematicScenario_DeterministicCanonicalState()
         {
-            var idleWorldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Patrol),
-            });
-            var patrolWorldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Patrol),
-            });
-            var replayWorldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Patrol),
-            });
-            var patrolState = new EnemyPatrolRuntimeState
-            {
-                sequence = 3,
-                homeCell = new SurfaceCell(FaceId.Floor, 1, 1),
-                lastCommittedDirection = Direction.Right,
-            };
+            var firstReplay = RunWindupRandomWalkPilotReplaySequence();
+            var secondReplay = RunWindupRandomWalkPilotReplaySequence();
 
-            patrolWorldState.CreateWriteContext().SetEnemyPatrolState(40, patrolState);
-            replayWorldState.CreateWriteContext().SetEnemyPatrolState(40, patrolState);
-
-            var idleResult = GameplayCompositionRoot.CreateTickPipeline(idleWorldState).RunTick(new TickInput(1));
-            var patrolResult = GameplayCompositionRoot.CreateTickPipeline(patrolWorldState).RunTick(new TickInput(1));
-            var replay = new TickReplayHarness().Run(
-                replayWorldState,
-                new IEntityLogic[0],
-                new[] { new TickInput(1) });
-
-            Assert.That(idleResult.DeterminismHash, Is.Not.EqualTo(patrolResult.DeterminismHash));
-            Assert.That(patrolResult.Trace.Text, Does.Contain("Final.EnemyPatrols"));
-            Assert.That(patrolResult.Trace.Text, Does.Contain("E=40|Seq=4|Home=Floor(1,1)|LastDirection=Right"));
-            Assert.That(replay[0].EnemyPatrolDump, Does.Contain("E=40|Seq=4|Home=Floor(1,1)|LastDirection=Right"));
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                secondReplay.Select(frame => frame.DeterminismHash).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.Trace).ToArray(),
+                secondReplay.Select(frame => frame.Trace).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.EnemyPatrolDump).ToArray(),
+                secondReplay.Select(frame => frame.EnemyPatrolDump).ToArray());
+            Assert.That(firstReplay.Select(frame => frame.EnemyPatrolDump), Has.All.Not.EqualTo("<empty>"));
         }
 
         [Test]
@@ -1766,58 +1759,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(firstReplay[1].FinalEntitiesDump, Does.Contain("E=20|Pos=(0,1)|Hp=1|MaxHp=1|Team=0|Type=Box"));
         }
 
-        [Test]
-        [Category("Core")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback replay expectation; current kinematic replay coverage lives in EnemyKinematicLocomotionReplayTests.")]
-        public void Replay_EnemyAiScenario_ProducesStablePerTickHashTraceAndFinalState()
-        {
-            var firstReplay = RunEnemyAiReplaySequence();
-            var secondReplay = RunEnemyAiReplaySequence();
 
-            CollectionAssert.AreEqual(
-                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
-                secondReplay.Select(frame => frame.DeterminismHash).ToArray());
-            CollectionAssert.AreEqual(
-                firstReplay.Select(frame => frame.Trace).ToArray(),
-                secondReplay.Select(frame => frame.Trace).ToArray());
-            CollectionAssert.AreEqual(
-                firstReplay.Select(frame => frame.FinalEntitiesDump).ToArray(),
-                secondReplay.Select(frame => frame.FinalEntitiesDump).ToArray());
-            CollectionAssert.AreEqual(
-                firstReplay.Select(frame => frame.EnemyPatrolDump).ToArray(),
-                secondReplay.Select(frame => frame.EnemyPatrolDump).ToArray());
-            CollectionAssert.AreEqual(
-                firstReplay.Select(frame => frame.EventLogDump).ToArray(),
-                secondReplay.Select(frame => frame.EventLogDump).ToArray());
-            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=40|Pos=(1,0)|Hp=3"));
-            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("AiMode=Chase"));
-            Assert.That(firstReplay[1].FinalEntitiesDump, Does.Contain("AiMode=Recover"));
-            Assert.That(firstReplay[1].FinalEntitiesDump, Does.Contain("AiTimer=1"));
-            Assert.That(firstReplay[1].Trace, Does.Contain("EnemyAiTransition|Stage=BeforeAttack|E=40|From=Chase|FromTimer=0|To=Attack|ToTimer=0|Reason=TargetInRange"));
-            Assert.That(firstReplay[1].Trace, Does.Contain("EnemyAiTransition|Stage=AfterAttack|E=40|From=Attack|FromTimer=0|To=Recover|ToTimer=1|Reason=AttackCommitted"));
-            Assert.That(firstReplay[2].FinalEntitiesDump, Does.Contain("AiTimer=0"));
-        }
-
-        [Test]
-        [Category("Core")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback replay expectation; current kinematic replay coverage lives in EnemyKinematicLocomotionReplayTests.")]
-        public void Replay_RandomWalkPilotProfile_ProducesStablePerTickHashTraceAndPatrolDump()
-        {
-            var firstReplay = RunRandomWalkPatrolReplaySequence();
-            var secondReplay = RunRandomWalkPatrolReplaySequence();
-
-            CollectionAssert.AreEqual(
-                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
-                secondReplay.Select(frame => frame.DeterminismHash).ToArray());
-            CollectionAssert.AreEqual(
-                firstReplay.Select(frame => frame.Trace).ToArray(),
-                secondReplay.Select(frame => frame.Trace).ToArray());
-            CollectionAssert.AreEqual(
-                firstReplay.Select(frame => frame.EnemyPatrolDump).ToArray(),
-                secondReplay.Select(frame => frame.EnemyPatrolDump).ToArray());
-            Assert.That(firstReplay[0].Trace, Does.Contain("Final.EnemyPatrols"));
-            Assert.That(firstReplay[0].EnemyPatrolDump, Does.Contain("E=40|Seq=2|Home=Floor(2,2)|LastDirection="));
-        }
 
         [Test]
         [Category("Core")]
@@ -1853,20 +1795,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 replay.Select(frame => frame.EnemyPatrolDump).ToArray());
         }
 
-        [Test]
-        [Category("Core")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback replay expectation; current kinematic replay coverage lives in EnemyKinematicLocomotionReplayTests.")]
-        public void Replay_WindupRandomWalkPilot_DoesNotRegressForwardOrNonAttackingReplays()
-        {
-            var windupReplay = RunWindupRandomWalkPilotReplaySequence();
-            var forwardReplay = RunForwardPatrolReplaySequence();
-            var randomWalkReplay = RunRandomWalkPatrolReplaySequence();
-
-            Assert.That(windupReplay[0].EnemyPatrolDump, Does.Contain("E=40|Seq=1|Home=Floor(0,0)|LastDirection=None"));
-            Assert.That(forwardReplay.Select(frame => frame.EnemyPatrolDump), Has.All.EqualTo("<empty>"));
-            Assert.That(forwardReplay.Select(frame => frame.Trace), Has.All.Not.Contains("EnemyPatrolStateUpdated|E=40"));
-            Assert.That(randomWalkReplay[0].EnemyPatrolDump, Does.Contain("E=40|Seq=2|Home=Floor(2,2)|LastDirection="));
-        }
 
         [Test]
         [Category("Core")]
@@ -1885,46 +1813,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(replay.Select(frame => frame.Trace), Has.All.Not.Contains("EnemyPatrolStateUpdated|E=40|Label=Initialized|Seq=3"));
         }
 
-        [Test]
-        [Category("Core")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback replay expectation; current kinematic replay coverage lives in EnemyKinematicLocomotionReplayTests.")]
-        public void Replay_ForwardProfile_ProducesStableHashTrace_AndNoPatrolStateWrites()
-        {
-            var firstReplay = RunForwardPatrolReplaySequence();
-            var secondReplay = RunForwardPatrolReplaySequence();
 
-            CollectionAssert.AreEqual(
-                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
-                secondReplay.Select(frame => frame.DeterminismHash).ToArray());
-            CollectionAssert.AreEqual(
-                firstReplay.Select(frame => frame.Trace).ToArray(),
-                secondReplay.Select(frame => frame.Trace).ToArray());
-            CollectionAssert.AreEqual(
-                firstReplay.Select(frame => frame.FinalEntitiesDump).ToArray(),
-                secondReplay.Select(frame => frame.FinalEntitiesDump).ToArray());
-            CollectionAssert.AreEqual(
-                firstReplay.Select(frame => frame.EnemyPatrolDump).ToArray(),
-                secondReplay.Select(frame => frame.EnemyPatrolDump).ToArray());
-            Assert.That(firstReplay.Select(frame => frame.Trace), Has.All.Not.Contains("EnemyPatrolStateUpdated|E=40"));
-            Assert.That(firstReplay.Select(frame => frame.EnemyPatrolDump), Has.All.EqualTo("<empty>"));
-            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=40|Pos=(1,0)|Hp=3"));
-            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("AiMode=Patrol"));
-        }
-
-        [Test]
-        [Category("Core")]
-        [Ignore("Historical pre-Phase5 immediate enemy fallback replay expectation; current kinematic replay coverage lives in EnemyKinematicLocomotionReplayTests.")]
-        public void Replay_WallFollowerProfile_ProducesStableHashTrace_AndNoPatrolStateWrites()
-        {
-            var firstReplay = RunWallFollowPatrolReplaySequence();
-            var secondReplay = RunWallFollowPatrolReplaySequence();
-
-            AssertEquivalentReplayOutputs(firstReplay, secondReplay);
-            Assert.That(firstReplay.Select(frame => frame.Trace), Has.All.Not.Contains("EnemyPatrolStateUpdated|E=40"));
-            Assert.That(firstReplay.Select(frame => frame.EnemyPatrolDump), Has.All.EqualTo("<empty>"));
-            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=40|Pos=(0,0)|Hp=3"));
-            Assert.That(firstReplay[7].FinalEntitiesDump, Does.Contain("E=40|Pos=(1,0)|Hp=3"));
-        }
 
         [Test]
         [Category("Core")]

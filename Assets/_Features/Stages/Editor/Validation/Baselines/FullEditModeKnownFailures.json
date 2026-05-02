@@ -657,24 +657,6 @@
       "notes": "Existing non-stage-authoring Full EditMode failure"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyAi_MoveOccupancy_BlocksAttackStartUntilFirstUnlockedTick",
-      "assembly": "Game.Integration.Simulation.Tests.dll",
-      "domain": "Simulation",
-      "authoringRelated": false,
-      "failureMessageHash": "bfac2d7e2ab1b6442b68dae5700b5bf5f425a73c992c5f3237b505c966f3edf0",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
-    },
-    {
-      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyAi_WindupForwardBaseline_First3Ticks_MatchPinnedPatrolChaseWindupSequence",
-      "assembly": "Game.Integration.Simulation.Tests.dll",
-      "domain": "Simulation",
-      "authoringRelated": false,
-      "failureMessageHash": "04c95714a4dd46e8683e32fd71fb117bff8df867c8747d627102f14acabf4529",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
-    },
-    {
       "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Flip_LandingHasHostileUnit_NonLethalImpact_DestroysSelfWithoutCommittedMove",
       "assembly": "Game.Integration.Simulation.Tests.dll",
       "domain": "Simulation",

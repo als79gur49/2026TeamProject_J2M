@@ -76,8 +76,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("`Forward baseline unchanged`"));
             Assert.That(doc, Does.Contain("`RandomWalk unchanged`"));
             Assert.That(doc, Does.Contain("`EnemyLogic_ForwardProposalPath_MatchesLegacyForwardStrategy_OnCanonicalFixtures`"));
-            Assert.That(doc, Does.Contain("`Replay_RandomWalkPilotProfile_ProducesStablePerTickHashTraceAndPatrolDump`"));
-            Assert.That(doc, Does.Contain("`EnemyAi_NonAttackingRandomWalkPilot_First10Ticks_MatchPinnedSequence`"));
+            Assert.That(doc, Does.Contain("`Replay_EnemyAiKinematicScenario_DeterministicCanonicalState`"));
+            Assert.That(doc, Does.Contain("`EnemyAi_RandomWalk_PatrolStateUpdatesOnlyOnCommittedKinematicMove`"));
             Assert.That(doc, Does.Contain("Post-Phase Decision Matrix"));
             Assert.That(doc, Does.Contain("`ForwardPatrolStrategy`"));
             Assert.That(doc, Does.Contain("default archetype rollout | 자동 오픈 금지"));
