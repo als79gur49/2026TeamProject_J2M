@@ -789,6 +789,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
+        public void MoveOwnership_GenericMovePresentation_Retained()
+        {
+            TickPresentationDataBuilder_BuildsMoveMotionForUnitMove();
+        }
+
+        [Test]
         [Category("Core")]
         public void ChargeMoveDeletion_RuntimeBuilder_UsesMoveForActiveChargeMoveSemantic()
         {
@@ -1045,6 +1052,65 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void TickResultBuilder_LocomotionAnchorCommit_SuppressesLegacyMotion_Regression()
         {
             TickResultBuilder_LocomotionAnchorCommit_SuppressesLegacyMotion();
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MoveOwnership_SuppressionBoundary_IsCurrent()
+        {
+            var cases = new[]
+            {
+                (BoundaryKind: MovementExecutionBoundaryKind.LocomotionAnchorCommit, Suppressed: true),
+                (BoundaryKind: MovementExecutionBoundaryKind.UnitOrdinaryLocomotion, Suppressed: true),
+                (BoundaryKind: MovementExecutionBoundaryKind.BoxActionMovement, Suppressed: false),
+                (BoundaryKind: MovementExecutionBoundaryKind.TopologyMaterialization, Suppressed: false),
+                (BoundaryKind: MovementExecutionBoundaryKind.SpawnRespawnPlacement, Suppressed: false),
+                (BoundaryKind: MovementExecutionBoundaryKind.CleanupRemoval, Suppressed: false),
+                (BoundaryKind: MovementExecutionBoundaryKind.ScriptedRelocation, Suppressed: false),
+                (BoundaryKind: MovementExecutionBoundaryKind.LegacyFallback, Suppressed: false),
+                (BoundaryKind: MovementExecutionBoundaryKind.Unknown, Suppressed: false),
+            };
+            var preEntities = new List<EntityState>();
+            var postEntities = new List<EntityState>();
+            var operations = new List<FinalizationOperation>();
+
+            for (var i = 0; i < cases.Length; i++)
+            {
+                var entityId = 100 + i;
+                var sourceCell = new SurfaceCell(FaceId.Floor, i, 0);
+                var destinationCell = new SurfaceCell(FaceId.Floor, i, 1);
+                preEntities.Add(CreateEntity(entityId, EntityType.Unit, sourceCell, Direction.Up));
+                postEntities.Add(CreateEntity(entityId, EntityType.Unit, destinationCell, Direction.Right));
+
+                var metadata = new FinalizationOperationMetadata(
+                    TickPhase.Resolve,
+                    ResolvedActionSemanticKind.Move,
+                    sourceActorEntityId: entityId,
+                    actionPlanId: i + 1,
+                    movementSemanticKind: MovementSemanticKind.Move,
+                    movementExecutionBoundaryKind: cases[i].BoundaryKind,
+                    boundaryReason: cases[i].BoundaryKind.ToString());
+                operations.Add(FinalizationOperation.MoveEntity(i + 1, entityId, destinationCell, metadata));
+            }
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    CreateWorldState(preEntities).CreateSnapshot(),
+                    CreateWorldState(postEntities).CreateSnapshot(),
+                    CreateWorldState(postEntities).CreateSnapshot(),
+                    CreateWorldState(postEntities).CreateSnapshot(),
+                    CreateMovementPhaseResultWithOperations(operations.ToArray()),
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None()));
+
+            for (var i = 0; i < cases.Length; i++)
+            {
+                var entityId = 100 + i;
+                var hasMove = presentationData.EntityMotions.Any(motion =>
+                    motion.EntityId == entityId &&
+                    motion.MotionKind == TickEntityMotionKind.Move);
+                Assert.That(hasMove, Is.EqualTo(!cases[i].Suppressed), cases[i].BoundaryKind.ToString());
+            }
         }
 
         [Test]

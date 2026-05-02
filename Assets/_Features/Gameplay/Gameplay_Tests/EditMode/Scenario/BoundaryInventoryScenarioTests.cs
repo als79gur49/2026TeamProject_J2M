@@ -110,6 +110,106 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void MoveOwnership_PlayerContinuous_DoesNotEmitEntityMove()
+        {
+            var tick = CreatePipeline(
+                    CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) }),
+                    new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
+                    GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
+                .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+
+            Assert.That(tick.PresentationData.ContinuousLocomotionTracks.Any(track => track.EntityId == 10), Is.True);
+            Assert.That(
+                tick.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 10),
+                Is.False);
+            LegacyMovementBoundaryAssert.NoCoveredLocomotionLegacyFallback(tick, 10);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MoveOwnership_PlayerKinematic_DoesNotEmitEntityMove()
+        {
+            var tick = CreatePipeline(
+                    CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) }),
+                    new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
+                    GameplayRuntimeFeatureFlags.PlayerSameFaceContinuousLocomotionEnabled)
+                .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+
+            Assert.That(tick.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 10), Is.True);
+            Assert.That(
+                tick.PresentationData.ContinuousLocomotionTracks.Any(track => track.EntityId == 10),
+                Is.False);
+            LegacyMovementBoundaryAssert.NoCoveredLocomotionLegacyFallback(tick, 10);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MoveOwnership_EnemyKinematic_DoesNotEmitEntityMove()
+        {
+            var tick = CreatePipeline(
+                    CreateWorldState(new[] { CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Chase) }),
+                    new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(40, 50, new Vector2Int(1, 0))) },
+                    GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
+                .RunTick(new TickInput(1));
+
+            Assert.That(tick.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40), Is.True);
+            LegacyMovementBoundaryAssert.NoCoveredLocomotionLegacyFallback(tick, 40);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MoveOwnership_ChargeKinematic_DoesNotEmitEntityMove()
+        {
+            var tick = CreatePipeline(
+                    CreateActiveChargeWorldState(50),
+                    new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(50, 50, new Vector2Int(1, 0))) },
+                    GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
+                .RunTick(new TickInput(1));
+
+            Assert.That(
+                tick.PresentationData.KinematicMotionTracks.Any(track =>
+                    track.EntityId == 50 &&
+                    track.MotionMode == MotionMode.Charge),
+                Is.True);
+            Assert.That(
+                tick.PresentationData.EnemyChargeSignals.Any(signal =>
+                    signal.EntityId == 50 &&
+                    signal.Phase == EnemyChargePhase.Active),
+                Is.True);
+            LegacyMovementBoundaryAssert.NoCoveredLocomotionLegacyFallback(tick, 50);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MoveOwnership_RemovedDiagnosticBaseline_NoCoveredEntityMove()
+        {
+            var playerTick = CreatePipeline(
+                    CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) }),
+                    new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
+                    GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline)
+                .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(playerTick, 10);
+            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(playerTick);
+
+            var enemyTick = CreatePipeline(
+                    CreateWorldState(new[] { CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Chase) }),
+                    new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(40, 50, new Vector2Int(1, 0))) },
+                    GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline)
+                .RunTick(new TickInput(1));
+            LegacyMovementBoundaryAssert.EnemyLegacyFallbackRemovedFromRuntime(enemyTick, 40);
+            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(enemyTick);
+
+            var chargeTick = CreatePipeline(
+                    CreateActiveChargeWorldState(50),
+                    new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(50, 50, new Vector2Int(1, 0))) },
+                    GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline)
+                .RunTick(new TickInput(1));
+            LegacyMovementBoundaryAssert.ChargeLegacyFallbackRemovedFromRuntime(chargeTick, 50);
+            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(chargeTick);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Phase2_PlayerLegacyFallback_DefaultGameplayLocomotion_NoLegacyFallback()
         {
             AssertDefaultGameplayLocomotionFlags();
@@ -1628,12 +1728,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var consolidationDoc = ReadRepoFile(
                 "Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-Compatibility-Layer-Consolidation-2026-05-02.md");
+            var ownershipDoc = ReadRepoFile(
+                "Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-Move-Presentation-Ownership-Narrowing-2026-05-02.md");
 
             Assert.That(consolidationDoc, Does.Contain("Move Presentation Inventory"));
             Assert.That(consolidationDoc, Does.Contain("`TickEntityMotionKind.Move`"));
             Assert.That(consolidationDoc, Does.Contain("retained grid transaction and generic presentation paths"));
             Assert.That(consolidationDoc, Does.Contain("not a deletion candidate in this consolidation"));
             Assert.That(consolidationDoc, Does.Contain("ownership narrowing between fallback-only producers and retained grid producers"));
+            Assert.That(consolidationDoc, Does.Contain("ownership-narrowing target, not a deletion target"));
+            Assert.That(ownershipDoc, Does.Contain("Move Presentation Ownership Narrowing"));
+            Assert.That(ownershipDoc, Does.Contain("Producer Inventory"));
+            Assert.That(ownershipDoc, Does.Contain("Consumer Inventory"));
+            Assert.That(ownershipDoc, Does.Contain("Suppression Boundary Inventory"));
+            Assert.That(ownershipDoc, Does.Contain("Replay / Golden Matrix"));
+            Assert.That(ownershipDoc, Does.Contain("TickEntityMotionKind.Move remains retained"));
         }
 
         [Test]
@@ -1657,6 +1766,31 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(consolidationDoc, Does.Contain("retained grid transaction boundary kinds"));
             Assert.That(consolidationDoc, Does.Contain("topology, box/action, spawn/respawn, cleanup, scripted relocation, anchor normalization"));
             Assert.That(consolidationDoc, Does.Contain("ordinary fallback confusion"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MoveOwnership_GridTransactions_Retained()
+        {
+            CompatibilityLayer_RetainedGridTransactions_StillProtected();
+            Phase8E_GridTransactionsRemainAllowed();
+            BoundaryInventory_PhaseRelocation_IsScriptedRelocation();
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MoveOwnership_Docs_RecordOwnershipNarrowing()
+        {
+            var readinessDoc = ReadRepoFile(
+                "Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Readiness-2026-05-01.md");
+            var adr = ReadRepoFile("Docs/Architecture/ADR/ADR-005-Grid-Authoritative-Unit-Kinematics.md");
+            var chargeReport = ReadRepoFile(
+                "Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-ChargeMove-Deletion-Verification-And-Residue-Report-2026-05-02.md");
+
+            CompatibilityLayer_MovePresentation_InventoryIsCurrent();
+            Assert.That(readinessDoc, Does.Contain("`TickEntityMotionKind.Move` is an ownership-narrowing target, not a deletion target"));
+            Assert.That(adr, Does.Contain("`TickEntityMotionKind.Move` is an ownership-narrowing target, not a deletion target"));
+            Assert.That(chargeReport, Does.Contain("`TickEntityMotionKind.Move` is an ownership-narrowing target, not a deletion target"));
         }
 
         [Test]

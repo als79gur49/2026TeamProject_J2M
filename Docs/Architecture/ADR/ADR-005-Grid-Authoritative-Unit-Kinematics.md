@@ -24,6 +24,7 @@ Gameplay spatial authority remains `EntityState.position: SurfaceCell` plus the 
 - Grid transaction is immediate canonical grid or anchor materialization: spawn, respawn, cleanup removal, box push/flip/action materialization, topology materialization including Player Free2D local-zero and approach-zero-settle topology handoff, scripted relocation, and continuous/kinematic anchor normalization.
 - `MoveEntity` is an anchor/grid transaction primitive. It is not the ordinary Unit movement abstraction.
 - Legacy ordinary Unit movement is the path where an ordinary Unit `MovementCommandKind.Move` reaches `MovementExpander`, commits through `MoveEntity`, and presents as legacy `TickEntityMotionKind.Move`. The former Charge-specific entity motion value has been removed.
+- `TickEntityMotionKind.Move` is an ownership-narrowing target, not a deletion target. Retained grid/generic presentation remains protected while fallback-only residue is inventoried separately.
 - Legacy ordinary Unit movement is the deprecation target. Legacy grid transactions are retained in Boundary v1.
 - Flag-on player Free2D, player kinematic fallback, enemy ordinary kinematic, and Charge kinematic paths must not emit legacy ordinary Unit movement presentation. Their presentation sources are `TickContinuousLocomotionTrack` or `TickKinematicMotionTrack`.
 - Box/action/topology/spawn/respawn/cleanup/scripted relocation may continue to use `MoveEntity` and legacy grid transaction presentation.

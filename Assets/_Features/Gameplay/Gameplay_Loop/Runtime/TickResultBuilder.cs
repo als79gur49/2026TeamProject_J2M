@@ -2592,6 +2592,8 @@ namespace Game.Feature.Gameplay.Loop
                 return false;
             }
 
+            // Ownership narrowing: only locomotion replacement boundaries suppress the legacy
+            // entity Move presentation. Retained grid/generic transactions still own Move.
             return operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.LocomotionAnchorCommit ||
                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.UnitOrdinaryLocomotion;
         }
@@ -2605,6 +2607,7 @@ namespace Game.Feature.Gameplay.Loop
             motionKind = semanticKind switch
             {
                 MovementSemanticKind.Move => TickEntityMotionKind.Move,
+                // Item movement intentionally shares generic Move presentation.
                 MovementSemanticKind.Item => TickEntityMotionKind.Move,
                 MovementSemanticKind.Push => TickEntityMotionKind.Push,
                 MovementSemanticKind.Flip => TickEntityMotionKind.Flip,

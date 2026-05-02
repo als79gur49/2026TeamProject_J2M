@@ -64,6 +64,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void MoveOwnership_GenericMovePresentation_Retained()
+        {
+            GameplayTickViewPresenter_MoveMotionWithoutEntityOverride_UsesGlobalDuration();
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayTickViewPresenter_KinematicTrack_AppliesTickOneDestinationPoseImmediately()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_KinematicTrack_AppliesTickOneDestinationPoseImmediately");

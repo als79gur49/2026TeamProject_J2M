@@ -224,6 +224,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Extended")]
+        public void Replay_MoveOwnership_NoCoveredFallbackMove()
+        {
+            Replay_Phase2_PlayerDefaultGameplayLocomotion_NoLegacyFallback();
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Replay_Phase2_PlayerFlagOffLegacyFallback_BaselineDocumented()
         {
             Replay_Phase4_LegacyBaseline_PlayerFallbackRemoved();

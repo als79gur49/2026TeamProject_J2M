@@ -10,6 +10,7 @@ Covered fallback authorization is already removed for covered player ordinary, e
 This package does not change runtime validation semantics.
 `EnableLegacyOrdinaryUnitFallback`, `LegacyOrdinaryFallbackBaseline`, `LegacyOrdinaryFallbackEnabled`, and the `LegacyFallback=` trace token remain compatibility surface.
 `TickEntityMotionKind.Move` is not deleted in this package.
+`TickEntityMotionKind.Move` is an ownership-narrowing target, not a deletion target; retained grid/generic presentation remains protected.
 The follow-up Charge presentation package removed the legacy Charge entity-motion enum, timing, authoring, host consumers, and synthetic compatibility.
 Current Charge presentation is `TickKinematicMotionTrack(MotionMode.Charge)` plus `TickEnemyChargePresentationSignal`.
 `MoveEntity`, `MovementExpander`, retained grid transactions, and glide retained fallback are protected and are not ordinary fallback cleanup targets.
@@ -41,7 +42,7 @@ Phase 8E kept `EnableLegacyOrdinaryUnitFallback` as the underlying compatibility
 | obsolete `Allows*` wrappers | test helpers | obsolete compatibility wrappers | yes for now | historical wrapper references | preserve no-internal-caller inventory | helper deletion churn | test owner | Defer |
 | Phase 3-8 wrapper tests | tests | historical compatibility tests | partial | migration history and canaries | list duplicate cleanup candidates only | stale naming | test owner | Do now inventory |
 | fallback-related docs wording | docs | historical/current wording mixed | partial | avoid current-policy confusion | scan current docs for stale fallback-allowed wording | historical over-editing | docs owner | Do now |
-| `TickEntityMotionKind.Move` | presentation enum | retained by grid/item/topology paths | yes | `MovementSemanticKind.Move/Item` presentation | no immediate deletion | retained presentation break | presentation/grid owner | Defer |
+| `TickEntityMotionKind.Move` | presentation enum | retained by grid/item/topology paths | yes | `MovementSemanticKind.Move/Item` presentation | ownership-narrowing target, not a deletion target | retained presentation break | presentation/grid owner | Defer |
 | legacy Charge entity-motion presentation | removed presentation enum | removed | no | current Charge uses kinematic track plus signal | record historical removal | golden/presentation drift | presentation and golden owner | Removed |
 | `MoveEntity` | runtime primitive | retained | yes | anchor/grid transaction primitive | exclude from cleanup | catastrophic runtime break | grid owner | Never delete / Retained |
 | `MovementExpander` | expansion component | retained | yes | grid transactions and retained lanes | exclude from cleanup | grid branch regression | movement owner | Never delete / Retained |

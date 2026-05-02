@@ -33,6 +33,8 @@ Phase 8E, `Underlying Diagnostic Field Rename / Removal Readiness`, inventories 
 
 After Phase 8E, the project stops extending the micro-phase chain and moves to `Legacy Compatibility Layer Consolidation`. The next goal is a single inventory and prioritization package for compatibility presets, helpers, fields, trace vocabulary, presentation remnants, tests, docs, and replay/golden policy. Covered fallback authorization remains removed; compatibility layer cleanup remains pending. `ChargeMove` presentation cleanup readiness recorded producer current runtime unreachable for default, `None`, removed-diagnostic, and Charge kinematic flag-on lanes; the follow-up deletion and verification packages removed enum/consumer/authoring/timing support and confirmed active gameplay C# has no deleted-symbol references. The detailed results are documented in `Legacy-Ordinary-Unit-Movement-Decommission-ChargeMove-Presentation-Cleanup-Readiness-2026-05-02.md` and `Legacy-Ordinary-Unit-Movement-Decommission-ChargeMove-Deletion-Verification-And-Residue-Report-2026-05-02.md`. `MoveEntity`, `MovementExpander`, retained grid transactions, and glide retained fallback remain protected.
 
+`TickEntityMotionKind.Move` is an ownership-narrowing target, not a deletion target. Retained grid/generic presentation remains protected while covered fallback residue is inventoried separately.
+
 ## Executive Decision
 
 `Legacy Ordinary Unit Movement` is the only deletion target: an ordinary `Unit` `MovementCommandKind.Move` reaches legacy expansion, commits through `MoveEntity`, and presents as legacy `TickEntityMotionKind.Move` or `TickEntityMotionKind.ChargeMove`.

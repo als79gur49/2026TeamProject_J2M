@@ -444,6 +444,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Extended")]
+        public void Replay_MoveOwnership_NoCoveredFallbackMove()
+        {
+            Replay_DefaultGameplayLocomotion_NoUnexpectedLegacyOrdinaryMovement();
+        }
+
+        [Test]
         [Category("Core")]
         public void Replay_ScopedDeletionPrep_NoCoveredFallbackInDefaultGameplayLocomotion()
         {
@@ -1045,6 +1052,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
             {
                 EnemyAiProfileTestFactory.Destroy(glideProfile);
             }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Replay_MoveOwnership_RetainedMoveStillDeterministic()
+        {
+            BoundaryInventory_SpecialMovement_ReplayCanary();
         }
 
         [Test]

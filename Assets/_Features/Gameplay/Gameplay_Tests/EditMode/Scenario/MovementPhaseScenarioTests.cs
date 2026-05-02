@@ -422,6 +422,31 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
+        public void MoveOwnership_BoxActionMovement_RetainsRequiredMovePresentation()
+        {
+            MovementPhase_BoxPush_RemainsGridTransaction();
+            MovementPhase_Flip_RemainsGridTransaction();
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MoveOwnership_ItemOrGridMovement_Retained()
+        {
+            MovementPhase_Item_RemainsGridTransaction();
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MoveOwnership_GridTransactions_Retained()
+        {
+            MovementPhase_BoxPush_RemainsGridTransaction();
+            MovementPhase_Flip_RemainsGridTransaction();
+            MovementPhase_Item_RemainsGridTransaction();
+            DeprecationPhase1_MovementExpanderGridBranchStillAllowed();
+        }
+
+        [Test]
         [Category("Core")]
         public void TickPipeline_ValidateLegacyExpansionIntents_AllowsGridTransactions()
         {

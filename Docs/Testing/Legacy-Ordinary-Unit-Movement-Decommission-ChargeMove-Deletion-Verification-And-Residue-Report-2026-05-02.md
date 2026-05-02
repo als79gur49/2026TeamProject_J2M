@@ -9,6 +9,7 @@ This package verifies the completed `ChargeMove` consumer deletion and records t
 It does not perform additional runtime deletion, Unity YAML migration, replay/golden rewrite, `Move` cleanup, grid transaction cleanup, or glide policy adoption.
 Current Charge presentation remains `TickKinematicMotionTrack(MotionMode.Charge)` for movement plus `TickEnemyChargePresentationSignal` for Charge semantic/effect.
 `TickEntityMotionKind.Move`, `MoveEntity`, `MovementExpander`, retained grid transactions, and glide retained fallback remain protected.
+`TickEntityMotionKind.Move` is an ownership-narrowing target, not a deletion target; retained grid/generic presentation remains protected.
 The verification pass found two stale serialized YAML hits; runtime C# no longer reads those fields.
 A follow-up manual minimal YAML cleanup removed both residue lines without a migration tool, editor script, prefab resave, replay/golden rewrite, or runtime semantics change.
 
