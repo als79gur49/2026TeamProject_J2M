@@ -1586,7 +1586,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_ScopedDeletionPrep_PlayerEnemyRemovedChargeRetained",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_ScopedDeletionPrep_PlayerEnemyChargeRemoved",
       "category": "Core",
       "contracts": [
         "determinism",
@@ -1594,11 +1594,11 @@
         "enemy_kinematic_locomotion",
         "enemy_charge_kinematic_locomotion"
       ],
-      "reason": "Locked Core coverage for Phase 5 legacy baseline replay player/enemy removal and Charge retention.",
+      "reason": "Locked Core coverage for Phase 6 legacy baseline replay player/enemy/Charge removal.",
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_Phase5_LegacyBaseline_PlayerEnemyRemovedChargeRetained",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_Phase6_LegacyBaseline_PlayerEnemyChargeRemoved",
       "category": "Core",
       "contracts": [
         "determinism",
@@ -1606,40 +1606,40 @@
         "enemy_kinematic_locomotion",
         "enemy_charge_kinematic_locomotion"
       ],
-      "reason": "Locked Core coverage for Phase 5 explicit baseline replay contract.",
+      "reason": "Locked Core coverage for Phase 6 explicit baseline replay contract.",
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.BoundaryInventory_LegacyBaseline_PlayerEnemyRemovedChargeRetained",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.BoundaryInventory_LegacyBaseline_PlayerEnemyChargeRemoved",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
         "enemy_kinematic_locomotion",
         "enemy_charge_kinematic_locomotion"
       ],
-      "reason": "Locked Core coverage for Phase 5 boundary inventory explicit baseline contract.",
+      "reason": "Locked Core coverage for Phase 6 boundary inventory explicit baseline contract.",
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase5_LegacyBaseline_PlayerEnemyRemovedChargeRetained",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase6_LegacyBaseline_PlayerEnemyChargeRemoved",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
         "enemy_kinematic_locomotion",
         "enemy_charge_kinematic_locomotion"
       ],
-      "reason": "Locked Core coverage for Phase 5 player/enemy removed and Charge retained baseline.",
+      "reason": "Locked Core coverage for Phase 6 player/enemy/Charge removed baseline.",
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.DeprecationPhase1_LegacyBaseline_PlayerEnemyRemovedChargeRetained",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.DeprecationPhase1_LegacyBaseline_PlayerEnemyChargeRemoved",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
         "enemy_kinematic_locomotion",
         "enemy_charge_kinematic_locomotion"
       ],
-      "reason": "Locked Core compatibility coverage for Phase 5 explicit baseline contract.",
+      "reason": "Locked Core compatibility coverage for Phase 6 explicit baseline contract.",
       "locked": true
     },
     {

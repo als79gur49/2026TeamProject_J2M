@@ -452,14 +452,14 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void Replay_ScopedDeletionPrep_PlayerEnemyRemovedChargeRetained()
+        public void Replay_ScopedDeletionPrep_PlayerEnemyChargeRemoved()
         {
-            Replay_Phase5_LegacyBaseline_PlayerEnemyRemovedChargeRetained();
+            Replay_Phase6_LegacyBaseline_PlayerEnemyChargeRemoved();
         }
 
         [Test]
         [Category("Core")]
-        public void Replay_Phase5_LegacyBaseline_PlayerEnemyRemovedChargeRetained()
+        public void Replay_Phase6_LegacyBaseline_PlayerEnemyChargeRemoved()
         {
             var harness = new TickReplayHarness();
             var playerInputs = new[] { new TickInput(1, PlayerTickCommand.Move(Direction.Right)) };
@@ -533,8 +533,16 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 enemyInputs,
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
 
-            AssertReplayBoundaryCanaryEqual(firstChargeReplay, secondChargeReplay);
-            Assert.That(firstChargeReplay.Any(frame => frame.Trace.Contains("LegacyFallback", StringComparison.Ordinal)), Is.True);
+            AssertReplayCanonicalStateEqual(firstChargeReplay, secondChargeReplay);
+            Assert.That(
+                firstChargeReplay.Select(frame => frame.Trace).ToArray(),
+                Is.EqualTo(secondChargeReplay.Select(frame => frame.Trace).ToArray()));
+            Assert.That(firstChargeReplay.Any(frame => frame.Trace.Contains("Boundary=LegacyFallback", StringComparison.Ordinal)), Is.False);
+            Assert.That(
+                firstChargeReplay.Any(frame =>
+                    frame.Trace.Contains(LegacyMovementBoundaryAssert.ChargeLegacyFallbackRemovedReason, StringComparison.Ordinal) ||
+                    frame.EventLogDump.Contains(LegacyMovementBoundaryAssert.ChargeLegacyFallbackRemovedReason, StringComparison.Ordinal)),
+                Is.True);
         }
 
         [Test]
@@ -650,20 +658,76 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Extended")]
+        public void Replay_Phase6_ChargeKinematicFlagOn_NoLegacyChargeMove()
+        {
+            Replay_Phase2C_ChargeKinematicFlagOn_NoChargeMoveFallback();
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Replay_Phase2C_ChargeFlagOffLegacyFallback_BaselineDocumented()
+        {
+            Replay_Phase6_ChargeLegacyBaseline_FallbackRemoved();
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Replay_Phase6_ChargeLegacyBaseline_FallbackRemoved()
         {
             var replay = RunScriptedChargeActiveReplay(GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline, out var secondReplay);
 
-            AssertReplayBoundaryCanaryEqual(replay, secondReplay);
-            Assert.That(replay.Any(frame => frame.Trace.Contains("LegacyFallback", StringComparison.Ordinal)), Is.True);
+            AssertReplayCanonicalStateEqual(replay, secondReplay);
             Assert.That(
-                replay.Any(frame => frame.Trace.Contains("ConsumeLegacyActiveStep", StringComparison.Ordinal) ||
-                                    frame.EventLogDump.Contains("ConsumeLegacyActiveStep", StringComparison.Ordinal)),
+                replay.Select(frame => frame.Trace).ToArray(),
+                Is.EqualTo(secondReplay.Select(frame => frame.Trace).ToArray()));
+            Assert.That(replay.Any(frame => frame.Trace.Contains("Boundary=LegacyFallback", StringComparison.Ordinal)), Is.False);
+            Assert.That(
+                replay.Any(frame =>
+                    frame.Trace.Contains(LegacyMovementBoundaryAssert.ChargeLegacyFallbackRemovedReason, StringComparison.Ordinal) ||
+                    frame.EventLogDump.Contains(LegacyMovementBoundaryAssert.ChargeLegacyFallbackRemovedReason, StringComparison.Ordinal)),
                 Is.True);
-            Assert.That(
-                replay.Any(frame => frame.Trace.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal) ||
-                                    frame.EventLogDump.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
-                Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Replay_Phase6_DefaultGameplay_NoChargeMove()
+        {
+            Replay_Phase2C_ChargeDefaultGameplayLocomotion_NoChargeMoveFallback();
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Replay_Phase6_ChargeKinematicAnchorCommit_UsesMoveEntityButNoLegacyChargeMove()
+        {
+            var inputs = Enumerable.Range(1, 5)
+                .Select(tick => new TickInput(tick))
+                .ToArray();
+            var profile = CreateChargeSettleWaitProfile();
+            var harness = new TickReplayHarness();
+
+            try
+            {
+                var replay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    CreateChargeSettleWaitWorldState(),
+                    entityLogics: new IEntityLogic[0],
+                    inputs,
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyAndChargeKinematicLocomotionEnabled);
+                var secondReplay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    CreateChargeSettleWaitWorldState(),
+                    entityLogics: new IEntityLogic[0],
+                    inputs,
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyAndChargeKinematicLocomotionEnabled);
+
+                AssertReplayBoundaryCanaryEqual(replay, secondReplay);
+                Assert.That(replay.Any(frame => frame.Trace.Contains("KinematicAnchorCommitted", StringComparison.Ordinal)), Is.True);
+                AssertChargeReplayHasNoChargeFallback(replay);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
         }
 
         [Test]

@@ -6,9 +6,11 @@ Date: 2026-05-02
 
 Phase 4 removes player legacy ordinary fallback authorization from the runtime path. A player ordinary `MoveIntent` that reaches legacy expansion is rejected even under `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline`.
 
-This is a player-only pilot. Enemy ordinary fallback, Charge active fallback, default/flag-off glide fallback, retained grid transactions, `MoveEntity`, and `MovementExpander` remain supported.
+This is a player-only pilot. At Phase 4, enemy ordinary fallback and Charge active fallback remained supported; default/flag-off glide fallback, retained grid transactions, `MoveEntity`, and `MovementExpander` remain supported.
 
-Phase 5 supersedes the enemy portion of this status. Enemy ordinary fallback is now rejected under `LegacyOrdinaryFallbackBaseline` with `EnemyLegacyFallbackRemovedFromRuntime`; Charge active fallback remains retained.
+Phase 5 supersedes the enemy portion of this status. Enemy ordinary fallback is now rejected under `LegacyOrdinaryFallbackBaseline` with `EnemyLegacyFallbackRemovedFromRuntime`.
+
+Phase 6 supersedes the Charge portion of this status. Charge active fallback is now rejected under `LegacyOrdinaryFallbackBaseline` with `ChargeLegacyFallbackRemovedFromRuntime`.
 
 ## Runtime Policy
 
@@ -17,7 +19,7 @@ Phase 5 supersedes the enemy portion of this status. Enemy ordinary fallback is 
 - `DefaultGameplayLocomotion`, Free2D-on, and player kinematic-on lanes keep the existing `PlayerCoveredLocomotionReachedLegacyExpansion` leak reason.
 - `GameplayRuntimeFeatureFlags.None` keeps the Phase 3 `LegacyOrdinaryFallbackRequiresExplicitBaseline` reason.
 - `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` now rejects player ordinary fallback with `PlayerLegacyFallbackRemovedFromRuntime`.
-- Enemy ordinary fallback and Charge active fallback remain allowed when `EnableLegacyOrdinaryUnitFallback` is true.
+- At Phase 4, enemy ordinary fallback and Charge active fallback remained allowed when `EnableLegacyOrdinaryUnitFallback` was true. Phase 5/6 supersede those allowances.
 
 Retained grid transactions still pass the grid transaction allowlist before player fallback removal applies. Topology handoff, box/action materialization, spawn, respawn, cleanup, scripted relocation, anchor normalization, `MoveEntity`, and the `MovementExpander` grid branch are not deletion targets.
 
@@ -32,15 +34,15 @@ Phase 4 canonical canaries:
 - `Phase4_PlayerTopologyHandoff_StillGridTransaction`
 - `Phase4_MovementExpander_GridBranchStillAllowed`
 - `Phase5_LegacyBaseline_EnemyFallbackRemovedByPhase5`
-- `Phase4_LegacyBaseline_ChargeFallbackStillAllowed`
-- `Replay_Phase5_LegacyBaseline_PlayerEnemyRemovedChargeRetained`
+- `Phase4_LegacyBaseline_ChargeFallbackRemovedByPhase6`
+- `Replay_Phase6_LegacyBaseline_PlayerEnemyChargeRemoved`
 - `Replay_Phase4_LegacyBaseline_PlayerFallbackRemoved`
 
-Old player fallback-allowed canaries are superseded. Enemy fallback-allowed canaries are superseded by Phase 5. Charge fallback-allowed canaries remain valid.
+Old player fallback-allowed canaries are superseded. Enemy fallback-allowed canaries are superseded by Phase 5. Charge fallback-allowed canaries are superseded by Phase 6.
 
 ## Replay and Golden Policy
 
-Phase 4 does not rewrite golden files. Phase 5 replay tests assert that player and enemy fallback are absent under the explicit legacy baseline while Charge fallback remains deterministic and present in scenarios that include it.
+Phase 4 does not rewrite golden files. Phase 6 replay tests assert that player, enemy, and Charge fallback are absent under the explicit legacy baseline while diagnostics remain deterministic.
 
 Golden migration for historical player fallback output remains a future owner-approved phase.
 

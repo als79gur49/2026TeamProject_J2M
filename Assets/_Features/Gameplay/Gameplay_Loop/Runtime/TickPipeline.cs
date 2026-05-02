@@ -1529,6 +1529,12 @@ namespace Game.Feature.Gameplay.Loop
                 return true;
             }
 
+            if (isChargeActiveFallback)
+            {
+                reason = "ChargeLegacyFallbackRemovedFromRuntime";
+                return true;
+            }
+
             return false;
         }
 

@@ -36,7 +36,7 @@ The Charge active fallback branch is currently reachable through this chain:
 
 `EnemyChargeKinematicLocomotionEnabled` makes synthetic active charge expansion a forbidden leak. The expected rejection reason is `ChargeCoveredKinematicReachedLegacyExpansion`.
 
-Historical Phase 2C note: `GameplayRuntimeFeatureFlags.None` was the Charge fallback baseline in this phase. Phase 3 supersedes that policy: `None` now blocks covered Charge active fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`, and intentional fallback tests use `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline`.
+Historical Phase 2C note: `GameplayRuntimeFeatureFlags.None` was the Charge fallback baseline in this phase. Phase 3 supersedes that policy: `None` now blocks covered Charge active fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. Phase 6 supersedes the explicit baseline policy: `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` now blocks Charge active fallback with `ChargeLegacyFallbackRemovedFromRuntime`.
 
 Custom flags with `EnableEnemyChargeKinematicLocomotion` disabled may reach Charge active fallback only when `EnableLegacyOrdinaryUnitFallback` is explicitly enabled.
 
@@ -63,7 +63,7 @@ The Charge pilot is pinned by these test additions:
 
 - `BoundaryInventoryScenarioTests.Phase2C_ChargeLegacyFallback_DefaultGameplayLocomotion_NoChargeMoveFallback`
 - `BoundaryInventoryScenarioTests.Phase2C_ChargeLegacyFallback_ChargeKinematicFlagOn_BlockedBeforeMovementExpander`
-- `BoundaryInventoryScenarioTests.Phase2C_ChargeLegacyFallback_FlagOffBaseline_StillAllowed`
+- `BoundaryInventoryScenarioTests.Phase2C_ChargeLegacyFallback_FlagOffBaseline_RemovedByPhase6`
 - `BoundaryInventoryScenarioTests.Phase2C_ChargeLegacyFallback_PlayerEnemyOrdinary_AreOutOfScope`
 - `BoundaryInventoryScenarioTests.Phase2C_ChargeLegacyFallback_GlideDefault_IsRetainedException_NotChargePilot`
 - `MovementPhaseScenarioTests.Phase2C_ChargeLegacyFallback_ValidateLegacyExpansionIntents_ChargeFlagReachability`

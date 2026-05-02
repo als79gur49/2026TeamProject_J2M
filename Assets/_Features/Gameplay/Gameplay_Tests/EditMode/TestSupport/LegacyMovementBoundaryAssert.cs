@@ -10,6 +10,7 @@ namespace Game.Feature.Gameplay.Tests
         public const string ExplicitLegacyFallbackRequiredReason = "LegacyOrdinaryFallbackRequiresExplicitBaseline";
         public const string PlayerLegacyFallbackRemovedReason = "PlayerLegacyFallbackRemovedFromRuntime";
         public const string EnemyLegacyFallbackRemovedReason = "EnemyLegacyFallbackRemovedFromRuntime";
+        public const string ChargeLegacyFallbackRemovedReason = "ChargeLegacyFallbackRemovedFromRuntime";
 
         public static void NoLegacyOrdinaryUnitMove(TickResult result, params int[] entityIds)
         {
@@ -116,6 +117,18 @@ namespace Game.Feature.Gameplay.Tests
                     reason.Contains(EnemyLegacyFallbackRemovedReason, System.StringComparison.Ordinal)),
                 Is.True,
                 BuildDebug(result, enemyEntityId));
+        }
+
+        public static void ChargeLegacyFallbackRemovedFromRuntime(TickResult result, int chargeEntityId)
+        {
+            NoLegacyOrdinaryUnitOperationOrPresentation(result, chargeEntityId);
+            Assert.That(
+                result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                    reason.Contains("LegacyUnitOrdinaryMovementDetected", System.StringComparison.Ordinal) &&
+                    reason.Contains($"E={chargeEntityId}", System.StringComparison.Ordinal) &&
+                    reason.Contains(ChargeLegacyFallbackRemovedReason, System.StringComparison.Ordinal)),
+                Is.True,
+                BuildDebug(result, chargeEntityId));
         }
 
         public static void NoPlayerLegacyOrdinaryFallback(TickResult result, int playerEntityId)

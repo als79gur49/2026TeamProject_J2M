@@ -669,10 +669,25 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var legacyBaselineIntent = new MoveIntent(50, priority: 100, destination: new Vector2Int(1, 0));
             legacyBaselineIntent.AssignIntentId(3);
-            AssertLegacyExpansionIntentAllowed(
+            AssertLegacyExpansionIntentBlocked(
                 worldState,
                 legacyBaselineIntent,
-                GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
+                GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline,
+                LegacyMovementBoundaryAssert.ChargeLegacyFallbackRemovedReason);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Phase6_ChargeKinematicFlagOn_NoLegacyChargeMove()
+        {
+            Phase2C_ChargeLegacyFallback_ValidateLegacyExpansionIntents_ChargeFlagReachability();
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Phase6_MovementExpander_GridBranchStillAllowed()
+        {
+            DeprecationPhase1_MovementExpanderGridBranchStillAllowed();
         }
 
         [Test]
