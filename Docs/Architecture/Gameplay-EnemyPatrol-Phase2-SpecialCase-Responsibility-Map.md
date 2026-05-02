@@ -157,11 +157,10 @@
 
 - `EnemyLogic_PatrolMode_ProducesForwardMovementIntent`
 - `ForwardPatrolStrategy_BlockedMovementResponseSetting_ChangesMovementOutcome`
-- `EnemyAi_MultiTick_FollowsPatrolChaseAttackRecoverSequence`
+- `EnemyAi_KinematicPatrolChaseAttackRecover_CurrentContract`
 - `EnemyAi_WindupProfile_LosingLockedTarget_CancelsActionAndFallsBackToPatrol`
 - `EnemyAiProfileAssets_PatrolPilotRollout_MatchesExpectedPatrolKinds`
-- `EnemyAi_NonAttackingRandomWalkPilot_OpenRoom_VisitsMultipleCellsAndKeepsMoving`
-- `EnemyAi_NonAttackingRandomWalkPilot_AfterLosingTarget_ReturnsTowardHomeThenResumesPatrol`
+- `EnemyAi_RandomWalk_PatrolStateUpdatesOnlyOnCommittedKinematicMove`
 
 ## 7. `WallFollow` out-of-scope note
 
@@ -204,21 +203,20 @@
 ### unit
 
 - `EnemyRandomWalkPatrolPlanner_*`
-- `EnemyLogic_NonAttackingRandomWalkPatrol_InitializesAndCommitsPatrolState`
+- `EnemyLogic_RandomWalkPatrolState_CommitsOnlyOnKinematicMovementCommit`
 - `EnemyLogic_PatrolMode_ProducesForwardMovementIntent`
 - `ForwardPatrolStrategy_BlockedMovementResponseSetting_ChangesMovementOutcome`
 - `WallFollowPatrolStrategy_*`
 
 ### replay / determinism
 
-- `DeterminismHash_EnemyPatrolState_IsIncludedInCanonicalState`
-- `Replay_RandomWalkPilotProfile_ProducesStablePerTickHashTraceAndPatrolDump`
+- `Replay_EnemyPatrolAndActionState_AffectDeterminismHash`
+- `Replay_EnemyAiKinematicScenario_DeterministicCanonicalState`
 
 ### scenario
 
-- `EnemyAi_NonAttackingRandomWalkPilot_OpenRoom_VisitsMultipleCellsAndKeepsMoving`
-- `EnemyAi_NonAttackingRandomWalkPilot_AfterLosingTarget_ReturnsTowardHomeThenResumesPatrol`
-- `EnemyAi_MultiTick_FollowsPatrolChaseAttackRecoverSequence`
+- `EnemyAi_RandomWalk_PatrolStateUpdatesOnlyOnCommittedKinematicMove`
+- `EnemyAi_KinematicPatrolChaseAttackRecover_CurrentContract`
 - `EnemyAi_WallFollowerProfile_WithLocomotionCooldown_PreservesWallFollowRule`
 - `WallFollowPatrolStrategy_DeadEnd_RotatesInPlaceBeforeResumingPatrol`
 - `DefaultEntityLogicProvider_WallFollowerProfile_ForwardBlocked_TurnsAndMovesInSameTick`

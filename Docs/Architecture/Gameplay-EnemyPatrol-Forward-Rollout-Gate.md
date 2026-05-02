@@ -22,12 +22,12 @@ phase 3 acceptance는 정성 문구가 아니라 아래 quantitative unchanged m
 | `Forward baseline unchanged` | blocked stop = movement intent 없음 | `EnemyPatrolDecisionPlanner_Forward_BlockedStop_ReturnsNoDirection_SameFacing_NoInit` |
 | `Forward baseline unchanged` | blocked backward = 정확히 1칸 후진 | `EnemyPatrolDecisionPlanner_Forward_BlockedBackward_ReturnsOppositeDirection_SameFacing_NoInit` |
 | `Forward baseline unchanged` | canonical fixtures에서 legacy strategy와 proposal path 결과 동일 | `EnemyLogic_ForwardProposalPath_MatchesLegacyForwardStrategy_OnCanonicalFixtures` |
-| `RandomWalk unchanged` | existing replay fixture hash / trace / patrol dump byte-identical | `Replay_RandomWalkPilotProfile_ProducesStablePerTickHashTraceAndPatrolDump` |
+| `RandomWalk unchanged` | current kinematic replay hash / trace / patrol dump deterministic | `Replay_EnemyAiKinematicScenario_DeterministicCanonicalState` |
 | patrol state init ownership | proposal이 요청할 때만 pre-movement init write 발생 | `EnemyLogic_PatrolDecisionProposal_InitializesState_OnlyWhenProposalRequestsIt` |
 | `Forward` no patrol-state footprint | replay/trace에 새 `EnemyPatrolStateUpdated` 없음 | `Replay_ForwardProfile_ProducesStableHashTrace_AndNoPatrolStateWrites`, `DeterminismHash_ForwardProposalPath_DoesNotCreateEnemyPatrolStateFootprint` |
 | blocked stop unchanged | same-cell stop + no unexpected facing write | `EnemyAi_ForwardBlockedStop_RemainsInPlace_WithoutUnexpectedFacingWrite`, `Replay_ForwardProfile_BlockedStop_ProducesStableNoMove_NoPatrolTrace` |
-| patrol -> chase timing unchanged | `TargetSensed`, `TargetInRange`, `AttackCommitted`, `LockedTargetLost`, `RecoverTick` tick이 baseline과 동일 | `EnemyAi_MultiTick_FollowsPatrolChaseAttackRecoverSequence`, `EnemyAi_WindupForwardBaseline_First3Ticks_MatchPinnedPatrolChaseWindupSequence`, `EnemyAi_WindupProfile_LosingLockedTarget_CancelsActionAndFallsBackToPatrol` |
-| random-walk feel unchanged | protected first 10 ticks pinned sequence 유지 | `EnemyAi_NonAttackingRandomWalkPilot_First10Ticks_MatchPinnedSequence` |
+| patrol -> chase timing unchanged | current kinematic commit 이후 `TargetSensed`, `TargetInRange`, `AttackCommitted`, `LockedTargetLost`, `RecoverTick` contract 유지 | `EnemyAi_KinematicPatrolChaseAttackRecover_CurrentContract`, `EnemyAi_WindupProfile_LosingLockedTarget_CancelsActionAndFallsBackToPatrol` |
+| random-walk feel unchanged | patrol state는 committed kinematic move 기준으로만 갱신 | `EnemyAi_RandomWalk_PatrolStateUpdatesOnlyOnCommittedKinematicMove` |
 
 ## 3. Post-Phase Decision Matrix
 
