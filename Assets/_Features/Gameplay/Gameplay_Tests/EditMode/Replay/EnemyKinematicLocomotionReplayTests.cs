@@ -454,12 +454,19 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Category("Core")]
         public void Replay_ScopedDeletionPrep_PlayerEnemyChargeRemoved()
         {
-            Replay_Phase6_LegacyBaseline_PlayerEnemyChargeRemoved();
+            Replay_Phase7_LegacyFallbackBaseline_DiagnosticsDeterministic();
         }
 
         [Test]
         [Category("Core")]
         public void Replay_Phase6_LegacyBaseline_PlayerEnemyChargeRemoved()
+        {
+            Replay_Phase7_LegacyFallbackBaseline_DiagnosticsDeterministic();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_Phase7_LegacyFallbackBaseline_DiagnosticsDeterministic()
         {
             var harness = new TickReplayHarness();
             var playerInputs = new[] { new TickInput(1, PlayerTickCommand.Move(Direction.Right)) };
@@ -571,6 +578,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Test]
         [Category("Core")]
         public void Replay_Phase3_DefaultGameplay_NoCoveredLegacyFallback()
+        {
+            Replay_Phase7_DefaultGameplay_NoCoveredFallback();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_Phase7_DefaultGameplay_NoCoveredFallback()
         {
             Replay_DefaultGameplayLocomotion_NoUnexpectedLegacyOrdinaryMovement();
         }

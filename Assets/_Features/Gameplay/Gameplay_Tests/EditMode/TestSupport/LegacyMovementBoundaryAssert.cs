@@ -131,6 +131,39 @@ namespace Game.Feature.Gameplay.Tests
                 BuildDebug(result, chargeEntityId));
         }
 
+        public static void AssertCoveredFallbackRemovedDiagnostics(TickResult result, params int[] entityIds)
+        {
+            for (var i = 0; i < entityIds.Length; i++)
+            {
+                var entityId = entityIds[i];
+                NoLegacyOrdinaryUnitOperationOrPresentation(result, entityId);
+                Assert.That(
+                    result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                        reason.Contains("LegacyUnitOrdinaryMovementDetected", System.StringComparison.Ordinal) &&
+                        reason.Contains($"E={entityId}", System.StringComparison.Ordinal) &&
+                        (reason.Contains(PlayerLegacyFallbackRemovedReason, System.StringComparison.Ordinal) ||
+                         reason.Contains(EnemyLegacyFallbackRemovedReason, System.StringComparison.Ordinal) ||
+                         reason.Contains(ChargeLegacyFallbackRemovedReason, System.StringComparison.Ordinal))),
+                    Is.True,
+                    BuildDebug(result, entityId));
+            }
+        }
+
+        public static void AssertPlayerFallbackRemovedFromRuntime(TickResult result, int playerEntityId)
+        {
+            PlayerLegacyFallbackRemovedFromRuntime(result, playerEntityId);
+        }
+
+        public static void AssertEnemyFallbackRemovedFromRuntime(TickResult result, int enemyEntityId)
+        {
+            EnemyLegacyFallbackRemovedFromRuntime(result, enemyEntityId);
+        }
+
+        public static void AssertChargeFallbackRemovedFromRuntime(TickResult result, int chargeEntityId)
+        {
+            ChargeLegacyFallbackRemovedFromRuntime(result, chargeEntityId);
+        }
+
         public static void NoPlayerLegacyOrdinaryFallback(TickResult result, int playerEntityId)
         {
             NoLegacyOrdinaryUnitMove(result, playerEntityId);
@@ -141,9 +174,10 @@ namespace Game.Feature.Gameplay.Tests
             NoLegacyOrdinaryUnitMove(result, enemyEntityId);
         }
 
+        [System.Obsolete("Phase 7: use AssertEnemyFallbackRemovedFromRuntime for covered fallback diagnostics. Phase 8 may delete this wrapper.")]
         public static void AllowsEnemyFlagOffLegacyOrdinaryFallback(TickResult result, int enemyEntityId)
         {
-            AllowsOnlyFlagOffCoveredFallback(result, enemyEntityId);
+            AssertEnemyFallbackRemovedFromRuntime(result, enemyEntityId);
         }
 
         public static void NoChargeActiveLegacyFallback(TickResult result, int chargeEntityId)
@@ -151,9 +185,10 @@ namespace Game.Feature.Gameplay.Tests
             NoLegacyOrdinaryUnitMove(result, chargeEntityId);
         }
 
+        [System.Obsolete("Phase 7: use AssertChargeFallbackRemovedFromRuntime for covered fallback diagnostics. Phase 8 may delete this wrapper.")]
         public static void AllowsChargeFlagOffLegacyFallback(TickResult result, int chargeEntityId)
         {
-            AllowsOnlyFlagOffCoveredFallback(result, chargeEntityId, chargeMove: true);
+            AssertChargeFallbackRemovedFromRuntime(result, chargeEntityId);
         }
 
         public static void AllowsRetainedGlideFallback(TickResult result, int entityId)
@@ -177,6 +212,7 @@ namespace Game.Feature.Gameplay.Tests
             AllowsRetainedGlideFallback(result, entityId);
         }
 
+        [System.Obsolete("Phase 7: covered fallback allowance helpers are retained only for historical non-covered checks.")]
         public static void AllowsFlagOffLegacyFallback(TickResult result, int entityId, bool chargeMove = false)
         {
             HasLegacyFallbackMoveEntity(result, entityId);
@@ -190,16 +226,16 @@ namespace Game.Feature.Gameplay.Tests
             }
         }
 
+        [System.Obsolete("Phase 7: use AssertCoveredFallbackRemovedDiagnostics; LegacyOrdinaryFallbackBaseline is diagnostic compatibility only.")]
         public static void AllowsLegacyOrdinaryFallbackBaseline(TickResult result, int entityId, bool chargeMove = false)
         {
-            AllowsFlagOffLegacyFallback(result, entityId, chargeMove);
-            NoUnexpectedLegacyOrdinaryDiagnostics(result);
+            AssertCoveredFallbackRemovedDiagnostics(result, entityId);
         }
 
+        [System.Obsolete("Phase 7: use AssertCoveredFallbackRemovedDiagnostics for covered fallback attempts.")]
         public static void AllowsOnlyFlagOffCoveredFallback(TickResult result, int entityId, bool chargeMove = false)
         {
-            AllowsFlagOffLegacyFallback(result, entityId, chargeMove);
-            NoUnexpectedLegacyOrdinaryDiagnostics(result);
+            AssertCoveredFallbackRemovedDiagnostics(result, entityId);
         }
 
         public static void GridTransactionsRemainAllowed(

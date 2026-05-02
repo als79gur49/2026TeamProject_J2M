@@ -683,28 +683,68 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
+        public void Phase7_None_NoCoveredFallback()
+        {
+            Phase3_None_NoPlayerEnemyChargeLegacyFallback();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Phase7_DefaultGameplay_NoCoveredFallback()
+        {
+            BoundaryInventory_DefaultGameplayLocomotion_NoLegacyOrdinaryUnitMovement();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Phase7_GridTransactionsRemainAllowed()
+        {
+            BoundaryInventory_GridTransactionsRemainAllowed_UnderDefaultGameplayLocomotion();
+            Phase3_None_GridTransactionsRemainAllowed();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Phase7_GlidePolicyUnchanged()
+        {
+            BoundaryInventory_DefaultGameplayLocomotion_GlideActivePolicy();
+            BoundaryInventory_Glide_ActiveLegacyFallback_FlagOff_IsDocumented();
+            ExplicitGlideFlag_ActiveGlide_NoLegacyOrdinaryMove();
+            DefaultGameplayLocomotion_GlideFlagPolicy_IsExplicit();
+        }
+
+        [Test]
+        [Category("Core")]
         public void BoundaryInventory_LegacyBaseline_PlayerEnemyChargeRemoved()
         {
-            Phase6_LegacyBaseline_PlayerEnemyChargeRemoved();
+            Phase7_LegacyFallbackBaseline_IsDiagnosticCompatibilityPreset();
         }
 
         [Test]
         [Category("Core")]
         public void Phase6_LegacyBaseline_PlayerEnemyChargeRemoved()
         {
+            Phase7_LegacyFallbackBaseline_IsDiagnosticCompatibilityPreset();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Phase7_LegacyFallbackBaseline_IsDiagnosticCompatibilityPreset()
+        {
             var playerTick = CreatePipeline(
                     CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) }),
                     new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                     GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline)
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(playerTick, 10);
+            LegacyMovementBoundaryAssert.AssertPlayerFallbackRemovedFromRuntime(playerTick, 10);
+            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(playerTick);
 
             var enemyTick = CreatePipeline(
                     CreateWorldState(new[] { CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Chase) }),
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(40, 50, new Vector2Int(1, 0))) },
                     GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline)
                 .RunTick(new TickInput(1));
-            LegacyMovementBoundaryAssert.EnemyLegacyFallbackRemovedFromRuntime(enemyTick, 40);
+            LegacyMovementBoundaryAssert.AssertEnemyFallbackRemovedFromRuntime(enemyTick, 40);
             LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(enemyTick);
 
             var chargeWorld = CreateWorldState(new[]
@@ -725,7 +765,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(50, 50, new Vector2Int(1, 0))) },
                     GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline)
                 .RunTick(new TickInput(1));
-            LegacyMovementBoundaryAssert.ChargeLegacyFallbackRemovedFromRuntime(chargeTick, 50);
+            LegacyMovementBoundaryAssert.AssertChargeFallbackRemovedFromRuntime(chargeTick, 50);
             LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(chargeTick);
         }
 
@@ -734,6 +774,31 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void DeprecationPhase1_LegacyBaseline_PlayerEnemyChargeRemoved()
         {
             BoundaryInventory_LegacyBaseline_PlayerEnemyChargeRemoved();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Phase7_HelperNames_AreCurrent()
+        {
+            var canonicalHelperNames = new[]
+            {
+                nameof(LegacyMovementBoundaryAssert.AssertCoveredFallbackRemovedDiagnostics),
+                nameof(LegacyMovementBoundaryAssert.AssertPlayerFallbackRemovedFromRuntime),
+                nameof(LegacyMovementBoundaryAssert.AssertEnemyFallbackRemovedFromRuntime),
+                nameof(LegacyMovementBoundaryAssert.AssertChargeFallbackRemovedFromRuntime),
+            };
+            var phase7ReportStrings = new[]
+            {
+                "LegacyOrdinaryFallbackBaseline: diagnostic compatibility preset",
+                "covered fallback authorization: removed",
+                "grid transactions: retained",
+                "glide retained exception: unchanged",
+            };
+
+            Assert.That(canonicalHelperNames.Any(name => name.Contains("Allows", StringComparison.Ordinal)), Is.False);
+            Assert.That(canonicalHelperNames.Any(name => name.Contains("Allowed", StringComparison.Ordinal)), Is.False);
+            Assert.That(phase7ReportStrings.Any(text => text.Contains("allows covered fallback", StringComparison.Ordinal)), Is.False);
+            Assert.That(phase7ReportStrings, Does.Contain("LegacyOrdinaryFallbackBaseline: diagnostic compatibility preset"));
         }
 
         [Test]

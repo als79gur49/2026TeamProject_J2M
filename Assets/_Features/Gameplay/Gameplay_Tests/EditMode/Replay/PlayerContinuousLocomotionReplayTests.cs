@@ -268,6 +268,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Category("Extended")]
         public void Replay_Phase4_LegacyBaseline_PlayerFallbackRemoved()
         {
+            Replay_Phase7_PlayerLegacyFallbackBaseline_DiagnosticCompatibility();
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Replay_Phase7_PlayerLegacyFallbackBaseline_DiagnosticCompatibility()
+        {
             var inputs = new[] { new TickInput(1, PlayerTickCommand.Move(Direction.Right)) };
             var harness = new TickReplayHarness();
 

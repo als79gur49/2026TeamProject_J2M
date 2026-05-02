@@ -1610,6 +1610,30 @@
       "locked": true
     },
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_Phase7_LegacyFallbackBaseline_DiagnosticsDeterministic",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage for Phase 7 diagnostic compatibility replay contract.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_Phase7_DefaultGameplay_NoCoveredFallback",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage for Phase 7 default gameplay no covered fallback replay contract.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.BoundaryInventory_LegacyBaseline_PlayerEnemyChargeRemoved",
       "category": "Core",
       "contracts": [
@@ -1640,6 +1664,70 @@
         "enemy_charge_kinematic_locomotion"
       ],
       "reason": "Locked Core compatibility coverage for Phase 6 explicit baseline contract.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase7_LegacyFallbackBaseline_IsDiagnosticCompatibilityPreset",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage for Phase 7 diagnostic compatibility preset semantics.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase7_None_NoCoveredFallback",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage for Phase 7 None no covered fallback semantics.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase7_DefaultGameplay_NoCoveredFallback",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage for Phase 7 default gameplay no covered fallback semantics.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase7_GridTransactionsRemainAllowed",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "interaction_flip",
+        "topology_materialization",
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage for Phase 7 retained grid transaction semantics.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase7_GlidePolicyUnchanged",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage for Phase 7 unchanged glide retained policy.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase7_HelperNames_AreCurrent",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage for Phase 7 helper/report naming cleanup readiness.",
       "locked": true
     },
     {
