@@ -692,6 +692,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
+        public void ChargeMoveDeletion_ChargeKinematicFlagOn_ChargePresentationStillWorks()
+        {
+            ChargeMoveCleanup_ChargeKinematicFlagOn_NoChargeMoveProducer();
+        }
+
+        [Test]
+        [Category("Core")]
         public void ChargeMoveProducer_ChargeKinematicFlagOn_Unreachable()
         {
             ChargeMoveCleanup_ChargeKinematicFlagOn_NoChargeMoveProducer();

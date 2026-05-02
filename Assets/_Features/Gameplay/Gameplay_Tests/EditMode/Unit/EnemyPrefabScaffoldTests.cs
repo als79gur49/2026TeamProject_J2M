@@ -51,14 +51,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void EnemyViewChargePrefab_BindsExplicitChargeMoveEntityMotionAuthoring_WithoutChangingGenericMoveDuration()
+        public void EnemyViewChargePrefab_BindsGenericMoveAuthoringWithoutChargeMoveRuntimeField()
         {
             var prefabText = ReadNormalizedText("Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyView_Charge.prefab");
 
             StringAssert.Contains("UnitLocomotionPresentationAuthoring", prefabText);
             StringAssert.Contains("moveMotionDurationSeconds: 1", prefabText);
             StringAssert.Contains("EntityMotionPresentationAuthoring", prefabText);
-            StringAssert.Contains("chargeMoveMotionDurationSeconds: 0.2", prefabText);
         }
 
         [Test]

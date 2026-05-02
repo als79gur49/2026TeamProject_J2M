@@ -25,8 +25,7 @@ namespace Game.Feature.Gameplay.Tests
             Assert.That(
                 result.PresentationData.EntityMotions.Any(motion =>
                     motion.EntityId == entityId &&
-                    (motion.MotionKind == TickEntityMotionKind.Move ||
-                     motion.MotionKind == TickEntityMotionKind.ChargeMove)),
+                    motion.MotionKind == TickEntityMotionKind.Move),
                 Is.False,
                 BuildDebug(result, entityId));
 
@@ -216,14 +215,7 @@ namespace Game.Feature.Gameplay.Tests
         public static void AllowsFlagOffLegacyFallback(TickResult result, int entityId, bool chargeMove = false)
         {
             HasLegacyFallbackMoveEntity(result, entityId);
-            if (chargeMove)
-            {
-                HasLegacyChargeMove(result, entityId);
-            }
-            else
-            {
-                HasLegacyFallbackMove(result, entityId);
-            }
+            HasLegacyFallbackMove(result, entityId);
         }
 
         [System.Obsolete("Phase 7: use AssertCoveredFallbackRemovedDiagnostics; LegacyOrdinaryFallbackBaseline is diagnostic compatibility only.")]
@@ -271,8 +263,7 @@ namespace Game.Feature.Gameplay.Tests
                 Assert.That(
                     result.PresentationData.EntityMotions.Any(motion =>
                         motion.EntityId == entityIds[i] &&
-                        (motion.MotionKind == TickEntityMotionKind.Move ||
-                         motion.MotionKind == TickEntityMotionKind.ChargeMove)),
+                        motion.MotionKind == TickEntityMotionKind.Move),
                     Is.False,
                     BuildDebug(result, entityIds[i]));
             }
@@ -299,32 +290,12 @@ namespace Game.Feature.Gameplay.Tests
                 BuildDebug(result));
         }
 
-        public static void NoLegacyChargeMoveForEntitiesExcept(TickResult result, params int[] exceptEntityIds)
-        {
-            Assert.That(
-                result.PresentationData.EntityMotions.Any(motion =>
-                    !IsExceptedEntity(motion.EntityId, exceptEntityIds) &&
-                    motion.MotionKind == TickEntityMotionKind.ChargeMove),
-                Is.False,
-                BuildDebug(result));
-        }
-
         public static void HasLegacyFallbackMove(TickResult result, int entityId)
         {
             Assert.That(
                 result.PresentationData.EntityMotions.Any(motion =>
                     motion.EntityId == entityId &&
                     motion.MotionKind == TickEntityMotionKind.Move),
-                Is.True,
-                BuildDebug(result, entityId));
-        }
-
-        public static void HasLegacyChargeMove(TickResult result, int entityId)
-        {
-            Assert.That(
-                result.PresentationData.EntityMotions.Any(motion =>
-                    motion.EntityId == entityId &&
-                    motion.MotionKind == TickEntityMotionKind.ChargeMove),
                 Is.True,
                 BuildDebug(result, entityId));
         }
@@ -427,8 +398,7 @@ namespace Game.Feature.Gameplay.Tests
             Assert.That(
                 result.PresentationData.EntityMotions.Any(motion =>
                     motion.EntityId == entityId &&
-                    (motion.MotionKind == TickEntityMotionKind.Move ||
-                     motion.MotionKind == TickEntityMotionKind.ChargeMove)),
+                    motion.MotionKind == TickEntityMotionKind.Move),
                 Is.False,
                 BuildDebug(result, entityId));
 

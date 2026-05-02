@@ -20,21 +20,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var authoring = rootObject.AddComponent<EntityMotionPresentationAuthoring>();
                 PlayerViewPrefabTestUtility.SetSerializedField(authoring, "moveMotionDurationSeconds", 0.15f);
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "chargeMoveMotionDurationSeconds", 0.25f);
                 PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushMotionDurationSeconds", EntityMotionPresentationAuthoring.UseGlobalTimingSentinel);
                 PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipMotionDurationSeconds", 0.45f);
 
                 var snapshot = authoring.CreateSnapshot();
 
                 Assert.That(snapshot.MoveMotionDurationSeconds, Is.EqualTo(0.15f));
-                Assert.That(snapshot.ChargeMoveMotionDurationSeconds, Is.EqualTo(0.25f));
                 Assert.That(snapshot.PushMotionDurationSeconds, Is.EqualTo(EntityMotionPresentationAuthoring.UseGlobalTimingSentinel));
                 Assert.That(snapshot.FlipMotionDurationSeconds, Is.EqualTo(0.45f));
 
                 Assert.That(snapshot.TryGetOverrideDurationSeconds(TickEntityMotionKind.Move, out var moveDurationSeconds), Is.True);
                 Assert.That(moveDurationSeconds, Is.EqualTo(0.15f));
-                Assert.That(snapshot.TryGetOverrideDurationSeconds(TickEntityMotionKind.ChargeMove, out var chargeMoveDurationSeconds), Is.True);
-                Assert.That(chargeMoveDurationSeconds, Is.EqualTo(0.25f));
                 Assert.That(snapshot.TryGetOverrideDurationSeconds(TickEntityMotionKind.Push, out _), Is.False);
                 Assert.That(snapshot.TryGetOverrideDurationSeconds(TickEntityMotionKind.Flip, out var flipDurationSeconds), Is.True);
                 Assert.That(flipDurationSeconds, Is.EqualTo(0.45f));

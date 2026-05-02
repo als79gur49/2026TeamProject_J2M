@@ -89,7 +89,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var preset = CreatePresentationTimingPreset(
                 moveMotionDurationSeconds: -1f,
-                chargeMoveDurationSeconds: -1f,
                 pushMotionDurationSeconds: 0.3f,
                 flipMotionDurationSeconds: 0.2f,
                 topologyMotionDurationSeconds: -1f,
@@ -102,7 +101,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var legacyConfiguration = new GameplaySceneHostConfiguration
                 {
                     MoveMotionDurationSeconds = -1f,
-                    ChargeMoveDurationSeconds = -1f,
                     PushMotionDurationSeconds = 0.3f,
                     FlipMotionDurationSeconds = 0.2f,
                     TopologyMotionDurationSeconds = -1f,
@@ -117,7 +115,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var legacyTimingProfile = legacyConfiguration.CreateTimingProfile();
                 var presetTimingProfile = presetConfiguration.CreateTimingProfile();
                 Assert.That(presetTimingProfile.MoveMotionDurationSeconds, Is.EqualTo(legacyTimingProfile.MoveMotionDurationSeconds));
-                Assert.That(presetTimingProfile.ChargeMoveDurationSeconds, Is.EqualTo(legacyTimingProfile.ChargeMoveDurationSeconds));
                 Assert.That(presetTimingProfile.PushMotionDurationSeconds, Is.EqualTo(legacyTimingProfile.PushMotionDurationSeconds));
                 Assert.That(presetTimingProfile.FlipMotionDurationSeconds, Is.EqualTo(legacyTimingProfile.FlipMotionDurationSeconds));
                 Assert.That(presetTimingProfile.TopologyMotionDurationSeconds, Is.EqualTo(legacyTimingProfile.TopologyMotionDurationSeconds));
@@ -228,7 +225,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static GameplayPresentationTimingPreset CreatePresentationTimingPreset(
             float moveMotionDurationSeconds = -1f,
-            float chargeMoveDurationSeconds = -1f,
             float pushMotionDurationSeconds = 1f,
             float flipMotionDurationSeconds = 1f,
             float topologyMotionDurationSeconds = -1f,
@@ -238,7 +234,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var preset = ScriptableObject.CreateInstance<GameplayPresentationTimingPreset>();
             SetPrivateField(preset, "moveMotionDurationSeconds", moveMotionDurationSeconds);
-            SetPrivateField(preset, "chargeMoveDurationSeconds", chargeMoveDurationSeconds);
             SetPrivateField(preset, "pushMotionDurationSeconds", pushMotionDurationSeconds);
             SetPrivateField(preset, "flipMotionDurationSeconds", flipMotionDurationSeconds);
             SetPrivateField(preset, "topologyMotionDurationSeconds", topologyMotionDurationSeconds);

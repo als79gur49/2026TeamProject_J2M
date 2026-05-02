@@ -2175,13 +2175,13 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.CompatibilityLayer_ChargeMovePresentation_InventoryIsCurrent",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveDeletion_Docs_RecordHistoricalRemoval",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
         "enemy_charge_kinematic_locomotion"
       ],
-      "reason": "Locked Core coverage that ChargeMove presentation cleanup remains inventory-to-action before deletion.",
+      "reason": "Locked Core coverage that ChargeMove enum and consumer removal is recorded as historical cleanup.",
       "locked": true
     },
     {
@@ -2194,6 +2194,16 @@
       "locked": true
     },
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveDeletion_MovePresentationUnaffected",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "presentation"
+      ],
+      "reason": "Locked Core coverage that ChargeMove deletion does not remove generic Move presentation.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.CompatibilityLayer_RetainedGridTransactions_StillProtected",
       "category": "Core",
       "contracts": [
@@ -2203,6 +2213,18 @@
         "movement_boundary_v1"
       ],
       "reason": "Locked Core coverage that retained grid transactions remain protected by compatibility layer consolidation.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveDeletion_RetainedGridTransactionsUnaffected",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "interaction_flip",
+        "topology_materialization",
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage that ChargeMove deletion leaves retained grid transactions protected.",
       "locked": true
     },
     {
@@ -2299,13 +2321,54 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveCleanup_PresentationConsumers_InventoryIsCurrent",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveDeletion_DefaultGameplay_ChargePresentationStillWorks",
+      "category": "Core",
+      "contracts": [
+        "presentation",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that default gameplay Charge presentation remains kinematic track plus charge signal after ChargeMove deletion.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveDeletion_ChargeSignalStillEmitted",
+      "category": "Core",
+      "contracts": [
+        "presentation",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that ChargeMove deletion does not remove TickEnemyChargePresentationSignal.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveDeletion_TickKinematicMotionTrackStillEmitted",
+      "category": "Core",
+      "contracts": [
+        "presentation",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that ChargeMove deletion does not remove TickKinematicMotionTrack for Charge.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveDeletion_PresentationConsumers_RemovalIsRecorded",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
         "presentation"
       ],
-      "reason": "Locked Core coverage that ChargeMove consumer inventory stays current before deletion approval.",
+      "reason": "Locked Core coverage that ChargeMove timing, authoring, host consumers, and synthetic compatibility are recorded as removed.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveDeletion_NoChargeMoveReferencesRemain",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "presentation",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that deleted ChargeMove enum, timing, authoring, and synthetic compatibility references stay out of targeted runtime and test sources.",
       "locked": true
     },
     {
@@ -2319,6 +2382,16 @@
       "locked": true
     },
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.ChargeMoveDeletion_ChargeKinematicFlagOn_ChargePresentationStillWorks",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that Charge kinematic flag-on presentation still works after ChargeMove deletion.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_ChargeMoveCleanup_NoChargeMoveOutput",
       "category": "Core",
       "contracts": [
@@ -2326,6 +2399,16 @@
         "enemy_charge_kinematic_locomotion"
       ],
       "reason": "Locked Core replay coverage that current Charge lanes are deterministic without ChargeMove output.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_ChargeMoveDeletion_NoChargeMoveOutput",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core replay coverage that ChargeMove deletion keeps replay deterministic without legacy Charge entity-motion output.",
       "locked": true
     },
     {
@@ -2411,16 +2494,6 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.ChargeMoveProducer_SyntheticCompatibility_StillBuildsChargeMove",
-      "category": "Core",
-      "contracts": [
-        "presentation",
-        "enemy_charge_kinematic_locomotion"
-      ],
-      "reason": "Locked Core coverage that synthetic presentation compatibility can still build legacy ChargeMove.",
-      "locked": true
-    },
-    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_ChargeMoveProducer_RuntimeMatrix_NoChargeMove",
       "category": "Core",
       "contracts": [
@@ -2442,33 +2515,13 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.ChargeMoveIsolation_RuntimeBuilder_DoesNotInferChargeMove",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.ChargeMoveDeletion_RuntimeBuilder_UsesMoveForActiveChargeMoveSemantic",
       "category": "Core",
       "contracts": [
         "presentation",
         "enemy_charge_kinematic_locomotion"
       ],
-      "reason": "Locked Core coverage that TickPresentationDataBuilder no longer infers legacy ChargeMove from active Charge state.",
-      "locked": true
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.ChargeMoveIsolation_SyntheticCompatibility_CanStillBuildChargeMove",
-      "category": "Core",
-      "contracts": [
-        "presentation",
-        "enemy_charge_kinematic_locomotion"
-      ],
-      "reason": "Locked Core coverage that explicit synthetic presentation compatibility can still construct ChargeMove.",
-      "locked": true
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.ChargeMoveIsolation_ConsumerCompatibility_Retained",
-      "category": "Core",
-      "contracts": [
-        "presentation",
-        "enemy_charge_kinematic_locomotion"
-      ],
-      "reason": "Locked Core coverage that ChargeMove timing, authoring, and host consumer compatibility remain retained.",
+      "reason": "Locked Core coverage that TickPresentationDataBuilder maps active Charge movement semantics to retained generic Move.",
       "locked": true
     },
     {

@@ -790,7 +790,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveIsolation_RuntimeBuilder_DoesNotInferChargeMove()
+        public void ChargeMoveDeletion_RuntimeBuilder_UsesMoveForActiveChargeMoveSemantic()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var destinationCell = new SurfaceCell(FaceId.Floor, 2, 0);
@@ -856,50 +856,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presentationData.EntityMotions
                     .Select(motion => (motion.EntityId, motion.MotionKind, motion.SourceCell, motion.DestinationCell))
                     .ToArray());
-        }
-
-        [Test]
-        [Category("Core")]
-        public void ChargeMoveProducer_SyntheticCompatibility_StillBuildsChargeMove()
-        {
-            ChargeMoveIsolation_SyntheticCompatibility_CanStillBuildChargeMove();
-        }
-
-        [Test]
-        [Category("Core")]
-        public void ChargeMoveIsolation_SyntheticCompatibility_CanStillBuildChargeMove()
-        {
-            var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
-            var destinationCell = new SurfaceCell(FaceId.Floor, 2, 0);
-            var presentationData = CreateSyntheticChargeMoveCompatibilityPresentationData(
-                entityId: 40,
-                sourceCell,
-                destinationCell);
-
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    (EntityId: 40, Kind: TickEntityMotionKind.ChargeMove, Source: sourceCell, Destination: destinationCell),
-                },
-                presentationData.EntityMotions
-                    .Select(motion => (motion.EntityId, motion.MotionKind, motion.SourceCell, motion.DestinationCell))
-                    .ToArray());
-        }
-
-        private static TickPresentationData CreateSyntheticChargeMoveCompatibilityPresentationData(
-            int entityId,
-            SurfaceCell sourceCell,
-            SurfaceCell destinationCell)
-        {
-            return new TickPresentationData(
-                new[]
-                {
-                    new TickEntityMotion(
-                        entityId,
-                        TickEntityMotionKind.ChargeMove,
-                        sourceCell,
-                        destinationCell),
-                });
         }
 
         [Test]

@@ -4195,8 +4195,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     track.MotionMode == MotionMode.Charge), Is.True);
                 Assert.That(
                     result.PresentationData.EntityMotions.Any(motion =>
-                        motion.EntityId == 40 &&
-                        motion.MotionKind == TickEntityMotionKind.ChargeMove),
+                        motion.EntityId == 40),
                     Is.False);
                 LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(result, 40);
             }
@@ -4312,8 +4311,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     BuildChargeKinematicDebug(2, worldState, secondTick));
                 Assert.That(
                     secondTick.PresentationData.EntityMotions.Any(motion =>
-                        motion.EntityId == 40 &&
-                        motion.MotionKind == TickEntityMotionKind.ChargeMove),
+                        motion.EntityId == 40),
                     Is.False,
                     BuildChargeKinematicDebug(2, worldState, secondTick));
 
@@ -4336,8 +4334,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     BuildChargeKinematicDebug(3, worldState, thirdTick));
                 Assert.That(
                     thirdTick.PresentationData.EntityMotions.Any(motion =>
-                        motion.EntityId == 40 &&
-                        motion.MotionKind == TickEntityMotionKind.ChargeMove),
+                        motion.EntityId == 40),
                     Is.False,
                     BuildChargeKinematicDebug(3, worldState, thirdTick));
                 LegacyMovementBoundaryAssert.RequiresExplicitLegacyFallbackBaseline(thirdTick, 40);
@@ -4429,8 +4426,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     BuildChargeKinematicDebug(3, worldState, thirdTick));
                 Assert.That(
                     thirdTick.PresentationData.EntityMotions.Any(motion =>
-                        motion.EntityId == 40 &&
-                        motion.MotionKind == TickEntityMotionKind.ChargeMove),
+                        motion.EntityId == 40),
                     Is.False,
                     BuildChargeKinematicDebug(3, worldState, thirdTick));
             }
@@ -4697,8 +4693,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     BuildChargeKinematicDebug(2, worldState, result));
                 Assert.That(
                     result.PresentationData.EntityMotions.Any(motion =>
-                        motion.EntityId == 40 &&
-                        motion.MotionKind == TickEntityMotionKind.ChargeMove),
+                        motion.EntityId == 40),
                     Is.False,
                     BuildChargeKinematicDebug(2, worldState, result));
             }
@@ -5747,9 +5742,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(GetEntityAfterTick(ticks[11], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(4, 0)));
                 Assert.That(ticks[1].Trace.Text, Does.Contain("Reason=ChargeStart"));
                 Assert.That(ticks[0].PresentationData.EntityMotions.Single().MotionKind, Is.EqualTo(TickEntityMotionKind.Move));
-                LegacyMovementBoundaryAssert.NoLegacyChargeMoveForEntitiesExcept(ticks[2]);
-                LegacyMovementBoundaryAssert.NoLegacyChargeMoveForEntitiesExcept(ticks[3]);
-                LegacyMovementBoundaryAssert.NoLegacyChargeMoveForEntitiesExcept(ticks[4]);
+                Assert.That(ticks[2].PresentationData.EntityMotions.Any(motion => motion.EntityId == 40), Is.False);
+                Assert.That(ticks[3].PresentationData.EntityMotions.Any(motion => motion.EntityId == 40), Is.False);
+                Assert.That(ticks[4].PresentationData.EntityMotions.Any(motion => motion.EntityId == 40), Is.False);
 
                 var chargeState = GetEnemyChargeState(worldState, 40);
                 Assert.That(chargeState.phase, Is.EqualTo(EnemyChargePhase.None));
@@ -5795,8 +5790,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(ticks[2].Trace.Text, Does.Contain("Reason=ChargeContinue"));
                 Assert.That(ticks[3].Trace.Text, Does.Contain("Reason=ChargeContinue"));
                 Assert.That(ticks[0].PresentationData.EntityMotions.Single().MotionKind, Is.EqualTo(TickEntityMotionKind.Move));
-                LegacyMovementBoundaryAssert.NoLegacyChargeMoveForEntitiesExcept(ticks[2]);
-                LegacyMovementBoundaryAssert.NoLegacyChargeMoveForEntitiesExcept(ticks[3]);
+                Assert.That(ticks[2].PresentationData.EntityMotions.Any(motion => motion.EntityId == 40), Is.False);
+                Assert.That(ticks[3].PresentationData.EntityMotions.Any(motion => motion.EntityId == 40), Is.False);
             }
             finally
             {

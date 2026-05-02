@@ -502,8 +502,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Is.True);
             Assert.That(
                 tick.PresentationData.EntityMotions.Any(motion =>
-                    motion.EntityId == 50 &&
-                    motion.MotionKind == TickEntityMotionKind.ChargeMove),
+                    motion.EntityId == 50),
                 Is.False);
             Assert.That(
                 tick.PresentationData.KinematicMotionTracks.Any(track =>
@@ -512,6 +511,27 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Is.True);
             LegacyMovementBoundaryAssert.NoChargeActiveLegacyFallback(tick, 50);
             LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(tick);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ChargeMoveDeletion_DefaultGameplay_ChargePresentationStillWorks()
+        {
+            ChargeMoveCleanup_ChargePresentationSignal_StillUsedForKinematicCharge();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ChargeMoveDeletion_ChargeSignalStillEmitted()
+        {
+            ChargeMoveCleanup_ChargePresentationSignal_StillUsedForKinematicCharge();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ChargeMoveDeletion_TickKinematicMotionTrackStillEmitted()
+        {
+            ChargeMoveCleanup_ChargePresentationSignal_StillUsedForKinematicCharge();
         }
 
         [Test]
@@ -1517,38 +1537,57 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void CompatibilityLayer_ChargeMovePresentation_InventoryIsCurrent()
+        public void ChargeMoveDeletion_Docs_RecordHistoricalRemoval()
         {
             var consolidationDoc = ReadRepoFile(
                 "Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-Compatibility-Layer-Consolidation-2026-05-02.md");
-            var readinessDoc = ReadRepoFile(
+            var deletionDoc = ReadRepoFile(
                 "Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-ChargeMove-Presentation-Cleanup-Readiness-2026-05-02.md");
 
-            Assert.That(consolidationDoc, Does.Contain("ChargeMove Presentation Inventory"));
-            Assert.That(consolidationDoc, Does.Contain("`TickEntityMotionKind.ChargeMove`"));
-            Assert.That(consolidationDoc, Does.Contain("inventory-to-action"));
-            Assert.That(consolidationDoc, Does.Contain("deletion Defer"));
-            Assert.That(consolidationDoc, Does.Contain("host, presentation, tests, and golden/replay policy remain blockers before deletion"));
-            Assert.That(consolidationDoc, Does.Contain("Phase 6 means covered player/enemy/Charge fallback must not produce `ChargeMove`"));
-            Assert.That(consolidationDoc, Does.Contain("Default gameplay and Charge kinematic flag-on lanes must use `TickKinematicMotionTrack`"));
-            Assert.That(readinessDoc, Does.Contain("ChargeMove Presentation Cleanup Readiness"));
-            Assert.That(readinessDoc, Does.Contain("producer current runtime unreachable"));
-            Assert.That(readinessDoc, Does.Contain("synthetic presentation compatibility"));
-            Assert.That(readinessDoc, Does.Contain("Option A"));
-            Assert.That(readinessDoc, Does.Contain("AllKinematicLocomotionEnabled"));
-            Assert.That(readinessDoc, Does.Contain("ChargeMoveProducer_RuntimeReachabilityMatrix_IsCurrent"));
-            Assert.That(readinessDoc, Does.Contain("ChargeMoveProducer_SyntheticCompatibility_StillBuildsChargeMove"));
-            Assert.That(readinessDoc, Does.Contain("ChargeMoveIsolation_RuntimeBuilder_DoesNotInferChargeMove"));
-            Assert.That(readinessDoc, Does.Contain("ChargeMoveIsolation_SyntheticCompatibility_CanStillBuildChargeMove"));
-            Assert.That(readinessDoc, Does.Contain("explicit synthetic presentation data"));
-            Assert.That(readinessDoc, Does.Contain("Do not delete `TickEntityMotionKind.ChargeMove`"));
+            Assert.That(consolidationDoc, Does.Contain("Charge Presentation Removal Record"));
+            Assert.That(consolidationDoc, Does.Contain("Current Charge presentation is `TickKinematicMotionTrack(MotionMode.Charge)` plus `TickEnemyChargePresentationSignal`"));
+            Assert.That(consolidationDoc, Does.Contain("Synthetic Charge entity-motion compatibility is no longer retained behavior"));
+            Assert.That(deletionDoc, Does.Contain("ChargeMove Presentation Consumer Deletion"));
+            Assert.That(deletionDoc, Does.Contain("`TickEntityMotionKind." + "ChargeMove` enum/data support has been removed"));
+            Assert.That(deletionDoc, Does.Contain("Current Charge presentation is represented by `TickKinematicMotionTrack(MotionMode.Charge)`"));
+            Assert.That(deletionDoc, Does.Contain("The retained synthetic presentation compatibility path is closed"));
+            Assert.That(deletionDoc, Does.Contain("Replay/golden files were not automatically rewritten"));
+            Assert.That(deletionDoc, Does.Not.Contain("Do not delete `TickEntityMotionKind." + "ChargeMove`"));
         }
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveCleanup_PresentationConsumers_InventoryIsCurrent()
+        public void ChargeMoveDeletion_PresentationConsumers_RemovalIsRecorded()
         {
-            CompatibilityLayer_ChargeMovePresentation_InventoryIsCurrent();
+            ChargeMoveDeletion_Docs_RecordHistoricalRemoval();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ChargeMoveDeletion_NoChargeMoveReferencesRemain()
+        {
+            var sourceFiles = new[]
+            {
+                "Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPresentationData.cs",
+                "Assets/_Features/Gameplay/Gameplay_Loop/Runtime/GameplayTimingProfile.cs",
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySceneHostConfiguration.cs",
+                "Assets/_Features/Gameplay/Gameplay_Timing/Runtime/GameplayPresentationTimingPreset.cs",
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayMotionTimingResolver.cs",
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/MotionTrack.cs",
+                "Assets/_Features/Gameplay/Gameplay_EntityView/Runtime/EntityMotionPresentationAuthoring.cs",
+                "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSnapshotAndPresentationTests.cs",
+                "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/GameplayTickPresentationCoordinatorTests.cs",
+                "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Replay/TickReplayDeterminismTests.cs",
+            };
+
+            foreach (var sourceFile in sourceFiles)
+            {
+                var text = ReadRepoFile(sourceFile);
+                Assert.That(text, Does.Not.Contain("TickEntityMotionKind." + "ChargeMove"), sourceFile);
+                Assert.That(text, Does.Not.Contain("ChargeMove" + "DurationSeconds"), sourceFile);
+                Assert.That(text, Does.Not.Contain("chargeMove" + "DurationSeconds"), sourceFile);
+                Assert.That(text, Does.Not.Contain("chargeMove" + "MotionDurationSeconds"), sourceFile);
+            }
         }
 
         [Test]
@@ -1567,6 +1606,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
+        public void ChargeMoveDeletion_MovePresentationUnaffected()
+        {
+            CompatibilityLayer_MovePresentation_InventoryIsCurrent();
+        }
+
+        [Test]
+        [Category("Core")]
         public void CompatibilityLayer_RetainedGridTransactions_StillProtected()
         {
             var consolidationDoc = ReadRepoFile(
@@ -1579,6 +1625,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(consolidationDoc, Does.Contain("retained grid transaction boundary kinds"));
             Assert.That(consolidationDoc, Does.Contain("topology, box/action, spawn/respawn, cleanup, scripted relocation, anchor normalization"));
             Assert.That(consolidationDoc, Does.Contain("ordinary fallback confusion"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ChargeMoveDeletion_RetainedGridTransactionsUnaffected()
+        {
+            CompatibilityLayer_RetainedGridTransactions_StillProtected();
         }
 
         [Test]

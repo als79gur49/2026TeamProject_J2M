@@ -10,29 +10,13 @@ namespace Game.Feature.Gameplay.Host
             float moveMotionDurationSeconds,
             float pushMotionDurationSeconds,
             float flipMotionDurationSeconds)
-            : this(
-                moveMotionDurationSeconds,
-                EntityMotionPresentationAuthoring.UseGlobalTimingSentinel,
-                pushMotionDurationSeconds,
-                flipMotionDurationSeconds)
-        {
-        }
-
-        public EntityMotionPresentationSnapshot(
-            float moveMotionDurationSeconds,
-            float chargeMoveMotionDurationSeconds,
-            float pushMotionDurationSeconds,
-            float flipMotionDurationSeconds)
         {
             MoveMotionDurationSeconds = moveMotionDurationSeconds;
-            ChargeMoveMotionDurationSeconds = chargeMoveMotionDurationSeconds;
             PushMotionDurationSeconds = pushMotionDurationSeconds;
             FlipMotionDurationSeconds = flipMotionDurationSeconds;
         }
 
         public float MoveMotionDurationSeconds { get; }
-
-        public float ChargeMoveMotionDurationSeconds { get; }
 
         public float PushMotionDurationSeconds { get; }
 
@@ -45,7 +29,6 @@ namespace Game.Feature.Gameplay.Host
             durationSeconds = motionKind switch
             {
                 TickEntityMotionKind.Move => MoveMotionDurationSeconds,
-                TickEntityMotionKind.ChargeMove => ChargeMoveMotionDurationSeconds,
                 TickEntityMotionKind.Push => PushMotionDurationSeconds,
                 TickEntityMotionKind.Flip => FlipMotionDurationSeconds,
                 _ => EntityMotionPresentationAuthoring.UseGlobalTimingSentinel,
@@ -61,14 +44,10 @@ namespace Game.Feature.Gameplay.Host
         public const float UseGlobalTimingSentinel = -1f;
 
         [SerializeField] private float moveMotionDurationSeconds = UseGlobalTimingSentinel;
-        // ChargeMove is a dedicated translation semantic. Do not tune generic Move to affect it.
-        [SerializeField] private float chargeMoveMotionDurationSeconds = UseGlobalTimingSentinel;
         [SerializeField] private float pushMotionDurationSeconds = UseGlobalTimingSentinel;
         [SerializeField] private float flipMotionDurationSeconds = UseGlobalTimingSentinel;
 
         public float MoveMotionDurationSeconds => moveMotionDurationSeconds;
-
-        public float ChargeMoveMotionDurationSeconds => chargeMoveMotionDurationSeconds;
 
         public float PushMotionDurationSeconds => pushMotionDurationSeconds;
 
@@ -77,7 +56,6 @@ namespace Game.Feature.Gameplay.Host
         public void Validate()
         {
             ValidateOverrideDuration(moveMotionDurationSeconds, nameof(moveMotionDurationSeconds));
-            ValidateOverrideDuration(chargeMoveMotionDurationSeconds, nameof(chargeMoveMotionDurationSeconds));
             ValidateOverrideDuration(pushMotionDurationSeconds, nameof(pushMotionDurationSeconds));
             ValidateOverrideDuration(flipMotionDurationSeconds, nameof(flipMotionDurationSeconds));
         }
@@ -87,7 +65,6 @@ namespace Game.Feature.Gameplay.Host
             Validate();
             return new EntityMotionPresentationSnapshot(
                 moveMotionDurationSeconds,
-                chargeMoveMotionDurationSeconds,
                 pushMotionDurationSeconds,
                 flipMotionDurationSeconds);
         }

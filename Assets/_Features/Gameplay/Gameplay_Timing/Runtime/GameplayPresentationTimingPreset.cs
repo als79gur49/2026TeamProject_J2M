@@ -12,7 +12,6 @@ namespace Game.Feature.Gameplay.Timing
         private const float UseConfigurationFallbackSentinel = -1f;
 
         [SerializeField] private float moveMotionDurationSeconds = UseConfigurationFallbackSentinel;
-        [SerializeField] private float chargeMoveDurationSeconds = UseConfigurationFallbackSentinel;
         [SerializeField] private float pushMotionDurationSeconds = UseConfigurationFallbackSentinel;
         [SerializeField] private float flipMotionDurationSeconds = UseConfigurationFallbackSentinel;
         [Tooltip("Presentation-only topology rotation duration. Use -1 to fall back to push motion duration.")]
@@ -31,7 +30,6 @@ namespace Game.Feature.Gameplay.Timing
             Validate();
 
             configuration.MoveMotionDurationSeconds = moveMotionDurationSeconds;
-            configuration.ChargeMoveDurationSeconds = chargeMoveDurationSeconds;
             configuration.PushMotionDurationSeconds = pushMotionDurationSeconds;
             configuration.FlipMotionDurationSeconds = flipMotionDurationSeconds;
             configuration.TopologyMotionDurationSeconds = topologyMotionDurationSeconds;
@@ -43,7 +41,6 @@ namespace Game.Feature.Gameplay.Timing
         public void Validate()
         {
             ValidateDuration(moveMotionDurationSeconds, nameof(moveMotionDurationSeconds));
-            ValidateDuration(chargeMoveDurationSeconds, nameof(chargeMoveDurationSeconds));
             ValidateDuration(pushMotionDurationSeconds, nameof(pushMotionDurationSeconds));
             ValidateDuration(flipMotionDurationSeconds, nameof(flipMotionDurationSeconds));
             ValidateDuration(topologyMotionDurationSeconds, nameof(topologyMotionDurationSeconds));

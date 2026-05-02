@@ -807,6 +807,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
+        public void Replay_ChargeMoveDeletion_NoChargeMoveOutput()
+        {
+            Replay_ChargeMoveCleanup_NoChargeMoveOutput();
+        }
+
+        [Test]
+        [Category("Core")]
         public void Replay_ChargeMoveCleanup_DiagnosticBaseline_NoChargeMoveOutput()
         {
             var replay = RunScriptedChargeActiveReplay(

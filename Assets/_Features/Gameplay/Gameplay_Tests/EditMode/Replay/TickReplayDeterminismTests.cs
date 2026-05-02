@@ -232,57 +232,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void DeterminismHash_ChargeMovePresentationData_DoesNotAffectCanonicalStateOrHash()
-        {
-            var finalEntities = new[]
-            {
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(2, 0), hp: 3),
-            };
-            finalEntities[0].aiMode = EnemyAiMode.Charge;
-            var finalSnapshot = SnapshotBuilder.Create(CreateWorldState(finalEntities));
-            var eventLog = new[]
-            {
-                "EnemyAiTransition|Stage=BeforeMovement|E=40|Prev=Charge|Curr=Charge|Reason=ChargeContinue",
-            };
-            var chargeMovePresentation = new TickPresentationData(
-                new[]
-                {
-                    new TickEntityMotion(
-                        40,
-                        TickEntityMotionKind.ChargeMove,
-                        SurfaceCell.FromPlanar(new Vector2Int(1, 0)),
-                        SurfaceCell.FromPlanar(new Vector2Int(2, 0))),
-                },
-                topologyMotion: null,
-                visibilityChanges: Array.Empty<TickVisibilityChange>(),
-                transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
-                playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
-                playerLocomotionSignals: Array.Empty<TickPlayerLocomotionPresentationSignal>(),
-                playerDamageSignals: Array.Empty<TickPlayerDamagePresentationSignal>(),
-                enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
-                enemyJumpSignals: Array.Empty<TickEnemyJumpPresentationSignal>(),
-                entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>());
-            var baselineData = new TickResultData(
-                finalEntities,
-                Array.Empty<DelayedAttackEffectRecord>(),
-                eventLog,
-                TickPresentationData.Empty);
-            var chargeMoveData = new TickResultData(
-                finalEntities,
-                Array.Empty<DelayedAttackEffectRecord>(),
-                eventLog,
-                chargeMovePresentation);
-            var hashBuilder = new DeterminismHashBuilder();
-
-            CollectionAssert.AreEqual(baselineData.FinalEntities, chargeMoveData.FinalEntities);
-            CollectionAssert.AreEqual(baselineData.EventLog, chargeMoveData.EventLog);
-            Assert.That(
-                hashBuilder.Build(11, finalSnapshot, baselineData),
-                Is.EqualTo(hashBuilder.Build(11, finalSnapshot, chargeMoveData)));
-        }
-
-        [Test]
-        [Category("Core")]
         public void DeterminismHash_PlayerDeathPresentationData_DoesNotAffectCanonicalStateOrHash()
         {
             var finalEntities = new[]
