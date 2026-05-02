@@ -44,6 +44,7 @@ The Phase 2C/Phase 3/Phase 5 Charge fallback-allowed canaries are superseded. Hi
 
 Phase 6 does not rewrite golden files. Phase 8C replay tests assert that player, enemy, and Charge covered fallback are absent under `RemovedLegacyFallbackDiagnosticBaseline` while diagnostics remain deterministic.
 ChargeMove presentation cleanup readiness adds inventory-to-action canaries after Phase 6: current runtime lanes must not output `ChargeMove`, while the enum and presentation consumers remain retained until presentation and replay/golden ownership approves deletion.
+The ChargeMove producer isolation package removes `TickResultBuilder` inference from active Charge state to `ChargeMove` and locks default, `None`, diagnostic, charge-kinematic, and all-kinematic lanes as no-`ChargeMove`; it does not delete enum, timing, authoring, host consumers, replay vocabulary, or golden files.
 
 Golden migration for historical Charge fallback output remains a future owner-approved phase.
 

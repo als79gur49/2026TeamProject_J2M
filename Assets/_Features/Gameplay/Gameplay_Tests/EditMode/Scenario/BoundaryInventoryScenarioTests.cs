@@ -353,6 +353,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     track.EntityId == 50 &&
                     track.MotionMode == MotionMode.Charge),
                 Is.True);
+            Assert.That(
+                tick.PresentationData.EnemyChargeSignals.Any(signal =>
+                    signal.EntityId == 50 &&
+                    signal.Phase == EnemyChargePhase.Active),
+                Is.True);
             LegacyMovementBoundaryAssert.NoChargeActiveLegacyFallback(tick, 50);
             LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(tick);
         }
@@ -369,6 +374,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void ChargeMoveCleanup_DefaultGameplay_NoChargeMoveProducer()
         {
             Phase2C_ChargeLegacyFallback_DefaultGameplayLocomotion_NoChargeMoveFallback();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ChargeMoveProducer_DefaultGameplay_Unreachable()
+        {
+            ChargeMoveCleanup_DefaultGameplay_NoChargeMoveProducer();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ChargeMoveIsolation_DefaultGameplay_NoChargeMove()
+        {
+            ChargeMoveProducer_DefaultGameplay_Unreachable();
         }
 
         [Test]
@@ -409,6 +428,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
+        public void ChargeMoveProducer_None_Unreachable()
+        {
+            ChargeMoveCleanup_None_NoChargeMoveProducer();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ChargeMoveIsolation_None_NoChargeMove()
+        {
+            ChargeMoveProducer_None_Unreachable();
+        }
+
+        [Test]
         [Category("Extended")]
         public void Phase2C_ChargeLegacyFallback_FlagOffBaseline_RemovedByPhase6()
         {
@@ -439,6 +472,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
+        public void ChargeMoveProducer_RemovedDiagnosticBaseline_Unreachable()
+        {
+            ChargeMoveCleanup_RemovedDiagnosticBaseline_NoChargeMoveProducer();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ChargeMoveIsolation_RemovedDiagnosticBaseline_NoChargeMove()
+        {
+            ChargeMoveProducer_RemovedDiagnosticBaseline_Unreachable();
+        }
+
+        [Test]
+        [Category("Core")]
         public void ChargeMoveCleanup_ChargePresentationSignal_StillUsedForKinematicCharge()
         {
             var worldState = CreateActiveChargeWorldState(50);
@@ -458,7 +505,58 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     motion.EntityId == 50 &&
                     motion.MotionKind == TickEntityMotionKind.ChargeMove),
                 Is.False);
+            Assert.That(
+                tick.PresentationData.KinematicMotionTracks.Any(track =>
+                    track.EntityId == 50 &&
+                    track.MotionMode == MotionMode.Charge),
+                Is.True);
             LegacyMovementBoundaryAssert.NoChargeActiveLegacyFallback(tick, 50);
+            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(tick);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ChargeMoveProducer_ChargeKinematicSignal_IsNotChargeMove()
+        {
+            ChargeMoveCleanup_ChargePresentationSignal_StillUsedForKinematicCharge();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ChargeMoveProducer_AllKinematic_Unreachable()
+        {
+            var worldState = CreateActiveChargeWorldState(50);
+            var tick = CreatePipeline(
+                    worldState,
+                    new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(50, 50, new Vector2Int(1, 0))) },
+                    GameplayRuntimeFeatureFlags.AllKinematicLocomotionEnabled)
+                .RunTick(new TickInput(1));
+
+            Assert.That(
+                tick.PresentationData.KinematicMotionTracks.Any(track =>
+                    track.EntityId == 50 &&
+                    track.MotionMode == MotionMode.Charge),
+                Is.True);
+            LegacyMovementBoundaryAssert.NoChargeActiveLegacyFallback(tick, 50);
+            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(tick);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ChargeMoveIsolation_AllKinematic_NoChargeMove()
+        {
+            ChargeMoveProducer_AllKinematic_Unreachable();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ChargeMoveProducer_RuntimeReachabilityMatrix_IsCurrent()
+        {
+            ChargeMoveProducer_DefaultGameplay_Unreachable();
+            ChargeMoveProducer_None_Unreachable();
+            ChargeMoveProducer_RemovedDiagnosticBaseline_Unreachable();
+            ChargeMoveProducer_AllKinematic_Unreachable();
+            ChargeMoveProducer_ChargeKinematicSignal_IsNotChargeMove();
         }
 
         [Test]
@@ -1436,6 +1534,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(readinessDoc, Does.Contain("ChargeMove Presentation Cleanup Readiness"));
             Assert.That(readinessDoc, Does.Contain("producer current runtime unreachable"));
             Assert.That(readinessDoc, Does.Contain("synthetic presentation compatibility"));
+            Assert.That(readinessDoc, Does.Contain("Option A"));
+            Assert.That(readinessDoc, Does.Contain("AllKinematicLocomotionEnabled"));
+            Assert.That(readinessDoc, Does.Contain("ChargeMoveProducer_RuntimeReachabilityMatrix_IsCurrent"));
+            Assert.That(readinessDoc, Does.Contain("ChargeMoveProducer_SyntheticCompatibility_StillBuildsChargeMove"));
+            Assert.That(readinessDoc, Does.Contain("ChargeMoveIsolation_RuntimeBuilder_DoesNotInferChargeMove"));
+            Assert.That(readinessDoc, Does.Contain("ChargeMoveIsolation_SyntheticCompatibility_CanStillBuildChargeMove"));
+            Assert.That(readinessDoc, Does.Contain("explicit synthetic presentation data"));
             Assert.That(readinessDoc, Does.Contain("Do not delete `TickEntityMotionKind.ChargeMove`"));
         }
 

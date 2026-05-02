@@ -11,6 +11,7 @@ This package does not change runtime validation semantics.
 `EnableLegacyOrdinaryUnitFallback`, `LegacyOrdinaryFallbackBaseline`, `LegacyOrdinaryFallbackEnabled`, and the `LegacyFallback=` trace token remain compatibility surface.
 `TickEntityMotionKind.Move` and `TickEntityMotionKind.ChargeMove` are not deleted in this package.
 `TickEntityMotionKind.ChargeMove` is the first concrete cleanup candidate, but the immediate action is inventory-to-action, not immediate deletion.
+The follow-up producer isolation decision uses Option A: remove `TickResultBuilder.ShouldUseChargeMovePresentation` inference from the runtime builder and retain `ChargeMove` only through explicit synthetic presentation data.
 `MoveEntity`, `MovementExpander`, retained grid transactions, and glide retained fallback are protected and are not ordinary fallback cleanup targets.
 No replay or golden files are rewritten in this consolidation.
 
@@ -70,12 +71,13 @@ Producer inventory result:
 
 | producer location | condition | reachable after Phase 6? | runtime or synthetic? | expected boundary | expected presentation | current tests | cleanup action | blocker |
 |---|---|---|---|---|---|---|---|---|
-| `TickResultBuilder.TryResolveMotionKind` / `ShouldUseChargeMovePresentation` | committed `MoveEntity`, `MovementSemanticKind.Move`, enemy unit, `EnemyChargePhase.Active`, no authoritative `MotionMode.Charge` pose | no for covered runtime lanes | retained branch plus synthetic tests | not `LocomotionAnchorCommit`; legacy unsuppressed op only | `TickEntityMotionKind.ChargeMove` if reached | synthetic builder/presentation tests | keep branch, document synthetic reachability | presentation/golden owner |
+| `TickResultBuilder.TryResolveMotionKind` | committed `MoveEntity`, `MovementSemanticKind.Move` | no `ChargeMove` inference | runtime builder | not `LocomotionAnchorCommit`; legacy unsuppressed op only | `TickEntityMotionKind.Move` | runtime builder isolation and reachability matrix tests | remove `ChargeMove` override; keep `Move` | none |
 | legacy active Charge movement path | active Charge emits ordinary `Move` | no | runtime attempt, blocked | rejected before legacy expansion | no `ChargeMove` | boundary and movement phase canaries | current runtime absence canaries | stale tests |
 | `RemovedLegacyFallbackDiagnosticBaseline` path | covered Charge fallback attempt with diagnostics enabled | no | runtime diagnostic | no `Boundary=LegacyFallback`; reject `ChargeLegacyFallbackRemovedFromRuntime` | no `ChargeMove` | Phase 6 and cleanup tests | keep diagnostic-only | none |
 | `DefaultGameplayLocomotion` | Charge active step | no | runtime kinematic | `UnitSpecialLocomotion` / kinematic payload | `TickKinematicMotionTrack` plus `TickEnemyChargePresentationSignal` | default no-charge canaries | keep absence canary | signal must not be confused with `ChargeMove` |
 | `EnableEnemyChargeKinematicLocomotion` | Charge active step | no | runtime kinematic | `EnemyChargeKinematicActiveStep` | kinematic track, no entity motion | movement phase and replay tests | keep absence canary | none |
 | `GameplayRuntimeFeatureFlags.None` | Charge active ordinary `Move` | no | runtime rejected | explicit-baseline-required diagnostic | no `ChargeMove` | Phase 6 / cleanup tests | keep absence canary | none |
+| `AllKinematicLocomotionEnabled` | Charge active step inside full kinematic bundle | no | runtime kinematic | charge kinematic payload | kinematic track, no entity motion | runtime reachability matrix | keep absence canary | bundle drift |
 | synthetic presentation tests | hand-built movement result with active Charge post-state | yes | synthetic only | bypasses `TickPipeline` | `ChargeMove` | world snapshot and coordinator tests | keep and label compatibility | enum/consumer deletion blocked |
 
 Consumer inventory result:
@@ -88,7 +90,7 @@ Consumer inventory result:
 | `MotionTrack` / `GameplayEntityPresentationApplier` | linear interpolation and pose application | generic consumer | presentation compatibility | presentation owner approval | visual interpolation drift | coordinator tests | retain |
 | `EntityMotionPresentationAuthoring` | per-entity `ChargeMove` duration override | prefab/authoring compatibility | not runtime fallback | prefab/golden approval | prefab serialized field churn | authoring/prefab tests | retain |
 | presentation timing config | `ChargeMoveDurationSeconds` | host config compatibility | not fallback | config migration approval | scene config churn | timing preset tests | retain |
-| `WorldSnapshotAndPresentationTests` | synthetic producer canary | no runtime requirement | synthetic presentation compatibility | producer deletion decision | loses branch guard | synthetic builder test | retain and classify |
+| `WorldSnapshotAndPresentationTests` | synthetic compatibility canary | no runtime requirement | synthetic presentation compatibility | producer isolation decision | loses explicit compatibility coverage | explicit synthetic presentation data test | retain and classify |
 | `GameplayTickPresentationCoordinatorTests` | host consumer canary | no runtime fallback | synthetic consumer | consumer deletion decision | host regression undetected | timing/interpolation tests | retain |
 | `EnemyAiScenarioTests` | stale runtime `ChargeMove` expectations | no | current-policy invalid | cleanup classification | false policy signal | charge flag-off/default tests | rewrite to no `ChargeMove` |
 | `TickReplayDeterminismTests` | presentation hash-neutral fixture | no | synthetic replay/hash | replay owner approval | hash contract ambiguity | hash test | keep |
@@ -97,8 +99,8 @@ Phase 6 means covered player/enemy/Charge fallback must not produce `ChargeMove`
 `RemovedLegacyFallbackDiagnosticBaseline` reproduces removed diagnostics, not fallback output, so it must not produce `ChargeMove`.
 Default gameplay and Charge kinematic flag-on lanes must use `TickKinematicMotionTrack` plus `TickEnemyChargePresentationSignal`, not `ChargeMove`.
 Flag-off/default `None` covered Charge fallback is removed after Phase 6.
-Reachability result: producer current runtime unreachable in default, `None`, diagnostic baseline, and charge kinematic flag-on lanes; synthetic presentation compatibility remains reachable by direct builder fixtures only.
-Immediate recommendation: keep enum/consumer/authoring/timing support, keep the producer branch as retained presentation compatibility, and defer deletion until presentation and golden owners approve.
+Reachability result: producer current runtime unreachable in default, `None`, diagnostic baseline, charge kinematic flag-on, and all-kinematic lanes; synthetic presentation compatibility remains reachable by explicit `TickPresentationData` fixtures only.
+Immediate recommendation: keep enum/consumer/authoring/timing support, keep explicit synthetic presentation compatibility, and defer enum/consumer deletion until presentation and golden owners approve.
 No retained grid transaction is currently approved as a `ChargeMove` deletion blocker, but host, presentation, tests, and golden/replay policy remain blockers before deletion.
 
 ## Move Presentation Inventory

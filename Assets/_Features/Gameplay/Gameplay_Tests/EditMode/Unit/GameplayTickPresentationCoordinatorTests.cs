@@ -1045,6 +1045,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void ChargeMoveIsolation_ConsumerCompatibility_Retained()
+        {
+            GameplayTickViewPresenter_EnemyChargeMoveMotionOverride_UsesEntityChargeMoveAuthoring_AndIgnoresUnitMoveOverride();
+            GameplayTickViewPresenter_EnemyChargeMoveWithoutExplicitOverride_UsesGlobalChargeMoveDurationWithMoveInterpolation();
+        }
+
+        [Test]
         [Category("Extended")]
         public void GameplayTickViewPresenter_BoxPushMotionOverride_UsesLegacyEntityMotionAuthoring()
         {

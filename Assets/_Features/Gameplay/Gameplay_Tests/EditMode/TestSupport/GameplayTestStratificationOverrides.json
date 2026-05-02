@@ -2338,6 +2338,209 @@
       ],
       "reason": "Locked Core replay coverage that diagnostic Charge fallback remains deterministic without ChargeMove output.",
       "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveProducer_DefaultGameplay_Unreachable",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that the default runtime Charge lane cannot reach the legacy ChargeMove producer.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveProducer_None_Unreachable",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that None rejects covered Charge fallback before legacy ChargeMove production.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveProducer_RemovedDiagnosticBaseline_Unreachable",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that removed diagnostic compatibility does not authorize ChargeMove production.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveProducer_ChargeKinematicSignal_IsNotChargeMove",
+      "category": "Core",
+      "contracts": [
+        "presentation",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that the kinematic Charge signal is distinct from legacy ChargeMove entity motion.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveProducer_AllKinematic_Unreachable",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that the all-kinematic bundle cannot reach the legacy ChargeMove producer.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveProducer_RuntimeReachabilityMatrix_IsCurrent",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_charge_kinematic_locomotion",
+        "presentation"
+      ],
+      "reason": "Locked Core coverage for the current runtime no-ChargeMove reachability matrix.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.ChargeMoveProducer_ChargeKinematicFlagOn_Unreachable",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that Charge kinematic flag-on blocks legacy expansion before ChargeMove production.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.ChargeMoveProducer_SyntheticCompatibility_StillBuildsChargeMove",
+      "category": "Core",
+      "contracts": [
+        "presentation",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that synthetic presentation compatibility can still build legacy ChargeMove.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_ChargeMoveProducer_RuntimeMatrix_NoChargeMove",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core replay coverage that current runtime Charge lanes are deterministic without ChargeMove output.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_ChargeMoveProducer_DiagnosticBaseline_NoChargeMove",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "movement_boundary_v1",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core replay coverage that diagnostic Charge fallback stays deterministic without ChargeMove output.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.ChargeMoveIsolation_RuntimeBuilder_DoesNotInferChargeMove",
+      "category": "Core",
+      "contracts": [
+        "presentation",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that TickPresentationDataBuilder no longer infers legacy ChargeMove from active Charge state.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.ChargeMoveIsolation_SyntheticCompatibility_CanStillBuildChargeMove",
+      "category": "Core",
+      "contracts": [
+        "presentation",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that explicit synthetic presentation compatibility can still construct ChargeMove.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.ChargeMoveIsolation_ConsumerCompatibility_Retained",
+      "category": "Core",
+      "contracts": [
+        "presentation",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that ChargeMove timing, authoring, and host consumer compatibility remain retained.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveIsolation_DefaultGameplay_NoChargeMove",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that default runtime Charge presentation has no legacy ChargeMove after producer isolation.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveIsolation_None_NoChargeMove",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that None cannot produce legacy ChargeMove after producer isolation.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveIsolation_RemovedDiagnosticBaseline_NoChargeMove",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that removed diagnostic baseline cannot produce legacy ChargeMove after producer isolation.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveIsolation_AllKinematic_NoChargeMove",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that all-kinematic runtime Charge presentation has no legacy ChargeMove after producer isolation.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.ChargeMoveIsolation_ChargeKinematicFlagOn_NoChargeMove",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that charge kinematic flag-on cannot reach legacy ChargeMove after producer isolation.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_ChargeMoveIsolation_NoRuntimeChargeMove",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core replay coverage that runtime Charge lanes remain deterministic without ChargeMove after producer isolation.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_ChargeMoveIsolation_DiagnosticBaseline_NoChargeMove",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "movement_boundary_v1",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core replay coverage that diagnostic Charge fallback remains deterministic without ChargeMove after producer isolation.",
+      "locked": true
     }
   ]
 }

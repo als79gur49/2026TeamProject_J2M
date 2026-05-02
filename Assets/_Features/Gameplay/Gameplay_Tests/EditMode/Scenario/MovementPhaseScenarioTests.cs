@@ -691,6 +691,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
+        public void ChargeMoveProducer_ChargeKinematicFlagOn_Unreachable()
+        {
+            ChargeMoveCleanup_ChargeKinematicFlagOn_NoChargeMoveProducer();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ChargeMoveIsolation_ChargeKinematicFlagOn_NoChargeMove()
+        {
+            ChargeMoveProducer_ChargeKinematicFlagOn_Unreachable();
+        }
+
+        [Test]
         [Category("Extended")]
         public void Phase6_MovementExpander_GridBranchStillAllowed()
         {

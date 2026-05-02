@@ -827,6 +827,50 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
+        public void Replay_ChargeMoveProducer_RuntimeMatrix_NoChargeMove()
+        {
+            var defaultReplay = RunScriptedChargeActiveReplay(
+                GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                out var secondDefaultReplay);
+            AssertReplayBoundaryCanaryEqual(defaultReplay, secondDefaultReplay);
+            AssertChargeReplayHasNoChargeFallback(defaultReplay);
+
+            var chargeFlagReplay = RunScriptedChargeActiveReplay(
+                GameplayRuntimeFeatureFlags.EnemyChargeKinematicLocomotionEnabled,
+                out var secondChargeFlagReplay);
+            AssertReplayBoundaryCanaryEqual(chargeFlagReplay, secondChargeFlagReplay);
+            AssertChargeReplayHasNoChargeFallback(chargeFlagReplay);
+
+            var allKinematicReplay = RunScriptedChargeActiveReplay(
+                GameplayRuntimeFeatureFlags.AllKinematicLocomotionEnabled,
+                out var secondAllKinematicReplay);
+            AssertReplayBoundaryCanaryEqual(allKinematicReplay, secondAllKinematicReplay);
+            AssertChargeReplayHasNoChargeFallback(allKinematicReplay);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_ChargeMoveIsolation_NoRuntimeChargeMove()
+        {
+            Replay_ChargeMoveProducer_RuntimeMatrix_NoChargeMove();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_ChargeMoveProducer_DiagnosticBaseline_NoChargeMove()
+        {
+            Replay_ChargeMoveCleanup_DiagnosticBaseline_NoChargeMoveOutput();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_ChargeMoveIsolation_DiagnosticBaseline_NoChargeMove()
+        {
+            Replay_ChargeMoveProducer_DiagnosticBaseline_NoChargeMove();
+        }
+
+        [Test]
         [Category("Extended")]
         public void Replay_Phase6_ChargeKinematicAnchorCommit_UsesMoveEntityButNoLegacyChargeMove()
         {
