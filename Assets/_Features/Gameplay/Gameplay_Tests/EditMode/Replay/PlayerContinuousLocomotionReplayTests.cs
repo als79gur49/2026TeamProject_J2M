@@ -275,6 +275,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Category("Extended")]
         public void Replay_Phase7_PlayerLegacyFallbackBaseline_DiagnosticCompatibility()
         {
+            Replay_Phase8C_PlayerRemovedDiagnosticBaseline_DiagnosticCompatibility();
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Replay_Phase8C_PlayerRemovedDiagnosticBaseline_DiagnosticCompatibility()
+        {
             var inputs = new[] { new TickInput(1, PlayerTickCommand.Move(Direction.Right)) };
             var harness = new TickReplayHarness();
 
@@ -282,12 +289,12 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 CreateWorldStateWithPlayerControl(CreatePlayer(10)),
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
             var secondReplay = harness.Run(
                 CreateWorldStateWithPlayerControl(CreatePlayer(10)),
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
 
             AssertReplayDeterministicAllowingLegacyDiagnostic(firstReplay, secondReplay);
             Assert.That(firstReplay.Any(frame => frame.Trace.Contains("Boundary=LegacyFallback", StringComparison.Ordinal)), Is.False);

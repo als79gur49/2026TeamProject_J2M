@@ -38,7 +38,7 @@ The enemy ordinary fallback branch is currently reachable through this chain:
 
 Historical Phase 2B note: `GameplayRuntimeFeatureFlags.None` was the enemy ordinary fallback baseline in this phase. Phase 3 supersedes that policy: `None` now blocks covered enemy ordinary fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. Phase 5 supersedes the explicit baseline policy: `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` now blocks enemy ordinary fallback with `EnemyLegacyFallbackRemovedFromRuntime`.
 
-Custom flags with `EnableEnemySameFaceContinuousLocomotion` disabled no longer authorize enemy ordinary fallback at runtime. Phase 6/7 also supersede the Charge explicit baseline path. Phase 8B names `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as the canonical diagnostic preset; `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` remains a compatibility alias.
+Custom flags with `EnableEnemySameFaceContinuousLocomotion` disabled no longer authorize enemy ordinary fallback at runtime. Phase 6/7 also supersede the Charge explicit baseline path. Phase 8B/8C names `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as the canonical diagnostic preset; `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` remains a deprecated compatibility alias.
 
 ## Retained And Out-Of-Scope Paths
 
@@ -77,7 +77,7 @@ The helper vocabulary remains scoped to `LegacyFallback`, legacy `Move` presenta
 
 Actual enemy fallback deletion is not approved by Phase 2B. Before deleting or test-only-scoping the enemy fallback branch, the next phase needs:
 
-- explicit approval to remove or narrow the `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` enemy fallback baseline
+- explicit approval to remove or narrow the deprecated `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` compatibility alias
 - historical EnemyAi baseline owner approval
 - replay/golden migration or exemption policy
 - green enemy default and kinematic-on no-fallback canaries

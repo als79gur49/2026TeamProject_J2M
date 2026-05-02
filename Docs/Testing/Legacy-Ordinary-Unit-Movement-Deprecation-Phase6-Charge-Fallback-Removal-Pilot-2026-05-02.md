@@ -18,7 +18,7 @@ This is a Charge-only removal pilot. Player ordinary fallback remains removed fr
 - Player ordinary fallback continues to reject with `PlayerLegacyFallbackRemovedFromRuntime`.
 - Enemy ordinary fallback continues to reject with `EnemyLegacyFallbackRemovedFromRuntime`.
 
-Phase 8B adds `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as the canonical name for this removed-diagnostic preset. `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` remains a compatibility alias with the same flag shape.
+Phase 8B/8C adds `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as the canonical name for this removed-diagnostic preset. `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` remains a deprecated compatibility alias with the same flag shape.
 
 Retained grid transactions still pass the grid transaction allowlist before fallback removal applies. Topology handoff, box/action materialization, spawn, respawn, cleanup, scripted relocation, anchor normalization, `MoveEntity`, and the `MovementExpander` grid branch are not deletion targets.
 
@@ -42,7 +42,7 @@ The Phase 2C/Phase 3/Phase 5 Charge fallback-allowed canaries are superseded. Hi
 
 ## Replay and Golden Policy
 
-Phase 6 does not rewrite golden files. Replay tests assert that player, enemy, and Charge covered fallback are absent under the explicit legacy baseline while diagnostics remain deterministic.
+Phase 6 does not rewrite golden files. Phase 8C replay tests assert that player, enemy, and Charge covered fallback are absent under `RemovedLegacyFallbackDiagnosticBaseline` while diagnostics remain deterministic.
 
 Golden migration for historical Charge fallback output remains a future owner-approved phase.
 

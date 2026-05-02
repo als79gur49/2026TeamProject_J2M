@@ -12,7 +12,7 @@ Phase 5 supersedes the enemy portion of this status. Enemy ordinary fallback is 
 
 Phase 6 supersedes the Charge portion of this status. Charge active fallback is now rejected under `LegacyOrdinaryFallbackBaseline` with `ChargeLegacyFallbackRemovedFromRuntime`.
 
-Phase 8B renames the current diagnostic preset to `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline`; `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` remains a compatibility alias for historical Phase 4 tests.
+Phase 8B/8C renames the current diagnostic preset to `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline`; `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` remains a deprecated compatibility alias for historical Phase 4 tests.
 
 ## Runtime Policy
 
@@ -44,7 +44,7 @@ Old player fallback-allowed canaries are superseded. Enemy fallback-allowed cana
 
 ## Replay and Golden Policy
 
-Phase 4 does not rewrite golden files. Phase 6 replay tests assert that player, enemy, and Charge fallback are absent under the explicit legacy baseline while diagnostics remain deterministic.
+Phase 4 does not rewrite golden files. Phase 8C replay tests assert that player, enemy, and Charge fallback are absent under `RemovedLegacyFallbackDiagnosticBaseline` while diagnostics remain deterministic.
 
 Golden migration for historical player fallback output remains a future owner-approved phase.
 

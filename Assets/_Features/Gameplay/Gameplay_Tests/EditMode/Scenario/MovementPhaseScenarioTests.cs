@@ -166,7 +166,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 timingProfile,
                 CreateDefaultPlayerControlTimingSnapshot(timingProfile),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
@@ -199,7 +199,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 timingProfile,
                 CreateDefaultPlayerControlTimingSnapshot(timingProfile),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
 
             var result = pipeline.RunTick(new TickInput(1));
 
@@ -406,7 +406,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 CreateTimingProfile(),
                 CreateDefaultPlayerControlTimingSnapshot(CreateTimingProfile()),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
@@ -559,7 +559,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             AssertLegacyExpansionIntentBlocked(
                 worldState,
                 legacyBaselineIntent,
-                GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline,
+                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline,
                 LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedReason);
         }
 
@@ -612,7 +612,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             AssertLegacyExpansionIntentBlocked(
                 worldState,
                 legacyBaselineIntent,
-                GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline,
+                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline,
                 LegacyMovementBoundaryAssert.EnemyLegacyFallbackRemovedReason);
         }
 
@@ -672,7 +672,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             AssertLegacyExpansionIntentBlocked(
                 worldState,
                 legacyBaselineIntent,
-                GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline,
+                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline,
                 LegacyMovementBoundaryAssert.ChargeLegacyFallbackRemovedReason);
         }
 
@@ -1575,7 +1575,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 CreateTimingProfile(),
                 CreateDefaultPlayerControlTimingSnapshot(CreateTimingProfile()),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var finalSnapshot = CreateSnapshot(worldState);

@@ -158,7 +158,7 @@ namespace Game.Feature.Gameplay.Loop
                 enablePlayerFree2DActionAssist: false,
                 enableLegacyOrdinaryUnitFallback: true);
 
-        // Compatibility alias retained for Phase 3-8A tests and migration references.
+        // Deprecated compatibility alias retained for historical tests and migration references.
         public static GameplayRuntimeFeatureFlags LegacyOrdinaryFallbackBaseline =>
             RemovedLegacyFallbackDiagnosticBaseline;
 
@@ -224,6 +224,10 @@ namespace Game.Feature.Gameplay.Loop
         // player/enemy/Charge-specific removed reasons instead of the explicit-baseline gate.
         public bool EnableLegacyOrdinaryUnitFallback { get; }
 
-        public bool LegacyOrdinaryFallbackEnabled => EnableLegacyOrdinaryUnitFallback;
+        public bool RemovedLegacyFallbackDiagnosticsEnabled => EnableLegacyOrdinaryUnitFallback;
+
+        // Compatibility alias. Covered fallback is not authorized; use
+        // RemovedLegacyFallbackDiagnosticsEnabled for current diagnostic routing policy.
+        public bool LegacyOrdinaryFallbackEnabled => RemovedLegacyFallbackDiagnosticsEnabled;
     }
 }

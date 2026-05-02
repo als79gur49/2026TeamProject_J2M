@@ -6,7 +6,7 @@ Date: 2026-05-02
 
 Phase 3 chooses Option B. Player ordinary, enemy ordinary, and Charge active legacy fallback are no longer authorized by `GameplayRuntimeFeatureFlags.None`.
 
-`GameplayRuntimeFeatureFlags.None` now means no advanced locomotion flags and no explicit legacy ordinary fallback authorization. Phase 3 introduced `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` as a test/replay/migration preset, but Phase 4/5/6 supersede that authorization. After Phase 8B, `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` is the canonical removed-diagnostic preset, and `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` is a compatibility alias.
+`GameplayRuntimeFeatureFlags.None` now means no advanced locomotion flags and no explicit legacy ordinary fallback authorization. Phase 3 introduced `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` as a test/replay/migration preset, but Phase 4/5/6 supersede that authorization. After Phase 8B/8C, `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` is the canonical removed-diagnostic preset, and `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` is a deprecated compatibility alias.
 
 This phase does not delete the player fallback branch, enemy ordinary fallback branch, Charge fallback branch, `MoveEntity`, `MovementExpander`, retained grid transactions, or active glide retained fallback.
 
@@ -58,7 +58,7 @@ Older Phase 2 `FlagOffBaseline` tests remain as compatibility wrappers, but they
 
 ## Replay And Golden Policy
 
-Replay harness defaults remain equivalent to `GameplayRuntimeFeatureFlags.None`. That default no longer authorizes covered fallback. Removed-diagnostic compatibility replay tests should pass `RemovedLegacyFallbackDiagnosticBaseline`; historical tests may still pass `LegacyOrdinaryFallbackBaseline` as a compatibility alias. They must assert deterministic removed diagnostics, not fallback output.
+Replay harness defaults remain equivalent to `GameplayRuntimeFeatureFlags.None`. That default no longer authorizes covered fallback. Removed-diagnostic compatibility replay tests should pass `RemovedLegacyFallbackDiagnosticBaseline`; historical tests may still pass `LegacyOrdinaryFallbackBaseline` as a deprecated compatibility alias. They must assert deterministic removed diagnostics, not fallback output.
 
 No golden files are rewritten in Phase 3. Golden migration remains owner-approved future work.
 

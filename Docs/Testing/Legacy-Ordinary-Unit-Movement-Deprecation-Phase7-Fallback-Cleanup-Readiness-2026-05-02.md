@@ -2,7 +2,7 @@
 
 ## Decision
 
-Phase 7 does not delete additional runtime branches. `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` remains in v1, but its meaning is now diagnostic compatibility only: it authorizes no covered player, enemy, or Charge fallback after Phase 6. Player attempts reject with `PlayerLegacyFallbackRemovedFromRuntime`, enemy attempts reject with `EnemyLegacyFallbackRemovedFromRuntime`, and Charge attempts reject with `ChargeLegacyFallbackRemovedFromRuntime`.
+Phase 7 does not delete additional runtime branches. Its historical diagnostic preset was `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline`, now superseded by `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as the canonical name after Phase 8B/8C. The preset authorizes no covered player, enemy, or Charge fallback after Phase 6. Player attempts reject with `PlayerLegacyFallbackRemovedFromRuntime`, enemy attempts reject with `EnemyLegacyFallbackRemovedFromRuntime`, and Charge attempts reject with `ChargeLegacyFallbackRemovedFromRuntime`.
 
 `MoveEntity`, `MovementExpander`, retained grid transactions, `TickEntityMotionKind.Move`, `TickEntityMotionKind.ChargeMove`, and default/flag-off glide retained fallback are not deletion targets in this phase. Golden and replay assets are not rewritten.
 
@@ -12,10 +12,11 @@ Phase 7 does not delete additional runtime branches. `GameplayRuntimeFeatureFlag
 |---|---|---|
 | `RemovedLegacyFallbackDiagnosticBaseline` | Phase 8B canonical diagnostic compatibility preset for deterministic removed-fallback diagnostics | use for new removed-diagnostic tests |
 | `LegacyOrdinaryFallbackBaseline` | deprecated compatibility alias for `RemovedLegacyFallbackDiagnosticBaseline` | keep in v1; future removal candidate after migration approval |
-| `EnableLegacyOrdinaryUnitFallback` | compatibility diagnostic field that lets removed-specific reasons surface instead of the explicit-baseline gate | keep in v1; future options are keep, rename to `EnableRemovedLegacyFallbackDiagnostics`, or remove after replay migration approval |
-| `LegacyOrdinaryFallbackEnabled` | compatibility alias with misleading fallback-enabled wording | keep in v1; inventory as Phase 8 cleanup candidate |
+| `EnableLegacyOrdinaryUnitFallback` | compatibility diagnostic field that lets removed-specific reasons surface instead of the explicit-baseline gate | retained as the underlying field after Phase 8D; field rename remains a Phase 8E candidate |
+| `RemovedLegacyFallbackDiagnosticsEnabled` | Phase 8D canonical helper property for removed diagnostic routing | use for current policy |
+| `LegacyOrdinaryFallbackEnabled` | deprecated compatibility alias with misleading fallback-enabled wording | keep as a compatibility alias after Phase 8D |
 
-`EnableLegacyOrdinaryUnitFallback=true` does not make covered fallback legal. It only changes diagnostic routing: `false` produces `LegacyOrdinaryFallbackRequiresExplicitBaseline`; `true` proceeds to the removed player/enemy/Charge reason. Retained grid transaction behavior and glide policy are separate.
+`EnableLegacyOrdinaryUnitFallback=true` does not make covered fallback legal. Phase 8D names the current helper `RemovedLegacyFallbackDiagnosticsEnabled`: `false` produces `LegacyOrdinaryFallbackRequiresExplicitBaseline`; `true` proceeds to the removed player/enemy/Charge reason. Retained grid transaction behavior and glide policy are separate.
 
 ## Helper And Test Migration
 
@@ -55,11 +56,11 @@ Phase 7 canaries:
 - Phase 6 and Phase 7 replay canaries keep removed diagnostics deterministic.
 - No golden files are rewritten in Phase 7.
 - Historical fallback output migration remains future owner-approved work.
-- `RemovedLegacyFallbackDiagnosticBaseline` is the canonical replay/migration preset after Phase 8B; `LegacyOrdinaryFallbackBaseline` remains as a compatibility alias until removal approval.
+- `RemovedLegacyFallbackDiagnosticBaseline` is the canonical replay/migration preset after Phase 8B/8C; `LegacyOrdinaryFallbackBaseline` remains as a deprecated compatibility alias until removal approval.
 
 ## Next Phase Candidates
 
 - Remove misleading helper wrappers after Phase 8A internal usage cleanup and external compatibility approval.
 - Decide whether `LegacyOrdinaryFallbackBaseline` compatibility alias should be retained or removed.
-- Decide whether `EnableLegacyOrdinaryUnitFallback` remains a compatibility field, becomes `EnableRemovedLegacyFallbackDiagnostics`, or is removed.
+- Decide whether `EnableLegacyOrdinaryUnitFallback` remains a compatibility field, is renamed to match `RemovedLegacyFallbackDiagnosticsEnabled`, or is removed.
 - Inventory retained uses of `TickEntityMotionKind.Move` and `TickEntityMotionKind.ChargeMove` before any presentation cleanup.
