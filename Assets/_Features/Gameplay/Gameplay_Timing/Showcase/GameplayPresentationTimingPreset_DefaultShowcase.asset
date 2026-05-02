@@ -13,7 +13,6 @@ MonoBehaviour:
   m_Name: GameplayPresentationTimingPreset_DefaultShowcase
   m_EditorClassIdentifier: 
   moveMotionDurationSeconds: 0.35
-  chargeMoveDurationSeconds: -1
   pushMotionDurationSeconds: 1
   flipMotionDurationSeconds: 0.6
   topologyMotionDurationSeconds: 0.7

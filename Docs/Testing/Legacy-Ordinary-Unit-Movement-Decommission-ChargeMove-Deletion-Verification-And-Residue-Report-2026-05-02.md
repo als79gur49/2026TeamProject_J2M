@@ -9,8 +9,8 @@ This package verifies the completed `ChargeMove` consumer deletion and records t
 It does not perform additional runtime deletion, Unity YAML migration, replay/golden rewrite, `Move` cleanup, grid transaction cleanup, or glide policy adoption.
 Current Charge presentation remains `TickKinematicMotionTrack(MotionMode.Charge)` for movement plus `TickEnemyChargePresentationSignal` for Charge semantic/effect.
 `TickEntityMotionKind.Move`, `MoveEntity`, `MovementExpander`, retained grid transactions, and glide retained fallback remain protected.
-The two remaining YAML hits are stale serialized field residue only; runtime C# no longer reads those fields.
-Any asset cleanup requires owner approval and a separate asset migration commit.
+The verification pass found two stale serialized YAML hits; runtime C# no longer reads those fields.
+A follow-up manual minimal YAML cleanup removed both residue lines without a migration tool, editor script, prefab resave, replay/golden rewrite, or runtime semantics change.
 
 ## Verification Matrix
 
@@ -19,7 +19,7 @@ Any asset cleanup requires owner approval and a separate asset migration commit.
 | build | `dotnet build Game.Feature.Gameplay.Tests.csproj -c Debug --no-restore` | passed, 0 warnings, 0 errors | green |
 | active deleted-symbol C# scan | targeted `rg` over `Assets/_Features/Gameplay/**/*.cs` | no output | green |
 | runtime ChargeMove scan | targeted `rg` over host/entityview/loop runtime C# | no output | green |
-| YAML residue scan | targeted `rg` over `Assets/**/*.prefab`, `Assets/**/*.asset`, `Assets/**/*.unity` | 2 hits | stale serialized residue |
+| YAML residue scan | targeted `rg` over `Assets/**/*.prefab`, `Assets/**/*.asset`, `Assets/**/*.unity` | previous=2, current=0 after manual minimal YAML cleanup | resolved stale serialized residue |
 | stratification | `python3 Tools/check_gameplay_test_stratification.py --root .` | exit 0, soft governance warnings remain | green with existing warnings |
 | Unity `ChargeMoveDeletion` filter | `TestResults/chargemove-verification/ChargeMoveDeletion.xml` | total=11, passed=11, failed=0, skipped=0 | green |
 | Unity `ChargeMoveIsolation` filter | `TestResults/chargemove-verification/ChargeMoveIsolation.xml` | total=7, passed=7, failed=0, skipped=0 | green |
@@ -75,10 +75,21 @@ Command:
 rg -n "ChargeMove|chargeMove|ChargeMoveDurationSeconds|chargeMoveDurationSeconds|chargeMoveMotionDurationSeconds|ChargeMoveMotionDurationSeconds|DefaultChargeMoveDurationSeconds|UseMoveMotionDurationForChargeSentinel" Assets --glob "*.prefab" --glob "*.asset" --glob "*.unity"
 ```
 
+Previous residue before manual cleanup:
+
 | path | token | type | runtime read? | owner | recommendation |
 |---|---|---|---|---|---|
 | `Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplayPresentationTimingPreset_DefaultShowcase.asset` | `chargeMoveDurationSeconds` | ScriptableObject YAML stale field | no | Gameplay presentation/timing owner | harmless stale serialized residue; cleanup requires owner-approved asset migration |
 | `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyView_Charge.prefab` | `chargeMoveMotionDurationSeconds` | prefab YAML stale field | no | Gameplay entity presentation owner | harmless stale serialized residue; cleanup requires owner-approved prefab migration |
+
+Manual minimal cleanup result:
+
+| metric | result |
+|---|---|
+| previous YAML residue | 2 |
+| current YAML residue | 0 |
+| migration method | manual minimal YAML cleanup |
+| runtime semantics | unchanged |
 
 No scene YAML hit was found for the deleted symbols.
 No `ProjectSettings` scan is required by the current residue list because the hits are confined to gameplay asset/prefab YAML.
@@ -106,8 +117,9 @@ Runtime read confirmation:
 
 ## Asset Migration Recommendation
 
-Leave the two YAML residue hits in place for this package.
-If Unity inspector warnings or asset review require cleanup, create a separate owner-approved asset migration that removes only the orphaned serialized fields from the timing preset and charge enemy prefab.
+The two known ChargeMove YAML residue lines have been removed by manual minimal YAML cleanup.
+No migration tool, editor script, prefab resave, replay/golden rewrite, or runtime code change is needed for these two fields.
+If similar stale residue appears later, require owner-approved asset migration before cleanup.
 Do not mix that migration with runtime cleanup, replay/golden rewrite, or unrelated dirty asset changes.
 
 ## Non-Goals Confirmed

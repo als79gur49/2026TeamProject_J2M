@@ -143,7 +143,6 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Host.EntityMotionPresentationAuthoring
   moveMotionDurationSeconds: -1
-  chargeMoveMotionDurationSeconds: 0.2
   pushMotionDurationSeconds: -1
   flipMotionDurationSeconds: -1
 --- !u!114 &1395465871142893710
