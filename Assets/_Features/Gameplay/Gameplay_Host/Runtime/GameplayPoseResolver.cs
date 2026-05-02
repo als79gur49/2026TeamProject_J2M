@@ -145,9 +145,12 @@ namespace Game.Feature.Gameplay.Host
             var facing = useDestination
                 ? track.DestinationFacing
                 : track.SourceFacing;
+            var topology = useDestination
+                ? track.DestinationTopology ?? _stateStore.CommittedTopology
+                : track.SourceTopology ?? _stateStore.CommittedTopology;
 
             pose = default;
-            if (!projector.TryProjectEntityCell(anchorCell, _stateStore.CommittedTopology, EntityType.Unit, out var projectedPose))
+            if (!projector.TryProjectEntityCell(anchorCell, topology, EntityType.Unit, out var projectedPose))
             {
                 return false;
             }
@@ -155,7 +158,7 @@ namespace Game.Feature.Gameplay.Host
             pose = CreateEntityPose(
                 projector,
                 anchorCell,
-                _stateStore.CommittedTopology,
+                topology,
                 projectedPose,
                 facing,
                 projector.ResolveKinematicPresentationPlaneOffset(localOffset));

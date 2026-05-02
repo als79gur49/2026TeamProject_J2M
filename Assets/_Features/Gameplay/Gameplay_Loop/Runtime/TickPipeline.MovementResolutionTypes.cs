@@ -94,6 +94,7 @@ namespace Game.Feature.Gameplay.Loop
         CleanupRemoval = 7,
         ScriptedRelocation = 8,
         LegacyFallback = 9,
+        Free2DTopologyTransition = 10,
     }
 
     // Narrow internal contract for current Push / Sliding Push / Flip box-impact

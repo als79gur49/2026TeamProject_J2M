@@ -193,6 +193,37 @@ namespace Game.Feature.Gameplay.Loop
             Direction destinationFacing,
             ContinuousLocomotionMode mode,
             TickKinematicMotionTerminalKind terminalKind = TickKinematicMotionTerminalKind.None)
+            : this(
+                entityId,
+                sourceAnchorCell,
+                sourceLocalOffset,
+                destinationAnchorCell,
+                destinationLocalOffset,
+                sourceFacing,
+                destinationFacing,
+                mode,
+                terminalKind,
+                sourceTopology: null,
+                destinationTopology: null,
+                topologyRotationKind: CubeRotationKind.None,
+                topologyTransitionReason: null)
+        {
+        }
+
+        public TickContinuousLocomotionTrack(
+            int entityId,
+            SurfaceCell sourceAnchorCell,
+            KinematicOffset2 sourceLocalOffset,
+            SurfaceCell destinationAnchorCell,
+            KinematicOffset2 destinationLocalOffset,
+            Direction sourceFacing,
+            Direction destinationFacing,
+            ContinuousLocomotionMode mode,
+            TickKinematicMotionTerminalKind terminalKind,
+            CubeTopologyState? sourceTopology,
+            CubeTopologyState? destinationTopology,
+            CubeRotationKind topologyRotationKind,
+            string topologyTransitionReason)
         {
             EntityId = entityId;
             SourceAnchorCell = sourceAnchorCell;
@@ -203,6 +234,10 @@ namespace Game.Feature.Gameplay.Loop
             DestinationFacing = destinationFacing;
             Mode = mode;
             TerminalKind = terminalKind;
+            SourceTopology = sourceTopology;
+            DestinationTopology = destinationTopology;
+            TopologyRotationKind = topologyRotationKind;
+            TopologyTransitionReason = topologyTransitionReason ?? string.Empty;
         }
 
         public int EntityId { get; }
@@ -222,6 +257,14 @@ namespace Game.Feature.Gameplay.Loop
         public ContinuousLocomotionMode Mode { get; }
 
         public TickKinematicMotionTerminalKind TerminalKind { get; }
+
+        public CubeTopologyState? SourceTopology { get; }
+
+        public CubeTopologyState? DestinationTopology { get; }
+
+        public CubeRotationKind TopologyRotationKind { get; }
+
+        public string TopologyTransitionReason { get; }
     }
 
     public readonly struct TickTopologyMotion

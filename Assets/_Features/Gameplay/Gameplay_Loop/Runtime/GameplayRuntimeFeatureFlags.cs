@@ -10,7 +10,8 @@ namespace Game.Feature.Gameplay.Loop
                 enableEnemyGlideKinematicLocomotion: false,
                 enablePlayerStoppableKinematicLocomotion: false,
                 enablePlayerFree2DLocalLocomotion: false,
-                enablePlayerFree2DActionAssist: false)
+                enablePlayerFree2DActionAssist: false,
+                enablePlayerFree2DNativeTopologyTransition: false)
         {
         }
 
@@ -24,7 +25,8 @@ namespace Game.Feature.Gameplay.Loop
                 enableEnemyGlideKinematicLocomotion: false,
                 enablePlayerStoppableKinematicLocomotion: false,
                 enablePlayerFree2DLocalLocomotion: false,
-                enablePlayerFree2DActionAssist: false)
+                enablePlayerFree2DActionAssist: false,
+                enablePlayerFree2DNativeTopologyTransition: false)
         {
         }
 
@@ -39,7 +41,8 @@ namespace Game.Feature.Gameplay.Loop
                 enableEnemyGlideKinematicLocomotion: false,
                 enablePlayerStoppableKinematicLocomotion: false,
                 enablePlayerFree2DLocalLocomotion: false,
-                enablePlayerFree2DActionAssist: false)
+                enablePlayerFree2DActionAssist: false,
+                enablePlayerFree2DNativeTopologyTransition: false)
         {
         }
 
@@ -55,7 +58,8 @@ namespace Game.Feature.Gameplay.Loop
                 enableEnemyGlideKinematicLocomotion: false,
                 enablePlayerStoppableKinematicLocomotion,
                 enablePlayerFree2DLocalLocomotion: false,
-                enablePlayerFree2DActionAssist: false)
+                enablePlayerFree2DActionAssist: false,
+                enablePlayerFree2DNativeTopologyTransition: false)
         {
         }
 
@@ -72,7 +76,8 @@ namespace Game.Feature.Gameplay.Loop
                 enableEnemyGlideKinematicLocomotion: false,
                 enablePlayerStoppableKinematicLocomotion,
                 enablePlayerFree2DLocalLocomotion,
-                enablePlayerFree2DActionAssist: false)
+                enablePlayerFree2DActionAssist: false,
+                enablePlayerFree2DNativeTopologyTransition: false)
         {
         }
 
@@ -84,6 +89,7 @@ namespace Game.Feature.Gameplay.Loop
             bool enablePlayerStoppableKinematicLocomotion,
             bool enablePlayerFree2DLocalLocomotion,
             bool enablePlayerFree2DActionAssist,
+            bool enablePlayerFree2DNativeTopologyTransition = false,
             bool enableLegacyOrdinaryUnitFallback = false)
         {
             EnablePlayerSameFaceContinuousLocomotion = enablePlayerSameFaceContinuousLocomotion;
@@ -95,6 +101,8 @@ namespace Game.Feature.Gameplay.Loop
             EnablePlayerFree2DLocalLocomotion = enablePlayerFree2DLocalLocomotion;
             EnablePlayerFree2DActionAssist = enablePlayerFree2DLocalLocomotion &&
                                              enablePlayerFree2DActionAssist;
+            EnablePlayerFree2DNativeTopologyTransition = enablePlayerFree2DLocalLocomotion &&
+                                                         enablePlayerFree2DNativeTopologyTransition;
             EnableLegacyOrdinaryUnitFallback = enableLegacyOrdinaryUnitFallback;
         }
 
@@ -124,6 +132,17 @@ namespace Game.Feature.Gameplay.Loop
                 enablePlayerStoppableKinematicLocomotion: true,
                 enablePlayerFree2DLocalLocomotion: true,
                 enablePlayerFree2DActionAssist: false);
+
+        public static GameplayRuntimeFeatureFlags PlayerFree2DNativeTopologyTransitionEnabled =>
+            new(
+                enablePlayerSameFaceContinuousLocomotion: true,
+                enableEnemySameFaceContinuousLocomotion: false,
+                enableEnemyChargeKinematicLocomotion: false,
+                enableEnemyGlideKinematicLocomotion: false,
+                enablePlayerStoppableKinematicLocomotion: true,
+                enablePlayerFree2DLocalLocomotion: true,
+                enablePlayerFree2DActionAssist: false,
+                enablePlayerFree2DNativeTopologyTransition: true);
 
         public static GameplayRuntimeFeatureFlags PlayerFree2DActionAssistEnabled =>
             new(
@@ -219,6 +238,8 @@ namespace Game.Feature.Gameplay.Loop
         public bool EnablePlayerFree2DLocalLocomotion { get; }
 
         public bool EnablePlayerFree2DActionAssist { get; }
+
+        public bool EnablePlayerFree2DNativeTopologyTransition { get; }
 
         // Compatibility diagnostic field. When true, removed covered fallback attempts surface
         // player/enemy/Charge-specific removed reasons instead of the explicit-baseline gate.

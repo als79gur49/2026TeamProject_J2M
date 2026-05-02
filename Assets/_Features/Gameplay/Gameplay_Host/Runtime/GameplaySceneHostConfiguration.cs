@@ -117,6 +117,7 @@ namespace Game.Feature.Gameplay.Host
         public bool DirectionChangeConsumesDelay;
         public bool EnablePlayerFree2DActionAssist;
         public bool EnablePlayerFree2DLocalLocomotion;
+        public bool EnablePlayerFree2DNativeTopologyTransition;
         public bool EnablePlayerSameFaceContinuousLocomotion;
         public bool EnablePlayerStoppableKinematicLocomotion;
         public bool EnableEnemySameFaceContinuousLocomotion;
@@ -243,7 +244,8 @@ namespace Game.Feature.Gameplay.Host
                 EnableEnemyGlideKinematicLocomotion,
                 EnablePlayerStoppableKinematicLocomotion,
                 EnablePlayerFree2DLocalLocomotion,
-                EnablePlayerFree2DActionAssist);
+                EnablePlayerFree2DActionAssist,
+                EnablePlayerFree2DNativeTopologyTransition);
         }
 
         public void ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags flags)
@@ -255,6 +257,7 @@ namespace Game.Feature.Gameplay.Host
             EnablePlayerStoppableKinematicLocomotion = flags.EnablePlayerStoppableKinematicLocomotion;
             EnablePlayerFree2DLocalLocomotion = flags.EnablePlayerFree2DLocalLocomotion;
             EnablePlayerFree2DActionAssist = flags.EnablePlayerFree2DActionAssist;
+            EnablePlayerFree2DNativeTopologyTransition = flags.EnablePlayerFree2DNativeTopologyTransition;
         }
 
         public EnemyAiRuntimeCollectionSnapshot CreateEnemyAiRuntimeSnapshot()

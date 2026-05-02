@@ -981,6 +981,15 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
+                var hasTopologyTransitionMetadata = TryResolveFree2DTopologyTransitionMetadata(
+                    context.MovementPhaseResult,
+                    entityId,
+                    out var topologyTransitionMetadata);
+                var sourceTopology = hasTopologyTransitionMetadata
+                    ? ResolveFree2DTopologyTransitionSourceTopology(
+                        context.PostMovementSnapshot.Topology,
+                        topologyTransitionMetadata.RotationKind)
+                    : (CubeTopologyState?)null;
                 continuousLocomotionTracks.Add(
                     new TickContinuousLocomotionTrack(
                         entityId,
@@ -992,7 +1001,20 @@ namespace Game.Feature.Gameplay.Loop
                         destinationEntity.facing,
                         sourcePose.Mode == ContinuousLocomotionMode.AlignToAnchor
                             ? ContinuousLocomotionMode.AlignToAnchor
-                            : destinationPose.Mode));
+                            : destinationPose.Mode,
+                        TickKinematicMotionTerminalKind.None,
+                        hasTopologyTransitionMetadata
+                            ? sourceTopology
+                            : null,
+                        hasTopologyTransitionMetadata
+                            ? context.PostMovementSnapshot.Topology
+                            : null,
+                        hasTopologyTransitionMetadata
+                            ? topologyTransitionMetadata.RotationKind
+                            : CubeRotationKind.None,
+                        hasTopologyTransitionMetadata
+                            ? topologyTransitionMetadata.BoundaryReason
+                            : null));
                 continuousTrackEntityIds.Add(entityId);
             }
 
@@ -1015,6 +1037,15 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
+                var hasTopologyTransitionMetadata = TryResolveFree2DTopologyTransitionMetadata(
+                    context.MovementPhaseResult,
+                    entityId,
+                    out var topologyTransitionMetadata);
+                var sourceTopology = hasTopologyTransitionMetadata
+                    ? ResolveFree2DTopologyTransitionSourceTopology(
+                        context.PostMovementSnapshot.Topology,
+                        topologyTransitionMetadata.RotationKind)
+                    : (CubeTopologyState?)null;
                 continuousLocomotionTracks.Add(
                     new TickContinuousLocomotionTrack(
                         entityId,
@@ -1024,7 +1055,20 @@ namespace Game.Feature.Gameplay.Loop
                         destinationPose.LocalOffset,
                         sourceEntity.facing,
                         destinationEntity.facing,
-                        destinationPose.Mode));
+                        destinationPose.Mode,
+                        TickKinematicMotionTerminalKind.None,
+                        hasTopologyTransitionMetadata
+                            ? sourceTopology
+                            : null,
+                        hasTopologyTransitionMetadata
+                            ? context.PostMovementSnapshot.Topology
+                            : null,
+                        hasTopologyTransitionMetadata
+                            ? topologyTransitionMetadata.RotationKind
+                            : CubeRotationKind.None,
+                        hasTopologyTransitionMetadata
+                            ? topologyTransitionMetadata.BoundaryReason
+                            : null));
                 continuousTrackEntityIds.Add(entityId);
             }
 
@@ -1094,6 +1138,40 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return entityIds;
+        }
+
+        private static bool TryResolveFree2DTopologyTransitionMetadata(
+            MovementPhaseResult movementPhaseResult,
+            int entityId,
+            out FinalizationOperationMetadata metadata)
+        {
+            var operations = movementPhaseResult.ResolvedOperations;
+            for (var i = 0; i < operations.Count; i++)
+            {
+                var operation = operations[i];
+                if (operation.Kind == FinalizationOperationKind.MoveEntity &&
+                    operation.EntityId == entityId &&
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition)
+                {
+                    metadata = operation.Metadata;
+                    return true;
+                }
+            }
+
+            metadata = default;
+            return false;
+        }
+
+        private static CubeTopologyState ResolveFree2DTopologyTransitionSourceTopology(
+            CubeTopologyState destinationTopology,
+            CubeRotationKind rotationKind)
+        {
+            return rotationKind switch
+            {
+                CubeRotationKind.Forward => destinationTopology.Rotate(CubeRotationKind.Backward),
+                CubeRotationKind.Backward => destinationTopology.Rotate(CubeRotationKind.Forward),
+                _ => destinationTopology,
+            };
         }
 
         private static void BuildFlipImpactPresentation(
@@ -2595,7 +2673,8 @@ namespace Game.Feature.Gameplay.Loop
             // Ownership narrowing: only locomotion replacement boundaries suppress the legacy
             // entity Move presentation. Retained grid/generic transactions still own Move.
             return operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.LocomotionAnchorCommit ||
-                   operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.UnitOrdinaryLocomotion;
+                   operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.UnitOrdinaryLocomotion ||
+                   operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition;
         }
 
         private static bool TryResolveMotionKind(
