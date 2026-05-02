@@ -18,6 +18,8 @@ This is a Charge-only removal pilot. Player ordinary fallback remains removed fr
 - Player ordinary fallback continues to reject with `PlayerLegacyFallbackRemovedFromRuntime`.
 - Enemy ordinary fallback continues to reject with `EnemyLegacyFallbackRemovedFromRuntime`.
 
+Phase 8B adds `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as the canonical name for this removed-diagnostic preset. `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` remains a compatibility alias with the same flag shape.
+
 Retained grid transactions still pass the grid transaction allowlist before fallback removal applies. Topology handoff, box/action materialization, spawn, respawn, cleanup, scripted relocation, anchor normalization, `MoveEntity`, and the `MovementExpander` grid branch are not deletion targets.
 
 ## Test Contract

@@ -21,11 +21,15 @@ Phase 5, `Enemy Fallback Removal Pilot`, removes enemy ordinary fallback authori
 
 Phase 6, `Charge Fallback Removal Pilot`, removes Charge active fallback authorization even from `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline`. Charge attempts under that preset are rejected with `ChargeLegacyFallbackRemovedFromRuntime`. Player and enemy fallback remain removed, default/flag-off glide fallback remains a retained exception, and retained grid transactions remain allowed.
 
+Phase 7, `Fallback Cleanup Readiness`, keeps `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` as a diagnostic compatibility preset only. Phase 8A, `Obsolete Helper / Test Naming Cleanup`, aligns helper, test, and documentation vocabulary with that removed-diagnostic policy while keeping runtime boundary behavior unchanged. Obsolete covered-fallback `Allows*` wrappers remain for compatibility, but internal tests should use canonical `Assert*Removed*` helpers.
+
+Phase 8B, `Diagnostic Baseline Rename Readiness`, adds `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as the canonical preset name for deterministic removed diagnostics. `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` remains as a deprecated compatibility alias and delegates to the new preset; runtime boundary behavior is unchanged.
+
 ## Executive Decision
 
 `Legacy Ordinary Unit Movement` is the only deletion target: an ordinary `Unit` `MovementCommandKind.Move` reaches legacy expansion, commits through `MoveEntity`, and presents as legacy `TickEntityMotionKind.Move` or `TickEntityMotionKind.ChargeMove`.
 
-`Legacy Grid Transaction` is retained: `MoveEntity` can still materialize box, topology, spawn, respawn, cleanup, scripted relocation, and anchor-normalization semantics when those paths are not ordinary Unit locomotion. `DefaultGameplayLocomotion` is an explicit readiness/adoption bundle, not deletion. `GameplayRuntimeFeatureFlags.None` and default struct behavior remain no-advanced-locomotion lanes, but no longer authorize covered legacy ordinary fallback. After Phase 6, `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` is a diagnostic compatibility preset for deterministic removed-fallback diagnostics, not a covered fallback authorization.
+`Legacy Grid Transaction` is retained: `MoveEntity` can still materialize box, topology, spawn, respawn, cleanup, scripted relocation, and anchor-normalization semantics when those paths are not ordinary Unit locomotion. `DefaultGameplayLocomotion` is an explicit readiness/adoption bundle, not deletion. `GameplayRuntimeFeatureFlags.None` and default struct behavior remain no-advanced-locomotion lanes, but no longer authorize covered legacy ordinary fallback. After Phase 8B, `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` is the canonical preset for deterministic removed-fallback diagnostics, and `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` is only a deprecated compatibility alias.
 
 Jump and phase relocation are not deletion blockers. Glide explicit flag-on active kinematic locomotion is stable after v1.1 targeted coverage, but Glide Default Adoption Readiness v1 keeps `EnableEnemyGlideKinematicLocomotion` out of `DefaultGameplayLocomotion`. Forced motion and knockback have runtime vocabulary through `MotionMode.Forced` and `ForcedMotionOp.Knockback`, but no gameplay producer in this readiness slice; any future producer must define a special/kinematic boundary before shipping.
 
@@ -47,6 +51,9 @@ Jump and phase relocation are not deletion blockers. Glide explicit flag-on acti
 | Phase 4 player fallback removal pilot | complete for scoped canaries | player runtime fallback is blocked even under explicit baseline |
 | Phase 5 enemy fallback removal pilot | complete for scoped canaries | enemy runtime fallback is blocked even under explicit baseline |
 | Phase 6 Charge fallback removal pilot | complete for scoped canaries | Charge runtime fallback is blocked even under explicit baseline |
+| Phase 7 diagnostic compatibility preset readiness | complete for scoped canaries | explicit baseline remains only for deterministic removed diagnostics |
+| Phase 8A obsolete helper/test naming cleanup | complete for scoped canaries | canonical removed-diagnostic helper names are stable; obsolete wrappers are retained for compatibility |
+| Phase 8B diagnostic baseline rename readiness | complete for scoped canaries | `RemovedLegacyFallbackDiagnosticBaseline` is canonical; `LegacyOrdinaryFallbackBaseline` remains a compatibility alias |
 | actual deletion | partial | player, enemy, and Charge runtime fallback authorization is removed; glide retained fallback, grid transactions, `MoveEntity`, and `MovementExpander` remain retained |
 
 ## Phase 1 Runtime Validation

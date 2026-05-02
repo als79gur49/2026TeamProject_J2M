@@ -10,7 +10,8 @@ Phase 7 does not delete additional runtime branches. `GameplayRuntimeFeatureFlag
 
 | symbol | Phase 7 meaning | action |
 |---|---|---|
-| `LegacyOrdinaryFallbackBaseline` | diagnostic compatibility preset for deterministic removed-fallback diagnostics | keep in v1; future rename candidate: `RemovedLegacyFallbackDiagnosticBaseline` |
+| `RemovedLegacyFallbackDiagnosticBaseline` | Phase 8B canonical diagnostic compatibility preset for deterministic removed-fallback diagnostics | use for new removed-diagnostic tests |
+| `LegacyOrdinaryFallbackBaseline` | deprecated compatibility alias for `RemovedLegacyFallbackDiagnosticBaseline` | keep in v1; future removal candidate after migration approval |
 | `EnableLegacyOrdinaryUnitFallback` | compatibility diagnostic field that lets removed-specific reasons surface instead of the explicit-baseline gate | keep in v1; future options are keep, rename to `EnableRemovedLegacyFallbackDiagnostics`, or remove after replay migration approval |
 | `LegacyOrdinaryFallbackEnabled` | compatibility alias with misleading fallback-enabled wording | keep in v1; inventory as Phase 8 cleanup candidate |
 
@@ -25,7 +26,7 @@ Canonical helper names for new tests are:
 - `AssertEnemyFallbackRemovedFromRuntime`
 - `AssertChargeFallbackRemovedFromRuntime`
 
-Older `Allows*` helper names remain only as obsolete compatibility wrappers and are Phase 8 deletion candidates. New test names should use `Removed`, `Rejected`, `Diagnostic`, or `Compatibility` wording instead of `Allowed`, `StillAllowed`, or `FlagOffBaseline`.
+Older `Allows*` helper names remain only as obsolete compatibility wrappers. Phase 8A removes internal use of covered-fallback wrappers while keeping their definitions for compatibility; wrapper deletion is a later Phase 8B+ candidate. New test names should use `Removed`, `Rejected`, `Diagnostic`, or `Compatibility` wording instead of `Allowed`, `StillAllowed`, or `FlagOffBaseline` for covered fallback policy.
 
 Phase 7 canaries:
 
@@ -54,11 +55,11 @@ Phase 7 canaries:
 - Phase 6 and Phase 7 replay canaries keep removed diagnostics deterministic.
 - No golden files are rewritten in Phase 7.
 - Historical fallback output migration remains future owner-approved work.
-- `LegacyOrdinaryFallbackBaseline` remains useful until removed diagnostics no longer need deterministic replay/migration reproduction.
+- `RemovedLegacyFallbackDiagnosticBaseline` is the canonical replay/migration preset after Phase 8B; `LegacyOrdinaryFallbackBaseline` remains as a compatibility alias until removal approval.
 
 ## Next Phase Candidates
 
-- Rename or remove misleading helper wrappers after canonical Phase 7 names are stable.
-- Decide whether `LegacyOrdinaryFallbackBaseline` should be renamed, retained, or removed.
+- Remove misleading helper wrappers after Phase 8A internal usage cleanup and external compatibility approval.
+- Decide whether `LegacyOrdinaryFallbackBaseline` compatibility alias should be retained or removed.
 - Decide whether `EnableLegacyOrdinaryUnitFallback` remains a compatibility field, becomes `EnableRemovedLegacyFallbackDiagnostics`, or is removed.
 - Inventory retained uses of `TickEntityMotionKind.Move` and `TickEntityMotionKind.ChargeMove` before any presentation cleanup.

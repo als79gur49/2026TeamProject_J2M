@@ -38,6 +38,8 @@ The Charge active fallback branch is currently reachable through this chain:
 
 Historical Phase 2C note: `GameplayRuntimeFeatureFlags.None` was the Charge fallback baseline in this phase. Phase 3 supersedes that policy: `None` now blocks covered Charge active fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. Phase 6 supersedes the explicit baseline policy: `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` now blocks Charge active fallback with `ChargeLegacyFallbackRemovedFromRuntime`.
 
+Phase 8B names `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as the canonical removed-diagnostic preset. `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` remains a compatibility alias for historical Phase 2C/6 tests.
+
 Historical Phase 2C custom flags with `EnableEnemyChargeKinematicLocomotion` disabled used `EnableLegacyOrdinaryUnitFallback` for Charge active fallback. Phase 6/7 supersede that behavior: the field is diagnostic compatibility only and Charge active fallback rejects with `ChargeLegacyFallbackRemovedFromRuntime`.
 
 ## Retained And Out-Of-Scope Paths

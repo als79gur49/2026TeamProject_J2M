@@ -12,6 +12,8 @@ Phase 5 supersedes the enemy portion of this status. Enemy ordinary fallback is 
 
 Phase 6 supersedes the Charge portion of this status. Charge active fallback is now rejected under `LegacyOrdinaryFallbackBaseline` with `ChargeLegacyFallbackRemovedFromRuntime`.
 
+Phase 8B renames the current diagnostic preset to `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline`; `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` remains a compatibility alias for historical Phase 4 tests.
+
 ## Runtime Policy
 
 `TickPipeline.ValidateLegacyExpansionIntents` is the Phase 4 enforcement point.

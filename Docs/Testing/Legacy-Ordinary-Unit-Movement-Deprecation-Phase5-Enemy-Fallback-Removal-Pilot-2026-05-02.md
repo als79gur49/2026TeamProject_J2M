@@ -10,6 +10,8 @@ This is an enemy-only removal pilot. Player ordinary fallback remains removed fr
 
 Phase 6 supersedes the Charge portion of this status. Charge active fallback is now rejected under `LegacyOrdinaryFallbackBaseline` with `ChargeLegacyFallbackRemovedFromRuntime`.
 
+Phase 8B renames the current diagnostic preset to `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline`; `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` remains a compatibility alias for historical Phase 5 tests.
+
 ## Runtime Policy
 
 `TickPipeline.ValidateLegacyExpansionIntents` remains the enforcement point.
