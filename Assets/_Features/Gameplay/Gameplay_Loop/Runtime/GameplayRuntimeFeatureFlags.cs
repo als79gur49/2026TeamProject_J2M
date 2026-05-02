@@ -145,9 +145,9 @@ namespace Game.Feature.Gameplay.Loop
                 enablePlayerFree2DLocalLocomotion: true,
                 enablePlayerFree2DActionAssist: true);
 
-        // Phase 7 compatibility preset: covered player/enemy/Charge fallback is still rejected,
-        // but removed-fallback diagnostics remain reproducible for replay and migration tests.
-        public static GameplayRuntimeFeatureFlags LegacyOrdinaryFallbackBaseline =>
+        // Phase 8B canonical diagnostic preset: covered player/enemy/Charge fallback is
+        // rejected, while removed-fallback diagnostics remain reproducible for tests.
+        public static GameplayRuntimeFeatureFlags RemovedLegacyFallbackDiagnosticBaseline =>
             new(
                 enablePlayerSameFaceContinuousLocomotion: false,
                 enableEnemySameFaceContinuousLocomotion: false,
@@ -157,6 +157,10 @@ namespace Game.Feature.Gameplay.Loop
                 enablePlayerFree2DLocalLocomotion: false,
                 enablePlayerFree2DActionAssist: false,
                 enableLegacyOrdinaryUnitFallback: true);
+
+        // Compatibility alias retained for Phase 3-8A tests and migration references.
+        public static GameplayRuntimeFeatureFlags LegacyOrdinaryFallbackBaseline =>
+            RemovedLegacyFallbackDiagnosticBaseline;
 
         public static GameplayRuntimeFeatureFlags EnemySameFaceContinuousLocomotionEnabled =>
             new(

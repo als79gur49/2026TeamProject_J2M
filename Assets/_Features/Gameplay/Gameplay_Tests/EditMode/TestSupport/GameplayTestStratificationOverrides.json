@@ -812,6 +812,16 @@
       "locked": true
     },
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyMovesIntoPlayer_CurrentContract_ContactTimingObserved",
+      "category": "Core",
+      "contracts": [
+        "damage_affects_movement",
+        "enemy_ai_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for enemy movement/passive-contact timing asymmetry.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Impact_KillsEnemy_BoxAdvancesSameTickWhenTargetCellBecomesEmpty",
       "category": "Core",
       "contracts": [
@@ -852,6 +862,16 @@
         "movement_phase_scenario_contract"
       ],
       "reason": "Locked Core coverage for interaction_push in MovementPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerKinematicLocomotionScenarioTests.PlayerMovesIntoEnemy_KinematicMidpoint_ContactAtCommit",
+      "category": "Core",
+      "contracts": [
+        "damage_affects_movement",
+        "player_kinematic_locomotion_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for player kinematic midpoint contact timing.",
       "locked": true
     },
     {
@@ -1634,6 +1654,42 @@
       "locked": true
     },
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_Phase8A_DiagnosticBaseline_Deterministic",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage for Phase 8A diagnostic baseline replay naming compatibility.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_Phase8B_RemovedDiagnosticBaseline_DiagnosticsDeterministic",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage for Phase 8B canonical diagnostic baseline replay contract.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_Phase8B_DefaultGameplay_NoCoveredFallback",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that Phase 8B alias migration preserves default gameplay replay behavior.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.BoundaryInventory_LegacyBaseline_PlayerEnemyChargeRemoved",
       "category": "Core",
       "contracts": [
@@ -1728,6 +1784,130 @@
         "movement_boundary_v1"
       ],
       "reason": "Locked Core coverage for Phase 7 helper/report naming cleanup readiness.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8A_ObsoleteHelpers_NoInternalUsage",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage for Phase 8A obsolete covered fallback helper usage cleanup.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8A_LegacyFallbackBaseline_IsDiagnosticCompatibilityNaming",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage for Phase 8A diagnostic compatibility naming policy.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8A_Phase7Canaries_StillPass",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that Phase 8A naming cleanup preserves Phase 7 runtime canaries.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8A_GridTransactionsRemainAllowed",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "interaction_flip",
+        "topology_materialization",
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage that Phase 8A naming cleanup preserves retained grid transaction wording and behavior.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8A_GlidePolicyUnchanged",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that Phase 8A naming cleanup preserves glide retained policy.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8B_RemovedDiagnosticBaseline_IsCanonicalAlias",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage for Phase 8B canonical diagnostic baseline flag shape.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8B_LegacyOrdinaryFallbackBaseline_IsCompatibilityAlias",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage for Phase 8B legacy baseline compatibility alias shape.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8B_RemovedDiagnosticBaseline_PlayerEnemyChargeDiagnostics",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage for Phase 8B canonical diagnostic baseline removed diagnostics.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8B_DefaultGameplay_NoCoveredFallback_Unchanged",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that Phase 8B alias migration preserves default gameplay no covered fallback behavior.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8B_None_NoCoveredFallback_Unchanged",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that Phase 8B alias migration preserves None no covered fallback behavior.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8B_GridTransactionsRemainAllowed",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "interaction_flip",
+        "topology_materialization",
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage that Phase 8B alias migration preserves retained grid transaction behavior.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8B_GlidePolicyUnchanged",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that Phase 8B alias migration preserves glide retained policy.",
       "locked": true
     },
     {

@@ -466,7 +466,36 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
+        public void Replay_Phase8A_DiagnosticBaseline_Deterministic()
+        {
+            Replay_Phase7_LegacyFallbackBaseline_DiagnosticsDeterministic();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_Phase8B_RemovedDiagnosticBaseline_DiagnosticsDeterministic()
+        {
+            AssertRemovedDiagnosticBaselineReplayDeterministic(
+                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_Phase8B_DefaultGameplay_NoCoveredFallback()
+        {
+            Replay_Phase7_DefaultGameplay_NoCoveredFallback();
+        }
+
+        [Test]
+        [Category("Core")]
         public void Replay_Phase7_LegacyFallbackBaseline_DiagnosticsDeterministic()
+        {
+            AssertRemovedDiagnosticBaselineReplayDeterministic(
+                GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
+        }
+
+        private static void AssertRemovedDiagnosticBaselineReplayDeterministic(
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags)
         {
             var harness = new TickReplayHarness();
             var playerInputs = new[] { new TickInput(1, PlayerTickCommand.Move(Direction.Right)) };
@@ -474,12 +503,12 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 CreatePlayerFallbackWorldState(),
                 new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                 playerInputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
+                runtimeFeatureFlags: runtimeFeatureFlags);
             var secondPlayerReplay = harness.Run(
                 CreatePlayerFallbackWorldState(),
                 new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                 playerInputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
+                runtimeFeatureFlags: runtimeFeatureFlags);
 
             AssertReplayCanonicalStateEqual(firstPlayerReplay, secondPlayerReplay);
             Assert.That(
@@ -504,7 +533,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 }),
                 new IEntityLogic[] { new TickScriptedMovementLogic(40, enemyMove) },
                 enemyInputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
+                runtimeFeatureFlags: runtimeFeatureFlags);
             var secondEnemyReplay = harness.Run(
                 GameplayWorldStateTestFactory.CreateBounded(new[]
                 {
@@ -512,7 +541,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 }),
                 new IEntityLogic[] { new TickScriptedMovementLogic(40, enemyMove) },
                 enemyInputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
+                runtimeFeatureFlags: runtimeFeatureFlags);
 
             AssertReplayCanonicalStateEqual(firstEnemyReplay, secondEnemyReplay);
             Assert.That(
@@ -533,12 +562,12 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 CreateActiveChargeFallbackWorldState(),
                 new IEntityLogic[] { new TickScriptedMovementLogic(50, chargeMove) },
                 enemyInputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
+                runtimeFeatureFlags: runtimeFeatureFlags);
             var secondChargeReplay = harness.Run(
                 CreateActiveChargeFallbackWorldState(),
                 new IEntityLogic[] { new TickScriptedMovementLogic(50, chargeMove) },
                 enemyInputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
+                runtimeFeatureFlags: runtimeFeatureFlags);
 
             AssertReplayCanonicalStateEqual(firstChargeReplay, secondChargeReplay);
             Assert.That(
