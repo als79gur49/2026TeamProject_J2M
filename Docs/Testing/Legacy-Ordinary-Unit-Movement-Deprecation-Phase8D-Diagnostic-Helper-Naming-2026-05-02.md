@@ -24,7 +24,7 @@ Runtime validation semantics are unchanged. When the diagnostic helper is false,
 
 | symbol | usage kind | rename risk | Phase 8D action | future phase |
 |---|---|---|---|---|
-| `EnableLegacyOrdinaryUnitFallback` | struct field and constructor parameter | high: config, scene, trace, and compatibility churn | keep as underlying field | Phase 8E candidate |
+| `EnableLegacyOrdinaryUnitFallback` | struct field and constructor parameter | high: config, scene, trace, and compatibility churn | keep as underlying field | inventoried in Phase 8E; future Option B/C/D decision |
 | `RemovedLegacyFallbackDiagnosticsEnabled` | canonical helper property | low | add and use for current policy | keep |
 | `LegacyOrdinaryFallbackEnabled` | deprecated compatibility helper property | medium: misleading name | keep as delegate to canonical helper | removal or obsolete warning candidate |
 | `LegacyFallback=` trace token | debug/replay output token | high: replay/golden churn | keep token text, read canonical helper | later trace vocabulary cleanup |
@@ -52,3 +52,5 @@ Phase 8D adds canaries for:
 - Decide whether `EnableLegacyOrdinaryUnitFallback` should be renamed to a removed-diagnostic compatibility field or retained indefinitely for compatibility.
 - Decide whether `LegacyOrdinaryFallbackEnabled` should receive `[Obsolete]` after warning churn is acceptable.
 - Decide whether the `LegacyFallback=` trace token should be renamed after replay/golden churn is approved.
+
+Phase 8E completes the field readiness inventory and keeps `EnableLegacyOrdinaryUnitFallback` unchanged. A future phase may consider adding a canonical field as a compatibility projection, but Phase 8E does not implement that option.

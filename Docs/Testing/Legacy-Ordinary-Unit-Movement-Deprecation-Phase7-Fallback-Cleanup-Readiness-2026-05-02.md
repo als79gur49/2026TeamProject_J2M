@@ -12,7 +12,7 @@ Phase 7 does not delete additional runtime branches. Its historical diagnostic p
 |---|---|---|
 | `RemovedLegacyFallbackDiagnosticBaseline` | Phase 8B canonical diagnostic compatibility preset for deterministic removed-fallback diagnostics | use for new removed-diagnostic tests |
 | `LegacyOrdinaryFallbackBaseline` | deprecated compatibility alias for `RemovedLegacyFallbackDiagnosticBaseline` | keep in v1; future removal candidate after migration approval |
-| `EnableLegacyOrdinaryUnitFallback` | compatibility diagnostic field that lets removed-specific reasons surface instead of the explicit-baseline gate | retained as the underlying field after Phase 8D; field rename remains a Phase 8E candidate |
+| `EnableLegacyOrdinaryUnitFallback` | compatibility diagnostic field that lets removed-specific reasons surface instead of the explicit-baseline gate | retained as the underlying field after Phase 8E inventory; future rename/delete requires a separate compatibility decision |
 | `RemovedLegacyFallbackDiagnosticsEnabled` | Phase 8D canonical helper property for removed diagnostic routing | use for current policy |
 | `LegacyOrdinaryFallbackEnabled` | deprecated compatibility alias with misleading fallback-enabled wording | keep as a compatibility alias after Phase 8D |
 

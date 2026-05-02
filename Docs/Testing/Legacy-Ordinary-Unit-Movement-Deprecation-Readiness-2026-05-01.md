@@ -29,6 +29,8 @@ Phase 8C, `Legacy Diagnostic Alias Usage Cleanup Readiness`, migrates current in
 
 Phase 8D, `Diagnostic Flag / Helper Naming Cleanup Readiness`, adds `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled` as the canonical helper property for removed-fallback diagnostic routing. `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackEnabled` remains a deprecated compatibility alias, and `GameplayRuntimeFeatureFlags.EnableLegacyOrdinaryUnitFallback` remains the underlying compatibility field pending Phase 8E inventory; runtime boundary behavior is unchanged.
 
+Phase 8E, `Underlying Diagnostic Field Rename / Removal Readiness`, inventories `GameplayRuntimeFeatureFlags.EnableLegacyOrdinaryUnitFallback` as an underlying compatibility field and keeps it in place. The canonical helper remains `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled`; field rename/delete and new canonical field addition are blocked pending a later compatibility decision. Runtime boundary behavior, scene serialization exposure, trace token text, replay/golden files, retained grid transactions, and glide policy are unchanged.
+
 ## Executive Decision
 
 `Legacy Ordinary Unit Movement` is the only deletion target: an ordinary `Unit` `MovementCommandKind.Move` reaches legacy expansion, commits through `MoveEntity`, and presents as legacy `TickEntityMotionKind.Move` or `TickEntityMotionKind.ChargeMove`.
@@ -60,6 +62,7 @@ Jump and phase relocation are not deletion blockers. Glide explicit flag-on acti
 | Phase 8B diagnostic baseline rename readiness | complete for scoped canaries | `RemovedLegacyFallbackDiagnosticBaseline` is canonical; `LegacyOrdinaryFallbackBaseline` remains a compatibility alias |
 | Phase 8C legacy alias usage cleanup readiness | complete for scoped canaries | current tests/docs use `RemovedLegacyFallbackDiagnosticBaseline`; `LegacyOrdinaryFallbackBaseline` remains a deprecated compatibility alias only |
 | Phase 8D diagnostic helper naming cleanup readiness | complete for scoped canaries | current runtime/tests/docs use `RemovedLegacyFallbackDiagnosticsEnabled`; `LegacyOrdinaryFallbackEnabled` remains a deprecated compatibility alias only |
+| Phase 8E underlying field readiness | complete for scoped canaries | `EnableLegacyOrdinaryUnitFallback` remains a compatibility field; rename/delete is deferred pending field/config/trace migration approval |
 | actual deletion | partial | player, enemy, and Charge runtime fallback authorization is removed; glide retained fallback, grid transactions, `MoveEntity`, and `MovementExpander` remain retained |
 
 ## Phase 1 Runtime Validation

@@ -8,6 +8,7 @@ using Game.Feature.Gameplay.Attack.Commit;
 using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Movement;
@@ -1215,6 +1216,136 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void Phase8D_GlidePolicyUnchanged()
         {
             Phase8C_GlidePolicyUnchanged();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Phase8E_EnableLegacyOrdinaryUnitFallback_FieldInventory_IsCompatibilityOnly()
+        {
+            var legacyDiagnosticField = typeof(GameplayRuntimeFeatureFlags).GetProperty(
+                nameof(GameplayRuntimeFeatureFlags.EnableLegacyOrdinaryUnitFallback),
+                BindingFlags.Public | BindingFlags.Instance);
+            var presets = new[]
+            {
+                GameplayRuntimeFeatureFlags.None,
+                GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                GameplayRuntimeFeatureFlags.AllKinematicLocomotionEnabled,
+                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline,
+                GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline,
+            };
+            var phase8EVocabulary = new[]
+            {
+                "EnableLegacyOrdinaryUnitFallback: underlying compatibility diagnostic field",
+                "RemovedLegacyFallbackDiagnosticsEnabled: preferred helper",
+                "covered fallback authorization: removed",
+            };
+
+            Assert.That(legacyDiagnosticField, Is.Not.Null);
+            foreach (var preset in presets)
+            {
+                Assert.That(
+                    preset.EnableLegacyOrdinaryUnitFallback,
+                    Is.EqualTo(preset.RemovedLegacyFallbackDiagnosticsEnabled));
+            }
+
+            Assert.That(GameplayRuntimeFeatureFlags.None.EnableLegacyOrdinaryUnitFallback, Is.False);
+            Assert.That(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion.EnableLegacyOrdinaryUnitFallback, Is.False);
+            Assert.That(GameplayRuntimeFeatureFlags.AllKinematicLocomotionEnabled.EnableLegacyOrdinaryUnitFallback, Is.False);
+            Assert.That(GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline.EnableLegacyOrdinaryUnitFallback, Is.True);
+            Assert.That(GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline.EnableLegacyOrdinaryUnitFallback, Is.True);
+            Assert.That(phase8EVocabulary, Does.Contain("RemovedLegacyFallbackDiagnosticsEnabled: preferred helper"));
+            Assert.That(phase8EVocabulary.Any(text => text.Contains("fallback allowed", StringComparison.Ordinal)), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Phase8E_LegacyDiagnosticField_NotSceneConfigExposed()
+        {
+            var hostFields = typeof(GameplaySceneHostConfiguration).GetFields(
+                BindingFlags.Public | BindingFlags.Instance);
+            var configuration = new GameplaySceneHostConfiguration();
+
+            configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
+            var flags = configuration.CreateRuntimeFeatureFlags();
+
+            Assert.That(
+                hostFields.Select(field => field.Name),
+                Does.Not.Contain(nameof(GameplayRuntimeFeatureFlags.EnableLegacyOrdinaryUnitFallback)));
+            Assert.That(
+                ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySceneHostConfiguration.cs"),
+                Does.Not.Contain(nameof(GameplayRuntimeFeatureFlags.EnableLegacyOrdinaryUnitFallback)));
+            Assert.That(GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline.EnableLegacyOrdinaryUnitFallback, Is.True);
+            Assert.That(flags.EnableLegacyOrdinaryUnitFallback, Is.False);
+            Assert.That(flags.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
+
+            foreach (var scenePath in Directory.GetFiles(
+                         Path.Combine(Application.dataPath, "Scenes"),
+                         "*.unity",
+                         SearchOption.AllDirectories))
+            {
+                Assert.That(
+                    File.ReadAllText(scenePath),
+                    Does.Not.Contain(nameof(GameplayRuntimeFeatureFlags.EnableLegacyOrdinaryUnitFallback)),
+                    scenePath);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Phase8E_RemovedDiagnosticHelper_IsPreferredOverField()
+        {
+            var runtimeFlags = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/GameplayRuntimeFeatureFlags.cs");
+            var tickPipeline = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs");
+
+            Assert.That(runtimeFlags, Does.Contain("public bool RemovedLegacyFallbackDiagnosticsEnabled => EnableLegacyOrdinaryUnitFallback"));
+            Assert.That(runtimeFlags, Does.Contain("public bool EnableLegacyOrdinaryUnitFallback"));
+            Assert.That(runtimeFlags, Does.Not.Contain("EnableRemovedLegacyFallbackDiagnostics"));
+            Assert.That(tickPipeline, Does.Contain("_runtimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled"));
+            Assert.That(tickPipeline, Does.Not.Contain("_runtimeFeatureFlags.EnableLegacyOrdinaryUnitFallback"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Phase8E_TraceToken_LegacyFallback_IsKeptForGoldenStability()
+        {
+            var tickPipeline = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs");
+            var phase8EDoc = ReadRepoFile(
+                "Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Phase8E-Underlying-Field-Readiness-2026-05-02.md");
+
+            Assert.That(tickPipeline, Does.Contain("LegacyFallback="));
+            Assert.That(tickPipeline, Does.Contain("_runtimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled"));
+            Assert.That(tickPipeline, Does.Not.Contain("RemovedLegacyFallbackDiagnostics="));
+            Assert.That(phase8EDoc, Does.Contain("Trace vocabulary cleanup is a separate future phase."));
+            Assert.That(phase8EDoc, Does.Contain("No golden files are rewritten in Phase 8E."));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Phase8E_FieldRenameOptions_AreDocumented()
+        {
+            var phase8EDoc = ReadRepoFile(
+                "Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Phase8E-Underlying-Field-Readiness-2026-05-02.md");
+
+            Assert.That(phase8EDoc, Does.Contain("Option A"));
+            Assert.That(phase8EDoc, Does.Contain("Option B"));
+            Assert.That(phase8EDoc, Does.Contain("Option C"));
+            Assert.That(phase8EDoc, Does.Contain("Option D"));
+            Assert.That(phase8EDoc, Does.Contain("Phase 8E does not rename or delete `EnableLegacyOrdinaryUnitFallback`."));
+            Assert.That(phase8EDoc, Does.Contain("Option B is a future consideration, not a Phase 8E implementation."));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Phase8E_GridTransactionsRemainAllowed()
+        {
+            Phase8D_GridTransactionsRemainAllowed();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Phase8E_GlidePolicyUnchanged()
+        {
+            Phase8D_GlidePolicyUnchanged();
         }
 
         [Test]

@@ -2085,6 +2085,86 @@
       "locked": true
     },
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8E_EnableLegacyOrdinaryUnitFallback_FieldInventory_IsCompatibilityOnly",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage that Phase 8E keeps EnableLegacyOrdinaryUnitFallback as compatibility-only diagnostic routing.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8E_LegacyDiagnosticField_NotSceneConfigExposed",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage that Phase 8E does not expose the legacy diagnostic field through scene host config.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8E_RemovedDiagnosticHelper_IsPreferredOverField",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage that Phase 8E preserves RemovedLegacyFallbackDiagnosticsEnabled as the preferred runtime helper.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8E_TraceToken_LegacyFallback_IsKeptForGoldenStability",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage that Phase 8E keeps LegacyFallback trace vocabulary stable for replay and golden compatibility.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8E_FieldRenameOptions_AreDocumented",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage that Phase 8E documents field rename/removal options without implementing them.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8E_GridTransactionsRemainAllowed",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "interaction_flip",
+        "topology_materialization",
+        "movement_boundary_v1"
+      ],
+      "reason": "Locked Core coverage that Phase 8E field readiness preserves retained grid transactions.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8E_GlidePolicyUnchanged",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that Phase 8E field readiness preserves glide retained policy.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_Phase8E_DiagnosticRouting_Unchanged",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion",
+        "enemy_charge_kinematic_locomotion"
+      ],
+      "reason": "Locked Core coverage that Phase 8E preserves removed-diagnostic replay routing.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ScopedDeletionPrep_EnemyLegacyFallback_RemovedByPhase5",
       "category": "Core",
       "contracts": [
