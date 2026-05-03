@@ -9,6 +9,9 @@ namespace Game.Feature.UI.HUD
     public sealed class ChancePanelView : MonoBehaviour
     {
         private const int AuthoredSlotCount = 3;
+        private const float PanelWidth = 220.0f;
+        private const float LabelHeight = 20.0f;
+        private const float SlotContainerHeight = 28.0f;
 
         [SerializeField] private GameObject _root;
         [SerializeField] private TMP_Text _labelText;
@@ -103,6 +106,8 @@ namespace Game.Feature.UI.HUD
                 _labelText.alignment = TextAlignmentOptions.Left;
             }
 
+            ConfigureLayoutElement((RectTransform)_labelText.transform, PanelWidth, LabelHeight);
+
             if (_slotContainer == null)
             {
                 var container = new GameObject("SlotContainer", typeof(RectTransform), typeof(HorizontalLayoutGroup));
@@ -117,12 +122,17 @@ namespace Game.Feature.UI.HUD
                 layout.childForceExpandWidth = false;
             }
 
+            ConfigureLayoutElement(_slotContainer, PanelWidth, SlotContainerHeight);
+
             if (_floatingFeedbackRoot == null)
             {
                 var floating = new GameObject("FloatingFeedbackRoot", typeof(RectTransform));
                 floating.transform.SetParent(transform, false);
                 _floatingFeedbackRoot = (RectTransform)floating.transform;
             }
+
+            StretchOverlay(_floatingFeedbackRoot);
+            ConfigureIgnoredLayout(_floatingFeedbackRoot);
 
             RebuildRuntimeSlotCache();
 
@@ -144,6 +154,47 @@ namespace Game.Feature.UI.HUD
             label.fontSize = fontSize;
             label.raycastTarget = false;
             return label;
+        }
+
+        private static void ConfigureLayoutElement(RectTransform rect, float width, float height)
+        {
+            if (rect == null)
+            {
+                return;
+            }
+
+            rect.sizeDelta = new Vector2(width, height);
+            var layoutElement = rect.GetComponent<LayoutElement>() ?? rect.gameObject.AddComponent<LayoutElement>();
+            layoutElement.ignoreLayout = false;
+            layoutElement.minWidth = width;
+            layoutElement.preferredWidth = width;
+            layoutElement.minHeight = height;
+            layoutElement.preferredHeight = height;
+        }
+
+        private static void ConfigureIgnoredLayout(RectTransform rect)
+        {
+            if (rect == null)
+            {
+                return;
+            }
+
+            var layoutElement = rect.GetComponent<LayoutElement>() ?? rect.gameObject.AddComponent<LayoutElement>();
+            layoutElement.ignoreLayout = true;
+        }
+
+        private static void StretchOverlay(RectTransform rect)
+        {
+            if (rect == null)
+            {
+                return;
+            }
+
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
         }
 
         private ChanceSlotView CreateSlot(int index)
@@ -232,7 +283,8 @@ namespace Game.Feature.UI.HUD
 
             for (var i = 0; i < _runtimeSlots.Count; i++)
             {
-                if (ReferenceEquals(_runtimeSlots[i], slot))
+                if (_runtimeSlots[i] == slot ||
+                    (_runtimeSlots[i] != null && slot != null && _runtimeSlots[i].GetInstanceID() == slot.GetInstanceID()))
                 {
                     return;
                 }

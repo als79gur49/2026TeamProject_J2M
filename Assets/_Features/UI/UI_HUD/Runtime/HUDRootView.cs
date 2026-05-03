@@ -22,7 +22,7 @@ namespace Game.Feature.UI.HUD
         private static readonly Vector2 ObjectiveHudSize = new Vector2(380.0f, 72.0f);
         private static readonly Vector2 StageNameSize = new Vector2(360.0f, 28.0f);
         private static readonly Vector2 PauseButtonSize = new Vector2(80.0f, 32.0f);
-        private static readonly Vector2 TopologyBeltSize = new Vector2(360.0f, 72.0f);
+        private static readonly Vector2 TopologyBeltSize = new Vector2(480.0f, 72.0f);
         private static readonly Vector2 NotificationSize = new Vector2(320.0f, 128.0f);
         private static readonly Vector2 ChancePanelSize = new Vector2(220.0f, 72.0f);
 
@@ -161,6 +161,8 @@ namespace Game.Feature.UI.HUD
             ValidateSerializedReference(_pauseButton, nameof(_pauseButton));
             ValidateSerializedReference(_stageNameLabel, nameof(_stageNameLabel));
             ValidateSerializedReference(_objectiveHudView, nameof(_objectiveHudView));
+            ValidateSerializedReference(_chancePanelView, nameof(_chancePanelView));
+            ValidateSerializedReference(_topologyBeltView, nameof(_topologyBeltView));
             ValidateSerializedReference(_playerStatusView, nameof(_playerStatusView));
             ValidateSerializedReference(_notificationView, nameof(_notificationView));
         }
@@ -397,7 +399,7 @@ namespace Game.Feature.UI.HUD
                 new Vector2(1.0f, 1.0f),
                 new Vector2(1.0f, 1.0f),
                 new Vector2(-HudLayoutMargin, -HudLayoutMargin),
-                new Vector2(StageNameSize.x, StageNameSize.y + PauseButtonSize.y + TopologyBeltSize.y + HudLayoutSpacing * 2.0f),
+                new Vector2(Mathf.Max(StageNameSize.x, TopologyBeltSize.x), StageNameSize.y + PauseButtonSize.y + TopologyBeltSize.y + HudLayoutSpacing * 2.0f),
                 TextAnchor.UpperRight);
             _bottomRightStack = EnsureStack(
                 _bottomRightStack,
@@ -512,7 +514,7 @@ namespace Game.Feature.UI.HUD
             {
                 for (var i = 0; i < modules.Length; i++)
                 {
-                    if (ReferenceEquals(modules[i], selected))
+                    if (modules[i] == selected)
                     {
                         hasSelected = true;
                         break;
@@ -528,7 +530,7 @@ namespace Game.Feature.UI.HUD
             for (var i = 0; i < modules.Length; i++)
             {
                 var module = modules[i];
-                if (module == null || ReferenceEquals(module, selected))
+                if (module == null || module == selected)
                 {
                     continue;
                 }

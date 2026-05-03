@@ -6,6 +6,7 @@ using Game.Feature.UI.Flow;
 using Game.Feature.UI.HUD;
 using NUnit.Framework;
 using System.Reflection;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -244,6 +245,135 @@ namespace Game.Feature.UI.Tests
             finally
             {
                 DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void HUDController_CanonicalPrefab_RuntimeChanceAndTopologyContentFitsWithinHudModules()
+        {
+            var rootObject = new GameObject(
+                "HUDController_CanonicalPrefab_RuntimeChanceAndTopologyContentFitsWithinHudModules",
+                typeof(RectTransform));
+
+            try
+            {
+                var rootRect = (RectTransform)rootObject.transform;
+                rootRect.sizeDelta = new Vector2(1280.0f, 720.0f);
+
+                CreateCanonicalRootView(rootObject, out var hudView);
+
+                var source = new ManualGameplayUiPresentationSource();
+                var playerStatusPresenter = new PlayerStatusPresenter();
+                var stageInfoPresenter = new StageInfoPresenter();
+                var objectiveHudPresenter = new ObjectiveHudPresenter();
+                var chancePanelPresenter = new ChancePanelPresenter();
+                var topologyHudPresenter = new TopologyHudPresenter();
+                var notificationPresenter = new NotificationPresenter();
+                using var rootPresenter = new HUDRootPresenter(
+                    source,
+                    stageInfoPresenter,
+                    objectiveHudPresenter,
+                    chancePanelPresenter,
+                    topologyHudPresenter,
+                    playerStatusPresenter,
+                    notificationPresenter);
+                using var controller = new HUDController(
+                    rootPresenter.ViewModel,
+                    stageInfoPresenter.ViewModel,
+                    objectiveHudPresenter.ViewModel,
+                    chancePanelPresenter.ViewModel,
+                    topologyHudPresenter.ViewModel,
+                    playerStatusPresenter.ViewModel,
+                    notificationPresenter.ViewModel);
+
+                controller.AttachView(hudView);
+                source.PublishSnapshot(CreateSnapshot(
+                    hasRemainingChances: true,
+                    remainingChances: 3,
+                    maxChances: 3,
+                    stageDisplayName: "Stage 1-1"));
+
+                var hudRect = (RectTransform)hudView.transform;
+                hudRect.anchorMin = Vector2.zero;
+                hudRect.anchorMax = Vector2.zero;
+                hudRect.pivot = Vector2.zero;
+                hudRect.sizeDelta = new Vector2(1280.0f, 720.0f);
+
+                LayoutRebuilder.ForceRebuildLayoutImmediate(hudRect);
+                LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)hudView.ChancePanelView.transform);
+                LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)hudView.TopologyBeltView.transform);
+                Canvas.ForceUpdateCanvases();
+
+                var chancePanel = (RectTransform)hudView.ChancePanelView.transform;
+                var slotContainer = FindRequiredRect(chancePanel, "SlotContainer");
+                var floatingFeedbackRoot = FindRequiredRect(chancePanel, "FloatingFeedbackRoot");
+                AssertWorldRectContains(chancePanel, slotContainer);
+                AssertWorldRectContains(chancePanel, floatingFeedbackRoot);
+
+                var topologyBelt = (RectTransform)hudView.TopologyBeltView.transform;
+                var faceChipContainer = FindRequiredRect(topologyBelt, "FaceChipContainer");
+                AssertWorldRectContains(topologyBelt, faceChipContainer);
+                Assert.That(faceChipContainer.GetComponentsInChildren<FaceChipView>(true).Length, Is.EqualTo(6));
+
+                var faceChips = hudView.TopologyBeltView.FaceChips;
+                Assert.That(faceChips.Count, Is.EqualTo(6));
+                for (var i = 0; i < faceChips.Count; i++)
+                {
+                    AssertWorldRectContains(topologyBelt, (RectTransform)faceChips[i].transform);
+                }
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void HUDPrefab_AuthorsChanceAndTopologyModulesInPrefabHierarchy()
+        {
+            var hudPrefab = UiTestPrefabAssetUtility.LoadHudPrefab();
+            var serializedChancePanel = GetSerializedReference<ChancePanelView>(hudPrefab, "_chancePanelView");
+            var serializedTopologyBelt = GetSerializedReference<TopologyBeltView>(hudPrefab, "_topologyBeltView");
+
+            var chancePanels = hudPrefab.GetComponentsInChildren<ChancePanelView>(true);
+            Assert.That(chancePanels.Length, Is.EqualTo(1));
+            Assert.That(chancePanels[0], Is.SameAs(serializedChancePanel));
+
+            var topologyBelts = hudPrefab.GetComponentsInChildren<TopologyBeltView>(true);
+            Assert.That(topologyBelts.Length, Is.EqualTo(1));
+            Assert.That(topologyBelts[0], Is.SameAs(serializedTopologyBelt));
+
+            var topRightStack = FindRequiredRect(hudPrefab.transform, "HudTopRightStack");
+            var bottomRightStack = FindRequiredRect(hudPrefab.transform, "HudBottomRightStack");
+            AssertChildOrder(topRightStack, "StageName", "PauseButton", "TopologyBelt");
+            AssertChildOrder(bottomRightStack, "Notifications", "ChancePanel");
+            Assert.That(serializedTopologyBelt.transform.parent, Is.SameAs(topRightStack));
+            Assert.That(serializedChancePanel.transform.parent, Is.SameAs(bottomRightStack));
+
+            var slotContainer = FindRequiredRect(serializedChancePanel.transform, "SlotContainer");
+            Assert.That(slotContainer.GetComponentsInChildren<ChanceSlotView>(true).Length, Is.EqualTo(3));
+            AssertSerializedReference(serializedChancePanel, "_slotContainer", slotContainer);
+            AssertSerializedArrayCount(serializedChancePanel, "_slotViews", 3);
+
+            foreach (var slot in slotContainer.GetComponentsInChildren<ChanceSlotView>(true))
+            {
+                AssertSerializedReferenceIsAssigned(slot, "_filledIcon");
+                AssertSerializedReferenceIsAssigned(slot, "_emptyIcon");
+                AssertSerializedReferenceIsAssigned(slot, "_glow");
+                AssertSerializedReferenceIsAssigned(slot, "_canvasGroup");
+            }
+
+            var faceChipContainer = FindRequiredRect(serializedTopologyBelt.transform, "FaceChipContainer");
+            Assert.That(faceChipContainer.GetComponentsInChildren<FaceChipView>(true).Length, Is.EqualTo(6));
+            AssertSerializedReference(serializedTopologyBelt, "_faceChipContainer", faceChipContainer);
+            AssertSerializedArrayCount(serializedTopologyBelt, "_faceChips", 6);
+
+            foreach (var chip in faceChipContainer.GetComponentsInChildren<FaceChipView>(true))
+            {
+                AssertSerializedReferenceIsAssigned(chip, "_background");
+                AssertSerializedReferenceIsAssigned(chip, "_faceNameText");
+                AssertSerializedReferenceIsAssigned(chip, "_activeGlow");
+                AssertSerializedReferenceIsAssigned(chip, "_canvasGroup");
             }
         }
 
@@ -575,6 +705,64 @@ namespace Game.Feature.UI.Tests
                 && firstRect.yMax > secondRect.yMin;
 
             Assert.That(overlaps, Is.False, $"{first.name} overlaps {second.name}.");
+        }
+
+        private static TReference GetSerializedReference<TReference>(
+            UnityEngine.Object target,
+            string fieldName)
+            where TReference : UnityEngine.Object
+        {
+            var serializedObject = new SerializedObject(target);
+            var property = serializedObject.FindProperty(fieldName);
+            Assert.That(property, Is.Not.Null, fieldName);
+            Assert.That(property.objectReferenceValue, Is.Not.Null, fieldName);
+
+            var reference = property.objectReferenceValue as TReference;
+            Assert.That(reference, Is.Not.Null, fieldName);
+            return reference;
+        }
+
+        private static void AssertSerializedReference(
+            UnityEngine.Object target,
+            string fieldName,
+            UnityEngine.Object expected)
+        {
+            var actual = GetSerializedReference<UnityEngine.Object>(target, fieldName);
+            Assert.That(actual, Is.SameAs(expected), fieldName);
+        }
+
+        private static void AssertSerializedReferenceIsAssigned(
+            UnityEngine.Object target,
+            string fieldName)
+        {
+            GetSerializedReference<UnityEngine.Object>(target, fieldName);
+        }
+
+        private static void AssertSerializedArrayCount(
+            UnityEngine.Object target,
+            string fieldName,
+            int expectedCount)
+        {
+            var serializedObject = new SerializedObject(target);
+            var property = serializedObject.FindProperty(fieldName);
+            Assert.That(property, Is.Not.Null, fieldName);
+            Assert.That(property.isArray, Is.True, fieldName);
+            Assert.That(property.arraySize, Is.EqualTo(expectedCount), fieldName);
+            for (var i = 0; i < property.arraySize; i++)
+            {
+                Assert.That(property.GetArrayElementAtIndex(i).objectReferenceValue, Is.Not.Null, $"{fieldName}[{i}]");
+            }
+        }
+
+        private static void AssertWorldRectContains(RectTransform outer, RectTransform inner)
+        {
+            var outerRect = GetWorldRect(outer);
+            var innerRect = GetWorldRect(inner);
+            const float tolerance = 0.1f;
+            Assert.That(innerRect.xMin, Is.GreaterThanOrEqualTo(outerRect.xMin - tolerance), $"{inner.name} extends left of {outer.name}.");
+            Assert.That(innerRect.xMax, Is.LessThanOrEqualTo(outerRect.xMax + tolerance), $"{inner.name} extends right of {outer.name}.");
+            Assert.That(innerRect.yMin, Is.GreaterThanOrEqualTo(outerRect.yMin - tolerance), $"{inner.name} extends below {outer.name}.");
+            Assert.That(innerRect.yMax, Is.LessThanOrEqualTo(outerRect.yMax + tolerance), $"{inner.name} extends above {outer.name}.");
         }
 
         private static Rect GetWorldRect(RectTransform rectTransform)
