@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b8e8443191cf4d54b46f4588ab76f6fe, type: 3}
   m_Name: EnemyAi_GlideChaser
   m_EditorClassIdentifier:
-  coreAuthoring: {fileID: 11400000, guid: a57f5fb11c9245dbaf4cf9a8bc65c9b0, type: 2}
-  brainAuthoring: {fileID: 11400000, guid: f52611434cc746c58dcdba0b28f6a24e, type: 2}
+  coreAuthoring: {fileID: 11400000, guid: 8e86aa168e474ee8be9ee51b257e5313, type: 2}
+  brainAuthoring: {fileID: 11400000, guid: 7c9585f9f3794315b938da9370633c38, type: 2}
   capabilityAssets:
   - {fileID: 11400000, guid: ad9b7109556a4fa39c2f024587232ba2, type: 2}
   - {fileID: 11400000, guid: bf094ca1fd8f4a378e18159ddaf0d4f0, type: 2}
