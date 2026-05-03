@@ -117,10 +117,39 @@ namespace Game.Feature.UI.Tests
             var hudLayer = rootShellPrefab.transform.Find("HudLayer");
             Assert.That(hudLayer, Is.Not.Null);
             Assert.That(hudLayer.childCount, Is.Zero);
-            Assert.That(rootShellPrefab.GetComponentsInChildren<Button>(true), Is.Empty);
             Assert.That(rootShellPrefab.GetComponentsInChildren<Text>(true), Is.Empty);
-            Assert.That(rootShellPrefab.GetComponentsInChildren<TMP_Text>(true), Is.Empty);
-            Assert.That(rootShellPrefab.GetComponentsInChildren<CanvasGroup>(true), Is.Empty);
+            Assert.That(hudLayer.GetComponentsInChildren<Button>(true), Is.Empty);
+            Assert.That(hudLayer.GetComponentsInChildren<TMP_Text>(true), Is.Empty);
+            Assert.That(hudLayer.GetComponentsInChildren<CanvasGroup>(true), Is.Empty);
+        }
+
+        [Test]
+        public void CanonicalRootShellPrefab_AuthorsScreenPopupAndDiagnosticsInfrastructure()
+        {
+            var rootShellPrefab = Resources.Load<GameObject>(RootShellResourcePath);
+            Assert.That(rootShellPrefab, Is.Not.Null);
+
+            var screenLayerRoot = FindRequired(rootShellPrefab.transform, "ScreenLayer/ScreenLayerRoot");
+            var screenContentRoot = FindRequired(screenLayerRoot, "ScreenContentRoot");
+            var screenLayerView = RequireComponent<ScreenLayerView>(screenLayerRoot);
+            Assert.That(screenLayerView.ContentRoot, Is.EqualTo(screenContentRoot));
+
+            var popupLayerRoot = FindRequired(rootShellPrefab.transform, "PopupLayer/PopupLayerRoot");
+            var backdrop = FindRequired(popupLayerRoot, "Backdrop");
+            var popupContentRoot = FindRequired(popupLayerRoot, "PopupContentRoot");
+            var popupLayerView = RequireComponent<PopupLayerView>(popupLayerRoot);
+            Assert.That(popupLayerView.ContentRoot, Is.EqualTo(popupContentRoot));
+            RequireComponent<Image>(backdrop);
+            RequireComponent<Button>(backdrop);
+            RequireComponent<CanvasGroup>(backdrop);
+
+            var diagnosticsOverlay = FindRequired(rootShellPrefab.transform, "DiagnosticsLayer/UiDiagnosticsOverlay");
+            RequireComponent<UiArchitectureDiagnosticsOverlayView>(diagnosticsOverlay);
+            RequireComponent<CanvasGroup>(diagnosticsOverlay);
+            RequireComponent<TMP_Text>(FindRequired(diagnosticsOverlay, "Title"));
+            RequireComponent<TMP_Text>(FindRequired(diagnosticsOverlay, "Summary"));
+            RequireComponent<Image>(FindRequired(diagnosticsOverlay, "DetailPanel"));
+            RequireComponent<TMP_Text>(FindRequired(diagnosticsOverlay, "DetailPanel/Detail"));
         }
 
         [Test]
@@ -136,6 +165,30 @@ namespace Game.Feature.UI.Tests
             Assert.That(hudPrefab.GetComponentsInChildren<ScreenLayerView>(true), Is.Empty);
             Assert.That(hudPrefab.GetComponentsInChildren<PopupLayerView>(true), Is.Empty);
             Assert.That(hudPrefab.GetComponentsInChildren<PausePopupView>(true), Is.Empty);
+        }
+
+        [Test]
+        public void HudPrefabAsset_AuthorsPersistentStackLayout_BeforeRuntimeLayoutRemoval()
+        {
+            var hudPrefab = UiTestPrefabAssetUtility.LoadHudPrefab();
+
+            var topLeftStack = FindRequired(hudPrefab.transform, "HudTopLeftStack");
+            var topRightStack = FindRequired(hudPrefab.transform, "HudTopRightStack");
+            var bottomRightStack = FindRequired(hudPrefab.transform, "HudBottomRightStack");
+
+            RequireComponent<VerticalLayoutGroup>(topLeftStack);
+            RequireComponent<VerticalLayoutGroup>(topRightStack);
+            RequireComponent<VerticalLayoutGroup>(bottomRightStack);
+            Assert.That(hudPrefab.ObjectiveHudView.transform.parent, Is.EqualTo(topLeftStack));
+            Assert.That(hudPrefab.NotificationView.transform.parent, Is.EqualTo(bottomRightStack));
+            var chancePanelView = hudPrefab.GetComponentsInChildren<ChancePanelView>(true).Single();
+            var topologyBeltView = hudPrefab.GetComponentsInChildren<TopologyBeltView>(true).Single();
+            Assert.That(chancePanelView.transform.parent, Is.EqualTo(bottomRightStack));
+            Assert.That(topologyBeltView.transform.parent, Is.EqualTo(topRightStack));
+            Assert.That(hudPrefab.ObjectiveHudView.GetComponent<LayoutElement>(), Is.Not.Null);
+            Assert.That(hudPrefab.NotificationView.GetComponent<LayoutElement>(), Is.Not.Null);
+            Assert.That(chancePanelView.GetComponent<LayoutElement>(), Is.Not.Null);
+            Assert.That(topologyBeltView.GetComponent<LayoutElement>(), Is.Not.Null);
         }
 
         [Test]
@@ -369,6 +422,54 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ScreenPrefabs_AuthorStaticLayoutContainers_BeforeRuntimeLayoutRemoval()
+        {
+            var mainMenuPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab");
+            Assert.That(mainMenuPrefab, Is.Not.Null);
+            var mainMenuRoot = mainMenuPrefab.transform;
+            RequireComponent<VerticalLayoutGroup>(mainMenuRoot);
+            RequireComponent<LayoutElement>(FindRequired(mainMenuRoot, "TopBar"));
+            RequireComponent<LayoutElement>(FindRequired(mainMenuRoot, "ContentHost"));
+            RequireComponent<LayoutElement>(FindRequired(mainMenuRoot, "BottomBar"));
+            RequireComponent<VerticalLayoutGroup>(FindRequired(mainMenuRoot, "MainCommandPanel"));
+            RequireComponent<LayoutElement>(FindRequired(mainMenuRoot, "ContentHost/SaveSlotPanelView"));
+
+            var settingsRoot = UiTestPrefabAssetUtility
+                .LoadScreenPrefab<SettingsScreenView>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath)
+                .transform;
+            RequireComponent<VerticalLayoutGroup>(settingsRoot);
+            RequireComponent<HorizontalLayoutGroup>(FindRequired(settingsRoot, "SettingsHeader"));
+            RequireComponent<HorizontalLayoutGroup>(FindRequired(settingsRoot, "SettingsTabRow"));
+            var sectionHost = FindRequired(settingsRoot, "SettingsSectionHost");
+            RequireComponent<VerticalLayoutGroup>(sectionHost);
+            RequireComponent<LayoutElement>(sectionHost);
+            AssertSettingsSectionLayout(FindRequired(sectionHost, SettingsScreenView.AudioSectionName));
+            AssertSettingsSectionLayout(FindRequired(sectionHost, SettingsScreenView.DisplaySectionName));
+            AssertSettingsSectionLayout(FindRequired(sectionHost, SettingsScreenView.InputSectionName));
+            RequireComponent<HorizontalLayoutGroup>(FindRequired(settingsRoot, "SettingsAccessibilityRows/TooltipAccessibilityRow"));
+            RequireComponent<HorizontalLayoutGroup>(FindRequired(settingsRoot, "SettingsAccessibilityRows/LargeTextAccessibilityRow"));
+            RequireComponent<HorizontalLayoutGroup>(FindRequired(settingsRoot, "SettingsFooter"));
+            RequireComponent<HorizontalLayoutGroup>(FindRequired(sectionHost, "SettingsDisplaySection/CurrentDisplayRow"));
+            RequireComponent<HorizontalLayoutGroup>(FindRequired(sectionHost, "SettingsDisplaySection/ResolutionRow"));
+            RequireComponent<HorizontalLayoutGroup>(FindRequired(sectionHost, "SettingsDisplaySection/FullscreenRow"));
+            RequireComponent<HorizontalLayoutGroup>(FindRequired(sectionHost, "SettingsDisplaySection/DisplayActionRow"));
+            RequireComponent<CanvasGroup>(FindRequired(sectionHost, "SettingsDisplaySection/ResolutionHoverHint"));
+            RequireComponent<LayoutElement>(FindRequired(sectionHost, "SettingsDisplaySection/DisplayPreviewCountdown"));
+            RequireComponent<HorizontalLayoutGroup>(FindRequired(sectionHost, "SettingsInputSection/MovementInputRow"));
+            RequireComponent<HorizontalLayoutGroup>(FindRequired(sectionHost, "SettingsInputSection/PushInputRow"));
+            RequireComponent<HorizontalLayoutGroup>(FindRequired(sectionHost, "SettingsInputSection/FlipInputRow"));
+            RequireComponent<HorizontalLayoutGroup>(FindRequired(sectionHost, "SettingsInputSection/InputResetRow"));
+
+            AssertObjectiveAssetLayout();
+            AssertTerminalResultLayout(
+                UiTestPrefabAssetUtility.LoadScreenPrefab<StageResultScreenView>(UiTestPrefabAssetUtility.StageResultScreenPrefabPath).transform,
+                "ResultSummary");
+            AssertTerminalResultLayout(
+                UiTestPrefabAssetUtility.LoadScreenPrefab<LevelFailedScreenView>(UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath).transform);
+        }
+
+        [Test]
         public void SettingsScreenPrefabAsset_AuthorsTooltipInfoAffordance_AsBoundedLocalIntent()
         {
             var settingsPrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
@@ -377,7 +478,7 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(tooltipInfoButton, Is.Not.Null);
             Assert.That(tooltipInfoButton.objectReferenceValue, Is.Not.Null);
-            Assert.That(((Button)tooltipInfoButton.objectReferenceValue).transform.parent, Is.EqualTo(settingsPrefab.transform));
+            Assert.That(((Button)tooltipInfoButton.objectReferenceValue).transform.IsChildOf(settingsPrefab.transform), Is.True);
         }
 
         [Test]
@@ -387,22 +488,29 @@ namespace Game.Feature.UI.Tests
             var serializedRoot = new SerializedObject(settingsPrefab);
             var audioViewProperty = serializedRoot.FindProperty("_audioView");
             var displayViewProperty = serializedRoot.FindProperty("_displayView");
+            var inputViewProperty = serializedRoot.FindProperty("_inputView");
 
             Assert.That(audioViewProperty, Is.Not.Null);
             Assert.That(displayViewProperty, Is.Not.Null);
+            Assert.That(inputViewProperty, Is.Not.Null);
             Assert.That(audioViewProperty.objectReferenceValue, Is.Not.Null);
             Assert.That(displayViewProperty.objectReferenceValue, Is.Not.Null);
+            Assert.That(inputViewProperty.objectReferenceValue, Is.Not.Null);
             Assert.That(serializedRoot.FindProperty("_mainRow"), Is.Null);
             Assert.That(serializedRoot.FindProperty("_resolutionDropdown"), Is.Null);
             Assert.That(serializedRoot.FindProperty("_applyButton"), Is.Null);
 
             var audioView = (SettingsAudioView)audioViewProperty.objectReferenceValue;
             var displayView = (SettingsDisplayView)displayViewProperty.objectReferenceValue;
+            var inputView = (SettingsInputView)inputViewProperty.objectReferenceValue;
+            var sectionHost = settingsPrefab.transform.Find("SettingsSectionHost");
 
             Assert.That(audioView.name, Is.EqualTo(SettingsScreenView.AudioSectionName));
             Assert.That(displayView.name, Is.EqualTo(SettingsScreenView.DisplaySectionName));
-            Assert.That(audioView.transform.parent, Is.EqualTo(settingsPrefab.transform));
-            Assert.That(displayView.transform.parent, Is.EqualTo(settingsPrefab.transform));
+            Assert.That(inputView.name, Is.EqualTo(SettingsScreenView.InputSectionName));
+            Assert.That(audioView.transform.parent, Is.EqualTo(sectionHost));
+            Assert.That(displayView.transform.parent, Is.EqualTo(sectionHost));
+            Assert.That(inputView.transform.parent, Is.EqualTo(sectionHost));
 
             var serializedAudio = new SerializedObject(audioView);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedAudio, "_mainRow._rowRoot", audioView.transform);
@@ -1073,6 +1181,44 @@ namespace Game.Feature.UI.Tests
             Assert.That(popupPrefab, Is.Not.Null, assetPath);
             Assert.That(popupPrefab.GetComponent<CanvasGroup>(), Is.Not.Null, assetPath);
             AssertPrefabHasNoCrossLayerOwners(popupPrefab.gameObject);
+        }
+
+        private static void AssertSettingsSectionLayout(Transform sectionRoot)
+        {
+            RequireComponent<VerticalLayoutGroup>(sectionRoot);
+            RequireComponent<LayoutElement>(sectionRoot);
+        }
+
+        private static void AssertObjectiveAssetLayout()
+        {
+            var objectiveRoot = UiTestPrefabAssetUtility
+                .LoadScreenPrefab<ObjectiveStatusScreenView>(UiTestPrefabAssetUtility.ObjectiveStatusScreenPrefabPath)
+                .transform;
+
+            RequireComponent<VerticalLayoutGroup>(objectiveRoot);
+            RequireComponent<LayoutElement>(objectiveRoot);
+            RequireComponent<HorizontalLayoutGroup>(FindRequired(objectiveRoot, "ObjectiveHeader"));
+            RequireComponent<LayoutElement>(FindRequired(objectiveRoot, "ObjectiveSummary"));
+            RequireComponent<LayoutElement>(FindRequired(objectiveRoot, "ObjectiveDetail"));
+            RequireComponent<LayoutElement>(FindRequired(objectiveRoot, "ObjectiveSecondary"));
+            RequireComponent<HorizontalLayoutGroup>(FindRequired(objectiveRoot, "ObjectiveFooter"));
+        }
+
+        private static Transform FindRequired(Transform root, string path)
+        {
+            Assert.That(root, Is.Not.Null, path);
+            var child = root.Find(path);
+            Assert.That(child, Is.Not.Null, $"{root.name}/{path}");
+            return child;
+        }
+
+        private static T RequireComponent<T>(Transform transform)
+            where T : Component
+        {
+            Assert.That(transform, Is.Not.Null, typeof(T).Name);
+            var component = transform.GetComponent<T>();
+            Assert.That(component, Is.Not.Null, $"{typeof(T).Name} missing on {transform.name}");
+            return component;
         }
 
         private static Component OpenMountedScreen(GameplayUiFlowInstaller installer, ScreenId screenId)
