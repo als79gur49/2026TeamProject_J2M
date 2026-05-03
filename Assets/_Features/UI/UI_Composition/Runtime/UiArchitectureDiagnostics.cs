@@ -26,7 +26,6 @@ namespace Game.Feature.UI.Composition
             int mappedTickIndex,
             string latestMappedEventSummary,
             string popupPolicySummaryText,
-            string inventorySummaryText,
             IEnumerable<string> recentEvents)
         {
             CurrentScreenIdText = currentScreenIdText ?? string.Empty;
@@ -42,7 +41,6 @@ namespace Game.Feature.UI.Composition
             MappedTickIndex = mappedTickIndex;
             LatestMappedEventSummary = latestMappedEventSummary ?? string.Empty;
             PopupPolicySummaryText = popupPolicySummaryText ?? string.Empty;
-            InventorySummaryText = inventorySummaryText ?? string.Empty;
             _recentEvents = new ReadOnlyCollection<string>(new List<string>(recentEvents ?? Array.Empty<string>()));
         }
 
@@ -72,8 +70,6 @@ namespace Game.Feature.UI.Composition
 
         public string PopupPolicySummaryText { get; }
 
-        public string InventorySummaryText { get; }
-
         public IReadOnlyList<string> RecentEvents => _recentEvents != null
             ? _recentEvents
             : Array.Empty<string>();
@@ -83,7 +79,6 @@ namespace Game.Feature.UI.Composition
     {
         private const int RecentEventLimit = 8;
 
-        private readonly Func<InventoryScreenView> _inventoryViewAccessor;
         private readonly Func<bool> _isHudReadOnly;
         private readonly Func<bool> _isHudVisible;
         private readonly PopupController _popupController;
@@ -99,8 +94,7 @@ namespace Game.Feature.UI.Composition
             ScreenController screenController,
             PopupController popupController,
             Func<bool> isHudVisible,
-            Func<bool> isHudReadOnly,
-            Func<InventoryScreenView> inventoryViewAccessor)
+            Func<bool> isHudReadOnly)
         {
             _presentationSource = presentationSource ?? throw new ArgumentNullException(nameof(presentationSource));
             _coordinator = coordinator ?? throw new ArgumentNullException(nameof(coordinator));
@@ -108,7 +102,6 @@ namespace Game.Feature.UI.Composition
             _popupController = popupController ?? throw new ArgumentNullException(nameof(popupController));
             _isHudVisible = isHudVisible ?? throw new ArgumentNullException(nameof(isHudVisible));
             _isHudReadOnly = isHudReadOnly ?? throw new ArgumentNullException(nameof(isHudReadOnly));
-            _inventoryViewAccessor = inventoryViewAccessor ?? throw new ArgumentNullException(nameof(inventoryViewAccessor));
 
             _latestMappedEventSummary = BuildTickEventSummary(_presentationSource.CurrentTickEvents);
 
@@ -174,20 +167,6 @@ namespace Game.Feature.UI.Composition
             {
                 _recentEvents.RemoveAt(_recentEvents.Count - 1);
             }
-        }
-
-        private string BuildInventorySummaryText()
-        {
-            var inventoryView = _inventoryViewAccessor();
-            if (inventoryView == null || !inventoryView.IsVisible)
-            {
-                return "Inactive";
-            }
-
-            return
-                $"Catalog={TrimText(inventoryView.CatalogSummaryText, 88)} | " +
-                $"Detail={FormatTextOrNone(inventoryView.DetailTitleText)} | " +
-                $"Feedback={FormatTextOrNone(inventoryView.ActionFeedbackText)}";
         }
 
         private string BuildPopupEventText()
@@ -326,7 +305,6 @@ namespace Game.Feature.UI.Composition
                 presentationSnapshot.Tick.LastReducedTickIndex,
                 _latestMappedEventSummary,
                 BuildPopupPolicySummaryText(topPopup),
-                BuildInventorySummaryText(),
                 _recentEvents.ToArray());
             SnapshotChanged?.Invoke(CurrentSnapshot);
         }

@@ -12,10 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 219ce35fd45d9d14ba5a4c077bcbf380, type: 3}
   m_Name: GameplayScreenPrefabCatalog
   m_EditorClassIdentifier: Game.Feature.UI.Composition::Game.Feature.UI.Composition.ScreenPrefabCatalog
-  _gameplayPrefab: {fileID: 8714409556149008723, guid: b5a5df971785df9479254a7006d6ec11, type: 3}
-  _helpPrefab: {fileID: 5886304508788699003, guid: a0ef38ae4f511cc4f93cd207a4c8d2ac, type: 3}
   _objectiveStatusPrefab: {fileID: 579148393671793334, guid: ba1034f4e0daecc428ca3e9371be547f, type: 3}
-  _inventoryPrefab: {fileID: 8905244729465020587, guid: f8c8c0879d9bf054b911fd20e0a502e7, type: 3}
   _settingsPrefab: {fileID: 8102357125233103768, guid: 55b072965064aa64186ae00710d369a8, type: 3}
   _stageResultPrefab: {fileID: 3274060130035156201, guid: cc8ef9d34c36abf4ba207158cd1376b2, type: 3}
   _levelFailedPrefab: {fileID: 6721107424989001005, guid: b1bb41959eba43d48186dd07fbf0fdcb, type: 3}

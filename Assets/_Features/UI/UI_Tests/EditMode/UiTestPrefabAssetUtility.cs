@@ -7,6 +7,7 @@ using Game.Shared.Display;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Game.Feature.UI.Tests
 {
@@ -14,10 +15,7 @@ namespace Game.Feature.UI.Tests
     {
         internal const string HudPrefabPath = "Assets/_Features/UI/UI_HUD/Prefabs/GameplayHudRoot.prefab";
         internal const string ScreenCatalogPath = "Assets/_Features/UI/UI_Screens/Prefabs/GameplayScreenPrefabCatalog.asset";
-        internal const string GameplayScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/GameplayScreen.prefab";
-        internal const string HelpScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/HelpScreen.prefab";
         internal const string ObjectiveStatusScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/ObjectiveStatusScreen.prefab";
-        internal const string InventoryScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/InventoryScreen.prefab";
         internal const string SettingsScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab";
         internal const string StageResultScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/StageResultScreen.prefab";
         internal const string LevelFailedScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/LevelFailedScreen.prefab";
@@ -147,6 +145,24 @@ namespace Game.Feature.UI.Tests
             AssignScreenPrefabCatalog(installer);
             AssignPopupPrefabCatalog(installer);
             AssignUiAudioCueMap(installer);
+        }
+
+        internal static void AssertOverlayCanvasScaling(GameObject root)
+        {
+            Assert.That(root, Is.Not.Null);
+
+            var canvas = root.GetComponent<Canvas>();
+            Assert.That(canvas, Is.Not.Null);
+            Assert.That(canvas.renderMode, Is.EqualTo(RenderMode.ScreenSpaceOverlay));
+
+            var scaler = root.GetComponent<CanvasScaler>();
+            Assert.That(scaler, Is.Not.Null);
+            Assert.That(scaler.uiScaleMode, Is.EqualTo(CanvasScaler.ScaleMode.ScaleWithScreenSize));
+            Assert.That(scaler.referenceResolution, Is.EqualTo(new Vector2(1920f, 1080f)));
+            Assert.That(scaler.screenMatchMode, Is.EqualTo(CanvasScaler.ScreenMatchMode.MatchWidthOrHeight));
+            Assert.That(scaler.matchWidthOrHeight, Is.EqualTo(1.0f));
+
+            Assert.That(root.GetComponent<GraphicRaycaster>(), Is.Not.Null);
         }
 
         internal static void ConfigureAudioInstallerBindingMode(

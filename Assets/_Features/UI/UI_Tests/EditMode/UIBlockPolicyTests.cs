@@ -7,22 +7,22 @@ namespace Game.Feature.UI.Tests
 {
     public sealed class UIBlockPolicyTests
     {
-        private static readonly ScreenEntry HelpScreenEntry = new(
+        private static readonly ScreenEntry ObjectiveStatusScreenEntry = new(
             new ScreenInstanceId(1),
-            ScreenId.Help,
-            HelpScreenPayload.Default,
+            ScreenId.ObjectiveStatus,
+            ObjectiveStatusScreenPayload.Default,
             new ScreenPolicy(
-                ScreenPolicyClass.InformationalOverlay,
+                ScreenPolicyClass.GameplayAdjacentOverlay,
                 ScreenRetentionMode.RetainMountedHistory,
                 ScreenBackAction.Pop,
                 HudShellMode.Visible,
                 blocksUiGameplayInput: true),
-            ScreenId.Help.ToString());
+            ScreenId.ObjectiveStatus.ToString());
 
-        private static readonly ScreenEntry GameplayScreenEntry = new(
+        private static readonly ScreenEntry GameplayRootEntry = new(
             new ScreenInstanceId(2),
             ScreenId.Gameplay,
-            GameplayScreenPayload.Default,
+            GameplayRootPayload.Default,
             new ScreenPolicy(
                 ScreenPolicyClass.GameplayRoot,
                 ScreenRetentionMode.RetainMountedHistory,
@@ -32,11 +32,11 @@ namespace Game.Feature.UI.Tests
             ScreenId.Gameplay.ToString());
 
         [Test]
-        public void Evaluate_HelpScreenWithoutPopup_BlocksHudAndGameplayInputOnly()
+        public void Evaluate_ObjectiveStatusScreenWithoutPopup_BlocksHudAndGameplayInputOnly()
         {
             var policy = new UIBlockPolicy();
 
-            var snapshot = policy.Evaluate(new UIFlowStateSnapshot(HelpScreenEntry, null, popupCount: 0));
+            var snapshot = policy.Evaluate(new UIFlowStateSnapshot(ObjectiveStatusScreenEntry, null, popupCount: 0));
 
             Assert.That(snapshot.BlocksHudInteraction, Is.True);
             Assert.That(snapshot.BlocksScreenInteraction, Is.False);
@@ -47,13 +47,13 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void Evaluate_ModalPopupOnGameplayScreen_BlocksHudScreenInputAndShowsDim()
+        public void Evaluate_ModalPopupOnGameplayRoot_BlocksHudScreenInputAndShowsDim()
         {
             var policy = new UIBlockPolicy();
 
             var snapshot = policy.Evaluate(
                 new UIFlowStateSnapshot(
-                    GameplayScreenEntry,
+                    GameplayRootEntry,
                     new PopupEntry(
                         new PopupInstanceId(1),
                         PopupId.Confirm,
@@ -84,7 +84,7 @@ namespace Game.Feature.UI.Tests
 
             var snapshot = policy.Evaluate(
                 new UIFlowStateSnapshot(
-                    GameplayScreenEntry,
+                    GameplayRootEntry,
                     new PopupEntry(
                         new PopupInstanceId(2),
                         PopupId.Tooltip,
@@ -114,7 +114,7 @@ namespace Game.Feature.UI.Tests
 
             var snapshot = policy.Evaluate(
                 new UIFlowStateSnapshot(
-                    GameplayScreenEntry,
+                    GameplayRootEntry,
                     new PopupEntry(
                         new PopupInstanceId(3),
                         PopupId.Tooltip,

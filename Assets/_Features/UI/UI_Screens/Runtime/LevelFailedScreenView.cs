@@ -7,6 +7,10 @@ namespace Game.Feature.UI.Screens
 {
     public sealed class LevelFailedScreenView : MonoBehaviour, IScreenView
     {
+        private static readonly Vector2 PreferredPanelSize = new Vector2(460f, 230f);
+        private static readonly Vector2 MinimumPanelSize = new Vector2(360f, 200f);
+        private static readonly Vector2 MaximumPanelSize = new Vector2(560f, 300f);
+
         [SerializeField] private GameObject _root;
         [SerializeField] private TMP_Text _titleLabel;
         [SerializeField] private TMP_Text _detailLabel;
@@ -116,6 +120,7 @@ namespace Game.Feature.UI.Screens
 
         private void RefreshView()
         {
+            EnsureRuntimeHierarchy();
             if (_root != null)
             {
                 _root.SetActive(IsVisible);
@@ -154,77 +159,48 @@ namespace Game.Feature.UI.Screens
                 _root = gameObject;
             }
 
-            if (_titleLabel != null &&
-                _detailLabel != null &&
-                _restartLevelButton != null &&
-                _restartLevelButtonLabel != null &&
-                _mainButton != null &&
-                _mainButtonLabel != null)
+            var rootRect = TerminalResultScreenLayoutUtility.ConfigureRoot(
+                _root,
+                PreferredPanelSize,
+                MinimumPanelSize,
+                MaximumPanelSize);
+            if (rootRect == null)
             {
                 return;
             }
 
-            var rootRect = EnsureRectTransform(_root);
-            ConfigureRoot(rootRect);
-            _titleLabel ??= CreateLabel("Title", rootRect, new Vector2(24f, -24f), new Vector2(412f, 32f), TextAnchor.MiddleCenter, 22);
-            _detailLabel ??= CreateLabel("Detail", rootRect, new Vector2(24f, -78f), new Vector2(412f, 70f), TextAnchor.UpperCenter, 15);
+            _titleLabel ??= CreateLabel("Title", rootRect, TextAnchor.MiddleCenter, 22);
+            _detailLabel ??= CreateLabel("Detail", rootRect, TextAnchor.UpperCenter, 15);
             var restart = _restartLevelButton != null
                 ? new ButtonParts(_restartLevelButton, _restartLevelButtonLabel)
-                : CreateButton("RestartLevelButton", rootRect, "Restart Level", new Vector2(96f, -174f), new Vector2(136f, 34f));
+                : CreateButton("RestartLevelButton", rootRect, "Restart Level");
             var main = _mainButton != null
                 ? new ButtonParts(_mainButton, _mainButtonLabel)
-                : CreateButton("MainButton", rootRect, "Main", new Vector2(248f, -174f), new Vector2(116f, 34f));
+                : CreateButton("MainButton", rootRect, "Main");
             _restartLevelButton = restart.Button;
             _restartLevelButtonLabel = restart.Label;
             _mainButton = main.Button;
             _mainButtonLabel = main.Label;
-        }
 
-        private static RectTransform EnsureRectTransform(GameObject target)
-        {
-            var rectTransform = target.GetComponent<RectTransform>();
-            if (rectTransform != null)
-            {
-                return rectTransform;
-            }
+            var header = TerminalResultScreenLayoutUtility.EnsureContainer(rootRect, "ResultHeader", 0, preferredHeight: 32f);
+            var detail = TerminalResultScreenLayoutUtility.EnsureContainer(rootRect, "ResultDetail", 1, minHeight: 70f, preferredHeight: 82f, flexibleHeight: 1f);
+            var footer = TerminalResultScreenLayoutUtility.EnsureContainer(rootRect, "ResultFooter", 2, preferredHeight: 34f);
 
-            return target.AddComponent<RectTransform>();
-        }
-
-        private static void ConfigureRoot(RectTransform rootRect)
-        {
-            rootRect.anchorMin = new Vector2(0.5f, 0.5f);
-            rootRect.anchorMax = new Vector2(0.5f, 0.5f);
-            rootRect.pivot = new Vector2(0.5f, 0.5f);
-            rootRect.anchoredPosition = Vector2.zero;
-            rootRect.sizeDelta = new Vector2(460f, 230f);
-
-            var image = rootRect.GetComponent<Image>();
-            if (image == null)
-            {
-                image = rootRect.gameObject.AddComponent<Image>();
-            }
-
-            image.color = new Color(0.10f, 0.13f, 0.18f, 0.96f);
+            TerminalResultScreenLayoutUtility.LayoutText(_titleLabel, header, preferredHeight: 32f);
+            TerminalResultScreenLayoutUtility.LayoutText(_detailLabel, detail, flexibleHeight: 1f);
+            TerminalResultScreenLayoutUtility.LayoutFooter(footer);
+            TerminalResultScreenLayoutUtility.LayoutButton(_restartLevelButton, footer, preferredWidth: 136f, preferredHeight: 32f);
+            TerminalResultScreenLayoutUtility.LayoutButton(_mainButton, footer, preferredWidth: 116f, preferredHeight: 32f);
         }
 
         private static TMP_Text CreateLabel(
             string objectName,
             RectTransform parent,
-            Vector2 anchoredPosition,
-            Vector2 sizeDelta,
             TextAnchor alignment,
             int fontSize)
         {
             var labelObject = new GameObject(objectName, typeof(RectTransform), typeof(TextMeshProUGUI));
             labelObject.transform.SetParent(parent, false);
-            var rect = labelObject.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0f, 1f);
-            rect.anchorMax = new Vector2(0f, 1f);
-            rect.pivot = new Vector2(0f, 1f);
-            rect.anchoredPosition = anchoredPosition;
-            rect.sizeDelta = sizeDelta;
-
             var label = labelObject.GetComponent<TextMeshProUGUI>();
             label.alignment = ToTextAlignment(alignment);
             label.fontSize = fontSize;
@@ -236,23 +212,16 @@ namespace Game.Feature.UI.Screens
         private static ButtonParts CreateButton(
             string objectName,
             RectTransform parent,
-            string labelText,
-            Vector2 anchoredPosition,
-            Vector2 sizeDelta)
+            string labelText)
         {
             var buttonObject = new GameObject(objectName, typeof(RectTransform), typeof(Image), typeof(Button));
             buttonObject.transform.SetParent(parent, false);
-            var rect = buttonObject.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0f, 1f);
-            rect.anchorMax = new Vector2(0f, 1f);
-            rect.pivot = new Vector2(0f, 1f);
-            rect.anchoredPosition = anchoredPosition;
-            rect.sizeDelta = sizeDelta;
 
             var image = buttonObject.GetComponent<Image>();
             image.color = new Color(0.24f, 0.68f, 0.87f, 1f);
             var button = buttonObject.GetComponent<Button>();
-            var label = CreateLabel("Label", rect, Vector2.zero, sizeDelta, TextAnchor.MiddleCenter, 14);
+            var label = CreateLabel("Label", (RectTransform)buttonObject.transform, TextAnchor.MiddleCenter, 14);
+            SettingsLayoutUtility.Stretch(label.rectTransform);
             label.text = labelText;
             return new ButtonParts(button, label);
         }

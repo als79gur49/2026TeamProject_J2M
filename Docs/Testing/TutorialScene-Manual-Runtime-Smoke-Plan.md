@@ -12,7 +12,7 @@
 - Preserve the validation targets that lower-level tests are weaker at proving: runtime layer placement, hierarchy truth, input/raycast behavior, modal feel, representative screen transitions, and terminal flow.
 - Preserve `PausePopup` as the modal representative popup case.
 - Preserve `TooltipPopup` as the intended non-modal representative popup case.
-- Preserve `GameplayScreen`, `InventoryScreen`, and `StageResultScreen` as architecturally sensitive screen/runtime checkpoints.
+- Preserve the logical `ScreenId.Gameplay` root and `StageResultScreen` as architecturally sensitive screen/runtime checkpoints.
 - Preserve diagnostics as dev-only, read-only, and secondary to the main runtime ownership checks.
 
 ## 3. Remaining Execution Risks
@@ -26,13 +26,12 @@
 - Split the smoke into two tiers.
 - `Tier 1` is mandatory-first and must run before any secondary coverage:
   1. canonical runtime root-shell uniqueness and layer composition
-  2. `GameplayScreen` as the gameplay-root-adjacent special case
+  2. `ScreenId.Gameplay` as the no-view gameplay-root-adjacent special case
   3. HUD visibility and read-only behavior on the canonical path
   4. `PausePopup` as the modal representative popup
-  5. `InventoryScreen` as the Stage 8 representative complex screen
+  5. `SettingsScreen` as the representative complex screen
   6. terminal `StageResultScreen` flow attempt
 - `Tier 2` runs only after Tier 1 completes:
-  - `HelpScreen`
   - `ObjectiveStatusScreen`
   - `SettingsScreen`
   - `TooltipPopup` via `SettingsScreen` tooltip info icon
@@ -42,13 +41,13 @@
 ## 5. High-Risk Runtime Flow Rules
 - The smoke must always execute this high-risk subset first:
   - one canonical runtime root shell and one input-routing path
-  - `GameplayScreen` startup/root ownership
+  - `ScreenId.Gameplay` startup/root ownership without a visible screen prefab/view
   - HUD mounted only on `HudLayer`
   - `PausePopup` mounted only on `PopupLayer`
-  - `InventoryScreen` as one runtime-owned complex screen shell
+  - `SettingsScreen` as one runtime-owned complex screen shell
   - `StageResultScreen` as the terminal special case
 - These are the primary freeze-sensitive proof points because they are most likely to expose ownership drift, duplicate roots, layer misuse, or reopened runtime seams.
-- `HelpScreen`, `ObjectiveStatusScreen`, and `SettingsScreen` are still required representative coverage, but they are second-tier after the high-risk subset.
+- `ObjectiveStatusScreen` and `SettingsScreen` are still required representative coverage, but they are second-tier after the high-risk subset.
 - Diagnostics are never part of the first-pass subset.
 
 ## 6. Tooltip Path Classification Rules

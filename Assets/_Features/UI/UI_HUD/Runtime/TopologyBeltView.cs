@@ -8,6 +8,23 @@ namespace Game.Feature.UI.HUD
 {
     public sealed class TopologyBeltView : MonoBehaviour
     {
+        private const float BeltWidth = 480.0f;
+        private const float LabelHeight = 18.0f;
+        private const float FaceChipWidth = 72.0f;
+        private const float FaceChipHeight = 28.0f;
+        private const float FaceChipSpacing = 4.0f;
+        private const float TransitionLabelHeight = 16.0f;
+
+        private static readonly string[] AuthoredFaceChipLabels =
+        {
+            "U",
+            "D",
+            "F",
+            "B",
+            "L",
+            "R",
+        };
+
         [SerializeField] private GameObject _root;
         [SerializeField] private TMP_Text _labelText;
         [SerializeField] private RectTransform _faceChipContainer;
@@ -94,41 +111,32 @@ namespace Game.Feature.UI.HUD
                 _labelText = CreateText("LabelText", "SURFACE", 16, TextAlignmentOptions.Right);
             }
 
+            ConfigureLayoutElement((RectTransform)_labelText.transform, BeltWidth, LabelHeight);
+
             if (_faceChipContainer == null)
             {
                 var container = new GameObject("FaceChipContainer", typeof(RectTransform), typeof(HorizontalLayoutGroup));
                 container.transform.SetParent(transform, false);
                 _faceChipContainer = (RectTransform)container.transform;
-                var layout = container.GetComponent<HorizontalLayoutGroup>();
-                layout.childAlignment = TextAnchor.MiddleRight;
-                layout.spacing = 4.0f;
-                layout.childControlHeight = false;
-                layout.childControlWidth = false;
-                layout.childForceExpandHeight = false;
-                layout.childForceExpandWidth = false;
             }
+
+            ConfigureFaceChipContainer(_faceChipContainer);
 
             if (_transitionLabel == null)
             {
                 _transitionLabel = CreateText("TransitionLabel", string.Empty, 13, TextAlignmentOptions.Right);
             }
 
-            _runtimeChips.Clear();
-            if (_faceChips != null)
-            {
-                for (var i = 0; i < _faceChips.Length; i++)
-                {
-                    if (_faceChips[i] != null)
-                    {
-                        _runtimeChips.Add(_faceChips[i]);
-                    }
-                }
-            }
+            ConfigureLayoutElement((RectTransform)_transitionLabel.transform, BeltWidth, TransitionLabelHeight);
 
-            while (_runtimeChips.Count < TopologyBeltViewModel.CanonicalFaceLabels.Length)
+            RebuildRuntimeChipCache();
+
+            while (_runtimeChips.Count < AuthoredFaceChipLabels.Length)
             {
                 _runtimeChips.Add(CreateChip(_runtimeChips.Count));
             }
+
+            TrimChipCapacity(AuthoredFaceChipLabels.Length);
         }
 
         private TMP_Text CreateText(
@@ -150,14 +158,109 @@ namespace Game.Feature.UI.HUD
         private FaceChipView CreateChip(int index)
         {
             var chip = new GameObject(
-                $"FaceChipView {TopologyBeltViewModel.CanonicalFaceLabels[index]}",
+                $"FaceChipView {GetAuthoredFaceChipLabel(index)}",
                 typeof(RectTransform),
                 typeof(CanvasGroup),
                 typeof(FaceChipView));
             chip.transform.SetParent(_faceChipContainer, false);
             var rect = (RectTransform)chip.transform;
-            rect.sizeDelta = new Vector2(72.0f, 28.0f);
+            rect.sizeDelta = new Vector2(FaceChipWidth, FaceChipHeight);
             return chip.GetComponent<FaceChipView>();
+        }
+
+        private void RebuildRuntimeChipCache()
+        {
+            _runtimeChips.Clear();
+            if (_faceChips != null)
+            {
+                for (var i = 0; i < _faceChips.Length; i++)
+                {
+                    AddRuntimeChip(_faceChips[i]);
+                }
+            }
+
+            if (_faceChipContainer == null)
+            {
+                return;
+            }
+
+            var discoveredChips = _faceChipContainer.GetComponentsInChildren<FaceChipView>(true);
+            for (var i = 0; i < discoveredChips.Length; i++)
+            {
+                AddRuntimeChip(discoveredChips[i]);
+            }
+        }
+
+        private void AddRuntimeChip(FaceChipView chip)
+        {
+            if (chip == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _runtimeChips.Count; i++)
+            {
+                if (_runtimeChips[i] == chip ||
+                    (_runtimeChips[i] != null && chip != null && _runtimeChips[i].GetInstanceID() == chip.GetInstanceID()))
+                {
+                    return;
+                }
+            }
+
+            _runtimeChips.Add(chip);
+        }
+
+        private void TrimChipCapacity(int targetCount)
+        {
+            if (_runtimeChips.Count <= targetCount)
+            {
+                return;
+            }
+
+            _runtimeChips.RemoveRange(targetCount, _runtimeChips.Count - targetCount);
+        }
+
+        private static void ConfigureFaceChipContainer(RectTransform rect)
+        {
+            if (rect == null)
+            {
+                return;
+            }
+
+            var layout = rect.GetComponent<HorizontalLayoutGroup>() ?? rect.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.childAlignment = TextAnchor.MiddleRight;
+            layout.spacing = FaceChipSpacing;
+            layout.childControlHeight = false;
+            layout.childControlWidth = false;
+            layout.childForceExpandHeight = false;
+            layout.childForceExpandWidth = false;
+
+            var chipCount = AuthoredFaceChipLabels.Length;
+            var width = chipCount * FaceChipWidth + Mathf.Max(0, chipCount - 1) * FaceChipSpacing;
+            ConfigureLayoutElement(rect, width, FaceChipHeight);
+        }
+
+        private static string GetAuthoredFaceChipLabel(int index)
+        {
+            return index >= 0 && index < AuthoredFaceChipLabels.Length
+                ? AuthoredFaceChipLabels[index]
+                : index.ToString();
+        }
+
+        private static void ConfigureLayoutElement(RectTransform rect, float width, float height)
+        {
+            if (rect == null)
+            {
+                return;
+            }
+
+            rect.sizeDelta = new Vector2(width, height);
+            var layoutElement = rect.GetComponent<LayoutElement>() ?? rect.gameObject.AddComponent<LayoutElement>();
+            layoutElement.ignoreLayout = false;
+            layoutElement.minWidth = width;
+            layoutElement.preferredWidth = width;
+            layoutElement.minHeight = height;
+            layoutElement.preferredHeight = height;
         }
 
         private void RefreshView()

@@ -8,21 +8,12 @@ namespace Game.Feature.UI.Composition
         menuName = "Game/UI/Screen Prefab Catalog")]
     public sealed class ScreenPrefabCatalog : ScriptableObject
     {
-        [SerializeField] private GameplayScreenView _gameplayPrefab;
-        [SerializeField] private HelpScreenView _helpPrefab;
         [SerializeField] private ObjectiveStatusScreenView _objectiveStatusPrefab;
-        [SerializeField] private InventoryScreenView _inventoryPrefab;
         [SerializeField] private SettingsScreenView _settingsPrefab;
         [SerializeField] private StageResultScreenView _stageResultPrefab;
         [SerializeField] private LevelFailedScreenView _levelFailedPrefab;
 
-        public GameplayScreenView GameplayPrefab => _gameplayPrefab;
-
-        public HelpScreenView HelpPrefab => _helpPrefab;
-
         public ObjectiveStatusScreenView ObjectiveStatusPrefab => _objectiveStatusPrefab;
-
-        public InventoryScreenView InventoryPrefab => _inventoryPrefab;
 
         public SettingsScreenView SettingsPrefab => _settingsPrefab;
 

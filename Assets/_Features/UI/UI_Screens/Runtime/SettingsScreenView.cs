@@ -22,6 +22,12 @@ namespace Game.Feature.UI.Screens
         private const string MissingInputSectionMessage =
             "Settings screen is missing or miswired required authored input section. Repair: assign SettingsScreenView._inputView to the SettingsInputSection child view.";
 
+        private const float PreferredPanelWidth = 560f;
+        private const float PreferredPanelHeight = 640f;
+        private const float MinimumPanelWidth = 420f;
+        private const float MinimumPanelHeight = 520f;
+        private const float ScreenMargin = 64f;
+
         [SerializeField] private GameObject _root;
         [SerializeField] private TMP_Text _titleLabel;
         [SerializeField] private TMP_Text _tooltipStatusLabel;
@@ -50,6 +56,13 @@ namespace Game.Feature.UI.Screens
         private bool _lastVisibleState;
         private bool _hasRootRestAlpha;
         private float _rootRestAlpha = 1f;
+        private RectTransform _headerRoot;
+        private RectTransform _tabRowRoot;
+        private RectTransform _sectionHostRoot;
+        private RectTransform _accessibilityRowsRoot;
+        private RectTransform _tooltipAccessibilityRowRoot;
+        private RectTransform _largeTextAccessibilityRowRoot;
+        private RectTransform _footerRoot;
 
         public event Action TooltipToggleRequested;
 
@@ -498,31 +511,164 @@ namespace Game.Feature.UI.Screens
             var rootRect = _root.GetComponent<RectTransform>();
             if (rootRect != null)
             {
-                var size = rootRect.sizeDelta;
-                size.x = Mathf.Max(size.x, 460f);
-                size.y = Mathf.Max(size.y, 600f);
-                rootRect.sizeDelta = size;
+                rootRect.anchorMin = new Vector2(0.5f, 0.5f);
+                rootRect.anchorMax = new Vector2(0.5f, 0.5f);
+                rootRect.pivot = new Vector2(0.5f, 0.5f);
+                rootRect.anchoredPosition = Vector2.zero;
+                rootRect.sizeDelta = CalculatePanelSize(rootRect.parent as RectTransform);
             }
 
-            LayoutRect(_titleLabel != null ? _titleLabel.rectTransform : null, new Vector2(16f, -16f), new Vector2(428f, 24f));
-            LayoutRect(_audioTabButton != null ? _audioTabButton.GetComponent<RectTransform>() : null, new Vector2(24f, -52f), new Vector2(116f, 30f));
-            LayoutRect(_displayTabButton != null ? _displayTabButton.GetComponent<RectTransform>() : null, new Vector2(148f, -52f), new Vector2(116f, 30f));
-            LayoutRect(_inputTabButton != null ? _inputTabButton.GetComponent<RectTransform>() : null, new Vector2(272f, -52f), new Vector2(116f, 30f));
-            LayoutRect(_audioView != null ? _audioView.transform as RectTransform : null, new Vector2(24f, -102f), new Vector2(412f, 124f));
-            LayoutRect(_displayView != null ? _displayView.transform as RectTransform : null, new Vector2(24f, -102f), new Vector2(412f, 248f));
-            LayoutRect(_inputView != null ? _inputView.transform as RectTransform : null, new Vector2(24f, -102f), new Vector2(412f, 248f));
-            LayoutRect(_tooltipStatusLabel != null ? _tooltipStatusLabel.rectTransform : null, new Vector2(24f, -418f), new Vector2(160f, 22f));
-            LayoutRect(_tooltipInfoButton != null ? _tooltipInfoButton.GetComponent<RectTransform>() : null, new Vector2(188f, -412f), new Vector2(24f, 28f));
-            LayoutRect(_tooltipToggleButton != null ? _tooltipToggleButton.GetComponent<RectTransform>() : null, new Vector2(220f, -412f), new Vector2(140f, 28f));
-            LayoutRect(_largeTextStatusLabel != null ? _largeTextStatusLabel.rectTransform : null, new Vector2(24f, -464f), new Vector2(160f, 22f));
-            LayoutRect(_largeTextToggleButton != null ? _largeTextToggleButton.GetComponent<RectTransform>() : null, new Vector2(220f, -458f), new Vector2(140f, 28f));
-            LayoutRect(_backButton != null ? _backButton.GetComponent<RectTransform>() : null, new Vector2(181f, -554f), new Vector2(98f, 30f));
+            EnsureRootContainers();
+            LayoutHeader();
+            LayoutTabs();
+            LayoutSections();
+            LayoutAccessibilityRows();
+            LayoutFooter();
+        }
+
+        private static Vector2 CalculatePanelSize(RectTransform parentRect)
+        {
+            var parentSize = parentRect != null && parentRect.rect.size.sqrMagnitude > 0f
+                ? parentRect.rect.size
+                : new Vector2(PreferredPanelWidth + ScreenMargin * 2f, PreferredPanelHeight + ScreenMargin * 2f);
+            var maxWidth = Mathf.Max(MinimumPanelWidth, parentSize.x - ScreenMargin * 2f);
+            var maxHeight = Mathf.Max(MinimumPanelHeight, parentSize.y - ScreenMargin * 2f);
+            return new Vector2(
+                Mathf.Clamp(PreferredPanelWidth, MinimumPanelWidth, maxWidth),
+                Mathf.Clamp(PreferredPanelHeight, MinimumPanelHeight, maxHeight));
+        }
+
+        private void EnsureRootContainers()
+        {
+            var rootTransform = _root.transform;
+            _headerRoot = SettingsLayoutUtility.EnsureChildRect(rootTransform, "SettingsHeader");
+            _tabRowRoot = SettingsLayoutUtility.EnsureChildRect(rootTransform, "SettingsTabRow");
+            _sectionHostRoot = SettingsLayoutUtility.EnsureChildRect(rootTransform, "SettingsSectionHost");
+            _accessibilityRowsRoot = SettingsLayoutUtility.EnsureChildRect(rootTransform, "SettingsAccessibilityRows");
+            _tooltipAccessibilityRowRoot = SettingsLayoutUtility.EnsureChildRect(_accessibilityRowsRoot, "TooltipAccessibilityRow");
+            _largeTextAccessibilityRowRoot = SettingsLayoutUtility.EnsureChildRect(_accessibilityRowsRoot, "LargeTextAccessibilityRow");
+            _footerRoot = SettingsLayoutUtility.EnsureChildRect(rootTransform, "SettingsFooter");
+
+            SettingsLayoutUtility.EnsureVerticalLayout(
+                _root,
+                new RectOffset(24, 24, 20, 20),
+                14f,
+                TextAnchor.UpperCenter);
+            SettingsLayoutUtility.EnsureLayoutElement(_headerRoot, preferredHeight: 28f, flexibleWidth: 1f);
+            SettingsLayoutUtility.EnsureLayoutElement(_tabRowRoot, preferredHeight: 34f, flexibleWidth: 1f);
+            SettingsLayoutUtility.EnsureLayoutElement(_sectionHostRoot, minHeight: 260f, preferredHeight: 340f, flexibleWidth: 1f, flexibleHeight: 1f);
+            SettingsLayoutUtility.EnsureLayoutElement(_accessibilityRowsRoot, preferredHeight: 78f, flexibleWidth: 1f);
+            SettingsLayoutUtility.EnsureLayoutElement(_footerRoot, preferredHeight: 34f, flexibleWidth: 1f);
+
+            SettingsLayoutUtility.FillLayoutChild(_headerRoot);
+            SettingsLayoutUtility.FillLayoutChild(_tabRowRoot);
+            SettingsLayoutUtility.FillLayoutChild(_sectionHostRoot);
+            SettingsLayoutUtility.FillLayoutChild(_accessibilityRowsRoot);
+            SettingsLayoutUtility.FillLayoutChild(_footerRoot);
+            _headerRoot.SetSiblingIndex(0);
+            _tabRowRoot.SetSiblingIndex(1);
+            _sectionHostRoot.SetSiblingIndex(2);
+            _accessibilityRowsRoot.SetSiblingIndex(3);
+            _footerRoot.SetSiblingIndex(4);
+        }
+
+        private void LayoutHeader()
+        {
+            SettingsLayoutUtility.EnsureHorizontalLayout(
+                _headerRoot.gameObject,
+                new RectOffset(0, 0, 0, 0),
+                0f,
+                TextAnchor.MiddleLeft);
+            SettingsLayoutUtility.MoveToParent(_titleLabel != null ? _titleLabel.rectTransform : null, _headerRoot);
+            SettingsLayoutUtility.EnsureLayoutElement(_titleLabel, preferredHeight: 28f, flexibleWidth: 1f);
+        }
+
+        private void LayoutTabs()
+        {
+            SettingsLayoutUtility.EnsureHorizontalLayout(
+                _tabRowRoot.gameObject,
+                new RectOffset(0, 0, 0, 0),
+                8f,
+                TextAnchor.MiddleCenter,
+                childForceExpandWidth: true);
+            ConfigureTabButton(_audioTabButton, _tabRowRoot);
+            ConfigureTabButton(_displayTabButton, _tabRowRoot);
+            ConfigureTabButton(_inputTabButton, _tabRowRoot);
+        }
+
+        private void LayoutSections()
+        {
+            SettingsLayoutUtility.MoveToParent(_audioView, _sectionHostRoot);
+            SettingsLayoutUtility.MoveToParent(_displayView, _sectionHostRoot);
+            SettingsLayoutUtility.MoveToParent(_inputView, _sectionHostRoot);
+            StretchSection(_audioView);
+            StretchSection(_displayView);
+            StretchSection(_inputView);
+        }
+
+        private void LayoutAccessibilityRows()
+        {
+            SettingsLayoutUtility.EnsureVerticalLayout(
+                _accessibilityRowsRoot.gameObject,
+                new RectOffset(0, 0, 0, 0),
+                10f,
+                TextAnchor.UpperLeft);
+            SettingsLayoutUtility.EnsureLayoutElement(_tooltipAccessibilityRowRoot, preferredHeight: 34f, flexibleWidth: 1f);
+            SettingsLayoutUtility.EnsureLayoutElement(_largeTextAccessibilityRowRoot, preferredHeight: 34f, flexibleWidth: 1f);
+            ConfigureAccessibilityRow(_tooltipAccessibilityRowRoot);
+            ConfigureAccessibilityRow(_largeTextAccessibilityRowRoot);
+
+            SettingsLayoutUtility.MoveToParent(_tooltipStatusLabel != null ? _tooltipStatusLabel.rectTransform : null, _tooltipAccessibilityRowRoot);
+            SettingsLayoutUtility.MoveToParent(_tooltipInfoButton, _tooltipAccessibilityRowRoot);
+            SettingsLayoutUtility.MoveToParent(_tooltipToggleButton, _tooltipAccessibilityRowRoot);
+            SettingsLayoutUtility.MoveToParent(_largeTextStatusLabel != null ? _largeTextStatusLabel.rectTransform : null, _largeTextAccessibilityRowRoot);
+            SettingsLayoutUtility.MoveToParent(_largeTextToggleButton, _largeTextAccessibilityRowRoot);
+
+            SettingsLayoutUtility.EnsureLayoutElement(_tooltipStatusLabel, preferredHeight: 28f, flexibleWidth: 1f);
+            SettingsLayoutUtility.EnsureLayoutElement(_largeTextStatusLabel, preferredHeight: 28f, flexibleWidth: 1f);
+            SettingsLayoutUtility.EnsureLayoutElement(_tooltipInfoButton, preferredWidth: 28f, preferredHeight: 28f);
+            SettingsLayoutUtility.EnsureLayoutElement(_tooltipToggleButton, preferredWidth: 150f, preferredHeight: 30f);
+            SettingsLayoutUtility.EnsureLayoutElement(_largeTextToggleButton, preferredWidth: 150f, preferredHeight: 30f);
+        }
+
+        private void LayoutFooter()
+        {
+            SettingsLayoutUtility.EnsureHorizontalLayout(
+                _footerRoot.gameObject,
+                new RectOffset(0, 0, 0, 0),
+                0f,
+                TextAnchor.MiddleCenter);
+            SettingsLayoutUtility.MoveToParent(_backButton, _footerRoot);
+            SettingsLayoutUtility.EnsureLayoutElement(_backButton, preferredWidth: 112f, preferredHeight: 32f);
+        }
+
+        private void ConfigureTabButton(Button button, RectTransform parent)
+        {
+            SettingsLayoutUtility.MoveToParent(button, parent);
+            SettingsLayoutUtility.EnsureLayoutElement(button, preferredHeight: 32f, flexibleWidth: 1f);
+        }
+
+        private void ConfigureAccessibilityRow(RectTransform rowRoot)
+        {
+            SettingsLayoutUtility.EnsureHorizontalLayout(
+                rowRoot.gameObject,
+                new RectOffset(0, 0, 0, 0),
+                8f,
+                TextAnchor.MiddleLeft);
+            SettingsLayoutUtility.FillLayoutChild(rowRoot);
+        }
+
+        private static void StretchSection(Component sectionView)
+        {
+            SettingsLayoutUtility.Stretch(sectionView != null ? sectionView.transform as RectTransform : null);
+            SettingsLayoutUtility.EnsureLayoutElement(sectionView, flexibleWidth: 1f, flexibleHeight: 1f, ignoreLayout: true);
         }
 
         private void ValidateSection(Component sectionView, string fieldName, string expectedSectionName, string baseMessage)
         {
             var issues = new List<string>();
-            var expectedParent = _root != null ? _root.transform : transform;
+            var expectedRoot = _root != null ? _root.transform : transform;
+            var sectionHost = _sectionHostRoot != null ? _sectionHostRoot : expectedRoot.Find("SettingsSectionHost");
 
             if (sectionView == null)
             {
@@ -535,9 +681,11 @@ namespace Game.Feature.UI.Screens
                 issues.Add($"serialized reference '{fieldName}' resolved '{sectionView.name}' instead of '{expectedSectionName}'");
             }
 
-            if (sectionView.transform.parent != expectedParent)
+            var hasExpectedParent = sectionView.transform.parent == expectedRoot ||
+                                    (sectionHost != null && sectionView.transform.parent == sectionHost);
+            if (!hasExpectedParent)
             {
-                issues.Add($"'{expectedSectionName}' must remain a direct child of '{expectedParent.name}'");
+                issues.Add($"'{expectedSectionName}' must remain under '{expectedRoot.name}' settings shell");
             }
 
             if (issues.Count > 0)
@@ -554,20 +702,6 @@ namespace Game.Feature.UI.Screens
             }
 
             return $"{baseMessage} Details: {string.Join("; ", issues)}.";
-        }
-
-        private static void LayoutRect(RectTransform rectTransform, Vector2 anchoredPosition, Vector2 sizeDelta)
-        {
-            if (rectTransform == null)
-            {
-                return;
-            }
-
-            rectTransform.anchorMin = new Vector2(0f, 1f);
-            rectTransform.anchorMax = new Vector2(0f, 1f);
-            rectTransform.pivot = new Vector2(0f, 1f);
-            rectTransform.anchoredPosition = anchoredPosition;
-            rectTransform.sizeDelta = sizeDelta;
         }
 
         private static void RebindButton(Button button, UnityEngine.Events.UnityAction action)

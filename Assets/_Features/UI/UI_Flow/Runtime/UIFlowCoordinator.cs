@@ -69,19 +69,9 @@ namespace Game.Feature.UI.Flow
             RefreshBlockSnapshot();
         }
 
-        public bool OpenHelpScreen()
-        {
-            return ExecuteIntent(UiFlowAudioIntentKind.OpenForward, () => PushScreenCore(BuildHelpRequest()));
-        }
-
         public bool OpenObjectiveStatusScreen()
         {
             return ExecuteIntent(UiFlowAudioIntentKind.OpenForward, () => PushScreenCore(BuildObjectiveStatusRequest()));
-        }
-
-        public bool OpenInventoryScreen()
-        {
-            return ExecuteIntent(UiFlowAudioIntentKind.OpenForward, () => PushScreenCore(BuildInventoryRequest()));
         }
 
         public bool OpenSettingsScreen()
@@ -745,12 +735,7 @@ namespace Game.Feature.UI.Flow
 
         private static ScreenRequest BuildGameplayRequest()
         {
-            return new ScreenRequest(ScreenId.Gameplay, GameplayScreenPayload.Default, ScreenId.Gameplay.ToString());
-        }
-
-        private static ScreenRequest BuildHelpRequest()
-        {
-            return new ScreenRequest(ScreenId.Help, HelpScreenPayload.Default, ScreenId.Help.ToString());
+            return new ScreenRequest(ScreenId.Gameplay, GameplayRootPayload.Default, ScreenId.Gameplay.ToString());
         }
 
         private static ScreenRequest BuildObjectiveStatusRequest()
@@ -759,11 +744,6 @@ namespace Game.Feature.UI.Flow
                 ScreenId.ObjectiveStatus,
                 ObjectiveStatusScreenPayload.Default,
                 ScreenId.ObjectiveStatus.ToString());
-        }
-
-        private static ScreenRequest BuildInventoryRequest()
-        {
-            return new ScreenRequest(ScreenId.Inventory, InventoryScreenPayload.Default, ScreenId.Inventory.ToString());
         }
 
         private static ScreenRequest BuildSettingsRequest()

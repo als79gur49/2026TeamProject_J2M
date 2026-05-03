@@ -9,6 +9,9 @@ namespace Game.Feature.UI.HUD
     public sealed class ChancePanelView : MonoBehaviour
     {
         private const int AuthoredSlotCount = 3;
+        private const float PanelWidth = 220.0f;
+        private const float LabelHeight = 20.0f;
+        private const float SlotContainerHeight = 28.0f;
 
         [SerializeField] private GameObject _root;
         [SerializeField] private TMP_Text _labelText;
@@ -103,6 +106,8 @@ namespace Game.Feature.UI.HUD
                 _labelText.alignment = TextAlignmentOptions.Left;
             }
 
+            ConfigureLayoutElement((RectTransform)_labelText.transform, PanelWidth, LabelHeight);
+
             if (_slotContainer == null)
             {
                 var container = new GameObject("SlotContainer", typeof(RectTransform), typeof(HorizontalLayoutGroup));
@@ -117,6 +122,8 @@ namespace Game.Feature.UI.HUD
                 layout.childForceExpandWidth = false;
             }
 
+            ConfigureLayoutElement(_slotContainer, PanelWidth, SlotContainerHeight);
+
             if (_floatingFeedbackRoot == null)
             {
                 var floating = new GameObject("FloatingFeedbackRoot", typeof(RectTransform));
@@ -124,17 +131,10 @@ namespace Game.Feature.UI.HUD
                 _floatingFeedbackRoot = (RectTransform)floating.transform;
             }
 
-            _runtimeSlots.Clear();
-            if (_slotViews != null)
-            {
-                for (var i = 0; i < _slotViews.Length; i++)
-                {
-                    if (_slotViews[i] != null)
-                    {
-                        _runtimeSlots.Add(_slotViews[i]);
-                    }
-                }
-            }
+            StretchOverlay(_floatingFeedbackRoot);
+            ConfigureIgnoredLayout(_floatingFeedbackRoot);
+
+            RebuildRuntimeSlotCache();
 
             while (_runtimeSlots.Count < AuthoredSlotCount)
             {
@@ -154,6 +154,47 @@ namespace Game.Feature.UI.HUD
             label.fontSize = fontSize;
             label.raycastTarget = false;
             return label;
+        }
+
+        private static void ConfigureLayoutElement(RectTransform rect, float width, float height)
+        {
+            if (rect == null)
+            {
+                return;
+            }
+
+            rect.sizeDelta = new Vector2(width, height);
+            var layoutElement = rect.GetComponent<LayoutElement>() ?? rect.gameObject.AddComponent<LayoutElement>();
+            layoutElement.ignoreLayout = false;
+            layoutElement.minWidth = width;
+            layoutElement.preferredWidth = width;
+            layoutElement.minHeight = height;
+            layoutElement.preferredHeight = height;
+        }
+
+        private static void ConfigureIgnoredLayout(RectTransform rect)
+        {
+            if (rect == null)
+            {
+                return;
+            }
+
+            var layoutElement = rect.GetComponent<LayoutElement>() ?? rect.gameObject.AddComponent<LayoutElement>();
+            layoutElement.ignoreLayout = true;
+        }
+
+        private static void StretchOverlay(RectTransform rect)
+        {
+            if (rect == null)
+            {
+                return;
+            }
+
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
         }
 
         private ChanceSlotView CreateSlot(int index)
@@ -189,6 +230,7 @@ namespace Game.Feature.UI.HUD
             }
 
             EnsureSlotCapacity(_viewModel.MaxChances);
+            TrimSlotCapacity(_viewModel.MaxChances);
             for (var i = 0; i < _runtimeSlots.Count; i++)
             {
                 _runtimeSlots[i].gameObject.SetActive(i < _viewModel.Slots.Count);
@@ -209,11 +251,75 @@ namespace Game.Feature.UI.HUD
             PlayPanelWarningIfNeeded();
         }
 
+        private void RebuildRuntimeSlotCache()
+        {
+            _runtimeSlots.Clear();
+            if (_slotViews != null)
+            {
+                for (var i = 0; i < _slotViews.Length; i++)
+                {
+                    AddRuntimeSlot(_slotViews[i]);
+                }
+            }
+
+            if (_slotContainer == null)
+            {
+                return;
+            }
+
+            var discoveredSlots = _slotContainer.GetComponentsInChildren<ChanceSlotView>(true);
+            for (var i = 0; i < discoveredSlots.Length; i++)
+            {
+                AddRuntimeSlot(discoveredSlots[i]);
+            }
+        }
+
+        private void AddRuntimeSlot(ChanceSlotView slot)
+        {
+            if (slot == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _runtimeSlots.Count; i++)
+            {
+                if (_runtimeSlots[i] == slot ||
+                    (_runtimeSlots[i] != null && slot != null && _runtimeSlots[i].GetInstanceID() == slot.GetInstanceID()))
+                {
+                    return;
+                }
+            }
+
+            _runtimeSlots.Add(slot);
+        }
+
         private void EnsureSlotCapacity(int targetCount)
         {
             while (_runtimeSlots.Count < targetCount)
             {
                 _runtimeSlots.Add(CreateSlot(_runtimeSlots.Count));
+            }
+        }
+
+        private void TrimSlotCapacity(int targetCount)
+        {
+            for (var i = _runtimeSlots.Count - 1; i >= targetCount; i--)
+            {
+                var slot = _runtimeSlots[i];
+                _runtimeSlots.RemoveAt(i);
+                if (slot == null)
+                {
+                    continue;
+                }
+
+                if (Application.isPlaying)
+                {
+                    Destroy(slot.gameObject);
+                }
+                else
+                {
+                    DestroyImmediate(slot.gameObject);
+                }
             }
         }
 

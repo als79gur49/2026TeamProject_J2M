@@ -67,8 +67,10 @@ namespace Game.Feature.UI.Tests
 
                 Assert.That(installer.Controller, Is.Not.Null);
                 Assert.That(installer.HubController, Is.Not.Null);
+                UiTestPrefabAssetUtility.AssertOverlayCanvasScaling(root);
                 Assert.That(installer.MainMenuScreenView, Is.Not.Null);
                 Assert.That(installer.MainMenuScreenView.SaveSlotPanel, Is.Not.Null);
+                Assert.That(installer.MainMenuScreenView.SaveSlotPanel.gameObject.activeSelf, Is.False);
                 Assert.That(installer.MainMenuScreenView.SaveSlotPanel.GetComponentsInChildren<SaveSlotCardView>(true).Length, Is.EqualTo(3));
             }
             finally

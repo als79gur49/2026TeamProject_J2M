@@ -117,7 +117,6 @@ namespace Game.Feature.UI.Composition
                 $"Screen Instance: {FormatNullable(snapshot.CurrentScreenInstanceId)}",
                 $"Top Popup Instance: {FormatNullable(snapshot.TopPopupInstanceId)}",
                 $"Popup Policy: {snapshot.PopupPolicySummaryText}",
-                $"Inventory Summary: {snapshot.InventorySummaryText}",
                 "Recent Events:",
                 recentEvents,
             });

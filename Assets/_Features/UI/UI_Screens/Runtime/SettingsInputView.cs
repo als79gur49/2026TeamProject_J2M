@@ -32,6 +32,10 @@ namespace Game.Feature.UI.Screens
         private bool _isRefreshingControls;
         private bool _isVisible;
         private SettingsInputViewModel _viewModel;
+        private RectTransform _movementRowRoot;
+        private RectTransform _pushRowRoot;
+        private RectTransform _flipRowRoot;
+        private RectTransform _resetRowRoot;
 
         public event Action<bool> MovementSchemeToggleRequested;
 
@@ -199,18 +203,96 @@ namespace Game.Feature.UI.Screens
 
         private void LayoutControls()
         {
-            LayoutRect(_sectionTitle != null ? _sectionTitle.rectTransform : null, new Vector2(0f, 0f), new Vector2(180f, 22f));
-            LayoutRect(_movementLabel != null ? _movementLabel.rectTransform : null, new Vector2(0f, -36f), new Vector2(132f, 22f));
-            LayoutRect(_movementToggle != null ? _movementToggle.GetComponent<RectTransform>() : null, new Vector2(148f, -31f), new Vector2(144f, 28f));
-            LayoutRect(_movementCurrentText != null ? _movementCurrentText.rectTransform : null, new Vector2(306f, -36f), new Vector2(106f, 22f));
-            LayoutRect(_pushLabel != null ? _pushLabel.rectTransform : null, new Vector2(0f, -82f), new Vector2(120f, 22f));
-            LayoutRect(_pushCurrentText != null ? _pushCurrentText.rectTransform : null, new Vector2(148f, -82f), new Vector2(128f, 22f));
-            LayoutRect(_pushChangeButton != null ? _pushChangeButton.GetComponent<RectTransform>() : null, new Vector2(300f, -76f), new Vector2(112f, 30f));
-            LayoutRect(_flipLabel != null ? _flipLabel.rectTransform : null, new Vector2(0f, -128f), new Vector2(120f, 22f));
-            LayoutRect(_flipCurrentText != null ? _flipCurrentText.rectTransform : null, new Vector2(148f, -128f), new Vector2(128f, 22f));
-            LayoutRect(_flipChangeButton != null ? _flipChangeButton.GetComponent<RectTransform>() : null, new Vector2(300f, -122f), new Vector2(112f, 30f));
-            LayoutRect(_statusText != null ? _statusText.rectTransform : null, new Vector2(0f, -174f), new Vector2(412f, 24f));
-            LayoutRect(_resetButton != null ? _resetButton.GetComponent<RectTransform>() : null, new Vector2(148f, -210f), new Vector2(148f, 30f));
+            SettingsLayoutUtility.EnsureVerticalLayout(
+                gameObject,
+                new RectOffset(0, 0, 0, 0),
+                14f,
+                TextAnchor.UpperLeft);
+
+            _movementRowRoot = SettingsLayoutUtility.EnsureChildRect(transform, "MovementInputRow");
+            _pushRowRoot = SettingsLayoutUtility.EnsureChildRect(transform, "PushInputRow");
+            _flipRowRoot = SettingsLayoutUtility.EnsureChildRect(transform, "FlipInputRow");
+            _resetRowRoot = SettingsLayoutUtility.EnsureChildRect(transform, "InputResetRow");
+
+            LayoutSectionTitle();
+            LayoutMovementRow();
+            LayoutBindingRow(_pushRowRoot, _pushLabel, _pushCurrentText, _pushChangeButton);
+            LayoutBindingRow(_flipRowRoot, _flipLabel, _flipCurrentText, _flipChangeButton);
+            LayoutStatusAndReset();
+            ApplyLayoutOrder();
+        }
+
+        private void LayoutSectionTitle()
+        {
+            SettingsLayoutUtility.MoveToParent(_sectionTitle != null ? _sectionTitle.rectTransform : null, transform as RectTransform);
+            SettingsLayoutUtility.EnsureLayoutElement(_sectionTitle, preferredHeight: 24f, flexibleWidth: 1f);
+        }
+
+        private void LayoutMovementRow()
+        {
+            ConfigureRow(_movementRowRoot, 32f);
+            SettingsLayoutUtility.MoveToParent(_movementLabel != null ? _movementLabel.rectTransform : null, _movementRowRoot);
+            SettingsLayoutUtility.MoveToParent(_movementToggle, _movementRowRoot);
+            SettingsLayoutUtility.MoveToParent(_movementCurrentText != null ? _movementCurrentText.rectTransform : null, _movementRowRoot);
+            SettingsLayoutUtility.EnsureLayoutElement(_movementLabel, preferredWidth: 132f, preferredHeight: 24f);
+            SettingsLayoutUtility.EnsureLayoutElement(_movementToggle, preferredWidth: 150f, preferredHeight: 28f);
+            SettingsLayoutUtility.EnsureLayoutElement(_movementCurrentText, preferredHeight: 24f, flexibleWidth: 1f);
+        }
+
+        private void LayoutBindingRow(RectTransform rowRoot, TMP_Text label, TMP_Text currentText, Button changeButton)
+        {
+            ConfigureRow(rowRoot, 32f);
+            SettingsLayoutUtility.MoveToParent(label != null ? label.rectTransform : null, rowRoot);
+            SettingsLayoutUtility.MoveToParent(currentText != null ? currentText.rectTransform : null, rowRoot);
+            SettingsLayoutUtility.MoveToParent(changeButton, rowRoot);
+            SettingsLayoutUtility.EnsureLayoutElement(label, preferredWidth: 132f, preferredHeight: 24f);
+            SettingsLayoutUtility.EnsureLayoutElement(currentText, preferredHeight: 24f, flexibleWidth: 1f);
+            SettingsLayoutUtility.EnsureLayoutElement(changeButton, preferredWidth: 116f, preferredHeight: 30f);
+        }
+
+        private void LayoutStatusAndReset()
+        {
+            SettingsLayoutUtility.MoveToParent(_statusText != null ? _statusText.rectTransform : null, transform as RectTransform);
+            SettingsLayoutUtility.EnsureLayoutElement(_statusText, preferredHeight: 28f, flexibleWidth: 1f);
+
+            SettingsLayoutUtility.EnsureHorizontalLayout(
+                _resetRowRoot.gameObject,
+                new RectOffset(0, 0, 0, 0),
+                0f,
+                TextAnchor.MiddleCenter);
+            SettingsLayoutUtility.EnsureLayoutElement(_resetRowRoot, preferredHeight: 34f, flexibleWidth: 1f);
+            SettingsLayoutUtility.FillLayoutChild(_resetRowRoot);
+            SettingsLayoutUtility.MoveToParent(_resetButton, _resetRowRoot);
+            SettingsLayoutUtility.EnsureLayoutElement(_resetButton, preferredWidth: 156f, preferredHeight: 32f);
+        }
+
+        private static void ConfigureRow(RectTransform rowRoot, float preferredHeight)
+        {
+            SettingsLayoutUtility.EnsureHorizontalLayout(
+                rowRoot.gameObject,
+                new RectOffset(0, 0, 0, 0),
+                10f,
+                TextAnchor.MiddleLeft);
+            SettingsLayoutUtility.EnsureLayoutElement(rowRoot, preferredHeight: preferredHeight, flexibleWidth: 1f);
+            SettingsLayoutUtility.FillLayoutChild(rowRoot);
+        }
+
+        private void ApplyLayoutOrder()
+        {
+            if (_sectionTitle != null)
+            {
+                _sectionTitle.transform.SetSiblingIndex(0);
+            }
+
+            _movementRowRoot.SetSiblingIndex(1);
+            _pushRowRoot.SetSiblingIndex(2);
+            _flipRowRoot.SetSiblingIndex(3);
+            if (_statusText != null)
+            {
+                _statusText.transform.SetSiblingIndex(4);
+            }
+
+            _resetRowRoot.SetSiblingIndex(5);
         }
 
         private void RefreshControls()
@@ -301,20 +383,6 @@ namespace Game.Feature.UI.Screens
             {
                 label.text = text ?? string.Empty;
             }
-        }
-
-        private static void LayoutRect(RectTransform rectTransform, Vector2 anchoredPosition, Vector2 sizeDelta)
-        {
-            if (rectTransform == null)
-            {
-                return;
-            }
-
-            rectTransform.anchorMin = new Vector2(0f, 1f);
-            rectTransform.anchorMax = new Vector2(0f, 1f);
-            rectTransform.pivot = new Vector2(0f, 1f);
-            rectTransform.anchoredPosition = anchoredPosition;
-            rectTransform.sizeDelta = sizeDelta;
         }
 
         private static void RebindButton(Button button, UnityAction action)

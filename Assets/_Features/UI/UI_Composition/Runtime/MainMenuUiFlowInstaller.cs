@@ -188,7 +188,7 @@ namespace Game.Feature.UI.Composition
 
             _mainMenuScreenView.CommandRequested += HubController.HandleCommand;
             _mainMenuScreenView.NavigationRequested += HubController.HandleNavigation;
-            _mainMenuScreenView.ShowSection(MainMenuSectionId.SaveSlots);
+            _mainMenuScreenView.ShowSection(MainMenuSectionId.None);
         }
 
         private void BuildAudioFeedbackModule()
@@ -279,10 +279,7 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
-            var canvas = gameObject.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            gameObject.AddComponent<CanvasScaler>();
-            gameObject.AddComponent<GraphicRaycaster>();
+            UiOverlayCanvasConfigurator.ConfigureOverlayCanvas(gameObject);
         }
 
         private static void EnsureEventSystem()

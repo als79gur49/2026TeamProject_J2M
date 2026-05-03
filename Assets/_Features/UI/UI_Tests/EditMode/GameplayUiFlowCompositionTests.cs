@@ -196,17 +196,10 @@ namespace Game.Feature.UI.Tests
                 Assert.That(installer.RootView, Is.Not.Null);
                 Assert.That(installer.RootView.name, Is.EqualTo("GameplayUiCanvasRoot"));
                 Assert.That(installer.RootView.GetComponent<Canvas>(), Is.Not.Null);
+                UiTestPrefabAssetUtility.AssertOverlayCanvasScaling(installer.RootView.gameObject);
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
                 Assert.That(installer.HudView.IsVisible, Is.True);
                 Assert.That(installer.HudController.IsGameplayReadOnly, Is.False);
-
-                installer.GameplayScreenView.ClickHelp();
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Help));
-                Assert.That(installer.HelpScreenView.IsVisible, Is.True);
-                Assert.That(installer.HudController.IsGameplayReadOnly, Is.True);
-
-                installer.HelpScreenView.ClickBack();
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
 
                 installer.HudView.ClickPause();
                 Assert.That(installer.PopupController.Contains(PopupId.Pause), Is.True);
@@ -324,7 +317,7 @@ namespace Game.Feature.UI.Tests
                     queryFacade: queryFacade,
                     pauseService: pauseService));
 
-                installer.GameplayScreenView.ClickObjectives();
+                Assert.That(installer.Coordinator.OpenObjectiveStatusScreen(), Is.True);
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
 
                 installer.ObjectiveStatusScreenView.ClickInfo();
@@ -386,45 +379,6 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void GameplayUiFlowInstaller_InventoryScreen_ComposesCatalogDetailAndActionWithoutChangingScreenFlow()
-        {
-            var rootObject = new GameObject("GameplayUiFlowInstaller_InventoryScreen_ComposesCatalogDetailAndActionWithoutChangingScreenFlow");
-
-            try
-            {
-                var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
-                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
-                installer.Install(UiTestPortFactory.CreatePorts());
-
-                installer.GameplayScreenView.ClickInventory();
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Inventory));
-                Assert.That(installer.InventoryScreenView, Is.Not.Null);
-                Assert.That(installer.InventoryScreenView.DetailTitleText, Is.EqualTo("Crystal Shard"));
-                Assert.That(installer.InventoryScreenView.GetCatalogRowLabel(3), Is.EqualTo("Recon Map"));
-
-                installer.InventoryScreenView.ClickItemRow(3);
-                Assert.That(installer.InventoryScreenView.DetailTitleText, Is.EqualTo("Recon Map"));
-
-                installer.InventoryScreenView.ClickPrimaryAction();
-                Assert.That(installer.InventoryScreenView.ActionFeedbackText, Does.Contain("Recon Map"));
-                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
-
-                installer.InventoryScreenView.ClickFilter();
-                Assert.That(installer.InventoryScreenView.CatalogSummaryText, Does.Contain("Consumable"));
-                Assert.That(installer.InventoryScreenView.DetailTitleText, Is.EqualTo("Crystal Shard"));
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Inventory));
-
-                installer.InventoryScreenView.ClickBack();
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
-            }
-            finally
-            {
-                DestroyEventSystemIfPresent();
-                Object.DestroyImmediate(rootObject);
-            }
-        }
-
-        [Test]
         public void GameplayUiFlowInstaller_SettingsScreen_InfoAffordance_RemainsBoundedPopupRequestPath()
         {
             var rootObject = new GameObject("GameplayUiFlowInstaller_SettingsScreen_InfoAffordance_RemainsBoundedPopupRequestPath");
@@ -435,7 +389,7 @@ namespace Game.Feature.UI.Tests
                 UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
                 installer.Install(UiTestPortFactory.CreatePorts());
 
-                installer.GameplayScreenView.ClickSettings();
+                Assert.That(installer.Coordinator.OpenSettingsScreen(), Is.True);
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
                 Assert.That(installer.SettingsScreenView, Is.Not.Null);
                 Assert.That(installer.SettingsScreenView.transform.parent, Is.EqualTo(installer.ScreenLayerView.ContentRoot));
@@ -475,39 +429,6 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void GameplayUiFlowInstaller_InventoryScreen_KeepsChildViewsNestedUnderOneScreenShell()
-        {
-            var rootObject = new GameObject("GameplayUiFlowInstaller_InventoryScreen_KeepsChildViewsNestedUnderOneScreenShell");
-
-            try
-            {
-                var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
-                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
-                installer.Install(UiTestPortFactory.CreatePorts());
-
-                installer.GameplayScreenView.ClickInventory();
-                var inventoryView = installer.InventoryScreenView;
-
-                Assert.That(inventoryView, Is.Not.Null);
-                Assert.That(inventoryView.transform.parent, Is.EqualTo(installer.ScreenLayerView.ContentRoot));
-                Assert.That(inventoryView.CatalogView, Is.Not.Null);
-                Assert.That(inventoryView.DetailView, Is.Not.Null);
-                Assert.That(inventoryView.ActionView, Is.Not.Null);
-                Assert.That(inventoryView.CatalogView.transform.IsChildOf(inventoryView.transform), Is.True);
-                Assert.That(inventoryView.DetailView.transform.IsChildOf(inventoryView.transform), Is.True);
-                Assert.That(inventoryView.ActionView.transform.IsChildOf(inventoryView.transform), Is.True);
-                Assert.That(inventoryView.CatalogView.transform.parent, Is.Not.EqualTo(installer.ScreenLayerView.ContentRoot));
-                Assert.That(inventoryView.DetailView.transform.parent, Is.Not.EqualTo(installer.ScreenLayerView.ContentRoot));
-                Assert.That(inventoryView.ActionView.transform.parent, Is.Not.EqualTo(installer.ScreenLayerView.ContentRoot));
-            }
-            finally
-            {
-                DestroyEventSystemIfPresent();
-                Object.DestroyImmediate(rootObject);
-            }
-        }
-
-        [Test]
         public void GameplayUiFlowInstaller_SettingsScreen_KeepsSectionViewsNestedUnderOneScreenShell()
         {
             var rootObject = new GameObject("GameplayUiFlowInstaller_SettingsScreen_KeepsSectionViewsNestedUnderOneScreenShell");
@@ -518,7 +439,7 @@ namespace Game.Feature.UI.Tests
                 UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
                 installer.Install(UiTestPortFactory.CreatePorts());
 
-                installer.GameplayScreenView.ClickSettings();
+                Assert.That(installer.Coordinator.OpenSettingsScreen(), Is.True);
                 var settingsView = installer.SettingsScreenView;
 
                 Assert.That(settingsView, Is.Not.Null);
@@ -531,7 +452,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(settingsView.DisplayView.transform.parent, Is.Not.EqualTo(installer.ScreenLayerView.ContentRoot));
 
                 var mainAudioRow = settingsView.AudioView.transform.Find("MainAudioRow");
-                var resolutionDropdown = settingsView.DisplayView.transform.Find("ResolutionDropdown");
+                var resolutionDropdown = settingsView.DisplayView.transform.Find("ResolutionRow/ResolutionDropdown");
 
                 Assert.That(mainAudioRow, Is.Not.Null);
                 Assert.That(resolutionDropdown, Is.Not.Null);

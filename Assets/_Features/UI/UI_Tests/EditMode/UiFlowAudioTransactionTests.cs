@@ -49,7 +49,7 @@ namespace Game.Feature.UI.Tests
                 new[]
                 {
                     CreatePopupCompletionDelta(PopupId.Confirm, PopupCompletionKind.Confirmed, PopupCloseReason.UserAction),
-                    CreateScreenTransitionDelta(ScreenTransitionKind.Replace, ScreenId.Settings, ScreenId.Help),
+                    CreateScreenTransitionDelta(ScreenTransitionKind.Replace, ScreenId.Settings, ScreenId.ObjectiveStatus),
                 },
                 isAborted: false,
                 UiFlowAudioSilenceReason.None);
@@ -165,10 +165,8 @@ namespace Game.Feature.UI.Tests
         {
             return screenId switch
             {
-                ScreenId.Gameplay => GameplayScreenPayload.Default,
-                ScreenId.Help => HelpScreenPayload.Default,
+                ScreenId.Gameplay => GameplayRootPayload.Default,
                 ScreenId.ObjectiveStatus => ObjectiveStatusScreenPayload.Default,
-                ScreenId.Inventory => InventoryScreenPayload.Default,
                 ScreenId.Settings => SettingsScreenPayload.Default,
                 ScreenId.StageResult => new StageResultScreenPayload(
                     "Title",
@@ -178,7 +176,7 @@ namespace Game.Feature.UI.Tests
                     Game.Feature.Stages.StageNavigationRequest.None,
                     Game.Feature.Stages.StageNavigationRequest.None,
                     Game.Feature.Stages.StageNavigationRequest.None),
-                _ => GameplayScreenPayload.Default,
+                _ => GameplayRootPayload.Default,
             };
         }
 

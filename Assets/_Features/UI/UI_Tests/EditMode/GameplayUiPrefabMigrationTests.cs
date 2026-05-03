@@ -52,18 +52,12 @@ namespace Game.Feature.UI.Tests
                 typeof(ConfirmPopupView),
                 typeof(TooltipPopupView),
                 typeof(RewardPopupView),
-                typeof(GameplayScreenView),
-                typeof(HelpScreenView),
                 typeof(ObjectiveStatusScreenView),
-                typeof(InventoryScreenView),
                 typeof(SettingsScreenView),
                 typeof(SettingsAudioView),
                 typeof(SettingsDisplayView),
                 typeof(StageResultScreenView),
                 typeof(LevelFailedScreenView),
-                typeof(InventoryCatalogView),
-                typeof(InventoryDetailView),
-                typeof(InventoryActionView),
             };
 
             var foundForbiddenComponents = rootShellPrefab
@@ -87,6 +81,7 @@ namespace Game.Feature.UI.Tests
                 var rootView = rootShellInstance.GetComponent<GameplayUiCanvasRootView>();
                 rootView.EnsureHierarchy();
 
+                UiTestPrefabAssetUtility.AssertOverlayCanvasScaling(rootShellInstance);
                 Assert.That(rootView.ScreenLayerView, Is.Not.Null);
                 Assert.That(rootView.PopupLayerView, Is.Not.Null);
                 Assert.That(rootShellInstance.GetComponentInChildren<UiArchitectureDiagnosticsOverlayView>(true), Is.Not.Null);
@@ -141,7 +136,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(hudPrefab.GetComponentsInChildren<ScreenLayerView>(true), Is.Empty);
             Assert.That(hudPrefab.GetComponentsInChildren<PopupLayerView>(true), Is.Empty);
             Assert.That(hudPrefab.GetComponentsInChildren<PausePopupView>(true), Is.Empty);
-            Assert.That(hudPrefab.GetComponentsInChildren<GameplayScreenView>(true), Is.Empty);
         }
 
         [Test]
@@ -239,10 +233,7 @@ namespace Game.Feature.UI.Tests
                 instanceFields.Select(field => field.Name).ToArray(),
                 Is.EqualTo(new[]
                 {
-                    "_gameplayPrefab",
-                    "_helpPrefab",
                     "_objectiveStatusPrefab",
-                    "_inventoryPrefab",
                     "_settingsPrefab",
                     "_stageResultPrefab",
                     "_levelFailedPrefab",
@@ -251,10 +242,7 @@ namespace Game.Feature.UI.Tests
                 instanceFields.Select(field => field.FieldType).ToArray(),
                 Is.EqualTo(new[]
                 {
-                    typeof(GameplayScreenView),
-                    typeof(HelpScreenView),
                     typeof(ObjectiveStatusScreenView),
-                    typeof(InventoryScreenView),
                     typeof(SettingsScreenView),
                     typeof(StageResultScreenView),
                     typeof(LevelFailedScreenView),
@@ -263,9 +251,6 @@ namespace Game.Feature.UI.Tests
                 publicPropertyNames,
                 Is.EqualTo(new[]
                 {
-                    "GameplayPrefab",
-                    "HelpPrefab",
-                    "InventoryPrefab",
                     "LevelFailedPrefab",
                     "ObjectiveStatusPrefab",
                     "SettingsPrefab",
@@ -281,10 +266,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(catalogType.Name, Does.Not.Contain("Variant"));
             Assert.That(catalogType.Name, Does.Not.Contain("Theme"));
 
-            Assert.That(AssetDatabase.GetAssetPath(screenCatalog.GameplayPrefab), Is.EqualTo(UiTestPrefabAssetUtility.GameplayScreenPrefabPath));
-            Assert.That(AssetDatabase.GetAssetPath(screenCatalog.HelpPrefab), Is.EqualTo(UiTestPrefabAssetUtility.HelpScreenPrefabPath));
             Assert.That(AssetDatabase.GetAssetPath(screenCatalog.ObjectiveStatusPrefab), Is.EqualTo(UiTestPrefabAssetUtility.ObjectiveStatusScreenPrefabPath));
-            Assert.That(AssetDatabase.GetAssetPath(screenCatalog.InventoryPrefab), Is.EqualTo(UiTestPrefabAssetUtility.InventoryScreenPrefabPath));
             Assert.That(AssetDatabase.GetAssetPath(screenCatalog.SettingsPrefab), Is.EqualTo(UiTestPrefabAssetUtility.SettingsScreenPrefabPath));
             Assert.That(AssetDatabase.GetAssetPath(screenCatalog.StageResultPrefab), Is.EqualTo(UiTestPrefabAssetUtility.StageResultScreenPrefabPath));
             Assert.That(AssetDatabase.GetAssetPath(screenCatalog.LevelFailedPrefab), Is.EqualTo(UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath));
@@ -309,13 +291,18 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void ObjectiveStatusScreenPrefabAsset_HidesLegacyOverviewAndSessionTabButtons()
+        public void ObjectiveStatusScreenPrefabAsset_RemovesLegacyOverviewAndSessionTabButtons()
         {
             var screen = UiTestPrefabAssetUtility.LoadScreenPrefab<ObjectiveStatusScreenView>(UiTestPrefabAssetUtility.ObjectiveStatusScreenPrefabPath);
             var serializedScreen = new SerializedObject(screen);
+            var childNames = screen.GetComponentsInChildren<Transform>(true)
+                .Select(child => child.name)
+                .ToArray();
 
-            AssertSerializedButtonInactive(serializedScreen, "_overviewButton");
-            AssertSerializedButtonInactive(serializedScreen, "_sessionButton");
+            Assert.That(serializedScreen.FindProperty("_overviewButton"), Is.Null);
+            Assert.That(serializedScreen.FindProperty("_sessionButton"), Is.Null);
+            Assert.That(childNames, Does.Not.Contain("OverviewButton"));
+            Assert.That(childNames, Does.Not.Contain("SessionButton"));
         }
 
         [Test]
@@ -342,10 +329,7 @@ namespace Game.Feature.UI.Tests
             AssertPopupPrefabContract<RewardPopupView>(UiTestPrefabAssetUtility.RewardPopupPrefabPath);
         }
 
-        [TestCase(ScreenId.Gameplay)]
-        [TestCase(ScreenId.Help)]
         [TestCase(ScreenId.ObjectiveStatus)]
-        [TestCase(ScreenId.Inventory)]
         [TestCase(ScreenId.Settings)]
         [TestCase(ScreenId.StageResult)]
         [TestCase(ScreenId.LevelFailed)]
@@ -353,38 +337,11 @@ namespace Game.Feature.UI.Tests
         {
             switch (screenId)
             {
-                case ScreenId.Gameplay:
-                    AssertScreenPrefabContract<GameplayScreenView>(
-                        UiTestPrefabAssetUtility.GameplayScreenPrefabPath,
-                        typeof(GameplayScreenView));
-                    break;
-
-                case ScreenId.Help:
-                    AssertScreenPrefabContract<HelpScreenView>(
-                        UiTestPrefabAssetUtility.HelpScreenPrefabPath,
-                        typeof(HelpScreenView));
-                    break;
-
                 case ScreenId.ObjectiveStatus:
                     AssertScreenPrefabContract<ObjectiveStatusScreenView>(
                         UiTestPrefabAssetUtility.ObjectiveStatusScreenPrefabPath,
                         typeof(ObjectiveStatusScreenView));
                     break;
-
-                case ScreenId.Inventory:
-                {
-                    var inventoryPrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<InventoryScreenView>(UiTestPrefabAssetUtility.InventoryScreenPrefabPath);
-                    Assert.That(inventoryPrefab.CatalogView, Is.Not.Null);
-                    Assert.That(inventoryPrefab.DetailView, Is.Not.Null);
-                    Assert.That(inventoryPrefab.ActionView, Is.Not.Null);
-                    AssertScreenPrefabHasNoCrossLayerOwners(
-                        inventoryPrefab.gameObject,
-                        typeof(InventoryScreenView),
-                        typeof(InventoryCatalogView),
-                        typeof(InventoryDetailView),
-                        typeof(InventoryActionView));
-                    break;
-                }
 
                 case ScreenId.Settings:
                     AssertScreenPrefabContract<SettingsScreenView>(
@@ -511,10 +468,326 @@ namespace Game.Feature.UI.Tests
             Assert.That(countdownFill.type, Is.EqualTo(Image.Type.Simple));
         }
 
-        [TestCase(ScreenId.Gameplay)]
-        [TestCase(ScreenId.Help)]
+        [TestCase(1920f, 1080f, 560f, 640f)]
+        [TestCase(1280f, 720f, 560f, 592f)]
+        [TestCase(1366f, 768f, 560f, 640f)]
+        public void SettingsScreenRuntimeLayout_ClampsCenteredPanelWithinParent(
+            float parentWidth,
+            float parentHeight,
+            float expectedWidth,
+            float expectedHeight)
+        {
+            var parentObject = new GameObject("SettingsScreenRuntimeLayoutParent", typeof(RectTransform));
+            var parentRect = (RectTransform)parentObject.transform;
+            var settingsPrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
+            var settingsView = UnityEngine.Object.Instantiate(settingsPrefab, parentRect, false);
+
+            try
+            {
+                parentRect.anchorMin = Vector2.zero;
+                parentRect.anchorMax = Vector2.zero;
+                parentRect.pivot = Vector2.zero;
+                parentRect.sizeDelta = new Vector2(parentWidth, parentHeight);
+
+                settingsView.SetIsCurrent(true);
+                var settingsRect = (RectTransform)settingsView.transform;
+                LayoutRebuilder.ForceRebuildLayoutImmediate(settingsRect);
+
+                Assert.That(settingsRect.anchorMin, Is.EqualTo(new Vector2(0.5f, 0.5f)));
+                Assert.That(settingsRect.anchorMax, Is.EqualTo(new Vector2(0.5f, 0.5f)));
+                Assert.That(settingsRect.pivot, Is.EqualTo(new Vector2(0.5f, 0.5f)));
+                Assert.That(settingsRect.anchoredPosition, Is.EqualTo(Vector2.zero));
+                Assert.That(settingsRect.sizeDelta.x, Is.EqualTo(expectedWidth).Within(0.01f));
+                Assert.That(settingsRect.sizeDelta.y, Is.EqualTo(expectedHeight).Within(0.01f));
+                Assert.That(settingsRect.sizeDelta.x, Is.LessThanOrEqualTo(parentWidth - 128f));
+                Assert.That(settingsRect.sizeDelta.y, Is.LessThanOrEqualTo(parentHeight - 128f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(settingsView.gameObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [Test]
+        public void SettingsScreenRuntimeLayout_UsesSectionHostAndLayoutGroups()
+        {
+            var parentObject = new GameObject("SettingsScreenRuntimeLayoutSectionParent", typeof(RectTransform));
+            var parentRect = (RectTransform)parentObject.transform;
+            var settingsPrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
+            var settingsView = UnityEngine.Object.Instantiate(settingsPrefab, parentRect, false);
+
+            try
+            {
+                parentRect.sizeDelta = new Vector2(1920f, 1080f);
+                settingsView.SetIsCurrent(true);
+                var settingsRect = (RectTransform)settingsView.transform;
+                LayoutRebuilder.ForceRebuildLayoutImmediate(settingsRect);
+
+                var sectionHost = settingsView.transform.Find("SettingsSectionHost") as RectTransform;
+                Assert.That(sectionHost, Is.Not.Null);
+                Assert.That(settingsView.AudioView.transform.parent, Is.EqualTo(sectionHost));
+                Assert.That(settingsView.DisplayView.transform.parent, Is.EqualTo(sectionHost));
+                Assert.That(settingsView.InputView.transform.parent, Is.EqualTo(sectionHost));
+
+                var audioRect = (RectTransform)settingsView.AudioView.transform;
+                Assert.That(audioRect.anchorMin, Is.EqualTo(Vector2.zero));
+                Assert.That(audioRect.anchorMax, Is.EqualTo(Vector2.one));
+                Assert.That(audioRect.sizeDelta, Is.EqualTo(Vector2.zero));
+                Assert.That(settingsView.AudioView.GetComponent<VerticalLayoutGroup>(), Is.Not.Null);
+                Assert.That(settingsView.AudioView.transform.Find("MainAudioRow").GetComponent<HorizontalLayoutGroup>(), Is.Not.Null);
+                Assert.That(settingsView.DisplayView.GetComponent<VerticalLayoutGroup>(), Is.Not.Null);
+                Assert.That(settingsView.DisplayView.transform.Find("ResolutionRow").GetComponent<HorizontalLayoutGroup>(), Is.Not.Null);
+                Assert.That(settingsView.InputView.GetComponent<VerticalLayoutGroup>(), Is.Not.Null);
+                Assert.That(settingsView.InputView.transform.Find("PushInputRow").GetComponent<HorizontalLayoutGroup>(), Is.Not.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(settingsView.gameObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [TestCase(1920f, 1080f, 520f, 360f)]
+        [TestCase(1280f, 720f, 520f, 360f)]
+        [TestCase(1366f, 768f, 520f, 360f)]
+        [TestCase(500f, 360f, 372f, 232f)]
+        public void ObjectiveStatusScreenRuntimeLayout_ClampsTopCenterPanelWithinParent(
+            float parentWidth,
+            float parentHeight,
+            float expectedWidth,
+            float expectedHeight)
+        {
+            var parentObject = new GameObject("ObjectiveStatusScreenRuntimeLayoutParent", typeof(RectTransform));
+            var parentRect = (RectTransform)parentObject.transform;
+            parentRect.anchorMin = Vector2.zero;
+            parentRect.anchorMax = Vector2.zero;
+            parentRect.pivot = Vector2.zero;
+            parentRect.sizeDelta = new Vector2(parentWidth, parentHeight);
+            var objectivePrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<ObjectiveStatusScreenView>(UiTestPrefabAssetUtility.ObjectiveStatusScreenPrefabPath);
+            var objectiveView = UnityEngine.Object.Instantiate(objectivePrefab, parentRect, false);
+
+            try
+            {
+                objectiveView.Bind(new ObjectiveStatusScreenViewModel());
+                objectiveView.SetIsCurrent(true);
+                var objectiveRect = (RectTransform)objectiveView.transform;
+                LayoutRebuilder.ForceRebuildLayoutImmediate(objectiveRect);
+
+                Assert.That(objectiveRect.anchorMin, Is.EqualTo(new Vector2(0.5f, 1f)));
+                Assert.That(objectiveRect.anchorMax, Is.EqualTo(new Vector2(0.5f, 1f)));
+                Assert.That(objectiveRect.pivot, Is.EqualTo(new Vector2(0.5f, 1f)));
+                Assert.That(objectiveRect.anchoredPosition, Is.EqualTo(new Vector2(0f, -20f)));
+                Assert.That(objectiveRect.sizeDelta.x, Is.EqualTo(expectedWidth).Within(0.01f));
+                Assert.That(objectiveRect.sizeDelta.y, Is.EqualTo(expectedHeight).Within(0.01f));
+                Assert.That(objectiveRect.sizeDelta.x, Is.LessThanOrEqualTo(Mathf.Max(1f, parentWidth - 128f)));
+                Assert.That(objectiveRect.sizeDelta.y, Is.LessThanOrEqualTo(Mathf.Max(1f, parentHeight - 128f)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(objectiveView.gameObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveStatusScreenRuntimeLayout_UsesLayoutContainersAndFlexibleDetail()
+        {
+            var parentObject = new GameObject("ObjectiveStatusScreenRuntimeLayoutContainerParent", typeof(RectTransform));
+            var parentRect = (RectTransform)parentObject.transform;
+            parentRect.sizeDelta = new Vector2(1920f, 1080f);
+            var objectivePrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<ObjectiveStatusScreenView>(UiTestPrefabAssetUtility.ObjectiveStatusScreenPrefabPath);
+            var objectiveView = UnityEngine.Object.Instantiate(objectivePrefab, parentRect, false);
+
+            try
+            {
+                objectiveView.Bind(new ObjectiveStatusScreenViewModel());
+                objectiveView.SetIsCurrent(true);
+                var objectiveRect = (RectTransform)objectiveView.transform;
+                LayoutRebuilder.ForceRebuildLayoutImmediate(objectiveRect);
+
+                Assert.That(objectiveView.GetComponent<VerticalLayoutGroup>(), Is.Not.Null);
+                Assert.That(objectiveView.GetComponent<LayoutElement>(), Is.Not.Null);
+
+                var header = objectiveView.transform.Find("ObjectiveHeader") as RectTransform;
+                var summary = objectiveView.transform.Find("ObjectiveSummary") as RectTransform;
+                var detail = objectiveView.transform.Find("ObjectiveDetail") as RectTransform;
+                var secondary = objectiveView.transform.Find("ObjectiveSecondary") as RectTransform;
+                var footer = objectiveView.transform.Find("ObjectiveFooter") as RectTransform;
+
+                Assert.That(header, Is.Not.Null);
+                Assert.That(summary, Is.Not.Null);
+                Assert.That(detail, Is.Not.Null);
+                Assert.That(secondary, Is.Not.Null);
+                Assert.That(footer, Is.Not.Null);
+                Assert.That(header.GetComponent<HorizontalLayoutGroup>(), Is.Not.Null);
+                Assert.That(footer.GetComponent<HorizontalLayoutGroup>(), Is.Not.Null);
+                Assert.That(detail.GetComponent<LayoutElement>().flexibleHeight, Is.EqualTo(1f));
+                Assert.That(objectiveView.transform.Find("ObjectiveHeader/Title"), Is.Not.Null);
+                Assert.That(objectiveView.transform.Find("ObjectiveHeader/Badge"), Is.Not.Null);
+                Assert.That(objectiveView.transform.Find("ObjectiveSummary/Summary"), Is.Not.Null);
+                Assert.That(objectiveView.transform.Find("ObjectiveDetail/Detail"), Is.Not.Null);
+                Assert.That(objectiveView.transform.Find("ObjectiveSecondary/Secondary"), Is.Not.Null);
+                Assert.That(objectiveView.transform.Find("ObjectiveFooter/InfoButton"), Is.Not.Null);
+                Assert.That(objectiveView.transform.Find("ObjectiveFooter/BackButton"), Is.Not.Null);
+                Assert.That(objectiveView.transform.Find("ObjectiveSummary/Summary").GetComponent<TMP_Text>().textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
+                Assert.That(objectiveView.transform.Find("ObjectiveDetail/Detail").GetComponent<TMP_Text>().textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
+                Assert.That(objectiveView.transform.Find("ObjectiveSecondary/Secondary").GetComponent<TMP_Text>().textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(objectiveView.gameObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [TestCase(1920f, 1080f, 460f, 220f)]
+        [TestCase(1280f, 720f, 460f, 220f)]
+        [TestCase(1366f, 768f, 460f, 220f)]
+        [TestCase(420f, 260f, 292f, 132f)]
+        public void StageResultScreenRuntimeLayout_ClampsCenteredPanelWithinParent(
+            float parentWidth,
+            float parentHeight,
+            float expectedWidth,
+            float expectedHeight)
+        {
+            var parentObject = CreateSizedRectParent("StageResultScreenRuntimeLayoutParent", parentWidth, parentHeight);
+            var stagePrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<StageResultScreenView>(UiTestPrefabAssetUtility.StageResultScreenPrefabPath);
+            var stageView = UnityEngine.Object.Instantiate(stagePrefab, parentObject.transform, false);
+
+            try
+            {
+                stageView.Bind(new StageResultScreenViewModel());
+                stageView.SetIsCurrent(true);
+                var stageRect = (RectTransform)stageView.transform;
+                LayoutRebuilder.ForceRebuildLayoutImmediate(stageRect);
+
+                AssertCenteredTerminalPanel(stageRect, parentWidth, parentHeight, expectedWidth, expectedHeight);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stageView.gameObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [Test]
+        public void StageResultScreenRuntimeLayout_UsesLayoutContainersAndFlexibleDetail()
+        {
+            var parentObject = CreateSizedRectParent("StageResultScreenRuntimeLayoutContainerParent", 1920f, 1080f);
+            var stagePrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<StageResultScreenView>(UiTestPrefabAssetUtility.StageResultScreenPrefabPath);
+            var stageView = UnityEngine.Object.Instantiate(stagePrefab, parentObject.transform, false);
+
+            try
+            {
+                stageView.Bind(new StageResultScreenViewModel());
+                stageView.SetIsCurrent(true);
+                var stageRect = (RectTransform)stageView.transform;
+                LayoutRebuilder.ForceRebuildLayoutImmediate(stageRect);
+
+                AssertTerminalResultLayout(stageView.transform, "ResultSummary");
+                Assert.That(stageView.transform.Find("ResultHeader/Title"), Is.Not.Null);
+                Assert.That(stageView.transform.Find("ResultSummary/Summary"), Is.Not.Null);
+                Assert.That(stageView.transform.Find("ResultDetail/Detail"), Is.Not.Null);
+                Assert.That(stageView.transform.Find("ResultFooter/ContinueButton"), Is.Not.Null);
+                Assert.That(stageView.transform.Find("ResultSummary/Summary").GetComponent<TMP_Text>().textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
+                Assert.That(stageView.transform.Find("ResultDetail/Detail").GetComponent<TMP_Text>().textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stageView.gameObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [TestCase(1920f, 1080f, 460f, 230f)]
+        [TestCase(1280f, 720f, 460f, 230f)]
+        [TestCase(1366f, 768f, 460f, 230f)]
+        [TestCase(420f, 260f, 292f, 132f)]
+        public void LevelFailedScreenRuntimeLayout_ClampsCenteredPanelWithinParent(
+            float parentWidth,
+            float parentHeight,
+            float expectedWidth,
+            float expectedHeight)
+        {
+            var parentObject = CreateSizedRectParent("LevelFailedScreenRuntimeLayoutParent", parentWidth, parentHeight);
+            var levelFailedPrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<LevelFailedScreenView>(UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath);
+            var levelFailedView = UnityEngine.Object.Instantiate(levelFailedPrefab, parentObject.transform, false);
+
+            try
+            {
+                levelFailedView.Bind(new LevelFailedScreenViewModel());
+                levelFailedView.SetIsCurrent(true);
+                var levelFailedRect = (RectTransform)levelFailedView.transform;
+                LayoutRebuilder.ForceRebuildLayoutImmediate(levelFailedRect);
+
+                AssertCenteredTerminalPanel(levelFailedRect, parentWidth, parentHeight, expectedWidth, expectedHeight);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(levelFailedView.gameObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [Test]
+        public void LevelFailedScreenRuntimeLayout_UsesLayoutContainersAndFlexibleDetail()
+        {
+            var parentObject = CreateSizedRectParent("LevelFailedScreenRuntimeLayoutContainerParent", 1920f, 1080f);
+            var levelFailedPrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<LevelFailedScreenView>(UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath);
+            var levelFailedView = UnityEngine.Object.Instantiate(levelFailedPrefab, parentObject.transform, false);
+
+            try
+            {
+                levelFailedView.Bind(new LevelFailedScreenViewModel());
+                levelFailedView.SetIsCurrent(true);
+                var levelFailedRect = (RectTransform)levelFailedView.transform;
+                LayoutRebuilder.ForceRebuildLayoutImmediate(levelFailedRect);
+
+                AssertTerminalResultLayout(levelFailedView.transform);
+                Assert.That(levelFailedView.transform.Find("ResultHeader/Title"), Is.Not.Null);
+                Assert.That(levelFailedView.transform.Find("ResultDetail/Detail"), Is.Not.Null);
+                Assert.That(levelFailedView.transform.Find("ResultFooter/RestartLevelButton"), Is.Not.Null);
+                Assert.That(levelFailedView.transform.Find("ResultFooter/MainButton"), Is.Not.Null);
+                Assert.That(levelFailedView.transform.Find("ResultDetail/Detail").GetComponent<TMP_Text>().textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(levelFailedView.gameObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [Test]
+        public void LevelFailedScreenRuntimeFallback_UsesLayoutContainersAndButtonRows()
+        {
+            var parentObject = CreateSizedRectParent("LevelFailedScreenRuntimeFallbackParent", 1920f, 1080f);
+            var viewObject = new GameObject("LevelFailedScreenRuntimeFallback", typeof(RectTransform));
+            viewObject.transform.SetParent(parentObject.transform, false);
+            var levelFailedView = viewObject.AddComponent<LevelFailedScreenView>();
+
+            try
+            {
+                levelFailedView.Bind(new LevelFailedScreenViewModel());
+                levelFailedView.SetIsCurrent(true);
+                var levelFailedRect = (RectTransform)levelFailedView.transform;
+                LayoutRebuilder.ForceRebuildLayoutImmediate(levelFailedRect);
+
+                AssertCenteredTerminalPanel(levelFailedRect, 1920f, 1080f, 460f, 230f);
+                AssertTerminalResultLayout(levelFailedView.transform);
+                Assert.That(levelFailedView.transform.Find("ResultHeader/Title"), Is.Not.Null);
+                Assert.That(levelFailedView.transform.Find("ResultDetail/Detail"), Is.Not.Null);
+                Assert.That(levelFailedView.transform.Find("ResultFooter/RestartLevelButton"), Is.Not.Null);
+                Assert.That(levelFailedView.transform.Find("ResultFooter/MainButton"), Is.Not.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(viewObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
         [TestCase(ScreenId.ObjectiveStatus)]
-        [TestCase(ScreenId.Inventory)]
         [TestCase(ScreenId.Settings)]
         public void CanonicalScreenFactoryPath_InstantiatesCanonicalScreenPrefabUnderScreenLayer(ScreenId screenId)
         {
@@ -672,10 +945,7 @@ namespace Game.Feature.UI.Tests
             }
         }
 
-        [TestCase(ScreenId.Gameplay, "_screenPrefabCatalog.GameplayPrefab", "CreateGameplayScreen(")]
-        [TestCase(ScreenId.Help, "_screenPrefabCatalog.HelpPrefab", "CreateHelpScreen(")]
         [TestCase(ScreenId.ObjectiveStatus, "_screenPrefabCatalog.ObjectiveStatusPrefab", "CreateObjectiveStatusScreen(")]
-        [TestCase(ScreenId.Inventory, "_screenPrefabCatalog.InventoryPrefab", "CreateInventoryScreen(")]
         [TestCase(ScreenId.Settings, "_screenPrefabCatalog.SettingsPrefab", "CreateSettingsScreen(")]
         [TestCase(ScreenId.StageResult, "_screenPrefabCatalog.StageResultPrefab", "CreateStageResultScreen(")]
         [TestCase(ScreenId.LevelFailed, "_screenPrefabCatalog.LevelFailedPrefab", "CreateLevelFailedScreen(")]
@@ -694,7 +964,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void ScreenLegacyBuilderSymbols_AreAbsent_FromFactorySource_Inventory_AndBaselineEvidence()
+        public void ScreenLegacyBuilderSymbols_AreAbsent_FromFactorySource_AndBaselineEvidence()
         {
             var installerSource = ReadRepoFile(InstallerSourcePath);
             var screenFactorySource = ReadRepoFile(ScreenFactorySourcePath);
@@ -702,10 +972,9 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(installerSource, Does.Contain("_screenPrefabCatalog"));
             Assert.That(installerSource, Does.Not.Contain("ScreenPrefabRegistry"));
-            Assert.That(screenFactorySource, Does.Not.Contain("CreateGameplayScreen("));
-            Assert.That(screenFactorySource, Does.Not.Contain("CreateHelpScreen("));
+            Assert.That(screenFactorySource, Does.Not.Contain("Create" + "GameplayScreen("));
+            Assert.That(screenFactorySource, Does.Not.Contain("Create" + "HelpScreen("));
             Assert.That(screenFactorySource, Does.Not.Contain("CreateObjectiveStatusScreen("));
-            Assert.That(screenFactorySource, Does.Not.Contain("CreateInventoryScreen("));
             Assert.That(screenFactorySource, Does.Not.Contain("CreateSettingsScreen("));
             Assert.That(screenFactorySource, Does.Not.Contain("CreateStageResultScreen("));
             Assert.That(screenFactorySource, Does.Not.Contain("CreateLevelFailedScreen("));
@@ -714,8 +983,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(screenFactorySource, Does.Not.Contain("UiCanvasElementFactory.CreateButton("));
             Assert.That(baseline, Does.Contain("screen legacy runtime builder paths were removed in the same phase"));
             Assert.That(baseline, Does.Contain("screen hybrid allowlist is now empty"));
-            Assert.That(baseline, Does.Not.Contain("Screen:Gameplay -> GameplayScreenRuntimeFactory.CreateGameplayScreen"));
-            Assert.That(baseline, Does.Not.Contain("ScreenInternal:InventoryScreen.Sections -> InventoryScreenView authored child sections remain runtime-built"));
+            Assert.That(baseline, Does.Not.Contain("Screen:Gameplay -> GameplayScreenRuntimeFactory." + "Create" + "GameplayScreen"));
         }
 
         [TestCase(PopupId.Pause, "_popupPrefabCatalog.PausePrefab", "AddComponent<PausePopupView>")]
@@ -736,7 +1004,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void PopupLegacyBuilderSymbols_AreAbsent_FromFactorySource_Inventory_AndBaselineEvidence()
+        public void PopupLegacyBuilderSymbols_AreAbsent_FromFactorySource_AndBaselineEvidence()
         {
             var installerSource = ReadRepoFile(InstallerSourcePath);
             var popupFactorySource = ReadRepoFile(PopupFactorySourcePath);
@@ -811,23 +1079,12 @@ namespace Game.Feature.UI.Tests
         {
             switch (screenId)
             {
-                case ScreenId.Gameplay:
-                    return installer.GameplayScreenView;
-
-                case ScreenId.Help:
-                    installer.GameplayScreenView.ClickHelp();
-                    return installer.HelpScreenView;
-
                 case ScreenId.ObjectiveStatus:
-                    installer.GameplayScreenView.ClickObjectives();
+                    installer.Coordinator.OpenObjectiveStatusScreen();
                     return installer.ObjectiveStatusScreenView;
 
-                case ScreenId.Inventory:
-                    installer.GameplayScreenView.ClickInventory();
-                    return installer.InventoryScreenView;
-
                 case ScreenId.Settings:
-                    installer.GameplayScreenView.ClickSettings();
+                    installer.Coordinator.OpenSettingsScreen();
                     return installer.SettingsScreenView;
 
                 default:
@@ -844,7 +1101,7 @@ namespace Game.Feature.UI.Tests
                     return installer.PausePopupView;
 
                 case PopupId.ObjectiveInfo:
-                    installer.GameplayScreenView.ClickObjectives();
+                    installer.Coordinator.OpenObjectiveStatusScreen();
                     installer.ObjectiveStatusScreenView.ClickInfo();
                     return installer.ObjectiveInfoPopupView;
 
@@ -854,7 +1111,7 @@ namespace Game.Feature.UI.Tests
                     return installer.ConfirmPopupView;
 
                 case PopupId.Tooltip:
-                    installer.GameplayScreenView.ClickSettings();
+                    installer.Coordinator.OpenSettingsScreen();
                     installer.SettingsScreenView.ClickTooltipInfo();
                     return installer.TooltipPopupView;
 
@@ -876,17 +1133,8 @@ namespace Game.Feature.UI.Tests
         {
             switch (screenId)
             {
-                case ScreenId.Gameplay:
-                    return UiTestPrefabAssetUtility.LoadScreenPrefab<GameplayScreenView>(UiTestPrefabAssetUtility.GameplayScreenPrefabPath);
-
-                case ScreenId.Help:
-                    return UiTestPrefabAssetUtility.LoadScreenPrefab<HelpScreenView>(UiTestPrefabAssetUtility.HelpScreenPrefabPath);
-
                 case ScreenId.ObjectiveStatus:
                     return UiTestPrefabAssetUtility.LoadScreenPrefab<ObjectiveStatusScreenView>(UiTestPrefabAssetUtility.ObjectiveStatusScreenPrefabPath);
-
-                case ScreenId.Inventory:
-                    return UiTestPrefabAssetUtility.LoadScreenPrefab<InventoryScreenView>(UiTestPrefabAssetUtility.InventoryScreenPrefabPath);
 
                 case ScreenId.Settings:
                     return UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
@@ -960,10 +1208,7 @@ namespace Game.Feature.UI.Tests
                 typeof(ActionBarView),
                 typeof(NotificationView),
                 typeof(PopupLayerView),
-                typeof(GameplayScreenView),
-                typeof(HelpScreenView),
                 typeof(ObjectiveStatusScreenView),
-                typeof(InventoryScreenView),
                 typeof(SettingsScreenView),
                 typeof(SettingsAudioView),
                 typeof(SettingsDisplayView),
@@ -990,18 +1235,12 @@ namespace Game.Feature.UI.Tests
         {
             var screenViewTypes = new[]
             {
-                typeof(GameplayScreenView),
-                typeof(HelpScreenView),
                 typeof(ObjectiveStatusScreenView),
-                typeof(InventoryScreenView),
                 typeof(SettingsScreenView),
                 typeof(SettingsAudioView),
                 typeof(SettingsDisplayView),
                 typeof(StageResultScreenView),
                 typeof(LevelFailedScreenView),
-                typeof(InventoryCatalogView),
-                typeof(InventoryDetailView),
-                typeof(InventoryActionView),
             };
 
             var forbiddenTypes = new[]
@@ -1040,6 +1279,55 @@ namespace Game.Feature.UI.Tests
         {
             var absolutePath = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, "..", relativePath));
             return File.ReadAllText(absolutePath);
+        }
+
+        private static GameObject CreateSizedRectParent(string objectName, float width, float height)
+        {
+            var parentObject = new GameObject(objectName, typeof(RectTransform));
+            var parentRect = (RectTransform)parentObject.transform;
+            parentRect.anchorMin = Vector2.zero;
+            parentRect.anchorMax = Vector2.zero;
+            parentRect.pivot = Vector2.zero;
+            parentRect.sizeDelta = new Vector2(width, height);
+            return parentObject;
+        }
+
+        private static void AssertCenteredTerminalPanel(
+            RectTransform rectTransform,
+            float parentWidth,
+            float parentHeight,
+            float expectedWidth,
+            float expectedHeight)
+        {
+            Assert.That(rectTransform.anchorMin, Is.EqualTo(new Vector2(0.5f, 0.5f)));
+            Assert.That(rectTransform.anchorMax, Is.EqualTo(new Vector2(0.5f, 0.5f)));
+            Assert.That(rectTransform.pivot, Is.EqualTo(new Vector2(0.5f, 0.5f)));
+            Assert.That(rectTransform.anchoredPosition, Is.EqualTo(Vector2.zero));
+            Assert.That(rectTransform.sizeDelta.x, Is.EqualTo(expectedWidth).Within(0.01f));
+            Assert.That(rectTransform.sizeDelta.y, Is.EqualTo(expectedHeight).Within(0.01f));
+            Assert.That(rectTransform.sizeDelta.x, Is.LessThanOrEqualTo(Mathf.Max(1f, parentWidth - 128f)));
+            Assert.That(rectTransform.sizeDelta.y, Is.LessThanOrEqualTo(Mathf.Max(1f, parentHeight - 128f)));
+        }
+
+        private static void AssertTerminalResultLayout(Transform root, string optionalMiddleContainerName = null)
+        {
+            Assert.That(root.GetComponent<VerticalLayoutGroup>(), Is.Not.Null);
+            Assert.That(root.GetComponent<LayoutElement>(), Is.Not.Null);
+
+            var header = root.Find("ResultHeader") as RectTransform;
+            var detail = root.Find("ResultDetail") as RectTransform;
+            var footer = root.Find("ResultFooter") as RectTransform;
+
+            Assert.That(header, Is.Not.Null);
+            Assert.That(detail, Is.Not.Null);
+            Assert.That(footer, Is.Not.Null);
+            Assert.That(detail.GetComponent<LayoutElement>().flexibleHeight, Is.EqualTo(1f));
+            Assert.That(footer.GetComponent<HorizontalLayoutGroup>(), Is.Not.Null);
+
+            if (!string.IsNullOrEmpty(optionalMiddleContainerName))
+            {
+                Assert.That(root.Find(optionalMiddleContainerName), Is.Not.Null);
+            }
         }
 
         private static void AssertSerializedComponentPropertyAssignedAndUnderRoot(SerializedObject serializedObject, string propertyPath, Transform expectedRoot)
