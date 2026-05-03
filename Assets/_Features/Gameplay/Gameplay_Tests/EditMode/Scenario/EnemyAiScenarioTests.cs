@@ -3048,6 +3048,53 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Test]
         [Category("Extended")]
         [Category("GlideKinematicV11")]
+        public void GlideCooldown_Kinematic_AllowsOrdinaryChaseMovement()
+        {
+            var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var enemySourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: enemySourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+            });
+            var profile = CreateGlideContactDamageProfile(durationTicks: 20);
+            worldState.CreateWriteContext().SetEnemyGlideState(
+                40,
+                CreateCooldownGlide(cooldownUntilTickExclusive: 100, durationTicks: 20, recoveryTicks: 2, cooldownTicks: 100));
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                var result = pipeline.RunTick(new TickInput(1));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetEnemyGlideState(40, out var glideState), Is.True);
+                Assert.That(glideState.Phase, Is.EqualTo(EnemyGlidePhase.Cooldown));
+                Assert.That(snapshot.TryGetUnitKinematicState(40, out var state), Is.True);
+                Assert.That(state.mode, Is.EqualTo(MotionMode.Voluntary));
+                Assert.That(state.stepDirectionX, Is.EqualTo(-1));
+                Assert.That(state.stepDirectionY, Is.Zero);
+                Assert.That(
+                    result.PresentationData.KinematicMotionTracks.Any(track =>
+                        track.EntityId == 40 &&
+                        track.MotionMode == MotionMode.Voluntary),
+                    Is.True,
+                    BuildContactTimingDebug(1, "EnemyGlideCooldown", 40, 10, snapshot, result));
+                Assert.That(result.Trace.Text, Does.Not.Contain("EnemyGlideActiveKinematicStart"));
+                LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(result, 40);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        [Category("GlideKinematicV11")]
         public void GlideActive_Kinematic_HitNonlethal_CleansUpWithoutStaleHover()
         {
             var worldState = CreateWorldState(new[]
@@ -5287,6 +5334,27 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 activeUntilTickExclusive,
                 recoveryUntilTickExclusive: 0,
                 cooldownUntilTickExclusive: 0,
+                windupTicks: 0,
+                durationTicks,
+                recoveryTicks,
+                cooldownTicks,
+                lastExitedTick: 0,
+                landingPendingCell: default);
+        }
+
+        private static EnemyGlideRuntimeState CreateCooldownGlide(
+            int cooldownUntilTickExclusive,
+            int durationTicks,
+            int recoveryTicks,
+            int cooldownTicks)
+        {
+            return EnemyGlideRuntimeState.Create(
+                EnemyGlidePhase.Cooldown,
+                sequence: 1,
+                windupUntilTickExclusive: 0,
+                activeUntilTickExclusive: 0,
+                recoveryUntilTickExclusive: 0,
+                cooldownUntilTickExclusive,
                 windupTicks: 0,
                 durationTicks,
                 recoveryTicks,

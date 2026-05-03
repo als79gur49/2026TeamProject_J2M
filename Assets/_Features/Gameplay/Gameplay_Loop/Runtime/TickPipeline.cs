@@ -3144,7 +3144,7 @@ namespace Game.Feature.Gameplay.Loop
 
             if (snapshot.TryGetEnemyGlideState(entity.entityId, out var glideState) &&
                 glideState.HasAuthoritativeRecord &&
-                glideState.Phase != EnemyGlidePhase.Ready)
+                BlocksNonGlideEnemyKinematicLocomotion(glideState.Phase))
             {
                 return false;
             }
@@ -3170,7 +3170,7 @@ namespace Game.Feature.Gameplay.Loop
 
             if (snapshot.TryGetEnemyGlideState(entity.entityId, out var glideState) &&
                 glideState.HasAuthoritativeRecord &&
-                glideState.Phase != EnemyGlidePhase.Ready)
+                BlocksNonGlideEnemyKinematicLocomotion(glideState.Phase))
             {
                 return false;
             }
@@ -3183,6 +3183,14 @@ namespace Game.Feature.Gameplay.Loop
 
             return !snapshot.TryGetPhasedState(entity.entityId, out var phasedState) ||
                    !phasedState.IsActive;
+        }
+
+        private static bool BlocksNonGlideEnemyKinematicLocomotion(EnemyGlidePhase phase)
+        {
+            return phase == EnemyGlidePhase.Windup ||
+                   phase == EnemyGlidePhase.Active ||
+                   phase == EnemyGlidePhase.LandingPending ||
+                   phase == EnemyGlidePhase.Recovery;
         }
 
         private bool IsEnemyKinematicStartParticipant(
