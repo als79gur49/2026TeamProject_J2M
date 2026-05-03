@@ -25,6 +25,13 @@ namespace Game.Feature.UI.Tests
             Assert.That(prefab.transform.Find("TopBar"), Is.Not.Null);
             Assert.That(prefab.transform.Find("ContentHost"), Is.Not.Null);
             Assert.That(prefab.transform.Find("BottomBar"), Is.Not.Null);
+            Assert.That(prefab.transform.Find("MainCommandPanel"), Is.Not.Null);
+            Assert.That(prefab.transform.Find("MainCommandPanel/StartButton"), Is.Not.Null);
+            Assert.That(prefab.transform.Find("MainCommandPanel/SettingsButton"), Is.Not.Null);
+            Assert.That(prefab.transform.Find("MainCommandPanel/QuitButton"), Is.Not.Null);
+            Assert.That(prefab.transform.Find("MainCommandPanel/StartButton").GetSiblingIndex(), Is.EqualTo(0));
+            Assert.That(prefab.transform.Find("MainCommandPanel/SettingsButton").GetSiblingIndex(), Is.EqualTo(1));
+            Assert.That(prefab.transform.Find("MainCommandPanel/QuitButton").GetSiblingIndex(), Is.EqualTo(2));
         }
 
         [Test]
@@ -76,6 +83,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(view.transform.Find("TopBar").parent, Is.EqualTo(view.transform));
                 Assert.That(view.transform.Find("ContentHost").parent, Is.EqualTo(view.transform));
                 Assert.That(view.transform.Find("BottomBar").parent, Is.EqualTo(view.transform));
+                Assert.That(view.transform.Find("MainCommandPanel").parent, Is.EqualTo(view.transform));
                 Assert.That(view.GetComponent<VerticalLayoutGroup>(), Is.Not.Null);
 
                 var contentHost = view.transform.Find("ContentHost") as RectTransform;
@@ -89,6 +97,14 @@ namespace Game.Feature.UI.Tests
                 Assert.That(panelElement.preferredHeight, Is.EqualTo(expectedPanelHeight).Within(0.01f));
                 Assert.That(panelRect.rect.width, Is.LessThanOrEqualTo(contentHost.rect.width + 0.01f));
                 Assert.That(panelRect.rect.height, Is.LessThanOrEqualTo(contentHost.rect.height + 0.01f));
+
+                var commandPanel = view.transform.Find("MainCommandPanel") as RectTransform;
+                var commandPanelElement = commandPanel.GetComponent<LayoutElement>();
+                Assert.That(commandPanel.anchorMin, Is.EqualTo(Vector2.zero));
+                Assert.That(commandPanel.anchorMax, Is.EqualTo(Vector2.zero));
+                Assert.That(commandPanel.pivot, Is.EqualTo(Vector2.zero));
+                Assert.That(commandPanel.anchoredPosition, Is.EqualTo(new Vector2(64f, 64f)));
+                Assert.That(commandPanelElement.ignoreLayout, Is.True);
             }
             finally
             {
@@ -270,6 +286,29 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void MainMenuScreenView_StartButton_RaisesSaveSlotNavigationIntentOnly()
+        {
+            var harness = CreateShellHarness(withPanel: false);
+            try
+            {
+                MainMenuCommandIntent? command = null;
+                MainMenuNavigationIntent? navigation = null;
+                harness.View.CommandRequested += intent => command = intent;
+                harness.View.NavigationRequested += intent => navigation = intent;
+
+                harness.StartButton.onClick.Invoke();
+
+                Assert.That(navigation.HasValue, Is.True);
+                Assert.That(navigation.Value.SectionId, Is.EqualTo(MainMenuSectionId.SaveSlots));
+                Assert.That(command.HasValue, Is.False);
+            }
+            finally
+            {
+                harness.Dispose();
+            }
+        }
+
+        [Test]
         public void MainMenuScreenView_QuitButton_RaisesCommandIntentOnly()
         {
             var harness = CreateShellHarness(withPanel: false);
@@ -285,6 +324,28 @@ namespace Game.Feature.UI.Tests
                 Assert.That(command.HasValue, Is.True);
                 Assert.That(command.Value.CommandKind, Is.EqualTo(MainMenuCommandKind.Quit));
                 Assert.That(navigation.HasValue, Is.False);
+            }
+            finally
+            {
+                harness.Dispose();
+            }
+        }
+
+        [Test]
+        public void MainMenuScreenView_ShowSection_TogglesSaveSlotPanel()
+        {
+            var harness = CreateShellHarness(withPanel: true);
+            try
+            {
+                harness.View.ShowSection(MainMenuSectionId.None);
+
+                Assert.That(harness.View.ActiveSection, Is.EqualTo(MainMenuSectionId.None));
+                Assert.That(harness.View.SaveSlotPanel.gameObject.activeSelf, Is.False);
+
+                harness.View.ShowSection(MainMenuSectionId.SaveSlots);
+
+                Assert.That(harness.View.ActiveSection, Is.EqualTo(MainMenuSectionId.SaveSlots));
+                Assert.That(harness.View.SaveSlotPanel.gameObject.activeSelf, Is.True);
             }
             finally
             {
@@ -506,12 +567,15 @@ namespace Game.Feature.UI.Tests
             var topBar = new GameObject("TopBar", typeof(RectTransform)).GetComponent<RectTransform>();
             var contentHost = new GameObject("ContentHost", typeof(RectTransform)).GetComponent<RectTransform>();
             var bottomBar = new GameObject("BottomBar", typeof(RectTransform)).GetComponent<RectTransform>();
+            var commandPanel = new GameObject("MainCommandPanel", typeof(RectTransform)).GetComponent<RectTransform>();
             topBar.SetParent(root.transform, false);
             contentHost.SetParent(root.transform, false);
             bottomBar.SetParent(root.transform, false);
+            commandPanel.SetParent(root.transform, false);
 
-            var settingsButton = CreateButton("SettingsButton", topBar);
-            var quitButton = CreateButton("QuitButton", bottomBar);
+            var startButton = CreateButton("StartButton", commandPanel);
+            var settingsButton = CreateButton("SettingsButton", commandPanel);
+            var quitButton = CreateButton("QuitButton", commandPanel);
             SaveSlotPanelView panel = null;
             if (withPanel)
             {
@@ -524,12 +588,14 @@ namespace Game.Feature.UI.Tests
             SetPrivateField(view, "_topBar", topBar);
             SetPrivateField(view, "_contentHost", contentHost);
             SetPrivateField(view, "_bottomBar", bottomBar);
+            SetPrivateField(view, "_mainCommandPanel", commandPanel);
             SetPrivateField(view, "_saveSlotPanel", panel);
+            SetPrivateField(view, "_startButton", startButton);
             SetPrivateField(view, "_settingsButton", settingsButton);
             SetPrivateField(view, "_quitButton", quitButton);
             root.SetActive(true);
             InvokePrivate(view, "OnEnable");
-            return new ShellHarness(root, view, settingsButton, quitButton);
+            return new ShellHarness(root, view, startButton, settingsButton, quitButton);
         }
 
         private static GameObject CreateSizedRectParent(string objectName, float width, float height)
@@ -580,15 +646,18 @@ namespace Game.Feature.UI.Tests
         {
             private readonly GameObject _root;
 
-            public ShellHarness(GameObject root, MainMenuScreenView view, Button settingsButton, Button quitButton)
+            public ShellHarness(GameObject root, MainMenuScreenView view, Button startButton, Button settingsButton, Button quitButton)
             {
                 _root = root;
                 View = view;
+                StartButton = startButton;
                 SettingsButton = settingsButton;
                 QuitButton = quitButton;
             }
 
             public MainMenuScreenView View { get; }
+
+            public Button StartButton { get; }
 
             public Button SettingsButton { get; }
 

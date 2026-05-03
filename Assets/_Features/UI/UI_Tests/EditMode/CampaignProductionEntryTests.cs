@@ -70,6 +70,7 @@ namespace Game.Feature.UI.Tests
                 UiTestPrefabAssetUtility.AssertOverlayCanvasScaling(root);
                 Assert.That(installer.MainMenuScreenView, Is.Not.Null);
                 Assert.That(installer.MainMenuScreenView.SaveSlotPanel, Is.Not.Null);
+                Assert.That(installer.MainMenuScreenView.SaveSlotPanel.gameObject.activeSelf, Is.False);
                 Assert.That(installer.MainMenuScreenView.SaveSlotPanel.GetComponentsInChildren<SaveSlotCardView>(true).Length, Is.EqualTo(3));
             }
             finally

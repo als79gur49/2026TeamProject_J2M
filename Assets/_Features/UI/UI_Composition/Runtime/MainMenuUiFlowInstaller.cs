@@ -188,7 +188,7 @@ namespace Game.Feature.UI.Composition
 
             _mainMenuScreenView.CommandRequested += HubController.HandleCommand;
             _mainMenuScreenView.NavigationRequested += HubController.HandleNavigation;
-            _mainMenuScreenView.ShowSection(MainMenuSectionId.SaveSlots);
+            _mainMenuScreenView.ShowSection(MainMenuSectionId.None);
         }
 
         private void BuildAudioFeedbackModule()

@@ -1,4 +1,5 @@
 using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -16,16 +17,23 @@ namespace Game.Feature.UI.Screens
         private const float BottomBarMinimumHeight = 56f;
         private const float ContentHorizontalPadding = 64f;
         private const float ContentVerticalPadding = 24f;
+        private const float MainCommandPanelLeftMargin = 64f;
+        private const float MainCommandPanelBottomMargin = 64f;
+        private const float MainCommandButtonWidth = 160f;
+        private const float MainCommandButtonHeight = 48f;
+        private const float MainCommandButtonSpacing = 12f;
         private const float SaveSlotCardSpacing = 16f;
 
         private const string MissingAuthoredStructureMessage =
-            "MainMenu screen is missing required authored shell references. Repair MainMenuScreen.prefab so it contains TopBar, ContentHost, BottomBar, SaveSlotPanelView, SettingsButton, and QuitButton.";
+            "MainMenu screen is missing required authored shell references. Repair MainMenuScreen.prefab so it contains TopBar, ContentHost, BottomBar, MainCommandPanel, StartButton, SettingsButton, QuitButton, and SaveSlotPanelView.";
 
         [SerializeField] private GameObject _root;
         [SerializeField] private RectTransform _topBar;
         [SerializeField] private RectTransform _contentHost;
         [SerializeField] private RectTransform _bottomBar;
+        [SerializeField] private RectTransform _mainCommandPanel;
         [SerializeField] private SaveSlotPanelView _saveSlotPanel;
+        [SerializeField] private Button _startButton;
         [SerializeField] private Button _settingsButton;
         [SerializeField] private Button _quitButton;
 
@@ -52,7 +60,9 @@ namespace Game.Feature.UI.Screens
                 _topBar == null ||
                 _contentHost == null ||
                 _bottomBar == null ||
+                _mainCommandPanel == null ||
                 _saveSlotPanel == null ||
+                _startButton == null ||
                 _settingsButton == null ||
                 _quitButton == null)
             {
@@ -62,6 +72,7 @@ namespace Game.Feature.UI.Screens
             if (_topBar.parent != transform ||
                 _contentHost.parent != transform ||
                 _bottomBar.parent != transform ||
+                _mainCommandPanel.parent != transform ||
                 _saveSlotPanel.transform.parent != _contentHost)
             {
                 throw new InvalidOperationException(MissingAuthoredStructureMessage);
@@ -87,6 +98,11 @@ namespace Game.Feature.UI.Screens
         public void RequestSection(MainMenuSectionId sectionId)
         {
             NavigationRequested?.Invoke(new MainMenuNavigationIntent(sectionId));
+        }
+
+        public void ClickStart()
+        {
+            RequestSection(MainMenuSectionId.SaveSlots);
         }
 
         public void ClickSettings()
@@ -133,6 +149,7 @@ namespace Game.Feature.UI.Screens
             ConfigureShellChild(_topBar, 0, TopBarMinimumHeight, TopBarPreferredHeight, flexibleHeight: 0f);
             ConfigureShellChild(_contentHost, 1, minHeight: 1f, preferredHeight: -1f, flexibleHeight: 1f);
             ConfigureShellChild(_bottomBar, 2, BottomBarMinimumHeight, BottomBarPreferredHeight, flexibleHeight: 0f);
+            ConfigureMainCommandPanel(rootRect);
 
             SettingsLayoutUtility.EnsureVerticalLayout(
                 _contentHost.gameObject,
@@ -182,6 +199,82 @@ namespace Game.Feature.UI.Screens
                 flexibleWidth: 1f,
                 flexibleHeight: flexibleHeight);
             child.SetSiblingIndex(siblingIndex);
+        }
+
+        private void ConfigureMainCommandPanel(RectTransform rootRect)
+        {
+            if (_mainCommandPanel == null)
+            {
+                return;
+            }
+
+            SettingsLayoutUtility.MoveToParent(_mainCommandPanel, rootRect);
+            SettingsLayoutUtility.ConfigureOverlay(
+                _mainCommandPanel,
+                Vector2.zero,
+                Vector2.zero,
+                new Vector2(MainCommandPanelLeftMargin, MainCommandPanelBottomMargin),
+                new Vector2(MainCommandButtonWidth, MainCommandButtonHeight * 3f + MainCommandButtonSpacing * 2f));
+            SettingsLayoutUtility.EnsureLayoutElement(_mainCommandPanel, ignoreLayout: true);
+            SettingsLayoutUtility.EnsureVerticalLayout(
+                _mainCommandPanel.gameObject,
+                new RectOffset(0, 0, 0, 0),
+                MainCommandButtonSpacing,
+                TextAnchor.UpperLeft,
+                childControlWidth: true,
+                childControlHeight: true,
+                childForceExpandWidth: false,
+                childForceExpandHeight: false);
+
+            ConfigureCommandButton(_startButton, 0, "Start");
+            ConfigureCommandButton(_settingsButton, 1, "Setting");
+            ConfigureCommandButton(_quitButton, 2, "Quit");
+        }
+
+        private void ConfigureCommandButton(Button button, int siblingIndex, string label)
+        {
+            if (button == null || _mainCommandPanel == null)
+            {
+                return;
+            }
+
+            SettingsLayoutUtility.MoveToParent(button.transform as RectTransform, _mainCommandPanel);
+            SettingsLayoutUtility.FillLayoutChild(button.transform as RectTransform);
+            SettingsLayoutUtility.EnsureLayoutElement(
+                button,
+                minWidth: MainCommandButtonWidth,
+                minHeight: MainCommandButtonHeight,
+                preferredWidth: MainCommandButtonWidth,
+                preferredHeight: MainCommandButtonHeight,
+                flexibleWidth: 0f,
+                flexibleHeight: 0f);
+            EnsureButtonLabel(button, label);
+            button.transform.SetSiblingIndex(siblingIndex);
+        }
+
+        private static void EnsureButtonLabel(Button button, string label)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            var text = button.GetComponentInChildren<TMP_Text>(true);
+            if (text == null)
+            {
+                var labelObject = new GameObject("Label", typeof(RectTransform));
+                labelObject.transform.SetParent(button.transform, false);
+                var labelRect = (RectTransform)labelObject.transform;
+                SettingsLayoutUtility.Stretch(labelRect);
+                text = labelObject.AddComponent<TextMeshProUGUI>();
+            }
+
+            text.text = label ?? string.Empty;
+            text.fontSize = 24f;
+            text.fontStyle = FontStyles.Bold;
+            text.alignment = TextAlignmentOptions.Center;
+            text.color = Color.white;
+            text.raycastTarget = false;
         }
 
         private void ConfigureSaveSlotPanel(RectTransform rootRect)
@@ -318,12 +411,14 @@ namespace Game.Feature.UI.Screens
 
         private void WireButtons()
         {
+            Rebind(_startButton, ClickStart);
             Rebind(_settingsButton, ClickSettings);
             Rebind(_quitButton, ClickQuit);
         }
 
         private void UnwireButtons()
         {
+            Unbind(_startButton, ClickStart);
             Unbind(_settingsButton, ClickSettings);
             Unbind(_quitButton, ClickQuit);
         }
