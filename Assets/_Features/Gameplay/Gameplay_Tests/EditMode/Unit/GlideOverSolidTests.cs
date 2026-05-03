@@ -401,6 +401,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("GlideKinematicV11")]
         public void GlideActive_Kinematic_PreservesSolidBypass()
         {
+            AssertGlideActiveKinematicPreservesSolidBypass(
+                GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled);
+        }
+
+        [Test]
+        [Category("Extended")]
+        [Category("GlideKinematicV11")]
+        public void GlideActive_DefaultGameplay_PreservesSolidBypass()
+        {
+            AssertGlideActiveKinematicPreservesSolidBypass(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+        }
+
+        private static void AssertGlideActiveKinematicPreservesSolidBypass(
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags)
+        {
             var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
                 new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 6, recoveryTicks: 1, cooldownTicks: 0));
             var wallCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -422,7 +437,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Array.Empty<IEntityLogic>(),
                         GameplayTimingProfile.CreateDefault(),
                         CreatePlayerTiming(),
-                        runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled,
+                        runtimeFeatureFlags: runtimeFeatureFlags,
                         playerKinematicLocomotionTiming: CreateTwoTickKinematicTiming());
 
                 var startTick = pipeline.RunTick(new TickInput(1));

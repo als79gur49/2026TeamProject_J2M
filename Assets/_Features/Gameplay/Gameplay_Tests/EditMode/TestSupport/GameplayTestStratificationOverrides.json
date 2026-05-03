@@ -1801,13 +1801,13 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase7_GlidePolicyUnchanged",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase7_GlidePolicy_DefaultAdoptedAndFlagOffFallbackRetained",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
         "enemy_kinematic_locomotion"
       ],
-      "reason": "Locked Core coverage for Phase 7 unchanged glide retained policy.",
+      "reason": "Locked Core coverage for Phase 7 glide default adoption and flag-off fallback retention.",
       "locked": true
     },
     {
@@ -1861,13 +1861,13 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8A_GlidePolicyUnchanged",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8A_GlideDefaultAdoptionAndFlagOffFallbackRetained",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
         "enemy_kinematic_locomotion"
       ],
-      "reason": "Locked Core coverage that Phase 8A naming cleanup preserves glide retained policy.",
+      "reason": "Locked Core coverage that Phase 8A naming cleanup preserves glide default adoption and flag-off fallback retention.",
       "locked": true
     },
     {
@@ -1983,13 +1983,13 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8B_GlidePolicyUnchanged",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8B_GlideDefaultAdoptionAndFlagOffFallbackRetained",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
         "enemy_kinematic_locomotion"
       ],
-      "reason": "Locked Core coverage that Phase 8B alias migration preserves glide retained policy.",
+      "reason": "Locked Core coverage that Phase 8B alias migration preserves glide default adoption and flag-off fallback retention.",
       "locked": true
     },
     {
@@ -2043,13 +2043,13 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8C_GlidePolicyUnchanged",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8C_GlideDefaultAdoptionAndFlagOffFallbackRetained",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
         "enemy_kinematic_locomotion"
       ],
-      "reason": "Locked Core coverage that Phase 8C alias cleanup preserves glide retained policy.",
+      "reason": "Locked Core coverage that Phase 8C alias cleanup preserves glide default adoption and flag-off fallback retention.",
       "locked": true
     },
     {
@@ -2145,13 +2145,13 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8D_GlidePolicyUnchanged",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8D_GlideDefaultAdoptionAndFlagOffFallbackRetained",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
         "enemy_kinematic_locomotion"
       ],
-      "reason": "Locked Core coverage that Phase 8D helper naming cleanup preserves glide retained policy.",
+      "reason": "Locked Core coverage that Phase 8D helper naming cleanup preserves glide default adoption and flag-off fallback retention.",
       "locked": true
     },
     {
@@ -2225,13 +2225,13 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8E_GlidePolicyUnchanged",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8E_GlideDefaultAdoptionAndFlagOffFallbackRetained",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
         "enemy_kinematic_locomotion"
       ],
-      "reason": "Locked Core coverage that Phase 8E field readiness preserves glide retained policy.",
+      "reason": "Locked Core coverage that Phase 8E field readiness preserves glide default adoption and flag-off fallback retention.",
       "locked": true
     },
     {
@@ -2708,6 +2708,85 @@
         "enemy_charge_kinematic_locomotion"
       ],
       "reason": "Locked Core replay coverage that diagnostic Charge fallback remains deterministic without ChargeMove after producer isolation.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_DefaultGameplayLocomotion_GlideKinematic_IsDeterministic",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion"
+      ],
+      "reason": "Locked Core replay coverage for glide default adoption kinematic determinism.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_GlideFlagOff_FallbackStillDeterministic",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion"
+      ],
+      "reason": "Locked Core replay coverage that flag-off glide fallback remains deterministic after default adoption.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.BoundaryInventory_DefaultGameplayLocomotion_GlideActiveKinematic",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion"
+      ],
+      "reason": "Locked Core boundary coverage for default active glide kinematic adoption.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.BoundaryInventory_GlideFlagOff_FallbackStillRetained",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion"
+      ],
+      "reason": "Locked Core boundary coverage that flag-off glide fallback remains retained after default adoption.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.DefaultGameplayLocomotion_IncludesGlideKinematic",
+      "category": "Core",
+      "contracts": [
+        "movement_boundary_v1",
+        "enemy_kinematic_locomotion"
+      ],
+      "reason": "Locked Core flag matrix coverage for glide default adoption.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayShowcaseInstaller_DefaultBundle_IncludesGlideKinematic",
+      "category": "Full",
+      "contracts": [
+        "enemy_kinematic_locomotion"
+      ],
+      "reason": "Locked Full showcase coverage that DefaultGameplayLocomotion includes glide kinematic locomotion.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GlideOverSolidTests.GlideActive_DefaultGameplay_PreservesSolidBypass",
+      "category": "Extended",
+      "contracts": [
+        "enemy_kinematic_locomotion"
+      ],
+      "reason": "Locked Extended coverage that default active glide kinematic preserves solid bypass behavior.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.GlideActive_DefaultGameplay_HitDeathCleanupStable",
+      "category": "Extended",
+      "contracts": [
+        "enemy_kinematic_locomotion"
+      ],
+      "reason": "Locked Extended coverage that default active glide kinematic hit/death cleanup remains stable.",
       "locked": true
     }
   ]

@@ -42,11 +42,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(flags.EnablePlayerStoppableKinematicLocomotion, Is.True);
             Assert.That(flags.EnableEnemySameFaceContinuousLocomotion, Is.True);
             Assert.That(flags.EnableEnemyChargeKinematicLocomotion, Is.True);
-            Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.False);
+            Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.True);
             Assert.That(flags.EnableLegacyOrdinaryUnitFallback, Is.False);
             Assert.That(GameplayRuntimeFeatureFlags.None.EnablePlayerFree2DLocalLocomotion, Is.False);
+            Assert.That(GameplayRuntimeFeatureFlags.None.EnableEnemyGlideKinematicLocomotion, Is.False);
             Assert.That(GameplayRuntimeFeatureFlags.None.EnableLegacyOrdinaryUnitFallback, Is.False);
             Assert.That(new GameplaySceneHostConfiguration().CreateRuntimeFeatureFlags().EnablePlayerFree2DLocalLocomotion, Is.False);
+            Assert.That(new GameplaySceneHostConfiguration().CreateRuntimeFeatureFlags().EnableEnemyGlideKinematicLocomotion, Is.False);
             Assert.That(new GameplaySceneHostConfiguration().CreateRuntimeFeatureFlags().EnableLegacyOrdinaryUnitFallback, Is.False);
         }
 

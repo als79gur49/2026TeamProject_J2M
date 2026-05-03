@@ -3107,6 +3107,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("GlideKinematicV11")]
         public void GlideActive_Kinematic_HitLethal_RemovalClearsKinematicAndGlideSignal()
         {
+            AssertGlideActiveKinematicHitDeathCleanupStable(
+                GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled);
+        }
+
+        [Test]
+        [Category("Extended")]
+        [Category("GlideKinematicV11")]
+        public void GlideActive_DefaultGameplay_HitDeathCleanupStable()
+        {
+            AssertGlideActiveKinematicHitDeathCleanupStable(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+        }
+
+        private static void AssertGlideActiveKinematicHitDeathCleanupStable(
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags)
+        {
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 1), hp: 3),
@@ -3122,7 +3137,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var pipeline = CreateEnemyPipeline(
                     worldState,
                     profile,
-                    GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled,
+                    runtimeFeatureFlags,
                     new ScriptedAttackLogic(10, 40));
                 var result = pipeline.RunTick(new TickInput(1));
                 var snapshot = worldState.CreateSnapshot();

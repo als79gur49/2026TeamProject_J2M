@@ -930,9 +930,56 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void Replay_DefaultGameplayLocomotion_GlidePolicy_IsDeterministic()
+        public void Replay_DefaultGameplayLocomotion_GlideKinematic_IsDeterministic()
         {
             var flags = GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion;
+            Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.True);
+
+            var harness = new TickReplayHarness();
+            var inputs = Enumerable.Range(1, 4)
+                .Select(tick => new TickInput(tick))
+                .ToArray();
+            var glideProfile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(windupTicks: 1, durationTicks: 3, recoveryTicks: 1, cooldownTicks: 1));
+
+            try
+            {
+                var firstReplay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(glideProfile),
+                    CreateGlideWorldState(),
+                    entityLogics: new IEntityLogic[0],
+                    inputs,
+                    runtimeFeatureFlags: flags);
+                var secondReplay = harness.Run(
+                    GameplayCompositionRoot.CreateDefaultBootstrapper(glideProfile),
+                    CreateGlideWorldState(),
+                    entityLogics: new IEntityLogic[0],
+                    inputs,
+                    runtimeFeatureFlags: flags);
+
+                AssertReplayBoundaryCanaryEqual(firstReplay, secondReplay);
+                Assert.That(
+                    firstReplay.Any(frame => frame.Trace.Contains("GlideActiveKinematicAnchorCommit", StringComparison.Ordinal)),
+                    Is.True);
+                Assert.That(
+                    firstReplay.Any(frame => frame.Trace.Contains("UnitKinematics", StringComparison.Ordinal) ||
+                                             frame.EventLogDump.Contains("KinematicPoseCommitted|E=40", StringComparison.Ordinal)),
+                    Is.True);
+                Assert.That(
+                    firstReplay.Any(frame => frame.Trace.Contains("LegacyFallback", StringComparison.Ordinal)),
+                    Is.False);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(glideProfile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_GlideFlagOff_FallbackStillDeterministic()
+        {
+            var flags = GameplayRuntimeFeatureFlags.None;
             Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.False);
 
             var harness = new TickReplayHarness();
@@ -978,7 +1025,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Category("Core")]
         public void Replay_DeprecationPhase1_GlideRetainedException_IsDeterministic()
         {
-            Replay_DefaultGameplayLocomotion_GlidePolicy_IsDeterministic();
+            Replay_GlideFlagOff_FallbackStillDeterministic();
         }
 
         [Test]

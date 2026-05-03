@@ -418,16 +418,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Phase2B_EnemyLegacyFallback_GlideDefault_IsRetainedException_NotEnemyOrdinaryPilot()
+        public void Phase2B_EnemyLegacyFallback_GlideDefault_IsKinematic_NotEnemyOrdinaryPilot()
         {
-            BoundaryInventory_DefaultGameplayLocomotion_GlideActivePolicy();
+            BoundaryInventory_DefaultGameplayLocomotion_GlideActiveKinematic();
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase5_GlideFallbackPolicyUnchanged()
+        public void Phase5_GlideFlagOffFallbackStillRetained()
         {
-            BoundaryInventory_DefaultGameplayLocomotion_GlideActivePolicy();
+            BoundaryInventory_GlideFlagOff_FallbackStillRetained();
         }
 
         [Test]
@@ -706,16 +706,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Phase2C_ChargeLegacyFallback_GlideDefault_IsRetainedException_NotChargePilot()
+        public void Phase2C_ChargeLegacyFallback_GlideFlagOff_IsRetainedException_NotChargePilot()
         {
-            BoundaryInventory_DefaultGameplayLocomotion_GlideActivePolicy();
+            BoundaryInventory_GlideFlagOff_FallbackStillRetained();
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase6_GlideFallbackPolicyUnchanged()
+        public void Phase6_GlideFlagOffFallbackStillRetained()
         {
-            BoundaryInventory_DefaultGameplayLocomotion_GlideActivePolicy();
+            BoundaryInventory_GlideFlagOff_FallbackStillRetained();
         }
 
         [Test]
@@ -881,10 +881,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void Phase3_None_GlidePolicyUnchanged()
+        public void Phase3_None_GlideFlagOffFallbackStillRetained()
         {
-            BoundaryInventory_Glide_ActiveLegacyFallback_FlagOff_IsDocumented();
-            DefaultGameplayLocomotion_GlideFlagPolicy_IsExplicit();
+            BoundaryInventory_GlideFlagOff_FallbackStillRetained();
+            DefaultGameplayLocomotion_IncludesGlideKinematic();
         }
 
         [Test]
@@ -1015,12 +1015,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void Phase7_GlidePolicyUnchanged()
+        public void Phase7_GlidePolicy_DefaultAdoptedAndFlagOffFallbackRetained()
         {
-            BoundaryInventory_DefaultGameplayLocomotion_GlideActivePolicy();
-            BoundaryInventory_Glide_ActiveLegacyFallback_FlagOff_IsDocumented();
+            BoundaryInventory_DefaultGameplayLocomotion_GlideActiveKinematic();
+            BoundaryInventory_GlideFlagOff_FallbackStillRetained();
             ExplicitGlideFlag_ActiveGlide_NoLegacyOrdinaryMove();
-            DefaultGameplayLocomotion_GlideFlagPolicy_IsExplicit();
+            DefaultGameplayLocomotion_IncludesGlideKinematic();
         }
 
         [Test]
@@ -1102,7 +1102,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 "LegacyOrdinaryFallbackBaseline: diagnostic compatibility preset",
                 "covered fallback authorization: removed",
                 "grid transactions: retained",
-                "glide retained exception: unchanged",
+                "glide default adoption: complete; flag-off fallback retained",
             };
 
             Assert.That(canonicalHelperNames.Any(name => name.Contains("Allows", StringComparison.Ordinal)), Is.False);
@@ -1196,9 +1196,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void Phase8A_GlidePolicyUnchanged()
+        public void Phase8A_GlideDefaultAdoptionAndFlagOffFallbackRetained()
         {
-            Phase7_GlidePolicyUnchanged();
+            Phase7_GlidePolicy_DefaultAdoptedAndFlagOffFallbackRetained();
         }
 
         [Test]
@@ -1417,9 +1417,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void Phase8B_GlidePolicyUnchanged()
+        public void Phase8B_GlideDefaultAdoptionAndFlagOffFallbackRetained()
         {
-            Phase8A_GlidePolicyUnchanged();
+            Phase8A_GlideDefaultAdoptionAndFlagOffFallbackRetained();
         }
 
         [Test]
@@ -1526,9 +1526,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void Phase8C_GlidePolicyUnchanged()
+        public void Phase8C_GlideDefaultAdoptionAndFlagOffFallbackRetained()
         {
-            Phase8B_GlidePolicyUnchanged();
+            Phase8B_GlideDefaultAdoptionAndFlagOffFallbackRetained();
         }
 
         [Test]
@@ -1679,9 +1679,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void Phase8D_GlidePolicyUnchanged()
+        public void Phase8D_GlideDefaultAdoptionAndFlagOffFallbackRetained()
         {
-            Phase8C_GlidePolicyUnchanged();
+            Phase8C_GlideDefaultAdoptionAndFlagOffFallbackRetained();
         }
 
         [Test]
@@ -1809,9 +1809,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void Phase8E_GlidePolicyUnchanged()
+        public void Phase8E_GlideDefaultAdoptionAndFlagOffFallbackRetained()
         {
-            Phase8D_GlidePolicyUnchanged();
+            Phase8D_GlideDefaultAdoptionAndFlagOffFallbackRetained();
         }
 
         [Test]
@@ -2010,13 +2010,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var consolidationDoc = ReadRepoFile(
                 "Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-Compatibility-Layer-Consolidation-2026-05-02.md");
 
-            Phase8E_GlidePolicyUnchanged();
+            Phase8E_GlideDefaultAdoptionAndFlagOffFallbackRetained();
 
-            Assert.That(consolidationDoc, Does.Contain("glide retained fallback | exception | separate policy"));
-            Assert.That(consolidationDoc, Does.Contain("default adoption not approved"));
-            Assert.That(consolidationDoc, Does.Contain("glide retained fallback remains separate and default adoption is excluded"));
+            Assert.That(consolidationDoc, Does.Contain("glide flag-off fallback | exception | separate rollback policy"));
+            Assert.That(consolidationDoc, Does.Contain("default adoption approved"));
+            Assert.That(consolidationDoc, Does.Contain("glide flag-off fallback remains separate after default adoption"));
             Assert.That(consolidationDoc, Does.Contain("glide default adoption"));
-            Assert.That(consolidationDoc, Does.Contain("must not include"));
+            Assert.That(consolidationDoc, Does.Contain("must include"));
         }
 
         [Test]
@@ -2129,8 +2129,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void ScopedDeletionPrep_GlideFallback_IsRetainedException()
         {
-            BoundaryInventory_DefaultGameplayLocomotion_GlideActivePolicy();
-            BoundaryInventory_Glide_ActiveLegacyFallback_FlagOff_IsDocumented();
+            BoundaryInventory_DefaultGameplayLocomotion_GlideActiveKinematic();
+            BoundaryInventory_GlideFlagOff_FallbackStillRetained();
             ExplicitGlideFlag_ActiveGlide_NoLegacyOrdinaryMove();
         }
 
@@ -2395,10 +2395,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void BoundaryInventory_DefaultGameplayLocomotion_GlideActivePolicy()
+        public void BoundaryInventory_DefaultGameplayLocomotion_GlideActiveKinematic()
         {
             var flags = GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion;
-            Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.False);
+            Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.True);
 
             var glideProfile = EnemyAiProfileTestFactory.CreateGlideChaser(
                 new EnemyGlideTimingSettings(windupTicks: 1, durationTicks: 2, recoveryTicks: 1, cooldownTicks: 1));
@@ -2415,17 +2415,50 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         Array.Empty<IEntityLogic>(),
                         GameplayTimingProfile.CreateDefault(),
                         CreatePlayerTiming(),
-                        runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                        runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                        playerKinematicLocomotionTiming: CreateTwoTickKinematicTiming());
 
                 _ = glidePipeline.RunTick(new TickInput(1));
                 var activeTick = glidePipeline.RunTick(new TickInput(2));
 
                 Assert.That(glideWorld.CreateSnapshot().TryGetEnemyGlideState(40, out var glideState), Is.True);
                 Assert.That(glideState.Phase, Is.EqualTo(EnemyGlidePhase.Active));
-                LegacyMovementBoundaryAssert.AllowsRetainedGlideFallback(activeTick, 40);
                 Assert.That(
-                    activeTick.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40),
-                    Is.False);
+                    activeTick.PresentationData.KinematicMotionTracks.Any(track =>
+                        track.EntityId == 40 &&
+                        track.MotionMode == MotionMode.Voluntary),
+                    Is.True);
+                Assert.That(
+                    activeTick.PresentationData.EnemyGlideSignals.Any(signal =>
+                        signal.EntityId == 40 &&
+                        signal.Phase == EnemyGlidePhase.Active &&
+                        signal.CurrentHeightUnits > 0),
+                    Is.True);
+                LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(activeTick, 40);
+                var commitTick = HasGlideActiveKinematicAnchorCommit(activeTick, 40)
+                    ? activeTick
+                    : null;
+                for (var tickIndex = 3; tickIndex <= 8; tickIndex++)
+                {
+                    if (commitTick != null)
+                    {
+                        break;
+                    }
+
+                    var tick = glidePipeline.RunTick(new TickInput(tickIndex));
+                    LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(tick, 40);
+                    if (HasGlideActiveKinematicAnchorCommit(tick, 40))
+                    {
+                        commitTick = tick;
+                    }
+                }
+
+                Assert.That(commitTick, Is.Not.Null);
+                LegacyMovementBoundaryAssert.HasMoveEntityBoundaryReason(
+                    commitTick,
+                    40,
+                    MovementExecutionBoundaryKind.LocomotionAnchorCommit,
+                    "GlideActiveKinematicAnchorCommit");
             }
             finally
             {
@@ -2435,14 +2468,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void DeprecationPhase1_DefaultGameplayLocomotion_GlideFallback_IsRetainedException()
+        public void DeprecationPhase1_DefaultGameplayLocomotion_GlideActiveKinematic()
         {
-            BoundaryInventory_DefaultGameplayLocomotion_GlideActivePolicy();
+            BoundaryInventory_DefaultGameplayLocomotion_GlideActiveKinematic();
         }
 
         [Test]
         [Category("Core")]
-        public void BoundaryInventory_Glide_ActiveLegacyFallback_FlagOff_IsDocumented()
+        public void BoundaryInventory_GlideFlagOff_FallbackStillRetained()
         {
             var glideProfile = EnemyAiProfileTestFactory.CreateGlideChaser(
                 new EnemyGlideTimingSettings(windupTicks: 1, durationTicks: 2, recoveryTicks: 1, cooldownTicks: 1));
@@ -2554,12 +2587,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Test]
         [Category("Core")]
         [Category("GlideKinematicV11")]
-        public void DefaultGameplayLocomotion_GlideFlagPolicy_IsExplicit()
+        public void DefaultGameplayLocomotion_IncludesGlideKinematic()
         {
             var flags = GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion;
 
-            Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.False);
+            Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.True);
+            Assert.That(GameplayRuntimeFeatureFlags.None.EnableEnemyGlideKinematicLocomotion, Is.False);
             Assert.That(GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled.EnableEnemyGlideKinematicLocomotion, Is.True);
+            Assert.That(GameplayRuntimeFeatureFlags.AllKinematicLocomotionEnabled.EnableEnemyGlideKinematicLocomotion, Is.True);
         }
 
         [Test]
@@ -2751,15 +2786,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion.EnablePlayerFree2DLocalLocomotion,
                 GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion.EnableEnemySameFaceContinuousLocomotion,
                 GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion.EnableEnemyChargeKinematicLocomotion,
+                GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion.EnableEnemyGlideKinematicLocomotion,
             };
             var specialInventoryV3 = new[]
             {
                 "jump: Safe UnitSpecialLocomotion",
                 "phase relocation: Safe Retained Grid Transaction",
                 "glide: explicit flag-on stable complete",
+                "glide default adoption: complete",
                 "Phase 1: covered locomotion fallback isolated",
-                "glide retained exception: default active fallback allowed",
-                "glide default adoption: blocked",
+                "glide flag-off fallback: retained rollback baseline",
                 "actual deletion readiness: covered fallback authorization removed / cleanup pending",
                 "forced motion: Future Runtime State Needed",
                 "knockback: Future Runtime State Needed",
@@ -2780,8 +2816,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(flagOnTargets.All(enabled => enabled), Is.True);
             Assert.That(specialInventoryV3, Does.Contain("Phase 1: covered locomotion fallback isolated"));
             Assert.That(specialInventoryV3, Does.Contain("glide: explicit flag-on stable complete"));
-            Assert.That(specialInventoryV3, Does.Contain("glide retained exception: default active fallback allowed"));
-            Assert.That(specialInventoryV3, Does.Contain("glide default adoption: blocked"));
+            Assert.That(specialInventoryV3, Does.Contain("glide default adoption: complete"));
+            Assert.That(specialInventoryV3, Does.Contain("glide flag-off fallback: retained rollback baseline"));
             Assert.That(specialInventoryV3, Does.Contain("actual deletion readiness: covered fallback authorization removed / cleanup pending"));
             Assert.That(retainedPaths, Does.Contain("MoveEntity primitive"));
             Assert.That(retainedPaths, Does.Contain("MovementExpander grid transaction branch"));
@@ -2797,10 +2833,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(flags.EnablePlayerStoppableKinematicLocomotion, Is.True);
             Assert.That(flags.EnableEnemySameFaceContinuousLocomotion, Is.True);
             Assert.That(flags.EnableEnemyChargeKinematicLocomotion, Is.True);
-            Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.False);
+            Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.True);
             Assert.That(flags.EnableLegacyOrdinaryUnitFallback, Is.False);
             Assert.That(flags.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
             Assert.That(GameplayRuntimeFeatureFlags.None.EnablePlayerFree2DLocalLocomotion, Is.False);
+            Assert.That(GameplayRuntimeFeatureFlags.None.EnableEnemyGlideKinematicLocomotion, Is.False);
             Assert.That(GameplayRuntimeFeatureFlags.None.EnableLegacyOrdinaryUnitFallback, Is.False);
             Assert.That(GameplayRuntimeFeatureFlags.None.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
         }
