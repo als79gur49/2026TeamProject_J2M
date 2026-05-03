@@ -20,6 +20,7 @@ namespace Game.Feature.Gameplay.BoardState
         TargetFaceBlockedByReservation = 11,
         TargetFaceFootprintBlocked = 12,
         RemapInvalid = 13,
+        CrossingAxisDidNotReachSeam = 14,
     }
 
     internal readonly struct Free2DTopologyTransitionResult
@@ -137,9 +138,11 @@ namespace Game.Feature.Gameplay.BoardState
                     directionDelta,
                     pose.LocalOffset,
                     velocityDelta,
+                    collisionRadiusUnits,
+                    out var remapRejectReason,
                     out var remap))
             {
-                result = CreateRejected(entityId, entity.position, pose.LocalOffset, velocityDelta, Free2DTopologyTransitionRejectReason.UnsupportedSeam);
+                result = CreateRejected(entityId, entity.position, pose.LocalOffset, velocityDelta, remapRejectReason);
                 return false;
             }
 

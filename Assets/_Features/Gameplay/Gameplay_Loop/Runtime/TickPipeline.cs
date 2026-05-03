@@ -1702,6 +1702,7 @@ namespace Game.Feature.Gameplay.Loop
             var consumedFree2DIntentIds = new HashSet<int>();
             var topologyHandoffPlayerIds = new HashSet<int>();
             var settledApproachPlayerIds = new HashSet<int>();
+            var skipTopologyApproachSettleFallbackPlayerIds = new HashSet<int>();
             var entities = new List<EntityState>();
             snapshot.EnumerateEntitiesOrdered(entities);
 
@@ -1725,18 +1726,27 @@ namespace Game.Feature.Gameplay.Loop
                         continue;
                     }
 
-                    if (_runtimeFeatureFlags.EnablePlayerFree2DNativeTopologyTransition &&
-                        TryMaterializePlayerFree2DNativeTopologyTransition(
+                    var nativeTopologyDisposition = _runtimeFeatureFlags.EnablePlayerFree2DNativeTopologyTransition
+                        ? TryMaterializePlayerFree2DNativeTopologyTransition(
                             snapshot,
                             entity,
                             playerControlState,
                             playerCommand,
                             intent,
                             rejectedReasons,
-                            batch))
+                            batch)
+                        : PlayerFree2DNativeTopologyDisposition.NotCandidate;
+                    if (nativeTopologyDisposition == PlayerFree2DNativeTopologyDisposition.Materialized)
                     {
                         consumedFree2DIntentIds.Add(intent.IntentId);
                         settledApproachPlayerIds.Add(entity.entityId);
+                        continue;
+                    }
+
+                    if (nativeTopologyDisposition == PlayerFree2DNativeTopologyDisposition.TargetRejected)
+                    {
+                        consumedFree2DIntentIds.Add(intent.IntentId);
+                        skipTopologyApproachSettleFallbackPlayerIds.Add(entity.entityId);
                         continue;
                     }
 
@@ -1789,6 +1799,7 @@ namespace Game.Feature.Gameplay.Loop
                     playerCommand,
                     tickIndex,
                     rejectedReasons,
+                    skipTopologyApproachSettleFallbackPlayerIds.Contains(entity.entityId),
                     batch);
             }
 
@@ -1806,7 +1817,7 @@ namespace Game.Feature.Gameplay.Loop
             return legacyIntents;
         }
 
-        private bool TryMaterializePlayerFree2DNativeTopologyTransition(
+        private PlayerFree2DNativeTopologyDisposition TryMaterializePlayerFree2DNativeTopologyTransition(
             WorldSnapshot snapshot,
             in EntityState entity,
             in PlayerControlState playerControlState,
@@ -1819,25 +1830,25 @@ namespace Game.Feature.Gameplay.Loop
                 intent.CommandKind != Movement.MovementCommandKind.Move ||
                 intent.SourceId != entity.entityId)
             {
-                return false;
+                return PlayerFree2DNativeTopologyDisposition.NotCandidate;
             }
 
             if (playerControlState.activeAction.IsActive ||
                 PlayerControlQueries.HasQueuedFree2DAction(playerControlState))
             {
-                return false;
+                return PlayerFree2DNativeTopologyDisposition.NotCandidate;
             }
 
             if (!snapshot.TryGetUnitContinuousLocomotionPose(entity.entityId, out var pose) ||
                 pose.Mode == ContinuousLocomotionMode.AlignToAnchor)
             {
-                return false;
+                return PlayerFree2DNativeTopologyDisposition.NotCandidate;
             }
 
             var directionDelta = intent.Destination - entity.position.PlanarPosition;
             if (Math.Abs(directionDelta.x) + Math.Abs(directionDelta.y) != 1)
             {
-                return false;
+                return PlayerFree2DNativeTopologyDisposition.NotCandidate;
             }
 
             var delta = CreateContinuousDelta(
@@ -1848,7 +1859,7 @@ namespace Game.Feature.Gameplay.Loop
                 out var facing);
             if (delta.IsZero)
             {
-                return false;
+                return PlayerFree2DNativeTopologyDisposition.NotCandidate;
             }
 
             if (!SurfaceFree2DTopologyTransitionQueries.TryResolveFree2DTopologyTransition(
@@ -1859,14 +1870,15 @@ namespace Game.Feature.Gameplay.Loop
                     _playerContinuousLocomotion.CollisionRadiusUnits,
                     out var transition))
             {
-                if (transition.RejectReason != Free2DTopologyTransitionRejectReason.TopologyTransitionUnavailable &&
-                    transition.RejectReason != Free2DTopologyTransitionRejectReason.UnsupportedSeam)
+                if (ShouldRecordPlayerFree2DNativeTopologyReject(transition.RejectReason))
                 {
                     rejectedReasons.Add(
                         $"MovementRejected|Stage=Plan|Source={entity.entityId}|I={intent.IntentId}|Reason=Free2DTopologyNativeRejected|RejectedBy={transition.RejectReason}|Anchor={FormatCell(entity.position)}");
                 }
 
-                return false;
+                return IsPlayerFree2DNativeTopologyTargetRejected(transition.RejectReason)
+                    ? PlayerFree2DNativeTopologyDisposition.TargetRejected
+                    : PlayerFree2DNativeTopologyDisposition.NotCandidate;
             }
 
             var movementMetadata = new FinalizationOperationMetadata(
@@ -1916,7 +1928,29 @@ namespace Game.Feature.Gameplay.Loop
 
             rejectedReasons.Add(
                 $"Free2DTopologyNativeTransition|Stage=Plan|E={entity.entityId}|I={intent.IntentId}|Rot={transition.RotationKind}|From={FormatCell(transition.SourceAnchor)}|To={FormatCell(transition.TargetAnchor)}|SourceOffset={transition.SourceLocalOffset}|TargetOffset={transition.TargetLocalOffset}");
-            return true;
+            return PlayerFree2DNativeTopologyDisposition.Materialized;
+        }
+
+        private static bool ShouldRecordPlayerFree2DNativeTopologyReject(Free2DTopologyTransitionRejectReason reason)
+        {
+            return reason != Free2DTopologyTransitionRejectReason.UnsupportedSeam &&
+                   reason != Free2DTopologyTransitionRejectReason.CrossingAxisDidNotReachSeam &&
+                   reason != Free2DTopologyTransitionRejectReason.NonCardinalDelta &&
+                   reason != Free2DTopologyTransitionRejectReason.MissingEntity &&
+                   reason != Free2DTopologyTransitionRejectReason.NonUnit &&
+                   reason != Free2DTopologyTransitionRejectReason.MissingContinuousPose;
+        }
+
+        private static bool IsPlayerFree2DNativeTopologyTargetRejected(Free2DTopologyTransitionRejectReason reason)
+        {
+            return reason == Free2DTopologyTransitionRejectReason.TopologyTransitionUnavailable ||
+                   reason == Free2DTopologyTransitionRejectReason.TargetFaceOutOfBounds ||
+                   reason == Free2DTopologyTransitionRejectReason.TargetFaceBlockedByTerrain ||
+                   reason == Free2DTopologyTransitionRejectReason.TargetFaceBlockedBySolid ||
+                   reason == Free2DTopologyTransitionRejectReason.TargetFaceBlockedByUnit ||
+                   reason == Free2DTopologyTransitionRejectReason.TargetFaceBlockedByReservation ||
+                   reason == Free2DTopologyTransitionRejectReason.TargetFaceFootprintBlocked ||
+                   reason == Free2DTopologyTransitionRejectReason.RemapInvalid;
         }
 
         private enum PlayerFree2DTopologyHandoffIntentDisposition
@@ -1925,6 +1959,13 @@ namespace Game.Feature.Gameplay.Loop
             LocalZeroHandoff = 1,
             ApproachSettleAndHandoff = 2,
             ApproachSettleOnly = 3,
+        }
+
+        private enum PlayerFree2DNativeTopologyDisposition
+        {
+            NotCandidate = 0,
+            Materialized = 1,
+            TargetRejected = 2,
         }
 
         private PlayerFree2DTopologyHandoffIntentDisposition ResolvePlayerFree2DTopologyHandoffIntent(
@@ -2156,6 +2197,7 @@ namespace Game.Feature.Gameplay.Loop
             PlayerTickCommand playerCommand,
             int tickIndex,
             List<string> rejectedReasons,
+            bool skipTopologyApproachSettleFallback,
             FinalizationBatch batch)
         {
             if (!snapshot.TryGetUnitContinuousLocomotionPose(entity.entityId, out var pose))
@@ -2245,6 +2287,7 @@ namespace Game.Feature.Gameplay.Loop
 
             if (sweep.Blocked &&
                 sweep.RejectedBy == ContinuousLocomotionRejectionReason.TopologySeam &&
+                !skipTopologyApproachSettleFallback &&
                 TryResolvePlayerFree2DTopologyTransition(snapshot, entity.position, directionDelta) &&
                 IsPlayerFree2DTopologyApproachSettleEligible(
                     snapshot,

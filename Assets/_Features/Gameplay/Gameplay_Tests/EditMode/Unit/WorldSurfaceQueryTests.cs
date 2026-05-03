@@ -835,6 +835,137 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(landing, Is.EqualTo(default(SurfaceCell)));
         }
 
+        [Test]
+        [Category("Extended")]
+        public void SurfaceTopologyBasis_RadiusZeroForward_KeepsCenterCrossingOvershootFormula()
+        {
+            var resolved = SurfaceTopologyBasisQueries.TryRemapBottomFaceYEdgeCrossing(
+                new CubeTopologyState(FaceId.Floor),
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                new SurfaceCell(FaceId.Floor, 0, 1),
+                Vector2Int.up,
+                new KinematicOffset2(KinematicFixed.FromRaw(384), KinematicFixed.FromRaw(KinematicFixed.MaxPositiveLocalOffset)),
+                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
+                collisionRadiusUnits: 0,
+                out var rejectReason,
+                out var remap);
+
+            Assert.That(resolved, Is.True);
+            Assert.That(rejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.None));
+            Assert.That(remap.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
+            Assert.That(remap.TargetAnchor, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(remap.TargetLocalOffset.X.RawValue, Is.EqualTo(384));
+            Assert.That(remap.TargetLocalOffset.Y.RawValue, Is.EqualTo(KinematicFixed.MaxPositiveLocalOffset + 1024 - KinematicFixed.UnitsPerCell));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SurfaceTopologyBasis_RadiusZeroBackward_KeepsCenterCrossingOvershootFormula()
+        {
+            var resolved = SurfaceTopologyBasisQueries.TryRemapBottomFaceYEdgeCrossing(
+                new CubeTopologyState(FaceId.Floor),
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                Vector2Int.down,
+                new KinematicOffset2(KinematicFixed.FromRaw(-384), KinematicFixed.FromRaw(KinematicFixed.MinLocalOffset)),
+                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(-1024)),
+                collisionRadiusUnits: 0,
+                out var rejectReason,
+                out var remap);
+
+            Assert.That(resolved, Is.True);
+            Assert.That(rejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.None));
+            Assert.That(remap.RotationKind, Is.EqualTo(CubeRotationKind.Backward));
+            Assert.That(remap.TargetAnchor, Is.EqualTo(new SurfaceCell(FaceId.Back, 0, 1)));
+            Assert.That(remap.TargetLocalOffset.X.RawValue, Is.EqualTo(-384));
+            Assert.That(remap.TargetLocalOffset.Y.RawValue, Is.EqualTo(KinematicFixed.MinLocalOffset - 1024 + KinematicFixed.UnitsPerCell));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SurfaceTopologyBasis_RadiusForward_TriggersAtContactThresholdAndPreservesLocalX()
+        {
+            const int radius = 768;
+            var sourceThresholdY = KinematicFixed.HalfCellUnits - radius;
+            var resolved = SurfaceTopologyBasisQueries.TryRemapBottomFaceYEdgeCrossing(
+                new CubeTopologyState(FaceId.Floor),
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                new SurfaceCell(FaceId.Floor, 0, 1),
+                Vector2Int.up,
+                new KinematicOffset2(KinematicFixed.FromRaw(512), KinematicFixed.FromRaw(sourceThresholdY - 1024)),
+                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
+                radius,
+                out var rejectReason,
+                out var remap);
+
+            Assert.That(resolved, Is.True);
+            Assert.That(rejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.None));
+            Assert.That(remap.TargetLocalOffset.X.RawValue, Is.EqualTo(512));
+            Assert.That(remap.TargetLocalOffset.Y.RawValue, Is.EqualTo(KinematicFixed.MinLocalOffset + radius));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SurfaceTopologyBasis_RadiusBackward_TriggersAtContactThresholdAndPreservesLocalX()
+        {
+            const int radius = 768;
+            var sourceThresholdY = KinematicFixed.MinLocalOffset + radius;
+            var resolved = SurfaceTopologyBasisQueries.TryRemapBottomFaceYEdgeCrossing(
+                new CubeTopologyState(FaceId.Floor),
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                Vector2Int.down,
+                new KinematicOffset2(KinematicFixed.FromRaw(-512), KinematicFixed.FromRaw(sourceThresholdY + 1024)),
+                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(-1024)),
+                radius,
+                out var rejectReason,
+                out var remap);
+
+            Assert.That(resolved, Is.True);
+            Assert.That(rejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.None));
+            Assert.That(remap.TargetLocalOffset.X.RawValue, Is.EqualTo(-512));
+            Assert.That(remap.TargetLocalOffset.Y.RawValue, Is.EqualTo(KinematicFixed.MaxPositiveLocalOffset - radius));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SurfaceTopologyBasis_SupportedSeamBeforeThreshold_ReturnsCrossingAxisDidNotReachSeam()
+        {
+            const int radius = 768;
+            var resolved = SurfaceTopologyBasisQueries.TryRemapBottomFaceYEdgeCrossing(
+                new CubeTopologyState(FaceId.Floor),
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                new SurfaceCell(FaceId.Floor, 0, 1),
+                Vector2Int.up,
+                new KinematicOffset2(KinematicFixed.Zero, KinematicFixed.FromRaw(KinematicFixed.HalfCellUnits - radius - 1025)),
+                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
+                radius,
+                out var rejectReason,
+                out _);
+
+            Assert.That(resolved, Is.False);
+            Assert.That(rejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.CrossingAxisDidNotReachSeam));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SurfaceTopologyBasis_UnsupportedSideOrFace_ReturnsUnsupportedSeam()
+        {
+            var resolved = SurfaceTopologyBasisQueries.TryRemapBottomFaceYEdgeCrossing(
+                new CubeTopologyState(FaceId.Floor),
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                new SurfaceCell(FaceId.Front, 0, 1),
+                Vector2Int.right,
+                KinematicOffset2.Zero,
+                new KinematicVelocity2(KinematicFixed.FromRaw(1024), KinematicFixed.Zero),
+                collisionRadiusUnits: 0,
+                out var rejectReason,
+                out _);
+
+            Assert.That(resolved, Is.False);
+            Assert.That(rejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.UnsupportedSeam));
+        }
+
         private static WorldSnapshot CreateSnapshot(WorldState worldState)
         {
             return worldState.CreateSnapshot();

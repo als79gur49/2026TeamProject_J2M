@@ -440,6 +440,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var speed = DefaultFree2DSpeedUnitsPerTick();
             SetPlayerContinuousLocalOffset(worldState, 256, KinematicFixed.MaxPositiveLocalOffset, speed);
             var pipeline = CreateNativeTopologyPipeline(worldState);
+            var preSnapshot = worldState.CreateSnapshot();
+            Assert.That(preSnapshot.TryGetUnitContinuousLocomotionState(10, out var preState), Is.True);
+            Assert.That(Mathf.Abs(preState.localOffset.X.RawValue), Is.GreaterThan(0));
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
 
@@ -462,6 +465,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(
                 result.MovementPhaseResult.ResolvedOperations.Any(operation =>
                     operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.LegacyFallback),
+                Is.False);
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.TopologyMaterialization),
                 Is.False);
             Assert.That(
                 result.PresentationData.EntityMotions.Any(motion => motion.EntityId == 10),
@@ -494,13 +501,17 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 KinematicFixed.MaxPositiveLocalOffset,
                 DefaultFree2DSpeedUnitsPerTick());
             var pipeline = CreateNativeTopologyPipeline(worldState);
+            var preSnapshot = worldState.CreateSnapshot();
+            Assert.That(preSnapshot.TryGetUnitContinuousLocomotionState(10, out var preState), Is.True);
+            Assert.That(preState.localOffset.X.RawValue, Is.LessThan(0));
 
             pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
 
             var snapshot = worldState.CreateSnapshot();
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
-            Assert.That(player.position.face, Is.EqualTo(snapshot.Topology.BottomFace));
+            Assert.That(snapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
+            Assert.That(player.position.face, Is.EqualTo(FaceId.Front));
             Assert.That(state.localOffset.X.RawValue, Is.EqualTo(-384));
         }
 
@@ -519,14 +530,58 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 KinematicFixed.MaxPositiveLocalOffset,
                 DefaultFree2DSpeedUnitsPerTick());
             var pipeline = CreateNativeTopologyPipeline(worldState);
+            var preSnapshot = worldState.CreateSnapshot();
+            Assert.That(preSnapshot.TryGetUnitContinuousLocomotionState(10, out var preState), Is.True);
+            Assert.That(preState.localOffset.X.RawValue, Is.GreaterThan(0));
 
             pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
 
             var snapshot = worldState.CreateSnapshot();
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
-            Assert.That(player.position.face, Is.EqualTo(snapshot.Topology.BottomFace));
+            Assert.That(snapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
+            Assert.That(player.position.face, Is.EqualTo(FaceId.Front));
             Assert.That(state.localOffset.X.RawValue, Is.EqualTo(384));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Free2DTopology_RadiusContactBeforeCenter_CrossesNatively()
+        {
+            const int radius = KinematicFixed.UnitsPerCell * 3 / 16;
+            const float radiusCells = 0.1875f;
+            var speed = DefaultFree2DSpeedUnitsPerTick();
+            var sourceThresholdY = KinematicFixed.HalfCellUnits - radius;
+            var worldState = CreateWorldState(
+                new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            SetPlayerContinuousLocalOffset(worldState, 512, sourceThresholdY - speed, speed);
+            var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(worldState, radiusCells);
+            var preSnapshot = worldState.CreateSnapshot();
+            Assert.That(preSnapshot.TryGetUnitContinuousLocomotionState(10, out var preState), Is.True);
+            Assert.That(preState.localOffset.X.RawValue, Is.EqualTo(512));
+            Assert.That(preState.localOffset.Y.RawValue + speed, Is.EqualTo(sourceThresholdY));
+            Assert.That(preState.localOffset.Y.RawValue + speed, Is.LessThan(KinematicFixed.HalfCellUnits));
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(512));
+            Assert.That(state.localOffset.Y.RawValue, Is.EqualTo(KinematicFixed.MinLocalOffset + radius));
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition),
+                Is.True);
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Metadata.BoundaryReason == "PlayerFree2DTopologyApproachSettle"),
+                Is.False);
         }
 
         [Test]
@@ -559,6 +614,48 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.Fail(string.Join(";", result.MovementPhaseResult.RejectedReasons));
             }
             Assert.That(result.PresentationData.ContinuousLocomotionTracks.Any(track => track.EntityId == 10), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Free2DTopology_TargetFaceFootprintBlocked_DoesNotApproachSettle()
+        {
+            const int radius = KinematicFixed.UnitsPerCell * 3 / 16;
+            const float radiusCells = 0.1875f;
+            var speed = DefaultFree2DSpeedUnitsPerTick();
+            var sourceThresholdY = KinematicFixed.HalfCellUnits - radius;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)),
+                    CreateBox(20, new SurfaceCell(FaceId.Front, 1, 0)),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            SetPlayerContinuousLocalOffset(worldState, KinematicFixed.HalfCellUnits - radius, sourceThresholdY - speed, speed);
+            var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(worldState, radiusCells);
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
+            Assert.That(
+                result.MovementPhaseResult.RejectedReasons.Any(entry =>
+                    entry.Contains("Free2DTopologyNativeRejected") &&
+                    entry.Contains("TargetFaceFootprintBlocked")),
+                Is.True,
+                string.Join(";", result.MovementPhaseResult.RejectedReasons));
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.SetTopology),
+                Is.False);
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Metadata.BoundaryReason == "PlayerFree2DTopologyApproachSettle"),
+                Is.False);
         }
 
         [Test]
@@ -1699,6 +1796,26 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     timingProfile.RepeatedMoveIntervalSeconds),
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled,
+                playerContinuousLocomotion: new PlayerContinuousLocomotionSettings
+                {
+                    CollisionRadiusCells = collisionRadiusCells,
+                }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond));
+        }
+
+        private static TickPipeline CreateNativeTopologyPipelineWithCollisionRadius(
+            WorldState worldState,
+            float collisionRadiusCells,
+            params IEntityLogic[] extraLogics)
+        {
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            return GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                CreatePlayerLogics(extraLogics),
+                timingProfile,
+                PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                    GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                    timingProfile.RepeatedMoveIntervalSeconds),
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DNativeTopologyTransitionEnabled,
                 playerContinuousLocomotion: new PlayerContinuousLocomotionSettings
                 {
                     CollisionRadiusCells = collisionRadiusCells,

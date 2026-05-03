@@ -169,12 +169,16 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             SetPlayerContinuousLocalOffset(firstWorld, 256, KinematicFixed.MaxPositiveLocalOffset);
+            Assert.That(firstWorld.CreateSnapshot().TryGetUnitContinuousLocomotionState(10, out var firstPreState), Is.True);
+            Assert.That(firstPreState.localOffset.X.RawValue, Is.GreaterThan(0));
             var secondWorld = CreateWorldState(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 boardBounds,
                 GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             SetPlayerContinuousLocalOffset(secondWorld, 256, KinematicFixed.MaxPositiveLocalOffset);
+            Assert.That(secondWorld.CreateSnapshot().TryGetUnitContinuousLocomotionState(10, out var secondPreState), Is.True);
+            Assert.That(secondPreState.localOffset.X.RawValue, Is.GreaterThan(0));
 
             var firstReplay = harness.Run(
                 firstWorld,
