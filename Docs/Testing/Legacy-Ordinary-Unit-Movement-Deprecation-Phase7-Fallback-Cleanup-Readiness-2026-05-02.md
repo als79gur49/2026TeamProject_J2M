@@ -4,7 +4,7 @@
 
 Phase 7 does not delete additional runtime branches. Its historical diagnostic preset was `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline`, now superseded by `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as the canonical name after Phase 8B/8C. The preset authorizes no covered player, enemy, or Charge fallback after Phase 6. Player attempts reject with `PlayerLegacyFallbackRemovedFromRuntime`, enemy attempts reject with `EnemyLegacyFallbackRemovedFromRuntime`, and Charge attempts reject with `ChargeLegacyFallbackRemovedFromRuntime`.
 
-`MoveEntity`, `MovementExpander`, retained grid transactions, `TickEntityMotionKind.Move`, `TickEntityMotionKind.ChargeMove`, and default/flag-off glide retained fallback are not deletion targets in this phase. Golden and replay assets are not rewritten.
+`MoveEntity`, `MovementExpander`, retained grid transactions, `TickEntityMotionKind.Move`, `TickEntityMotionKind.ChargeMove`, and flag-off glide retained fallback are not deletion targets in this phase. Golden and replay assets are not rewritten.
 
 ## Preset And Flag Readiness
 
@@ -35,7 +35,7 @@ Phase 7 canaries:
 - `Phase7_None_NoCoveredFallback`
 - `Phase7_DefaultGameplay_NoCoveredFallback`
 - `Phase7_GridTransactionsRemainAllowed`
-- `Phase7_GlidePolicyUnchanged`
+- `Phase7_GlidePolicy_DefaultAdoptedAndFlagOffFallbackRetained`
 - `Phase7_HelperNames_AreCurrent`
 - `Replay_Phase7_LegacyFallbackBaseline_DiagnosticsDeterministic`
 - `Replay_Phase7_DefaultGameplay_NoCoveredFallback`

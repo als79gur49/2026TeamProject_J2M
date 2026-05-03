@@ -6,7 +6,7 @@ Date: 2026-05-02
 
 Phase 6 removes Charge active legacy fallback authorization from the runtime path. A Charge active `MoveIntent` that reaches legacy expansion is rejected even under `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline`.
 
-This is a Charge-only removal pilot. Player ordinary fallback remains removed from Phase 4, enemy ordinary fallback remains removed from Phase 5, and default/flag-off glide fallback remains a retained exception.
+This is a Charge-only removal pilot. Player ordinary fallback remains removed from Phase 4, enemy ordinary fallback remains removed from Phase 5, and after glide default adoption only flag-off glide fallback remains a retained exception.
 
 ## Runtime Policy
 
@@ -32,7 +32,7 @@ Phase 6 canonical canaries:
 - `Phase6_None_ChargeFallbackStillBlocked`
 - `Phase6_DefaultGameplay_ChargeFallbackStillAbsent`
 - `Phase6_ChargeKinematicFlagOn_NoLegacyChargeMove`
-- `Phase6_GlideFallbackPolicyUnchanged`
+- `Phase6_GlideFlagOffFallbackStillRetained`
 - `Phase6_MovementExpander_GridBranchStillAllowed`
 - `Replay_Phase6_LegacyBaseline_PlayerEnemyChargeRemoved`
 - `Replay_Phase6_ChargeLegacyBaseline_FallbackRemoved`

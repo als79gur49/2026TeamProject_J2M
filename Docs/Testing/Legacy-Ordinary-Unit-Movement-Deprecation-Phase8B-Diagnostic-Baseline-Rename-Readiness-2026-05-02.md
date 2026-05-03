@@ -25,7 +25,7 @@ Phase 8B adds canonical alias canaries:
 - `Phase8B_DefaultGameplay_NoCoveredFallback_Unchanged`
 - `Phase8B_None_NoCoveredFallback_Unchanged`
 - `Phase8B_GridTransactionsRemainAllowed`
-- `Phase8B_GlidePolicyUnchanged`
+- `Phase8B_GlideDefaultAdoptionAndFlagOffFallbackRetained`
 - `Replay_Phase8B_RemovedDiagnosticBaseline_DiagnosticsDeterministic`
 - `Replay_Phase8B_DefaultGameplay_NoCoveredFallback`
 

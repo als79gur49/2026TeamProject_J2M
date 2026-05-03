@@ -6,7 +6,7 @@ Date: 2026-05-02
 
 Phase 4 removes player legacy ordinary fallback authorization from the runtime path. A player ordinary `MoveIntent` that reaches legacy expansion is rejected even under `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline`.
 
-This is a player-only pilot. At Phase 4, enemy ordinary fallback and Charge active fallback remained supported; default/flag-off glide fallback, retained grid transactions, `MoveEntity`, and `MovementExpander` remain supported.
+This is a player-only pilot. At Phase 4, enemy ordinary fallback and Charge active fallback remained supported; after glide default adoption, only flag-off glide fallback, retained grid transactions, `MoveEntity`, and `MovementExpander` remain supported.
 
 Phase 5 supersedes the enemy portion of this status. Enemy ordinary fallback is now rejected under `LegacyOrdinaryFallbackBaseline` with `EnemyLegacyFallbackRemovedFromRuntime`.
 

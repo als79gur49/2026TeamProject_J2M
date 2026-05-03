@@ -44,7 +44,7 @@ Phase 8D adds canaries for:
 - `Phase8D_LegacyOrdinaryFallbackEnabled_HasNoCanonicalInternalUsage`
 - `Phase8D_CurrentPolicyDocs_UseRemovedDiagnosticHelper`
 - `Phase8D_GridTransactionsRemainAllowed`
-- `Phase8D_GlidePolicyUnchanged`
+- `Phase8D_GlideDefaultAdoptionAndFlagOffFallbackRetained`
 - `Replay_Phase8D_RemovedDiagnosticHelper_DiagnosticsDeterministic`
 
 ## Future Phase 8E Candidates

@@ -13,7 +13,7 @@ This package does not change runtime validation semantics.
 `TickEntityMotionKind.Move` is an ownership-narrowing target, not a deletion target; retained grid/generic presentation remains protected.
 The follow-up Charge presentation package removed the legacy Charge entity-motion enum, timing, authoring, host consumers, and synthetic compatibility.
 Current Charge presentation is `TickKinematicMotionTrack(MotionMode.Charge)` plus `TickEnemyChargePresentationSignal`.
-`MoveEntity`, `MovementExpander`, retained grid transactions, and glide retained fallback are protected and are not ordinary fallback cleanup targets.
+`MoveEntity`, `MovementExpander`, retained grid transactions, and glide flag-off fallback are protected and are not ordinary fallback cleanup targets.
 No replay or golden files are rewritten in this consolidation.
 Fallback compatibility wrapper cleanup removes stale allowed-fallback vocabulary from current-policy tests/docs.
 It does not change runtime validation, Move ownership, retained grid transactions, diagnostic presets, compatibility aliases, or trace tokens.
@@ -49,7 +49,8 @@ Phase 8E kept `EnableLegacyOrdinaryUnitFallback` as the underlying compatibility
 | `MoveEntity` | runtime primitive | retained | yes | anchor/grid transaction primitive | exclude from cleanup | catastrophic runtime break | grid owner | Never delete / Retained |
 | `MovementExpander` | expansion component | retained | yes | grid transactions and retained lanes | exclude from cleanup | grid branch regression | movement owner | Never delete / Retained |
 | retained grid transaction boundary kinds | boundary metadata | retained | yes | topology, box/action, spawn/respawn, cleanup, scripted relocation, anchor normalization | protect with canary | ordinary fallback confusion | grid owner | Never delete / Retained |
-| glide retained fallback | exception | separate policy | yes for now | default adoption not approved | keep separate from consolidation | accidental glide policy shift | glide owner | Never delete / Retained |
+| glide flag-off fallback | exception | separate rollback policy | yes for now | default adoption approved; flag-off/`None` baseline retained | glide flag-off fallback remains separate after default adoption | accidental fallback deletion | glide owner | Never delete / Retained |
+| glide default adoption | default bundle policy | approved | yes | default gameplay must include active glide kinematic | keep default tests/docs aligned | showcase behavior drift | glide owner | Do now |
 
 ## Do Now / Defer / Retained Buckets
 
@@ -125,17 +126,17 @@ The next `Move` work is ownership narrowing between fallback-only producers and 
 ## Next Recommended Implementation Package
 
 The next implementation package should continue narrowing retained generic `Move` presentation ownership without touching grid transactions.
-It must not include `TickEntityMotionKind.Move` deletion, `MoveEntity` deletion, `MovementExpander` deletion, retained grid transaction rewrites, glide default adoption, or replay/golden auto-rewrite.
+It must not include `TickEntityMotionKind.Move` deletion, `MoveEntity` deletion, `MovementExpander` deletion, retained grid transaction rewrites, glide fallback deletion, or replay/golden auto-rewrite.
 
 ## Risk Register
 
 | risk | mitigation |
 |---|---|
 | scope expands back into micro phases | one consolidation document and no Phase 8F label |
-| accidental runtime semantics change | runtime files are not edited in this package |
+| accidental runtime semantics change | runtime files are edited only for default adoption; fallback deletion remains out of scope |
 | historical Charge entity-motion golden drift | no golden rewrite; owner approval required before migration |
 | `Move` presentation deleted despite retained grid use | Move inventory records retained dependency and no immediate deletion |
-| glide policy accidentally changed | glide retained fallback remains separate and default adoption is excluded |
+| glide policy accidentally changed | default adoption approved; glide flag-off fallback remains separate after default adoption |
 | `MoveEntity` / `MovementExpander` mistaken as legacy fallback | retained bucket explicitly protects both |
 | docs inventory becomes stale | canaries assert required sections and decisions |
 | replay/golden churn | no golden rewrite; replay canary asserts deterministic diagnostics |

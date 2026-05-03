@@ -69,4 +69,4 @@ Branch deletion can be considered only after:
 - `None`, default, and explicit replacement flag-on lanes have no covered player/enemy/Charge fallback.
 - Explicit legacy baseline tests remain deterministic or are owner-approved for removal.
 - Replay/golden owners approve any trace or hash migration.
-- Glide default adoption remains separately decided.
+- Glide default adoption was later completed; flag-off glide fallback remains separately retained.

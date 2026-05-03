@@ -26,7 +26,7 @@ Phase 8A adds canonical canaries:
 - `Phase8A_LegacyFallbackBaseline_IsDiagnosticCompatibilityNaming`
 - `Phase8A_Phase7Canaries_StillPass`
 - `Phase8A_GridTransactionsRemainAllowed`
-- `Phase8A_GlidePolicyUnchanged`
+- `Phase8A_GlideDefaultAdoptionAndFlagOffFallbackRetained`
 - `Replay_Phase8A_DiagnosticBaseline_Deterministic`
 
 Historical Phase 2/4/5/6 wrapper names remain for compatibility and stratification continuity. They are historical names for removed diagnostics, not current fallback allowance policy.

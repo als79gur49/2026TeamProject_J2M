@@ -18,33 +18,35 @@ This rollout is guarded by `GameplayRuntimeFeatureFlags.EnableEnemyGlideKinemati
 
 ## Stabilization v1.1
 
-v1.1 keeps `EnableEnemyGlideKinematicLocomotion` explicit and still excludes it from `DefaultGameplayLocomotion`.
+v1.1 stabilized `EnableEnemyGlideKinematicLocomotion` as an explicit flag before default adoption.
 The stabilization gate adds coverage for contact timing, LandingPending on solid overlap, active-end non-settled continuation, hit/death cleanup, replay determinism, and voluntary-state provenance.
-Explicit flag-on active glide is considered stabilized for the legacy ordinary movement blocker once these tests are green; default bundle adoption remains a later decision.
+Explicit flag-on active glide is considered stabilized for the legacy ordinary movement blocker once these tests are green.
 
-## Default Adoption Readiness v1
+## Default Adoption v2
 
-Glide default adoption v1 chooses Option B: keep `EnableEnemyGlideKinematicLocomotion` as an explicit opt-in and do not add it to `GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion`.
-The v1.1 targeted green result is sufficient to mark explicit flag-on active glide as stable for the glide legacy ordinary blocker, but it is not sufficient to change the default gameplay bundle.
-The remaining default-adoption risks are showcase behavior drift, broad-suite hidden regression, replay/golden churn, and ambiguity in no-legacy canaries if active glide is treated as default-covered before the bundle policy is approved.
-`AllKinematicLocomotionEnabled` may still include glide for manual or broad canaries, but it is not the default gameplay policy.
+Glide default adoption v2 adds `EnableEnemyGlideKinematicLocomotion` to `GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion`.
+Default gameplay now includes player modern locomotion, enemy ordinary kinematic locomotion, Charge kinematic locomotion, and active glide kinematic locomotion.
+This is default bundle adoption, not fallback deletion.
+`GameplayRuntimeFeatureFlags.None` and explicit flag-off configurations keep the active glide fallback as the rollback and historical baseline.
+`AllKinematicLocomotionEnabled` continues to include glide.
 
-`CombinedGameplayShowcaseInstaller` uses `DefaultGameplayLocomotion`, so glide kinematic locomotion is not enabled automatically in the showcase in this v1 decision.
-Campaign and development gameplay hosts only get glide kinematic locomotion when they explicitly set `EnableEnemyGlideKinematicLocomotion`.
+`CombinedGameplayShowcaseInstaller` uses `DefaultGameplayLocomotion`, so active glide kinematic locomotion is enabled in the showcase through the default bundle.
+Campaign and development gameplay hosts that apply `DefaultGameplayLocomotion` get active glide kinematic locomotion through the same bundle.
 Replay harness defaults remain `GameplayRuntimeFeatureFlags.None`; replay and golden baselines must not be migrated to the default bundle by this readiness slice.
-Actual legacy ordinary Unit movement deletion remains separate and not complete until default adoption or an equivalent approved replacement, replay/golden policy, and broad validation are complete. Phase 1 runtime validation keeps default/flag-off active glide fallback as a retained exception while covered player/enemy/Charge fallback isolation is complete.
-Scoped deletion preparation pins this retained exception with `ScopedDeletionPrep_GlideFallback_IsRetainedException`; it does not add `EnableEnemyGlideKinematicLocomotion` to `DefaultGameplayLocomotion`.
+Actual legacy ordinary Unit movement deletion remains separate and not complete until replay/golden policy and broad validation are complete. Phase 1 runtime validation keeps flag-off active glide fallback as a retained exception while covered player/enemy/Charge fallback isolation is complete.
+Scoped deletion preparation pins this retained flag-off exception with `ScopedDeletionPrep_GlideFallback_IsRetainedException`; it does not delete the explicit fallback path.
 
 ## Rollback
 
 Set `EnableEnemyGlideKinematicLocomotion` to false or pass `GameplayRuntimeFeatureFlags.None`.
-`GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion` intentionally does not include this flag in adoption v1.
-Flag-off active glide chase fallback remains covered by `BoundaryInventory_Glide_ActiveLegacyFallback_FlagOff_IsDocumented`.
+`GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion` includes this flag after default adoption v2.
+Flag-off active glide chase fallback remains covered by `BoundaryInventory_GlideFlagOff_FallbackStillRetained`.
 
 ## Expected Test Impact
 
 - Flag-on active glide replay hashes may include `UnitKinematics` while the segment is active.
 - Boundary metadata and reason strings remain diagnostic and must not affect canonical hashes.
 - Flag-on active glide must not emit legacy ordinary `TickEntityMotionKind.Move`.
-- Flag-off replay/golden baselines remain stable until default-bundle adoption is explicitly approved.
-- Default deletion readiness remains partial/blocked for glide because adoption v1 keeps the glide flag out of `DefaultGameplayLocomotion`. Deprecation Phase 1 therefore treats default/flag-off active glide legacy fallback as a retained exception, while explicit `EnableEnemyGlideKinematicLocomotion` remains a no-legacy canary. The Phase 1 targeted Unity XML canaries are runtime green without adopting glide into the default bundle.
+- Default gameplay active glide replay hashes may change because default now records active glide `UnitKinematics`.
+- Flag-off replay/golden baselines remain stable and document the rollback baseline.
+- Default deletion readiness no longer treats active glide fallback as a default retained exception. Deprecation Phase 1 now treats only flag-off active glide legacy fallback as retained, while default and explicit `EnableEnemyGlideKinematicLocomotion` remain no-legacy canaries.

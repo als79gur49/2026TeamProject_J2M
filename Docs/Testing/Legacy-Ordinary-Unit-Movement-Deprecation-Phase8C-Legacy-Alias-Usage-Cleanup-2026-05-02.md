@@ -50,7 +50,7 @@ Phase 8C adds or updates these canaries:
 - `Phase8C_CurrentPolicyDocs_UseRemovedDiagnosticBaseline`
 - `Phase8C_AllowedOldAliasUsage_IsLimited`
 - `Phase8C_GridTransactionsRemainAllowed`
-- `Phase8C_GlidePolicyUnchanged`
+- `Phase8C_GlideDefaultAdoptionAndFlagOffFallbackRetained`
 - `Replay_Phase8C_RemovedDiagnosticBaseline_DiagnosticsDeterministic`
 - `Replay_Phase8C_DefaultGameplay_NoCoveredFallback`
 
