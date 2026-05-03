@@ -14,7 +14,7 @@ namespace Game.Feature.Stages.Editor
             StageDefinition generatedGameplayDefinition = null,
             IReadOnlyList<StageValidationIssue> validationIssues = null)
         {
-            if (source == null || placement == null || placement.Kind == StageAuthoringEntityKind.Player)
+            if (source == null || placement == null || !StageAuthoringKindRegistry.RequiresPresentationBinding(placement.Kind))
             {
                 return StageAuthoringGeneratedBindingPreviewModel.Empty;
             }
@@ -23,10 +23,11 @@ namespace Game.Feature.Stages.Editor
             var allocation = StageAuthoringProjection.BuildAllocationPlan(source);
             var hasEntityId = allocation.EntityIdsByStableGuid.TryGetValue(stableGuid, out var entityId);
             var isPreviewEntityId = IsPreviewEntityId(stableGuid, allocation.NewMappings);
-            var presentationId = NormalizePresentationId(placement.Kind, placement.PresentationId);
+            var lane = StageAuthoringKindRegistry.GetPresentationLane(placement.Kind);
+            var presentationId = NormalizePresentationId(lane, placement.PresentationId);
             var relatedIssues = StageAuthoringSelectedIssueFilter.Filter(validationIssues, placement, entityId);
-            var actualBinding = FindActualBinding(placement.Kind, generatedPresentationDefinition, entityId, out var actualPresentationId);
-            var wrongKindBinding = FindWrongKindBinding(placement.Kind, generatedPresentationDefinition, entityId);
+            var actualBinding = FindActualBinding(lane, generatedPresentationDefinition, entityId, out var actualPresentationId);
+            var wrongKindBinding = FindWrongKindBinding(lane, generatedPresentationDefinition, entityId);
             var wrongKindGameplay = HasWrongKindSpawn(placement.Kind, generatedGameplayDefinition, entityId);
             var wrongKindIssue = HasIssueCode(relatedIssues, "PresentationBinding.BindingReferencesWrongKind");
             var wrongKind = wrongKindBinding || wrongKindGameplay || wrongKindIssue;
@@ -40,7 +41,7 @@ namespace Game.Feature.Stages.Editor
             return new StageAuthoringGeneratedBindingPreviewModel(
                 requiresBinding: true,
                 placement.Kind,
-                placement.Kind == StageAuthoringEntityKind.Enemy ? "Enemy" : "Static",
+                ToBindingKindLabel(lane),
                 stableGuid,
                 hasEntityId,
                 isPreviewEntityId,
@@ -80,7 +81,7 @@ namespace Game.Feature.Stages.Editor
         }
 
         private static bool FindActualBinding(
-            StageAuthoringEntityKind kind,
+            StageAuthoringPresentationLane lane,
             StagePresentationDefinition presentation,
             int entityId,
             out string presentationId)
@@ -91,7 +92,7 @@ namespace Game.Feature.Stages.Editor
                 return false;
             }
 
-            if (kind == StageAuthoringEntityKind.Enemy)
+            if (lane == StageAuthoringPresentationLane.Enemy)
             {
                 var bindings = presentation.EnemyPresentationBindings;
                 for (var i = 0; i < bindings.Length; i++)
@@ -103,7 +104,7 @@ namespace Game.Feature.Stages.Editor
                     }
                 }
             }
-            else
+            else if (lane == StageAuthoringPresentationLane.Static)
             {
                 var bindings = presentation.StaticEntityPresentationBindings;
                 for (var i = 0; i < bindings.Length; i++)
@@ -120,7 +121,7 @@ namespace Game.Feature.Stages.Editor
         }
 
         private static bool FindWrongKindBinding(
-            StageAuthoringEntityKind kind,
+            StageAuthoringPresentationLane lane,
             StagePresentationDefinition presentation,
             int entityId)
         {
@@ -129,7 +130,7 @@ namespace Game.Feature.Stages.Editor
                 return false;
             }
 
-            if (kind == StageAuthoringEntityKind.Enemy)
+            if (lane == StageAuthoringPresentationLane.Enemy)
             {
                 var staticBindings = presentation.StaticEntityPresentationBindings;
                 for (var i = 0; i < staticBindings.Length; i++)
@@ -140,7 +141,7 @@ namespace Game.Feature.Stages.Editor
                     }
                 }
             }
-            else
+            else if (lane == StageAuthoringPresentationLane.Static)
             {
                 var enemyBindings = presentation.EnemyPresentationBindings;
                 for (var i = 0; i < enemyBindings.Length; i++)
@@ -189,6 +190,11 @@ namespace Game.Feature.Stages.Editor
                 StageAuthoringEntityKind.Player => spawnKind == StageSpawnKind.Player,
                 _ => false,
             };
+        }
+
+        private static string ToBindingKindLabel(StageAuthoringPresentationLane lane)
+        {
+            return lane == StageAuthoringPresentationLane.Enemy ? "Enemy" : "Static";
         }
 
         private static MessageType ResolveStatusType(
@@ -283,9 +289,9 @@ namespace Game.Feature.Stages.Editor
             return messages;
         }
 
-        private static string NormalizePresentationId(StageAuthoringEntityKind kind, string presentationId)
+        private static string NormalizePresentationId(StageAuthoringPresentationLane lane, string presentationId)
         {
-            return kind == StageAuthoringEntityKind.Enemy
+            return lane == StageAuthoringPresentationLane.Enemy
                 ? EnemyPresentationCatalogResolver.NormalizePresentationId(presentationId)
                 : StaticEntityPresentationCatalogResolver.NormalizePresentationId(presentationId);
         }

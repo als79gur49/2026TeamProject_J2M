@@ -47,7 +47,8 @@ namespace Game.Feature.Stages.Editor
             string currentPresentationId,
             StagePresentationDefinition presentationDefinition)
         {
-            if (kind == StageAuthoringEntityKind.Player)
+            var lane = StageAuthoringKindRegistry.GetPresentationLane(kind);
+            if (!StageAuthoringKindRegistry.RequiresPresentation(kind))
             {
                 return new StageAuthoringPresentationOptionModel(
                     Array.Empty<string>(),
@@ -68,7 +69,7 @@ namespace Game.Feature.Stages.Editor
             {
                 warningMessages.Add("Generated presentation definition is not assigned.");
             }
-            else if (kind == StageAuthoringEntityKind.Enemy)
+            else if (lane == StageAuthoringPresentationLane.Enemy)
             {
                 var catalog = presentationDefinition.EnemyPresentationCatalog;
                 catalogAssigned = catalog != null;
@@ -88,7 +89,7 @@ namespace Game.Feature.Stages.Editor
                     }
                 }
             }
-            else
+            else if (lane == StageAuthoringPresentationLane.Static)
             {
                 var catalog = presentationDefinition.StaticEntityPresentationCatalog;
                 catalogAssigned = catalog != null;
@@ -109,12 +110,12 @@ namespace Game.Feature.Stages.Editor
                 }
             }
 
-            var normalizedCurrent = NormalizePresentationId(kind, currentPresentationId);
+            var normalizedCurrent = NormalizePresentationId(lane, currentPresentationId);
             var selectedRawIndex = IndexOf(rawIds, normalizedCurrent);
             var selectedIdMissing = !string.IsNullOrEmpty(normalizedCurrent) && selectedRawIndex < 0;
             if (selectedIdMissing)
             {
-                var catalogDescription = kind == StageAuthoringEntityKind.Enemy
+                var catalogDescription = lane == StageAuthoringPresentationLane.Enemy
                     ? "enemy presentation catalog"
                     : "static presentation catalog";
                 warningMessages.Add(
@@ -158,9 +159,9 @@ namespace Game.Feature.Stages.Editor
             return labels;
         }
 
-        private static string NormalizePresentationId(StageAuthoringEntityKind kind, string presentationId)
+        private static string NormalizePresentationId(StageAuthoringPresentationLane lane, string presentationId)
         {
-            return kind == StageAuthoringEntityKind.Enemy
+            return lane == StageAuthoringPresentationLane.Enemy
                 ? EnemyPresentationCatalogResolver.NormalizePresentationId(presentationId)
                 : StaticEntityPresentationCatalogResolver.NormalizePresentationId(presentationId);
         }

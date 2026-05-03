@@ -24,6 +24,8 @@ playback ownership.
 `StagePresentationDefinition` remains the presentation companion. The generator
 syncs entity-id based enemy/static presentation bindings while preserving display
 metadata, preview/background, BGM reference, catalogs, and result text.
+Presentation metadata preservation is a pipeline invariant, not a generate
+option.
 
 ## Entity Identity
 
@@ -73,8 +75,8 @@ not authored by this tool and does not require either catalog.
 
 Generated enemy bindings must point at Enemy spawn EntityIds. Generated static
 bindings must point at Box or Wall spawn EntityIds. Missing bindings and orphan
-bindings are validator issues; bindings that point at the wrong spawn kind are
-always errors.
+bindings are validator-owned issues; bindings that point at the wrong spawn kind
+are always errors.
 
 Catalog entries must have non-empty, normalized-unique `PresentationId` values.
 `ViewPrefab` is required for every usable catalog entry because the runtime

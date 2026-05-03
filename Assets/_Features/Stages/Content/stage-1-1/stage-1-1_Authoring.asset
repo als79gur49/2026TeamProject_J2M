@@ -435,11 +435,15 @@ MonoBehaviour:
       MaxInclusive: {x: 1, y: 2}
   objective:
     CompletionPolicy: 2
+    ObjectiveTitle: ""
+    ObjectiveSummary: ""
     ConditionEntries:
     - Condition: {fileID: 11400000, guid: 65ef359c1009e38034d32c314bdff82e, type: 2}
       Required: 1
       Role: 1
       StableConditionId: primary-goal
+      DisplayText: ""
+      SortOrder: 0
   entityIdMappings:
   - StableGuid: stage-1-1:Player:10
     EntityId: 10

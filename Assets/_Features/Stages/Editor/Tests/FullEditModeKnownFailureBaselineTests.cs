@@ -11,7 +11,7 @@ namespace Game.Feature.Stages.Editor.Tests
         private const string NewFailureName =
             "Game.Feature.Gameplay.Tests.Unit.NewFixture.NewFailure";
         private const string StageAuthoringFailureName =
-            "Game.Feature.Stages.Editor.Tests.StageAuthoringDryRunTests.DryRun_DoesNotMutateOutputs";
+            "Game.Feature.Stages.Editor.Tests.StageAuthoringSyntheticKnownFailureTests.SyntheticKnownFailure";
 
         [Test]
         public void FullEditModeBaseline_ParsesFailedTestsFromNUnitXml()
