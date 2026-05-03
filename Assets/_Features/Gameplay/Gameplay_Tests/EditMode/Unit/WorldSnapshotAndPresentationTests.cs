@@ -1055,6 +1055,51 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void TickResultBuilder_Free2DTopologyTransition_MetadataSynthesizesTopologyMotionWhenSnapshotsAlreadyMatch()
+        {
+            var destinationTopology = new CubeTopologyState(FaceId.Front);
+            var expectedSourceTopology = destinationTopology.Rotate(CubeRotationKind.Backward);
+            var destinationCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var boardBounds = new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1));
+            var snapshot = CreateWorldState(
+                new[]
+                {
+                    CreateEntity(10, EntityType.Unit, destinationCell, Direction.Up),
+                },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                destinationTopology).CreateSnapshot();
+            var metadata = new FinalizationOperationMetadata(
+                TickPhase.Plan,
+                ResolvedActionSemanticKind.Move,
+                sourceActorEntityId: 10,
+                actionPlanId: 0,
+                intentId: 1,
+                rotationKind: CubeRotationKind.Forward,
+                movementSemanticKind: MovementSemanticKind.Move,
+                movementExecutionBoundaryKind: MovementExecutionBoundaryKind.Free2DTopologyTransition,
+                boundaryReason: "Free2DTopologyNativeTransition");
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    CreateMovementPhaseResultWithOperations(
+                        FinalizationOperation.MoveEntity(1, 10, destinationCell, metadata)),
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None()));
+
+            Assert.That(presentationData.TopologyMotion.HasValue, Is.True);
+            Assert.That(presentationData.TopologyMotion.Value.SourceTopology, Is.EqualTo(expectedSourceTopology));
+            Assert.That(presentationData.TopologyMotion.Value.DestinationTopology, Is.EqualTo(destinationTopology));
+            Assert.That(presentationData.TopologyMotion.Value.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
+            Assert.That(presentationData.EntityMotions, Is.Empty);
+        }
+
+        [Test]
         [Category("Extended")]
         public void MoveOwnership_SuppressionBoundary_IsCurrent()
         {

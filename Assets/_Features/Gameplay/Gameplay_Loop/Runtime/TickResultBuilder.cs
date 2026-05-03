@@ -2549,6 +2549,11 @@ namespace Game.Feature.Gameplay.Loop
             var destinationTopology = context.PostMovementSnapshot.Topology;
             if (sourceTopology.Equals(destinationTopology))
             {
+                if (TryBuildFree2DTopologyTransitionMotion(context, out var topologyMotion))
+                {
+                    return topologyMotion;
+                }
+
                 return BuildRespawnTopologyMotion(context);
             }
 
@@ -2559,6 +2564,56 @@ namespace Game.Feature.Gameplay.Loop
                     context.MovementPhaseResult.ResolvedOperations,
                     sourceTopology,
                     destinationTopology));
+        }
+
+        private static bool TryBuildFree2DTopologyTransitionMotion(
+            in TickPresentationBuildContext context,
+            out TickTopologyMotion topologyMotion)
+        {
+            if (!TryResolveFree2DTopologyTransitionMetadata(
+                    context.MovementPhaseResult,
+                    out var metadata))
+            {
+                topologyMotion = default;
+                return false;
+            }
+
+            var destinationTopology = context.PostMovementSnapshot.Topology;
+            var sourceTopology = ResolveFree2DTopologyTransitionSourceTopology(
+                destinationTopology,
+                metadata.RotationKind);
+            if (sourceTopology.Equals(destinationTopology))
+            {
+                topologyMotion = default;
+                return false;
+            }
+
+            topologyMotion = new TickTopologyMotion(
+                sourceTopology,
+                destinationTopology,
+                metadata.RotationKind);
+            return true;
+        }
+
+        private static bool TryResolveFree2DTopologyTransitionMetadata(
+            MovementPhaseResult movementPhaseResult,
+            out FinalizationOperationMetadata metadata)
+        {
+            var operations = movementPhaseResult.ResolvedOperations;
+            for (var i = 0; i < operations.Count; i++)
+            {
+                var operation = operations[i];
+                if (operation.Kind == FinalizationOperationKind.MoveEntity &&
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition &&
+                    operation.Metadata.RotationKind != CubeRotationKind.None)
+                {
+                    metadata = operation.Metadata;
+                    return true;
+                }
+            }
+
+            metadata = default;
+            return false;
         }
 
         private static TickTopologyMotion? BuildRespawnTopologyMotion(in TickPresentationBuildContext context)

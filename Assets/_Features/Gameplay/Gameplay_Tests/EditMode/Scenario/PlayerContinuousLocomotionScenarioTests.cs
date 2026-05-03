@@ -474,6 +474,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 result.PresentationData.EntityMotions.Any(motion => motion.EntityId == 10),
                 Is.False,
                 string.Join(";", result.PresentationData.EntityMotions.Select(motion => $"{motion.EntityId}:{motion.MotionKind}:{motion.SourceCell}->{motion.DestinationCell}")));
+            Assert.That(result.PresentationData.TopologyMotion.HasValue, Is.True);
+            Assert.That(result.PresentationData.TopologyMotion.Value.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
+            Assert.That(result.PresentationData.TopologyMotion.Value.DestinationTopology, Is.EqualTo(snapshot.Topology));
+            Assert.That(
+                result.PresentationData.TopologyMotion.Value.SourceTopology,
+                Is.EqualTo(snapshot.Topology.Rotate(CubeRotationKind.Backward)));
             if (!result.PresentationData.ContinuousLocomotionTracks.Any(track =>
                     track.EntityId == 10 &&
                     track.SourceTopology.HasValue &&
@@ -582,6 +588,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 result.MovementPhaseResult.ResolvedOperations.Any(operation =>
                     operation.Metadata.BoundaryReason == "PlayerFree2DTopologyApproachSettle"),
                 Is.False);
+            Assert.That(result.PresentationData.TopologyMotion.HasValue, Is.True);
+            Assert.That(result.PresentationData.TopologyMotion.Value.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
+            Assert.That(result.PresentationData.TopologyMotion.Value.DestinationTopology, Is.EqualTo(snapshot.Topology));
+            Assert.That(
+                result.PresentationData.TopologyMotion.Value.SourceTopology,
+                Is.EqualTo(snapshot.Topology.Rotate(CubeRotationKind.Backward)));
         }
 
         [Test]
