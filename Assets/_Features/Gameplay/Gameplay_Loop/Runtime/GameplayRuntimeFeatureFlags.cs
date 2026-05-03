@@ -159,7 +159,7 @@ namespace Game.Feature.Gameplay.Loop
                 enablePlayerSameFaceContinuousLocomotion: true,
                 enableEnemySameFaceContinuousLocomotion: true,
                 enableEnemyChargeKinematicLocomotion: true,
-                enableEnemyGlideKinematicLocomotion: false,
+                enableEnemyGlideKinematicLocomotion: true,
                 enablePlayerStoppableKinematicLocomotion: true,
                 enablePlayerFree2DLocalLocomotion: true,
                 enablePlayerFree2DActionAssist: true);
