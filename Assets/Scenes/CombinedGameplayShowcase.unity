@@ -223,7 +223,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalCameraData
   m_RenderShadows: 1
   m_RequiresDepthTextureOption: 2
@@ -504,6 +504,7 @@ GameObject:
   - component: {fileID: 1179627488}
   - component: {fileID: 1179627487}
   - component: {fileID: 1179627483}
+  - component: {fileID: 1179627489}
   - component: {fileID: 1179627484}
   - component: {fileID: 1179627485}
   - component: {fileID: 1179627486}
@@ -571,6 +572,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d7335ec577334edca1a90ae570c2443e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.GameplaySceneHost
+--- !u!114 &1179627489
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1179627480}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 77f98ca183bf441ba81f70f521126c17, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game.Feature.Gameplay.Vfx.ProductionRuntime::Game.Feature.Gameplay.Vfx.Host.GameplayVfxProductionRuntime
+  enableEnemyJumpTargetVfx: 1
+  hostDefaultCueMap: {fileID: 11400000, guid: 3ed23d03c1c440cb9a1441a4b18c46e5, type: 2}
+  familyProfiles: []
 --- !u!114 &1179627484
 MonoBehaviour:
   m_ObjectHideFlags: 0
