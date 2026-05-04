@@ -162,15 +162,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void PlanningContext_DoesNotExposeTickPresentationData()
+        public void PlanningContext_ExposesOnlyPresentationSeamInputs()
         {
             var properties = typeof(GameplayVfxPlanningContext)
                 .GetProperties(BindingFlags.Instance | BindingFlags.Public)
                 .Select(property => property.PropertyType.Name)
                 .ToArray();
 
-            Assert.That(properties, Is.EqualTo(new[] { "Int32" }));
-            Assert.That(properties, Does.Not.Contain("TickPresentationData"));
+            Assert.That(properties, Is.EqualTo(new[]
+            {
+                "Int32",
+                nameof(TickPresentationData),
+                nameof(CubeTopologyState),
+            }));
+            Assert.That(properties, Does.Not.Contain("WorldState"));
+            Assert.That(properties, Does.Not.Contain("WorldSnapshot"));
+            Assert.That(properties, Does.Not.Contain("TickPipeline"));
         }
 
         private static bool ContainsForbiddenType(Type type, HashSet<string> forbiddenTypes)

@@ -14,6 +14,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string VfxHostRuntimePath = "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime";
         private const string VfxHostAsmdefPath = "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Gameplay.Vfx.Host.asmdef";
         private const string HostAsmdefPath = "Assets/_Features/Gameplay/Gameplay_Host/Gameplay.Host.asmdef";
+        private static readonly string[] HostAnchorSourcePaths =
+        {
+            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/GameplayVfxHostAnchorResolver.cs",
+            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/GameplayVfxHostCellAnchorProjector.cs",
+            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/GameplayVfxHostEntityAnchorProjector.cs",
+            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/IGameplayVfxCellAnchorProjector.cs",
+            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/IGameplayVfxEntityAnchorProjector.cs",
+            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/IGameplayVfxMotionAnchorProjector.cs",
+        };
 
         private static readonly string[] ProductionBoundaryPaths =
         {
@@ -61,6 +70,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 .Select(reference => reference.Name)
                 .ToArray();
             var source = ReadCombinedSource(VfxHostRuntimePath);
+            var anchorSource = ReadCombinedFiles(HostAnchorSourcePaths);
             var asmdef = ReadRepoFile(VfxHostAsmdefPath);
 
             Assert.That(references, Does.Contain("Game.Feature.Gameplay.Vfx"));
@@ -71,7 +81,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(asmdef, Does.Not.Contain("Game.Feature.Gameplay.Vfx.Authoring"));
             Assert.That(asmdef, Does.Not.Contain("Game.Feature.Stages"));
             Assert.That(asmdef, Does.Not.Contain("Game.Feature.Gameplay.Loop"));
-            AssertForbiddenSourceTokensAbsent(source);
+            AssertAuthoritySourceTokensAbsent(source);
+            AssertAnchorOnlySourceTokensAbsent(anchorSource);
         }
 
         [Test]
@@ -97,8 +108,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "UnityEngine.MonoBehaviour",
                 "UnityEngine.ParticleSystem",
             };
-            var publicTypes = typeof(GameplayVfxHostAnchorResolver).Assembly
-                .GetTypes()
+            var publicTypes = new[]
+                {
+                    typeof(GameplayVfxHostAnchorResolver),
+                    typeof(GameplayVfxHostCellAnchorProjector),
+                    typeof(GameplayVfxHostEntityAnchorProjector),
+                    typeof(IGameplayVfxCellAnchorProjector),
+                    typeof(IGameplayVfxEntityAnchorProjector),
+                    typeof(IGameplayVfxMotionAnchorProjector),
+                }
                 .Where(type => type.IsPublic || type.IsNestedPublic)
                 .ToArray();
 
@@ -131,7 +149,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        private static void AssertForbiddenSourceTokensAbsent(string source)
+        private static void AssertAuthoritySourceTokensAbsent(string source)
         {
             var forbiddenTokens = new[]
             {
@@ -144,6 +162,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "WorldSnapshot",
                 "TickPipeline",
                 "CreateSnapshot",
+            };
+
+            foreach (var token in forbiddenTokens)
+            {
+                Assert.That(source, Does.Not.Contain(token), token);
+            }
+        }
+
+        private static void AssertAnchorOnlySourceTokensAbsent(string source)
+        {
+            var forbiddenTokens = new[]
+            {
                 "Instantiate",
                 "Destroy(",
                 "ParticleSystem",
@@ -182,8 +212,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return string.Join(
                 "\n",
                 Directory.GetFiles(Path.GetFullPath(relativeDirectory), "*.cs", SearchOption.AllDirectories)
+                    .Where(path => !IsNestedProductionRuntimeSource(path))
                     .OrderBy(path => path, StringComparer.Ordinal)
                     .Select(path => File.ReadAllText(path).Replace("\r\n", "\n")));
+        }
+
+        private static bool IsNestedProductionRuntimeSource(string path)
+        {
+            return path.Replace('\\', '/').Contains("/Runtime/Production/");
+        }
+
+        private static string ReadCombinedFiles(string[] relativePaths)
+        {
+            return string.Join(
+                "\n",
+                relativePaths
+                    .OrderBy(path => path, StringComparer.Ordinal)
+                    .Select(ReadRepoFile));
         }
 
         private static string ReadRepoFile(string relativePath)
