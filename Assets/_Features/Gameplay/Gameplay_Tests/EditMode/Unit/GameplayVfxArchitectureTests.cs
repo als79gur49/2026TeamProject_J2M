@@ -62,6 +62,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("Future Owner Binding"));
             Assert.That(document, Does.Contain("This stage does not add fields to `StagePresentationDefinition`"));
             Assert.That(document, Does.Contain("does not add runtime prefab references or production playback connection"));
+            Assert.That(document, Does.Contain("Host Anchor Resolver Gate"));
+            Assert.That(document, Does.Contain("Anchor Resolver Ownership"));
+            Assert.That(document, Does.Contain("resolver true/false is independent from missing-anchor policy"));
+            Assert.That(document, Does.Contain("transition-aware VFX anchors are future"));
         }
 
         [Test]

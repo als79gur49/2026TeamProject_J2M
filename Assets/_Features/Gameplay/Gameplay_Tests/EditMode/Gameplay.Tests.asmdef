@@ -4,6 +4,7 @@
   "references": [
     "Game.Feature.Gameplay",
     "Game.Feature.Gameplay.Vfx",
+    "Game.Feature.Gameplay.Vfx.Host",
     "Game.Feature.Gameplay.Vfx.Authoring",
     "Game.Feature.Gameplay.ActionAudio",
     "Game.Feature.Gameplay.Audio",

@@ -32,9 +32,13 @@ namespace Game.Feature.Gameplay.Vfx
 
         public int EntityId { get; }
 
+        public bool HasEntity => IsResolved && EntityId > 0;
+
         public SurfaceCell Cell { get; }
 
         public CubeTopologyState Topology { get; }
+
+        public bool HasCell => IsResolved && Kind == VfxAnchorKind.Cell;
 
         public bool UsedFallback { get; }
 

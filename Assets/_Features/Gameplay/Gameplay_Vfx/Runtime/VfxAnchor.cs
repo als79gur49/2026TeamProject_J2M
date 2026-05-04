@@ -101,6 +101,28 @@ namespace Game.Feature.Gameplay.Vfx
                 hasFallbackCell);
         }
 
+        public static VfxAnchor ForEntitySlot(
+            int entityId,
+            VfxAnchorSlot slot,
+            SurfaceCell fallbackCell = default,
+            CubeTopologyState fallbackTopology = default,
+            bool hasFallbackCell = false)
+        {
+            return new VfxAnchor(
+                VfxAnchorKind.EntitySlot,
+                slot,
+                entityId,
+                0,
+                0,
+                default,
+                default,
+                false,
+                0,
+                fallbackCell,
+                fallbackTopology,
+                hasFallbackCell);
+        }
+
         public static VfxAnchor ForMotionTrack(
             int motionTrackId,
             VfxAnchorSlot slot = VfxAnchorSlot.MotionPath)

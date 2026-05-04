@@ -117,6 +117,30 @@ Fallback order:
 
 Cell-anchored VFX must preserve `SurfaceCell(face, x, y)`. Do not flatten SurfaceCell to planar `Vector2Int`.
 
+## Host Anchor Resolver Gate
+
+This stage resolves VFX anchors through host presentation seams. It does not instantiate prefabs, implement a runtime pool, control particles, or connect production playback.
+
+The host anchor resolver decides whether a `GameplayVfxRequest.Anchor` can be resolved to a logical `VfxResolvedAnchor`. Resolver true/false is independent from missing-anchor policy. Missing-anchor handling remains owned by binding/controller policy, and the resolver does not read required/optional binding state.
+
+Cell anchors use `SurfaceCell` plus committed or fallback topology and preserve `SurfaceCell(face, x, y)`. V1 supports `CellFloor`, `CellCenter`, and `CellAboveOccupant` as host-projectable cell slots. Projection failure returns false.
+
+Entity anchors use live host entity presentation or last-known host presentation state when available. V1 supports `EntityCenter`. Entity anchors may fallback to fallback `SurfaceCell` when the live or known entity anchor is unavailable. `EntityFeet`, `EntityHead`, `EntityFront`, `EntityBack`, and `HitPoint` are unsupported in v1 unless a future slice defines and tests their host pose semantics.
+
+`CellToEntity` validates the source cell and target entity, then resolves to the source cell in v1. `EntityToCell` resolves to the source entity when available and otherwise uses the anchor fallback cell. Path, line, and beam rendering are future pooled-runtime work.
+
+`MotionTrack`, `BoardLocal`, and `Screen` anchors are future unless implemented with tests. MotionTrack actual support is a future slice.
+
+Topology transition policy for v1 is committed/fallback topology only. General VFX remains non-blocking, topology transition remains the special blocking presentation lane, and transition-aware VFX anchors are future unless explicitly supported with tests. `QueuedUntilTopologyTransitionEnd` scheduling is not implemented in this gate.
+
+## Anchor Resolver Ownership
+
+Core `VfxAnchor` remains logical request data. The host resolver uses `GameplayCubeProjector`, `GameplayPresentationStateStore`, `GameplayEntityViewRegistry`, or narrower adapters to verify host-side projectability.
+
+Runtime controller still consumes logical `VfxResolvedAnchor` until a pooled runtime requires host pose materialization. World position, rotation, and transform materialization are future pooled runtime work and must not leak into the core VFX public surface.
+
+The host resolver must not read WorldState, WorldSnapshot, TickPipeline, ScriptableObject authoring assets, GameObject prefab bindings, or stage presentation bindings. It must not call WorldState.CreateSnapshot. It must not add fields to `GameplaySceneHostConfiguration`, `StagePresentationDefinition`, or entity prefab authoring, and it must not connect `GameplayTickPresentationCoordinator` or `GameplayTickViewPresenter`.
+
 ## Timing Policy
 
 Timing vocabulary:
