@@ -162,7 +162,8 @@ namespace Game.Feature.Gameplay.Loop
                 enableEnemyGlideKinematicLocomotion: true,
                 enablePlayerStoppableKinematicLocomotion: true,
                 enablePlayerFree2DLocalLocomotion: true,
-                enablePlayerFree2DActionAssist: true);
+                enablePlayerFree2DActionAssist: true,
+                enablePlayerFree2DNativeTopologyTransition: true);
 
         // Phase 8B canonical diagnostic preset: covered player/enemy/Charge fallback is
         // rejected, while removed-fallback diagnostics remain reproducible for tests.

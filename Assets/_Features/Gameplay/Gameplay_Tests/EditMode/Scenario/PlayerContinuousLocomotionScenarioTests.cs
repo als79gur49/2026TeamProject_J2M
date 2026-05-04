@@ -360,70 +360,81 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Player_Free2D_TopologyEdge_SeamClampedNonZero_SettlesThenNextTickHandoff()
+        public void Player_Free2D_TopologyEdge_SeamClampedNonZero_CrossesNativelyUnderDefaultGameplay()
         {
             var boardBounds = new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1));
+            var speed = DefaultFree2DSpeedUnitsPerTick();
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 boardBounds,
                 GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
-            SetPlayerContinuousLocalOffset(worldState, 0, KinematicFixed.MaxPositiveLocalOffset);
-            var pipeline = CreateDefaultGameplayPipeline(worldState);
-
-            var settleTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
-            var settledSnapshot = worldState.CreateSnapshot();
-            Assert.That(settledSnapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
-            Assert.That(settledSnapshot.TryGetEntity(10, out var settledPlayer), Is.True);
-            Assert.That(settledPlayer.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
-            Assert.That(settledSnapshot.TryGetUnitContinuousLocomotionState(10, out _), Is.False);
-            Assert.That(
-                settleTick.MovementPhaseResult.ResolvedOperations.Any(operation =>
-                    operation.Kind == FinalizationOperationKind.SetTopology),
-                Is.False);
-
-            var handoffTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Up)));
-            var handoffSnapshot = worldState.CreateSnapshot();
-            Assert.That(handoffSnapshot.Topology, Is.Not.EqualTo(new CubeTopologyState(FaceId.Floor)));
-            Assert.That(handoffSnapshot.TryGetEntity(10, out var handoffPlayer), Is.True);
-            Assert.That(handoffPlayer.position, Is.EqualTo(new SurfaceCell(handoffSnapshot.Topology.BottomFace, 0, 0)));
-            LegacyMovementBoundaryAssert.GridTransactionBranchesRemainAllowed(
-                handoffTick,
-                10,
-                MovementExecutionBoundaryKind.TopologyMaterialization);
-            Assert.That(handoffTick.PresentationData.ContinuousLocomotionTracks.Any(track => track.EntityId == 10), Is.False);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void Player_Free2D_TopologyEdge_LocalNonZero_ClampsOrRejects()
-        {
-            var boardBounds = new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1));
-            var worldState = CreateWorldState(
-                new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
-                boardBounds,
-                GameplayTerrainData.Empty,
-                new CubeTopologyState(FaceId.Floor));
-            SetPlayerContinuousLocalOffset(worldState, 256, KinematicFixed.MaxPositiveLocalOffset);
+            SetPlayerContinuousLocalOffset(worldState, 0, KinematicFixed.MaxPositiveLocalOffset, speed);
             var pipeline = CreateDefaultGameplayPipeline(worldState);
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
 
             var snapshot = worldState.CreateSnapshot();
-            Assert.That(snapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+            Assert.That(snapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
-            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
-            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(256));
-            Assert.That(state.localOffset.Y.RawValue, Is.EqualTo(KinematicFixed.MaxPositiveLocalOffset));
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(0));
+            Assert.That(state.localOffset.Y.RawValue, Is.EqualTo(KinematicFixed.MaxPositiveLocalOffset + speed - KinematicFixed.UnitsPerCell));
+            LegacyMovementBoundaryAssert.GridTransactionBranchesRemainAllowed(
+                result,
+                10,
+                MovementExecutionBoundaryKind.Free2DTopologyTransition);
             Assert.That(
                 result.MovementPhaseResult.ResolvedOperations.Any(operation =>
-                    operation.Kind == FinalizationOperationKind.SetTopology),
+                    operation.Metadata.BoundaryReason == "Free2DTopologyNativeTransition"),
+                Is.True);
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.TopologyMaterialization),
+                Is.False);
+            Assert.That(result.PresentationData.ContinuousLocomotionTracks.Any(track => track.EntityId == 10), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Player_Free2D_TopologyEdge_LocalNonZero_CrossesNativelyUnderDefaultGameplay()
+        {
+            var boardBounds = new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1));
+            var speed = DefaultFree2DSpeedUnitsPerTick();
+            var worldState = CreateWorldState(
+                new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            SetPlayerContinuousLocalOffset(worldState, 256, KinematicFixed.MaxPositiveLocalOffset, speed);
+            var pipeline = CreateDefaultGameplayPipeline(worldState);
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(256));
+            Assert.That(state.localOffset.Y.RawValue, Is.EqualTo(KinematicFixed.MaxPositiveLocalOffset + speed - KinematicFixed.UnitsPerCell));
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.MoveEntity &&
+                    operation.EntityId == 10 &&
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition &&
+                    operation.Metadata.BoundaryReason == "Free2DTopologyNativeTransition"),
+                Is.True);
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.TopologyMaterialization),
                 Is.False);
             Assert.That(
                 result.MovementPhaseResult.ResolvedOperations.Any(operation =>
                     operation.Metadata.BoundaryReason == "PlayerFree2DTopologyApproachSettle"),
                 Is.False);
+            Assert.That(result.PresentationData.ContinuousLocomotionTracks.Any(track => track.EntityId == 10), Is.True);
             LegacyMovementBoundaryAssert.NoUnexpectedLegacyOrdinaryDiagnostics(result);
         }
 

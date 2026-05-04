@@ -38,6 +38,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(flags.EnablePlayerFree2DLocalLocomotion, Is.True);
             Assert.That(flags.EnablePlayerFree2DActionAssist, Is.True);
+            Assert.That(flags.EnablePlayerFree2DNativeTopologyTransition, Is.True);
             Assert.That(flags.EnablePlayerSameFaceContinuousLocomotion, Is.True);
             Assert.That(flags.EnablePlayerStoppableKinematicLocomotion, Is.True);
             Assert.That(flags.EnableEnemySameFaceContinuousLocomotion, Is.True);

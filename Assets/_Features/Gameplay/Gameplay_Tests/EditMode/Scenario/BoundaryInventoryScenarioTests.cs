@@ -286,31 +286,33 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Player_Free2D_TopologyHandoff_NoLegacyOrdinaryFallback();
 
             var boardBounds = new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1));
+            var speed = DefaultFree2DSpeedUnitsPerTick();
             var approachWorld = CreateWorldState(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 boardBounds,
                 GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
-            SetPlayerContinuousLocalOffset(approachWorld, localX: 0, localY: KinematicFixed.MaxPositiveLocalOffset);
+            SetPlayerContinuousLocalOffset(approachWorld, localX: 0, localY: KinematicFixed.MaxPositiveLocalOffset, speedUnitsPerTick: speed);
             var approachPipeline = CreatePipeline(
                 approachWorld,
                 new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                 GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
 
-            var settleTick = approachPipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
-            LegacyMovementBoundaryAssert.NoPlayerLegacyOrdinaryFallback(settleTick, 10);
-            Assert.That(
-                settleTick.MovementPhaseResult.ResolvedOperations.Any(operation =>
-                    operation.Kind == FinalizationOperationKind.SetTopology),
-                Is.False);
-
-            var handoffTick = approachPipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Up)));
+            var handoffTick = approachPipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
             LegacyMovementBoundaryAssert.GridTransactionBranchesRemainAllowed(
                 handoffTick,
                 10,
-                MovementExecutionBoundaryKind.TopologyMaterialization);
+                MovementExecutionBoundaryKind.Free2DTopologyTransition);
             LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(handoffTick);
-            Assert.That(handoffTick.PresentationData.ContinuousLocomotionTracks.Any(track => track.EntityId == 10), Is.False);
+            Assert.That(
+                handoffTick.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Metadata.BoundaryReason == "Free2DTopologyNativeTransition"),
+                Is.True);
+            Assert.That(
+                handoffTick.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.TopologyMaterialization),
+                Is.False);
+            Assert.That(handoffTick.PresentationData.ContinuousLocomotionTracks.Any(track => track.EntityId == 10), Is.True);
         }
 
         [Test]
@@ -2828,7 +2830,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var flags = GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion;
             Assert.That(flags.EnablePlayerFree2DLocalLocomotion, Is.True);
             Assert.That(flags.EnablePlayerFree2DActionAssist, Is.True);
-            Assert.That(flags.EnablePlayerFree2DNativeTopologyTransition, Is.False);
+            Assert.That(flags.EnablePlayerFree2DNativeTopologyTransition, Is.True);
             Assert.That(flags.EnablePlayerSameFaceContinuousLocomotion, Is.True);
             Assert.That(flags.EnablePlayerStoppableKinematicLocomotion, Is.True);
             Assert.That(flags.EnableEnemySameFaceContinuousLocomotion, Is.True);
@@ -2940,6 +2942,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                 timingProfile.SimulationTicksPerSecond,
                 timingProfile.RepeatedMoveIntervalSeconds);
+        }
+
+        private static int DefaultFree2DSpeedUnitsPerTick()
+        {
+            return PlayerContinuousLocomotionSettings.CreateDefault()
+                .CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond)
+                .SpeedUnitsPerTick;
         }
 
         private static PlayerKinematicLocomotionTimingSnapshot CreateTwoTickKinematicTiming()
@@ -3057,7 +3066,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 string.Join("\n", rejectedReasons));
         }
 
-        private static void SetPlayerContinuousLocalOffset(WorldState worldState, int localX, int localY)
+        private static void SetPlayerContinuousLocalOffset(
+            WorldState worldState,
+            int localX,
+            int localY,
+            int speedUnitsPerTick = 0)
         {
             worldState.CreateWriteContext().SetUnitContinuousLocomotionState(
                 10,
@@ -3069,7 +3082,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     velocity = KinematicVelocity2.Zero,
                     facing = Direction.Right,
                     lastMoveDirection = Direction.Right,
-                    speedUnitsPerTick = 0,
+                    speedUnitsPerTick = speedUnitsPerTick,
                     mode = ContinuousLocomotionMode.Idle,
                     sequenceId = 1,
                 }.NormalizedForStorage());
