@@ -3,14 +3,21 @@ namespace Game.Feature.Gameplay.Vfx
     public sealed class ProfileAwareVfxBindingResolver : IVfxBindingResolver
     {
         private readonly IGameplayVfxProfileProvider profileProvider;
-        private readonly VfxCueMap hostDefaultMap;
+        private readonly IVfxBindingResolver fallbackResolver;
 
         public ProfileAwareVfxBindingResolver(
             IGameplayVfxProfileProvider profileProvider,
             VfxCueMap hostDefaultMap)
+            : this(profileProvider, new VfxCueMapBindingResolver(hostDefaultMap))
+        {
+        }
+
+        public ProfileAwareVfxBindingResolver(
+            IGameplayVfxProfileProvider profileProvider,
+            IVfxBindingResolver fallbackResolver)
         {
             this.profileProvider = profileProvider;
-            this.hostDefaultMap = hostDefaultMap ?? VfxCueMap.Empty;
+            this.fallbackResolver = fallbackResolver ?? new VfxCueMapBindingResolver(VfxCueMap.Empty);
         }
 
         public bool TryResolve(in GameplayVfxRequest request, out VfxBindingRuntimePolicy policy)
@@ -24,7 +31,22 @@ namespace Game.Feature.Gameplay.Vfx
                 return true;
             }
 
-            return hostDefaultMap.TryResolve(request.CueId, out policy);
+            return fallbackResolver.TryResolve(request, out policy);
+        }
+
+        private sealed class VfxCueMapBindingResolver : IVfxBindingResolver
+        {
+            private readonly VfxCueMap map;
+
+            public VfxCueMapBindingResolver(VfxCueMap map)
+            {
+                this.map = map ?? VfxCueMap.Empty;
+            }
+
+            public bool TryResolve(in GameplayVfxRequest request, out VfxBindingRuntimePolicy policy)
+            {
+                return map.TryResolve(request.CueId, out policy);
+            }
         }
     }
 }

@@ -21,6 +21,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private IVfxBindingResolver bindingResolver;
         private GameplayCubeProjector configuredProjector;
         private GameplayPresentationStateStore configuredStateStore;
+        private EnemyPresentationCatalog configuredEnemyPresentationCatalog;
+        private EnemyPresentationBinding[] configuredEnemyPresentationBindings = Array.Empty<EnemyPresentationBinding>();
+        private EnemyPresentationVfxProfileProvider enemyPresentationVfxProfileProvider;
         private VfxCueMapAsset hostDefaultCueMap;
 
         public bool EnableEnemyJumpTargetVfx
@@ -86,6 +89,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return;
             }
 
+            ConfigureEnemyPresentationProfiles(
+                context.EnemyPresentationCatalog,
+                context.EnemyPresentationBindings);
             EnsureRuntime(context);
             planBuilder.Clear();
             enemyPlanner.Plan(
@@ -158,8 +164,35 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 throw new InvalidOperationException("Gameplay VFX binding composition failed.");
             }
 
-            bindingResolver = composition.Resolver;
-            prefabProvider = new AuthoringPrefabProvider(hostDefaultCueMap, familyProfiles);
+            var profileProvider = enemyPresentationVfxProfileProvider;
+            bindingResolver = profileProvider != null && profileProvider.Count > 0
+                ? new ProfileAwareVfxBindingResolver(profileProvider, composition.Resolver)
+                : composition.Resolver;
+            prefabProvider = new AuthoringPrefabProvider(
+                profileProvider,
+                hostDefaultCueMap,
+                familyProfiles);
+        }
+
+        private void ConfigureEnemyPresentationProfiles(
+            EnemyPresentationCatalog catalog,
+            EnemyPresentationBinding[] bindings)
+        {
+            var resolvedBindings = bindings ?? Array.Empty<EnemyPresentationBinding>();
+            if (ReferenceEquals(configuredEnemyPresentationCatalog, catalog) &&
+                ReferenceEquals(configuredEnemyPresentationBindings, resolvedBindings))
+            {
+                return;
+            }
+
+            configuredEnemyPresentationCatalog = catalog;
+            configuredEnemyPresentationBindings = resolvedBindings;
+            enemyPresentationVfxProfileProvider = EnemyPresentationVfxProfileMapBuilder.Build(
+                configuredEnemyPresentationCatalog,
+                configuredEnemyPresentationBindings,
+                nameof(GameplayVfxProductionRuntime));
+            RebuildBindingRuntime();
+            ResetRuntimeComposition();
         }
 
         private void ResetRuntimeComposition()
@@ -171,17 +204,31 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         private sealed class AuthoringPrefabProvider : IVfxPrefabProvider
         {
+            private readonly EnemyPresentationVfxProfileProvider enemyProfileProvider;
             private readonly VfxCueMapAsset hostDefaultMap;
             private readonly VfxProfileAsset[] profiles;
 
-            public AuthoringPrefabProvider(VfxCueMapAsset hostDefaultMap, VfxProfileAsset[] profiles)
+            public AuthoringPrefabProvider(
+                EnemyPresentationVfxProfileProvider enemyProfileProvider,
+                VfxCueMapAsset hostDefaultMap,
+                VfxProfileAsset[] profiles)
             {
+                this.enemyProfileProvider = enemyProfileProvider;
                 this.hostDefaultMap = hostDefaultMap;
                 this.profiles = profiles ?? Array.Empty<VfxProfileAsset>();
             }
 
             public bool TryResolvePrefab(in ResolvedVfxPlaybackCommand command, out GameObject prefab)
             {
+                if (enemyProfileProvider != null &&
+                    enemyProfileProvider.TryResolveProfileAssetForSourceEntity(
+                        command.Request.SourceEntityId,
+                        out var sourceProfile) &&
+                    sourceProfile.TryResolvePrefab(command.CueId, out prefab))
+                {
+                    return true;
+                }
+
                 for (var i = 0; i < profiles.Length; i++)
                 {
                     var profile = profiles[i];

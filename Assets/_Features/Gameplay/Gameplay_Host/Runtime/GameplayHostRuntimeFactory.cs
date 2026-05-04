@@ -126,7 +126,9 @@ namespace Game.Feature.Gameplay.Host
                 configuration.TopologyRotationVisualMapping,
                 configuration.TopologyRotationTween,
                 faceSeamGap,
-                enemyPresentationArchetypeRegistry);
+                enemyPresentationArchetypeRegistry,
+                configuration.EnemyPresentationCatalog,
+                configuration.EnemyPresentationBindings);
             AttachPresentationExtensions(hostObject, presenter);
             AttachGameplayAudioRuntimeIfConfigured(hostObject, presenter, configuration);
 

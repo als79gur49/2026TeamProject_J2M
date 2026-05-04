@@ -9,12 +9,16 @@ namespace Game.Feature.Gameplay.Host
             TickResult result,
             CubeTopologyState topology,
             GameplayPresentationStateStore stateStore,
-            GameplayCubeProjector projector)
+            GameplayCubeProjector projector,
+            EnemyPresentationCatalog enemyPresentationCatalog = null,
+            EnemyPresentationBinding[] enemyPresentationBindings = null)
         {
             Result = result;
             Topology = topology;
             StateStore = stateStore;
             Projector = projector;
+            EnemyPresentationCatalog = enemyPresentationCatalog;
+            EnemyPresentationBindings = enemyPresentationBindings ?? System.Array.Empty<EnemyPresentationBinding>();
         }
 
         public TickResult Result { get; }
@@ -24,6 +28,10 @@ namespace Game.Feature.Gameplay.Host
         public GameplayPresentationStateStore StateStore { get; }
 
         public GameplayCubeProjector Projector { get; }
+
+        public EnemyPresentationCatalog EnemyPresentationCatalog { get; }
+
+        public EnemyPresentationBinding[] EnemyPresentationBindings { get; }
     }
 
     public interface IGameplayTickPresentationExtension

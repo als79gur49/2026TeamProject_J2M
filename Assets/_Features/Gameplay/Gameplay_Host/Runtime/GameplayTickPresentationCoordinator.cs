@@ -37,6 +37,8 @@ namespace Game.Feature.Gameplay.Host
 
         private bool _isInitialized;
         private GameplayCubeProjector _projector;
+        private EnemyPresentationBinding[] _enemyPresentationBindings = Array.Empty<EnemyPresentationBinding>();
+        private EnemyPresentationCatalog _enemyPresentationCatalog;
         private GameplayTimingProfile _timingProfile;
         private GameplayEntityViewBinder _viewBinder;
         private Action<string> _traceSink;
@@ -125,7 +127,9 @@ namespace Game.Feature.Gameplay.Host
             TopologyRotationVisualMapping topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesPositiveX,
             TopologyRotationTweenSettings topologyRotationTweenSettings = default,
             float faceSeamGap = -1f,
-            EnemyPresentationArchetypeRegistry enemyPresentationArchetypeRegistry = null)
+            EnemyPresentationArchetypeRegistry enemyPresentationArchetypeRegistry = null,
+            EnemyPresentationCatalog enemyPresentationCatalog = null,
+            EnemyPresentationBinding[] enemyPresentationBindings = null)
         {
             if (viewBinder == null)
             {
@@ -133,6 +137,8 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _viewBinder = viewBinder;
+            _enemyPresentationCatalog = enemyPresentationCatalog;
+            _enemyPresentationBindings = enemyPresentationBindings ?? Array.Empty<EnemyPresentationBinding>();
             var resolvedFaceSeamGap = faceSeamGap >= 0f ? faceSeamGap : cellSize;
             _projector = new GameplayCubeProjector(boardBounds, cellSize, resolvedFaceSeamGap);
             _timingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
@@ -387,7 +393,9 @@ namespace Game.Feature.Gameplay.Host
                 result,
                 _stateStore.CommittedTopology,
                 _stateStore,
-                _projector);
+                _projector,
+                _enemyPresentationCatalog,
+                _enemyPresentationBindings);
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
                 _presentationExtensions[i]?.Present(context);
