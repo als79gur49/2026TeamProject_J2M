@@ -52,6 +52,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("VfxCueMapAsset"));
             Assert.That(document, Does.Contain("VfxProfileAsset"));
             Assert.That(document, Does.Contain("prefab validation"));
+            Assert.That(document, Does.Contain("Composition Ownership Gate"));
+            Assert.That(document, Does.Contain("GameplayVfxBindingComposition"));
+            Assert.That(document, Does.Contain("Host default map is optional"));
+            Assert.That(document, Does.Contain("Family profiles override the host default map"));
+            Assert.That(document, Does.Contain("Duplicate family profiles are invalid"));
+            Assert.That(document, Does.Contain("Null profile entries are invalid"));
+            Assert.That(document, Does.Contain("Stage map composition is a future slice"));
+            Assert.That(document, Does.Contain("Future Owner Binding"));
             Assert.That(document, Does.Contain("This stage does not add fields to `StagePresentationDefinition`"));
             Assert.That(document, Does.Contain("does not add runtime prefab references or production playback connection"));
         }

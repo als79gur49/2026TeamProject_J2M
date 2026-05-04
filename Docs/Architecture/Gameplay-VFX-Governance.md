@@ -200,6 +200,34 @@ This stage adds ScriptableObject authoring assets for VFX binding policy. It doe
 
 Authoring assets convert to runtime-safe policy snapshots. `GameplayVfxPresentationController`, lifecycle runtime, binding resolvers, and pools consume `VfxBindingRuntimePolicy`, `VfxCueMap`, and `VfxProfile`, not ScriptableObject or GameObject references.
 
+## Composition Ownership Gate
+
+This stage converts VFX authoring assets into runtime-safe binding resolvers. It does not connect production playback, add scene host fields, add stage fields, add prefab owner fields, instantiate prefabs, or implement a GameObject pool.
+
+Composition is an authoring-side seam. `GameplayVfxBindingComposition` owns conversion from host default `VfxCueMapAsset` to runtime `VfxCueMap`, conversion from family `VfxProfileAsset` entries to runtime `VfxProfile` dictionaries, and construction of `CompositeVfxBindingResolver`.
+
+`GameplayVfxBindingCompositionResult` owns success/failure state, the built runtime map/profile snapshots, the resolver, and merged authoring validation diagnostics. Runtime VFX core remains unaware of ScriptableObject and GameObject authoring objects.
+
+## Composition Policy
+
+Host default map is optional in this phase. Missing host default map plus no profiles is allowed as an empty/no-op configuration until production connection is opened.
+
+Family profiles override the host default map. Resolution order is:
+
+1. request family profile
+2. host default map
+3. missing binding
+
+Duplicate family profiles are invalid. Null profile entries are invalid by default. Invalid host maps, invalid profiles, invalid bindings, profile family `None`, and cross-family profile bindings fail composition through merged authoring diagnostics.
+
+Stage map composition is a future slice. This gate does not decide whether future stage maps resolve before or after host defaults or prefab-local profiles.
+
+## Future Owner Binding
+
+Host default map owner is future gameplay host presentation config. Player, Box, Enemy, and Projectile prefab-local profile owner is future prefab authoring. Tile, Terrain, and Stage environmental map owner is future stage presentation binding.
+
+This stage only proves conversion and resolver composition. It does not expose host default maps in scene inspectors, add `GameplaySceneHostConfiguration` fields, add `StagePresentationDefinition` fields, or attach VFX profiles to entity prefabs.
+
 ## Binding Asset Ownership
 
 `VfxBindingDefinitionAsset` owns a single cue binding's prefab reference, requirement policy, missing-anchor policy, playback mode, stop policy, lifetime, tail, and pool-sizing hints. `VfxBindingRuntimePolicy` remains Unity-object-free and is the runtime execution policy snapshot.
@@ -264,6 +292,7 @@ This stage adds authoring-side prefab references, ScriptableObject authoring, pr
 3. family planner skeleton
 4. no-snapshot / authority isolation tests
 5. host-side controller/pool/lifecycle skeleton
-6. bounded first production slice that does not overlap existing presenters
-7. existing presenter migration slice with duplicate prevention tests
-8. Stage/prefab binding expansion
+6. authoring-side composition ownership gate
+7. bounded first production slice that does not overlap existing presenters
+8. existing presenter migration slice with duplicate prevention tests
+9. Stage/prefab binding expansion
