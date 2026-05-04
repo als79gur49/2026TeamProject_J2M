@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.Vfx.Authoring;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -9,6 +10,7 @@ namespace Game.Feature.Gameplay.Host
     {
         public string PresentationId;
         public GameplayEntityView ViewPrefab;
+        public VfxProfileAsset VfxProfileAsset;
     }
 
     [CreateAssetMenu(menuName = "Gameplay/Presentation/Enemy Presentation Catalog")]
