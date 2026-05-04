@@ -109,7 +109,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var instance = Lease(prefab, prefabInstanceId);
             var now = timeProvider.TimeSeconds;
             var handle = new GameplayVfxPlaybackHandle(++nextHandleId, command, instance, now, timeProvider);
-            instance.Activate(prefabInstanceId, handle, parent);
+            instance.Activate(prefabInstanceId, handle, parent, command.Anchor);
             handle.MarkSpawned();
             handle.MarkActive();
             activeHandles.Add(handle);

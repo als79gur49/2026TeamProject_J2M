@@ -136,7 +136,15 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             if (usedFallback)
             {
-                resolvedAnchor = VfxResolvedAnchor.ForCell(cell, topology, slot, true);
+                resolvedAnchor = resolvedAnchor.HasLocalPose
+                    ? VfxResolvedAnchor.ForCell(
+                        cell,
+                        topology,
+                        slot,
+                        resolvedAnchor.LocalPosition,
+                        resolvedAnchor.LocalRotation,
+                        true)
+                    : VfxResolvedAnchor.ForCell(cell, topology, slot, true);
             }
 
             return true;

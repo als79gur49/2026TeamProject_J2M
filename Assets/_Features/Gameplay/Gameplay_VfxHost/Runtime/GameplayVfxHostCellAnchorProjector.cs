@@ -19,13 +19,18 @@ namespace Game.Feature.Gameplay.Vfx.Host
             out VfxResolvedAnchor resolvedAnchor)
         {
             if (!IsSupportedSlot(slot) ||
-                !projector.TryProjectSurfaceCell(cell, topology, out _))
+                !projector.TryProjectSurfaceCell(cell, topology, out var projectedPose))
             {
                 resolvedAnchor = VfxResolvedAnchor.Unresolved(VfxMissingAnchorPolicy.SkipOptional);
                 return false;
             }
 
-            resolvedAnchor = VfxResolvedAnchor.ForCell(cell, topology, slot);
+            resolvedAnchor = VfxResolvedAnchor.ForCell(
+                cell,
+                topology,
+                slot,
+                projectedPose.LocalPosition,
+                projectedPose.LocalRotation);
             return true;
         }
 

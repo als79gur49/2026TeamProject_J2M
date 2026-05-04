@@ -29,13 +29,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public void Activate(
             int prefabInstanceId,
             GameplayVfxPlaybackHandle playbackHandle,
-            Transform parent)
+            Transform parent,
+            in VfxResolvedAnchor anchor)
         {
             PrefabInstanceId = prefabInstanceId;
             handle = playbackHandle;
             Transform.SetParent(parent, worldPositionStays: false);
-            Transform.localPosition = Vector3.zero;
-            Transform.localRotation = Quaternion.identity;
+            Transform.localPosition = anchor.HasLocalPose ? anchor.LocalPosition : Vector3.zero;
+            Transform.localRotation = anchor.HasLocalPose ? anchor.LocalRotation : Quaternion.identity;
             Transform.localScale = Vector3.one;
             GameObject.SetActive(true);
             RestartParticles();

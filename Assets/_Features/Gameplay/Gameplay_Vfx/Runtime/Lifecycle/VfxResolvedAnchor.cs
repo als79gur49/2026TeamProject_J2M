@@ -1,4 +1,5 @@
 using Game.Feature.Gameplay.BoardState;
+using UnityEngine;
 
 namespace Game.Feature.Gameplay.Vfx
 {
@@ -11,6 +12,9 @@ namespace Game.Feature.Gameplay.Vfx
             int entityId,
             SurfaceCell cell,
             CubeTopologyState topology,
+            bool hasLocalPose,
+            Vector3 localPosition,
+            Quaternion localRotation,
             bool usedFallback,
             VfxMissingAnchorPolicy missingPolicy)
         {
@@ -20,6 +24,9 @@ namespace Game.Feature.Gameplay.Vfx
             EntityId = entityId;
             Cell = cell;
             Topology = topology;
+            HasLocalPose = hasLocalPose;
+            LocalPosition = localPosition;
+            LocalRotation = localRotation;
             UsedFallback = usedFallback;
             MissingPolicy = missingPolicy;
         }
@@ -40,6 +47,12 @@ namespace Game.Feature.Gameplay.Vfx
 
         public bool HasCell => IsResolved && Kind == VfxAnchorKind.Cell;
 
+        public bool HasLocalPose { get; }
+
+        public Vector3 LocalPosition { get; }
+
+        public Quaternion LocalRotation { get; }
+
         public bool UsedFallback { get; }
 
         public VfxMissingAnchorPolicy MissingPolicy { get; }
@@ -53,6 +66,9 @@ namespace Game.Feature.Gameplay.Vfx
                 0,
                 default,
                 default,
+                false,
+                default,
+                Quaternion.identity,
                 false,
                 policy);
         }
@@ -70,6 +86,31 @@ namespace Game.Feature.Gameplay.Vfx
                 0,
                 cell,
                 topology,
+                false,
+                default,
+                Quaternion.identity,
+                usedFallback,
+                VfxMissingAnchorPolicy.SkipOptional);
+        }
+
+        public static VfxResolvedAnchor ForCell(
+            SurfaceCell cell,
+            CubeTopologyState topology,
+            VfxAnchorSlot slot,
+            Vector3 localPosition,
+            Quaternion localRotation,
+            bool usedFallback = false)
+        {
+            return new VfxResolvedAnchor(
+                true,
+                VfxAnchorKind.Cell,
+                slot,
+                0,
+                cell,
+                topology,
+                true,
+                localPosition,
+                localRotation,
                 usedFallback,
                 VfxMissingAnchorPolicy.SkipOptional);
         }
@@ -88,6 +129,9 @@ namespace Game.Feature.Gameplay.Vfx
                 entityId,
                 fallbackCell,
                 fallbackTopology,
+                false,
+                default,
+                Quaternion.identity,
                 usedFallback,
                 VfxMissingAnchorPolicy.SkipOptional);
         }
