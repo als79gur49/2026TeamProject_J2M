@@ -35,7 +35,10 @@ namespace Game.Feature.Stages.Editor
             string viewPrefabName,
             string statusLabel,
             MessageType statusMessageType,
-            string[] warningMessages)
+            string[] warningMessages,
+            UnityEngine.Object vfxProfileAsset = null,
+            string vfxProfileStatusLabel = "",
+            MessageType vfxProfileStatusMessageType = MessageType.Info)
         {
             RequiresPresentation = requiresPresentation;
             Kind = kind;
@@ -51,6 +54,9 @@ namespace Game.Feature.Stages.Editor
             StatusLabel = statusLabel ?? string.Empty;
             StatusMessageType = statusMessageType;
             WarningMessages = warningMessages ?? Array.Empty<string>();
+            VfxProfileAsset = vfxProfileAsset;
+            VfxProfileStatusLabel = vfxProfileStatusLabel ?? string.Empty;
+            VfxProfileStatusMessageType = vfxProfileStatusMessageType;
         }
 
         public bool RequiresPresentation { get; }
@@ -82,5 +88,11 @@ namespace Game.Feature.Stages.Editor
         public MessageType StatusMessageType { get; }
 
         public string[] WarningMessages { get; }
+
+        public UnityEngine.Object VfxProfileAsset { get; }
+
+        public string VfxProfileStatusLabel { get; }
+
+        public MessageType VfxProfileStatusMessageType { get; }
     }
 }

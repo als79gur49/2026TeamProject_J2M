@@ -66,6 +66,10 @@ namespace Game.Feature.Stages.Editor
             {
                 EditorGUILayout.ObjectField("Catalog", model.CatalogAsset, typeof(Object), allowSceneObjects: false);
                 EditorGUILayout.ObjectField("ViewPrefab", model.ViewPrefab, typeof(Object), allowSceneObjects: false);
+                if (model.PresentationKindLabel == "Enemy")
+                {
+                    EditorGUILayout.ObjectField("VFX Profile", model.VfxProfileAsset, typeof(Object), allowSceneObjects: false);
+                }
             }
 
             using (new EditorGUILayout.HorizontalScope())
@@ -101,6 +105,12 @@ namespace Game.Feature.Stages.Editor
             }
 
             EditorGUILayout.HelpBox(model.StatusLabel, model.StatusMessageType);
+            if (model.PresentationKindLabel == "Enemy" &&
+                !string.IsNullOrEmpty(model.VfxProfileStatusLabel))
+            {
+                EditorGUILayout.HelpBox(model.VfxProfileStatusLabel, model.VfxProfileStatusMessageType);
+            }
+
             for (var i = 0; i < model.WarningMessages.Length; i++)
             {
                 if (model.WarningMessages[i] != model.StatusLabel)

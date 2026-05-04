@@ -55,7 +55,21 @@ namespace Game.Feature.Stages.Editor
 
             var snapshot = StageAuthoringPresentationCatalogValidator.BuildEnemyCatalogSnapshot(catalog);
             var viewPrefab = FindEnemyViewPrefab(catalog, presentationId);
-            return CreateResolved(placement, catalog, snapshot.EntryCount > 0, presentationId, viewPrefab, "enemy presentation catalog");
+            var vfxProfileAsset = ResolveEnemyVfxProfileAsset(
+                catalog,
+                presentationId,
+                out var vfxProfileStatusLabel,
+                out var vfxProfileStatusType);
+            return CreateResolved(
+                placement,
+                catalog,
+                snapshot.EntryCount > 0,
+                presentationId,
+                viewPrefab,
+                "enemy presentation catalog",
+                vfxProfileAsset,
+                vfxProfileStatusLabel,
+                vfxProfileStatusType);
         }
 
         private static StageAuthoringPresentationPreviewModel ResolveStatic(
@@ -87,7 +101,10 @@ namespace Game.Feature.Stages.Editor
             bool catalogHasEntries,
             string presentationId,
             GameplayEntityView viewPrefab,
-            string catalogDescription)
+            string catalogDescription,
+            UnityEngine.Object vfxProfileAsset = null,
+            string vfxProfileStatusLabel = "",
+            MessageType vfxProfileStatusType = MessageType.Info)
         {
             var warnings = new List<string>();
             var entryFound = ContainsEntry(placement.Kind, catalog, presentationId, out var entryViewMissing);
@@ -132,7 +149,10 @@ namespace Game.Feature.Stages.Editor
                 status,
                 statusType,
                 warnings.ToArray(),
-                presentationId);
+                presentationId,
+                vfxProfileAsset,
+                vfxProfileStatusLabel,
+                vfxProfileStatusType);
         }
 
         private static StageAuthoringPresentationPreviewModel Create(
@@ -167,7 +187,10 @@ namespace Game.Feature.Stages.Editor
             string statusLabel,
             MessageType statusMessageType,
             string[] warnings,
-            string presentationId)
+            string presentationId,
+            UnityEngine.Object vfxProfileAsset = null,
+            string vfxProfileStatusLabel = "",
+            MessageType vfxProfileStatusType = MessageType.Info)
         {
             return new StageAuthoringPresentationPreviewModel(
                 requiresPresentation: true,
@@ -183,7 +206,45 @@ namespace Game.Feature.Stages.Editor
                 viewPrefab != null ? viewPrefab.name : string.Empty,
                 statusLabel,
                 statusMessageType,
-                warnings);
+                warnings,
+                vfxProfileAsset,
+                vfxProfileStatusLabel,
+                vfxProfileStatusType);
+        }
+
+        private static UnityEngine.Object ResolveEnemyVfxProfileAsset(
+            EnemyPresentationCatalog catalog,
+            string presentationId,
+            out string statusLabel,
+            out MessageType statusType)
+        {
+            statusLabel = string.Empty;
+            statusType = MessageType.Info;
+            if (catalog == null || string.IsNullOrEmpty(presentationId))
+            {
+                return null;
+            }
+
+            var entries = catalog.Entries;
+            for (var i = 0; i < entries.Length; i++)
+            {
+                var entry = entries[i];
+                if (EnemyPresentationCatalogResolver.NormalizePresentationId(entry.PresentationId) != presentationId)
+                {
+                    continue;
+                }
+
+                var status = EnemyPresentationVfxProfileStatusResolver.Resolve(entry);
+                statusLabel = EnemyPresentationVfxProfileStatusResolver.ToPreviewLabel(status);
+                statusType =
+                    status.Kind == EnemyPresentationVfxProfileStatusKind.Invalid ||
+                    status.Kind == EnemyPresentationVfxProfileStatusKind.WrongFamily
+                        ? MessageType.Error
+                        : MessageType.Info;
+                return status.ProfileAsset;
+            }
+
+            return null;
         }
 
         private static bool ContainsEntry(
