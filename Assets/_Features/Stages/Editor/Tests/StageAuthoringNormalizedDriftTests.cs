@@ -4,6 +4,8 @@ using System.Linq;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Vfx;
+using Game.Feature.Gameplay.Vfx.Authoring;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -132,6 +134,29 @@ namespace Game.Feature.Stages.Editor.Tests
             }
             finally
             {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        public void NormalizedPresentationDrift_DoesNotIncludeEnemyCatalogVfxProfile()
+        {
+            var fixture = StageAuthoringTestFixture.CreateSynced();
+            var profile = CreateProfile(GameplayVfxFamily.Enemy);
+            try
+            {
+                SetFirstEnemyCatalogVfxProfile(fixture.Presentation, profile);
+
+                var report = fixture.Validate();
+
+                Assert.That(
+                    report.Issues.Any(issue => issue.Code.StartsWith("PresentationDrift.", StringComparison.Ordinal)),
+                    Is.False,
+                    FormatIssues(report));
+            }
+            finally
+            {
+                Destroy(profile);
                 fixture.Destroy();
             }
         }
@@ -314,6 +339,41 @@ namespace Game.Feature.Stages.Editor.Tests
             var serializedObject = new SerializedObject(presentation);
             serializedObject.FindProperty(fieldName).GetArrayElementAtIndex(index).FindPropertyRelative("PresentationId").stringValue = value;
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void SetFirstEnemyCatalogVfxProfile(
+            StagePresentationDefinition presentation,
+            VfxProfileAsset profile)
+        {
+            var catalog = presentation.EnemyPresentationCatalog;
+            Assert.That(catalog, Is.Not.Null);
+            var serializedObject = new SerializedObject(catalog);
+            var entries = serializedObject.FindProperty("entries");
+            Assert.That(entries.arraySize, Is.GreaterThan(0));
+            entries.GetArrayElementAtIndex(0)
+                .FindPropertyRelative("VfxProfileAsset")
+                .objectReferenceValue = profile;
+            serializedObject.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static VfxProfileAsset CreateProfile(GameplayVfxFamily family)
+        {
+            var profile = ScriptableObject.CreateInstance<VfxProfileAsset>();
+            typeof(VfxProfileAsset)
+                .GetField("family", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                ?.SetValue(profile, family);
+            typeof(VfxProfileAsset)
+                .GetField("bindings", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                ?.SetValue(profile, Array.Empty<VfxBindingDefinitionAsset>());
+            return profile;
+        }
+
+        private static void Destroy(UnityEngine.Object value)
+        {
+            if (value != null)
+            {
+                UnityEngine.Object.DestroyImmediate(value);
+            }
         }
 
         private static void SetString(StagePresentationDefinition presentation, string fieldName, string value)

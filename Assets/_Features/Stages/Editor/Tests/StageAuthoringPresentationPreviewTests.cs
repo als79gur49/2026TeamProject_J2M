@@ -1,6 +1,8 @@
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Vfx;
+using Game.Feature.Gameplay.Vfx.Authoring;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -114,6 +116,53 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(fixture.StaticCatalog.Entries[0].ViewPrefab, Is.EqualTo(fixture.StaticViewPrefab));
         }
 
+        [Test]
+        public void PresentationPreview_EnemyPlacement_ShowsVfxProfileStatus()
+        {
+            var profile = CreateProfile(GameplayVfxFamily.Enemy);
+            using var fixture = PreviewFixture.CreateEnemy("slime_showcase", withViewPrefab: true, profile);
+
+            var model = StageAuthoringPresentationPreviewResolver.Resolve(
+                fixture.Authoring,
+                fixture.Placement,
+                fixture.Presentation);
+
+            Assert.That(model.VfxProfileAsset, Is.SameAs(profile));
+            Assert.That(model.VfxProfileStatusLabel, Is.EqualTo("Assigned / Valid"));
+            Assert.That(model.VfxProfileStatusMessageType, Is.EqualTo(MessageType.Info));
+        }
+
+        [Test]
+        public void PresentationPreview_EnemyPlacement_NullVfxProfileShowsHostDefaultFallback()
+        {
+            using var fixture = PreviewFixture.CreateEnemy("slime_showcase", withViewPrefab: true);
+
+            var model = StageAuthoringPresentationPreviewResolver.Resolve(
+                fixture.Authoring,
+                fixture.Placement,
+                fixture.Presentation);
+
+            Assert.That(model.VfxProfileAsset, Is.Null);
+            Assert.That(model.VfxProfileStatusLabel, Is.EqualTo("None / Host default fallback"));
+            Assert.That(model.VfxProfileStatusMessageType, Is.EqualTo(MessageType.Info));
+        }
+
+        [Test]
+        public void PresentationPreview_EnemyPlacement_InvalidVfxProfileShowsInvalidStatus()
+        {
+            var profile = CreateProfile(GameplayVfxFamily.Player);
+            using var fixture = PreviewFixture.CreateEnemy("slime_showcase", withViewPrefab: true, profile);
+
+            var model = StageAuthoringPresentationPreviewResolver.Resolve(
+                fixture.Authoring,
+                fixture.Placement,
+                fixture.Presentation);
+
+            Assert.That(model.VfxProfileAsset, Is.SameAs(profile));
+            Assert.That(model.VfxProfileStatusLabel, Is.EqualTo("Wrong family"));
+            Assert.That(model.VfxProfileStatusMessageType, Is.EqualTo(MessageType.Error));
+        }
+
         private static StagePlacedEntityAuthoring Placement(
             StageAuthoringEntityKind kind,
             string stableGuid,
@@ -131,6 +180,18 @@ namespace Game.Feature.Stages.Editor.Tests
                 EnemyAiMode = kind == StageAuthoringEntityKind.Enemy ? EnemyAiMode.Patrol : EnemyAiMode.None,
                 PresentationId = presentationId,
             };
+        }
+
+        private static VfxProfileAsset CreateProfile(GameplayVfxFamily family)
+        {
+            var profile = ScriptableObject.CreateInstance<VfxProfileAsset>();
+            typeof(VfxProfileAsset)
+                .GetField("family", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                ?.SetValue(profile, family);
+            typeof(VfxProfileAsset)
+                .GetField("bindings", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                ?.SetValue(profile, System.Array.Empty<VfxBindingDefinitionAsset>());
+            return profile;
         }
 
         private sealed class PreviewFixture : System.IDisposable
@@ -179,10 +240,13 @@ namespace Game.Feature.Stages.Editor.Tests
                     staticView);
             }
 
-            public static PreviewFixture CreateEnemy(string presentationId, bool withViewPrefab)
+            public static PreviewFixture CreateEnemy(
+                string presentationId,
+                bool withViewPrefab,
+                VfxProfileAsset profile = null)
             {
                 var enemyView = withViewPrefab ? CreateViewPrefab("EnemyView") : null;
-                var enemyCatalog = CreateEnemyCatalog(presentationId, enemyView);
+                var enemyCatalog = CreateEnemyCatalog(presentationId, enemyView, profile);
                 return Create(
                     Placement(StageAuthoringEntityKind.Enemy, "enemy", presentationId),
                     enemyCatalog,
@@ -195,6 +259,10 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 Destroy(EnemyViewPrefab != null ? EnemyViewPrefab.gameObject : null);
                 Destroy(StaticViewPrefab != null ? StaticViewPrefab.gameObject : null);
+                if (EnemyCatalog != null && EnemyCatalog.Entries.Length > 0)
+                {
+                    Destroy(EnemyCatalog.Entries[0].VfxProfileAsset);
+                }
                 Destroy(EnemyCatalog);
                 Destroy(StaticCatalog);
                 Destroy(Presentation);
@@ -223,7 +291,10 @@ namespace Game.Feature.Stages.Editor.Tests
                     staticViewPrefab);
             }
 
-            private static EnemyPresentationCatalog CreateEnemyCatalog(string id, GameplayEntityView viewPrefab)
+            private static EnemyPresentationCatalog CreateEnemyCatalog(
+                string id,
+                GameplayEntityView viewPrefab,
+                VfxProfileAsset profile)
             {
                 var catalog = ScriptableObject.CreateInstance<EnemyPresentationCatalog>();
                 var serializedObject = new SerializedObject(catalog);
@@ -232,6 +303,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 var element = entries.GetArrayElementAtIndex(0);
                 element.FindPropertyRelative("PresentationId").stringValue = id;
                 element.FindPropertyRelative("ViewPrefab").objectReferenceValue = viewPrefab;
+                element.FindPropertyRelative("VfxProfileAsset").objectReferenceValue = profile;
                 serializedObject.ApplyModifiedPropertiesWithoutUndo();
                 return catalog;
             }

@@ -3,6 +3,8 @@ using System.Linq;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Vfx;
+using Game.Feature.Gameplay.Vfx.Authoring;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -147,6 +149,64 @@ namespace Game.Feature.Stages.Editor.Tests
 
             var issue = AssertHasCode(fixture.Validate(), "PresentationCatalog.ViewPrefabMissing");
             Assert.That(issue.Severity, Is.EqualTo(StageValidationSeverity.Error));
+        }
+
+        [Test]
+        public void EnemyCatalogNullVfxProfile_IsAllowed()
+        {
+            using var fixture = PresentationCatalogFixture.CreateBindingOnly(
+                enemyCatalogIds: new[] { "enemy-view" },
+                staticCatalogIds: Array.Empty<string>());
+
+            var report = fixture.Validate();
+
+            Assert.That(
+                report.Issues.Any(issue => issue.Code.StartsWith("PresentationCatalog.EnemyVfxProfile", StringComparison.Ordinal)),
+                Is.False,
+                FormatIssues(report));
+        }
+
+        [Test]
+        public void EnemyCatalogWrongFamilyVfxProfile_ReportsCatalogError()
+        {
+            using var fixture = PresentationCatalogFixture.CreateBindingOnly(
+                enemyCatalogIds: new[] { "enemy-view" },
+                staticCatalogIds: Array.Empty<string>());
+            var profile = CreateProfile(GameplayVfxFamily.Player);
+            try
+            {
+                fixture.SetEnemyVfxProfile("enemy-view", profile);
+
+                var issue = AssertHasCode(fixture.Validate(), "PresentationCatalog.EnemyVfxProfileFamilyMismatch");
+
+                Assert.That(issue.Severity, Is.EqualTo(StageValidationSeverity.Error));
+            }
+            finally
+            {
+                Destroy(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyCatalogInvalidVfxProfile_AggregatesDiagnostics()
+        {
+            using var fixture = PresentationCatalogFixture.CreateBindingOnly(
+                enemyCatalogIds: new[] { "enemy-view" },
+                staticCatalogIds: Array.Empty<string>());
+            var profile = CreateProfile(GameplayVfxFamily.Enemy, new VfxBindingDefinitionAsset[] { null });
+            try
+            {
+                fixture.SetEnemyVfxProfile("enemy-view", profile);
+
+                var issue = AssertHasCode(fixture.Validate(), "PresentationCatalog.EnemyVfxProfileInvalid");
+
+                Assert.That(issue.Severity, Is.EqualTo(StageValidationSeverity.Error));
+                Assert.That(issue.Message, Does.Contain("VFX_CUE_MAP_NULL_BINDING"));
+            }
+            finally
+            {
+                Destroy(profile);
+            }
         }
 
         [Test]
@@ -347,6 +407,34 @@ namespace Game.Feature.Stages.Editor.Tests
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
         }
 
+        private static VfxProfileAsset CreateProfile(
+            GameplayVfxFamily family,
+            VfxBindingDefinitionAsset[] bindings = null)
+        {
+            var profile = ScriptableObject.CreateInstance<VfxProfileAsset>();
+            SetPrivateField(profile, "family", family);
+            SetPrivateField(profile, "bindings", bindings ?? Array.Empty<VfxBindingDefinitionAsset>());
+            return profile;
+        }
+
+        private static void SetPrivateField<T>(T target, string fieldName, object value)
+        {
+            typeof(T)
+                .GetField(fieldName, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                ?.SetValue(target, value);
+        }
+
+        private static void Destroy(params UnityEngine.Object[] objects)
+        {
+            for (var i = 0; i < objects.Length; i++)
+            {
+                if (objects[i] != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(objects[i]);
+                }
+            }
+        }
+
         private static string FormatIssues(StageValidationReport report)
         {
             return string.Join(
@@ -371,6 +459,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 Authoring = authoring;
                 Gameplay = gameplay;
                 Presentation = presentation;
+                EnemyCatalog = enemyCatalog;
                 ownedObjects = new UnityEngine.Object[]
                 {
                     entry,
@@ -389,6 +478,8 @@ namespace Game.Feature.Stages.Editor.Tests
             public StageDefinition Gameplay { get; }
 
             public StagePresentationDefinition Presentation { get; }
+
+            public EnemyPresentationCatalog EnemyCatalog { get; }
 
             public static PresentationCatalogFixture CreateAuthoringPlacement(
                 StageAuthoringEntityKind kind,
@@ -501,6 +592,27 @@ namespace Game.Feature.Stages.Editor.Tests
                 }
 
                 serializedObject.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            public void SetEnemyVfxProfile(string presentationId, VfxProfileAsset profile)
+            {
+                var serializedObject = new SerializedObject(EnemyCatalog);
+                var entries = serializedObject.FindProperty("entries");
+                for (var i = 0; i < entries.arraySize; i++)
+                {
+                    var element = entries.GetArrayElementAtIndex(i);
+                    if (EnemyPresentationCatalogResolver.NormalizePresentationId(
+                            element.FindPropertyRelative("PresentationId").stringValue) != presentationId)
+                    {
+                        continue;
+                    }
+
+                    element.FindPropertyRelative("VfxProfileAsset").objectReferenceValue = profile;
+                    serializedObject.ApplyModifiedPropertiesWithoutUndo();
+                    return;
+                }
+
+                Assert.Fail($"Enemy presentation id '{presentationId}' was not found.");
             }
 
             public void Dispose()

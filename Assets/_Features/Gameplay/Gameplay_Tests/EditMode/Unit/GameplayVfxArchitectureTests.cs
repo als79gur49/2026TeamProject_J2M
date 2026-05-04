@@ -137,7 +137,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyPresentationAssembly_ReferencesGameplayButNotVfxStagesOrHost()
+        public void EnemyPresentationAssembly_ReferencesGameplayAndVfxAuthoringButNotStagesOrHost()
         {
             var references = typeof(EnemyPresentationCatalog).Assembly
                 .GetReferencedAssemblies()
@@ -145,8 +145,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 .ToArray();
 
             Assert.That(references, Does.Contain("Game.Feature.Gameplay"));
-            Assert.That(references, Does.Not.Contain("Game.Feature.Gameplay.Vfx"));
-            Assert.That(references, Does.Not.Contain("Game.Feature.Gameplay.Vfx.Authoring"));
+            Assert.That(references, Does.Contain("Game.Feature.Gameplay.Vfx"));
+            Assert.That(references, Does.Contain("Game.Feature.Gameplay.Vfx.Authoring"));
             Assert.That(references, Does.Not.Contain("Game.Feature.Stages"));
             Assert.That(references, Does.Not.Contain("Game.Feature.Gameplay.Host"));
         }
@@ -165,16 +165,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyPresentationCatalogSchema_Unchanged()
+        public void EnemyPresentationCatalogSchema_IncludesOptionalVfxProfileAsset()
         {
             Assert.That(
                 GetDeclaredFieldNames(typeof(EnemyPresentationCatalogEntry)),
-                Is.EqualTo(new[] { "PresentationId", "ViewPrefab" }));
+                Is.EqualTo(new[] { "PresentationId", "ViewPrefab", "VfxProfileAsset" }));
             Assert.That(
                 GetDeclaredFieldNames(typeof(EnemyPresentationBinding)),
                 Is.EqualTo(new[] { "EntityId", "PresentationId" }));
 
-            AssertDoesNotExposeVfxProfileOverride(typeof(EnemyPresentationCatalogEntry));
             AssertDoesNotExposeVfxProfileOverride(typeof(EnemyPresentationBinding));
         }
 
@@ -246,11 +245,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             AssertDoesNotExposeVfxProfileOverride(typeof(StagePresentationDefinition));
             AssertDoesNotExposeVfxProfileOverride(typeof(EnemyPresentationBinding));
-            AssertDoesNotExposeVfxProfileOverride(typeof(EnemyPresentationCatalogEntry));
 
             var document = ReadRepoFile(GovernancePath);
             Assert.That(document, Does.Contain("EnemyPresentationCatalogEntry.VfxProfileAsset"));
-            Assert.That(document, Does.Contain("future owner slice"));
+            Assert.That(document, Does.Contain("source entity presentation profile"));
             Assert.That(document, Does.Contain("StagePresentationDefinition binding override"));
             Assert.That(document, Does.Contain("future stage-specific override"));
         }
@@ -345,7 +343,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             return type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
                 .Select(field => field.Name)
-                .OrderBy(fieldName => fieldName, StringComparer.Ordinal)
                 .ToArray();
         }
 

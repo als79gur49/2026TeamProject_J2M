@@ -1,8 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Vfx;
+using Game.Feature.Gameplay.Vfx.Authoring;
+using Game.Feature.Gameplay.Vfx.Host;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
@@ -59,6 +64,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void ProfileAwareResolver_SourceProfileBeatsFamilyProfile()
+        {
+            var cueId = GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget);
+            var sourcePolicy = CreatePolicy(cueId, VfxMissingAnchorPolicy.FailFast, maxConcurrentInstances: 7);
+            var familyPolicy = CreatePolicy(cueId, VfxMissingAnchorPolicy.ReportDiagnostic, maxConcurrentInstances: 3);
+            var fallback = new CompositeVfxBindingResolver(
+                VfxCueMap.Empty,
+                new Dictionary<GameplayVfxFamily, VfxProfile>
+                {
+                    { GameplayVfxFamily.Enemy, new VfxProfile(GameplayVfxFamily.Enemy, new[] { familyPolicy }) },
+                });
+            var resolver = new ProfileAwareVfxBindingResolver(
+                new FakeProfileProvider(
+                    sourceEntityId: 10,
+                    profile: new VfxProfile(GameplayVfxFamily.Enemy, new[] { sourcePolicy })),
+                fallback);
+
+            Assert.That(resolver.TryResolve(CreateRequest(cueId, sourceEntityId: 10), out var resolved), Is.True);
+            Assert.That(resolved, Is.EqualTo(sourcePolicy));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void ProfileAwareResolver_MissingProfileFallsBackToHostDefault()
         {
             var cueId = GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget);
@@ -69,6 +97,87 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(resolver.TryResolve(CreateRequest(cueId, sourceEntityId: 10), out var resolved), Is.True);
             Assert.That(resolved, Is.EqualTo(hostPolicy));
             Assert.That(provider.CallCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProfileAwareResolver_MissingProfileFallsBackToFamilyProfile()
+        {
+            var cueId = GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget);
+            var familyPolicy = CreatePolicy(cueId, VfxMissingAnchorPolicy.ReportDiagnostic, maxConcurrentInstances: 4);
+            var fallback = new CompositeVfxBindingResolver(
+                VfxCueMap.Empty,
+                new Dictionary<GameplayVfxFamily, VfxProfile>
+                {
+                    { GameplayVfxFamily.Enemy, new VfxProfile(GameplayVfxFamily.Enemy, new[] { familyPolicy }) },
+                });
+            var resolver = new ProfileAwareVfxBindingResolver(
+                new FakeProfileProvider(sourceEntityId: 99, profile: null),
+                fallback);
+
+            Assert.That(resolver.TryResolve(CreateRequest(cueId, sourceEntityId: 10), out var resolved), Is.True);
+            Assert.That(resolved, Is.EqualTo(familyPolicy));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyPresentationVfxProfileProvider_BuildsEntityMapFromCatalogProfile()
+        {
+            var prefab = new GameObject("CatalogProfileVfxPrefab");
+            var binding = CreateBindingAsset(
+                GameplayVfxFamily.Enemy,
+                (int)EnemyVfxCue.JumperLandingTarget,
+                prefab,
+                maxConcurrentInstances: 8);
+            var profile = CreateProfileAsset(GameplayVfxFamily.Enemy, binding);
+            var catalog = CreateEnemyCatalog("jumper", profile);
+
+            try
+            {
+                var provider = EnemyPresentationVfxProfileMapBuilder.Build(
+                    catalog,
+                    new[] { new EnemyPresentationBinding { EntityId = 40, PresentationId = "jumper" } },
+                    "test");
+
+                Assert.That(provider.Count, Is.EqualTo(1));
+                Assert.That(provider.TryResolveProfileForRequest(
+                    CreateRequest(GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget), sourceEntityId: 40),
+                    out var runtimeProfile), Is.True);
+                Assert.That(runtimeProfile.TryResolve(
+                    GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget),
+                    out var policy), Is.True);
+                Assert.That(policy.MaxConcurrentInstances, Is.EqualTo(8));
+                Assert.That(provider.TryResolveProfileAssetForSourceEntity(40, out var profileAsset), Is.True);
+                Assert.That(profileAsset, Is.SameAs(profile));
+            }
+            finally
+            {
+                Destroy(catalog, profile, binding, prefab);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyPresentationVfxProfileProvider_NullCatalogProfileReturnsNoSourceProfile()
+        {
+            var catalog = CreateEnemyCatalog("jumper", null);
+
+            try
+            {
+                var provider = EnemyPresentationVfxProfileMapBuilder.Build(
+                    catalog,
+                    new[] { new EnemyPresentationBinding { EntityId = 40, PresentationId = "jumper" } },
+                    "test");
+
+                Assert.That(provider.Count, Is.Zero);
+                Assert.That(provider.TryResolveProfileForRequest(
+                    CreateRequest(GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget), sourceEntityId: 40),
+                    out _), Is.False);
+            }
+            finally
+            {
+                Destroy(catalog);
+            }
         }
 
         [Test]
@@ -220,14 +329,78 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static VfxBindingRuntimePolicy CreatePolicy(
             GameplayVfxCueId cueId,
             VfxMissingAnchorPolicy missingAnchorPolicy = VfxMissingAnchorPolicy.SkipOptional,
-            VfxPlaybackMode playbackMode = VfxPlaybackMode.OneShot)
+            VfxPlaybackMode playbackMode = VfxPlaybackMode.OneShot,
+            int maxConcurrentInstances = 0)
         {
             return new VfxBindingRuntimePolicy(
                 cueId,
                 VfxBindingRequirement.Optional,
                 missingAnchorPolicy,
                 playbackMode,
-                VfxStopPolicy.AuthoredDuration);
+                VfxStopPolicy.AuthoredDuration,
+                maxConcurrentInstances: maxConcurrentInstances);
+        }
+
+        private static EnemyPresentationCatalog CreateEnemyCatalog(
+            string presentationId,
+            VfxProfileAsset profile)
+        {
+            var catalog = ScriptableObject.CreateInstance<EnemyPresentationCatalog>();
+            SetField(catalog, "entries", new[]
+            {
+                new EnemyPresentationCatalogEntry
+                {
+                    PresentationId = presentationId,
+                    VfxProfileAsset = profile,
+                },
+            });
+            return catalog;
+        }
+
+        private static VfxProfileAsset CreateProfileAsset(
+            GameplayVfxFamily family,
+            params VfxBindingDefinitionAsset[] bindings)
+        {
+            var profile = ScriptableObject.CreateInstance<VfxProfileAsset>();
+            SetField(profile, "family", family);
+            SetField(profile, "bindings", bindings);
+            return profile;
+        }
+
+        private static VfxBindingDefinitionAsset CreateBindingAsset(
+            GameplayVfxFamily family,
+            int cueCode,
+            GameObject prefab,
+            int maxConcurrentInstances = 0)
+        {
+            var binding = ScriptableObject.CreateInstance<VfxBindingDefinitionAsset>();
+            SetField(binding, "family", family);
+            SetField(binding, "cueCode", cueCode);
+            SetField(binding, "prefab", prefab);
+            SetField(binding, "requirement", VfxBindingRequirement.Optional);
+            SetField(binding, "missingAnchorPolicy", VfxMissingAnchorPolicy.SkipOptional);
+            SetField(binding, "playbackMode", VfxPlaybackMode.OneShot);
+            SetField(binding, "stopPolicy", VfxStopPolicy.AuthoredDuration);
+            SetField(binding, "maxConcurrentInstances", maxConcurrentInstances);
+            return binding;
+        }
+
+        private static void SetField<T>(T target, string fieldName, object value)
+        {
+            typeof(T)
+                .GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.SetValue(target, value);
+        }
+
+        private static void Destroy(params UnityEngine.Object[] objects)
+        {
+            for (var i = 0; i < objects.Length; i++)
+            {
+                if (objects[i] != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(objects[i]);
+                }
+            }
         }
 
         private sealed class SinglePolicyResolver : IVfxBindingResolver
