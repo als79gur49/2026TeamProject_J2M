@@ -1,0 +1,7 @@
+{
+  "name": "Game.Feature.Gameplay.Vfx",
+  "rootNamespace": "Game.Feature.Gameplay.Vfx",
+  "references": [
+    "Game.Feature.Gameplay"
+  ]
+}

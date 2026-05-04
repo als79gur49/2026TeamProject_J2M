@@ -1,0 +1,151 @@
+namespace Game.Feature.Gameplay.Vfx
+{
+    public enum GameplayVfxFamily
+    {
+        None = 0,
+        Player = 1,
+        Box = 2,
+        Enemy = 3,
+        TileFeature = 4,
+        Terrain = 5,
+        Projectile = 6,
+        ObjectiveStage = 7,
+    }
+
+    public enum PlayerVfxCue
+    {
+        Damage = 1,
+        Death = 2,
+        PushWindup = 3,
+        PushExecute = 4,
+        FlipWindup = 5,
+        FlipExecute = 6,
+        RecoveryDust = 7,
+    }
+
+    public enum BoxVfxCue
+    {
+        SlideStartDust = 1,
+        SlideLoopDust = 2,
+        SlideStopDust = 3,
+        FlipArcTrail = 4,
+        FlipImpactBurst = 5,
+        DestroySmoke = 6,
+        ItemConsume = 7,
+    }
+
+    public enum EnemyVfxCue
+    {
+        Damage = 1,
+        Death = 2,
+        Spawn = 3,
+        MeleeWindup = 4,
+        ChargeWindup = 5,
+        ChargeTrail = 6,
+        JumpLanding = 7,
+        PhaseBlink = 8,
+        ShieldBlock = 9,
+        UtilityWindup = 10,
+    }
+
+    public enum TileFeatureVfxCue
+    {
+        TrapArmed = 1,
+        TrapTriggered = 2,
+        TrapConsumed = 3,
+        HazardPulse = 4,
+        BuffApplied = 5,
+        TileExpired = 6,
+    }
+
+    public enum TerrainVfxCue
+    {
+        TerrainChanged = 1,
+        TerrainCrack = 2,
+        TerrainRestore = 3,
+    }
+
+    public enum ProjectileVfxCue
+    {
+        Spawn = 1,
+        Trail = 2,
+        Hit = 3,
+        Expired = 4,
+    }
+
+    public enum ObjectiveStageVfxCue
+    {
+        ObjectiveUpdated = 1,
+        ObjectiveCompleted = 2,
+        StageClear = 3,
+        StageFailed = 4,
+    }
+
+    public enum VfxAnchorKind
+    {
+        None = 0,
+        Cell = 1,
+        Entity = 2,
+        EntitySlot = 3,
+        MotionTrack = 4,
+        CellToEntity = 5,
+        EntityToCell = 6,
+        BoardLocal = 7,
+        Screen = 8,
+    }
+
+    public enum VfxAnchorSlot
+    {
+        None = 0,
+        CellFloor = 1,
+        CellCenter = 2,
+        CellAboveOccupant = 3,
+        EntityFeet = 4,
+        EntityCenter = 5,
+        EntityHead = 6,
+        EntityFront = 7,
+        EntityBack = 8,
+        HitPoint = 9,
+        MotionPath = 10,
+    }
+
+    public enum VfxTimingKind
+    {
+        ImmediateOnTickPresentation = 0,
+        AtMotionStart = 1,
+        DuringMotion = 2,
+        AtMotionContact = 3,
+        AtMotionEnd = 4,
+        OnStateEnter = 5,
+        OnStateExit = 6,
+        Delayed = 7,
+        QueuedUntilTopologyTransitionEnd = 8,
+    }
+
+    public enum VfxPlaybackMode
+    {
+        OneShot = 0,
+        Loop = 1,
+        Follow = 2,
+        MotionTrack = 3,
+        Decal = 4,
+    }
+
+    public enum VfxStopPolicy
+    {
+        NaturalCompletion = 0,
+        AuthoredDuration = 1,
+        StopEmittingThenRelease = 2,
+        DetachThenStopEmittingThenRelease = 3,
+        ManualStopRequired = 4,
+        HardCleanupOnly = 5,
+    }
+
+    public enum VfxMissingAnchorPolicy
+    {
+        SkipOptional = 0,
+        UseFallbackCell = 1,
+        ReportDiagnostic = 2,
+        FailFast = 3,
+    }
+}
