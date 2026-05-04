@@ -160,11 +160,37 @@ Smoke, dust, and trail effects must not be destroyed immediately when the source
 
 This stage adds controller, registry, lifetime, pool, playback-handle, and anchor-resolver interfaces only. It does not connect production playback, instantiate authored effects, or add prefab bindings. Tests use fake pools and fake resolvers so transient, persistent, lifecycle, release, and missing-anchor behavior can be verified before a runtime playback implementation exists.
 
-The skeleton validates that transient requests do not enter the persistent registry, persistent requests dedupe by `VfxPersistentKey`, desired-set removal enters StopEmitting / TailPlaying / ReleasedToPool lifecycle, and missing anchors obey request policy.
+The skeleton validates that transient requests do not enter the persistent registry, persistent requests dedupe by `VfxPersistentKey`, desired-set removal enters StopEmitting / TailPlaying / ReleasedToPool lifecycle, and missing anchors obey binding policy.
+
+## Request Vs Binding Ownership
+
+`GameplayVfxRequest` is a semantic request. It owns the requested cue, tick/sequence/seed, anchor, timing, persistent desired-state flag, and `VfxPersistentKey`.
+
+`GameplayVfxRequest` does not own missing-anchor policy, playback mode, stop policy, tail duration, pool sizing, required/optional policy, prefab references, or prefab validation policy. Those execution choices belong to `VfxBinding`, `VfxProfile`, and cue maps.
+
+Persistent identity and `VfxPersistentKey` remain request-owned because aura, glow, shield loop, windup telegraph, armed tile, and other desired-state facts must reconcile by semantic presentation identity before any prefab playback policy is chosen.
+
+## Binding/Profile Policy Ownership
+
+`VfxBindingRuntimePolicy` owns:
+
+- `VfxBindingRequirement`
+- `VfxMissingAnchorPolicy`
+- `VfxPlaybackMode`
+- `VfxStopPolicy`
+- default lifetime, tail, and max-concurrent hints
+
+`VfxProfile` owns prefab-local family cue policy. `VfxCueMap` owns stage, host, or global cue policy. Stage-specific tile, terrain, and environment cues should use a stage presentation map in a future slice. Player, Box, Enemy, and Projectile common VFX should use prefab-local profiles or host default maps.
+
+## Compatibility Rule
+
+Persistent requests require persistent-compatible binding policy. A persistent request must have a non-None `VfxPersistentKey` and must not resolve to `OneShot` playback.
+
+Transient requests must not resolve to `Loop`, `Follow`, or `MotionTrack` playback unless a future ADR explicitly allows transient trail semantics. `ManualStopRequired` bindings require persistent requests.
+
+Binding missing, anchor missing, and invalid policy are distinct failure modes. Binding missing skips before anchor resolution. Anchor missing follows the resolved binding's `VfxMissingAnchorPolicy`. Invalid policy or request/policy mismatch fails fast.
 
 ## Lifecycle Ownership
-
-Request planners decide the requested semantic cue, timing, anchor, deterministic seed, order, persistent key, and foundation execution hints. `GameplayVfxRequest.PlaybackMode` and `GameplayVfxRequest.StopPolicy` are execution hints until `VfxBinding` / `VfxProfile` ownership is introduced. Binding/profile data may later become the final owner of prefab playback and stop policy. Persistent identity and `VfxPersistentKey` remain request-owned.
 
 Source entity removal must not imply immediate VFX destruction. Desired-state exit should stop new emission, detach when policy requires it, preserve the authored tail, and release only after lifecycle completion or hard cleanup.
 
@@ -193,6 +219,8 @@ Ownership defaults:
 Do not put every player, box, enemy, and projectile VFX binding into `StagePresentationDefinition`. Stage should own stage-specific tile, terrain, and environment bindings, not the global cue vocabulary.
 
 ## Prefab Validation Policy
+
+This stage does not add prefab references, ScriptableObject authoring, runtime prefab validation, or production playback connection. A future `VfxBinding` asset may add prefab references, pool config, prefab validation, and authoring diagnostics. Current binding policy values are runtime-safe and Unity-object-free.
 
 Future validation rules:
 

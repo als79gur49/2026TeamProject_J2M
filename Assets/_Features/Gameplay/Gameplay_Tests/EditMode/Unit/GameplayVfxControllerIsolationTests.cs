@@ -62,6 +62,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 typeof(VfxLifetimeRunner),
                 typeof(IVfxPool),
                 typeof(IVfxAnchorResolver),
+                typeof(IVfxBindingResolver),
             };
 
             foreach (var type in checkedTypes)
@@ -98,14 +99,52 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void Controller_ResolvesBindingBeforeAnchor()
+        {
+            var callOrder = new List<string>();
+            var pool = new FakeVfxPool();
+            var anchorResolver = new FakeVfxAnchorResolver { CallOrder = callOrder };
+            var bindingResolver = new FakeVfxBindingResolver { CallOrder = callOrder };
+            var controller = CreateController(pool, anchorResolver, bindingResolver);
+
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { CreateRequest() }));
+
+            Assert.That(callOrder, Is.EqualTo(new[] { "binding", "anchor" }));
+            Assert.That(pool.PlayTransientCallCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MissingBinding_SkipsAnchorAndPool()
+        {
+            var pool = new FakeVfxPool();
+            var anchorResolver = new FakeVfxAnchorResolver();
+            var bindingResolver = new FakeVfxBindingResolver { ResolveSuccess = false };
+            var controller = CreateController(pool, anchorResolver, bindingResolver);
+
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { CreateRequest() }));
+
+            Assert.That(controller.MissingBindingCount, Is.EqualTo(1));
+            Assert.That(anchorResolver.TryResolveCallCount, Is.EqualTo(0));
+            Assert.That(pool.PlayTransientCallCount, Is.EqualTo(0));
+            Assert.That(pool.StartPersistentCallCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void MissingAnchorSkipOptional_SkipsPoolWithoutException()
         {
             var pool = new FakeVfxPool();
             var resolver = new FakeVfxAnchorResolver { ResolveSuccess = false };
-            var controller = CreateController(pool, resolver);
-            var request = CreateRequest(missingAnchorPolicy: VfxMissingAnchorPolicy.SkipOptional);
+            var bindingResolver = new FakeVfxBindingResolver
+            {
+                Policy = CreatePolicy(VfxMissingAnchorPolicy.SkipOptional),
+            };
+            var controller = CreateController(pool, resolver, bindingResolver);
+            var request = CreateRequest();
 
             Assert.DoesNotThrow(() => controller.Refresh(new GameplayVfxRequestPlan(new[] { request })));
+            Assert.That(controller.MissingAnchorCount, Is.EqualTo(1));
             Assert.That(pool.PlayTransientCallCount, Is.EqualTo(0));
             Assert.That(pool.StartPersistentCallCount, Is.EqualTo(0));
             Assert.That(resolver.TryResolveCallCount, Is.EqualTo(1));
@@ -117,27 +156,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var pool = new FakeVfxPool();
             var resolver = new FakeVfxAnchorResolver { ResolveSuccess = false };
-            var controller = CreateController(pool, resolver);
-            var request = CreateRequest(missingAnchorPolicy: VfxMissingAnchorPolicy.FailFast);
+            var bindingResolver = new FakeVfxBindingResolver
+            {
+                Policy = CreatePolicy(VfxMissingAnchorPolicy.FailFast),
+            };
+            var controller = CreateController(pool, resolver, bindingResolver);
+            var request = CreateRequest();
 
             Assert.Throws<InvalidOperationException>(() => controller.Refresh(new GameplayVfxRequestPlan(new[] { request })));
+            Assert.That(controller.MissingAnchorCount, Is.EqualTo(1));
             Assert.That(pool.PlayTransientCallCount, Is.EqualTo(0));
             Assert.That(pool.StartPersistentCallCount, Is.EqualTo(0));
         }
 
         private static GameplayVfxPresentationController CreateController(
             FakeVfxPool pool,
-            FakeVfxAnchorResolver resolver)
+            FakeVfxAnchorResolver resolver,
+            FakeVfxBindingResolver bindingResolver = null)
         {
             return new GameplayVfxPresentationController(
                 pool,
                 resolver,
+                bindingResolver ?? new FakeVfxBindingResolver(),
                 new VfxPersistentHandleRegistry(),
                 new VfxLifetimeRunner());
         }
 
-        private static GameplayVfxRequest CreateRequest(
-            VfxMissingAnchorPolicy missingAnchorPolicy = VfxMissingAnchorPolicy.SkipOptional)
+        private static GameplayVfxRequest CreateRequest()
         {
             return new GameplayVfxRequest(
                 1,
@@ -145,10 +190,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 17,
                 GameplayVfxCueId.From(PlayerVfxCue.Damage),
                 VfxAnchor.ForEntity(3),
-                VfxTimingKind.ImmediateOnTickPresentation,
+                VfxTimingKind.ImmediateOnTickPresentation);
+        }
+
+        private static VfxBindingRuntimePolicy CreatePolicy(VfxMissingAnchorPolicy missingAnchorPolicy)
+        {
+            return new VfxBindingRuntimePolicy(
+                GameplayVfxCueId.From(PlayerVfxCue.Damage),
+                VfxBindingRequirement.Optional,
+                missingAnchorPolicy,
                 VfxPlaybackMode.OneShot,
-                VfxStopPolicy.AuthoredDuration,
-                missingAnchorPolicy: missingAnchorPolicy);
+                VfxStopPolicy.AuthoredDuration);
         }
 
         private static void AssertPublicSurfaceDoesNotExposeForbiddenType(Type type, HashSet<string> forbiddenTypes)
@@ -202,16 +254,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public int StartPersistentCallCount { get; private set; }
 
-            public IVfxPlaybackHandle PlayTransient(in GameplayVfxRequest request, in VfxResolvedAnchor anchor)
+            public IVfxPlaybackHandle PlayTransient(in ResolvedVfxPlaybackCommand command)
             {
                 PlayTransientCallCount++;
-                return new FakeVfxPlaybackHandle(request);
+                return new FakeVfxPlaybackHandle(command.Request);
             }
 
-            public IVfxPlaybackHandle StartPersistent(in GameplayVfxRequest request, in VfxResolvedAnchor anchor)
+            public IVfxPlaybackHandle StartPersistent(in ResolvedVfxPlaybackCommand command)
             {
                 StartPersistentCallCount++;
-                return new FakeVfxPlaybackHandle(request);
+                return new FakeVfxPlaybackHandle(command.Request);
             }
 
             public void Release(IVfxPlaybackHandle handle)
@@ -283,14 +335,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             public bool ResolveSuccess { get; set; } = true;
 
+            public List<string> CallOrder { get; set; }
+
             public int TryResolveCallCount { get; private set; }
 
             public bool TryResolve(in GameplayVfxRequest request, out VfxResolvedAnchor resolvedAnchor)
             {
                 TryResolveCallCount++;
+                CallOrder?.Add("anchor");
                 if (!ResolveSuccess)
                 {
-                    resolvedAnchor = VfxResolvedAnchor.Unresolved(request.MissingAnchorPolicy);
+                    resolvedAnchor = VfxResolvedAnchor.Unresolved(VfxMissingAnchorPolicy.SkipOptional);
                     return false;
                 }
 
@@ -298,6 +353,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new SurfaceCell(FaceId.Floor, 1, 1),
                     new CubeTopologyState(FaceId.Floor),
                     VfxAnchorSlot.CellCenter);
+                return true;
+            }
+        }
+
+        private sealed class FakeVfxBindingResolver : IVfxBindingResolver
+        {
+            public bool ResolveSuccess { get; set; } = true;
+
+            public VfxBindingRuntimePolicy? Policy { get; set; }
+
+            public List<string> CallOrder { get; set; }
+
+            public bool TryResolve(in GameplayVfxRequest request, out VfxBindingRuntimePolicy policy)
+            {
+                CallOrder?.Add("binding");
+                if (!ResolveSuccess)
+                {
+                    policy = default;
+                    return false;
+                }
+
+                policy = Policy ?? new VfxBindingRuntimePolicy(
+                    request.CueId,
+                    VfxBindingRequirement.Optional,
+                    VfxMissingAnchorPolicy.SkipOptional,
+                    request.IsPersistent ? VfxPlaybackMode.Loop : VfxPlaybackMode.OneShot,
+                    VfxStopPolicy.AuthoredDuration);
                 return true;
             }
         }

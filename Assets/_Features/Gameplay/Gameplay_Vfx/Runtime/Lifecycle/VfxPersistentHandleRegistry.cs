@@ -18,8 +18,7 @@ namespace Game.Feature.Gameplay.Vfx
         }
 
         public IVfxPlaybackHandle GetOrStart(
-            in GameplayVfxRequest request,
-            in VfxResolvedAnchor anchor,
+            in ResolvedVfxPlaybackCommand command,
             IVfxPool pool)
         {
             if (pool == null)
@@ -27,20 +26,20 @@ namespace Game.Feature.Gameplay.Vfx
                 throw new ArgumentNullException(nameof(pool));
             }
 
-            if (activeHandles.TryGetValue(request.PersistentKey, out var existing))
+            if (activeHandles.TryGetValue(command.PersistentKey, out var existing))
             {
-                stopPolicies[request.PersistentKey] = request.StopPolicy;
+                stopPolicies[command.PersistentKey] = command.Policy.StopPolicy;
                 return existing;
             }
 
-            var handle = pool.StartPersistent(request, anchor);
+            var handle = pool.StartPersistent(command);
             if (handle == null)
             {
                 throw new InvalidOperationException("Persistent VFX pool returned no handle.");
             }
 
-            activeHandles.Add(request.PersistentKey, handle);
-            stopPolicies[request.PersistentKey] = request.StopPolicy;
+            activeHandles.Add(command.PersistentKey, handle);
+            stopPolicies[command.PersistentKey] = command.Policy.StopPolicy;
             return handle;
         }
 

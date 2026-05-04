@@ -2,9 +2,9 @@ namespace Game.Feature.Gameplay.Vfx
 {
     public interface IVfxPool
     {
-        IVfxPlaybackHandle PlayTransient(in GameplayVfxRequest request, in VfxResolvedAnchor anchor);
+        IVfxPlaybackHandle PlayTransient(in ResolvedVfxPlaybackCommand command);
 
-        IVfxPlaybackHandle StartPersistent(in GameplayVfxRequest request, in VfxResolvedAnchor anchor);
+        IVfxPlaybackHandle StartPersistent(in ResolvedVfxPlaybackCommand command);
 
         void Release(IVfxPlaybackHandle handle);
 

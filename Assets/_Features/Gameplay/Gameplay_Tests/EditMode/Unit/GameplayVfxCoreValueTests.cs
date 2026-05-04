@@ -65,35 +65,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Request_MissingAnchorPolicy_DefaultsToSkipOptionalAndParticipatesInIdentity()
+        public void Request_DoesNotOwnExecutionPolicy()
         {
-            var defaultPolicy = CreateRequest(1, 1, GameplayVfxCueId.From(PlayerVfxCue.Damage), VfxAnchor.ForEntity(1));
-            var explicitSkip = new GameplayVfxRequest(
-                1,
-                1,
-                presentationSeed: 17,
-                GameplayVfxCueId.From(PlayerVfxCue.Damage),
-                VfxAnchor.ForEntity(1),
-                VfxTimingKind.ImmediateOnTickPresentation,
-                VfxPlaybackMode.OneShot,
-                VfxStopPolicy.AuthoredDuration,
-                missingAnchorPolicy: VfxMissingAnchorPolicy.SkipOptional);
-            var failFast = new GameplayVfxRequest(
-                1,
-                1,
-                presentationSeed: 17,
-                GameplayVfxCueId.From(PlayerVfxCue.Damage),
-                VfxAnchor.ForEntity(1),
-                VfxTimingKind.ImmediateOnTickPresentation,
-                VfxPlaybackMode.OneShot,
-                VfxStopPolicy.AuthoredDuration,
-                missingAnchorPolicy: VfxMissingAnchorPolicy.FailFast);
+            var publicMemberNames = typeof(GameplayVfxRequest)
+                .GetMembers()
+                .Where(member => member.DeclaringType == typeof(GameplayVfxRequest))
+                .Select(member => member.Name)
+                .ToArray();
 
-            Assert.That(defaultPolicy.MissingAnchorPolicy, Is.EqualTo(VfxMissingAnchorPolicy.SkipOptional));
-            Assert.That(defaultPolicy, Is.EqualTo(explicitSkip));
-            Assert.That(defaultPolicy.GetHashCode(), Is.EqualTo(explicitSkip.GetHashCode()));
-            Assert.That(defaultPolicy, Is.Not.EqualTo(failFast));
-            Assert.That(defaultPolicy.CompareTo(failFast), Is.LessThan(0));
+            Assert.That(publicMemberNames, Does.Not.Contain("MissingAnchorPolicy"));
+            Assert.That(publicMemberNames, Does.Not.Contain("PlaybackMode"));
+            Assert.That(publicMemberNames, Does.Not.Contain("StopPolicy"));
+            Assert.That(publicMemberNames, Does.Not.Contain("TailSeconds"));
+            Assert.That(publicMemberNames, Does.Not.Contain("MaxConcurrentInstances"));
+            Assert.That(publicMemberNames, Does.Not.Contain("Requirement"));
         }
 
         [Test]
@@ -161,9 +146,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presentationSeed: sequence * 17,
                 cueId,
                 anchor,
-                VfxTimingKind.ImmediateOnTickPresentation,
-                VfxPlaybackMode.OneShot,
-                VfxStopPolicy.AuthoredDuration);
+                VfxTimingKind.ImmediateOnTickPresentation);
         }
     }
 }

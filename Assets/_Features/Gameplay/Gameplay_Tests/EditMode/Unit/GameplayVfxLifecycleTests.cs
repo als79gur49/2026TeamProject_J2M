@@ -55,8 +55,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var key = CreatePersistentKey();
             var request = CreateRequest(
                 isPersistent: true,
-                persistentKey: key,
-                stopPolicy: VfxStopPolicy.StopEmittingThenRelease);
+                persistentKey: key);
+            var policy = CreatePolicy(request.CueId, VfxPlaybackMode.Loop, VfxStopPolicy.StopEmittingThenRelease);
+            controller = CreateController(pool, registry, runner, policy);
 
             controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
             Assert.That(registry.TryGet(key, out var handle), Is.True);
@@ -126,11 +127,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static GameplayVfxPresentationController CreateController(
             FakeVfxPool pool,
             VfxPersistentHandleRegistry registry,
-            VfxLifetimeRunner runner = null)
+            VfxLifetimeRunner runner = null,
+            VfxBindingRuntimePolicy? policy = null)
         {
             return new GameplayVfxPresentationController(
                 pool,
                 new FakeVfxAnchorResolver(),
+                new FakeVfxBindingResolver(policy),
                 registry,
                 runner ?? new VfxLifetimeRunner());
         }
@@ -139,8 +142,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int tickIndex = 1,
             int sequenceId = 1,
             bool isPersistent = false,
-            VfxPersistentKey persistentKey = default,
-            VfxStopPolicy stopPolicy = VfxStopPolicy.StopEmittingThenRelease)
+            VfxPersistentKey persistentKey = default)
         {
             return new GameplayVfxRequest(
                 tickIndex,
@@ -149,10 +151,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 GameplayVfxCueId.From(EnemyVfxCue.Spawn),
                 VfxAnchor.ForEntity(7),
                 VfxTimingKind.ImmediateOnTickPresentation,
-                isPersistent ? VfxPlaybackMode.Loop : VfxPlaybackMode.OneShot,
-                stopPolicy,
                 isPersistent,
                 persistentKey);
+        }
+
+        private static VfxBindingRuntimePolicy CreatePolicy(
+            GameplayVfxCueId cueId,
+            VfxPlaybackMode playbackMode,
+            VfxStopPolicy stopPolicy)
+        {
+            return new VfxBindingRuntimePolicy(
+                cueId,
+                VfxBindingRequirement.Optional,
+                VfxMissingAnchorPolicy.SkipOptional,
+                playbackMode,
+                stopPolicy);
         }
 
         private static VfxPersistentKey CreatePersistentKey()
@@ -179,16 +192,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public List<IVfxPlaybackHandle> ReleasedHandles { get; } = new();
 
-            public IVfxPlaybackHandle PlayTransient(in GameplayVfxRequest request, in VfxResolvedAnchor anchor)
+            public IVfxPlaybackHandle PlayTransient(in ResolvedVfxPlaybackCommand command)
             {
                 PlayTransientCallCount++;
-                return CreateHandle(request);
+                return CreateHandle(command.Request);
             }
 
-            public IVfxPlaybackHandle StartPersistent(in GameplayVfxRequest request, in VfxResolvedAnchor anchor)
+            public IVfxPlaybackHandle StartPersistent(in ResolvedVfxPlaybackCommand command)
             {
                 StartPersistentCallCount++;
-                return CreateHandle(request);
+                return CreateHandle(command.Request);
             }
 
             public void Release(IVfxPlaybackHandle handle)
@@ -295,6 +308,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new SurfaceCell(FaceId.Floor, 1, 1),
                     new CubeTopologyState(FaceId.Floor),
                     VfxAnchorSlot.CellCenter);
+                return true;
+            }
+        }
+
+        private sealed class FakeVfxBindingResolver : IVfxBindingResolver
+        {
+            private readonly VfxBindingRuntimePolicy? policy;
+
+            public FakeVfxBindingResolver(VfxBindingRuntimePolicy? policy)
+            {
+                this.policy = policy;
+            }
+
+            public bool TryResolve(in GameplayVfxRequest request, out VfxBindingRuntimePolicy resolvedPolicy)
+            {
+                resolvedPolicy = policy ?? CreatePolicy(
+                    request.CueId,
+                    request.IsPersistent ? VfxPlaybackMode.Loop : VfxPlaybackMode.OneShot,
+                    VfxStopPolicy.StopEmittingThenRelease);
                 return true;
             }
         }

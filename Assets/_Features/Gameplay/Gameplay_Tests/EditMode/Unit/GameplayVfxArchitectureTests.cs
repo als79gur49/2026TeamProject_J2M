@@ -42,6 +42,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("BoxFlipInteractionDriver"));
             Assert.That(document, Does.Contain("FlipImpactTrack"));
             Assert.That(document, Does.Contain("must not consume the same fact concurrently"));
+            Assert.That(document, Does.Contain("GameplayVfxRequest` is a semantic request"));
+            Assert.That(document, Does.Contain("does not own missing-anchor policy"));
+            Assert.That(document, Does.Contain("VfxBindingRuntimePolicy` owns"));
+            Assert.That(document, Does.Contain("Binding missing, anchor missing, and invalid policy are distinct failure modes"));
+            Assert.That(document, Does.Contain("This stage does not add prefab references"));
         }
 
         [Test]

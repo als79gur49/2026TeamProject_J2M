@@ -6,20 +6,29 @@ namespace Game.Feature.Gameplay.Vfx
     {
         private readonly IVfxPool pool;
         private readonly IVfxAnchorResolver anchorResolver;
+        private readonly IVfxBindingResolver bindingResolver;
         private readonly VfxPersistentHandleRegistry persistentRegistry;
         private readonly VfxLifetimeRunner lifetimeRunner;
 
         public GameplayVfxPresentationController(
             IVfxPool pool,
             IVfxAnchorResolver anchorResolver,
+            IVfxBindingResolver bindingResolver,
             VfxPersistentHandleRegistry persistentRegistry,
             VfxLifetimeRunner lifetimeRunner)
         {
             this.pool = pool ?? throw new ArgumentNullException(nameof(pool));
             this.anchorResolver = anchorResolver ?? throw new ArgumentNullException(nameof(anchorResolver));
+            this.bindingResolver = bindingResolver ?? throw new ArgumentNullException(nameof(bindingResolver));
             this.persistentRegistry = persistentRegistry ?? throw new ArgumentNullException(nameof(persistentRegistry));
             this.lifetimeRunner = lifetimeRunner ?? throw new ArgumentNullException(nameof(lifetimeRunner));
         }
+
+        public int MissingBindingCount { get; private set; }
+
+        public int MissingAnchorCount { get; private set; }
+
+        public int CompatibilityFailureCount { get; private set; }
 
         public void Refresh(GameplayVfxRequestPlan plan)
         {
@@ -45,27 +54,108 @@ namespace Game.Feature.Gameplay.Vfx
 
         private void Process(in GameplayVfxRequest request)
         {
-            if (!anchorResolver.TryResolve(request, out var anchor) || !anchor.IsResolved)
+            if (!bindingResolver.TryResolve(request, out var policy))
             {
-                HandleMissingAnchor(request);
+                MissingBindingCount++;
                 return;
             }
 
+            policy.ValidateOrThrow();
+            ValidateCompatibility(request, policy);
+
+            if (!anchorResolver.TryResolve(request, out var anchor) || !anchor.IsResolved)
+            {
+                if (!TryHandleMissingAnchor(request, policy, out anchor))
+                {
+                    return;
+                }
+            }
+
+            var command = new ResolvedVfxPlaybackCommand(request, policy, anchor);
             if (request.IsPersistent)
             {
-                persistentRegistry.GetOrStart(request, anchor, pool);
+                persistentRegistry.GetOrStart(command, pool);
                 persistentRegistry.MarkDesired(request.PersistentKey);
                 return;
             }
 
-            pool.PlayTransient(request, anchor);
+            pool.PlayTransient(command);
         }
 
-        private static void HandleMissingAnchor(in GameplayVfxRequest request)
+        private void ValidateCompatibility(
+            in GameplayVfxRequest request,
+            VfxBindingRuntimePolicy policy)
         {
-            if (request.MissingAnchorPolicy == VfxMissingAnchorPolicy.FailFast)
+            if (policy.CueId != request.CueId)
             {
-                throw new InvalidOperationException("Gameplay VFX anchor resolution failed.");
+                CompatibilityFailureCount++;
+                throw new InvalidOperationException("Gameplay VFX binding cue does not match request cue.");
+            }
+
+            if (request.IsPersistent)
+            {
+                if (request.PersistentKey.IsNone)
+                {
+                    CompatibilityFailureCount++;
+                    throw new InvalidOperationException("Persistent Gameplay VFX request requires a persistent key.");
+                }
+
+                if (policy.PlaybackMode == VfxPlaybackMode.OneShot)
+                {
+                    CompatibilityFailureCount++;
+                    throw new InvalidOperationException("Persistent Gameplay VFX request cannot use one-shot playback.");
+                }
+
+                return;
+            }
+
+            if (policy.PlaybackMode == VfxPlaybackMode.Loop
+                || policy.PlaybackMode == VfxPlaybackMode.Follow
+                || policy.PlaybackMode == VfxPlaybackMode.MotionTrack)
+            {
+                CompatibilityFailureCount++;
+                throw new InvalidOperationException("Transient Gameplay VFX request cannot use persistent playback mode.");
+            }
+
+            if (policy.StopPolicy == VfxStopPolicy.ManualStopRequired)
+            {
+                CompatibilityFailureCount++;
+                throw new InvalidOperationException("Manual-stop Gameplay VFX binding requires a persistent request.");
+            }
+        }
+
+        private bool TryHandleMissingAnchor(
+            in GameplayVfxRequest request,
+            VfxBindingRuntimePolicy policy,
+            out VfxResolvedAnchor anchor)
+        {
+            MissingAnchorCount++;
+            switch (policy.MissingAnchorPolicy)
+            {
+                case VfxMissingAnchorPolicy.SkipOptional:
+                case VfxMissingAnchorPolicy.ReportDiagnostic:
+                    anchor = VfxResolvedAnchor.Unresolved(policy.MissingAnchorPolicy);
+                    return false;
+                case VfxMissingAnchorPolicy.UseFallbackCell:
+                    if (request.Anchor.HasFallbackCell)
+                    {
+                        anchor = VfxResolvedAnchor.ForCell(
+                            request.Anchor.FallbackCell,
+                            request.Anchor.FallbackTopology,
+                            request.Anchor.Slot == VfxAnchorSlot.None
+                                ? VfxAnchorSlot.CellCenter
+                                : request.Anchor.Slot,
+                            usedFallback: true);
+                        return true;
+                    }
+
+                    anchor = VfxResolvedAnchor.Unresolved(policy.MissingAnchorPolicy);
+                    return false;
+                case VfxMissingAnchorPolicy.FailFast:
+                    throw new InvalidOperationException("Gameplay VFX anchor resolution failed.");
+                default:
+                    anchor = VfxResolvedAnchor.Unresolved(policy.MissingAnchorPolicy);
+                    return false;
             }
         }
     }

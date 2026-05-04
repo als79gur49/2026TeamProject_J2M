@@ -11,11 +11,8 @@ namespace Game.Feature.Gameplay.Vfx
             GameplayVfxCueId cueId,
             VfxAnchor anchor,
             VfxTimingKind timing,
-            VfxPlaybackMode playbackMode,
-            VfxStopPolicy stopPolicy,
             bool isPersistent = false,
-            VfxPersistentKey persistentKey = default,
-            VfxMissingAnchorPolicy missingAnchorPolicy = VfxMissingAnchorPolicy.SkipOptional)
+            VfxPersistentKey persistentKey = default)
         {
             TickIndex = tickIndex;
             SequenceId = sequenceId;
@@ -23,11 +20,8 @@ namespace Game.Feature.Gameplay.Vfx
             CueId = cueId;
             Anchor = anchor;
             Timing = timing;
-            PlaybackMode = playbackMode;
-            StopPolicy = stopPolicy;
             IsPersistent = isPersistent;
             PersistentKey = persistentKey;
-            MissingAnchorPolicy = missingAnchorPolicy;
         }
 
         public int TickIndex { get; }
@@ -42,17 +36,9 @@ namespace Game.Feature.Gameplay.Vfx
 
         public VfxTimingKind Timing { get; }
 
-        // Foundation-stage execution hint. Binding/profile data may later own final playback policy.
-        public VfxPlaybackMode PlaybackMode { get; }
-
-        // Foundation-stage execution hint. Binding/profile data may later own final stop policy.
-        public VfxStopPolicy StopPolicy { get; }
-
         public bool IsPersistent { get; }
 
         public VfxPersistentKey PersistentKey { get; }
-
-        public VfxMissingAnchorPolicy MissingAnchorPolicy { get; }
 
         public int CompareTo(GameplayVfxRequest other)
         {
@@ -86,34 +72,22 @@ namespace Game.Feature.Gameplay.Vfx
                 return anchorCompare;
             }
 
-            var timingCompare = Timing.CompareTo(other.Timing);
-            if (timingCompare != 0)
-            {
-                return timingCompare;
-            }
-
-            var playbackCompare = PlaybackMode.CompareTo(other.PlaybackMode);
-            if (playbackCompare != 0)
-            {
-                return playbackCompare;
-            }
-
-            var stopCompare = StopPolicy.CompareTo(other.StopPolicy);
-            if (stopCompare != 0)
-            {
-                return stopCompare;
-            }
-
-            var persistentCompare = IsPersistent.CompareTo(other.IsPersistent);
-            if (persistentCompare != 0)
-            {
-                return persistentCompare;
-            }
-
             var persistentKeyCompare = PersistentKey.CompareTo(other.PersistentKey);
-            return persistentKeyCompare != 0
-                ? persistentKeyCompare
-                : MissingAnchorPolicy.CompareTo(other.MissingAnchorPolicy);
+            if (persistentKeyCompare != 0)
+            {
+                return persistentKeyCompare;
+            }
+
+            var seedCompare = PresentationSeed.CompareTo(other.PresentationSeed);
+            if (seedCompare != 0)
+            {
+                return seedCompare;
+            }
+
+            var timingCompare = Timing.CompareTo(other.Timing);
+            return timingCompare != 0
+                ? timingCompare
+                : IsPersistent.CompareTo(other.IsPersistent);
         }
 
         public bool Equals(GameplayVfxRequest other)
@@ -124,11 +98,8 @@ namespace Game.Feature.Gameplay.Vfx
                 && CueId.Equals(other.CueId)
                 && Anchor.Equals(other.Anchor)
                 && Timing == other.Timing
-                && PlaybackMode == other.PlaybackMode
-                && StopPolicy == other.StopPolicy
                 && IsPersistent == other.IsPersistent
-                && PersistentKey.Equals(other.PersistentKey)
-                && MissingAnchorPolicy == other.MissingAnchorPolicy;
+                && PersistentKey.Equals(other.PersistentKey);
         }
 
         public override bool Equals(object obj)
@@ -146,11 +117,8 @@ namespace Game.Feature.Gameplay.Vfx
                 hash = (hash * 397) ^ CueId.GetHashCode();
                 hash = (hash * 397) ^ Anchor.GetHashCode();
                 hash = (hash * 397) ^ (int)Timing;
-                hash = (hash * 397) ^ (int)PlaybackMode;
-                hash = (hash * 397) ^ (int)StopPolicy;
                 hash = (hash * 397) ^ IsPersistent.GetHashCode();
                 hash = (hash * 397) ^ PersistentKey.GetHashCode();
-                hash = (hash * 397) ^ (int)MissingAnchorPolicy;
                 return hash;
             }
         }
