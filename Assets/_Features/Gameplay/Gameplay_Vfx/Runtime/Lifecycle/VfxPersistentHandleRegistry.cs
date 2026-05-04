@@ -35,7 +35,7 @@ namespace Game.Feature.Gameplay.Vfx
             var handle = pool.StartPersistent(command);
             if (handle == null)
             {
-                throw new InvalidOperationException("Persistent VFX pool returned no handle.");
+                return null;
             }
 
             activeHandles.Add(command.PersistentKey, handle);

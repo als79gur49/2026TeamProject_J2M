@@ -74,8 +74,11 @@ namespace Game.Feature.Gameplay.Vfx
             var command = new ResolvedVfxPlaybackCommand(request, policy, anchor);
             if (request.IsPersistent)
             {
-                persistentRegistry.GetOrStart(command, pool);
-                persistentRegistry.MarkDesired(request.PersistentKey);
+                if (persistentRegistry.GetOrStart(command, pool) != null)
+                {
+                    persistentRegistry.MarkDesired(request.PersistentKey);
+                }
+
                 return;
             }
 
