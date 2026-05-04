@@ -3,6 +3,7 @@
   "rootNamespace": "Game.Feature.Gameplay.Host",
   "references": [
     "Game.Feature.Gameplay",
+    "Game.Feature.Gameplay.EnemyPresentation",
     "Game.Feature.Gameplay.ActionAudio",
     "Game.Feature.Gameplay.Audio",
     "Game.Feature.Gameplay.UIAccess",

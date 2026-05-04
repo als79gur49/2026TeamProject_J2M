@@ -124,6 +124,61 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
+        public void GameplayAssembly_DoesNotReferenceVfxAuthoring()
+        {
+            var references = typeof(WorldState).Assembly
+                .GetReferencedAssemblies()
+                .Select(reference => reference.Name)
+                .ToArray();
+
+            Assert.That(references, Does.Not.Contain("Game.Feature.Gameplay.Vfx.Authoring"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyPresentationAssembly_ReferencesGameplayButNotVfxStagesOrHost()
+        {
+            var references = typeof(EnemyPresentationCatalog).Assembly
+                .GetReferencedAssemblies()
+                .Select(reference => reference.Name)
+                .ToArray();
+
+            Assert.That(references, Does.Contain("Game.Feature.Gameplay"));
+            Assert.That(references, Does.Not.Contain("Game.Feature.Gameplay.Vfx"));
+            Assert.That(references, Does.Not.Contain("Game.Feature.Gameplay.Vfx.Authoring"));
+            Assert.That(references, Does.Not.Contain("Game.Feature.Stages"));
+            Assert.That(references, Does.Not.Contain("Game.Feature.Gameplay.Host"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StagesAndHostReferenceEnemyPresentationAssembly()
+        {
+            Assert.That(
+                typeof(StagePresentationDefinition).Assembly.GetReferencedAssemblies().Select(reference => reference.Name),
+                Does.Contain("Game.Feature.Gameplay.EnemyPresentation"));
+            Assert.That(
+                typeof(GameplaySceneHostConfiguration).Assembly.GetReferencedAssemblies().Select(reference => reference.Name),
+                Does.Contain("Game.Feature.Gameplay.EnemyPresentation"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyPresentationCatalogSchema_Unchanged()
+        {
+            Assert.That(
+                GetDeclaredFieldNames(typeof(EnemyPresentationCatalogEntry)),
+                Is.EqualTo(new[] { "PresentationId", "ViewPrefab" }));
+            Assert.That(
+                GetDeclaredFieldNames(typeof(EnemyPresentationBinding)),
+                Is.EqualTo(new[] { "EntityId", "PresentationId" }));
+
+            AssertDoesNotExposeVfxProfileOverride(typeof(EnemyPresentationCatalogEntry));
+            AssertDoesNotExposeVfxProfileOverride(typeof(EnemyPresentationBinding));
+        }
+
+        [Test]
         [Category("Full")]
         public void CorePublicSurface_DoesNotExposeHostPrefabOrAuthorityTypes()
         {
@@ -284,6 +339,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(exposedType, Does.Not.Contain("VfxProfile"), $"{type.FullName} exposes {exposedType}");
                 Assert.That(exposedType, Does.Not.Contain("VFXProfile"), $"{type.FullName} exposes {exposedType}");
             }
+        }
+
+        private static string[] GetDeclaredFieldNames(Type type)
+        {
+            return type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                .Select(field => field.Name)
+                .OrderBy(fieldName => fieldName, StringComparer.Ordinal)
+                .ToArray();
         }
 
         private static bool ContainsForbiddenType(Type type, HashSet<string> forbiddenTypes)

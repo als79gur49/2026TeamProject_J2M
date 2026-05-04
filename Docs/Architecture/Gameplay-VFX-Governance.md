@@ -148,6 +148,8 @@ Missing or invalid source identity means profile lookup is skipped and host defa
 
 The preferred future enemy VFX profile owner is `EnemyPresentationCatalogEntry.VfxProfileAsset`, after source identity exists on requests. That catalog owner is a future owner slice and is not part of the current request identity slice.
 
+Enemy presentation catalog types are split into `Game.Feature.Gameplay.EnemyPresentation` before the owner field is added. This keeps the current catalog schema unchanged while avoiding a future `Game.Feature.Gameplay -> Game.Feature.Gameplay.Vfx.Authoring -> Game.Feature.Gameplay.Vfx -> Game.Feature.Gameplay` assembly cycle.
+
 StagePresentationDefinition binding override is a future stage-specific override, not the v1 owner. Prefab component authoring is possible, but it is not canonical until explicitly chosen because it depends on live views and cannot by itself distinguish the same prefab under different presentation identities.
 
 ## Request Identity Rule

@@ -3,6 +3,7 @@
   "rootNamespace": "Game.Feature.Gameplay.Tests",
   "references": [
     "Game.Feature.Gameplay",
+    "Game.Feature.Gameplay.EnemyPresentation",
     "Game.Feature.Gameplay.Vfx",
     "Game.Feature.Gameplay.Vfx.Host",
     "Game.Feature.Gameplay.Vfx.ProductionRuntime",

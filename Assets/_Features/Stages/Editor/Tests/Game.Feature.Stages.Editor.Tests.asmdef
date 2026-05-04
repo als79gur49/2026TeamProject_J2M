@@ -5,6 +5,7 @@
     "Game.Feature.Stages",
     "Game.Feature.Stages.Editor",
     "Game.Feature.Gameplay",
+    "Game.Feature.Gameplay.EnemyPresentation",
     "Game.Feature.Gameplay.Host",
     "Game.Feature.UI.Composition"
   ],

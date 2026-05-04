@@ -1,0 +1,7 @@
+{
+  "name": "Game.Feature.Gameplay.EnemyPresentation",
+  "rootNamespace": "Game.Feature.Gameplay.Host",
+  "references": [
+    "Game.Feature.Gameplay"
+  ]
+}
