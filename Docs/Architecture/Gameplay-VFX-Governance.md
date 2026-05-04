@@ -194,16 +194,51 @@ Binding missing, anchor missing, and invalid policy are distinct failure modes. 
 
 Source entity removal must not imply immediate VFX destruction. Desired-state exit should stop new emission, detach when policy requires it, preserve the authored tail, and release only after lifecycle completion or hard cleanup.
 
+## Authoring Binding Gate
+
+This stage adds ScriptableObject authoring assets for VFX binding policy. It does not connect production playback, instantiate prefabs, implement a GameObject pool, or migrate existing presenters.
+
+Authoring assets convert to runtime-safe policy snapshots. `GameplayVfxPresentationController`, lifecycle runtime, binding resolvers, and pools consume `VfxBindingRuntimePolicy`, `VfxCueMap`, and `VfxProfile`, not ScriptableObject or GameObject references.
+
+## Binding Asset Ownership
+
+`VfxBindingDefinitionAsset` owns a single cue binding's prefab reference, requirement policy, missing-anchor policy, playback mode, stop policy, lifetime, tail, and pool-sizing hints. `VfxBindingRuntimePolicy` remains Unity-object-free and is the runtime execution policy snapshot.
+
+`VfxCueMapAsset` owns stage, host, or global cue-map authoring and converts to `VfxCueMap`. `VfxProfileAsset` owns prefab-local family cue profile authoring and converts to `VfxProfile`.
+
+Required, optional, and diagnostic binding requirements are authoring/runtime binding policy, not request state. Null prefab is invalid for all v1 binding assets, including optional bindings. A future disabled/no-op authoring state must be explicit instead of using null prefabs.
+
+## Prefab Validation
+
+VFX prefabs must not contain gameplay authority components by default. Prefab validation inspects the root and all children before production playback can be connected.
+
+Forbidden by default:
+
+- Collider components
+- AudioSource, because audio playback is governed by the audio lane
+- NavMeshAgent
+- non-kinematic Rigidbody
+- gameplay-affecting or non-allowlisted custom MonoBehaviour scripts
+
+Allowed presentation components include ParticleSystem, Renderer, Animator, TrailRenderer, and LineRenderer. Kinematic Rigidbody is diagnostic only in v1 and should still be avoided for VFX prefabs.
+
+## Stage/Prefab Binding Boundary
+
+This stage does not add fields to `StagePresentationDefinition`, `GameplaySceneHostConfiguration`, or entity view prefab authoring. Stage-specific tile, terrain, and environment VFX map binding is a future slice. Player, Box, Enemy, and Projectile prefab-local profile binding is a future slice. Existing presenter migration remains a future slice.
+
 ## Production Connection Gate
 
 Before connecting Gameplay VFX to `GameplayTickPresentationCoordinator`:
 
-1. no-snapshot tests must pass
-2. presenter-isolation tests must pass
-3. duplicate presenter conflict must be resolved
-4. first production cue must not overlap existing presenters
-5. prefab validation policy must exist
-6. pool and lifecycle runtime must be implemented
+1. VFX authoring validation must exist
+2. prefab validation must exist
+3. required/optional/diagnostic binding policy must be tested
+4. no-snapshot tests must pass
+5. no-authority tests must pass
+6. presenter-isolation tests must pass
+7. duplicate presenter conflict must be resolved
+8. first production cue must not overlap existing presenters
+9. pool and lifecycle runtime must be implemented
 
 ## Binding Ownership
 
@@ -220,15 +255,7 @@ Do not put every player, box, enemy, and projectile VFX binding into `StagePrese
 
 ## Prefab Validation Policy
 
-This stage does not add prefab references, ScriptableObject authoring, runtime prefab validation, or production playback connection. A future `VfxBinding` asset may add prefab references, pool config, prefab validation, and authoring diagnostics. Current binding policy values are runtime-safe and Unity-object-free.
-
-Future validation rules:
-
-- gameplay collider / gameplay collision layer forbidden
-- non-kinematic Rigidbody forbidden
-- gameplay-affecting MonoBehaviour forbidden
-- AudioSource forbidden by default unless explicitly governed
-- allowed: ParticleSystem, Renderer, Animator, presentation-only allowlisted scripts
+This stage adds authoring-side prefab references, ScriptableObject authoring, prefab validation, and authoring diagnostics. It still does not add runtime prefab references or production playback connection. Current runtime binding policy values remain runtime-safe and Unity-object-free.
 
 ## Future Implementation Order
 
