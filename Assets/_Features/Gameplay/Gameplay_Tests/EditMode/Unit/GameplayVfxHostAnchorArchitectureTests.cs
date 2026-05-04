@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Vfx;
 using Game.Feature.Gameplay.Vfx.Host;
 using NUnit.Framework;
@@ -12,7 +13,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         private const string VfxRuntimePath = "Assets/_Features/Gameplay/Gameplay_Vfx/Runtime";
         private const string VfxHostRuntimePath = "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime";
+        private const string VfxProductionRuntimePath = "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production";
         private const string VfxHostAsmdefPath = "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Gameplay.Vfx.Host.asmdef";
+        private const string VfxProductionRuntimeAsmdefPath = "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/Gameplay.Vfx.ProductionRuntime.asmdef";
         private const string HostAsmdefPath = "Assets/_Features/Gameplay/Gameplay_Host/Gameplay.Host.asmdef";
         private static readonly string[] HostAnchorSourcePaths =
         {
@@ -43,6 +46,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(source, Does.Not.Contain(nameof(GameplayVfxHostAnchorResolver)), path);
                 Assert.That(source, Does.Not.Contain("Game.Feature.Gameplay.Vfx.Host"), path);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProductionHosts_DoNotCreateConcreteVfxProductionRuntime()
+        {
+            var factorySource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeFactory.cs");
+
+            Assert.That(factorySource, Does.Contain(nameof(IGameplayTickPresentationExtension)));
+            Assert.That(factorySource, Does.Contain("GetComponents<MonoBehaviour>"));
+
+            foreach (var path in ProductionBoundaryPaths)
+            {
+                var source = ReadRepoFile(path);
+
+                Assert.That(source, Does.Not.Contain(nameof(GameplayVfxProductionRuntime)), path);
+                Assert.That(source, Does.Not.Contain("VfxCueMapAsset"), path);
+                Assert.That(source, Does.Not.Contain("VfxProfileAsset"), path);
+                Assert.That(source, Does.Not.Contain("VfxBindingDefinitionAsset"), path);
+                Assert.That(source, Does.Not.Contain("GameplayVfxPresentationController"), path);
+                Assert.That(source, Does.Not.Contain("Game.Feature.Gameplay.Vfx.Authoring"), path);
             }
         }
 
@@ -83,6 +108,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(asmdef, Does.Not.Contain("Game.Feature.Gameplay.Loop"));
             AssertAuthoritySourceTokensAbsent(source);
             AssertAnchorOnlySourceTokensAbsent(anchorSource);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProductionRuntimeAssembly_ReferencesAuthoringAndHostButNotAuthorityRuntime()
+        {
+            var references = typeof(GameplayVfxProductionRuntime).Assembly
+                .GetReferencedAssemblies()
+                .Select(reference => reference.Name)
+                .ToArray();
+            var source = ReadCombinedSourceIncludingNested(VfxProductionRuntimePath);
+            var asmdef = ReadRepoFile(VfxProductionRuntimeAsmdefPath);
+
+            Assert.That(references, Does.Contain("Game.Feature.Gameplay.Vfx.Authoring"));
+            Assert.That(references, Does.Contain("Game.Feature.Gameplay.Vfx.Host"));
+            Assert.That(references, Does.Contain("Game.Feature.Gameplay.Host"));
+            Assert.That(asmdef, Does.Contain("Game.Feature.Gameplay.Vfx.Authoring"));
+            Assert.That(asmdef, Does.Contain("Game.Feature.Gameplay.Vfx.Host"));
+            Assert.That(asmdef, Does.Contain("Game.Feature.Gameplay.Host"));
+            AssertProductionRuntimeAuthorityTokensAbsent(source);
         }
 
         [Test]
@@ -161,6 +206,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "WorldState",
                 "WorldSnapshot",
                 "TickPipeline",
+                "Game.Feature.Gameplay.Loop",
+                "Game.Feature.Stages",
+                "TickPresentationData",
+                "ProjectedWorld",
+                "FinalizationBatch",
+                "DeterminismHashBuilder",
+                "CreateSnapshot",
+            };
+
+            foreach (var token in forbiddenTokens)
+            {
+                Assert.That(source, Does.Not.Contain(token), token);
+            }
+        }
+
+        private static void AssertProductionRuntimeAuthorityTokensAbsent(string source)
+        {
+            var forbiddenTokens = new[]
+            {
+                "WorldState",
+                "WorldSnapshot",
+                "TickPipeline",
+                "ProjectedWorld",
+                "FinalizationBatch",
+                "DeterminismHashBuilder",
                 "CreateSnapshot",
             };
 
@@ -213,6 +283,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "\n",
                 Directory.GetFiles(Path.GetFullPath(relativeDirectory), "*.cs", SearchOption.AllDirectories)
                     .Where(path => !IsNestedProductionRuntimeSource(path))
+                    .OrderBy(path => path, StringComparer.Ordinal)
+                    .Select(path => File.ReadAllText(path).Replace("\r\n", "\n")));
+        }
+
+        private static string ReadCombinedSourceIncludingNested(string relativeDirectory)
+        {
+            return string.Join(
+                "\n",
+                Directory.GetFiles(Path.GetFullPath(relativeDirectory), "*.cs", SearchOption.AllDirectories)
                     .OrderBy(path => path, StringComparer.Ordinal)
                     .Select(path => File.ReadAllText(path).Replace("\r\n", "\n")));
         }

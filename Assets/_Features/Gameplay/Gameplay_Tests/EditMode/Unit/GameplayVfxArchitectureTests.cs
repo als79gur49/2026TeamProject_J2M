@@ -15,6 +15,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         private const string GovernancePath = "Docs/Architecture/Gameplay-VFX-Governance.md";
         private const string VfxRuntimePath = "Assets/_Features/Gameplay/Gameplay_Vfx/Runtime";
+        private const string VfxPlanningPath = "Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxPlanning.cs";
         private const string CoordinatorPath = "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs";
 
         [Test]
@@ -66,6 +67,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("Anchor Resolver Ownership"));
             Assert.That(document, Does.Contain("resolver true/false is independent from missing-anchor policy"));
             Assert.That(document, Does.Contain("transition-aware VFX anchors are future"));
+            Assert.That(document, Does.Contain("First Production Cue Gate"));
+            Assert.That(document, Does.Contain("EnemyVfxCue.JumperLandingTarget"));
+            Assert.That(document, Does.Contain("TickPresentationData.EnemyJumpSignals"));
+            Assert.That(document, Does.Contain("StartedWindupThisTick"));
+            Assert.That(document, Does.Contain("TickEnemyJumpPresentationOutcome.WindupStarted"));
+            Assert.That(document, Does.Contain("PresentationTargetCell"));
+            Assert.That(document, Does.Contain("VfxAnchorSlot.CellFloor"));
+            Assert.That(document, Does.Contain("EnableEnemyJumpTargetVfx"));
+            Assert.That(document, Does.Contain("VFX Planner Dependency Rule"));
+            Assert.That(document, Does.Contain("Gameplay VFX planners may read presentation carriers"));
+            Assert.That(document, Does.Contain("Production Runtime Dependency Rule"));
+            Assert.That(document, Does.Contain("Gameplay_Host` uses the `IGameplayTickPresentationExtension` seam"));
         }
 
         [Test]
@@ -152,6 +165,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void PlannerSource_DoesNotReferenceAuthorityRuntimeTypes()
+        {
+            var source = ReadRepoFile(VfxPlanningPath);
+
+            Assert.That(source, Does.Contain(nameof(TickPresentationData)));
+            AssertForbiddenAuthorityTokensAbsent(source);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Coordinator_DoesNotReferenceGameplayVfxFoundation()
         {
             var source = ReadRepoFile(CoordinatorPath);
@@ -178,6 +201,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(properties, Does.Not.Contain("WorldState"));
             Assert.That(properties, Does.Not.Contain("WorldSnapshot"));
             Assert.That(properties, Does.Not.Contain("TickPipeline"));
+        }
+
+        private static void AssertForbiddenAuthorityTokensAbsent(string source)
+        {
+            var forbiddenTokens = new[]
+            {
+                "WorldState",
+                "WorldSnapshot",
+                "TickPipeline",
+                "ProjectedWorld",
+                "FinalizationBatch",
+                "DeterminismHashBuilder",
+                "CreateSnapshot",
+            };
+
+            foreach (var token in forbiddenTokens)
+            {
+                Assert.That(source, Does.Not.Contain(token), token);
+            }
         }
 
         private static bool ContainsForbiddenType(Type type, HashSet<string> forbiddenTypes)

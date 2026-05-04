@@ -56,6 +56,80 @@ The new Gameplay VFX lane must not consume the same fact concurrently with these
 
 Guard phrase: existing presenter migration is a future slice.
 
+## First Production Cue Gate
+
+The first production Gameplay VFX cue is `EnemyVfxCue.JumperLandingTarget`.
+
+Source fact:
+
+- `TickPresentationData.EnemyJumpSignals`
+
+Trigger:
+
+- jump windup start only
+- `StartedWindupThisTick`
+- `TickEnemyJumpPresentationOutcome.WindupStarted`
+
+Non-trigger:
+
+- airborne start
+- landed
+- retry or continuation
+
+Anchor:
+
+- `PresentationTargetCell`
+- `VfxAnchorKind.Cell`
+- `VfxAnchorSlot.CellFloor`
+- `SurfaceCell(face, x, y)` must be preserved. Do not flatten the target to planar coordinates.
+
+Lifecycle:
+
+- v1 is a transient one-shot request.
+- Persistent landing telegraph desired state is a future slice.
+
+Binding:
+
+- v1 owner is the host default `VfxCueMap`.
+- Enemy or jumper prefab-local `VfxProfile` ownership is a future slice.
+
+Feature flag:
+
+- `EnableEnemyJumpTargetVfx`
+- default false
+
+Non-goals:
+
+- no existing presenter migration
+- no TileFeature runtime
+- no persistent telegraph
+- no `StagePresentationDefinition` VFX field
+- no `TickPresentationData` shape change
+
+## VFX Planner Dependency Rule
+
+Gameplay VFX planners may read presentation carriers such as `TickPresentationData`.
+
+Gameplay VFX planners must not read authoritative simulation types or authority construction APIs:
+
+- `WorldState`
+- `WorldSnapshot`
+- `TickPipeline`
+- `ProjectedWorld`
+- `FinalizationBatch`
+- `DeterminismHashBuilder`
+- `CreateSnapshot`
+
+Planner inputs must remain presentation-derived. Planner output is `GameplayVfxRequest` data only and must not materialize snapshots.
+
+## Production Runtime Dependency Rule
+
+`Game.Feature.Gameplay.Vfx.Host` remains the anchor and pool primitive assembly. It must not reference Authoring, Loop, stage bindings, `TickPresentationData`, or concrete production presentation carriers.
+
+`Game.Feature.Gameplay.Vfx.ProductionRuntime` is the only VFX assembly allowed to know both production presentation carriers and VFX authoring or prefab lookup. It may reference Authoring, `Game.Feature.Gameplay.Vfx.Host`, and the host extension seam, but it must not reference authoritative simulation types or snapshot creation APIs.
+
+`Gameplay_Host` uses the `IGameplayTickPresentationExtension` seam. The host factory may attach already co-located enabled extensions, but production bootstrap does not create `GameplayVfxProductionRuntime`, does not add VFX authoring fields to scene configuration, and must not directly depend on concrete VFX production runtime types unless a future bootstrap slice explicitly opens that dependency.
+
 ## Transient Vs Persistent
 
 Transient event VFX examples:
