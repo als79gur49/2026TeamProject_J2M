@@ -106,6 +106,38 @@ Non-goals:
 - no `StagePresentationDefinition` VFX field
 - no `TickPresentationData` shape change
 
+## JumperLandingTarget V1 Visual Tuning
+
+`EnemyVfxCue.JumperLandingTarget` now has a first shared production marker asset:
+
+- prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/JumperLandingTargetVfx.prefab`
+- material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_JumperLandingTarget_RedOrange.mat`
+- binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/JumperLandingTarget_Binding.asset`
+- host default map: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset`
+
+V1 policy:
+
+- transient one-shot marker only
+- anchor is `PresentationTargetCell` with `VfxAnchorSlot.CellFloor`
+- playback is `OneShot`
+- stop policy is `AuthoredDuration`
+- lifetime is `0.55` seconds
+- tail is `0.25` seconds
+- initial pool size authoring hint is `4`
+- max concurrent instances is `8`
+
+Visual tuning:
+
+- low-poly geometric floor marker
+- red/orange danger palette
+- roughly 80% of one cell footprint
+- small prefab-local surface lift to avoid floor z-fighting
+- no audio, collider, dynamic Rigidbody, NavMeshAgent, or gameplay-affecting script
+
+The host connection for manual verification is limited to `Assets/Scenes/CombinedGameplayShowcase.unity`, where `GameplayVfxProductionRuntime` is attached to the existing host object with `EnableEnemyJumpTargetVfx` enabled and the host default cue map assigned.
+
+Future work remains out of scope for this slice: persistent telegraph desired state, jump execute/cancel/death/retarget stop logic, prefab-local jumper profile ownership, stage/tile/terrain VFX, and existing presenter migration.
+
 ## VFX Planner Dependency Rule
 
 Gameplay VFX planners may read presentation carriers such as `TickPresentationData`.
