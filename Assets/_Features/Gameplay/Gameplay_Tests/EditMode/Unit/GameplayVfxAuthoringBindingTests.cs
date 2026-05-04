@@ -1,0 +1,326 @@
+using System;
+using System.Linq;
+using System.Reflection;
+using Game.Feature.Gameplay.Vfx;
+using Game.Feature.Gameplay.Vfx.Authoring;
+using NUnit.Framework;
+using UnityEngine;
+
+namespace Game.Feature.Gameplay.Tests.Unit
+{
+    public sealed class GameplayVfxAuthoringBindingTests
+    {
+        [Test]
+        [Category("Extended")]
+        public void BindingAsset_BuildsRuntimePolicyWithoutPrefabLeak()
+        {
+            var prefab = new GameObject("ValidVfxPrefab");
+            var binding = CreateBinding(
+                GameplayVfxFamily.Player,
+                (int)PlayerVfxCue.Damage,
+                prefab,
+                VfxBindingRequirement.Required,
+                VfxMissingAnchorPolicy.FailFast,
+                VfxPlaybackMode.OneShot,
+                VfxStopPolicy.AuthoredDuration,
+                defaultLifetimeSeconds: 1.25f,
+                tailSeconds: 0.5f,
+                initialPoolSize: 2,
+                maxConcurrentInstances: 3);
+
+            try
+            {
+                var policy = binding.BuildRuntimePolicy();
+
+                Assert.That(policy.CueId, Is.EqualTo(GameplayVfxCueId.From(PlayerVfxCue.Damage)));
+                Assert.That(policy.Requirement, Is.EqualTo(VfxBindingRequirement.Required));
+                Assert.That(policy.MissingAnchorPolicy, Is.EqualTo(VfxMissingAnchorPolicy.FailFast));
+                Assert.That(policy.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
+                Assert.That(policy.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
+                Assert.That(policy.DefaultLifetimeSeconds, Is.EqualTo(1.25f));
+                Assert.That(policy.TailSeconds, Is.EqualTo(0.5f));
+                Assert.That(policy.MaxConcurrentInstances, Is.EqualTo(3));
+                Assert.That(
+                    typeof(VfxBindingRuntimePolicy)
+                        .GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                        .Any(field => field.FieldType == typeof(GameObject)),
+                    Is.False);
+            }
+            finally
+            {
+                Destroy(binding);
+                Destroy(prefab);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BindingAsset_RejectsNullPrefab()
+        {
+            var required = CreateBinding(
+                GameplayVfxFamily.Player,
+                (int)PlayerVfxCue.Damage,
+                prefab: null,
+                requirement: VfxBindingRequirement.Required,
+                missingAnchorPolicy: VfxMissingAnchorPolicy.FailFast);
+            var optional = CreateBinding(
+                GameplayVfxFamily.Player,
+                (int)PlayerVfxCue.RecoveryDust,
+                prefab: null,
+                requirement: VfxBindingRequirement.Optional,
+                missingAnchorPolicy: VfxMissingAnchorPolicy.SkipOptional);
+
+            try
+            {
+                Assert.That(required.ValidateAuthoring().HasErrors, Is.True);
+                Assert.That(optional.ValidateAuthoring().HasErrors, Is.True);
+                Assert.Throws<InvalidOperationException>(() => required.BuildRuntimePolicy());
+                Assert.Throws<InvalidOperationException>(() => optional.BuildRuntimePolicy());
+            }
+            finally
+            {
+                Destroy(required);
+                Destroy(optional);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BindingAsset_RejectsInvalidPolicyValues()
+        {
+            var prefabA = new GameObject("InvalidDurationVfxPrefab");
+            var prefabB = new GameObject("RequiredSkipOptionalVfxPrefab");
+            var invalidDuration = CreateBinding(
+                GameplayVfxFamily.Player,
+                (int)PlayerVfxCue.Damage,
+                prefabA,
+                defaultLifetimeSeconds: -0.1f);
+            var requiredSkipOptional = CreateBinding(
+                GameplayVfxFamily.Player,
+                (int)PlayerVfxCue.RecoveryDust,
+                prefabB,
+                VfxBindingRequirement.Required,
+                VfxMissingAnchorPolicy.SkipOptional);
+
+            try
+            {
+                Assert.That(invalidDuration.ValidateAuthoring().HasErrors, Is.True);
+                Assert.That(
+                    invalidDuration.ValidateAuthoring().Messages.Select(message => message.Code),
+                    Does.Contain("VFX_BINDING_POLICY_INVALID"));
+                Assert.That(requiredSkipOptional.ValidateAuthoring().HasErrors, Is.True);
+                Assert.That(
+                    requiredSkipOptional.ValidateAuthoring().Messages.Select(message => message.Code),
+                    Does.Contain("VFX_BINDING_REQUIRED_SKIP_OPTIONAL"));
+            }
+            finally
+            {
+                Destroy(invalidDuration);
+                Destroy(requiredSkipOptional);
+                Destroy(prefabA);
+                Destroy(prefabB);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BindingAsset_BuildsDiagnosticRequirementPolicy()
+        {
+            var prefab = new GameObject("DiagnosticVfxPrefab");
+            var binding = CreateBinding(
+                GameplayVfxFamily.Player,
+                (int)PlayerVfxCue.PushWindup,
+                prefab,
+                VfxBindingRequirement.DiagnosticIfMissing,
+                VfxMissingAnchorPolicy.ReportDiagnostic);
+
+            try
+            {
+                var policy = binding.BuildRuntimePolicy();
+
+                Assert.That(policy.Requirement, Is.EqualTo(VfxBindingRequirement.DiagnosticIfMissing));
+                Assert.That(policy.MissingAnchorPolicy, Is.EqualTo(VfxMissingAnchorPolicy.ReportDiagnostic));
+            }
+            finally
+            {
+                Destroy(binding);
+                Destroy(prefab);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CueMapAsset_RejectsNullBinding()
+        {
+            var cueMap = ScriptableObject.CreateInstance<VfxCueMapAsset>();
+            SetField(cueMap, "bindings", new VfxBindingDefinitionAsset[] { null });
+
+            try
+            {
+                var validation = cueMap.ValidateAuthoring();
+
+                Assert.That(validation.HasErrors, Is.True);
+                Assert.That(validation.Messages.Select(message => message.Code), Does.Contain("VFX_CUE_MAP_NULL_BINDING"));
+            }
+            finally
+            {
+                Destroy(cueMap);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CueMapAsset_RejectsDuplicateCue()
+        {
+            var prefabA = new GameObject("VfxPrefabA");
+            var prefabB = new GameObject("VfxPrefabB");
+            var bindingA = CreateBinding(GameplayVfxFamily.Box, (int)BoxVfxCue.DestroySmoke, prefabA);
+            var bindingB = CreateBinding(GameplayVfxFamily.Box, (int)BoxVfxCue.DestroySmoke, prefabB);
+            var cueMap = ScriptableObject.CreateInstance<VfxCueMapAsset>();
+            SetField(cueMap, "bindings", new[] { bindingA, bindingB });
+
+            try
+            {
+                var validation = cueMap.ValidateAuthoring();
+
+                Assert.That(validation.HasErrors, Is.True);
+                Assert.That(validation.Messages.Select(message => message.Code), Does.Contain("VFX_CUE_MAP_DUPLICATE_CUE"));
+                Assert.Throws<InvalidOperationException>(() => cueMap.BuildRuntimeMap());
+            }
+            finally
+            {
+                Destroy(cueMap);
+                Destroy(bindingA);
+                Destroy(bindingB);
+                Destroy(prefabA);
+                Destroy(prefabB);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CueMapAsset_BuildsRuntimeCueMap()
+        {
+            var prefabA = new GameObject("VfxPrefabA");
+            var prefabB = new GameObject("VfxPrefabB");
+            var damage = CreateBinding(GameplayVfxFamily.Player, (int)PlayerVfxCue.Damage, prefabA);
+            var death = CreateBinding(GameplayVfxFamily.Player, (int)PlayerVfxCue.Death, prefabB);
+            var cueMap = ScriptableObject.CreateInstance<VfxCueMapAsset>();
+            SetField(cueMap, "bindings", new[] { death, damage });
+
+            try
+            {
+                var runtimeMap = cueMap.BuildRuntimeMap();
+
+                Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(PlayerVfxCue.Damage), out var damagePolicy), Is.True);
+                Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(PlayerVfxCue.Death), out var deathPolicy), Is.True);
+                Assert.That(damagePolicy.CueId, Is.EqualTo(GameplayVfxCueId.From(PlayerVfxCue.Damage)));
+                Assert.That(deathPolicy.CueId, Is.EqualTo(GameplayVfxCueId.From(PlayerVfxCue.Death)));
+            }
+            finally
+            {
+                Destroy(cueMap);
+                Destroy(damage);
+                Destroy(death);
+                Destroy(prefabA);
+                Destroy(prefabB);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProfileAsset_RejectsCrossFamilyBinding()
+        {
+            var prefab = new GameObject("BoxVfxPrefab");
+            var binding = CreateBinding(GameplayVfxFamily.Box, (int)BoxVfxCue.DestroySmoke, prefab);
+            var profile = ScriptableObject.CreateInstance<VfxProfileAsset>();
+            SetField(profile, "family", GameplayVfxFamily.Player);
+            SetField(profile, "bindings", new[] { binding });
+
+            try
+            {
+                var validation = profile.ValidateAuthoring();
+
+                Assert.That(validation.HasErrors, Is.True);
+                Assert.That(validation.Messages.Select(message => message.Code), Does.Contain("VFX_PROFILE_CROSS_FAMILY_BINDING"));
+                Assert.Throws<InvalidOperationException>(() => profile.BuildRuntimeProfile());
+            }
+            finally
+            {
+                Destroy(profile);
+                Destroy(binding);
+                Destroy(prefab);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProfileAsset_BuildsRuntimeProfile()
+        {
+            var prefab = new GameObject("EnemyVfxPrefab");
+            var binding = CreateBinding(GameplayVfxFamily.Enemy, (int)EnemyVfxCue.Spawn, prefab);
+            var profile = ScriptableObject.CreateInstance<VfxProfileAsset>();
+            SetField(profile, "family", GameplayVfxFamily.Enemy);
+            SetField(profile, "bindings", new[] { binding });
+
+            try
+            {
+                var runtimeProfile = profile.BuildRuntimeProfile();
+
+                Assert.That(runtimeProfile.Family, Is.EqualTo(GameplayVfxFamily.Enemy));
+                Assert.That(runtimeProfile.TryResolve(GameplayVfxCueId.From(EnemyVfxCue.Spawn), out var policy), Is.True);
+                Assert.That(policy.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.Spawn)));
+                Assert.That(runtimeProfile.TryResolve(GameplayVfxCueId.From(PlayerVfxCue.Damage), out _), Is.False);
+            }
+            finally
+            {
+                Destroy(profile);
+                Destroy(binding);
+                Destroy(prefab);
+            }
+        }
+
+        private static VfxBindingDefinitionAsset CreateBinding(
+            GameplayVfxFamily family,
+            int cueCode,
+            GameObject prefab,
+            VfxBindingRequirement requirement = VfxBindingRequirement.Optional,
+            VfxMissingAnchorPolicy missingAnchorPolicy = VfxMissingAnchorPolicy.SkipOptional,
+            VfxPlaybackMode playbackMode = VfxPlaybackMode.OneShot,
+            VfxStopPolicy stopPolicy = VfxStopPolicy.AuthoredDuration,
+            float defaultLifetimeSeconds = 0f,
+            float tailSeconds = 0f,
+            int initialPoolSize = 0,
+            int maxConcurrentInstances = 0)
+        {
+            var binding = ScriptableObject.CreateInstance<VfxBindingDefinitionAsset>();
+            SetField(binding, "family", family);
+            SetField(binding, "cueCode", cueCode);
+            SetField(binding, "prefab", prefab);
+            SetField(binding, "requirement", requirement);
+            SetField(binding, "missingAnchorPolicy", missingAnchorPolicy);
+            SetField(binding, "playbackMode", playbackMode);
+            SetField(binding, "stopPolicy", stopPolicy);
+            SetField(binding, "defaultLifetimeSeconds", defaultLifetimeSeconds);
+            SetField(binding, "tailSeconds", tailSeconds);
+            SetField(binding, "initialPoolSize", initialPoolSize);
+            SetField(binding, "maxConcurrentInstances", maxConcurrentInstances);
+            return binding;
+        }
+
+        private static void SetField(object target, string fieldName, object value)
+        {
+            var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, $"Missing field '{fieldName}' on {target.GetType().Name}.");
+            field.SetValue(target, value);
+        }
+
+        private static void Destroy(UnityEngine.Object unityObject)
+        {
+            if (unityObject != null)
+            {
+                UnityEngine.Object.DestroyImmediate(unityObject);
+            }
+        }
+    }
+}

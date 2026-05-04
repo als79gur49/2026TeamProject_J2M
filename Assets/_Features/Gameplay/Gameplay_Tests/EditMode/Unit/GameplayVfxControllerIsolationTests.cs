@@ -22,6 +22,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/FlipImpactTrack.cs",
         };
 
+        private static readonly string[] ProductionBindingBoundaryPaths =
+        {
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs",
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs",
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySceneHost.cs",
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeFactory.cs",
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySceneHostConfiguration.cs",
+            "Assets/_Features/Stages/Runtime/Content/StagePresentationDefinition.cs",
+        };
+
         [Test]
         [Category("Extended")]
         public void ControllerExecution_DoesNotCreateSnapshots()
@@ -94,6 +104,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(source, Does.Not.Contain("Game.Feature.Gameplay.Vfx"), path);
                 Assert.That(source, Does.Not.Contain("GameplayVfx"), path);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProductionBindingOwners_DoNotReferenceVfxAuthoringOrController()
+        {
+            foreach (var path in ProductionBindingBoundaryPaths)
+            {
+                var source = ReadRepoFile(path);
+
+                Assert.That(source, Does.Not.Contain("Game.Feature.Gameplay.Vfx.Authoring"), path);
+                Assert.That(source, Does.Not.Contain("VfxBindingDefinitionAsset"), path);
+                Assert.That(source, Does.Not.Contain("VfxCueMapAsset"), path);
+                Assert.That(source, Does.Not.Contain("VfxProfileAsset"), path);
+                Assert.That(source, Does.Not.Contain(nameof(GameplayVfxPresentationController)), path);
             }
         }
 

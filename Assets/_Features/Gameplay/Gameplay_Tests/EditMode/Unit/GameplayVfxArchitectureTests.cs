@@ -6,6 +6,7 @@ using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Vfx;
+using Game.Feature.Gameplay.Vfx.Authoring;
 using NUnit.Framework;
 
 namespace Game.Feature.Gameplay.Tests.Unit
@@ -46,7 +47,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("does not own missing-anchor policy"));
             Assert.That(document, Does.Contain("VfxBindingRuntimePolicy` owns"));
             Assert.That(document, Does.Contain("Binding missing, anchor missing, and invalid policy are distinct failure modes"));
-            Assert.That(document, Does.Contain("This stage does not add prefab references"));
+            Assert.That(document, Does.Contain("Authoring Binding Gate"));
+            Assert.That(document, Does.Contain("VfxBindingDefinitionAsset"));
+            Assert.That(document, Does.Contain("VfxCueMapAsset"));
+            Assert.That(document, Does.Contain("VfxProfileAsset"));
+            Assert.That(document, Does.Contain("prefab validation"));
+            Assert.That(document, Does.Contain("This stage does not add fields to `StagePresentationDefinition`"));
+            Assert.That(document, Does.Contain("does not add runtime prefab references or production playback connection"));
         }
 
         [Test]
@@ -63,6 +70,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(references, Does.Not.Contain("Game.Feature.Gameplay.Audio"));
             Assert.That(references, Does.Not.Contain("Game.Feature.Gameplay.ActionAudio"));
             Assert.That(references, Does.Not.Contain("Game.Feature.Stages"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void VfxAuthoringAssembly_ReferencesVfxButNotProductionAssemblies()
+        {
+            var references = typeof(VfxBindingDefinitionAsset).Assembly
+                .GetReferencedAssemblies()
+                .Select(reference => reference.Name)
+                .ToArray();
+
+            Assert.That(references, Does.Contain("Game.Feature.Gameplay.Vfx"));
+            Assert.That(references, Does.Not.Contain("Game.Feature.Gameplay.Host"));
+            Assert.That(references, Does.Not.Contain("Game.Feature.Stages"));
+            Assert.That(references, Does.Not.Contain("Game.Feature.Gameplay.Loop"));
         }
 
         [Test]
