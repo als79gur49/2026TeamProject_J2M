@@ -50,6 +50,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void PlayTransient_AppliesResolvedAnchorPose()
+        {
+            var localPosition = new Vector3(0.25f, -0.5f, 0.75f);
+            var localRotation = Quaternion.Euler(15f, 25f, 35f);
+
+            var handle = pool.PlayTransient(CreateCommand(
+                VfxPlaybackMode.OneShot,
+                VfxStopPolicy.AuthoredDuration,
+                resolvedLocalPosition: localPosition,
+                resolvedLocalRotation: localRotation));
+            var instance = root.OneShotRoot.GetChild(0);
+
+            Assert.That(handle, Is.Not.Null);
+            Assert.That(instance.localPosition, Is.EqualTo(localPosition));
+            Assert.That(Quaternion.Angle(instance.localRotation, localRotation), Is.LessThan(0.001f));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Release_ReturnsInstanceToPoolAndReusesIt()
         {
             var firstHandle = pool.PlayTransient(CreateCommand(VfxPlaybackMode.OneShot, VfxStopPolicy.AuthoredDuration));
@@ -96,6 +115,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(handle.State, Is.EqualTo(VfxLifetimeState.ReleasedToPool));
             Assert.That(pool.ActiveCount, Is.EqualTo(0));
+            Assert.That(pool.PooledCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void OneShotAuthoredDuration_ReleasesAfterLifetimeAndTail()
+        {
+            var handle = pool.PlayTransient(CreateCommand(
+                VfxPlaybackMode.OneShot,
+                VfxStopPolicy.AuthoredDuration,
+                defaultLifetimeSeconds: 0.55f,
+                tailSeconds: 0.25f));
+
+            timeProvider.TimeSeconds = 0.54f;
+            pool.Advance(0.54f);
+
+            Assert.That(handle.State, Is.EqualTo(VfxLifetimeState.Active));
+            Assert.That(pool.ActiveCount, Is.EqualTo(1));
+            Assert.That(pool.PooledCount, Is.Zero);
+
+            timeProvider.TimeSeconds = 0.55f;
+            pool.Advance(0.01f);
+
+            Assert.That(handle.State, Is.EqualTo(VfxLifetimeState.TailPlaying));
+            Assert.That(pool.ActiveCount, Is.EqualTo(1));
+
+            timeProvider.TimeSeconds = 0.8f;
+            pool.Advance(0.25f);
+
+            Assert.That(handle.State, Is.EqualTo(VfxLifetimeState.ReleasedToPool));
+            Assert.That(pool.ActiveCount, Is.Zero);
             Assert.That(pool.PooledCount, Is.EqualTo(1));
         }
 
@@ -239,7 +289,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             float defaultLifetimeSeconds = 0f,
             float tailSeconds = 0f,
             int maxConcurrentInstances = 0,
-            int persistentEntityId = 7)
+            int persistentEntityId = 7,
+            Vector3? resolvedLocalPosition = null,
+            Quaternion? resolvedLocalRotation = null)
         {
             var cueId = GameplayVfxCueId.From(EnemyVfxCue.Spawn);
             var request = new GameplayVfxRequest(
@@ -262,10 +314,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 defaultLifetimeSeconds,
                 tailSeconds,
                 maxConcurrentInstances);
-            var anchor = VfxResolvedAnchor.ForCell(
-                new SurfaceCell(FaceId.Floor, 1, 1),
-                new CubeTopologyState(FaceId.Floor),
-                VfxAnchorSlot.CellCenter);
+            var anchorCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var anchor = resolvedLocalPosition.HasValue || resolvedLocalRotation.HasValue
+                ? VfxResolvedAnchor.ForCell(
+                    anchorCell,
+                    topology,
+                    VfxAnchorSlot.CellCenter,
+                    resolvedLocalPosition ?? Vector3.zero,
+                    resolvedLocalRotation ?? Quaternion.identity)
+                : VfxResolvedAnchor.ForCell(
+                    anchorCell,
+                    topology,
+                    VfxAnchorSlot.CellCenter);
             return new ResolvedVfxPlaybackCommand(request, policy, anchor);
         }
 

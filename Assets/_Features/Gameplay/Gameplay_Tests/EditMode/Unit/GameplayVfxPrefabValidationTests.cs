@@ -1,12 +1,32 @@
 using System.Linq;
 using Game.Feature.Gameplay.Vfx.Authoring;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class GameplayVfxPrefabValidationTests
     {
+        private const string JumperLandingTargetPrefabPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/JumperLandingTargetVfx.prefab";
+
+        [Test]
+        [Category("Extended")]
+        public void JumperLandingTargetPrefab_PassesVfxPrefabValidation()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(JumperLandingTargetPrefabPath);
+
+            Assert.That(prefab, Is.Not.Null, JumperLandingTargetPrefabPath);
+            var validation = VfxPrefabValidationDiagnostics.ValidatePrefab(prefab);
+
+            Assert.That(validation.HasErrors, Is.False, string.Join("\n", validation.Messages));
+            Assert.That(validation.HasWarnings, Is.False, string.Join("\n", validation.Messages));
+            Assert.That(prefab.GetComponentsInChildren<Collider>(true), Is.Empty);
+            Assert.That(prefab.GetComponentsInChildren<AudioSource>(true), Is.Empty);
+            Assert.That(prefab.GetComponentsInChildren<Rigidbody>(true), Is.Empty);
+        }
+
         [Test]
         [Category("Extended")]
         public void PrefabValidation_RejectsCollider()

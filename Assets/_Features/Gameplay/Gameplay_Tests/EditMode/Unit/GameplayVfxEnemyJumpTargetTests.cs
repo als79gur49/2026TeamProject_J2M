@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
@@ -10,12 +11,20 @@ using Game.Feature.Gameplay.Vfx;
 using Game.Feature.Gameplay.Vfx.Authoring;
 using Game.Feature.Gameplay.Vfx.Host;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class GameplayVfxEnemyJumpTargetTests
     {
+        private const string HostDefaultCueMapPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset";
+        private const string CombinedGameplayShowcaseScenePath =
+            "Assets/Scenes/CombinedGameplayShowcase.unity";
+        private const string GameplayVfxProductionRuntimeScriptGuid = "77f98ca183bf441ba81f70f521126c17";
+        private const string HostDefaultCueMapGuid = "3ed23d03c1c440cb9a1441a4b18c46e5";
+
         [Test]
         [Category("Extended")]
         public void EnemyPlanner_StartedWindupThisTick_EmitsJumperLandingTargetRequest()
@@ -250,6 +259,65 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 UnityEngine.Object.DestroyImmediate(prefab);
                 UnityEngine.Object.DestroyImmediate(owner);
             }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProductionRuntime_FlagOnWithActualBinding_PlaysMarkerOnTargetCell()
+        {
+            var owner = new GameObject("VfxRuntimeActualBinding");
+            var targetCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var topology = new CubeTopologyState(FaceId.Floor);
+            try
+            {
+                var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
+                Assert.That(cueMap, Is.Not.Null, HostDefaultCueMapPath);
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableEnemyJumpTargetVfx = true;
+                runtime.ConfigureHostDefaultMap(cueMap);
+                var context = CreateExtensionContext(CreateJumpSignal(targetCell, startedWindup: true));
+
+                runtime.Present(context);
+
+                var oneShotRoot = owner.transform.Find("GameplayVfxRuntimeRoot/OneShot");
+                Assert.That(oneShotRoot, Is.Not.Null);
+                Assert.That(oneShotRoot.childCount, Is.EqualTo(1));
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.MissingBindingCount, Is.Zero);
+                Assert.That(runtime.MissingAnchorCount, Is.Zero);
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
+
+                var marker = oneShotRoot.GetChild(0);
+                var projector = new GameplayCubeProjector(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                    1f);
+                Assert.That(projector.TryProjectSurfaceCell(targetCell, topology, out var targetPose), Is.True);
+                Assert.That(
+                    projector.TryProjectSurfaceCell(new SurfaceCell(FaceId.Floor, 2, 0), topology, out var sourcePose),
+                    Is.True);
+                Assert.That(Vector3.Distance(marker.localPosition, targetPose.LocalPosition), Is.LessThan(0.0001f));
+                Assert.That(Vector3.Distance(marker.localPosition, sourcePose.LocalPosition), Is.GreaterThan(0.1f));
+                Assert.That(Quaternion.Angle(marker.localRotation, targetPose.LocalRotation), Is.LessThan(0.001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CombinedGameplayShowcase_WiresJumperLandingTargetVfxRuntime()
+        {
+            var sceneText = File.ReadAllText(CombinedGameplayShowcaseScenePath);
+
+            Assert.That(
+                sceneText,
+                Does.Contain($"m_Script: {{fileID: 11500000, guid: {GameplayVfxProductionRuntimeScriptGuid}, type: 3}}"));
+            Assert.That(sceneText, Does.Contain("enableEnemyJumpTargetVfx: 1"));
+            Assert.That(
+                sceneText,
+                Does.Contain($"hostDefaultCueMap: {{fileID: 11400000, guid: {HostDefaultCueMapGuid}, type: 2}}"));
         }
 
         private static GameplayVfxRequest PlanSingleRequest(

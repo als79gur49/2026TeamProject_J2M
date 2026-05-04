@@ -4,12 +4,60 @@ using System.Reflection;
 using Game.Feature.Gameplay.Vfx;
 using Game.Feature.Gameplay.Vfx.Authoring;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class GameplayVfxAuthoringBindingTests
     {
+        private const string JumperLandingTargetBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/JumperLandingTarget_Binding.asset";
+        private const string HostDefaultCueMapPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset";
+
+        [Test]
+        [Category("Extended")]
+        public void JumperLandingTarget_BindingAsset_Validates()
+        {
+            var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(JumperLandingTargetBindingPath);
+
+            Assert.That(binding, Is.Not.Null, JumperLandingTargetBindingPath);
+            var validation = binding.ValidateAuthoring();
+            var policy = binding.BuildRuntimePolicy();
+
+            Assert.That(validation.HasErrors, Is.False, string.Join("\n", validation.Messages));
+            Assert.That(policy.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)));
+            Assert.That(binding.Prefab, Is.Not.Null);
+            Assert.That(policy.Requirement, Is.EqualTo(VfxBindingRequirement.DiagnosticIfMissing));
+            Assert.That(policy.MissingAnchorPolicy, Is.EqualTo(VfxMissingAnchorPolicy.ReportDiagnostic));
+            Assert.That(policy.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
+            Assert.That(policy.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
+            Assert.That(policy.DefaultLifetimeSeconds, Is.EqualTo(0.55f).Within(0.0001f));
+            Assert.That(policy.TailSeconds, Is.EqualTo(0.25f).Within(0.0001f));
+            Assert.That(binding.InitialPoolSize, Is.EqualTo(4));
+            Assert.That(policy.MaxConcurrentInstances, Is.EqualTo(8));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void HostDefaultCueMap_ContainsJumperLandingTarget()
+        {
+            var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
+
+            Assert.That(cueMap, Is.Not.Null, HostDefaultCueMapPath);
+            var validation = cueMap.ValidateAuthoring();
+            var runtimeMap = cueMap.BuildRuntimeMap();
+
+            Assert.That(validation.HasErrors, Is.False, string.Join("\n", validation.Messages));
+            Assert.That(
+                runtimeMap.TryResolve(GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget), out var policy),
+                Is.True);
+            Assert.That(policy.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)));
+            Assert.That(cueMap.TryResolvePrefab(GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget), out var prefab), Is.True);
+            Assert.That(prefab, Is.Not.Null);
+        }
+
         [Test]
         [Category("Extended")]
         public void BindingAsset_BuildsRuntimePolicyWithoutPrefabLeak()

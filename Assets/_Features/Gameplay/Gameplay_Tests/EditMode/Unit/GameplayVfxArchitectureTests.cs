@@ -75,6 +75,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("PresentationTargetCell"));
             Assert.That(document, Does.Contain("VfxAnchorSlot.CellFloor"));
             Assert.That(document, Does.Contain("EnableEnemyJumpTargetVfx"));
+            Assert.That(document, Does.Contain("JumperLandingTargetVfx.prefab"));
+            Assert.That(document, Does.Contain("JumperLandingTarget_Binding.asset"));
+            Assert.That(document, Does.Contain("GameplayVfxHostDefaultCueMap.asset"));
+            Assert.That(document, Does.Contain("red/orange danger palette"));
+            Assert.That(document, Does.Contain("AuthoredDuration"));
             Assert.That(document, Does.Contain("VFX Planner Dependency Rule"));
             Assert.That(document, Does.Contain("Gameplay VFX planners may read presentation carriers"));
             Assert.That(document, Does.Contain("Production Runtime Dependency Rule"));
