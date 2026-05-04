@@ -32,6 +32,8 @@
   - current supporting truth for gameplay audio semantic-family governance, host one-shot controller scope, and safe semantic expansion protocol
 - [Gameplay-Action-Audio-Governance.md](./Gameplay-Action-Audio-Governance.md)
   - current supporting truth for gameplay action-audio profile governance, prefab-local authoring policy, and frozen v1 moment semantics
+- [Gameplay-VFX-Governance.md](./Gameplay-VFX-Governance.md)
+  - current supporting truth for presentation-only Gameplay VFX lane boundaries, family-specific planners, lifecycle vocabulary, persistent desired state, and existing presenter migration guardrails
 - [Bgm-Flow-V1-Guidelines.md](./Bgm-Flow-V1-Guidelines.md)
   - current supporting truth for persistent BGM ownership, scene request-source boundaries, request-based BGM playback, FadeOutIn support, and reserved Crossfade governance
 - [ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md](./ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md)
