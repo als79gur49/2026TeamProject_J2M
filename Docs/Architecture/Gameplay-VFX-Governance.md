@@ -36,8 +36,6 @@ The family planners preserve domain-specific presentation facts and translate th
 ## Non-Goals For This Phase
 
 - No production playback connection.
-- No prefab instantiate/playback implementation.
-- No runtime `VfxPool` implementation.
 - No existing presenter migration.
 - No TileFeature runtime implementation.
 - No TileEffect seam implementation.
@@ -121,7 +119,7 @@ Cell-anchored VFX must preserve `SurfaceCell(face, x, y)`. Do not flatten Surfac
 
 This stage resolves VFX anchors through host presentation seams. It does not instantiate prefabs, implement a runtime pool, control particles, or connect production playback.
 
-The host anchor resolver decides whether a `GameplayVfxRequest.Anchor` can be resolved to a logical `VfxResolvedAnchor`. Resolver true/false is independent from missing-anchor policy. Missing-anchor handling remains owned by binding/controller policy, and the resolver does not read required/optional binding state.
+The host anchor resolver decides whether a `GameplayVfxRequest.Anchor` can be resolved to a logical `VfxResolvedAnchor`. resolver true/false is independent from missing-anchor policy. Missing-anchor handling remains owned by binding/controller policy, and the resolver does not read required/optional binding state.
 
 Cell anchors use `SurfaceCell` plus committed or fallback topology and preserve `SurfaceCell(face, x, y)`. V1 supports `CellFloor`, `CellCenter`, and `CellAboveOccupant` as host-projectable cell slots. Projection failure returns false.
 
@@ -218,6 +216,26 @@ Binding missing, anchor missing, and invalid policy are distinct failure modes. 
 
 Source entity removal must not imply immediate VFX destruction. Desired-state exit should stop new emission, detach when policy requires it, preserve the authored tail, and release only after lifecycle completion or hard cleanup.
 
+## Pooled Runtime Gate
+
+This stage introduces a pooled GameObject runtime for Gameplay VFX. It remains disconnected from production tick presentation and is only available through test-only or manual command invocation.
+
+The pooled runtime consumes `ResolvedVfxPlaybackCommand` only. It uses explicit `GameplayVfxRuntimeRoot` ownership under a caller-provided scene or host transform. It must not create a global singleton, search the scene for a lazy runtime, or call `DontDestroyOnLoad`.
+
+The pooled runtime must not read WorldState, WorldSnapshot, or TickPipeline, and must not call WorldState.CreateSnapshot. Anchor input remains the logical `VfxResolvedAnchor`; v1 pooled playback does not materialize world-space anchor poses.
+
+The host runtime does not reference VFX authoring assets. Prefab access is isolated behind `IVfxPrefabProvider`, and production authoring-to-provider binding is a future slice. Pool runtime must not bypass prefab validation policy; authoring validation remains the gate for rejecting gameplay colliders, AudioSource, NavMeshAgent, dynamic Rigidbody, and gameplay-affecting scripts.
+
+## Pooling Policy
+
+One-shot transient effects lease prefab instances under `OneShotRoot` and return them to `PoolRoot` after authored lifetime plus tail. Persistent loop/follow effects lease under `PersistentRoot`; desired-state dedupe by `VfxPersistentKey` remains owned by the persistent handle registry before the pool.
+
+StopEmitting and Detach do not immediately destroy the GameObject. `StopEmittingThenRelease` stops new emission, enters `TailPlaying`, and releases after `TailSeconds`. `DetachThenStopEmittingThenRelease` first moves the instance to `TailRoot`, then stops new emission, preserves the tail, and releases after `TailSeconds`.
+
+`ManualStopRequired` and `HardCleanupOnly` do not auto-release during normal `Advance`. HardCleanup is reserved for scene unload, host dispose, pool dispose, or emergency cleanup and clears active, tail, and inactive pooled instances.
+
+`MaxConcurrentInstances` is enforced per `GameplayVfxCueId`. A value of `0` means unlimited. In v1, over-limit transient requests are skipped and counted in pool diagnostics. Over-limit persistent requests return no handle; the persistent registry must not register or mark desired state for a null handle. Required/fail-fast over-limit policy is future work.
+
 ## Authoring Binding Gate
 
 This stage adds ScriptableObject authoring assets for VFX binding policy. It does not connect production playback, instantiate prefabs, implement a GameObject pool, or migrate existing presenters.
@@ -282,15 +300,15 @@ This stage does not add fields to `StagePresentationDefinition`, `GameplaySceneH
 
 Before connecting Gameplay VFX to `GameplayTickPresentationCoordinator`:
 
-1. VFX authoring validation must exist
-2. prefab validation must exist
-3. required/optional/diagnostic binding policy must be tested
-4. no-snapshot tests must pass
-5. no-authority tests must pass
-6. presenter-isolation tests must pass
-7. duplicate presenter conflict must be resolved
-8. first production cue must not overlap existing presenters
-9. pool and lifecycle runtime must be implemented
+1. pooled runtime tests must pass
+2. no-snapshot tests must pass
+3. authoring prefab validation tests must pass
+4. anchor resolver tests must pass
+5. first production cue must be selected
+6. duplicate presenter conflict must be resolved
+7. feature flag must exist
+8. presenter-isolation tests must pass
+9. first production cue must not overlap existing presenters
 
 ## Binding Ownership
 
