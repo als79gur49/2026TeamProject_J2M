@@ -65,6 +65,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void Request_MissingAnchorPolicy_DefaultsToSkipOptionalAndParticipatesInIdentity()
+        {
+            var defaultPolicy = CreateRequest(1, 1, GameplayVfxCueId.From(PlayerVfxCue.Damage), VfxAnchor.ForEntity(1));
+            var explicitSkip = new GameplayVfxRequest(
+                1,
+                1,
+                presentationSeed: 17,
+                GameplayVfxCueId.From(PlayerVfxCue.Damage),
+                VfxAnchor.ForEntity(1),
+                VfxTimingKind.ImmediateOnTickPresentation,
+                VfxPlaybackMode.OneShot,
+                VfxStopPolicy.AuthoredDuration,
+                missingAnchorPolicy: VfxMissingAnchorPolicy.SkipOptional);
+            var failFast = new GameplayVfxRequest(
+                1,
+                1,
+                presentationSeed: 17,
+                GameplayVfxCueId.From(PlayerVfxCue.Damage),
+                VfxAnchor.ForEntity(1),
+                VfxTimingKind.ImmediateOnTickPresentation,
+                VfxPlaybackMode.OneShot,
+                VfxStopPolicy.AuthoredDuration,
+                missingAnchorPolicy: VfxMissingAnchorPolicy.FailFast);
+
+            Assert.That(defaultPolicy.MissingAnchorPolicy, Is.EqualTo(VfxMissingAnchorPolicy.SkipOptional));
+            Assert.That(defaultPolicy, Is.EqualTo(explicitSkip));
+            Assert.That(defaultPolicy.GetHashCode(), Is.EqualTo(explicitSkip.GetHashCode()));
+            Assert.That(defaultPolicy, Is.Not.EqualTo(failFast));
+            Assert.That(defaultPolicy.CompareTo(failFast), Is.LessThan(0));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Anchor_PreservesSurfaceCellFace()
         {
             var floor = VfxAnchor.ForCell(

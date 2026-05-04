@@ -14,7 +14,8 @@ namespace Game.Feature.Gameplay.Vfx
             VfxPlaybackMode playbackMode,
             VfxStopPolicy stopPolicy,
             bool isPersistent = false,
-            VfxPersistentKey persistentKey = default)
+            VfxPersistentKey persistentKey = default,
+            VfxMissingAnchorPolicy missingAnchorPolicy = VfxMissingAnchorPolicy.SkipOptional)
         {
             TickIndex = tickIndex;
             SequenceId = sequenceId;
@@ -26,6 +27,7 @@ namespace Game.Feature.Gameplay.Vfx
             StopPolicy = stopPolicy;
             IsPersistent = isPersistent;
             PersistentKey = persistentKey;
+            MissingAnchorPolicy = missingAnchorPolicy;
         }
 
         public int TickIndex { get; }
@@ -40,13 +42,17 @@ namespace Game.Feature.Gameplay.Vfx
 
         public VfxTimingKind Timing { get; }
 
+        // Foundation-stage execution hint. Binding/profile data may later own final playback policy.
         public VfxPlaybackMode PlaybackMode { get; }
 
+        // Foundation-stage execution hint. Binding/profile data may later own final stop policy.
         public VfxStopPolicy StopPolicy { get; }
 
         public bool IsPersistent { get; }
 
         public VfxPersistentKey PersistentKey { get; }
+
+        public VfxMissingAnchorPolicy MissingAnchorPolicy { get; }
 
         public int CompareTo(GameplayVfxRequest other)
         {
@@ -99,7 +105,15 @@ namespace Game.Feature.Gameplay.Vfx
             }
 
             var persistentCompare = IsPersistent.CompareTo(other.IsPersistent);
-            return persistentCompare != 0 ? persistentCompare : PersistentKey.CompareTo(other.PersistentKey);
+            if (persistentCompare != 0)
+            {
+                return persistentCompare;
+            }
+
+            var persistentKeyCompare = PersistentKey.CompareTo(other.PersistentKey);
+            return persistentKeyCompare != 0
+                ? persistentKeyCompare
+                : MissingAnchorPolicy.CompareTo(other.MissingAnchorPolicy);
         }
 
         public bool Equals(GameplayVfxRequest other)
@@ -113,7 +127,8 @@ namespace Game.Feature.Gameplay.Vfx
                 && PlaybackMode == other.PlaybackMode
                 && StopPolicy == other.StopPolicy
                 && IsPersistent == other.IsPersistent
-                && PersistentKey.Equals(other.PersistentKey);
+                && PersistentKey.Equals(other.PersistentKey)
+                && MissingAnchorPolicy == other.MissingAnchorPolicy;
         }
 
         public override bool Equals(object obj)
@@ -135,6 +150,7 @@ namespace Game.Feature.Gameplay.Vfx
                 hash = (hash * 397) ^ (int)StopPolicy;
                 hash = (hash * 397) ^ IsPersistent.GetHashCode();
                 hash = (hash * 397) ^ PersistentKey.GetHashCode();
+                hash = (hash * 397) ^ (int)MissingAnchorPolicy;
                 return hash;
             }
         }

@@ -156,6 +156,29 @@ Stop policy vocabulary:
 
 Smoke, dust, and trail effects must not be destroyed immediately when the source entity disappears. Entity removal VFX should detach or spawn under a VFX runtime root. HardCleanup is only for scene unload, host dispose, pool dispose, or emergency cleanup. Source entity lifecycle and VFX tail lifecycle are separate.
 
+## Host Lifecycle Skeleton
+
+This stage adds controller, registry, lifetime, pool, playback-handle, and anchor-resolver interfaces only. It does not connect production playback, instantiate authored effects, or add prefab bindings. Tests use fake pools and fake resolvers so transient, persistent, lifecycle, release, and missing-anchor behavior can be verified before a runtime playback implementation exists.
+
+The skeleton validates that transient requests do not enter the persistent registry, persistent requests dedupe by `VfxPersistentKey`, desired-set removal enters StopEmitting / TailPlaying / ReleasedToPool lifecycle, and missing anchors obey request policy.
+
+## Lifecycle Ownership
+
+Request planners decide the requested semantic cue, timing, anchor, deterministic seed, order, persistent key, and foundation execution hints. `GameplayVfxRequest.PlaybackMode` and `GameplayVfxRequest.StopPolicy` are execution hints until `VfxBinding` / `VfxProfile` ownership is introduced. Binding/profile data may later become the final owner of prefab playback and stop policy. Persistent identity and `VfxPersistentKey` remain request-owned.
+
+Source entity removal must not imply immediate VFX destruction. Desired-state exit should stop new emission, detach when policy requires it, preserve the authored tail, and release only after lifecycle completion or hard cleanup.
+
+## Production Connection Gate
+
+Before connecting Gameplay VFX to `GameplayTickPresentationCoordinator`:
+
+1. no-snapshot tests must pass
+2. presenter-isolation tests must pass
+3. duplicate presenter conflict must be resolved
+4. first production cue must not overlap existing presenters
+5. prefab validation policy must exist
+6. pool and lifecycle runtime must be implemented
+
 ## Binding Ownership
 
 Ownership defaults:
