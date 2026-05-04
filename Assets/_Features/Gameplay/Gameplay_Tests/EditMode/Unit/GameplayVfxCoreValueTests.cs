@@ -27,6 +27,48 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void GameplayVfxRequest_SourceEntityId_ParticipatesInIdentity()
+        {
+            var cueId = GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget);
+            var anchor = VfxAnchor.ForCell(
+                new SurfaceCell(FaceId.Floor, 1, 2),
+                new CubeTopologyState(FaceId.Floor),
+                VfxAnchorSlot.CellFloor);
+            var missingSource = new GameplayVfxRequest(
+                5,
+                7,
+                17,
+                cueId,
+                anchor,
+                VfxTimingKind.ImmediateOnTickPresentation);
+            var sourceA = new GameplayVfxRequest(
+                5,
+                7,
+                17,
+                10,
+                cueId,
+                anchor,
+                VfxTimingKind.ImmediateOnTickPresentation);
+            var sourceB = new GameplayVfxRequest(
+                5,
+                7,
+                17,
+                11,
+                cueId,
+                anchor,
+                VfxTimingKind.ImmediateOnTickPresentation);
+
+            Assert.That(missingSource.SourceEntityId, Is.Zero);
+            Assert.That(sourceA.SourceEntityId, Is.EqualTo(10));
+            Assert.That(sourceA, Is.Not.EqualTo(sourceB));
+            Assert.That(sourceA.GetHashCode(), Is.Not.EqualTo(sourceB.GetHashCode()));
+            Assert.That(sourceA.CompareTo(sourceB), Is.LessThan(0));
+            Assert.That(sourceB.CompareTo(sourceA), Is.GreaterThan(0));
+            Assert.That(sourceA.ToString(), Does.Contain("SourceEntityId=10"));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void RequestPlan_SortsRequestsDeterministically()
         {
             var topology = new CubeTopologyState(FaceId.Floor);

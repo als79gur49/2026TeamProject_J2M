@@ -82,15 +82,17 @@ namespace Game.Feature.Gameplay.Vfx
 
                 builder.Add(
                     new GameplayVfxRequest(
-                        context.TickIndex,
-                        ResolveSequenceId(signal),
-                        signal.EntityId,
-                        GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget),
-                        VfxAnchor.ForCell(
+                        tickIndex: context.TickIndex,
+                        sequenceId: ResolveSequenceId(signal),
+                        presentationSeed: signal.EntityId,
+                        // PresentationSeed remains a visual variation seed; SourceEntityId is the source identity.
+                        sourceEntityId: signal.EntityId,
+                        cueId: GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget),
+                        anchor: VfxAnchor.ForCell(
                             signal.PresentationTargetCell,
                             context.Topology,
                             VfxAnchorSlot.CellFloor),
-                        VfxTimingKind.ImmediateOnTickPresentation));
+                        timing: VfxTimingKind.ImmediateOnTickPresentation));
             }
         }
 

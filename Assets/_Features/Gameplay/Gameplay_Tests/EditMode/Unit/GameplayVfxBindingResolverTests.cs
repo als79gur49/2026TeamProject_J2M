@@ -42,6 +42,82 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void ProfileAwareResolver_ProfileBeatsHostDefault()
+        {
+            var cueId = GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget);
+            var hostPolicy = CreatePolicy(cueId, VfxMissingAnchorPolicy.SkipOptional);
+            var profilePolicy = CreatePolicy(cueId, VfxMissingAnchorPolicy.FailFast);
+            var resolver = new ProfileAwareVfxBindingResolver(
+                new FakeProfileProvider(
+                    sourceEntityId: 10,
+                    profile: new VfxProfile(GameplayVfxFamily.Enemy, new[] { profilePolicy })),
+                new VfxCueMap(new[] { hostPolicy }));
+
+            Assert.That(resolver.TryResolve(CreateRequest(cueId, sourceEntityId: 10), out var resolved), Is.True);
+            Assert.That(resolved, Is.EqualTo(profilePolicy));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProfileAwareResolver_MissingProfileFallsBackToHostDefault()
+        {
+            var cueId = GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget);
+            var hostPolicy = CreatePolicy(cueId, VfxMissingAnchorPolicy.ReportDiagnostic);
+            var provider = new FakeProfileProvider(sourceEntityId: 10, profile: null);
+            var resolver = new ProfileAwareVfxBindingResolver(provider, new VfxCueMap(new[] { hostPolicy }));
+
+            Assert.That(resolver.TryResolve(CreateRequest(cueId, sourceEntityId: 10), out var resolved), Is.True);
+            Assert.That(resolved, Is.EqualTo(hostPolicy));
+            Assert.That(provider.CallCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProfileAwareResolver_SourceEntityIdMissing_UsesHostDefaultOnly()
+        {
+            var cueId = GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget);
+            var hostPolicy = CreatePolicy(cueId, VfxMissingAnchorPolicy.ReportDiagnostic);
+            var provider = new FakeProfileProvider(
+                sourceEntityId: 10,
+                profile: new VfxProfile(GameplayVfxFamily.Enemy, new[] { CreatePolicy(cueId, VfxMissingAnchorPolicy.FailFast) }));
+            var resolver = new ProfileAwareVfxBindingResolver(provider, new VfxCueMap(new[] { hostPolicy }));
+
+            Assert.That(resolver.TryResolve(CreateRequest(cueId, sourceEntityId: 0), out var resolved), Is.True);
+            Assert.That(resolved, Is.EqualTo(hostPolicy));
+            Assert.That(provider.CallCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProfileAwareResolver_ProfileWithoutCueFallsBackToHostDefault()
+        {
+            var cueId = GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget);
+            var hostPolicy = CreatePolicy(cueId, VfxMissingAnchorPolicy.ReportDiagnostic);
+            var profileOnlyPolicy = CreatePolicy(GameplayVfxCueId.From(EnemyVfxCue.Spawn), VfxMissingAnchorPolicy.FailFast);
+            var resolver = new ProfileAwareVfxBindingResolver(
+                new FakeProfileProvider(
+                    sourceEntityId: 10,
+                    profile: new VfxProfile(GameplayVfxFamily.Enemy, new[] { profileOnlyPolicy })),
+                new VfxCueMap(new[] { hostPolicy }));
+
+            Assert.That(resolver.TryResolve(CreateRequest(cueId, sourceEntityId: 10), out var resolved), Is.True);
+            Assert.That(resolved, Is.EqualTo(hostPolicy));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProfileAwareResolver_NoProfileNoHostDefault_ReturnsFalse()
+        {
+            var cueId = GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget);
+            var resolver = new ProfileAwareVfxBindingResolver(
+                new FakeProfileProvider(sourceEntityId: 10, profile: null),
+                VfxCueMap.Empty);
+
+            Assert.That(resolver.TryResolve(CreateRequest(cueId, sourceEntityId: 10), out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Controller_RejectsPersistentRequestWithOneShotPolicy()
         {
             var cueId = GameplayVfxCueId.From(EnemyVfxCue.Spawn);
@@ -125,6 +201,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static GameplayVfxRequest CreateRequest(
             GameplayVfxCueId cueId,
+            int sourceEntityId = 0,
             bool isPersistent = false,
             VfxPersistentKey persistentKey = default)
         {
@@ -132,6 +209,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 1,
                 1,
                 17,
+                sourceEntityId,
                 cueId,
                 VfxAnchor.ForEntity(3),
                 VfxTimingKind.ImmediateOnTickPresentation,
@@ -165,6 +243,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 resolvedPolicy = policy;
                 return true;
+            }
+        }
+
+        private sealed class FakeProfileProvider : IGameplayVfxProfileProvider
+        {
+            private readonly int sourceEntityId;
+            private readonly VfxProfile profile;
+
+            public FakeProfileProvider(int sourceEntityId, VfxProfile profile)
+            {
+                this.sourceEntityId = sourceEntityId;
+                this.profile = profile;
+            }
+
+            public int CallCount { get; private set; }
+
+            public bool TryResolveProfileForRequest(
+                in GameplayVfxRequest request,
+                out VfxProfile resolvedProfile)
+            {
+                CallCount++;
+                if (request.SourceEntityId == sourceEntityId && profile != null)
+                {
+                    resolvedProfile = profile;
+                    return true;
+                }
+
+                resolvedProfile = null;
+                return false;
             }
         }
 

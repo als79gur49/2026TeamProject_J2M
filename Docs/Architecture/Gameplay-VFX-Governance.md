@@ -138,6 +138,47 @@ The host connection for manual verification is limited to `Assets/Scenes/Combine
 
 Future work remains out of scope for this slice: persistent telegraph desired state, jump execute/cancel/death/retarget stop logic, prefab-local jumper profile ownership, stage/tile/terrain VFX, and existing presenter migration.
 
+## Prefab-local Profile Owner Gate
+
+Prefab-local or presentation-local `VfxProfile` override requires request source identity. `GameplayVfxRequest.SourceEntityId` is the canonical source identity field for request-time profile lookup.
+
+`PresentationSeed` must not be used as source identity. The seed remains a visual variation / replay-like variant input, not a source ownership contract.
+
+Missing or invalid source identity means profile lookup is skipped and host default fallback remains available. A source id is profile-resolvable only when `SourceEntityId > 0`.
+
+The preferred future enemy VFX profile owner is `EnemyPresentationCatalogEntry.VfxProfileAsset`, after source identity exists on requests. That catalog owner is a future owner slice and is not part of the current request identity slice.
+
+StagePresentationDefinition binding override is a future stage-specific override, not the v1 owner. Prefab component authoring is possible, but it is not canonical until explicitly chosen because it depends on live views and cannot by itself distinguish the same prefab under different presentation identities.
+
+## Request Identity Rule
+
+`GameplayVfxRequest.SourceEntityId` participates in request equality, ordering, hashing, and diagnostics. It is request semantic identity for source-aware presentation resolution.
+
+`SourceEntityId` must be positive to be profile-resolvable. `SourceEntityId <= 0` means source unavailable.
+
+VFX planners may copy source entity id from presentation facts such as `TickPresentationData.EnemyJumpSignals`. Source id is presentation-derived and must not cause WorldState, WorldSnapshot, TickPipeline, ProjectedWorld, FinalizationBatch, DeterminismHashBuilder, or CreateSnapshot reads.
+
+`PresentationSeed` remains separate from `SourceEntityId`. Do not substitute seed values for source identity when resolving prefab-local or presentation-local profiles.
+
+## Profile Resolver Rule
+
+Short-term request-time VFX binding precedence is:
+
+1. request-local profile from source entity / presentation identity
+2. host default map
+3. missing binding
+
+Long-term VFX binding precedence is:
+
+1. prefab / presentation-local profile
+2. stage map
+3. future level map
+4. future campaign map
+5. host default map
+6. missing binding
+
+The request-time resolver must remain runtime-safe: it returns `VfxProfile` / `VfxBindingRuntimePolicy` data only and must not know GameObject, ScriptableObject, catalog assets, stage assets, or host objects.
+
 ## VFX Planner Dependency Rule
 
 Gameplay VFX planners may read presentation carriers such as `TickPresentationData`.

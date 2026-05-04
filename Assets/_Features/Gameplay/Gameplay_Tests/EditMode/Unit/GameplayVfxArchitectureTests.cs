@@ -4,9 +4,11 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Vfx;
 using Game.Feature.Gameplay.Vfx.Authoring;
+using Game.Feature.Stages;
 using NUnit.Framework;
 
 namespace Game.Feature.Gameplay.Tests.Unit
@@ -84,6 +86,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("Gameplay VFX planners may read presentation carriers"));
             Assert.That(document, Does.Contain("Production Runtime Dependency Rule"));
             Assert.That(document, Does.Contain("Gameplay_Host` uses the `IGameplayTickPresentationExtension` seam"));
+            Assert.That(document, Does.Contain("Prefab-local Profile Owner Gate"));
+            Assert.That(document, Does.Contain("GameplayVfxRequest.SourceEntityId"));
+            Assert.That(document, Does.Contain("PresentationSeed` must not be used as source identity"));
+            Assert.That(document, Does.Contain("EnemyPresentationCatalogEntry.VfxProfileAsset"));
         }
 
         [Test]
@@ -170,6 +176,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void Architecture_RequestSourceIdDoesNotOpenAuthorityReference()
+        {
+            Assert.That(typeof(GameplayVfxRequest).GetProperty(nameof(GameplayVfxRequest.SourceEntityId)), Is.Not.Null);
+
+            var source = ReadRuntimeSources();
+
+            AssertForbiddenAuthorityTokensAbsent(source);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Governance_NoStageBindingOverrideYet()
+        {
+            AssertDoesNotExposeVfxProfileOverride(typeof(StagePresentationDefinition));
+            AssertDoesNotExposeVfxProfileOverride(typeof(EnemyPresentationBinding));
+            AssertDoesNotExposeVfxProfileOverride(typeof(EnemyPresentationCatalogEntry));
+
+            var document = ReadRepoFile(GovernancePath);
+            Assert.That(document, Does.Contain("EnemyPresentationCatalogEntry.VfxProfileAsset"));
+            Assert.That(document, Does.Contain("future owner slice"));
+            Assert.That(document, Does.Contain("StagePresentationDefinition binding override"));
+            Assert.That(document, Does.Contain("future stage-specific override"));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void PlannerSource_DoesNotReferenceAuthorityRuntimeTypes()
         {
             var source = ReadRepoFile(VfxPlanningPath);
@@ -224,6 +256,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
             foreach (var token in forbiddenTokens)
             {
                 Assert.That(source, Does.Not.Contain(token), token);
+            }
+        }
+
+        private static void AssertDoesNotExposeVfxProfileOverride(Type type)
+        {
+            var memberNames = type.GetMembers(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                .Where(member => member.DeclaringType == type)
+                .Select(member => member.Name)
+                .ToArray();
+
+            foreach (var memberName in memberNames)
+            {
+                Assert.That(memberName, Does.Not.Contain("VfxProfile"), $"{type.FullName}.{memberName}");
+                Assert.That(memberName, Does.Not.Contain("VFXProfile"), $"{type.FullName}.{memberName}");
+            }
+
+            var exposedTypes = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                .Select(field => field.FieldType)
+                .Concat(type.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                    .Select(property => property.PropertyType))
+                .Select(memberType => memberType.Name)
+                .ToArray();
+
+            foreach (var exposedType in exposedTypes)
+            {
+                Assert.That(exposedType, Does.Not.Contain("VfxProfile"), $"{type.FullName} exposes {exposedType}");
+                Assert.That(exposedType, Does.Not.Contain("VFXProfile"), $"{type.FullName} exposes {exposedType}");
             }
         }
 

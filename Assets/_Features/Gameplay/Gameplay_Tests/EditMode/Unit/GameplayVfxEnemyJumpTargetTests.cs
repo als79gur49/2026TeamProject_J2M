@@ -40,6 +40,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void EnemyVfxRequestPlanner_JumperLandingTarget_SetsSourceEntityId()
+        {
+            var targetCell = new SurfaceCell(FaceId.Back, 2, 1);
+            var topology = new CubeTopologyState(FaceId.Floor);
+
+            var request = PlanSingleRequest(
+                CreateJumpSignal(targetCell, startedWindup: true, entityId: 123),
+                topology);
+
+            Assert.That(request.SourceEntityId, Is.EqualTo(123));
+            Assert.That(request.PresentationSeed, Is.EqualTo(123));
+            Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)));
+            Assert.That(request.Anchor.Kind, Is.EqualTo(VfxAnchorKind.Cell));
+            Assert.That(request.Anchor.Slot, Is.EqualTo(VfxAnchorSlot.CellFloor));
+            Assert.That(request.Anchor.Cell, Is.EqualTo(targetCell));
+            Assert.That(request.Anchor.Topology, Is.EqualTo(topology));
+            Assert.That(request.IsPersistent, Is.False);
+            Assert.That(request.PersistentKey, Is.EqualTo(default(VfxPersistentKey)));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyPlanner_WindupStartedOutcome_EmitsJumperLandingTargetRequest()
         {
             var targetCell = new SurfaceCell(FaceId.Front, 1, 0);
@@ -465,6 +487,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(request.Timing, Is.EqualTo(VfxTimingKind.ImmediateOnTickPresentation));
             Assert.That(request.IsPersistent, Is.False);
             Assert.That(request.PresentationSeed, Is.EqualTo(40));
+            Assert.That(request.SourceEntityId, Is.EqualTo(40));
             Assert.That(request.Anchor.Kind, Is.EqualTo(VfxAnchorKind.Cell));
             Assert.That(request.Anchor.Slot, Is.EqualTo(VfxAnchorSlot.CellFloor));
             Assert.That(request.Anchor.Cell, Is.EqualTo(targetCell));
@@ -523,10 +546,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             bool landed = false,
             bool retry = false,
             EnemyJumpPhase phase = EnemyJumpPhase.Windup,
-            TickEnemyJumpPresentationOutcome outcome = TickEnemyJumpPresentationOutcome.None)
+            TickEnemyJumpPresentationOutcome outcome = TickEnemyJumpPresentationOutcome.None,
+            int entityId = 40)
         {
             return new TickEnemyJumpPresentationSignal(
-                entityId: 40,
+                entityId: entityId,
                 sequence: 3,
                 phase: phase,
                 startedWindupThisTick: startedWindup,

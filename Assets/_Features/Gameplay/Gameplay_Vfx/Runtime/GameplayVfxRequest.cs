@@ -13,10 +13,34 @@ namespace Game.Feature.Gameplay.Vfx
             VfxTimingKind timing,
             bool isPersistent = false,
             VfxPersistentKey persistentKey = default)
+            : this(
+                tickIndex,
+                sequenceId,
+                presentationSeed,
+                sourceEntityId: 0,
+                cueId,
+                anchor,
+                timing,
+                isPersistent,
+                persistentKey)
+        {
+        }
+
+        public GameplayVfxRequest(
+            int tickIndex,
+            int sequenceId,
+            int presentationSeed,
+            int sourceEntityId,
+            GameplayVfxCueId cueId,
+            VfxAnchor anchor,
+            VfxTimingKind timing,
+            bool isPersistent = false,
+            VfxPersistentKey persistentKey = default)
         {
             TickIndex = tickIndex;
             SequenceId = sequenceId;
             PresentationSeed = presentationSeed;
+            SourceEntityId = sourceEntityId;
             CueId = cueId;
             Anchor = anchor;
             Timing = timing;
@@ -29,6 +53,8 @@ namespace Game.Feature.Gameplay.Vfx
         public int SequenceId { get; }
 
         public int PresentationSeed { get; }
+
+        public int SourceEntityId { get; }
 
         public GameplayVfxCueId CueId { get; }
 
@@ -66,6 +92,12 @@ namespace Game.Feature.Gameplay.Vfx
                 return cueCompare;
             }
 
+            var sourceEntityCompare = SourceEntityId.CompareTo(other.SourceEntityId);
+            if (sourceEntityCompare != 0)
+            {
+                return sourceEntityCompare;
+            }
+
             var anchorCompare = Anchor.CompareTo(other.Anchor);
             if (anchorCompare != 0)
             {
@@ -95,6 +127,7 @@ namespace Game.Feature.Gameplay.Vfx
             return TickIndex == other.TickIndex
                 && SequenceId == other.SequenceId
                 && PresentationSeed == other.PresentationSeed
+                && SourceEntityId == other.SourceEntityId
                 && CueId.Equals(other.CueId)
                 && Anchor.Equals(other.Anchor)
                 && Timing == other.Timing
@@ -114,6 +147,7 @@ namespace Game.Feature.Gameplay.Vfx
                 var hash = TickIndex;
                 hash = (hash * 397) ^ SequenceId;
                 hash = (hash * 397) ^ PresentationSeed;
+                hash = (hash * 397) ^ SourceEntityId;
                 hash = (hash * 397) ^ CueId.GetHashCode();
                 hash = (hash * 397) ^ Anchor.GetHashCode();
                 hash = (hash * 397) ^ (int)Timing;
@@ -121,6 +155,21 @@ namespace Game.Feature.Gameplay.Vfx
                 hash = (hash * 397) ^ PersistentKey.GetHashCode();
                 return hash;
             }
+        }
+
+        public override string ToString()
+        {
+            return
+                $"{nameof(GameplayVfxRequest)}(" +
+                $"{nameof(TickIndex)}={TickIndex}, " +
+                $"{nameof(SequenceId)}={SequenceId}, " +
+                $"{nameof(PresentationSeed)}={PresentationSeed}, " +
+                $"{nameof(SourceEntityId)}={SourceEntityId}, " +
+                $"{nameof(CueId)}={CueId}, " +
+                $"{nameof(Anchor)}={Anchor}, " +
+                $"{nameof(Timing)}={Timing}, " +
+                $"{nameof(IsPersistent)}={IsPersistent}, " +
+                $"{nameof(PersistentKey)}={PersistentKey})";
         }
     }
 }
