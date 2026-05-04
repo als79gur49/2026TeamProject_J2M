@@ -307,6 +307,93 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void RuntimeInstaller_Install_ConfiguresSameRootProductionRuntime_WithHostDefaultMap()
+        {
+            var owner = new GameObject("VfxRuntimeInstallerOwner");
+            var prefab = new GameObject("JumperLandingTargetPrefab");
+            VfxBindingDefinitionAsset binding = null;
+            VfxCueMapAsset cueMap = null;
+            try
+            {
+                binding = CreateBinding(prefab);
+                cueMap = CreateCueMap(binding);
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableEnemyJumpTargetVfx = true;
+                var installer = owner.AddComponent<GameplayVfxRuntimeInstaller>();
+                SetField(installer, "hostDefaultCueMap", cueMap);
+                var context = CreateExtensionContext(
+                    CreateJumpSignal(new SurfaceCell(FaceId.Floor, 0, 0), startedWindup: true));
+
+                installer.Install();
+                runtime.Present(context);
+
+                Assert.That(installer.HostDefaultCueMap, Is.SameAs(cueMap));
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.MissingBindingCount, Is.Zero);
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(cueMap);
+                UnityEngine.Object.DestroyImmediate(binding);
+                UnityEngine.Object.DestroyImmediate(prefab);
+                UnityEngine.Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void RuntimeInstaller_Install_Throws_WhenSameRootProductionRuntimeMissing()
+        {
+            var owner = new GameObject("VfxRuntimeInstallerMissingRuntime");
+            try
+            {
+                var exception = Assert.Throws<InvalidOperationException>(() =>
+                {
+                    var installer = owner.AddComponent<GameplayVfxRuntimeInstaller>();
+                    installer.Install();
+                });
+
+                Assert.That(
+                    exception.Message,
+                    Is.EqualTo(
+                        "GameplayVfxRuntimeInstaller requires a co-located GameplayVfxProductionRuntime on the canonical host root."));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void RuntimeInstaller_Install_DoesNotUseSceneGlobalProductionRuntimeFallback()
+        {
+            var otherRoot = new GameObject("VfxRuntimeInstallerOtherRuntime");
+            var owner = new GameObject("VfxRuntimeInstallerNoGlobalFallback");
+            try
+            {
+                otherRoot.AddComponent<GameplayVfxProductionRuntime>();
+                var exception = Assert.Throws<InvalidOperationException>(() =>
+                {
+                    var installer = owner.AddComponent<GameplayVfxRuntimeInstaller>();
+                    installer.Install();
+                });
+
+                Assert.That(
+                    exception.Message,
+                    Is.EqualTo(
+                        "GameplayVfxRuntimeInstaller requires a co-located GameplayVfxProductionRuntime on the canonical host root."));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(owner);
+                UnityEngine.Object.DestroyImmediate(otherRoot);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void CombinedGameplayShowcase_WiresJumperLandingTargetVfxRuntime()
         {
             var sceneText = File.ReadAllText(CombinedGameplayShowcaseScenePath);

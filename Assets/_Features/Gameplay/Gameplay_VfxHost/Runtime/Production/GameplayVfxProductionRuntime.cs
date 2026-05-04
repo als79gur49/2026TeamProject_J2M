@@ -9,7 +9,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
     public sealed class GameplayVfxProductionRuntime : MonoBehaviour, IGameplayTickPresentationExtension
     {
         [SerializeField] private bool enableEnemyJumpTargetVfx;
-        [SerializeField] private VfxCueMapAsset hostDefaultCueMap;
         [SerializeField] private VfxProfileAsset[] familyProfiles = Array.Empty<VfxProfileAsset>();
 
         private readonly EnemyVfxRequestPlanner enemyPlanner = new();
@@ -22,6 +21,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private IVfxBindingResolver bindingResolver;
         private GameplayCubeProjector configuredProjector;
         private GameplayPresentationStateStore configuredStateStore;
+        private VfxCueMapAsset hostDefaultCueMap;
 
         public bool EnableEnemyJumpTargetVfx
         {
