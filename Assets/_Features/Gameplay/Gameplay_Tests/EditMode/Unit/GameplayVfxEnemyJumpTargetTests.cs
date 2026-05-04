@@ -23,6 +23,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string CombinedGameplayShowcaseScenePath =
             "Assets/Scenes/CombinedGameplayShowcase.unity";
         private const string GameplayVfxProductionRuntimeScriptGuid = "77f98ca183bf441ba81f70f521126c17";
+        private const string GameplayVfxRuntimeInstallerScriptGuid = "d35824c2bc2045a4b5fc027c8f7561a4";
         private const string HostDefaultCueMapGuid = "3ed23d03c1c440cb9a1441a4b18c46e5";
 
         [Test]
@@ -397,13 +398,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void CombinedGameplayShowcase_WiresJumperLandingTargetVfxRuntime()
         {
             var sceneText = File.ReadAllText(CombinedGameplayShowcaseScenePath);
+            var productionRuntimeBlock = ReadSceneComponentBlock(
+                sceneText,
+                "Game.Feature.Gameplay.Vfx.Host.GameplayVfxProductionRuntime");
+            var runtimeInstallerBlock = ReadSceneComponentBlock(
+                sceneText,
+                "Game.Feature.Gameplay.Vfx.Host.GameplayVfxRuntimeInstaller");
 
             Assert.That(
                 sceneText,
                 Does.Contain($"m_Script: {{fileID: 11500000, guid: {GameplayVfxProductionRuntimeScriptGuid}, type: 3}}"));
-            Assert.That(sceneText, Does.Contain("enableEnemyJumpTargetVfx: 1"));
             Assert.That(
                 sceneText,
+                Does.Contain($"m_Script: {{fileID: 11500000, guid: {GameplayVfxRuntimeInstallerScriptGuid}, type: 3}}"));
+            Assert.That(productionRuntimeBlock, Does.Contain("enableEnemyJumpTargetVfx: 1"));
+            Assert.That(productionRuntimeBlock, Does.Not.Contain("hostDefaultCueMap:"));
+            Assert.That(
+                runtimeInstallerBlock,
                 Does.Contain($"hostDefaultCueMap: {{fileID: 11400000, guid: {HostDefaultCueMapGuid}, type: 2}}"));
         }
 
@@ -557,6 +568,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, fieldName);
             field.SetValue(target, value);
+        }
+
+        private static string ReadSceneComponentBlock(string sceneText, string marker)
+        {
+            var markerIndex = sceneText.IndexOf(marker, StringComparison.Ordinal);
+            Assert.That(markerIndex, Is.GreaterThanOrEqualTo(0), $"Missing scene marker '{marker}'.");
+
+            var blockStart = sceneText.LastIndexOf("--- !u!114", markerIndex, StringComparison.Ordinal);
+            Assert.That(blockStart, Is.GreaterThanOrEqualTo(0), $"Missing MonoBehaviour block for '{marker}'.");
+
+            var blockEnd = sceneText.IndexOf("--- !u!", markerIndex, StringComparison.Ordinal);
+            return blockEnd >= 0
+                ? sceneText.Substring(blockStart, blockEnd - blockStart)
+                : sceneText.Substring(blockStart);
         }
     }
 }

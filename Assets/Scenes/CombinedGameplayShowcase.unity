@@ -505,6 +505,7 @@ GameObject:
   - component: {fileID: 1179627487}
   - component: {fileID: 1179627483}
   - component: {fileID: 1179627489}
+  - component: {fileID: 1179627490}
   - component: {fileID: 1179627484}
   - component: {fileID: 1179627485}
   - component: {fileID: 1179627486}
@@ -585,8 +586,21 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.Gameplay.Vfx.ProductionRuntime::Game.Feature.Gameplay.Vfx.Host.GameplayVfxProductionRuntime
   enableEnemyJumpTargetVfx: 1
-  hostDefaultCueMap: {fileID: 11400000, guid: 3ed23d03c1c440cb9a1441a4b18c46e5, type: 2}
   familyProfiles: []
+--- !u!114 &1179627490
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1179627480}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d35824c2bc2045a4b5fc027c8f7561a4, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game.Feature.Gameplay.Vfx.ProductionRuntime::Game.Feature.Gameplay.Vfx.Host.GameplayVfxRuntimeInstaller
+  installOnAwake: 1
+  hostDefaultCueMap: {fileID: 11400000, guid: 3ed23d03c1c440cb9a1441a4b18c46e5, type: 2}
 --- !u!114 &1179627484
 MonoBehaviour:
   m_ObjectHideFlags: 0
