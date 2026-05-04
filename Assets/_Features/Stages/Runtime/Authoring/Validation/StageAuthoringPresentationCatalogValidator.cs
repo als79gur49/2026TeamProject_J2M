@@ -11,13 +11,24 @@ namespace Game.Feature.Stages
             string rawPresentationId,
             string presentationId,
             bool duplicatePresentationId,
-            bool viewPrefabMissing)
+            bool viewPrefabMissing,
+            bool vfxProfileAssigned = false,
+            string vfxProfileName = "",
+            string vfxProfileFamily = "",
+            EnemyPresentationVfxProfileStatusKind vfxProfileStatus =
+                EnemyPresentationVfxProfileStatusKind.HostDefaultFallback,
+            EnemyPresentationVfxProfileDiagnostic[] vfxProfileDiagnostics = null)
         {
             EntryIndex = entryIndex;
             RawPresentationId = rawPresentationId ?? string.Empty;
             PresentationId = presentationId ?? string.Empty;
             DuplicatePresentationId = duplicatePresentationId;
             ViewPrefabMissing = viewPrefabMissing;
+            VfxProfileAssigned = vfxProfileAssigned;
+            VfxProfileName = vfxProfileName ?? string.Empty;
+            VfxProfileFamily = vfxProfileFamily ?? string.Empty;
+            VfxProfileStatus = vfxProfileStatus;
+            VfxProfileDiagnostics = vfxProfileDiagnostics ?? Array.Empty<EnemyPresentationVfxProfileDiagnostic>();
         }
 
         public int EntryIndex { get; }
@@ -31,6 +42,16 @@ namespace Game.Feature.Stages
         public bool DuplicatePresentationId { get; }
 
         public bool ViewPrefabMissing { get; }
+
+        public bool VfxProfileAssigned { get; }
+
+        public string VfxProfileName { get; }
+
+        public string VfxProfileFamily { get; }
+
+        public EnemyPresentationVfxProfileStatusKind VfxProfileStatus { get; }
+
+        public EnemyPresentationVfxProfileDiagnostic[] VfxProfileDiagnostics { get; }
     }
 
     public sealed class StageAuthoringPresentationCatalogSnapshot

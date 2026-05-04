@@ -31,12 +31,18 @@ namespace Game.Feature.Stages
                     ids.Add(presentationId);
                 }
 
+                var vfxStatus = EnemyPresentationVfxProfileStatusResolver.Resolve(entry);
                 snapshots.Add(new StageAuthoringPresentationCatalogEntrySnapshot(
                     i,
                     entry.PresentationId,
                     presentationId,
                     duplicate,
-                    entry.ViewPrefab == null));
+                    entry.ViewPrefab == null,
+                    vfxStatus.Assigned,
+                    vfxStatus.ProfileName,
+                    vfxStatus.FamilyName,
+                    vfxStatus.Kind,
+                    vfxStatus.Diagnostics));
             }
 
             return new StageAuthoringPresentationCatalogSnapshot(
