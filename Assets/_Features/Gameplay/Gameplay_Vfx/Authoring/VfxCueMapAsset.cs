@@ -21,6 +21,21 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
             return new VfxCueMap(GetOrderedBindings().Select(binding => binding.BuildRuntimePolicy()));
         }
 
+        public bool TryResolvePrefab(GameplayVfxCueId cueId, out GameObject prefab)
+        {
+            foreach (var binding in GetOrderedBindings())
+            {
+                if (binding.CueId == cueId)
+                {
+                    prefab = binding.Prefab;
+                    return prefab != null;
+                }
+            }
+
+            prefab = null;
+            return false;
+        }
+
         public VfxAuthoringValidationResult ValidateAuthoring()
         {
             var messages = new List<VfxAuthoringValidationMessage>();

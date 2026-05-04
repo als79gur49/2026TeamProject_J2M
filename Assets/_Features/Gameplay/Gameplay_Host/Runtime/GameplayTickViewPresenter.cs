@@ -107,6 +107,16 @@ namespace Game.Feature.Gameplay.Host
             _presentationCoordinator.AttachGameplayAudioRuntime(playbackPort, gameplayAudioMap);
         }
 
+        public void AttachPresentationExtension(IGameplayTickPresentationExtension extension)
+        {
+            _presentationCoordinator.AttachPresentationExtension(extension);
+        }
+
+        public void DetachPresentationExtension(IGameplayTickPresentationExtension extension)
+        {
+            _presentationCoordinator.DetachPresentationExtension(extension);
+        }
+
         internal void DebugRefreshGameplayAudioPlan(TickResult result)
         {
             _presentationCoordinator.DebugRefreshGameplayAudioPlan(result);
@@ -175,6 +185,7 @@ namespace Game.Feature.Gameplay.Host
 
         private void OnDestroy()
         {
+            _presentationCoordinator.HardCleanupPresentationExtensions();
             _presentationCoordinator.DetachGameplayAudioRuntime();
         }
 

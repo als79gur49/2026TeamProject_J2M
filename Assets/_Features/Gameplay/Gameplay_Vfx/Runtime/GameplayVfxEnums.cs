@@ -46,6 +46,7 @@ namespace Game.Feature.Gameplay.Vfx
         PhaseBlink = 8,
         ShieldBlock = 9,
         UtilityWindup = 10,
+        JumperLandingTarget = 11,
     }
 
     public enum TileFeatureVfxCue

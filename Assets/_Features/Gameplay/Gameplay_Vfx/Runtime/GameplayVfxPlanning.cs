@@ -1,3 +1,8 @@
+using System;
+using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.Loop;
+
 namespace Game.Feature.Gameplay.Vfx
 {
     public interface IGameplayVfxFamilyRequestPlanner
@@ -10,11 +15,25 @@ namespace Game.Feature.Gameplay.Vfx
     public readonly struct GameplayVfxPlanningContext
     {
         public GameplayVfxPlanningContext(int tickIndex)
+            : this(tickIndex, null, default)
+        {
+        }
+
+        public GameplayVfxPlanningContext(
+            int tickIndex,
+            TickPresentationData presentationData,
+            CubeTopologyState topology)
         {
             TickIndex = tickIndex;
+            PresentationData = presentationData;
+            Topology = topology;
         }
 
         public int TickIndex { get; }
+
+        public TickPresentationData PresentationData { get; }
+
+        public CubeTopologyState Topology { get; }
     }
 
     public sealed class PlayerVfxRequestPlanner : IGameplayVfxFamilyRequestPlanner
@@ -41,6 +60,49 @@ namespace Game.Feature.Gameplay.Vfx
 
         public void Plan(GameplayVfxPlanningContext context, GameplayVfxRequestPlanBuilder builder)
         {
+            if (builder == null)
+            {
+                throw new ArgumentNullException(nameof(builder));
+            }
+
+            var presentationData = context.PresentationData;
+            if (presentationData == null)
+            {
+                return;
+            }
+
+            var jumpSignals = presentationData.EnemyJumpSignals;
+            for (var i = 0; i < jumpSignals.Count; i++)
+            {
+                var signal = jumpSignals[i];
+                if (!IsJumperLandingTargetCueSource(signal))
+                {
+                    continue;
+                }
+
+                builder.Add(
+                    new GameplayVfxRequest(
+                        context.TickIndex,
+                        ResolveSequenceId(signal),
+                        signal.EntityId,
+                        GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget),
+                        VfxAnchor.ForCell(
+                            signal.PresentationTargetCell,
+                            context.Topology,
+                            VfxAnchorSlot.CellFloor),
+                        VfxTimingKind.ImmediateOnTickPresentation));
+            }
+        }
+
+        private static bool IsJumperLandingTargetCueSource(in TickEnemyJumpPresentationSignal signal)
+        {
+            return signal.StartedWindupThisTick ||
+                   signal.Outcome == TickEnemyJumpPresentationOutcome.WindupStarted;
+        }
+
+        private static int ResolveSequenceId(in TickEnemyJumpPresentationSignal signal)
+        {
+            return signal.Sequence > 0 ? signal.Sequence : signal.EntityId;
         }
     }
 

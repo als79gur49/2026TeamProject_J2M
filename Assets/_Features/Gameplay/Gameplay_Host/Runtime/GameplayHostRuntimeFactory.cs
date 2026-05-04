@@ -127,6 +127,7 @@ namespace Game.Feature.Gameplay.Host
                 configuration.TopologyRotationTween,
                 faceSeamGap,
                 enemyPresentationArchetypeRegistry);
+            AttachPresentationExtensions(hostObject, presenter);
             AttachGameplayAudioRuntimeIfConfigured(hostObject, presenter, configuration);
 
             boardSurfaceRenderer.Initialize(
@@ -209,6 +210,21 @@ namespace Game.Feature.Gameplay.Host
                 configuration?.EnemyPresentationCatalog,
                 configuration?.EnemyPresentationBindings,
                 nameof(GameplaySceneHostConfiguration));
+        }
+
+        private static void AttachPresentationExtensions(GameObject hostObject, GameplayTickViewPresenter presenter)
+        {
+            var behaviours = hostObject.GetComponents<MonoBehaviour>();
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                var behaviour = behaviours[i];
+                if (behaviour != null &&
+                    behaviour.isActiveAndEnabled &&
+                    behaviour is IGameplayTickPresentationExtension extension)
+                {
+                    presenter.AttachPresentationExtension(extension);
+                }
+            }
         }
 
         private static IReadOnlyDictionary<int, GameplayEntityView> BuildStaticViewPrefabs(

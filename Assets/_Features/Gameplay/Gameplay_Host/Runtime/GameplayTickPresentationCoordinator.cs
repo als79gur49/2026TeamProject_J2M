@@ -33,6 +33,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplayUtilityWindupVfxPresenter _utilityWindupVfxPresenter = new();
         private readonly GameplayMotionTimingResolver _motionTimingResolver;
         private readonly GameplayPoseResolver _poseResolver;
+        private readonly List<IGameplayTickPresentationExtension> _presentationExtensions = new();
 
         private bool _isInitialized;
         private GameplayCubeProjector _projector;
@@ -175,6 +176,29 @@ namespace Game.Feature.Gameplay.Host
             _planner.ConfigureOutputCamera(outputCamera, _viewBinder != null ? _viewBinder.SearchRoot : null);
         }
 
+        public void AttachPresentationExtension(IGameplayTickPresentationExtension extension)
+        {
+            if (extension == null ||
+                _presentationExtensions.Contains(extension))
+            {
+                return;
+            }
+
+            _presentationExtensions.Add(extension);
+            extension.ResetSession();
+        }
+
+        public void DetachPresentationExtension(IGameplayTickPresentationExtension extension)
+        {
+            if (extension == null ||
+                !_presentationExtensions.Remove(extension))
+            {
+                return;
+            }
+
+            extension.HardCleanup();
+        }
+
         public void Present(TickResult result)
         {
             if (result == null)
@@ -198,6 +222,7 @@ namespace Game.Feature.Gameplay.Host
                 _projector,
                 _viewBinder,
                 TopologyCommitted);
+            PresentExtensions(result);
             TraceStep("RefreshUtilityWindupWarnings");
             _utilityWindupVfxPresenter.RefreshSummonWarnings(
                 result.PresentationData.SummonWindupWarnings,
@@ -268,6 +293,7 @@ namespace Game.Feature.Gameplay.Host
             _transientEffectPresenter.Clear();
             _frontFaceShieldVfxPresenter.Clear();
             _utilityWindupVfxPresenter.Clear();
+            ResetExtensions();
             _animationSync.Reset();
             _stateStore.ResetSession(topology);
             _topologyTransitionController.Reset();
@@ -304,6 +330,7 @@ namespace Game.Feature.Gameplay.Host
             _topologyTransitionController.UpdatePresentation(deltaTime, _stateStore.CommittedTopology);
             _transientEffectPresenter.Update(deltaTime);
             _frontFaceShieldVfxPresenter.Update(deltaTime);
+            UpdateExtensions(deltaTime);
             _entityPresentationApplier.Apply(
                 deltaTime,
                 _topologyTransitionController.HasActiveBoardRotationTween,
@@ -339,6 +366,48 @@ namespace Game.Feature.Gameplay.Host
         internal void SetTraceSink(Action<string> traceSink)
         {
             _traceSink = traceSink;
+        }
+
+        internal void HardCleanupPresentationExtensions()
+        {
+            for (var i = 0; i < _presentationExtensions.Count; i++)
+            {
+                _presentationExtensions[i]?.HardCleanup();
+            }
+        }
+
+        private void PresentExtensions(TickResult result)
+        {
+            if (_presentationExtensions.Count == 0)
+            {
+                return;
+            }
+
+            var context = new GameplayTickPresentationExtensionContext(
+                result,
+                _stateStore.CommittedTopology,
+                _stateStore,
+                _projector);
+            for (var i = 0; i < _presentationExtensions.Count; i++)
+            {
+                _presentationExtensions[i]?.Present(context);
+            }
+        }
+
+        private void ResetExtensions()
+        {
+            for (var i = 0; i < _presentationExtensions.Count; i++)
+            {
+                _presentationExtensions[i]?.ResetSession();
+            }
+        }
+
+        private void UpdateExtensions(float deltaTime)
+        {
+            for (var i = 0; i < _presentationExtensions.Count; i++)
+            {
+                _presentationExtensions[i]?.UpdatePresentation(deltaTime);
+            }
         }
 
         private void EnsureInitialized()

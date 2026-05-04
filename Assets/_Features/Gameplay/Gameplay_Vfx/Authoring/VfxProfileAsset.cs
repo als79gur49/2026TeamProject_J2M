@@ -26,6 +26,27 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
             return new VfxProfile(family, GetOrderedBindings().Select(binding => binding.BuildRuntimePolicy()));
         }
 
+        public bool TryResolvePrefab(GameplayVfxCueId cueId, out GameObject prefab)
+        {
+            if (cueId.Family != family)
+            {
+                prefab = null;
+                return false;
+            }
+
+            foreach (var binding in GetOrderedBindings())
+            {
+                if (binding.CueId == cueId)
+                {
+                    prefab = binding.Prefab;
+                    return prefab != null;
+                }
+            }
+
+            prefab = null;
+            return false;
+        }
+
         public VfxAuthoringValidationResult ValidateAuthoring()
         {
             var messages = new List<VfxAuthoringValidationMessage>();
