@@ -90,8 +90,9 @@ Lifecycle:
 
 Binding:
 
-- v1 owner is the host default `VfxCueMap`.
-- Enemy or jumper prefab-local `VfxProfile` ownership is a future slice.
+- default owner is the host default `VfxCueMap`.
+- enemy presentation-local ownership is active through `EnemyPresentationCatalogEntry.VfxProfileAsset`.
+- a null enemy catalog profile keeps the host default fallback.
 
 Feature flag:
 
@@ -146,9 +147,9 @@ Prefab-local or presentation-local `VfxProfile` override requires request source
 
 Missing or invalid source identity means profile lookup is skipped and host default fallback remains available. A source id is profile-resolvable only when `SourceEntityId > 0`.
 
-The preferred future enemy VFX profile owner is `EnemyPresentationCatalogEntry.VfxProfileAsset`, after source identity exists on requests. That catalog owner is a future owner slice and is not part of the current request identity slice.
+The active enemy VFX profile owner is `EnemyPresentationCatalogEntry.VfxProfileAsset`. The source entity presentation profile is resolved by using `GameplayVfxRequest.SourceEntityId` to look up `EntityId -> PresentationId -> EnemyPresentationCatalogEntry.VfxProfileAsset`, then converting the asset with `BuildRuntimeProfile()` during production setup. A null catalog profile is valid and means host default fallback remains in effect.
 
-Enemy presentation catalog types are split into `Game.Feature.Gameplay.EnemyPresentation` before the owner field is added. This keeps the current catalog schema unchanged while avoiding a future `Game.Feature.Gameplay -> Game.Feature.Gameplay.Vfx.Authoring -> Game.Feature.Gameplay.Vfx -> Game.Feature.Gameplay` assembly cycle.
+Enemy presentation catalog types live in `Game.Feature.Gameplay.EnemyPresentation`. That assembly may reference VFX authoring for the catalog-owned `VfxProfileAsset`; gameplay core must not reference VFX authoring.
 
 StagePresentationDefinition binding override is a future stage-specific override, not the v1 owner. Prefab component authoring is possible, but it is not canonical until explicitly chosen because it depends on live views and cannot by itself distinguish the same prefab under different presentation identities.
 
@@ -167,8 +168,9 @@ VFX planners may copy source entity id from presentation facts such as `TickPres
 Short-term request-time VFX binding precedence is:
 
 1. request-local profile from source entity / presentation identity
-2. host default map
-3. missing binding
+2. existing family profile
+3. host default map
+4. missing binding
 
 Long-term VFX binding precedence is:
 
@@ -179,7 +181,7 @@ Long-term VFX binding precedence is:
 5. host default map
 6. missing binding
 
-The request-time resolver must remain runtime-safe: it returns `VfxProfile` / `VfxBindingRuntimePolicy` data only and must not know GameObject, ScriptableObject, catalog assets, stage assets, or host objects.
+The request-time resolver must remain runtime-safe: it returns `VfxProfile` / `VfxBindingRuntimePolicy` data only and must not know GameObject, ScriptableObject, catalog assets, stage assets, or host objects. Production setup may read catalog/profile assets to build the runtime provider and prefab lookup map; per-request binding resolution consumes only runtime profiles and cue maps.
 
 ## VFX Planner Dependency Rule
 

@@ -84,6 +84,12 @@ catalog resolvers reject null prefabs. Validation reports these problems and
 does not auto-clear stale placement ids, rewrite bindings, or mutate generated
 outputs.
 
+Enemy catalog entries may also own an optional `VfxProfileAsset`. A null profile
+is valid and means host default VFX fallback. Non-null profiles are catalog
+integrity data: they must be Enemy-family profiles, and profile authoring errors
+or warnings are reported as catalog validation issues. These profile diagnostics
+are not generated binding drift.
+
 The generator is split into a non-mutating plan build and an apply step. Validate
 and Dry Run build only the allocation/output plan. Write Generate is the only
 path that persists `StableGuid -> EntityId` mappings, retires deleted mappings,
@@ -109,6 +115,11 @@ the selected catalog asset, resolved catalog entry status, and resolved
 navigation helpers only. They do not write prefab references onto placements and
 do not edit catalog entries.
 
+For Enemy placements, the preview also shows the resolved catalog-owned VFX
+profile as read-only derived data. The placement still stores only
+`PresentationId`; VFX profile selection is not written to placements or generated
+`StagePresentationDefinition` binding rows.
+
 Player presentation is not authored by the grid editor.
 
 ## Grid Editor Generated Preview And Facing
@@ -125,6 +136,10 @@ The generated presentation binding preview shows the expected
 whether the current generated binding is synced, missing, drifted, or assigned to
 the wrong binding kind. The preview does not create missing bindings, remove
 stale bindings, or manually edit generated binding arrays.
+
+Generated presentation drift remains limited to `EntityId -> PresentationId`.
+Enemy catalog `VfxProfileAsset` changes are catalog integrity changes, not
+generated output drift.
 
 Facing remains gameplay authoring data. The grid marker includes a compact
 Facing arrow next to the placement kind marker, and the selected placement can be
