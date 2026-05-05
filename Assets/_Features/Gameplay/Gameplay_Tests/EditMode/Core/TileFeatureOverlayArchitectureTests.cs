@@ -11,6 +11,8 @@ namespace Game.Feature.Gameplay.Tests.Core
     {
         private const string TileFeatureOverlayAdrPath =
             "Docs/Architecture/ADR/ADR-006-TileFeature-Overlay-Layer-Gate.md";
+        private const string TilePresentationRequestPlannerPath =
+            "Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TilePresentationRequestPlanner.cs";
         private static readonly string[] ForbiddenTerrainFlagTokens =
         {
             "Trap",
@@ -95,6 +97,31 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(property, Is.Not.Null);
             Assert.That(property.PropertyType, Is.EqualTo(typeof(IReadOnlyList<TilePresentationEvent>)));
             Assert.That(property.SetMethod, Is.Null);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TilePresentationRequestPlanner_DoesNotReferenceAuthorityOrMutationTypes()
+        {
+            var source = File.ReadAllText(GetAbsolutePath(TilePresentationRequestPlannerPath));
+            var forbiddenTokens = new[]
+            {
+                "WorldState",
+                "WorldSnapshot",
+                "CreateSnapshot",
+                "TickPipeline",
+                "ProjectedWorld",
+                "FinalizationBatch",
+                "DeterminismHashBuilder",
+            };
+
+            for (var i = 0; i < forbiddenTokens.Length; i++)
+            {
+                Assert.That(
+                    source,
+                    Does.Not.Contain(forbiddenTokens[i]),
+                    $"Tile presentation request planner must not reference authority or mutation token '{forbiddenTokens[i]}'.");
+            }
         }
 
         [Test]
