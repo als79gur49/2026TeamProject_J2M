@@ -12,6 +12,7 @@ namespace Game.Feature.Stages
             CubeTopologyState initialTopology,
             EntityState[] initialEntities,
             TerrainData initialTerrain,
+            TileFeatureState[] initialTileFeatures,
             int playerEntityId,
             StageObjectiveRuntimeDefinition objectiveRuntimeDefinition,
             EnemyAiProfileOverride[] enemyAiProfileOverrides)
@@ -20,6 +21,7 @@ namespace Game.Feature.Stages
             InitialTopology = initialTopology;
             InitialEntities = initialEntities ?? Array.Empty<EntityState>();
             InitialTerrain = initialTerrain ?? TerrainData.Empty;
+            InitialTileFeatures = initialTileFeatures ?? Array.Empty<TileFeatureState>();
             PlayerEntityId = playerEntityId;
             ObjectiveRuntimeDefinition = objectiveRuntimeDefinition ?? StageObjectiveRuntimeDefinition.Disabled;
             EnemyAiProfileOverrides = enemyAiProfileOverrides ?? Array.Empty<EnemyAiProfileOverride>();
@@ -32,6 +34,8 @@ namespace Game.Feature.Stages
         public EntityState[] InitialEntities { get; }
 
         public TerrainData InitialTerrain { get; }
+
+        public TileFeatureState[] InitialTileFeatures { get; }
 
         public int PlayerEntityId { get; }
 

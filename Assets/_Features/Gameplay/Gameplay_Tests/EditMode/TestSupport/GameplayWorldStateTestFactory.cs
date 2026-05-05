@@ -79,6 +79,23 @@ namespace Game.Feature.Gameplay.Tests
             CubeTopologyState topology,
             GameplayTimingProfile timingProfile)
         {
+            return CreateBounded(
+                initialEntities,
+                boardBounds,
+                terrainData,
+                topology,
+                timingProfile,
+                initialTileFeatures: null);
+        }
+
+        public static WorldState CreateBounded(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            GameplayTerrainData terrainData,
+            CubeTopologyState topology,
+            GameplayTimingProfile timingProfile,
+            IEnumerable<TileFeatureState> initialTileFeatures)
+        {
             var normalizedInitialEntities = SessionStartEntityNormalizer.Normalize(
                 initialEntities,
                 timingProfile ?? GameplayTimingProfile.CreateDefault());
@@ -92,7 +109,8 @@ namespace Game.Feature.Gameplay.Tests
                 normalizedInitialEntities,
                 boardBounds,
                 resolvedTerrain,
-                topology);
+                topology,
+                initialTileFeatures);
         }
     }
 }

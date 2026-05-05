@@ -47,6 +47,9 @@ namespace Game.Feature.Gameplay.Loop
             builder.Append("Terrain").Append('\n');
             AppendTerrainLines(builder, GetOrderedTerrain(finalSnapshot));
 
+            builder.Append("TileFeatures").Append('\n');
+            AppendTileFeatureLines(builder, GetOrderedTileFeatures(finalSnapshot));
+
             builder.Append("Entities").Append('\n');
             AppendEntityLines(builder, tickResultData.FinalEntities);
 
@@ -297,6 +300,13 @@ namespace Game.Feature.Gameplay.Loop
             return terrainEntries;
         }
 
+        private static List<TileFeatureState> GetOrderedTileFeatures(WorldSnapshot finalSnapshot)
+        {
+            var tileFeatureEntries = new List<TileFeatureState>();
+            finalSnapshot.EnumerateTileFeaturesOrdered(tileFeatureEntries);
+            return tileFeatureEntries;
+        }
+
         private static void AppendEnemyDefinitionBindingLines(
             StringBuilder builder,
             IReadOnlyList<EnemyDefinitionBindingSnapshotEntry> bindingEntries)
@@ -434,6 +444,34 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(terrainEntries[i].Cell.y).Append('|')
                     .Append((int)terrainEntries[i].Kind).Append('|')
                     .Append((int)terrainEntries[i].Flags).Append('\n');
+            }
+        }
+
+        private static void AppendTileFeatureLines(
+            StringBuilder builder,
+            IReadOnlyList<TileFeatureState> tileFeatureEntries)
+        {
+            if (tileFeatureEntries.Count == 0)
+            {
+                builder.Append("<empty>").Append('\n');
+                return;
+            }
+
+            for (var i = 0; i < tileFeatureEntries.Count; i++)
+            {
+                var tileFeature = tileFeatureEntries[i];
+                builder
+                    .Append((int)tileFeature.Cell.face).Append('|')
+                    .Append(tileFeature.Cell.x).Append('|')
+                    .Append(tileFeature.Cell.y).Append('|')
+                    .Append(tileFeature.TileId).Append('|')
+                    .Append((int)tileFeature.Kind).Append('|')
+                    .Append((int)tileFeature.Flags).Append('|')
+                    .Append(tileFeature.SourceEntityId).Append('|')
+                    .Append(tileFeature.OwnerEntityId).Append('|')
+                    .Append(tileFeature.TeamId).Append('|')
+                    .Append(tileFeature.LifetimeTicks).Append('|')
+                    .Append(tileFeature.Charges).Append('\n');
             }
         }
 

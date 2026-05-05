@@ -51,6 +51,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_InitialTileFeatures_DefaultsToEmpty()
+        {
+            var stage = CreateStage(
+                "InitialTileFeaturesEmpty",
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 1, 1), hp: 3, facing: Direction.Up));
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(buildResult.InitialTileFeatures, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void StageRuntimeBuilder_DuplicateCellRejects()
         {
@@ -208,6 +229,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(buildResult.InitialTopology.BottomFace, Is.EqualTo(FaceId.Floor));
             Assert.That(buildResult.PlayerEntityId, Is.EqualTo(10));
             Assert.That(buildResult.InitialTerrain, Is.SameAs(Game.Feature.Gameplay.BoardState.TerrainData.Empty));
+            Assert.That(buildResult.InitialTileFeatures, Is.Empty);
             Assert.That(
                 buildResult.InitialEntities.Length,
                 Is.EqualTo(stage.PlayerSpawns.Length + stage.BoxSpawns.Length + stage.EnemySpawns.Length + stage.WallSpawns.Length));

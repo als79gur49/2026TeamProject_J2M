@@ -37,6 +37,21 @@ namespace Game.Feature.Gameplay.Loop
             TerrainData terrainData,
             CubeTopologyState topology)
         {
+            return CreateWorldState(
+                initialEntities,
+                boardBounds,
+                terrainData,
+                topology,
+                initialTileFeatures: null);
+        }
+
+        public static WorldState CreateWorldState(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            TerrainData terrainData,
+            CubeTopologyState topology,
+            IEnumerable<TileFeatureState> initialTileFeatures)
+        {
             if (initialEntities == null)
             {
                 throw new ArgumentNullException(nameof(initialEntities));
@@ -52,7 +67,8 @@ namespace Game.Feature.Gameplay.Loop
                 initialEntities,
                 boardBounds,
                 terrainData ?? throw new ArgumentNullException(nameof(terrainData)),
-                topology);
+                topology,
+                initialTileFeatures);
         }
 
         public static WorldSnapshot CreateSnapshot(WorldState worldState)

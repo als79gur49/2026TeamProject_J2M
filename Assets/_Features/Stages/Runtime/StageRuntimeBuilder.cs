@@ -26,6 +26,7 @@ namespace Game.Feature.Stages
                 validated.InitialTopology,
                 initialEntities,
                 TerrainData.Empty,
+                Array.Empty<TileFeatureState>(),
                 validated.PlayerEntityId,
                 objectiveRuntimeDefinition,
                 enemyAiProfileOverrides);

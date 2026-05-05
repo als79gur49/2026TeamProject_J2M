@@ -74,11 +74,15 @@ namespace Game.Feature.Gameplay.Loop
                 enemyGlideStatesByEntityId[enemyGlideStates[i].EntityId] = enemyGlideStates[i].State;
             }
 
+            var tileFeatures = new List<TileFeatureState>();
+            snapshot.EnumerateTileFeaturesOrdered(tileFeatures);
+
             var worldState = new WorldState(
                 entities,
                 snapshot.BoardBounds,
                 snapshot.TerrainData,
                 snapshot.Topology,
+                tileFeatures,
                 enemyGlideStatesByEntityId);
             var writeContext = worldState.CreateWriteContext();
 
