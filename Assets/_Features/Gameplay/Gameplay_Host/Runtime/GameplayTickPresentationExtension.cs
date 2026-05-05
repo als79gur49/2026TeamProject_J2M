@@ -52,5 +52,7 @@ namespace Game.Feature.Gameplay.Host
         bool SuppressLegacyBoxDestroySmokeEffects { get; }
 
         bool SuppressLegacyItemConsumeEffects { get; }
+
+        bool SuppressLegacyEnemyDeathEffects { get; }
     }
 }

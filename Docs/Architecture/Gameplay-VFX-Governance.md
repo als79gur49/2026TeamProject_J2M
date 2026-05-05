@@ -307,6 +307,46 @@ Excluded from this slice:
 - flip impact migration and persistent VFX.
 - TileFeature, Terrain, UtilityWindup, and Shield VFX.
 
+## Enemy Death Burst Migration
+
+The enemy death burst migration slice moves enemy death exit playback from the legacy enemy view clone/arc/fade transient effect to the Gameplay VFX lane.
+
+Ownership:
+
+- source fact: `TickPresentationData.EntityExitSignals`.
+- trigger: `EntityType.Unit` and `TickEntityExitCause.Killed` / `TickEntityExitCause.EnemyDeath`.
+- non-triggers: box destroy, item consume, enemy damage without exit, player damage, and non-unit exits.
+- anchor: `VfxAnchor.ForCell(signal.SourceCell, signal.Topology, VfxAnchorSlot.CellCenter)`.
+- anchor rationale: the exit tick may no longer have a stable live entity pose, while `SourceCell` is carried by the exit presentation fact.
+- lifecycle: transient one-shot request with no persistent key.
+
+Migration flag and bypass:
+
+- `GameplayVfxProductionRuntime.EnableGameplayVfxEnemyDeathBurstMigration` gates `EnemyVfxCue.Death` playback.
+- `IGameplayPresentationMigrationGate.SuppressLegacyEnemyDeathEffects` suppresses only the old `GameplayExitPresentationController` enemy death exit VFX playback for the matching death cause.
+- `GameplayExitPresentationController.ApplyEntityExitOwnership()` remains active; view visibility and state cleanup are not bypassed.
+- missing binding under the migration flag is diagnostic/no-op and must not fall back to old enemy death clone/arc/fade playback.
+
+Default binding:
+
+- prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/EnemyDeathBurstVfx.prefab`
+- material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_EnemyDeathBurst_DarkRed.mat`
+- binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/EnemyDeathBurst_Binding.asset`
+- host default map: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset`
+- playback is `OneShot`, stop policy is `AuthoredDuration`, lifetime is `0.35` seconds, tail is `0.25` seconds, initial pool size is `4`, and max concurrent instances is `8`.
+
+Visual parity:
+
+- v1 replaces the old clone/arc/fade exit with a one-shot death burst.
+- it does not recreate the old motion-track-like enemy view clone flying and fading toward the camera or target.
+- full clone-motion visual parity is a future refinement, separate from this migration slice.
+
+Excluded from this slice:
+
+- box destroy and item consume migration, already covered by `Box Exit VFX Migration`.
+- flip impact migration, persistent death VFX, utility windup migration, and shield migration.
+- `TickPresentationData`, `TickPipeline`, `WorldState`, and `WorldSnapshot` shape or authority changes.
+
 ## Prefab-local Profile Owner Gate
 
 Prefab-local or presentation-local `VfxProfile` override requires request source identity. `GameplayVfxRequest.SourceEntityId` is the canonical source identity field for request-time profile lookup.

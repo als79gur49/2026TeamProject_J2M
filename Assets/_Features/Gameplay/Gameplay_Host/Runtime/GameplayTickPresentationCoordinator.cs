@@ -260,7 +260,8 @@ namespace Game.Feature.Gameplay.Host
             TraceStep("PlayEntityExitEffects");
             _exitPresentationController.PlayEntityExitEffects(
                 ShouldSuppressLegacyBoxDestroySmokeEffects(),
-                ShouldSuppressLegacyItemConsumeEffects());
+                ShouldSuppressLegacyItemConsumeEffects(),
+                ShouldSuppressLegacyEnemyDeathEffects());
             _animationSync.ApplyTickPresentation(
                 result,
                 _stateStore.ViewsByEntityId,
@@ -526,6 +527,20 @@ namespace Game.Feature.Gameplay.Host
             {
                 if (_presentationExtensions[i] is IGameplayPresentationMigrationGate migrationGate &&
                     migrationGate.SuppressLegacyItemConsumeEffects)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool ShouldSuppressLegacyEnemyDeathEffects()
+        {
+            for (var i = 0; i < _presentationExtensions.Count; i++)
+            {
+                if (_presentationExtensions[i] is IGameplayPresentationMigrationGate migrationGate &&
+                    migrationGate.SuppressLegacyEnemyDeathEffects)
                 {
                     return true;
                 }

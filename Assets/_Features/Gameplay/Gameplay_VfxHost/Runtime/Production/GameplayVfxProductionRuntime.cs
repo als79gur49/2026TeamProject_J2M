@@ -13,6 +13,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         [SerializeField] private bool enableEnemyJumpLandingDustVfx;
         [SerializeField] private bool enableGameplayVfxDamageBurstMigration;
         [SerializeField] private bool enableGameplayVfxEnemyDamageBurstMigration;
+        [SerializeField] private bool enableGameplayVfxEnemyDeathBurstMigration;
         [SerializeField] private bool enableGameplayVfxBoxDestroySmokeMigration;
         [SerializeField] private bool enableGameplayVfxItemConsumeBurstMigration;
         [SerializeField] private VfxProfileAsset[] familyProfiles = Array.Empty<VfxProfileAsset>();
@@ -110,6 +111,23 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 ResetIfNoGameplayVfxEnabled();
             }
         }
+
+        public bool EnableGameplayVfxEnemyDeathBurstMigration
+        {
+            get => enableGameplayVfxEnemyDeathBurstMigration;
+            set
+            {
+                if (enableGameplayVfxEnemyDeathBurstMigration == value)
+                {
+                    return;
+                }
+
+                enableGameplayVfxEnemyDeathBurstMigration = value;
+                ResetIfNoGameplayVfxEnabled();
+            }
+        }
+
+        public bool SuppressLegacyEnemyDeathEffects => enableGameplayVfxEnemyDeathBurstMigration;
 
         public bool SuppressLegacyBoxDestroySmokeEffects => enableGameplayVfxBoxDestroySmokeMigration;
 
@@ -310,6 +328,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             AnyEnemyJumpVfxEnabled ||
             enableGameplayVfxDamageBurstMigration ||
             enableGameplayVfxEnemyDamageBurstMigration ||
+            enableGameplayVfxEnemyDeathBurstMigration ||
             enableGameplayVfxBoxDestroySmokeMigration ||
             enableGameplayVfxItemConsumeBurstMigration;
 
@@ -355,6 +374,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         {
             return (enableGameplayVfxDamageBurstMigration && cueId == GameplayVfxCueId.From(PlayerVfxCue.Damage)) ||
                    (enableGameplayVfxEnemyDamageBurstMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.Damage)) ||
+                   (enableGameplayVfxEnemyDeathBurstMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.Death)) ||
                    (enableGameplayVfxBoxDestroySmokeMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.DestroySmoke)) ||
                    (enableGameplayVfxItemConsumeBurstMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.ItemConsume)) ||
                    (enableEnemyJumpTargetVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)) ||

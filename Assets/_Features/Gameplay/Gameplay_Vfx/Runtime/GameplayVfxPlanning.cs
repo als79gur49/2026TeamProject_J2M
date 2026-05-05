@@ -226,6 +226,33 @@ namespace Game.Feature.Gameplay.Vfx
                         timing: VfxTimingKind.ImmediateOnTickPresentation));
             }
 
+            var exitSignals = presentationData.EntityExitSignals;
+            for (var i = 0; i < exitSignals.Count; i++)
+            {
+                var signal = exitSignals[i];
+                if (signal.EntityType != EntityType.Unit ||
+                    signal.ExitedEntityId <= 0 ||
+                    !IsEnemyDeathExitCause(signal.ExitCause))
+                {
+                    continue;
+                }
+
+                builder.Add(
+                    new GameplayVfxRequest(
+                        tickIndex: context.TickIndex,
+                        sequenceId: signal.ExitedEntityId,
+                        presentationSeed: signal.PresentationSeed != 0 ? signal.PresentationSeed : signal.ExitedEntityId,
+                        sourceEntityId: signal.ExitedEntityId,
+                        cueId: GameplayVfxCueId.From(EnemyVfxCue.Death),
+                        anchor: VfxAnchor.ForCell(
+                            signal.SourceCell,
+                            signal.Topology,
+                            VfxAnchorSlot.CellCenter),
+                        timing: VfxTimingKind.ImmediateOnTickPresentation,
+                        isPersistent: false,
+                        persistentKey: VfxPersistentKey.None));
+            }
+
             var jumpSignals = presentationData.EnemyJumpSignals;
             for (var i = 0; i < jumpSignals.Count; i++)
             {
@@ -275,6 +302,11 @@ namespace Game.Feature.Gameplay.Vfx
         {
             return signal.Outcome == TickEnemyJumpPresentationOutcome.Landed ||
                    signal.Outcome == TickEnemyJumpPresentationOutcome.CrushedBoxAndLanded;
+        }
+
+        private static bool IsEnemyDeathExitCause(TickEntityExitCause exitCause)
+        {
+            return exitCause == TickEntityExitCause.Killed;
         }
 
         private static int ResolveSequenceId(in TickEnemyJumpPresentationSignal signal)
