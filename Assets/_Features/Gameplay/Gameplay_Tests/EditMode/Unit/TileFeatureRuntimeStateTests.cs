@@ -206,6 +206,111 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Is.Not.EqualTo(hashBuilder.Build(3, changedSnapshot, CreateTickResultData(changedSnapshot))));
         }
 
+        [Test]
+        [Category("Core")]
+        public void TileFeatureActivationQuery_BottomFaceOnly_UsesTopologyBottomFace()
+        {
+            var state = CreateTileFeature(10, new SurfaceCell(FaceId.Floor, 0, 0), TileFeatureKind.Button);
+            var definition = CreateDefinition(10, TileFeatureActivationRule.BottomFaceOnly);
+
+            Assert.That(TileFeatureActivationQueries.IsActive(state, definition, new CubeTopologyState(FaceId.Floor)), Is.True);
+            Assert.That(TileFeatureActivationQueries.IsActive(state, definition, new CubeTopologyState(FaceId.Front)), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileFeatureActivationQuery_FrontFaceOnly_UsesTopologyFrontFace()
+        {
+            var state = CreateTileFeature(10, new SurfaceCell(FaceId.Front, 0, 0), TileFeatureKind.Button);
+            var definition = CreateDefinition(10, TileFeatureActivationRule.FrontFaceOnly);
+
+            Assert.That(TileFeatureActivationQueries.IsActive(state, definition, new CubeTopologyState(FaceId.Floor)), Is.True);
+            Assert.That(TileFeatureActivationQueries.IsActive(state, definition, new CubeTopologyState(FaceId.Front)), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileFeatureActivationQuery_ActiveFaceOnly_UsesTopologyActiveFaces()
+        {
+            var state = CreateTileFeature(10, new SurfaceCell(FaceId.Front, 0, 0), TileFeatureKind.Button);
+            var definition = CreateDefinition(10, TileFeatureActivationRule.ActiveFaceOnly);
+
+            Assert.That(TileFeatureActivationQueries.IsActive(state, definition, new CubeTopologyState(FaceId.Floor)), Is.True);
+            Assert.That(TileFeatureActivationQueries.IsActive(state, definition, new CubeTopologyState(FaceId.Ceiling)), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileFeatureActivationQuery_InactiveFaceOnly_UsesTopologyInactiveFaces()
+        {
+            var state = CreateTileFeature(10, new SurfaceCell(FaceId.Back, 0, 0), TileFeatureKind.Button);
+            var definition = CreateDefinition(10, TileFeatureActivationRule.InactiveFaceOnly);
+
+            Assert.That(TileFeatureActivationQueries.IsActive(state, definition, new CubeTopologyState(FaceId.Floor)), Is.True);
+            Assert.That(TileFeatureActivationQueries.IsActive(state, definition, new CubeTopologyState(FaceId.Ceiling)), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileFeatureActivationQuery_TopologyRotation_CanChangeActivationResult()
+        {
+            var state = CreateTileFeature(10, new SurfaceCell(FaceId.Back, 0, 0), TileFeatureKind.Button);
+            var definition = CreateDefinition(10, TileFeatureActivationRule.ActiveFaceOnly);
+            var topology = new CubeTopologyState(FaceId.Floor);
+
+            Assert.That(TileFeatureActivationQueries.IsActive(state, definition, topology), Is.False);
+            Assert.That(TileFeatureActivationQueries.IsActive(state, definition, topology.Rotate(CubeRotationKind.Backward)), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileFeatureActivationQuery_TileIdMismatch_ReturnsFalse()
+        {
+            var state = CreateTileFeature(10, new SurfaceCell(FaceId.Floor, 0, 0), TileFeatureKind.Button);
+            var definition = CreateDefinition(20, TileFeatureActivationRule.Always);
+
+            Assert.That(TileFeatureActivationQueries.IsActive(state, definition, new CubeTopologyState(FaceId.Floor)), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileFeatureActivationQuery_DoesNotMutateWorldState()
+        {
+            var worldState = CreateWorldState(
+                Array.Empty<EntityState>(),
+                new[] { CreateTileFeature(10, new SurfaceCell(FaceId.Floor, 0, 0), TileFeatureKind.Button) });
+            var beforeSnapshot = worldState.CreateSnapshot();
+            Assert.That(beforeSnapshot.TryGetTileFeature(10, out var beforeFeature), Is.True);
+
+            var definition = CreateDefinition(10, TileFeatureActivationRule.Always);
+            Assert.That(TileFeatureActivationQueries.IsActive(beforeFeature, definition, beforeSnapshot.Topology), Is.True);
+
+            var afterSnapshot = worldState.CreateSnapshot();
+            Assert.That(afterSnapshot.TryGetTileFeature(10, out var afterFeature), Is.True);
+            Assert.That(afterFeature, Is.EqualTo(beforeFeature));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileFeatureActivationQuery_DoesNotIncreaseSnapshotMaterializationBudget()
+        {
+            var state = CreateTileFeature(10, new SurfaceCell(FaceId.Floor, 0, 0), TileFeatureKind.Button);
+            var definition = CreateDefinition(10, TileFeatureActivationRule.Always);
+
+            SnapshotMaterializationCounts counts;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                Assert.That(TileFeatureActivationQueries.IsActive(state, definition, new CubeTopologyState(FaceId.Floor)), Is.True);
+                counts = capture.Counts;
+            }
+
+            Assert.That(counts.WorldStateCreateSnapshotCount, Is.EqualTo(0));
+            Assert.That(counts.ProjectedWorldMaterializedSnapshotCount, Is.EqualTo(0));
+            Assert.That(counts.ProjectedWorldCacheHitCount, Is.EqualTo(0));
+            Assert.That(counts.ProjectedWorldApplyBatchCount, Is.EqualTo(0));
+            Assert.That(counts.ProjectedWorldEmptyApplyBatchCount, Is.EqualTo(0));
+        }
+
         private static void AssertOccupantAndTileFeatureCanShareCell(EntityState occupant, SurfaceCell cell)
         {
             var snapshot = CreateWorldState(
@@ -270,6 +375,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 teamId,
                 lifetimeTicks,
                 charges);
+        }
+
+        private static TileFeatureRuntimeDefinition CreateDefinition(
+            int tileId,
+            TileFeatureActivationRule activationRule)
+        {
+            return new TileFeatureRuntimeDefinition(
+                tileId,
+                activationRule,
+                Direction2D.None,
+                TileFeatureBoxSelector.None,
+                boundEntityId: 0,
+                presentationKey: string.Empty);
         }
 
         private static EntityState CreateUnit(int entityId, SurfaceCell position)

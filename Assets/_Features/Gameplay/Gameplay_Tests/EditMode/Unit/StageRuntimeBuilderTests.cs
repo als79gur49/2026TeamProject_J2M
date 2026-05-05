@@ -64,6 +64,146 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var buildResult = StageRuntimeBuilder.Build(stage);
 
                 Assert.That(buildResult.InitialTileFeatures, Is.Empty);
+                Assert.That(buildResult.TileFeatureDefinitions, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_TileFeatureAuthoring_MaterializesStateAndStaticDefinitions()
+        {
+            var tileFeature = CreateTileFeature(
+                100,
+                new SurfaceCell(FaceId.Floor, 1, 2),
+                TileFeatureKind.Slide,
+                TileFeatureActivationRule.ActiveFaceOnly,
+                Direction2D.Right,
+                TileFeatureBoxSelector.BoundEntity,
+                boundEntityId: 30,
+                presentationKey: "slide-east");
+            var stage = CreateStage(
+                "TileFeatureAuthoring",
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 1, 1), hp: 3, facing: Direction.Up));
+            SetPrivateField(stage, "tileFeatures", new[] { tileFeature });
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(buildResult.InitialTileFeatures.Length, Is.EqualTo(1));
+                Assert.That(buildResult.InitialTileFeatures[0].TileId, Is.EqualTo(tileFeature.TileId));
+                Assert.That(buildResult.InitialTileFeatures[0].Cell, Is.EqualTo(tileFeature.Cell));
+                Assert.That(buildResult.InitialTileFeatures[0].Kind, Is.EqualTo(tileFeature.Kind));
+                Assert.That(buildResult.InitialTileFeatures[0].Flags, Is.EqualTo(TileFeatureFlags.None));
+                Assert.That(buildResult.InitialTileFeatures[0].Charges, Is.EqualTo(0));
+
+                Assert.That(buildResult.TileFeatureDefinitions.Length, Is.EqualTo(1));
+                Assert.That(buildResult.TileFeatureDefinitions[0].TileId, Is.EqualTo(tileFeature.TileId));
+                Assert.That(buildResult.TileFeatureDefinitions[0].ActivationRule, Is.EqualTo(tileFeature.ActivationRule));
+                Assert.That(buildResult.TileFeatureDefinitions[0].Direction, Is.EqualTo(tileFeature.Direction));
+                Assert.That(buildResult.TileFeatureDefinitions[0].BoxSelector, Is.EqualTo(tileFeature.BoxSelector));
+                Assert.That(buildResult.TileFeatureDefinitions[0].BoundEntityId, Is.EqualTo(tileFeature.BoundEntityId));
+                Assert.That(buildResult.TileFeatureDefinitions[0].PresentationKey, Is.EqualTo(tileFeature.PresentationKey));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageRuntimeBuilder_DuplicateTileIdRejects()
+        {
+            var stage = CreateStageWithTileFeatures(
+                "DuplicateTileId",
+                new[]
+                {
+                    CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Button),
+                    CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 2), TileFeatureKind.Destroy),
+                });
+
+            AssertBuildThrows(stage, "duplicate tile feature id 100");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageRuntimeBuilder_NonPositiveTileIdRejects()
+        {
+            var stage = CreateStageWithTileFeatures(
+                "NonPositiveTileId",
+                new[] { CreateTileFeature(0, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Button) });
+
+            AssertBuildThrows(stage, "must use a positive tile id");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageRuntimeBuilder_OutOfBoundsTileFeatureRejects()
+        {
+            var stage = CreateStageWithTileFeatures(
+                "OutOfBoundsTileFeature",
+                new[] { CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 5, 1), TileFeatureKind.Button) });
+
+            AssertBuildThrows(stage, "outside the configured board bounds");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageRuntimeBuilder_UnknownTileFeatureKindRejects()
+        {
+            var stage = CreateStageWithTileFeatures(
+                "UnknownTileFeatureKind",
+                new[] { CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Unknown) });
+
+            AssertBuildThrows(stage, "must use a known TileFeatureKind");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageRuntimeBuilder_TileFeatureWallLikeSolidOverlap_RejectsUntilPolicyExists()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 2);
+            var stage = CreateStage(
+                "TileFeatureWallOverlap",
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 1, 1), hp: 3, facing: Direction.Up),
+                CreateSpawn(20, StageSpawnKind.Wall, cell, hp: 1));
+            SetPrivateField(stage, "tileFeatures", new[]
+            {
+                CreateTileFeature(100, cell, TileFeatureKind.Barricade),
+            });
+
+            AssertBuildThrows(stage, "overlaps a wall-like solid occupant");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_SameCellMultipleTileFeatures_StorageSupportOnly_MaterializesBoth()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 2);
+            var stage = CreateStageWithTileFeatures(
+                "SameCellTileFeatureStorage",
+                new[]
+                {
+                    CreateTileFeature(100, cell, TileFeatureKind.Button),
+                    CreateTileFeature(101, cell, TileFeatureKind.Destroy),
+                });
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                CollectionAssert.AreEqual(
+                    new[] { 100, 101 },
+                    Array.ConvertAll(buildResult.InitialTileFeatures, feature => feature.TileId));
+                Assert.That(buildResult.InitialTileFeatures[0].Cell, Is.EqualTo(cell));
+                Assert.That(buildResult.InitialTileFeatures[1].Cell, Is.EqualTo(cell));
             }
             finally
             {
@@ -230,6 +370,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(buildResult.PlayerEntityId, Is.EqualTo(10));
             Assert.That(buildResult.InitialTerrain, Is.SameAs(Game.Feature.Gameplay.BoardState.TerrainData.Empty));
             Assert.That(buildResult.InitialTileFeatures, Is.Empty);
+            Assert.That(buildResult.TileFeatureDefinitions, Is.Empty);
             Assert.That(
                 buildResult.InitialEntities.Length,
                 Is.EqualTo(stage.PlayerSpawns.Length + stage.BoxSpawns.Length + stage.EnemySpawns.Length + stage.WallSpawns.Length));
@@ -421,6 +562,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return stage;
         }
 
+        private static StageDefinition CreateStageWithTileFeatures(
+            string stageName,
+            StageTileFeatureDefinition[] tileFeatures)
+        {
+            var stage = CreateStage(
+                stageName,
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 1, 1), hp: 3, facing: Direction.Up));
+            SetPrivateField(stage, "tileFeatures", tileFeatures);
+            return stage;
+        }
+
         private static StageBoardDefinition CreateBoard(
             Vector2Int minInclusive,
             Vector2Int maxInclusive,
@@ -460,6 +613,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 EnemyAiProfile = enemyAiProfile,
                 PresentationId = presentationId,
                 UnitStackGroup = unitStackGroup,
+            };
+        }
+
+        private static StageTileFeatureDefinition CreateTileFeature(
+            int tileId,
+            SurfaceCell cell,
+            TileFeatureKind kind,
+            TileFeatureActivationRule activationRule = TileFeatureActivationRule.Always,
+            Direction2D direction = Direction2D.None,
+            TileFeatureBoxSelector boxSelector = TileFeatureBoxSelector.None,
+            int boundEntityId = 0,
+            string presentationKey = null)
+        {
+            return new StageTileFeatureDefinition
+            {
+                TileId = tileId,
+                Cell = cell,
+                Kind = kind,
+                ActivationRule = activationRule,
+                Direction = direction,
+                BoxSelector = boxSelector,
+                BoundEntityId = boundEntityId,
+                PresentationKey = presentationKey,
             };
         }
 
