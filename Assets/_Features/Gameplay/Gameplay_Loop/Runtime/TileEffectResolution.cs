@@ -57,4 +57,115 @@ namespace Game.Feature.Gameplay.Loop
             return TileEffectResolutionResult.Empty;
         }
     }
+
+    internal sealed class TileFeatureEffectResolver : ITileEffectResolver
+    {
+        public static readonly TileFeatureEffectResolver Instance = new();
+
+        private TileFeatureEffectResolver()
+        {
+        }
+
+        public TileEffectResolutionResult Resolve(in TileEffectResolutionContext context)
+        {
+            var tileFeatures = new List<TileFeatureState>();
+            context.Snapshot.EnumerateTileFeaturesOrdered(tileFeatures);
+
+            TileFeatureOperationBatch operations = null;
+            for (var i = 0; i < tileFeatures.Count; i++)
+            {
+                var tileFeature = tileFeatures[i];
+                if (!ShouldLatchButton(context, tileFeature))
+                {
+                    continue;
+                }
+
+                operations ??= new TileFeatureOperationBatch();
+                operations.Add(TileFeatureOperation.Update(CreateActivatedState(tileFeature)));
+            }
+
+            return operations == null || operations.IsEmpty
+                ? TileEffectResolutionResult.Empty
+                : new TileEffectResolutionResult(operations);
+        }
+
+        private static bool ShouldLatchButton(
+            in TileEffectResolutionContext context,
+            TileFeatureState tileFeature)
+        {
+            if (tileFeature.Kind != TileFeatureKind.Button ||
+                (tileFeature.Flags & TileFeatureFlags.Activated) != 0)
+            {
+                return false;
+            }
+
+            if (!TryFindDefinition(context.TileFeatureDefinitions, tileFeature.TileId, out var definition) ||
+                !TileFeatureActivationQueries.IsActive(tileFeature, definition, context.Snapshot.Topology))
+            {
+                return false;
+            }
+
+            return IsAcceptedBox(context.Snapshot, tileFeature.Cell, definition.BoxSelector);
+        }
+
+        private static bool TryFindDefinition(
+            IReadOnlyList<TileFeatureRuntimeDefinition> definitions,
+            int tileId,
+            out TileFeatureRuntimeDefinition definition)
+        {
+            for (var i = 0; i < definitions.Count; i++)
+            {
+                if (definitions[i].TileId == tileId)
+                {
+                    definition = definitions[i];
+                    return true;
+                }
+            }
+
+            definition = default;
+            return false;
+        }
+
+        private static bool IsAcceptedBox(
+            WorldSnapshot snapshot,
+            SurfaceCell cell,
+            TileFeatureBoxSelector selector)
+        {
+            switch (selector)
+            {
+                case TileFeatureBoxSelector.AnyPushableBox:
+                    return snapshot.TryGetSolidOccupantAt(cell, out var occupant) &&
+                           occupant.type == EntityType.Box &&
+                           (occupant.boxCapabilities & BoxCapabilities.Push) != 0 &&
+                           occupant.boardPresence == EntityBoardPresence.Occupying &&
+                           occupant.hp > 0 &&
+                           !occupant.markedForDeath;
+
+                case TileFeatureBoxSelector.MoonBlockOnly:
+                    return false;
+
+                case TileFeatureBoxSelector.None:
+                case TileFeatureBoxSelector.FeatureCell:
+                case TileFeatureBoxSelector.BoundEntity:
+                    return false;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(selector), selector, "Unknown TileFeature box selector.");
+            }
+        }
+
+        private static TileFeatureState CreateActivatedState(TileFeatureState tileFeature)
+        {
+            return new TileFeatureState(
+                tileFeature.TileId,
+                tileFeature.Cell,
+                tileFeature.Kind,
+                tileFeature.Flags | TileFeatureFlags.Activated,
+                tileFeature.SourceEntityId,
+                tileFeature.OwnerEntityId,
+                tileFeature.TeamId,
+                tileFeature.LifetimeTicks,
+                tileFeature.Charges);
+        }
+    }
 }

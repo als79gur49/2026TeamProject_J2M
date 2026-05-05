@@ -143,7 +143,7 @@ namespace Game.Feature.Gameplay.Loop
             _tileFeatureDefinitions = tileFeatureDefinitions == null
                 ? Array.Empty<TileFeatureRuntimeDefinition>()
                 : new List<TileFeatureRuntimeDefinition>(tileFeatureDefinitions).AsReadOnly();
-            _tileEffectResolver = tileEffectResolver ?? EmptyTileEffectResolver.Instance;
+            _tileEffectResolver = tileEffectResolver ?? TileFeatureEffectResolver.Instance;
             _allowPlayerRespawn = allowPlayerRespawn;
             _runtimeFeatureFlags = runtimeFeatureFlags;
             _moveOccupancyTicks = resolvedGeneralTimingProfile.MoveOccupancyTicks;

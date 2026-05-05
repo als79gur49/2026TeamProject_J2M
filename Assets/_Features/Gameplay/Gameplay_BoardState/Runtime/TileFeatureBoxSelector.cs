@@ -5,5 +5,7 @@ namespace Game.Feature.Gameplay.BoardState
         None = 0,
         FeatureCell = 1,
         BoundEntity = 2,
+        AnyPushableBox = 3,
+        MoonBlockOnly = 4,
     }
 }

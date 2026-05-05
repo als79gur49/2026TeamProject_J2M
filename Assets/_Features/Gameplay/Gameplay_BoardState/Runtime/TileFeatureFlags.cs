@@ -6,5 +6,6 @@ namespace Game.Feature.Gameplay.BoardState
     public enum TileFeatureFlags
     {
         None = 0,
+        Activated = 1 << 0,
     }
 }
