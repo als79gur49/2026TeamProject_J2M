@@ -158,6 +158,7 @@ namespace Game.Feature.Stages.Editor
             SortByEntityId(buildData.EnemySpawns);
             SortByEntityId(buildData.BoxSpawns);
             SortByEntityId(buildData.WallSpawns);
+            AddTileFeatures(source.TileFeatures, buildData.TileFeatures);
             return buildData;
         }
 
@@ -194,6 +195,26 @@ namespace Game.Feature.Stages.Editor
         private static void SortByEntityId(List<StageSpawnDefinition> spawns)
         {
             spawns.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+        }
+
+        private static void AddTileFeatures(
+            IReadOnlyList<StageTileFeatureDefinition> source,
+            List<StageTileFeatureDefinition> target)
+        {
+            target.Clear();
+            if (source == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < source.Count; i++)
+            {
+                var tileFeature = source[i];
+                tileFeature.PresentationKey = Normalize(tileFeature.PresentationKey);
+                target.Add(tileFeature);
+            }
+
+            target.Sort((left, right) => left.TileId.CompareTo(right.TileId));
         }
 
         private static string Normalize(string value)

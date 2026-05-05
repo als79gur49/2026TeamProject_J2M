@@ -17,6 +17,7 @@ namespace Game.Feature.Stages
             InitialBottomFace = Game.Feature.Gameplay.BoardState.FaceId.Floor,
         };
         [SerializeField] private List<StagePlacedEntityAuthoring> placements = new();
+        [SerializeField] private List<StageTileFeatureDefinition> tileFeatures = new();
         [SerializeField] private List<StageZoneDefinition> zones = new();
         [SerializeField] private StageObjectiveAuthoring objective = StageObjectiveAuthoring.CreateDefault();
         [SerializeField] private List<StageAuthoringIdMapping> entityIdMappings = new();
@@ -32,6 +33,9 @@ namespace Game.Feature.Stages
 
         public IReadOnlyList<StagePlacedEntityAuthoring> Placements =>
             placements != null ? placements : Array.Empty<StagePlacedEntityAuthoring>();
+
+        public IReadOnlyList<StageTileFeatureDefinition> TileFeatures =>
+            tileFeatures != null ? tileFeatures : Array.Empty<StageTileFeatureDefinition>();
 
         public IReadOnlyList<StageZoneDefinition> Zones =>
             zones != null ? zones : Array.Empty<StageZoneDefinition>();
@@ -61,6 +65,13 @@ namespace Game.Feature.Stages
             placements = value != null
                 ? new List<StagePlacedEntityAuthoring>(value)
                 : new List<StagePlacedEntityAuthoring>();
+        }
+
+        public void SetTileFeatures(IEnumerable<StageTileFeatureDefinition> value)
+        {
+            tileFeatures = value != null
+                ? new List<StageTileFeatureDefinition>(value)
+                : new List<StageTileFeatureDefinition>();
         }
 
         public void SetZones(IEnumerable<StageZoneDefinition> value)

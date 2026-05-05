@@ -130,6 +130,7 @@ namespace Game.Feature.Stages
                 return new StageAuthoringNormalizedGameplaySnapshot(
                     default,
                     Array.Empty<StageAuthoringNormalizedSpawn>(),
+                    Array.Empty<StageAuthoringNormalizedTileFeature>(),
                     Array.Empty<StageAuthoringNormalizedZone>(),
                     StageAuthoringNormalizedObjective.Empty);
             }
@@ -169,6 +170,7 @@ namespace Game.Feature.Stages
             return new StageAuthoringNormalizedGameplaySnapshot(
                 source.Board,
                 SortSpawns(spawns),
+                ProjectTileFeatures(source.TileFeatures),
                 ProjectZones(source.Zones),
                 ProjectObjective(source.Objective));
         }
@@ -188,6 +190,7 @@ namespace Game.Feature.Stages
             return new StageAuthoringNormalizedGameplaySnapshot(
                 stage.Board,
                 SortSpawns(spawns),
+                ProjectTileFeatures(stage.TileFeatures),
                 ProjectZones(stage.Zones),
                 ProjectObjective(stage.Objective));
         }
@@ -309,6 +312,33 @@ namespace Game.Feature.Stages
             }
 
             normalized.Sort((left, right) => string.Compare(left.ZoneId, right.ZoneId, StringComparison.Ordinal));
+            return normalized.ToArray();
+        }
+
+        private static StageAuthoringNormalizedTileFeature[] ProjectTileFeatures(
+            IReadOnlyList<StageTileFeatureDefinition> tileFeatures)
+        {
+            if (tileFeatures == null || tileFeatures.Count == 0)
+            {
+                return Array.Empty<StageAuthoringNormalizedTileFeature>();
+            }
+
+            var normalized = new List<StageAuthoringNormalizedTileFeature>(tileFeatures.Count);
+            for (var i = 0; i < tileFeatures.Count; i++)
+            {
+                var tileFeature = tileFeatures[i];
+                normalized.Add(new StageAuthoringNormalizedTileFeature(
+                    tileFeature.TileId,
+                    tileFeature.Cell,
+                    tileFeature.Kind,
+                    tileFeature.ActivationRule,
+                    tileFeature.Direction,
+                    tileFeature.BoxSelector,
+                    tileFeature.BoundEntityId,
+                    Normalize(tileFeature.PresentationKey)));
+            }
+
+            normalized.Sort((left, right) => left.TileId.CompareTo(right.TileId));
             return normalized.ToArray();
         }
 

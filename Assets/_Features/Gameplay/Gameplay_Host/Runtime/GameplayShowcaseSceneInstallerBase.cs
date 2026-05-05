@@ -22,6 +22,7 @@ namespace Game.Feature.Gameplay.Host
                 CubeTopologyState initialTopology,
                 EntityState[] initialEntities,
                 GameplayTerrainData initialTerrain,
+                TileFeatureState[] initialTileFeatures,
                 int playerEntityId,
                 StageObjectiveRuntimeDefinition objectiveRuntimeDefinition,
                 EnemyAiProfileOverride[] enemyAiProfileOverrides,
@@ -37,6 +38,7 @@ namespace Game.Feature.Gameplay.Host
                 InitialTopology = initialTopology;
                 InitialEntities = initialEntities ?? Array.Empty<EntityState>();
                 InitialTerrain = initialTerrain ?? GameplayTerrainData.Empty;
+                InitialTileFeatures = initialTileFeatures ?? Array.Empty<TileFeatureState>();
                 PlayerEntityId = playerEntityId;
                 ObjectiveRuntimeDefinition = objectiveRuntimeDefinition ?? StageObjectiveRuntimeDefinition.Disabled;
                 EnemyAiProfileOverrides = enemyAiProfileOverrides ?? Array.Empty<EnemyAiProfileOverride>();
@@ -56,6 +58,8 @@ namespace Game.Feature.Gameplay.Host
             public EntityState[] InitialEntities { get; }
 
             public GameplayTerrainData InitialTerrain { get; }
+
+            public TileFeatureState[] InitialTileFeatures { get; }
 
             public int PlayerEntityId { get; }
 
@@ -281,6 +285,7 @@ namespace Game.Feature.Gameplay.Host
                 InitialBoardBounds = initialState.BoardBounds,
                 InitialEntities = initialState.InitialEntities,
                 InitialTerrain = initialState.InitialTerrain,
+                InitialTileFeatures = initialState.InitialTileFeatures,
                 InitialTopology = initialState.InitialTopology,
                 MoveDeadzone = moveDeadzone,
                 ObjectiveRuntimeDefinition = initialState.ObjectiveRuntimeDefinition,

@@ -1057,6 +1057,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new CubeTopologyState(FaceId.Floor),
                     Array.Empty<EntityState>(),
                     Game.Feature.Gameplay.BoardState.TerrainData.Empty,
+                    Array.Empty<TileFeatureState>(),
                     playerEntityId: 10,
                     StageObjectiveRuntimeDefinition.Disabled,
                     Array.Empty<EnemyAiProfileOverride>(),

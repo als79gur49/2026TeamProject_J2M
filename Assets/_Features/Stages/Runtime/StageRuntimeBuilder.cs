@@ -18,6 +18,8 @@ namespace Game.Feature.Stages
         {
             var validated = StageDefinitionValidator.ValidateAndNormalize(stage);
             var initialEntities = BuildInitialEntities(validated);
+            var initialTileFeatures = BuildInitialTileFeatures(validated.TileFeatures);
+            var tileFeatureDefinitions = BuildTileFeatureRuntimeDefinitions(validated.TileFeatures);
             var enemyAiProfileOverrides = BuildEnemyAiProfileOverrides(validated.Spawns);
             var objectiveRuntimeDefinition = BuildObjectiveRuntimeDefinition(validated, timing);
 
@@ -26,7 +28,8 @@ namespace Game.Feature.Stages
                 validated.InitialTopology,
                 initialEntities,
                 TerrainData.Empty,
-                Array.Empty<TileFeatureState>(),
+                initialTileFeatures,
+                tileFeatureDefinitions,
                 validated.PlayerEntityId,
                 objectiveRuntimeDefinition,
                 enemyAiProfileOverrides);
@@ -43,6 +46,59 @@ namespace Game.Feature.Stages
 
             entities.Sort(EntityStateEntityIdComparer.Instance);
             return entities.ToArray();
+        }
+
+        private static TileFeatureState[] BuildInitialTileFeatures(
+            IReadOnlyList<StageTileFeatureDefinition> tileFeatures)
+        {
+            if (tileFeatures == null || tileFeatures.Count == 0)
+            {
+                return Array.Empty<TileFeatureState>();
+            }
+
+            var initialTileFeatures = new TileFeatureState[tileFeatures.Count];
+            for (var i = 0; i < tileFeatures.Count; i++)
+            {
+                var tileFeature = tileFeatures[i];
+                initialTileFeatures[i] = new TileFeatureState(
+                    tileFeature.TileId,
+                    tileFeature.Cell,
+                    tileFeature.Kind,
+                    TileFeatureFlags.None,
+                    sourceEntityId: 0,
+                    ownerEntityId: 0,
+                    teamId: 0,
+                    lifetimeTicks: 0,
+                    charges: 0);
+            }
+
+            Array.Sort(initialTileFeatures, (left, right) => left.TileId.CompareTo(right.TileId));
+            return initialTileFeatures;
+        }
+
+        private static TileFeatureRuntimeDefinition[] BuildTileFeatureRuntimeDefinitions(
+            IReadOnlyList<StageTileFeatureDefinition> tileFeatures)
+        {
+            if (tileFeatures == null || tileFeatures.Count == 0)
+            {
+                return Array.Empty<TileFeatureRuntimeDefinition>();
+            }
+
+            var definitions = new TileFeatureRuntimeDefinition[tileFeatures.Count];
+            for (var i = 0; i < tileFeatures.Count; i++)
+            {
+                var tileFeature = tileFeatures[i];
+                definitions[i] = new TileFeatureRuntimeDefinition(
+                    tileFeature.TileId,
+                    tileFeature.ActivationRule,
+                    tileFeature.Direction,
+                    tileFeature.BoxSelector,
+                    tileFeature.BoundEntityId,
+                    tileFeature.PresentationKey);
+            }
+
+            Array.Sort(definitions, (left, right) => left.TileId.CompareTo(right.TileId));
+            return definitions;
         }
 
         private static EnemyAiProfileOverride[] BuildEnemyAiProfileOverrides(IReadOnlyList<StageSpawnDefinition> spawns)

@@ -56,6 +56,7 @@ namespace Game.Feature.Stages.Editor
             SetSpawnArray(serializedObject.FindProperty("enemySpawns"), payload.EnemySpawns);
             SetSpawnArray(serializedObject.FindProperty("boxSpawns"), payload.BoxSpawns);
             SetSpawnArray(serializedObject.FindProperty("wallSpawns"), payload.WallSpawns);
+            SetTileFeatureArray(serializedObject.FindProperty("tileFeatures"), payload.TileFeatures);
             SetZoneArray(serializedObject.FindProperty("zones"), payload.Zones);
             SetObjective(serializedObject.FindProperty("objective"), payload.Objective);
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
@@ -145,6 +146,26 @@ namespace Game.Feature.Stages.Editor
             property.FindPropertyRelative("face").intValue = (int)cell.face;
             property.FindPropertyRelative("x").intValue = cell.x;
             property.FindPropertyRelative("y").intValue = cell.y;
+        }
+
+        private static void SetTileFeatureArray(
+            SerializedProperty property,
+            IReadOnlyList<StageTileFeatureDefinition> tileFeatures)
+        {
+            property.arraySize = tileFeatures.Count;
+            for (var i = 0; i < tileFeatures.Count; i++)
+            {
+                var element = property.GetArrayElementAtIndex(i);
+                var tileFeature = tileFeatures[i];
+                element.FindPropertyRelative("TileId").intValue = tileFeature.TileId;
+                SetSurfaceCell(element.FindPropertyRelative("Cell"), tileFeature.Cell);
+                element.FindPropertyRelative("Kind").intValue = (int)tileFeature.Kind;
+                element.FindPropertyRelative("ActivationRule").intValue = (int)tileFeature.ActivationRule;
+                element.FindPropertyRelative("Direction").intValue = (int)tileFeature.Direction;
+                element.FindPropertyRelative("BoxSelector").intValue = (int)tileFeature.BoxSelector;
+                element.FindPropertyRelative("BoundEntityId").intValue = tileFeature.BoundEntityId;
+                element.FindPropertyRelative("PresentationKey").stringValue = Normalize(tileFeature.PresentationKey);
+            }
         }
 
         private static void SetZoneArray(

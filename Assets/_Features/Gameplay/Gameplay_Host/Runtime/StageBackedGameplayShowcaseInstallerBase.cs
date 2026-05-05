@@ -49,6 +49,7 @@ namespace Game.Feature.Gameplay.Host
                 compositionData.GameplayBuildResult.InitialTopology,
                 compositionData.GameplayBuildResult.InitialEntities,
                 compositionData.GameplayBuildResult.InitialTerrain,
+                compositionData.GameplayBuildResult.InitialTileFeatures,
                 compositionData.GameplayBuildResult.PlayerEntityId,
                 compositionData.GameplayBuildResult.ObjectiveRuntimeDefinition,
                 compositionData.GameplayBuildResult.EnemyAiProfileOverrides,

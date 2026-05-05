@@ -290,6 +290,7 @@ namespace Game.Feature.Stages.Editor.Tests
                         0,
                         null),
                 },
+                Array.Empty<StageAuthoringNormalizedTileFeature>(),
                 Array.Empty<StageAuthoringNormalizedZone>(),
                 StageAuthoringNormalizedObjective.Empty);
         }

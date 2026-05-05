@@ -25,6 +25,7 @@ namespace Game.Feature.Stages
             var spawnEntries = NormalizeExplicitSpawns(stage.GetSpawnGroups());
             var playerEntityId = ValidateEntities(stageName, spawnEntries, boardBounds);
             var zones = ValidateZones(stageName, stage.Zones, boardBounds);
+            var tileFeatures = ValidateTileFeatures(stageName, stage.TileFeatures, spawnEntries, boardBounds);
             var objective = ValidateObjective(stageName, stage.Objective, zones);
 
             return new ValidatedStageData(
@@ -32,6 +33,7 @@ namespace Game.Feature.Stages
                 boardBounds,
                 new CubeTopologyState(board.InitialBottomFace),
                 ExtractSpawns(spawnEntries),
+                tileFeatures,
                 playerEntityId,
                 zones,
                 objective);
@@ -90,6 +92,113 @@ namespace Game.Feature.Stages
             }
 
             return normalizedZones;
+        }
+
+        private static StageTileFeatureDefinition[] ValidateTileFeatures(
+            string stageName,
+            IReadOnlyList<StageTileFeatureDefinition> tileFeatures,
+            IReadOnlyList<ExplicitSpawnEntry> spawnEntries,
+            BoardBounds boardBounds)
+        {
+            if (tileFeatures == null || tileFeatures.Count == 0)
+            {
+                return Array.Empty<StageTileFeatureDefinition>();
+            }
+
+            var normalized = new StageTileFeatureDefinition[tileFeatures.Count];
+            var tileIds = new HashSet<int>();
+            var wallCells = BuildWallCells(spawnEntries);
+
+            for (var i = 0; i < tileFeatures.Count; i++)
+            {
+                var tileFeature = tileFeatures[i];
+                var label = $"tileFeatures[{i}] (TileId={tileFeature.TileId}, Cell={tileFeature.Cell})";
+
+                if (tileFeature.TileId <= 0)
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' {label} must use a positive tile id.");
+                }
+
+                if (!tileIds.Add(tileFeature.TileId))
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' contains duplicate tile feature id {tileFeature.TileId}.");
+                }
+
+                if (!Enum.IsDefined(typeof(FaceId), tileFeature.Cell.face))
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' {label} has invalid face value {(int)tileFeature.Cell.face}.");
+                }
+
+                if (!boardBounds.Contains(tileFeature.Cell.PlanarPosition))
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' {label} is outside the configured board bounds.");
+                }
+
+                if (!Enum.IsDefined(typeof(TileFeatureKind), tileFeature.Kind) ||
+                    tileFeature.Kind == TileFeatureKind.Unknown)
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' {label} must use a known TileFeatureKind.");
+                }
+
+                if (!Enum.IsDefined(typeof(TileFeatureActivationRule), tileFeature.ActivationRule))
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' {label} has invalid activation rule value {(int)tileFeature.ActivationRule}.");
+                }
+
+                if (!Enum.IsDefined(typeof(Direction2D), tileFeature.Direction))
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' {label} has invalid Direction2D value {(int)tileFeature.Direction}.");
+                }
+
+                if (!Enum.IsDefined(typeof(TileFeatureBoxSelector), tileFeature.BoxSelector))
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' {label} has invalid TileFeatureBoxSelector value {(int)tileFeature.BoxSelector}.");
+                }
+
+                if (wallCells.Contains(tileFeature.Cell))
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' {label} overlaps a wall-like solid occupant. TileFeature solid overlap policy is not enabled in this phase.");
+                }
+
+                normalized[i] = new StageTileFeatureDefinition
+                {
+                    TileId = tileFeature.TileId,
+                    Cell = tileFeature.Cell,
+                    Kind = tileFeature.Kind,
+                    ActivationRule = tileFeature.ActivationRule,
+                    Direction = tileFeature.Direction,
+                    BoxSelector = tileFeature.BoxSelector,
+                    BoundEntityId = tileFeature.BoundEntityId,
+                    PresentationKey = tileFeature.PresentationKey?.Trim() ?? string.Empty,
+                };
+            }
+
+            Array.Sort(normalized, (left, right) => left.TileId.CompareTo(right.TileId));
+            return normalized;
+        }
+
+        private static HashSet<SurfaceCell> BuildWallCells(IReadOnlyList<ExplicitSpawnEntry> spawnEntries)
+        {
+            var wallCells = new HashSet<SurfaceCell>();
+            for (var i = 0; i < spawnEntries.Count; i++)
+            {
+                var spawn = spawnEntries[i].Spawn;
+                if (spawn.Kind == StageSpawnKind.Wall)
+                {
+                    wallCells.Add(spawn.Cell);
+                }
+            }
+
+            return wallCells;
         }
 
         private static StageObjectiveAuthoring ValidateObjective(
@@ -404,6 +513,7 @@ namespace Game.Feature.Stages
                 BoardBounds boardBounds,
                 CubeTopologyState initialTopology,
                 StageSpawnDefinition[] spawns,
+                StageTileFeatureDefinition[] tileFeatures,
                 int playerEntityId,
                 StageZoneDefinition[] zones,
                 StageObjectiveAuthoring objective)
@@ -412,6 +522,7 @@ namespace Game.Feature.Stages
                 BoardBounds = boardBounds;
                 InitialTopology = initialTopology;
                 Spawns = spawns ?? Array.Empty<StageSpawnDefinition>();
+                TileFeatures = tileFeatures ?? Array.Empty<StageTileFeatureDefinition>();
                 PlayerEntityId = playerEntityId;
                 Zones = zones ?? Array.Empty<StageZoneDefinition>();
                 Objective = objective;
@@ -424,6 +535,8 @@ namespace Game.Feature.Stages
             public CubeTopologyState InitialTopology { get; }
 
             public StageSpawnDefinition[] Spawns { get; }
+
+            public StageTileFeatureDefinition[] TileFeatures { get; }
 
             public int PlayerEntityId { get; }
 

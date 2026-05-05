@@ -13,6 +13,7 @@ namespace Game.Feature.Stages
             EntityState[] initialEntities,
             TerrainData initialTerrain,
             TileFeatureState[] initialTileFeatures,
+            TileFeatureRuntimeDefinition[] tileFeatureDefinitions,
             int playerEntityId,
             StageObjectiveRuntimeDefinition objectiveRuntimeDefinition,
             EnemyAiProfileOverride[] enemyAiProfileOverrides)
@@ -22,6 +23,7 @@ namespace Game.Feature.Stages
             InitialEntities = initialEntities ?? Array.Empty<EntityState>();
             InitialTerrain = initialTerrain ?? TerrainData.Empty;
             InitialTileFeatures = initialTileFeatures ?? Array.Empty<TileFeatureState>();
+            TileFeatureDefinitions = tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
             PlayerEntityId = playerEntityId;
             ObjectiveRuntimeDefinition = objectiveRuntimeDefinition ?? StageObjectiveRuntimeDefinition.Disabled;
             EnemyAiProfileOverrides = enemyAiProfileOverrides ?? Array.Empty<EnemyAiProfileOverride>();
@@ -36,6 +38,8 @@ namespace Game.Feature.Stages
         public TerrainData InitialTerrain { get; }
 
         public TileFeatureState[] InitialTileFeatures { get; }
+
+        public TileFeatureRuntimeDefinition[] TileFeatureDefinitions { get; }
 
         public int PlayerEntityId { get; }
 

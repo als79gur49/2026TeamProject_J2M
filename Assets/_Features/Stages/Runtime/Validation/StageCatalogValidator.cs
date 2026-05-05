@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.BoardState;
 using Game.Shared.AudioContracts;
 using UnityEngine;
 
@@ -237,13 +238,14 @@ namespace Game.Feature.Stages
             var stableGuids = new HashSet<string>(StringComparer.Ordinal);
             var mappingsByGuid = new HashSet<string>(StringComparer.Ordinal);
             var mappingEntityIds = new HashSet<int>();
+            var wallCells = new HashSet<SurfaceCell>();
             var boardBoundsValid = authoring.Board.MaxInclusive.x >= authoring.Board.MinInclusive.x &&
                                    authoring.Board.MaxInclusive.y >= authoring.Board.MinInclusive.y;
             var boardBounds = boardBoundsValid
-                ? new Game.Feature.Gameplay.BoardState.BoardBounds(
+                ? new BoardBounds(
                     authoring.Board.MinInclusive,
                     authoring.Board.MaxInclusive)
-                : Game.Feature.Gameplay.BoardState.BoardBounds.Unbounded;
+                : BoardBounds.Unbounded;
 
             if (!boardBoundsValid)
             {
@@ -304,7 +306,14 @@ namespace Game.Feature.Stages
                         authoringPath,
                         options.Timing);
                 }
+
+                if (placement.Kind == StageAuthoringEntityKind.Wall)
+                {
+                    wallCells.Add(placement.Cell);
+                }
             }
+
+            ValidateAuthoringTileFeatures(authoring, authoringPath, options, severity, boardBoundsValid, boardBounds, wallCells, report);
 
             var mappings = authoring.EntityIdMappings;
             for (var i = 0; i < mappings.Count; i++)
@@ -348,6 +357,78 @@ namespace Game.Feature.Stages
                         severity,
                         "authoring.entity-id-mapping.id-duplicate",
                         $"StageAuthoringDefinition '{authoring.name}' contains duplicate mapped EntityId {mapping.EntityId}.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+            }
+        }
+
+        private static void ValidateAuthoringTileFeatures(
+            StageAuthoringDefinition authoring,
+            string authoringPath,
+            StageCatalogValidationOptions options,
+            StageValidationSeverity severity,
+            bool boardBoundsValid,
+            BoardBounds boardBounds,
+            HashSet<SurfaceCell> wallCells,
+            StageValidationReport report)
+        {
+            var tileIds = new HashSet<int>();
+            var tileFeatures = authoring.TileFeatures;
+            for (var i = 0; i < tileFeatures.Count; i++)
+            {
+                var tileFeature = tileFeatures[i];
+                if (tileFeature.TileId <= 0)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.id-non-positive",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] must use a positive TileId.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+                else if (!tileIds.Add(tileFeature.TileId))
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.id-duplicate",
+                        $"StageAuthoringDefinition '{authoring.name}' contains duplicate TileFeature TileId {tileFeature.TileId}.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
+                if (boardBoundsValid && !boardBounds.Contains(tileFeature.Cell.PlanarPosition))
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.surface-cell.invalid",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] is outside board bounds at {tileFeature.Cell}.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.Unknown ||
+                    !Enum.IsDefined(typeof(TileFeatureKind), tileFeature.Kind))
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.kind-invalid",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] must use a known TileFeatureKind.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
+                if (wallCells.Contains(tileFeature.Cell))
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.wall-overlap",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] overlaps a wall-like solid occupant.",
                         authoring,
                         authoringPath,
                         options.Timing);
