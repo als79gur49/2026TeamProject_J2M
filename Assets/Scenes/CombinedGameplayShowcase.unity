@@ -586,6 +586,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.Gameplay.Vfx.ProductionRuntime::Game.Feature.Gameplay.Vfx.Host.GameplayVfxProductionRuntime
   enableEnemyJumpTargetVfx: 1
+  enableEnemyJumpLandingDustVfx: 1
   familyProfiles: []
 --- !u!114 &1179627490
 MonoBehaviour:
