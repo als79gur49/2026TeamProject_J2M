@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Vfx.Authoring;
 using UnityEngine;
 
@@ -17,6 +18,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         [SerializeField] private bool enableGameplayVfxBoxDestroySmokeMigration;
         [SerializeField] private bool enableGameplayVfxItemConsumeBurstMigration;
         [SerializeField] private bool enableGameplayVfxFlipImpactBurstMigration;
+        [SerializeField] private bool enableGameplayVfxFlipDestroySelfMotionMigration;
         [SerializeField] private bool enableGameplayVfxUtilityWindupMigration;
         [SerializeField] private VfxProfileAsset[] familyProfiles = Array.Empty<VfxProfileAsset>();
 
@@ -25,6 +27,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private readonly FlipImpactBurstVfxRequestPlanner flipImpactBurstPlanner = new();
         private readonly EnemyVfxRequestPlanner enemyPlanner = new();
         private readonly GameplayVfxRequestPlanBuilder planBuilder = new();
+        private readonly HashSet<FlipDestroySelfMotionInstanceKey> playedFlipDestroySelfMotionKeys = new();
 
         private AuthoringPrefabProvider prefabProvider;
         private GameplayVfxGameObjectPool pool;
@@ -37,6 +40,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private EnemyPresentationBinding[] configuredEnemyPresentationBindings = Array.Empty<EnemyPresentationBinding>();
         private EnemyPresentationVfxProfileProvider enemyPresentationVfxProfileProvider;
         private VfxCueMapAsset hostDefaultCueMap;
+        private int flipDestroySelfMotionMissingBindingCount;
 
         public bool EnableEnemyJumpTargetVfx
         {
@@ -166,6 +170,23 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
+        public bool EnableGameplayVfxFlipDestroySelfMotionMigration
+        {
+            get => enableGameplayVfxFlipDestroySelfMotionMigration;
+            set
+            {
+                if (enableGameplayVfxFlipDestroySelfMotionMigration == value)
+                {
+                    return;
+                }
+
+                enableGameplayVfxFlipDestroySelfMotionMigration = value;
+                ResetIfNoGameplayVfxEnabled();
+            }
+        }
+
+        public bool SuppressLegacyFlipDestroySelfEffects => enableGameplayVfxFlipDestroySelfMotionMigration;
+
         public bool EnableGameplayVfxUtilityWindupMigration
         {
             get => enableGameplayVfxUtilityWindupMigration;
@@ -187,9 +208,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public int ActiveVfxInstanceCount => pool?.ActiveCount ?? 0;
 
-        public int MissingBindingCount => controller?.MissingBindingCount ?? 0;
+        public int MissingBindingCount => (controller?.MissingBindingCount ?? 0) + flipDestroySelfMotionMissingBindingCount;
 
         public int MissingAnchorCount => controller?.MissingAnchorCount ?? 0;
+
+        public int MissingPrefabCount => pool?.MissingPrefabCount ?? 0;
 
         public bool IsRuntimeInitialized => controller != null;
 
@@ -215,6 +238,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public void ResetSession()
         {
             LastPlannedRequestCount = 0;
+            flipDestroySelfMotionMissingBindingCount = 0;
+            playedFlipDestroySelfMotionKeys.Clear();
             controller?.HardCleanupAll();
             planBuilder.Clear();
         }
@@ -260,8 +285,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     context.TimingProfile),
                 planBuilder);
             var plan = FilterByEnabledCues(planBuilder.Build());
-            LastPlannedRequestCount = plan.Requests.Count;
-            if (plan.Requests.Count == 0)
+            var shouldPlayFlipDestroySelfMotion =
+                enableGameplayVfxFlipDestroySelfMotionMigration &&
+                HasDestroySelfFlipImpactSignal(context.Result.PresentationData);
+            if (plan.Requests.Count == 0 && !shouldPlayFlipDestroySelfMotion)
             {
                 controller?.Refresh(GameplayVfxRequestPlan.Empty);
                 return;
@@ -269,6 +296,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             EnsureRuntime(context);
             controller.Refresh(plan);
+            var flipDestroySelfMotionCommandCount = shouldPlayFlipDestroySelfMotion
+                ? PlayFlipDestroySelfMotionCommands(context)
+                : 0;
+            LastPlannedRequestCount = plan.Requests.Count + flipDestroySelfMotionCommandCount;
         }
 
         public void UpdatePresentation(float deltaTime)
@@ -280,6 +311,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         {
             controller?.HardCleanupAll();
             LastPlannedRequestCount = 0;
+            playedFlipDestroySelfMotionKeys.Clear();
         }
 
         private void EnsureRuntime(in GameplayTickPresentationExtensionContext context)
@@ -378,6 +410,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             enableGameplayVfxBoxDestroySmokeMigration ||
             enableGameplayVfxItemConsumeBurstMigration ||
             enableGameplayVfxFlipImpactBurstMigration ||
+            enableGameplayVfxFlipDestroySelfMotionMigration ||
             enableGameplayVfxUtilityWindupMigration;
 
         private void ResetIfNoEnemyJumpVfxEnabled()
@@ -427,8 +460,154 @@ namespace Game.Feature.Gameplay.Vfx.Host
                    (enableGameplayVfxBoxDestroySmokeMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.DestroySmoke)) ||
                    (enableGameplayVfxItemConsumeBurstMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.ItemConsume)) ||
                    (enableGameplayVfxFlipImpactBurstMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.FlipImpactBurst)) ||
+                   (enableGameplayVfxFlipDestroySelfMotionMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.FlipDestroySelfMotion)) ||
                    (enableEnemyJumpTargetVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)) ||
                    (enableEnemyJumpLandingDustVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingDust));
+        }
+
+        private int PlayFlipDestroySelfMotionCommands(in GameplayTickPresentationExtensionContext context)
+        {
+            var presentationData = context.Result.PresentationData;
+            if (presentationData == null || pool == null || bindingResolver == null)
+            {
+                return 0;
+            }
+
+            var trackState = new GameplayPresentationTrackState();
+            var poseResolver = new GameplayPoseResolver(context.StateStore, trackState);
+            var motionTimingResolver = new GameplayMotionTimingResolver(context.StateStore, trackState);
+            var plannedCommandCount = 0;
+            var signals = presentationData.FlipImpactSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (!FlipDestroySelfMotionVfxCommandBuilder.TryBuild(
+                        signal,
+                        context.TimingProfile,
+                        motionTimingResolver,
+                        poseResolver,
+                        context.Projector,
+                        out var command))
+                {
+                    continue;
+                }
+
+                plannedCommandCount++;
+                var key = FlipDestroySelfMotionInstanceKey.Create(command, context.Result.TickIndex);
+                if (playedFlipDestroySelfMotionKeys.Contains(key))
+                {
+                    continue;
+                }
+
+                if (TryPlayFlipDestroySelfMotionCommand(context.Result.TickIndex, command))
+                {
+                    playedFlipDestroySelfMotionKeys.Add(key);
+                }
+            }
+
+            return plannedCommandCount;
+        }
+
+        private bool TryPlayFlipDestroySelfMotionCommand(
+            int tickIndex,
+            in FlipDestroySelfMotionVfxCommand command)
+        {
+            var cueId = GameplayVfxCueId.From(BoxVfxCue.FlipDestroySelfMotion);
+            var request = new GameplayVfxRequest(
+                tickIndex: tickIndex,
+                sequenceId: command.SourceActionPlanId > 0 ? command.SourceActionPlanId : command.BoxEntityId,
+                presentationSeed: command.PresentationSeed,
+                sourceEntityId: command.BoxEntityId,
+                cueId: cueId,
+                anchor: VfxAnchor.ForCell(
+                    command.SourceCell,
+                    command.Topology,
+                    VfxAnchorSlot.CellCenter),
+                timing: VfxTimingKind.ImmediateOnTickPresentation,
+                isPersistent: false,
+                persistentKey: VfxPersistentKey.None);
+
+            if (!bindingResolver.TryResolve(request, out var policy))
+            {
+                flipDestroySelfMotionMissingBindingCount++;
+                return false;
+            }
+
+            policy.ValidateOrThrow();
+            if (policy.CueId != request.CueId)
+            {
+                throw new InvalidOperationException("Gameplay VFX binding cue does not match Flip DestroySelf motion request cue.");
+            }
+
+            var anchor = VfxResolvedAnchor.ForCell(
+                command.SourceCell,
+                command.Topology,
+                VfxAnchorSlot.CellCenter,
+                command.SourceLocalPosition,
+                command.SourceLocalRotation);
+            var playbackCommand = new ResolvedVfxPlaybackCommand(request, policy, anchor);
+            return pool.PlayFlipDestroySelfMotion(playbackCommand, command) != null;
+        }
+
+        private static bool HasDestroySelfFlipImpactSignal(TickPresentationData presentationData)
+        {
+            if (presentationData == null)
+            {
+                return false;
+            }
+
+            var signals = presentationData.FlipImpactSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                if (signals[i].Disposition == FlipImpactPresentationDisposition.DestroySelf)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private readonly struct FlipDestroySelfMotionInstanceKey : IEquatable<FlipDestroySelfMotionInstanceKey>
+        {
+            private FlipDestroySelfMotionInstanceKey(int correlationId, int boxEntityId, bool usesTickFallback)
+            {
+                CorrelationId = correlationId;
+                BoxEntityId = boxEntityId;
+                UsesTickFallback = usesTickFallback;
+            }
+
+            private int CorrelationId { get; }
+
+            private int BoxEntityId { get; }
+
+            private bool UsesTickFallback { get; }
+
+            public bool Equals(FlipDestroySelfMotionInstanceKey other)
+            {
+                return CorrelationId == other.CorrelationId &&
+                       BoxEntityId == other.BoxEntityId &&
+                       UsesTickFallback == other.UsesTickFallback;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is FlipDestroySelfMotionInstanceKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(CorrelationId, BoxEntityId, UsesTickFallback);
+            }
+
+            public static FlipDestroySelfMotionInstanceKey Create(
+                in FlipDestroySelfMotionVfxCommand command,
+                int tickIndexFallback)
+            {
+                return command.SourceActionPlanId > 0
+                    ? new FlipDestroySelfMotionInstanceKey(command.SourceActionPlanId, command.BoxEntityId, usesTickFallback: false)
+                    : new FlipDestroySelfMotionInstanceKey(tickIndexFallback, command.BoxEntityId, usesTickFallback: true);
+            }
         }
 
         private sealed class AuthoringPrefabProvider : IVfxPrefabProvider

@@ -9,6 +9,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
     {
         private readonly Dictionary<int, Stack<GameplayVfxPooledInstance>> availableByPrefabId = new();
         private readonly Dictionary<int, List<GameplayVfxPooledInstance>> allByPrefabId = new();
+        private readonly Dictionary<GameplayVfxPlaybackHandle, FlipDestroySelfMotionVfxCommand> activeFlipDestroySelfMotions = new();
         private readonly HashSet<GameplayVfxPlaybackHandle> activeHandles = new();
         private readonly GameplayVfxRuntimeRoot root;
         private readonly IVfxPrefabProvider prefabProvider;
@@ -39,6 +40,35 @@ namespace Game.Feature.Gameplay.Vfx.Host
             return Play(command, root.OneShotRoot);
         }
 
+        public IVfxPlaybackHandle PlayFlipDestroySelfMotion(
+            in ResolvedVfxPlaybackCommand command,
+            in FlipDestroySelfMotionVfxCommand motionCommand)
+        {
+            command.Policy.ValidateOrThrow();
+            if (!prefabProvider.TryResolvePrefab(command, out var prefab) || prefab == null)
+            {
+                MissingPrefabCount++;
+                return null;
+            }
+
+            if (IsOverConcurrentLimit(command.Policy))
+            {
+                DroppedByLimitCount++;
+                return null;
+            }
+
+            var prefabInstanceId = prefab.GetInstanceID();
+            var instance = Lease(prefab, prefabInstanceId);
+            var now = timeProvider.TimeSeconds;
+            var handle = new GameplayVfxPlaybackHandle(++nextHandleId, command, instance, now, timeProvider);
+            instance.ActivateFlipDestroySelfMotion(prefabInstanceId, handle, root.OneShotRoot, motionCommand);
+            handle.MarkSpawned();
+            handle.MarkActive();
+            activeHandles.Add(handle);
+            activeFlipDestroySelfMotions[handle] = motionCommand;
+            return handle;
+        }
+
         public IVfxPlaybackHandle StartPersistent(in ResolvedVfxPlaybackCommand command)
         {
             return Play(command, root.PersistentRoot);
@@ -62,6 +92,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             activeHandles.Clear();
+            activeFlipDestroySelfMotions.Clear();
 
             foreach (var instance in allByPrefabId.Values.SelectMany(list => list).ToArray())
             {
@@ -159,6 +190,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         private void AdvanceHandle(GameplayVfxPlaybackHandle handle, float now)
         {
+            if (TryAdvanceFlipDestroySelfMotion(handle, now))
+            {
+                return;
+            }
+
             switch (handle.State)
             {
                 case VfxLifetimeState.Active:
@@ -219,6 +255,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             var instance = handle.Instance;
             activeHandles.Remove(handle);
+            activeFlipDestroySelfMotions.Remove(handle);
 
             if (instance == null || instance.GameObject == null)
             {
@@ -256,6 +293,33 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             handle.ReleaseToPool();
             ReleaseInternal(handle, forceHardCleanup: false);
+        }
+
+        private bool TryAdvanceFlipDestroySelfMotion(GameplayVfxPlaybackHandle handle, float now)
+        {
+            if (handle.State != VfxLifetimeState.Active &&
+                handle.State != VfxLifetimeState.Spawned)
+            {
+                return false;
+            }
+
+            if (!activeFlipDestroySelfMotions.TryGetValue(handle, out var motionCommand))
+            {
+                return false;
+            }
+
+            var elapsedSeconds = Mathf.Max(0f, now - handle.StartedAtSeconds);
+            handle.Instance?.AdvanceFlipDestroySelfMotion(motionCommand, elapsedSeconds);
+            if (elapsedSeconds < motionCommand.FlightDurationSeconds)
+            {
+                return true;
+            }
+
+            handle.StopEmitting();
+            handle.MarkTailPlaying(now);
+            activeFlipDestroySelfMotions.Remove(handle);
+            ReleaseIfTailComplete(handle, now);
+            return true;
         }
     }
 }

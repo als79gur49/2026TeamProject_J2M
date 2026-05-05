@@ -32,6 +32,7 @@ namespace Game.Feature.Gameplay.Vfx
         FlipImpactBurst = 5,
         DestroySmoke = 6,
         ItemConsume = 7,
+        FlipDestroySelfMotion = 8,
     }
 
     public enum EnemyVfxCue

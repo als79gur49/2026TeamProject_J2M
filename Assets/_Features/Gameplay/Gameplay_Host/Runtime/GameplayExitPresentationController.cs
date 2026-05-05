@@ -121,7 +121,8 @@ namespace Game.Feature.Gameplay.Host
         public void PlayEntityExitEffects(
             bool suppressLegacyBoxDestroySmokeEffects,
             bool suppressLegacyItemConsumeEffects,
-            bool suppressLegacyEnemyDeathEffects)
+            bool suppressLegacyEnemyDeathEffects,
+            bool suppressLegacyFlipDestroySelfEffects)
         {
             for (var i = 0; i < _pendingEntityExitSignals.Count; i++)
             {
@@ -180,6 +181,11 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < _pendingFlipImpactDestroySignals.Count; i++)
             {
                 var signal = _pendingFlipImpactDestroySignals[i];
+                if (suppressLegacyFlipDestroySelfEffects)
+                {
+                    continue;
+                }
+
                 if (!_destroySelfFlipImpactKeysByEntityId.TryGetValue(signal.BoxEntityId, out var key) ||
                     !_poseResolver.TryResolveFlipImpactSignalLocalPoses(
                         _projector,
