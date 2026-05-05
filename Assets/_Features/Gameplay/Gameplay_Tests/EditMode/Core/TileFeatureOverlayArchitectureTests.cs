@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
@@ -87,9 +88,13 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
-        public void TickPresentationData_DoesNotExposeTileEventsInObjectivePhase()
+        public void TickPresentationData_ExposesPresentationOwnedTileEvents()
         {
-            Assert.That(typeof(TickPresentationData).GetProperty("TileEvents"), Is.Null);
+            var property = typeof(TickPresentationData).GetProperty("TileEvents");
+
+            Assert.That(property, Is.Not.Null);
+            Assert.That(property.PropertyType, Is.EqualTo(typeof(IReadOnlyList<TilePresentationEvent>)));
+            Assert.That(property.SetMethod, Is.Null);
         }
 
         [Test]

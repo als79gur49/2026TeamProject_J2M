@@ -35,6 +35,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(TickPresentationData.Empty.FrontFaceShieldBlocks, Is.Empty);
             Assert.That(TickPresentationData.Empty.SummonWindupWarnings, Is.Empty);
             Assert.That(TickPresentationData.Empty.FrontFaceShieldWindupWarnings, Is.Empty);
+            Assert.That(TickPresentationData.Empty.TileEvents, Is.Empty);
 
             var presentationData = new TickPresentationData(Array.Empty<TickEntityMotion>());
 
@@ -42,6 +43,77 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(presentationData.FrontFaceShieldBlocks, Is.Empty);
             Assert.That(presentationData.SummonWindupWarnings, Is.Empty);
             Assert.That(presentationData.FrontFaceShieldWindupWarnings, Is.Empty);
+            Assert.That(presentationData.TileEvents, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TickPresentationDataBuilder_ButtonActivatedTileEvent_UsesFinalAuthoritativeTileFact()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var preButton = CreateTileFeature(
+                tileId: 100,
+                cell,
+                TileFeatureKind.Button,
+                TileFeatureFlags.None,
+                sourceEntityId: 30,
+                ownerEntityId: 40,
+                teamId: 2);
+            var finalButton = CreateTileFeature(
+                tileId: 100,
+                cell,
+                TileFeatureKind.Button,
+                TileFeatureFlags.Activated,
+                sourceEntityId: 31,
+                ownerEntityId: 41,
+                teamId: 3);
+            var preSnapshot = CreateTileFeatureSnapshot(preButton);
+            var finalSnapshot = CreateTileFeatureSnapshot(finalButton);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None()));
+
+            Assert.That(presentationData.TileEvents.Count, Is.EqualTo(1));
+            var tileEvent = presentationData.TileEvents[0];
+            Assert.That(tileEvent.EventKind, Is.EqualTo(TilePresentationEventKind.ButtonActivated));
+            Assert.That(tileEvent.TileId, Is.EqualTo(100));
+            Assert.That(tileEvent.Cell, Is.EqualTo(cell));
+            Assert.That(tileEvent.TileFeatureKind, Is.EqualTo(TileFeatureKind.Button));
+            Assert.That(tileEvent.SourceEntityId, Is.EqualTo(31));
+            Assert.That(tileEvent.OwnerEntityId, Is.EqualTo(41));
+            Assert.That(tileEvent.TeamId, Is.EqualTo(3));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TickPresentationDataBuilder_ButtonActivatedTileEvent_DoesNotRepeatForAlreadyActivatedButton()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var button = CreateTileFeature(
+                tileId: 100,
+                cell,
+                TileFeatureKind.Button,
+                TileFeatureFlags.Activated);
+            var snapshot = CreateTileFeatureSnapshot(button);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None()));
+
+            Assert.That(presentationData.TileEvents, Is.Empty);
         }
 
         [Test]
@@ -2625,6 +2697,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(createSnapshotMethod, Is.Not.Null);
 
             return (WorldSnapshot)createSnapshotMethod.Invoke(worldState, null);
+        }
+
+        private static WorldSnapshot CreateTileFeatureSnapshot(params TileFeatureState[] tileFeatures)
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                Array.Empty<EntityState>(),
+                new BoardBounds(Vector2Int.zero, new Vector2Int(3, 3)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                GameplayTimingProfile.CreateDefault(),
+                tileFeatures);
+
+            return CreateSnapshot(worldState);
+        }
+
+        private static TileFeatureState CreateTileFeature(
+            int tileId,
+            SurfaceCell cell,
+            TileFeatureKind kind,
+            TileFeatureFlags flags,
+            int sourceEntityId = 0,
+            int ownerEntityId = 0,
+            int teamId = 0)
+        {
+            return new TileFeatureState(
+                tileId,
+                cell,
+                kind,
+                flags,
+                sourceEntityId,
+                ownerEntityId,
+                teamId,
+                lifetimeTicks: 0,
+                charges: 0);
         }
 
         private static IWorldWriteContext CreateWriteContext(WorldState worldState)

@@ -1284,6 +1284,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(result.ObjectiveResult.AllConditionsSatisfied, Is.True);
                 Assert.That(worldState.CreateSnapshot().TryGetTileFeature(100, out var button), Is.True);
                 Assert.That((button.Flags & TileFeatureFlags.Activated), Is.Not.EqualTo(0));
+                Assert.That(result.PresentationData.TileEvents.Count, Is.EqualTo(1));
+                var tileEvent = result.PresentationData.TileEvents.Single();
+                Assert.That(tileEvent.EventKind, Is.EqualTo(TilePresentationEventKind.ButtonActivated));
+                Assert.That(tileEvent.TileId, Is.EqualTo(100));
+                Assert.That(tileEvent.Cell, Is.EqualTo(cell));
+                Assert.That(tileEvent.TileFeatureKind, Is.EqualTo(TileFeatureKind.Button));
+                Assert.That(tileEvent.SourceEntityId, Is.Zero);
+                Assert.That(tileEvent.OwnerEntityId, Is.Zero);
+                Assert.That(tileEvent.TeamId, Is.Zero);
+
+                var nextResult = pipeline.RunTick(new TickInput(8));
+
+                Assert.That(nextResult.PresentationData.TileEvents, Is.Empty);
             }
             finally
             {
@@ -1323,6 +1336,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(result.ObjectiveResult.IsCleared, Is.False);
                 Assert.That(result.ObjectiveResult.AllConditionsSatisfied, Is.False);
+                Assert.That(result.PresentationData.TileEvents, Is.Empty);
             }
             finally
             {
@@ -1362,6 +1376,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(result.ObjectiveResult.IsCleared, Is.False);
                 Assert.That(result.ObjectiveResult.AllConditionsSatisfied, Is.False);
+                Assert.That(result.PresentationData.TileEvents, Is.Empty);
             }
             finally
             {

@@ -503,8 +503,10 @@ namespace Game.Feature.Gameplay.Loop
             var transitionVisibilityChanges = new List<TickTransitionVisibilityChange>();
             var kinematicMotionTracks = new List<TickKinematicMotionTrack>();
             var continuousLocomotionTracks = new List<TickContinuousLocomotionTrack>();
+            var tileEvents = new List<TilePresentationEvent>();
             var exitOwnedEntityIds = new HashSet<int>();
 
+            BuildTilePresentationEvents(context, tileEvents);
             BuildEntityExitPresentation(context, entityExitSignals, exitOwnedEntityIds);
             BuildFlipImpactPresentation(context, flipImpactSignals);
             BuildImpactTransientPresentation(context, impactTransientSignals);
@@ -554,6 +556,7 @@ namespace Game.Feature.Gameplay.Loop
                    transitionVisibilityChanges.Count == 0 &&
                    kinematicMotionTracks.Count == 0 &&
                    continuousLocomotionTracks.Count == 0 &&
+                   tileEvents.Count == 0 &&
                    !topologyMotion.HasValue
                 ? TickPresentationData.Empty
                 : new TickPresentationData(
@@ -580,7 +583,43 @@ namespace Game.Feature.Gameplay.Loop
                     kinematicMotionTracks,
                     playerDeathHoldSignals,
                     continuousLocomotionTracks,
-                    enemyGlideSignals);
+                    enemyGlideSignals,
+                    tileEvents);
+        }
+
+        private static void BuildTilePresentationEvents(
+            in TickPresentationBuildContext context,
+            List<TilePresentationEvent> tileEvents)
+        {
+            var finalTileFeatures = new List<TileFeatureState>();
+            context.FinalAuthoritativeSnapshot.EnumerateTileFeaturesOrdered(finalTileFeatures);
+
+            for (var i = 0; i < finalTileFeatures.Count; i++)
+            {
+                var finalTileFeature = finalTileFeatures[i];
+                if (finalTileFeature.Kind != TileFeatureKind.Button ||
+                    (finalTileFeature.Flags & TileFeatureFlags.Activated) == 0)
+                {
+                    continue;
+                }
+
+                if (!context.PreMovementSnapshot.TryGetTileFeature(finalTileFeature.TileId, out var preTileFeature) ||
+                    preTileFeature.Kind != TileFeatureKind.Button ||
+                    (preTileFeature.Flags & TileFeatureFlags.Activated) != 0)
+                {
+                    continue;
+                }
+
+                tileEvents.Add(
+                    new TilePresentationEvent(
+                        TilePresentationEventKind.ButtonActivated,
+                        finalTileFeature.TileId,
+                        finalTileFeature.Cell,
+                        finalTileFeature.Kind,
+                        finalTileFeature.SourceEntityId,
+                        finalTileFeature.OwnerEntityId,
+                        finalTileFeature.TeamId));
+            }
         }
 
         private static void BuildPlayerDeathHoldPresentation(

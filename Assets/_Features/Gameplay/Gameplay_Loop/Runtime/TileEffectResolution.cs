@@ -134,12 +134,12 @@ namespace Game.Feature.Gameplay.Loop
             switch (selector)
             {
                 case TileFeatureBoxSelector.AnyPushableBox:
-                    return snapshot.TryGetSolidOccupantAt(cell, out var occupant) &&
-                           occupant.type == EntityType.Box &&
-                           (occupant.boxCapabilities & BoxCapabilities.Push) != 0 &&
-                           occupant.boardPresence == EntityBoardPresence.Occupying &&
-                           occupant.hp > 0 &&
-                           !occupant.markedForDeath;
+                    return snapshot.TryGetSolidSemanticAt(cell, out var semantic) &&
+                           semantic.Kind == SolidKind.Box &&
+                           (semantic.Entity.boxCapabilities & BoxCapabilities.Push) != 0 &&
+                           semantic.Entity.boardPresence == EntityBoardPresence.Occupying &&
+                           semantic.Entity.hp > 0 &&
+                           !semantic.Entity.markedForDeath;
 
                 case TileFeatureBoxSelector.MoonBlockOnly:
                     return false;

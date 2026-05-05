@@ -32,6 +32,47 @@ namespace Game.Feature.Gameplay.Loop
         ShowAtTransitionStart = 2,
     }
 
+    public enum TilePresentationEventKind
+    {
+        None = 0,
+        ButtonActivated = 1,
+    }
+
+    public readonly struct TilePresentationEvent
+    {
+        public TilePresentationEvent(
+            TilePresentationEventKind eventKind,
+            int tileId,
+            SurfaceCell cell,
+            TileFeatureKind tileFeatureKind,
+            int sourceEntityId,
+            int ownerEntityId,
+            int teamId)
+        {
+            EventKind = eventKind;
+            TileId = tileId;
+            Cell = cell;
+            TileFeatureKind = tileFeatureKind;
+            SourceEntityId = sourceEntityId;
+            OwnerEntityId = ownerEntityId;
+            TeamId = teamId;
+        }
+
+        public TilePresentationEventKind EventKind { get; }
+
+        public int TileId { get; }
+
+        public SurfaceCell Cell { get; }
+
+        public TileFeatureKind TileFeatureKind { get; }
+
+        public int SourceEntityId { get; }
+
+        public int OwnerEntityId { get; }
+
+        public int TeamId { get; }
+    }
+
     public readonly struct TickEntityMotion
     {
         // Motion records describe a render transition between already-committed logical cells.
@@ -1191,6 +1232,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<TickEntityMotion> _entityMotions;
         private readonly ReadOnlyCollection<TickKinematicMotionTrack> _kinematicMotionTracks;
         private readonly ReadOnlyCollection<TickContinuousLocomotionTrack> _continuousLocomotionTracks;
+        private readonly ReadOnlyCollection<TilePresentationEvent> _tileEvents;
         private ReadOnlyCollection<TickFrontFaceShieldBlockSignal> _frontFaceShieldBlocks;
         private ReadOnlyCollection<TickFrontFaceShieldSourceSignal> _frontFaceShieldSources;
         private ReadOnlyCollection<TickFrontFaceShieldWindupWarningSignal> _frontFaceShieldWindupWarnings;
@@ -1533,7 +1575,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickKinematicMotionTrack> kinematicMotionTracks = null,
             IEnumerable<TickPlayerDeathHoldPresentationSignal> playerDeathHoldSignals = null,
             IEnumerable<TickContinuousLocomotionTrack> continuousLocomotionTracks = null,
-            IEnumerable<TickEnemyGlidePresentationSignal> enemyGlideSignals = null)
+            IEnumerable<TickEnemyGlidePresentationSignal> enemyGlideSignals = null,
+            IEnumerable<TilePresentationEvent> tileEvents = null)
         {
             if (entityMotions == null)
             {
@@ -1607,6 +1650,9 @@ namespace Game.Feature.Gameplay.Loop
             _continuousLocomotionTracks = new ReadOnlyCollection<TickContinuousLocomotionTrack>(
                 new List<TickContinuousLocomotionTrack>(
                     continuousLocomotionTracks ?? Array.Empty<TickContinuousLocomotionTrack>()));
+            _tileEvents = new ReadOnlyCollection<TilePresentationEvent>(
+                new List<TilePresentationEvent>(
+                    tileEvents ?? Array.Empty<TilePresentationEvent>()));
             _topologyMotion = topologyMotion;
             _visibilityChanges = new ReadOnlyCollection<TickVisibilityChange>(new List<TickVisibilityChange>(visibilityChanges));
             _transitionVisibilityChanges = new ReadOnlyCollection<TickTransitionVisibilityChange>(
@@ -1740,7 +1786,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickKinematicMotionTrack> kinematicMotionTracks = null,
             IEnumerable<TickPlayerDeathHoldPresentationSignal> playerDeathHoldSignals = null,
             IEnumerable<TickContinuousLocomotionTrack> continuousLocomotionTracks = null,
-            IEnumerable<TickEnemyGlidePresentationSignal> enemyGlideSignals = null)
+            IEnumerable<TickEnemyGlidePresentationSignal> enemyGlideSignals = null,
+            IEnumerable<TilePresentationEvent> tileEvents = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -1759,7 +1806,8 @@ namespace Game.Feature.Gameplay.Loop
                 kinematicMotionTracks: kinematicMotionTracks,
                 playerDeathHoldSignals: playerDeathHoldSignals,
                 continuousLocomotionTracks: continuousLocomotionTracks,
-                enemyGlideSignals: enemyGlideSignals)
+                enemyGlideSignals: enemyGlideSignals,
+                tileEvents: tileEvents)
         {
             if (impactTransientSignals == null)
             {
@@ -1794,7 +1842,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickKinematicMotionTrack> kinematicMotionTracks = null,
             IEnumerable<TickPlayerDeathHoldPresentationSignal> playerDeathHoldSignals = null,
             IEnumerable<TickContinuousLocomotionTrack> continuousLocomotionTracks = null,
-            IEnumerable<TickEnemyGlidePresentationSignal> enemyGlideSignals = null)
+            IEnumerable<TickEnemyGlidePresentationSignal> enemyGlideSignals = null,
+            IEnumerable<TilePresentationEvent> tileEvents = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -1814,7 +1863,8 @@ namespace Game.Feature.Gameplay.Loop
                 kinematicMotionTracks,
                 playerDeathHoldSignals,
                 continuousLocomotionTracks,
-                enemyGlideSignals)
+                enemyGlideSignals,
+                tileEvents)
         {
             if (summonedEnemyPresentationBindings == null)
             {
@@ -1842,6 +1892,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<TickKinematicMotionTrack> KinematicMotionTracks => _kinematicMotionTracks;
 
         public IReadOnlyList<TickContinuousLocomotionTrack> ContinuousLocomotionTracks => _continuousLocomotionTracks;
+
+        public IReadOnlyList<TilePresentationEvent> TileEvents => _tileEvents;
 
         public TickTopologyMotion? TopologyMotion => _topologyMotion;
 
