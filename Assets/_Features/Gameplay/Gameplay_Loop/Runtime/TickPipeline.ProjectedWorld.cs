@@ -29,6 +29,7 @@ namespace Game.Feature.Gameplay.Loop
     {
         private readonly WorldSnapshot _baseSnapshot;
         private readonly FinalizationBatch _overlayBatch = new();
+        private Dictionary<int, TileFeatureState> _projectedTileFeaturesById;
         private bool _isDirty = true;
         private WorldSnapshot _materializedSnapshot;
 
@@ -45,6 +46,40 @@ namespace Game.Feature.Gameplay.Loop
             _isDirty = true;
         }
 
+        public void ApplyTileFeatureOperations(TileFeatureOperationBatch batch)
+        {
+            var resolvedBatch = batch ?? throw new ArgumentNullException(nameof(batch));
+            if (resolvedBatch.IsEmpty)
+            {
+                return;
+            }
+
+            EnsureProjectedTileFeatureMap();
+            ValidateTileFeatureOperations(resolvedBatch);
+
+            var operations = resolvedBatch.Operations;
+            for (var i = 0; i < operations.Count; i++)
+            {
+                var operation = operations[i];
+                switch (operation.Kind)
+                {
+                    case TileFeatureOperationKind.Add:
+                    case TileFeatureOperationKind.Update:
+                        _projectedTileFeaturesById[operation.TileId] = operation.State;
+                        break;
+
+                    case TileFeatureOperationKind.Remove:
+                        _projectedTileFeaturesById.Remove(operation.TileId);
+                        break;
+
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            }
+
+            _isDirty = true;
+        }
+
         public WorldSnapshot CreateSnapshot()
         {
             if (!_isDirty && _materializedSnapshot != null)
@@ -54,14 +89,111 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             SnapshotMaterializationDiagnostics.RecordProjectedWorldMaterializedSnapshot();
-            var projectedWorldState = MaterializeWorldState(_baseSnapshot);
+            var projectedWorldState = MaterializeWorldState(_baseSnapshot, _projectedTileFeaturesById);
             _overlayBatch.ApplyTo(projectedWorldState.CreateWriteContext(), delayedAttackEffectSink: null);
             _materializedSnapshot = SnapshotBuilder.Create(projectedWorldState);
             _isDirty = false;
             return _materializedSnapshot;
         }
 
-        private static WorldState MaterializeWorldState(WorldSnapshot snapshot)
+        private void EnsureProjectedTileFeatureMap()
+        {
+            if (_projectedTileFeaturesById != null)
+            {
+                return;
+            }
+
+            var tileFeatures = new List<TileFeatureState>();
+            _baseSnapshot.EnumerateTileFeaturesOrdered(tileFeatures);
+            _projectedTileFeaturesById = new Dictionary<int, TileFeatureState>(tileFeatures.Count);
+            for (var i = 0; i < tileFeatures.Count; i++)
+            {
+                _projectedTileFeaturesById.Add(tileFeatures[i].TileId, tileFeatures[i]);
+            }
+        }
+
+        private void ValidateTileFeatureOperations(TileFeatureOperationBatch batch)
+        {
+            var seenTileIds = new HashSet<int>();
+            var operations = batch.Operations;
+            for (var i = 0; i < operations.Count; i++)
+            {
+                var operation = operations[i];
+                if (operation.TileId <= 0)
+                {
+                    throw new InvalidOperationException(
+                        $"TileFeature operation TileId {operation.TileId} must be positive.");
+                }
+
+                if (!seenTileIds.Add(operation.TileId))
+                {
+                    throw new InvalidOperationException(
+                        $"Duplicate TileFeature operation for TileId {operation.TileId} detected in the same batch.");
+                }
+
+                switch (operation.Kind)
+                {
+                    case TileFeatureOperationKind.Add:
+                        ValidateStateTileIdMatchesOperation(operation);
+                        ValidateTileFeatureCellInBounds(operation.State);
+                        if (_projectedTileFeaturesById.ContainsKey(operation.TileId))
+                        {
+                            throw new InvalidOperationException(
+                                $"Cannot add existing TileFeature id {operation.TileId}.");
+                        }
+                        break;
+
+                    case TileFeatureOperationKind.Update:
+                        ValidateStateTileIdMatchesOperation(operation);
+                        ValidateTileFeatureCellInBounds(operation.State);
+                        if (!_projectedTileFeaturesById.ContainsKey(operation.TileId))
+                        {
+                            throw new InvalidOperationException(
+                                $"Cannot update missing TileFeature id {operation.TileId}.");
+                        }
+                        break;
+
+                    case TileFeatureOperationKind.Remove:
+                        if (!_projectedTileFeaturesById.ContainsKey(operation.TileId))
+                        {
+                            throw new InvalidOperationException(
+                                $"Cannot remove missing TileFeature id {operation.TileId}.");
+                        }
+                        break;
+
+                    default:
+                        throw new InvalidOperationException(
+                            $"Unsupported TileFeature operation kind {operation.Kind}.");
+                }
+            }
+        }
+
+        private void ValidateStateTileIdMatchesOperation(TileFeatureOperation operation)
+        {
+            if (operation.TileId == operation.State.TileId)
+            {
+                return;
+            }
+
+            throw new InvalidOperationException(
+                $"TileFeature operation TileId {operation.TileId} must match state TileId {operation.State.TileId}.");
+        }
+
+        private void ValidateTileFeatureCellInBounds(TileFeatureState state)
+        {
+            if (!_baseSnapshot.BoardBounds.IsBounded ||
+                _baseSnapshot.BoardBounds.Contains(state.Cell.PlanarPosition))
+            {
+                return;
+            }
+
+            throw new InvalidOperationException(
+                $"TileFeature {state.TileId} at {state.Cell} is outside the configured board bounds.");
+        }
+
+        private static WorldState MaterializeWorldState(
+            WorldSnapshot snapshot,
+            IReadOnlyDictionary<int, TileFeatureState> projectedTileFeaturesById)
         {
             var entities = new List<EntityState>();
             snapshot.EnumerateEntitiesOrdered(entities);
@@ -75,7 +207,17 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             var tileFeatures = new List<TileFeatureState>();
-            snapshot.EnumerateTileFeaturesOrdered(tileFeatures);
+            if (projectedTileFeaturesById == null)
+            {
+                snapshot.EnumerateTileFeaturesOrdered(tileFeatures);
+            }
+            else
+            {
+                foreach (var tileFeature in projectedTileFeaturesById.Values)
+                {
+                    tileFeatures.Add(tileFeature);
+                }
+            }
 
             var worldState = new WorldState(
                 entities,
