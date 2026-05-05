@@ -139,6 +139,73 @@ The host connection for manual verification is limited to `Assets/Scenes/Combine
 
 Future work remains out of scope for this slice: persistent telegraph desired state, jump execute/cancel/death/retarget stop logic, prefab-local jumper profile ownership, stage/tile/terrain VFX, and existing presenter migration.
 
+## Enemy Jump Landing Dust Cue
+
+The second production Gameplay VFX cue is `EnemyVfxCue.JumperLandingDust`.
+
+Source fact:
+
+- `TickPresentationData.EnemyJumpSignals`
+
+Trigger:
+
+- landing completion only
+- `TickEnemyJumpPresentationOutcome.Landed`
+- `TickEnemyJumpPresentationOutcome.CrushedBoxAndLanded`
+
+Non-trigger:
+
+- windup start
+- airborne start
+- retry or continuation
+
+Anchor:
+
+- landing `PresentationTargetCell`
+- `VfxAnchorKind.Cell`
+- `VfxAnchorSlot.CellFloor`
+- `SurfaceCell(face, x, y)` must be preserved.
+
+Lifecycle:
+
+- transient one-shot request
+- no persistent key
+- no trail, follow, or topology-transition-aware queue behavior
+
+Binding:
+
+- prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/JumperLandingDustVfx.prefab`
+- material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_JumperLandingDust_SoftDust.mat`
+- binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/JumperLandingDust_Binding.asset`
+- host default map: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset`
+- v1 production registration is host default only; enemy presentation-local profiles still override when they explicitly contain the dust cue.
+
+V1 policy:
+
+- playback is `OneShot`
+- stop policy is `AuthoredDuration`
+- lifetime is `0.45` seconds
+- tail is `0.30` seconds
+- initial pool size authoring hint is `4`
+- max concurrent instances is `8`
+
+Feature flag:
+
+- `EnableEnemyJumpLandingDustVfx`
+- default false
+- independent from `EnableEnemyJumpTargetVfx`
+
+Cue distinction:
+
+- `EnemyVfxCue.JumperLandingTarget` is the pre-jump target marker at windup start.
+- `EnemyVfxCue.JumperLandingDust` is the post-landing dust burst at landing completion.
+- Existing `EnemyVfxCue.JumpLanding` remains generic/legacy and is not reused for this production dust binding.
+
+Existing presenter overlap:
+
+- the checked presenter paths are `GameplayTransientEffectPresenter`, `GameplayExitPresentationController`, `GameplayFrontFaceShieldVfxPresenter`, `GameplayUtilityWindupVfxPresenter`, `BoxFlipInteractionDriver`, and `FlipImpactTrack`.
+- these presenters do not consume `JumperLandingDust`; existing presenter migration remains out of scope.
+
 ## Prefab-local Profile Owner Gate
 
 Prefab-local or presentation-local `VfxProfile` override requires request source identity. `GameplayVfxRequest.SourceEntityId` is the canonical source identity field for request-time profile lookup.
