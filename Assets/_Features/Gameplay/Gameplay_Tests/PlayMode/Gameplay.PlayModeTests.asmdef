@@ -7,6 +7,8 @@
     "Game.Feature.Gameplay.Audio",
     "Game.Feature.Flow.Audio",
     "Game.Feature.Gameplay.Host",
+    "Game.Feature.Gameplay.Vfx.ProductionRuntime",
+    "Game.Feature.Stages",
     "Game.Shared.Audio",
     "Game.Shared.Display",
     "Unity.Cinemachine",

@@ -221,7 +221,8 @@ namespace Game.Feature.Gameplay.Host
             {
                 var behaviour = behaviours[i];
                 if (behaviour != null &&
-                    behaviour.isActiveAndEnabled &&
+                    behaviour.enabled &&
+                    behaviour.gameObject.activeInHierarchy &&
                     behaviour is IGameplayTickPresentationExtension extension)
                 {
                     presenter.AttachPresentationExtension(extension);
