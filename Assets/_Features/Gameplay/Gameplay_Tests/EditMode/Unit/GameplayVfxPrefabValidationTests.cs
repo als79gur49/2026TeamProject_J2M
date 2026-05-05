@@ -10,6 +10,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         private const string JumperLandingTargetPrefabPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/JumperLandingTargetVfx.prefab";
+        private const string UtilityWindupPrefabPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/EnemyUtilityWindupTelegraphVfx.prefab";
 
         [Test]
         [Category("Extended")]
@@ -25,6 +27,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(prefab.GetComponentsInChildren<Collider>(true), Is.Empty);
             Assert.That(prefab.GetComponentsInChildren<AudioSource>(true), Is.Empty);
             Assert.That(prefab.GetComponentsInChildren<Rigidbody>(true), Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void UtilityWindupPrefab_PassesVfxPrefabValidation()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(UtilityWindupPrefabPath);
+
+            Assert.That(prefab, Is.Not.Null, UtilityWindupPrefabPath);
+            var validation = VfxPrefabValidationDiagnostics.ValidatePrefab(prefab);
+
+            Assert.That(validation.HasErrors, Is.False, string.Join("\n", validation.Messages));
+            Assert.That(validation.HasWarnings, Is.False, string.Join("\n", validation.Messages));
+            Assert.That(prefab.GetComponentsInChildren<Collider>(true), Is.Empty);
+            Assert.That(prefab.GetComponentsInChildren<AudioSource>(true), Is.Empty);
+            Assert.That(prefab.GetComponentsInChildren<Rigidbody>(true), Is.Empty);
+            Assert.That(prefab.GetComponentsInChildren<UnityEngine.AI.NavMeshAgent>(true), Is.Empty);
         }
 
         [Test]

@@ -253,6 +253,42 @@ namespace Game.Feature.Gameplay.Vfx
                         persistentKey: VfxPersistentKey.None));
             }
 
+            var summonWindupWarnings = presentationData.SummonWindupWarnings;
+            for (var i = 0; i < summonWindupWarnings.Count; i++)
+            {
+                var signal = summonWindupWarnings[i];
+                if (signal.SourceEntityId <= 0 ||
+                    DidEnemyExitThisTick(presentationData, signal.SourceEntityId))
+                {
+                    continue;
+                }
+
+                var cueId = GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup);
+                builder.Add(
+                    new GameplayVfxRequest(
+                        tickIndex: context.TickIndex,
+                        sequenceId: signal.SourceEntityId,
+                        presentationSeed: signal.PresentationSeed != 0
+                            ? signal.PresentationSeed
+                            : signal.SourceEntityId,
+                        sourceEntityId: signal.SourceEntityId,
+                        cueId: cueId,
+                        anchor: VfxAnchor.ForEntity(
+                            signal.SourceEntityId,
+                            VfxAnchorSlot.EntityCenter,
+                            signal.SourceCell,
+                            signal.Topology,
+                            hasFallbackCell: true),
+                        timing: VfxTimingKind.ImmediateOnTickPresentation,
+                        isPersistent: true,
+                        persistentKey: new VfxPersistentKey(
+                            cueId,
+                            VfxAnchorKind.Entity,
+                            entityId: signal.SourceEntityId,
+                            effectIndex: signal.EffectIndex,
+                            activationSequence: signal.ActivationSequence)));
+            }
+
             var jumpSignals = presentationData.EnemyJumpSignals;
             for (var i = 0; i < jumpSignals.Count; i++)
             {

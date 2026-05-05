@@ -347,6 +347,41 @@ Excluded from this slice:
 - flip impact migration, persistent death VFX, utility windup migration, and shield migration.
 - `TickPresentationData`, `TickPipeline`, `WorldState`, and `WorldSnapshot` shape or authority changes.
 
+## Utility Windup VFX Migration
+
+The utility windup migration slice moves summon utility windup warning playback from `GameplayUtilityWindupVfxPresenter` to the Gameplay VFX lane as persistent desired state.
+
+Ownership:
+
+- source fact: `TickPresentationData.SummonWindupWarnings`.
+- active desired state: each `TickSummonWindupWarningSignal` present in the current tick.
+- end, cancel, and source death/exit: the signal is absent or suppressed by same-tick `EntityExitSignals`, so the persistent desired key is absent and the registry stops the handle.
+- cue: `EnemyVfxCue.UtilityWindup`.
+- anchor: source entity center with source-cell fallback, matching the legacy source-view-attached warning default.
+- lifecycle: persistent request with `VfxPersistentKey` built from cue, entity anchor kind, source entity id, effect index, and activation sequence.
+
+Migration flag and bypass:
+
+- `GameplayVfxProductionRuntime.EnableGameplayVfxUtilityWindupMigration` gates `EnemyVfxCue.UtilityWindup` playback and defaults false.
+- `IGameplayPresentationMigrationGate.SuppressLegacyUtilityWindupVfx` suppresses only old `GameplayUtilityWindupVfxPresenter` summon warning spawning.
+- when suppressed, the coordinator clears legacy summon warning instances without bypassing `GameplayFrontFaceShieldVfxPresenter`.
+- missing binding under the migration flag is diagnostic/no-op and must not fall back to the old presenter.
+- rollback is setting `EnableGameplayVfxUtilityWindupMigration` false.
+
+Default binding:
+
+- prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/EnemyUtilityWindupTelegraphVfx.prefab`
+- material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_EnemyUtilityWindupTelegraph_Amber.mat`
+- binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/EnemyUtilityWindupTelegraph_Binding.asset`
+- host default map: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset`
+- playback is `Loop`, stop policy is `StopEmittingThenRelease`, tail is `0.30` seconds, initial pool size is `4`, and max concurrent instances is `8`.
+
+Boundaries:
+
+- no one-shot fallback is allowed for this cue.
+- no MotionTrack anchor, Screen/BoardLocal anchor, topology queue, stage map, TileFeature, Terrain, or FlipImpact migration is included.
+- `TickPresentationData`, `TickPipeline`, `WorldState`, and `WorldSnapshot` shape or authority changes remain forbidden.
+
 ## Prefab-local Profile Owner Gate
 
 Prefab-local or presentation-local `VfxProfile` override requires request source identity. `GameplayVfxRequest.SourceEntityId` is the canonical source identity field for request-time profile lookup.

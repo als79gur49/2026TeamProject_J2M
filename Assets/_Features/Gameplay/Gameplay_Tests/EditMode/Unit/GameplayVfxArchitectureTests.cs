@@ -89,6 +89,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("old clone/arc/fade"));
             Assert.That(document, Does.Contain("red/orange danger palette"));
             Assert.That(document, Does.Contain("AuthoredDuration"));
+            Assert.That(document, Does.Contain("Utility Windup VFX Migration"));
+            Assert.That(document, Does.Contain("TickPresentationData.SummonWindupWarnings"));
+            Assert.That(document, Does.Contain("EnemyVfxCue.UtilityWindup"));
+            Assert.That(document, Does.Contain("EnableGameplayVfxUtilityWindupMigration"));
+            Assert.That(document, Does.Contain("SuppressLegacyUtilityWindupVfx"));
+            Assert.That(document, Does.Contain("VfxPersistentKey"));
+            Assert.That(document, Does.Contain("EnemyUtilityWindupTelegraphVfx.prefab"));
+            Assert.That(document, Does.Contain("EnemyUtilityWindupTelegraph_Binding.asset"));
+            Assert.That(document, Does.Contain("no one-shot fallback"));
             Assert.That(document, Does.Contain("VFX Planner Dependency Rule"));
             Assert.That(document, Does.Contain("Gameplay VFX planners may read presentation carriers"));
             Assert.That(document, Does.Contain("Production Runtime Dependency Rule"));

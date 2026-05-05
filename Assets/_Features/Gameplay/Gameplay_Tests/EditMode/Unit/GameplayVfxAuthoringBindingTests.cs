@@ -13,6 +13,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         private const string JumperLandingTargetBindingPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/JumperLandingTarget_Binding.asset";
+        private const string UtilityWindupBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/EnemyUtilityWindupTelegraph_Binding.asset";
         private const string HostDefaultCueMapPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset";
 
@@ -56,6 +58,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(policy.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)));
             Assert.That(cueMap.TryResolvePrefab(GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget), out var prefab), Is.True);
             Assert.That(prefab, Is.Not.Null);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void UtilityWindupTelegraph_BindingAsset_ValidatesPersistentPolicy()
+        {
+            var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(UtilityWindupBindingPath);
+
+            Assert.That(binding, Is.Not.Null, UtilityWindupBindingPath);
+            var validation = binding.ValidateAuthoring();
+            var policy = binding.BuildRuntimePolicy();
+
+            Assert.That(validation.HasErrors, Is.False, string.Join("\n", validation.Messages));
+            Assert.That(policy.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup)));
+            Assert.That(binding.Prefab, Is.Not.Null);
+            Assert.That(policy.Requirement, Is.EqualTo(VfxBindingRequirement.DiagnosticIfMissing));
+            Assert.That(policy.MissingAnchorPolicy, Is.EqualTo(VfxMissingAnchorPolicy.ReportDiagnostic));
+            Assert.That(policy.PlaybackMode, Is.EqualTo(VfxPlaybackMode.Loop));
+            Assert.That(policy.StopPolicy, Is.EqualTo(VfxStopPolicy.StopEmittingThenRelease));
+            Assert.That(policy.DefaultLifetimeSeconds, Is.Zero);
+            Assert.That(policy.TailSeconds, Is.EqualTo(0.30f).Within(0.0001f));
+            Assert.That(binding.InitialPoolSize, Is.EqualTo(4));
+            Assert.That(policy.MaxConcurrentInstances, Is.EqualTo(8));
         }
 
         [Test]

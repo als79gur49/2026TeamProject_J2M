@@ -230,10 +230,21 @@ namespace Game.Feature.Gameplay.Host
                 TopologyCommitted);
             PresentExtensions(result);
             TraceStep("RefreshUtilityWindupWarnings");
-            _utilityWindupVfxPresenter.RefreshSummonWarnings(
-                result.PresentationData.SummonWindupWarnings,
-                _stateStore,
-                _projector);
+            if (ShouldSuppressLegacyUtilityWindupVfx())
+            {
+                _utilityWindupVfxPresenter.RefreshSummonWarnings(
+                    Array.Empty<TickSummonWindupWarningSignal>(),
+                    _stateStore,
+                    _projector);
+            }
+            else
+            {
+                _utilityWindupVfxPresenter.RefreshSummonWarnings(
+                    result.PresentationData.SummonWindupWarnings,
+                    _stateStore,
+                    _projector);
+            }
+
             _frontFaceShieldVfxPresenter.RefreshWindupWarnings(
                 result.PresentationData.FrontFaceShieldWindupWarnings,
                 _stateStore,
@@ -541,6 +552,20 @@ namespace Game.Feature.Gameplay.Host
             {
                 if (_presentationExtensions[i] is IGameplayPresentationMigrationGate migrationGate &&
                     migrationGate.SuppressLegacyEnemyDeathEffects)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool ShouldSuppressLegacyUtilityWindupVfx()
+        {
+            for (var i = 0; i < _presentationExtensions.Count; i++)
+            {
+                if (_presentationExtensions[i] is IGameplayPresentationMigrationGate migrationGate &&
+                    migrationGate.SuppressLegacyUtilityWindupVfx)
                 {
                     return true;
                 }

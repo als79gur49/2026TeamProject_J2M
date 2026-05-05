@@ -16,6 +16,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         [SerializeField] private bool enableGameplayVfxEnemyDeathBurstMigration;
         [SerializeField] private bool enableGameplayVfxBoxDestroySmokeMigration;
         [SerializeField] private bool enableGameplayVfxItemConsumeBurstMigration;
+        [SerializeField] private bool enableGameplayVfxUtilityWindupMigration;
         [SerializeField] private VfxProfileAsset[] familyProfiles = Array.Empty<VfxProfileAsset>();
 
         private readonly PlayerVfxRequestPlanner playerPlanner = new();
@@ -148,6 +149,23 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public bool SuppressLegacyItemConsumeEffects => enableGameplayVfxItemConsumeBurstMigration;
 
+        public bool EnableGameplayVfxUtilityWindupMigration
+        {
+            get => enableGameplayVfxUtilityWindupMigration;
+            set
+            {
+                if (enableGameplayVfxUtilityWindupMigration == value)
+                {
+                    return;
+                }
+
+                enableGameplayVfxUtilityWindupMigration = value;
+                ResetIfNoGameplayVfxEnabled();
+            }
+        }
+
+        public bool SuppressLegacyUtilityWindupVfx => enableGameplayVfxUtilityWindupMigration;
+
         public int LastPlannedRequestCount { get; private set; }
 
         public int ActiveVfxInstanceCount => pool?.ActiveCount ?? 0;
@@ -218,6 +236,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             LastPlannedRequestCount = plan.Requests.Count;
             if (plan.Requests.Count == 0)
             {
+                controller?.Refresh(GameplayVfxRequestPlan.Empty);
                 return;
             }
 
@@ -330,7 +349,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             enableGameplayVfxEnemyDamageBurstMigration ||
             enableGameplayVfxEnemyDeathBurstMigration ||
             enableGameplayVfxBoxDestroySmokeMigration ||
-            enableGameplayVfxItemConsumeBurstMigration;
+            enableGameplayVfxItemConsumeBurstMigration ||
+            enableGameplayVfxUtilityWindupMigration;
 
         private void ResetIfNoEnemyJumpVfxEnabled()
         {
@@ -375,6 +395,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             return (enableGameplayVfxDamageBurstMigration && cueId == GameplayVfxCueId.From(PlayerVfxCue.Damage)) ||
                    (enableGameplayVfxEnemyDamageBurstMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.Damage)) ||
                    (enableGameplayVfxEnemyDeathBurstMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.Death)) ||
+                   (enableGameplayVfxUtilityWindupMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup)) ||
                    (enableGameplayVfxBoxDestroySmokeMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.DestroySmoke)) ||
                    (enableGameplayVfxItemConsumeBurstMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.ItemConsume)) ||
                    (enableEnemyJumpTargetVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)) ||
