@@ -865,7 +865,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SettingsScreenPresenter_PublicSurface_RemainsBoundedToScreenStateAndSingleTooltipPayloadBuilder()
+        public void SettingsScreenPresenter_PublicSurface_RemainsBoundedToScreenState()
         {
             Assert.That(
                 GetPublicPropertyNames(typeof(SettingsScreenPresenter)),
@@ -876,10 +876,7 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo(new[]
                 {
                     "Apply(SettingsScreenPayload, Double)",
-                    "BuildTooltipInfoPayload()",
                     "SelectSection(SettingsSectionId)",
-                    "ToggleLargeText()",
-                    "ToggleTooltips()",
                 }));
             Assert.That(
                 GetConstructorSignatures(typeof(SettingsScreenPresenter)),

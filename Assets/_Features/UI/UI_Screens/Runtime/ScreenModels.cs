@@ -54,8 +54,6 @@ namespace Game.Feature.UI.Screens
             "Flip",
             "Change",
             "Reset Input",
-            "Toggle Tooltips",
-            "Toggle Large Text",
             "Back");
 
         public SettingsScreenPayload(
@@ -70,8 +68,6 @@ namespace Game.Feature.UI.Screens
             string fullscreenLabel,
             string displayApplyLabel,
             string displayRevertLabel,
-            string tooltipToggleLabel,
-            string largeTextToggleLabel,
             string backLabel)
             : this(
                 titleText,
@@ -95,8 +91,6 @@ namespace Game.Feature.UI.Screens
                 "Flip",
                 "Change",
                 "Reset Input",
-                tooltipToggleLabel,
-                largeTextToggleLabel,
                 backLabel)
         {
         }
@@ -123,8 +117,6 @@ namespace Game.Feature.UI.Screens
             string flipLabel,
             string inputChangeLabel,
             string resetInputLabel,
-            string tooltipToggleLabel,
-            string largeTextToggleLabel,
             string backLabel)
         {
             TitleText = titleText ?? string.Empty;
@@ -148,8 +140,6 @@ namespace Game.Feature.UI.Screens
             FlipLabel = flipLabel ?? string.Empty;
             InputChangeLabel = inputChangeLabel ?? string.Empty;
             ResetInputLabel = resetInputLabel ?? string.Empty;
-            TooltipToggleLabel = tooltipToggleLabel ?? string.Empty;
-            LargeTextToggleLabel = largeTextToggleLabel ?? string.Empty;
             BackLabel = backLabel ?? string.Empty;
         }
 
@@ -194,10 +184,6 @@ namespace Game.Feature.UI.Screens
         public string InputChangeLabel { get; }
 
         public string ResetInputLabel { get; }
-
-        public string TooltipToggleLabel { get; }
-
-        public string LargeTextToggleLabel { get; }
 
         public string BackLabel { get; }
     }
@@ -476,6 +462,8 @@ namespace Game.Feature.UI.Screens
 
         public bool IsRebinding { get; private set; }
 
+        public KeyboardBindableAction? RebindingAction { get; private set; }
+
         public bool AreControlsInteractable { get; private set; } = true;
 
         public void SetContent(
@@ -493,6 +481,7 @@ namespace Game.Feature.UI.Screens
             string resetLabel,
             string statusText,
             bool isRebinding,
+            KeyboardBindableAction? rebindingAction,
             bool areControlsInteractable)
         {
             SectionTitle = sectionTitle ?? string.Empty;
@@ -509,6 +498,7 @@ namespace Game.Feature.UI.Screens
             ResetLabel = resetLabel ?? string.Empty;
             StatusText = statusText ?? string.Empty;
             IsRebinding = isRebinding;
+            RebindingAction = rebindingAction;
             AreControlsInteractable = areControlsInteractable;
             Changed?.Invoke();
         }
@@ -519,14 +509,6 @@ namespace Game.Feature.UI.Screens
         public event Action Changed;
 
         public string TitleText { get; private set; } = string.Empty;
-
-        public string TooltipStatusText { get; private set; } = string.Empty;
-
-        public string LargeTextStatusText { get; private set; } = string.Empty;
-
-        public string TooltipToggleLabel { get; private set; } = string.Empty;
-
-        public string LargeTextToggleLabel { get; private set; } = string.Empty;
 
         public string BackLabel { get; private set; } = string.Empty;
 
@@ -540,10 +522,6 @@ namespace Game.Feature.UI.Screens
 
         public void SetContent(
             string titleText,
-            string tooltipStatusText,
-            string largeTextStatusText,
-            string tooltipToggleLabel,
-            string largeTextToggleLabel,
             string backLabel,
             string audioTabLabel = "Audio",
             string displayTabLabel = "Display",
@@ -551,10 +529,6 @@ namespace Game.Feature.UI.Screens
             SettingsSectionId selectedSection = SettingsSectionId.Audio)
         {
             TitleText = titleText ?? string.Empty;
-            TooltipStatusText = tooltipStatusText ?? string.Empty;
-            LargeTextStatusText = largeTextStatusText ?? string.Empty;
-            TooltipToggleLabel = tooltipToggleLabel ?? string.Empty;
-            LargeTextToggleLabel = largeTextToggleLabel ?? string.Empty;
             BackLabel = backLabel ?? string.Empty;
             AudioTabLabel = audioTabLabel ?? string.Empty;
             DisplayTabLabel = displayTabLabel ?? string.Empty;

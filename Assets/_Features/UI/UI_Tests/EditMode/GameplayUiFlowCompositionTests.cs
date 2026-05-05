@@ -379,56 +379,6 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void GameplayUiFlowInstaller_SettingsScreen_InfoAffordance_RemainsBoundedPopupRequestPath()
-        {
-            var rootObject = new GameObject("GameplayUiFlowInstaller_SettingsScreen_InfoAffordance_RemainsBoundedPopupRequestPath");
-
-            try
-            {
-                var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
-                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
-                installer.Install(UiTestPortFactory.CreatePorts());
-
-                Assert.That(installer.Coordinator.OpenSettingsScreen(), Is.True);
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
-                Assert.That(installer.SettingsScreenView, Is.Not.Null);
-                Assert.That(installer.SettingsScreenView.transform.parent, Is.EqualTo(installer.ScreenLayerView.ContentRoot));
-
-                installer.SettingsScreenView.ClickTooltipToggle();
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
-                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
-
-                installer.SettingsScreenView.ClickTooltipInfo();
-                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(1));
-                Assert.That(installer.PopupController.TopPopup.HasValue, Is.True);
-                Assert.That(installer.PopupController.TopPopup.Value.PopupId, Is.EqualTo(PopupId.Tooltip));
-                Assert.That(installer.TooltipPopupView, Is.Not.Null);
-                Assert.That(installer.TooltipPopupView.transform.parent, Is.EqualTo(installer.PopupLayerView.ContentRoot));
-                Assert.That(installer.PopupLayerView.IsDimVisible, Is.False);
-                Assert.That(installer.Coordinator.CurrentBlockSnapshot.BlocksScreenInteraction, Is.False);
-
-                installer.SettingsScreenView.ClickTooltipInfo();
-                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(1));
-
-                Assert.That(installer.Coordinator.HandleBackRequested(), Is.True);
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
-                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
-
-                installer.SettingsScreenView.ClickLargeTextToggle();
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
-                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
-
-                Assert.That(installer.Coordinator.HandleBackRequested(), Is.True);
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
-            }
-            finally
-            {
-                DestroyEventSystemIfPresent();
-                Object.DestroyImmediate(rootObject);
-            }
-        }
-
-        [Test]
         public void GameplayUiFlowInstaller_SettingsScreen_KeepsSectionViewsNestedUnderOneScreenShell()
         {
             var rootObject = new GameObject("GameplayUiFlowInstaller_SettingsScreen_KeepsSectionViewsNestedUnderOneScreenShell");

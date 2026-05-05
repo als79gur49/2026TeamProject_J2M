@@ -887,6 +887,7 @@ namespace Game.Feature.UI.Application
                 _input.ResetLabel,
                 _statusText,
                 snapshot.IsRebinding,
+                snapshot.RebindingAction,
                 areControlsInteractable);
         }
 
@@ -916,7 +917,6 @@ namespace Game.Feature.UI.Application
 
     public sealed class SettingsScreenPresenter
     {
-        private readonly AccessibilitySettingsStore _accessibilitySettingsStore;
         private SettingsScreenPayload _payload = SettingsScreenPayload.Default;
         private SettingsSectionId _selectedSection = SettingsSectionId.Audio;
 
@@ -938,7 +938,7 @@ namespace Game.Feature.UI.Application
             IDisplaySettingsPort displaySettingsPort,
             IKeyboardBindingSettingsPort keyboardBindingSettingsPort)
         {
-            _accessibilitySettingsStore = accessibilitySettingsStore ?? throw new ArgumentNullException(nameof(accessibilitySettingsStore));
+            _ = accessibilitySettingsStore ?? throw new ArgumentNullException(nameof(accessibilitySettingsStore));
             AudioPresenter = new SettingsAudioPresenter(audioSettingsPort ?? throw new ArgumentNullException(nameof(audioSettingsPort)));
             DisplayPresenter = new SettingsDisplayPresenter(displaySettingsPort ?? throw new ArgumentNullException(nameof(displaySettingsPort)));
             InputPresenter = new SettingsInputPresenter(keyboardBindingSettingsPort ?? throw new ArgumentNullException(nameof(keyboardBindingSettingsPort)));
@@ -991,36 +991,10 @@ namespace Game.Feature.UI.Application
             return true;
         }
 
-        public TooltipPopupPayload BuildTooltipInfoPayload()
-        {
-            var tooltipsEnabledText = _accessibilitySettingsStore.State.AreTooltipsEnabled ? "Enabled" : "Disabled";
-            return new TooltipPopupPayload(
-                "Tooltips",
-                $"Tooltips show short contextual hints for UI controls. They are currently {tooltipsEnabledText} in this session; use {_payload.TooltipToggleLabel} to change that.",
-                TooltipPopupAnchorPreset.Center);
-        }
-
-        public void ToggleLargeText()
-        {
-            _accessibilitySettingsStore.ToggleLargeText();
-            RefreshViewModel();
-        }
-
-        public void ToggleTooltips()
-        {
-            _accessibilitySettingsStore.ToggleTooltips();
-            RefreshViewModel();
-        }
-
         private void RefreshViewModel()
         {
-            var accessibilityState = _accessibilitySettingsStore.State;
             ViewModel.SetContent(
                 _payload.TitleText,
-                accessibilityState.AreTooltipsEnabled ? "Enabled" : "Disabled",
-                accessibilityState.IsLargeTextEnabled ? "Enabled" : "Disabled",
-                _payload.TooltipToggleLabel,
-                _payload.LargeTextToggleLabel,
                 _payload.BackLabel,
                 _payload.AudioTabLabel,
                 _payload.DisplayTabLabel,

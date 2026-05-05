@@ -438,17 +438,23 @@ namespace Game.Feature.UI.Tests
             var settingsRoot = UiTestPrefabAssetUtility
                 .LoadScreenPrefab<SettingsScreenView>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath)
                 .transform;
-            RequireComponent<VerticalLayoutGroup>(settingsRoot);
+            var settingsRootLayout = RequireComponent<VerticalLayoutGroup>(settingsRoot);
+            Assert.That(settingsRoot.GetChild(0).name, Is.EqualTo("Background"));
+            Assert.That(settingsRootLayout.padding.top, Is.EqualTo(20));
+            Assert.That(settingsRootLayout.padding.bottom, Is.EqualTo(20));
             RequireComponent<HorizontalLayoutGroup>(FindRequired(settingsRoot, "SettingsHeader"));
             RequireComponent<HorizontalLayoutGroup>(FindRequired(settingsRoot, "SettingsTabRow"));
             var sectionHost = FindRequired(settingsRoot, "SettingsSectionHost");
             RequireComponent<VerticalLayoutGroup>(sectionHost);
-            RequireComponent<LayoutElement>(sectionHost);
+            var sectionHostLayout = RequireComponent<LayoutElement>(sectionHost);
+            Assert.That(sectionHostLayout.minHeight, Is.EqualTo(320f));
+            Assert.That(sectionHostLayout.preferredHeight, Is.EqualTo(432f));
             AssertSettingsSectionLayout(FindRequired(sectionHost, SettingsScreenView.AudioSectionName));
             AssertSettingsSectionLayout(FindRequired(sectionHost, SettingsScreenView.DisplaySectionName));
             AssertSettingsSectionLayout(FindRequired(sectionHost, SettingsScreenView.InputSectionName));
-            RequireComponent<HorizontalLayoutGroup>(FindRequired(settingsRoot, "SettingsAccessibilityRows/TooltipAccessibilityRow"));
-            RequireComponent<HorizontalLayoutGroup>(FindRequired(settingsRoot, "SettingsAccessibilityRows/LargeTextAccessibilityRow"));
+            var accessibilityRows = FindRequired(settingsRoot, "SettingsAccessibilityRows");
+            Assert.That(accessibilityRows.gameObject.activeSelf, Is.False);
+            Assert.That(RequireComponent<LayoutElement>(accessibilityRows).ignoreLayout, Is.True);
             RequireComponent<HorizontalLayoutGroup>(FindRequired(settingsRoot, "SettingsFooter"));
             RequireComponent<HorizontalLayoutGroup>(FindRequired(sectionHost, "SettingsDisplaySection/CurrentDisplayRow"));
             RequireComponent<HorizontalLayoutGroup>(FindRequired(sectionHost, "SettingsDisplaySection/ResolutionRow"));
@@ -457,9 +463,15 @@ namespace Game.Feature.UI.Tests
             RequireComponent<CanvasGroup>(FindRequired(sectionHost, "SettingsDisplaySection/ResolutionHoverHint"));
             RequireComponent<LayoutElement>(FindRequired(sectionHost, "SettingsDisplaySection/DisplayPreviewCountdown"));
             RequireComponent<HorizontalLayoutGroup>(FindRequired(sectionHost, "SettingsInputSection/MovementInputRow"));
-            RequireComponent<HorizontalLayoutGroup>(FindRequired(sectionHost, "SettingsInputSection/PushInputRow"));
-            RequireComponent<HorizontalLayoutGroup>(FindRequired(sectionHost, "SettingsInputSection/FlipInputRow"));
-            RequireComponent<HorizontalLayoutGroup>(FindRequired(sectionHost, "SettingsInputSection/InputResetRow"));
+            var pushInputRow = FindRequired(sectionHost, "SettingsInputSection/PushInputRow");
+            var flipInputRow = FindRequired(sectionHost, "SettingsInputSection/FlipInputRow");
+            var inputResetRow = FindRequired(sectionHost, "SettingsInputSection/InputResetRow");
+            RequireComponent<HorizontalLayoutGroup>(pushInputRow);
+            RequireComponent<HorizontalLayoutGroup>(flipInputRow);
+            RequireComponent<HorizontalLayoutGroup>(inputResetRow);
+            Assert.That(RequireComponent<LayoutElement>(pushInputRow).preferredHeight, Is.EqualTo(40f));
+            Assert.That(RequireComponent<LayoutElement>(flipInputRow).preferredHeight, Is.EqualTo(40f));
+            Assert.That(RequireComponent<LayoutElement>(inputResetRow).preferredHeight, Is.EqualTo(40f));
 
             AssertObjectiveAssetLayout();
             AssertTerminalResultLayout(
@@ -467,18 +479,6 @@ namespace Game.Feature.UI.Tests
                 "ResultSummary");
             AssertTerminalResultLayout(
                 UiTestPrefabAssetUtility.LoadScreenPrefab<LevelFailedScreenView>(UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath).transform);
-        }
-
-        [Test]
-        public void SettingsScreenPrefabAsset_AuthorsTooltipInfoAffordance_AsBoundedLocalIntent()
-        {
-            var settingsPrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
-            var serializedView = new SerializedObject(settingsPrefab);
-            var tooltipInfoButton = serializedView.FindProperty("_tooltipInfoButton");
-
-            Assert.That(tooltipInfoButton, Is.Not.Null);
-            Assert.That(tooltipInfoButton.objectReferenceValue, Is.Not.Null);
-            Assert.That(((Button)tooltipInfoButton.objectReferenceValue).transform.IsChildOf(settingsPrefab.transform), Is.True);
         }
 
         [Test]
@@ -574,6 +574,170 @@ namespace Game.Feature.UI.Tests
             Assert.That(countdownLabel.raycastTarget, Is.False);
             Assert.That(countdownFill.raycastTarget, Is.False);
             Assert.That(countdownFill.type, Is.EqualTo(Image.Type.Simple));
+
+            var serializedInput = new SerializedObject(inputView);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedInput, "_pushKeyDisplayLabel", inputView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedInput, "_flipKeyDisplayLabel", inputView.transform);
+
+            var pushChangeButton = (Button)serializedInput.FindProperty("_pushChangeButton").objectReferenceValue;
+            var pushChangeLabel = (TMP_Text)serializedInput.FindProperty("_pushChangeButtonLabel").objectReferenceValue;
+            var flipChangeButton = (Button)serializedInput.FindProperty("_flipChangeButton").objectReferenceValue;
+            var flipChangeLabel = (TMP_Text)serializedInput.FindProperty("_flipChangeButtonLabel").objectReferenceValue;
+            var resetButton = (Button)serializedInput.FindProperty("_resetButton").objectReferenceValue;
+            var resetButtonLabel = (TMP_Text)serializedInput.FindProperty("_resetButtonLabel").objectReferenceValue;
+            Assert.That(pushChangeButton.name, Is.EqualTo("PushChange"));
+            Assert.That(pushChangeButton.transition, Is.EqualTo(Selectable.Transition.Animation));
+            Assert.That(pushChangeButton.animationTriggers.disabledTrigger, Is.EqualTo("Disabled"));
+            Assert.That(pushChangeButton.animationTriggers.disabledTrigger, Is.Not.EqualTo(pushChangeButton.animationTriggers.pressedTrigger));
+            Assert.That(pushChangeButton.GetComponent<Animator>(), Is.Not.Null);
+            Assert.That(pushChangeLabel.name, Is.EqualTo("PushChangeLabel"));
+            Assert.That(pushChangeButton.GetComponent<LayoutElement>().preferredWidth, Is.EqualTo(116f));
+            Assert.That(pushChangeButton.GetComponent<LayoutElement>().preferredHeight, Is.EqualTo(34f));
+            Assert.That(flipChangeButton.name, Is.EqualTo("FlipChange_New"));
+            Assert.That(flipChangeButton.transition, Is.EqualTo(Selectable.Transition.Animation));
+            Assert.That(flipChangeButton.animationTriggers.disabledTrigger, Is.EqualTo("Disabled"));
+            Assert.That(flipChangeButton.animationTriggers.disabledTrigger, Is.Not.EqualTo(flipChangeButton.animationTriggers.pressedTrigger));
+            Assert.That(flipChangeButton.GetComponent<Animator>(), Is.Not.Null);
+            Assert.That(flipChangeLabel.name, Is.EqualTo("FlipChangeLabel"));
+            Assert.That(flipChangeButton.GetComponent<LayoutElement>().preferredWidth, Is.EqualTo(116f));
+            Assert.That(flipChangeButton.GetComponent<LayoutElement>().preferredHeight, Is.EqualTo(34f));
+            Assert.That(resetButton.name, Is.EqualTo("ResetInput_New"));
+            Assert.That(resetButton.transition, Is.EqualTo(Selectable.Transition.Animation));
+            Assert.That(resetButton.animationTriggers.disabledTrigger, Is.EqualTo("Disabled"));
+            Assert.That(resetButton.animationTriggers.disabledTrigger, Is.Not.EqualTo(resetButton.animationTriggers.pressedTrigger));
+            Assert.That(resetButton.GetComponent<Animator>(), Is.Not.Null);
+            Assert.That(resetButtonLabel.name, Is.EqualTo("ResetInputLabel"));
+            Assert.That(resetButton.GetComponent<LayoutElement>().preferredWidth, Is.EqualTo(180f));
+            Assert.That(resetButton.GetComponent<LayoutElement>().preferredHeight, Is.EqualTo(40f));
+            Assert.That(inputView.transform.Find("FlipInputRow/FlipChange_Legacy").gameObject.activeSelf, Is.False);
+            Assert.That(inputView.transform.Find("InputResetRow/ResetInput_Legacy").gameObject.activeSelf, Is.False);
+        }
+
+        [Test]
+        public void SettingsInputViewRuntimeBind_UpdatesVisiblePushAndFlipKeyDisplays()
+        {
+            var parentObject = new GameObject("SettingsInputKeyDisplayRuntimeParent", typeof(RectTransform));
+            var parentRect = (RectTransform)parentObject.transform;
+            var settingsPrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
+            var settingsView = UnityEngine.Object.Instantiate(settingsPrefab, parentRect, false);
+
+            try
+            {
+                var inputView = settingsView.InputView;
+                var serializedInput = new SerializedObject(inputView);
+                var pushKeyDisplayLabel = (TMP_Text)serializedInput.FindProperty("_pushKeyDisplayLabel").objectReferenceValue;
+                var flipKeyDisplayLabel = (TMP_Text)serializedInput.FindProperty("_flipKeyDisplayLabel").objectReferenceValue;
+                var viewModel = new SettingsInputViewModel();
+
+                inputView.Bind(viewModel);
+                viewModel.SetContent(
+                    "Input",
+                    "Movement Keys",
+                    "Use Arrow Keys",
+                    false,
+                    "WASD",
+                    "Push",
+                    "R",
+                    "Change",
+                    "Flip",
+                    "T",
+                    "Change",
+                    "Reset Input",
+                    string.Empty,
+                    false,
+                    null,
+                    true);
+
+                Assert.That(pushKeyDisplayLabel.text, Is.EqualTo("R"));
+                Assert.That(flipKeyDisplayLabel.text, Is.EqualTo("T"));
+
+                viewModel.SetContent(
+                    "Input",
+                    "Movement Keys",
+                    "Use Arrow Keys",
+                    false,
+                    "WASD",
+                    "Push",
+                    "E",
+                    "Change",
+                    "Flip",
+                    "Q",
+                    "Change",
+                    "Reset Input",
+                    string.Empty,
+                    false,
+                    null,
+                    true);
+
+                Assert.That(pushKeyDisplayLabel.text, Is.EqualTo("E"));
+                Assert.That(flipKeyDisplayLabel.text, Is.EqualTo("Q"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(settingsView.gameObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [Test]
+        public void SettingsInputViewRuntimeBind_HighlightsOnlyActiveRebindButton()
+        {
+            var parentObject = new GameObject("SettingsInputRebindVisualRuntimeParent", typeof(RectTransform));
+            var parentRect = (RectTransform)parentObject.transform;
+            var settingsPrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
+            var settingsView = UnityEngine.Object.Instantiate(settingsPrefab, parentRect, false);
+
+            try
+            {
+                var inputView = settingsView.InputView;
+                var viewModel = new SettingsInputViewModel();
+
+                inputView.Bind(viewModel);
+                SetInputContent(viewModel, true, KeyboardBindableAction.Push, "Press a key for Push...");
+                Assert.That(inputView.IsPushChangeInteractable, Is.True);
+                Assert.That(inputView.IsFlipChangeInteractable, Is.False);
+                Assert.That(inputView.IsResetInteractable, Is.False);
+
+                SetInputContent(viewModel, true, KeyboardBindableAction.Flip, "Press a key for Flip...");
+                Assert.That(inputView.IsPushChangeInteractable, Is.False);
+                Assert.That(inputView.IsFlipChangeInteractable, Is.True);
+                Assert.That(inputView.IsResetInteractable, Is.False);
+
+                SetInputContent(viewModel, false, null, string.Empty);
+                Assert.That(inputView.IsPushChangeInteractable, Is.True);
+                Assert.That(inputView.IsFlipChangeInteractable, Is.True);
+                Assert.That(inputView.IsResetInteractable, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(settingsView.gameObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+
+            static void SetInputContent(
+                SettingsInputViewModel viewModel,
+                bool isRebinding,
+                KeyboardBindableAction? rebindingAction,
+                string statusText)
+            {
+                viewModel.SetContent(
+                    "Input",
+                    "Movement Keys",
+                    "Use Arrow Keys",
+                    false,
+                    "WASD",
+                    "Push",
+                    "R",
+                    "Change",
+                    "Flip",
+                    "T",
+                    "Change",
+                    "Reset Input",
+                    statusText,
+                    isRebinding,
+                    rebindingAction,
+                    !isRebinding);
+            }
         }
 
         [TestCase(1920f, 1080f, 560f, 640f)]
@@ -648,6 +812,34 @@ namespace Game.Feature.UI.Tests
                 Assert.That(settingsView.DisplayView.transform.Find("ResolutionRow").GetComponent<HorizontalLayoutGroup>(), Is.Not.Null);
                 Assert.That(settingsView.InputView.GetComponent<VerticalLayoutGroup>(), Is.Not.Null);
                 Assert.That(settingsView.InputView.transform.Find("PushInputRow").GetComponent<HorizontalLayoutGroup>(), Is.Not.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(settingsView.gameObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [Test]
+        public void SettingsScreenRuntimeLayout_KeepsAuthoredBackgroundBehindContent()
+        {
+            var parentObject = new GameObject("SettingsScreenRuntimeLayoutBackgroundParent", typeof(RectTransform));
+            var parentRect = (RectTransform)parentObject.transform;
+            var settingsPrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
+            var settingsView = UnityEngine.Object.Instantiate(settingsPrefab, parentRect, false);
+
+            try
+            {
+                parentRect.sizeDelta = new Vector2(1920f, 1080f);
+                settingsView.SetIsCurrent(true);
+
+                var root = settingsView.transform;
+                Assert.That(root.GetChild(0).name, Is.EqualTo("Background"));
+                Assert.That(root.Find("SettingsHeader").GetSiblingIndex(), Is.EqualTo(1));
+                Assert.That(root.Find("SettingsTabRow").GetSiblingIndex(), Is.EqualTo(2));
+                Assert.That(root.Find("SettingsSectionHost").GetSiblingIndex(), Is.EqualTo(3));
+                Assert.That(root.Find("SettingsFooter").GetSiblingIndex(), Is.EqualTo(4));
+                Assert.That(root.Find("SettingsAccessibilityRows").gameObject.activeSelf, Is.False);
             }
             finally
             {
@@ -1257,8 +1449,7 @@ namespace Game.Feature.UI.Tests
                     return installer.ConfirmPopupView;
 
                 case PopupId.Tooltip:
-                    installer.Coordinator.OpenSettingsScreen();
-                    installer.SettingsScreenView.ClickTooltipInfo();
+                    installer.Coordinator.RequestTooltipPopup(new TooltipPopupPayload("Tip", "Tooltip body"));
                     return installer.TooltipPopupView;
 
                 case PopupId.Reward:

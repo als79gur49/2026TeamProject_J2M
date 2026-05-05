@@ -43,6 +43,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(rootViewSource, Does.Not.Contain("AddComponent<"));
             Assert.That(rootViewSource, Does.Not.Contain("transform.Find("));
             Assert.That(rootViewSource, Does.Not.Contain("GetComponentInChildren<"));
+            Assert.That(rootViewSource, Does.Not.Contain("SettingsLayoutUtility."));
+            Assert.That(rootViewSource, Does.Not.Contain("SetSiblingIndex("));
             Assert.That(rootViewSource, Does.Not.Contain("ResolutionHover"));
             Assert.That(rootViewSource, Does.Not.Contain("Slider"));
             Assert.That(rootViewSource, Does.Not.Contain("Dropdown"));
@@ -76,16 +78,26 @@ namespace Game.Feature.UI.Tests
         {
             var audioViewSource = ReadRepoFile("Assets/_Features/UI/UI_Screens/Runtime/SettingsAudioView.cs");
             var displayViewSource = ReadRepoFile("Assets/_Features/UI/UI_Screens/Runtime/SettingsDisplayView.cs");
+            var inputViewSource = ReadRepoFile("Assets/_Features/UI/UI_Screens/Runtime/SettingsInputView.cs");
 
-            Assert.That(audioViewSource, Does.Not.Contain("new GameObject("));
-            Assert.That(audioViewSource, Does.Not.Contain("transform.Find("));
-            Assert.That(audioViewSource, Does.Not.Contain("GetComponentInChildren<"));
-            Assert.That(audioViewSource, Does.Not.Contain("Resources.GetBuiltinResource"));
+            AssertViewSourceDoesNotRebuildAuthoredControls(audioViewSource);
+            AssertViewSourceDoesNotRebuildAuthoredControls(displayViewSource);
+            AssertViewSourceDoesNotRebuildAuthoredControls(inputViewSource);
+        }
 
-            Assert.That(displayViewSource, Does.Not.Contain("new GameObject("));
-            Assert.That(displayViewSource, Does.Not.Contain("transform.Find("));
-            Assert.That(displayViewSource, Does.Not.Contain("GetComponentInChildren<"));
-            Assert.That(displayViewSource, Does.Not.Contain("Resources.GetBuiltinResource"));
+        private static void AssertViewSourceDoesNotRebuildAuthoredControls(string viewSource)
+        {
+            Assert.That(viewSource, Does.Not.Contain("new GameObject("));
+            Assert.That(viewSource, Does.Not.Contain("transform.Find("));
+            Assert.That(viewSource, Does.Not.Contain("GetComponentInChildren<"));
+            Assert.That(viewSource, Does.Not.Contain("Resources.GetBuiltinResource"));
+            Assert.That(viewSource, Does.Not.Contain("SettingsLayoutUtility.EnsureChildRect"));
+            Assert.That(viewSource, Does.Not.Contain("SettingsLayoutUtility.MoveToParent"));
+            Assert.That(viewSource, Does.Not.Contain("SettingsLayoutUtility.EnsureVerticalLayout"));
+            Assert.That(viewSource, Does.Not.Contain("SettingsLayoutUtility.EnsureHorizontalLayout"));
+            Assert.That(viewSource, Does.Not.Contain("SettingsLayoutUtility.EnsureLayoutElement"));
+            Assert.That(viewSource, Does.Not.Contain("SettingsLayoutUtility.FillLayoutChild"));
+            Assert.That(viewSource, Does.Not.Contain("SetSiblingIndex("));
         }
 
         private static void AssertViewSourceHasNoScreenOrPrefsCalls(string viewSource)

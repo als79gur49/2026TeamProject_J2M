@@ -92,7 +92,7 @@ namespace Game.Feature.UI.Tests
     public sealed class SettingsScreenPresenterTests
     {
         [Test]
-        public void SettingsScreenPresenter_BuildTooltipInfoPayload_RemainsBoundedAndStateAware()
+        public void SettingsScreenPresenter_RootState_RemainsBoundedToShellOnly()
         {
             var presenter = new SettingsScreenPresenter(
                 new AccessibilitySettingsStore(),
@@ -100,39 +100,8 @@ namespace Game.Feature.UI.Tests
                 new FakeDisplaySettingsPort());
 
             presenter.Apply(SettingsScreenPayload.Default, 15d);
-
-            var enabledPayload = presenter.BuildTooltipInfoPayload();
-            Assert.That(enabledPayload.TitleText, Is.EqualTo("Tooltips"));
-            Assert.That(enabledPayload.BodyText, Does.Contain("short contextual hints"));
-            Assert.That(enabledPayload.BodyText, Does.Contain("Enabled"));
-            Assert.That(enabledPayload.BodyText, Does.Contain(SettingsScreenPayload.Default.TooltipToggleLabel));
-            Assert.That(enabledPayload.BodyText, Does.Not.Contain("\n"));
-            Assert.That(
-                enabledPayload.BodyText.Split('.').Count(segment => !string.IsNullOrWhiteSpace(segment)),
-                Is.LessThanOrEqualTo(2));
-            Assert.That(enabledPayload.AnchorPreset, Is.EqualTo(TooltipPopupAnchorPreset.Center));
-
-            presenter.ToggleTooltips();
-
-            var disabledPayload = presenter.BuildTooltipInfoPayload();
-            Assert.That(disabledPayload.BodyText, Does.Contain("Disabled"));
-            Assert.That(disabledPayload.AnchorPreset, Is.EqualTo(TooltipPopupAnchorPreset.Center));
-        }
-
-        [Test]
-        public void SettingsScreenPresenter_RootState_RemainsBoundedToShellAndAccessibilityOnly()
-        {
-            var presenter = new SettingsScreenPresenter(
-                new AccessibilitySettingsStore(),
-                new FakeAudioSettingsPort(),
-                new FakeDisplaySettingsPort());
-
-            presenter.Apply(SettingsScreenPayload.Default, 15d);
-            presenter.ToggleLargeText();
 
             Assert.That(presenter.ViewModel.TitleText, Is.EqualTo(SettingsScreenPayload.Default.TitleText));
-            Assert.That(presenter.ViewModel.TooltipStatusText, Is.EqualTo("Enabled"));
-            Assert.That(presenter.ViewModel.LargeTextStatusText, Is.EqualTo("Enabled"));
             Assert.That(presenter.AudioPresenter.ViewModel.BgmAudio.LabelText, Is.EqualTo(SettingsScreenPayload.Default.BgmAudioLabel));
             Assert.That(presenter.DisplayPresenter.ViewModel.DisplaySectionTitle, Is.EqualTo(SettingsScreenPayload.Default.DisplaySectionTitle));
         }
@@ -147,8 +116,6 @@ namespace Game.Feature.UI.Tests
 
             presenter.Apply(SettingsScreenPayload.Default, 15d);
             var beforeToggle = presenter.DisplayPresenter.ViewModel.ResolutionHoverHintText;
-
-            presenter.ToggleTooltips();
 
             Assert.That(beforeToggle, Is.EqualTo("Only automatically detected resolutions are shown."));
             Assert.That(

@@ -38,8 +38,6 @@ namespace Game.Feature.UI.Tests
             var view = harness.ScreenLayerView.FindScreenView<SettingsScreenView>();
             Assert.That(view, Is.Not.Null);
 
-            view.ClickTooltipToggle();
-            view.ClickLargeTextToggle();
             view.SetAudioMuted(AudioSettingsChannel.Sfx, true);
             view.CommitAudioInteraction(AudioSettingsChannel.Main);
             view.ClickDisplayTab();
@@ -50,8 +48,6 @@ namespace Game.Feature.UI.Tests
                 harness.UiAudioPort.PlayedCueIds,
                 Is.EqualTo(new[]
                 {
-                    UiAudioCueId.Toggle,
-                    UiAudioCueId.Toggle,
                     UiAudioCueId.Toggle,
                     UiAudioCueId.AdjustValueCommit,
                     UiAudioCueId.Select,

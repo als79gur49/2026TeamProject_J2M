@@ -135,21 +135,6 @@ namespace Game.Feature.UI.Screens
             UnbindAudioControls();
         }
 
-        private void ApplyLayout()
-        {
-            SettingsLayoutUtility.EnsureVerticalLayout(
-                gameObject,
-                new RectOffset(0, 0, 0, 0),
-                14f,
-                TextAnchor.UpperLeft);
-            LayoutAudioRow(AudioSettingsChannel.Main);
-            LayoutAudioRow(AudioSettingsChannel.Bgm);
-            LayoutAudioRow(AudioSettingsChannel.Sfx);
-            SetRowSiblingIndex(AudioSettingsChannel.Main, 0);
-            SetRowSiblingIndex(AudioSettingsChannel.Bgm, 1);
-            SetRowSiblingIndex(AudioSettingsChannel.Sfx, 2);
-        }
-
         private void BindAudioControl(AudioSettingsChannel channel)
         {
             if (!_audioControls.TryGetValue(channel, out var widgets) || widgets.RowRoot == null)
@@ -225,41 +210,6 @@ namespace Game.Feature.UI.Screens
             RefreshView();
         }
 
-        private void LayoutAudioRow(AudioSettingsChannel channel)
-        {
-            if (!_audioControls.TryGetValue(channel, out var widgets))
-            {
-                return;
-            }
-
-            SettingsLayoutUtility.MoveToParent(widgets.RowRoot, transform as RectTransform);
-            SettingsLayoutUtility.EnsureHorizontalLayout(
-                widgets.RowRoot.gameObject,
-                new RectOffset(0, 0, 0, 0),
-                10f,
-                TextAnchor.MiddleLeft);
-            SettingsLayoutUtility.EnsureLayoutElement(widgets.RowRoot, preferredHeight: 32f, flexibleWidth: 1f);
-            SettingsLayoutUtility.FillLayoutChild(widgets.RowRoot);
-
-            SettingsLayoutUtility.MoveToParent(widgets.Label != null ? widgets.Label.rectTransform : null, widgets.RowRoot);
-            SettingsLayoutUtility.MoveToParent(widgets.Slider, widgets.RowRoot);
-            SettingsLayoutUtility.MoveToParent(widgets.Value != null ? widgets.Value.rectTransform : null, widgets.RowRoot);
-            SettingsLayoutUtility.MoveToParent(widgets.Toggle, widgets.RowRoot);
-
-            SettingsLayoutUtility.EnsureLayoutElement(widgets.Label, preferredWidth: 120f, preferredHeight: 24f);
-            SettingsLayoutUtility.EnsureLayoutElement(widgets.Slider, preferredWidth: 180f, preferredHeight: 22f, flexibleWidth: 1f);
-            SettingsLayoutUtility.EnsureLayoutElement(widgets.Value, preferredWidth: 58f, preferredHeight: 24f);
-            SettingsLayoutUtility.EnsureLayoutElement(widgets.Toggle, preferredWidth: 58f, preferredHeight: 24f);
-        }
-
-        private void SetRowSiblingIndex(AudioSettingsChannel channel, int siblingIndex)
-        {
-            if (_audioControls.TryGetValue(channel, out var widgets) && widgets.RowRoot != null)
-            {
-                widgets.RowRoot.SetSiblingIndex(siblingIndex);
-            }
-        }
-
         private void RefreshAudioControl(AudioSettingsChannel channel, AudioSettingsRowViewModel rowViewModel)
         {
             if (!_audioControls.TryGetValue(channel, out var widgets))
@@ -292,7 +242,6 @@ namespace Game.Feature.UI.Screens
         {
             CacheAudioControls();
             RebindAudioControls();
-            ApplyLayout();
 
             if (_viewModel == null)
             {
