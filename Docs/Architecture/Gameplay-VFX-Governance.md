@@ -270,6 +270,43 @@ Default binding:
 
 Duplicate-prevention tests for this slice cover flag filtering, missing binding diagnostic/no-op, source profile precedence, host fallback, no authority/snapshot materialization, and checked presenter files not directly referencing `EnemyVfxCue.Damage`.
 
+## Box Exit VFX Migration
+
+The box exit migration slice moves `BoxVfxCue.DestroySmoke` and `BoxVfxCue.ItemConsume` from old entity-exit transient playback to the Gameplay VFX lane.
+
+Ownership:
+
+- source fact: `TickPresentationData.EntityExitSignals`.
+- destroy smoke trigger: `EntityType.Box` and `TickEntityExitCause.BoxDestroy`; the current enum alias `DestroyedByImpact = BoxDestroy` is treated as box destroy when it is not already owned by impact transient or flip impact destroy-self presentation.
+- item consume trigger: `EntityType.Box` and `TickEntityExitCause.ItemConsume`.
+- non-triggers: enemy death, non-box exits, item consume for destroy smoke, and box destroy for item consume.
+- anchor: `VfxAnchor.ForCell(signal.SourceCell, signal.Topology, VfxAnchorSlot.CellFloor)`.
+- lifecycle: transient one-shot request with no persistent key.
+
+Migration flags and bypass:
+
+- `GameplayVfxProductionRuntime.EnableGameplayVfxBoxDestroySmokeMigration` gates `BoxVfxCue.DestroySmoke` playback.
+- `GameplayVfxProductionRuntime.EnableGameplayVfxItemConsumeBurstMigration` gates `BoxVfxCue.ItemConsume` playback.
+- `IGameplayPresentationMigrationGate.SuppressLegacyBoxDestroySmokeEffects` and `SuppressLegacyItemConsumeEffects` suppress only old `GameplayExitPresentationController` entity exit VFX playback for the matching cause.
+- `GameplayExitPresentationController.ApplyEntityExitOwnership()` remains active; view visibility and state cleanup are not bypassed.
+- missing binding under either migration flag is diagnostic/no-op and must not fall back to old entity exit playback.
+
+Default bindings:
+
+- destroy smoke prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/BoxDestroySmokeVfx.prefab`
+- destroy smoke material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_BoxDestroySmoke_SoftGray.mat`
+- destroy smoke binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/BoxDestroySmoke_Binding.asset`
+- item consume prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/ItemConsumeBurstVfx.prefab`
+- item consume material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_ItemConsumeBurst_Gold.mat`
+- item consume binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/ItemConsumeBurst_Binding.asset`
+- host default map: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset`
+
+Excluded from this slice:
+
+- `EnemyDeathBurst` / enemy death clone motion migration.
+- flip impact migration and persistent VFX.
+- TileFeature, Terrain, UtilityWindup, and Shield VFX.
+
 ## Prefab-local Profile Owner Gate
 
 Prefab-local or presentation-local `VfxProfile` override requires request source identity. `GameplayVfxRequest.SourceEntityId` is the canonical source identity field for request-time profile lookup.
