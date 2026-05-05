@@ -45,6 +45,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("GameplayUtilityWindupVfxPresenter"));
             Assert.That(document, Does.Contain("BoxFlipInteractionDriver"));
             Assert.That(document, Does.Contain("FlipImpactTrack"));
+            Assert.That(document, Does.Contain("FlipImpact MotionTrack Anchor Gate"));
+            Assert.That(document, Does.Contain("FlipImpactContactVfxAnchor"));
+            Assert.That(document, Does.Contain("VfxAnchorKind.MotionTrack` remains unsupported"));
             Assert.That(document, Does.Contain("must not consume the same fact concurrently"));
             Assert.That(document, Does.Contain("GameplayVfxRequest` is a semantic request"));
             Assert.That(document, Does.Contain("does not own missing-anchor policy"));
