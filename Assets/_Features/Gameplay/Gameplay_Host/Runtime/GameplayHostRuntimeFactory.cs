@@ -51,6 +51,8 @@ namespace Game.Feature.Gameplay.Host
             var inputHost = hostObject.GetComponent<GameplayInputHost>() ?? hostObject.AddComponent<GameplayInputHost>();
             var presenter = hostObject.GetComponent<GameplayTickViewPresenter>() ?? hostObject.AddComponent<GameplayTickViewPresenter>();
             var viewRegistry = hostObject.GetComponent<GameplayEntityViewRegistry>() ?? hostObject.AddComponent<GameplayEntityViewRegistry>();
+            var tileFeatureVisualRegistry =
+                hostObject.GetComponent<TileFeatureVisualRegistry>() ?? hostObject.AddComponent<TileFeatureVisualRegistry>();
 
             var initialEntities = configuration.InitialEntities ?? Array.Empty<EntityState>();
             var initialTerrain = configuration.InitialTerrain ?? GameplayTerrainData.Empty;
@@ -106,6 +108,7 @@ namespace Game.Feature.Gameplay.Host
             var boardRoot = EnsureBoardRootHierarchy(hostTransform);
             var boardSurfaceRenderer = boardRoot.EnsureBoardSurfaceRenderer();
             viewRegistry.ConfigureSearchRoot(boardRoot.EntityRoot);
+            tileFeatureVisualRegistry.ConfigureSearchRoot(boardRoot.transform);
 
             var viewFactory = configuration.ViewFactory ??
                 (configuration.AutoCreateViews
@@ -133,6 +136,7 @@ namespace Game.Feature.Gameplay.Host
                 enemyPresentationArchetypeRegistry,
                 configuration.EnemyPresentationCatalog,
                 configuration.EnemyPresentationBindings);
+            presenter.AttachTileFeatureVisualRegistry(tileFeatureVisualRegistry);
             AttachPresentationExtensions(hostObject, presenter);
             AttachGameplayAudioRuntimeIfConfigured(hostObject, presenter, configuration);
 
@@ -199,6 +203,7 @@ namespace Game.Feature.Gameplay.Host
                 generalTimingProfile,
                 tickRunner,
                 viewRegistry,
+                tileFeatureVisualRegistry,
                 viewCameraTarget,
                 worldState,
                 configuration.ObjectiveRuntimeDefinition,

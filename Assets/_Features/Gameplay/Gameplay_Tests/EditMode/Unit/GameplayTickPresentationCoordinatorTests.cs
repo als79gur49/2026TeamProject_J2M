@@ -21,7 +21,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class GameplayTickPresentationCoordinatorTests
     {
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void CurrentTilePresentationRequests_DefaultsEmpty()
         {
             var coordinator = new GameplayTickPresentationCoordinator();
@@ -31,7 +31,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void GameplayTickViewPresenter_CurrentTilePresentationRequests_NoTileEvents_StaysEmpty()
         {
             var rootObject = new GameObject(nameof(GameplayTickViewPresenter_CurrentTilePresentationRequests_NoTileEvents_StaysEmpty));
@@ -175,6 +175,62 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var list = (IList<TilePresentationRequest>)presenter.CurrentTilePresentationRequests;
                 Assert.That(list.IsReadOnly, Is.True);
                 Assert.Throws<NotSupportedException>(() => list.Add(default));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_ButtonActivatedRequest_InvokesAttachedTileVisualTargetAndKeepsRequestCache()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_ButtonActivatedRequest_InvokesAttachedTileVisualTargetAndKeepsRequestCache));
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                var target = AttachTileVisualTarget(rootObject, presenter, 100, cell);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    Array.Empty<EntityState>(),
+                    topology,
+                    CreateTilePresentationData(CreateButtonActivatedTileEvent(100, cell))));
+
+                Assert.That(target.DebugPlayButtonActivatedCount, Is.EqualTo(1));
+                Assert.That(presenter.CurrentTilePresentationRequests, Has.Count.EqualTo(1));
+                Assert.That(presenter.CurrentTilePresentationRequests[0].TileId, Is.EqualTo(100));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_ButtonActivatedRequest_NextTickWithoutRequest_DoesNotInvokeAgain()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_ButtonActivatedRequest_NextTickWithoutRequest_DoesNotInvokeAgain));
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                var target = AttachTileVisualTarget(rootObject, presenter, 100, cell);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    Array.Empty<EntityState>(),
+                    topology,
+                    CreateTilePresentationData(CreateButtonActivatedTileEvent(100, cell))));
+                presenter.Present(CreateTickResult(2, Array.Empty<EntityState>(), topology, TickPresentationData.Empty));
+
+                Assert.That(target.DebugPlayButtonActivatedCount, Is.EqualTo(1));
+                Assert.That(presenter.CurrentTilePresentationRequests, Is.Empty);
             }
             finally
             {
@@ -4395,6 +4451,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateTimingProfile());
             presenter.PresentInitial(Array.Empty<EntityState>(), topology);
             return presenter;
+        }
+
+        private static TileFeatureVisualTargetView AttachTileVisualTarget(
+            GameObject rootObject,
+            GameplayTickViewPresenter presenter,
+            int tileId,
+            SurfaceCell cell)
+        {
+            var registry = rootObject.GetComponent<TileFeatureVisualRegistry>() ??
+                rootObject.AddComponent<TileFeatureVisualRegistry>();
+            var targetObject = new GameObject($"TileFeatureVisualTarget_{tileId}");
+            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+            target.Configure(tileId, cell);
+            registry.ConfigureSearchRoot(rootObject.transform);
+            presenter.AttachTileFeatureVisualRegistry(registry);
+            return target;
         }
 
         private static TickPresentationData CreateTilePresentationData(params TilePresentationEvent[] tileEvents)

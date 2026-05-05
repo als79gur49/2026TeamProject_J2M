@@ -1415,12 +1415,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     buildResult.ObjectiveRuntimeDefinition,
                     buildResult.TileFeatureDefinitions);
                 var presenter = CreateInitializedTileRequestPresenter(rootObject, buildResult, new[] { box });
+                var target = AttachTileVisualTarget(rootObject, presenter, 100, cell);
 
                 var result = pipeline.RunTick(new TickInput(7));
                 var hashBeforePresent = result.DeterminismHash;
                 presenter.Present(result);
 
                 Assert.That(result.DeterminismHash, Is.EqualTo(hashBeforePresent));
+                Assert.That(target.DebugPlayButtonActivatedCount, Is.EqualTo(1));
                 Assert.That(presenter.CurrentTilePresentationRequests, Has.Count.EqualTo(1));
                 var request = presenter.CurrentTilePresentationRequests[0];
                 Assert.That(request.RequestKind, Is.EqualTo(TilePresentationRequestKind.ButtonActivated));
@@ -1465,13 +1467,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     buildResult.ObjectiveRuntimeDefinition,
                     buildResult.TileFeatureDefinitions);
                 var presenter = CreateInitializedTileRequestPresenter(rootObject, buildResult, new[] { box });
+                var target = AttachTileVisualTarget(rootObject, presenter, 100, cell);
 
                 presenter.Present(pipeline.RunTick(new TickInput(7)));
                 Assert.That(presenter.CurrentTilePresentationRequests, Has.Count.EqualTo(1));
+                Assert.That(target.DebugPlayButtonActivatedCount, Is.EqualTo(1));
 
                 presenter.Present(pipeline.RunTick(new TickInput(8)));
 
                 Assert.That(presenter.CurrentTilePresentationRequests, Is.Empty);
+                Assert.That(target.DebugPlayButtonActivatedCount, Is.EqualTo(1));
             }
             finally
             {
@@ -1510,10 +1515,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     buildResult.ObjectiveRuntimeDefinition,
                     buildResult.TileFeatureDefinitions);
                 var presenter = CreateInitializedTileRequestPresenter(rootObject, buildResult, new[] { box });
+                var target = AttachTileVisualTarget(rootObject, presenter, 100, cell);
 
                 presenter.Present(pipeline.RunTick(new TickInput(7)));
 
                 Assert.That(presenter.CurrentTilePresentationRequests, Is.Empty);
+                Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
             }
             finally
             {
@@ -2169,6 +2176,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 GameplayTimingProfile.CreateDefault());
             presenter.PresentInitial(initialEntities, buildResult.InitialTopology);
             return presenter;
+        }
+
+        private static TileFeatureVisualTargetView AttachTileVisualTarget(
+            GameObject rootObject,
+            GameplayTickViewPresenter presenter,
+            int tileId,
+            SurfaceCell cell)
+        {
+            var registry = rootObject.GetComponent<TileFeatureVisualRegistry>() ??
+                rootObject.AddComponent<TileFeatureVisualRegistry>();
+            var targetObject = new GameObject($"TileFeatureVisualTarget_{tileId}");
+            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+            target.Configure(tileId, cell);
+            registry.ConfigureSearchRoot(rootObject.transform);
+            presenter.AttachTileFeatureVisualRegistry(registry);
+            return target;
         }
 
         private static StageZoneDefinition CreateZone(

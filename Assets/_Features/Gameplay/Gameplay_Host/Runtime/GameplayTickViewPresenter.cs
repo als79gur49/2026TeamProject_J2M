@@ -114,6 +114,11 @@ namespace Game.Feature.Gameplay.Host
             _presentationCoordinator.AttachGameplayAudioRuntime(playbackPort, gameplayAudioMap);
         }
 
+        public void AttachTileFeatureVisualRegistry(ITileFeatureVisualRegistry registry)
+        {
+            _presentationCoordinator.AttachTileFeatureVisualRegistry(registry);
+        }
+
         public void AttachPresentationExtension(IGameplayTickPresentationExtension extension)
         {
             _presentationCoordinator.AttachPresentationExtension(extension);
@@ -132,6 +137,11 @@ namespace Game.Feature.Gameplay.Host
         internal void SetPresentationTraceSink(System.Action<string> traceSink)
         {
             _presentationCoordinator.SetTraceSink(traceSink);
+        }
+
+        internal void SetTileFeatureVisualDiagnosticSink(System.Action<string> diagnosticSink)
+        {
+            _presentationCoordinator.SetTileFeatureVisualDiagnosticSink(diagnosticSink);
         }
 
         internal int PendingGameplayAudioRequestCount => _presentationCoordinator.PendingGameplayAudioRequestCount;

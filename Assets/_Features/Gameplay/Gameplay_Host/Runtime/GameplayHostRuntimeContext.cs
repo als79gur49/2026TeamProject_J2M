@@ -18,6 +18,7 @@ namespace Game.Feature.Gameplay.Host
             GameplayTimingProfile timingProfile,
             TickRunner tickRunner,
             GameplayEntityViewRegistry viewRegistry,
+            TileFeatureVisualRegistry tileFeatureVisualRegistry,
             Transform viewCameraTarget,
             WorldState worldState,
             StageObjectiveRuntimeDefinition objectiveDefinition,
@@ -36,6 +37,7 @@ namespace Game.Feature.Gameplay.Host
             PlayerRespawnDelayTicks = playerRespawnDelayTicks;
             TickRunner = tickRunner;
             ViewRegistry = viewRegistry;
+            TileFeatureVisualRegistry = tileFeatureVisualRegistry;
             ViewCameraTarget = viewCameraTarget;
             WorldState = worldState;
             ObjectiveDefinition = objectiveDefinition ?? StageObjectiveRuntimeDefinition.Disabled;
@@ -70,6 +72,8 @@ namespace Game.Feature.Gameplay.Host
         public Transform ViewCameraTarget { get; }
 
         public GameplayEntityViewRegistry ViewRegistry { get; }
+
+        public TileFeatureVisualRegistry TileFeatureVisualRegistry { get; }
 
         public WorldState WorldState { get; }
 

@@ -36,6 +36,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplayTransientEffectPresenter _transientEffectPresenter = new();
         private readonly GameplayFrontFaceShieldVfxPresenter _frontFaceShieldVfxPresenter = new();
         private readonly GameplayUtilityWindupVfxPresenter _utilityWindupVfxPresenter = new();
+        private readonly TileFeatureVisualPresentationController _tileFeatureVisualPresentationController = new();
         private readonly GameplayMotionTimingResolver _motionTimingResolver;
         private readonly GameplayPoseResolver _poseResolver;
         private readonly List<IGameplayTickPresentationExtension> _presentationExtensions = new();
@@ -231,6 +232,7 @@ namespace Game.Feature.Gameplay.Host
             _audioPresentationController.ReplacePendingPlan(_audioRequestPlanner.BuildRequests(result));
             _actionAudioPresentationController.ReplacePendingPlan(_actionAudioRequestPlanner.BuildRequests(result));
             RefreshTilePresentationRequests(result.PresentationData);
+            _tileFeatureVisualPresentationController.PlayButtonActivatedRequests(_currentTilePresentationRequests);
             _summonedEnemyPresentationResolver.Reconcile(result);
             _committedFrameBuilder.StoreCommittedFrame(
                 result.FinalEntities,
@@ -363,6 +365,11 @@ namespace Game.Feature.Gameplay.Host
             _actionAudioPresentationController.AttachRuntime(playbackPort);
         }
 
+        internal void AttachTileFeatureVisualRegistry(ITileFeatureVisualRegistry registry)
+        {
+            _tileFeatureVisualPresentationController.AttachRegistry(registry);
+        }
+
         internal void DetachGameplayAudioRuntime()
         {
             _actionAudioPresentationController.DetachRuntime();
@@ -383,6 +390,11 @@ namespace Game.Feature.Gameplay.Host
         internal void SetTraceSink(Action<string> traceSink)
         {
             _traceSink = traceSink;
+        }
+
+        internal void SetTileFeatureVisualDiagnosticSink(Action<string> diagnosticSink)
+        {
+            _tileFeatureVisualPresentationController.SetDiagnosticSink(diagnosticSink);
         }
 
         private void RefreshTilePresentationRequests(TickPresentationData presentationData)

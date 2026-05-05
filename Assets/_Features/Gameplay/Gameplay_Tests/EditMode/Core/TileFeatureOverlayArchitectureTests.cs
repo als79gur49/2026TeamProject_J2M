@@ -17,6 +17,13 @@ namespace Game.Feature.Gameplay.Tests.Core
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs";
         private const string GameplayLoopRuntimePath =
             "Assets/_Features/Gameplay/Gameplay_Loop/Runtime";
+        private static readonly string[] TileFeatureVisualRuntimePaths =
+        {
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/ITileFeatureVisualRegistry.cs",
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/TileFeatureVisualRegistry.cs",
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/TileFeatureVisualTargetView.cs",
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/TileFeatureVisualPresentationController.cs",
+        };
         private static readonly string[] ForbiddenTerrainFlagTokens =
         {
             "Trap",
@@ -174,6 +181,67 @@ namespace Game.Feature.Gameplay.Tests.Core
                 var source = File.ReadAllText(pipelineFiles[i]);
                 Assert.That(source, Does.Not.Contain("TilePresentationRequestPlanner"), pipelineFiles[i]);
                 Assert.That(source, Does.Not.Contain("TilePresentationRequest"), pipelineFiles[i]);
+                Assert.That(source, Does.Not.Contain("TileFeatureVisual"), pipelineFiles[i]);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileFeatureVisualConsumerPath_DoesNotReferenceAuthorityOrPlaybackSurfaces()
+        {
+            var forbiddenTokens = new[]
+            {
+                "WorldState",
+                "WorldSnapshot",
+                "CreateSnapshot",
+                "ProjectedWorld",
+                "FinalizationBatch",
+                "TickPipeline",
+                "DeterminismHashBuilder",
+                "TileEffectResolver",
+                "TickPresentationData",
+                "TileEvents",
+                "GameplayAudio",
+                "AudioMap",
+                "ObjectiveStatusScreen",
+                "Hud",
+            };
+
+            for (var pathIndex = 0; pathIndex < TileFeatureVisualRuntimePaths.Length; pathIndex++)
+            {
+                var source = File.ReadAllText(GetAbsolutePath(TileFeatureVisualRuntimePaths[pathIndex]));
+                for (var tokenIndex = 0; tokenIndex < forbiddenTokens.Length; tokenIndex++)
+                {
+                    Assert.That(
+                        source,
+                        Does.Not.Contain(forbiddenTokens[tokenIndex]),
+                        $"{TileFeatureVisualRuntimePaths[pathIndex]} must not reference '{forbiddenTokens[tokenIndex]}'.");
+                }
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileFeatureVisualTarget_DoesNotExposeGameplayMutationMethods()
+        {
+            var source = File.ReadAllText(GetAbsolutePath(
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/TileFeatureVisualTargetView.cs"));
+            var forbiddenTokens = new[]
+            {
+                "AddTileFeature",
+                "UpdateTileFeature",
+                "RemoveTileFeature",
+                "ApplyTo",
+                "IWorldWriteContext",
+                "IWorldStateMutationPort",
+            };
+
+            for (var i = 0; i < forbiddenTokens.Length; i++)
+            {
+                Assert.That(
+                    source,
+                    Does.Not.Contain(forbiddenTokens[i]),
+                    $"Tile feature visual target must not expose gameplay mutation token '{forbiddenTokens[i]}'.");
             }
         }
 
