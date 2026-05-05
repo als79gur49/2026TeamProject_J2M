@@ -729,34 +729,94 @@ namespace Game.Feature.Gameplay.BoardState
             }
         }
 
-        private void AddTileFeature(TileFeatureState tileFeature)
+        public void AddTileFeature(TileFeatureState state)
         {
-            if (tileFeature.TileId <= 0)
+            ValidateTileFeatureState(state);
+
+            if (_tileFeaturesById.ContainsKey(state.TileId))
             {
                 throw new InvalidOperationException(
-                    $"TileFeature id {tileFeature.TileId} must be positive.");
+                    $"Duplicate TileFeature id {state.TileId} detected while adding tile feature.");
             }
 
-            if (_tileFeaturesById.ContainsKey(tileFeature.TileId))
+            _tileFeaturesById.Add(state.TileId, state);
+            AddTileFeatureCellIndex(state.TileId, state.Cell);
+        }
+
+        public void UpdateTileFeature(TileFeatureState state)
+        {
+            ValidateTileFeatureState(state);
+
+            if (!_tileFeaturesById.TryGetValue(state.TileId, out var previous))
             {
                 throw new InvalidOperationException(
-                    $"Duplicate TileFeature id {tileFeature.TileId} detected while adding tile feature.");
+                    $"Cannot update missing TileFeature id {state.TileId}.");
             }
 
-            if (_boardBounds.IsBounded && !_boardBounds.Contains(tileFeature.Cell.PlanarPosition))
+            _tileFeaturesById[state.TileId] = state;
+            if (!previous.Cell.Equals(state.Cell))
+            {
+                RemoveTileFeatureCellIndex(state.TileId, previous.Cell);
+                AddTileFeatureCellIndex(state.TileId, state.Cell);
+            }
+        }
+
+        public void RemoveTileFeature(int tileId)
+        {
+            if (tileId <= 0)
             {
                 throw new InvalidOperationException(
-                    $"TileFeature {tileFeature.TileId} at {tileFeature.Cell} is outside the configured board bounds.");
+                    $"TileFeature id {tileId} must be positive.");
             }
 
-            _tileFeaturesById.Add(tileFeature.TileId, tileFeature);
-            if (!_tileFeatureIdsByCell.TryGetValue(tileFeature.Cell, out var tileIds))
+            if (!_tileFeaturesById.TryGetValue(tileId, out var previous))
+            {
+                throw new InvalidOperationException(
+                    $"Cannot remove missing TileFeature id {tileId}.");
+            }
+
+            _tileFeaturesById.Remove(tileId);
+            RemoveTileFeatureCellIndex(tileId, previous.Cell);
+        }
+
+        private void ValidateTileFeatureState(TileFeatureState state)
+        {
+            if (state.TileId <= 0)
+            {
+                throw new InvalidOperationException(
+                    $"TileFeature id {state.TileId} must be positive.");
+            }
+
+            if (_boardBounds.IsBounded && !_boardBounds.Contains(state.Cell.PlanarPosition))
+            {
+                throw new InvalidOperationException(
+                    $"TileFeature {state.TileId} at {state.Cell} is outside the configured board bounds.");
+            }
+        }
+
+        private void AddTileFeatureCellIndex(int tileId, SurfaceCell cell)
+        {
+            if (!_tileFeatureIdsByCell.TryGetValue(cell, out var tileIds))
             {
                 tileIds = new SortedSet<int>();
-                _tileFeatureIdsByCell.Add(tileFeature.Cell, tileIds);
+                _tileFeatureIdsByCell.Add(cell, tileIds);
             }
 
-            tileIds.Add(tileFeature.TileId);
+            tileIds.Add(tileId);
+        }
+
+        private void RemoveTileFeatureCellIndex(int tileId, SurfaceCell cell)
+        {
+            if (!_tileFeatureIdsByCell.TryGetValue(cell, out var tileIds))
+            {
+                return;
+            }
+
+            tileIds.Remove(tileId);
+            if (tileIds.Count == 0)
+            {
+                _tileFeatureIdsByCell.Remove(cell);
+            }
         }
 
         private void UpdateStoredEntity(EntityState entity)
@@ -1189,6 +1249,21 @@ namespace Game.Feature.Gameplay.BoardState
         void IWorldStateMutationPort.SetTopology(CubeTopologyState topology)
         {
             SetTopology(topology);
+        }
+
+        void IWorldStateMutationPort.AddTileFeature(TileFeatureState state)
+        {
+            AddTileFeature(state);
+        }
+
+        void IWorldStateMutationPort.UpdateTileFeature(TileFeatureState state)
+        {
+            UpdateTileFeature(state);
+        }
+
+        void IWorldStateMutationPort.RemoveTileFeature(int tileId)
+        {
+            RemoveTileFeature(tileId);
         }
     }
 }

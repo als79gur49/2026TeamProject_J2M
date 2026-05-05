@@ -131,18 +131,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void TickPipeline_TileEffectLazySeam_DoesNotCreatePostTileEffectSnapshotOrApplyTileOperations()
+        public void TickPipeline_TileEffectLazySeam_DoesNotCreatePostTileEffectSnapshotOrFailFast()
         {
             var source = System.IO.File.ReadAllText(
                 "Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs");
 
             Assert.That(source, Does.Not.Contain("postTileEffectSnapshot"));
-            Assert.That(source, Does.Not.Contain("ApplyTileFeatureOperations("));
+            Assert.That(source, Does.Not.Contain("TileEffect operations are not enabled yet"));
         }
 
         [Test]
         [Category("Core")]
-        public void TickPipeline_NonEmptyTileEffectOperations_RejectsBeforeAttackMutation()
+        public void TickPipeline_NonEmptyTileEffectOperations_ProjectAndApplyBeforeFinalAttackInput()
         {
             var tileFeature = CreateTileFeature(10);
             var replacement = new TileFeatureState(
@@ -170,15 +170,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 resolver,
                 new IEntityLogic[] { attackLogic });
 
-            var exception = Assert.Throws<InvalidOperationException>(() => pipeline.RunTick(new TickInput(7)));
+            pipeline.RunTick(new TickInput(7));
 
-            StringAssert.Contains("TileEffect operations are not enabled yet", exception.Message);
-            Assert.That(attackLogic.CollectCount, Is.EqualTo(1));
+            Assert.That(attackLogic.CollectCount, Is.EqualTo(2));
+            Assert.That(attackLogic.CapturedSnapshots[1].TryGetTileFeature(tileFeature.TileId, out var attackReadFeature), Is.True);
+            Assert.That(attackReadFeature, Is.EqualTo(replacement));
             var snapshot = worldState.CreateSnapshot();
             Assert.That(snapshot.TryGetTileFeature(tileFeature.TileId, out var stored), Is.True);
-            Assert.That(stored, Is.EqualTo(tileFeature));
-            Assert.That(snapshot.TryGetEntity(20, out var storedTarget), Is.True);
-            Assert.That(storedTarget.hp, Is.EqualTo(target.hp));
+            Assert.That(stored, Is.EqualTo(replacement));
         }
 
         private static TickPipeline CreatePipeline(

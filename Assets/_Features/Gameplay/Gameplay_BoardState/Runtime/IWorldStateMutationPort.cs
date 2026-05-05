@@ -35,5 +35,8 @@ namespace Game.Feature.Gameplay.BoardState
         void SetPlayerControlState(int entityId, PlayerControlState state);
         void SetPlayerDamageState(int entityId, PlayerDamageState state);
         void SetTopology(CubeTopologyState topology);
+        void AddTileFeature(TileFeatureState state);
+        void UpdateTileFeature(TileFeatureState state);
+        void RemoveTileFeature(int tileId);
     }
 }

@@ -39,6 +39,86 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void WorldState_AddTileFeature_AppearsInSnapshot()
+        {
+            var worldState = CreateWorldState(Array.Empty<EntityState>(), Array.Empty<TileFeatureState>());
+            var added = CreateTileFeature(10, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Button);
+
+            worldState.AddTileFeature(added);
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetTileFeature(10, out var stored), Is.True);
+            Assert.That(stored, Is.EqualTo(added));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void WorldState_UpdateTileFeature_ReplacesStateAndCellIndex()
+        {
+            var oldCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var newCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var original = CreateTileFeature(10, oldCell, TileFeatureKind.Button, charges: 1);
+            var updated = CreateTileFeature(10, newCell, TileFeatureKind.Button, charges: 2);
+            var worldState = CreateWorldState(Array.Empty<EntityState>(), new[] { original });
+            var tileFeatures = new List<TileFeatureState>();
+
+            worldState.UpdateTileFeature(updated);
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetTileFeature(10, out var stored), Is.True);
+            Assert.That(stored, Is.EqualTo(updated));
+            snapshot.EnumerateTileFeaturesAt(oldCell, tileFeatures);
+            Assert.That(tileFeatures, Is.Empty);
+            snapshot.EnumerateTileFeaturesAt(newCell, tileFeatures);
+            CollectionAssert.AreEqual(new[] { 10 }, tileFeatures.Select(feature => feature.TileId).ToArray());
+        }
+
+        [Test]
+        [Category("Core")]
+        public void WorldState_RemoveTileFeature_ClearsIdAndCellIndex()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var worldState = CreateWorldState(
+                Array.Empty<EntityState>(),
+                new[] { CreateTileFeature(10, cell, TileFeatureKind.Button) });
+            var tileFeatures = new List<TileFeatureState>();
+
+            worldState.RemoveTileFeature(10);
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetTileFeature(10, out _), Is.False);
+            snapshot.EnumerateTileFeaturesAt(cell, tileFeatures);
+            Assert.That(tileFeatures, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void WorldState_TileFeatureMutationRejectsInvalidWrites()
+        {
+            var worldState = CreateWorldState(
+                Array.Empty<EntityState>(),
+                new[] { CreateTileFeature(10, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Button) });
+
+            var duplicateAdd = Assert.Throws<InvalidOperationException>(
+                () => worldState.AddTileFeature(CreateTileFeature(10, new SurfaceCell(FaceId.Floor, 2, 1), TileFeatureKind.Exit)));
+            var missingUpdate = Assert.Throws<InvalidOperationException>(
+                () => worldState.UpdateTileFeature(CreateTileFeature(20, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Button)));
+            var missingRemove = Assert.Throws<InvalidOperationException>(
+                () => worldState.RemoveTileFeature(20));
+            var nonPositive = Assert.Throws<InvalidOperationException>(
+                () => worldState.RemoveTileFeature(0));
+            var outOfBounds = Assert.Throws<InvalidOperationException>(
+                () => worldState.AddTileFeature(CreateTileFeature(30, new SurfaceCell(FaceId.Floor, 5, 1), TileFeatureKind.Button)));
+
+            StringAssert.Contains("Duplicate TileFeature id 10", duplicateAdd.Message);
+            StringAssert.Contains("Cannot update missing TileFeature id 20", missingUpdate.Message);
+            StringAssert.Contains("Cannot remove missing TileFeature id 20", missingRemove.Message);
+            StringAssert.Contains("must be positive", nonPositive.Message);
+            StringAssert.Contains("outside the configured board bounds", outOfBounds.Message);
+        }
+
+        [Test]
+        [Category("Core")]
         public void WorldSnapshot_EnumerateTileFeaturesAt_OrdersByTileId()
         {
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);

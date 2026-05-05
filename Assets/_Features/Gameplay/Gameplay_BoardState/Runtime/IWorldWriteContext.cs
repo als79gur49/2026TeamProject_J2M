@@ -125,5 +125,11 @@ namespace Game.Feature.Gameplay.BoardState
         void SetUnitContinuousLocomotionState(int entityId, UnitContinuousLocomotionState state);
 
         new void RemoveBoxInteractionLockState(int entityId);
+
+        void AddTileFeature(TileFeatureState state);
+
+        void UpdateTileFeature(TileFeatureState state);
+
+        void RemoveTileFeature(int tileId);
     }
 }

@@ -41,8 +41,15 @@ namespace Game.Feature.Gameplay.Loop
         public void ApplyBatch(FinalizationBatch batch)
         {
             var resolvedBatch = batch ?? throw new ArgumentNullException(nameof(batch));
-            SnapshotMaterializationDiagnostics.RecordProjectedWorldApplyBatch(resolvedBatch.Operations.Count == 0);
-            _overlayBatch.MergeFrom(resolvedBatch);
+            SnapshotMaterializationDiagnostics.RecordProjectedWorldApplyBatch(
+                resolvedBatch.Operations.Count == 0 &&
+                resolvedBatch.TileFeatureOperations.Count == 0);
+            if (resolvedBatch.TileFeatureOperations.Count > 0)
+            {
+                ApplyTileFeatureOperations(new TileFeatureOperationBatch(resolvedBatch.TileFeatureOperations));
+            }
+
+            _overlayBatch.MergeFrom(resolvedBatch, includeTileFeatureOperations: false);
             _isDirty = true;
         }
 

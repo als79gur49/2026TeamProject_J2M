@@ -998,8 +998,9 @@ namespace Game.Feature.Gameplay.Loop
                     _tileFeatureDefinitions));
             if (!tileEffectResult.IsEmpty)
             {
-                throw new InvalidOperationException(
-                    "TileEffect operations are not enabled yet. The TileEffect lazy seam only permits empty operation results.");
+                finalizationBatch.ApplyTileFeatureOperations(tileEffectResult.Operations);
+                projectedWorld.ApplyTileFeatureOperations(tileEffectResult.Operations);
+                attackReadSnapshot = projectedWorld.CreateSnapshot();
             }
 
             attackSnapshot = attackReadSnapshot;

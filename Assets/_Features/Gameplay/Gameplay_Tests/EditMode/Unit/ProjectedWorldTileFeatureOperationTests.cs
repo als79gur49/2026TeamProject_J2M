@@ -309,6 +309,55 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(counts.ProjectedWorldEmptyApplyBatchCount, Is.EqualTo(0));
         }
 
+        [Test]
+        [Category("Core")]
+        public void FinalizationBatch_TileFeatureOperations_MatchProjectedWorldResult()
+        {
+            var initialTileFeatures = new[]
+            {
+                CreateTileFeature(10, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Button, charges: 1),
+                CreateTileFeature(20, new SurfaceCell(FaceId.Floor, 2, 1), TileFeatureKind.Destroy),
+            };
+            var operations = new[]
+            {
+                TileFeatureOperation.Update(
+                    CreateTileFeature(10, new SurfaceCell(FaceId.Floor, 1, 2), TileFeatureKind.Button, charges: 2)),
+                TileFeatureOperation.Remove(20),
+                TileFeatureOperation.Add(
+                    CreateTileFeature(30, new SurfaceCell(FaceId.Floor, 0, 0), TileFeatureKind.Slide)),
+            };
+            var baseWorld = CreateWorldState(Array.Empty<EntityState>(), initialTileFeatures);
+            var projectedWorld = new ProjectedWorld(baseWorld.CreateSnapshot());
+            projectedWorld.ApplyTileFeatureOperations(CreateBatch(operations));
+            var projectedSnapshot = projectedWorld.CreateSnapshot();
+            var authoritativeWorld = CreateWorldState(Array.Empty<EntityState>(), initialTileFeatures);
+            var batch = new FinalizationBatch();
+            batch.ApplyTileFeatureOperations(CreateBatch(operations));
+
+            batch.ApplyTo(authoritativeWorld.CreateWriteContext(), delayedAttackEffectSink: null);
+            var authoritativeSnapshot = authoritativeWorld.CreateSnapshot();
+
+            CollectionAssert.AreEqual(
+                EnumerateTileFeatures(projectedSnapshot),
+                EnumerateTileFeatures(authoritativeSnapshot));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void FinalizationBatch_EmptyTileFeatureOperationBatch_DoesNotChangeWorldState()
+        {
+            var tileFeature = CreateTileFeature(10, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Button);
+            var worldState = CreateWorldState(Array.Empty<EntityState>(), new[] { tileFeature });
+            var batch = new FinalizationBatch();
+
+            batch.ApplyTileFeatureOperations(new TileFeatureOperationBatch());
+            batch.ApplyTo(worldState.CreateWriteContext(), delayedAttackEffectSink: null);
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(batch.TileFeatureOperations, Is.Empty);
+            CollectionAssert.AreEqual(new[] { tileFeature }, EnumerateTileFeatures(snapshot));
+        }
+
         private static WorldSnapshot ProjectTileFeatures(
             WorldSnapshot baseSnapshot,
             params TileFeatureOperation[] operations)
@@ -321,6 +370,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static TileFeatureOperationBatch CreateBatch(params TileFeatureOperation[] operations)
         {
             return new TileFeatureOperationBatch(operations);
+        }
+
+        private static TileFeatureState[] EnumerateTileFeatures(WorldSnapshot snapshot)
+        {
+            var tileFeatures = new List<TileFeatureState>();
+            snapshot.EnumerateTileFeaturesOrdered(tileFeatures);
+            return tileFeatures.ToArray();
         }
 
         private static WorldSnapshot CreateSnapshot(IEnumerable<TileFeatureState> initialTileFeatures)
