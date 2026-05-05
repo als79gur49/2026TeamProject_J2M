@@ -2089,6 +2089,71 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void Flip_LethalImpact_CooldownJumpTarget_DoesNotThrowTickTrace()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1),
+                CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip),
+                CreateUnit(entityId: 20, position: new Vector2Int(1, 0), hp: 1, teamId: 2),
+            });
+            worldState.CreateWriteContext().SetEnemyJumpState(
+                20,
+                CreateEnemyJumpState(EnemyJumpPhase.Cooldown, sequence: 41));
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    CreateImmediateFlipPlayerLogic(10),
+                });
+            TickResult result = null;
+
+            Assert.DoesNotThrow(() => result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left))));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(new[] { 20 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
+            Assert.That(result.Trace.Text, Does.Contain("E=20|"));
+            Assert.That(
+                result.Trace.Text,
+                Does.Contain("Presence=Detached|SpatialKind=Anchored|SpatialOccClaim=0|SpatialGameplayVisible=0|SpatialSource=DetachedNonAirborne"));
+            Assert.That(snapshotAfter.TryGetEntity(20, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Flip_NonLethalImpact_CooldownJumpTarget_RemainsOccupyingCooldown()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1),
+                CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip),
+                CreateUnit(entityId: 20, position: new Vector2Int(1, 0), hp: 3, teamId: 2),
+            });
+            worldState.CreateWriteContext().SetEnemyJumpState(
+                20,
+                CreateEnemyJumpState(EnemyJumpPhase.Cooldown, sequence: 43));
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    CreateImmediateFlipPlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            Assert.That(snapshotAfter.TryGetEntity(20, out var target), Is.True);
+            Assert.That(target.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(target.hp, Is.EqualTo(2));
+            Assert.That(snapshotAfter.TryGetEnemyJumpState(20, out var jumpState), Is.True);
+            Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Cooldown));
+            Assert.That(jumpState.sequence, Is.EqualTo(43));
+            Assert.That(result.Trace.Text, Does.Contain("E=20|"));
+            Assert.That(result.Trace.Text, Does.Contain("Presence=Occupying|SpatialKind=Anchored"));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Flip_LethalImpact_LandingDenied_CurrentContract_StaysAtSource()
         {
             var worldState = CreateWorldState(new[]
@@ -4452,6 +4517,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 teamId = 0,
                 type = EntityType.None,
                 facing = Direction.None,
+            };
+        }
+
+        private static EnemyJumpRuntimeState CreateEnemyJumpState(EnemyJumpPhase phase, int sequence)
+        {
+            return new EnemyJumpRuntimeState
+            {
+                phase = phase,
+                sequence = sequence,
+                sourceCell = new SurfaceCell(FaceId.Floor, 0, 0),
+                lockedTargetCell = new SurfaceCell(FaceId.Floor, 1, 0),
+                windupEndTick = 2,
+                landingTick = 3,
+                cooldownRemainingTicks = phase == EnemyJumpPhase.Cooldown ? 2 : 0,
             };
         }
 

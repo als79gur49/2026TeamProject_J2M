@@ -306,6 +306,7 @@ namespace Game.Feature.Gameplay.BoardState
                 ClearChargeState(entityId);
                 _phasedStatesByEntityId.Remove(entityId);
                 _enemyGlideStatesByEntityId.Remove(entityId);
+                ClearNonAirborneEnemyJumpStateForNonOccupyingEntity(entityId);
             }
 
             if (boardPresence == EntityBoardPresence.Occupying)
@@ -315,6 +316,17 @@ namespace Game.Feature.Gameplay.BoardState
 
             UpdateStoredEntity(entity);
             SetOccupancyForEntity(entity);
+        }
+
+        private void ClearNonAirborneEnemyJumpStateForNonOccupyingEntity(int entityId)
+        {
+            if (!_enemyJumpStatesByEntityId.TryGetValue(entityId, out var jumpState) ||
+                jumpState.phase == EnemyJumpPhase.Airborne)
+            {
+                return;
+            }
+
+            _enemyJumpStatesByEntityId[entityId] = EnemyJumpQueries.Clear(jumpState);
         }
 
         private void SetTopology(CubeTopologyState topology)

@@ -164,6 +164,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void Resolve_DetachedCooldown_ThrowsInvalidSourceCombination()
+        {
+            Assert.Throws<InvalidOperationException>(
+                () => SpatialStateResolver.Resolve(
+                    EntityBoardPresence.Detached,
+                    new EnemyJumpRuntimeState { phase = EnemyJumpPhase.Cooldown },
+                    isFaceActive: true));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Resolve_OccupyingAirborne_ThrowsInvalidSourceCombination()
         {
             Assert.Throws<InvalidOperationException>(
@@ -293,6 +304,149 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(finalSnapshot.TryGetResolvedSpatialState(entity.entityId, out var spatialState), Is.True);
             Assert.That(spatialState.Kind, Is.EqualTo(SpatialState.Anchored));
             Assert.That(spatialState.ClaimsAuthoritativeOccupancy, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WorldState_SetBoardPresenceDetached_ClearsCooldownJumpState()
+        {
+            var entity = CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), teamId: 1, boardPresence: EntityBoardPresence.Occupying);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { entity });
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetEnemyJumpState(entity.entityId, CreateJumpState(EnemyJumpPhase.Cooldown, sequence: 7));
+
+            writeContext.SetBoardPresence(entity.entityId, EntityBoardPresence.Detached);
+            var finalSnapshot = worldState.CreateSnapshot();
+
+            Assert.That(finalSnapshot.TryGetEnemyJumpState(entity.entityId, out var jumpState), Is.True);
+            Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.None));
+            Assert.That(jumpState.sequence, Is.EqualTo(7));
+            Assert.That(finalSnapshot.TryGetResolvedSpatialState(entity.entityId, out var spatialState), Is.True);
+            Assert.That(spatialState.Kind, Is.EqualTo(SpatialState.Anchored));
+            Assert.That(spatialState.Source, Is.EqualTo(ResolvedSpatialStateSource.DetachedNonAirborne));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WorldState_SetBoardPresenceDetached_ClearsWindupJumpState()
+        {
+            var entity = CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), teamId: 1, boardPresence: EntityBoardPresence.Occupying);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { entity });
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetEnemyJumpState(entity.entityId, CreateJumpState(EnemyJumpPhase.Windup, sequence: 11));
+
+            writeContext.SetBoardPresence(entity.entityId, EntityBoardPresence.Detached);
+            var finalSnapshot = worldState.CreateSnapshot();
+
+            Assert.That(finalSnapshot.TryGetEnemyJumpState(entity.entityId, out var jumpState), Is.True);
+            Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.None));
+            Assert.That(jumpState.sequence, Is.EqualTo(11));
+            Assert.That(finalSnapshot.TryGetResolvedSpatialState(entity.entityId, out var spatialState), Is.True);
+            Assert.That(spatialState.Kind, Is.EqualTo(SpatialState.Anchored));
+            Assert.That(spatialState.Source, Is.EqualTo(ResolvedSpatialStateSource.DetachedNonAirborne));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WorldState_SetBoardPresenceDetached_PreservesAirborneJumpState()
+        {
+            var entity = CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), teamId: 1, boardPresence: EntityBoardPresence.Occupying);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { entity });
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetEnemyJumpState(entity.entityId, CreateJumpState(EnemyJumpPhase.Airborne, sequence: 13));
+
+            writeContext.SetBoardPresence(entity.entityId, EntityBoardPresence.Detached);
+            var finalSnapshot = worldState.CreateSnapshot();
+
+            Assert.That(finalSnapshot.TryGetEnemyJumpState(entity.entityId, out var jumpState), Is.True);
+            Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Airborne));
+            Assert.That(jumpState.sequence, Is.EqualTo(13));
+            Assert.That(finalSnapshot.TryGetResolvedSpatialState(entity.entityId, out var spatialState), Is.True);
+            Assert.That(spatialState.Kind, Is.EqualTo(SpatialState.Airborne));
+            Assert.That(spatialState.Source, Is.EqualTo(ResolvedSpatialStateSource.JumpAirborne));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WorldState_SetBoardPresenceOccupying_DoesNotClearCooldownJumpState()
+        {
+            var entity = CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), teamId: 1, boardPresence: EntityBoardPresence.Occupying);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { entity });
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetEnemyJumpState(entity.entityId, CreateJumpState(EnemyJumpPhase.Cooldown, sequence: 17));
+
+            writeContext.SetBoardPresence(entity.entityId, EntityBoardPresence.Occupying);
+            var finalSnapshot = worldState.CreateSnapshot();
+
+            Assert.That(finalSnapshot.TryGetEnemyJumpState(entity.entityId, out var jumpState), Is.True);
+            Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Cooldown));
+            Assert.That(jumpState.sequence, Is.EqualTo(17));
+            Assert.That(finalSnapshot.TryGetResolvedSpatialState(entity.entityId, out var spatialState), Is.True);
+            Assert.That(spatialState.Kind, Is.EqualTo(SpatialState.Anchored));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void FinalizationBatch_SetBoardPresenceDetached_ClearsCooldownJumpState()
+        {
+            var entity = CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), teamId: 1, boardPresence: EntityBoardPresence.Occupying);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { entity });
+            worldState.CreateWriteContext().SetEnemyJumpState(entity.entityId, CreateJumpState(EnemyJumpPhase.Cooldown, sequence: 19));
+            var batch = new FinalizationBatch();
+            batch.SetBoardPresence(entity.entityId, EntityBoardPresence.Detached);
+
+            batch.ApplyTo(worldState.CreateWriteContext(), delayedAttackEffectSink: null);
+            var finalSnapshot = worldState.CreateSnapshot();
+
+            Assert.That(finalSnapshot.TryGetEnemyJumpState(entity.entityId, out var jumpState), Is.True);
+            Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.None));
+            Assert.That(jumpState.sequence, Is.EqualTo(19));
+            Assert.That(finalSnapshot.TryGetResolvedSpatialState(entity.entityId, out var spatialState), Is.True);
+            Assert.That(spatialState.Source, Is.EqualTo(ResolvedSpatialStateSource.DetachedNonAirborne));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProjectedWorld_SetBoardPresenceDetached_ClearsCooldownJumpState()
+        {
+            var entity = CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), teamId: 1, boardPresence: EntityBoardPresence.Occupying);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { entity });
+            worldState.CreateWriteContext().SetEnemyJumpState(entity.entityId, CreateJumpState(EnemyJumpPhase.Cooldown, sequence: 23));
+            var batch = new FinalizationBatch();
+            batch.SetBoardPresence(entity.entityId, EntityBoardPresence.Detached);
+
+            var projectedWorld = new ProjectedWorld(worldState.CreateSnapshot());
+            projectedWorld.ApplyBatch(batch);
+            var previewSnapshot = projectedWorld.CreateSnapshot();
+
+            Assert.That(previewSnapshot.TryGetEnemyJumpState(entity.entityId, out var jumpState), Is.True);
+            Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.None));
+            Assert.That(jumpState.sequence, Is.EqualTo(23));
+            Assert.That(previewSnapshot.TryGetResolvedSpatialState(entity.entityId, out var spatialState), Is.True);
+            Assert.That(spatialState.Source, Is.EqualTo(ResolvedSpatialStateSource.DetachedNonAirborne));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void FinalizationBatch_JumpTakeoff_SetBoardPresenceThenSetAirborne_RemainsValid()
+        {
+            var entity = CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), teamId: 1, boardPresence: EntityBoardPresence.Occupying);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { entity });
+            var windupState = CreateJumpState(EnemyJumpPhase.Windup, sequence: 29);
+            var airborneState = CreateJumpState(EnemyJumpPhase.Airborne, sequence: 29);
+            worldState.CreateWriteContext().SetEnemyJumpState(entity.entityId, windupState);
+            var batch = new FinalizationBatch();
+            batch.SetBoardPresence(entity.entityId, EntityBoardPresence.Detached);
+            batch.SetEnemyJumpState(entity.entityId, airborneState);
+
+            var projectedWorld = new ProjectedWorld(worldState.CreateSnapshot());
+            projectedWorld.ApplyBatch(batch);
+            var previewSnapshot = projectedWorld.CreateSnapshot();
+            batch.ApplyTo(worldState.CreateWriteContext(), delayedAttackEffectSink: null);
+            var finalSnapshot = worldState.CreateSnapshot();
+
+            AssertAirborneSnapshot(previewSnapshot, entity.entityId, expectedSequence: 29);
+            AssertAirborneSnapshot(finalSnapshot, entity.entityId, expectedSequence: 29);
         }
 
         [Test]
@@ -789,6 +943,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 facing = Direction.Right,
                 boardPresence = boardPresence,
             };
+        }
+
+        private static EnemyJumpRuntimeState CreateJumpState(EnemyJumpPhase phase, int sequence)
+        {
+            return new EnemyJumpRuntimeState
+            {
+                phase = phase,
+                sequence = sequence,
+                sourceCell = new SurfaceCell(FaceId.Floor, 0, 0),
+                lockedTargetCell = new SurfaceCell(FaceId.Floor, 1, 0),
+                windupEndTick = 2,
+                landingTick = 3,
+                cooldownRemainingTicks = phase == EnemyJumpPhase.Cooldown ? 2 : 0,
+            };
+        }
+
+        private static void AssertAirborneSnapshot(WorldSnapshot snapshot, int entityId, int expectedSequence)
+        {
+            Assert.That(snapshot.TryGetEnemyJumpState(entityId, out var jumpState), Is.True);
+            Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Airborne));
+            Assert.That(jumpState.sequence, Is.EqualTo(expectedSequence));
+            Assert.That(snapshot.TryGetResolvedSpatialState(entityId, out var spatialState), Is.True);
+            Assert.That(spatialState.Kind, Is.EqualTo(SpatialState.Airborne));
+            Assert.That(spatialState.Source, Is.EqualTo(ResolvedSpatialStateSource.JumpAirborne));
         }
     }
 }
