@@ -48,6 +48,9 @@ namespace Game.Feature.Gameplay.Host
 
         public Bounds VisibleCubeBounds => _presentationCoordinator.VisibleCubeBounds;
 
+        public IReadOnlyList<TilePresentationRequest> CurrentTilePresentationRequests =>
+            _presentationCoordinator.CurrentTilePresentationRequests;
+
         public void Initialize(
             GameplayEntityViewBinder viewBinder,
             BoardBounds boardBounds,

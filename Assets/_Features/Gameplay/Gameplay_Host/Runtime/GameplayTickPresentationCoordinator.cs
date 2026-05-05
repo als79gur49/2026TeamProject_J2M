@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using Game.Feature.Gameplay.ActionAudio;
 using Game.Feature.Gameplay.Audio;
 using Game.Feature.Gameplay;
@@ -13,6 +14,9 @@ namespace Game.Feature.Gameplay.Host
 {
     public sealed class GameplayTickPresentationCoordinator
     {
+        private static readonly IReadOnlyList<TilePresentationRequest> EmptyTilePresentationRequests =
+            Array.Empty<TilePresentationRequest>();
+
         private readonly GameplayAnimationSyncCoordinator _animationSync = new();
         private readonly GameplayActionAudioRequestPlanner _actionAudioRequestPlanner = new();
         private readonly GameplayActionAudioPresentationController _actionAudioPresentationController;
@@ -27,6 +31,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplayPresentationStateStore _stateStore = new();
         private readonly SummonedEnemyPresentationResolver _summonedEnemyPresentationResolver = new();
         private readonly GameplayPresentationTrackState _trackState = new();
+        private readonly TilePresentationRequestPlanner _tilePresentationRequestPlanner = new();
         private readonly GameplayTopologyTransitionController _topologyTransitionController;
         private readonly GameplayTransientEffectPresenter _transientEffectPresenter = new();
         private readonly GameplayFrontFaceShieldVfxPresenter _frontFaceShieldVfxPresenter = new();
@@ -41,6 +46,7 @@ namespace Game.Feature.Gameplay.Host
         private EnemyPresentationCatalog _enemyPresentationCatalog;
         private GameplayTimingProfile _timingProfile;
         private GameplayEntityViewBinder _viewBinder;
+        private IReadOnlyList<TilePresentationRequest> _currentTilePresentationRequests = EmptyTilePresentationRequests;
         private Action<string> _traceSink;
 
         public GameplayTickPresentationCoordinator()
@@ -105,6 +111,8 @@ namespace Game.Feature.Gameplay.Host
 
         public Quaternion PresentedBoardRotation => _topologyTransitionController.PresentedBoardRotation;
 
+        public IReadOnlyList<TilePresentationRequest> CurrentTilePresentationRequests => _currentTilePresentationRequests;
+
         internal int PendingGameplayAudioRequestCount => _audioPresentationController.PendingRequestCount;
 
         public Bounds VisibleCubeBounds
@@ -161,6 +169,7 @@ namespace Game.Feature.Gameplay.Host
             _utilityWindupVfxPresenter.Initialize(viewBinder.SearchRoot);
             _animationSync.Reset();
             _stateStore.ResetSession(initialTopology);
+            _currentTilePresentationRequests = EmptyTilePresentationRequests;
             _summonedEnemyPresentationResolver.Initialize(
                 boardRoot != null ? boardRoot.EntityRoot : viewBinder.SearchRoot,
                 viewBinder.ViewRegistry,
@@ -221,6 +230,7 @@ namespace Game.Feature.Gameplay.Host
             TraceStep("RefreshAudioPlan");
             _audioPresentationController.ReplacePendingPlan(_audioRequestPlanner.BuildRequests(result));
             _actionAudioPresentationController.ReplacePendingPlan(_actionAudioRequestPlanner.BuildRequests(result));
+            RefreshTilePresentationRequests(result.PresentationData);
             _summonedEnemyPresentationResolver.Reconcile(result);
             _committedFrameBuilder.StoreCommittedFrame(
                 result.FinalEntities,
@@ -302,6 +312,7 @@ namespace Game.Feature.Gameplay.Host
             ResetExtensions();
             _animationSync.Reset();
             _stateStore.ResetSession(topology);
+            _currentTilePresentationRequests = EmptyTilePresentationRequests;
             _topologyTransitionController.Reset();
 
             _committedFrameBuilder.StoreCommittedFrame(
@@ -372,6 +383,14 @@ namespace Game.Feature.Gameplay.Host
         internal void SetTraceSink(Action<string> traceSink)
         {
             _traceSink = traceSink;
+        }
+
+        private void RefreshTilePresentationRequests(TickPresentationData presentationData)
+        {
+            var plannedRequests = _tilePresentationRequestPlanner.BuildRequests(presentationData);
+            _currentTilePresentationRequests = plannedRequests.Count == 0
+                ? EmptyTilePresentationRequests
+                : new ReadOnlyCollection<TilePresentationRequest>(new List<TilePresentationRequest>(plannedRequests));
         }
 
         internal void HardCleanupPresentationExtensions()

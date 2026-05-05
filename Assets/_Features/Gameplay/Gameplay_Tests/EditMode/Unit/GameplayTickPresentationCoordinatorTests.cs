@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
@@ -18,6 +20,168 @@ namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class GameplayTickPresentationCoordinatorTests
     {
+        [Test]
+        [Category("Core")]
+        public void CurrentTilePresentationRequests_DefaultsEmpty()
+        {
+            var coordinator = new GameplayTickPresentationCoordinator();
+
+            Assert.That(coordinator.CurrentTilePresentationRequests, Is.Not.Null);
+            Assert.That(coordinator.CurrentTilePresentationRequests, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_CurrentTilePresentationRequests_NoTileEvents_StaysEmpty()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_CurrentTilePresentationRequests_NoTileEvents_StaysEmpty));
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+
+                presenter.Present(CreateTickResult(1, Array.Empty<EntityState>(), topology, TickPresentationData.Empty));
+
+                Assert.That(presenter.CurrentTilePresentationRequests, Is.Not.Null);
+                Assert.That(presenter.CurrentTilePresentationRequests, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_CurrentTilePresentationRequests_ButtonActivated_ExposesRequest()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_CurrentTilePresentationRequests_ButtonActivated_ExposesRequest));
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    Array.Empty<EntityState>(),
+                    topology,
+                    CreateTilePresentationData(CreateButtonActivatedTileEvent(100, cell))));
+
+                Assert.That(presenter.CurrentTilePresentationRequests, Has.Count.EqualTo(1));
+                var request = presenter.CurrentTilePresentationRequests[0];
+                Assert.That(request.RequestKind, Is.EqualTo(TilePresentationRequestKind.ButtonActivated));
+                Assert.That(request.TileId, Is.EqualTo(100));
+                Assert.That(request.Cell, Is.EqualTo(cell));
+                Assert.That(request.TileFeatureKind, Is.EqualTo(TileFeatureKind.Button));
+                Assert.That(request.SourceEntityId, Is.EqualTo(101));
+                Assert.That(request.OwnerEntityId, Is.EqualTo(102));
+                Assert.That(request.TeamId, Is.EqualTo(103));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_CurrentTilePresentationRequests_PreservesOrderAndDuplicates()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_CurrentTilePresentationRequests_PreservesOrderAndDuplicates));
+            var firstCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var secondCell = new SurfaceCell(FaceId.Floor, 1, 0);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                var duplicate = CreateButtonActivatedTileEvent(30, firstCell);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    Array.Empty<EntityState>(),
+                    topology,
+                    CreateTilePresentationData(
+                        duplicate,
+                        CreateButtonActivatedTileEvent(10, secondCell),
+                        duplicate)));
+
+                Assert.That(
+                    presenter.CurrentTilePresentationRequests.Select(request => request.TileId).ToArray(),
+                    Is.EqualTo(new[] { 30, 10, 30 }));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_CurrentTilePresentationRequests_ReplacesAndClearsPerTick()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_CurrentTilePresentationRequests_ReplacesAndClearsPerTick));
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    Array.Empty<EntityState>(),
+                    topology,
+                    CreateTilePresentationData(
+                        CreateButtonActivatedTileEvent(100, new SurfaceCell(FaceId.Floor, 0, 0)),
+                        CreateButtonActivatedTileEvent(200, new SurfaceCell(FaceId.Floor, 1, 0)))));
+                Assert.That(presenter.CurrentTilePresentationRequests, Has.Count.EqualTo(2));
+
+                presenter.Present(CreateTickResult(
+                    2,
+                    Array.Empty<EntityState>(),
+                    topology,
+                    CreateTilePresentationData(CreateButtonActivatedTileEvent(300, new SurfaceCell(FaceId.Floor, 2, 0)))));
+
+                Assert.That(
+                    presenter.CurrentTilePresentationRequests.Select(request => request.TileId).ToArray(),
+                    Is.EqualTo(new[] { 300 }));
+
+                presenter.Present(CreateTickResult(3, Array.Empty<EntityState>(), topology, TickPresentationData.Empty));
+
+                Assert.That(presenter.CurrentTilePresentationRequests, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_CurrentTilePresentationRequests_IsReadOnlyDefensiveCopy()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_CurrentTilePresentationRequests_IsReadOnlyDefensiveCopy));
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    Array.Empty<EntityState>(),
+                    topology,
+                    CreateTilePresentationData(CreateButtonActivatedTileEvent(100, new SurfaceCell(FaceId.Floor, 0, 0)))));
+
+                Assert.That(presenter.CurrentTilePresentationRequests, Is.InstanceOf<ReadOnlyCollection<TilePresentationRequest>>());
+                var list = (IList<TilePresentationRequest>)presenter.CurrentTilePresentationRequests;
+                Assert.That(list.IsReadOnly, Is.True);
+                Assert.Throws<NotSupportedException>(() => list.Add(default));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
         [Test]
         [Category("Extended")]
         public void GameplayTickViewPresenter_MoveMotionWithoutEntityOverride_UsesGlobalDuration()
@@ -4212,6 +4376,58 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 finalEntities,
                 topology,
                 new TickPresentationData(motions));
+        }
+
+        private static GameplayTickViewPresenter CreateInitializedPresenter(
+            GameObject rootObject,
+            out CubeTopologyState topology)
+        {
+            var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+            var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+            var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+            topology = new CubeTopologyState(FaceId.Floor);
+
+            presenter.Initialize(
+                binder,
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                topology,
+                1f,
+                CreateTimingProfile());
+            presenter.PresentInitial(Array.Empty<EntityState>(), topology);
+            return presenter;
+        }
+
+        private static TickPresentationData CreateTilePresentationData(params TilePresentationEvent[] tileEvents)
+        {
+            return new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                Array.Empty<TickPlayerDeathPresentationSignal>(),
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                Array.Empty<TickEnemyChargePresentationSignal>(),
+                Array.Empty<TickEntityExitPresentationSignal>(),
+                Array.Empty<TickImpactTransientPresentationSignal>(),
+                Array.Empty<FlipImpactPresentationSignal>(),
+                tileEvents: tileEvents);
+        }
+
+        private static TilePresentationEvent CreateButtonActivatedTileEvent(int tileId, SurfaceCell cell)
+        {
+            return new TilePresentationEvent(
+                TilePresentationEventKind.ButtonActivated,
+                tileId,
+                cell,
+                TileFeatureKind.Button,
+                sourceEntityId: tileId + 1,
+                ownerEntityId: tileId + 2,
+                teamId: tileId + 3);
         }
 
         private static TickPresentationData CreateKinematicPresentationData(

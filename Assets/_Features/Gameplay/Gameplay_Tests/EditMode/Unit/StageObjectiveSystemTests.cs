@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
@@ -1385,6 +1386,143 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
+        public void ObjectiveClear_ButtonLatch_ProducesButtonActivatedRequestThroughPresenter()
+        {
+            var conditionAsset = CreateButtonActivatedCondition(100);
+            var rootObject = new GameObject(nameof(ObjectiveClear_ButtonLatch_ProducesButtonActivatedRequestThroughPresenter));
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var box = CreateBoxEntity(20, cell, BoxCapabilities.Push);
+
+            try
+            {
+                var buildResult = BuildButtonObjectiveStage(
+                    conditionAsset,
+                    CreateStageTileFeature(
+                        100,
+                        cell,
+                        TileFeatureKind.Button,
+                        TileFeatureActivationRule.Always,
+                        TileFeatureBoxSelector.AnyPushableBox));
+                var worldState = GameplayCompositionRoot.CreateWorldState(
+                    new[] { box },
+                    buildResult.BoardBounds,
+                    buildResult.InitialTerrain,
+                    buildResult.InitialTopology,
+                    buildResult.InitialTileFeatures);
+                var pipeline = CreatePipeline(
+                    worldState,
+                    buildResult.ObjectiveRuntimeDefinition,
+                    buildResult.TileFeatureDefinitions);
+                var presenter = CreateInitializedTileRequestPresenter(rootObject, buildResult, new[] { box });
+
+                var result = pipeline.RunTick(new TickInput(7));
+                var hashBeforePresent = result.DeterminismHash;
+                presenter.Present(result);
+
+                Assert.That(result.DeterminismHash, Is.EqualTo(hashBeforePresent));
+                Assert.That(presenter.CurrentTilePresentationRequests, Has.Count.EqualTo(1));
+                var request = presenter.CurrentTilePresentationRequests[0];
+                Assert.That(request.RequestKind, Is.EqualTo(TilePresentationRequestKind.ButtonActivated));
+                Assert.That(request.TileId, Is.EqualTo(100));
+                Assert.That(request.Cell, Is.EqualTo(cell));
+                Assert.That(request.TileFeatureKind, Is.EqualTo(TileFeatureKind.Button));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(conditionAsset);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ObjectiveClear_ButtonLatch_AlreadyActivatedNextTickProducesNoRequestThroughPresenter()
+        {
+            var conditionAsset = CreateButtonActivatedCondition(100);
+            var rootObject = new GameObject(nameof(ObjectiveClear_ButtonLatch_AlreadyActivatedNextTickProducesNoRequestThroughPresenter));
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var box = CreateBoxEntity(20, cell, BoxCapabilities.Push);
+
+            try
+            {
+                var buildResult = BuildButtonObjectiveStage(
+                    conditionAsset,
+                    CreateStageTileFeature(
+                        100,
+                        cell,
+                        TileFeatureKind.Button,
+                        TileFeatureActivationRule.Always,
+                        TileFeatureBoxSelector.AnyPushableBox));
+                var worldState = GameplayCompositionRoot.CreateWorldState(
+                    new[] { box },
+                    buildResult.BoardBounds,
+                    buildResult.InitialTerrain,
+                    buildResult.InitialTopology,
+                    buildResult.InitialTileFeatures);
+                var pipeline = CreatePipeline(
+                    worldState,
+                    buildResult.ObjectiveRuntimeDefinition,
+                    buildResult.TileFeatureDefinitions);
+                var presenter = CreateInitializedTileRequestPresenter(rootObject, buildResult, new[] { box });
+
+                presenter.Present(pipeline.RunTick(new TickInput(7)));
+                Assert.That(presenter.CurrentTilePresentationRequests, Has.Count.EqualTo(1));
+
+                presenter.Present(pipeline.RunTick(new TickInput(8)));
+
+                Assert.That(presenter.CurrentTilePresentationRequests, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(conditionAsset);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ObjectiveClear_ButtonLatch_FailedLatchProducesNoRequestThroughPresenter()
+        {
+            var conditionAsset = CreateButtonActivatedCondition(100);
+            var rootObject = new GameObject(nameof(ObjectiveClear_ButtonLatch_FailedLatchProducesNoRequestThroughPresenter));
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var box = CreateBoxEntity(20, cell, BoxCapabilities.Flip);
+
+            try
+            {
+                var buildResult = BuildButtonObjectiveStage(
+                    conditionAsset,
+                    CreateStageTileFeature(
+                        100,
+                        cell,
+                        TileFeatureKind.Button,
+                        TileFeatureActivationRule.Always,
+                        TileFeatureBoxSelector.AnyPushableBox));
+                var worldState = GameplayCompositionRoot.CreateWorldState(
+                    new[] { box },
+                    buildResult.BoardBounds,
+                    buildResult.InitialTerrain,
+                    buildResult.InitialTopology,
+                    buildResult.InitialTileFeatures);
+                var pipeline = CreatePipeline(
+                    worldState,
+                    buildResult.ObjectiveRuntimeDefinition,
+                    buildResult.TileFeatureDefinitions);
+                var presenter = CreateInitializedTileRequestPresenter(rootObject, buildResult, new[] { box });
+
+                presenter.Present(pipeline.RunTick(new TickInput(7)));
+
+                Assert.That(presenter.CurrentTilePresentationRequests, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(conditionAsset);
+            }
+        }
+
+        [Test]
         [Category("Core")]
         public void ObjectiveClear_ButtonLatch_ReplayIsDeterministic()
         {
@@ -2014,6 +2152,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 tileEffectResolver: null);
         }
 
+        private static GameplayTickViewPresenter CreateInitializedTileRequestPresenter(
+            GameObject rootObject,
+            StageRuntimeBuildResult buildResult,
+            IReadOnlyList<EntityState> initialEntities)
+        {
+            var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+            var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+            var binder = new GameplayEntityViewBinder(registry, new SimpleViewFactory(registry.transform));
+
+            presenter.Initialize(
+                binder,
+                buildResult.BoardBounds,
+                buildResult.InitialTopology,
+                1f,
+                GameplayTimingProfile.CreateDefault());
+            presenter.PresentInitial(initialEntities, buildResult.InitialTopology);
+            return presenter;
+        }
+
         private static StageZoneDefinition CreateZone(
             string zoneId,
             FaceId faceId,
@@ -2235,6 +2392,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, $"Missing field '{fieldName}'.");
             field.SetValue(target, value);
+        }
+
+        private sealed class SimpleViewFactory : IGameplayEntityViewFactory
+        {
+            private readonly Transform _parent;
+
+            public SimpleViewFactory(Transform parent)
+            {
+                _parent = parent;
+            }
+
+            public GameplayEntityView CreateView(in EntityState entity)
+            {
+                var viewObject = new GameObject($"EntityView_{entity.entityId}");
+                viewObject.transform.SetParent(_parent, worldPositionStays: false);
+                var view = viewObject.AddComponent<GameplayEntityView>();
+                view.Initialize(entity.entityId);
+                return view;
+            }
         }
     }
 }

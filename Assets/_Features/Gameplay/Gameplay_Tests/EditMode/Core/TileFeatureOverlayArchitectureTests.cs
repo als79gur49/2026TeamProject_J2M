@@ -13,6 +13,10 @@ namespace Game.Feature.Gameplay.Tests.Core
             "Docs/Architecture/ADR/ADR-006-TileFeature-Overlay-Layer-Gate.md";
         private const string TilePresentationRequestPlannerPath =
             "Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TilePresentationRequestPlanner.cs";
+        private const string GameplayTickPresentationCoordinatorPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs";
+        private const string GameplayLoopRuntimePath =
+            "Assets/_Features/Gameplay/Gameplay_Loop/Runtime";
         private static readonly string[] ForbiddenTerrainFlagTokens =
         {
             "Trap",
@@ -126,6 +130,55 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
+        public void TilePresentationCoordinatorRefresh_DoesNotReferenceAuthorityOrPlaybackTypes()
+        {
+            var source = File.ReadAllText(GetAbsolutePath(GameplayTickPresentationCoordinatorPath));
+            var body = ExtractMethodBody(source, "private void RefreshTilePresentationRequests(");
+            var forbiddenTokens = new[]
+            {
+                "WorldState",
+                "WorldSnapshot",
+                "CreateSnapshot",
+                "ProjectedWorld",
+                "FinalizationBatch",
+                "DeterminismHashBuilder",
+                "PlayPlannedAudio",
+                "PlayBlockBursts",
+                "PlayHitEffect",
+                "GameplayAudio",
+                "GameplayVfx",
+                "MonoBehaviour",
+                "GameObject",
+                "Prefab",
+            };
+
+            for (var i = 0; i < forbiddenTokens.Length; i++)
+            {
+                Assert.That(
+                    body,
+                    Does.Not.Contain(forbiddenTokens[i]),
+                    $"Tile presentation request coordinator refresh must not reference authority, playback, or mutation token '{forbiddenTokens[i]}'.");
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickPipeline_DoesNotPlanTilePresentationRequests()
+        {
+            var absoluteDirectory = GetAbsolutePath(GameplayLoopRuntimePath);
+            var pipelineFiles = Directory.GetFiles(absoluteDirectory, "TickPipeline*.cs", SearchOption.TopDirectoryOnly);
+            Assert.That(pipelineFiles, Is.Not.Empty);
+
+            for (var i = 0; i < pipelineFiles.Length; i++)
+            {
+                var source = File.ReadAllText(pipelineFiles[i]);
+                Assert.That(source, Does.Not.Contain("TilePresentationRequestPlanner"), pipelineFiles[i]);
+                Assert.That(source, Does.Not.Contain("TilePresentationRequest"), pipelineFiles[i]);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void OccupancyLayer_DoesNotContainTileFeature_WhenLayerTypeExists()
         {
             var occupancyLayerType = typeof(EntityType).Assembly.GetType("Game.Feature.Gameplay.BoardState.OccupancyLayer");
@@ -141,6 +194,35 @@ namespace Game.Feature.Gameplay.Tests.Core
         private static string GetAbsolutePath(string relativePath)
         {
             return Path.GetFullPath(relativePath);
+        }
+
+        private static string ExtractMethodBody(string source, string signature)
+        {
+            var signatureIndex = source.IndexOf(signature, StringComparison.Ordinal);
+            Assert.That(signatureIndex, Is.GreaterThanOrEqualTo(0), $"Missing method signature '{signature}'.");
+
+            var bodyStart = source.IndexOf('{', signatureIndex);
+            Assert.That(bodyStart, Is.GreaterThanOrEqualTo(0), $"Missing method body for '{signature}'.");
+
+            var depth = 0;
+            for (var i = bodyStart; i < source.Length; i++)
+            {
+                if (source[i] == '{')
+                {
+                    depth++;
+                }
+                else if (source[i] == '}')
+                {
+                    depth--;
+                    if (depth == 0)
+                    {
+                        return source.Substring(bodyStart, i - bodyStart + 1);
+                    }
+                }
+            }
+
+            Assert.Fail($"Could not extract method body for '{signature}'.");
+            return string.Empty;
         }
     }
 }
