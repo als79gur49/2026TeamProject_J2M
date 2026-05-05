@@ -102,8 +102,55 @@ Relation to `BoxVfxCue.DestroySmoke`:
 
 Future:
 
-- Slice 3 may migrate DestroySelf clone/fade parity.
+- Slice 3 may refine DestroySelf exact source-view clone/material parity.
 - full `VfxAnchorKind.MotionTrack` anchor playback remains future work.
+
+## FlipImpact DestroySelf Motion VFX Migration
+
+This slice migrates only `FlipImpactPresentationDisposition.DestroySelf` clone/fade motion ownership into the Gameplay VFX lane. The source fact is still `TickPresentationData.FlipImpactSignals`; the migration does not read `WorldState`, `WorldSnapshot`, `TickPipeline`, or any authority snapshot.
+
+Cue and command:
+
+- cue: `BoxVfxCue.FlipDestroySelfMotion`
+- branch: `FlipImpactPresentationDisposition.DestroySelf`
+- command: `FlipDestroySelfMotionVfxCommand`
+- not the same cue as `BoxVfxCue.FlipImpactBurst`
+- `FlipImpactBurst` remains contact feedback at the impact cell, while `FlipDestroySelfMotion` owns source-to-impact flight plus break/fade overlap.
+
+Command fields preserve presentation metadata from `FlipImpactPresentationSignal`: `SourceActionPlanId`, box/actor/impact target ids, source/impact `SurfaceCell`, topology, source/impact facing, source/impact local pose, flight duration, contact normalized time, break start, fade duration, arc height, and presentation seed. Pose extraction uses the host presentation resolver and the committed presentation state already available to the host extension.
+
+Timing contract:
+
+- full source-to-impact flight uses the resolved flip flight duration
+- contact normalized time is the break/fade onset threshold
+- final impact-pose arrival is the flight end, not the contact threshold
+- fade duration is the remaining flight duration after break onset
+- cleanup uses the pooled transient VFX lifecycle plus authored binding tail
+
+Feature flag:
+
+- `EnableGameplayVfxFlipDestroySelfMotionMigration`
+- default false
+- flag off keeps the old `PlayFlipImpactDestroyEffect` clone/arc/fade path
+- flag on suppresses only the old DestroySelf clone/fade path through `IGameplayPresentationMigrationGate.SuppressLegacyFlipDestroySelfEffects`
+- `ApplyEntityExitOwnership()` remains active and still hides/cleans the authoritative view
+- missing `FlipDestroySelfMotion` binding or prefab is diagnostic/no-op with no old fallback
+
+Visual parity:
+
+- v1 uses a stylized clone-like prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/FlipDestroySelfMotionVfx.prefab`
+- material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_FlipDestroySelfMotion_Impact.mat`
+- binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/FlipDestroySelfMotion_Binding.asset`
+- host default map: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset`
+- exact source-view mesh clone/material parity remains future work
+
+Boundaries:
+
+- `Stay` branch `FlipImpactTrack` sampling is unchanged
+- `BoxFlipInteractionDriver` overlay behavior is unchanged
+- `BoxVfxCue.FlipImpactBurst` Slice 2 behavior is unchanged
+- generic `VfxAnchorKind.MotionTrack` host resolver support remains unsupported in production
+- generic Box Slide or Unit movement VFX migration is future work
 
 ## First Production Cue Gate
 
