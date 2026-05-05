@@ -152,6 +152,47 @@ Boundaries:
 - generic `VfxAnchorKind.MotionTrack` host resolver support remains unsupported in production
 - generic Box Slide or Unit movement VFX migration is future work
 
+## Parameterized Motion VFX Generalization
+
+Parameterized Motion VFX generalizes the FlipDestroySelf v1 source-to-impact playback into a presentation-only primitive. It does not change gameplay movement, legality, `TickPipeline`, `WorldState`, `WorldSnapshot`, `TickPresentationData`, or `FlipImpactPresentationSignal` shape.
+
+First concrete user:
+
+- `BoxVfxCue.FlipDestroySelfMotion`
+- adapter source: `FlipDestroySelfMotionVfxCommand`
+- runtime command: `ParameterizedMotionVfxCommand`
+- playback: source pose to target pose with arc height, rotation slerp, break/fade onset, authored tail, and pool release
+
+Future possible users:
+
+- Box Slide trail
+- Unit movement trail
+- Projectile trail
+
+Those future users are not applied in this slice. Box Slide, Unit movement, Projectile movement, generic gameplay motion drivers, and full `VfxAnchorKind.MotionTrack` resolver support remain outside this change.
+
+## FlipDestroySelf Source-View Clone Parity
+
+FlipDestroySelf v1 used a stylized clone-like prefab. The generalized playback keeps that prefab as fallback but can now clone the current source presentation `ModelRoot` through `IGameplayVfxCloneSourceProvider`.
+
+Clone policy:
+
+- `FlipDestroySelfMotion` uses `SourceViewCloneWithPrefabFallback`
+- source clone lookup is by `GameplayVfxRequest.SourceEntityId`
+- lookup reads the host presentation state store, not scene-global searches
+- missing source clone falls back to the authored prefab
+- missing binding or prefab remains diagnostic/no-op with no old fallback
+
+Material ownership:
+
+- shared material mutation is forbidden
+- cloned renderer materials are instanced before alpha fade
+- `_BaseColor` and `_Color` are supported alpha properties
+- materials without alpha properties fall back to scale-only visual fade behavior without crashing
+- material instances and cloned source objects are destroyed on pool release or hard cleanup
+
+The original authoritative source view is never moved or faded by this path. `ApplyEntityExitOwnership()` still hides and cleans the authoritative view through the existing host presentation flow.
+
 ## First Production Cue Gate
 
 The first production Gameplay VFX cue is `EnemyVfxCue.JumperLandingTarget`.

@@ -8,6 +8,7 @@ using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Vfx;
 using Game.Feature.Gameplay.Vfx.Authoring;
+using Game.Feature.Gameplay.Vfx.Host;
 using Game.Feature.Stages;
 using NUnit.Framework;
 
@@ -96,6 +97,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("SuppressLegacyFlipDestroySelfEffects"));
             Assert.That(document, Does.Contain("red/orange danger palette"));
             Assert.That(document, Does.Contain("AuthoredDuration"));
+            Assert.That(document, Does.Contain("Parameterized Motion VFX Generalization"));
+            Assert.That(document, Does.Contain("FlipDestroySelf Source-View Clone Parity"));
+            Assert.That(document, Does.Contain("ParameterizedMotionVfxCommand"));
+            Assert.That(document, Does.Contain("SourceViewCloneWithPrefabFallback"));
+            Assert.That(document, Does.Contain("Box Slide trail"));
+            Assert.That(document, Does.Contain("Unit movement trail"));
+            Assert.That(document, Does.Contain("Projectile trail"));
             Assert.That(document, Does.Contain("Utility Windup VFX Migration"));
             Assert.That(document, Does.Contain("TickPresentationData.SummonWindupWarnings"));
             Assert.That(document, Does.Contain("EnemyVfxCue.UtilityWindup"));
@@ -247,8 +255,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(source, Does.Not.Contain("WorldSnapshot"));
             Assert.That(source, Does.Not.Contain("TickPipeline"));
             Assert.That(source, Does.Not.Contain("GameObject"));
+            Assert.That(source, Does.Not.Contain("Renderer"));
             Assert.That(source, Does.Not.Contain("MonoBehaviour"));
             Assert.That(source, Does.Not.Contain("ParticleSystem"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CloneProvider_LivesOnlyOutsideVfxCore()
+        {
+            var coreSource = ReadRuntimeSources();
+
+            Assert.That(coreSource, Does.Not.Contain("IGameplayVfxCloneSourceProvider"));
+            Assert.That(coreSource, Does.Not.Contain("GameplayVfxCloneSource"));
+            Assert.That(typeof(IGameplayVfxCloneSourceProvider).Assembly.GetName().Name, Is.EqualTo("Game.Feature.Gameplay.Vfx.Host"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ParameterizedMotion_HasNoBoxSlideUnitOrProjectileAdaptersYet()
+        {
+            var productionSource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/GameplayVfxProductionRuntime.cs");
+
+            Assert.That(productionSource, Does.Contain("FlipDestroySelfMotion"));
+            Assert.That(productionSource, Does.Not.Contain("SlideStartDust"));
+            Assert.That(productionSource, Does.Not.Contain("ProjectileVfxCue.Trail"));
+            Assert.That(productionSource, Does.Not.Contain("Unit movement"));
         }
 
         [Test]

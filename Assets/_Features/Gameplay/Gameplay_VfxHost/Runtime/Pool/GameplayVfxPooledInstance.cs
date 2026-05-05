@@ -1,3 +1,4 @@
+using System;
 using Game.Feature.Gameplay.Host;
 using UnityEngine;
 
@@ -6,13 +7,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
     internal sealed class GameplayVfxPooledInstance
     {
         private readonly ParticleSystem[] particleSystems;
-        private readonly Renderer[] renderers;
-        private readonly Material[][] originalSharedMaterials;
-        private readonly Material[][] runtimeMaterials;
-        private readonly TrailRenderer[] trailRenderers;
+        private readonly Renderer[] prefabRenderers;
+        private readonly bool[] prefabRendererEnabled;
         private readonly Transform tailRoot;
+        private readonly TrailRenderer[] trailRenderers;
+        private GameObject sourceCloneObject;
         private GameplayVfxPlaybackHandle handle;
-        private bool hasRuntimeMaterials;
+        private VfxRendererMaterialInstanceSet activeMaterialInstances;
+        private bool usingSourceClone;
 
         public GameplayVfxPooledInstance(GameObject gameObject, Transform tailRoot)
         {
@@ -21,15 +23,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
             this.tailRoot = tailRoot;
             particleSystems = gameObject.GetComponentsInChildren<ParticleSystem>(includeInactive: true);
             trailRenderers = gameObject.GetComponentsInChildren<TrailRenderer>(includeInactive: true);
-            renderers = gameObject.GetComponentsInChildren<Renderer>(includeInactive: true);
-            originalSharedMaterials = new Material[renderers.Length][];
-            runtimeMaterials = new Material[renderers.Length][];
-            for (var i = 0; i < renderers.Length; i++)
+            prefabRenderers = gameObject.GetComponentsInChildren<Renderer>(includeInactive: true);
+            prefabRendererEnabled = new bool[prefabRenderers.Length];
+            for (var i = 0; i < prefabRenderers.Length; i++)
             {
-                originalSharedMaterials[i] = renderers[i] != null
-                    ? renderers[i].sharedMaterials
-                    : System.Array.Empty<Material>();
-                runtimeMaterials[i] = System.Array.Empty<Material>();
+                prefabRendererEnabled[i] = prefabRenderers[i] != null && prefabRenderers[i].enabled;
             }
         }
 
@@ -49,6 +47,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         {
             PrefabInstanceId = prefabInstanceId;
             handle = playbackHandle;
+            RestorePrefabVisuals();
             Transform.SetParent(parent, worldPositionStays: false);
             Transform.localPosition = anchor.HasLocalPose ? anchor.LocalPosition : Vector3.zero;
             Transform.localRotation = anchor.HasLocalPose ? anchor.LocalRotation : Quaternion.identity;
@@ -57,29 +56,56 @@ namespace Game.Feature.Gameplay.Vfx.Host
             RestartParticles();
         }
 
+        public void ActivateParameterizedMotion(
+            int prefabInstanceId,
+            GameplayVfxPlaybackHandle playbackHandle,
+            Transform parent,
+            in ParameterizedMotionVfxCommand command,
+            IGameplayVfxCloneSourceProvider cloneSourceProvider)
+        {
+            PrefabInstanceId = prefabInstanceId;
+            handle = playbackHandle;
+            ClearParameterizedVisuals();
+            RestorePrefabVisuals();
+            Transform.SetParent(parent, worldPositionStays: false);
+            Transform.localPosition = command.SourceLocalPosition;
+            Transform.localRotation = command.SourceLocalRotation;
+            Transform.localScale = Vector3.one;
+            GameObject.SetActive(true);
+            ConfigureParameterizedVisuals(command, cloneSourceProvider);
+            ApplyParameterizedMotion(command, elapsedSeconds: 0f);
+            if (!usingSourceClone)
+            {
+                RestartParticles();
+            }
+        }
+
         public void ActivateFlipDestroySelfMotion(
             int prefabInstanceId,
             GameplayVfxPlaybackHandle playbackHandle,
             Transform parent,
             in FlipDestroySelfMotionVfxCommand command)
         {
-            PrefabInstanceId = prefabInstanceId;
-            handle = playbackHandle;
-            Transform.SetParent(parent, worldPositionStays: false);
-            Transform.localPosition = command.SourceLocalPosition;
-            Transform.localRotation = command.SourceLocalRotation;
-            Transform.localScale = Vector3.one;
-            GameObject.SetActive(true);
-            EnsureRuntimeMaterials();
-            ApplyFlipDestroySelfMotion(command, elapsedSeconds: 0f);
-            RestartParticles();
+            ActivateParameterizedMotion(
+                prefabInstanceId,
+                playbackHandle,
+                parent,
+                command.ToParameterizedMotionVfxCommand(),
+                cloneSourceProvider: null);
+        }
+
+        public void AdvanceParameterizedMotion(
+            in ParameterizedMotionVfxCommand command,
+            float elapsedSeconds)
+        {
+            ApplyParameterizedMotion(command, elapsedSeconds);
         }
 
         public void AdvanceFlipDestroySelfMotion(
             in FlipDestroySelfMotionVfxCommand command,
             float elapsedSeconds)
         {
-            ApplyFlipDestroySelfMotion(command, elapsedSeconds);
+            ApplyParameterizedMotion(command.ToParameterizedMotionVfxCommand(), elapsedSeconds);
         }
 
         public void StopEmitting()
@@ -114,7 +140,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
         {
             StopEmitting();
             ClearTrails();
-            ClearRuntimeMaterials();
+            ClearParameterizedVisuals();
+            RestorePrefabVisuals();
             GameObject.SetActive(false);
             Transform.SetParent(poolRoot, worldPositionStays: false);
             Transform.localPosition = Vector3.zero;
@@ -125,13 +152,98 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public void HardCleanup()
         {
-            ClearRuntimeMaterials();
+            ClearParameterizedVisuals();
             if (GameObject != null)
             {
-                Object.DestroyImmediate(GameObject);
+                UnityEngine.Object.DestroyImmediate(GameObject);
             }
 
             handle = null;
+        }
+
+        private void ConfigureParameterizedVisuals(
+            in ParameterizedMotionVfxCommand command,
+            IGameplayVfxCloneSourceProvider cloneSourceProvider)
+        {
+            if (TryCreateSourceClone(command, cloneSourceProvider, out var cloneRenderers))
+            {
+                HidePrefabVisuals();
+                activeMaterialInstances = VfxRendererMaterialInstanceSet.Create(cloneRenderers);
+                usingSourceClone = true;
+                return;
+            }
+
+            activeMaterialInstances = VfxRendererMaterialInstanceSet.Create(prefabRenderers);
+            usingSourceClone = false;
+        }
+
+        private bool TryCreateSourceClone(
+            in ParameterizedMotionVfxCommand command,
+            IGameplayVfxCloneSourceProvider cloneSourceProvider,
+            out Renderer[] cloneRenderers)
+        {
+            cloneRenderers = Array.Empty<Renderer>();
+            if (command.CloneMode == ParameterizedMotionVfxCloneMode.PrefabOnly ||
+                cloneSourceProvider == null ||
+                !cloneSourceProvider.TryResolveCloneSource(command.SourceEntityId, out var source) ||
+                source.ModelRoot == null)
+            {
+                return false;
+            }
+
+            sourceCloneObject = UnityEngine.Object.Instantiate(source.ModelRoot.gameObject, Transform, worldPositionStays: false);
+            sourceCloneObject.name = "ParameterizedMotionCloneRoot";
+            sourceCloneObject.transform.localPosition = source.ModelRoot.localPosition;
+            sourceCloneObject.transform.localRotation = source.ModelRoot.localRotation;
+            sourceCloneObject.transform.localScale = source.LocalScale;
+            RemoveGameplayAffectingComponents(sourceCloneObject);
+            sourceCloneObject.SetActive(true);
+            cloneRenderers = sourceCloneObject.GetComponentsInChildren<Renderer>(includeInactive: true);
+            if (cloneRenderers.Length == 0)
+            {
+                SafeDestroy(sourceCloneObject);
+                sourceCloneObject = null;
+                return false;
+            }
+
+            return true;
+        }
+
+        private void ClearParameterizedVisuals()
+        {
+            activeMaterialInstances?.Clear();
+            activeMaterialInstances = null;
+            if (sourceCloneObject != null)
+            {
+                SafeDestroy(sourceCloneObject);
+                sourceCloneObject = null;
+            }
+
+            usingSourceClone = false;
+        }
+
+        private void HidePrefabVisuals()
+        {
+            for (var i = 0; i < prefabRenderers.Length; i++)
+            {
+                if (prefabRenderers[i] != null)
+                {
+                    prefabRenderers[i].enabled = false;
+                }
+            }
+
+            StopEmitting();
+        }
+
+        private void RestorePrefabVisuals()
+        {
+            for (var i = 0; i < prefabRenderers.Length; i++)
+            {
+                if (prefabRenderers[i] != null)
+                {
+                    prefabRenderers[i].enabled = prefabRendererEnabled[i];
+                }
+            }
         }
 
         private void RestartParticles()
@@ -159,175 +271,100 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
-        private void EnsureRuntimeMaterials()
-        {
-            ClearRuntimeMaterials();
-
-            for (var rendererIndex = 0; rendererIndex < renderers.Length; rendererIndex++)
-            {
-                var renderer = renderers[rendererIndex];
-                if (renderer == null)
-                {
-                    runtimeMaterials[rendererIndex] = System.Array.Empty<Material>();
-                    continue;
-                }
-
-                var sharedMaterials = renderer.sharedMaterials;
-                var clonedMaterials = new Material[sharedMaterials.Length];
-                for (var materialIndex = 0; materialIndex < sharedMaterials.Length; materialIndex++)
-                {
-                    var sharedMaterial = sharedMaterials[materialIndex];
-                    if (sharedMaterial != null)
-                    {
-                        clonedMaterials[materialIndex] = new Material(sharedMaterial);
-                    }
-                }
-
-                renderer.sharedMaterials = clonedMaterials;
-                runtimeMaterials[rendererIndex] = clonedMaterials;
-            }
-
-            hasRuntimeMaterials = true;
-        }
-
-        private void ClearRuntimeMaterials()
-        {
-            if (!hasRuntimeMaterials)
-            {
-                return;
-            }
-
-            for (var rendererIndex = 0; rendererIndex < renderers.Length; rendererIndex++)
-            {
-                var renderer = renderers[rendererIndex];
-                if (renderer != null)
-                {
-                    renderer.sharedMaterials = originalSharedMaterials[rendererIndex] ?? System.Array.Empty<Material>();
-                }
-
-                var materials = runtimeMaterials[rendererIndex];
-                if (materials == null)
-                {
-                    continue;
-                }
-
-                for (var materialIndex = 0; materialIndex < materials.Length; materialIndex++)
-                {
-                    var material = materials[materialIndex];
-                    if (material == null)
-                    {
-                        continue;
-                    }
-
-                    if (Application.isPlaying)
-                    {
-                        Object.Destroy(material);
-                    }
-                    else
-                    {
-                        Object.DestroyImmediate(material);
-                    }
-                }
-
-                runtimeMaterials[rendererIndex] = System.Array.Empty<Material>();
-            }
-
-            hasRuntimeMaterials = false;
-        }
-
-        private void ApplyFlipDestroySelfMotion(
-            in FlipDestroySelfMotionVfxCommand command,
+        private void ApplyParameterizedMotion(
+            in ParameterizedMotionVfxCommand command,
             float elapsedSeconds)
         {
-            var flightNormalizedTime = Mathf.Clamp01(elapsedSeconds / command.FlightDurationSeconds);
-            var sampledPose = elapsedSeconds < command.FlightDurationSeconds
-                ? FlipArcSampler.Sample(command.SourcePose, command.ImpactPose, flightNormalizedTime, command.ArcHeight)
-                : command.ImpactPose;
+            var flightNormalizedTime = Mathf.Clamp01(elapsedSeconds / command.DurationSeconds);
+            var sampledPose = elapsedSeconds < command.DurationSeconds
+                ? FlipArcSampler.Sample(command.SourcePose, command.TargetPose, flightNormalizedTime, command.ArcHeight)
+                : command.TargetPose;
             Transform.localPosition = sampledPose.Position;
             Transform.localRotation = sampledPose.Rotation;
 
             if (elapsedSeconds <= command.BreakStartSeconds)
             {
-                Transform.localScale = Vector3.one;
-                ApplyAlpha(1f);
+                ApplyFadeState(command, scaleProgress: 0f, alpha: 1f);
                 return;
             }
 
             var breakDurationSeconds = Mathf.Max(0.0001f, command.FadeDurationSeconds);
             var breakNormalizedTime = Mathf.Clamp01((elapsedSeconds - command.BreakStartSeconds) / breakDurationSeconds);
-            var easedScaleTime = Mathf.Pow(breakNormalizedTime, 2f);
-            var easedAlphaTime = Mathf.Pow(breakNormalizedTime, 2.5f);
-            Transform.localScale = new Vector3(
-                Mathf.Lerp(1f, 1.12f, easedScaleTime),
-                Mathf.Lerp(1f, 1.12f, easedScaleTime),
-                Mathf.Lerp(1f, 0.18f, easedScaleTime));
-            ApplyAlpha(1f - easedAlphaTime);
+            ApplyFadeState(
+                command,
+                Mathf.Pow(breakNormalizedTime, 2f),
+                1f - Mathf.Pow(breakNormalizedTime, 2.5f));
         }
 
-        private void ApplyAlpha(float alpha)
+        private void ApplyFadeState(
+            in ParameterizedMotionVfxCommand command,
+            float scaleProgress,
+            float alpha)
         {
-            if (!hasRuntimeMaterials)
+            if (command.FadeMode == ParameterizedMotionVfxFadeMode.ScaleAndAlpha ||
+                command.FadeMode == ParameterizedMotionVfxFadeMode.ScaleOnly)
+            {
+                Transform.localScale = new Vector3(
+                    Mathf.Lerp(1f, 1.12f, scaleProgress),
+                    Mathf.Lerp(1f, 1.12f, scaleProgress),
+                    Mathf.Lerp(1f, 0.18f, scaleProgress));
+            }
+            else
+            {
+                Transform.localScale = Vector3.one;
+            }
+
+            if (command.FadeMode == ParameterizedMotionVfxFadeMode.ScaleAndAlpha ||
+                command.FadeMode == ParameterizedMotionVfxFadeMode.AlphaOnly)
+            {
+                activeMaterialInstances?.ApplyAlpha(alpha);
+            }
+        }
+
+        private static void RemoveGameplayAffectingComponents(GameObject root)
+        {
+            if (root == null)
             {
                 return;
             }
 
-            for (var rendererIndex = 0; rendererIndex < runtimeMaterials.Length; rendererIndex++)
+            DestroyComponents(root.GetComponentsInChildren<Collider>(includeInactive: true));
+            DestroyComponents(root.GetComponentsInChildren<Rigidbody>(includeInactive: true));
+            DestroyComponents(root.GetComponentsInChildren<AudioSource>(includeInactive: true));
+            var components = root.GetComponentsInChildren<Component>(includeInactive: true);
+            for (var i = 0; i < components.Length; i++)
             {
-                var materials = runtimeMaterials[rendererIndex];
-                if (materials == null)
+                var component = components[i];
+                if (component != null && component.GetType().Name == "NavMeshAgent")
                 {
-                    continue;
-                }
-
-                for (var materialIndex = 0; materialIndex < materials.Length; materialIndex++)
-                {
-                    var material = materials[materialIndex];
-                    if (material == null)
-                    {
-                        continue;
-                    }
-
-                    ConfigureTransparentMaterial(material);
-                    if (material.HasProperty("_BaseColor"))
-                    {
-                        var color = material.GetColor("_BaseColor");
-                        color.a = alpha;
-                        material.SetColor("_BaseColor", color);
-                    }
-
-                    if (material.HasProperty("_Color"))
-                    {
-                        var color = material.color;
-                        color.a = alpha;
-                        material.color = color;
-                    }
+                    SafeDestroy(component);
                 }
             }
         }
 
-        private static void ConfigureTransparentMaterial(Material material)
+        private static void DestroyComponents(Component[] components)
         {
-            if (material == null)
+            for (var i = 0; i < components.Length; i++)
+            {
+                SafeDestroy(components[i]);
+            }
+        }
+
+        private static void SafeDestroy(UnityEngine.Object target)
+        {
+            if (target == null)
             {
                 return;
             }
 
-            if (material.HasProperty("_Surface"))
+            if (Application.isPlaying)
             {
-                material.SetFloat("_Surface", 1f);
+                UnityEngine.Object.Destroy(target);
             }
-
-            if (material.HasProperty("_Blend"))
+            else
             {
-                material.SetFloat("_Blend", 0f);
+                UnityEngine.Object.DestroyImmediate(target);
             }
-
-            if (material.HasProperty("_ZWrite"))
-            {
-                material.SetFloat("_ZWrite", 0f);
-            }
-
-            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
         }
     }
 }

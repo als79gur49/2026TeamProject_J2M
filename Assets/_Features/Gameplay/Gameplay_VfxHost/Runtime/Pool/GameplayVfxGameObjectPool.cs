@@ -9,8 +9,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
     {
         private readonly Dictionary<int, Stack<GameplayVfxPooledInstance>> availableByPrefabId = new();
         private readonly Dictionary<int, List<GameplayVfxPooledInstance>> allByPrefabId = new();
-        private readonly Dictionary<GameplayVfxPlaybackHandle, FlipDestroySelfMotionVfxCommand> activeFlipDestroySelfMotions = new();
+        private readonly Dictionary<GameplayVfxPlaybackHandle, ParameterizedMotionVfxCommand> activeParameterizedMotions = new();
         private readonly HashSet<GameplayVfxPlaybackHandle> activeHandles = new();
+        private readonly IGameplayVfxCloneSourceProvider cloneSourceProvider;
         private readonly GameplayVfxRuntimeRoot root;
         private readonly IVfxPrefabProvider prefabProvider;
         private readonly IGameplayVfxTimeProvider timeProvider;
@@ -19,12 +20,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public GameplayVfxGameObjectPool(
             GameplayVfxRuntimeRoot root,
             IVfxPrefabProvider prefabProvider,
-            IGameplayVfxTimeProvider timeProvider = null)
+            IGameplayVfxTimeProvider timeProvider = null,
+            IGameplayVfxCloneSourceProvider cloneSourceProvider = null)
         {
             this.root = root ?? throw new ArgumentNullException(nameof(root));
             root.InitializeRuntime();
             this.prefabProvider = prefabProvider ?? throw new ArgumentNullException(nameof(prefabProvider));
             this.timeProvider = timeProvider ?? new UnityGameplayVfxTimeProvider();
+            this.cloneSourceProvider = cloneSourceProvider;
         }
 
         public int DroppedByLimitCount { get; private set; }
@@ -44,7 +47,19 @@ namespace Game.Feature.Gameplay.Vfx.Host
             in ResolvedVfxPlaybackCommand command,
             in FlipDestroySelfMotionVfxCommand motionCommand)
         {
+            return PlayParameterizedMotion(command, motionCommand.ToParameterizedMotionVfxCommand());
+        }
+
+        public IVfxPlaybackHandle PlayParameterizedMotion(
+            in ResolvedVfxPlaybackCommand command,
+            in ParameterizedMotionVfxCommand motionCommand)
+        {
             command.Policy.ValidateOrThrow();
+            if (command.CueId != motionCommand.CueId)
+            {
+                throw new InvalidOperationException("Parameterized VFX command cue does not match resolved playback command cue.");
+            }
+
             if (!prefabProvider.TryResolvePrefab(command, out var prefab) || prefab == null)
             {
                 MissingPrefabCount++;
@@ -61,11 +76,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var instance = Lease(prefab, prefabInstanceId);
             var now = timeProvider.TimeSeconds;
             var handle = new GameplayVfxPlaybackHandle(++nextHandleId, command, instance, now, timeProvider);
-            instance.ActivateFlipDestroySelfMotion(prefabInstanceId, handle, root.OneShotRoot, motionCommand);
+            instance.ActivateParameterizedMotion(prefabInstanceId, handle, root.OneShotRoot, motionCommand, cloneSourceProvider);
             handle.MarkSpawned();
             handle.MarkActive();
             activeHandles.Add(handle);
-            activeFlipDestroySelfMotions[handle] = motionCommand;
+            activeParameterizedMotions[handle] = motionCommand;
             return handle;
         }
 
@@ -92,7 +107,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             activeHandles.Clear();
-            activeFlipDestroySelfMotions.Clear();
+            activeParameterizedMotions.Clear();
 
             foreach (var instance in allByPrefabId.Values.SelectMany(list => list).ToArray())
             {
@@ -190,7 +205,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         private void AdvanceHandle(GameplayVfxPlaybackHandle handle, float now)
         {
-            if (TryAdvanceFlipDestroySelfMotion(handle, now))
+            if (TryAdvanceParameterizedMotion(handle, now))
             {
                 return;
             }
@@ -255,7 +270,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             var instance = handle.Instance;
             activeHandles.Remove(handle);
-            activeFlipDestroySelfMotions.Remove(handle);
+            activeParameterizedMotions.Remove(handle);
 
             if (instance == null || instance.GameObject == null)
             {
@@ -295,7 +310,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             ReleaseInternal(handle, forceHardCleanup: false);
         }
 
-        private bool TryAdvanceFlipDestroySelfMotion(GameplayVfxPlaybackHandle handle, float now)
+        private bool TryAdvanceParameterizedMotion(GameplayVfxPlaybackHandle handle, float now)
         {
             if (handle.State != VfxLifetimeState.Active &&
                 handle.State != VfxLifetimeState.Spawned)
@@ -303,21 +318,21 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return false;
             }
 
-            if (!activeFlipDestroySelfMotions.TryGetValue(handle, out var motionCommand))
+            if (!activeParameterizedMotions.TryGetValue(handle, out var motionCommand))
             {
                 return false;
             }
 
             var elapsedSeconds = Mathf.Max(0f, now - handle.StartedAtSeconds);
-            handle.Instance?.AdvanceFlipDestroySelfMotion(motionCommand, elapsedSeconds);
-            if (elapsedSeconds < motionCommand.FlightDurationSeconds)
+            handle.Instance?.AdvanceParameterizedMotion(motionCommand, elapsedSeconds);
+            if (elapsedSeconds < motionCommand.DurationSeconds)
             {
                 return true;
             }
 
             handle.StopEmitting();
             handle.MarkTailPlaying(now);
-            activeFlipDestroySelfMotions.Remove(handle);
+            activeParameterizedMotions.Remove(handle);
             ReleaseIfTailComplete(handle, now);
             return true;
         }

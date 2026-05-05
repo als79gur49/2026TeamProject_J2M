@@ -1,6 +1,7 @@
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Vfx;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Vfx.Host
@@ -90,6 +91,25 @@ namespace Game.Feature.Gameplay.Vfx.Host
         internal GameplayEntityPose SourcePose => new(SourceLocalPosition, SourceLocalRotation);
 
         internal GameplayEntityPose ImpactPose => new(ImpactLocalPosition, ImpactLocalRotation);
+
+        public ParameterizedMotionVfxCommand ToParameterizedMotionVfxCommand()
+        {
+            return new ParameterizedMotionVfxCommand(
+                GameplayVfxCueId.From(BoxVfxCue.FlipDestroySelfMotion),
+                BoxEntityId,
+                SourceActionPlanId > 0 ? SourceActionPlanId : BoxEntityId,
+                PresentationSeed,
+                SourceLocalPosition,
+                SourceLocalRotation,
+                ImpactLocalPosition,
+                ImpactLocalRotation,
+                FlightDurationSeconds,
+                ArcHeight,
+                BreakStartSeconds,
+                FadeDurationSeconds,
+                ParameterizedMotionVfxFadeMode.ScaleAndAlpha,
+                ParameterizedMotionVfxCloneMode.SourceViewCloneWithPrefabFallback);
+        }
     }
 
     internal static class FlipDestroySelfMotionVfxCommandBuilder

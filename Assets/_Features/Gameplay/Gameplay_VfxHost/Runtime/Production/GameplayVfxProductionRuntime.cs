@@ -343,7 +343,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var anchorResolver = new GameplayVfxHostAnchorResolver(
                 new GameplayVfxHostCellAnchorProjector(context.Projector),
                 new GameplayVfxHostEntityAnchorProjector(context.StateStore));
-            pool = new GameplayVfxGameObjectPool(runtimeRoot, prefabProvider);
+            pool = new GameplayVfxGameObjectPool(
+                runtimeRoot,
+                prefabProvider,
+                cloneSourceProvider: new GameplayVfxStateStoreCloneSourceProvider(context.StateStore));
             controller = new GameplayVfxPresentationController(
                 pool,
                 anchorResolver,
@@ -546,7 +549,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 command.SourceLocalPosition,
                 command.SourceLocalRotation);
             var playbackCommand = new ResolvedVfxPlaybackCommand(request, policy, anchor);
-            return pool.PlayFlipDestroySelfMotion(playbackCommand, command) != null;
+            return pool.PlayParameterizedMotion(playbackCommand, command.ToParameterizedMotionVfxCommand()) != null;
         }
 
         private static bool HasDestroySelfFlipImpactSignal(TickPresentationData presentationData)
