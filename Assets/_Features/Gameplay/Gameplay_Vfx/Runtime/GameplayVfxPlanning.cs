@@ -119,6 +119,30 @@ namespace Game.Feature.Gameplay.Vfx
                 return;
             }
 
+            var damageSignals = presentationData.EnemyDamageSignals;
+            for (var i = 0; i < damageSignals.Count; i++)
+            {
+                var signal = damageSignals[i];
+                if (!signal.TookDamageThisTick ||
+                    signal.EntityId <= 0 ||
+                    DidEnemyExitThisTick(presentationData, signal.EntityId))
+                {
+                    continue;
+                }
+
+                builder.Add(
+                    new GameplayVfxRequest(
+                        tickIndex: context.TickIndex,
+                        sequenceId: signal.EntityId,
+                        presentationSeed: signal.EntityId,
+                        sourceEntityId: signal.EntityId,
+                        cueId: GameplayVfxCueId.From(EnemyVfxCue.Damage),
+                        anchor: VfxAnchor.ForEntity(
+                            signal.EntityId,
+                            VfxAnchorSlot.EntityCenter),
+                        timing: VfxTimingKind.ImmediateOnTickPresentation));
+            }
+
             var jumpSignals = presentationData.EnemyJumpSignals;
             for (var i = 0; i < jumpSignals.Count; i++)
             {
@@ -173,6 +197,20 @@ namespace Game.Feature.Gameplay.Vfx
         private static int ResolveSequenceId(in TickEnemyJumpPresentationSignal signal)
         {
             return signal.Sequence > 0 ? signal.Sequence : signal.EntityId;
+        }
+
+        private static bool DidEnemyExitThisTick(TickPresentationData presentationData, int entityId)
+        {
+            var exitSignals = presentationData.EntityExitSignals;
+            for (var i = 0; i < exitSignals.Count; i++)
+            {
+                if (exitSignals[i].ExitedEntityId == entityId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 

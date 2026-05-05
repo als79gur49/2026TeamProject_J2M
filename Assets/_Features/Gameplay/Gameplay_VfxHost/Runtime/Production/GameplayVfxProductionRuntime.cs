@@ -12,6 +12,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         [SerializeField] private bool enableEnemyJumpTargetVfx;
         [SerializeField] private bool enableEnemyJumpLandingDustVfx;
         [SerializeField] private bool enableGameplayVfxDamageBurstMigration;
+        [SerializeField] private bool enableGameplayVfxEnemyDamageBurstMigration;
         [SerializeField] private VfxProfileAsset[] familyProfiles = Array.Empty<VfxProfileAsset>();
 
         private readonly PlayerVfxRequestPlanner playerPlanner = new();
@@ -76,6 +77,21 @@ namespace Game.Feature.Gameplay.Vfx.Host
         }
 
         public bool SuppressLegacyPlayerDamageHitEffects => enableGameplayVfxDamageBurstMigration;
+
+        public bool EnableGameplayVfxEnemyDamageBurstMigration
+        {
+            get => enableGameplayVfxEnemyDamageBurstMigration;
+            set
+            {
+                if (enableGameplayVfxEnemyDamageBurstMigration == value)
+                {
+                    return;
+                }
+
+                enableGameplayVfxEnemyDamageBurstMigration = value;
+                ResetIfNoGameplayVfxEnabled();
+            }
+        }
 
         public int LastPlannedRequestCount { get; private set; }
 
@@ -247,7 +263,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         private bool AnyEnemyJumpVfxEnabled => enableEnemyJumpTargetVfx || enableEnemyJumpLandingDustVfx;
 
-        private bool AnyGameplayVfxEnabled => AnyEnemyJumpVfxEnabled || enableGameplayVfxDamageBurstMigration;
+        private bool AnyGameplayVfxEnabled =>
+            AnyEnemyJumpVfxEnabled ||
+            enableGameplayVfxDamageBurstMigration ||
+            enableGameplayVfxEnemyDamageBurstMigration;
 
         private void ResetIfNoEnemyJumpVfxEnabled()
         {
@@ -290,6 +309,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private bool IsCueEnabled(GameplayVfxCueId cueId)
         {
             return (enableGameplayVfxDamageBurstMigration && cueId == GameplayVfxCueId.From(PlayerVfxCue.Damage)) ||
+                   (enableGameplayVfxEnemyDamageBurstMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.Damage)) ||
                    (enableEnemyJumpTargetVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)) ||
                    (enableEnemyJumpLandingDustVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingDust));
         }

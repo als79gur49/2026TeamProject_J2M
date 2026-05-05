@@ -1,0 +1,638 @@
+using System;
+using System.IO;
+using System.Reflection;
+using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Debug;
+using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Model.Phases;
+using Game.Feature.Gameplay.Vfx;
+using Game.Feature.Gameplay.Vfx.Authoring;
+using Game.Feature.Gameplay.Vfx.Host;
+using NUnit.Framework;
+using UnityEditor;
+using UnityEngine;
+
+namespace Game.Feature.Gameplay.Tests.Unit
+{
+    public sealed class GameplayVfxEnemyDamageMigrationTests
+    {
+        private const string HostDefaultCueMapPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset";
+        private const string EnemyDamageBurstPrefabPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/EnemyDamageBurstVfx.prefab";
+        private const string EnemyDamageBurstBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/EnemyDamageBurst_Binding.asset";
+        private const string VfxPlanningPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxPlanning.cs";
+        private const string VfxProductionRuntimePath =
+            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/GameplayVfxProductionRuntime.cs";
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyPlanner_DamageSignal_EmitsEnemyDamageRequest()
+        {
+            var request = PlanSingleRequest(CreateEnemyDamageSignal());
+
+            Assert.That(request.TickIndex, Is.EqualTo(12));
+            Assert.That(request.SequenceId, Is.EqualTo(40));
+            Assert.That(request.PresentationSeed, Is.EqualTo(40));
+            Assert.That(request.SourceEntityId, Is.EqualTo(40));
+            Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.Damage)));
+            Assert.That(request.Timing, Is.EqualTo(VfxTimingKind.ImmediateOnTickPresentation));
+            Assert.That(request.IsPersistent, Is.False);
+            Assert.That(request.PersistentKey, Is.EqualTo(default(VfxPersistentKey)));
+            Assert.That(request.Anchor.Kind, Is.EqualTo(VfxAnchorKind.Entity));
+            Assert.That(request.Anchor.EntityId, Is.EqualTo(40));
+            Assert.That(request.Anchor.Slot, Is.EqualTo(VfxAnchorSlot.EntityCenter));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyPlanner_NoDamageOrInvalidEntity_DoesNotEmitDamageRequest()
+        {
+            AssertNoEnemyDamageRequests(new TickEnemyDamagePresentationSignal(40, tookDamageThisTick: false, damageAmount: 0));
+            AssertNoEnemyDamageRequests(new TickEnemyDamagePresentationSignal(0, tookDamageThisTick: true, damageAmount: 1));
+            AssertNoEnemyDamageRequests(new TickEnemyDamagePresentationSignal(-1, tookDamageThisTick: true, damageAmount: 1));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyPlanner_EntityExitTick_DoesNotEmitDamageRequest()
+        {
+            var planner = new EnemyVfxRequestPlanner();
+            var builder = new GameplayVfxRequestPlanBuilder();
+
+            planner.Plan(
+                new GameplayVfxPlanningContext(
+                    12,
+                    CreatePresentationData(
+                        enemyDamageSignals: new[] { CreateEnemyDamageSignal() },
+                        entityExitSignals: new[] { CreateEnemyExitSignal(40) }),
+                    new CubeTopologyState(FaceId.Floor)),
+                builder);
+
+            Assert.That(
+                builder.Build().Requests,
+                Has.None.Matches<GameplayVfxRequest>(
+                    request => request.CueId == GameplayVfxCueId.From(EnemyVfxCue.Damage)));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProductionRuntime_EnemyDamageMigrationFlag_DefaultsFalse()
+        {
+            var owner = new GameObject("EnemyDamageMigrationDefaultFlag");
+            try
+            {
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+
+                Assert.That(runtime.EnableGameplayVfxEnemyDamageBurstMigration, Is.False);
+                Assert.That(runtime.EnableGameplayVfxDamageBurstMigration, Is.False);
+                Assert.That(runtime.SuppressLegacyPlayerDamageHitEffects, Is.False);
+            }
+            finally
+            {
+                Destroy(owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProductionRuntime_EnemyDamageFlagOnMissingBinding_DiagnosticOnly()
+        {
+            var owner = new GameObject("EnemyDamageMigrationMissingBinding");
+            try
+            {
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxEnemyDamageBurstMigration = true;
+
+                runtime.Present(CreateExtensionContext());
+
+                Assert.That(runtime.IsRuntimeInitialized, Is.True);
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
+                Assert.That(runtime.SuppressLegacyPlayerDamageHitEffects, Is.False);
+            }
+            finally
+            {
+                Destroy(owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProductionRuntime_EnemyDamageFlagOnWithBinding_PlaysOneTransientInstance()
+        {
+            var owner = new GameObject("EnemyDamageMigrationEnabled");
+            var prefab = new GameObject("EnemyDamageMigrationPrefab");
+            VfxBindingDefinitionAsset binding = null;
+            VfxCueMapAsset cueMap = null;
+            try
+            {
+                binding = CreateBinding(prefab);
+                cueMap = CreateCueMap(binding);
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxEnemyDamageBurstMigration = true;
+                runtime.ConfigureHostDefaultMap(cueMap);
+
+                runtime.Present(CreateExtensionContext());
+
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.MissingBindingCount, Is.Zero);
+                Assert.That(runtime.MissingAnchorCount, Is.Zero);
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                Destroy(cueMap, binding, prefab, owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProductionRuntime_PlayerAndEnemyDamageFlags_AreIndependent()
+        {
+            AssertFlagCombinationPlans(playerDamageEnabled: true, enemyDamageEnabled: false, expectedRequests: 1);
+            AssertFlagCombinationPlans(playerDamageEnabled: false, enemyDamageEnabled: true, expectedRequests: 1);
+            AssertFlagCombinationPlans(playerDamageEnabled: true, enemyDamageEnabled: true, expectedRequests: 2);
+            AssertFlagCombinationPlans(playerDamageEnabled: false, enemyDamageEnabled: false, expectedRequests: 0);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProductionRuntime_EnemyDamageFlagOnWithBinding_DoesNotCreateSnapshots()
+        {
+            var owner = new GameObject("EnemyDamageMigrationSnapshotGuard");
+            var prefab = new GameObject("EnemyDamageMigrationSnapshotPrefab");
+            VfxBindingDefinitionAsset binding = null;
+            VfxCueMapAsset cueMap = null;
+            try
+            {
+                binding = CreateBinding(prefab);
+                cueMap = CreateCueMap(binding);
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxEnemyDamageBurstMigration = true;
+                runtime.ConfigureHostDefaultMap(cueMap);
+
+                SnapshotMaterializationCounts counts;
+                using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+                {
+                    runtime.Present(CreateExtensionContext());
+                    counts = capture.Counts;
+                }
+
+                Assert.That(counts.WorldStateCreateSnapshotCount, Is.EqualTo(0));
+                Assert.That(counts.ProjectedWorldMaterializedSnapshotCount, Is.EqualTo(0));
+                Assert.That(counts.ProjectedWorldApplyBatchCount, Is.EqualTo(0));
+                Assert.That(counts.ProjectedWorldCacheHitCount, Is.EqualTo(0));
+            }
+            finally
+            {
+                Destroy(cueMap, binding, prefab, owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProfileAwareResolver_SourceProfileDamageBindingBeatsHostDefault()
+        {
+            var cueId = GameplayVfxCueId.From(EnemyVfxCue.Damage);
+            var sourcePolicy = CreatePolicy(cueId, maxConcurrentInstances: 7);
+            var hostPolicy = CreatePolicy(cueId, maxConcurrentInstances: 3);
+            var resolver = new ProfileAwareVfxBindingResolver(
+                new FakeProfileProvider(
+                    sourceEntityId: 40,
+                    profile: new VfxProfile(GameplayVfxFamily.Enemy, new[] { sourcePolicy })),
+                new VfxCueMap(new[] { hostPolicy }));
+
+            Assert.That(resolver.TryResolve(CreateRequest(cueId, sourceEntityId: 40), out var resolved), Is.True);
+            Assert.That(resolved, Is.EqualTo(sourcePolicy));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProfileAwareResolver_SourceProfileMissingDamageFallsBackToHostDefault()
+        {
+            var cueId = GameplayVfxCueId.From(EnemyVfxCue.Damage);
+            var hostPolicy = CreatePolicy(cueId, maxConcurrentInstances: 3);
+            var profileOnlyPolicy = CreatePolicy(GameplayVfxCueId.From(EnemyVfxCue.Spawn));
+            var resolver = new ProfileAwareVfxBindingResolver(
+                new FakeProfileProvider(
+                    sourceEntityId: 40,
+                    profile: new VfxProfile(GameplayVfxFamily.Enemy, new[] { profileOnlyPolicy })),
+                new VfxCueMap(new[] { hostPolicy }));
+
+            Assert.That(resolver.TryResolve(CreateRequest(cueId, sourceEntityId: 40), out var resolved), Is.True);
+            Assert.That(resolved, Is.EqualTo(hostPolicy));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProfileAwareResolver_MissingSourceIdUsesHostDefaultForEnemyDamage()
+        {
+            var cueId = GameplayVfxCueId.From(EnemyVfxCue.Damage);
+            var hostPolicy = CreatePolicy(cueId);
+            var sourcePolicy = CreatePolicy(cueId, maxConcurrentInstances: 7);
+            var provider = new FakeProfileProvider(
+                sourceEntityId: 40,
+                profile: new VfxProfile(GameplayVfxFamily.Enemy, new[] { sourcePolicy }));
+            var resolver = new ProfileAwareVfxBindingResolver(provider, new VfxCueMap(new[] { hostPolicy }));
+
+            Assert.That(resolver.TryResolve(CreateRequest(cueId, sourceEntityId: 0), out var resolved), Is.True);
+            Assert.That(resolved, Is.EqualTo(hostPolicy));
+            Assert.That(provider.CallCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProfileAwareResolver_MissingAllEnemyDamageBindings_ReturnsFalse()
+        {
+            var cueId = GameplayVfxCueId.From(EnemyVfxCue.Damage);
+            var resolver = new ProfileAwareVfxBindingResolver(
+                new FakeProfileProvider(sourceEntityId: 40, profile: null),
+                VfxCueMap.Empty);
+
+            Assert.That(resolver.TryResolve(CreateRequest(cueId, sourceEntityId: 40), out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyDamageBurstPrefab_PassesVfxPrefabValidation()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(EnemyDamageBurstPrefabPath);
+
+            Assert.That(prefab, Is.Not.Null, EnemyDamageBurstPrefabPath);
+            var validation = VfxPrefabValidationDiagnostics.ValidatePrefab(prefab);
+
+            Assert.That(validation.HasErrors, Is.False, string.Join("\n", validation.Messages));
+            Assert.That(validation.HasWarnings, Is.False, string.Join("\n", validation.Messages));
+            Assert.That(prefab.GetComponentsInChildren<Collider>(true), Is.Empty);
+            Assert.That(prefab.GetComponentsInChildren<AudioSource>(true), Is.Empty);
+            Assert.That(prefab.GetComponentsInChildren<Rigidbody>(true), Is.Empty);
+            Assert.That(prefab.GetComponentsInChildren<UnityEngine.AI.NavMeshAgent>(true), Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyDamageBurstBinding_ValidatesAndUsesOneShotAuthoredDuration()
+        {
+            var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(EnemyDamageBurstBindingPath);
+
+            Assert.That(binding, Is.Not.Null, EnemyDamageBurstBindingPath);
+            Assert.That(binding.ValidateAuthoring().HasErrors, Is.False);
+            Assert.That(binding.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.Damage)));
+            Assert.That(binding.Requirement, Is.EqualTo(VfxBindingRequirement.DiagnosticIfMissing));
+            Assert.That(binding.MissingAnchorPolicy, Is.EqualTo(VfxMissingAnchorPolicy.ReportDiagnostic));
+            Assert.That(binding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
+            Assert.That(binding.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
+            Assert.That(binding.DefaultLifetimeSeconds, Is.EqualTo(0.30f).Within(0.001f));
+            Assert.That(binding.TailSeconds, Is.EqualTo(0.20f).Within(0.001f));
+            Assert.That(binding.InitialPoolSize, Is.EqualTo(4));
+            Assert.That(binding.MaxConcurrentInstances, Is.EqualTo(12));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void HostDefaultCueMap_ResolvesEnemyDamageBurst()
+        {
+            var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
+
+            Assert.That(cueMap, Is.Not.Null, HostDefaultCueMapPath);
+            Assert.That(
+                cueMap.BuildRuntimeMap().TryResolve(
+                    GameplayVfxCueId.From(EnemyVfxCue.Damage),
+                    out var policy),
+                Is.True);
+            Assert.That(policy.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
+            Assert.That(policy.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
+            Assert.That(policy.MaxConcurrentInstances, Is.EqualTo(12));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyDamagePlannerAndRuntimeSources_DoNotReferenceAuthorityTypes()
+        {
+            var source = File.ReadAllText(VfxPlanningPath) + "\n" + File.ReadAllText(VfxProductionRuntimePath);
+            var forbiddenTokens = new[]
+            {
+                "WorldState",
+                "WorldSnapshot",
+                "TickPipeline",
+                "ProjectedWorld",
+                "FinalizationBatch",
+                "DeterminismHashBuilder",
+                "CreateSnapshot",
+            };
+
+            foreach (var token in forbiddenTokens)
+            {
+                Assert.That(source, Does.Not.Contain(token), token);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ExistingPresenterSources_DoNotReferenceEnemyDamageCue()
+        {
+            var presenterPaths = new[]
+            {
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTransientEffectPresenter.cs",
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayExitPresentationController.cs",
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayFrontFaceShieldVfxPresenter.cs",
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayUtilityWindupVfxPresenter.cs",
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxFlipInteractionDriver.cs",
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/FlipImpactTrack.cs",
+            };
+
+            foreach (var path in presenterPaths)
+            {
+                Assert.That(File.ReadAllText(path), Does.Not.Contain("EnemyVfxCue.Damage"), path);
+            }
+        }
+
+        private static GameplayVfxRequest PlanSingleRequest(TickEnemyDamagePresentationSignal damageSignal)
+        {
+            var planner = new EnemyVfxRequestPlanner();
+            var builder = new GameplayVfxRequestPlanBuilder();
+
+            planner.Plan(
+                new GameplayVfxPlanningContext(
+                    12,
+                    CreatePresentationData(enemyDamageSignals: new[] { damageSignal }),
+                    new CubeTopologyState(FaceId.Floor)),
+                builder);
+
+            var plan = builder.Build();
+            Assert.That(plan.Requests, Has.Count.EqualTo(1));
+            return plan.Requests[0];
+        }
+
+        private static void AssertNoEnemyDamageRequests(params TickEnemyDamagePresentationSignal[] damageSignals)
+        {
+            var planner = new EnemyVfxRequestPlanner();
+            var builder = new GameplayVfxRequestPlanBuilder();
+
+            planner.Plan(
+                new GameplayVfxPlanningContext(
+                    12,
+                    CreatePresentationData(enemyDamageSignals: damageSignals),
+                    new CubeTopologyState(FaceId.Floor)),
+                builder);
+
+            Assert.That(
+                builder.Build().Requests,
+                Has.None.Matches<GameplayVfxRequest>(
+                    request => request.CueId == GameplayVfxCueId.From(EnemyVfxCue.Damage)));
+        }
+
+        private static void AssertFlagCombinationPlans(
+            bool playerDamageEnabled,
+            bool enemyDamageEnabled,
+            int expectedRequests)
+        {
+            var owner = new GameObject(
+                $"EnemyDamageFlagCombination_{playerDamageEnabled}_{enemyDamageEnabled}");
+            try
+            {
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxDamageBurstMigration = playerDamageEnabled;
+                runtime.EnableGameplayVfxEnemyDamageBurstMigration = enemyDamageEnabled;
+
+                runtime.Present(CreateExtensionContext(includePlayerDamage: true));
+
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(expectedRequests));
+                Assert.That(
+                    runtime.SuppressLegacyPlayerDamageHitEffects,
+                    Is.EqualTo(playerDamageEnabled));
+            }
+            finally
+            {
+                Destroy(owner);
+            }
+        }
+
+        private static GameplayTickPresentationExtensionContext CreateExtensionContext(bool includePlayerDamage = false)
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var stateStore = new GameplayPresentationStateStore();
+            stateStore.ResetSession(topology);
+            stateStore.CommittedLocalTargetPoses[40] = new GameplayEntityPose(
+                new Vector3(0.25f, 0.5f, 0f),
+                Quaternion.identity);
+            stateStore.CommittedLocalTargetPoses[10] = new GameplayEntityPose(
+                new Vector3(-0.25f, 0.5f, 0f),
+                Quaternion.identity);
+            var projector = new GameplayCubeProjector(
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)),
+                1f);
+
+            return new GameplayTickPresentationExtensionContext(
+                CreateResult(
+                    CreatePresentationData(
+                        playerDamageSignals: includePlayerDamage
+                            ? new[] { new TickPlayerDamagePresentationSignal(10, tookDamageThisTick: true, damageAmount: 1) }
+                            : Array.Empty<TickPlayerDamagePresentationSignal>(),
+                        enemyDamageSignals: new[] { CreateEnemyDamageSignal() }),
+                    topology),
+                topology,
+                stateStore,
+                projector);
+        }
+
+        private static TickResult CreateResult(
+            TickPresentationData presentationData,
+            CubeTopologyState topology)
+        {
+            return new TickResult(
+                12,
+                Array.Empty<TickPhase>(),
+                Array.Empty<string>(),
+                MovementPhaseResult.Empty,
+                AttackPhaseResult.Empty,
+                new[]
+                {
+                    CreatePlayerUnit(10, new SurfaceCell(FaceId.Floor, 0, 0)),
+                    CreateEnemyUnit(40, new SurfaceCell(FaceId.Floor, 1, 0)),
+                },
+                Array.Empty<string>(),
+                topology,
+                presentationData,
+                "hash",
+                TickTrace.Empty);
+        }
+
+        private static TickPresentationData CreatePresentationData(
+            TickPlayerDamagePresentationSignal[] playerDamageSignals = null,
+            TickEnemyDamagePresentationSignal[] enemyDamageSignals = null,
+            TickEntityExitPresentationSignal[] entityExitSignals = null)
+        {
+            return new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                playerDamageSignals ?? Array.Empty<TickPlayerDamagePresentationSignal>(),
+                Array.Empty<TickPlayerDeathPresentationSignal>(),
+                enemyDamageSignals ?? Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                entityExitSignals ?? Array.Empty<TickEntityExitPresentationSignal>(),
+                Array.Empty<FlipImpactPresentationSignal>());
+        }
+
+        private static TickEnemyDamagePresentationSignal CreateEnemyDamageSignal()
+        {
+            return new TickEnemyDamagePresentationSignal(40, tookDamageThisTick: true, damageAmount: 1);
+        }
+
+        private static TickEntityExitPresentationSignal CreateEnemyExitSignal(int entityId)
+        {
+            return new TickEntityExitPresentationSignal(
+                entityId,
+                TickEntityExitCause.EnemyDeath,
+                new SurfaceCell(FaceId.Floor, 1, 0),
+                new CubeTopologyState(FaceId.Floor),
+                Direction.Left,
+                EntityType.Unit,
+                sourceActorEntityId: 10);
+        }
+
+        private static EntityState CreatePlayerUnit(int entityId, SurfaceCell position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 3,
+                maxHp = 3,
+                teamId = 1,
+                type = EntityType.Unit,
+                unitRole = UnitRole.Player,
+                state = EntityPhaseState.Idle,
+                facing = Direction.Right,
+                boardPresence = EntityBoardPresence.Occupying,
+                aiMode = EnemyAiMode.None,
+            };
+        }
+
+        private static EntityState CreateEnemyUnit(int entityId, SurfaceCell position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 2,
+                maxHp = 3,
+                teamId = 2,
+                type = EntityType.Unit,
+                unitRole = UnitRole.Enemy,
+                state = EntityPhaseState.Idle,
+                facing = Direction.Left,
+                boardPresence = EntityBoardPresence.Occupying,
+                aiMode = EnemyAiMode.Patrol,
+            };
+        }
+
+        private static VfxBindingDefinitionAsset CreateBinding(GameObject prefab)
+        {
+            var binding = ScriptableObject.CreateInstance<VfxBindingDefinitionAsset>();
+            SetField(binding, "family", GameplayVfxFamily.Enemy);
+            SetField(binding, "cueCode", (int)EnemyVfxCue.Damage);
+            SetField(binding, "prefab", prefab);
+            SetField(binding, "requirement", VfxBindingRequirement.DiagnosticIfMissing);
+            SetField(binding, "missingAnchorPolicy", VfxMissingAnchorPolicy.ReportDiagnostic);
+            SetField(binding, "playbackMode", VfxPlaybackMode.OneShot);
+            SetField(binding, "stopPolicy", VfxStopPolicy.AuthoredDuration);
+            SetField(binding, "defaultLifetimeSeconds", 0.30f);
+            SetField(binding, "tailSeconds", 0.20f);
+            SetField(binding, "initialPoolSize", 4);
+            SetField(binding, "maxConcurrentInstances", 12);
+            return binding;
+        }
+
+        private static VfxCueMapAsset CreateCueMap(params VfxBindingDefinitionAsset[] bindings)
+        {
+            var cueMap = ScriptableObject.CreateInstance<VfxCueMapAsset>();
+            SetField(cueMap, "bindings", bindings);
+            return cueMap;
+        }
+
+        private static VfxBindingRuntimePolicy CreatePolicy(
+            GameplayVfxCueId cueId,
+            int maxConcurrentInstances = 8)
+        {
+            return new VfxBindingRuntimePolicy(
+                cueId,
+                VfxBindingRequirement.DiagnosticIfMissing,
+                VfxMissingAnchorPolicy.ReportDiagnostic,
+                VfxPlaybackMode.OneShot,
+                VfxStopPolicy.AuthoredDuration,
+                defaultLifetimeSeconds: 0.30f,
+                tailSeconds: 0.20f,
+                maxConcurrentInstances: maxConcurrentInstances);
+        }
+
+        private static GameplayVfxRequest CreateRequest(GameplayVfxCueId cueId, int sourceEntityId)
+        {
+            return new GameplayVfxRequest(
+                tickIndex: 12,
+                sequenceId: sourceEntityId,
+                presentationSeed: sourceEntityId,
+                sourceEntityId: sourceEntityId,
+                cueId: cueId,
+                anchor: VfxAnchor.ForEntity(sourceEntityId, VfxAnchorSlot.EntityCenter),
+                timing: VfxTimingKind.ImmediateOnTickPresentation);
+        }
+
+        private static void SetField(object target, string fieldName, object value)
+        {
+            var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, $"Missing field '{fieldName}' on {target.GetType().Name}.");
+            field.SetValue(target, value);
+        }
+
+        private static void Destroy(params UnityEngine.Object[] unityObjects)
+        {
+            for (var i = 0; i < unityObjects.Length; i++)
+            {
+                if (unityObjects[i] != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(unityObjects[i]);
+                }
+            }
+        }
+
+        private sealed class FakeProfileProvider : IGameplayVfxProfileProvider
+        {
+            private readonly int sourceEntityId;
+            private readonly VfxProfile profile;
+
+            public FakeProfileProvider(int sourceEntityId, VfxProfile profile)
+            {
+                this.sourceEntityId = sourceEntityId;
+                this.profile = profile;
+            }
+
+            public int CallCount { get; private set; }
+
+            public bool TryResolveProfileForRequest(in GameplayVfxRequest request, out VfxProfile resolvedProfile)
+            {
+                CallCount++;
+                if (request.SourceEntityId == sourceEntityId &&
+                    profile != null)
+                {
+                    resolvedProfile = profile;
+                    return true;
+                }
+
+                resolvedProfile = null;
+                return false;
+            }
+        }
+    }
+}

@@ -233,6 +233,43 @@ Default binding:
 
 Duplicate-prevention tests for this slice must cover flag off old-only, flag on new-only, same fact not double-playing, missing binding no old fallback, and no authority/snapshot materialization impact.
 
+## Enemy Damage VFX Lane Slice
+
+`EnemyVfxCue.Damage` is the enemy damage hit burst slice from `TickPresentationData.EnemyDamageSignals`.
+
+Ownership:
+
+- new path: `EnemyVfxRequestPlanner` emits one `EnemyVfxCue.Damage` request for a non-fatal `TookDamageThisTick` signal.
+- current old visual response: `EnemyAnimatorDriver` consumes the mapped enemy damage state and fires the Hit animation trigger.
+- bypass: no `GameplayTransientEffectPresenter` bypass is added for enemy damage in this slice because current source has no enemy transient hit burst presenter path.
+- production flag: `GameplayVfxProductionRuntime.EnableGameplayVfxEnemyDamageBurstMigration`.
+
+Flag policy:
+
+- default false means no enemy damage burst request reaches VFX playback.
+- true means the Gameplay VFX lane owns the enemy damage burst.
+- player damage and enemy damage flags are independent.
+- missing binding under the true flag is diagnostic/no-op; it must not fall back to a legacy transient presenter path.
+- rollback is setting `EnableGameplayVfxEnemyDamageBurstMigration` false.
+
+Source fact and suppression:
+
+- source signal is `TickPresentationData.EnemyDamageSignals`.
+- trigger is `TookDamageThisTick` with a positive enemy entity id.
+- same-entity `TickPresentationData.EntityExitSignals` suppress the damage burst and represent the death/exit tick source fact.
+- anchor is `VfxAnchor.ForEntity(entityId, VfxAnchorSlot.EntityCenter)`.
+- `SourceEntityId`, `SequenceId`, and `PresentationSeed` use the damaged enemy entity id.
+
+Default binding:
+
+- prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/EnemyDamageBurstVfx.prefab`
+- material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_EnemyDamageBurst_Red.mat`
+- binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/EnemyDamageBurst_Binding.asset`
+- host default map: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset`
+- playback is `OneShot`, stop policy is `AuthoredDuration`, lifetime is `0.30` seconds, tail is `0.20` seconds, initial pool size is `4`, and max concurrent instances is `12`.
+
+Duplicate-prevention tests for this slice cover flag filtering, missing binding diagnostic/no-op, source profile precedence, host fallback, no authority/snapshot materialization, and checked presenter files not directly referencing `EnemyVfxCue.Damage`.
+
 ## Prefab-local Profile Owner Gate
 
 Prefab-local or presentation-local `VfxProfile` override requires request source identity. `GameplayVfxRequest.SourceEntityId` is the canonical source identity field for request-time profile lookup.
