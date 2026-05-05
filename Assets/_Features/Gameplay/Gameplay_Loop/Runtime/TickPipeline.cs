@@ -3163,7 +3163,7 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             if (snapshot.TryGetEnemyJumpState(entity.entityId, out var jumpState) &&
-                jumpState.IsActive)
+                BlocksOrdinaryEnemyKinematicLocomotionForJump(jumpState.phase))
             {
                 return false;
             }
@@ -3191,6 +3191,12 @@ namespace Game.Feature.Gameplay.Loop
                    phase == EnemyGlidePhase.Active ||
                    phase == EnemyGlidePhase.LandingPending ||
                    phase == EnemyGlidePhase.Recovery;
+        }
+
+        private static bool BlocksOrdinaryEnemyKinematicLocomotionForJump(EnemyJumpPhase phase)
+        {
+            return phase == EnemyJumpPhase.Windup ||
+                   phase == EnemyJumpPhase.Airborne;
         }
 
         private bool IsEnemyKinematicStartParticipant(

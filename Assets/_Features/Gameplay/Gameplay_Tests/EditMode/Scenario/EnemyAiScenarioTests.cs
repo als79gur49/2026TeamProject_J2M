@@ -251,6 +251,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             EnemyAi_JumpCooldown_SameFacePlayer_DoesNotRestartDuringCooldown();
             EnemyAi_JumpCooldown_Complete_WithSameFacePlayer_AllowsNewJump();
+            EnemyAi_JumpCooldown_OpenGround_ChasesBeforeCooldownCompletes();
         }
 
         [Test]
@@ -2595,6 +2596,56 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Cooldown));
                 Assert.That(jumpState.cooldownRemainingTicks, Is.EqualTo(1));
                 Assert.That(cooldownSignal.StartedWindupThisTick, Is.False);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_JumpCooldown_OpenGround_ChasesBeforeCooldownCompletes()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 1), hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(6, 2)));
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 3);
+            var pipeline = CreateEnemyPipeline(worldState, profile);
+            PrimePlayerControlState(worldState, 10);
+
+            try
+            {
+                pipeline.RunTick(new TickInput(1));
+                pipeline.RunTick(new TickInput(2));
+                pipeline.RunTick(new TickInput(3));
+                worldState.CreateWriteContext().MoveEntity(10, new SurfaceCell(FaceId.Floor, 5, 1));
+
+                var chaseIntentTick = pipeline.RunTick(new TickInput(4));
+                var jumpState = GetEnemyJumpState(worldState, 40);
+                var chaseIntent = chaseIntentTick.MovementPhaseResult.RawIntents.Single(intent => intent.SourceId == 40);
+
+                Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Cooldown));
+                Assert.That(jumpState.cooldownRemainingTicks, Is.GreaterThan(0));
+                Assert.That(chaseIntent.Destination, Is.EqualTo(new Vector2Int(4, 1)));
+                Assert.That(
+                    chaseIntentTick.MovementPhaseResult.RejectedReasons,
+                    Has.None.Contains("Source=40"),
+                    chaseIntentTick.Trace.Text);
+                Assert.That(chaseIntentTick.PresentationData.EnemyJumpSignals.Single().StartedWindupThisTick, Is.False);
+
+                var chaseCommitTick = pipeline.RunTick(new TickInput(5));
+                jumpState = GetEnemyJumpState(worldState, 40);
+                var enemyAfterChase = GetEntityAfterTick(chaseCommitTick, 40);
+
+                Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Cooldown));
+                Assert.That(jumpState.cooldownRemainingTicks, Is.GreaterThan(0));
+                Assert.That(enemyAfterChase.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 4, 1)));
+                Assert.That(chaseCommitTick.PresentationData.EnemyJumpSignals.Single().StartedWindupThisTick, Is.False);
             }
             finally
             {
