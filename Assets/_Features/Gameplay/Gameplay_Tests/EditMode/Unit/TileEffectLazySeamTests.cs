@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
@@ -53,22 +56,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void TickPipeline_TileEffectResolver_ReceivesTickPostAttackSnapshotAndDefinitions()
+        public void TickPipeline_TileEffectResolver_ReceivesFinalAttackReadSnapshotAndDefinitions()
         {
             var tileFeature = CreateTileFeature(10);
             var definition = CreateDefinition(tileFeature.TileId);
-            var resolver = new CapturingTileEffectResolver(TileEffectResolutionResult.Empty);
+            var eventLog = new List<string>();
+            var resolver = new CapturingTileEffectResolver(TileEffectResolutionResult.Empty, eventLog);
+            var attackLogic = new CapturingAttackLogic(eventLog);
             var worldState = CreateWorldState(tileFeature);
             var pipeline = CreatePipeline(
                 worldState,
                 new[] { definition },
-                resolver);
+                resolver,
+                new IEntityLogic[] { attackLogic });
 
             pipeline.RunTick(new TickInput(7));
 
             Assert.That(resolver.ResolveCount, Is.EqualTo(1));
             Assert.That(resolver.CapturedTickIndex, Is.EqualTo(7));
             Assert.That(resolver.CapturedSnapshot, Is.Not.Null);
+            Assert.That(attackLogic.CapturedSnapshots.Count, Is.EqualTo(2));
+            Assert.That(attackLogic.CapturedSnapshots[1], Is.SameAs(resolver.CapturedSnapshot));
             Assert.That(resolver.CapturedSnapshot.TryGetTileFeature(tileFeature.TileId, out var capturedFeature), Is.True);
             Assert.That(capturedFeature, Is.EqualTo(tileFeature));
             CollectionAssert.AreEqual(new[] { definition }, resolver.CapturedDefinitions);
@@ -76,7 +84,65 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void TickPipeline_NonEmptyTileEffectOperations_RejectsBeforeApplying()
+        public void TickPipeline_TileEffectResolver_RunsAfterPreliminaryAndBeforeFinalAttackCollection()
+        {
+            var eventLog = new List<string>();
+            var resolver = new CapturingTileEffectResolver(TileEffectResolutionResult.Empty, eventLog);
+            var attackLogic = new CapturingAttackLogic(eventLog);
+            var worldState = CreateWorldState(CreateTileFeature(10));
+            var pipeline = CreatePipeline(
+                worldState,
+                Array.Empty<TileFeatureRuntimeDefinition>(),
+                resolver,
+                new IEntityLogic[] { attackLogic });
+
+            pipeline.RunTick(new TickInput(7));
+
+            CollectionAssert.AreEqual(
+                new[] { "AttackCollect:1", "TileEffectResolve", "AttackCollect:2" },
+                eventLog);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickPipeline_EmptyTileEffectResolver_UsesMovementResolvedAttackReadSnapshot()
+        {
+            var eventLog = new List<string>();
+            var resolver = new CapturingTileEffectResolver(TileEffectResolutionResult.Empty, eventLog);
+            var attackLogic = new CapturingAttackLogic(eventLog);
+            var movementLogic = new ScriptedMovementLogic(
+                new RawMovementIntent(10, priority: 100, new Vector2Int(1, 0)));
+            var worldState = CreateWorldState(
+                CreateTileFeature(20),
+                new[] { CreateUnit(10, 0, 0) });
+            var pipeline = CreatePipeline(
+                worldState,
+                Array.Empty<TileFeatureRuntimeDefinition>(),
+                resolver,
+                new IEntityLogic[] { movementLogic, attackLogic });
+
+            pipeline.RunTick(new TickInput(7));
+
+            Assert.That(resolver.CapturedSnapshot.TryGetEntity(10, out var capturedEntity), Is.True);
+            Assert.That(capturedEntity.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(attackLogic.CapturedSnapshots.Count, Is.EqualTo(2));
+            Assert.That(attackLogic.CapturedSnapshots[1], Is.SameAs(resolver.CapturedSnapshot));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickPipeline_TileEffectLazySeam_DoesNotCreatePostTileEffectSnapshotOrApplyTileOperations()
+        {
+            var source = System.IO.File.ReadAllText(
+                "Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs");
+
+            Assert.That(source, Does.Not.Contain("postTileEffectSnapshot"));
+            Assert.That(source, Does.Not.Contain("ApplyTileFeatureOperations("));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickPipeline_NonEmptyTileEffectOperations_RejectsBeforeAttackMutation()
         {
             var tileFeature = CreateTileFeature(10);
             var replacement = new TileFeatureState(
@@ -92,29 +158,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var resolver = new CapturingTileEffectResolver(
                 new TileEffectResolutionResult(
                     new TileFeatureOperationBatch(new[] { TileFeatureOperation.Update(replacement) })));
-            var worldState = CreateWorldState(tileFeature);
+            var attackLogic = new CapturingAttackLogic(
+                null,
+                snapshot => new RawAttackIntent(10, priority: 100, targetId: 20));
+            var attacker = CreateUnit(10, 0, 0, teamId: 1);
+            var target = CreateUnit(20, 1, 0, teamId: 2);
+            var worldState = CreateWorldState(tileFeature, new[] { attacker, target });
             var pipeline = CreatePipeline(
                 worldState,
                 Array.Empty<TileFeatureRuntimeDefinition>(),
-                resolver);
+                resolver,
+                new IEntityLogic[] { attackLogic });
 
             var exception = Assert.Throws<InvalidOperationException>(() => pipeline.RunTick(new TickInput(7)));
 
             StringAssert.Contains("TileEffect operations are not enabled yet", exception.Message);
+            Assert.That(attackLogic.CollectCount, Is.EqualTo(1));
             var snapshot = worldState.CreateSnapshot();
             Assert.That(snapshot.TryGetTileFeature(tileFeature.TileId, out var stored), Is.True);
             Assert.That(stored, Is.EqualTo(tileFeature));
+            Assert.That(snapshot.TryGetEntity(20, out var storedTarget), Is.True);
+            Assert.That(storedTarget.hp, Is.EqualTo(target.hp));
         }
 
         private static TickPipeline CreatePipeline(
             WorldState worldState,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
-            ITileEffectResolver tileEffectResolver)
+            ITileEffectResolver tileEffectResolver,
+            IReadOnlyList<IEntityLogic> entityLogics = null)
         {
             var timingProfile = GameplayTimingProfile.CreateDefault();
             return new TickPipeline(
                 worldState,
-                Array.Empty<IEntityLogic>(),
+                entityLogics ?? Array.Empty<IEntityLogic>(),
                 GameplayEntityLogicProviderFactory.CreateDefault(),
                 timingProfile,
                 CreateDefaultPlayerControlTimingSnapshot(timingProfile),
@@ -139,10 +215,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static WorldState CreateWorldState(TileFeatureState tileFeature)
         {
+            return CreateWorldState(tileFeature, Array.Empty<EntityState>());
+        }
+
+        private static WorldState CreateWorldState(TileFeatureState tileFeature, IReadOnlyList<EntityState> entities)
+        {
             return GameplayWorldStateTestFactory.CreateBounded(
-                Array.Empty<EntityState>(),
+                entities ?? Array.Empty<EntityState>(),
                 new BoardBounds(UnityEngine.Vector2Int.zero, new UnityEngine.Vector2Int(4, 4)),
-                TerrainData.Empty,
+                Game.Feature.Gameplay.BoardState.TerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 GameplayTimingProfile.CreateDefault(),
                 new[] { tileFeature });
@@ -162,6 +243,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 charges: 1);
         }
 
+        private static EntityState CreateUnit(int entityId, int x, int y, int hp = 10, int teamId = 1)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = new SurfaceCell(FaceId.Floor, x, y),
+                hp = hp,
+                maxHp = hp,
+                teamId = teamId,
+                type = EntityType.Unit,
+                unitRole = UnitRole.Player,
+                state = EntityPhaseState.Idle,
+                facing = Direction.Right,
+                boardPresence = EntityBoardPresence.Occupying,
+            };
+        }
+
         private static TileFeatureRuntimeDefinition CreateDefinition(int tileId)
         {
             return new TileFeatureRuntimeDefinition(
@@ -176,10 +274,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private sealed class CapturingTileEffectResolver : ITileEffectResolver
         {
             private readonly TileEffectResolutionResult _result;
+            private readonly List<string> _eventLog;
 
-            public CapturingTileEffectResolver(TileEffectResolutionResult result)
+            public CapturingTileEffectResolver(TileEffectResolutionResult result, List<string> eventLog = null)
             {
                 _result = result;
+                _eventLog = eventLog;
             }
 
             public int ResolveCount { get; private set; }
@@ -193,6 +293,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public TileEffectResolutionResult Resolve(in TileEffectResolutionContext context)
             {
                 ResolveCount++;
+                _eventLog?.Add("TileEffectResolve");
                 CapturedTickIndex = context.TickIndex;
                 CapturedSnapshot = context.Snapshot;
                 CapturedDefinitions = new TileFeatureRuntimeDefinition[context.TileFeatureDefinitions.Count];
@@ -202,6 +303,66 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 }
 
                 return _result;
+            }
+        }
+
+        private sealed class CapturingAttackLogic : IAttackEntityLogic, IEntityLogicSourceBinding
+        {
+            private readonly List<string> _eventLog;
+            private readonly Func<WorldSnapshot, RawAttackIntent?> _attackIntentFactory;
+
+            public CapturingAttackLogic(
+                List<string> eventLog,
+                Func<WorldSnapshot, RawAttackIntent?> attackIntentFactory = null)
+            {
+                _eventLog = eventLog;
+                _attackIntentFactory = attackIntentFactory;
+            }
+
+            public int ControlledEntityId => 0;
+
+            public int CollectCount { get; private set; }
+
+            public List<WorldSnapshot> CapturedSnapshots { get; } = new();
+
+            public void CollectAttackIntents(
+                WorldSnapshot snapshot,
+                in TickInput input,
+                List<RawAttackIntent> buffer)
+            {
+                CollectCount++;
+                _eventLog?.Add($"AttackCollect:{CollectCount}");
+                CapturedSnapshots.Add(snapshot);
+                if (_attackIntentFactory == null)
+                {
+                    return;
+                }
+
+                var attackIntent = _attackIntentFactory(snapshot);
+                if (attackIntent.HasValue)
+                {
+                    buffer.Add(attackIntent.Value);
+                }
+            }
+        }
+
+        private sealed class ScriptedMovementLogic : IMovementEntityLogic, IEntityLogicSourceBinding
+        {
+            private readonly RawMovementIntent _movementIntent;
+
+            public ScriptedMovementLogic(RawMovementIntent movementIntent)
+            {
+                _movementIntent = movementIntent;
+            }
+
+            public int ControlledEntityId => _movementIntent.SourceId;
+
+            public void CollectMovementIntents(
+                WorldSnapshot snapshot,
+                in TickInput input,
+                List<RawMovementIntent> buffer)
+            {
+                buffer.Add(_movementIntent);
             }
         }
     }

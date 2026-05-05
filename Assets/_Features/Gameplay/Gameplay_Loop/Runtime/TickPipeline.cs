@@ -990,7 +990,19 @@ namespace Game.Feature.Gameplay.Loop
                     planPhaseResult.MovementActionPlanPayloads,
                     movementResolutionRecords));
             var frozenMovementReservationExport = movementReservationBook.Freeze(finalImpactReservations);
-            attackSnapshot = projectedWorld.CreateSnapshot();
+            var attackReadSnapshot = projectedWorld.CreateSnapshot();
+            var tileEffectResult = _tileEffectResolver.Resolve(
+                new TileEffectResolutionContext(
+                    tickIndex,
+                    attackReadSnapshot,
+                    _tileFeatureDefinitions));
+            if (!tileEffectResult.IsEmpty)
+            {
+                throw new InvalidOperationException(
+                    "TileEffect operations are not enabled yet. The TileEffect lazy seam only permits empty operation results.");
+            }
+
+            attackSnapshot = attackReadSnapshot;
             attackPlanResult = BuildAttackPlan(
                 attackSnapshot,
                 in input,
@@ -1111,16 +1123,6 @@ namespace Game.Feature.Gameplay.Loop
             finalizationBatch.MergeFrom(utilityResolveResult.Batch);
             projectedWorld.ApplyBatch(utilityResolveResult.Batch);
             var postAttackSnapshot = projectedWorld.CreateSnapshot();
-            var tileEffectResult = _tileEffectResolver.Resolve(
-                new TileEffectResolutionContext(
-                    tickIndex,
-                    postAttackSnapshot,
-                    _tileFeatureDefinitions));
-            if (!tileEffectResult.IsEmpty)
-            {
-                throw new InvalidOperationException(
-                    "TileEffect operations are not enabled yet. The TileEffect lazy seam only permits empty operation results.");
-            }
 
             phaseTrace.Add("Resolve:Exit");
             completedPhases.Add(TickPhase.Resolve);
