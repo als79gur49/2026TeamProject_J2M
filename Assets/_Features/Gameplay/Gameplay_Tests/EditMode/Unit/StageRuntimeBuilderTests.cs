@@ -5,6 +5,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEditor;
@@ -204,6 +205,178 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Array.ConvertAll(buildResult.InitialTileFeatures, feature => feature.TileId));
                 Assert.That(buildResult.InitialTileFeatures[0].Cell, Is.EqualTo(cell));
                 Assert.That(buildResult.InitialTileFeatures[1].Cell, Is.EqualTo(cell));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_ButtonActivatedCondition_CompilesRuntimeCondition()
+        {
+            var condition = CreateButtonActivatedCondition(100);
+            var stage = CreateStageWithButtonObjective(
+                "ButtonActivatedCondition",
+                condition,
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Button,
+                        boxSelector: TileFeatureBoxSelector.AnyPushableBox),
+                });
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(buildResult.ObjectiveRuntimeDefinition.ConditionEntries.Count, Is.EqualTo(1));
+                var runtime = buildResult.ObjectiveRuntimeDefinition.ConditionEntries[0].Condition.CreateRuntime();
+                Assert.That(runtime.CreateStatus().ConditionType, Is.EqualTo(nameof(ButtonActivatedConditionAsset)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+                UnityEngine.Object.DestroyImmediate(condition);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageRuntimeBuilder_ButtonActivatedCondition_NonPositiveTileIdRejects()
+        {
+            var condition = CreateButtonActivatedCondition(0);
+            var stage = CreateStageWithButtonObjective(
+                "ButtonActivatedConditionNonPositive",
+                condition,
+                new[]
+                {
+                    CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Button),
+                });
+
+            AssertBuildThrows(stage, "requires a positive tile id", condition);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageRuntimeBuilder_ButtonActivatedCondition_MissingTileIdRejects()
+        {
+            var condition = CreateButtonActivatedCondition(200);
+            var stage = CreateStageWithButtonObjective(
+                "ButtonActivatedConditionMissing",
+                condition,
+                new[]
+                {
+                    CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Button),
+                });
+
+            AssertBuildThrows(stage, "references unknown button TileId 200", condition);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageRuntimeBuilder_ButtonActivatedCondition_NonButtonTileRejects()
+        {
+            var condition = CreateButtonActivatedCondition(100);
+            var stage = CreateStageWithButtonObjective(
+                "ButtonActivatedConditionNonButton",
+                condition,
+                new[]
+                {
+                    CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Exit),
+                });
+
+            AssertBuildThrows(stage, "instead of Button", condition);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageRuntimeBuilder_ButtonActivatedCondition_DuplicateTileIdRejects()
+        {
+            var first = CreateButtonActivatedCondition(100);
+            var second = CreateButtonActivatedCondition(100);
+            var stage = CreateStageWithObjective(
+                "ButtonActivatedConditionDuplicate",
+                new[]
+                {
+                    CreateConditionEntry(first, "button-1"),
+                    CreateConditionEntry(second, "button-2"),
+                },
+                new[]
+                {
+                    CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Button),
+                });
+
+            AssertBuildThrows(stage, "duplicate ButtonActivatedCondition for TileId 100", first, second);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageRuntimeBuilder_ButtonActivatedCondition_MoonBlockOnlyRejectsUntilSupported()
+        {
+            var condition = CreateButtonActivatedCondition(100);
+            var stage = CreateStageWithButtonObjective(
+                "ButtonActivatedConditionMoonBlockOnly",
+                condition,
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Button,
+                        boxSelector: TileFeatureBoxSelector.MoonBlockOnly),
+                });
+
+            AssertBuildThrows(stage, "unsupported MoonBlockOnly selector", condition);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_ExistingObjectiveConditionAssets_StillCompile()
+        {
+            var condition = ScriptableObject.CreateInstance<AllEnemiesDefeatedConditionAsset>();
+            var stage = CreateStageWithObjective(
+                "ExistingConditionStillCompiles",
+                new[] { CreateConditionEntry(condition, "all-enemies") },
+                Array.Empty<StageTileFeatureDefinition>());
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(buildResult.ObjectiveRuntimeDefinition.ConditionEntries.Count, Is.EqualTo(1));
+                Assert.That(
+                    buildResult.ObjectiveRuntimeDefinition.ConditionEntries[0].Condition.CreateRuntime().CreateStatus().ConditionType,
+                    Is.EqualTo(nameof(AllEnemiesDefeatedConditionAsset)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+                UnityEngine.Object.DestroyImmediate(condition);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_AuthoredButtonInitialFlags_RemainNone()
+        {
+            var stage = CreateStageWithTileFeatures(
+                "AuthoredButtonInitialFlags",
+                new[]
+                {
+                    CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Button),
+                });
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(buildResult.InitialTileFeatures.Length, Is.EqualTo(1));
+                Assert.That(buildResult.InitialTileFeatures[0].Kind, Is.EqualTo(TileFeatureKind.Button));
+                Assert.That(buildResult.InitialTileFeatures[0].Flags, Is.EqualTo(TileFeatureFlags.None));
             }
             finally
             {
@@ -574,6 +747,55 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return stage;
         }
 
+        private static StageDefinition CreateStageWithButtonObjective(
+            string stageName,
+            ButtonActivatedConditionAsset condition,
+            StageTileFeatureDefinition[] tileFeatures)
+        {
+            return CreateStageWithObjective(
+                stageName,
+                new[] { CreateConditionEntry(condition, "button-activated") },
+                tileFeatures);
+        }
+
+        private static StageDefinition CreateStageWithObjective(
+            string stageName,
+            StageObjectiveConditionEntry[] conditionEntries,
+            StageTileFeatureDefinition[] tileFeatures)
+        {
+            var stage = CreateStageWithTileFeatures(stageName, tileFeatures);
+            SetPrivateField(stage, "objective", new StageObjectiveAuthoring
+            {
+                CompletionPolicy = StageCompletionPolicy.RequireAllConditions,
+                ObjectiveTitle = string.Empty,
+                ObjectiveSummary = string.Empty,
+                ConditionEntries = conditionEntries ?? Array.Empty<StageObjectiveConditionEntry>(),
+            });
+            return stage;
+        }
+
+        private static StageObjectiveConditionEntry CreateConditionEntry(
+            StageConditionAsset condition,
+            string stableConditionId)
+        {
+            return new StageObjectiveConditionEntry
+            {
+                Condition = condition,
+                Required = true,
+                Role = StageObjectiveConditionRole.None,
+                StableConditionId = stableConditionId,
+                DisplayText = string.Empty,
+                SortOrder = 0,
+            };
+        }
+
+        private static ButtonActivatedConditionAsset CreateButtonActivatedCondition(int tileId)
+        {
+            var condition = ScriptableObject.CreateInstance<ButtonActivatedConditionAsset>();
+            SetPrivateField(condition, "tileId", tileId);
+            return condition;
+        }
+
         private static StageBoardDefinition CreateBoard(
             Vector2Int minInclusive,
             Vector2Int maxInclusive,
@@ -677,6 +899,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        private static void AssertBuildThrows(
+            StageDefinition stage,
+            string expectedMessage,
+            params UnityEngine.Object[] additionalObjectsToDestroy)
+        {
+            try
+            {
+                var exception = Assert.Throws<InvalidOperationException>(() => StageRuntimeBuilder.Build(stage));
+                StringAssert.Contains(expectedMessage, exception.Message);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+                if (additionalObjectsToDestroy != null)
+                {
+                    for (var i = 0; i < additionalObjectsToDestroy.Length; i++)
+                    {
+                        UnityEngine.Object.DestroyImmediate(additionalObjectsToDestroy[i]);
+                    }
+                }
             }
         }
 

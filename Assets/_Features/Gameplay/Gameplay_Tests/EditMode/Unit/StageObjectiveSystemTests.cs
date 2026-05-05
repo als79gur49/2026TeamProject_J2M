@@ -1080,6 +1080,352 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        [Category("Core")]
+        public void Conditions_ButtonActivated_IsIncompleteWhenTileIsMissing()
+        {
+            var conditionAsset = CreateButtonActivatedCondition(10);
+
+            try
+            {
+                var runtime = BuildSingleButtonConditionRuntime(
+                    conditionAsset,
+                    CreateStageTileFeature(10, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Button));
+
+                runtime.Advance(CreateSnapshot(), StageObjectiveTickFacts.Empty);
+
+                Assert.That(runtime.IsSatisfied, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(conditionAsset);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Conditions_ButtonActivated_IsIncompleteWhenTileIsNotButton()
+        {
+            var conditionAsset = CreateButtonActivatedCondition(10);
+
+            try
+            {
+                var runtime = BuildSingleButtonConditionRuntime(
+                    conditionAsset,
+                    CreateStageTileFeature(10, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Button));
+
+                runtime.Advance(
+                    CreateSnapshotWithTileFeatures(
+                        new[]
+                        {
+                            CreateTileFeatureState(
+                                10,
+                                new SurfaceCell(FaceId.Floor, 1, 1),
+                                TileFeatureKind.Exit,
+                                TileFeatureFlags.Activated),
+                        }),
+                    StageObjectiveTickFacts.Empty);
+
+                Assert.That(runtime.IsSatisfied, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(conditionAsset);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Conditions_ButtonActivated_TracksActivatedFlag()
+        {
+            var conditionAsset = CreateButtonActivatedCondition(10);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+
+            try
+            {
+                var runtime = BuildSingleButtonConditionRuntime(
+                    conditionAsset,
+                    CreateStageTileFeature(10, cell, TileFeatureKind.Button));
+
+                runtime.Advance(
+                    CreateSnapshotWithTileFeatures(new[] { CreateButtonState(10, cell) }),
+                    StageObjectiveTickFacts.Empty);
+                Assert.That(runtime.IsSatisfied, Is.False);
+
+                runtime.Advance(
+                    CreateSnapshotWithTileFeatures(new[] { CreateButtonState(10, cell, TileFeatureFlags.Activated) }),
+                    StageObjectiveTickFacts.Empty);
+                Assert.That(runtime.IsSatisfied, Is.True);
+
+                runtime.Advance(
+                    CreateSnapshotWithTileFeatures(new[] { CreateButtonState(10, cell, TileFeatureFlags.Activated) }),
+                    StageObjectiveTickFacts.Empty);
+                Assert.That(runtime.IsSatisfied, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(conditionAsset);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Conditions_ButtonActivated_DoesNotMutateWorldState()
+        {
+            var conditionAsset = CreateButtonActivatedCondition(10);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                Array.Empty<EntityState>(),
+                DefaultBoardBounds,
+                Game.Feature.Gameplay.BoardState.TerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                GameplayTimingProfile.CreateDefault(),
+                new[] { CreateButtonState(10, cell, TileFeatureFlags.Activated) });
+
+            try
+            {
+                var runtime = BuildSingleButtonConditionRuntime(
+                    conditionAsset,
+                    CreateStageTileFeature(10, cell, TileFeatureKind.Button));
+                var before = worldState.CreateSnapshot();
+
+                runtime.Advance(before, StageObjectiveTickFacts.Empty);
+
+                var after = worldState.CreateSnapshot();
+                Assert.That(after.TryGetTileFeature(10, out var afterButton), Is.True);
+                Assert.That(before.TryGetTileFeature(10, out var beforeButton), Is.True);
+                Assert.That(afterButton, Is.EqualTo(beforeButton));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(conditionAsset);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Conditions_ButtonActivated_DoesNotCreateSnapshot()
+        {
+            var conditionAsset = CreateButtonActivatedCondition(10);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+
+            try
+            {
+                var runtime = BuildSingleButtonConditionRuntime(
+                    conditionAsset,
+                    CreateStageTileFeature(10, cell, TileFeatureKind.Button));
+                var snapshot = CreateSnapshotWithTileFeatures(
+                    new[] { CreateButtonState(10, cell, TileFeatureFlags.Activated) });
+
+                SnapshotMaterializationCounts counts;
+                using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+                {
+                    runtime.Advance(snapshot, StageObjectiveTickFacts.Empty);
+                    counts = capture.Counts;
+                }
+
+                Assert.That(counts.WorldStateCreateSnapshotCount, Is.EqualTo(0));
+                Assert.That(counts.ProjectedWorldMaterializedSnapshotCount, Is.EqualTo(0));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(conditionAsset);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Conditions_ButtonActivated_AssetDoesNotImplementRuntimeInterface()
+        {
+            var conditionAsset = CreateButtonActivatedCondition(10);
+
+            try
+            {
+                Assert.That(typeof(IStageConditionRuntime).IsAssignableFrom(conditionAsset.GetType()), Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(conditionAsset);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ObjectiveClear_ButtonLatch_CompletesSameTickAfterFinalSnapshot()
+        {
+            var conditionAsset = CreateButtonActivatedCondition(100);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+
+            try
+            {
+                var buildResult = BuildButtonObjectiveStage(
+                    conditionAsset,
+                    CreateStageTileFeature(
+                        100,
+                        cell,
+                        TileFeatureKind.Button,
+                        TileFeatureActivationRule.Always,
+                        TileFeatureBoxSelector.AnyPushableBox));
+                var worldState = GameplayCompositionRoot.CreateWorldState(
+                    new[] { CreateBoxEntity(20, cell, BoxCapabilities.Push) },
+                    buildResult.BoardBounds,
+                    buildResult.InitialTerrain,
+                    buildResult.InitialTopology,
+                    buildResult.InitialTileFeatures);
+                var pipeline = CreatePipeline(
+                    worldState,
+                    buildResult.ObjectiveRuntimeDefinition,
+                    buildResult.TileFeatureDefinitions);
+
+                var result = pipeline.RunTick(new TickInput(7));
+
+                Assert.That(result.ObjectiveResult.IsCleared, Is.True);
+                Assert.That(result.ObjectiveResult.ClearedThisTick, Is.True);
+                Assert.That(result.ObjectiveResult.AllConditionsSatisfied, Is.True);
+                Assert.That(worldState.CreateSnapshot().TryGetTileFeature(100, out var button), Is.True);
+                Assert.That((button.Flags & TileFeatureFlags.Activated), Is.Not.EqualTo(0));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(conditionAsset);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ObjectiveClear_ButtonLatch_InactiveTopologyDoesNotComplete()
+        {
+            var conditionAsset = CreateButtonActivatedCondition(100);
+            var cell = new SurfaceCell(FaceId.Back, 1, 1);
+
+            try
+            {
+                var buildResult = BuildButtonObjectiveStage(
+                    conditionAsset,
+                    CreateStageTileFeature(
+                        100,
+                        cell,
+                        TileFeatureKind.Button,
+                        TileFeatureActivationRule.ActiveFaceOnly,
+                        TileFeatureBoxSelector.AnyPushableBox));
+                var worldState = GameplayCompositionRoot.CreateWorldState(
+                    new[] { CreateBoxEntity(20, cell, BoxCapabilities.Push) },
+                    buildResult.BoardBounds,
+                    buildResult.InitialTerrain,
+                    buildResult.InitialTopology,
+                    buildResult.InitialTileFeatures);
+                var pipeline = CreatePipeline(
+                    worldState,
+                    buildResult.ObjectiveRuntimeDefinition,
+                    buildResult.TileFeatureDefinitions);
+
+                var result = pipeline.RunTick(new TickInput(7));
+
+                Assert.That(result.ObjectiveResult.IsCleared, Is.False);
+                Assert.That(result.ObjectiveResult.AllConditionsSatisfied, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(conditionAsset);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ObjectiveClear_ButtonLatch_NonPushableBoxDoesNotComplete()
+        {
+            var conditionAsset = CreateButtonActivatedCondition(100);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+
+            try
+            {
+                var buildResult = BuildButtonObjectiveStage(
+                    conditionAsset,
+                    CreateStageTileFeature(
+                        100,
+                        cell,
+                        TileFeatureKind.Button,
+                        TileFeatureActivationRule.Always,
+                        TileFeatureBoxSelector.AnyPushableBox));
+                var worldState = GameplayCompositionRoot.CreateWorldState(
+                    new[] { CreateBoxEntity(20, cell, BoxCapabilities.Flip) },
+                    buildResult.BoardBounds,
+                    buildResult.InitialTerrain,
+                    buildResult.InitialTopology,
+                    buildResult.InitialTileFeatures);
+                var pipeline = CreatePipeline(
+                    worldState,
+                    buildResult.ObjectiveRuntimeDefinition,
+                    buildResult.TileFeatureDefinitions);
+
+                var result = pipeline.RunTick(new TickInput(7));
+
+                Assert.That(result.ObjectiveResult.IsCleared, Is.False);
+                Assert.That(result.ObjectiveResult.AllConditionsSatisfied, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(conditionAsset);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ObjectiveClear_ButtonLatch_ReplayIsDeterministic()
+        {
+            var firstCondition = CreateButtonActivatedCondition(100);
+            var secondCondition = CreateButtonActivatedCondition(100);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+
+            try
+            {
+                var tileFeature = CreateStageTileFeature(
+                    100,
+                    cell,
+                    TileFeatureKind.Button,
+                    TileFeatureActivationRule.Always,
+                    TileFeatureBoxSelector.AnyPushableBox);
+                var firstBuild = BuildButtonObjectiveStage(firstCondition, tileFeature);
+                var secondBuild = BuildButtonObjectiveStage(secondCondition, tileFeature);
+                var firstWorld = GameplayCompositionRoot.CreateWorldState(
+                    new[] { CreateBoxEntity(20, cell, BoxCapabilities.Push) },
+                    firstBuild.BoardBounds,
+                    firstBuild.InitialTerrain,
+                    firstBuild.InitialTopology,
+                    firstBuild.InitialTileFeatures);
+                var secondWorld = GameplayCompositionRoot.CreateWorldState(
+                    new[] { CreateBoxEntity(20, cell, BoxCapabilities.Push) },
+                    secondBuild.BoardBounds,
+                    secondBuild.InitialTerrain,
+                    secondBuild.InitialTopology,
+                    secondBuild.InitialTileFeatures);
+
+                var firstResult = CreatePipeline(
+                        firstWorld,
+                        firstBuild.ObjectiveRuntimeDefinition,
+                        firstBuild.TileFeatureDefinitions)
+                    .RunTick(new TickInput(7));
+                var secondResult = CreatePipeline(
+                        secondWorld,
+                        secondBuild.ObjectiveRuntimeDefinition,
+                        secondBuild.TileFeatureDefinitions)
+                    .RunTick(new TickInput(7));
+
+                Assert.That(firstResult.ObjectiveResult.IsCleared, Is.EqualTo(secondResult.ObjectiveResult.IsCleared));
+                Assert.That(firstResult.ObjectiveResult.AllConditionsSatisfied, Is.EqualTo(secondResult.ObjectiveResult.AllConditionsSatisfied));
+                Assert.That(firstResult.DeterminismHash, Is.EqualTo(secondResult.DeterminismHash));
+                Assert.That(firstWorld.CreateSnapshot().TryGetTileFeature(100, out var firstButton), Is.True);
+                Assert.That(secondWorld.CreateSnapshot().TryGetTileFeature(100, out var secondButton), Is.True);
+                Assert.That(firstButton.Flags, Is.EqualTo(secondButton.Flags));
+                Assert.That((firstButton.Flags & TileFeatureFlags.Activated), Is.Not.EqualTo(0));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(firstCondition);
+                UnityEngine.Object.DestroyImmediate(secondCondition);
+            }
+        }
+
         [TestCase(0.5f, 10f, 20, 21)]
         [TestCase(0.25f, 10f, 40, 41)]
         [TestCase(0.3f, 10f, 34, 35)]
@@ -1588,6 +1934,71 @@ namespace Game.Feature.Gameplay.Tests.Unit
             };
         }
 
+        private static IStageConditionRuntime BuildSingleButtonConditionRuntime(
+            ButtonActivatedConditionAsset conditionAsset,
+            StageTileFeatureDefinition tileFeature)
+        {
+            var buildResult = BuildButtonObjectiveStage(conditionAsset, tileFeature);
+            return buildResult.ObjectiveRuntimeDefinition.ConditionEntries[0].Condition.CreateRuntime();
+        }
+
+        private static StageRuntimeBuildResult BuildButtonObjectiveStage(
+            ButtonActivatedConditionAsset conditionAsset,
+            StageTileFeatureDefinition tileFeature)
+        {
+            var stage = CreateStage(
+                "ButtonObjectiveStage",
+                CreateBoard(),
+                Array.Empty<StageZoneDefinition>(),
+                CreateObjective(
+                    StageCompletionPolicy.RequireAllConditions,
+                    new[]
+                    {
+                        CreateConditionEntry(conditionAsset, required: true, StageObjectiveConditionRole.PrimaryGoal, "button-activated"),
+                    }),
+                CreatePlayerSpawn(10, new SurfaceCell(FaceId.Floor, 0, 0)));
+            SetPrivateField(stage, "tileFeatures", new[] { tileFeature });
+
+            try
+            {
+                return StageRuntimeBuilder.Build(stage);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        private static ButtonActivatedConditionAsset CreateButtonActivatedCondition(int tileId)
+        {
+            var condition = ScriptableObject.CreateInstance<ButtonActivatedConditionAsset>();
+            SetPrivateField(condition, "tileId", tileId);
+            return condition;
+        }
+
+        private static TickPipeline CreatePipeline(
+            WorldState worldState,
+            StageObjectiveRuntimeDefinition objectiveDefinition,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
+        {
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            return new TickPipeline(
+                worldState,
+                Array.Empty<IEntityLogic>(),
+                GameplayEntityLogicProviderFactory.CreateDefault(),
+                timingProfile,
+                CreateDefaultPlayerControlTimingSnapshot(timingProfile),
+                playerRespawnDelayTicks: 1,
+                objectiveDefinition: objectiveDefinition,
+                enemySpawnDefaultsByArchetypeId: null,
+                allowPlayerRespawn: true,
+                runtimeFeatureFlags: default,
+                playerKinematicLocomotionTiming: default,
+                playerContinuousLocomotion: default,
+                tileFeatureDefinitions: tileFeatureDefinitions,
+                tileEffectResolver: null);
+        }
+
         private static StageZoneDefinition CreateZone(
             string zoneId,
             FaceId faceId,
@@ -1653,6 +2064,65 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 GameplayTimingProfile.CreateDefault()).CreateSnapshot();
         }
 
+        private static WorldSnapshot CreateSnapshotWithTileFeatures(
+            IEnumerable<TileFeatureState> tileFeatures,
+            params EntityState[] entities)
+        {
+            return GameplayWorldStateTestFactory.CreateBounded(
+                entities,
+                DefaultBoardBounds,
+                Game.Feature.Gameplay.BoardState.TerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                GameplayTimingProfile.CreateDefault(),
+                tileFeatures).CreateSnapshot();
+        }
+
+        private static StageTileFeatureDefinition CreateStageTileFeature(
+            int tileId,
+            SurfaceCell cell,
+            TileFeatureKind kind,
+            TileFeatureActivationRule activationRule = TileFeatureActivationRule.Always,
+            TileFeatureBoxSelector boxSelector = TileFeatureBoxSelector.AnyPushableBox)
+        {
+            return new StageTileFeatureDefinition
+            {
+                TileId = tileId,
+                Cell = cell,
+                Kind = kind,
+                ActivationRule = activationRule,
+                Direction = Direction2D.None,
+                BoxSelector = boxSelector,
+                BoundEntityId = 0,
+                PresentationKey = string.Empty,
+            };
+        }
+
+        private static TileFeatureState CreateButtonState(
+            int tileId,
+            SurfaceCell cell,
+            TileFeatureFlags flags = TileFeatureFlags.None)
+        {
+            return CreateTileFeatureState(tileId, cell, TileFeatureKind.Button, flags);
+        }
+
+        private static TileFeatureState CreateTileFeatureState(
+            int tileId,
+            SurfaceCell cell,
+            TileFeatureKind kind,
+            TileFeatureFlags flags = TileFeatureFlags.None)
+        {
+            return new TileFeatureState(
+                tileId,
+                cell,
+                kind,
+                flags,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0,
+                lifetimeTicks: 0,
+                charges: 0);
+        }
+
         private static EntityState CreatePlayerEntity(
             int entityId,
             SurfaceCell cell,
@@ -1673,6 +2143,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 facing = Direction.Right,
                 boardPresence = boardPresence,
                 markedForDeath = markedForDeath,
+            };
+        }
+
+        private static EntityState CreateBoxEntity(
+            int entityId,
+            SurfaceCell cell,
+            BoxCapabilities boxCapabilities)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = cell,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.Box,
+                unitRole = UnitRole.None,
+                state = EntityPhaseState.Idle,
+                facing = Direction.Right,
+                boardPresence = EntityBoardPresence.Occupying,
+                boxCapabilities = boxCapabilities,
             };
         }
 

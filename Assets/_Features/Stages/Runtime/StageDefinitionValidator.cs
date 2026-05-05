@@ -26,7 +26,7 @@ namespace Game.Feature.Stages
             var playerEntityId = ValidateEntities(stageName, spawnEntries, boardBounds);
             var zones = ValidateZones(stageName, stage.Zones, boardBounds);
             var tileFeatures = ValidateTileFeatures(stageName, stage.TileFeatures, spawnEntries, boardBounds);
-            var objective = ValidateObjective(stageName, stage.Objective, zones);
+            var objective = ValidateObjective(stageName, stage.Objective, zones, tileFeatures);
 
             return new ValidatedStageData(
                 stageName,
@@ -204,11 +204,13 @@ namespace Game.Feature.Stages
         private static StageObjectiveAuthoring ValidateObjective(
             string stageName,
             StageObjectiveAuthoring objective,
-            IReadOnlyList<StageZoneDefinition> zones)
+            IReadOnlyList<StageZoneDefinition> zones,
+            IReadOnlyList<StageTileFeatureDefinition> tileFeatures)
         {
             var conditionEntries = objective.GetConditionEntriesOrEmpty();
             var zonesById = BuildZonesById(zones);
-            var validationContext = new StageConditionValidationContext(stageName, zonesById);
+            var tileFeaturesById = BuildTileFeaturesById(tileFeatures);
+            var validationContext = new StageConditionValidationContext(stageName, zonesById, tileFeaturesById);
 
             var normalizedConditionEntries = ValidateConditionEntries(
                 stageName,
@@ -241,6 +243,7 @@ namespace Game.Feature.Stages
 
             var normalizedEntries = new StageObjectiveConditionEntry[conditionEntries.Count];
             var stableConditionIds = new HashSet<string>(StringComparer.Ordinal);
+            var buttonActivatedTileIds = new HashSet<int>();
             var primaryGoalCount = 0;
 
             for (var i = 0; i < conditionEntries.Count; i++)
@@ -266,6 +269,13 @@ namespace Game.Feature.Stages
                 }
 
                 entry.Condition.Validate(in validationContext);
+                if (entry.Condition is ButtonActivatedConditionAsset buttonCondition &&
+                    !buttonActivatedTileIds.Add(buttonCondition.TileId))
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' objective contains duplicate ButtonActivatedCondition for TileId {buttonCondition.TileId}.");
+                }
+
                 normalizedEntries[i] = new StageObjectiveConditionEntry
                 {
                     Condition = entry.Condition,
@@ -426,6 +436,23 @@ namespace Game.Feature.Stages
             }
 
             return zonesById;
+        }
+
+        private static Dictionary<int, StageTileFeatureDefinition> BuildTileFeaturesById(
+            IReadOnlyList<StageTileFeatureDefinition> tileFeatures)
+        {
+            var tileFeaturesById = new Dictionary<int, StageTileFeatureDefinition>();
+            if (tileFeatures == null)
+            {
+                return tileFeaturesById;
+            }
+
+            for (var i = 0; i < tileFeatures.Count; i++)
+            {
+                tileFeaturesById[tileFeatures[i].TileId] = tileFeatures[i];
+            }
+
+            return tileFeaturesById;
         }
 
         private static ExplicitSpawnEntry[] NormalizeExplicitSpawns(

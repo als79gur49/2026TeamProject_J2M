@@ -21,7 +21,7 @@ namespace Game.Feature.Stages
             var initialTileFeatures = BuildInitialTileFeatures(validated.TileFeatures);
             var tileFeatureDefinitions = BuildTileFeatureRuntimeDefinitions(validated.TileFeatures);
             var enemyAiProfileOverrides = BuildEnemyAiProfileOverrides(validated.Spawns);
-            var objectiveRuntimeDefinition = BuildObjectiveRuntimeDefinition(validated, timing);
+            var objectiveRuntimeDefinition = BuildObjectiveRuntimeDefinition(validated, timing, tileFeatureDefinitions);
 
             return new StageRuntimeBuildResult(
                 validated.BoardBounds,
@@ -192,7 +192,8 @@ namespace Game.Feature.Stages
 
         private static StageObjectiveRuntimeDefinition BuildObjectiveRuntimeDefinition(
             StageDefinitionValidator.ValidatedStageData validated,
-            StageSimulationTiming timing)
+            StageSimulationTiming timing,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
             if (validated == null)
             {
@@ -201,6 +202,7 @@ namespace Game.Feature.Stages
 
             var zoneDefinitions = BuildZoneRuntimeDefinitions(validated.Zones);
             var zonesById = BuildZoneLookup(zoneDefinitions);
+            var tileFeatureRuntimeDefinitionsById = BuildTileFeatureRuntimeDefinitionLookup(tileFeatureDefinitions);
             if (validated.Objective.CompletionPolicy == StageCompletionPolicy.Disabled)
             {
                 return new StageObjectiveRuntimeDefinition(
@@ -214,6 +216,7 @@ namespace Game.Feature.Stages
             var conditionEntries = BuildConditionRuntimeEntries(
                 validated,
                 zonesById,
+                tileFeatureRuntimeDefinitionsById,
                 timing,
                 out var conditionDisplayMetadata);
 
@@ -270,9 +273,27 @@ namespace Game.Feature.Stages
             return zonesById;
         }
 
+        private static Dictionary<int, TileFeatureRuntimeDefinition> BuildTileFeatureRuntimeDefinitionLookup(
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
+        {
+            var definitionsById = new Dictionary<int, TileFeatureRuntimeDefinition>();
+            if (tileFeatureDefinitions == null)
+            {
+                return definitionsById;
+            }
+
+            for (var i = 0; i < tileFeatureDefinitions.Count; i++)
+            {
+                definitionsById[tileFeatureDefinitions[i].TileId] = tileFeatureDefinitions[i];
+            }
+
+            return definitionsById;
+        }
+
         private static StageObjectiveConditionRuntimeDefinitionEntry[] BuildConditionRuntimeEntries(
             StageDefinitionValidator.ValidatedStageData validated,
             IReadOnlyDictionary<string, StageZoneRuntimeDefinition> zonesById,
+            IReadOnlyDictionary<int, TileFeatureRuntimeDefinition> tileFeatureRuntimeDefinitionsById,
             StageSimulationTiming timing,
             out StageObjectiveConditionDisplayMetadata[] conditionDisplayMetadata)
         {
@@ -282,7 +303,8 @@ namespace Game.Feature.Stages
                 validated.StageName,
                 validated.PlayerEntityId,
                 zonesById,
-                timing);
+                timing,
+                tileFeatureRuntimeDefinitionsById);
             var runtimeEntries = new List<StageObjectiveConditionRuntimeDefinitionEntry>();
             var displayEntries = new List<StageObjectiveConditionDisplayMetadata>();
 

@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Loop;
 using NUnit.Framework;
 
 namespace Game.Feature.Gameplay.Tests.Core
@@ -82,6 +83,13 @@ namespace Game.Feature.Gameplay.Tests.Core
                     Is.True,
                     $"New TerrainFlags value '{flagName}' is not obviously blocker terrain vocabulary. Update ADR-004/ADR-006 and this test before adding non-blocker terrain semantics.");
             }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickPresentationData_DoesNotExposeTileEventsInObjectivePhase()
+        {
+            Assert.That(typeof(TickPresentationData).GetProperty("TileEvents"), Is.Null);
         }
 
         [Test]
