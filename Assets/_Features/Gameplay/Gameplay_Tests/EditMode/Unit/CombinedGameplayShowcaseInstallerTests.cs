@@ -757,6 +757,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
+        public void CombinedGameplayShowcaseInstaller_Configuration_CarriesStageTileFeatureDefinitions()
+        {
+            var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_Configuration_CarriesStageTileFeatureDefinitions");
+
+            try
+            {
+                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                AssignStageContentEntry(installer);
+                AssignTimingPresets(installer);
+                DisableCampaignFlow(installer);
+
+                var configuration = BuildConfiguration(installer);
+                var buildResult = StageRuntimeBuilder.Build(configuration.StageContentEntry.GameplayDefinition);
+
+                CollectionAssert.AreEqual(buildResult.TileFeatureDefinitions, configuration.TileFeatureDefinitions);
+            }
+            finally
+            {
+                DestroyAssignedStageContent(installerObject);
+                Object.DestroyImmediate(installerObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
         public void CombinedGameplayShowcaseInstaller_Configuration_UsesStagePresentationDefinitionEnemyPresentationArchetypeCatalog()
         {
             var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_Configuration_UsesEnemyPresentationArchetypeCatalog");
@@ -907,6 +932,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(presentationField, Is.Not.Null);
             presentationField.SetValue(installer, presentationPreset);
+        }
+
+        private static void DisableCampaignFlow(CombinedGameplayShowcaseInstaller installer)
+        {
+            var campaignFlowField = typeof(StageBackedGameplayShowcaseInstallerBase).GetField(
+                "enableCampaignFlow",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(campaignFlowField, Is.Not.Null);
+            campaignFlowField.SetValue(installer, false);
         }
 
         private static IGameplayEntityViewFactory CreateViewFactory(

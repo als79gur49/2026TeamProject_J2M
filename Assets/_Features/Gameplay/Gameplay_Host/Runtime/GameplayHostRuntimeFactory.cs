@@ -55,6 +55,7 @@ namespace Game.Feature.Gameplay.Host
             var initialEntities = configuration.InitialEntities ?? Array.Empty<EntityState>();
             var initialTerrain = configuration.InitialTerrain ?? GameplayTerrainData.Empty;
             var initialTileFeatures = configuration.InitialTileFeatures ?? Array.Empty<TileFeatureState>();
+            var tileFeatureDefinitions = configuration.TileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
             var generalTimingProfile = configuration.CreateTimingProfile();
             var playerControlTiming = configuration.CreatePlayerControlTimingSnapshot();
             var playerKinematicLocomotionTiming = configuration.CreatePlayerKinematicLocomotionTimingSnapshot();
@@ -99,7 +100,8 @@ namespace Game.Feature.Gameplay.Host
                 allowPlayerRespawn: !configuration.DisablePlayerRespawn,
                 runtimeFeatureFlags: configuration.CreateRuntimeFeatureFlags(),
                 playerKinematicLocomotionTiming: playerKinematicLocomotionTiming,
-                playerContinuousLocomotion: playerContinuousLocomotion);
+                playerContinuousLocomotion: playerContinuousLocomotion,
+                tileFeatureDefinitions: tileFeatureDefinitions);
 
             var boardRoot = EnsureBoardRootHierarchy(hostTransform);
             var boardSurfaceRenderer = boardRoot.EnsureBoardSurfaceRenderer();

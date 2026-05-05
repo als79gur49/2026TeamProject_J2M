@@ -1058,6 +1058,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Array.Empty<EntityState>(),
                     Game.Feature.Gameplay.BoardState.TerrainData.Empty,
                     Array.Empty<TileFeatureState>(),
+                    Array.Empty<TileFeatureRuntimeDefinition>(),
                     playerEntityId: 10,
                     StageObjectiveRuntimeDefinition.Disabled,
                     Array.Empty<EnemyAiProfileOverride>(),

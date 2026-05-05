@@ -55,6 +55,8 @@ namespace Game.Feature.Gameplay.Loop
         private readonly bool _allowPlayerRespawn;
         private readonly GameplayRuntimeFeatureFlags _runtimeFeatureFlags;
         private readonly int _slidingStateTimerTicks;
+        private readonly IReadOnlyList<TileFeatureRuntimeDefinition> _tileFeatureDefinitions;
+        private readonly ITileEffectResolver _tileEffectResolver;
         private readonly WorldState _worldState;
 
         public TickPipeline(
@@ -70,6 +72,39 @@ namespace Game.Feature.Gameplay.Loop
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
             PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming = default,
             PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default)
+            : this(
+                worldState,
+                entityLogics,
+                entityLogicProvider,
+                generalTimingProfile,
+                playerControlTiming,
+                playerRespawnDelayTicks,
+                objectiveDefinition,
+                enemySpawnDefaultsByArchetypeId,
+                allowPlayerRespawn,
+                runtimeFeatureFlags,
+                playerKinematicLocomotionTiming,
+                playerContinuousLocomotion,
+                tileFeatureDefinitions: null,
+                tileEffectResolver: null)
+        {
+        }
+
+        internal TickPipeline(
+            WorldState worldState,
+            IEnumerable<IEntityLogic> entityLogics,
+            ISnapshotEntityLogicProvider entityLogicProvider,
+            GameplayTimingProfile generalTimingProfile,
+            PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
+            int playerRespawnDelayTicks,
+            StageObjectiveRuntimeDefinition objectiveDefinition,
+            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> enemySpawnDefaultsByArchetypeId,
+            bool allowPlayerRespawn,
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags,
+            PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming,
+            PlayerContinuousLocomotionSnapshot playerContinuousLocomotion,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            ITileEffectResolver tileEffectResolver)
         {
             _worldState = worldState ?? throw new ArgumentNullException(nameof(worldState));
 
@@ -105,6 +140,10 @@ namespace Game.Feature.Gameplay.Loop
                 ? playerContinuousLocomotion
                 : PlayerContinuousLocomotionSettings.CreateDefault()
                     .CreateAuthoritativeSnapshot(resolvedGeneralTimingProfile.SimulationTicksPerSecond);
+            _tileFeatureDefinitions = tileFeatureDefinitions == null
+                ? Array.Empty<TileFeatureRuntimeDefinition>()
+                : new List<TileFeatureRuntimeDefinition>(tileFeatureDefinitions).AsReadOnly();
+            _tileEffectResolver = tileEffectResolver ?? EmptyTileEffectResolver.Instance;
             _allowPlayerRespawn = allowPlayerRespawn;
             _runtimeFeatureFlags = runtimeFeatureFlags;
             _moveOccupancyTicks = resolvedGeneralTimingProfile.MoveOccupancyTicks;
@@ -1072,6 +1111,16 @@ namespace Game.Feature.Gameplay.Loop
             finalizationBatch.MergeFrom(utilityResolveResult.Batch);
             projectedWorld.ApplyBatch(utilityResolveResult.Batch);
             var postAttackSnapshot = projectedWorld.CreateSnapshot();
+            var tileEffectResult = _tileEffectResolver.Resolve(
+                new TileEffectResolutionContext(
+                    tickIndex,
+                    postAttackSnapshot,
+                    _tileFeatureDefinitions));
+            if (!tileEffectResult.IsEmpty)
+            {
+                throw new InvalidOperationException(
+                    "TileEffect operations are not enabled yet. The TileEffect lazy seam only permits empty operation results.");
+            }
 
             phaseTrace.Add("Resolve:Exit");
             completedPhases.Add(TickPhase.Resolve);

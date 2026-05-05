@@ -23,6 +23,7 @@ namespace Game.Feature.Gameplay.Host
                 EntityState[] initialEntities,
                 GameplayTerrainData initialTerrain,
                 TileFeatureState[] initialTileFeatures,
+                TileFeatureRuntimeDefinition[] tileFeatureDefinitions,
                 int playerEntityId,
                 StageObjectiveRuntimeDefinition objectiveRuntimeDefinition,
                 EnemyAiProfileOverride[] enemyAiProfileOverrides,
@@ -39,6 +40,7 @@ namespace Game.Feature.Gameplay.Host
                 InitialEntities = initialEntities ?? Array.Empty<EntityState>();
                 InitialTerrain = initialTerrain ?? GameplayTerrainData.Empty;
                 InitialTileFeatures = initialTileFeatures ?? Array.Empty<TileFeatureState>();
+                TileFeatureDefinitions = tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
                 PlayerEntityId = playerEntityId;
                 ObjectiveRuntimeDefinition = objectiveRuntimeDefinition ?? StageObjectiveRuntimeDefinition.Disabled;
                 EnemyAiProfileOverrides = enemyAiProfileOverrides ?? Array.Empty<EnemyAiProfileOverride>();
@@ -60,6 +62,8 @@ namespace Game.Feature.Gameplay.Host
             public GameplayTerrainData InitialTerrain { get; }
 
             public TileFeatureState[] InitialTileFeatures { get; }
+
+            public TileFeatureRuntimeDefinition[] TileFeatureDefinitions { get; }
 
             public int PlayerEntityId { get; }
 
@@ -286,6 +290,7 @@ namespace Game.Feature.Gameplay.Host
                 InitialEntities = initialState.InitialEntities,
                 InitialTerrain = initialState.InitialTerrain,
                 InitialTileFeatures = initialState.InitialTileFeatures,
+                TileFeatureDefinitions = initialState.TileFeatureDefinitions,
                 InitialTopology = initialState.InitialTopology,
                 MoveDeadzone = moveDeadzone,
                 ObjectiveRuntimeDefinition = initialState.ObjectiveRuntimeDefinition,

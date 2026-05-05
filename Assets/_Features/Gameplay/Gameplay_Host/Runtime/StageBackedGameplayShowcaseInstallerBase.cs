@@ -50,6 +50,7 @@ namespace Game.Feature.Gameplay.Host
                 compositionData.GameplayBuildResult.InitialEntities,
                 compositionData.GameplayBuildResult.InitialTerrain,
                 compositionData.GameplayBuildResult.InitialTileFeatures,
+                compositionData.GameplayBuildResult.TileFeatureDefinitions,
                 compositionData.GameplayBuildResult.PlayerEntityId,
                 compositionData.GameplayBuildResult.ObjectiveRuntimeDefinition,
                 compositionData.GameplayBuildResult.EnemyAiProfileOverrides,

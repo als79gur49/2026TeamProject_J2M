@@ -139,6 +139,7 @@ namespace Game.Feature.Gameplay.Host
         public EntityState[] InitialEntities = Array.Empty<EntityState>();
         public GameplayTerrainData InitialTerrain = GameplayTerrainData.Empty;
         public TileFeatureState[] InitialTileFeatures = Array.Empty<TileFeatureState>();
+        public TileFeatureRuntimeDefinition[] TileFeatureDefinitions = Array.Empty<TileFeatureRuntimeDefinition>();
         public CubeTopologyState InitialTopology = new(FaceId.Floor);
         public int MaxTicksPerFrame = GameplayTimingProfile.DefaultMaxTicksPerFrame;
         public float MoveDeadzone = 0.5f;
