@@ -135,5 +135,28 @@ namespace Game.Feature.Gameplay.Vfx
                 usedFallback,
                 VfxMissingAnchorPolicy.SkipOptional);
         }
+
+        public static VfxResolvedAnchor ForEntity(
+            int entityId,
+            VfxAnchorSlot slot,
+            Vector3 localPosition,
+            Quaternion localRotation,
+            SurfaceCell fallbackCell,
+            CubeTopologyState fallbackTopology,
+            bool usedFallback = false)
+        {
+            return new VfxResolvedAnchor(
+                true,
+                VfxAnchorKind.Entity,
+                slot,
+                entityId,
+                fallbackCell,
+                fallbackTopology,
+                true,
+                localPosition,
+                localRotation,
+                usedFallback,
+                VfxMissingAnchorPolicy.SkipOptional);
+        }
     }
 }

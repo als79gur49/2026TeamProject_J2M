@@ -44,4 +44,9 @@ namespace Game.Feature.Gameplay.Host
 
         void HardCleanup();
     }
+
+    public interface IGameplayPresentationMigrationGate
+    {
+        bool SuppressLegacyPlayerDamageHitEffects { get; }
+    }
 }

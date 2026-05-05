@@ -267,7 +267,10 @@ namespace Game.Feature.Gameplay.Host
                     actionKind,
                     _timingProfile));
             TraceStep("PlayPlayerHitEffects");
-            PlayPlayerHitEffects(result);
+            if (!ShouldSuppressLegacyPlayerDamageHitEffects())
+            {
+                PlayPlayerHitEffects(result);
+            }
             TraceStep("PlayFrontFaceShieldBlockBursts");
             _frontFaceShieldVfxPresenter.PlayBlockBursts(
                 result.PresentationData.FrontFaceShieldBlocks,
@@ -485,6 +488,20 @@ namespace Game.Feature.Gameplay.Host
                     effectSnapshot,
                 _timingProfile.PushMotionDurationSeconds);
             }
+        }
+
+        private bool ShouldSuppressLegacyPlayerDamageHitEffects()
+        {
+            for (var i = 0; i < _presentationExtensions.Count; i++)
+            {
+                if (_presentationExtensions[i] is IGameplayPresentationMigrationGate migrationGate &&
+                    migrationGate.SuppressLegacyPlayerDamageHitEffects)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool TryResolveSurvivingFinalEntity(

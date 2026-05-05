@@ -26,6 +26,18 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return false;
             }
 
+            if (TryResolveLocalPose(entityId, out var localPose))
+            {
+                resolvedAnchor = VfxResolvedAnchor.ForEntity(
+                    entityId,
+                    slot,
+                    localPose.Position,
+                    localPose.Rotation,
+                    default,
+                    default);
+                return true;
+            }
+
             if (stateStore.ViewsByEntityId.ContainsKey(entityId) ||
                 (viewRegistry != null && viewRegistry.TryGetView(entityId, out _)) ||
                 stateStore.PresentedLocalPosesByEntityId.ContainsKey(entityId) ||
@@ -37,6 +49,21 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             resolvedAnchor = VfxResolvedAnchor.Unresolved(VfxMissingAnchorPolicy.SkipOptional);
+            return false;
+        }
+
+        private bool TryResolveLocalPose(
+            int entityId,
+            out Game.Feature.Gameplay.Host.GameplayEntityPose localPose)
+        {
+            if (stateStore.PresentedLocalPosesByEntityId.TryGetValue(entityId, out localPose) ||
+                stateStore.CommittedLocalTargetPoses.TryGetValue(entityId, out localPose) ||
+                stateStore.RetainedLocalTargetPoses.TryGetValue(entityId, out localPose))
+            {
+                return true;
+            }
+
+            localPose = default;
             return false;
         }
     }

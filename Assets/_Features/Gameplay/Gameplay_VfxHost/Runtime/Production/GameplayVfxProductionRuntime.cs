@@ -7,12 +7,14 @@ using UnityEngine;
 namespace Game.Feature.Gameplay.Vfx.Host
 {
     [DisallowMultipleComponent]
-    public sealed class GameplayVfxProductionRuntime : MonoBehaviour, IGameplayTickPresentationExtension
+    public sealed class GameplayVfxProductionRuntime : MonoBehaviour, IGameplayTickPresentationExtension, IGameplayPresentationMigrationGate
     {
         [SerializeField] private bool enableEnemyJumpTargetVfx;
         [SerializeField] private bool enableEnemyJumpLandingDustVfx;
+        [SerializeField] private bool enableGameplayVfxDamageBurstMigration;
         [SerializeField] private VfxProfileAsset[] familyProfiles = Array.Empty<VfxProfileAsset>();
 
+        private readonly PlayerVfxRequestPlanner playerPlanner = new();
         private readonly EnemyVfxRequestPlanner enemyPlanner = new();
         private readonly GameplayVfxRequestPlanBuilder planBuilder = new();
 
@@ -58,6 +60,23 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
+        public bool EnableGameplayVfxDamageBurstMigration
+        {
+            get => enableGameplayVfxDamageBurstMigration;
+            set
+            {
+                if (enableGameplayVfxDamageBurstMigration == value)
+                {
+                    return;
+                }
+
+                enableGameplayVfxDamageBurstMigration = value;
+                ResetIfNoGameplayVfxEnabled();
+            }
+        }
+
+        public bool SuppressLegacyPlayerDamageHitEffects => enableGameplayVfxDamageBurstMigration;
+
         public int LastPlannedRequestCount { get; private set; }
 
         public int ActiveVfxInstanceCount => pool?.ActiveCount ?? 0;
@@ -97,7 +116,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public void Present(in GameplayTickPresentationExtensionContext context)
         {
             LastPlannedRequestCount = 0;
-            if (!AnyEnemyJumpVfxEnabled)
+            if (!AnyGameplayVfxEnabled)
             {
                 return;
             }
@@ -106,6 +125,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 context.EnemyPresentationCatalog,
                 context.EnemyPresentationBindings);
             planBuilder.Clear();
+            playerPlanner.Plan(
+                new GameplayVfxPlanningContext(
+                    context.Result.TickIndex,
+                    context.Result.PresentationData,
+                    context.Topology),
+                planBuilder);
             enemyPlanner.Plan(
                 new GameplayVfxPlanningContext(
                     context.Result.TickIndex,
@@ -222,9 +247,16 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         private bool AnyEnemyJumpVfxEnabled => enableEnemyJumpTargetVfx || enableEnemyJumpLandingDustVfx;
 
+        private bool AnyGameplayVfxEnabled => AnyEnemyJumpVfxEnabled || enableGameplayVfxDamageBurstMigration;
+
         private void ResetIfNoEnemyJumpVfxEnabled()
         {
-            if (AnyEnemyJumpVfxEnabled)
+            ResetIfNoGameplayVfxEnabled();
+        }
+
+        private void ResetIfNoGameplayVfxEnabled()
+        {
+            if (AnyGameplayVfxEnabled)
             {
                 return;
             }
@@ -257,7 +289,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         private bool IsCueEnabled(GameplayVfxCueId cueId)
         {
-            return (enableEnemyJumpTargetVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)) ||
+            return (enableGameplayVfxDamageBurstMigration && cueId == GameplayVfxCueId.From(PlayerVfxCue.Damage)) ||
+                   (enableEnemyJumpTargetVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)) ||
                    (enableEnemyJumpLandingDustVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingDust));
         }
 

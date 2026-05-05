@@ -206,6 +206,33 @@ Existing presenter overlap:
 - the checked presenter paths are `GameplayTransientEffectPresenter`, `GameplayExitPresentationController`, `GameplayFrontFaceShieldVfxPresenter`, `GameplayUtilityWindupVfxPresenter`, `BoxFlipInteractionDriver`, and `FlipImpactTrack`.
 - these presenters do not consume `JumperLandingDust`; existing presenter migration remains out of scope.
 
+## Player Damage Hit Burst Migration
+
+The first existing presenter migration slice is `PlayerVfxCue.Damage` from `TickPresentationData.PlayerDamageSignals`.
+
+Ownership:
+
+- new path: `PlayerVfxRequestPlanner` emits one `PlayerVfxCue.Damage` request for a non-fatal `TookDamageThisTick` signal.
+- old path: `GameplayTickPresentationCoordinator.PlayPlayerHitEffects`.
+- bypass: `IGameplayPresentationMigrationGate.SuppressLegacyPlayerDamageHitEffects`.
+- production flag: `GameplayVfxProductionRuntime.EnableGameplayVfxDamageBurstMigration`.
+
+Flag policy:
+
+- default false means old presenter path only.
+- true means old presenter path is skipped and the Gameplay VFX lane owns playback.
+- missing binding under the true flag is diagnostic/no-op; it must not fall back to the old presenter path.
+- rollback is setting `EnableGameplayVfxDamageBurstMigration` false.
+
+Default binding:
+
+- prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/PlayerDamageBurstVfx.prefab`
+- binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/PlayerDamageBurst_Binding.asset`
+- host default map: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset`
+- playback is `OneShot`, stop policy is `AuthoredDuration`, lifetime is `0.28` seconds, tail is `0.20` seconds.
+
+Duplicate-prevention tests for this slice must cover flag off old-only, flag on new-only, same fact not double-playing, missing binding no old fallback, and no authority/snapshot materialization impact.
+
 ## Prefab-local Profile Owner Gate
 
 Prefab-local or presentation-local `VfxProfile` override requires request source identity. `GameplayVfxRequest.SourceEntityId` is the canonical source identity field for request-time profile lookup.

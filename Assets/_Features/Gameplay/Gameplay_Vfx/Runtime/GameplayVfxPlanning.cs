@@ -42,6 +42,54 @@ namespace Game.Feature.Gameplay.Vfx
 
         public void Plan(GameplayVfxPlanningContext context, GameplayVfxRequestPlanBuilder builder)
         {
+            if (builder == null)
+            {
+                throw new ArgumentNullException(nameof(builder));
+            }
+
+            var presentationData = context.PresentationData;
+            if (presentationData == null)
+            {
+                return;
+            }
+
+            var damageSignals = presentationData.PlayerDamageSignals;
+            for (var i = 0; i < damageSignals.Count; i++)
+            {
+                var signal = damageSignals[i];
+                if (!signal.TookDamageThisTick ||
+                    DidPlayerDieThisTick(presentationData, signal.EntityId))
+                {
+                    continue;
+                }
+
+                builder.Add(
+                    new GameplayVfxRequest(
+                        tickIndex: context.TickIndex,
+                        sequenceId: signal.EntityId,
+                        presentationSeed: signal.EntityId,
+                        sourceEntityId: signal.EntityId,
+                        cueId: GameplayVfxCueId.From(PlayerVfxCue.Damage),
+                        anchor: VfxAnchor.ForEntity(
+                            signal.EntityId,
+                            VfxAnchorSlot.EntityCenter),
+                        timing: VfxTimingKind.ImmediateOnTickPresentation));
+            }
+        }
+
+        private static bool DidPlayerDieThisTick(TickPresentationData presentationData, int entityId)
+        {
+            var deathSignals = presentationData.PlayerDeathSignals;
+            for (var i = 0; i < deathSignals.Count; i++)
+            {
+                var signal = deathSignals[i];
+                if (signal.EntityId == entityId && signal.DidDieThisTick)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 
