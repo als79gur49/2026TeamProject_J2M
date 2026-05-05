@@ -90,6 +90,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("EnemyDeathBurstVfx.prefab"));
             Assert.That(document, Does.Contain("EnemyDeathBurst_Binding.asset"));
             Assert.That(document, Does.Contain("old clone/arc/fade"));
+            Assert.That(document, Does.Contain("FlipImpact DestroySelf Motion VFX Migration"));
+            Assert.That(document, Does.Contain("BoxVfxCue.FlipDestroySelfMotion"));
+            Assert.That(document, Does.Contain("EnableGameplayVfxFlipDestroySelfMotionMigration"));
+            Assert.That(document, Does.Contain("SuppressLegacyFlipDestroySelfEffects"));
             Assert.That(document, Does.Contain("red/orange danger palette"));
             Assert.That(document, Does.Contain("AuthoredDuration"));
             Assert.That(document, Does.Contain("Utility Windup VFX Migration"));
