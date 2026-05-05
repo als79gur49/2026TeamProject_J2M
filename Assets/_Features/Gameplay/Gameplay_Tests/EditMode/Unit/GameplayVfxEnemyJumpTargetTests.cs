@@ -90,10 +90,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void EnemyPlanner_LandedSignal_DoesNotEmitLandingTarget()
         {
-            AssertNoRequests(CreateJumpSignal(
-                new SurfaceCell(FaceId.Floor, 1, 1),
-                landed: true,
-                phase: EnemyJumpPhase.Cooldown));
+            AssertNoCueRequests(
+                EnemyVfxCue.JumperLandingTarget,
+                CreateJumpSignal(
+                    new SurfaceCell(FaceId.Floor, 1, 1),
+                    landed: true,
+                    phase: EnemyJumpPhase.Cooldown));
         }
 
         [Test]
@@ -108,7 +110,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyPlanner_MultipleIrrelevantJumpSignals_DoNotEmitFalsePositive()
+        public void EnemyPlanner_MultipleIrrelevantJumpSignals_DoNotEmitLandingTargetFalsePositive()
         {
             var planner = new EnemyVfxRequestPlanner();
             var builder = new GameplayVfxRequestPlanBuilder();
@@ -124,7 +126,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new CubeTopologyState(FaceId.Floor)),
                 builder);
 
-            Assert.That(builder.Build(), Is.SameAs(GameplayVfxRequestPlan.Empty));
+            Assert.That(
+                builder.Build().Requests,
+                Has.None.Matches<GameplayVfxRequest>(
+                    request => request.CueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)));
         }
 
         [Test]
@@ -152,6 +157,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
 
                 Assert.That(runtime.EnableEnemyJumpTargetVfx, Is.False);
+                Assert.That(runtime.EnableEnemyJumpLandingDustVfx, Is.False);
                 Assert.That(runtime.IsRuntimeInitialized, Is.False);
             }
             finally
@@ -437,6 +443,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 sceneText,
                 Does.Contain($"m_Script: {{fileID: 11500000, guid: {GameplayVfxRuntimeInstallerScriptGuid}, type: 3}}"));
             Assert.That(productionRuntimeBlock, Does.Contain("enableEnemyJumpTargetVfx: 1"));
+            Assert.That(productionRuntimeBlock, Does.Contain("enableEnemyJumpLandingDustVfx: 1"));
             Assert.That(productionRuntimeBlock, Does.Not.Contain("hostDefaultCueMap:"));
             Assert.That(
                 runtimeInstallerBlock,
@@ -478,6 +485,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 builder);
 
             Assert.That(builder.Build(), Is.SameAs(GameplayVfxRequestPlan.Empty));
+        }
+
+        private static void AssertNoCueRequests(
+            EnemyVfxCue cue,
+            params TickEnemyJumpPresentationSignal[] jumpSignals)
+        {
+            var planner = new EnemyVfxRequestPlanner();
+            var builder = new GameplayVfxRequestPlanBuilder();
+            var cueId = GameplayVfxCueId.From(cue);
+
+            planner.Plan(
+                new GameplayVfxPlanningContext(
+                    tickIndex: 12,
+                    CreatePresentationData(jumpSignals),
+                    new CubeTopologyState(FaceId.Floor)),
+                builder);
+
+            Assert.That(
+                builder.Build().Requests,
+                Has.None.Matches<GameplayVfxRequest>(request => request.CueId == cueId));
         }
 
         private static void AssertJumperLandingTargetRequest(
