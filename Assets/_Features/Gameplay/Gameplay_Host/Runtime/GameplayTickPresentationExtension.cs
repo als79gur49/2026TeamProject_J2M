@@ -48,5 +48,9 @@ namespace Game.Feature.Gameplay.Host
     public interface IGameplayPresentationMigrationGate
     {
         bool SuppressLegacyPlayerDamageHitEffects { get; }
+
+        bool SuppressLegacyBoxDestroySmokeEffects { get; }
+
+        bool SuppressLegacyItemConsumeEffects { get; }
     }
 }

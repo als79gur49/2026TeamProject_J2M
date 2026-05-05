@@ -118,13 +118,23 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        public void PlayEntityExitEffects()
+        public void PlayEntityExitEffects(
+            bool suppressLegacyBoxDestroySmokeEffects,
+            bool suppressLegacyItemConsumeEffects)
         {
             for (var i = 0; i < _pendingEntityExitSignals.Count; i++)
             {
                 var signal = _pendingEntityExitSignals[i];
                 if (_impactTransientEntityIds.Contains(signal.ExitedEntityId) ||
                     _destroySelfFlipImpactKeysByEntityId.ContainsKey(signal.ExitedEntityId))
+                {
+                    continue;
+                }
+
+                if (ShouldSuppressLegacyEntityExitEffect(
+                        signal.ExitCause,
+                        suppressLegacyBoxDestroySmokeEffects,
+                        suppressLegacyItemConsumeEffects))
                 {
                     continue;
                 }
@@ -200,6 +210,20 @@ namespace Game.Feature.Gameplay.Host
                     _playedFlipImpactKeys.Add(key);
                 }
             }
+        }
+
+        private static bool ShouldSuppressLegacyEntityExitEffect(
+            TickEntityExitCause exitCause,
+            bool suppressLegacyBoxDestroySmokeEffects,
+            bool suppressLegacyItemConsumeEffects)
+        {
+            if (exitCause == TickEntityExitCause.BoxDestroy)
+            {
+                return suppressLegacyBoxDestroySmokeEffects;
+            }
+
+            return exitCause == TickEntityExitCause.ItemConsume &&
+                   suppressLegacyItemConsumeEffects;
         }
 
         public void ApplyEntityExitOwnership()

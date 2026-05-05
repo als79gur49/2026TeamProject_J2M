@@ -13,9 +13,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
         [SerializeField] private bool enableEnemyJumpLandingDustVfx;
         [SerializeField] private bool enableGameplayVfxDamageBurstMigration;
         [SerializeField] private bool enableGameplayVfxEnemyDamageBurstMigration;
+        [SerializeField] private bool enableGameplayVfxBoxDestroySmokeMigration;
+        [SerializeField] private bool enableGameplayVfxItemConsumeBurstMigration;
         [SerializeField] private VfxProfileAsset[] familyProfiles = Array.Empty<VfxProfileAsset>();
 
         private readonly PlayerVfxRequestPlanner playerPlanner = new();
+        private readonly BoxVfxRequestPlanner boxPlanner = new();
         private readonly EnemyVfxRequestPlanner enemyPlanner = new();
         private readonly GameplayVfxRequestPlanBuilder planBuilder = new();
 
@@ -93,6 +96,40 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
+        public bool EnableGameplayVfxBoxDestroySmokeMigration
+        {
+            get => enableGameplayVfxBoxDestroySmokeMigration;
+            set
+            {
+                if (enableGameplayVfxBoxDestroySmokeMigration == value)
+                {
+                    return;
+                }
+
+                enableGameplayVfxBoxDestroySmokeMigration = value;
+                ResetIfNoGameplayVfxEnabled();
+            }
+        }
+
+        public bool SuppressLegacyBoxDestroySmokeEffects => enableGameplayVfxBoxDestroySmokeMigration;
+
+        public bool EnableGameplayVfxItemConsumeBurstMigration
+        {
+            get => enableGameplayVfxItemConsumeBurstMigration;
+            set
+            {
+                if (enableGameplayVfxItemConsumeBurstMigration == value)
+                {
+                    return;
+                }
+
+                enableGameplayVfxItemConsumeBurstMigration = value;
+                ResetIfNoGameplayVfxEnabled();
+            }
+        }
+
+        public bool SuppressLegacyItemConsumeEffects => enableGameplayVfxItemConsumeBurstMigration;
+
         public int LastPlannedRequestCount { get; private set; }
 
         public int ActiveVfxInstanceCount => pool?.ActiveCount ?? 0;
@@ -142,6 +179,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 context.EnemyPresentationBindings);
             planBuilder.Clear();
             playerPlanner.Plan(
+                new GameplayVfxPlanningContext(
+                    context.Result.TickIndex,
+                    context.Result.PresentationData,
+                    context.Topology),
+                planBuilder);
+            boxPlanner.Plan(
                 new GameplayVfxPlanningContext(
                     context.Result.TickIndex,
                     context.Result.PresentationData,
@@ -266,7 +309,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private bool AnyGameplayVfxEnabled =>
             AnyEnemyJumpVfxEnabled ||
             enableGameplayVfxDamageBurstMigration ||
-            enableGameplayVfxEnemyDamageBurstMigration;
+            enableGameplayVfxEnemyDamageBurstMigration ||
+            enableGameplayVfxBoxDestroySmokeMigration ||
+            enableGameplayVfxItemConsumeBurstMigration;
 
         private void ResetIfNoEnemyJumpVfxEnabled()
         {
@@ -310,6 +355,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
         {
             return (enableGameplayVfxDamageBurstMigration && cueId == GameplayVfxCueId.From(PlayerVfxCue.Damage)) ||
                    (enableGameplayVfxEnemyDamageBurstMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.Damage)) ||
+                   (enableGameplayVfxBoxDestroySmokeMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.DestroySmoke)) ||
+                   (enableGameplayVfxItemConsumeBurstMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.ItemConsume)) ||
                    (enableEnemyJumpTargetVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)) ||
                    (enableEnemyJumpLandingDustVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingDust));
         }

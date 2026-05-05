@@ -99,6 +99,89 @@ namespace Game.Feature.Gameplay.Vfx
 
         public void Plan(GameplayVfxPlanningContext context, GameplayVfxRequestPlanBuilder builder)
         {
+            if (builder == null)
+            {
+                throw new ArgumentNullException(nameof(builder));
+            }
+
+            var presentationData = context.PresentationData;
+            if (presentationData == null)
+            {
+                return;
+            }
+
+            var exitSignals = presentationData.EntityExitSignals;
+            for (var i = 0; i < exitSignals.Count; i++)
+            {
+                var signal = exitSignals[i];
+                if (signal.EntityType != EntityType.Box ||
+                    IsImpactTransientSource(presentationData, signal.ExitedEntityId) ||
+                    IsFlipImpactDestroySelfSource(presentationData, signal.ExitedEntityId))
+                {
+                    continue;
+                }
+
+                if (signal.ExitCause == TickEntityExitCause.BoxDestroy)
+                {
+                    AddExitRequest(context, builder, signal, BoxVfxCue.DestroySmoke);
+                }
+                else if (signal.ExitCause == TickEntityExitCause.ItemConsume)
+                {
+                    AddExitRequest(context, builder, signal, BoxVfxCue.ItemConsume);
+                }
+            }
+        }
+
+        private static void AddExitRequest(
+            GameplayVfxPlanningContext context,
+            GameplayVfxRequestPlanBuilder builder,
+            in TickEntityExitPresentationSignal signal,
+            BoxVfxCue cue)
+        {
+            builder.Add(
+                new GameplayVfxRequest(
+                    tickIndex: context.TickIndex,
+                    sequenceId: signal.ExitedEntityId,
+                    presentationSeed: signal.PresentationSeed != 0 ? signal.PresentationSeed : signal.ExitedEntityId,
+                    sourceEntityId: signal.ExitedEntityId,
+                    cueId: GameplayVfxCueId.From(cue),
+                    anchor: VfxAnchor.ForCell(
+                        signal.SourceCell,
+                        signal.Topology,
+                        VfxAnchorSlot.CellFloor),
+                    timing: VfxTimingKind.ImmediateOnTickPresentation,
+                    isPersistent: false,
+                    persistentKey: VfxPersistentKey.None));
+        }
+
+        private static bool IsFlipImpactDestroySelfSource(TickPresentationData presentationData, int entityId)
+        {
+            var flipImpactSignals = presentationData.FlipImpactSignals;
+            for (var i = 0; i < flipImpactSignals.Count; i++)
+            {
+                var signal = flipImpactSignals[i];
+                if (signal.BoxEntityId == entityId &&
+                    signal.Disposition == FlipImpactPresentationDisposition.DestroySelf)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsImpactTransientSource(TickPresentationData presentationData, int entityId)
+        {
+            var impactSignals = presentationData.ImpactTransientSignals;
+            for (var i = 0; i < impactSignals.Count; i++)
+            {
+                if (impactSignals[i].EntityId == entityId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 
