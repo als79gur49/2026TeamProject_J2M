@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Vfx.Authoring;
 using UnityEngine;
@@ -9,6 +10,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
     public sealed class GameplayVfxProductionRuntime : MonoBehaviour, IGameplayTickPresentationExtension
     {
         [SerializeField] private bool enableEnemyJumpTargetVfx;
+        [SerializeField] private bool enableEnemyJumpLandingDustVfx;
         [SerializeField] private VfxProfileAsset[] familyProfiles = Array.Empty<VfxProfileAsset>();
 
         private readonly EnemyVfxRequestPlanner enemyPlanner = new();
@@ -37,11 +39,22 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 }
 
                 enableEnemyJumpTargetVfx = value;
-                if (!enableEnemyJumpTargetVfx)
+                ResetIfNoEnemyJumpVfxEnabled();
+            }
+        }
+
+        public bool EnableEnemyJumpLandingDustVfx
+        {
+            get => enableEnemyJumpLandingDustVfx;
+            set
+            {
+                if (enableEnemyJumpLandingDustVfx == value)
                 {
-                    LastPlannedRequestCount = 0;
-                    ResetRuntimeComposition();
+                    return;
                 }
+
+                enableEnemyJumpLandingDustVfx = value;
+                ResetIfNoEnemyJumpVfxEnabled();
             }
         }
 
@@ -84,7 +97,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public void Present(in GameplayTickPresentationExtensionContext context)
         {
             LastPlannedRequestCount = 0;
-            if (!enableEnemyJumpTargetVfx)
+            if (!AnyEnemyJumpVfxEnabled)
             {
                 return;
             }
@@ -92,7 +105,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
             ConfigureEnemyPresentationProfiles(
                 context.EnemyPresentationCatalog,
                 context.EnemyPresentationBindings);
-            EnsureRuntime(context);
             planBuilder.Clear();
             enemyPlanner.Plan(
                 new GameplayVfxPlanningContext(
@@ -100,8 +112,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     context.Result.PresentationData,
                     context.Topology),
                 planBuilder);
-            var plan = planBuilder.Build();
+            var plan = FilterByEnabledCues(planBuilder.Build());
             LastPlannedRequestCount = plan.Requests.Count;
+            if (plan.Requests.Count == 0)
+            {
+                return;
+            }
+
+            EnsureRuntime(context);
             controller.Refresh(plan);
         }
 
@@ -200,6 +218,47 @@ namespace Game.Feature.Gameplay.Vfx.Host
             controller?.HardCleanupAll();
             controller = null;
             pool = null;
+        }
+
+        private bool AnyEnemyJumpVfxEnabled => enableEnemyJumpTargetVfx || enableEnemyJumpLandingDustVfx;
+
+        private void ResetIfNoEnemyJumpVfxEnabled()
+        {
+            if (AnyEnemyJumpVfxEnabled)
+            {
+                return;
+            }
+
+            LastPlannedRequestCount = 0;
+            ResetRuntimeComposition();
+        }
+
+        private GameplayVfxRequestPlan FilterByEnabledCues(GameplayVfxRequestPlan plan)
+        {
+            if (plan == null || plan.Requests.Count == 0)
+            {
+                return GameplayVfxRequestPlan.Empty;
+            }
+
+            var filteredRequests = new List<GameplayVfxRequest>(plan.Requests.Count);
+            for (var i = 0; i < plan.Requests.Count; i++)
+            {
+                var request = plan.Requests[i];
+                if (IsCueEnabled(request.CueId))
+                {
+                    filteredRequests.Add(request);
+                }
+            }
+
+            return filteredRequests.Count == 0
+                ? GameplayVfxRequestPlan.Empty
+                : new GameplayVfxRequestPlan(filteredRequests);
+        }
+
+        private bool IsCueEnabled(GameplayVfxCueId cueId)
+        {
+            return (enableEnemyJumpTargetVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)) ||
+                   (enableEnemyJumpLandingDustVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingDust));
         }
 
         private sealed class AuthoringPrefabProvider : IVfxPrefabProvider

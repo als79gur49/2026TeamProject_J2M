@@ -75,24 +75,38 @@ namespace Game.Feature.Gameplay.Vfx
             for (var i = 0; i < jumpSignals.Count; i++)
             {
                 var signal = jumpSignals[i];
-                if (!IsJumperLandingTargetCueSource(signal))
+                if (IsJumperLandingTargetCueSource(signal))
                 {
-                    continue;
+                    builder.Add(
+                        new GameplayVfxRequest(
+                            tickIndex: context.TickIndex,
+                            sequenceId: ResolveSequenceId(signal),
+                            presentationSeed: signal.EntityId,
+                            // PresentationSeed remains a visual variation seed; SourceEntityId is the source identity.
+                            sourceEntityId: signal.EntityId,
+                            cueId: GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget),
+                            anchor: VfxAnchor.ForCell(
+                                signal.PresentationTargetCell,
+                                context.Topology,
+                                VfxAnchorSlot.CellFloor),
+                            timing: VfxTimingKind.ImmediateOnTickPresentation));
                 }
 
-                builder.Add(
-                    new GameplayVfxRequest(
-                        tickIndex: context.TickIndex,
-                        sequenceId: ResolveSequenceId(signal),
-                        presentationSeed: signal.EntityId,
-                        // PresentationSeed remains a visual variation seed; SourceEntityId is the source identity.
-                        sourceEntityId: signal.EntityId,
-                        cueId: GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget),
-                        anchor: VfxAnchor.ForCell(
-                            signal.PresentationTargetCell,
-                            context.Topology,
-                            VfxAnchorSlot.CellFloor),
-                        timing: VfxTimingKind.ImmediateOnTickPresentation));
+                if (IsJumperLandingDustCueSource(signal))
+                {
+                    builder.Add(
+                        new GameplayVfxRequest(
+                            tickIndex: context.TickIndex,
+                            sequenceId: ResolveSequenceId(signal),
+                            presentationSeed: signal.EntityId,
+                            sourceEntityId: signal.EntityId,
+                            cueId: GameplayVfxCueId.From(EnemyVfxCue.JumperLandingDust),
+                            anchor: VfxAnchor.ForCell(
+                                signal.PresentationTargetCell,
+                                context.Topology,
+                                VfxAnchorSlot.CellFloor),
+                            timing: VfxTimingKind.ImmediateOnTickPresentation));
+                }
             }
         }
 
@@ -100,6 +114,12 @@ namespace Game.Feature.Gameplay.Vfx
         {
             return signal.StartedWindupThisTick ||
                    signal.Outcome == TickEnemyJumpPresentationOutcome.WindupStarted;
+        }
+
+        private static bool IsJumperLandingDustCueSource(in TickEnemyJumpPresentationSignal signal)
+        {
+            return signal.Outcome == TickEnemyJumpPresentationOutcome.Landed ||
+                   signal.Outcome == TickEnemyJumpPresentationOutcome.CrushedBoxAndLanded;
         }
 
         private static int ResolveSequenceId(in TickEnemyJumpPresentationSignal signal)
