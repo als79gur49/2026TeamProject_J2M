@@ -22,11 +22,13 @@ namespace Game.Feature.Gameplay.Vfx
         public GameplayVfxPlanningContext(
             int tickIndex,
             TickPresentationData presentationData,
-            CubeTopologyState topology)
+            CubeTopologyState topology,
+            GameplayTimingProfile timingProfile = null)
         {
             TickIndex = tickIndex;
             PresentationData = presentationData;
             Topology = topology;
+            TimingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
         }
 
         public int TickIndex { get; }
@@ -34,6 +36,8 @@ namespace Game.Feature.Gameplay.Vfx
         public TickPresentationData PresentationData { get; }
 
         public CubeTopologyState Topology { get; }
+
+        public GameplayTimingProfile TimingProfile { get; }
     }
 
     public sealed class PlayerVfxRequestPlanner : IGameplayVfxFamilyRequestPlanner

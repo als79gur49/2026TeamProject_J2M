@@ -60,11 +60,50 @@ Guard phrase: existing presenter migration is a future slice.
 
 FlipImpact is not pure VFX. `FlipImpactPresentationDisposition.Stay` is an actual box view pose override track, while `FlipImpactPresentationDisposition.DestroySelf` is a transient clone/effect path where the source-to-impact flight overlaps break and fade presentation.
 
-Full FlipImpact migration requires MotionTrack/contact timing ownership. This gate adds narrow `FlipImpactContactVfxAnchor` metadata from `FlipImpactPresentationSignal` plus centralized FlipImpact contact timing so a future burst migration can target the impact contact without reading authority state.
+Full FlipImpact migration requires MotionTrack/contact timing ownership. This gate adds narrow `FlipImpactContactVfxAnchor` metadata from `FlipImpactPresentationSignal` plus centralized FlipImpact contact timing so burst adapters can target the impact contact without reading authority state.
 
-This gate does not spawn VFX, suppress old paths, add a feature flag, add prefab/material/binding assets, implement MotionTrack pooled playback, or implement `BoxVfxCue.FlipImpactBurst` production playback. `VfxAnchorKind.MotionTrack` remains unsupported by the host resolver in production.
+This gate itself does not suppress old paths, implement MotionTrack pooled playback, or complete full FlipImpact migration. `VfxAnchorKind.MotionTrack` remains unsupported by the host resolver in production.
 
-Future Slice 2 may use `FlipImpactContactVfxAnchor.ImpactCell` and `VfxAnchorSlot.CellFloor` to trigger a contact burst while the old FlipImpact motion track continues to own motion. Future Slice 3 may revisit DestroySelf clone/fade parity.
+Slice 2 uses `FlipImpactContactVfxAnchor.ImpactCell` and `VfxAnchorSlot.CellFloor` to trigger a contact burst while the old FlipImpact motion track continues to own motion. Future Slice 3 may revisit DestroySelf clone/fade parity.
+
+## FlipImpact Contact Burst VFX Slice
+
+Slice 2 adds a track-owned contact burst adapter. The source fact is `TickPresentationData.FlipImpactSignals`, converted through `FlipImpactContactVfxAnchorBuilder` into `FlipImpactContactVfxAnchor` contact metadata. The emitted cue is `BoxVfxCue.FlipImpactBurst`.
+
+Anchor and lifecycle:
+
+- anchor: `FlipImpactContactVfxAnchor.ImpactCell`
+- slot: `VfxAnchorSlot.CellFloor`
+- lifecycle: transient one-shot
+- timing: `VfxTimingKind.ImmediateOnTickPresentation`
+
+Feature flag:
+
+- `EnableGameplayVfxFlipImpactBurstMigration`
+- default false
+- flag off drops the new burst request
+- flag on allows only the new contact burst request
+
+Old path:
+
+- `BoxFlipInteractionDriver` and `FlipImpactTrack` remain active and continue to own source-to-impact-to-return motion.
+- DestroySelf clone/fade remains on the old path in this slice.
+- This is not full FlipImpact migration.
+
+Missing binding:
+
+- missing `FlipImpactBurst` binding is diagnostic/no-op for the new burst.
+- the old FlipImpact motion path remains independent.
+
+Relation to `BoxVfxCue.DestroySmoke`:
+
+- the DestroySelf duplicate box smoke guard remains.
+- `FlipImpactBurst` is contact feedback at the impact cell, not destroy smoke.
+
+Future:
+
+- Slice 3 may migrate DestroySelf clone/fade parity.
+- full `VfxAnchorKind.MotionTrack` anchor playback remains future work.
 
 ## First Production Cue Gate
 
@@ -389,7 +428,7 @@ Default binding:
 Boundaries:
 
 - no one-shot fallback is allowed for this cue.
-- no MotionTrack anchor, Screen/BoardLocal anchor, topology queue, stage map, TileFeature, Terrain, or FlipImpact migration is included.
+- no MotionTrack anchor, Screen/BoardLocal anchor, topology queue, stage map, TileFeature, Terrain, or full FlipImpact MotionTrack migration is included.
 - `TickPresentationData`, `TickPipeline`, `WorldState`, and `WorldSnapshot` shape or authority changes remain forbidden.
 
 ## Prefab-local Profile Owner Gate

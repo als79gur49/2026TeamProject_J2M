@@ -412,7 +412,8 @@ namespace Game.Feature.Gameplay.Host
                 _stateStore,
                 _projector,
                 _enemyPresentationCatalog,
-                _enemyPresentationBindings);
+                _enemyPresentationBindings,
+                _timingProfile);
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
                 _presentationExtensions[i]?.Present(context);

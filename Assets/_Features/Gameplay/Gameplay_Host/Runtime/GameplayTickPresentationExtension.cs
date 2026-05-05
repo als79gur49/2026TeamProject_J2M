@@ -11,7 +11,8 @@ namespace Game.Feature.Gameplay.Host
             GameplayPresentationStateStore stateStore,
             GameplayCubeProjector projector,
             EnemyPresentationCatalog enemyPresentationCatalog = null,
-            EnemyPresentationBinding[] enemyPresentationBindings = null)
+            EnemyPresentationBinding[] enemyPresentationBindings = null,
+            GameplayTimingProfile timingProfile = null)
         {
             Result = result;
             Topology = topology;
@@ -19,6 +20,7 @@ namespace Game.Feature.Gameplay.Host
             Projector = projector;
             EnemyPresentationCatalog = enemyPresentationCatalog;
             EnemyPresentationBindings = enemyPresentationBindings ?? System.Array.Empty<EnemyPresentationBinding>();
+            TimingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
         }
 
         public TickResult Result { get; }
@@ -32,6 +34,8 @@ namespace Game.Feature.Gameplay.Host
         public EnemyPresentationCatalog EnemyPresentationCatalog { get; }
 
         public EnemyPresentationBinding[] EnemyPresentationBindings { get; }
+
+        public GameplayTimingProfile TimingProfile { get; }
     }
 
     public interface IGameplayTickPresentationExtension

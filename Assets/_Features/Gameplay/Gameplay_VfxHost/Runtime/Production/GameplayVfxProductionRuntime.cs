@@ -16,11 +16,13 @@ namespace Game.Feature.Gameplay.Vfx.Host
         [SerializeField] private bool enableGameplayVfxEnemyDeathBurstMigration;
         [SerializeField] private bool enableGameplayVfxBoxDestroySmokeMigration;
         [SerializeField] private bool enableGameplayVfxItemConsumeBurstMigration;
+        [SerializeField] private bool enableGameplayVfxFlipImpactBurstMigration;
         [SerializeField] private bool enableGameplayVfxUtilityWindupMigration;
         [SerializeField] private VfxProfileAsset[] familyProfiles = Array.Empty<VfxProfileAsset>();
 
         private readonly PlayerVfxRequestPlanner playerPlanner = new();
         private readonly BoxVfxRequestPlanner boxPlanner = new();
+        private readonly FlipImpactBurstVfxRequestPlanner flipImpactBurstPlanner = new();
         private readonly EnemyVfxRequestPlanner enemyPlanner = new();
         private readonly GameplayVfxRequestPlanBuilder planBuilder = new();
 
@@ -149,6 +151,21 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public bool SuppressLegacyItemConsumeEffects => enableGameplayVfxItemConsumeBurstMigration;
 
+        public bool EnableGameplayVfxFlipImpactBurstMigration
+        {
+            get => enableGameplayVfxFlipImpactBurstMigration;
+            set
+            {
+                if (enableGameplayVfxFlipImpactBurstMigration == value)
+                {
+                    return;
+                }
+
+                enableGameplayVfxFlipImpactBurstMigration = value;
+                ResetIfNoGameplayVfxEnabled();
+            }
+        }
+
         public bool EnableGameplayVfxUtilityWindupMigration
         {
             get => enableGameplayVfxUtilityWindupMigration;
@@ -218,19 +235,29 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 new GameplayVfxPlanningContext(
                     context.Result.TickIndex,
                     context.Result.PresentationData,
-                    context.Topology),
+                    context.Topology,
+                    context.TimingProfile),
                 planBuilder);
             boxPlanner.Plan(
                 new GameplayVfxPlanningContext(
                     context.Result.TickIndex,
                     context.Result.PresentationData,
-                    context.Topology),
+                    context.Topology,
+                    context.TimingProfile),
+                planBuilder);
+            flipImpactBurstPlanner.Plan(
+                new GameplayVfxPlanningContext(
+                    context.Result.TickIndex,
+                    context.Result.PresentationData,
+                    context.Topology,
+                    context.TimingProfile),
                 planBuilder);
             enemyPlanner.Plan(
                 new GameplayVfxPlanningContext(
                     context.Result.TickIndex,
                     context.Result.PresentationData,
-                    context.Topology),
+                    context.Topology,
+                    context.TimingProfile),
                 planBuilder);
             var plan = FilterByEnabledCues(planBuilder.Build());
             LastPlannedRequestCount = plan.Requests.Count;
@@ -350,6 +377,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             enableGameplayVfxEnemyDeathBurstMigration ||
             enableGameplayVfxBoxDestroySmokeMigration ||
             enableGameplayVfxItemConsumeBurstMigration ||
+            enableGameplayVfxFlipImpactBurstMigration ||
             enableGameplayVfxUtilityWindupMigration;
 
         private void ResetIfNoEnemyJumpVfxEnabled()
@@ -398,6 +426,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                    (enableGameplayVfxUtilityWindupMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup)) ||
                    (enableGameplayVfxBoxDestroySmokeMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.DestroySmoke)) ||
                    (enableGameplayVfxItemConsumeBurstMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.ItemConsume)) ||
+                   (enableGameplayVfxFlipImpactBurstMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.FlipImpactBurst)) ||
                    (enableEnemyJumpTargetVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)) ||
                    (enableEnemyJumpLandingDustVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingDust));
         }

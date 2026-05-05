@@ -20,9 +20,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxPlanning.cs";
         private const string VfxProductionRuntimePath =
             "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/GameplayVfxProductionRuntime.cs";
-        private const string VfxAssetRoot =
-            "Assets/_Features/Gameplay/Gameplay_Vfx";
-
         [Test]
         [Category("Extended")]
         public void Builder_StaySignal_BuildsContactAnchor()
@@ -133,7 +130,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void NoProductionBehaviorChange()
+        public void BurstSlice_DoesNotAddMotionTrackSupportOrOldPresenterBypass()
         {
             var planningSource = ReadRepoFile(VfxPlanningPath);
             var productionRuntimeSource = ReadRepoFile(VfxProductionRuntimePath);
@@ -145,20 +142,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "Assets/_Features/Gameplay/Gameplay_Host/Runtime/FlipImpactTrack.cs",
                     "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayExitPresentationController.cs",
                 }.Select(ReadRepoFile));
-            var flipImpactAssets = Directory.GetFiles(
-                    GetAbsolutePath(VfxAssetRoot),
-                    "*FlipImpact*",
-                    SearchOption.AllDirectories)
-                .Select(path => Path.GetFileName(path))
-                .ToArray();
 
-            Assert.That(planningSource, Does.Not.Contain("FlipImpactBurst"));
-            Assert.That(productionRuntimeSource, Does.Not.Contain("EnableGameplayVfxFlipImpact"));
+            Assert.That(planningSource, Does.Not.Contain("FlipImpactContactVfxAnchorBuilder"));
+            Assert.That(productionRuntimeSource, Does.Contain("EnableGameplayVfxFlipImpactBurstMigration"));
             Assert.That(productionRuntimeSource, Does.Not.Contain("SuppressLegacyFlipImpact"));
-            Assert.That(productionRuntimeSource, Does.Not.Contain("FlipImpactBurst"));
             Assert.That(oldPresenterSource, Does.Not.Contain("FlipImpactContactVfxAnchor"));
             Assert.That(oldPresenterSource, Does.Not.Contain("SuppressLegacyFlipImpact"));
-            Assert.That(flipImpactAssets, Is.Empty);
+            Assert.That(oldPresenterSource, Does.Not.Contain("EnableGameplayVfxFlipImpactBurstMigration"));
         }
 
         private static FlipImpactPresentationSignal CreateSignal(
