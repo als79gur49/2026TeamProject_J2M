@@ -1,5 +1,6 @@
 using System;
 using Game.Feature.Gameplay.BoardState;
+using UnityEngine;
 
 namespace Game.Feature.Gameplay.Vfx.Host
 {
@@ -25,12 +26,20 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return false;
             }
 
+            var localPosition = projectedPose.LocalPosition;
+            var localRotation = projectedPose.LocalRotation;
+            if (slot == VfxAnchorSlot.CellFloor)
+            {
+                localPosition -= projectedPose.Normal * projector.SurfaceTileThickness;
+                localRotation *= Quaternion.Euler(180f, 0f, 0f);
+            }
+
             resolvedAnchor = VfxResolvedAnchor.ForCell(
                 cell,
                 topology,
                 slot,
-                projectedPose.LocalPosition,
-                projectedPose.LocalRotation);
+                localPosition,
+                localRotation);
             return true;
         }
 

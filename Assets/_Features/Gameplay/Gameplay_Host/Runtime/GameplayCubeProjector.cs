@@ -52,6 +52,8 @@ namespace Game.Feature.Gameplay.Host
 
         public float FaceSeamGap => _faceSeamGap;
 
+        public float SurfaceTileThickness => _cellSize * GameplayPresentationGeometry.TileThicknessMultiplier;
+
         public Vector3 CubeCenter => Vector3.zero;
 
         public int Width => _boardBounds.MaxInclusive.x - _boardBounds.MinInclusive.x + 1;

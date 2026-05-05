@@ -213,6 +213,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void HostCellProjector_CellFloor_ResolvesVisibleTileFace()
+        {
+            var projector = new Game.Feature.Gameplay.Host.GameplayCubeProjector(
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0)),
+                2f);
+            var cellProjector = new GameplayVfxHostCellAnchorProjector(projector);
+            var cell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var topology = new CubeTopologyState(FaceId.Floor);
+
+            var result = cellProjector.TryResolveCell(
+                cell,
+                topology,
+                VfxAnchorSlot.CellFloor,
+                out var resolved);
+
+            Assert.That(result, Is.True);
+            Assert.That(projector.TryProjectSurfaceCell(cell, topology, out var projectedPose), Is.True);
+            var expectedPosition = projectedPose.LocalPosition -
+                                   (projectedPose.Normal * projector.SurfaceTileThickness);
+            Assert.That(Vector3.Distance(resolved.LocalPosition, expectedPosition), Is.LessThan(0.0001f));
+            Assert.That(Vector3.Angle(resolved.LocalRotation * Vector3.forward, -projectedPose.Normal), Is.LessThan(0.001f));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void HostEntityProjector_UsesPresentationStateAndRejectsUnsupportedSlots()
         {
             var stateStore = new Game.Feature.Gameplay.Host.GameplayPresentationStateStore();

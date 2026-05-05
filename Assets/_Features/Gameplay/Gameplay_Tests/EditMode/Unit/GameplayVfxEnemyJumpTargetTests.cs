@@ -318,9 +318,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(
                     projector.TryProjectSurfaceCell(new SurfaceCell(FaceId.Floor, 2, 0), topology, out var sourcePose),
                     Is.True);
-                Assert.That(Vector3.Distance(marker.localPosition, targetPose.LocalPosition), Is.LessThan(0.0001f));
+                var expectedMarkerPosition = targetPose.LocalPosition -
+                                             (targetPose.Normal * projector.SurfaceTileThickness);
+                var expectedMarkerRotation = targetPose.LocalRotation * Quaternion.Euler(180f, 0f, 0f);
+                Assert.That(Vector3.Distance(marker.localPosition, expectedMarkerPosition), Is.LessThan(0.0001f));
                 Assert.That(Vector3.Distance(marker.localPosition, sourcePose.LocalPosition), Is.GreaterThan(0.1f));
-                Assert.That(Quaternion.Angle(marker.localRotation, targetPose.LocalRotation), Is.LessThan(0.001f));
+                Assert.That(Quaternion.Angle(marker.localRotation, expectedMarkerRotation), Is.LessThan(0.001f));
             }
             finally
             {
