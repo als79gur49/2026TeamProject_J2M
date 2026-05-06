@@ -51,6 +51,7 @@ namespace Game.Feature.Gameplay.Host
                 compositionData.GameplayBuildResult.InitialTerrain,
                 compositionData.GameplayBuildResult.InitialTileFeatures,
                 compositionData.GameplayBuildResult.TileFeatureDefinitions,
+                compositionData.GameplayBuildResult.MoonBlockRespawnDefinitions,
                 compositionData.GameplayBuildResult.PlayerEntityId,
                 compositionData.GameplayBuildResult.ObjectiveRuntimeDefinition,
                 compositionData.GameplayBuildResult.EnemyAiProfileOverrides,

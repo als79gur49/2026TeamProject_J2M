@@ -62,6 +62,8 @@ namespace Game.Feature.Gameplay.Host
             var initialTerrain = configuration.InitialTerrain ?? GameplayTerrainData.Empty;
             var initialTileFeatures = configuration.InitialTileFeatures ?? Array.Empty<TileFeatureState>();
             var tileFeatureDefinitions = configuration.TileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
+            var moonBlockRespawnDefinitions =
+                configuration.MoonBlockRespawnDefinitions ?? Array.Empty<MoonBlockRespawnDefinition>();
             var generalTimingProfile = configuration.CreateTimingProfile();
             var playerControlTiming = configuration.CreatePlayerControlTimingSnapshot();
             var playerKinematicLocomotionTiming = configuration.CreatePlayerKinematicLocomotionTimingSnapshot();
@@ -107,7 +109,8 @@ namespace Game.Feature.Gameplay.Host
                 runtimeFeatureFlags: configuration.CreateRuntimeFeatureFlags(),
                 playerKinematicLocomotionTiming: playerKinematicLocomotionTiming,
                 playerContinuousLocomotion: playerContinuousLocomotion,
-                tileFeatureDefinitions: tileFeatureDefinitions);
+                tileFeatureDefinitions: tileFeatureDefinitions,
+                moonBlockRespawnDefinitions: moonBlockRespawnDefinitions);
 
             var boardRoot = EnsureBoardRootHierarchy(hostTransform);
             var boardSurfaceRenderer = boardRoot.EnsureBoardSurfaceRenderer();

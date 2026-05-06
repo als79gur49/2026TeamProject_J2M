@@ -40,6 +40,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly AttackExpander _attackExpander;
         private readonly CleanupProcessor _cleanupProcessor = new();
         private readonly RespawnProcessor _respawnProcessor = new();
+        private readonly MoonBlockGeneratorRespawnProcessor _moonBlockGeneratorRespawnProcessor = new();
         private readonly TickResultBuilder _tickResultBuilder = new();
         private readonly DeterminismHashBuilder _determinismHashBuilder = new();
         private readonly TickTraceBuilder _tickTraceBuilder = new();
@@ -56,6 +57,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly GameplayRuntimeFeatureFlags _runtimeFeatureFlags;
         private readonly int _slidingStateTimerTicks;
         private readonly IReadOnlyList<TileFeatureRuntimeDefinition> _tileFeatureDefinitions;
+        private readonly IReadOnlyList<MoonBlockRespawnDefinition> _moonBlockRespawnDefinitions;
         private readonly ITileEffectResolver _tileEffectResolver;
         private readonly WorldState _worldState;
 
@@ -104,7 +106,8 @@ namespace Game.Feature.Gameplay.Loop
             PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming,
             PlayerContinuousLocomotionSnapshot playerContinuousLocomotion,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
-            ITileEffectResolver tileEffectResolver)
+            IReadOnlyList<MoonBlockRespawnDefinition> moonBlockRespawnDefinitions = null,
+            ITileEffectResolver tileEffectResolver = null)
         {
             _worldState = worldState ?? throw new ArgumentNullException(nameof(worldState));
 
@@ -143,6 +146,9 @@ namespace Game.Feature.Gameplay.Loop
             _tileFeatureDefinitions = tileFeatureDefinitions == null
                 ? Array.Empty<TileFeatureRuntimeDefinition>()
                 : new List<TileFeatureRuntimeDefinition>(tileFeatureDefinitions).AsReadOnly();
+            _moonBlockRespawnDefinitions = moonBlockRespawnDefinitions == null
+                ? Array.Empty<MoonBlockRespawnDefinition>()
+                : new List<MoonBlockRespawnDefinition>(moonBlockRespawnDefinitions).AsReadOnly();
             _tileEffectResolver = tileEffectResolver ?? TileFeatureEffectResolver.Instance;
             _allowPlayerRespawn = allowPlayerRespawn;
             _runtimeFeatureFlags = runtimeFeatureFlags;
@@ -1390,6 +1396,29 @@ namespace Game.Feature.Gameplay.Loop
                 _playerRespawnDelayTicks,
                 _allowPlayerRespawn,
                 writeContext);
+            var moonBlockGeneratorEvents = _moonBlockGeneratorRespawnProcessor.Process(
+                postCleanupSnapshot,
+                () => SnapshotBuilder.Create(_worldState),
+                respawnPhaseResult.RespawnedEntities.Count > 0 ||
+                respawnPhaseResult.TopologyResetRequest.HasValue,
+                _moonBlockRespawnDefinitions,
+                _tileFeatureDefinitions,
+                tickIndex,
+                writeContext);
+            if (moonBlockGeneratorEvents.Count > 0)
+            {
+                var eventLogEntries = new List<string>(
+                    respawnPhaseResult.EventLogEntries.Count + moonBlockGeneratorEvents.Count);
+                AddRange(eventLogEntries, respawnPhaseResult.EventLogEntries);
+                AddRange(eventLogEntries, moonBlockGeneratorEvents);
+                respawnPhaseResult = new RespawnPhaseResult(
+                    respawnPhaseResult.RespawnedEntities,
+                    eventLogEntries,
+                    respawnPhaseResult.PlayerRespawnDelayRecords,
+                    respawnPhaseResult.RespawnPlacementRecords,
+                    respawnPhaseResult.TopologyResetRequest);
+            }
+
             phaseTrace.Add("Respawn:Exit");
             completedPhases.Add(TickPhase.Respawn);
             return respawnPhaseResult;

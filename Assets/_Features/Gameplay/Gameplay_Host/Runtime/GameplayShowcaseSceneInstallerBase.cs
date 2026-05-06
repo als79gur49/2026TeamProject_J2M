@@ -25,6 +25,7 @@ namespace Game.Feature.Gameplay.Host
                 GameplayTerrainData initialTerrain,
                 TileFeatureState[] initialTileFeatures,
                 TileFeatureRuntimeDefinition[] tileFeatureDefinitions,
+                MoonBlockRespawnDefinition[] moonBlockRespawnDefinitions,
                 int playerEntityId,
                 StageObjectiveRuntimeDefinition objectiveRuntimeDefinition,
                 EnemyAiProfileOverride[] enemyAiProfileOverrides,
@@ -43,6 +44,7 @@ namespace Game.Feature.Gameplay.Host
                 InitialTerrain = initialTerrain ?? GameplayTerrainData.Empty;
                 InitialTileFeatures = initialTileFeatures ?? Array.Empty<TileFeatureState>();
                 TileFeatureDefinitions = tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
+                MoonBlockRespawnDefinitions = moonBlockRespawnDefinitions ?? Array.Empty<MoonBlockRespawnDefinition>();
                 PlayerEntityId = playerEntityId;
                 ObjectiveRuntimeDefinition = objectiveRuntimeDefinition ?? StageObjectiveRuntimeDefinition.Disabled;
                 EnemyAiProfileOverrides = enemyAiProfileOverrides ?? Array.Empty<EnemyAiProfileOverride>();
@@ -68,6 +70,8 @@ namespace Game.Feature.Gameplay.Host
             public TileFeatureState[] InitialTileFeatures { get; }
 
             public TileFeatureRuntimeDefinition[] TileFeatureDefinitions { get; }
+
+            public MoonBlockRespawnDefinition[] MoonBlockRespawnDefinitions { get; }
 
             public int PlayerEntityId { get; }
 
@@ -304,6 +308,7 @@ namespace Game.Feature.Gameplay.Host
                 InitialTerrain = initialState.InitialTerrain,
                 InitialTileFeatures = initialState.InitialTileFeatures,
                 TileFeatureDefinitions = initialState.TileFeatureDefinitions,
+                MoonBlockRespawnDefinitions = initialState.MoonBlockRespawnDefinitions,
                 InitialTopology = initialState.InitialTopology,
                 MoveDeadzone = moveDeadzone,
                 ObjectiveRuntimeDefinition = initialState.ObjectiveRuntimeDefinition,

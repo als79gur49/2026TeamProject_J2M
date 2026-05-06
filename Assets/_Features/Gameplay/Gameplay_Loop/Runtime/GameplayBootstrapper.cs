@@ -58,7 +58,8 @@ namespace Game.Feature.Gameplay.Loop
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
             PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming = default,
             PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default,
-            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
+            IReadOnlyList<MoonBlockRespawnDefinition> moonBlockRespawnDefinitions = null)
         {
             return new TickPipeline(
                 worldState,
@@ -74,6 +75,7 @@ namespace Game.Feature.Gameplay.Loop
                 playerKinematicLocomotionTiming,
                 playerContinuousLocomotion,
                 tileFeatureDefinitions,
+                moonBlockRespawnDefinitions,
                 tileEffectResolver: null);
         }
 
@@ -119,7 +121,8 @@ namespace Game.Feature.Gameplay.Loop
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
             PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming = default,
             PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default,
-            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
+            IReadOnlyList<MoonBlockRespawnDefinition> moonBlockRespawnDefinitions = null)
         {
             if (inputBuffer == null)
             {
@@ -138,7 +141,8 @@ namespace Game.Feature.Gameplay.Loop
                     runtimeFeatureFlags,
                     playerKinematicLocomotionTiming,
                     playerContinuousLocomotion,
-                    tileFeatureDefinitions),
+                    tileFeatureDefinitions,
+                    moonBlockRespawnDefinitions),
                 inputBuffer,
                 startTickIndex);
         }
