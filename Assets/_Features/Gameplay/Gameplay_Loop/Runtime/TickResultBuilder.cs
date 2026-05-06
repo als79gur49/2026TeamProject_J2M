@@ -331,7 +331,10 @@ namespace Game.Feature.Gameplay.Loop
             PlayerTickCommand playerCommand = default,
             IReadOnlyList<ResolutionRecord> resolutionRecords = null,
             IEnemyGlidePresentationSettingsResolver enemyGlidePresentationSettingsResolver = null,
-            IReadOnlyList<TilePresentationEvent> tileEvents = null)
+            IReadOnlyList<TilePresentationEvent> tileEvents = null,
+            StageObjectiveTickResult objectiveResult = null,
+            StageObjectiveRuntimeDefinition objectiveDefinition = null,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -346,7 +349,10 @@ namespace Game.Feature.Gameplay.Loop
                 playerCommand,
                 resolutionRecords,
                 enemyGlidePresentationSettingsResolver,
-                tileEvents)
+                tileEvents,
+                objectiveResult,
+                objectiveDefinition,
+                tileFeatureDefinitions)
         {
         }
 
@@ -364,7 +370,10 @@ namespace Game.Feature.Gameplay.Loop
             PlayerTickCommand playerCommand = default,
             IReadOnlyList<ResolutionRecord> resolutionRecords = null,
             IEnemyGlidePresentationSettingsResolver enemyGlidePresentationSettingsResolver = null,
-            IReadOnlyList<TilePresentationEvent> tileEvents = null)
+            IReadOnlyList<TilePresentationEvent> tileEvents = null,
+            StageObjectiveTickResult objectiveResult = null,
+            StageObjectiveRuntimeDefinition objectiveDefinition = null,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -380,7 +389,10 @@ namespace Game.Feature.Gameplay.Loop
                 playerCommand,
                 resolutionRecords,
                 enemyGlidePresentationSettingsResolver,
-                tileEvents)
+                tileEvents,
+                objectiveResult,
+                objectiveDefinition,
+                tileFeatureDefinitions)
         {
         }
 
@@ -398,7 +410,10 @@ namespace Game.Feature.Gameplay.Loop
             PlayerTickCommand playerCommand = default,
             IReadOnlyList<ResolutionRecord> resolutionRecords = null,
             IEnemyGlidePresentationSettingsResolver enemyGlidePresentationSettingsResolver = null,
-            IReadOnlyList<TilePresentationEvent> tileEvents = null)
+            IReadOnlyList<TilePresentationEvent> tileEvents = null,
+            StageObjectiveTickResult objectiveResult = null,
+            StageObjectiveRuntimeDefinition objectiveDefinition = null,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -414,7 +429,10 @@ namespace Game.Feature.Gameplay.Loop
                 playerCommand,
                 resolutionRecords,
                 enemyGlidePresentationSettingsResolver,
-                tileEvents)
+                tileEvents,
+                objectiveResult,
+                objectiveDefinition,
+                tileFeatureDefinitions)
         {
         }
 
@@ -433,7 +451,10 @@ namespace Game.Feature.Gameplay.Loop
             PlayerTickCommand playerCommand = default,
             IReadOnlyList<ResolutionRecord> resolutionRecords = null,
             IEnemyGlidePresentationSettingsResolver enemyGlidePresentationSettingsResolver = null,
-            IReadOnlyList<TilePresentationEvent> tileEvents = null)
+            IReadOnlyList<TilePresentationEvent> tileEvents = null,
+            StageObjectiveTickResult objectiveResult = null,
+            StageObjectiveRuntimeDefinition objectiveDefinition = null,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
             PreMovementSnapshot = preMovementSnapshot ?? throw new ArgumentNullException(nameof(preMovementSnapshot));
             PostMovementSnapshot = postMovementSnapshot ?? throw new ArgumentNullException(nameof(postMovementSnapshot));
@@ -450,6 +471,9 @@ namespace Game.Feature.Gameplay.Loop
             ResolutionRecords = resolutionRecords ?? Array.Empty<ResolutionRecord>();
             EnemyGlidePresentationSettingsResolver = enemyGlidePresentationSettingsResolver;
             TileEvents = tileEvents ?? Array.Empty<TilePresentationEvent>();
+            ObjectiveResult = objectiveResult ?? StageObjectiveTickResult.NoObjective;
+            ObjectiveDefinition = objectiveDefinition ?? StageObjectiveRuntimeDefinition.Disabled;
+            TileFeatureDefinitions = tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
         }
 
         public WorldSnapshot PreMovementSnapshot { get; }
@@ -482,6 +506,12 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<ResolutionRecord> ResolutionRecords { get; }
 
         public IReadOnlyList<TilePresentationEvent> TileEvents { get; }
+
+        public StageObjectiveTickResult ObjectiveResult { get; }
+
+        public StageObjectiveRuntimeDefinition ObjectiveDefinition { get; }
+
+        public IReadOnlyList<TileFeatureRuntimeDefinition> TileFeatureDefinitions { get; }
 
         internal IEnemyGlidePresentationSettingsResolver EnemyGlidePresentationSettingsResolver { get; }
     }
@@ -663,7 +693,120 @@ namespace Game.Feature.Gameplay.Loop
                         finalTileFeature.TeamId));
             }
 
+            AddExitOpenedEvents(context, finalTileFeatures, tileEvents);
+            AddExitEnteredEvents(context, finalTileFeatures, tileEvents);
+
             tileEvents.Sort(CompareTilePresentationEvents);
+        }
+
+        private static void AddExitOpenedEvents(
+            in TickPresentationBuildContext context,
+            IReadOnlyList<TileFeatureState> finalTileFeatures,
+            List<TilePresentationEvent> tileEvents)
+        {
+            if (!context.ObjectiveResult.HasObjective ||
+                !context.ObjectiveResult.RequiredNonPrimaryConditionsSatisfiedThisTick)
+            {
+                return;
+            }
+
+            for (var i = 0; i < finalTileFeatures.Count; i++)
+            {
+                var exit = finalTileFeatures[i];
+                if (!IsActiveExit(context, exit))
+                {
+                    continue;
+                }
+
+                tileEvents.Add(CreateExitTilePresentationEvent(
+                    TilePresentationEventKind.ExitOpened,
+                    exit,
+                    targetEntityId: 0));
+            }
+        }
+
+        private static void AddExitEnteredEvents(
+            in TickPresentationBuildContext context,
+            IReadOnlyList<TileFeatureState> finalTileFeatures,
+            List<TilePresentationEvent> tileEvents)
+        {
+            var playerEntityId = context.ObjectiveDefinition.PlayerEntityId;
+            if (!context.ObjectiveResult.HasObjective ||
+                !context.ObjectiveResult.ClearedThisTick ||
+                !context.ObjectiveResult.RequiredNonPrimaryConditionsSatisfied ||
+                playerEntityId <= 0 ||
+                !context.FinalAuthoritativeSnapshot.TryGetEntity(playerEntityId, out var player) ||
+                player.boardPresence != EntityBoardPresence.Occupying)
+            {
+                return;
+            }
+
+            for (var i = 0; i < finalTileFeatures.Count; i++)
+            {
+                var exit = finalTileFeatures[i];
+                if (!IsActiveExit(context, exit) ||
+                    !exit.Cell.Equals(player.position))
+                {
+                    continue;
+                }
+
+                tileEvents.Add(CreateExitTilePresentationEvent(
+                    TilePresentationEventKind.ExitEntered,
+                    exit,
+                    playerEntityId));
+            }
+        }
+
+        private static TilePresentationEvent CreateExitTilePresentationEvent(
+            TilePresentationEventKind eventKind,
+            TileFeatureState exit,
+            int targetEntityId)
+        {
+            return new TilePresentationEvent(
+                eventKind,
+                exit.TileId,
+                exit.Cell,
+                TileFeatureKind.Exit,
+                exit.SourceEntityId,
+                exit.OwnerEntityId,
+                exit.TeamId,
+                targetEntityId,
+                Direction.None);
+        }
+
+        private static bool IsActiveExit(
+            in TickPresentationBuildContext context,
+            TileFeatureState tileFeature)
+        {
+            return tileFeature.Kind == TileFeatureKind.Exit &&
+                   TryGetTileFeatureDefinition(
+                       context.TileFeatureDefinitions,
+                       tileFeature.TileId,
+                       out var definition) &&
+                   TileFeatureActivationQueries.IsActive(
+                       tileFeature,
+                       definition,
+                       context.FinalAuthoritativeSnapshot.Topology);
+        }
+
+        private static bool TryGetTileFeatureDefinition(
+            IReadOnlyList<TileFeatureRuntimeDefinition> definitions,
+            int tileId,
+            out TileFeatureRuntimeDefinition definition)
+        {
+            for (var i = 0; i < definitions.Count; i++)
+            {
+                if (definitions[i].TileId != tileId)
+                {
+                    continue;
+                }
+
+                definition = definitions[i];
+                return true;
+            }
+
+            definition = default;
+            return false;
         }
 
         private static int CompareTilePresentationEvents(TilePresentationEvent left, TilePresentationEvent right)

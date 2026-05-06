@@ -252,7 +252,10 @@ namespace Game.Feature.Gameplay.Loop
                 input.PlayerCommand,
                 resolvePhaseResult.ResolutionRecords,
                 _enemyGlidePresentationSettingsResolver,
-                resolvePhaseResult.TilePresentationEvents);
+                resolvePhaseResult.TilePresentationEvents,
+                objectiveResult,
+                _objectiveTracker.ObjectiveDefinition,
+                _tileFeatureDefinitions);
             var pendingDelayedAttackEffects = _delayedAttackEffectQueue.Snapshot();
             var tickResultData = _tickResultBuilder.Build(
                 finalAuthoritativeSnapshot,

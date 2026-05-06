@@ -64,6 +64,12 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
                 case TilePresentationRequestKind.BarricadeCrushed:
                     cue = TileFeatureAudioCue.BarricadeCrushed;
                     return true;
+                case TilePresentationRequestKind.ExitOpened:
+                    cue = TileFeatureAudioCue.ExitOpened;
+                    return true;
+                case TilePresentationRequestKind.ExitEntered:
+                    cue = TileFeatureAudioCue.ExitEntered;
+                    return true;
                 default:
                     cue = default;
                     return false;

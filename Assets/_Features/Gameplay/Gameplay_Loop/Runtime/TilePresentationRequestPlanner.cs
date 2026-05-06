@@ -11,6 +11,8 @@ namespace Game.Feature.Gameplay.Loop
         SlideTileRedirected = 2,
         BarricadeBlocked = 3,
         BarricadeCrushed = 4,
+        ExitOpened = 5,
+        ExitEntered = 6,
     }
 
     public readonly struct TilePresentationRequest
@@ -115,6 +117,12 @@ namespace Game.Feature.Gameplay.Loop
                     return true;
                 case TilePresentationEventKind.BarricadeCrushed:
                     requestKind = TilePresentationRequestKind.BarricadeCrushed;
+                    return true;
+                case TilePresentationEventKind.ExitOpened:
+                    requestKind = TilePresentationRequestKind.ExitOpened;
+                    return true;
+                case TilePresentationEventKind.ExitEntered:
+                    requestKind = TilePresentationRequestKind.ExitEntered;
                     return true;
                 default:
                     requestKind = default;

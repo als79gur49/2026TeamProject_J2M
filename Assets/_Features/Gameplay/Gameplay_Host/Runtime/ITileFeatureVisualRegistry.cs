@@ -36,6 +36,16 @@ namespace Game.Feature.Gameplay.Host
         void PlayBarricadeCrushed(int targetEntityId);
     }
 
+    public interface IExitOpenedVisualTarget
+    {
+        void PlayExitOpened();
+    }
+
+    public interface IExitEnteredVisualTarget
+    {
+        void PlayExitEntered(int playerEntityId);
+    }
+
     public interface ITileFeatureVisualTargetConfigurator
     {
         void ConfigureTileFeature(int tileId, SurfaceCell cell);

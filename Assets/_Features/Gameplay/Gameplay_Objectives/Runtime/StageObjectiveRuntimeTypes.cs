@@ -751,7 +751,10 @@ namespace Game.Feature.Gameplay.Objectives
             allConditionsSatisfied: false,
             clearedThisTick: false,
             isCleared: false,
-            Array.Empty<StageConditionStatus>());
+            hasRequiredNonPrimaryConditions: false,
+            requiredNonPrimaryConditionsSatisfied: true,
+            requiredNonPrimaryConditionsSatisfiedThisTick: false,
+            conditionStatuses: Array.Empty<StageConditionStatus>());
 
         public StageObjectiveTickResult(
             bool hasObjective,
@@ -760,12 +763,38 @@ namespace Game.Feature.Gameplay.Objectives
             bool clearedThisTick,
             bool isCleared,
             IReadOnlyList<StageConditionStatus> conditionStatuses)
+            : this(
+                hasObjective,
+                goalReached,
+                allConditionsSatisfied,
+                clearedThisTick,
+                isCleared,
+                hasRequiredNonPrimaryConditions: false,
+                requiredNonPrimaryConditionsSatisfied: true,
+                requiredNonPrimaryConditionsSatisfiedThisTick: false,
+                conditionStatuses)
+        {
+        }
+
+        public StageObjectiveTickResult(
+            bool hasObjective,
+            bool goalReached,
+            bool allConditionsSatisfied,
+            bool clearedThisTick,
+            bool isCleared,
+            bool hasRequiredNonPrimaryConditions,
+            bool requiredNonPrimaryConditionsSatisfied,
+            bool requiredNonPrimaryConditionsSatisfiedThisTick,
+            IReadOnlyList<StageConditionStatus> conditionStatuses)
         {
             HasObjective = hasObjective;
             GoalReached = goalReached;
             AllConditionsSatisfied = allConditionsSatisfied;
             ClearedThisTick = clearedThisTick;
             IsCleared = isCleared;
+            HasRequiredNonPrimaryConditions = hasRequiredNonPrimaryConditions;
+            RequiredNonPrimaryConditionsSatisfied = requiredNonPrimaryConditionsSatisfied;
+            RequiredNonPrimaryConditionsSatisfiedThisTick = requiredNonPrimaryConditionsSatisfiedThisTick;
             ConditionStatuses = conditionStatuses ?? Array.Empty<StageConditionStatus>();
         }
 
@@ -778,6 +807,12 @@ namespace Game.Feature.Gameplay.Objectives
         public bool ClearedThisTick { get; }
 
         public bool IsCleared { get; }
+
+        public bool HasRequiredNonPrimaryConditions { get; }
+
+        public bool RequiredNonPrimaryConditionsSatisfied { get; }
+
+        public bool RequiredNonPrimaryConditionsSatisfiedThisTick { get; }
 
         public IReadOnlyList<StageConditionStatus> ConditionStatuses { get; }
     }

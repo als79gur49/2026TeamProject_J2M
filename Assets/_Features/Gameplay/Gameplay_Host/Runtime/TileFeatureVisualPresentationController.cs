@@ -112,6 +112,30 @@ namespace Game.Feature.Gameplay.Host
                     }
 
                     return;
+                case TilePresentationRequestKind.ExitOpened:
+                    if (target is IExitOpenedVisualTarget exitOpenedTarget)
+                    {
+                        exitOpenedTarget.PlayExitOpened();
+                    }
+                    else
+                    {
+                        _diagnosticSink?.Invoke(
+                            $"{nameof(TileFeatureVisualPresentationController)} unsupported ExitOpened visual target for tile {request.TileId}.");
+                    }
+
+                    return;
+                case TilePresentationRequestKind.ExitEntered:
+                    if (target is IExitEnteredVisualTarget exitEnteredTarget)
+                    {
+                        exitEnteredTarget.PlayExitEntered(request.TargetEntityId);
+                    }
+                    else
+                    {
+                        _diagnosticSink?.Invoke(
+                            $"{nameof(TileFeatureVisualPresentationController)} unsupported ExitEntered visual target for tile {request.TileId}.");
+                    }
+
+                    return;
             }
         }
 
@@ -121,7 +145,9 @@ namespace Game.Feature.Gameplay.Host
                    requestKind == TilePresentationRequestKind.DestroyTileTriggered ||
                    requestKind == TilePresentationRequestKind.SlideTileRedirected ||
                    requestKind == TilePresentationRequestKind.BarricadeBlocked ||
-                   requestKind == TilePresentationRequestKind.BarricadeCrushed;
+                   requestKind == TilePresentationRequestKind.BarricadeCrushed ||
+                   requestKind == TilePresentationRequestKind.ExitOpened ||
+                   requestKind == TilePresentationRequestKind.ExitEntered;
         }
     }
 }
