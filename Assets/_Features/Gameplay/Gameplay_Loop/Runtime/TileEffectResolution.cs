@@ -38,12 +38,14 @@ namespace Game.Feature.Gameplay.Loop
             int tickIndex,
             WorldSnapshot snapshot,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
-            IReadOnlyList<TileEffectBoxContact> boxContacts = null)
+            IReadOnlyList<TileEffectBoxContact> boxContacts = null,
+            WorldSnapshot previousSnapshot = null)
         {
             TickIndex = tickIndex;
             Snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
             TileFeatureDefinitions = tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
             BoxContacts = boxContacts ?? Array.Empty<TileEffectBoxContact>();
+            PreviousSnapshot = previousSnapshot;
         }
 
         public int TickIndex { get; }
@@ -53,6 +55,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<TileFeatureRuntimeDefinition> TileFeatureDefinitions { get; }
 
         public IReadOnlyList<TileEffectBoxContact> BoxContacts { get; }
+
+        public WorldSnapshot PreviousSnapshot { get; }
     }
 
     internal readonly struct TileEffectResolutionResult
@@ -128,6 +132,7 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             var entityOperations = ResolveDestroyTiles(context, out var tileEvents, out var destroyedBoxIds);
+            entityOperations.MergeFrom(ResolveBarricadeCrushes(context, destroyedBoxIds));
             entityOperations.MergeFrom(ResolveSlideTiles(context, destroyedBoxIds, tileEvents));
 
             return (operations == null || operations.IsEmpty) &&
@@ -219,6 +224,56 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return batch;
+        }
+
+        private static FinalizationBatch ResolveBarricadeCrushes(
+            in TileEffectResolutionContext context,
+            HashSet<int> destroyedBoxIds)
+        {
+            var batch = new FinalizationBatch();
+            if (context.PreviousSnapshot == null)
+            {
+                return batch;
+            }
+
+            var tileFeatures = new List<TileFeatureState>();
+            context.Snapshot.EnumerateTileFeaturesOrdered(tileFeatures);
+            for (var i = 0; i < tileFeatures.Count; i++)
+            {
+                var tileFeature = tileFeatures[i];
+                if (tileFeature.Kind != TileFeatureKind.Barricade ||
+                    !TryFindDefinition(context.TileFeatureDefinitions, tileFeature.TileId, out var definition) ||
+                    !IsBarricadeActivationTransition(context.PreviousSnapshot, context.Snapshot, tileFeature, definition) ||
+                    !TryGetValidOccupyingBox(context.Snapshot, tileFeature.Cell, out var box) ||
+                    (destroyedBoxIds != null && destroyedBoxIds.Contains(box.entityId)))
+                {
+                    continue;
+                }
+
+                var metadata = CreateBarricadeCrushMetadata(context.TickIndex, box.entityId, tileFeature.Cell);
+                batch.SetBoardPresence(box.entityId, EntityBoardPresence.Detached, metadata);
+                batch.MarkDestroy(box.entityId, metadata);
+                destroyedBoxIds?.Add(box.entityId);
+            }
+
+            return batch;
+        }
+
+        private static bool IsBarricadeActivationTransition(
+            WorldSnapshot previousSnapshot,
+            WorldSnapshot currentSnapshot,
+            TileFeatureState currentTileFeature,
+            TileFeatureRuntimeDefinition definition)
+        {
+            if (!previousSnapshot.TryGetTileFeature(currentTileFeature.TileId, out var previousTileFeature) ||
+                previousTileFeature.Kind != TileFeatureKind.Barricade ||
+                previousTileFeature.Cell != currentTileFeature.Cell)
+            {
+                return false;
+            }
+
+            return !TileFeatureActivationQueries.IsActive(previousTileFeature, definition, previousSnapshot.Topology) &&
+                   TileFeatureActivationQueries.IsActive(currentTileFeature, definition, currentSnapshot.Topology);
         }
 
         private static FinalizationBatch ResolveSlideTiles(
@@ -399,6 +454,23 @@ namespace Game.Feature.Gameplay.Loop
                 presentationTargetCell: contactCell,
                 movementExecutionBoundaryKind: MovementExecutionBoundaryKind.ScriptedRelocation,
                 boundaryReason: "DestroyTile");
+        }
+
+        private static FinalizationOperationMetadata CreateBarricadeCrushMetadata(
+            int tickIndex,
+            int boxEntityId,
+            SurfaceCell contactCell)
+        {
+            return new FinalizationOperationMetadata(
+                TickPhase.Resolve,
+                ResolvedActionSemanticKind.None,
+                sourceActorEntityId: boxEntityId,
+                actionPlanId: tickIndex,
+                exitCauseHint: TickEntityExitCause.BoxDestroy,
+                damageSourceType: DamageSourceType.Environmental,
+                presentationTargetCell: contactCell,
+                movementExecutionBoundaryKind: MovementExecutionBoundaryKind.ScriptedRelocation,
+                boundaryReason: "BarricadeCrush");
         }
 
         private static FinalizationOperationMetadata CreateSlideTileRedirectMetadata(

@@ -1095,6 +1095,248 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void BarricadeCrush_InactiveToActiveTransition_DestroysBoxWithoutTileEvent()
+        {
+            var barricadeCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var previousSnapshot = CreateWorldState(
+                    new[] { CreateBox(20, barricadeCell) },
+                    new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) },
+                    topology: new CubeTopologyState(FaceId.Floor))
+                .CreateSnapshot();
+            var currentSnapshot = CreateWorldState(
+                    new[] { CreateBox(20, barricadeCell) },
+                    new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) },
+                    topology: new CubeTopologyState(FaceId.Front))
+                .CreateSnapshot();
+
+            var result = Resolve(
+                currentSnapshot,
+                previousSnapshot,
+                CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None));
+
+            Assert.That(result.Operations.IsEmpty, Is.True);
+            Assert.That(result.TileEvents, Is.Empty);
+            Assert.That(result.EntityOperations.Operations, Has.Count.EqualTo(2));
+            Assert.That(result.EntityOperations.Operations[0].Kind, Is.EqualTo(FinalizationOperationKind.SetBoardPresence));
+            Assert.That(result.EntityOperations.Operations[0].EntityId, Is.EqualTo(20));
+            Assert.That(result.EntityOperations.Operations[0].BoardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+            Assert.That(result.EntityOperations.Operations[0].Metadata.BoundaryReason, Is.EqualTo("BarricadeCrush"));
+            Assert.That(result.EntityOperations.Operations[1].Kind, Is.EqualTo(FinalizationOperationKind.MarkDestroy));
+            Assert.That(result.EntityOperations.Operations[1].Metadata.ExitCauseHint, Is.EqualTo(TickEntityExitCause.BoxDestroy));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BarricadeCrush_NonActivationTransitions_DoNotScanAndDoNotCrush()
+        {
+            var barricadeCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var definition = CreateDefinition(
+                100,
+                TileFeatureActivationRule.FrontFaceOnly,
+                selector: TileFeatureBoxSelector.None);
+            var activeSnapshot = CreateWorldState(
+                    new[] { CreateBox(20, barricadeCell) },
+                    new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) },
+                    topology: new CubeTopologyState(FaceId.Front))
+                .CreateSnapshot();
+            var inactiveSnapshot = CreateWorldState(
+                    new[] { CreateBox(20, barricadeCell) },
+                    new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) },
+                    topology: new CubeTopologyState(FaceId.Floor))
+                .CreateSnapshot();
+
+            Assert.That(Resolve(activeSnapshot, activeSnapshot, definition).IsEmpty, Is.True, "active to active");
+            Assert.That(Resolve(inactiveSnapshot, inactiveSnapshot, definition).IsEmpty, Is.True, "inactive to inactive");
+            Assert.That(Resolve(inactiveSnapshot, activeSnapshot, definition).IsEmpty, Is.True, "active to inactive");
+            Assert.That(Resolve(activeSnapshot, definition).IsEmpty, Is.True, "missing previous snapshot");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BarricadeCrush_IgnoresNonBoxInvalidAndAlreadyDestroyedOccupants()
+        {
+            var barricadeCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var definition = CreateDefinition(
+                100,
+                TileFeatureActivationRule.FrontFaceOnly,
+                selector: TileFeatureBoxSelector.None);
+            var cases = new[]
+            {
+                new object[] { "Unit", new[] { CreateUnit(20, barricadeCell) }, GameplayTerrainData.Empty },
+                new object[] { "EnemyUnit", new[] { CreateEnemyUnit(21, barricadeCell) }, GameplayTerrainData.Empty },
+                new object[] { "Projectile", new[] { CreateProjectile(22, barricadeCell) }, GameplayTerrainData.Empty },
+                new object[] { "WallLikeTerrain", Array.Empty<EntityState>(), new GameplayTerrainData(new[] { CreateWallLikeTerrain(barricadeCell) }) },
+                new object[] { "NonBoxSolid", new[] { CreateSolid(23, barricadeCell) }, GameplayTerrainData.Empty },
+                new object[] { "DeadBox", new[] { CreateBox(24, barricadeCell, hp: 0) }, GameplayTerrainData.Empty },
+                new object[] { "DetachedBox", new[] { CreateBox(25, barricadeCell, boardPresence: EntityBoardPresence.Detached) }, GameplayTerrainData.Empty },
+                new object[] { "MarkedBox", new[] { CreateBox(26, barricadeCell, markedForDeath: true) }, GameplayTerrainData.Empty },
+            };
+
+            for (var i = 0; i < cases.Length; i++)
+            {
+                var name = (string)cases[i][0];
+                var entities = (EntityState[])cases[i][1];
+                var terrain = (GameplayTerrainData)cases[i][2];
+                var previousSnapshot = CreateWorldState(
+                        entities,
+                        new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) },
+                        terrain,
+                        new CubeTopologyState(FaceId.Floor))
+                    .CreateSnapshot();
+                var currentSnapshot = CreateWorldState(
+                        entities,
+                        new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) },
+                        terrain,
+                        new CubeTopologyState(FaceId.Front))
+                    .CreateSnapshot();
+
+                Assert.That(Resolve(currentSnapshot, previousSnapshot, definition).IsEmpty, Is.True, name);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BarricadeCrush_MoonBlockIsCrushed()
+        {
+            var barricadeCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var moonBox = CreateBox(
+                20,
+                barricadeCell,
+                boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy,
+                boxArchetype: BoxArchetype.Moon);
+            var previousSnapshot = CreateWorldState(
+                    new[] { moonBox },
+                    new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) },
+                    topology: new CubeTopologyState(FaceId.Floor))
+                .CreateSnapshot();
+            var currentSnapshot = CreateWorldState(
+                    new[] { moonBox },
+                    new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) },
+                    topology: new CubeTopologyState(FaceId.Front))
+                .CreateSnapshot();
+
+            var result = Resolve(
+                currentSnapshot,
+                previousSnapshot,
+                CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None));
+
+            Assert.That(result.EntityOperations.Operations, Has.Count.EqualTo(2));
+            Assert.That(result.EntityOperations.Operations[1].Kind, Is.EqualTo(FinalizationOperationKind.MarkDestroy));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BarricadeCrush_DestroyTileSameTick_DedupesAndDestroyTileWins()
+        {
+            var barricadeCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var previousSnapshot = CreateWorldState(
+                    new[] { CreateBox(20, barricadeCell) },
+                    new[]
+                    {
+                        CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade),
+                        CreateTileFeature(200, barricadeCell, TileFeatureKind.Destroy),
+                    },
+                    topology: new CubeTopologyState(FaceId.Floor))
+                .CreateSnapshot();
+            var currentSnapshot = CreateWorldState(
+                    new[] { CreateBox(20, barricadeCell) },
+                    new[]
+                    {
+                        CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade),
+                        CreateTileFeature(200, barricadeCell, TileFeatureKind.Destroy),
+                    },
+                    topology: new CubeTopologyState(FaceId.Front))
+                .CreateSnapshot();
+            var contacts = new[]
+            {
+                new TileEffectBoxContact(20, barricadeCell, TileEffectBoxContactKind.PushEnter),
+            };
+
+            var result = Resolve(
+                currentSnapshot,
+                previousSnapshot,
+                contacts,
+                CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None),
+                CreateDefinition(200, TileFeatureActivationRule.FrontFaceOnly));
+
+            Assert.That(result.EntityOperations.Operations, Has.Count.EqualTo(2));
+            Assert.That(result.EntityOperations.Operations[0].Metadata.BoundaryReason, Is.EqualTo("DestroyTile"));
+            Assert.That(result.EntityOperations.Operations[1].Metadata.BoundaryReason, Is.EqualTo("DestroyTile"));
+            Assert.That(result.TileEvents, Has.Count.EqualTo(1));
+            Assert.That(result.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.DestroyTileTriggered));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BarricadeCrush_Pipeline_DetachesBeforeFinalAttackReadAndAuthoritativeCleanup()
+        {
+            var barricadeCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var attackLogic = new CapturingAttackLogic();
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 4)),
+                    CreateBox(20, barricadeCell),
+                },
+                new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) });
+            var pipeline = CreatePipeline(
+                worldState,
+                new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None) },
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                    attackLogic,
+                });
+
+            var result = pipeline.RunTick(new TickInput(7, PlayerTickCommand.Move(Direction.Up)));
+
+            Assert.That(attackLogic.CapturedSnapshots, Has.Count.EqualTo(2));
+            Assert.That(attackLogic.CapturedSnapshots[1].TryGetEntity(20, out var attackReadBox), Is.True);
+            Assert.That(attackReadBox.boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+            Assert.That(attackReadBox.markedForDeath, Is.True);
+            Assert.That(result.PresentationData.TileEvents, Is.Empty);
+            Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=20"));
+            Assert.That(worldState.CreateSnapshot().TryGetEntity(20, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BarricadeCrush_DeterminismHash_ChangesAndReplaysStably()
+        {
+            var withoutCrush = RunBarricadeCrushHashScenario(crushEnabled: false);
+            var withCrushFirst = RunBarricadeCrushHashScenario(crushEnabled: true);
+            var withCrushSecond = RunBarricadeCrushHashScenario(crushEnabled: true);
+
+            Assert.That(withCrushFirst, Is.EqualTo(withCrushSecond));
+            Assert.That(withCrushFirst, Is.Not.EqualTo(withoutCrush));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BarricadeCrush_NoTransitionPath_PreservesPinnedSnapshotBudget()
+        {
+            var counts = RunBarricadeNoTransitionBudgetScenario();
+
+            AssertPinnedEmptyBudget(counts);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BarricadeCrush_CrushPathAddsOnlyPostTileEffectSnapshot()
+        {
+            var withoutCrushCounts = RunBarricadeCrushBudgetScenario(crushEnabled: false);
+            var withCrushCounts = RunBarricadeCrushBudgetScenario(crushEnabled: true);
+
+            Assert.That(
+                withCrushCounts.ProjectedWorldMaterializedSnapshotCount,
+                Is.EqualTo(withoutCrushCounts.ProjectedWorldMaterializedSnapshotCount + 1));
+            Assert.That(
+                withCrushCounts.ProjectedWorldCacheHitCount,
+                Is.EqualTo(withoutCrushCounts.ProjectedWorldCacheHitCount));
+        }
+
+        [Test]
+        [Category("Core")]
         public void Barricade_ActiveBlocksBeforeDestroyTileContact_InactiveAllowsDestroyTile()
         {
             var activeCell = new SurfaceCell(FaceId.Front, 2, 0);
@@ -1422,6 +1664,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new TileEffectResolutionContext(7, snapshot, definitions, contacts));
         }
 
+        private static TileEffectResolutionResult Resolve(
+            WorldSnapshot snapshot,
+            WorldSnapshot previousSnapshot,
+            params TileFeatureRuntimeDefinition[] definitions)
+        {
+            return Resolve(snapshot, previousSnapshot, Array.Empty<TileEffectBoxContact>(), definitions);
+        }
+
+        private static TileEffectResolutionResult Resolve(
+            WorldSnapshot snapshot,
+            WorldSnapshot previousSnapshot,
+            IReadOnlyList<TileEffectBoxContact> contacts,
+            params TileFeatureRuntimeDefinition[] definitions)
+        {
+            return TileFeatureEffectResolver.Instance.Resolve(
+                new TileEffectResolutionContext(7, snapshot, definitions, contacts, previousSnapshot));
+        }
+
         private static FinalizationOperationMetadata CreateMovementMetadata(MovementSemanticKind movementSemanticKind)
         {
             var semanticKind = movementSemanticKind switch
@@ -1517,6 +1777,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return pipeline.RunTick(new TickInput(7)).DeterminismHash;
         }
 
+        private static string RunBarricadeCrushHashScenario(bool crushEnabled)
+        {
+            var barricadeCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 4)),
+                    CreateBox(20, barricadeCell),
+                },
+                new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) });
+            var pipeline = CreatePipeline(
+                worldState,
+                new[]
+                {
+                    CreateDefinition(
+                        100,
+                        crushEnabled ? TileFeatureActivationRule.FrontFaceOnly : TileFeatureActivationRule.BottomFaceOnly,
+                        selector: TileFeatureBoxSelector.None),
+                },
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            return pipeline.RunTick(new TickInput(7, PlayerTickCommand.Move(Direction.Up))).DeterminismHash;
+        }
+
         private static SnapshotMaterializationCounts RunDestroyTileBudgetScenario(bool includeDestroyTile)
         {
             var destroyCell = new SurfaceCell(FaceId.Floor, 2, 0);
@@ -1596,6 +1883,51 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return capture.Counts;
         }
 
+        private static SnapshotMaterializationCounts RunBarricadeNoTransitionBudgetScenario()
+        {
+            var barricadeCell = new SurfaceCell(FaceId.Front, 1, 1);
+            var worldState = CreateWorldState(
+                new[] { CreateBox(20, barricadeCell) },
+                new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) });
+            var pipeline = CreatePipeline(
+                worldState,
+                new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None) },
+                Array.Empty<IEntityLogic>());
+
+            using var capture = SnapshotMaterializationDiagnostics.BeginCapture();
+            pipeline.RunTick(new TickInput(7));
+            return capture.Counts;
+        }
+
+        private static SnapshotMaterializationCounts RunBarricadeCrushBudgetScenario(bool crushEnabled)
+        {
+            var barricadeCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 4)),
+                    CreateBox(20, barricadeCell),
+                },
+                new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) });
+            var pipeline = CreatePipeline(
+                worldState,
+                new[]
+                {
+                    CreateDefinition(
+                        100,
+                        crushEnabled ? TileFeatureActivationRule.FrontFaceOnly : TileFeatureActivationRule.BottomFaceOnly,
+                        selector: TileFeatureBoxSelector.None),
+                },
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            using var capture = SnapshotMaterializationDiagnostics.BeginCapture();
+            pipeline.RunTick(new TickInput(7, PlayerTickCommand.Move(Direction.Up)));
+            return capture.Counts;
+        }
+
         private static TickPipeline CreatePipeline(
             WorldState worldState,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
@@ -1652,13 +1984,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static WorldState CreateWorldState(
             IEnumerable<EntityState> initialEntities,
             IEnumerable<TileFeatureState> initialTileFeatures,
-            GameplayTerrainData terrainData = null)
+            GameplayTerrainData terrainData = null,
+            CubeTopologyState? topology = null)
         {
             return GameplayCompositionRoot.CreateWorldState(
                 initialEntities,
                 TestBounds,
                 terrainData ?? GameplayTerrainData.Empty,
-                new CubeTopologyState(FaceId.Floor),
+                topology ?? new CubeTopologyState(FaceId.Floor),
                 initialTileFeatures);
         }
 
@@ -1725,6 +2058,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 facing = Direction.Right,
                 boardPresence = EntityBoardPresence.Occupying,
             };
+        }
+
+        private static EntityState CreateEnemyUnit(int entityId, SurfaceCell position)
+        {
+            var unit = CreateUnit(entityId, position);
+            unit.teamId = 2;
+            return unit;
         }
 
         private static EntityState CreateProjectile(int entityId, SurfaceCell position)

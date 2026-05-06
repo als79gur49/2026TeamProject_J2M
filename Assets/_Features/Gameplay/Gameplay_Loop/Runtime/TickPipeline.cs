@@ -1004,7 +1004,8 @@ namespace Game.Feature.Gameplay.Loop
                     tickIndex,
                     attackReadSnapshot,
                     _tileFeatureDefinitions,
-                    tileEffectBoxContacts));
+                    tileEffectBoxContacts,
+                    planSnapshot));
             tilePresentationEvents = tileEffectResult.TileEvents;
             if (!tileEffectResult.IsEmpty)
             {
