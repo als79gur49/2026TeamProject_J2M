@@ -74,9 +74,18 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
-        public void EntityType_DoesNotContainTileFeature()
+        public void EntityType_DoesNotContainTileFeatureOrMoonBlock()
         {
             Assert.That(Enum.GetNames(typeof(EntityType)), Does.Not.Contain("TileFeature"));
+            Assert.That(Enum.GetNames(typeof(EntityType)), Does.Not.Contain("MoonBlock"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BoxCapabilities_DoNotContainMoonIdentity()
+        {
+            Assert.That(Enum.GetNames(typeof(BoxCapabilities)), Does.Not.Contain("Moon"));
+            Assert.That(Enum.GetNames(typeof(BoxCapabilities)), Does.Not.Contain("MoonBlock"));
         }
 
         [Test]

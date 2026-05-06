@@ -1307,6 +1307,50 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void ObjectiveClear_MoonBlockOnlyButtonLatch_CompletesSameTickAfterFinalSnapshot()
+        {
+            var conditionAsset = CreateButtonActivatedCondition(100);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var moonCapabilities = BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy;
+
+            try
+            {
+                var buildResult = BuildButtonObjectiveStage(
+                    conditionAsset,
+                    CreateStageTileFeature(
+                        100,
+                        cell,
+                        TileFeatureKind.Button,
+                        TileFeatureActivationRule.Always,
+                        TileFeatureBoxSelector.MoonBlockOnly),
+                    CreateBoxSpawn(20, new SurfaceCell(FaceId.Floor, 2, 1), moonCapabilities, BoxArchetype.Moon));
+                var worldState = GameplayCompositionRoot.CreateWorldState(
+                    new[] { CreateBoxEntity(20, cell, moonCapabilities, BoxArchetype.Moon) },
+                    buildResult.BoardBounds,
+                    buildResult.InitialTerrain,
+                    buildResult.InitialTopology,
+                    buildResult.InitialTileFeatures);
+                var pipeline = CreatePipeline(
+                    worldState,
+                    buildResult.ObjectiveRuntimeDefinition,
+                    buildResult.TileFeatureDefinitions);
+
+                var result = pipeline.RunTick(new TickInput(7));
+
+                Assert.That(result.ObjectiveResult.IsCleared, Is.True);
+                Assert.That(result.ObjectiveResult.ClearedThisTick, Is.True);
+                Assert.That(result.ObjectiveResult.AllConditionsSatisfied, Is.True);
+                Assert.That(worldState.CreateSnapshot().TryGetTileFeature(100, out var button), Is.True);
+                Assert.That((button.Flags & TileFeatureFlags.Activated), Is.Not.EqualTo(0));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(conditionAsset);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void ObjectiveClear_ButtonLatch_InactiveTopologyDoesNotComplete()
         {
             var conditionAsset = CreateButtonActivatedCondition(100);
@@ -1555,6 +1599,69 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     firstBuild.InitialTileFeatures);
                 var secondWorld = GameplayCompositionRoot.CreateWorldState(
                     new[] { CreateBoxEntity(20, cell, BoxCapabilities.Push) },
+                    secondBuild.BoardBounds,
+                    secondBuild.InitialTerrain,
+                    secondBuild.InitialTopology,
+                    secondBuild.InitialTileFeatures);
+
+                var firstResult = CreatePipeline(
+                        firstWorld,
+                        firstBuild.ObjectiveRuntimeDefinition,
+                        firstBuild.TileFeatureDefinitions)
+                    .RunTick(new TickInput(7));
+                var secondResult = CreatePipeline(
+                        secondWorld,
+                        secondBuild.ObjectiveRuntimeDefinition,
+                        secondBuild.TileFeatureDefinitions)
+                    .RunTick(new TickInput(7));
+
+                Assert.That(firstResult.ObjectiveResult.IsCleared, Is.EqualTo(secondResult.ObjectiveResult.IsCleared));
+                Assert.That(firstResult.ObjectiveResult.AllConditionsSatisfied, Is.EqualTo(secondResult.ObjectiveResult.AllConditionsSatisfied));
+                Assert.That(firstResult.DeterminismHash, Is.EqualTo(secondResult.DeterminismHash));
+                Assert.That(firstWorld.CreateSnapshot().TryGetTileFeature(100, out var firstButton), Is.True);
+                Assert.That(secondWorld.CreateSnapshot().TryGetTileFeature(100, out var secondButton), Is.True);
+                Assert.That(firstButton.Flags, Is.EqualTo(secondButton.Flags));
+                Assert.That((firstButton.Flags & TileFeatureFlags.Activated), Is.Not.EqualTo(0));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(firstCondition);
+                UnityEngine.Object.DestroyImmediate(secondCondition);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ObjectiveClear_MoonBlockOnlyButtonLatch_ReplayIsDeterministic()
+        {
+            var firstCondition = CreateButtonActivatedCondition(100);
+            var secondCondition = CreateButtonActivatedCondition(100);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var moonCapabilities = BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy;
+
+            try
+            {
+                var tileFeature = CreateStageTileFeature(
+                    100,
+                    cell,
+                    TileFeatureKind.Button,
+                    TileFeatureActivationRule.Always,
+                    TileFeatureBoxSelector.MoonBlockOnly);
+                var authoredMoonSpawn = CreateBoxSpawn(
+                    20,
+                    new SurfaceCell(FaceId.Floor, 2, 1),
+                    moonCapabilities,
+                    BoxArchetype.Moon);
+                var firstBuild = BuildButtonObjectiveStage(firstCondition, tileFeature, authoredMoonSpawn);
+                var secondBuild = BuildButtonObjectiveStage(secondCondition, tileFeature, authoredMoonSpawn);
+                var firstWorld = GameplayCompositionRoot.CreateWorldState(
+                    new[] { CreateBoxEntity(20, cell, moonCapabilities, BoxArchetype.Moon) },
+                    firstBuild.BoardBounds,
+                    firstBuild.InitialTerrain,
+                    firstBuild.InitialTopology,
+                    firstBuild.InitialTileFeatures);
+                var secondWorld = GameplayCompositionRoot.CreateWorldState(
+                    new[] { CreateBoxEntity(20, cell, moonCapabilities, BoxArchetype.Moon) },
                     secondBuild.BoardBounds,
                     secondBuild.InitialTerrain,
                     secondBuild.InitialTopology,
@@ -2104,8 +2211,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static StageRuntimeBuildResult BuildButtonObjectiveStage(
             ButtonActivatedConditionAsset conditionAsset,
-            StageTileFeatureDefinition tileFeature)
+            StageTileFeatureDefinition tileFeature,
+            params StageSpawnDefinition[] additionalSpawns)
         {
+            var spawns = new List<StageSpawnDefinition>
+            {
+                CreatePlayerSpawn(10, new SurfaceCell(FaceId.Floor, 0, 0)),
+            };
+            if (additionalSpawns != null)
+            {
+                spawns.AddRange(additionalSpawns);
+            }
+
             var stage = CreateStage(
                 "ButtonObjectiveStage",
                 CreateBoard(),
@@ -2116,7 +2233,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     {
                         CreateConditionEntry(conditionAsset, required: true, StageObjectiveConditionRole.PrimaryGoal, "button-activated"),
                     }),
-                CreatePlayerSpawn(10, new SurfaceCell(FaceId.Floor, 0, 0)));
+                spawns.ToArray());
             SetPrivateField(stage, "tileFeatures", new[] { tileFeature });
 
             try
@@ -2226,6 +2343,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Cell = cell,
                 Facing = Direction.Right,
                 Hp = 3,
+            };
+        }
+
+        private static StageSpawnDefinition CreateBoxSpawn(
+            int entityId,
+            SurfaceCell cell,
+            BoxCapabilities boxCapabilities,
+            BoxArchetype boxArchetype = BoxArchetype.Normal)
+        {
+            return new StageSpawnDefinition
+            {
+                EntityId = entityId,
+                Kind = StageSpawnKind.Box,
+                Cell = cell,
+                Facing = Direction.Right,
+                Hp = 1,
+                BoxCapabilities = boxCapabilities,
+                BoxArchetype = boxArchetype,
             };
         }
 
@@ -2345,7 +2480,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static EntityState CreateBoxEntity(
             int entityId,
             SurfaceCell cell,
-            BoxCapabilities boxCapabilities)
+            BoxCapabilities boxCapabilities,
+            BoxArchetype boxArchetype = BoxArchetype.Normal)
         {
             return new EntityState
             {
@@ -2360,6 +2496,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 facing = Direction.Right,
                 boardPresence = EntityBoardPresence.Occupying,
                 boxCapabilities = boxCapabilities,
+                boxArchetype = boxArchetype,
             };
         }
 

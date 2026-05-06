@@ -286,6 +286,7 @@ namespace Game.Feature.Stages.Editor.Tests
                         1,
                         string.Empty,
                         BoxCapabilities.None,
+                        BoxArchetype.Normal,
                         EnemyAiMode.None,
                         0,
                         null),

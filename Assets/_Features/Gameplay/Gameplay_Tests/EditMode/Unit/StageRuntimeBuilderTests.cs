@@ -76,6 +76,58 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void StageRuntimeBuilder_DefaultBoxArchetype_IsNormal()
+        {
+            var stage = CreateStage(
+                "DefaultBoxArchetype",
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 1, 1), hp: 3, facing: Direction.Up),
+                CreateSpawn(20, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 1, 2), hp: 1));
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(TryGetEntity(buildResult.InitialEntities, 20, out var box), Is.True);
+                Assert.That(box.boxArchetype, Is.EqualTo(BoxArchetype.Normal));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_MoonBoxArchetype_Materializes()
+        {
+            var stage = CreateStage(
+                "MoonBoxArchetype",
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 1, 1), hp: 3, facing: Direction.Up),
+                CreateSpawn(
+                    20,
+                    StageSpawnKind.Box,
+                    new SurfaceCell(FaceId.Floor, 1, 2),
+                    hp: 1,
+                    boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy,
+                    boxArchetype: BoxArchetype.Moon));
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(TryGetEntity(buildResult.InitialEntities, 20, out var box), Is.True);
+                Assert.That(box.boxArchetype, Is.EqualTo(BoxArchetype.Moon));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void StageRuntimeBuilder_TileFeatureAuthoring_MaterializesStateAndStaticDefinitions()
         {
             var tileFeature = CreateTileFeature(
@@ -316,11 +368,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void StageRuntimeBuilder_ButtonActivatedCondition_MoonBlockOnlyRejectsUntilSupported()
+        public void StageRuntimeBuilder_ButtonActivatedCondition_MoonBlockOnlyRejectsWithoutMoonBlockSpawn()
         {
             var condition = CreateButtonActivatedCondition(100);
             var stage = CreateStageWithButtonObjective(
-                "ButtonActivatedConditionMoonBlockOnly",
+                "ButtonActivatedConditionMoonBlockOnlyNoMoon",
                 condition,
                 new[]
                 {
@@ -331,7 +383,81 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         boxSelector: TileFeatureBoxSelector.MoonBlockOnly),
                 });
 
-            AssertBuildThrows(stage, "unsupported MoonBlockOnly selector", condition);
+            AssertBuildThrows(stage, "stage has no Moon box spawn", condition);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_ButtonActivatedCondition_MoonBlockOnly_AllowsMoonBlockSpawn()
+        {
+            var condition = CreateButtonActivatedCondition(100);
+            var stage = CreateStageWithObjective(
+                "ButtonActivatedConditionMoonBlockOnlyWithMoon",
+                new[] { CreateConditionEntry(condition, "button-activated") },
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Button,
+                        boxSelector: TileFeatureBoxSelector.MoonBlockOnly),
+                },
+                CreateSpawn(
+                    20,
+                    StageSpawnKind.Box,
+                    new SurfaceCell(FaceId.Floor, 2, 1),
+                    hp: 1,
+                    boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy,
+                    boxArchetype: BoxArchetype.Moon));
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(buildResult.ObjectiveRuntimeDefinition.ConditionEntries.Count, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+                UnityEngine.Object.DestroyImmediate(condition);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_MoonBoxValidation_RejectsInvalidShape()
+        {
+            AssertBuildThrows(
+                CreateStage(
+                    "InvalidBoxArchetype",
+                    CreateBoard(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                    CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
+                    CreateSpawn(20, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 1, 0), hp: 1, boxArchetype: (BoxArchetype)999)),
+                "invalid BoxArchetype value 999");
+
+            AssertBuildThrows(
+                CreateStage(
+                    "NonBoxMoonArchetype",
+                    CreateBoard(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                    CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, boxArchetype: BoxArchetype.Moon)),
+                "box archetypes are only valid on Box spawns");
+
+            AssertBuildThrows(
+                CreateStage(
+                    "DuplicateMoonBoxes",
+                    CreateBoard(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                    CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
+                    CreateSpawn(20, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 1, 0), hp: 1, boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy, boxArchetype: BoxArchetype.Moon),
+                    CreateSpawn(21, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 2, 0), hp: 1, boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy, boxArchetype: BoxArchetype.Moon)),
+                "more than one Moon box spawn");
+
+            AssertBuildThrows(
+                CreateStage(
+                    "MoonMissingCapabilities",
+                    CreateBoard(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                    CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
+                    CreateSpawn(20, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 1, 0), hp: 1, boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip, boxArchetype: BoxArchetype.Moon)),
+                "Moon boxes require BoxCapabilities");
         }
 
         [Test]
@@ -858,9 +984,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static StageDefinition CreateStageWithObjective(
             string stageName,
             StageObjectiveConditionEntry[] conditionEntries,
-            StageTileFeatureDefinition[] tileFeatures)
+            StageTileFeatureDefinition[] tileFeatures,
+            params StageSpawnDefinition[] additionalSpawns)
         {
-            var stage = CreateStageWithTileFeatures(stageName, tileFeatures);
+            var spawns = new List<StageSpawnDefinition>
+            {
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 1, 1), hp: 3, facing: Direction.Up),
+            };
+            if (additionalSpawns != null)
+            {
+                spawns.AddRange(additionalSpawns);
+            }
+
+            var stage = CreateStage(stageName, CreateBoard(new Vector2Int(0, 0), new Vector2Int(3, 3)), spawns.ToArray());
+            SetPrivateField(stage, "tileFeatures", tileFeatures);
             SetPrivateField(stage, "objective", new StageObjectiveAuthoring
             {
                 CompletionPolicy = StageCompletionPolicy.RequireAllConditions,
@@ -913,6 +1050,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int hp,
             Direction facing = Direction.Right,
             BoxCapabilities boxCapabilities = BoxCapabilities.None,
+            BoxArchetype boxArchetype = BoxArchetype.Normal,
             EnemyAiMode enemyAiMode = EnemyAiMode.None,
             int enemyAiStateTimer = 0,
             EnemyAiProfile enemyAiProfile = null,
@@ -927,6 +1065,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Facing = facing,
                 Hp = hp,
                 BoxCapabilities = boxCapabilities,
+                BoxArchetype = boxArchetype,
                 EnemyAiMode = enemyAiMode,
                 EnemyAiStateTimer = enemyAiStateTimer,
                 EnemyAiProfile = enemyAiProfile,

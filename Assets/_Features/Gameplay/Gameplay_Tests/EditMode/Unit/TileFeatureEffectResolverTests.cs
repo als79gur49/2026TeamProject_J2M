@@ -108,7 +108,73 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(Resolve(snapshot, CreateDefinition(10, selector: TileFeatureBoxSelector.None)).IsEmpty, Is.True);
             Assert.That(Resolve(snapshot, CreateDefinition(10, selector: TileFeatureBoxSelector.FeatureCell)).IsEmpty, Is.True);
             Assert.That(Resolve(snapshot, CreateDefinition(10, selector: TileFeatureBoxSelector.BoundEntity)).IsEmpty, Is.True);
-            Assert.That(Resolve(snapshot, CreateDefinition(10, selector: TileFeatureBoxSelector.MoonBlockOnly)).IsEmpty, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ButtonLatch_MoonBlockOnly_LatchesMoonBoxOnSameCell()
+        {
+            var button = CreateButton(10, new SurfaceCell(FaceId.Floor, 1, 1));
+            var moonBox = CreateBox(
+                20,
+                button.Cell,
+                boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy,
+                boxArchetype: BoxArchetype.Moon);
+            var result = Resolve(
+                CreateWorldState(new[] { moonBox }, new[] { button }).CreateSnapshot(),
+                CreateDefinition(10, selector: TileFeatureBoxSelector.MoonBlockOnly));
+
+            Assert.That(result.IsEmpty, Is.False);
+            Assert.That(result.Operations.Operations.Count, Is.EqualTo(1));
+            Assert.That(result.Operations.Operations[0].State.Flags, Is.EqualTo(TileFeatureFlags.Activated));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ButtonLatch_MoonBlockOnly_RejectsNonMoonOrInvalidOccupants()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var moonCapabilities = BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy;
+            var cases = new[]
+            {
+                new object[] { "NormalPushableBox", new[] { CreateBox(20, cell, boxCapabilities: BoxCapabilities.Push) }, GameplayTerrainData.Empty },
+                new object[] { "Unit", new[] { CreateUnit(20, cell) }, GameplayTerrainData.Empty },
+                new object[] { "Projectile", new[] { CreateProjectile(20, cell) }, GameplayTerrainData.Empty },
+                new object[] { "WallLikeTerrain", Array.Empty<EntityState>(), new GameplayTerrainData(new[] { CreateWallLikeTerrain(cell) }) },
+                new object[] { "DetachedMoonBox", new[] { CreateBox(20, cell, boxCapabilities: moonCapabilities, boardPresence: EntityBoardPresence.Detached, boxArchetype: BoxArchetype.Moon) }, GameplayTerrainData.Empty },
+                new object[] { "DeadMoonBox", new[] { CreateBox(20, cell, hp: 0, boxCapabilities: moonCapabilities, boxArchetype: BoxArchetype.Moon) }, GameplayTerrainData.Empty },
+                new object[] { "MarkedMoonBox", new[] { CreateBox(20, cell, boxCapabilities: moonCapabilities, markedForDeath: true, boxArchetype: BoxArchetype.Moon) }, GameplayTerrainData.Empty },
+            };
+
+            for (var i = 0; i < cases.Length; i++)
+            {
+                var name = (string)cases[i][0];
+                var entities = (EntityState[])cases[i][1];
+                var terrain = (GameplayTerrainData)cases[i][2];
+                var button = CreateButton(10, cell);
+                var result = Resolve(
+                    CreateWorldState(entities, new[] { button }, terrain).CreateSnapshot(),
+                    CreateDefinition(10, selector: TileFeatureBoxSelector.MoonBlockOnly));
+
+                Assert.That(result.IsEmpty, Is.True, name);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ButtonLatch_AnyPushableBox_LatchesMoonBoxWithPushCapability()
+        {
+            var button = CreateButton(10, new SurfaceCell(FaceId.Floor, 1, 1));
+            var moonBox = CreateBox(
+                20,
+                button.Cell,
+                boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy,
+                boxArchetype: BoxArchetype.Moon);
+            var result = Resolve(
+                CreateWorldState(new[] { moonBox }, new[] { button }).CreateSnapshot(),
+                CreateDefinition(10, selector: TileFeatureBoxSelector.AnyPushableBox));
+
+            Assert.That(result.IsEmpty, Is.False);
         }
 
         [Test]
@@ -180,6 +246,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 hashBuilder.Build(3, inactiveSnapshot, CreateTickResultData(inactiveSnapshot)),
                 Is.Not.EqualTo(hashBuilder.Build(3, activatedSnapshot, CreateTickResultData(activatedSnapshot))));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BoxArchetype_ChangesDeterminismHash()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var normalSnapshot = CreateWorldState(
+                    new[] { CreateBox(20, cell, boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy) },
+                    Array.Empty<TileFeatureState>())
+                .CreateSnapshot();
+            var moonSnapshot = CreateWorldState(
+                    new[] { CreateBox(20, cell, boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy, boxArchetype: BoxArchetype.Moon) },
+                    Array.Empty<TileFeatureState>())
+                .CreateSnapshot();
+            var hashBuilder = new DeterminismHashBuilder();
+
+            Assert.That(
+                hashBuilder.Build(3, normalSnapshot, CreateTickResultData(normalSnapshot)),
+                Is.Not.EqualTo(hashBuilder.Build(3, moonSnapshot, CreateTickResultData(moonSnapshot))));
         }
 
         [Test]
@@ -380,7 +466,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int hp = 1,
             BoxCapabilities boxCapabilities = BoxCapabilities.Push,
             EntityBoardPresence boardPresence = EntityBoardPresence.Occupying,
-            bool markedForDeath = false)
+            bool markedForDeath = false,
+            BoxArchetype boxArchetype = BoxArchetype.Normal)
         {
             return new EntityState
             {
@@ -393,6 +480,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 state = EntityPhaseState.Idle,
                 facing = Direction.Right,
                 boxCapabilities = boxCapabilities,
+                boxArchetype = boxArchetype,
                 boardPresence = boardPresence,
                 markedForDeath = markedForDeath,
             };
