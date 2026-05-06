@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Game.Feature.Gameplay.Audio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.TileFeatureAudio;
 using Unity.Cinemachine;
 using UnityEngine;
 
@@ -114,6 +115,13 @@ namespace Game.Feature.Gameplay.Host
             _presentationCoordinator.AttachGameplayAudioRuntime(playbackPort, gameplayAudioMap);
         }
 
+        internal void AttachTileFeatureAudioRuntime(
+            IGameplayAudioPlaybackPort playbackPort,
+            TileFeatureAudioMap tileFeatureAudioMap)
+        {
+            _presentationCoordinator.AttachTileFeatureAudioRuntime(playbackPort, tileFeatureAudioMap);
+        }
+
         public void AttachTileFeatureVisualRegistry(ITileFeatureVisualRegistry registry)
         {
             _presentationCoordinator.AttachTileFeatureVisualRegistry(registry);
@@ -203,6 +211,7 @@ namespace Game.Feature.Gameplay.Host
         private void OnDestroy()
         {
             _presentationCoordinator.HardCleanupPresentationExtensions();
+            _presentationCoordinator.DetachTileFeatureAudioRuntime();
             _presentationCoordinator.DetachGameplayAudioRuntime();
         }
 

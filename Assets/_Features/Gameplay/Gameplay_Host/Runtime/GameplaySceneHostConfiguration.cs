@@ -6,6 +6,7 @@ using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.TileFeatureAudio;
 using Game.Feature.Stages;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using UnityEngine;
@@ -176,6 +177,7 @@ namespace Game.Feature.Gameplay.Host
         public bool SnapViewCameraToTarget;
         public InputActionAsset Actions;
         public GameplayAudioMap GameplayAudioMap;
+        public TileFeatureAudioMap TileFeatureAudioMap;
         public ICampaignChancesReadSource CampaignChancesReadSource;
         public IEntityLogic[] StaticEntityLogics = Array.Empty<IEntityLogic>();
         public GameplayEntityView PlayerViewPrefab;

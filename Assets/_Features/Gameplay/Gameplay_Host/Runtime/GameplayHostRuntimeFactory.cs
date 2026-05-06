@@ -7,6 +7,7 @@ using Game.Feature.Gameplay.Host.UIAccess;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.TileFeatureAudio;
 using Game.Feature.Gameplay.UIAccess.Queries;
 using Game.Feature.Stages;
 using Game.Shared.Audio;
@@ -21,6 +22,8 @@ namespace Game.Feature.Gameplay.Host
         private const string BoardRootObjectName = "GameplayBoardRoot";
         private const string MissingGameplayAudioRuntimeInstallerMessage =
             "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when GameplayAudioMap is assigned.";
+        private const string MissingTileFeatureAudioRuntimeInstallerMessage =
+            "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when TileFeatureAudioMap is assigned.";
 
         public static GameplayHostRuntimeContext Create(
             GameplaySceneHost host,
@@ -144,7 +147,7 @@ namespace Game.Feature.Gameplay.Host
                 configuration.EnemyPresentationBindings);
             presenter.AttachTileFeatureVisualRegistry(tileFeatureVisualRegistry);
             AttachPresentationExtensions(hostObject, presenter);
-            AttachGameplayAudioRuntimeIfConfigured(hostObject, presenter, configuration);
+            AttachAudioRuntimesIfConfigured(hostObject, presenter, configuration);
 
             boardSurfaceRenderer.Initialize(
                 configuration.InitialBoardBounds,
@@ -461,12 +464,15 @@ namespace Game.Feature.Gameplay.Host
             return null;
         }
 
-        private static void AttachGameplayAudioRuntimeIfConfigured(
+        private static void AttachAudioRuntimesIfConfigured(
             GameObject hostObject,
             GameplayTickViewPresenter presenter,
             GameplaySceneHostConfiguration configuration)
         {
-            if (configuration?.GameplayAudioMap == null)
+            var hasGameplayAudioMap = configuration?.GameplayAudioMap != null;
+            var hasTileFeatureAudioMap = configuration?.TileFeatureAudioMap != null;
+            if (!hasGameplayAudioMap &&
+                !hasTileFeatureAudioMap)
             {
                 return;
             }
@@ -474,18 +480,31 @@ namespace Game.Feature.Gameplay.Host
             var audioRuntimeInstaller = hostObject.GetComponent<AudioRuntimeInstaller>();
             if (audioRuntimeInstaller == null)
             {
-                throw new InvalidOperationException(MissingGameplayAudioRuntimeInstallerMessage);
+                throw new InvalidOperationException(
+                    hasGameplayAudioMap
+                        ? MissingGameplayAudioRuntimeInstallerMessage
+                        : MissingTileFeatureAudioRuntimeInstallerMessage);
             }
 
             audioRuntimeInstaller.Install();
             if (audioRuntimeInstaller.AudioService == null)
             {
-                throw new InvalidOperationException(MissingGameplayAudioRuntimeInstallerMessage);
+                throw new InvalidOperationException(
+                    hasGameplayAudioMap
+                        ? MissingGameplayAudioRuntimeInstallerMessage
+                        : MissingTileFeatureAudioRuntimeInstallerMessage);
             }
 
-            presenter.AttachGameplayAudioRuntime(
-                new GameplayAudioPlaybackPortAdapter(audioRuntimeInstaller.AudioService),
-                configuration.GameplayAudioMap);
+            var playbackPort = new GameplayAudioPlaybackPortAdapter(audioRuntimeInstaller.AudioService);
+            if (hasGameplayAudioMap)
+            {
+                presenter.AttachGameplayAudioRuntime(playbackPort, configuration.GameplayAudioMap);
+            }
+
+            if (hasTileFeatureAudioMap)
+            {
+                presenter.AttachTileFeatureAudioRuntime(playbackPort, configuration.TileFeatureAudioMap);
+            }
         }
 
         private static GameplayEntityView ResolvePlayerViewPrefab(GameplaySceneHostConfiguration configuration)

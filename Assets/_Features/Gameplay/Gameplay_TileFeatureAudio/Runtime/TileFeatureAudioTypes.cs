@@ -1,0 +1,67 @@
+using System.Collections.Generic;
+using Game.Feature.Gameplay.BoardState;
+using Game.Shared.Audio;
+
+namespace Game.Feature.Gameplay.TileFeatureAudio
+{
+    public enum TileFeatureAudioCue
+    {
+        None = 0,
+        ButtonActivated = 1,
+    }
+
+    public readonly struct TileFeatureAudioRequest
+    {
+        public TileFeatureAudioRequest(
+            TileFeatureAudioCue cue,
+            int tileId,
+            SurfaceCell cell,
+            int sourceEntityId,
+            int ownerEntityId,
+            int teamId,
+            in AudioPlaybackContext context)
+        {
+            Cue = cue;
+            TileId = tileId;
+            Cell = cell;
+            SourceEntityId = sourceEntityId;
+            OwnerEntityId = ownerEntityId;
+            TeamId = teamId;
+            Context = context;
+        }
+
+        public TileFeatureAudioCue Cue { get; }
+
+        public int TileId { get; }
+
+        public SurfaceCell Cell { get; }
+
+        public int SourceEntityId { get; }
+
+        public int OwnerEntityId { get; }
+
+        public int TeamId { get; }
+
+        public AudioPlaybackContext Context { get; }
+    }
+
+    public static class TileFeatureAudioCueCatalog
+    {
+        private static readonly TileFeatureAudioCue[] RequiredCues =
+        {
+            TileFeatureAudioCue.ButtonActivated,
+        };
+
+        public static IReadOnlyList<TileFeatureAudioCue> RequiredOneShotV1 => RequiredCues;
+
+        public static string Format(TileFeatureAudioCue cue)
+        {
+            return cue switch
+            {
+                TileFeatureAudioCue.None => nameof(TileFeatureAudioCue.None),
+                TileFeatureAudioCue.ButtonActivated => nameof(TileFeatureAudioCue.ButtonActivated),
+                _ => throw new System.ArgumentOutOfRangeException(nameof(cue), cue, "Unsupported tile feature audio cue."),
+            };
+        }
+    }
+}

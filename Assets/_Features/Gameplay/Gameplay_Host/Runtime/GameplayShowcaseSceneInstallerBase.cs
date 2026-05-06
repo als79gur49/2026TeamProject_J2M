@@ -4,6 +4,7 @@ using Game.Feature.Gameplay.Audio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Objectives;
+using Game.Feature.Gameplay.TileFeatureAudio;
 using Game.Feature.Gameplay.Timing;
 using Game.Feature.Stages;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
@@ -106,6 +107,7 @@ namespace Game.Feature.Gameplay.Host
         [Header("Presentation")]
         [SerializeField] private Texture2D boardSurfaceTexture;
         [SerializeField] private GameplayAudioMap gameplayAudioMap;
+        [SerializeField] private TileFeatureAudioMap tileFeatureAudioMap;
         [SerializeField] private float faceSeamGap = -1f;
 
         protected bool AutoCreateViews => autoCreateViews;
@@ -202,6 +204,11 @@ namespace Game.Feature.Gameplay.Host
         protected virtual GameplayAudioMap ResolveGameplayAudioMap()
         {
             return gameplayAudioMap;
+        }
+
+        protected virtual TileFeatureAudioMap ResolveTileFeatureAudioMap()
+        {
+            return tileFeatureAudioMap;
         }
 
         protected abstract InitialGameplayState BuildInitialGameplayState();
@@ -303,6 +310,7 @@ namespace Game.Feature.Gameplay.Host
                 PlayerEntityId = initialState.PlayerEntityId,
                 PlayerViewPrefab = viewFactory == null ? ResolvePlayerViewPrefab() : null,
                 GameplayAudioMap = ResolveGameplayAudioMap(),
+                TileFeatureAudioMap = ResolveTileFeatureAudioMap(),
                 ViewFactory = viewFactory,
             };
 
