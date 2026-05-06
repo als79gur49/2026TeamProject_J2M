@@ -434,7 +434,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateDefinition(200, TileFeatureActivationRule.FrontFaceOnly, direction: Direction2D.Left, selector: TileFeatureBoxSelector.None));
 
             Assert.That(result.Operations.IsEmpty, Is.True);
-            Assert.That(result.TileEvents, Is.Empty);
+            Assert.That(result.TileEvents, Has.Count.EqualTo(2));
+            Assert.That(
+                result.TileEvents.Select(tileEvent => tileEvent.EventKind).ToArray(),
+                Is.EqualTo(new[]
+                {
+                    TilePresentationEventKind.SlideTileRedirected,
+                    TilePresentationEventKind.SlideTileRedirected,
+                }));
+            Assert.That(result.TileEvents.Select(tileEvent => tileEvent.TileId).ToArray(), Is.EqualTo(new[] { 100, 200 }));
+            Assert.That(result.TileEvents.Select(tileEvent => tileEvent.TargetEntityId).ToArray(), Is.EqualTo(new[] { 20, 30 }));
+            Assert.That(result.TileEvents.Select(tileEvent => tileEvent.Direction).ToArray(), Is.EqualTo(new[] { Direction.Up, Direction.Left }));
             Assert.That(result.EntityOperations.Operations.Count, Is.EqualTo(2));
             Assert.That(result.EntityOperations.Operations[0].Kind, Is.EqualTo(FinalizationOperationKind.SetFacing));
             Assert.That(result.EntityOperations.Operations[0].EntityId, Is.EqualTo(20));

@@ -23,8 +23,18 @@ namespace Game.Feature.Gameplay.Tests.Core
             "Assets/_Features/Stages/Runtime/StageDefinition.cs";
         private const string StageRuntimeBuildResultPath =
             "Assets/_Features/Stages/Runtime/StageRuntimeBuildResult.cs";
+        private const string StagePresentationDefinitionPath =
+            "Assets/_Features/Stages/Runtime/Content/StagePresentationDefinition.cs";
+        private const string WorldStatePath =
+            "Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/WorldState.cs";
         private const string GameplayBoardStateRuntimePath =
             "Assets/_Features/Gameplay/Gameplay_BoardState/Runtime";
+        private static readonly string[] TileFeatureAudioForbiddenConsumerPaths =
+        {
+            "Assets/_Features/UI",
+            "Assets/_Features/Gameplay/Gameplay_Audio",
+            "Assets/_Features/Gameplay/Gameplay_ActionAudio",
+        };
         private static readonly string[] TileFeatureVisualRuntimePaths =
         {
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/ITileFeatureVisualRegistry.cs",
@@ -74,11 +84,55 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
-        public void EntityType_DoesNotContainTileFeatureDestroyTileOrMoonBlock()
+        public void TileFeatureOverlayGate_DocumentsImplementedPolicyBeforeBarricade()
+        {
+            var document = File.ReadAllText(GetAbsolutePath(TileFeatureOverlayAdrPath));
+            var requiredSnippets = new[]
+            {
+                "Button latch is runtime state stored as `TileFeatureFlags.Activated`.",
+                "`ButtonActivatedCondition` reads only the final `WorldSnapshot` `Activated` flag.",
+                "`ButtonActivated` event `TargetEntityId` is `0`.",
+                "`ButtonActivated` event does not carry the triggering box id yet.",
+                "MoonBlock identity is `EntityType.Box + BoxArchetype.Moon`.",
+                "Do not add `EntityType." + "MoonBlock`.",
+                "Do not add `BoxCapabilities." + "Moon`.",
+                "`MoonBlockOnly` selector is identity-based and must not re-check Push capability.",
+                "DestroyTile uses movement-derived `TileEffectBoxContact`, not final snapshot scanning.",
+                "Post-attack follow-through, flip landing, spawn/respawn, and topology relocation are not DestroyTile contact sources.",
+                "`DestroyTileTriggered` event `TargetEntityId` is the destroyed box id.",
+                "SlideTile handles only `PushEnter` and `SlideEnter` contact kinds.",
+                "`FlipLanding` and `ImpactFollowThrough` are excluded from the MVP.",
+                "SlideTile does not perform same-tick extra movement.",
+                "For sliding boxes, `EntityState.facing` is the authoritative continuation direction. SlideTile redirect changes facing, not position.",
+                "DestroyTile wins: a destroyed box is not Slide redirected.",
+                "`SlideTileRedirected` event carries a `Direction` payload.",
+                "TilePresentationEvent source is currently hybrid:",
+                "Coordinator request cache is replaced every tick.",
+                "Dedupe belongs to event generation.",
+                "Visual consumers read only `CurrentTilePresentationRequests`.",
+                "TileFeatureAudio is separate from core GameplayAudio, GameplayActionAudio, and UI audio lanes.",
+                "Only Sfx one-shot playback is allowed.",
+                "`StagePresentationDefinition` has no TileFeature audio binding yet.",
+                "Barricade is not implemented.",
+                "box-only blocker and unit-ignore",
+                "Active-transition crush remains explicitly unimplemented",
+            };
+
+            for (var i = 0; i < requiredSnippets.Length; i++)
+            {
+                Assert.That(document, Does.Contain(requiredSnippets[i]));
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EntityType_DoesNotContainTileFeatureKinds()
         {
             Assert.That(Enum.GetNames(typeof(EntityType)), Does.Not.Contain("TileFeature"));
             Assert.That(Enum.GetNames(typeof(EntityType)), Does.Not.Contain("DestroyTile"));
             Assert.That(Enum.GetNames(typeof(EntityType)), Does.Not.Contain("MoonBlock"));
+            Assert.That(Enum.GetNames(typeof(EntityType)), Does.Not.Contain("SlideTile"));
+            Assert.That(Enum.GetNames(typeof(EntityType)), Does.Not.Contain("Barricade"));
         }
 
         [Test]
@@ -126,6 +180,27 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(property, Is.Not.Null);
             Assert.That(property.PropertyType, Is.EqualTo(typeof(IReadOnlyList<TilePresentationEvent>)));
             Assert.That(property.SetMethod, Is.Null);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void WorldState_DoesNotExposePublicTileFeatureMutationApis()
+        {
+            var source = File.ReadAllText(GetAbsolutePath(WorldStatePath));
+            var forbiddenSignatures = new[]
+            {
+                "public void AddTileFeature",
+                "public void UpdateTileFeature",
+                "public void RemoveTileFeature",
+            };
+
+            for (var i = 0; i < forbiddenSignatures.Length; i++)
+            {
+                Assert.That(
+                    source,
+                    Does.Not.Contain(forbiddenSignatures[i]),
+                    $"WorldState must not expose public TileFeature mutation API '{forbiddenSignatures[i]}'.");
+            }
         }
 
         [Test]
@@ -269,6 +344,7 @@ namespace Game.Feature.Gameplay.Tests.Core
         {
             var stageDefinitionSource = File.ReadAllText(GetAbsolutePath(StageDefinitionPath));
             var buildResultSource = File.ReadAllText(GetAbsolutePath(StageRuntimeBuildResultPath));
+            var stagePresentationDefinitionSource = File.ReadAllText(GetAbsolutePath(StagePresentationDefinitionPath));
 
             Assert.That(stageDefinitionSource, Does.Not.Contain("TileFeaturePresentationBinding"));
             Assert.That(stageDefinitionSource, Does.Not.Contain("VisualPrefab"));
@@ -277,6 +353,33 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(buildResultSource, Does.Not.Contain("TileFeaturePresentationResolvedBinding"));
             Assert.That(buildResultSource, Does.Not.Contain("VisualPrefab"));
             Assert.That(buildResultSource, Does.Not.Contain("GameObject"));
+            Assert.That(stagePresentationDefinitionSource, Does.Contain("TileFeaturePresentationBinding"));
+            Assert.That(stagePresentationDefinitionSource, Does.Contain("VisualPrefab"));
+            Assert.That(stagePresentationDefinitionSource, Does.Not.Contain("TileFeatureAudio"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileFeatureAudio_RemainsSeparateFromUiCoreAndActionAudioLanes()
+        {
+            for (var rootIndex = 0; rootIndex < TileFeatureAudioForbiddenConsumerPaths.Length; rootIndex++)
+            {
+                var root = GetAbsolutePath(TileFeatureAudioForbiddenConsumerPaths[rootIndex]);
+                if (!Directory.Exists(root))
+                {
+                    continue;
+                }
+
+                var sources = Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories);
+                for (var sourceIndex = 0; sourceIndex < sources.Length; sourceIndex++)
+                {
+                    var source = File.ReadAllText(sources[sourceIndex]);
+                    Assert.That(
+                        source,
+                        Does.Not.Contain("TileFeatureAudio"),
+                        $"{sources[sourceIndex]} must not reference TileFeatureAudio.");
+                }
+            }
         }
 
         [Test]

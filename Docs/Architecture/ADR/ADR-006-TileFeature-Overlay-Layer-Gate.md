@@ -65,8 +65,67 @@ TileEffect consume, expire, spawn, or move mutation must not be implemented befo
 - Box + TileFeature is allowed.
 - Projectile + TileFeature is allowed.
 - Other Solid + TileFeature, including Wall-like solid occupants, requires an explicit future policy decision.
-- TileFeature + TileFeature may be multi-allowed by future policy.
+- TileFeature + TileFeature same-cell storage support and gameplay policy are separate decisions.
+- Duplicate same-cell SlideTile is rejected by gameplay authoring policy.
+- DestroyTile + SlideTile same-cell is allowed; DestroyTile wins over SlideTile redirect for destroyed boxes.
 - Terrain blocker + TileFeature requires an explicit future policy decision.
+
+## Implemented TileFeature Policies
+
+Button:
+
+- Button latch is runtime state stored as `TileFeatureFlags.Activated`.
+- Stage authoring must not set initial Button `Activated` state.
+- `ButtonActivatedCondition` reads only the final `WorldSnapshot` `Activated` flag.
+- `ButtonActivatedCondition` must not read `TilePresentationEvent` or `TilePresentationRequest` as objective completion evidence.
+- `ButtonActivated` `TilePresentationEvent` is derived from a pre/final state transition.
+- An already Activated Button must not create duplicate event, request, audio, or visual output on the next tick.
+- `ButtonActivated` event `TargetEntityId` is `0`.
+- `ButtonActivated` event does not carry the triggering box id yet. If needed later, add `TriggerEntityId` or an equivalent payload in a separate step.
+
+MoonBlock:
+
+- MoonBlock identity is `EntityType.Box + BoxArchetype.Moon`.
+- Do not add `EntityType.MoonBlock`.
+- Do not add `BoxCapabilities.Moon`.
+- `BoxArchetype` is part of deterministic hash/export/debug trace.
+- A stage may have at most one initial MoonBlock spawn.
+- MoonBlock must carry `Push | Flip | Destroy` capability.
+- `MoonBlockOnly` selector is identity-based and must not re-check Push capability. Push/Flip/Destroy capability is guaranteed by stage validation.
+- `HasMoonBlockSpawn` currently means initial MoonBlock spawn. If MoonBlockGenerator is added later, rename or extend this to `HasMoonBlockSource` or `HasMoonBlockProvider`.
+- `WorldSnapshot.TryGetBoxArchetypeAt(Vector2Int, ...)` is legacy/convenience only. TileFeature and MoonBlock selector code must use the `SurfaceCell` overload.
+
+DestroyTile:
+
+- DestroyTile uses movement-derived `TileEffectBoxContact`, not final snapshot scanning.
+- Stationary boxes are not destroyed.
+- Unit, Projectile, and non-box solid occupants are not destroyed.
+- MoonBlock is a Box, so a moving MoonBlock contact is destroyed.
+- DestroyTile itself is not consumed, updated, or removed.
+- Contact facts are transient and are not authoritative state or direct determinism hash input.
+- DestroyTile contact facts come from accepted `MoveEntity` operations only.
+- Post-attack follow-through, flip landing, spawn/respawn, and topology relocation are not DestroyTile contact sources.
+- `DestroyTileTriggered` is a resolver-origin event.
+- The same destroyed box creates at most one event per tick.
+- Multiple destroyed boxes may create multiple events.
+- DestroyTile activation rule is `BottomFaceOnly`.
+- `DestroyTileTriggered` event `TargetEntityId` is the destroyed box id.
+
+SlideTile:
+
+- SlideTile activation rule is `FrontFaceOnly`.
+- SlideTile direction must be Up, Right, Down, or Left.
+- SlideTile selector must be `BoxSelector.None`.
+- SlideTile handles only `PushEnter` and `SlideEnter` contact kinds.
+- `FlipLanding` and `ImpactFollowThrough` are excluded from the MVP.
+- SlideTile does not perform same-tick extra movement.
+- SlideTile retargets box facing only.
+- For sliding boxes, `EntityState.facing` is the authoritative continuation direction. SlideTile redirect changes facing, not position.
+- If the box is already facing the redirect direction, no SetFacing operation and no event are created.
+- DestroyTile wins: a destroyed box is not Slide redirected.
+- `SlideTileRedirected` event is emitted only from the actual state-change branch.
+- `SlideTileRedirected` event carries a `Direction` payload.
+- `SlideTileRedirected` event, request, audio, and visual output are presentation-only and do not directly enter the canonical determinism hash.
 
 ## Future TileFeatureState Draft
 
@@ -110,11 +169,70 @@ Future TileEffect implementation should prefer a call-site guard that does not c
 
 ## Presentation Rule
 
+TilePresentationEvent source is currently hybrid:
+
+- `ButtonActivated`: pre/final snapshot diff.
+- `DestroyTileTriggered`: TileEffectResolver-origin event.
+- `SlideTileRedirected`: TileEffectResolver-origin event.
+
+`TilePresentationEvent` is a presentation-only fact and must not enter the canonical determinism hash.
+
+`TilePresentationRequestPlanner` converts `TickPresentationData.TileEvents` to requests. It must not decide gameplay, read `WorldState`, read `WorldSnapshot`, or call `CreateSnapshot`.
+
+Coordinator request cache is replaced every tick. A no-event tick clears the cache to empty. Consumers must not consume, remove, or clear the request cache.
+
+Dedupe belongs to event generation. Planner and consumers do not dedupe; duplicate requests intentionally produce duplicate visual/audio handling.
+
 VFX, audio, and UI read `TilePresentationEvent` facts derived from `TickPresentationData`.
 
 VFX, audio, and UI must not call `WorldState.CreateSnapshot` to infer TileFeature state.
 
 `TickPipeline` must not execute prefabs or effects. Presentation code must not decide gameplay trigger, consume, or expire outcomes.
+
+## Visual Rule
+
+- Visual consumers read only `CurrentTilePresentationRequests`.
+- Visual consumers must not parse `TickPresentationData.TileEvents` directly and must not call `TilePresentationRequestPlanner`.
+- Visual consumers must not reference `WorldState`, `WorldSnapshot`, `CreateSnapshot`, `ProjectedWorld`, `FinalizationBatch`, or `TickPipeline`.
+- Missing visual targets and unsupported optional target interfaces are no-op with optional diagnostics.
+- TileFeature visual binding is owned by `StagePresentationDefinition`.
+- Direct `TileId -> VisualPrefab` binding is the MVP.
+- `StageRuntimeBuildResult` must not contain TileFeature visual prefab or binding data.
+- `StageDefinition` must not contain TileFeature visual prefab references.
+- Transform placement is instantiate/register only; `SurfaceCell` world-position mapping is not implemented.
+
+## Audio Rule
+
+- TileFeatureAudio is separate from core GameplayAudio, GameplayActionAudio, and UI audio lanes.
+- TileFeatureAudio reads only `CurrentTilePresentationRequests`.
+- `TileFeatureAudioRequestPlanner` reads `TilePresentationRequest` values, not `TickPresentationData.TileEvents`, and must not call `TilePresentationRequestPlanner`.
+- `ButtonActivated` cue is required.
+- `DestroyTileTriggered` and `SlideTileRedirected` cues are optional.
+- Only Sfx one-shot playback is allowed.
+- Ui, Bgm, Voice, Ambience, Master, loop, and non-null playback policy bindings are rejected.
+- Missing optional bindings are no-op.
+- Null `TileFeatureAudioMap` disables tile audio.
+- If a map is provided and `ButtonActivated` is missing, fail fast.
+- Do not open Play3D or spatial audio APIs.
+- SurfaceCell world-position audio is not implemented.
+
+## StagePresentationDefinition TileFeature Binding Rule
+
+- TileFeature visual binding is owned by `StagePresentationDefinition`.
+- Direct TileId binding is the MVP.
+- PresentationKey/catalog is a future step.
+- Runtime configure is the source of truth. Prefab serialized TileId may be a placeholder.
+- Duplicate registry policy is warning plus first-win.
+- Missing visual binding has no gameplay effect.
+- Runtime invalid binding is warning plus skip.
+- `StagePresentationDefinition` has no TileFeature audio binding yet.
+- TileFeature visual binding and audio binding must not be mixed.
+
+## Barricade Future Note
+
+Barricade is not implemented. Do not add Barricade gameplay, blocker query, active-transition crush, visual, audio, or event behavior in this hardening pass.
+
+The first future Barricade policy should start as box-only blocker and unit-ignore. Active-transition crush remains explicitly unimplemented until a separate policy and test pass opens it.
 
 ## TerrainFlags Boundary
 
