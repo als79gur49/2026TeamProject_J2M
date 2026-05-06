@@ -62,5 +62,9 @@ namespace Game.Feature.Gameplay.Host
         bool SuppressLegacyFlipDestroySelfEffects { get; }
 
         bool SuppressLegacyUtilityWindupVfx { get; }
+
+        bool SuppressLegacyFrontFaceShieldActiveVfx { get; }
+
+        bool SuppressLegacyFrontFaceShieldBlockVfx { get; }
     }
 }

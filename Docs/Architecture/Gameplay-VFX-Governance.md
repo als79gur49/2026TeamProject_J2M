@@ -224,6 +224,31 @@ Visual and boundaries:
 - the v1 visual remains a moving dust emitter; exact scrape/decal trails, Unit movement trail, and Projectile trail remain future work
 - this adapter does not change `TickPipeline`, `WorldState`, `WorldSnapshot`, `ProjectedWorld`, `TickPresentationData`, `TickEntityMotion`, box movement drivers, legality, settlement, or traversal
 
+## FrontFace Shield VFX Migration
+
+FrontFace shield VFX migration moves only active shield loop and block burst playback ownership into the Gameplay VFX lane. The source facts are `TickPresentationData.FrontFaceShieldSources` and `TickPresentationData.FrontFaceShieldBlocks`. The migration does not read `WorldState`, `WorldSnapshot`, `TickPipeline`, or authority snapshots, and it does not change shield gameplay rules, box slide blocking, FrontFace support legality, or `TickPresentationData` shape.
+
+Cues and lifecycle:
+
+- `EnemyVfxCue.FrontFaceShieldActive`: persistent desired-state active shield loop keyed by source entity id.
+- `EnemyVfxCue.FrontFaceShieldBlock`: transient one-shot shield contact burst anchored at the blocked cell.
+- FrontFace shield windup remains on `GameplayFrontFaceShieldVfxPresenter` in this slice because it uses `TickPresentationData.FrontFaceShieldWindupWarnings`, while existing `EnemyVfxCue.UtilityWindup` uses `TickPresentationData.SummonWindupWarnings`.
+
+Feature flags:
+
+- `EnableGameplayVfxFrontFaceShieldActiveMigration`
+- `EnableGameplayVfxFrontFaceShieldBlockMigration`
+- both default false and filter their cues independently.
+
+Old presenter bypass:
+
+- `SuppressLegacyFrontFaceShieldActiveVfx` suppresses only old active loop creation/update.
+- `SuppressLegacyFrontFaceShieldBlockVfx` suppresses only old block burst playback.
+- `GameplayFrontFaceShieldVfxPresenter` is not removed. Active suppression must still call a cleanup-only empty refresh so legacy active loops cannot linger after a flag turns on.
+- Missing Gameplay VFX binding is diagnostic/no-op with no old fallback whenever the corresponding migration flag is on.
+
+Binding precedence remains source presentation-local profile, then family profile, then host default map. The host default bindings are `FrontFaceShieldActive_Binding.asset` and `FrontFaceShieldBlock_Binding.asset`.
+
 ## FlipDestroySelf Source-View Clone Parity
 
 FlipDestroySelf v1 used a stylized clone-like prefab. The generalized playback keeps that prefab as fallback but can now clone the current source presentation `ModelRoot` through `IGameplayVfxCloneSourceProvider`.

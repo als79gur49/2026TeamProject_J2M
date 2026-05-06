@@ -250,10 +250,20 @@ namespace Game.Feature.Gameplay.Host
                 _stateStore,
                 _projector);
             TraceStep("RefreshFrontFaceShieldSources");
-            _frontFaceShieldVfxPresenter.RefreshActiveSources(
-                result.PresentationData.FrontFaceShieldSources,
-                _stateStore,
-                _projector);
+            if (ShouldSuppressLegacyFrontFaceShieldActiveVfx())
+            {
+                _frontFaceShieldVfxPresenter.RefreshActiveSources(
+                    Array.Empty<TickFrontFaceShieldSourceSignal>(),
+                    _stateStore,
+                    _projector);
+            }
+            else
+            {
+                _frontFaceShieldVfxPresenter.RefreshActiveSources(
+                    result.PresentationData.FrontFaceShieldSources,
+                    _stateStore,
+                    _projector);
+            }
             _exitPresentationController.RefreshEntityExitPlan(result.PresentationData);
             _planner.RefreshPlayerLocomotionSignals(result.PresentationData);
             _topologyTransitionController.RefreshTopologyTrack(
@@ -287,10 +297,13 @@ namespace Game.Feature.Gameplay.Host
                 PlayPlayerHitEffects(result);
             }
             TraceStep("PlayFrontFaceShieldBlockBursts");
-            _frontFaceShieldVfxPresenter.PlayBlockBursts(
-                result.PresentationData.FrontFaceShieldBlocks,
-                _stateStore,
-                _projector);
+            if (!ShouldSuppressLegacyFrontFaceShieldBlockVfx())
+            {
+                _frontFaceShieldVfxPresenter.PlayBlockBursts(
+                    result.PresentationData.FrontFaceShieldBlocks,
+                    _stateStore,
+                    _projector);
+            }
             TraceStep("PlayPlannedAudio");
             _audioPresentationController.PlayPlannedAudio();
             _actionAudioPresentationController.PlayPlannedAudio();
@@ -582,6 +595,34 @@ namespace Game.Feature.Gameplay.Host
             {
                 if (_presentationExtensions[i] is IGameplayPresentationMigrationGate migrationGate &&
                     migrationGate.SuppressLegacyUtilityWindupVfx)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool ShouldSuppressLegacyFrontFaceShieldActiveVfx()
+        {
+            for (var i = 0; i < _presentationExtensions.Count; i++)
+            {
+                if (_presentationExtensions[i] is IGameplayPresentationMigrationGate migrationGate &&
+                    migrationGate.SuppressLegacyFrontFaceShieldActiveVfx)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool ShouldSuppressLegacyFrontFaceShieldBlockVfx()
+        {
+            for (var i = 0; i < _presentationExtensions.Count; i++)
+            {
+                if (_presentationExtensions[i] is IGameplayPresentationMigrationGate migrationGate &&
+                    migrationGate.SuppressLegacyFrontFaceShieldBlockVfx)
                 {
                     return true;
                 }

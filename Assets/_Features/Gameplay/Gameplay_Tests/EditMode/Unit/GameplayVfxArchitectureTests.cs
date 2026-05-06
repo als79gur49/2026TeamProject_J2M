@@ -114,6 +114,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("EnemyVfxCue.UtilityWindup"));
             Assert.That(document, Does.Contain("EnableGameplayVfxUtilityWindupMigration"));
             Assert.That(document, Does.Contain("SuppressLegacyUtilityWindupVfx"));
+            Assert.That(document, Does.Contain("FrontFace Shield VFX Migration"));
+            Assert.That(document, Does.Contain("TickPresentationData.FrontFaceShieldSources"));
+            Assert.That(document, Does.Contain("TickPresentationData.FrontFaceShieldBlocks"));
+            Assert.That(document, Does.Contain("EnemyVfxCue.FrontFaceShieldActive"));
+            Assert.That(document, Does.Contain("EnemyVfxCue.FrontFaceShieldBlock"));
+            Assert.That(document, Does.Contain("EnableGameplayVfxFrontFaceShieldActiveMigration"));
+            Assert.That(document, Does.Contain("EnableGameplayVfxFrontFaceShieldBlockMigration"));
+            Assert.That(document, Does.Contain("SuppressLegacyFrontFaceShieldActiveVfx"));
+            Assert.That(document, Does.Contain("SuppressLegacyFrontFaceShieldBlockVfx"));
+            Assert.That(document, Does.Contain("cleanup-only empty refresh"));
             Assert.That(document, Does.Contain("VfxPersistentKey"));
             Assert.That(document, Does.Contain("EnemyUtilityWindupTelegraphVfx.prefab"));
             Assert.That(document, Does.Contain("EnemyUtilityWindupTelegraph_Binding.asset"));

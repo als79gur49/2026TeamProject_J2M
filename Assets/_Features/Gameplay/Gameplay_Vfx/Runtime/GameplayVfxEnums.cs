@@ -50,6 +50,8 @@ namespace Game.Feature.Gameplay.Vfx
         UtilityWindup = 10,
         JumperLandingTarget = 11,
         JumperLandingDust = 12,
+        FrontFaceShieldActive = 13,
+        FrontFaceShieldBlock = 14,
     }
 
     public enum TileFeatureVfxCue

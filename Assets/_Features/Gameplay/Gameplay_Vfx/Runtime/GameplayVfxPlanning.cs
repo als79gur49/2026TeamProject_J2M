@@ -293,6 +293,66 @@ namespace Game.Feature.Gameplay.Vfx
                             activationSequence: signal.ActivationSequence)));
             }
 
+            var frontFaceShieldSources = presentationData.FrontFaceShieldSources;
+            for (var i = 0; i < frontFaceShieldSources.Count; i++)
+            {
+                var signal = frontFaceShieldSources[i];
+                if (signal.SourceEntityId <= 0 ||
+                    DidEnemyExitThisTick(presentationData, signal.SourceEntityId))
+                {
+                    continue;
+                }
+
+                var cueId = GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldActive);
+                builder.Add(
+                    new GameplayVfxRequest(
+                        tickIndex: context.TickIndex,
+                        sequenceId: signal.SourceEntityId,
+                        presentationSeed: signal.PresentationSeed != 0
+                            ? signal.PresentationSeed
+                            : signal.SourceEntityId,
+                        sourceEntityId: signal.SourceEntityId,
+                        cueId: cueId,
+                        anchor: VfxAnchor.ForEntity(
+                            signal.SourceEntityId,
+                            VfxAnchorSlot.EntityCenter,
+                            signal.SourceCell,
+                            signal.Topology,
+                            hasFallbackCell: true),
+                        timing: VfxTimingKind.ImmediateOnTickPresentation,
+                        isPersistent: true,
+                        persistentKey: new VfxPersistentKey(
+                            cueId,
+                            VfxAnchorKind.Entity,
+                            entityId: signal.SourceEntityId)));
+            }
+
+            var frontFaceShieldBlocks = presentationData.FrontFaceShieldBlocks;
+            for (var i = 0; i < frontFaceShieldBlocks.Count; i++)
+            {
+                var signal = frontFaceShieldBlocks[i];
+                var sourceEntityId = signal.ShieldSourceEntityId > 0
+                    ? signal.ShieldSourceEntityId
+                    : signal.BoxEntityId;
+                var seed = signal.PresentationSeed != 0
+                    ? signal.PresentationSeed
+                    : ResolveFrontFaceShieldBlockSeed(signal, context.TickIndex);
+                builder.Add(
+                    new GameplayVfxRequest(
+                        tickIndex: context.TickIndex,
+                        sequenceId: seed,
+                        presentationSeed: seed,
+                        sourceEntityId: sourceEntityId,
+                        cueId: GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldBlock),
+                        anchor: VfxAnchor.ForCell(
+                            signal.BlockedCell,
+                            signal.Topology,
+                            VfxAnchorSlot.CellFloor),
+                        timing: VfxTimingKind.ImmediateOnTickPresentation,
+                        isPersistent: false,
+                        persistentKey: VfxPersistentKey.None));
+            }
+
             var jumpSignals = presentationData.EnemyJumpSignals;
             for (var i = 0; i < jumpSignals.Count; i++)
             {
@@ -366,6 +426,23 @@ namespace Game.Feature.Gameplay.Vfx
             }
 
             return false;
+        }
+
+        private static int ResolveFrontFaceShieldBlockSeed(
+            in TickFrontFaceShieldBlockSignal signal,
+            int tickIndex)
+        {
+            unchecked
+            {
+                var hash = tickIndex;
+                hash = (hash * 397) ^ signal.ShieldSourceEntityId;
+                hash = (hash * 397) ^ signal.BoxEntityId;
+                hash = (hash * 397) ^ signal.ActorEntityId;
+                hash = (hash * 397) ^ signal.BlockedCell.GetHashCode();
+                hash = (hash * 397) ^ signal.ShieldSourceCell.GetHashCode();
+                hash = (hash * 397) ^ (int)signal.MovementKind;
+                return hash != 0 ? hash : tickIndex;
+            }
         }
     }
 
