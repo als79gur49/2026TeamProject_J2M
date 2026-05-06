@@ -630,6 +630,7 @@ namespace Game.Feature.Gameplay.Loop
                 planSnapshot.Topology,
                 input.TickIndex);
             var frontFaceShieldBlockExports = new List<FrontFaceShieldBlockPresentationExport>();
+            var barricadeBlockFacts = new List<BarricadeBlockFact>();
             var expandedCandidates = new List<ActionGroup>();
             var preExpansionRejectedReasons = new List<string>(rejectedReasons);
             var legacyExpansionIntents = ValidateLegacyExpansionIntents(
@@ -648,6 +649,7 @@ namespace Game.Feature.Gameplay.Loop
                 expandedCandidates,
                 rejectedReasons,
                 frontFaceShieldBlockExports,
+                barricadeBlockFacts,
                 forbiddenLegacyUnitOrdinaryIntentIds,
                 _tileFeatureDefinitions);
             if (preExpansionRejectedReasons.Count > 0)
@@ -695,6 +697,7 @@ namespace Game.Feature.Gameplay.Loop
                 orderedPhaseRelocationActionPlanIds,
                 frontFaceShieldSourceExports,
                 frontFaceShieldBlockExports,
+                barricadeBlockFacts,
                 nextContestId,
                 aiPhaseResult,
                 preMovementStateResult,
@@ -1177,7 +1180,8 @@ namespace Game.Feature.Gameplay.Loop
                 movementCommitEvents,
                 movementRejectedReasons,
                 planPhaseResult.FrontFaceShieldSourceExports,
-                planPhaseResult.FrontFaceShieldBlockExports);
+                planPhaseResult.FrontFaceShieldBlockExports,
+                planPhaseResult.BarricadeBlockFacts);
 
             AddRange(attackCommitEvents, utilityResolveResult.EventLogEntries);
             var attackResolvedOperations = new List<FinalizationOperation>(attackStageBatch.Operations.Count + utilityResolveResult.Batch.Operations.Count);

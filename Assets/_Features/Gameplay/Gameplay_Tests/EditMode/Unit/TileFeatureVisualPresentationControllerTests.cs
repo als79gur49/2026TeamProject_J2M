@@ -105,6 +105,67 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void BarricadeBlockedRequest_WithSupportedTargetView_CallsPlayBarricadeBlockedOnce()
+        {
+            var rootObject = new GameObject(nameof(BarricadeBlockedRequest_WithSupportedTargetView_CallsPlayBarricadeBlockedOnce));
+            var targetObject = new GameObject("BarricadeVisualTarget");
+            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+
+            try
+            {
+                var cell = new SurfaceCell(FaceId.Front, 1, 1);
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+                target.Configure(100, cell);
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(registry);
+
+                controller.PlayRequests(new[] { CreateBarricadeBlockedRequest(100, cell, Direction.Right, targetEntityId: 20) });
+
+                Assert.That(target.DebugPlayBarricadeBlockedCount, Is.EqualTo(1));
+                Assert.That(target.DebugLastBarricadeBlockedDirection, Is.EqualTo(Direction.Right));
+                Assert.That(target.DebugLastBarricadeBlockedTargetEntityId, Is.EqualTo(20));
+                Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BarricadeCrushedRequest_WithSupportedTargetView_CallsPlayBarricadeCrushedOnce()
+        {
+            var rootObject = new GameObject(nameof(BarricadeCrushedRequest_WithSupportedTargetView_CallsPlayBarricadeCrushedOnce));
+            var targetObject = new GameObject("BarricadeVisualTarget");
+            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+
+            try
+            {
+                var cell = new SurfaceCell(FaceId.Front, 1, 1);
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+                target.Configure(100, cell);
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(registry);
+
+                controller.PlayRequests(new[] { CreateBarricadeCrushedRequest(100, cell, targetEntityId: 20) });
+
+                Assert.That(target.DebugPlayBarricadeCrushedCount, Is.EqualTo(1));
+                Assert.That(target.DebugLastBarricadeCrushedTargetEntityId, Is.EqualTo(20));
+                Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void ButtonActivatedRequest_MissingTarget_NoOpsWithOptionalDiagnostic()
         {
             var diagnostics = new List<string>();
@@ -152,6 +213,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(target.PlayCount, Is.Zero);
             Assert.That(diagnostics, Has.Count.EqualTo(1));
             Assert.That(diagnostics[0], Does.Contain("unsupported SlideTileRedirected"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BarricadeRequests_UnsupportedTargets_NoOpWithOptionalDiagnostics()
+        {
+            var diagnostics = new List<string>();
+            var cell = new SurfaceCell(FaceId.Front, 1, 1);
+            var target = new RecordingTarget(100, cell);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(new RecordingRegistry(target));
+            controller.SetDiagnosticSink(diagnostics.Add);
+
+            controller.PlayRequests(new[]
+            {
+                CreateBarricadeBlockedRequest(100, cell, Direction.Right, targetEntityId: 20),
+                CreateBarricadeCrushedRequest(100, cell, targetEntityId: 20),
+            });
+
+            Assert.That(target.PlayCount, Is.Zero);
+            Assert.That(diagnostics, Has.Count.EqualTo(2));
+            Assert.That(diagnostics[0], Does.Contain("unsupported BarricadeBlocked"));
+            Assert.That(diagnostics[1], Does.Contain("unsupported BarricadeCrushed"));
         }
 
         [Test]
@@ -275,6 +359,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(target.LastDirection, Is.EqualTo(Direction.Left));
             Assert.That(target.LastTargetEntityId, Is.EqualTo(30));
             Assert.That(registry.LookupOrder.ToArray(), Is.EqualTo(new[] { 100, 100 }));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void DuplicateBarricadeRequests_AreNotDeduped()
+        {
+            var cell = new SurfaceCell(FaceId.Front, 1, 1);
+            var target = new RecordingBarricadeTarget(100, cell);
+            var registry = new RecordingRegistry(target);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(registry);
+
+            controller.PlayRequests(new[]
+            {
+                CreateBarricadeBlockedRequest(target.TileId, target.Cell, Direction.Right, targetEntityId: 20),
+                CreateBarricadeBlockedRequest(target.TileId, target.Cell, Direction.Left, targetEntityId: 30),
+                CreateBarricadeCrushedRequest(target.TileId, target.Cell, targetEntityId: 40),
+                CreateBarricadeCrushedRequest(target.TileId, target.Cell, targetEntityId: 50),
+            });
+
+            Assert.That(target.BlockedPlayCount, Is.EqualTo(2));
+            Assert.That(target.CrushedPlayCount, Is.EqualTo(2));
+            Assert.That(target.LastBlockedDirection, Is.EqualTo(Direction.Left));
+            Assert.That(target.LastBlockedTargetEntityId, Is.EqualTo(30));
+            Assert.That(target.LastCrushedTargetEntityId, Is.EqualTo(50));
+            Assert.That(registry.LookupOrder.ToArray(), Is.EqualTo(new[] { 100, 100, 100, 100 }));
         }
 
         [Test]
@@ -444,6 +554,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 direction: direction);
         }
 
+        private static TilePresentationRequest CreateBarricadeBlockedRequest(
+            int tileId,
+            SurfaceCell cell,
+            Direction direction,
+            int targetEntityId)
+        {
+            return new TilePresentationRequest(
+                TilePresentationRequestKind.BarricadeBlocked,
+                tileId,
+                cell,
+                TileFeatureKind.Barricade,
+                sourceEntityId: tileId + 1,
+                ownerEntityId: tileId + 2,
+                teamId: tileId + 3,
+                targetEntityId: targetEntityId,
+                direction: direction);
+        }
+
+        private static TilePresentationRequest CreateBarricadeCrushedRequest(
+            int tileId,
+            SurfaceCell cell,
+            int targetEntityId)
+        {
+            return new TilePresentationRequest(
+                TilePresentationRequestKind.BarricadeCrushed,
+                tileId,
+                cell,
+                TileFeatureKind.Barricade,
+                sourceEntityId: tileId + 1,
+                ownerEntityId: tileId + 2,
+                teamId: tileId + 3,
+                targetEntityId: targetEntityId);
+        }
+
         private static void InvokeStageTileFeatureVisualInstantiation(
             IReadOnlyList<TileFeaturePresentationResolvedBinding> bindings,
             IReadOnlyList<TileFeatureState> initialTileFeatures,
@@ -570,6 +714,52 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SlidePlayCount++;
                 LastDirection = direction;
                 LastTargetEntityId = targetEntityId;
+            }
+        }
+
+        private sealed class RecordingBarricadeTarget :
+            ITileFeatureVisualTarget,
+            IBarricadeBlockedVisualTarget,
+            IBarricadeCrushedVisualTarget
+        {
+            public RecordingBarricadeTarget(int tileId, SurfaceCell cell)
+            {
+                TileId = tileId;
+                Cell = cell;
+            }
+
+            public int TileId { get; }
+
+            public SurfaceCell Cell { get; }
+
+            public int ButtonPlayCount { get; private set; }
+
+            public int BlockedPlayCount { get; private set; }
+
+            public int CrushedPlayCount { get; private set; }
+
+            public Direction LastBlockedDirection { get; private set; }
+
+            public int LastBlockedTargetEntityId { get; private set; }
+
+            public int LastCrushedTargetEntityId { get; private set; }
+
+            public void PlayButtonActivated()
+            {
+                ButtonPlayCount++;
+            }
+
+            public void PlayBarricadeBlocked(Direction direction, int targetEntityId)
+            {
+                BlockedPlayCount++;
+                LastBlockedDirection = direction;
+                LastBlockedTargetEntityId = targetEntityId;
+            }
+
+            public void PlayBarricadeCrushed(int targetEntityId)
+            {
+                CrushedPlayCount++;
+                LastCrushedTargetEntityId = targetEntityId;
             }
         }
     }

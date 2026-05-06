@@ -103,6 +103,69 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void BuildRequests_BarricadeBlocked_PreservesPresentationFactsAndDirection()
+        {
+            var cell = new SurfaceCell(FaceId.Front, 2, 3);
+            var tileEvent = new TilePresentationEvent(
+                TilePresentationEventKind.BarricadeBlocked,
+                100,
+                cell,
+                TileFeatureKind.Barricade,
+                30,
+                40,
+                2,
+                targetEntityId: 50,
+                direction: Direction.Right);
+            var planner = new TilePresentationRequestPlanner();
+
+            var requests = planner.BuildRequests(CreatePresentationData(tileEvent));
+
+            Assert.That(requests, Has.Count.EqualTo(1));
+            var request = requests[0];
+            Assert.That(request.RequestKind, Is.EqualTo(TilePresentationRequestKind.BarricadeBlocked));
+            Assert.That(request.TileId, Is.EqualTo(100));
+            Assert.That(request.Cell, Is.EqualTo(cell));
+            Assert.That(request.TileFeatureKind, Is.EqualTo(TileFeatureKind.Barricade));
+            Assert.That(request.SourceEntityId, Is.EqualTo(30));
+            Assert.That(request.OwnerEntityId, Is.EqualTo(40));
+            Assert.That(request.TeamId, Is.EqualTo(2));
+            Assert.That(request.TargetEntityId, Is.EqualTo(50));
+            Assert.That(request.Direction, Is.EqualTo(Direction.Right));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BuildRequests_BarricadeCrushed_PreservesPresentationFacts()
+        {
+            var cell = new SurfaceCell(FaceId.Front, 2, 3);
+            var tileEvent = new TilePresentationEvent(
+                TilePresentationEventKind.BarricadeCrushed,
+                100,
+                cell,
+                TileFeatureKind.Barricade,
+                30,
+                40,
+                2,
+                targetEntityId: 50);
+            var planner = new TilePresentationRequestPlanner();
+
+            var requests = planner.BuildRequests(CreatePresentationData(tileEvent));
+
+            Assert.That(requests, Has.Count.EqualTo(1));
+            var request = requests[0];
+            Assert.That(request.RequestKind, Is.EqualTo(TilePresentationRequestKind.BarricadeCrushed));
+            Assert.That(request.TileId, Is.EqualTo(100));
+            Assert.That(request.Cell, Is.EqualTo(cell));
+            Assert.That(request.TileFeatureKind, Is.EqualTo(TileFeatureKind.Barricade));
+            Assert.That(request.SourceEntityId, Is.EqualTo(30));
+            Assert.That(request.OwnerEntityId, Is.EqualTo(40));
+            Assert.That(request.TeamId, Is.EqualTo(2));
+            Assert.That(request.TargetEntityId, Is.EqualTo(50));
+            Assert.That(request.Direction, Is.EqualTo(Direction.None));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void BuildRequests_PreservesTileEventOrder()
         {
             var planner = new TilePresentationRequestPlanner();

@@ -10,6 +10,8 @@ namespace Game.Feature.Gameplay.Host
         ITileFeatureVisualTarget,
         IDestroyTileVisualTarget,
         ISlideTileVisualTarget,
+        IBarricadeBlockedVisualTarget,
+        IBarricadeCrushedVisualTarget,
         ITileFeatureVisualTargetConfigurator
     {
         [SerializeField] private int tileId;
@@ -18,18 +20,29 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private string buttonActivatedTriggerName = "ButtonActivated";
         [SerializeField] private string destroyTileTriggeredTriggerName = "DestroyTileTriggered";
         [SerializeField] private string slideTileRedirectedTriggerName = "SlideTileRedirected";
+        [SerializeField] private string barricadeBlockedTriggerName = "BarricadeBlocked";
+        [SerializeField] private string barricadeCrushedTriggerName = "BarricadeCrushed";
         [SerializeField] private ParticleSystem buttonActivatedParticles;
         [SerializeField] private ParticleSystem destroyTileTriggeredParticles;
         [SerializeField] private ParticleSystem slideTileRedirectedParticles;
+        [SerializeField] private ParticleSystem barricadeBlockedParticles;
+        [SerializeField] private ParticleSystem barricadeCrushedParticles;
         [SerializeField] private UnityEvent buttonActivatedPlayed;
         [SerializeField] private UnityEvent destroyTileTriggeredPlayed;
         [SerializeField] private UnityEvent slideTileRedirectedPlayed;
+        [SerializeField] private UnityEvent barricadeBlockedPlayed;
+        [SerializeField] private UnityEvent barricadeCrushedPlayed;
 
         private int _debugPlayButtonActivatedCount;
         private int _debugPlayDestroyTileTriggeredCount;
         private int _debugPlaySlideTileRedirectedCount;
+        private int _debugPlayBarricadeBlockedCount;
+        private int _debugPlayBarricadeCrushedCount;
         private Direction _debugLastSlideTileDirection = Direction.None;
+        private Direction _debugLastBarricadeBlockedDirection = Direction.None;
         private int _debugLastSlideTileTargetEntityId;
+        private int _debugLastBarricadeBlockedTargetEntityId;
+        private int _debugLastBarricadeCrushedTargetEntityId;
 
         public int TileId => tileId;
 
@@ -41,9 +54,19 @@ namespace Game.Feature.Gameplay.Host
 
         public int DebugPlaySlideTileRedirectedCount => _debugPlaySlideTileRedirectedCount;
 
+        public int DebugPlayBarricadeBlockedCount => _debugPlayBarricadeBlockedCount;
+
+        public int DebugPlayBarricadeCrushedCount => _debugPlayBarricadeCrushedCount;
+
         public Direction DebugLastSlideTileDirection => _debugLastSlideTileDirection;
 
+        public Direction DebugLastBarricadeBlockedDirection => _debugLastBarricadeBlockedDirection;
+
         public int DebugLastSlideTileTargetEntityId => _debugLastSlideTileTargetEntityId;
+
+        public int DebugLastBarricadeBlockedTargetEntityId => _debugLastBarricadeBlockedTargetEntityId;
+
+        public int DebugLastBarricadeCrushedTargetEntityId => _debugLastBarricadeCrushedTargetEntityId;
 
         public void Configure(int newTileId, SurfaceCell newCell)
         {
@@ -113,6 +136,47 @@ namespace Game.Feature.Gameplay.Host
             }
 
             slideTileRedirectedPlayed?.Invoke();
+        }
+
+        public void PlayBarricadeBlocked(Direction direction, int targetEntityId)
+        {
+            _debugPlayBarricadeBlockedCount++;
+            _debugLastBarricadeBlockedDirection = direction;
+            _debugLastBarricadeBlockedTargetEntityId = targetEntityId;
+
+            if (animator != null &&
+                animator.runtimeAnimatorController != null &&
+                !string.IsNullOrWhiteSpace(barricadeBlockedTriggerName))
+            {
+                animator.SetTrigger(Animator.StringToHash(barricadeBlockedTriggerName));
+            }
+
+            if (barricadeBlockedParticles != null)
+            {
+                barricadeBlockedParticles.Play(withChildren: true);
+            }
+
+            barricadeBlockedPlayed?.Invoke();
+        }
+
+        public void PlayBarricadeCrushed(int targetEntityId)
+        {
+            _debugPlayBarricadeCrushedCount++;
+            _debugLastBarricadeCrushedTargetEntityId = targetEntityId;
+
+            if (animator != null &&
+                animator.runtimeAnimatorController != null &&
+                !string.IsNullOrWhiteSpace(barricadeCrushedTriggerName))
+            {
+                animator.SetTrigger(Animator.StringToHash(barricadeCrushedTriggerName));
+            }
+
+            if (barricadeCrushedParticles != null)
+            {
+                barricadeCrushedParticles.Play(withChildren: true);
+            }
+
+            barricadeCrushedPlayed?.Invoke();
         }
     }
 }

@@ -84,7 +84,7 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
-        public void TileFeatureOverlayGate_DocumentsImplementedPolicyBeforeBarricade()
+        public void TileFeatureOverlayGate_DocumentsImplementedBarricadeBoxOnlyPolicy()
         {
             var document = File.ReadAllText(GetAbsolutePath(TileFeatureOverlayAdrPath));
             var requiredSnippets = new[]
@@ -113,9 +113,13 @@ namespace Game.Feature.Gameplay.Tests.Core
                 "TileFeatureAudio is separate from core GameplayAudio, GameplayActionAudio, and UI audio lanes.",
                 "Only Sfx one-shot playback is allowed.",
                 "`StagePresentationDefinition` has no TileFeature audio binding yet.",
-                "Barricade is not implemented.",
-                "box-only blocker and unit-ignore",
-                "Active-transition crush remains explicitly unimplemented",
+                "Barricade box-only blocker MVP is implemented.",
+                "Barricade remains a TileFeature overlay, not occupancy, terrain, or an entity type.",
+                "unit, enemy, projectile, flip landing, impact follow-through, and topology relocation traversal ignore Barricade",
+                "`BarricadeBlocked` is sourced from movement blocker facts",
+                "`BarricadeCrushed` is sourced from `TileFeatureEffectResolver.ResolveBarricadeCrushes`",
+                "Barricade events flow through `TilePresentationEvent`, `TilePresentationRequest`, optional tile visual interfaces, and optional TileFeatureAudio Sfx cues.",
+                "Events do not mutate gameplay state, do not enter the determinism hash",
             };
 
             for (var i = 0; i < requiredSnippets.Length; i++)

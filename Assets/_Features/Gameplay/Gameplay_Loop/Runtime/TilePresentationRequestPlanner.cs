@@ -9,6 +9,8 @@ namespace Game.Feature.Gameplay.Loop
         ButtonActivated = 0,
         DestroyTileTriggered = 1,
         SlideTileRedirected = 2,
+        BarricadeBlocked = 3,
+        BarricadeCrushed = 4,
     }
 
     public readonly struct TilePresentationRequest
@@ -107,6 +109,12 @@ namespace Game.Feature.Gameplay.Loop
                     return true;
                 case TilePresentationEventKind.SlideTileRedirected:
                     requestKind = TilePresentationRequestKind.SlideTileRedirected;
+                    return true;
+                case TilePresentationEventKind.BarricadeBlocked:
+                    requestKind = TilePresentationRequestKind.BarricadeBlocked;
+                    return true;
+                case TilePresentationEventKind.BarricadeCrushed:
+                    requestKind = TilePresentationRequestKind.BarricadeCrushed;
                     return true;
                 default:
                     requestKind = default;

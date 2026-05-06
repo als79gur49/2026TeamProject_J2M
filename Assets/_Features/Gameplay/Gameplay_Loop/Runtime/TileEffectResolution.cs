@@ -132,7 +132,7 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             var entityOperations = ResolveDestroyTiles(context, out var tileEvents, out var destroyedBoxIds);
-            entityOperations.MergeFrom(ResolveBarricadeCrushes(context, destroyedBoxIds));
+            entityOperations.MergeFrom(ResolveBarricadeCrushes(context, destroyedBoxIds, tileEvents));
             entityOperations.MergeFrom(ResolveSlideTiles(context, destroyedBoxIds, tileEvents));
 
             return (operations == null || operations.IsEmpty) &&
@@ -228,7 +228,8 @@ namespace Game.Feature.Gameplay.Loop
 
         private static FinalizationBatch ResolveBarricadeCrushes(
             in TileEffectResolutionContext context,
-            HashSet<int> destroyedBoxIds)
+            HashSet<int> destroyedBoxIds,
+            List<TilePresentationEvent> tileEvents)
         {
             var batch = new FinalizationBatch();
             if (context.PreviousSnapshot == null)
@@ -254,6 +255,15 @@ namespace Game.Feature.Gameplay.Loop
                 batch.SetBoardPresence(box.entityId, EntityBoardPresence.Detached, metadata);
                 batch.MarkDestroy(box.entityId, metadata);
                 destroyedBoxIds?.Add(box.entityId);
+                tileEvents?.Add(new TilePresentationEvent(
+                    TilePresentationEventKind.BarricadeCrushed,
+                    tileFeature.TileId,
+                    tileFeature.Cell,
+                    tileFeature.Kind,
+                    tileFeature.SourceEntityId,
+                    tileFeature.OwnerEntityId,
+                    tileFeature.TeamId,
+                    targetEntityId: box.entityId));
             }
 
             return batch;

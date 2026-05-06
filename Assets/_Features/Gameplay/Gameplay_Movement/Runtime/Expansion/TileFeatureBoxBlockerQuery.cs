@@ -11,6 +11,15 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             IReadOnlyList<TileFeatureRuntimeDefinition> definitions,
             SurfaceCell cell)
         {
+            return TryGetActiveBarricadeBlocker(snapshot, definitions, cell, out _);
+        }
+
+        public static bool TryGetActiveBarricadeBlocker(
+            WorldSnapshot snapshot,
+            IReadOnlyList<TileFeatureRuntimeDefinition> definitions,
+            SurfaceCell cell,
+            out TileFeatureState barricade)
+        {
             if (snapshot == null)
             {
                 throw new ArgumentNullException(nameof(snapshot));
@@ -18,6 +27,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
 
             if (definitions == null || definitions.Count == 0)
             {
+                barricade = default;
                 return false;
             }
 
@@ -34,10 +44,12 @@ namespace Game.Feature.Gameplay.Movement.Expansion
 
                 if (TileFeatureActivationQueries.IsActive(tileFeature, definition, snapshot.Topology))
                 {
+                    barricade = tileFeature;
                     return true;
                 }
             }
 
+            barricade = default;
             return false;
         }
 

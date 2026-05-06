@@ -58,6 +58,12 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
                 case TilePresentationRequestKind.SlideTileRedirected:
                     cue = TileFeatureAudioCue.SlideTileRedirected;
                     return true;
+                case TilePresentationRequestKind.BarricadeBlocked:
+                    cue = TileFeatureAudioCue.BarricadeBlocked;
+                    return true;
+                case TilePresentationRequestKind.BarricadeCrushed:
+                    cue = TileFeatureAudioCue.BarricadeCrushed;
+                    return true;
                 default:
                     cue = default;
                     return false;

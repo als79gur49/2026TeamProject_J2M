@@ -38,6 +38,8 @@ namespace Game.Feature.Gameplay.Loop
         ButtonActivated = 1,
         DestroyTileTriggered = 2,
         SlideTileRedirected = 3,
+        BarricadeBlocked = 4,
+        BarricadeCrushed = 5,
     }
 
     public readonly struct TilePresentationEvent

@@ -10,6 +10,8 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
         ButtonActivated = 1,
         DestroyTileTriggered = 2,
         SlideTileRedirected = 3,
+        BarricadeBlocked = 4,
+        BarricadeCrushed = 5,
     }
 
     public readonly struct TileFeatureAudioRequest
@@ -68,6 +70,8 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
                 TileFeatureAudioCue.ButtonActivated => nameof(TileFeatureAudioCue.ButtonActivated),
                 TileFeatureAudioCue.DestroyTileTriggered => nameof(TileFeatureAudioCue.DestroyTileTriggered),
                 TileFeatureAudioCue.SlideTileRedirected => nameof(TileFeatureAudioCue.SlideTileRedirected),
+                TileFeatureAudioCue.BarricadeBlocked => nameof(TileFeatureAudioCue.BarricadeBlocked),
+                TileFeatureAudioCue.BarricadeCrushed => nameof(TileFeatureAudioCue.BarricadeCrushed),
                 _ => throw new System.ArgumentOutOfRangeException(nameof(cue), cue, "Unsupported tile feature audio cue."),
             };
         }

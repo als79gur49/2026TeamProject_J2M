@@ -77,6 +77,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             List<ActionGroup> buffer,
             List<string> rejectedReasons,
             List<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports = null,
+            List<BarricadeBlockFact> barricadeBlockFacts = null,
             ISet<int> forbiddenLegacyUnitOrdinaryIntentIds = null,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
@@ -154,7 +155,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                             tileFeatureDefinitions,
                             buffer,
                             rejectedReasons,
-                            frontFaceShieldBlockExports);
+                            frontFaceShieldBlockExports,
+                            barricadeBlockFacts);
                         break;
 
                     case MovementCommandKind.Flip:
@@ -179,7 +181,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             List<ActionGroup> buffer,
             List<string> rejectedReasons,
-            List<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports)
+            List<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports,
+            List<BarricadeBlockFact> barricadeBlockFacts)
         {
             if (IsSlidingPushBox(source))
             {
@@ -192,7 +195,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                     tileFeatureDefinitions,
                     buffer,
                     rejectedReasons,
-                    frontFaceShieldBlockExports);
+                    frontFaceShieldBlockExports,
+                    barricadeBlockFacts);
                 return;
             }
 
@@ -259,7 +263,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                         tileFeatureDefinitions,
                         buffer,
                         rejectedReasons,
-                        frontFaceShieldBlockExports);
+                        frontFaceShieldBlockExports,
+                        barricadeBlockFacts);
                     return;
                 }
 
@@ -560,7 +565,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             List<ActionGroup> buffer,
             List<string> rejectedReasons,
-            List<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports)
+            List<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports,
+            List<BarricadeBlockFact> barricadeBlockFacts)
         {
             var destinationResolved = snapshot.TryResolveNextSurfaceBoxSlideStep(
                 snapshot.Topology,
@@ -601,11 +607,13 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 return;
             }
 
-            if (TileFeatureBoxBlockerQuery.HasActiveBarricadeBlocker(
+            if (TileFeatureBoxBlockerQuery.TryGetActiveBarricadeBlocker(
                     snapshot,
                     tileFeatureDefinitions,
-                    destination))
+                    destination,
+                    out var barricade))
             {
+                AddBarricadeBlockFact(barricadeBlockFacts, barricade, target.entityId, stepFacing);
                 if (HasBoxCapability(target, BoxCapabilities.Destroy))
                 {
                     var destroyGroup = new ActionGroup(
@@ -689,7 +697,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             List<ActionGroup> buffer,
             List<string> rejectedReasons,
-            List<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports)
+            List<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports,
+            List<BarricadeBlockFact> barricadeBlockFacts)
         {
             var delta = ResolveIntentDelta(source.position, intent.Destination);
             var stepFacing = ResolveCardinalFacing(
@@ -742,11 +751,13 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 return;
             }
 
-            if (TileFeatureBoxBlockerQuery.HasActiveBarricadeBlocker(
+            if (TileFeatureBoxBlockerQuery.TryGetActiveBarricadeBlocker(
                     snapshot,
                     tileFeatureDefinitions,
-                    destination))
+                    destination,
+                    out var barricade))
             {
+                AddBarricadeBlockFact(barricadeBlockFacts, barricade, source.entityId, stepFacing);
                 rejectedReasons.Add(
                     BuildBarricadeRejectedReason(
                         intent.SourceId,
@@ -1061,6 +1072,20 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                         boxEntityId,
                         blockedCell,
                         (int)movementKind)));
+        }
+
+        private static void AddBarricadeBlockFact(
+            List<BarricadeBlockFact> facts,
+            TileFeatureState barricade,
+            int boxEntityId,
+            Direction attemptedDirection)
+        {
+            facts?.Add(
+                new BarricadeBlockFact(
+                    barricade.TileId,
+                    barricade.Cell,
+                    boxEntityId,
+                    attemptedDirection));
         }
 
         internal static int BuildFrontFaceShieldPresentationSeed(

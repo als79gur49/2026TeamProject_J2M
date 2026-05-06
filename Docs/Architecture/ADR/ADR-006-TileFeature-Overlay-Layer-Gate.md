@@ -228,11 +228,13 @@ VFX, audio, and UI must not call `WorldState.CreateSnapshot` to infer TileFeatur
 - `StagePresentationDefinition` has no TileFeature audio binding yet.
 - TileFeature visual binding and audio binding must not be mixed.
 
-## Barricade Future Note
+## Barricade Policy
 
-Barricade is not implemented. Do not add Barricade gameplay, blocker query, active-transition crush, visual, audio, or event behavior in this hardening pass.
+Barricade box-only blocker MVP is implemented. Barricade remains a TileFeature overlay, not occupancy, terrain, or an entity type. Active Barricade blocks box push first-step and sliding-continuation entry only when active through `FrontFaceOnly`; unit, enemy, projectile, flip landing, impact follow-through, and topology relocation traversal ignore Barricade.
 
-The first future Barricade policy should start as box-only blocker and unit-ignore. Active-transition crush remains explicitly unimplemented until a separate policy and test pass opens it.
+Barricade presentation is implemented as feedback-only metadata. `BarricadeBlocked` is sourced from movement blocker facts because a blocked box never enters the Barricade cell and no `TileEffectBoxContact` exists. `BarricadeCrushed` is sourced from `TileFeatureEffectResolver.ResolveBarricadeCrushes` only after an actual box destroy operation is created.
+
+Barricade events flow through `TilePresentationEvent`, `TilePresentationRequest`, optional tile visual interfaces, and optional TileFeatureAudio Sfx cues. Events do not mutate gameplay state, do not enter the determinism hash, and presentation consumers must not call `WorldState.CreateSnapshot`.
 
 ## TerrainFlags Boundary
 

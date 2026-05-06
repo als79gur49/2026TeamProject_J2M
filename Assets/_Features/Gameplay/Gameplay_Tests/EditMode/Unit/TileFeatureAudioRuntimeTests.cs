@@ -119,6 +119,50 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void TileFeatureAudioRequestPlanner_BarricadeRequests_PreservePayload()
+        {
+            var planner = new TileFeatureAudioRequestPlanner();
+            var cell = new SurfaceCell(FaceId.Front, 2, 3);
+
+            var requests = planner.BuildRequests(new[]
+            {
+                CreateTilePresentationRequest(
+                    100,
+                    cell,
+                    sourceEntityId: 30,
+                    ownerEntityId: 40,
+                    teamId: 2,
+                    requestKind: TilePresentationRequestKind.BarricadeBlocked,
+                    tileFeatureKind: TileFeatureKind.Barricade,
+                    targetEntityId: 50),
+                CreateTilePresentationRequest(
+                    101,
+                    cell,
+                    sourceEntityId: 31,
+                    ownerEntityId: 41,
+                    teamId: 3,
+                    requestKind: TilePresentationRequestKind.BarricadeCrushed,
+                    tileFeatureKind: TileFeatureKind.Barricade,
+                    targetEntityId: 51),
+            });
+
+            Assert.That(requests, Has.Count.EqualTo(2));
+            Assert.That(requests[0].Cue, Is.EqualTo(TileFeatureAudioCue.BarricadeBlocked));
+            Assert.That(requests[0].TileId, Is.EqualTo(100));
+            Assert.That(requests[0].Cell, Is.EqualTo(cell));
+            Assert.That(requests[0].SourceEntityId, Is.EqualTo(30));
+            Assert.That(requests[0].OwnerEntityId, Is.EqualTo(40));
+            Assert.That(requests[0].TeamId, Is.EqualTo(2));
+            Assert.That(requests[0].Context.DebugTag, Is.EqualTo("BarricadeBlocked"));
+            Assert.That(requests[0].TargetEntityId, Is.EqualTo(50));
+            Assert.That(requests[1].Cue, Is.EqualTo(TileFeatureAudioCue.BarricadeCrushed));
+            Assert.That(requests[1].TileId, Is.EqualTo(101));
+            Assert.That(requests[1].Context.DebugTag, Is.EqualTo("BarricadeCrushed"));
+            Assert.That(requests[1].TargetEntityId, Is.EqualTo(51));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void TileFeatureAudioRequestPlanner_PreservesOrderAndDuplicates_AndSkipsUnknownKinds()
         {
             var planner = new TileFeatureAudioRequestPlanner();
@@ -242,16 +286,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var map = scope.CreateMap();
             var binding = scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false));
             var slideBinding = scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false));
+            var barricadeBlockedBinding = scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false));
+            var barricadeCrushedBinding = scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false));
             SetEntries(
                 map,
                 (TileFeatureAudioCue.ButtonActivated, scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false))),
                 (TileFeatureAudioCue.DestroyTileTriggered, binding),
-                (TileFeatureAudioCue.SlideTileRedirected, slideBinding));
+                (TileFeatureAudioCue.SlideTileRedirected, slideBinding),
+                (TileFeatureAudioCue.BarricadeBlocked, barricadeBlockedBinding),
+                (TileFeatureAudioCue.BarricadeCrushed, barricadeCrushedBinding));
 
             Assert.That(map.TryResolveOptional(TileFeatureAudioCue.DestroyTileTriggered, out var resolved), Is.True);
             Assert.That(resolved, Is.SameAs(binding));
             Assert.That(map.TryResolveOptional(TileFeatureAudioCue.SlideTileRedirected, out var resolvedSlide), Is.True);
             Assert.That(resolvedSlide, Is.SameAs(slideBinding));
+            Assert.That(map.TryResolveOptional(TileFeatureAudioCue.BarricadeBlocked, out var resolvedBlocked), Is.True);
+            Assert.That(resolvedBlocked, Is.SameAs(barricadeBlockedBinding));
+            Assert.That(map.TryResolveOptional(TileFeatureAudioCue.BarricadeCrushed, out var resolvedCrushed), Is.True);
+            Assert.That(resolvedCrushed, Is.SameAs(barricadeCrushedBinding));
         }
 
         [Test]
@@ -340,6 +392,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void TileFeatureAudioPresentationController_BarricadeMissingOptionalBindings_NoOp()
+        {
+            using var scope = new TestAssetScope();
+            var map = scope.CreateMap();
+            SetEntries(map, (TileFeatureAudioCue.ButtonActivated, scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false))));
+            var controller = new TileFeatureAudioPresentationController(new GameplayPresentationStateStore());
+            var playbackPort = new RecordingGameplayAudioPlaybackPort();
+
+            controller.AttachRuntime(playbackPort, map);
+            controller.ReplacePendingPlan(new[]
+            {
+                CreateTileAudioRequest(
+                    30,
+                    ownerEntityId: 0,
+                    cue: TileFeatureAudioCue.BarricadeBlocked,
+                    targetEntityId: 20),
+                CreateTileAudioRequest(
+                    31,
+                    ownerEntityId: 0,
+                    cue: TileFeatureAudioCue.BarricadeCrushed,
+                    targetEntityId: 21),
+            });
+            controller.PlayPlannedAudio();
+
+            Assert.That(playbackPort.TwoDCalls, Is.Empty);
+            Assert.That(playbackPort.AttachedCalls, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void TileFeatureAudioPresentationController_DestroyTileBinding_PlaysWhenPresent()
         {
             using var scope = new TestAssetScope();
@@ -403,6 +485,53 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
                 Is.EqualTo(new[] { "SlideTileRedirected:30", "SlideTileRedirected:30" }));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TileFeatureAudioPresentationController_BarricadeBindings_PlayDuplicatesWhenPresent()
+        {
+            using var scope = new TestAssetScope();
+            var map = scope.CreateMap();
+            var blockedDefinition = scope.CreateDefinition(AudioCategory.Sfx, loop: false);
+            var crushedDefinition = scope.CreateDefinition(AudioCategory.Sfx, loop: false);
+            SetEntries(
+                map,
+                (TileFeatureAudioCue.ButtonActivated, scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false))),
+                (TileFeatureAudioCue.BarricadeBlocked, scope.CreateBinding(blockedDefinition)),
+                (TileFeatureAudioCue.BarricadeCrushed, scope.CreateBinding(crushedDefinition)));
+            var controller = new TileFeatureAudioPresentationController(new GameplayPresentationStateStore());
+            var playbackPort = new RecordingGameplayAudioPlaybackPort();
+
+            controller.AttachRuntime(playbackPort, map);
+            controller.ReplacePendingPlan(new[]
+            {
+                CreateTileAudioRequest(
+                    30,
+                    ownerEntityId: 0,
+                    cue: TileFeatureAudioCue.BarricadeBlocked,
+                    targetEntityId: 20),
+                CreateTileAudioRequest(
+                    30,
+                    ownerEntityId: 0,
+                    cue: TileFeatureAudioCue.BarricadeBlocked,
+                    targetEntityId: 20),
+                CreateTileAudioRequest(
+                    31,
+                    ownerEntityId: 0,
+                    cue: TileFeatureAudioCue.BarricadeCrushed,
+                    targetEntityId: 21),
+            });
+            controller.PlayPlannedAudio();
+
+            Assert.That(playbackPort.TwoDCalls, Has.Count.EqualTo(3));
+            Assert.That(playbackPort.TwoDCalls[0].Definition, Is.SameAs(blockedDefinition));
+            Assert.That(playbackPort.TwoDCalls[1].Definition, Is.SameAs(blockedDefinition));
+            Assert.That(playbackPort.TwoDCalls[2].Definition, Is.SameAs(crushedDefinition));
+            Assert.That(
+                playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
+                Is.EqualTo(new[] { "BarricadeBlocked:30", "BarricadeBlocked:30", "BarricadeCrushed:31" }));
+            Assert.That(playbackPort.AttachedCalls, Is.Empty);
         }
 
         [Test]

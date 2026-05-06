@@ -606,6 +606,33 @@ namespace Game.Feature.Gameplay.Loop
                 tileEvents.Add(context.TileEvents[i]);
             }
 
+            var barricadeBlockFacts = context.MovementPhaseResult.BarricadeBlockFacts;
+            for (var i = 0; i < barricadeBlockFacts.Count; i++)
+            {
+                var fact = barricadeBlockFacts[i];
+                var sourceEntityId = 0;
+                var ownerEntityId = 0;
+                var teamId = 0;
+                if (context.FinalAuthoritativeSnapshot.TryGetTileFeature(fact.TileId, out var barricade))
+                {
+                    sourceEntityId = barricade.SourceEntityId;
+                    ownerEntityId = barricade.OwnerEntityId;
+                    teamId = barricade.TeamId;
+                }
+
+                tileEvents.Add(
+                    new TilePresentationEvent(
+                        TilePresentationEventKind.BarricadeBlocked,
+                        fact.TileId,
+                        fact.Cell,
+                        TileFeatureKind.Barricade,
+                        sourceEntityId,
+                        ownerEntityId,
+                        teamId,
+                        targetEntityId: fact.BoxEntityId,
+                        direction: fact.AttemptedDirection));
+            }
+
             var finalTileFeatures = new List<TileFeatureState>();
             context.FinalAuthoritativeSnapshot.EnumerateTileFeaturesOrdered(finalTileFeatures);
 
