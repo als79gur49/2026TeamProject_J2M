@@ -152,6 +152,13 @@ namespace Game.Feature.Stages
                         $"Stage '{stageName}' {label} has invalid activation rule value {(int)tileFeature.ActivationRule}.");
                 }
 
+                if (tileFeature.Kind == TileFeatureKind.Destroy &&
+                    tileFeature.ActivationRule != TileFeatureActivationRule.BottomFaceOnly)
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' {label} DestroyTile must use BottomFaceOnly activation.");
+                }
+
                 if (!Enum.IsDefined(typeof(Direction2D), tileFeature.Direction))
                 {
                     throw new InvalidOperationException(

@@ -1,19 +1,49 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Model.Phases;
 
 namespace Game.Feature.Gameplay.Loop
 {
+    internal enum TileEffectBoxContactKind
+    {
+        SlideEnter = 0,
+        PushEnter = 1,
+        FlipLanding = 2,
+        ImpactFollowThrough = 3,
+    }
+
+    internal readonly struct TileEffectBoxContact
+    {
+        public TileEffectBoxContact(
+            int boxEntityId,
+            SurfaceCell cell,
+            TileEffectBoxContactKind kind)
+        {
+            BoxEntityId = boxEntityId;
+            Cell = cell;
+            Kind = kind;
+        }
+
+        public int BoxEntityId { get; }
+
+        public SurfaceCell Cell { get; }
+
+        public TileEffectBoxContactKind Kind { get; }
+    }
+
     internal readonly struct TileEffectResolutionContext
     {
         public TileEffectResolutionContext(
             int tickIndex,
             WorldSnapshot snapshot,
-            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            IReadOnlyList<TileEffectBoxContact> boxContacts = null)
         {
             TickIndex = tickIndex;
             Snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
             TileFeatureDefinitions = tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
+            BoxContacts = boxContacts ?? Array.Empty<TileEffectBoxContact>();
         }
 
         public int TickIndex { get; }
@@ -21,22 +51,28 @@ namespace Game.Feature.Gameplay.Loop
         public WorldSnapshot Snapshot { get; }
 
         public IReadOnlyList<TileFeatureRuntimeDefinition> TileFeatureDefinitions { get; }
+
+        public IReadOnlyList<TileEffectBoxContact> BoxContacts { get; }
     }
 
     internal readonly struct TileEffectResolutionResult
     {
         private readonly TileFeatureOperationBatch _operations;
+        private readonly FinalizationBatch _entityOperations;
 
-        public TileEffectResolutionResult(TileFeatureOperationBatch operations)
+        public TileEffectResolutionResult(TileFeatureOperationBatch operations, FinalizationBatch entityOperations = null)
         {
             _operations = operations ?? throw new ArgumentNullException(nameof(operations));
+            _entityOperations = entityOperations;
         }
 
         public static TileEffectResolutionResult Empty => new(new TileFeatureOperationBatch());
 
         public TileFeatureOperationBatch Operations => _operations ?? new TileFeatureOperationBatch();
 
-        public bool IsEmpty => Operations.IsEmpty;
+        public FinalizationBatch EntityOperations => _entityOperations ?? new FinalizationBatch();
+
+        public bool IsEmpty => Operations.IsEmpty && EntityOperations.Operations.Count == 0;
     }
 
     internal interface ITileEffectResolver
@@ -84,9 +120,12 @@ namespace Game.Feature.Gameplay.Loop
                 operations.Add(TileFeatureOperation.Update(CreateActivatedState(tileFeature)));
             }
 
-            return operations == null || operations.IsEmpty
+            var entityOperations = ResolveDestroyTiles(context);
+
+            return (operations == null || operations.IsEmpty) &&
+                   entityOperations.Operations.Count == 0
                 ? TileEffectResolutionResult.Empty
-                : new TileEffectResolutionResult(operations);
+                : new TileEffectResolutionResult(operations ?? new TileFeatureOperationBatch(), entityOperations);
         }
 
         private static bool ShouldLatchButton(
@@ -106,6 +145,90 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return IsAcceptedBox(context.Snapshot, tileFeature.Cell, definition.BoxSelector);
+        }
+
+        private static FinalizationBatch ResolveDestroyTiles(in TileEffectResolutionContext context)
+        {
+            var batch = new FinalizationBatch();
+            if (context.BoxContacts.Count == 0)
+            {
+                return batch;
+            }
+
+            var destroyedBoxIds = new HashSet<int>();
+            var tileFeaturesAtCell = new List<TileFeatureState>();
+
+            for (var i = 0; i < context.BoxContacts.Count; i++)
+            {
+                var contact = context.BoxContacts[i];
+                if (contact.BoxEntityId <= 0 ||
+                    destroyedBoxIds.Contains(contact.BoxEntityId))
+                {
+                    continue;
+                }
+
+                context.Snapshot.EnumerateTileFeaturesAt(contact.Cell, tileFeaturesAtCell);
+                for (var tileIndex = 0; tileIndex < tileFeaturesAtCell.Count; tileIndex++)
+                {
+                    var tileFeature = tileFeaturesAtCell[tileIndex];
+                    if (tileFeature.Kind != TileFeatureKind.Destroy ||
+                        !TryFindDefinition(context.TileFeatureDefinitions, tileFeature.TileId, out var definition) ||
+                        !TileFeatureActivationQueries.IsActive(tileFeature, definition, context.Snapshot.Topology) ||
+                        !TryGetValidDestroyTarget(context.Snapshot, contact.BoxEntityId, contact.Cell, out _))
+                    {
+                        continue;
+                    }
+
+                    batch.SetBoardPresence(
+                        contact.BoxEntityId,
+                        EntityBoardPresence.Detached,
+                        CreateDestroyTileMetadata(context.TickIndex, contact.BoxEntityId, contact.Cell));
+                    batch.MarkDestroy(
+                        contact.BoxEntityId,
+                        CreateDestroyTileMetadata(context.TickIndex, contact.BoxEntityId, contact.Cell));
+                    destroyedBoxIds.Add(contact.BoxEntityId);
+                    break;
+                }
+            }
+
+            return batch;
+        }
+
+        private static bool TryGetValidDestroyTarget(
+            WorldSnapshot snapshot,
+            int boxEntityId,
+            SurfaceCell contactCell,
+            out EntityState box)
+        {
+            if (snapshot.TryGetEntity(boxEntityId, out box) &&
+                box.type == EntityType.Box &&
+                box.position == contactCell &&
+                box.boardPresence == EntityBoardPresence.Occupying &&
+                box.hp > 0 &&
+                !box.markedForDeath)
+            {
+                return true;
+            }
+
+            box = default;
+            return false;
+        }
+
+        private static FinalizationOperationMetadata CreateDestroyTileMetadata(
+            int tickIndex,
+            int boxEntityId,
+            SurfaceCell contactCell)
+        {
+            return new FinalizationOperationMetadata(
+                TickPhase.Resolve,
+                ResolvedActionSemanticKind.None,
+                sourceActorEntityId: boxEntityId,
+                actionPlanId: tickIndex,
+                exitCauseHint: TickEntityExitCause.BoxDestroy,
+                damageSourceType: DamageSourceType.Environmental,
+                presentationTargetCell: contactCell,
+                movementExecutionBoundaryKind: MovementExecutionBoundaryKind.ScriptedRelocation,
+                boundaryReason: "DestroyTile");
         }
 
         private static bool TryFindDefinition(

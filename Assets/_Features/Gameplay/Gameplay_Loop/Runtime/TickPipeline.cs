@@ -991,15 +991,31 @@ namespace Game.Feature.Gameplay.Loop
                     movementResolutionRecords));
             var frozenMovementReservationExport = movementReservationBook.Freeze(finalImpactReservations);
             var attackReadSnapshot = projectedWorld.CreateSnapshot();
+            var tileEffectBoxContacts = BuildTileEffectBoxContacts(
+                attackReadSnapshot,
+                movementStageBatch,
+                jumpLandingResolveBatch,
+                phaseRelocationResolveBatch);
             var tileEffectResult = _tileEffectResolver.Resolve(
                 new TileEffectResolutionContext(
                     tickIndex,
                     attackReadSnapshot,
-                    _tileFeatureDefinitions));
+                    _tileFeatureDefinitions,
+                    tileEffectBoxContacts));
             if (!tileEffectResult.IsEmpty)
             {
-                finalizationBatch.ApplyTileFeatureOperations(tileEffectResult.Operations);
-                projectedWorld.ApplyTileFeatureOperations(tileEffectResult.Operations);
+                if (!tileEffectResult.Operations.IsEmpty)
+                {
+                    finalizationBatch.ApplyTileFeatureOperations(tileEffectResult.Operations);
+                    projectedWorld.ApplyTileFeatureOperations(tileEffectResult.Operations);
+                }
+
+                if (tileEffectResult.EntityOperations.Operations.Count > 0)
+                {
+                    finalizationBatch.MergeFrom(tileEffectResult.EntityOperations);
+                    projectedWorld.ApplyBatch(tileEffectResult.EntityOperations);
+                }
+
                 attackReadSnapshot = projectedWorld.CreateSnapshot();
             }
 
@@ -6235,6 +6251,107 @@ namespace Game.Feature.Gameplay.Loop
                     destination.Add(source[i]);
                 }
             }
+        }
+
+        internal static List<TileEffectBoxContact> BuildTileEffectBoxContacts(
+            WorldSnapshot snapshot,
+            params FinalizationBatch[] batches)
+        {
+            var contacts = new List<TileEffectBoxContact>();
+            if (snapshot == null || batches == null)
+            {
+                return contacts;
+            }
+
+            for (var batchIndex = 0; batchIndex < batches.Length; batchIndex++)
+            {
+                var batch = batches[batchIndex];
+                if (batch == null)
+                {
+                    continue;
+                }
+
+                var operations = batch.Operations;
+                for (var operationIndex = 0; operationIndex < operations.Count; operationIndex++)
+                {
+                    var operation = operations[operationIndex];
+                    if (operation.Kind != FinalizationOperationKind.MoveEntity ||
+                        !TryResolveTileEffectBoxContactKind(operation.Metadata, out var kind) ||
+                        !snapshot.TryGetEntity(operation.EntityId, out var entity) ||
+                        entity.type != EntityType.Box ||
+                        entity.position != operation.Destination ||
+                        entity.boardPresence != EntityBoardPresence.Occupying ||
+                        entity.hp <= 0 ||
+                        entity.markedForDeath)
+                    {
+                        continue;
+                    }
+
+                    contacts.Add(new TileEffectBoxContact(operation.EntityId, operation.Destination, kind));
+                }
+            }
+
+            contacts.Sort(CompareTileEffectBoxContacts);
+            return contacts;
+        }
+
+        private static bool TryResolveTileEffectBoxContactKind(
+            FinalizationOperationMetadata metadata,
+            out TileEffectBoxContactKind kind)
+        {
+            if (metadata.LocalActionIndex == 1 &&
+                (metadata.MovementSemanticKind == MovementSemanticKind.Push ||
+                 metadata.MovementSemanticKind == MovementSemanticKind.Slide ||
+                 metadata.MovementSemanticKind == MovementSemanticKind.Flip))
+            {
+                kind = TileEffectBoxContactKind.ImpactFollowThrough;
+                return true;
+            }
+
+            switch (metadata.MovementSemanticKind)
+            {
+                case MovementSemanticKind.Slide:
+                    kind = TileEffectBoxContactKind.SlideEnter;
+                    return true;
+                case MovementSemanticKind.Push:
+                    kind = TileEffectBoxContactKind.PushEnter;
+                    return true;
+                case MovementSemanticKind.Flip:
+                    kind = TileEffectBoxContactKind.FlipLanding;
+                    return true;
+                default:
+                    kind = default;
+                    return false;
+            }
+        }
+
+        private static int CompareTileEffectBoxContacts(TileEffectBoxContact left, TileEffectBoxContact right)
+        {
+            var cellCompare = CompareSurfaceCells(left.Cell, right.Cell);
+            if (cellCompare != 0)
+            {
+                return cellCompare;
+            }
+
+            var boxCompare = left.BoxEntityId.CompareTo(right.BoxEntityId);
+            if (boxCompare != 0)
+            {
+                return boxCompare;
+            }
+
+            return left.Kind.CompareTo(right.Kind);
+        }
+
+        private static int CompareSurfaceCells(SurfaceCell left, SurfaceCell right)
+        {
+            var faceCompare = left.face.CompareTo(right.face);
+            if (faceCompare != 0)
+            {
+                return faceCompare;
+            }
+
+            var xCompare = left.x.CompareTo(right.x);
+            return xCompare != 0 ? xCompare : left.y.CompareTo(right.y);
         }
 
         private FinalizationBatch MaterializeMovementOperations(

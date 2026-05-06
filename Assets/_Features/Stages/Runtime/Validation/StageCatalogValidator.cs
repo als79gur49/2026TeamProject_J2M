@@ -423,6 +423,18 @@ namespace Game.Feature.Stages
                         options.Timing);
                 }
 
+                if (tileFeature.Kind == TileFeatureKind.Destroy &&
+                    tileFeature.ActivationRule != TileFeatureActivationRule.BottomFaceOnly)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.destroy-activation-unsupported",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] DestroyTile must use BottomFaceOnly activation.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
                 if (wallCells.Contains(tileFeature.Cell))
                 {
                     report.Add(

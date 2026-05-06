@@ -219,6 +219,45 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_DestroyTile_BottomFaceOnlyAccepted()
+        {
+            var stage = CreateStageWithTileFeatures(
+                "DestroyTileBottomFaceOnly",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Destroy,
+                        TileFeatureActivationRule.BottomFaceOnly),
+                });
+
+            var buildResult = StageRuntimeBuilder.Build(stage);
+
+            Assert.That(buildResult.TileFeatureDefinitions[0].ActivationRule, Is.EqualTo(TileFeatureActivationRule.BottomFaceOnly));
+            Assert.That(buildResult.InitialTileFeatures[0].Kind, Is.EqualTo(TileFeatureKind.Destroy));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_DestroyTile_UnsupportedActivationRejects()
+        {
+            var stage = CreateStageWithTileFeatures(
+                "DestroyTileUnsupportedActivation",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Destroy,
+                        TileFeatureActivationRule.Always),
+                });
+
+            AssertBuildThrows(stage, "DestroyTile must use BottomFaceOnly activation");
+        }
+
+        [Test]
         [Category("Extended")]
         public void StageRuntimeBuilder_TileFeatureWallLikeSolidOverlap_RejectsUntilPolicyExists()
         {
@@ -246,7 +285,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new[]
                 {
                     CreateTileFeature(100, cell, TileFeatureKind.Button),
-                    CreateTileFeature(101, cell, TileFeatureKind.Destroy),
+                    CreateTileFeature(
+                        101,
+                        cell,
+                        TileFeatureKind.Destroy,
+                        TileFeatureActivationRule.BottomFaceOnly),
                 });
 
             try
