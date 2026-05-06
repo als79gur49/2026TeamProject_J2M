@@ -547,6 +547,164 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_Exit_BottomFaceNoDirectionAndNoSelectorAccepted()
+        {
+            var exitCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var condition = CreatePlayerAtAnyZoneCondition("goal");
+            var stage = CreateStageWithExitObjective(
+                "ExitValid",
+                exitCell,
+                CreateRegion(1, 1, 1, 1),
+                condition);
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(buildResult.TileFeatureDefinitions[0].ActivationRule, Is.EqualTo(TileFeatureActivationRule.BottomFaceOnly));
+                Assert.That(buildResult.TileFeatureDefinitions[0].Direction, Is.EqualTo(Direction2D.None));
+                Assert.That(buildResult.TileFeatureDefinitions[0].BoxSelector, Is.EqualTo(TileFeatureBoxSelector.None));
+                Assert.That(buildResult.InitialTileFeatures[0].Kind, Is.EqualTo(TileFeatureKind.Exit));
+                Assert.That(
+                    buildResult.ObjectiveRuntimeDefinition.ConditionEntries[0].Condition.CreateRuntime().CreateStatus().ConditionType,
+                    Is.EqualTo(PlayerAtActiveExitConditionRuntimeDefinition.RuntimeConditionType));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+                UnityEngine.Object.DestroyImmediate(condition);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_Exit_UnsupportedActivationRejects()
+        {
+            var condition = CreatePlayerAtAnyZoneCondition("goal");
+            var stage = CreateStageWithExitObjective(
+                "ExitUnsupportedActivation",
+                new SurfaceCell(FaceId.Floor, 1, 1),
+                CreateRegion(1, 1, 1, 1),
+                condition,
+                activationRule: TileFeatureActivationRule.Always);
+
+            AssertBuildThrows(stage, "Exit must use BottomFaceOnly activation", condition);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_Exit_InvalidDirectionRejects()
+        {
+            var nonNoneCondition = CreatePlayerAtAnyZoneCondition("goal");
+            var nonNoneDirectionStage = CreateStageWithExitObjective(
+                "ExitNonNoneDirection",
+                new SurfaceCell(FaceId.Floor, 1, 1),
+                CreateRegion(1, 1, 1, 1),
+                nonNoneCondition,
+                direction: Direction2D.Right);
+            AssertBuildThrows(nonNoneDirectionStage, "Exit must use Direction2D.None", nonNoneCondition);
+
+            var invalidCondition = CreatePlayerAtAnyZoneCondition("goal");
+            var invalidEnumStage = CreateStageWithExitObjective(
+                "ExitInvalidDirection",
+                new SurfaceCell(FaceId.Floor, 1, 1),
+                CreateRegion(1, 1, 1, 1),
+                invalidCondition,
+                direction: (Direction2D)99);
+            AssertBuildThrows(invalidEnumStage, "invalid Direction2D value 99", invalidCondition);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_Exit_UnsupportedBoxSelectorRejects()
+        {
+            var unsupportedCondition = CreatePlayerAtAnyZoneCondition("goal");
+            var unsupportedSelectorStage = CreateStageWithExitObjective(
+                "ExitUnsupportedSelector",
+                new SurfaceCell(FaceId.Floor, 1, 1),
+                CreateRegion(1, 1, 1, 1),
+                unsupportedCondition,
+                boxSelector: TileFeatureBoxSelector.AnyPushableBox);
+            AssertBuildThrows(unsupportedSelectorStage, "Exit must use TileFeatureBoxSelector.None", unsupportedCondition);
+
+            var invalidCondition = CreatePlayerAtAnyZoneCondition("goal");
+            var invalidEnumStage = CreateStageWithExitObjective(
+                "ExitInvalidSelector",
+                new SurfaceCell(FaceId.Floor, 1, 1),
+                CreateRegion(1, 1, 1, 1),
+                invalidCondition,
+                boxSelector: (TileFeatureBoxSelector)99);
+            AssertBuildThrows(invalidEnumStage, "invalid TileFeatureBoxSelector value 99", invalidCondition);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_Exit_DuplicateRejects()
+        {
+            var condition = CreatePlayerAtAnyZoneCondition("goal");
+            var exitCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var stage = CreateStageWithExitObjective(
+                "ExitDuplicate",
+                exitCell,
+                CreateRegion(1, 1, 1, 1),
+                condition,
+                extraTileFeatures: new[]
+                {
+                    CreateTileFeature(
+                        101,
+                        new SurfaceCell(FaceId.Floor, 2, 1),
+                        TileFeatureKind.Exit,
+                        TileFeatureActivationRule.BottomFaceOnly,
+                        Direction2D.None,
+                        TileFeatureBoxSelector.None),
+                });
+
+            AssertBuildThrows(stage, "more than one Exit TileFeature", condition);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_Exit_MissingPrimaryGoalRejects()
+        {
+            var stage = CreateStageWithTileFeatures(
+                "ExitMissingPrimaryGoal",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Exit,
+                        TileFeatureActivationRule.BottomFaceOnly,
+                        Direction2D.None,
+                        TileFeatureBoxSelector.None),
+                });
+
+            AssertBuildThrows(stage, "must use objective policy RequireAllConditions");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_Exit_GoalZoneMustBeExactlyExitCenter()
+        {
+            var multiCellCondition = CreatePlayerAtAnyZoneCondition("goal");
+            var multiCellStage = CreateStageWithExitObjective(
+                "ExitMultiCellGoal",
+                new SurfaceCell(FaceId.Floor, 1, 1),
+                CreateRegion(0, 0, 2, 2),
+                multiCellCondition);
+            AssertBuildThrows(multiCellStage, "must be exactly one center cell", multiCellCondition);
+
+            var mismatchedCondition = CreatePlayerAtAnyZoneCondition("goal");
+            var mismatchedStage = CreateStageWithExitObjective(
+                "ExitMismatchedGoal",
+                new SurfaceCell(FaceId.Floor, 1, 1),
+                CreateRegion(2, 1, 2, 1),
+                mismatchedCondition);
+            AssertBuildThrows(mismatchedStage, "must match goal zone", mismatchedCondition);
+        }
+
+        [Test]
         [Category("Extended")]
         public void StageRuntimeBuilder_TileFeatureWallLikeSolidOverlap_RejectsUntilPolicyExists()
         {
@@ -677,7 +835,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 condition,
                 new[]
                 {
-                    CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Exit),
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Exit,
+                        TileFeatureActivationRule.BottomFaceOnly,
+                        Direction2D.None,
+                        TileFeatureBoxSelector.None),
                 });
 
             AssertBuildThrows(stage, "instead of Button", condition);
@@ -1346,6 +1510,54 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return stage;
         }
 
+        private static StageDefinition CreateStageWithExitObjective(
+            string stageName,
+            SurfaceCell exitCell,
+            StageZoneRegionDefinition goalRegion,
+            PlayerAtAnyZoneConditionAsset primaryGoalCondition,
+            TileFeatureActivationRule activationRule = TileFeatureActivationRule.BottomFaceOnly,
+            Direction2D direction = Direction2D.None,
+            TileFeatureBoxSelector boxSelector = TileFeatureBoxSelector.None,
+            StageTileFeatureDefinition[] extraTileFeatures = null)
+        {
+            var tileFeatures = new List<StageTileFeatureDefinition>
+            {
+                CreateTileFeature(
+                    100,
+                    exitCell,
+                    TileFeatureKind.Exit,
+                    activationRule,
+                    direction,
+                    boxSelector),
+            };
+            if (extraTileFeatures != null)
+            {
+                tileFeatures.AddRange(extraTileFeatures);
+            }
+
+            var stage = CreateStageWithObjective(
+                stageName,
+                new[]
+                {
+                    CreateConditionEntry(
+                        primaryGoalCondition,
+                        required: true,
+                        StageObjectiveConditionRole.PrimaryGoal,
+                        "primary-goal"),
+                },
+                tileFeatures.ToArray());
+            SetPrivateField(stage, "zones", new[]
+            {
+                new StageZoneDefinition
+                {
+                    ZoneId = "goal",
+                    FaceId = exitCell.face,
+                    Regions = new[] { goalRegion },
+                },
+            });
+            return stage;
+        }
+
         private static StageObjectiveConditionEntry CreateConditionEntry(
             StageConditionAsset condition,
             string stableConditionId)
@@ -1358,6 +1570,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 StableConditionId = stableConditionId,
                 DisplayText = string.Empty,
                 SortOrder = 0,
+            };
+        }
+
+        private static StageObjectiveConditionEntry CreateConditionEntry(
+            StageConditionAsset condition,
+            bool required,
+            StageObjectiveConditionRole role,
+            string stableConditionId)
+        {
+            return new StageObjectiveConditionEntry
+            {
+                Condition = condition,
+                Required = required,
+                Role = role,
+                StableConditionId = stableConditionId,
+                DisplayText = string.Empty,
+                SortOrder = 0,
+            };
+        }
+
+        private static PlayerAtAnyZoneConditionAsset CreatePlayerAtAnyZoneCondition(string zoneId)
+        {
+            var condition = ScriptableObject.CreateInstance<PlayerAtAnyZoneConditionAsset>();
+            SetPrivateField(condition, "zoneIds", new[] { zoneId });
+            SetPrivateField(condition, "requireAlive", true);
+            return condition;
+        }
+
+        private static StageZoneRegionDefinition CreateRegion(int minX, int minY, int maxX, int maxY)
+        {
+            return new StageZoneRegionDefinition
+            {
+                MinInclusive = new Vector2Int(minX, minY),
+                MaxInclusive = new Vector2Int(maxX, maxY),
             };
         }
 
