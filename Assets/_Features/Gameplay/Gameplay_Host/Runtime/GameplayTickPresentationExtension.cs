@@ -1,5 +1,6 @@
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
+using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
@@ -47,6 +48,11 @@ namespace Game.Feature.Gameplay.Host
         void UpdatePresentation(float deltaTime);
 
         void HardCleanup();
+    }
+
+    public interface IGameplayOutputCameraPresentationExtension
+    {
+        void ConfigureOutputCamera(Camera outputCamera, Transform localSpaceRoot);
     }
 
     public interface IGameplayPresentationMigrationGate

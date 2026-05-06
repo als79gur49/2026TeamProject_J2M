@@ -279,6 +279,13 @@ namespace Game.Feature.Gameplay.Vfx.Host
             Transform.localPosition = sample.LocalPosition;
             Transform.localRotation = sample.LocalRotation;
 
+            if (command.FadeMode == ParameterizedMotionVfxFadeMode.LegacyEnemyDeath)
+            {
+                Transform.localScale = Vector3.one * Mathf.Lerp(1f, 0.88f, sample.NormalizedTime);
+                activeMaterialInstances?.ApplyAlpha(1f - (sample.FadeProgress * sample.FadeProgress));
+                return;
+            }
+
             if (sample.FadeProgress <= 0f)
             {
                 ApplyFadeState(command, scaleProgress: 0f, alpha: 1f);

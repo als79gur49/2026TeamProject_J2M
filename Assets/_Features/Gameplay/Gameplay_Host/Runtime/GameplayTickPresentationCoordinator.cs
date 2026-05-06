@@ -41,6 +41,7 @@ namespace Game.Feature.Gameplay.Host
         private EnemyPresentationCatalog _enemyPresentationCatalog;
         private GameplayTimingProfile _timingProfile;
         private GameplayEntityViewBinder _viewBinder;
+        private Camera _outputCamera;
         private Action<string> _traceSink;
 
         public GameplayTickPresentationCoordinator()
@@ -178,8 +179,10 @@ namespace Game.Feature.Gameplay.Host
 
         public void AttachOutputCamera(Camera outputCamera)
         {
+            _outputCamera = outputCamera;
             _transientEffectPresenter.ConfigureOutputCamera(outputCamera);
             _planner.ConfigureOutputCamera(outputCamera, _viewBinder != null ? _viewBinder.SearchRoot : null);
+            ConfigureOutputCameraPresentationExtensions();
         }
 
         public void AttachPresentationExtension(IGameplayTickPresentationExtension extension)
@@ -192,6 +195,12 @@ namespace Game.Feature.Gameplay.Host
 
             _presentationExtensions.Add(extension);
             extension.ResetSession();
+            if (extension is IGameplayOutputCameraPresentationExtension outputCameraExtension)
+            {
+                outputCameraExtension.ConfigureOutputCamera(
+                    _outputCamera,
+                    _viewBinder != null ? _viewBinder.SearchRoot : null);
+            }
         }
 
         public void DetachPresentationExtension(IGameplayTickPresentationExtension extension)
@@ -447,6 +456,19 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
                 _presentationExtensions[i]?.UpdatePresentation(deltaTime);
+            }
+        }
+
+        private void ConfigureOutputCameraPresentationExtensions()
+        {
+            for (var i = 0; i < _presentationExtensions.Count; i++)
+            {
+                if (_presentationExtensions[i] is IGameplayOutputCameraPresentationExtension outputCameraExtension)
+                {
+                    outputCameraExtension.ConfigureOutputCamera(
+                        _outputCamera,
+                        _viewBinder != null ? _viewBinder.SearchRoot : null);
+                }
             }
         }
 

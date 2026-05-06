@@ -10,6 +10,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         ScaleAndAlpha = 1,
         ScaleOnly = 2,
         AlphaOnly = 3,
+        LegacyEnemyDeath = 4,
     }
 
     public enum ParameterizedMotionVfxCloneMode
@@ -23,6 +24,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
     {
         FlipArc = 0,
         Linear = 1,
+        LegacyEnemyDeathFlyAway = 2,
     }
 
     public readonly struct ParameterizedMotionVfxCommand
@@ -42,7 +44,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
             float fadeDurationSeconds,
             ParameterizedMotionVfxFadeMode fadeMode,
             ParameterizedMotionVfxCloneMode cloneMode,
-            ParameterizedMotionVfxSamplerMode samplerMode = ParameterizedMotionVfxSamplerMode.FlipArc)
+            ParameterizedMotionVfxSamplerMode samplerMode = ParameterizedMotionVfxSamplerMode.FlipArc,
+            Vector3 arcLocalDirection = default,
+            float spinDegrees = 0f,
+            Vector3 spinAxisLocal = default)
         {
             CueId = cueId;
             SourceEntityId = sourceEntityId;
@@ -59,6 +64,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
             FadeMode = fadeMode;
             CloneMode = cloneMode;
             SamplerMode = samplerMode;
+            ArcLocalDirection = arcLocalDirection;
+            SpinDegrees = spinDegrees;
+            SpinAxisLocal = spinAxisLocal;
         }
 
         public GameplayVfxCueId CueId { get; }
@@ -90,6 +98,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public ParameterizedMotionVfxCloneMode CloneMode { get; }
 
         public ParameterizedMotionVfxSamplerMode SamplerMode { get; }
+
+        public Vector3 ArcLocalDirection { get; }
+
+        public float SpinDegrees { get; }
+
+        public Vector3 SpinAxisLocal { get; }
 
         internal GameplayEntityPose SourcePose => new(SourceLocalPosition, SourceLocalRotation);
 
@@ -141,7 +155,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             float elapsedSeconds,
             float normalizedTime)
         {
-            if (elapsedSeconds >= command.DurationSeconds)
+            if (elapsedSeconds >= command.DurationSeconds &&
+                command.SamplerMode != ParameterizedMotionVfxSamplerMode.LegacyEnemyDeathFlyAway)
             {
                 return command.TargetPose;
             }
@@ -152,6 +167,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     return new GameplayEntityPose(
                         Vector3.Lerp(command.SourceLocalPosition, command.TargetLocalPosition, normalizedTime),
                         Quaternion.Slerp(command.SourceLocalRotation, command.TargetLocalRotation, normalizedTime));
+                case ParameterizedMotionVfxSamplerMode.LegacyEnemyDeathFlyAway:
+                    return SampleLegacyEnemyDeathFlyAway(command, normalizedTime);
                 case ParameterizedMotionVfxSamplerMode.FlipArc:
                     return FlipArcSampler.Sample(
                         command.SourcePose,
@@ -165,6 +182,23 @@ namespace Game.Feature.Gameplay.Vfx.Host
                         normalizedTime,
                         command.ArcHeight);
             }
+        }
+
+        private static GameplayEntityPose SampleLegacyEnemyDeathFlyAway(
+            in ParameterizedMotionVfxCommand command,
+            float normalizedTime)
+        {
+            var easedTime = 1f - Mathf.Pow(1f - normalizedTime, 3f);
+            var arcLocalDirection = command.ArcLocalDirection.sqrMagnitude > 0.000001f
+                ? command.ArcLocalDirection.normalized
+                : Vector3.up;
+            var spinAxisLocal = command.SpinAxisLocal.sqrMagnitude > 0.000001f
+                ? command.SpinAxisLocal.normalized
+                : Vector3.forward;
+            var arcOffset = arcLocalDirection * (command.ArcHeight * Mathf.Sin(normalizedTime * Mathf.PI));
+            return new GameplayEntityPose(
+                Vector3.LerpUnclamped(command.SourceLocalPosition, command.TargetLocalPosition, easedTime) + arcOffset,
+                Quaternion.AngleAxis(command.SpinDegrees * easedTime, spinAxisLocal) * command.SourceLocalRotation);
         }
 
         private static float SampleFadeProgress(

@@ -52,6 +52,7 @@ namespace Game.Feature.Gameplay.Vfx
         JumperLandingDust = 12,
         FrontFaceShieldActive = 13,
         FrontFaceShieldBlock = 14,
+        DeathMotion = 15,
     }
 
     public enum TileFeatureVfxCue
