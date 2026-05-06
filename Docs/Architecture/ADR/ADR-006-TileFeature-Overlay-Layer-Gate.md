@@ -92,8 +92,20 @@ MoonBlock:
 - A stage may have at most one initial MoonBlock spawn.
 - MoonBlock must carry `Push | Flip | Destroy` capability.
 - `MoonBlockOnly` selector is identity-based and must not re-check Push capability. Push/Flip/Destroy capability is guaranteed by stage validation.
-- `HasMoonBlockSpawn` currently means initial MoonBlock spawn. If MoonBlockGenerator is added later, rename or extend this to `HasMoonBlockSource` or `HasMoonBlockProvider`.
+- `HasMoonBlockSource` currently means an initial MoonBlock spawn. MoonBlockGenerator MVP uses that spawn as its stable id/template source.
+- Generator-only MoonBlock templates are intentionally closed until a later authoring policy is defined.
 - `WorldSnapshot.TryGetBoxArchetypeAt(Vector2Int, ...)` is legacy/convenience only. TileFeature and MoonBlock selector code must use the `SurfaceCell` overload.
+
+MoonBlockGenerator:
+
+- MoonBlockGenerator respawn is gameplay-only in this phase.
+- MoonBlockGenerator does not emit `MoonBlockGenerated` or `MoonBlockGeneratorBlocked` presentation events yet.
+- MoonBlockGenerator must use `BottomFaceOnly`, `Direction2D.None`, and `TileFeatureBoxSelector.None`.
+- MoonBlockGenerator reuses the bound initial MoonBlock entity id and respawn template.
+- Unit/player/enemy occupants defer MoonBlockGenerator respawn.
+- Projectile occupants do not block MoonBlockGenerator respawn.
+- Normal Box occupants are detached/marked before the bound MoonBlock respawns.
+- TickPipeline must not run MoonBlockGenerator prefab, audio, UI, or visual work.
 
 DestroyTile:
 
