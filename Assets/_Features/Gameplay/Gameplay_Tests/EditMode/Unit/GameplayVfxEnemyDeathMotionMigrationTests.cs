@@ -25,7 +25,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string MotionBindingPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/EnemyDeathMotion_Binding.asset";
         private const string CommandPath =
-            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/EnemyDeath/EnemyDeathMotionVfxCommand.cs";
+            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/EnemyDeathMotionVfxCommandBuilder.cs";
         private const string ProductionRuntimePath =
             "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/GameplayVfxProductionRuntime.cs";
 

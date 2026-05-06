@@ -26,7 +26,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string SlideTrailBindingPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/BoxSlideDustTrail_Binding.asset";
         private const string CommandBuilderPath =
-            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/ParameterizedMotion/BoxSlideTrailVfxCommandBuilder.cs";
+            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/BoxSlideTrailVfxCommandBuilder.cs";
         private const string ParameterizedMotionCommandPath =
             "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/ParameterizedMotion/ParameterizedMotionVfxCommand.cs";
         private const string VfxEnumsPath =

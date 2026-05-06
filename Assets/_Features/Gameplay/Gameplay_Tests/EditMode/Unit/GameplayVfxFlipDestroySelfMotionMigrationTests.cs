@@ -25,7 +25,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string MotionBindingPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/FlipDestroySelfMotion_Binding.asset";
         private const string CommandPath =
-            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/FlipImpact/FlipDestroySelfMotionVfxCommand.cs";
+            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/FlipDestroySelfMotionVfxCommandBuilder.cs";
         private const string ProductionRuntimePath =
             "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/GameplayVfxProductionRuntime.cs";
         private const string ExitControllerPath =
