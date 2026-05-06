@@ -940,6 +940,46 @@ Host default map owner is future gameplay host presentation config. Player, Box,
 
 This stage only proves conversion and resolver composition. It does not expose host default maps in scene inspectors, add `GameplaySceneHostConfiguration` fields, add `StagePresentationDefinition` fields, or attach VFX profiles to entity prefabs.
 
+## Gameplay VFX Flag Rollout Policy
+
+Production runtime defaults are default false first. A new Gameplay VFX flag may be enabled in scene-local review/showcase authoring, but `GameplayVfxProductionRuntime` code defaults remain production-safe until manual visual validation approves the specific cue, flag combination, and legacy fallback behavior.
+
+Migration flags own only their documented legacy presenter bypass. When a migration flag is on and its binding, prefab, anchor, source pose, or target context is missing, the new path reports diagnostic/no-op and does not fall back to the old presenter path. Rollback remains setting the migration flag false while keeping the old presenter and migration gate in place.
+
+Augmentation flags do not own legacy fallback or suppress gates. They may add Gameplay VFX lane playback alongside existing presentation behavior, but missing binding remains diagnostic/no-op and must not create a new old-path ownership rule.
+
+High-risk parameterized motion and clone/source-view VFX require manual visual validation before any default-on rollout. `EnableGameplayVfxEnemyDeathMotionMigration`, `EnableGameplayVfxFlipDestroySelfMotionMigration`, and dense motion augmentations such as `EnableGameplayVfxBoxSlideTrail` stay production default false until visual approval covers camera direction, clone parity, density, and combined cue polish.
+
+Scene-local overrides are separate from runtime defaults:
+
+- `Assets/Scenes/CombinedGameplayShowcase.unity` is a jump VFX showcase/review override with `EnableEnemyJumpTargetVfx` and `EnableEnemyJumpLandingDustVfx` on; other flags use production defaults unless explicitly added for review.
+- `Assets/Scenes/UIAudioScene.unity` is an explicit visual review/showcase override with all current Gameplay VFX flags on; this is not production default policy.
+- `Assets/Scenes/TutorialScene.unity` remains production-safe/off for Gameplay VFX flags.
+
+Enemy death suppress ownership is fixed. `EnableGameplayVfxEnemyDeathMotionMigration` owns `SuppressLegacyEnemyDeathEffects`; `EnableGameplayVfxEnemyDeathBurstMigration` does not suppress the old enemy death fly-away. The supported combinations remain:
+
+- burst off / motion off: old fly-away only.
+- burst on / motion off: old fly-away plus `EnemyVfxCue.Death`.
+- burst off / motion on: `EnemyVfxCue.DeathMotion` only.
+- burst on / motion on: `EnemyVfxCue.DeathMotion` plus `EnemyVfxCue.Death`.
+
+| Flag | Cue | Rollout tier | Default policy | Scene override policy | Notes |
+|---|---|---|---|---|---|
+| `EnableEnemyJumpTargetVfx` | `EnemyVfxCue.JumperLandingTarget` | Showcase-on / production-review | Runtime default false | On in `CombinedGameplayShowcase.unity` and `UIAudioScene.unity` | New production cue; keep production off until review. |
+| `EnableEnemyJumpLandingDustVfx` | `EnemyVfxCue.JumperLandingDust` | Safe default-on candidate | Runtime default false | On in `CombinedGameplayShowcase.unity` and `UIAudioScene.unity` | Augmentation; candidate only, no default change in rollout slice. |
+| `EnableGameplayVfxDamageBurstMigration` | `PlayerVfxCue.Damage` | Safe default-on candidate | Runtime default false | On in `UIAudioScene.unity` | Migration; suppresses old player hit effects only while flag is on. |
+| `EnableGameplayVfxEnemyDamageBurstMigration` | `EnemyVfxCue.Damage` | Safe default-on candidate | Runtime default false | On in `UIAudioScene.unity` | Augmentation-style lane slice; no legacy suppress gate. |
+| `EnableGameplayVfxBoxDestroySmokeMigration` | `BoxVfxCue.DestroySmoke` | Safe default-on candidate | Runtime default false | On in `UIAudioScene.unity` | Migration; suppresses old box destroy smoke only while flag is on. |
+| `EnableGameplayVfxItemConsumeBurstMigration` | `BoxVfxCue.ItemConsume` | Safe default-on candidate | Runtime default false | On in `UIAudioScene.unity` | Migration; suppresses old item consume effects only while flag is on. |
+| `EnableGameplayVfxEnemyDeathBurstMigration` | `EnemyVfxCue.Death` | Keep-off for combo review | Runtime default false | On in `UIAudioScene.unity` | Burst does not suppress old fly-away; review with DeathMotion combinations. |
+| `EnableGameplayVfxEnemyDeathMotionMigration` | `EnemyVfxCue.DeathMotion` | Keep-off until visual approval | Runtime default false | On in `UIAudioScene.unity` | High-risk parameterized motion; owns old enemy death fly-away suppress. |
+| `EnableGameplayVfxUtilityWindupMigration` | `EnemyVfxCue.UtilityWindup` | Showcase-on / production-review | Runtime default false | On in `UIAudioScene.unity` | Persistent migration; no old fallback when binding is missing. |
+| `EnableGameplayVfxFrontFaceShieldActiveMigration` | `EnemyVfxCue.FrontFaceShieldActive` | Showcase-on / production-review | Runtime default false | On in `UIAudioScene.unity` | Persistent migration; validate readability before default-on. |
+| `EnableGameplayVfxFrontFaceShieldBlockMigration` | `EnemyVfxCue.FrontFaceShieldBlock` | Showcase-on / production-review | Runtime default false | On in `UIAudioScene.unity` | Migration; validate block timing/readability before default-on. |
+| `EnableGameplayVfxFlipImpactBurstMigration` | `BoxVfxCue.FlipImpactBurst` | Showcase-on / production-review | Runtime default false | On in `UIAudioScene.unity` | Migration; validate flip impact scene polish before default-on. |
+| `EnableGameplayVfxFlipDestroySelfMotionMigration` | `BoxVfxCue.FlipDestroySelfMotion` | Keep-off until visual approval | Runtime default false | On in `UIAudioScene.unity` | High-risk parameterized clone motion; no default true without manual approval. |
+| `EnableGameplayVfxBoxSlideTrail` | `BoxVfxCue.SlideDustTrail` | Showcase-on / production-review | Runtime default false | On in `UIAudioScene.unity` | Parameterized motion augmentation; no legacy suppress gate, review density first. |
+
 ## Binding Asset Ownership
 
 `VfxBindingDefinitionAsset` owns a single cue binding's prefab reference, requirement policy, missing-anchor policy, playback mode, stop policy, lifetime, tail, and pool-sizing hints. `VfxBindingRuntimePolicy` remains Unity-object-free and is the runtime execution policy snapshot.
