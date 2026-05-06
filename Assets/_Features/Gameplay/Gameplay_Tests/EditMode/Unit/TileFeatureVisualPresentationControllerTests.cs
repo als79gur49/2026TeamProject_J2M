@@ -73,6 +73,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void SlideTileRedirectedRequest_WithSupportedTargetView_CallsPlaySlideTileRedirectedOnce()
+        {
+            var rootObject = new GameObject(nameof(SlideTileRedirectedRequest_WithSupportedTargetView_CallsPlaySlideTileRedirectedOnce));
+            var targetObject = new GameObject("SlideTileVisualTarget");
+            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+
+            try
+            {
+                var cell = new SurfaceCell(FaceId.Front, 1, 1);
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+                target.Configure(100, cell);
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(registry);
+
+                controller.PlayRequests(new[] { CreateSlideRequest(100, cell, Direction.Up, targetEntityId: 20) });
+
+                Assert.That(target.DebugPlaySlideTileRedirectedCount, Is.EqualTo(1));
+                Assert.That(target.DebugLastSlideTileDirection, Is.EqualTo(Direction.Up));
+                Assert.That(target.DebugLastSlideTileTargetEntityId, Is.EqualTo(20));
+                Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
+                Assert.That(target.DebugPlayDestroyTileTriggeredCount, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void ButtonActivatedRequest_MissingTarget_NoOpsWithOptionalDiagnostic()
         {
             var diagnostics = new List<string>();
@@ -102,6 +134,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(target.PlayCount, Is.Zero);
             Assert.That(diagnostics, Has.Count.EqualTo(1));
             Assert.That(diagnostics[0], Does.Contain("unsupported DestroyTileTriggered"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SlideTileRedirectedRequest_UnsupportedTarget_NoOpsWithOptionalDiagnostic()
+        {
+            var diagnostics = new List<string>();
+            var cell = new SurfaceCell(FaceId.Front, 1, 1);
+            var target = new RecordingTarget(100, cell);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(new RecordingRegistry(target));
+            controller.SetDiagnosticSink(diagnostics.Add);
+
+            controller.PlayRequests(new[] { CreateSlideRequest(100, cell, Direction.Up, targetEntityId: 20) });
+
+            Assert.That(target.PlayCount, Is.Zero);
+            Assert.That(diagnostics, Has.Count.EqualTo(1));
+            Assert.That(diagnostics[0], Does.Contain("unsupported SlideTileRedirected"));
         }
 
         [Test]
@@ -202,6 +252,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
             });
 
             Assert.That(target.DestroyPlayCount, Is.EqualTo(2));
+            Assert.That(registry.LookupOrder.ToArray(), Is.EqualTo(new[] { 100, 100 }));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void DuplicateSlideTileRequests_AreNotDeduped()
+        {
+            var cell = new SurfaceCell(FaceId.Front, 1, 1);
+            var target = new RecordingSlideTarget(100, cell);
+            var registry = new RecordingRegistry(target);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(registry);
+
+            controller.PlayRequests(new[]
+            {
+                CreateSlideRequest(target.TileId, target.Cell, Direction.Up, targetEntityId: 20),
+                CreateSlideRequest(target.TileId, target.Cell, Direction.Left, targetEntityId: 30),
+            });
+
+            Assert.That(target.SlidePlayCount, Is.EqualTo(2));
+            Assert.That(target.LastDirection, Is.EqualTo(Direction.Left));
+            Assert.That(target.LastTargetEntityId, Is.EqualTo(30));
             Assert.That(registry.LookupOrder.ToArray(), Is.EqualTo(new[] { 100, 100 }));
         }
 
@@ -354,6 +426,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 targetEntityId: tileId + 4);
         }
 
+        private static TilePresentationRequest CreateSlideRequest(
+            int tileId,
+            SurfaceCell cell,
+            Direction direction,
+            int targetEntityId)
+        {
+            return new TilePresentationRequest(
+                TilePresentationRequestKind.SlideTileRedirected,
+                tileId,
+                cell,
+                TileFeatureKind.Slide,
+                sourceEntityId: tileId + 1,
+                ownerEntityId: tileId + 2,
+                teamId: tileId + 3,
+                targetEntityId: targetEntityId,
+                direction: direction);
+        }
+
         private static void InvokeStageTileFeatureVisualInstantiation(
             IReadOnlyList<TileFeaturePresentationResolvedBinding> bindings,
             IReadOnlyList<TileFeatureState> initialTileFeatures,
@@ -447,6 +537,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public void PlayDestroyTileTriggered()
             {
                 DestroyPlayCount++;
+            }
+        }
+
+        private sealed class RecordingSlideTarget : ITileFeatureVisualTarget, ISlideTileVisualTarget
+        {
+            public RecordingSlideTarget(int tileId, SurfaceCell cell)
+            {
+                TileId = tileId;
+                Cell = cell;
+            }
+
+            public int TileId { get; }
+
+            public SurfaceCell Cell { get; }
+
+            public int ButtonPlayCount { get; private set; }
+
+            public int SlidePlayCount { get; private set; }
+
+            public Direction LastDirection { get; private set; }
+
+            public int LastTargetEntityId { get; private set; }
+
+            public void PlayButtonActivated()
+            {
+                ButtonPlayCount++;
+            }
+
+            public void PlaySlideTileRedirected(Direction direction, int targetEntityId)
+            {
+                SlidePlayCount++;
+                LastDirection = direction;
+                LastTargetEntityId = targetEntityId;
             }
         }
     }

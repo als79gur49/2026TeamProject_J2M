@@ -35,6 +35,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(request.OwnerEntityId, Is.EqualTo(40));
             Assert.That(request.TeamId, Is.EqualTo(2));
             Assert.That(request.TargetEntityId, Is.Zero);
+            Assert.That(request.Direction, Is.EqualTo(Direction.None));
         }
 
         [Test]
@@ -65,6 +66,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(request.OwnerEntityId, Is.EqualTo(40));
             Assert.That(request.TeamId, Is.EqualTo(2));
             Assert.That(request.TargetEntityId, Is.EqualTo(50));
+            Assert.That(request.Direction, Is.EqualTo(Direction.None));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BuildRequests_SlideTileRedirected_PreservesPresentationFactsAndDirection()
+        {
+            var cell = new SurfaceCell(FaceId.Front, 2, 3);
+            var tileEvent = new TilePresentationEvent(
+                TilePresentationEventKind.SlideTileRedirected,
+                100,
+                cell,
+                TileFeatureKind.Slide,
+                30,
+                40,
+                2,
+                targetEntityId: 50,
+                direction: Direction.Up);
+            var planner = new TilePresentationRequestPlanner();
+
+            var requests = planner.BuildRequests(CreatePresentationData(tileEvent));
+
+            Assert.That(requests, Has.Count.EqualTo(1));
+            var request = requests[0];
+            Assert.That(request.RequestKind, Is.EqualTo(TilePresentationRequestKind.SlideTileRedirected));
+            Assert.That(request.TileId, Is.EqualTo(100));
+            Assert.That(request.Cell, Is.EqualTo(cell));
+            Assert.That(request.TileFeatureKind, Is.EqualTo(TileFeatureKind.Slide));
+            Assert.That(request.SourceEntityId, Is.EqualTo(30));
+            Assert.That(request.OwnerEntityId, Is.EqualTo(40));
+            Assert.That(request.TeamId, Is.EqualTo(2));
+            Assert.That(request.TargetEntityId, Is.EqualTo(50));
+            Assert.That(request.Direction, Is.EqualTo(Direction.Up));
         }
 
         [Test]
@@ -74,12 +108,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var planner = new TilePresentationRequestPlanner();
             var presentationData = CreatePresentationData(
                 CreateButtonActivatedEvent(30, new SurfaceCell(FaceId.Floor, 0, 0)),
-                CreateButtonActivatedEvent(10, new SurfaceCell(FaceId.Floor, 1, 0)),
+                new TilePresentationEvent(
+                    TilePresentationEventKind.SlideTileRedirected,
+                    10,
+                    new SurfaceCell(FaceId.Floor, 1, 0),
+                    TileFeatureKind.Slide,
+                    0,
+                    0,
+                    0,
+                    targetEntityId: 50,
+                    direction: Direction.Up),
                 CreateButtonActivatedEvent(20, new SurfaceCell(FaceId.Front, 0, 1)));
 
             var requests = planner.BuildRequests(presentationData);
 
             Assert.That(requests.Select(request => request.TileId).ToArray(), Is.EqualTo(new[] { 30, 10, 20 }));
+            Assert.That(
+                requests.Select(request => request.RequestKind).ToArray(),
+                Is.EqualTo(new[]
+                {
+                    TilePresentationRequestKind.ButtonActivated,
+                    TilePresentationRequestKind.SlideTileRedirected,
+                    TilePresentationRequestKind.ButtonActivated,
+                }));
         }
 
         [Test]

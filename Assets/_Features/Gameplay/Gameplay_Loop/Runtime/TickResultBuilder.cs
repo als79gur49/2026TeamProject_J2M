@@ -672,7 +672,13 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             var ownerCompare = left.OwnerEntityId.CompareTo(right.OwnerEntityId);
-            return ownerCompare != 0 ? ownerCompare : left.TeamId.CompareTo(right.TeamId);
+            if (ownerCompare != 0)
+            {
+                return ownerCompare;
+            }
+
+            var teamCompare = left.TeamId.CompareTo(right.TeamId);
+            return teamCompare != 0 ? teamCompare : left.Direction.CompareTo(right.Direction);
         }
 
         private static int CompareSurfaceCells(SurfaceCell left, SurfaceCell right)

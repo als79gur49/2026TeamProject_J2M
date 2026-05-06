@@ -21,6 +21,11 @@ namespace Game.Feature.Gameplay.Host
         void PlayDestroyTileTriggered();
     }
 
+    public interface ISlideTileVisualTarget
+    {
+        void PlaySlideTileRedirected(Direction direction, int targetEntityId);
+    }
+
     public interface ITileFeatureVisualTargetConfigurator
     {
         void ConfigureTileFeature(int tileId, SurfaceCell cell);

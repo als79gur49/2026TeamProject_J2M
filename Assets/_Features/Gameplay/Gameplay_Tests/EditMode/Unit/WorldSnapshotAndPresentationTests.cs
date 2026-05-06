@@ -111,6 +111,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 ownerEntityId: 0,
                 teamId: 0,
                 targetEntityId: 30);
+            var slideEvent = new TilePresentationEvent(
+                TilePresentationEventKind.SlideTileRedirected,
+                300,
+                destroyCell,
+                TileFeatureKind.Slide,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0,
+                targetEntityId: 40,
+                direction: Direction.Up);
 
             var presentationData = new TickPresentationDataBuilder().Build(
                 new TickPresentationBuildContext(
@@ -121,14 +131,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     MovementPhaseResult.Empty,
                     AttackPhaseResult.Empty,
                     CleanupFixtureFactory.None(),
-                    tileEvents: new[] { destroyEvent }));
+                    tileEvents: new[] { slideEvent, destroyEvent }));
 
-            Assert.That(presentationData.TileEvents, Has.Count.EqualTo(2));
+            Assert.That(presentationData.TileEvents, Has.Count.EqualTo(3));
             Assert.That(
                 presentationData.TileEvents.Select(tileEvent => tileEvent.EventKind).ToArray(),
-                Is.EqualTo(new[] { TilePresentationEventKind.DestroyTileTriggered, TilePresentationEventKind.ButtonActivated }));
+                Is.EqualTo(new[]
+                {
+                    TilePresentationEventKind.DestroyTileTriggered,
+                    TilePresentationEventKind.SlideTileRedirected,
+                    TilePresentationEventKind.ButtonActivated,
+                }));
             Assert.That(presentationData.TileEvents[0].TargetEntityId, Is.EqualTo(30));
-            Assert.That(presentationData.TileEvents[1].TargetEntityId, Is.Zero);
+            Assert.That(presentationData.TileEvents[1].TargetEntityId, Is.EqualTo(40));
+            Assert.That(presentationData.TileEvents[1].Direction, Is.EqualTo(Direction.Up));
+            Assert.That(presentationData.TileEvents[2].TargetEntityId, Is.Zero);
         }
 
         [Test]

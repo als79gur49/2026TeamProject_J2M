@@ -76,13 +76,26 @@ namespace Game.Feature.Gameplay.Host
                     }
 
                     return;
+                case TilePresentationRequestKind.SlideTileRedirected:
+                    if (target is ISlideTileVisualTarget slideTileTarget)
+                    {
+                        slideTileTarget.PlaySlideTileRedirected(request.Direction, request.TargetEntityId);
+                    }
+                    else
+                    {
+                        _diagnosticSink?.Invoke(
+                            $"{nameof(TileFeatureVisualPresentationController)} unsupported SlideTileRedirected visual target for tile {request.TileId}.");
+                    }
+
+                    return;
             }
         }
 
         private static bool IsSupportedVisualRequest(TilePresentationRequestKind requestKind)
         {
             return requestKind == TilePresentationRequestKind.ButtonActivated ||
-                   requestKind == TilePresentationRequestKind.DestroyTileTriggered;
+                   requestKind == TilePresentationRequestKind.DestroyTileTriggered ||
+                   requestKind == TilePresentationRequestKind.SlideTileRedirected;
         }
     }
 }

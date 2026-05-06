@@ -55,6 +55,9 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
                 case TilePresentationRequestKind.DestroyTileTriggered:
                     cue = TileFeatureAudioCue.DestroyTileTriggered;
                     return true;
+                case TilePresentationRequestKind.SlideTileRedirected:
+                    cue = TileFeatureAudioCue.SlideTileRedirected;
+                    return true;
                 default:
                     cue = default;
                     return false;

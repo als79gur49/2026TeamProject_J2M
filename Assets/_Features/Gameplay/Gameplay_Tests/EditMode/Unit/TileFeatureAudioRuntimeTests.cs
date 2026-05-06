@@ -87,6 +87,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void TileFeatureAudioRequestPlanner_SlideTileRedirected_PreservesPayload()
+        {
+            var planner = new TileFeatureAudioRequestPlanner();
+            var cell = new SurfaceCell(FaceId.Front, 2, 3);
+
+            var requests = planner.BuildRequests(new[]
+            {
+                CreateTilePresentationRequest(
+                    100,
+                    cell,
+                    sourceEntityId: 30,
+                    ownerEntityId: 40,
+                    teamId: 2,
+                    requestKind: TilePresentationRequestKind.SlideTileRedirected,
+                    tileFeatureKind: TileFeatureKind.Slide,
+                    targetEntityId: 50),
+            });
+
+            Assert.That(requests, Has.Count.EqualTo(1));
+            Assert.That(requests[0].Cue, Is.EqualTo(TileFeatureAudioCue.SlideTileRedirected));
+            Assert.That(requests[0].TileId, Is.EqualTo(100));
+            Assert.That(requests[0].Cell, Is.EqualTo(cell));
+            Assert.That(requests[0].SourceEntityId, Is.EqualTo(30));
+            Assert.That(requests[0].OwnerEntityId, Is.EqualTo(40));
+            Assert.That(requests[0].TeamId, Is.EqualTo(2));
+            Assert.That(requests[0].Context.OwnerEntityId, Is.EqualTo(40));
+            Assert.That(requests[0].Context.DebugTag, Is.EqualTo("SlideTileRedirected"));
+            Assert.That(requests[0].TargetEntityId, Is.EqualTo(50));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void TileFeatureAudioRequestPlanner_PreservesOrderAndDuplicates_AndSkipsUnknownKinds()
         {
             var planner = new TileFeatureAudioRequestPlanner();
@@ -199,19 +231,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.DoesNotThrow(() => map.ValidateRequiredCuesOrThrow(TileFeatureAudioCueCatalog.RequiredOneShotV1));
             Assert.That(map.ResolveOrThrow(TileFeatureAudioCue.ButtonActivated).Definition.Category, Is.EqualTo(AudioCategory.Sfx));
             Assert.That(map.TryResolveOptional(TileFeatureAudioCue.DestroyTileTriggered, out _), Is.False);
+            Assert.That(map.TryResolveOptional(TileFeatureAudioCue.SlideTileRedirected, out _), Is.False);
         }
 
         [Test]
         [Category("Extended")]
-        public void TileFeatureAudioMap_TryResolveOptional_ReturnsDestroyTileBindingWhenPresent()
+        public void TileFeatureAudioMap_TryResolveOptional_ReturnsOptionalBindingsWhenPresent()
         {
             using var scope = new TestAssetScope();
             var map = scope.CreateMap();
             var binding = scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false));
-            SetEntries(map, (TileFeatureAudioCue.ButtonActivated, scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false))), (TileFeatureAudioCue.DestroyTileTriggered, binding));
+            var slideBinding = scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false));
+            SetEntries(
+                map,
+                (TileFeatureAudioCue.ButtonActivated, scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false))),
+                (TileFeatureAudioCue.DestroyTileTriggered, binding),
+                (TileFeatureAudioCue.SlideTileRedirected, slideBinding));
 
             Assert.That(map.TryResolveOptional(TileFeatureAudioCue.DestroyTileTriggered, out var resolved), Is.True);
             Assert.That(resolved, Is.SameAs(binding));
+            Assert.That(map.TryResolveOptional(TileFeatureAudioCue.SlideTileRedirected, out var resolvedSlide), Is.True);
+            Assert.That(resolvedSlide, Is.SameAs(slideBinding));
         }
 
         [Test]
@@ -275,6 +315,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void TileFeatureAudioPresentationController_SlideTileMissingOptionalBinding_NoOps()
+        {
+            using var scope = new TestAssetScope();
+            var map = scope.CreateMap();
+            SetEntries(map, (TileFeatureAudioCue.ButtonActivated, scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false))));
+            var controller = new TileFeatureAudioPresentationController(new GameplayPresentationStateStore());
+            var playbackPort = new RecordingGameplayAudioPlaybackPort();
+
+            controller.AttachRuntime(playbackPort, map);
+            controller.ReplacePendingPlan(new[]
+            {
+                CreateTileAudioRequest(
+                    30,
+                    ownerEntityId: 0,
+                    cue: TileFeatureAudioCue.SlideTileRedirected,
+                    targetEntityId: 20),
+            });
+            controller.PlayPlannedAudio();
+
+            Assert.That(playbackPort.TwoDCalls, Is.Empty);
+            Assert.That(playbackPort.AttachedCalls, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void TileFeatureAudioPresentationController_DestroyTileBinding_PlaysWhenPresent()
         {
             using var scope = new TestAssetScope();
@@ -301,6 +366,43 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(playbackPort.TwoDCalls, Has.Count.EqualTo(1));
             Assert.That(playbackPort.TwoDCalls[0].Definition, Is.SameAs(definition));
             Assert.That(playbackPort.TwoDCalls[0].Context.DebugTag, Is.EqualTo("DestroyTileTriggered:30"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TileFeatureAudioPresentationController_SlideTileBinding_PlaysDuplicatesWhenPresent()
+        {
+            using var scope = new TestAssetScope();
+            var map = scope.CreateMap();
+            var definition = scope.CreateDefinition(AudioCategory.Sfx, loop: false);
+            SetEntries(
+                map,
+                (TileFeatureAudioCue.ButtonActivated, scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false))),
+                (TileFeatureAudioCue.SlideTileRedirected, scope.CreateBinding(definition)));
+            var controller = new TileFeatureAudioPresentationController(new GameplayPresentationStateStore());
+            var playbackPort = new RecordingGameplayAudioPlaybackPort();
+
+            controller.AttachRuntime(playbackPort, map);
+            controller.ReplacePendingPlan(new[]
+            {
+                CreateTileAudioRequest(
+                    30,
+                    ownerEntityId: 0,
+                    cue: TileFeatureAudioCue.SlideTileRedirected,
+                    targetEntityId: 20),
+                CreateTileAudioRequest(
+                    30,
+                    ownerEntityId: 0,
+                    cue: TileFeatureAudioCue.SlideTileRedirected,
+                    targetEntityId: 20),
+            });
+            controller.PlayPlannedAudio();
+
+            Assert.That(playbackPort.TwoDCalls, Has.Count.EqualTo(2));
+            Assert.That(playbackPort.TwoDCalls.All(call => ReferenceEquals(call.Definition, definition)), Is.True);
+            Assert.That(
+                playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
+                Is.EqualTo(new[] { "SlideTileRedirected:30", "SlideTileRedirected:30" }));
         }
 
         [Test]

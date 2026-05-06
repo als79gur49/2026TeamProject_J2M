@@ -128,7 +128,7 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             var entityOperations = ResolveDestroyTiles(context, out var tileEvents, out var destroyedBoxIds);
-            entityOperations.MergeFrom(ResolveSlideTiles(context, destroyedBoxIds));
+            entityOperations.MergeFrom(ResolveSlideTiles(context, destroyedBoxIds, tileEvents));
 
             return (operations == null || operations.IsEmpty) &&
                    entityOperations.Operations.Count == 0 &&
@@ -223,7 +223,8 @@ namespace Game.Feature.Gameplay.Loop
 
         private static FinalizationBatch ResolveSlideTiles(
             in TileEffectResolutionContext context,
-            HashSet<int> destroyedBoxIds)
+            HashSet<int> destroyedBoxIds,
+            List<TilePresentationEvent> tileEvents)
         {
             var batch = new FinalizationBatch();
             if (context.BoxContacts.Count == 0)
@@ -266,6 +267,16 @@ namespace Game.Feature.Gameplay.Loop
                             contact.BoxEntityId,
                             redirectDirection,
                             CreateSlideTileRedirectMetadata(context.TickIndex, contact.BoxEntityId, contact.Cell));
+                        tileEvents.Add(new TilePresentationEvent(
+                            TilePresentationEventKind.SlideTileRedirected,
+                            tileFeature.TileId,
+                            tileFeature.Cell,
+                            tileFeature.Kind,
+                            tileFeature.SourceEntityId,
+                            tileFeature.OwnerEntityId,
+                            tileFeature.TeamId,
+                            targetEntityId: contact.BoxEntityId,
+                            direction: redirectDirection));
                     }
 
                     redirectedBoxIds.Add(contact.BoxEntityId);

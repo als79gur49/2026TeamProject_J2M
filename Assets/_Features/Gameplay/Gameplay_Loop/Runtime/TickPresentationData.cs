@@ -37,6 +37,7 @@ namespace Game.Feature.Gameplay.Loop
         None = 0,
         ButtonActivated = 1,
         DestroyTileTriggered = 2,
+        SlideTileRedirected = 3,
     }
 
     public readonly struct TilePresentationEvent
@@ -49,7 +50,8 @@ namespace Game.Feature.Gameplay.Loop
             int sourceEntityId,
             int ownerEntityId,
             int teamId,
-            int targetEntityId = 0)
+            int targetEntityId = 0,
+            Direction direction = Direction.None)
         {
             EventKind = eventKind;
             TileId = tileId;
@@ -59,6 +61,7 @@ namespace Game.Feature.Gameplay.Loop
             OwnerEntityId = ownerEntityId;
             TeamId = teamId;
             TargetEntityId = targetEntityId;
+            Direction = direction;
         }
 
         public TilePresentationEventKind EventKind { get; }
@@ -76,6 +79,8 @@ namespace Game.Feature.Gameplay.Loop
         public int TeamId { get; }
 
         public int TargetEntityId { get; }
+
+        public Direction Direction { get; }
     }
 
     public readonly struct TickEntityMotion

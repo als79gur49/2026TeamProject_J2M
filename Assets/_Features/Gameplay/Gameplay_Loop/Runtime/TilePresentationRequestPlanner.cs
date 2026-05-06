@@ -8,6 +8,7 @@ namespace Game.Feature.Gameplay.Loop
     {
         ButtonActivated = 0,
         DestroyTileTriggered = 1,
+        SlideTileRedirected = 2,
     }
 
     public readonly struct TilePresentationRequest
@@ -20,7 +21,8 @@ namespace Game.Feature.Gameplay.Loop
             int sourceEntityId,
             int ownerEntityId,
             int teamId,
-            int targetEntityId = 0)
+            int targetEntityId = 0,
+            Direction direction = Direction.None)
         {
             RequestKind = requestKind;
             TileId = tileId;
@@ -30,6 +32,7 @@ namespace Game.Feature.Gameplay.Loop
             OwnerEntityId = ownerEntityId;
             TeamId = teamId;
             TargetEntityId = targetEntityId;
+            Direction = direction;
         }
 
         public TilePresentationRequestKind RequestKind { get; }
@@ -47,6 +50,8 @@ namespace Game.Feature.Gameplay.Loop
         public int TeamId { get; }
 
         public int TargetEntityId { get; }
+
+        public Direction Direction { get; }
     }
 
     public sealed class TilePresentationRequestPlanner
@@ -81,7 +86,8 @@ namespace Game.Feature.Gameplay.Loop
                     tileEvent.SourceEntityId,
                     tileEvent.OwnerEntityId,
                     tileEvent.TeamId,
-                    tileEvent.TargetEntityId));
+                    tileEvent.TargetEntityId,
+                    tileEvent.Direction));
             }
 
             return requests.Count == 0 ? Array.Empty<TilePresentationRequest>() : requests;
@@ -98,6 +104,9 @@ namespace Game.Feature.Gameplay.Loop
                     return true;
                 case TilePresentationEventKind.DestroyTileTriggered:
                     requestKind = TilePresentationRequestKind.DestroyTileTriggered;
+                    return true;
+                case TilePresentationEventKind.SlideTileRedirected:
+                    requestKind = TilePresentationRequestKind.SlideTileRedirected;
                     return true;
                 default:
                     requestKind = default;

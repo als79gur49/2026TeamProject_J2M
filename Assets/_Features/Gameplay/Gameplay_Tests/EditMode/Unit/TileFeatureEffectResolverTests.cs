@@ -553,6 +553,67 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(result.EntityOperations.Operations[0].Kind, Is.EqualTo(FinalizationOperationKind.SetFacing));
             Assert.That(result.EntityOperations.Operations[0].EntityId, Is.EqualTo(20));
             Assert.That(result.EntityOperations.Operations[0].Facing, Is.EqualTo(Direction.Up));
+            Assert.That(result.TileEvents, Has.Count.EqualTo(1));
+            var tileEvent = result.TileEvents[0];
+            Assert.That(tileEvent.EventKind, Is.EqualTo(TilePresentationEventKind.SlideTileRedirected));
+            Assert.That(tileEvent.TileId, Is.EqualTo(100));
+            Assert.That(tileEvent.Cell, Is.EqualTo(cell));
+            Assert.That(tileEvent.TileFeatureKind, Is.EqualTo(TileFeatureKind.Slide));
+            Assert.That(tileEvent.TargetEntityId, Is.EqualTo(20));
+            Assert.That(tileEvent.Direction, Is.EqualTo(Direction.Up));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SlideTile_AlreadyFacingRedirectDirection_CreatesNoOperationOrEvent()
+        {
+            var cell = new SurfaceCell(FaceId.Front, 1, 1);
+            var snapshot = CreateWorldState(
+                    new[] { CreateBox(20, cell, state: EntityPhaseState.Sliding, facing: Direction.Up) },
+                    new[] { CreateTileFeature(100, cell, TileFeatureKind.Slide) })
+                .CreateSnapshot();
+
+            var result = Resolve(
+                snapshot,
+                new[] { new TileEffectBoxContact(20, cell, TileEffectBoxContactKind.PushEnter) },
+                CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, direction: Direction2D.Up, selector: TileFeatureBoxSelector.None));
+
+            Assert.That(result.IsEmpty, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SlideTile_MultipleRedirects_ProduceDeterministicEventOrder()
+        {
+            var firstCell = new SurfaceCell(FaceId.Front, 0, 1);
+            var secondCell = new SurfaceCell(FaceId.Front, 1, 1);
+            var snapshot = CreateWorldState(
+                    new[]
+                    {
+                        CreateBox(20, secondCell, state: EntityPhaseState.Sliding),
+                        CreateBox(30, firstCell, state: EntityPhaseState.Sliding),
+                    },
+                    new[]
+                    {
+                        CreateTileFeature(200, secondCell, TileFeatureKind.Slide),
+                        CreateTileFeature(100, firstCell, TileFeatureKind.Slide),
+                    })
+                .CreateSnapshot();
+
+            var result = Resolve(
+                snapshot,
+                new[]
+                {
+                    new TileEffectBoxContact(20, secondCell, TileEffectBoxContactKind.PushEnter),
+                    new TileEffectBoxContact(30, firstCell, TileEffectBoxContactKind.PushEnter),
+                },
+                CreateDefinition(200, TileFeatureActivationRule.FrontFaceOnly, direction: Direction2D.Left, selector: TileFeatureBoxSelector.None),
+                CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, direction: Direction2D.Up, selector: TileFeatureBoxSelector.None));
+
+            Assert.That(result.TileEvents, Has.Count.EqualTo(2));
+            Assert.That(result.TileEvents.Select(tileEvent => tileEvent.TileId).ToArray(), Is.EqualTo(new[] { 100, 200 }));
+            Assert.That(result.TileEvents.Select(tileEvent => tileEvent.TargetEntityId).ToArray(), Is.EqualTo(new[] { 30, 20 }));
+            Assert.That(result.TileEvents.Select(tileEvent => tileEvent.Direction).ToArray(), Is.EqualTo(new[] { Direction.Up, Direction.Left }));
         }
 
         [Test]
@@ -663,10 +724,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     attackLogic,
                 });
 
-            pipeline.RunTick(new TickInput(1));
+            var firstResult = pipeline.RunTick(new TickInput(1));
             var firstFinalSnapshot = worldState.CreateSnapshot();
             var firstAttackReadSnapshot = attackLogic.CapturedSnapshots.Last();
 
+            Assert.That(firstResult.PresentationData.TileEvents, Has.Count.EqualTo(1));
+            var slideEvent = firstResult.PresentationData.TileEvents[0];
+            Assert.That(slideEvent.EventKind, Is.EqualTo(TilePresentationEventKind.SlideTileRedirected));
+            Assert.That(slideEvent.TileId, Is.EqualTo(100));
+            Assert.That(slideEvent.Cell, Is.EqualTo(slideCell));
+            Assert.That(slideEvent.TileFeatureKind, Is.EqualTo(TileFeatureKind.Slide));
+            Assert.That(slideEvent.TargetEntityId, Is.EqualTo(20));
+            Assert.That(slideEvent.Direction, Is.EqualTo(Direction.Up));
             Assert.That(firstFinalSnapshot.TryGetEntity(20, out var firstFinalBox), Is.True);
             Assert.That(firstFinalBox.position, Is.EqualTo(slideCell));
             Assert.That(firstFinalBox.facing, Is.EqualTo(Direction.Up));
@@ -744,7 +813,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void DestroyTile_PresentationEvent_DoesNotEnterDeterminismHash()
+        public void TilePresentationEvents_DoNotEnterDeterminismHash()
         {
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
             var snapshot = CreateWorldState(
@@ -779,6 +848,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         ownerEntityId: 0,
                         teamId: 0,
                         targetEntityId: 20),
+                    new TilePresentationEvent(
+                        TilePresentationEventKind.SlideTileRedirected,
+                        200,
+                        cell,
+                        TileFeatureKind.Slide,
+                        sourceEntityId: 0,
+                        ownerEntityId: 0,
+                        teamId: 0,
+                        targetEntityId: 30,
+                        direction: Direction.Up),
                 });
 
             Assert.That(
