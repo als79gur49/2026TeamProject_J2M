@@ -334,7 +334,7 @@ namespace Game.Feature.UI.Screens
             }
 
             var animator = button.GetComponent<Animator>();
-            if (animator == null)
+            if (animator == null || !animator.isActiveAndEnabled || animator.runtimeAnimatorController == null)
             {
                 return;
             }

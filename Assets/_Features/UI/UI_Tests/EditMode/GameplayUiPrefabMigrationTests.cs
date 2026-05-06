@@ -13,6 +13,7 @@ using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.TestTools;
 using UnityEngine.UI;
 
 namespace Game.Feature.UI.Tests
@@ -753,6 +754,33 @@ namespace Game.Feature.UI.Tests
                     isRebinding,
                     rebindingAction,
                     !isRebinding);
+            }
+        }
+
+        [Test]
+        public void SettingsInputView_PlayButtonAnimation_IgnoresAnimatorWithoutController()
+        {
+            var buttonObject = new GameObject(
+                "SettingsInputAnimationGuardButton",
+                typeof(RectTransform),
+                typeof(Button),
+                typeof(Animator));
+
+            try
+            {
+                var button = buttonObject.GetComponent<Button>();
+                var method = typeof(SettingsInputView).GetMethod(
+                    "PlayButtonAnimation",
+                    BindingFlags.Static | BindingFlags.NonPublic);
+
+                Assert.That(method, Is.Not.Null);
+                method.Invoke(null, new object[] { button, button.animationTriggers.highlightedTrigger });
+
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(buttonObject);
             }
         }
 
