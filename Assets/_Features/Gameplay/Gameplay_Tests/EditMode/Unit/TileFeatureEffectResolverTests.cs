@@ -9,6 +9,7 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.Movement.Collection;
+using Game.Feature.Gameplay.Movement.Expansion;
 using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
 using UnityEngine;
@@ -823,6 +824,428 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void BarricadeQuery_ActiveFrontFaceOnlyReturnsBlockerWithoutCreatingSnapshot()
+        {
+            var activeCell = new SurfaceCell(FaceId.Front, 2, 0);
+            var inactiveCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var snapshot = CreateWorldState(
+                    Array.Empty<EntityState>(),
+                    new[]
+                    {
+                        CreateTileFeature(100, activeCell, TileFeatureKind.Barricade),
+                        CreateTileFeature(101, inactiveCell, TileFeatureKind.Barricade),
+                        CreateTileFeature(102, activeCell, TileFeatureKind.Destroy),
+                    })
+                .CreateSnapshot();
+            var definitions = new[]
+            {
+                CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None),
+                CreateDefinition(101, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None),
+                CreateDefinition(102, TileFeatureActivationRule.FrontFaceOnly),
+            };
+
+            SnapshotMaterializationCounts counts;
+            bool activeResult;
+            bool inactiveResult;
+            bool missingDefinitionResult;
+            bool nonBarricadeResult;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                activeResult = TileFeatureBoxBlockerQuery.HasActiveBarricadeBlocker(snapshot, definitions, activeCell);
+                inactiveResult = TileFeatureBoxBlockerQuery.HasActiveBarricadeBlocker(snapshot, definitions, inactiveCell);
+                missingDefinitionResult = TileFeatureBoxBlockerQuery.HasActiveBarricadeBlocker(
+                    snapshot,
+                    new[] { definitions[1], definitions[2] },
+                    activeCell);
+                nonBarricadeResult = TileFeatureBoxBlockerQuery.HasActiveBarricadeBlocker(
+                    snapshot,
+                    new[] { definitions[2] },
+                    activeCell);
+                counts = capture.Counts;
+            }
+
+            Assert.That(activeResult, Is.True);
+            Assert.That(inactiveResult, Is.False);
+            Assert.That(missingDefinitionResult, Is.False);
+            Assert.That(nonBarricadeResult, Is.False);
+            Assert.That(counts.WorldStateCreateSnapshotCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Barricade_PushFirstStepIntoActiveBlocker_RejectsWithoutTileEvent()
+        {
+            var barricadeCell = new SurfaceCell(FaceId.Front, 2, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Front, 0, 0)),
+                    CreateBox(20, new SurfaceCell(FaceId.Front, 1, 0)),
+                },
+                new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) });
+            var pipeline = CreatePipeline(
+                worldState,
+                new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None) },
+                new IEntityLogic[]
+                {
+                    new ScriptedMovementLogic(new RawMovementIntent(10, 100, new Vector2Int(1, 0), MovementCommandKind.Push)),
+                });
+
+            var result = pipeline.RunTick(new TickInput(7));
+            var snapshotAfter = worldState.CreateSnapshot();
+
+            Assert.That(result.MovementPhaseResult.RejectedReasons, Has.Some.Contains("Reason=BoxSlideBlockedByBarricade").And.Contains("MovementKind=PushStart"));
+            Assert.That(result.PresentationData.TileEvents, Is.Empty);
+            Assert.That(result.PresentationData.FrontFaceShieldBlocks, Is.Empty);
+            Assert.That(snapshotAfter.TryGetEntity(20, out var boxAfter), Is.True);
+            Assert.That(boxAfter.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 1, 0)));
+            Assert.That(boxAfter.state, Is.EqualTo(EntityPhaseState.Idle));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Barricade_PushDestroyFirstStepIntoActiveBlocker_UsesExistingDestroyFallback()
+        {
+            var barricadeCell = new SurfaceCell(FaceId.Front, 2, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Front, 0, 0)),
+                    CreateBox(20, new SurfaceCell(FaceId.Front, 1, 0), boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Destroy),
+                },
+                new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) });
+            var pipeline = CreatePipeline(
+                worldState,
+                new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None) },
+                new IEntityLogic[]
+                {
+                    new ScriptedMovementLogic(new RawMovementIntent(10, 100, new Vector2Int(1, 0), MovementCommandKind.Push)),
+                });
+
+            var result = pipeline.RunTick(new TickInput(7));
+
+            Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
+            Assert.That(result.PresentationData.TileEvents, Is.Empty);
+            Assert.That(worldState.CreateSnapshot().TryGetEntity(20, out _), Is.False);
+            Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=20"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Barricade_SlidingContinuationIntoActiveBlocker_StopsWithoutTileEvent()
+        {
+            var slidingBox = CreateBox(
+                20,
+                new SurfaceCell(FaceId.Front, 0, 0),
+                state: EntityPhaseState.Sliding,
+                facing: Direction.Up);
+            slidingBox.stateTimer = 0;
+            slidingBox.kineticInstigatorEntityId = 10;
+            slidingBox.kineticInstigatorTeamId = 1;
+            var barricadeCell = new SurfaceCell(FaceId.Front, 0, 1);
+            var worldState = CreateWorldState(
+                new[] { slidingBox },
+                new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) });
+            var pipeline = CreatePipeline(
+                worldState,
+                new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None) },
+                Array.Empty<IEntityLogic>());
+
+            var result = pipeline.RunTick(new TickInput(7));
+            var snapshotAfter = worldState.CreateSnapshot();
+
+            Assert.That(result.MovementPhaseResult.RejectedReasons, Has.Some.Contains("Reason=BoxSlideBlockedByBarricade").And.Contains("MovementKind=SlidingContinuation"));
+            Assert.That(result.MovementPhaseResult.CommitEvents, Has.None.Contains("ImpactReservationCreated"));
+            Assert.That(result.PresentationData.TileEvents, Is.Empty);
+            Assert.That(snapshotAfter.TryGetEntity(20, out var boxAfter), Is.True);
+            Assert.That(boxAfter.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(boxAfter.state, Is.EqualTo(EntityPhaseState.Idle));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Barricade_InactiveDoesNotBlockPushOrSlide()
+        {
+            var inactiveCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var pushWorldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0)),
+                    CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0)),
+                },
+                new[] { CreateTileFeature(100, inactiveCell, TileFeatureKind.Barricade) });
+            var pushPipeline = CreatePipeline(
+                pushWorldState,
+                new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None) },
+                new IEntityLogic[]
+                {
+                    new ScriptedMovementLogic(new RawMovementIntent(10, 100, new Vector2Int(1, 0), MovementCommandKind.Push)),
+                });
+
+            var pushResult = pushPipeline.RunTick(new TickInput(7));
+
+            Assert.That(pushResult.MovementPhaseResult.RejectedReasons, Is.Empty);
+            Assert.That(pushWorldState.CreateSnapshot().TryGetEntity(20, out var pushedBox), Is.True);
+            Assert.That(pushedBox.position, Is.EqualTo(inactiveCell));
+            Assert.That(pushedBox.state, Is.EqualTo(EntityPhaseState.Sliding));
+
+            var slidingBox = CreateBox(30, new SurfaceCell(FaceId.Floor, 1, 0), state: EntityPhaseState.Sliding, facing: Direction.Right);
+            slidingBox.stateTimer = 0;
+            var slideWorldState = CreateWorldState(
+                new[] { slidingBox },
+                new[] { CreateTileFeature(101, inactiveCell, TileFeatureKind.Barricade) });
+            var slidePipeline = CreatePipeline(
+                slideWorldState,
+                new[] { CreateDefinition(101, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None) },
+                Array.Empty<IEntityLogic>());
+
+            var slideResult = slidePipeline.RunTick(new TickInput(7));
+
+            Assert.That(slideResult.MovementPhaseResult.RejectedReasons, Is.Empty);
+            Assert.That(slideWorldState.CreateSnapshot().TryGetEntity(30, out var slidBox), Is.True);
+            Assert.That(slidBox.position, Is.EqualTo(inactiveCell));
+            Assert.That(slidBox.state, Is.EqualTo(EntityPhaseState.Sliding));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Barricade_DoesNotAffectUnitEnemyOrProjectileMovement()
+        {
+            var barricadeCell = new SurfaceCell(FaceId.Front, 1, 0);
+            var playerWorldState = CreateWorldState(
+                new[] { CreateUnit(10, new SurfaceCell(FaceId.Front, 0, 0)) },
+                new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) });
+            var playerResult = CreatePipeline(
+                    playerWorldState,
+                    new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None) },
+                    new IEntityLogic[]
+                    {
+                        new ScriptedMovementLogic(new RawMovementIntent(10, 100, new Vector2Int(1, 0), MovementCommandKind.Move)),
+                    })
+                .RunTick(new TickInput(7));
+
+            var enemy = CreateUnit(30, new SurfaceCell(FaceId.Front, 0, 0));
+            enemy.teamId = 2;
+            var enemyWorldState = CreateWorldState(
+                new[] { enemy },
+                new[] { CreateTileFeature(101, barricadeCell, TileFeatureKind.Barricade) });
+            var enemyResult = CreatePipeline(
+                    enemyWorldState,
+                    new[] { CreateDefinition(101, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None) },
+                    new IEntityLogic[]
+                    {
+                        new ScriptedMovementLogic(new RawMovementIntent(30, 100, new Vector2Int(1, 0), MovementCommandKind.Move)),
+                    })
+                .RunTick(new TickInput(7));
+
+            var projectileWorldState = CreateWorldState(
+                new[] { CreateProjectile(40, new SurfaceCell(FaceId.Front, 0, 0)) },
+                new[] { CreateTileFeature(102, barricadeCell, TileFeatureKind.Barricade) });
+            var projectileResult = CreatePipeline(
+                    projectileWorldState,
+                    new[] { CreateDefinition(102, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None) },
+                    new IEntityLogic[]
+                    {
+                        new ScriptedMovementLogic(new RawMovementIntent(40, 100, new Vector2Int(1, 0), MovementCommandKind.Move)),
+                    })
+                .RunTick(new TickInput(7));
+
+            Assert.That(playerResult.MovementPhaseResult.RejectedReasons, Is.Empty);
+            Assert.That(enemyResult.MovementPhaseResult.RejectedReasons, Is.Empty);
+            Assert.That(projectileResult.MovementPhaseResult.RejectedReasons, Is.Empty);
+            Assert.That(playerWorldState.CreateSnapshot().TryGetEntity(10, out var playerAfter), Is.True);
+            Assert.That(enemyWorldState.CreateSnapshot().TryGetEntity(30, out var enemyAfter), Is.True);
+            Assert.That(projectileWorldState.CreateSnapshot().TryGetEntity(40, out var projectileAfter), Is.True);
+            Assert.That(playerAfter.position, Is.EqualTo(barricadeCell));
+            Assert.That(enemyAfter.position, Is.EqualTo(barricadeCell));
+            Assert.That(projectileAfter.position, Is.EqualTo(barricadeCell));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Barricade_StandingBoxIsNotRetroactivelyDestroyed()
+        {
+            var inactiveCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var inactiveWorldState = CreateWorldState(
+                new[] { CreateBox(20, inactiveCell) },
+                new[] { CreateTileFeature(100, inactiveCell, TileFeatureKind.Barricade) });
+            var inactiveResult = CreatePipeline(
+                    inactiveWorldState,
+                    new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None) },
+                    Array.Empty<IEntityLogic>())
+                .RunTick(new TickInput(7));
+
+            var activeCell = new SurfaceCell(FaceId.Front, 1, 0);
+            var activeWorldState = CreateWorldState(
+                new[] { CreateBox(30, activeCell) },
+                new[] { CreateTileFeature(101, activeCell, TileFeatureKind.Barricade) });
+            var activeResult = CreatePipeline(
+                    activeWorldState,
+                    new[] { CreateDefinition(101, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None) },
+                    Array.Empty<IEntityLogic>())
+                .RunTick(new TickInput(7));
+
+            Assert.That(inactiveResult.PresentationData.TileEvents, Is.Empty);
+            Assert.That(activeResult.PresentationData.TileEvents, Is.Empty);
+            Assert.That(inactiveWorldState.CreateSnapshot().TryGetEntity(20, out var inactiveBox), Is.True);
+            Assert.That(activeWorldState.CreateSnapshot().TryGetEntity(30, out var activeBox), Is.True);
+            Assert.That(inactiveBox.markedForDeath, Is.False);
+            Assert.That(activeBox.markedForDeath, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Barricade_ActiveBlocksBeforeDestroyTileContact_InactiveAllowsDestroyTile()
+        {
+            var activeCell = new SurfaceCell(FaceId.Front, 2, 0);
+            var activeWorldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Front, 0, 0)),
+                    CreateBox(20, new SurfaceCell(FaceId.Front, 1, 0)),
+                },
+                new[]
+                {
+                    CreateTileFeature(100, activeCell, TileFeatureKind.Barricade),
+                    CreateTileFeature(200, activeCell, TileFeatureKind.Destroy),
+                });
+            var activeResult = CreatePipeline(
+                    activeWorldState,
+                    new[]
+                    {
+                        CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None),
+                        CreateDefinition(200, TileFeatureActivationRule.FrontFaceOnly),
+                    },
+                    new IEntityLogic[]
+                    {
+                        new ScriptedMovementLogic(new RawMovementIntent(10, 100, new Vector2Int(1, 0), MovementCommandKind.Push)),
+                    })
+                .RunTick(new TickInput(7));
+
+            var inactiveCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var inactiveWorldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(11, new SurfaceCell(FaceId.Floor, 0, 0)),
+                    CreateBox(21, new SurfaceCell(FaceId.Floor, 1, 0)),
+                },
+                new[]
+                {
+                    CreateTileFeature(101, inactiveCell, TileFeatureKind.Barricade),
+                    CreateTileFeature(201, inactiveCell, TileFeatureKind.Destroy),
+                });
+            var inactiveResult = CreatePipeline(
+                    inactiveWorldState,
+                    new[]
+                    {
+                        CreateDefinition(101, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None),
+                        CreateDefinition(201, TileFeatureActivationRule.BottomFaceOnly),
+                    },
+                    new IEntityLogic[]
+                    {
+                        new ScriptedMovementLogic(new RawMovementIntent(11, 100, new Vector2Int(1, 0), MovementCommandKind.Push)),
+                    })
+                .RunTick(new TickInput(7));
+
+            Assert.That(activeResult.MovementPhaseResult.RejectedReasons, Has.Some.Contains("Reason=BoxSlideBlockedByBarricade"));
+            Assert.That(activeResult.PresentationData.TileEvents, Is.Empty);
+            Assert.That(activeWorldState.CreateSnapshot().TryGetEntity(20, out var activeBox), Is.True);
+            Assert.That(activeBox.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 1, 0)));
+
+            Assert.That(inactiveResult.PresentationData.TileEvents, Has.Count.EqualTo(1));
+            Assert.That(inactiveResult.PresentationData.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.DestroyTileTriggered));
+            Assert.That(inactiveWorldState.CreateSnapshot().TryGetEntity(21, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Barricade_ActiveBlocksBeforeSlideTileRedirect_InactiveAllowsSlideTile()
+        {
+            var activeCell = new SurfaceCell(FaceId.Front, 2, 0);
+            var activeWorldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Front, 0, 0)),
+                    CreateBox(20, new SurfaceCell(FaceId.Front, 1, 0)),
+                },
+                new[]
+                {
+                    CreateTileFeature(100, activeCell, TileFeatureKind.Barricade),
+                    CreateTileFeature(200, activeCell, TileFeatureKind.Slide),
+                });
+            var activeResult = CreatePipeline(
+                    activeWorldState,
+                    new[]
+                    {
+                        CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None),
+                        CreateDefinition(200, TileFeatureActivationRule.FrontFaceOnly, direction: Direction2D.Up, selector: TileFeatureBoxSelector.None),
+                    },
+                    new IEntityLogic[]
+                    {
+                        new ScriptedMovementLogic(new RawMovementIntent(10, 100, new Vector2Int(1, 0), MovementCommandKind.Push)),
+                    })
+                .RunTick(new TickInput(7));
+
+            var inactiveWorldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(11, new SurfaceCell(FaceId.Front, 0, 0)),
+                    CreateBox(21, new SurfaceCell(FaceId.Front, 1, 0)),
+                },
+                new[]
+                {
+                    CreateTileFeature(101, activeCell, TileFeatureKind.Barricade),
+                    CreateTileFeature(201, activeCell, TileFeatureKind.Slide),
+                });
+            var inactiveResult = CreatePipeline(
+                    inactiveWorldState,
+                    new[]
+                    {
+                        CreateDefinition(101, TileFeatureActivationRule.BottomFaceOnly, selector: TileFeatureBoxSelector.None),
+                        CreateDefinition(201, TileFeatureActivationRule.FrontFaceOnly, direction: Direction2D.Up, selector: TileFeatureBoxSelector.None),
+                    },
+                    new IEntityLogic[]
+                    {
+                        new ScriptedMovementLogic(new RawMovementIntent(11, 100, new Vector2Int(1, 0), MovementCommandKind.Push)),
+                    })
+                .RunTick(new TickInput(7));
+
+            Assert.That(activeResult.MovementPhaseResult.RejectedReasons, Has.Some.Contains("Reason=BoxSlideBlockedByBarricade"));
+            Assert.That(activeResult.PresentationData.TileEvents, Is.Empty);
+            Assert.That(activeWorldState.CreateSnapshot().TryGetEntity(20, out var activeBox), Is.True);
+            Assert.That(activeBox.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 1, 0)));
+            Assert.That(activeBox.facing, Is.EqualTo(Direction.Right));
+
+            Assert.That(inactiveResult.PresentationData.TileEvents, Has.Count.EqualTo(1));
+            Assert.That(inactiveResult.PresentationData.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.SlideTileRedirected));
+            Assert.That(inactiveWorldState.CreateSnapshot().TryGetEntity(21, out var redirectedBox), Is.True);
+            Assert.That(redirectedBox.position, Is.EqualTo(activeCell));
+            Assert.That(redirectedBox.facing, Is.EqualTo(Direction.Up));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Barricade_DeterminismHash_ChangesAndReplaysStably()
+        {
+            var withoutBarricade = RunBarricadeHashScenario(includeBarricade: false);
+            var withBarricadeFirst = RunBarricadeHashScenario(includeBarricade: true);
+            var withBarricadeSecond = RunBarricadeHashScenario(includeBarricade: true);
+
+            Assert.That(withBarricadeFirst, Is.EqualTo(withBarricadeSecond));
+            Assert.That(withBarricadeFirst, Is.Not.EqualTo(withoutBarricade));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Barricade_BlockedPath_PreservesPinnedSnapshotBudget()
+        {
+            var counts = RunBarricadeBlockedBudgetScenario();
+
+            AssertPinnedEmptyBudget(counts);
+        }
+
+        [Test]
+        [Category("Core")]
         public void TilePresentationEvents_DoNotEnterDeterminismHash()
         {
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
@@ -1068,6 +1491,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return pipeline.RunTick(new TickInput(7)).DeterminismHash;
         }
 
+        private static string RunBarricadeHashScenario(bool includeBarricade)
+        {
+            var barricadeCell = new SurfaceCell(FaceId.Front, 2, 0);
+            var tileFeatures = includeBarricade
+                ? new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) }
+                : Array.Empty<TileFeatureState>();
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Front, 0, 0)),
+                    CreateBox(20, new SurfaceCell(FaceId.Front, 1, 0)),
+                },
+                tileFeatures);
+            var pipeline = CreatePipeline(
+                worldState,
+                includeBarricade
+                    ? new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None) }
+                    : Array.Empty<TileFeatureRuntimeDefinition>(),
+                new IEntityLogic[]
+                {
+                    new ScriptedMovementLogic(new RawMovementIntent(10, 100, new Vector2Int(1, 0), MovementCommandKind.Push)),
+                });
+
+            return pipeline.RunTick(new TickInput(7)).DeterminismHash;
+        }
+
         private static SnapshotMaterializationCounts RunDestroyTileBudgetScenario(bool includeDestroyTile)
         {
             var destroyCell = new SurfaceCell(FaceId.Floor, 2, 0);
@@ -1114,6 +1563,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 includeSlideTile
                     ? new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, direction: Direction2D.Up, selector: TileFeatureBoxSelector.None) }
                     : Array.Empty<TileFeatureRuntimeDefinition>(),
+                new IEntityLogic[]
+                {
+                    new ScriptedMovementLogic(new RawMovementIntent(10, 100, new Vector2Int(1, 0), MovementCommandKind.Push)),
+                });
+
+            using var capture = SnapshotMaterializationDiagnostics.BeginCapture();
+            pipeline.RunTick(new TickInput(7));
+            return capture.Counts;
+        }
+
+        private static SnapshotMaterializationCounts RunBarricadeBlockedBudgetScenario()
+        {
+            var barricadeCell = new SurfaceCell(FaceId.Front, 2, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Front, 0, 0)),
+                    CreateBox(20, new SurfaceCell(FaceId.Front, 1, 0)),
+                },
+                new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) });
+            var pipeline = CreatePipeline(
+                worldState,
+                new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None) },
                 new IEntityLogic[]
                 {
                     new ScriptedMovementLogic(new RawMovementIntent(10, 100, new Vector2Int(1, 0), MovementCommandKind.Push)),

@@ -648,7 +648,8 @@ namespace Game.Feature.Gameplay.Loop
                 expandedCandidates,
                 rejectedReasons,
                 frontFaceShieldBlockExports,
-                forbiddenLegacyUnitOrdinaryIntentIds);
+                forbiddenLegacyUnitOrdinaryIntentIds,
+                _tileFeatureDefinitions);
             if (preExpansionRejectedReasons.Count > 0)
             {
                 rejectedReasons.InsertRange(0, preExpansionRejectedReasons);
