@@ -59,7 +59,7 @@ namespace Game.Feature.Gameplay.Host
     {
         bool SuppressLegacyPlayerDamageHitEffects { get; }
 
-        bool SuppressLegacyBoxDestroySmokeEffects { get; }
+        bool SuppressLegacyBoxDestroyShrinkEffects { get; }
 
         bool SuppressLegacyItemConsumeEffects { get; }
 

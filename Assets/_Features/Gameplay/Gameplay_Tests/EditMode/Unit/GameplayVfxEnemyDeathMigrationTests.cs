@@ -578,6 +578,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 runtime.EnableGameplayVfxEnemyDeathBurstMigration = deathEnabled;
                 runtime.EnableGameplayVfxEnemyDamageBurstMigration = enemyDamageEnabled;
                 runtime.EnableGameplayVfxBoxDestroySmokeMigration = boxEnabled;
+                runtime.EnableGameplayVfxBoxDestroyShrinkMigration = false;
                 runtime.EnableGameplayVfxItemConsumeBurstMigration = itemEnabled;
                 runtime.ConfigureHostDefaultMap(cueMap);
 
@@ -593,7 +594,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(expectedRequests));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(expectedRequests));
                 Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.False);
-                Assert.That(runtime.SuppressLegacyBoxDestroySmokeEffects, Is.EqualTo(boxEnabled));
+                Assert.That(runtime.SuppressLegacyBoxDestroySmokeEffects, Is.False);
+                Assert.That(runtime.SuppressLegacyBoxDestroyShrinkEffects, Is.False);
                 Assert.That(runtime.SuppressLegacyItemConsumeEffects, Is.EqualTo(itemEnabled));
             }
             finally

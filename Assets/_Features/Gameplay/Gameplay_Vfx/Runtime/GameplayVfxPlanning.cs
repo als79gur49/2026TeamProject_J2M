@@ -119,8 +119,7 @@ namespace Game.Feature.Gameplay.Vfx
             {
                 var signal = exitSignals[i];
                 if (signal.EntityType != EntityType.Box ||
-                    IsImpactTransientSource(presentationData, signal.ExitedEntityId) ||
-                    IsFlipImpactDestroySelfSource(presentationData, signal.ExitedEntityId))
+                    BoxVfxExitSignalGuards.IsDuplicateOwnedExit(presentationData, signal.ExitedEntityId))
                 {
                     continue;
                 }
@@ -158,6 +157,16 @@ namespace Game.Feature.Gameplay.Vfx
                     persistentKey: VfxPersistentKey.None));
         }
 
+    }
+
+    public static class BoxVfxExitSignalGuards
+    {
+        public static bool IsDuplicateOwnedExit(TickPresentationData presentationData, int entityId)
+        {
+            return IsImpactTransientSource(presentationData, entityId) ||
+                   IsFlipImpactDestroySelfSource(presentationData, entityId);
+        }
+
         private static bool IsFlipImpactDestroySelfSource(TickPresentationData presentationData, int entityId)
         {
             var flipImpactSignals = presentationData.FlipImpactSignals;
@@ -187,6 +196,7 @@ namespace Game.Feature.Gameplay.Vfx
 
             return false;
         }
+
     }
 
     public sealed class EnemyVfxRequestPlanner : IGameplayVfxFamilyRequestPlanner

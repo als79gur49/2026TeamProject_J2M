@@ -495,30 +495,47 @@ Duplicate-prevention tests for this slice cover flag filtering, missing binding 
 
 ## Box Exit VFX Migration
 
-The box exit migration slice moves `BoxVfxCue.DestroySmoke` and `BoxVfxCue.ItemConsume` from old entity-exit transient playback to the Gameplay VFX lane.
+The box exit migration slice moves `BoxVfxCue.DestroySmoke`, `BoxVfxCue.DestroyShrink`, and `BoxVfxCue.ItemConsume` from old entity-exit transient playback to the Gameplay VFX lane.
 
 Ownership:
 
 - source fact: `TickPresentationData.EntityExitSignals`.
 - destroy smoke trigger: `EntityType.Box` and `TickEntityExitCause.BoxDestroy`; the current enum alias `DestroyedByImpact = BoxDestroy` is treated as box destroy when it is not already owned by impact transient or flip impact destroy-self presentation.
+- destroy shrink trigger: `EntityType.Box` and `TickEntityExitCause.BoxDestroy`; it uses the same source fact and duplicate guards as destroy smoke.
 - item consume trigger: `EntityType.Box` and `TickEntityExitCause.ItemConsume`.
-- non-triggers: enemy death, non-box exits, item consume for destroy smoke, and box destroy for item consume.
-- anchor: `VfxAnchor.ForCell(signal.SourceCell, signal.Topology, VfxAnchorSlot.CellFloor)`.
+- non-triggers: enemy death, non-box exits, item consume for destroy smoke/shrink, and box destroy for item consume.
+- destroy smoke anchor: `VfxAnchor.ForCell(signal.SourceCell, signal.Topology, VfxAnchorSlot.CellFloor)`.
+- destroy shrink resolves the source exit pose through `GameplayPoseResolver` and plays a parameterized source-view clone/fallback at the source cell center.
 - lifecycle: transient one-shot request with no persistent key.
 
 Migration flags and bypass:
 
 - `GameplayVfxProductionRuntime.EnableGameplayVfxBoxDestroySmokeMigration` gates `BoxVfxCue.DestroySmoke` playback.
+- `GameplayVfxProductionRuntime.EnableGameplayVfxBoxDestroyShrinkMigration` gates `BoxVfxCue.DestroyShrink` playback and defaults true as a Tier 2 default-on candidate.
 - `GameplayVfxProductionRuntime.EnableGameplayVfxItemConsumeBurstMigration` gates `BoxVfxCue.ItemConsume` playback.
-- `IGameplayPresentationMigrationGate.SuppressLegacyBoxDestroySmokeEffects` and `SuppressLegacyItemConsumeEffects` suppress only old `GameplayExitPresentationController` entity exit VFX playback for the matching cause.
+- `EnableGameplayVfxBoxDestroyShrinkMigration` owns `SuppressLegacyBoxDestroyShrinkEffects`.
+- `EnableGameplayVfxBoxDestroySmokeMigration` does not suppress the old BoxDestroy shrink/fade.
+- `SuppressLegacyItemConsumeEffects` suppresses only old `GameplayExitPresentationController` entity exit VFX playback for item consume.
 - `GameplayExitPresentationController.ApplyEntityExitOwnership()` remains active; view visibility and state cleanup are not bypassed.
 - missing binding under either migration flag is diagnostic/no-op and must not fall back to old entity exit playback.
+
+BoxDestroy composite combinations:
+
+- smoke off / shrink off: old BoxDestroy shrink/fade only.
+- smoke on / shrink off: old BoxDestroy shrink/fade plus `BoxVfxCue.DestroySmoke`.
+- smoke off / shrink on: `BoxVfxCue.DestroyShrink` only.
+- smoke on / shrink on: `BoxVfxCue.DestroyShrink` plus `BoxVfxCue.DestroySmoke`.
+- missing shrink binding, prefab, or source pose is diagnostic/no-op with no old shrink/fade fallback while the shrink flag is on.
+- missing smoke binding affects smoke only and does not block shrink.
 
 Default bindings:
 
 - destroy smoke prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/BoxDestroySmokeVfx.prefab`
 - destroy smoke material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_BoxDestroySmoke_SoftGray.mat`
 - destroy smoke binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/BoxDestroySmoke_Binding.asset`
+- destroy shrink prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/BoxDestroyShrinkVfx.prefab`
+- destroy shrink material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_BoxDestroyShrink_Fade.mat`
+- destroy shrink binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/BoxDestroyShrink_Binding.asset`
 - item consume prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/ItemConsumeBurstVfx.prefab`
 - item consume material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_ItemConsumeBurst_Gold.mat`
 - item consume binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/ItemConsumeBurst_Binding.asset`
@@ -966,11 +983,14 @@ Enemy death suppress ownership is fixed. `EnableGameplayVfxEnemyDeathMotionMigra
 - burst on / motion on: `EnemyVfxCue.DeathMotion` plus `EnemyVfxCue.Death`.
 - missing DeathMotion binding, prefab, source pose, output camera, or target context is diagnostic/no-op with no old fly-away fallback while the motion flag is on.
 
+Box destroy suppress ownership is fixed. `EnableGameplayVfxBoxDestroyShrinkMigration` owns `SuppressLegacyBoxDestroyShrinkEffects`. `EnableGameplayVfxBoxDestroySmokeMigration` does not suppress the old BoxDestroy shrink/fade. The shrink flag is runtime default-on as a Tier 2 candidate with rollback by setting the shrink flag false.
+
 | Flag | Cue | Type | Actual Default | Tier | Candidate | Approval Gate |
 |---|---|---|---|---|---|---|
 | `EnableGameplayVfxDamageBurstMigration` | `PlayerVfxCue.Damage` | Migration | True | Tier 1 | Yes | targeted tests + visual spot check |
 | `EnableGameplayVfxEnemyDamageBurstMigration` | `EnemyVfxCue.Damage` | Augmentation-style VFX lane | True | Tier 1 | Yes | targeted tests + visual spot check |
 | `EnableGameplayVfxBoxDestroySmokeMigration` | `BoxVfxCue.DestroySmoke` | Migration | True | Tier 1 | Yes | targeted tests + visual spot check |
+| `EnableGameplayVfxBoxDestroyShrinkMigration` | `BoxVfxCue.DestroyShrink` | Migration / parameterized clone motion | True | Tier 2 | Yes | manual visual approval + targeted regression |
 | `EnableGameplayVfxItemConsumeBurstMigration` | `BoxVfxCue.ItemConsume` | Migration | True | Tier 1 | Yes | targeted tests + visual spot check |
 | `EnableEnemyJumpLandingDustVfx` | `EnemyVfxCue.JumperLandingDust` | Augmentation | True | Tier 1 | Yes | targeted tests + visual spot check |
 | `EnableGameplayVfxBoxSlideTrail` | `BoxVfxCue.SlideDustTrail` | Augmentation / parameterized motion | True | Tier 1 | Yes | targeted tests + density visual spot check |

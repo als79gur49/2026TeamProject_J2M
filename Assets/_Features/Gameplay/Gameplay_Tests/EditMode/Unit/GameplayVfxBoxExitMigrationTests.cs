@@ -22,8 +22,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset";
         private const string BoxDestroySmokePrefabPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/BoxDestroySmokeVfx.prefab";
+        private const string BoxDestroyShrinkPrefabPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/BoxDestroyShrinkVfx.prefab";
         private const string BoxDestroySmokeBindingPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/BoxDestroySmoke_Binding.asset";
+        private const string BoxDestroyShrinkBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/BoxDestroyShrink_Binding.asset";
         private const string ItemConsumeBurstPrefabPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/ItemConsumeBurstVfx.prefab";
         private const string ItemConsumeBurstBindingPath =
@@ -155,6 +159,57 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void BoxDestroyShrinkBuilder_BoxDestroy_BuildsSourceCloneEaseCommand()
+        {
+            var cell = new SurfaceCell(FaceId.Back, 2, 3);
+            var topology = new CubeTopologyState(FaceId.Back);
+            var signal = CreateExitSignal(20, TickEntityExitCause.BoxDestroy, cell, topology);
+            var projector = new GameplayCubeProjector(
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 4)),
+                1f);
+            var poseResolver = new GameplayPoseResolver(
+                new GameplayPresentationStateStore(),
+                new GameplayPresentationTrackState());
+
+            var built = BoxDestroyShrinkVfxCommandBuilder.TryBuild(
+                12,
+                signal,
+                GameplayTimingProfile.CreateDefault(),
+                poseResolver,
+                projector,
+                out var command);
+
+            Assert.That(built, Is.True);
+            Assert.That(command.CueId, Is.EqualTo(GameplayVfxCueId.From(BoxVfxCue.DestroyShrink)));
+            Assert.That(command.SourceEntityId, Is.EqualTo(20));
+            Assert.That(command.SequenceId, Is.EqualTo(8831));
+            Assert.That(command.PresentationSeed, Is.EqualTo(8831));
+            Assert.That(command.SourceLocalPosition, Is.EqualTo(command.TargetLocalPosition));
+            Assert.That(command.SourceLocalRotation, Is.EqualTo(command.TargetLocalRotation));
+            Assert.That(command.DurationSeconds, Is.EqualTo(GameplayTimingProfile.DefaultBoxDestroyEffectDurationSeconds).Within(0.0001f));
+            Assert.That(command.CloneMode, Is.EqualTo(ParameterizedMotionVfxCloneMode.SourceViewCloneWithPrefabFallback));
+            Assert.That(command.FadeMode, Is.EqualTo(ParameterizedMotionVfxFadeMode.DestroyShrinkEase));
+            Assert.That(command.SamplerMode, Is.EqualTo(ParameterizedMotionVfxSamplerMode.Linear));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BoxDestroyShrinkBuilder_NonCandidates_DoNotBuild()
+        {
+            var projector = new GameplayCubeProjector(
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 4)),
+                1f);
+            var poseResolver = new GameplayPoseResolver(
+                new GameplayPresentationStateStore(),
+                new GameplayPresentationTrackState());
+
+            Assert.That(TryBuildShrink(CreateExitSignal(21, TickEntityExitCause.ItemConsume), poseResolver, projector), Is.False);
+            Assert.That(TryBuildShrink(CreateExitSignal(30, TickEntityExitCause.BoxDestroy, entityType: EntityType.Unit), poseResolver, projector), Is.False);
+            Assert.That(TryBuildShrink(CreateExitSignal(0, TickEntityExitCause.BoxDestroy), poseResolver, projector), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void ProductionRuntime_BoxExitMigrationFlags_DefaultTrue()
         {
             var owner = new GameObject("BoxExitDefaultFlags");
@@ -163,8 +218,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
 
                 Assert.That(runtime.EnableGameplayVfxBoxDestroySmokeMigration, Is.True);
+                Assert.That(runtime.EnableGameplayVfxBoxDestroyShrinkMigration, Is.True);
                 Assert.That(runtime.EnableGameplayVfxItemConsumeBurstMigration, Is.True);
-                Assert.That(runtime.SuppressLegacyBoxDestroySmokeEffects, Is.True);
+                Assert.That(runtime.SuppressLegacyBoxDestroySmokeEffects, Is.False);
+                Assert.That(runtime.SuppressLegacyBoxDestroyShrinkEffects, Is.True);
                 Assert.That(runtime.SuppressLegacyItemConsumeEffects, Is.True);
             }
             finally
@@ -192,6 +249,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
                 runtime.EnableGameplayVfxBoxDestroySmokeMigration = true;
+                runtime.EnableGameplayVfxBoxDestroyShrinkMigration = false;
 
                 runtime.Present(CreateExtensionContext(CreateExitSignal(20, TickEntityExitCause.BoxDestroy)));
 
@@ -199,7 +257,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
-                Assert.That(runtime.SuppressLegacyBoxDestroySmokeEffects, Is.True);
+                Assert.That(runtime.SuppressLegacyBoxDestroySmokeEffects, Is.False);
+                Assert.That(runtime.SuppressLegacyBoxDestroyShrinkEffects, Is.False);
+            }
+            finally
+            {
+                Destroy(owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProductionRuntime_BoxDestroyShrinkFlagOnMissingBinding_DiagnosticOnlyNoOldFallback()
+        {
+            var owner = new GameObject("BoxDestroyShrinkMissingBinding");
+            try
+            {
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxBoxDestroySmokeMigration = false;
+                runtime.EnableGameplayVfxBoxDestroyShrinkMigration = true;
+
+                runtime.Present(CreateExtensionContext(CreateExitSignal(20, TickEntityExitCause.BoxDestroy)));
+
+                Assert.That(runtime.IsRuntimeInitialized, Is.True);
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
+                Assert.That(runtime.SuppressLegacyBoxDestroyShrinkEffects, Is.True);
             }
             finally
             {
@@ -315,16 +399,95 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var scenario = CreatePresenterScenario("BoxDestroyFlagOn");
             var vfxPrefab = new GameObject("BoxDestroyFlagOn_VfxPrefab");
-            VfxBindingDefinitionAsset binding = null;
+            VfxBindingDefinitionAsset smokeBinding = null;
+            VfxBindingDefinitionAsset shrinkBinding = null;
             VfxCueMapAsset cueMap = null;
             try
             {
-                binding = CreateBinding(vfxPrefab, BoxVfxCue.DestroySmoke);
-                cueMap = CreateCueMap(binding);
+                smokeBinding = CreateBinding(vfxPrefab, BoxVfxCue.DestroySmoke);
+                shrinkBinding = CreateBinding(vfxPrefab, BoxVfxCue.DestroyShrink);
+                cueMap = CreateCueMap(smokeBinding, shrinkBinding);
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
                 runtime.EnableGameplayVfxEnemyDeathBurstMigration = false;
                 runtime.EnableGameplayVfxEnemyDeathMotionMigration = false;
                 runtime.EnableGameplayVfxBoxDestroySmokeMigration = true;
+                runtime.EnableGameplayVfxBoxDestroyShrinkMigration = true;
+                runtime.ConfigureHostDefaultMap(cueMap);
+                scenario.Presenter.AttachPresentationExtension(runtime);
+                scenario.Presenter.PresentInitial(
+                    new[] { CreateBox(20, scenario.BoxCell) },
+                    scenario.Topology);
+
+                scenario.Presenter.Present(CreateResult(
+                    CreatePresentationData(new[] { CreateExitSignal(20, TickEntityExitCause.BoxDestroy, scenario.BoxCell, scenario.Topology) }),
+                    scenario.Topology,
+                    Array.Empty<EntityState>()));
+
+                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.Zero);
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(2));
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(2));
+                Assert.That(scenario.Registry.TryGetView(20, out var boxView), Is.True);
+                Assert.That(boxView.gameObject.activeSelf, Is.False);
+            }
+            finally
+            {
+                Destroy(cueMap, shrinkBinding, smokeBinding, vfxPrefab);
+                scenario.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Coordinator_SmokeOnShrinkOff_AllowsOldExitEffectAndSmoke()
+        {
+            var scenario = CreatePresenterScenario("SmokeOnShrinkOff");
+            var vfxPrefab = new GameObject("SmokeOnShrinkOff_VfxPrefab");
+            VfxBindingDefinitionAsset smokeBinding = null;
+            VfxCueMapAsset cueMap = null;
+            try
+            {
+                smokeBinding = CreateBinding(vfxPrefab, BoxVfxCue.DestroySmoke);
+                cueMap = CreateCueMap(smokeBinding);
+                var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxBoxDestroySmokeMigration = true;
+                runtime.EnableGameplayVfxBoxDestroyShrinkMigration = false;
+                runtime.ConfigureHostDefaultMap(cueMap);
+                scenario.Presenter.AttachPresentationExtension(runtime);
+                scenario.Presenter.PresentInitial(
+                    new[] { CreateBox(20, scenario.BoxCell) },
+                    scenario.Topology);
+
+                scenario.Presenter.Present(CreateResult(
+                    CreatePresentationData(new[] { CreateExitSignal(20, TickEntityExitCause.BoxDestroy, scenario.BoxCell, scenario.Topology) }),
+                    scenario.Topology,
+                    Array.Empty<EntityState>()));
+
+                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                Destroy(cueMap, smokeBinding, vfxPrefab);
+                scenario.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Coordinator_ShrinkOnSmokeOff_UsesShrinkOnlyAndSuppressesOldExitEffect()
+        {
+            var scenario = CreatePresenterScenario("ShrinkOnSmokeOff");
+            var vfxPrefab = new GameObject("ShrinkOnSmokeOff_VfxPrefab");
+            VfxBindingDefinitionAsset shrinkBinding = null;
+            VfxCueMapAsset cueMap = null;
+            try
+            {
+                shrinkBinding = CreateBinding(vfxPrefab, BoxVfxCue.DestroyShrink);
+                cueMap = CreateCueMap(shrinkBinding);
+                var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxBoxDestroySmokeMigration = false;
+                runtime.EnableGameplayVfxBoxDestroyShrinkMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
                 scenario.Presenter.AttachPresentationExtension(runtime);
                 scenario.Presenter.PresentInitial(
@@ -339,12 +502,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.Zero);
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
-                Assert.That(scenario.Registry.TryGetView(20, out var boxView), Is.True);
-                Assert.That(boxView.gameObject.activeSelf, Is.False);
             }
             finally
             {
-                Destroy(cueMap, binding, vfxPrefab);
+                Destroy(cueMap, shrinkBinding, vfxPrefab);
                 scenario.Destroy();
             }
         }
@@ -420,6 +581,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void BoxExitPrefabs_PassVfxPrefabValidation()
         {
             AssertPrefabValid(BoxDestroySmokePrefabPath);
+            AssertPrefabValid(BoxDestroyShrinkPrefabPath);
             AssertPrefabValid(ItemConsumeBurstPrefabPath);
         }
 
@@ -432,6 +594,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 BoxVfxCue.DestroySmoke,
                 expectedLifetime: 0.18f,
                 expectedTail: 0.25f,
+                expectedMaxConcurrent: 12);
+            AssertBindingPolicy(
+                BoxDestroyShrinkBindingPath,
+                BoxVfxCue.DestroyShrink,
+                expectedLifetime: 0f,
+                expectedTail: 0.18f,
                 expectedMaxConcurrent: 12);
             AssertBindingPolicy(
                 ItemConsumeBurstBindingPath,
@@ -452,6 +620,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(smoke.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
             Assert.That(smoke.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
             Assert.That(smoke.MaxConcurrentInstances, Is.EqualTo(12));
+            Assert.That(cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(BoxVfxCue.DestroyShrink), out var shrink), Is.True);
+            Assert.That(shrink.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
+            Assert.That(shrink.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
+            Assert.That(shrink.MaxConcurrentInstances, Is.EqualTo(12));
             Assert.That(cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(BoxVfxCue.ItemConsume), out var item), Is.True);
             Assert.That(item.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
             Assert.That(item.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
@@ -504,6 +676,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return plan.Requests[0];
         }
 
+        private static bool TryBuildShrink(
+            TickEntityExitPresentationSignal signal,
+            GameplayPoseResolver poseResolver,
+            GameplayCubeProjector projector)
+        {
+            return BoxDestroyShrinkVfxCommandBuilder.TryBuild(
+                12,
+                signal,
+                GameplayTimingProfile.CreateDefault(),
+                poseResolver,
+                projector,
+                out _);
+        }
+
         private static void AssertBoxExitRequest(
             in GameplayVfxRequest request,
             BoxVfxCue cue,
@@ -540,6 +726,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 cueMap = CreateCueMap(smokeBinding, itemBinding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
                 runtime.EnableGameplayVfxBoxDestroySmokeMigration = boxEnabled;
+                runtime.EnableGameplayVfxBoxDestroyShrinkMigration = false;
                 runtime.EnableGameplayVfxItemConsumeBurstMigration = itemEnabled;
                 runtime.ConfigureHostDefaultMap(cueMap);
 
@@ -570,6 +757,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 binding = CreateBinding(prefab, cue);
                 cueMap = CreateCueMap(binding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                if (cue == BoxVfxCue.DestroySmoke)
+                {
+                    runtime.EnableGameplayVfxBoxDestroyShrinkMigration = false;
+                }
+
                 enableFlag(runtime);
                 runtime.ConfigureHostDefaultMap(cueMap);
 
@@ -746,10 +938,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetField(binding, "missingAnchorPolicy", VfxMissingAnchorPolicy.ReportDiagnostic);
             SetField(binding, "playbackMode", VfxPlaybackMode.OneShot);
             SetField(binding, "stopPolicy", VfxStopPolicy.AuthoredDuration);
-            SetField(binding, "defaultLifetimeSeconds", 0.18f);
-            SetField(binding, "tailSeconds", cue == BoxVfxCue.DestroySmoke ? 0.25f : 0.20f);
+            SetField(binding, "defaultLifetimeSeconds", cue == BoxVfxCue.DestroyShrink ? 0f : 0.18f);
+            SetField(binding, "tailSeconds", cue == BoxVfxCue.DestroySmoke ? 0.25f : cue == BoxVfxCue.DestroyShrink ? 0.18f : 0.20f);
             SetField(binding, "initialPoolSize", 4);
-            SetField(binding, "maxConcurrentInstances", cue == BoxVfxCue.DestroySmoke ? 12 : 8);
+            SetField(binding, "maxConcurrentInstances", cue == BoxVfxCue.DestroySmoke || cue == BoxVfxCue.DestroyShrink ? 12 : 8);
             return binding;
         }
 

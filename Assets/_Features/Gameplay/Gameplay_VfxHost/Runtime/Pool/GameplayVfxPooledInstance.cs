@@ -286,6 +286,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return;
             }
 
+            if (command.FadeMode == ParameterizedMotionVfxFadeMode.DestroyShrinkEase)
+            {
+                ApplyDestroyShrinkFadeState(sample.NormalizedTime, sample.FadeProgress);
+                return;
+            }
+
             if (sample.FadeProgress <= 0f)
             {
                 ApplyFadeState(command, scaleProgress: 0f, alpha: 1f);
@@ -321,6 +327,33 @@ namespace Game.Feature.Gameplay.Vfx.Host
             {
                 activeMaterialInstances?.ApplyAlpha(alpha);
             }
+        }
+
+        private void ApplyDestroyShrinkFadeState(float normalizedTime, float fadeProgress)
+        {
+            const float popEnd = 0.16f;
+            const float popScale = 1.10f;
+            const float finalScale = 0.06f;
+            var time = Mathf.Clamp01(normalizedTime);
+            float scale;
+            if (time <= popEnd)
+            {
+                var popT = Mathf.Clamp01(time / popEnd);
+                var easedPop = 1f - Mathf.Pow(1f - popT, 3f);
+                scale = Mathf.Lerp(1f, popScale, easedPop);
+            }
+            else
+            {
+                var shrinkT = Mathf.Clamp01((time - popEnd) / (1f - popEnd));
+                var easedShrink = 1f - Mathf.Pow(1f - shrinkT, 3f);
+                scale = Mathf.Lerp(popScale, finalScale, easedShrink);
+            }
+
+            Transform.localScale = Vector3.one * Mathf.Max(0f, scale);
+
+            var alphaT = Mathf.Clamp01((fadeProgress - 0.18f) / 0.82f);
+            var alphaEase = alphaT * alphaT * (3f - (2f * alphaT));
+            activeMaterialInstances?.ApplyAlpha(1f - alphaEase);
         }
 
         private static void RemoveGameplayAffectingComponents(GameObject root)

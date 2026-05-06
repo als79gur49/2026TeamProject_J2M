@@ -119,7 +119,7 @@ namespace Game.Feature.Gameplay.Host
         }
 
         public void PlayEntityExitEffects(
-            bool suppressLegacyBoxDestroySmokeEffects,
+            bool suppressLegacyBoxDestroyShrinkEffects,
             bool suppressLegacyItemConsumeEffects,
             bool suppressLegacyEnemyDeathEffects,
             bool suppressLegacyFlipDestroySelfEffects)
@@ -135,7 +135,7 @@ namespace Game.Feature.Gameplay.Host
 
                 if (ShouldSuppressLegacyEntityExitEffect(
                         signal.ExitCause,
-                        suppressLegacyBoxDestroySmokeEffects,
+                        suppressLegacyBoxDestroyShrinkEffects,
                         suppressLegacyItemConsumeEffects,
                         suppressLegacyEnemyDeathEffects))
                 {
@@ -222,13 +222,13 @@ namespace Game.Feature.Gameplay.Host
 
         private static bool ShouldSuppressLegacyEntityExitEffect(
             TickEntityExitCause exitCause,
-            bool suppressLegacyBoxDestroySmokeEffects,
+            bool suppressLegacyBoxDestroyShrinkEffects,
             bool suppressLegacyItemConsumeEffects,
             bool suppressLegacyEnemyDeathEffects)
         {
             if (exitCause == TickEntityExitCause.BoxDestroy)
             {
-                return suppressLegacyBoxDestroySmokeEffects;
+                return suppressLegacyBoxDestroyShrinkEffects;
             }
 
             if (exitCause == TickEntityExitCause.Killed)

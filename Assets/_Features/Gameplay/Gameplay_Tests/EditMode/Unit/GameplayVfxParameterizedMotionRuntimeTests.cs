@@ -249,6 +249,63 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void DestroyShrinkEase_PopsThenShrinksAndIsNotLinear()
+        {
+            var fixture = CreatePoolFixture(
+                tailSeconds: 0f,
+                cueId: GameplayVfxCueId.From(BoxVfxCue.DestroyShrink));
+            try
+            {
+                var command = CreateDestroyShrinkCommand();
+                fixture.Pool.PlayParameterizedMotion(fixture.PlaybackCommand, command);
+                var instance = fixture.Root.OneShotRoot.GetChild(0);
+
+                fixture.TimeProvider.TimeSeconds = 0.08f;
+                fixture.Pool.Advance(0.08f);
+                Assert.That(instance.localScale.x, Is.GreaterThan(1f));
+
+                fixture.TimeProvider.TimeSeconds = 0.5f;
+                fixture.Pool.Advance(0.42f);
+                Assert.That(instance.localScale.x, Is.LessThan(0.95f));
+                Assert.That(instance.localScale.y, Is.EqualTo(instance.localScale.x).Within(0.0001f));
+                Assert.That(instance.localScale.z, Is.EqualTo(instance.localScale.x).Within(0.0001f));
+                Assert.That(instance.localScale.x, Is.Not.EqualTo(0.53f).Within(0.04f));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void DestroyShrinkEase_AlphaFadesThroughMaterialInstance()
+        {
+            var fixture = CreatePoolFixture(
+                tailSeconds: 0f,
+                cueId: GameplayVfxCueId.From(BoxVfxCue.DestroyShrink));
+            try
+            {
+                var command = CreateDestroyShrinkCommand();
+                fixture.Pool.PlayParameterizedMotion(fixture.PlaybackCommand, command);
+                var renderer = fixture.Root.OneShotRoot.GetChild(0).GetComponentInChildren<Renderer>();
+                var originalSharedMaterial = fixture.Prefab.GetComponentInChildren<Renderer>().sharedMaterial;
+
+                fixture.TimeProvider.TimeSeconds = 0.9f;
+                fixture.Pool.Advance(0.9f);
+
+                Assert.That(renderer.sharedMaterial, Is.Not.SameAs(originalSharedMaterial));
+                Assert.That(renderer.sharedMaterial.color.a, Is.LessThan(0.2f));
+                Assert.That(originalSharedMaterial.color.a, Is.EqualTo(1f).Within(0.0001f));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void ParameterizedMotion_BreakFade_StartsAtBreakStart()
         {
             var fixture = CreatePoolFixture(tailSeconds: 0f);
@@ -385,10 +442,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 samplerMode);
         }
 
+        private static ParameterizedMotionVfxCommand CreateDestroyShrinkCommand()
+        {
+            return new ParameterizedMotionVfxCommand(
+                GameplayVfxCueId.From(BoxVfxCue.DestroyShrink),
+                sourceEntityId: 30,
+                sequenceId: 7,
+                presentationSeed: 7,
+                sourceLocalPosition: Vector3.zero,
+                sourceLocalRotation: Quaternion.identity,
+                targetLocalPosition: Vector3.zero,
+                targetLocalRotation: Quaternion.identity,
+                durationSeconds: 1f,
+                arcHeight: 0f,
+                breakStartSeconds: 0f,
+                fadeDurationSeconds: 1f,
+                ParameterizedMotionVfxFadeMode.DestroyShrinkEase,
+                ParameterizedMotionVfxCloneMode.PrefabOnly,
+                ParameterizedMotionVfxSamplerMode.Linear);
+        }
+
         internal static PoolFixture CreatePoolFixture(
             float tailSeconds,
             bool persistent = false,
-            IGameplayVfxCloneSourceProvider cloneSourceProvider = null)
+            IGameplayVfxCloneSourceProvider cloneSourceProvider = null,
+            GameplayVfxCueId cueId = default)
         {
             var owner = new GameObject("ParameterizedMotionPoolOwner");
             var root = GameplayVfxRuntimeRoot.CreateUnder(owner.transform);
@@ -396,7 +474,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var prefabProvider = new SinglePrefabProvider(prefab);
             var timeProvider = new FakeTimeProvider();
             var pool = new GameplayVfxGameObjectPool(root, prefabProvider, timeProvider, cloneSourceProvider);
-            var cueId = GameplayVfxCueId.From(BoxVfxCue.FlipDestroySelfMotion);
+            cueId = cueId.Equals(default(GameplayVfxCueId))
+                ? GameplayVfxCueId.From(BoxVfxCue.FlipDestroySelfMotion)
+                : cueId;
             var request = new GameplayVfxRequest(
                 1,
                 7,

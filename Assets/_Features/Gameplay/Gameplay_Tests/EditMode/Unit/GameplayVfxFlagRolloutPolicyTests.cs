@@ -47,6 +47,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "Tier 1",
                 "targeted tests + visual spot check"),
             new(
+                "EnableGameplayVfxBoxDestroyShrinkMigration",
+                "enableGameplayVfxBoxDestroyShrinkMigration",
+                "BoxVfxCue.DestroyShrink",
+                "Migration / parameterized clone motion",
+                "Tier 2",
+                "manual visual approval + targeted regression"),
+            new(
                 "EnableGameplayVfxItemConsumeBurstMigration",
                 "enableGameplayVfxItemConsumeBurstMigration",
                 "BoxVfxCue.ItemConsume",
@@ -149,7 +156,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 }
 
                 Assert.That(runtime.SuppressLegacyPlayerDamageHitEffects, Is.True);
-                Assert.That(runtime.SuppressLegacyBoxDestroySmokeEffects, Is.True);
+                Assert.That(runtime.SuppressLegacyBoxDestroySmokeEffects, Is.False);
+                Assert.That(runtime.SuppressLegacyBoxDestroyShrinkEffects, Is.True);
                 Assert.That(runtime.SuppressLegacyItemConsumeEffects, Is.True);
                 Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.True);
                 Assert.That(runtime.SuppressLegacyFlipDestroySelfEffects, Is.True);
@@ -276,6 +284,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("High-risk parameterized motion and clone/source-view VFX require manual parity approval"));
             Assert.That(document, Does.Contain("`EnableGameplayVfxEnemyDeathMotionMigration` owns `SuppressLegacyEnemyDeathEffects`"));
             Assert.That(document, Does.Contain("`EnableGameplayVfxEnemyDeathBurstMigration` does not suppress the old enemy death fly-away"));
+            Assert.That(document, Does.Contain("`EnableGameplayVfxBoxDestroyShrinkMigration` owns `SuppressLegacyBoxDestroyShrinkEffects`"));
+            Assert.That(document, Does.Contain("`EnableGameplayVfxBoxDestroySmokeMigration` does not suppress the old BoxDestroy shrink/fade"));
             Assert.That(document, Does.Contain("High-risk motion/parity flags require post-rollout visual monitoring"));
             Assert.That(document, Does.Contain("Burst + Motion simultaneous output remains visually monitored"));
         }

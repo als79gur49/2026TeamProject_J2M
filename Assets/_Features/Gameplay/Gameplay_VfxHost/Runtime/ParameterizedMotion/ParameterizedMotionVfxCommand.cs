@@ -11,6 +11,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         ScaleOnly = 2,
         AlphaOnly = 3,
         LegacyEnemyDeath = 4,
+        DestroyShrinkEase = 5,
     }
 
     public enum ParameterizedMotionVfxCloneMode

@@ -289,7 +289,7 @@ namespace Game.Feature.Gameplay.Host
                 _timingProfile);
             TraceStep("PlayEntityExitEffects");
             _exitPresentationController.PlayEntityExitEffects(
-                ShouldSuppressLegacyBoxDestroySmokeEffects(),
+                ShouldSuppressLegacyBoxDestroyShrinkEffects(),
                 ShouldSuppressLegacyItemConsumeEffects(),
                 ShouldSuppressLegacyEnemyDeathEffects(),
                 ShouldSuppressLegacyFlipDestroySelfEffects());
@@ -555,12 +555,12 @@ namespace Game.Feature.Gameplay.Host
             return false;
         }
 
-        private bool ShouldSuppressLegacyBoxDestroySmokeEffects()
+        private bool ShouldSuppressLegacyBoxDestroyShrinkEffects()
         {
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
                 if (_presentationExtensions[i] is IGameplayPresentationMigrationGate migrationGate &&
-                    migrationGate.SuppressLegacyBoxDestroySmokeEffects)
+                    migrationGate.SuppressLegacyBoxDestroyShrinkEffects)
                 {
                     return true;
                 }
