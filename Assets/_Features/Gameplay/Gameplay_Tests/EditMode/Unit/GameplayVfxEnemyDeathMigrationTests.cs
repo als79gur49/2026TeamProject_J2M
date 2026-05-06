@@ -138,7 +138,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
-                Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.False);
+                Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.True);
             }
             finally
             {
@@ -243,7 +243,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Coordinator_EnemyDeathFlagOff_UsesOldExitEffect()
+        public void Coordinator_EnemyDeathWithoutVfxRuntime_NoOldExitEffect()
         {
             var scenario = CreatePresenterScenario("EnemyDeathFlagOff");
             try
@@ -261,7 +261,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     scenario.Topology,
                     Array.Empty<EntityState>()));
 
-                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.Zero);
             }
             finally
             {
@@ -271,7 +271,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Coordinator_EnemyDeathBurstFlagOn_AllowsOldFlyawayAndKeepsCleanup()
+        public void Coordinator_EnemyDeathBurstFlagOn_NoOldFlyawayAndKeepsCleanup()
         {
             var scenario = CreatePresenterScenario("EnemyDeathFlagOn");
             var vfxPrefab = new GameObject("EnemyDeathFlagOn_VfxPrefab");
@@ -300,7 +300,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     scenario.Topology,
                     Array.Empty<EntityState>()));
 
-                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.Zero);
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
                 Assert.That(scenario.Registry.TryGetView(40, out var enemyView), Is.True);
@@ -315,7 +315,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Coordinator_EnemyDeathBurstFlagOnMissingBinding_DoesNotSuppressOldFlyawayAndKeepsCleanup()
+        public void Coordinator_EnemyDeathBurstFlagOnMissingBinding_NoOldFlyawayAndKeepsCleanup()
         {
             var scenario = CreatePresenterScenario("EnemyDeathFlagOnMissingBinding");
             try
@@ -337,7 +337,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     scenario.Topology,
                     Array.Empty<EntityState>()));
 
-                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.Zero);
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
@@ -352,7 +352,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Coordinator_BoxItemFlags_DoNotSuppressEnemyDeathOldPath()
+        public void Coordinator_BoxItemFlags_DoNotRestoreEnemyDeathOldPath()
         {
             var scenario = CreatePresenterScenario("EnemyDeathNotSuppressedByBoxItem");
             try
@@ -376,8 +376,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     scenario.Topology,
                     Array.Empty<EntityState>()));
 
-                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.EqualTo(1));
-                Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.False);
+                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.Zero);
+                Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.True);
             }
             finally
             {
@@ -593,7 +593,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(expectedRequests));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(expectedRequests));
-                Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.False);
+                Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.True);
                 Assert.That(runtime.SuppressLegacyBoxDestroySmokeEffects, Is.False);
                 Assert.That(runtime.SuppressLegacyBoxDestroyShrinkEffects, Is.True);
                 Assert.That(runtime.SuppressLegacyItemConsumeEffects, Is.True);

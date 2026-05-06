@@ -20,6 +20,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string VfxRuntimePath = "Assets/_Features/Gameplay/Gameplay_Vfx/Runtime";
         private const string VfxPlanningPath = "Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxPlanning.cs";
         private const string CoordinatorPath = "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs";
+        private const string ExitControllerPath = "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayExitPresentationController.cs";
+        private const string TransientPresenterPath = "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTransientEffectPresenter.cs";
+        private const string FrontFaceShieldPresenterPath = "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayFrontFaceShieldVfxPresenter.cs";
 
         [Test]
         [Category("Extended")]
@@ -144,6 +147,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("GameplayVfxRequest.SourceEntityId"));
             Assert.That(document, Does.Contain("PresentationSeed` must not be used as source identity"));
             Assert.That(document, Does.Contain("EnemyPresentationCatalogEntry.VfxProfileAsset"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void LegacyFinalization_RemovesOldPlaybackButKeepsCleanupOwners()
+        {
+            var coordinator = ReadRepoFile(CoordinatorPath);
+            var exitController = ReadRepoFile(ExitControllerPath);
+            var transientPresenter = ReadRepoFile(TransientPresenterPath);
+            var frontFaceShieldPresenter = ReadRepoFile(FrontFaceShieldPresenterPath);
+
+            Assert.That(coordinator, Does.Contain("TraceStep(\"PlayPlayerHitEffects\")"));
+            Assert.That(coordinator, Does.Contain("TraceStep(\"PlayFrontFaceShieldBlockBursts\")"));
+            Assert.That(coordinator, Does.Contain("_exitPresentationController.ApplyEntityExitOwnership();"));
+            Assert.That(coordinator, Does.Not.Contain("PlayPlayerHitEffects(TickResult"));
+
+            Assert.That(exitController, Does.Contain("public void ApplyEntityExitOwnership()"));
+            Assert.That(exitController, Does.Contain("_destroySelfFlipImpactKeysByEntityId"));
+            Assert.That(exitController, Does.Contain("TickEntityExitCause.OutOfBounds"));
+            Assert.That(exitController, Does.Not.Contain("PlayFlipImpactDestroyEffect"));
+            Assert.That(exitController, Does.Not.Contain("suppressLegacyEnemyDeathEffects"));
+
+            Assert.That(transientPresenter, Does.Contain("ImpactBreakEffectTrack"));
+            Assert.That(transientPresenter, Does.Contain("EnemyDeathExitEffectPlanBuilder"));
+            Assert.That(transientPresenter, Does.Not.Contain("PlayHitEffect("));
+            Assert.That(transientPresenter, Does.Not.Contain("FlipImpactDestroyEffectTrack"));
+            Assert.That(transientPresenter, Does.Not.Contain("EnemyDeathExitEffectTrack"));
+
+            Assert.That(frontFaceShieldPresenter, Does.Contain("RefreshWindupWarnings"));
+            Assert.That(frontFaceShieldPresenter, Does.Contain("RefreshActiveSources"));
+            Assert.That(frontFaceShieldPresenter, Does.Not.Contain("PlayBlockBursts("));
         }
 
         [Test]

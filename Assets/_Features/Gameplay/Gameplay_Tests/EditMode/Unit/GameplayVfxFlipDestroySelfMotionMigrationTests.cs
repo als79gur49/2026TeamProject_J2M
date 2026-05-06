@@ -210,7 +210,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void FlagOff_OldDestroySelfPathRuns()
+        public void FlagOff_NoMotionVfxAndNoOldCloneFallback()
         {
             var source = ReadRepoFile(ExitControllerPath);
             var owner = new GameObject("FlipDestroySelfFlagOff");
@@ -218,9 +218,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
                 runtime.EnableGameplayVfxFlipDestroySelfMotionMigration = false;
+                runtime.Present(CreateExtensionContext(CreateSignal(FlipImpactPresentationDisposition.DestroySelf)));
 
-                Assert.That(runtime.SuppressLegacyFlipDestroySelfEffects, Is.False);
-                Assert.That(source, Does.Contain("PlayFlipImpactDestroyEffect"));
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
+                Assert.That(runtime.SuppressLegacyFlipDestroySelfEffects, Is.True);
+                Assert.That(source, Does.Not.Contain("PlayFlipImpactDestroyEffect"));
             }
             finally
             {
@@ -260,14 +263,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void FlagOn_SuppressesOldDestroySelfPath()
+        public void LegacyDestroySelfPath_Finalized()
         {
             var source = ReadRepoFile(ExitControllerPath);
             var runtimeSource = ReadRepoFile(ProductionRuntimePath);
 
             Assert.That(runtimeSource, Does.Contain("SuppressLegacyFlipDestroySelfEffects"));
-            Assert.That(source, Does.Contain("suppressLegacyFlipDestroySelfEffects"));
-            Assert.That(source, Does.Contain("continue;"));
+            Assert.That(runtimeSource, Does.Contain("SuppressLegacyFlipDestroySelfEffects => true"));
+            Assert.That(source, Does.Not.Contain("suppressLegacyFlipDestroySelfEffects"));
+            Assert.That(source, Does.Not.Contain("PlayFlipImpactDestroyEffect"));
         }
 
         [Test]
@@ -309,7 +313,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 runtime.Present(CreateExtensionContext(CreateSignal(FlipImpactPresentationDisposition.DestroySelf)));
 
                 Assert.That(runtime.EnableGameplayVfxFlipDestroySelfMotionMigration, Is.False);
-                Assert.That(runtime.SuppressLegacyFlipDestroySelfEffects, Is.False);
+                Assert.That(runtime.SuppressLegacyFlipDestroySelfEffects, Is.True);
             }
             finally
             {

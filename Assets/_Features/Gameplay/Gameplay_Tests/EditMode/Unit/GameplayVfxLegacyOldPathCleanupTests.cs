@@ -22,11 +22,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var document = ReadRepoFile(GovernancePath);
 
             Assert.That(document, Does.Contain("## Gameplay VFX Legacy Old Path Cleanup"));
-            Assert.That(document, Does.Contain("For cleaned cues, flag off means that VFX is off"));
+            Assert.That(document, Does.Contain("For all current migrated cues, flag off means that VFX is off"));
             Assert.That(document, Does.Contain("it does not mean old presenter fallback"));
             Assert.That(document, Does.Contain("Cleanup, visibility, transform reset, and motion ownership responsibilities remain"));
             Assert.That(document, Does.Contain("Compatibility migration gate properties remain"));
-            Assert.That(document, Does.Contain("High-risk suppress gates for enemy death motion and FlipDestroySelf motion remain meaningful rollback gates"));
+            Assert.That(document, Does.Contain("Cleaned and high-risk suppress gates are compatibility aliases"));
+            Assert.That(document, Does.Contain("For all current migrated cues, flag off means that VFX is off"));
         }
 
         [Test]
@@ -45,13 +46,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void RetainedHighRiskOldPaths_AreListed()
+        public void FinalizedHighRiskOldPaths_AreListed()
         {
             var document = ReadRepoFile(GovernancePath);
 
-            Assert.That(document, Does.Contain("Retained high-risk legacy paths"));
-            Assert.That(document, Does.Contain("old fly-away fallback remains when `EnableGameplayVfxEnemyDeathMotionMigration` is false"));
-            Assert.That(document, Does.Contain("old clone/fade fallback remains when `EnableGameplayVfxFlipDestroySelfMotionMigration` is false"));
+            Assert.That(document, Does.Contain("old fly-away disabled"));
+            Assert.That(document, Does.Contain("old clone/fade disabled"));
+            Assert.That(document, Does.Contain("Remaining old canonical presentation responsibilities"));
+            Assert.That(document, Does.Contain("OutOfBounds `GameplayExitPresentationController.PlayExitEffect`"));
+            Assert.That(document, Does.Contain("`GameplayFrontFaceShieldVfxPresenter.RefreshWindupWarnings`"));
             Assert.That(document, Does.Contain("`GameplayExitPresentationController.PlayImpactBreakEffect`"));
             Assert.That(document, Does.Contain("`BoxFlipInteractionDriver` and `FlipImpactTrack` Stay branch"));
         }
@@ -67,20 +70,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Not.Contain("flag off old-only"));
             Assert.That(document, Does.Not.Contain("rollback is setting `EnableGameplayVfxDamageBurstMigration` false"));
             Assert.That(document, Does.Not.Contain("rollback is setting `EnableGameplayVfxUtilityWindupMigration` false"));
+            Assert.That(document, Does.Not.Contain("old fly-away only"));
+            Assert.That(document, Does.Not.Contain("old clone/fade fallback remains"));
         }
 
         [Test]
         [Category("Extended")]
-        public void RetainedHighRiskOldPaths_CodeKeepsFlagOffFallbacks()
+        public void FinalizedHighRiskOldPaths_CodeHasNoFlagOffFallbacks()
         {
             var exitController = ReadRepoFile(ExitControllerPath);
+            var coordinator = ReadRepoFile(CoordinatorPath);
             var runtime = ReadRepoFile(RuntimePath);
 
-            Assert.That(exitController, Does.Contain("PlayFlipImpactDestroyEffect"));
-            Assert.That(exitController, Does.Contain("suppressLegacyFlipDestroySelfEffects"));
-            Assert.That(exitController, Does.Contain("suppressLegacyEnemyDeathEffects"));
-            Assert.That(runtime, Does.Contain("SuppressLegacyEnemyDeathEffects => enableGameplayVfxEnemyDeathMotionMigration"));
-            Assert.That(runtime, Does.Contain("SuppressLegacyFlipDestroySelfEffects => enableGameplayVfxFlipDestroySelfMotionMigration"));
+            Assert.That(exitController, Does.Not.Contain("PlayFlipImpactDestroyEffect"));
+            Assert.That(exitController, Does.Not.Contain("suppressLegacyFlipDestroySelfEffects"));
+            Assert.That(exitController, Does.Not.Contain("suppressLegacyEnemyDeathEffects"));
+            Assert.That(coordinator, Does.Not.Contain("PlayPlayerHitEffects(TickResult"));
+            Assert.That(runtime, Does.Contain("SuppressLegacyEnemyDeathEffects => true"));
+            Assert.That(runtime, Does.Contain("SuppressLegacyFlipDestroySelfEffects => true"));
         }
 
         [Test]
@@ -92,12 +99,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(typeof(IGameplayPresentationMigrationGate).GetProperty("SuppressLegacyPlayerDamageHitEffects"), Is.Not.Null);
             Assert.That(typeof(IGameplayPresentationMigrationGate).GetProperty("SuppressLegacyBoxDestroyShrinkEffects"), Is.Not.Null);
             Assert.That(typeof(IGameplayPresentationMigrationGate).GetProperty("SuppressLegacyItemConsumeEffects"), Is.Not.Null);
+            Assert.That(typeof(IGameplayPresentationMigrationGate).GetProperty("SuppressLegacyEnemyDeathEffects"), Is.Not.Null);
+            Assert.That(typeof(IGameplayPresentationMigrationGate).GetProperty("SuppressLegacyFlipDestroySelfEffects"), Is.Not.Null);
             Assert.That(typeof(IGameplayPresentationMigrationGate).GetProperty("SuppressLegacyUtilityWindupVfx"), Is.Not.Null);
             Assert.That(typeof(IGameplayPresentationMigrationGate).GetProperty("SuppressLegacyFrontFaceShieldActiveVfx"), Is.Not.Null);
             Assert.That(typeof(IGameplayPresentationMigrationGate).GetProperty("SuppressLegacyFrontFaceShieldBlockVfx"), Is.Not.Null);
             Assert.That(runtime, Does.Contain("SuppressLegacyPlayerDamageHitEffects => true"));
             Assert.That(runtime, Does.Contain("SuppressLegacyBoxDestroyShrinkEffects => true"));
             Assert.That(runtime, Does.Contain("SuppressLegacyItemConsumeEffects => true"));
+            Assert.That(runtime, Does.Contain("SuppressLegacyEnemyDeathEffects => true"));
+            Assert.That(runtime, Does.Contain("SuppressLegacyFlipDestroySelfEffects => true"));
             Assert.That(runtime, Does.Contain("SuppressLegacyUtilityWindupVfx => true"));
             Assert.That(runtime, Does.Contain("SuppressLegacyFrontFaceShieldActiveVfx => true"));
             Assert.That(runtime, Does.Contain("SuppressLegacyFrontFaceShieldBlockVfx => true"));

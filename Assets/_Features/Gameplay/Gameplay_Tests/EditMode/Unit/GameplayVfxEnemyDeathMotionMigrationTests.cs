@@ -197,16 +197,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void BurstFlag_DoesNotSuppressOldFlyaway()
+        public void MotionFlagOff_NoDeathMotionVfxAndNoOldFlyawayFallback()
         {
-            var owner = new GameObject("EnemyDeathBurstNoSuppress");
+            var owner = new GameObject("EnemyDeathMotionFlagOffNoFallback");
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
                 runtime.EnableGameplayVfxEnemyDeathMotionMigration = false;
                 runtime.EnableGameplayVfxEnemyDeathBurstMigration = true;
+                runtime.Present(CreateExtensionContext(CreateEnemyExitSignal(40, TickEntityExitCause.Killed)));
 
-                Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.False);
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
+                Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.True);
             }
             finally
             {

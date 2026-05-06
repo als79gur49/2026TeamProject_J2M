@@ -579,7 +579,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Coordinator_EnemyDeathOldPath_NotSuppressedByBoxItemFlags()
+        public void Coordinator_EnemyDeathOldPath_NotRestoredByBoxItemFlags()
         {
             var scenario = CreatePresenterScenario("EnemyDeathNotSuppressed");
             try
@@ -602,7 +602,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     scenario.Topology,
                     Array.Empty<EntityState>()));
 
-                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.Zero);
                 Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
             }
             finally

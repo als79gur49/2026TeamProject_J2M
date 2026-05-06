@@ -16,7 +16,6 @@ namespace Game.Feature.Gameplay.Host
         private readonly List<FrontFaceShieldWarningKey> _warningRemovalBuffer = new();
         private readonly List<int> _removalBuffer = new();
         private readonly HashSet<int> _seenSourceIds = new();
-        private readonly List<IGameplayTransientEffectTrack> _oneShotTracks = new();
         private float _cellSize = 1f;
         private Transform _parent;
 
@@ -36,8 +35,6 @@ namespace Game.Feature.Gameplay.Host
                 return count;
             }
         }
-
-        internal int ActiveOneShotCount => _oneShotTracks.Count;
 
         internal int WarningInstanceCount
         {
@@ -79,12 +76,6 @@ namespace Game.Feature.Gameplay.Host
 
             _warningShieldsByKey.Clear();
 
-            for (var i = _oneShotTracks.Count - 1; i >= 0; i--)
-            {
-                _oneShotTracks[i].Dispose();
-            }
-
-            _oneShotTracks.Clear();
             _seenSourceIds.Clear();
             _removalBuffer.Clear();
             _seenWarningKeys.Clear();
@@ -223,72 +214,8 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        public void PlayBlockBursts(
-            IReadOnlyList<TickFrontFaceShieldBlockSignal> signals,
-            GameplayPresentationStateStore stateStore,
-            GameplayCubeProjector projector)
-        {
-            if (signals == null)
-            {
-                throw new ArgumentNullException(nameof(signals));
-            }
-
-            if (stateStore == null)
-            {
-                throw new ArgumentNullException(nameof(stateStore));
-            }
-
-            if (projector == null)
-            {
-                throw new ArgumentNullException(nameof(projector));
-            }
-
-            if (_parent == null)
-            {
-                return;
-            }
-
-            for (var i = 0; i < signals.Count; i++)
-            {
-                var signal = signals[i];
-                if (!TryResolveShieldSnapshot(signal.ShieldSourceEntityId, stateStore, out var snapshot) ||
-                    !snapshot.HasBlockBurstPrefab ||
-                    !TryResolveSurfacePose(projector, signal.BlockedCell, signal.Topology, out var pose))
-                {
-                    continue;
-                }
-
-                var instance = InstantiateVfx(
-                    snapshot.BlockBurstPrefab,
-                    _parent,
-                    $"FrontFaceShieldBlockBurst_{signal.ShieldSourceEntityId}_{signal.BoxEntityId}",
-                    pose.Position + (pose.Rotation * snapshot.LocalOffset),
-                    pose.Rotation,
-                    Vector3.one,
-                    useLocalTransform: true);
-                if (instance == null)
-                {
-                    continue;
-                }
-
-                _oneShotTracks.Add(new TimedGameObjectEffectTrack(instance, ResolveDuration(snapshot.BlockBurstSeconds, 0.25f)));
-            }
-        }
-
         public void Update(float deltaTime)
         {
-            for (var i = _oneShotTracks.Count - 1; i >= 0; i--)
-            {
-                var track = _oneShotTracks[i];
-                track.Advance(deltaTime);
-                if (!track.IsComplete)
-                {
-                    continue;
-                }
-
-                track.Dispose();
-                _oneShotTracks.RemoveAt(i);
-            }
         }
 
         private bool TryCreateActiveRuntime(

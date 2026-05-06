@@ -11,7 +11,6 @@ namespace Game.Feature.Gameplay.Host
     {
         private readonly List<IGameplayTransientEffectTrack> _activeTracks = new();
         private readonly GameplayPresentationEffectFactory _effectFactory = new();
-        private Camera _outputCamera;
 
         public int ActiveEffectCount => _activeTracks.Count;
 
@@ -35,23 +34,20 @@ namespace Game.Feature.Gameplay.Host
 
         public void ConfigureOutputCamera(Camera outputCamera)
         {
-            _outputCamera = outputCamera;
+            _ = outputCamera;
         }
 
         public void PlayExitEffect(
             TickEntityExitPresentationSignal signal,
             GameplayEntityView sourceView,
             GameplayEntityPose localPose,
-            GameplayEntityPose? targetLocalPose,
             float durationSeconds)
         {
             var track = _effectFactory.CreateExitEffect(
                 signal,
                 sourceView,
                 localPose,
-                targetLocalPose,
-                durationSeconds,
-                _outputCamera);
+                durationSeconds);
             if (track != null)
             {
                 _activeTracks.Add(track);
@@ -71,52 +67,6 @@ namespace Game.Feature.Gameplay.Host
                 sourceLocalPose,
                 impactLocalPose,
                 durationSeconds);
-            if (track != null)
-            {
-                _activeTracks.Add(track);
-            }
-        }
-
-        internal bool PlayFlipImpactDestroyEffect(
-            FlipImpactInstanceKey key,
-            FlipImpactPresentationSignal signal,
-            GameplayEntityView sourceView,
-            GameplayEntityPose sourceLocalPose,
-            GameplayEntityPose impactLocalPose,
-            float flightDurationSeconds,
-            float totalDurationSeconds,
-            float arcHeightWorld,
-            FlipImpactTimingSettings timingSettings)
-        {
-            var track = _effectFactory.CreateFlipImpactDestroyEffect(
-                signal,
-                sourceView,
-                sourceLocalPose,
-                impactLocalPose,
-                flightDurationSeconds,
-                totalDurationSeconds,
-                arcHeightWorld,
-                timingSettings);
-            if (track == null)
-            {
-                return false;
-            }
-
-            _activeTracks.Add(track);
-            return true;
-        }
-
-        public void PlayHitEffect(
-            int entityId,
-            GameplayEntityPose localPose,
-            EntityEffectPresentationSnapshot effectSnapshot,
-            float fallbackDurationSeconds)
-        {
-            var track = _effectFactory.CreateHitEffect(
-                entityId,
-                localPose,
-                effectSnapshot,
-                fallbackDurationSeconds);
             if (track != null)
             {
                 _activeTracks.Add(track);
@@ -323,105 +273,6 @@ namespace Game.Feature.Gameplay.Host
 
     }
 
-    internal sealed class EnemyDeathExitEffectTrack : IGameplayTransientEffectTrack
-    {
-        private readonly float _arcHeight;
-        private readonly Vector3 _arcLocalDirection;
-        private readonly Material[][] _instancedMaterials;
-        private readonly Renderer[] _renderers;
-        private readonly Transform _root;
-        private readonly Vector3 _rootStartLocalPosition;
-        private readonly Quaternion _rootStartLocalRotation;
-        private readonly Vector3 _rootStartLocalScale;
-        private readonly Vector3 _spinAxisLocal;
-        private readonly float _spinDegrees;
-        private readonly Vector3 _targetLocalPosition;
-        private readonly float _durationSeconds;
-        private float _elapsedSeconds;
-
-        public EnemyDeathExitEffectTrack(
-            Transform root,
-            Renderer[] renderers,
-            Material[][] instancedMaterials,
-            float durationSeconds,
-            in EnemyDeathExitEffectPlan plan)
-        {
-            _root = root != null ? root : throw new ArgumentNullException(nameof(root));
-            _renderers = renderers ?? Array.Empty<Renderer>();
-            _instancedMaterials = instancedMaterials ?? Array.Empty<Material[]>();
-            _durationSeconds = Mathf.Max(0.0001f, durationSeconds);
-            _rootStartLocalPosition = root.localPosition;
-            _rootStartLocalRotation = root.localRotation;
-            _rootStartLocalScale = root.localScale;
-            _targetLocalPosition = plan.TargetLocalPosition;
-            _arcLocalDirection = plan.ArcLocalDirection.sqrMagnitude > 0.000001f
-                ? plan.ArcLocalDirection.normalized
-                : Vector3.up;
-            _arcHeight = Mathf.Max(0f, plan.ArcHeight);
-            _spinDegrees = plan.SpinDegrees;
-            _spinAxisLocal = plan.SpinAxisLocal.sqrMagnitude > 0.000001f
-                ? plan.SpinAxisLocal.normalized
-                : Vector3.forward;
-            ApplyVisualState(normalizedTime: 0f);
-        }
-
-        public bool IsComplete => _elapsedSeconds >= _durationSeconds - 0.0001f;
-
-        public void Advance(float deltaTime)
-        {
-            if (deltaTime > 0f)
-            {
-                _elapsedSeconds = Mathf.Min(_durationSeconds, _elapsedSeconds + deltaTime);
-            }
-
-            ApplyVisualState(Mathf.Clamp01(_elapsedSeconds / _durationSeconds));
-        }
-
-        public void Dispose()
-        {
-            for (var rendererIndex = 0; rendererIndex < _instancedMaterials.Length; rendererIndex++)
-            {
-                var materials = _instancedMaterials[rendererIndex];
-                if (materials == null)
-                {
-                    continue;
-                }
-
-                for (var materialIndex = 0; materialIndex < materials.Length; materialIndex++)
-                {
-                    GameplayTransientEffectTrackUtility.SafeDestroy(materials[materialIndex]);
-                }
-            }
-
-            GameplayTransientEffectTrackUtility.SafeDestroy(_root != null ? _root.gameObject : null);
-        }
-
-        private void ApplyVisualState(float normalizedTime)
-        {
-            var easedTime = 1f - Mathf.Pow(1f - normalizedTime, 3f);
-            var fadeT = Mathf.Clamp01((normalizedTime - 0.12f) / 0.88f);
-            var alpha = 1f - (fadeT * fadeT);
-            var arcOffset = _arcLocalDirection * (_arcHeight * Mathf.Sin(normalizedTime * Mathf.PI));
-            _root.localPosition = Vector3.LerpUnclamped(_rootStartLocalPosition, _targetLocalPosition, easedTime) + arcOffset;
-            _root.localRotation = Quaternion.AngleAxis(_spinDegrees * easedTime, _spinAxisLocal) * _rootStartLocalRotation;
-            _root.localScale = _rootStartLocalScale * Mathf.Lerp(1f, 0.88f, normalizedTime);
-
-            for (var rendererIndex = 0; rendererIndex < _renderers.Length; rendererIndex++)
-            {
-                var materials = _instancedMaterials[rendererIndex];
-                if (materials == null)
-                {
-                    continue;
-                }
-
-                for (var materialIndex = 0; materialIndex < materials.Length; materialIndex++)
-                {
-                    GameplayTransientEffectTrackUtility.SetMaterialAlpha(materials[materialIndex], alpha);
-                }
-            }
-        }
-    }
-
     internal sealed class ImpactBreakEffectTrack : IGameplayTransientEffectTrack
     {
         private readonly float _arcHeight;
@@ -535,143 +386,6 @@ namespace Game.Feature.Gameplay.Host
                     Mathf.Lerp(1f, 1.12f, breakTime),
                     Mathf.Lerp(1f, 1.12f, breakTime),
                     Mathf.Lerp(1f, 0.18f, breakTime)));
-        }
-    }
-
-    internal sealed class FlipImpactDestroyEffectTrack : IGameplayTransientEffectTrack
-    {
-        private const float DurationEpsilon = 0.0001f;
-        private const float BreakScaleEaseExponent = 2f;
-        private const float BreakAlphaEaseExponent = 2.5f;
-
-        private readonly GameplayEntityPose _impactLocalPose;
-        private readonly GameplayEntityPose _sourceLocalPose;
-        private readonly float _arcHeightWorld;
-        private readonly float _flightDurationSeconds;
-        private readonly float _totalDurationSeconds;
-        private readonly Material[][] _instancedMaterials;
-        private readonly Renderer[] _renderers;
-        private readonly Transform _root;
-        private readonly Vector3 _rootStartScale;
-        private readonly FlipImpactTimingSettings _timingSettings;
-        private float _elapsedSeconds;
-
-        public FlipImpactDestroyEffectTrack(
-            Transform root,
-            Renderer[] renderers,
-            Material[][] instancedMaterials,
-            float flightDurationSeconds,
-            float totalDurationSeconds,
-            GameplayEntityPose sourceLocalPose,
-            GameplayEntityPose impactLocalPose,
-            float arcHeightWorld,
-            FlipImpactTimingSettings timingSettings)
-        {
-            _root = root != null ? root : throw new ArgumentNullException(nameof(root));
-            _renderers = renderers ?? Array.Empty<Renderer>();
-            _instancedMaterials = instancedMaterials ?? Array.Empty<Material[]>();
-            _flightDurationSeconds = Mathf.Max(DurationEpsilon, flightDurationSeconds);
-            _totalDurationSeconds = Mathf.Max(Mathf.Max(totalDurationSeconds, flightDurationSeconds), _flightDurationSeconds);
-            _sourceLocalPose = sourceLocalPose;
-            _impactLocalPose = impactLocalPose;
-            _arcHeightWorld = Mathf.Max(0f, arcHeightWorld);
-            _timingSettings = timingSettings;
-            _rootStartScale = root.localScale;
-            ApplyVisualState();
-        }
-
-        public bool IsComplete => _elapsedSeconds >= _totalDurationSeconds - DurationEpsilon;
-
-        internal float FlightDurationSeconds => _flightDurationSeconds;
-
-        internal float TotalDurationSeconds => _totalDurationSeconds;
-
-        // DestroySelf reads ContactNormalizedTime as break onset, not final impact-pose arrival.
-        internal float BreakStartSeconds => _flightDurationSeconds * _timingSettings.ContactNormalizedTime;
-
-        public void Advance(float deltaTime)
-        {
-            if (deltaTime > 0f)
-            {
-                _elapsedSeconds = Mathf.Min(_totalDurationSeconds, _elapsedSeconds + deltaTime);
-            }
-
-            ApplyVisualState();
-        }
-
-        public void Dispose()
-        {
-            for (var rendererIndex = 0; rendererIndex < _instancedMaterials.Length; rendererIndex++)
-            {
-                var materials = _instancedMaterials[rendererIndex];
-                if (materials == null)
-                {
-                    continue;
-                }
-
-                for (var materialIndex = 0; materialIndex < materials.Length; materialIndex++)
-                {
-                    GameplayTransientEffectTrackUtility.SafeDestroy(materials[materialIndex]);
-                }
-            }
-
-            GameplayTransientEffectTrackUtility.SafeDestroy(_root != null ? _root.gameObject : null);
-        }
-
-        private void ApplyVisualState()
-        {
-            var breakStartSeconds = BreakStartSeconds;
-            var flightNormalizedTime = Mathf.Clamp01(_elapsedSeconds / _flightDurationSeconds);
-            GameplayEntityPose pose;
-            if (_elapsedSeconds < _flightDurationSeconds)
-            {
-                // DestroySelf keeps sampling the full flip flight while the break branch overlaps.
-                // ContactNormalizedTime is the break onset threshold, not final impact-pose arrival.
-                pose = FlipArcSampler.Sample(_sourceLocalPose, _impactLocalPose, flightNormalizedTime, _arcHeightWorld);
-            }
-            else
-            {
-                pose = _impactLocalPose;
-            }
-
-            _root.localPosition = pose.Position;
-            _root.localRotation = pose.Rotation;
-
-            if (_elapsedSeconds <= breakStartSeconds)
-            {
-                _root.localScale = _rootStartScale;
-                ApplyAlpha(1f);
-                return;
-            }
-
-            var breakDurationSeconds = Mathf.Max(DurationEpsilon, _totalDurationSeconds - breakStartSeconds);
-            var breakNormalizedTime = Mathf.Clamp01((_elapsedSeconds - breakStartSeconds) / breakDurationSeconds);
-            var easedScaleTime = Mathf.Pow(breakNormalizedTime, BreakScaleEaseExponent);
-            var easedAlphaTime = Mathf.Pow(breakNormalizedTime, BreakAlphaEaseExponent);
-            _root.localScale = Vector3.Scale(
-                _rootStartScale,
-                new Vector3(
-                    Mathf.Lerp(1f, 1.12f, easedScaleTime),
-                    Mathf.Lerp(1f, 1.12f, easedScaleTime),
-                    Mathf.Lerp(1f, 0.18f, easedScaleTime)));
-            ApplyAlpha(1f - easedAlphaTime);
-        }
-
-        private void ApplyAlpha(float alpha)
-        {
-            for (var rendererIndex = 0; rendererIndex < _renderers.Length; rendererIndex++)
-            {
-                var materials = _instancedMaterials[rendererIndex];
-                if (materials == null)
-                {
-                    continue;
-                }
-
-                for (var materialIndex = 0; materialIndex < materials.Length; materialIndex++)
-                {
-                    GameplayTransientEffectTrackUtility.SetMaterialAlpha(materials[materialIndex], alpha);
-                }
-            }
         }
     }
 
@@ -946,46 +660,6 @@ namespace Game.Feature.Gameplay.Host
         }
     }
 
-    internal sealed class TimedGameObjectEffectTrack : IGameplayTransientEffectTrack
-    {
-        private readonly float _durationSeconds;
-        private readonly GameObject _root;
-        private float _elapsedSeconds;
-
-        public TimedGameObjectEffectTrack(GameObject root, float durationSeconds)
-        {
-            _root = root != null ? root : throw new ArgumentNullException(nameof(root));
-            _durationSeconds = Mathf.Max(0.0001f, durationSeconds);
-        }
-
-        public bool IsComplete => _elapsedSeconds >= _durationSeconds - 0.0001f;
-
-        public void Advance(float deltaTime)
-        {
-            if (deltaTime > 0f)
-            {
-                _elapsedSeconds = Mathf.Min(_durationSeconds, _elapsedSeconds + deltaTime);
-            }
-        }
-
-        public void Dispose()
-        {
-            if (_root == null)
-            {
-                return;
-            }
-
-            if (Application.isPlaying)
-            {
-                Object.Destroy(_root);
-            }
-            else
-            {
-                Object.DestroyImmediate(_root);
-            }
-        }
-    }
-
     internal sealed class GameplayPresentationEffectFactory
     {
         private readonly Dictionary<EntityType, Material> _fallbackMaterialsByEntityType = new();
@@ -1004,9 +678,7 @@ namespace Game.Feature.Gameplay.Host
             TickEntityExitPresentationSignal signal,
             GameplayEntityView sourceView,
             GameplayEntityPose localPose,
-            GameplayEntityPose? targetLocalPose,
-            float durationSeconds,
-            Camera outputCamera)
+            float durationSeconds)
         {
             if (_parent == null)
             {
@@ -1037,23 +709,6 @@ namespace Game.Feature.Gameplay.Host
 
             var renderers = visualRoot.GetComponentsInChildren<Renderer>(includeInactive: true);
             var instancedMaterials = CreateInstancedMaterials(renderers);
-            if (signal.ExitCause == TickEntityExitCause.Killed)
-            {
-                var plan = EnemyDeathExitEffectPlanBuilder.Build(
-                    _parent,
-                    localPose,
-                    targetLocalPose,
-                    outputCamera,
-                    _cellSize,
-                    signal.PresentationSeed);
-                return new EnemyDeathExitEffectTrack(
-                    effectRoot.transform,
-                    renderers,
-                    instancedMaterials,
-                    durationSeconds,
-                    plan);
-            }
-
             return new EntityExitEffectTrack(
                 signal.ExitCause,
                 effectRoot.transform,
@@ -1114,82 +769,6 @@ namespace Game.Feature.Gameplay.Host
                 impactLocalPose.Position + (localDirection.sqrMagnitude <= 0.000001f ? Vector3.zero : localDirection.normalized * (_cellSize * 0.06f)),
                 arcLocalDirection,
                 arcHeight);
-        }
-
-        internal IGameplayTransientEffectTrack CreateFlipImpactDestroyEffect(
-            FlipImpactPresentationSignal signal,
-            GameplayEntityView sourceView,
-            GameplayEntityPose sourceLocalPose,
-            GameplayEntityPose impactLocalPose,
-            float flightDurationSeconds,
-            float totalDurationSeconds,
-            float arcHeightWorld,
-            FlipImpactTimingSettings timingSettings)
-        {
-            if (_parent == null)
-            {
-                return null;
-            }
-
-            var effectRoot = new GameObject($"TransientFlipImpactDestroyEffect_{signal.BoxEntityId}");
-            effectRoot.transform.SetParent(_parent, worldPositionStays: false);
-            effectRoot.transform.localPosition = sourceLocalPose.Position;
-            effectRoot.transform.localRotation = sourceLocalPose.Rotation;
-            effectRoot.transform.localScale = Vector3.one;
-
-            var visualRoot = CreateVisualRoot(effectRoot.transform, sourceView, ResolveFallbackEntityType(sourceView));
-            visualRoot.gameObject.SetActive(true);
-
-            var colliders = visualRoot.GetComponentsInChildren<Collider>(includeInactive: true);
-            for (var i = 0; i < colliders.Length; i++)
-            {
-                if (Application.isPlaying)
-                {
-                    Object.Destroy(colliders[i]);
-                }
-                else
-                {
-                    Object.DestroyImmediate(colliders[i]);
-                }
-            }
-
-            var renderers = visualRoot.GetComponentsInChildren<Renderer>(includeInactive: true);
-            var instancedMaterials = CreateInstancedMaterials(renderers);
-            return new FlipImpactDestroyEffectTrack(
-                effectRoot.transform,
-                renderers,
-                instancedMaterials,
-                flightDurationSeconds,
-                totalDurationSeconds,
-                sourceLocalPose,
-                impactLocalPose,
-                arcHeightWorld,
-                timingSettings);
-        }
-
-        internal IGameplayTransientEffectTrack CreateHitEffect(
-            int entityId,
-            GameplayEntityPose localPose,
-            EntityEffectPresentationSnapshot effectSnapshot,
-            float fallbackDurationSeconds)
-        {
-            if (_parent == null ||
-                !effectSnapshot.HasHitVfxPrefab)
-            {
-                return null;
-            }
-
-            var effectInstance = Object.Instantiate(effectSnapshot.HitVfxPrefab, _parent, worldPositionStays: false);
-            effectInstance.name = $"TransientPlayerHitEffect_{entityId}";
-            effectInstance.transform.localPosition = localPose.Position;
-            effectInstance.transform.localRotation = localPose.Rotation;
-            effectInstance.transform.localScale = Vector3.one;
-            effectInstance.SetActive(true);
-
-            var durationSeconds = effectSnapshot.HasHitEffectDurationOverride
-                ? effectSnapshot.HitEffectDurationSeconds
-                : Mathf.Max(0.0001f, fallbackDurationSeconds);
-            return new TimedGameObjectEffectTrack(effectInstance, durationSeconds);
         }
 
         private Transform CreateFallbackVisualRoot(Transform effectRoot, EntityType entityType)

@@ -253,12 +253,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void FlagOn_DoesNotSuppressDestroySelfOldPath()
+        public void FlagOn_DoesNotOwnDestroySelfMotionFinalization()
         {
             var exitControllerSource = ReadRepoFile(
                 "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayExitPresentationController.cs");
 
-            Assert.That(exitControllerSource, Does.Contain("PlayFlipImpactDestroyEffect"));
+            Assert.That(exitControllerSource, Does.Not.Contain("PlayFlipImpactDestroyEffect"));
             Assert.That(exitControllerSource, Does.Not.Contain("EnableGameplayVfxFlipImpactBurstMigration"));
             Assert.That(exitControllerSource, Does.Not.Contain("SuppressLegacyFlipImpact"));
         }

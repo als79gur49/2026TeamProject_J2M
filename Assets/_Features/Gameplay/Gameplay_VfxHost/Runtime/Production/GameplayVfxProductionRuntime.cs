@@ -177,7 +177,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
-        public bool SuppressLegacyEnemyDeathEffects => enableGameplayVfxEnemyDeathMotionMigration;
+        public bool SuppressLegacyEnemyDeathEffects => true;
 
         public bool SuppressLegacyBoxDestroyShrinkEffects => true;
 
@@ -230,7 +230,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
-        public bool SuppressLegacyFlipDestroySelfEffects => enableGameplayVfxFlipDestroySelfMotionMigration;
+        public bool SuppressLegacyFlipDestroySelfEffects => true;
 
         public bool EnableGameplayVfxBoxSlideTrail
         {
@@ -452,6 +452,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             controller?.HardCleanupAll();
             LastPlannedRequestCount = 0;
             playedFlipDestroySelfMotionKeys.Clear();
+            playedBoxSlideTrailMotionKeys.Clear();
         }
 
         private void EnsureRuntime(in GameplayTickPresentationExtensionContext context)

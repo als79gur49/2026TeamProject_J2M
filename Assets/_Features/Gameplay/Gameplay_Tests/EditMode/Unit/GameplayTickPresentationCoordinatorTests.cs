@@ -167,7 +167,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presenter.UpdatePresentation(timingProfile.MoveMotionDurationSeconds);
 
                 Assert.That(registry.TryGetView(20, out var view), Is.True);
-                var expected = GetProjectedEntityPosition(boardBounds, topology, destinationCell, EntityType.Unit) +
+                var expected = GetProjectedEntityPosition(boardBounds, topology, destinationCell, EntityType.Unit) -
                                GetProjectedEntityNormal(boardBounds, topology, destinationCell, EntityType.Unit) * 0.25f;
                 AssertPositionApproximately(view.transform.localPosition, expected);
             }
@@ -224,7 +224,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             })));
 
                 Assert.That(registry.TryGetView(20, out var view), Is.True);
-                var expected = GetProjectedKinematicEntityPosition(boardBounds, topology, sourceCell, EntityType.Unit, 1024, 0) +
+                var expected = GetProjectedKinematicEntityPosition(boardBounds, topology, sourceCell, EntityType.Unit, 1024, 0) -
                                GetProjectedEntityNormal(boardBounds, topology, sourceCell, EntityType.Unit) * 0.25f;
                 AssertPositionApproximately(view.transform.localPosition, expected);
             }
@@ -236,9 +236,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GlidePresentation_UsesFaceNormal_OnNonTopFaceAndClearsWhenSignalMissing()
+        public void GlidePresentation_RisesAwayFromProjectedNormal_OnNonTopFaceAndClearsWhenSignalMissing()
         {
-            var rootObject = new GameObject("GlidePresentation_UsesFaceNormal_OnNonTopFaceAndClearsWhenSignalMissing");
+            var rootObject = new GameObject("GlidePresentation_RisesAwayFromProjectedNormal_OnNonTopFaceAndClearsWhenSignalMissing");
 
             try
             {
@@ -275,7 +275,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var basePosition = GetProjectedEntityPosition(boardBounds, topology, cell, EntityType.Unit);
                 var normal = GetProjectedEntityNormal(boardBounds, topology, cell, EntityType.Unit);
                 Assert.That(Mathf.Abs(Vector3.Dot(normal.normalized, Vector3.up)), Is.LessThan(0.01f));
-                AssertPositionApproximately(view.transform.localPosition, basePosition + (normal * 0.25f));
+                AssertPositionApproximately(view.transform.localPosition, basePosition - (normal * 0.25f));
 
                 presenter.Present(
                     CreateTickResult(
@@ -2176,9 +2176,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void GameplayTickPresentationCoordinator_FrontFaceShieldBlockSignal_SpawnsOneShotBurst()
+        public void GameplayTickPresentationCoordinator_FrontFaceShieldBlockSignal_DoesNotSpawnLegacyBurst()
         {
-            var rootObject = new GameObject("GameplayTickPresentationCoordinator_FrontFaceShieldBlockSignal_SpawnsOneShotBurst");
+            var rootObject = new GameObject("GameplayTickPresentationCoordinator_FrontFaceShieldBlockSignal_DoesNotSpawnLegacyBurst");
             var enemyPrefab = CreateEnemyViewPrefab(
                 "EnemyPrefab_FrontFaceShieldBurst",
                 UnitLocomotionPresentationAuthoring.UseGlobalTimingSentinel,
@@ -2220,11 +2220,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                                     tickIndex: 1),
                             })));
 
-                Assert.That(CountDescendantsByNamePrefix(rootObject.transform, "FrontFaceShieldBlockBurst_20_30"), Is.EqualTo(1));
+                Assert.That(CountDescendantsByNamePrefix(rootObject.transform, "FrontFaceShieldBlockBurst_20_30"), Is.Zero);
 
                 presenter.UpdatePresentation(0.21f);
 
-                Assert.That(CountDescendantsByNamePrefix(rootObject.transform, "FrontFaceShieldBlockBurst_20_30"), Is.EqualTo(0));
+                Assert.That(CountDescendantsByNamePrefix(rootObject.transform, "FrontFaceShieldBlockBurst_20_30"), Is.Zero);
             }
             finally
             {

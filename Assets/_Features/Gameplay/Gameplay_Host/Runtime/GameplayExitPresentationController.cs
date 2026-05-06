@@ -10,17 +10,13 @@ namespace Game.Feature.Gameplay.Host
     {
         private readonly HashSet<int> _exitOwnedEntityIds = new();
         private readonly List<TickEntityExitPresentationSignal> _pendingEntityExitSignals = new();
-        private readonly List<FlipImpactPresentationSignal> _pendingFlipImpactDestroySignals = new();
         private readonly List<TickImpactTransientPresentationSignal> _pendingImpactTransientSignals = new();
         private readonly HashSet<int> _impactTransientEntityIds = new();
         private readonly Dictionary<int, FlipImpactInstanceKey> _destroySelfFlipImpactKeysByEntityId = new();
-        private readonly HashSet<FlipImpactInstanceKey> _playedFlipImpactKeys = new();
         private readonly GameplayPoseResolver _poseResolver;
-        private readonly GameplayMotionTimingResolver _motionTimingResolver;
         private readonly GameplayPresentationStateStore _stateStore;
         private readonly GameplayPresentationTrackState _trackState;
         private readonly GameplayTransientEffectPresenter _transientEffectPresenter;
-        private FlipImpactTimingSettings _flipImpactTimingSettings;
         private GameplayCubeProjector _projector;
         private GameplayTimingProfile _timingProfile;
         private int _refreshSequence;
@@ -34,7 +30,7 @@ namespace Game.Feature.Gameplay.Host
         {
             _stateStore = stateStore ?? throw new ArgumentNullException(nameof(stateStore));
             _trackState = trackState ?? throw new ArgumentNullException(nameof(trackState));
-            _motionTimingResolver = motionTimingResolver ?? throw new ArgumentNullException(nameof(motionTimingResolver));
+            _ = motionTimingResolver ?? throw new ArgumentNullException(nameof(motionTimingResolver));
             _poseResolver = poseResolver ?? throw new ArgumentNullException(nameof(poseResolver));
             _transientEffectPresenter = transientEffectPresenter ?? throw new ArgumentNullException(nameof(transientEffectPresenter));
         }
@@ -43,18 +39,15 @@ namespace Game.Feature.Gameplay.Host
         {
             _projector = projector ?? throw new ArgumentNullException(nameof(projector));
             _timingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
-            _flipImpactTimingSettings = GameplayMotionTimingResolver.CreateFlipImpactTimingSettings(timingProfile);
         }
 
         public void Reset()
         {
             _exitOwnedEntityIds.Clear();
             _pendingEntityExitSignals.Clear();
-            _pendingFlipImpactDestroySignals.Clear();
             _pendingImpactTransientSignals.Clear();
             _impactTransientEntityIds.Clear();
             _destroySelfFlipImpactKeysByEntityId.Clear();
-            _playedFlipImpactKeys.Clear();
             _refreshSequence = 0;
         }
 
@@ -72,7 +65,6 @@ namespace Game.Feature.Gameplay.Host
 
             _exitOwnedEntityIds.Clear();
             _pendingEntityExitSignals.Clear();
-            _pendingFlipImpactDestroySignals.Clear();
             _pendingImpactTransientSignals.Clear();
             _impactTransientEntityIds.Clear();
             _destroySelfFlipImpactKeysByEntityId.Clear();
@@ -107,22 +99,16 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 var key = FlipImpactInstanceKey.Create(signal, _refreshSequence);
-                if (_playedFlipImpactKeys.Contains(key) ||
-                    _destroySelfFlipImpactKeysByEntityId.ContainsKey(signal.BoxEntityId))
+                if (_destroySelfFlipImpactKeysByEntityId.ContainsKey(signal.BoxEntityId))
                 {
                     continue;
                 }
 
                 _destroySelfFlipImpactKeysByEntityId[signal.BoxEntityId] = key;
-                _pendingFlipImpactDestroySignals.Add(signal);
             }
         }
 
-        public void PlayEntityExitEffects(
-            bool suppressLegacyBoxDestroyShrinkEffects,
-            bool suppressLegacyItemConsumeEffects,
-            bool suppressLegacyEnemyDeathEffects,
-            bool suppressLegacyFlipDestroySelfEffects)
+        public void PlayEntityExitEffects()
         {
             for (var i = 0; i < _pendingEntityExitSignals.Count; i++)
             {
@@ -133,11 +119,7 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                if (ShouldSuppressLegacyEntityExitEffect(
-                        signal.ExitCause,
-                        suppressLegacyBoxDestroyShrinkEffects,
-                        suppressLegacyItemConsumeEffects,
-                        suppressLegacyEnemyDeathEffects))
+                if (!ShouldPlayLegacyEntityExitEffect(signal.ExitCause))
                 {
                     continue;
                 }
@@ -148,12 +130,10 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 _stateStore.ViewsByEntityId.TryGetValue(signal.ExitedEntityId, out var sourceView);
-                var hasTargetLocalPose = TryResolveExitEffectTargetLocalPose(signal, out var targetLocalPose);
                 _transientEffectPresenter.PlayExitEffect(
                     signal,
                     sourceView,
                     localPose,
-                    hasTargetLocalPose ? targetLocalPose : (GameplayEntityPose?)null,
                     ResolveEntityExitEffectDurationSeconds(signal.ExitCause));
             }
 
@@ -177,66 +157,11 @@ namespace Game.Feature.Gameplay.Host
                     impactLocalPose,
                     ResolveImpactBreakEffectDurationSeconds());
             }
-
-            for (var i = 0; i < _pendingFlipImpactDestroySignals.Count; i++)
-            {
-                var signal = _pendingFlipImpactDestroySignals[i];
-                if (suppressLegacyFlipDestroySelfEffects)
-                {
-                    continue;
-                }
-
-                if (!_destroySelfFlipImpactKeysByEntityId.TryGetValue(signal.BoxEntityId, out var key) ||
-                    !_poseResolver.TryResolveFlipImpactSignalLocalPoses(
-                        _projector,
-                        signal,
-                        out var sourceLocalPose,
-                        out var impactLocalPose))
-                {
-                    continue;
-                }
-
-                _stateStore.ViewsByEntityId.TryGetValue(signal.BoxEntityId, out var sourceView);
-                var flightDurationSeconds = _motionTimingResolver.ResolveMotionDurationSeconds(
-                    signal.BoxEntityId,
-                    TickEntityMotionKind.Flip,
-                    _timingProfile);
-                var totalDurationSeconds = Math.Max(
-                    ResolveImpactBreakEffectDurationSeconds(),
-                    flightDurationSeconds);
-                if (_transientEffectPresenter.PlayFlipImpactDestroyEffect(
-                        key,
-                        signal,
-                        sourceView,
-                        sourceLocalPose,
-                        impactLocalPose,
-                        flightDurationSeconds,
-                        totalDurationSeconds,
-                        _timingProfile.FlipArcHeightInCells * _projector.CellSize,
-                        _flipImpactTimingSettings))
-                {
-                    _playedFlipImpactKeys.Add(key);
-                }
-            }
         }
 
-        private static bool ShouldSuppressLegacyEntityExitEffect(
-            TickEntityExitCause exitCause,
-            bool suppressLegacyBoxDestroyShrinkEffects,
-            bool suppressLegacyItemConsumeEffects,
-            bool suppressLegacyEnemyDeathEffects)
+        private static bool ShouldPlayLegacyEntityExitEffect(TickEntityExitCause exitCause)
         {
-            if (exitCause == TickEntityExitCause.BoxDestroy)
-            {
-                return true;
-            }
-
-            if (exitCause == TickEntityExitCause.Killed)
-            {
-                return suppressLegacyEnemyDeathEffects;
-            }
-
-            return exitCause == TickEntityExitCause.ItemConsume;
+            return exitCause == TickEntityExitCause.OutOfBounds;
         }
 
         public void ApplyEntityExitOwnership()
@@ -317,47 +242,5 @@ namespace Game.Feature.Gameplay.Host
                 _timingProfile.FlipMotionDurationSeconds);
         }
 
-        private bool TryResolveExitEffectTargetLocalPose(
-            TickEntityExitPresentationSignal signal,
-            out GameplayEntityPose localPose)
-        {
-            if (signal.ExitCause == TickEntityExitCause.Killed)
-            {
-                if (TryResolvePlayerLocalPose(out localPose))
-                {
-                    return true;
-                }
-
-                if (signal.SourceActorEntityId.HasValue &&
-                    _stateStore.CommittedLocalTargetPoses.TryGetValue(signal.SourceActorEntityId.Value, out localPose))
-                {
-                    return true;
-                }
-            }
-
-            localPose = default;
-            return false;
-        }
-
-        private bool TryResolvePlayerLocalPose(out GameplayEntityPose localPose)
-        {
-            var bestPlayerEntityId = int.MaxValue;
-            localPose = default;
-
-            foreach (var pair in _stateStore.UnitRolesByEntityId)
-            {
-                if (pair.Value != UnitRole.Player ||
-                    !_stateStore.CommittedLocalTargetPoses.TryGetValue(pair.Key, out var candidateLocalPose) ||
-                    pair.Key >= bestPlayerEntityId)
-                {
-                    continue;
-                }
-
-                bestPlayerEntityId = pair.Key;
-                localPose = candidateLocalPose;
-            }
-
-            return bestPlayerEntityId != int.MaxValue;
-        }
     }
 }

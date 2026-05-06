@@ -173,7 +173,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyDeathSuppressOwnedByDeathMotionFlag()
+        public void HighRiskSuppressGates_AreCompatibilityAliases()
         {
             var owner = new GameObject("GameplayVfxEnemyDeathSuppressOwner");
             try
@@ -182,7 +182,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 runtime.EnableGameplayVfxEnemyDeathMotionMigration = false;
                 runtime.EnableGameplayVfxEnemyDeathBurstMigration = true;
-                Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.False);
+                runtime.EnableGameplayVfxFlipDestroySelfMotionMigration = false;
+                Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.True);
+                Assert.That(runtime.SuppressLegacyFlipDestroySelfEffects, Is.True);
 
                 runtime.EnableGameplayVfxEnemyDeathMotionMigration = true;
                 Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.True);
@@ -191,7 +193,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.True);
 
                 runtime.EnableGameplayVfxEnemyDeathMotionMigration = false;
-                Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.False);
+                runtime.EnableGameplayVfxFlipDestroySelfMotionMigration = true;
+                Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.True);
+                Assert.That(runtime.SuppressLegacyFlipDestroySelfEffects, Is.True);
             }
             finally
             {
@@ -281,13 +285,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("After Tier 3 rollout, all current Gameplay VFX flags are runtime default-on."));
             Assert.That(document, Does.Contain("approved in the Tier 3 rollout batch"));
             Assert.That(document, Does.Contain("Scene-local overrides are separate from runtime defaults"));
-            Assert.That(document, Does.Contain("High-risk parameterized motion and clone/source-view VFX require manual parity approval"));
-            Assert.That(document, Does.Contain("`EnableGameplayVfxEnemyDeathMotionMigration` owns `SuppressLegacyEnemyDeathEffects`"));
-            Assert.That(document, Does.Contain("`EnableGameplayVfxEnemyDeathBurstMigration` does not suppress the old enemy death fly-away"));
-            Assert.That(document, Does.Contain("After legacy old path cleanup, cleaned cue flags use canonical/off semantics"));
+            Assert.That(document, Does.Contain("High-risk parameterized motion and clone/source-view VFX required manual parity approval"));
+            Assert.That(document, Does.Contain("`SuppressLegacyEnemyDeathEffects` is an always true compatibility alias"));
+            Assert.That(document, Does.Contain("`SuppressLegacyFlipDestroySelfEffects` is an always true compatibility alias"));
+            Assert.That(document, Does.Contain("After legacy old path cleanup, all current migrated cue flags use canonical/off semantics"));
             Assert.That(document, Does.Contain("Old BoxDestroy shrink/fade playback is disabled independently of `EnableGameplayVfxBoxDestroyShrinkMigration`"));
             Assert.That(document, Does.Contain("`EnableGameplayVfxBoxDestroySmokeMigration` gates smoke only and does not own shrink playback"));
-            Assert.That(document, Does.Contain("High-risk motion/parity flags require post-rollout visual monitoring"));
+            Assert.That(document, Does.Contain("Their old presenter fallbacks are finalized and removed"));
             Assert.That(document, Does.Contain("Burst + Motion simultaneous output remains visually monitored"));
         }
 
@@ -337,8 +341,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var document = ReadRepoFile(GovernancePath);
 
-            Assert.That(document, Does.Contain("High-risk parameterized motion and clone/source-view VFX require manual parity approval"));
-            Assert.That(document, Does.Contain("post-rollout visual monitoring covers camera direction, clone/source-pose parity, density, combined cue polish, and rollback review"));
+            Assert.That(document, Does.Contain("High-risk parameterized motion and clone/source-view VFX required manual parity approval"));
+            Assert.That(document, Does.Contain("Their old presenter fallbacks are finalized and removed"));
             foreach (var flagName in HighRiskDefaultTrueCandidateFlags)
             {
                 var flag = VfxFlags.Single(candidate => candidate.PropertyName == flagName);
