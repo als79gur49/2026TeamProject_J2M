@@ -282,6 +282,77 @@ namespace Game.Feature.Stages.Editor.Tests
             }
         }
 
+        [Test]
+        public void StageCatalogValidator_AuthoringMoonBlockGeneratorPolicy_ValidShapePassesSourceChecks()
+        {
+            var fixture = CreateSyncedEntry(enforceGeneratedSync: false);
+
+            try
+            {
+                fixture.Authoring.SetTileFeatures(new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        TileFeatureKind.MoonBlockGenerator,
+                        TileFeatureActivationRule.BottomFaceOnly,
+                        Direction2D.None,
+                        TileFeatureBoxSelector.None,
+                        boundEntityId: 20),
+                });
+
+                var report = ValidateFixture(fixture);
+
+                Assert.That(
+                    report.Issues.Any(issue => issue.Code.StartsWith("authoring.tile-feature.moon-block-generator", System.StringComparison.Ordinal)),
+                    Is.False);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        public void StageCatalogValidator_AuthoringMoonBlockGeneratorPolicy_RejectsInvalidShape()
+        {
+            var fixture = CreateSyncedEntry(enforceGeneratedSync: false);
+
+            try
+            {
+                var duplicateCell = new SurfaceCell(FaceId.Floor, 1, 1);
+                fixture.Authoring.SetTileFeatures(new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        TileFeatureKind.MoonBlockGenerator,
+                        TileFeatureActivationRule.Always,
+                        Direction2D.Right,
+                        TileFeatureBoxSelector.AnyPushableBox,
+                        duplicateCell),
+                    CreateTileFeature(
+                        101,
+                        TileFeatureKind.MoonBlockGenerator,
+                        TileFeatureActivationRule.BottomFaceOnly,
+                        Direction2D.None,
+                        TileFeatureBoxSelector.None,
+                        duplicateCell),
+                });
+
+                var report = ValidateFixture(fixture);
+
+                Assert.That(report.Issues.Any(issue => issue.Code == "authoring.tile-feature.moon-block-generator-activation-unsupported"), Is.True);
+                Assert.That(report.Issues.Any(issue => issue.Code == "authoring.tile-feature.moon-block-generator-direction-unsupported"), Is.True);
+                Assert.That(report.Issues.Any(issue => issue.Code == "authoring.tile-feature.moon-block-generator-box-selector-unsupported"), Is.True);
+                Assert.That(report.Issues.Any(issue => issue.Code == "authoring.tile-feature.moon-block-generator-cell-duplicate"), Is.True);
+                Assert.That(report.Issues.Any(issue => issue.Code == "authoring.tile-feature.moon-block-generator-duplicate"), Is.True);
+                Assert.That(report.Issues.Any(issue => issue.Code == "authoring.tile-feature.moon-block-generator-bound-id-non-positive"), Is.True);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
         private static StageValidationReport ValidateFixture(GovernanceFixture fixture)
         {
             return new StageCatalogValidator().ValidateEntries(
@@ -299,7 +370,8 @@ namespace Game.Feature.Stages.Editor.Tests
             TileFeatureActivationRule activationRule,
             Direction2D direction,
             TileFeatureBoxSelector boxSelector,
-            SurfaceCell? cell = null)
+            SurfaceCell? cell = null,
+            int boundEntityId = 0)
         {
             return new StageTileFeatureDefinition
             {
@@ -309,6 +381,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 ActivationRule = activationRule,
                 Direction = direction,
                 BoxSelector = boxSelector,
+                BoundEntityId = boundEntityId,
             };
         }
 

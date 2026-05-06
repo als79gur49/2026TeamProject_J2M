@@ -128,6 +128,54 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void StageRuntimeBuilder_MoonBlockGenerator_BuildsRespawnDefinition()
+        {
+            var moonSpawn = CreateSpawn(
+                20,
+                StageSpawnKind.Box,
+                new SurfaceCell(FaceId.Floor, 2, 1),
+                hp: 2,
+                facing: Direction.Left,
+                boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy,
+                boxArchetype: BoxArchetype.Moon);
+            var generator = CreateTileFeature(
+                100,
+                new SurfaceCell(FaceId.Floor, 1, 1),
+                TileFeatureKind.MoonBlockGenerator,
+                TileFeatureActivationRule.BottomFaceOnly,
+                Direction2D.None,
+                TileFeatureBoxSelector.None,
+                boundEntityId: 20);
+            var stage = CreateStage(
+                "MoonBlockGeneratorBuildsRespawnDefinition",
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
+                moonSpawn);
+            SetPrivateField(stage, "tileFeatures", new[] { generator });
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(buildResult.MoonBlockRespawnDefinitions.Length, Is.EqualTo(1));
+                var definition = buildResult.MoonBlockRespawnDefinitions[0];
+                Assert.That(definition.GeneratorTileId, Is.EqualTo(100));
+                Assert.That(definition.MoonBlockEntityId, Is.EqualTo(20));
+                Assert.That(definition.SpawnCell, Is.EqualTo(generator.Cell));
+                Assert.That(definition.Template.entityId, Is.EqualTo(20));
+                Assert.That(definition.Template.type, Is.EqualTo(EntityType.Box));
+                Assert.That(definition.Template.boxArchetype, Is.EqualTo(BoxArchetype.Moon));
+                Assert.That(definition.Template.boxCapabilities, Is.EqualTo(moonSpawn.BoxCapabilities));
+                Assert.That(definition.Template.facing, Is.EqualTo(Direction.Left));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void StageRuntimeBuilder_TileFeatureAuthoring_MaterializesStateAndStaticDefinitions()
         {
             var tileFeature = CreateTileFeature(
@@ -885,7 +933,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         boxSelector: TileFeatureBoxSelector.MoonBlockOnly),
                 });
 
-            AssertBuildThrows(stage, "stage has no Moon box spawn", condition);
+            AssertBuildThrows(stage, "stage has no MoonBlock source", condition);
         }
 
         [Test]
@@ -959,6 +1007,140 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateBoard(new Vector2Int(0, 0), new Vector2Int(3, 3)),
                     CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
                     CreateSpawn(20, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 1, 0), hp: 1, boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip, boxArchetype: BoxArchetype.Moon)),
+                "Moon boxes require BoxCapabilities");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_MoonBlockGeneratorValidation_RejectsInvalidShape()
+        {
+            var moonSpawn = CreateSpawn(
+                20,
+                StageSpawnKind.Box,
+                new SurfaceCell(FaceId.Floor, 2, 1),
+                hp: 1,
+                boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy,
+                boxArchetype: BoxArchetype.Moon);
+
+            AssertBuildThrows(
+                CreateMoonBlockGeneratorStage(
+                    "MoonGeneratorInvalidActivation",
+                    new[]
+                    {
+                        CreateTileFeature(
+                            100,
+                            new SurfaceCell(FaceId.Floor, 1, 1),
+                            TileFeatureKind.MoonBlockGenerator,
+                            TileFeatureActivationRule.Always,
+                            boundEntityId: 20),
+                    },
+                    moonSpawn),
+                "MoonBlockGenerator must use BottomFaceOnly activation");
+
+            AssertBuildThrows(
+                CreateMoonBlockGeneratorStage(
+                    "MoonGeneratorInvalidDirection",
+                    new[]
+                    {
+                        CreateTileFeature(
+                            100,
+                            new SurfaceCell(FaceId.Floor, 1, 1),
+                            TileFeatureKind.MoonBlockGenerator,
+                            TileFeatureActivationRule.BottomFaceOnly,
+                            Direction2D.Right,
+                            boundEntityId: 20),
+                    },
+                    moonSpawn),
+                "MoonBlockGenerator must use Direction2D.None");
+
+            AssertBuildThrows(
+                CreateMoonBlockGeneratorStage(
+                    "MoonGeneratorInvalidSelector",
+                    new[]
+                    {
+                        CreateTileFeature(
+                            100,
+                            new SurfaceCell(FaceId.Floor, 1, 1),
+                            TileFeatureKind.MoonBlockGenerator,
+                            TileFeatureActivationRule.BottomFaceOnly,
+                            Direction2D.None,
+                            TileFeatureBoxSelector.BoundEntity,
+                            boundEntityId: 20),
+                    },
+                    moonSpawn),
+                "MoonBlockGenerator must use TileFeatureBoxSelector.None");
+
+            AssertBuildThrows(
+                CreateMoonBlockGeneratorStage(
+                    "MoonGeneratorDuplicateSameCell",
+                    new[]
+                    {
+                        CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.MoonBlockGenerator, TileFeatureActivationRule.BottomFaceOnly, boundEntityId: 20),
+                        CreateTileFeature(101, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.MoonBlockGenerator, TileFeatureActivationRule.BottomFaceOnly, boundEntityId: 20),
+                    },
+                    moonSpawn),
+                "duplicate MoonBlockGenerator");
+
+            AssertBuildThrows(
+                CreateMoonBlockGeneratorStage(
+                    "MoonGeneratorMoreThanOne",
+                    new[]
+                    {
+                        CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.MoonBlockGenerator, TileFeatureActivationRule.BottomFaceOnly, boundEntityId: 20),
+                        CreateTileFeature(101, new SurfaceCell(FaceId.Floor, 1, 2), TileFeatureKind.MoonBlockGenerator, TileFeatureActivationRule.BottomFaceOnly, boundEntityId: 20),
+                    },
+                    moonSpawn),
+                "more than one MoonBlockGenerator");
+
+            AssertBuildThrows(
+                CreateMoonBlockGeneratorStage(
+                    "MoonGeneratorBoundIdNonPositive",
+                    new[]
+                    {
+                        CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.MoonBlockGenerator, TileFeatureActivationRule.BottomFaceOnly),
+                    },
+                    moonSpawn),
+                "must bind a positive BoundEntityId");
+
+            AssertBuildThrows(
+                CreateMoonBlockGeneratorStage(
+                    "MoonGeneratorBoundIdMissing",
+                    new[]
+                    {
+                        CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.MoonBlockGenerator, TileFeatureActivationRule.BottomFaceOnly, boundEntityId: 99),
+                    },
+                    moonSpawn),
+                "must reference an existing StageSpawnDefinition");
+
+            AssertBuildThrows(
+                CreateMoonBlockGeneratorStage(
+                    "MoonGeneratorBoundIdNonBox",
+                    new[]
+                    {
+                        CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.MoonBlockGenerator, TileFeatureActivationRule.BottomFaceOnly, boundEntityId: 10),
+                    },
+                    moonSpawn),
+                "must reference a Box spawn");
+
+            AssertBuildThrows(
+                CreateMoonBlockGeneratorStage(
+                    "MoonGeneratorBoundIdNormalBox",
+                    new[]
+                    {
+                        CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.MoonBlockGenerator, TileFeatureActivationRule.BottomFaceOnly, boundEntityId: 21),
+                    },
+                    moonSpawn,
+                    CreateSpawn(21, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 2, 2), hp: 1)),
+                "must reference a Moon box spawn");
+
+            AssertBuildThrows(
+                CreateMoonBlockGeneratorStage(
+                    "MoonGeneratorBoundMoonMissingCapabilities",
+                    new[]
+                    {
+                        CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.MoonBlockGenerator, TileFeatureActivationRule.BottomFaceOnly, boundEntityId: 20),
+                    },
+                    CreateSpawn(20, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 2, 1), hp: 1, boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip, boxArchetype: BoxArchetype.Moon)),
                 "Moon boxes require BoxCapabilities");
         }
 
@@ -1468,6 +1650,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 stageName,
                 CreateBoard(new Vector2Int(0, 0), new Vector2Int(3, 3)),
                 CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 1, 1), hp: 3, facing: Direction.Up));
+            SetPrivateField(stage, "tileFeatures", tileFeatures);
+            return stage;
+        }
+
+        private static StageDefinition CreateMoonBlockGeneratorStage(
+            string stageName,
+            StageTileFeatureDefinition[] tileFeatures,
+            params StageSpawnDefinition[] additionalSpawns)
+        {
+            var spawns = new List<StageSpawnDefinition>
+            {
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
+            };
+            if (additionalSpawns != null)
+            {
+                spawns.AddRange(additionalSpawns);
+            }
+
+            var stage = CreateStage(
+                stageName,
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                spawns.ToArray());
             SetPrivateField(stage, "tileFeatures", tileFeatures);
             return stage;
         }

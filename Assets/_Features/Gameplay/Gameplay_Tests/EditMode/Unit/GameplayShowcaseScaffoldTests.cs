@@ -1059,6 +1059,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Game.Feature.Gameplay.BoardState.TerrainData.Empty,
                     Array.Empty<TileFeatureState>(),
                     Array.Empty<TileFeatureRuntimeDefinition>(),
+                    Array.Empty<MoonBlockRespawnDefinition>(),
                     playerEntityId: 10,
                     StageObjectiveRuntimeDefinition.Disabled,
                     Array.Empty<EnemyAiProfileOverride>(),

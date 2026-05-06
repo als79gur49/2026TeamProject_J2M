@@ -25,6 +25,8 @@ namespace Game.Feature.Gameplay.Tests.Core
             "Assets/_Features/Stages/Runtime/StageRuntimeBuildResult.cs";
         private const string StagePresentationDefinitionPath =
             "Assets/_Features/Stages/Runtime/Content/StagePresentationDefinition.cs";
+        private const string TileFeatureAudioTypesPath =
+            "Assets/_Features/Gameplay/Gameplay_TileFeatureAudio/Runtime/TileFeatureAudioTypes.cs";
         private const string WorldStatePath =
             "Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/WorldState.cs";
         private const string GameplayBoardStateRuntimePath =
@@ -97,6 +99,15 @@ namespace Game.Feature.Gameplay.Tests.Core
                 "Do not add `EntityType." + "MoonBlock`.",
                 "Do not add `BoxCapabilities." + "Moon`.",
                 "`MoonBlockOnly` selector is identity-based and must not re-check Push capability.",
+                "`HasMoonBlockSource` currently means an initial MoonBlock spawn.",
+                "MoonBlockGenerator respawn is gameplay-only in this phase.",
+                "MoonBlockGenerator does not emit `MoonBlockGenerated` or `MoonBlockGeneratorBlocked` presentation events yet.",
+                "MoonBlockGenerator must use `BottomFaceOnly`, `Direction2D.None`, and `TileFeatureBoxSelector.None`.",
+                "MoonBlockGenerator reuses the bound initial MoonBlock entity id and respawn template.",
+                "Unit/player/enemy occupants defer MoonBlockGenerator respawn.",
+                "Projectile occupants do not block MoonBlockGenerator respawn.",
+                "Normal Box occupants are detached/marked before the bound MoonBlock respawns.",
+                "TickPipeline must not run MoonBlockGenerator prefab, audio, UI, or visual work.",
                 "DestroyTile uses movement-derived `TileEffectBoxContact`, not final snapshot scanning.",
                 "Post-attack follow-through, flip landing, spawn/respawn, and topology relocation are not DestroyTile contact sources.",
                 "`DestroyTileTriggered` event `TargetEntityId` is the destroyed box id.",
@@ -279,7 +290,25 @@ namespace Game.Feature.Gameplay.Tests.Core
                 Assert.That(source, Does.Not.Contain("TilePresentationRequestPlanner"), pipelineFiles[i]);
                 Assert.That(source, Does.Not.Contain("TilePresentationRequest"), pipelineFiles[i]);
                 Assert.That(source, Does.Not.Contain("TileFeatureVisual"), pipelineFiles[i]);
+                Assert.That(source, Does.Not.Contain("TileFeatureAudio"), pipelineFiles[i]);
+                Assert.That(source, Does.Not.Contain("GameplayAudio"), pipelineFiles[i]);
+                Assert.That(source, Does.Not.Contain("GameObject"), pipelineFiles[i]);
+                Assert.That(source, Does.Not.Contain("Prefab"), pipelineFiles[i]);
             }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void MoonBlockGeneratorPresentationAudioSurface_IsNotOpenInGameplayMvp()
+        {
+            Assert.That(Enum.GetNames(typeof(TilePresentationEventKind)), Does.Not.Contain("MoonBlockGenerated"));
+            Assert.That(Enum.GetNames(typeof(TilePresentationEventKind)), Does.Not.Contain("MoonBlockGeneratorBlocked"));
+            Assert.That(Enum.GetNames(typeof(TilePresentationRequestKind)), Does.Not.Contain("MoonBlockGenerated"));
+            Assert.That(Enum.GetNames(typeof(TilePresentationRequestKind)), Does.Not.Contain("MoonBlockGeneratorBlocked"));
+
+            var audioTypesSource = File.ReadAllText(GetAbsolutePath(TileFeatureAudioTypesPath));
+            Assert.That(audioTypesSource, Does.Not.Contain("MoonBlockGenerated"));
+            Assert.That(audioTypesSource, Does.Not.Contain("MoonBlockGeneratorBlocked"));
         }
 
         [Test]
