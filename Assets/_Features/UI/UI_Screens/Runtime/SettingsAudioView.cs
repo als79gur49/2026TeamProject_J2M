@@ -217,11 +217,6 @@ namespace Game.Feature.UI.Screens
                 return;
             }
 
-            if (widgets.Label != null)
-            {
-                widgets.Label.text = rowViewModel.LabelText;
-            }
-
             if (widgets.Value != null)
             {
                 widgets.Value.text = rowViewModel.ValueText;

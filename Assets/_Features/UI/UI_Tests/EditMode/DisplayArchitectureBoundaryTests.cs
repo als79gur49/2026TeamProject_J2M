@@ -83,6 +83,14 @@ namespace Game.Feature.UI.Tests
             AssertViewSourceDoesNotRebuildAuthoredControls(audioViewSource);
             AssertViewSourceDoesNotRebuildAuthoredControls(displayViewSource);
             AssertViewSourceDoesNotRebuildAuthoredControls(inputViewSource);
+            Assert.That(audioViewSource, Does.Not.Contain("Label.text"));
+            Assert.That(displayViewSource, Does.Not.Contain("DisplaySectionTitle"));
+            Assert.That(displayViewSource, Does.Not.Contain("CurrentDisplayLabel"));
+            Assert.That(displayViewSource, Does.Not.Contain("ResolutionLabel"));
+            Assert.That(displayViewSource, Does.Not.Contain("ResolutionHoverHintText"));
+            Assert.That(displayViewSource, Does.Not.Contain("FullscreenLabel"));
+            Assert.That(displayViewSource, Does.Not.Contain("DisplayApplyLabel"));
+            Assert.That(displayViewSource, Does.Not.Contain("DisplayRevertLabel"));
         }
 
         private static void AssertViewSourceDoesNotRebuildAuthoredControls(string viewSource)

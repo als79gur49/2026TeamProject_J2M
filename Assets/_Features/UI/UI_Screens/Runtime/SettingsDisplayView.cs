@@ -293,11 +293,6 @@ namespace Game.Feature.UI.Screens
         {
             if (_viewModel == null)
             {
-                if (_resolutionHoverHintLabel != null)
-                {
-                    _resolutionHoverHintLabel.text = string.Empty;
-                }
-
                 if (_previewCountdownLabel != null)
                 {
                     _previewCountdownLabel.text = string.Empty;
@@ -315,34 +310,9 @@ namespace Game.Feature.UI.Screens
             _isRefreshingDisplayControls = true;
             try
             {
-                if (_sectionTitle != null)
-                {
-                    _sectionTitle.text = _viewModel.DisplaySectionTitle;
-                }
-
-                if (_currentDisplayLabel != null)
-                {
-                    _currentDisplayLabel.text = _viewModel.CurrentDisplayLabel;
-                }
-
                 if (_currentDisplayValue != null)
                 {
                     _currentDisplayValue.text = _viewModel.CurrentDisplayValueText;
-                }
-
-                if (_resolutionLabel != null)
-                {
-                    _resolutionLabel.text = _viewModel.ResolutionLabel;
-                }
-
-                if (_resolutionHoverHintLabel != null)
-                {
-                    _resolutionHoverHintLabel.text = _viewModel.ResolutionHoverHintText;
-                }
-
-                if (_fullscreenLabel != null)
-                {
-                    _fullscreenLabel.text = _viewModel.FullscreenLabel;
                 }
 
                 if (_displayStatusLabel != null)
@@ -371,16 +341,6 @@ namespace Game.Feature.UI.Screens
                 if (_revertButton != null)
                 {
                     _revertButton.interactable = _viewModel.IsDisplayRevertInteractable;
-                }
-
-                if (_applyButtonLabel != null)
-                {
-                    _applyButtonLabel.text = _viewModel.DisplayApplyLabel;
-                }
-
-                if (_revertButtonLabel != null)
-                {
-                    _revertButtonLabel.text = _viewModel.DisplayRevertLabel;
                 }
 
                 if (_resolutionDropdown != null)
@@ -452,7 +412,7 @@ namespace Game.Feature.UI.Screens
 
         private void ShowResolutionHoverHint()
         {
-            if (!_isVisible || _viewModel == null || string.IsNullOrEmpty(_viewModel.ResolutionHoverHintText))
+            if (!_isVisible || _viewModel == null || !HasResolutionHoverHintText())
             {
                 HideResolutionHoverHint();
                 return;
@@ -478,8 +438,14 @@ namespace Game.Feature.UI.Screens
             var shouldShow = _isVisible &&
                              _isResolutionHoverHintVisible &&
                              _viewModel != null &&
-                             !string.IsNullOrEmpty(_viewModel.ResolutionHoverHintText);
+                             HasResolutionHoverHintText();
             _resolutionHoverHintRoot.gameObject.SetActive(shouldShow);
+        }
+
+        private bool HasResolutionHoverHintText()
+        {
+            return _resolutionHoverHintLabel != null &&
+                   !string.IsNullOrEmpty(_resolutionHoverHintLabel.text);
         }
 
         private void ApplyPreviewCountdownVisibility()

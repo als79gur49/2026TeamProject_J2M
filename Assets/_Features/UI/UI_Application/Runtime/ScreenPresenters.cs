@@ -307,62 +307,15 @@ namespace Game.Feature.UI.Application
 
     public readonly struct SettingsAudioPresenterInput
     {
-        public SettingsAudioPresenterInput(
-            string mainAudioLabel,
-            string bgmAudioLabel,
-            string sfxAudioLabel)
-        {
-            MainAudioLabel = mainAudioLabel ?? string.Empty;
-            BgmAudioLabel = bgmAudioLabel ?? string.Empty;
-            SfxAudioLabel = sfxAudioLabel ?? string.Empty;
-        }
-
-        public string MainAudioLabel { get; }
-
-        public string BgmAudioLabel { get; }
-
-        public string SfxAudioLabel { get; }
     }
 
     public readonly struct SettingsDisplayPresenterInput
     {
-        public SettingsDisplayPresenterInput(
-            string displaySectionTitle,
-            string currentDisplayLabel,
-            string resolutionLabel,
-            string resolutionHoverHintText,
-            string fullscreenLabel,
-            string displayApplyLabel,
-            string displayRevertLabel)
-        {
-            DisplaySectionTitle = displaySectionTitle ?? string.Empty;
-            CurrentDisplayLabel = currentDisplayLabel ?? string.Empty;
-            ResolutionLabel = resolutionLabel ?? string.Empty;
-            ResolutionHoverHintText = resolutionHoverHintText ?? string.Empty;
-            FullscreenLabel = fullscreenLabel ?? string.Empty;
-            DisplayApplyLabel = displayApplyLabel ?? string.Empty;
-            DisplayRevertLabel = displayRevertLabel ?? string.Empty;
-        }
-
-        public string DisplaySectionTitle { get; }
-
-        public string CurrentDisplayLabel { get; }
-
-        public string ResolutionLabel { get; }
-
-        public string ResolutionHoverHintText { get; }
-
-        public string FullscreenLabel { get; }
-
-        public string DisplayApplyLabel { get; }
-
-        public string DisplayRevertLabel { get; }
     }
 
     public sealed class SettingsAudioPresenter
     {
         private readonly IAudioSettingsPort _audioSettingsPort;
-        private SettingsAudioPresenterInput _input;
 
         public SettingsAudioPresenter(IAudioSettingsPort audioSettingsPort)
         {
@@ -373,7 +326,6 @@ namespace Game.Feature.UI.Application
 
         public void Apply(SettingsAudioPresenterInput input)
         {
-            _input = input;
             RefreshViewModel();
         }
 
@@ -399,21 +351,19 @@ namespace Game.Feature.UI.Application
         {
             var snapshot = _audioSettingsPort.Read();
             ViewModel.SetContent(
-                BuildAudioRow(_input.MainAudioLabel, snapshot.Main),
-                BuildAudioRow(_input.BgmAudioLabel, snapshot.Bgm),
-                BuildAudioRow(_input.SfxAudioLabel, snapshot.Sfx));
+                BuildAudioRow(snapshot.Main),
+                BuildAudioRow(snapshot.Bgm),
+                BuildAudioRow(snapshot.Sfx));
         }
 
-        private static AudioSettingsRowViewModel BuildAudioRow(
-            string labelText,
-            AudioSettingsPortChannelState state)
+        private static AudioSettingsRowViewModel BuildAudioRow(AudioSettingsPortChannelState state)
         {
             var normalizedVolume = Clamp01(state.Volume);
             var percent = (int)Math.Round(normalizedVolume * 100f, MidpointRounding.AwayFromZero);
             var valueText = state.IsMuted
                 ? $"{percent}% (Muted)"
                 : $"{percent}%";
-            return new AudioSettingsRowViewModel(labelText, valueText, normalizedVolume, state.IsMuted);
+            return new AudioSettingsRowViewModel(valueText, normalizedVolume, state.IsMuted);
         }
 
         private static float Clamp01(float value)
@@ -503,7 +453,6 @@ namespace Game.Feature.UI.Application
             string.Empty,
             DisplayWindowMode.Windowed,
             false);
-        private SettingsDisplayPresenterInput _input;
         private int _stagedDisplayModeIndex;
         private DisplayWindowMode _stagedDisplayWindowMode;
         private string _displayStatusText = string.Empty;
@@ -518,7 +467,6 @@ namespace Game.Feature.UI.Application
 
         public void Apply(SettingsDisplayPresenterInput input, double previewTimeoutSeconds)
         {
-            _input = input;
             ClearPreviewCountdown();
             ResyncState(resetStagedToCommitted: true, previewTimeoutSeconds: previewTimeoutSeconds);
         }
@@ -702,19 +650,12 @@ namespace Game.Feature.UI.Application
                 : 0f;
 
             ViewModel.SetContent(
-                _input.DisplaySectionTitle,
-                _input.CurrentDisplayLabel,
                 _displaySnapshot.CurrentRuntimeResolutionLabel,
-                _input.ResolutionLabel,
-                _input.ResolutionHoverHintText,
                 resolutionOptions,
                 _stagedDisplayModeIndex,
-                _input.FullscreenLabel,
                 _stagedDisplayWindowMode == DisplayWindowMode.FullScreenWindow,
                 _displayStatusText,
-                _input.DisplayApplyLabel,
                 IsDirty() && !_displaySnapshot.IsPreviewActive,
-                _input.DisplayRevertLabel,
                 IsDirty() && !_displaySnapshot.IsPreviewActive,
                 _displaySnapshot.IsPreviewActive,
                 previewCountdownText,
@@ -955,19 +896,8 @@ namespace Game.Feature.UI.Application
         public void Apply(SettingsScreenPayload payload, double previewTimeoutSeconds)
         {
             _payload = payload ?? throw new ArgumentNullException(nameof(payload));
-            AudioPresenter.Apply(new SettingsAudioPresenterInput(
-                _payload.MainAudioLabel,
-                _payload.BgmAudioLabel,
-                _payload.SfxAudioLabel));
-            DisplayPresenter.Apply(new SettingsDisplayPresenterInput(
-                _payload.DisplaySectionTitle,
-                _payload.CurrentDisplayLabel,
-                _payload.ResolutionLabel,
-                _payload.ResolutionHoverHintText,
-                _payload.FullscreenLabel,
-                _payload.DisplayApplyLabel,
-                _payload.DisplayRevertLabel),
-                previewTimeoutSeconds);
+            AudioPresenter.Apply(default);
+            DisplayPresenter.Apply(default, previewTimeoutSeconds);
             InputPresenter.Apply(new SettingsInputPresenterInput(
                 _payload.InputSectionTitle,
                 _payload.MovementLabel,
