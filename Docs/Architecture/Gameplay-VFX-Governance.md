@@ -170,14 +170,22 @@ Second concrete user:
 - adapter source: `TickPresentationData.EntityMotions` filtered to `TickEntityMotionKind.BoxSlide`
 - playback: `PrefabOnly` soft dust/trail emitter moved from source cell pose to destination cell pose
 
+Third concrete user:
+
+- Enemy Death Motion
+- cue: `EnemyVfxCue.DeathMotion`
+- adapter source: `TickPresentationData.EntityExitSignals` filtered to enemy death exits
+- playback: source-view clone with fallback prefab flying toward the legacy camera near-plane target and fading with the old enemy death curve
+
 ### Parameterized Motion Sampler Modes
 
 `ParameterizedMotionVfxCommand` carries an explicit sampler mode so presentation VFX can choose the correct source-to-target pose policy without changing gameplay movement carriers.
 
 - `FlipArc`: the existing arc/tumble sampler for `FlipDestroySelfMotion` and other flip-styled source-to-impact motion. It preserves the existing arc height, tumble rotation, break/fade, clone, and material behavior.
 - `Linear`: exact source-to-target interpolation for `BoxVfxCue.SlideDustTrail`. Position uses direct linear interpolation, rotation uses direct slerp, and arc height/tumble are not applied.
+- `LegacyEnemyDeathFlyAway`: enemy death exit motion parity sampler. Position uses legacy ease-out cubic travel plus `sin(t*pi)` arc offset, and rotation applies seeded spin around the legacy camera-forward local axis.
 
-Sampler modes are presentation-only. They do not change box slide movement, `TickPipeline`, `WorldState`, `WorldSnapshot`, `TickPresentationData`, `TickEntityMotion`, `MotionTrack`, `MotionClip`, or box slide timing. `BoxSlideTrail` v1 now uses `Linear`; exact scrape/decal primitives remain future work.
+Sampler modes are presentation-only. They do not change box slide movement, enemy death cleanup, `TickPipeline`, `WorldState`, `WorldSnapshot`, `TickPresentationData`, `TickEntityMotion`, `MotionTrack`, `MotionClip`, or box slide timing. `BoxSlideTrail` v1 now uses `Linear`; `EnemyDeathMotion` uses `LegacyEnemyDeathFlyAway`; exact scrape/decal primitives remain future work.
 
 Future possible users:
 
@@ -524,7 +532,8 @@ Excluded from this slice:
 
 ## Enemy Death Burst Migration
 
-The enemy death burst migration slice moves enemy death exit playback from the legacy enemy view clone/arc/fade transient effect to the Gameplay VFX lane.
+The enemy death burst migration slice adds a one-shot death burst to the Gameplay VFX lane. It is not the owner of the legacy enemy view clone/arc/fade fly-away replacement.
+The old clone/arc/fade enemy death fly-away is now owned by the separate Enemy Death Motion migration.
 
 Ownership:
 
@@ -538,9 +547,9 @@ Ownership:
 Migration flag and bypass:
 
 - `GameplayVfxProductionRuntime.EnableGameplayVfxEnemyDeathBurstMigration` gates `EnemyVfxCue.Death` playback.
-- `IGameplayPresentationMigrationGate.SuppressLegacyEnemyDeathEffects` suppresses only the old `GameplayExitPresentationController` enemy death exit VFX playback for the matching death cause.
+- `EnableGameplayVfxEnemyDeathBurstMigration` does not suppress the old `GameplayExitPresentationController` enemy death exit VFX playback.
 - `GameplayExitPresentationController.ApplyEntityExitOwnership()` remains active; view visibility and state cleanup are not bypassed.
-- missing binding under the migration flag is diagnostic/no-op and must not fall back to old enemy death clone/arc/fade playback.
+- missing burst binding under the migration flag is diagnostic/no-op and does not affect old enemy death clone/arc/fade playback unless the Death Motion flag is also on.
 
 Default binding:
 
@@ -552,15 +561,67 @@ Default binding:
 
 Visual parity:
 
-- v1 replaces the old clone/arc/fade exit with a one-shot death burst.
-- it does not recreate the old motion-track-like enemy view clone flying and fading toward the camera or target.
-- full clone-motion visual parity is a future refinement, separate from this migration slice.
+- v1 is a burst augmentation.
+- clone-motion parity is owned by `Enemy Death Motion VFX Migration`.
 
 Excluded from this slice:
 
 - box destroy and item consume migration, already covered by `Box Exit VFX Migration`.
 - flip impact migration, persistent death VFX, utility windup migration, and shield migration.
 - `TickPresentationData`, `TickPipeline`, `WorldState`, and `WorldSnapshot` shape or authority changes.
+
+## Enemy Death Motion VFX Migration
+
+Enemy Death Motion moves the legacy enemy death fly-away clone/fade visual to parameterized Gameplay VFX while keeping `EnemyVfxCue.Death` as a separate one-shot burst.
+
+Ownership:
+
+- source fact: `TickPresentationData.EntityExitSignals`.
+- trigger: `EntityType.Unit` and `TickEntityExitCause.Killed` / `TickEntityExitCause.EnemyDeath`.
+- cue: `EnemyVfxCue.DeathMotion`.
+- adapter: `EnemyDeathMotionVfxCommand` to `ParameterizedMotionVfxCommand`.
+- source pose: `GameplayPoseResolver.TryResolveEntityExitSignalLocalPose(...)` from `SourceCell`, `Topology`, `Facing`, and `EntityType`.
+- target pose: legacy `EnemyDeathExitEffectPlanBuilder` camera near-plane target, using output camera and presentation local-space root only.
+- player/source actor pose is optional camera-plane bias and is read from presentation state, not authoritative world state.
+
+Legacy motion spec locked for parity:
+
+- duration: `GameplayTimingProfile.EnemyDeathEffectDurationSeconds`.
+- target: camera-forward near-plane fly-away with seeded plane jitter.
+- optional target bias: player pose first, then `SourceActorEntityId` pose.
+- arc: seeded `0.1..0.2` cells along camera-up local direction.
+- spin: seeded signed `240..420` degrees around camera-forward local direction.
+- position curve: ease-out cubic source to target plus `sin(t*pi)` arc offset.
+- fade: starts at normalized time `0.12`, lasts the remaining `0.88`, alpha is `1 - fadeT^2`.
+- scale: uniform `1.0 -> 0.88`.
+
+Runtime policy:
+
+- `GameplayVfxProductionRuntime.EnableGameplayVfxEnemyDeathMotionMigration` gates `EnemyVfxCue.DeathMotion`.
+- `IGameplayPresentationMigrationGate.SuppressLegacyEnemyDeathEffects` follows `EnableGameplayVfxEnemyDeathMotionMigration`.
+- `EnableGameplayVfxEnemyDeathBurstMigration` and `EnableGameplayVfxEnemyDeathMotionMigration` are independent.
+- flag combinations:
+  - burst off / motion off: old fly-away only.
+  - burst on / motion off: old fly-away plus `EnemyVfxCue.Death` burst.
+  - burst off / motion on: `EnemyVfxCue.DeathMotion` only.
+  - burst on / motion on: `EnemyVfxCue.DeathMotion` plus `EnemyVfxCue.Death`.
+- missing DeathMotion binding, prefab, source pose, output camera, or target context is diagnostic/no-op with no old fly-away fallback while the motion flag is on.
+- missing source clone uses the fallback prefab through `SourceViewCloneWithPrefabFallback`.
+- `GameplayExitPresentationController.ApplyEntityExitOwnership()` remains active; source view cleanup is not bypassed.
+
+Default binding:
+
+- prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/EnemyDeathMotionVfx.prefab`
+- material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_EnemyDeathMotion_Fade.mat`
+- binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/EnemyDeathMotion_Binding.asset`
+- host default map: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset`
+- playback is parameterized one-shot, stop policy is `AuthoredDuration`, authored lifetime is `0`, tail is `0.2` seconds, initial pool size is `4`, and max concurrent instances is `8`.
+
+Boundaries:
+
+- no `TickPipeline`, `WorldState`, `WorldSnapshot`, `ProjectedWorld`, `FinalizationBatch`, or `DeterminismHashBuilder` changes.
+- no `TickPresentationData` or `TickEntityExitPresentationSignal` shape change.
+- no gameplay death rule, cleanup rule, camera rig, projectile trail, unit movement trail, TileFeature, Terrain, or stage content changes.
 
 ## Utility Windup VFX Migration
 
