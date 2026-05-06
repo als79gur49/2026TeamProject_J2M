@@ -376,6 +376,7 @@ namespace Game.Feature.Stages
         {
             var tileIds = new HashSet<int>();
             var slideCells = new HashSet<SurfaceCell>();
+            var barricadeCells = new HashSet<SurfaceCell>();
             var tileFeatures = authoring.TileFeatures;
             for (var i = 0; i < tileFeatures.Count; i++)
             {
@@ -459,12 +460,35 @@ namespace Game.Feature.Stages
                         options.Timing);
                 }
 
+                if (tileFeature.Kind == TileFeatureKind.Barricade &&
+                    tileFeature.ActivationRule != TileFeatureActivationRule.FrontFaceOnly)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.barricade-activation-unsupported",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] Barricade must use FrontFaceOnly activation.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
                 if (!Enum.IsDefined(typeof(Direction2D), tileFeature.Direction))
                 {
                     report.Add(
                         severity,
                         "authoring.tile-feature.direction-invalid",
                         $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] has invalid Direction2D value {(int)tileFeature.Direction}.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+                else if (tileFeature.Kind == TileFeatureKind.Barricade &&
+                         tileFeature.Direction != Direction2D.None)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.barricade-direction-unsupported",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] Barricade must use Direction2D.None.",
                         authoring,
                         authoringPath,
                         options.Timing);
@@ -491,6 +515,17 @@ namespace Game.Feature.Stages
                         authoringPath,
                         options.Timing);
                 }
+                else if (tileFeature.Kind == TileFeatureKind.Barricade &&
+                         tileFeature.BoxSelector != TileFeatureBoxSelector.None)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.barricade-box-selector-unsupported",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] Barricade must use TileFeatureBoxSelector.None.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
                 else if (tileFeature.Kind == TileFeatureKind.Slide &&
                          tileFeature.BoxSelector != TileFeatureBoxSelector.None)
                 {
@@ -510,6 +545,18 @@ namespace Game.Feature.Stages
                         severity,
                         "authoring.tile-feature.slide-cell-duplicate",
                         $"StageAuthoringDefinition '{authoring.name}' contains duplicate SlideTile at {tileFeature.Cell}.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.Barricade &&
+                    !barricadeCells.Add(tileFeature.Cell))
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.barricade-cell-duplicate",
+                        $"StageAuthoringDefinition '{authoring.name}' contains duplicate Barricade at {tileFeature.Cell}.",
                         authoring,
                         authoringPath,
                         options.Timing);

@@ -109,6 +109,7 @@ namespace Game.Feature.Stages
             var normalized = new StageTileFeatureDefinition[tileFeatures.Count];
             var tileIds = new HashSet<int>();
             var slideCells = new HashSet<SurfaceCell>();
+            var barricadeCells = new HashSet<SurfaceCell>();
             var wallCells = BuildWallCells(spawnEntries);
 
             for (var i = 0; i < tileFeatures.Count; i++)
@@ -167,6 +168,13 @@ namespace Game.Feature.Stages
                         $"Stage '{stageName}' {label} SlideTile must use FrontFaceOnly activation.");
                 }
 
+                if (tileFeature.Kind == TileFeatureKind.Barricade &&
+                    tileFeature.ActivationRule != TileFeatureActivationRule.FrontFaceOnly)
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' {label} Barricade must use FrontFaceOnly activation.");
+                }
+
                 if (!Enum.IsDefined(typeof(Direction2D), tileFeature.Direction))
                 {
                     throw new InvalidOperationException(
@@ -178,6 +186,13 @@ namespace Game.Feature.Stages
                 {
                     throw new InvalidOperationException(
                         $"Stage '{stageName}' {label} SlideTile must use a cardinal Direction2D.");
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.Barricade &&
+                    tileFeature.Direction != Direction2D.None)
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' {label} Barricade must use Direction2D.None.");
                 }
 
                 if (!Enum.IsDefined(typeof(TileFeatureBoxSelector), tileFeature.BoxSelector))
@@ -193,11 +208,25 @@ namespace Game.Feature.Stages
                         $"Stage '{stageName}' {label} SlideTile must use TileFeatureBoxSelector.None.");
                 }
 
+                if (tileFeature.Kind == TileFeatureKind.Barricade &&
+                    tileFeature.BoxSelector != TileFeatureBoxSelector.None)
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' {label} Barricade must use TileFeatureBoxSelector.None.");
+                }
+
                 if (tileFeature.Kind == TileFeatureKind.Slide &&
                     !slideCells.Add(tileFeature.Cell))
                 {
                     throw new InvalidOperationException(
                         $"Stage '{stageName}' contains duplicate SlideTile at {tileFeature.Cell}.");
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.Barricade &&
+                    !barricadeCells.Add(tileFeature.Cell))
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' contains duplicate Barricade at {tileFeature.Cell}.");
                 }
 
                 if (wallCells.Contains(tileFeature.Cell))

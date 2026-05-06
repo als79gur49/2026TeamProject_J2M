@@ -71,6 +71,153 @@ namespace Game.Feature.Stages.Editor.Tests
             }
         }
 
+        [Test]
+        public void StageCatalogValidator_AuthoringBarricadePolicy_ValidDefinitionPasses()
+        {
+            var fixture = CreateSyncedEntry(enforceGeneratedSync: false);
+
+            try
+            {
+                fixture.Authoring.SetTileFeatures(new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        TileFeatureKind.Barricade,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        Direction2D.None,
+                        TileFeatureBoxSelector.None),
+                });
+
+                var report = ValidateFixture(fixture);
+
+                Assert.That(
+                    report.Issues.Any(issue => issue.Code.StartsWith("authoring.tile-feature.barricade", System.StringComparison.Ordinal)),
+                    Is.False);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        public void StageCatalogValidator_AuthoringBarricadePolicy_RejectsUnsupportedActivation()
+        {
+            var fixture = CreateSyncedEntry(enforceGeneratedSync: false);
+
+            try
+            {
+                fixture.Authoring.SetTileFeatures(new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        TileFeatureKind.Barricade,
+                        TileFeatureActivationRule.Always,
+                        Direction2D.None,
+                        TileFeatureBoxSelector.None),
+                });
+
+                var report = ValidateFixture(fixture);
+
+                Assert.That(report.Issues.Any(issue => issue.Code == "authoring.tile-feature.barricade-activation-unsupported"), Is.True);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        public void StageCatalogValidator_AuthoringBarricadePolicy_RejectsDirectionAndSelector()
+        {
+            var fixture = CreateSyncedEntry(enforceGeneratedSync: false);
+
+            try
+            {
+                fixture.Authoring.SetTileFeatures(new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        TileFeatureKind.Barricade,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        Direction2D.Right,
+                        TileFeatureBoxSelector.AnyPushableBox),
+                    CreateTileFeature(
+                        101,
+                        TileFeatureKind.Barricade,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        (Direction2D)99,
+                        (TileFeatureBoxSelector)99,
+                        new SurfaceCell(FaceId.Floor, 2, 1)),
+                });
+
+                var report = ValidateFixture(fixture);
+
+                Assert.That(report.Issues.Any(issue => issue.Code == "authoring.tile-feature.barricade-direction-unsupported"), Is.True);
+                Assert.That(report.Issues.Any(issue => issue.Code == "authoring.tile-feature.barricade-box-selector-unsupported"), Is.True);
+                Assert.That(report.Issues.Any(issue => issue.Code == "authoring.tile-feature.direction-invalid"), Is.True);
+                Assert.That(report.Issues.Any(issue => issue.Code == "authoring.tile-feature.box-selector-invalid"), Is.True);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        public void StageCatalogValidator_AuthoringBarricadePolicy_RejectsDuplicateSameCell()
+        {
+            var fixture = CreateSyncedEntry(enforceGeneratedSync: false);
+
+            try
+            {
+                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+                fixture.Authoring.SetTileFeatures(new[]
+                {
+                    CreateTileFeature(100, TileFeatureKind.Barricade, TileFeatureActivationRule.FrontFaceOnly, Direction2D.None, TileFeatureBoxSelector.None, cell),
+                    CreateTileFeature(101, TileFeatureKind.Barricade, TileFeatureActivationRule.FrontFaceOnly, Direction2D.None, TileFeatureBoxSelector.None, cell),
+                });
+
+                var report = ValidateFixture(fixture);
+
+                Assert.That(report.Issues.Any(issue => issue.Code == "authoring.tile-feature.barricade-cell-duplicate"), Is.True);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        private static StageValidationReport ValidateFixture(GovernanceFixture fixture)
+        {
+            return new StageCatalogValidator().ValidateEntries(
+                new[] { fixture.Entry },
+                aliasTable: null,
+                new StageCatalogValidationOptions
+                {
+                    Timing = StageValidationTiming.TestOrCi,
+                });
+        }
+
+        private static StageTileFeatureDefinition CreateTileFeature(
+            int tileId,
+            TileFeatureKind kind,
+            TileFeatureActivationRule activationRule,
+            Direction2D direction,
+            TileFeatureBoxSelector boxSelector,
+            SurfaceCell? cell = null)
+        {
+            return new StageTileFeatureDefinition
+            {
+                TileId = tileId,
+                Cell = cell ?? new SurfaceCell(FaceId.Floor, 1, 1),
+                Kind = kind,
+                ActivationRule = activationRule,
+                Direction = direction,
+                BoxSelector = boxSelector,
+            };
+        }
+
         private static GovernanceFixture CreateSyncedEntry(bool enforceGeneratedSync)
         {
             var entry = ScriptableObject.CreateInstance<StageContentEntry>();

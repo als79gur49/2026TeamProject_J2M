@@ -396,6 +396,157 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_Barricade_FrontFaceNoDirectionAndNoSelectorAccepted()
+        {
+            var stage = CreateStageWithTileFeatures(
+                "BarricadeValid",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Barricade,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        Direction2D.None,
+                        TileFeatureBoxSelector.None),
+                });
+
+            var buildResult = StageRuntimeBuilder.Build(stage);
+
+            Assert.That(buildResult.TileFeatureDefinitions[0].ActivationRule, Is.EqualTo(TileFeatureActivationRule.FrontFaceOnly));
+            Assert.That(buildResult.TileFeatureDefinitions[0].Direction, Is.EqualTo(Direction2D.None));
+            Assert.That(buildResult.TileFeatureDefinitions[0].BoxSelector, Is.EqualTo(TileFeatureBoxSelector.None));
+            Assert.That(buildResult.InitialTileFeatures[0].Kind, Is.EqualTo(TileFeatureKind.Barricade));
+            UnityEngine.Object.DestroyImmediate(stage);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_Barricade_UnsupportedActivationRejects()
+        {
+            var unsupportedRules = new[]
+            {
+                TileFeatureActivationRule.BottomFaceOnly,
+                TileFeatureActivationRule.Always,
+                TileFeatureActivationRule.ActiveFaceOnly,
+                TileFeatureActivationRule.InactiveFaceOnly,
+            };
+
+            for (var i = 0; i < unsupportedRules.Length; i++)
+            {
+                var stage = CreateStageWithTileFeatures(
+                    $"BarricadeUnsupportedActivation{i}",
+                    new[]
+                    {
+                        CreateTileFeature(
+                            100,
+                            new SurfaceCell(FaceId.Floor, 1, 1),
+                            TileFeatureKind.Barricade,
+                            unsupportedRules[i],
+                            Direction2D.None,
+                            TileFeatureBoxSelector.None),
+                    });
+
+                AssertBuildThrows(stage, "Barricade must use FrontFaceOnly activation");
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_Barricade_InvalidDirectionRejects()
+        {
+            var nonNoneDirectionStage = CreateStageWithTileFeatures(
+                "BarricadeNonNoneDirection",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Barricade,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        Direction2D.Right,
+                        TileFeatureBoxSelector.None),
+                });
+            AssertBuildThrows(nonNoneDirectionStage, "Barricade must use Direction2D.None");
+
+            var invalidEnumStage = CreateStageWithTileFeatures(
+                "BarricadeInvalidDirection",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Barricade,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        (Direction2D)99,
+                        TileFeatureBoxSelector.None),
+                });
+            AssertBuildThrows(invalidEnumStage, "invalid Direction2D value 99");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_Barricade_UnsupportedBoxSelectorRejects()
+        {
+            var unsupportedSelectorStage = CreateStageWithTileFeatures(
+                "BarricadeUnsupportedSelector",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Barricade,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        Direction2D.None,
+                        TileFeatureBoxSelector.AnyPushableBox),
+                });
+            AssertBuildThrows(unsupportedSelectorStage, "Barricade must use TileFeatureBoxSelector.None");
+
+            var invalidEnumStage = CreateStageWithTileFeatures(
+                "BarricadeInvalidSelector",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Barricade,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        Direction2D.None,
+                        (TileFeatureBoxSelector)99),
+                });
+            AssertBuildThrows(invalidEnumStage, "invalid TileFeatureBoxSelector value 99");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_Barricade_DuplicateSameCellRejects()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var stage = CreateStageWithTileFeatures(
+                "BarricadeDuplicateCell",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        cell,
+                        TileFeatureKind.Barricade,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        Direction2D.None,
+                        TileFeatureBoxSelector.None),
+                    CreateTileFeature(
+                        101,
+                        cell,
+                        TileFeatureKind.Barricade,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        Direction2D.None,
+                        TileFeatureBoxSelector.None),
+                });
+
+            AssertBuildThrows(stage, "duplicate Barricade");
+        }
+
+        [Test]
         [Category("Extended")]
         public void StageRuntimeBuilder_TileFeatureWallLikeSolidOverlap_RejectsUntilPolicyExists()
         {
@@ -407,7 +558,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateSpawn(20, StageSpawnKind.Wall, cell, hp: 1));
             SetPrivateField(stage, "tileFeatures", new[]
             {
-                CreateTileFeature(100, cell, TileFeatureKind.Barricade),
+                CreateTileFeature(
+                    100,
+                    cell,
+                    TileFeatureKind.Barricade,
+                    TileFeatureActivationRule.FrontFaceOnly,
+                    Direction2D.None,
+                    TileFeatureBoxSelector.None),
             });
 
             AssertBuildThrows(stage, "overlaps a wall-like solid occupant");
