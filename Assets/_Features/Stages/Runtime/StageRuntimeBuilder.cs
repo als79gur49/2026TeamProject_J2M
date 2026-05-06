@@ -20,6 +20,7 @@ namespace Game.Feature.Stages
             var initialEntities = BuildInitialEntities(validated);
             var initialTileFeatures = BuildInitialTileFeatures(validated.TileFeatures);
             var tileFeatureDefinitions = BuildTileFeatureRuntimeDefinitions(validated.TileFeatures);
+            var moonBlockRespawnDefinitions = BuildMoonBlockRespawnDefinitions(validated.TileFeatures, initialEntities);
             var enemyAiProfileOverrides = BuildEnemyAiProfileOverrides(validated.Spawns);
             var objectiveRuntimeDefinition = BuildObjectiveRuntimeDefinition(validated, timing, tileFeatureDefinitions);
 
@@ -30,6 +31,7 @@ namespace Game.Feature.Stages
                 TerrainData.Empty,
                 initialTileFeatures,
                 tileFeatureDefinitions,
+                moonBlockRespawnDefinitions,
                 validated.PlayerEntityId,
                 objectiveRuntimeDefinition,
                 enemyAiProfileOverrides);
@@ -99,6 +101,67 @@ namespace Game.Feature.Stages
 
             Array.Sort(definitions, (left, right) => left.TileId.CompareTo(right.TileId));
             return definitions;
+        }
+
+        private static MoonBlockRespawnDefinition[] BuildMoonBlockRespawnDefinitions(
+            IReadOnlyList<StageTileFeatureDefinition> tileFeatures,
+            IReadOnlyList<EntityState> initialEntities)
+        {
+            if (tileFeatures == null || tileFeatures.Count == 0)
+            {
+                return Array.Empty<MoonBlockRespawnDefinition>();
+            }
+
+            var definitions = new List<MoonBlockRespawnDefinition>();
+            for (var i = 0; i < tileFeatures.Count; i++)
+            {
+                var tileFeature = tileFeatures[i];
+                if (tileFeature.Kind != TileFeatureKind.MoonBlockGenerator)
+                {
+                    continue;
+                }
+
+                if (!TryFindEntity(initialEntities, tileFeature.BoundEntityId, out var template))
+                {
+                    throw new InvalidOperationException(
+                        $"MoonBlockGenerator TileId {tileFeature.TileId} references missing MoonBlock entity {tileFeature.BoundEntityId}.");
+                }
+
+                definitions.Add(new MoonBlockRespawnDefinition(
+                    tileFeature.TileId,
+                    tileFeature.BoundEntityId,
+                    tileFeature.Cell,
+                    template));
+            }
+
+            if (definitions.Count == 0)
+            {
+                return Array.Empty<MoonBlockRespawnDefinition>();
+            }
+
+            definitions.Sort((left, right) => left.GeneratorTileId.CompareTo(right.GeneratorTileId));
+            return definitions.ToArray();
+        }
+
+        private static bool TryFindEntity(
+            IReadOnlyList<EntityState> entities,
+            int entityId,
+            out EntityState entity)
+        {
+            if (entities != null)
+            {
+                for (var i = 0; i < entities.Count; i++)
+                {
+                    if (entities[i].entityId == entityId)
+                    {
+                        entity = entities[i];
+                        return true;
+                    }
+                }
+            }
+
+            entity = default;
+            return false;
         }
 
         private static EnemyAiProfileOverride[] BuildEnemyAiProfileOverrides(IReadOnlyList<StageSpawnDefinition> spawns)

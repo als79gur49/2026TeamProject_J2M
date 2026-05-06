@@ -24,10 +24,10 @@ namespace Game.Feature.Stages
             var boardBounds = CreateBoardBounds(stageName, board);
             var spawnEntries = NormalizeExplicitSpawns(stage.GetSpawnGroups());
             var playerEntityId = ValidateEntities(stageName, spawnEntries, boardBounds);
-            var hasMoonBlockSpawn = ContainsMoonBlockSpawn(spawnEntries);
+            var hasMoonBlockSource = ContainsMoonBlockSource(spawnEntries);
             var zones = ValidateZones(stageName, stage.Zones, boardBounds);
             var tileFeatures = ValidateTileFeatures(stageName, stage.TileFeatures, spawnEntries, boardBounds);
-            var objective = ValidateObjective(stageName, stage.Objective, zones, tileFeatures, hasMoonBlockSpawn);
+            var objective = ValidateObjective(stageName, stage.Objective, zones, tileFeatures, hasMoonBlockSource);
 
             return new ValidatedStageData(
                 stageName,
@@ -110,7 +110,9 @@ namespace Game.Feature.Stages
             var tileIds = new HashSet<int>();
             var slideCells = new HashSet<SurfaceCell>();
             var barricadeCells = new HashSet<SurfaceCell>();
+            var moonBlockGeneratorCells = new HashSet<SurfaceCell>();
             var exitCount = 0;
+            var moonBlockGeneratorCount = 0;
             var wallCells = BuildWallCells(spawnEntries);
 
             for (var i = 0; i < tileFeatures.Count; i++)
@@ -183,6 +185,13 @@ namespace Game.Feature.Stages
                         $"Stage '{stageName}' {label} Exit must use BottomFaceOnly activation.");
                 }
 
+                if (tileFeature.Kind == TileFeatureKind.MoonBlockGenerator &&
+                    tileFeature.ActivationRule != TileFeatureActivationRule.BottomFaceOnly)
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' {label} MoonBlockGenerator must use BottomFaceOnly activation.");
+                }
+
                 if (!Enum.IsDefined(typeof(Direction2D), tileFeature.Direction))
                 {
                     throw new InvalidOperationException(
@@ -208,6 +217,13 @@ namespace Game.Feature.Stages
                 {
                     throw new InvalidOperationException(
                         $"Stage '{stageName}' {label} Exit must use Direction2D.None.");
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.MoonBlockGenerator &&
+                    tileFeature.Direction != Direction2D.None)
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' {label} MoonBlockGenerator must use Direction2D.None.");
                 }
 
                 if (!Enum.IsDefined(typeof(TileFeatureBoxSelector), tileFeature.BoxSelector))
@@ -237,6 +253,13 @@ namespace Game.Feature.Stages
                         $"Stage '{stageName}' {label} Exit must use TileFeatureBoxSelector.None.");
                 }
 
+                if (tileFeature.Kind == TileFeatureKind.MoonBlockGenerator &&
+                    tileFeature.BoxSelector != TileFeatureBoxSelector.None)
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' {label} MoonBlockGenerator must use TileFeatureBoxSelector.None.");
+                }
+
                 if (tileFeature.Kind == TileFeatureKind.Slide &&
                     !slideCells.Add(tileFeature.Cell))
                 {
@@ -259,6 +282,24 @@ namespace Game.Feature.Stages
                         throw new InvalidOperationException(
                             $"Stage '{stageName}' contains more than one Exit TileFeature. Exit MVP supports exactly one Exit when authored.");
                     }
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.MoonBlockGenerator)
+                {
+                    if (!moonBlockGeneratorCells.Add(tileFeature.Cell))
+                    {
+                        throw new InvalidOperationException(
+                            $"Stage '{stageName}' contains duplicate MoonBlockGenerator at {tileFeature.Cell}.");
+                    }
+
+                    moonBlockGeneratorCount++;
+                    if (moonBlockGeneratorCount > 1)
+                    {
+                        throw new InvalidOperationException(
+                            $"Stage '{stageName}' contains more than one MoonBlockGenerator TileFeature. MoonBlockGenerator MVP supports at most one generator per stage.");
+                    }
+
+                    ValidateMoonBlockGeneratorBoundEntity(stageName, label, tileFeature, spawnEntries);
                 }
 
                 if (wallCells.Contains(tileFeature.Cell))
@@ -307,12 +348,101 @@ namespace Game.Feature.Stages
             return wallCells;
         }
 
+        private static void ValidateMoonBlockGeneratorBoundEntity(
+            string stageName,
+            string label,
+            StageTileFeatureDefinition tileFeature,
+            IReadOnlyList<ExplicitSpawnEntry> spawnEntries)
+        {
+            if (tileFeature.BoundEntityId <= 0)
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{stageName}' {label} MoonBlockGenerator must bind a positive BoundEntityId.");
+            }
+
+            if (!TryFindSpawnByEntityId(spawnEntries, tileFeature.BoundEntityId, out var boundEntry))
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{stageName}' {label} MoonBlockGenerator BoundEntityId {tileFeature.BoundEntityId} must reference an existing StageSpawnDefinition.");
+            }
+
+            var boundSpawn = boundEntry.Spawn;
+            if (boundSpawn.Kind != StageSpawnKind.Box)
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{stageName}' {label} MoonBlockGenerator BoundEntityId {tileFeature.BoundEntityId} must reference a Box spawn.");
+            }
+
+            if (boundSpawn.BoxArchetype != BoxArchetype.Moon)
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{stageName}' {label} MoonBlockGenerator BoundEntityId {tileFeature.BoundEntityId} must reference a Moon box spawn.");
+            }
+
+            const BoxCapabilities requiredMoonCapabilities =
+                BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy;
+            if ((boundSpawn.BoxCapabilities & requiredMoonCapabilities) != requiredMoonCapabilities)
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{stageName}' {label} MoonBlockGenerator BoundEntityId {tileFeature.BoundEntityId} references a Moon box missing required BoxCapabilities {requiredMoonCapabilities}.");
+            }
+
+            var moonBlockEntityId = 0;
+            for (var i = 0; i < spawnEntries.Count; i++)
+            {
+                var spawn = spawnEntries[i].Spawn;
+                if (spawn.Kind != StageSpawnKind.Box ||
+                    spawn.BoxArchetype != BoxArchetype.Moon)
+                {
+                    continue;
+                }
+
+                if (moonBlockEntityId != 0 && moonBlockEntityId != spawn.EntityId)
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' {label} MoonBlockGenerator requires the referenced MoonBlock entity id to be the only MoonBlock id in the stage.");
+                }
+
+                moonBlockEntityId = spawn.EntityId;
+            }
+
+            if (moonBlockEntityId == 0)
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{stageName}' {label} MoonBlockGenerator requires an initial MoonBlock spawn template.");
+            }
+
+            if (moonBlockEntityId != tileFeature.BoundEntityId)
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{stageName}' {label} MoonBlockGenerator BoundEntityId {tileFeature.BoundEntityId} must reference the stage's only MoonBlock id {moonBlockEntityId}.");
+            }
+        }
+
+        private static bool TryFindSpawnByEntityId(
+            IReadOnlyList<ExplicitSpawnEntry> spawnEntries,
+            int entityId,
+            out ExplicitSpawnEntry spawnEntry)
+        {
+            for (var i = 0; i < spawnEntries.Count; i++)
+            {
+                if (spawnEntries[i].Spawn.EntityId == entityId)
+                {
+                    spawnEntry = spawnEntries[i];
+                    return true;
+                }
+            }
+
+            spawnEntry = default;
+            return false;
+        }
+
         private static StageObjectiveAuthoring ValidateObjective(
             string stageName,
             StageObjectiveAuthoring objective,
             IReadOnlyList<StageZoneDefinition> zones,
             IReadOnlyList<StageTileFeatureDefinition> tileFeatures,
-            bool hasMoonBlockSpawn)
+            bool hasMoonBlockSource)
         {
             var conditionEntries = objective.GetConditionEntriesOrEmpty();
             var zonesById = BuildZonesById(zones);
@@ -321,7 +451,7 @@ namespace Game.Feature.Stages
                 stageName,
                 zonesById,
                 tileFeaturesById,
-                hasMoonBlockSpawn);
+                hasMoonBlockSource);
 
             var normalizedConditionEntries = ValidateConditionEntries(
                 stageName,
@@ -721,7 +851,7 @@ namespace Game.Feature.Stages
             return spawns;
         }
 
-        private static bool ContainsMoonBlockSpawn(IReadOnlyList<ExplicitSpawnEntry> spawnEntries)
+        private static bool ContainsMoonBlockSource(IReadOnlyList<ExplicitSpawnEntry> spawnEntries)
         {
             for (var i = 0; i < spawnEntries.Count; i++)
             {

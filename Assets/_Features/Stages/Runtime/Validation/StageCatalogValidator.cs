@@ -377,7 +377,9 @@ namespace Game.Feature.Stages
             var tileIds = new HashSet<int>();
             var slideCells = new HashSet<SurfaceCell>();
             var barricadeCells = new HashSet<SurfaceCell>();
+            var moonBlockGeneratorCells = new HashSet<SurfaceCell>();
             var exitCount = 0;
+            var moonBlockGeneratorCount = 0;
             var tileFeatures = authoring.TileFeatures;
             for (var i = 0; i < tileFeatures.Count; i++)
             {
@@ -485,6 +487,18 @@ namespace Game.Feature.Stages
                         options.Timing);
                 }
 
+                if (tileFeature.Kind == TileFeatureKind.MoonBlockGenerator &&
+                    tileFeature.ActivationRule != TileFeatureActivationRule.BottomFaceOnly)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.moon-block-generator-activation-unsupported",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] MoonBlockGenerator must use BottomFaceOnly activation.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
                 if (!Enum.IsDefined(typeof(Direction2D), tileFeature.Direction))
                 {
                     report.Add(
@@ -524,6 +538,17 @@ namespace Game.Feature.Stages
                         severity,
                         "authoring.tile-feature.exit-direction-unsupported",
                         $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] Exit must use Direction2D.None.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+                else if (tileFeature.Kind == TileFeatureKind.MoonBlockGenerator &&
+                         tileFeature.Direction != Direction2D.None)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.moon-block-generator-direction-unsupported",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] MoonBlockGenerator must use Direction2D.None.",
                         authoring,
                         authoringPath,
                         options.Timing);
@@ -572,6 +597,17 @@ namespace Game.Feature.Stages
                         authoringPath,
                         options.Timing);
                 }
+                else if (tileFeature.Kind == TileFeatureKind.MoonBlockGenerator &&
+                         tileFeature.BoxSelector != TileFeatureBoxSelector.None)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.moon-block-generator-box-selector-unsupported",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] MoonBlockGenerator must use TileFeatureBoxSelector.None.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
 
                 if (tileFeature.Kind == TileFeatureKind.Slide &&
                     !slideCells.Add(tileFeature.Cell))
@@ -606,6 +642,43 @@ namespace Game.Feature.Stages
                             severity,
                             "authoring.tile-feature.exit-duplicate",
                             $"StageAuthoringDefinition '{authoring.name}' contains more than one Exit TileFeature.",
+                            authoring,
+                            authoringPath,
+                            options.Timing);
+                    }
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.MoonBlockGenerator)
+                {
+                    if (!moonBlockGeneratorCells.Add(tileFeature.Cell))
+                    {
+                        report.Add(
+                            severity,
+                            "authoring.tile-feature.moon-block-generator-cell-duplicate",
+                            $"StageAuthoringDefinition '{authoring.name}' contains duplicate MoonBlockGenerator at {tileFeature.Cell}.",
+                            authoring,
+                            authoringPath,
+                            options.Timing);
+                    }
+
+                    moonBlockGeneratorCount++;
+                    if (moonBlockGeneratorCount > 1)
+                    {
+                        report.Add(
+                            severity,
+                            "authoring.tile-feature.moon-block-generator-duplicate",
+                            $"StageAuthoringDefinition '{authoring.name}' contains more than one MoonBlockGenerator TileFeature.",
+                            authoring,
+                            authoringPath,
+                            options.Timing);
+                    }
+
+                    if (tileFeature.BoundEntityId <= 0)
+                    {
+                        report.Add(
+                            severity,
+                            "authoring.tile-feature.moon-block-generator-bound-id-non-positive",
+                            $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] MoonBlockGenerator must bind a positive BoundEntityId.",
                             authoring,
                             authoringPath,
                             options.Timing);

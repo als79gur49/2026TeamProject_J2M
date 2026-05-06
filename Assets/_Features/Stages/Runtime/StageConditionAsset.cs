@@ -14,7 +14,7 @@ namespace Game.Feature.Stages
         public StageConditionValidationContext(
             string stageName,
             IReadOnlyDictionary<string, StageZoneDefinition> zonesById)
-            : this(stageName, zonesById, null, hasMoonBlockSpawn: false)
+            : this(stageName, zonesById, null, hasMoonBlockSource: false)
         {
         }
 
@@ -22,7 +22,7 @@ namespace Game.Feature.Stages
             string stageName,
             IReadOnlyDictionary<string, StageZoneDefinition> zonesById,
             IReadOnlyDictionary<int, StageTileFeatureDefinition> tileFeaturesById)
-            : this(stageName, zonesById, tileFeaturesById, hasMoonBlockSpawn: false)
+            : this(stageName, zonesById, tileFeaturesById, hasMoonBlockSource: false)
         {
         }
 
@@ -30,17 +30,17 @@ namespace Game.Feature.Stages
             string stageName,
             IReadOnlyDictionary<string, StageZoneDefinition> zonesById,
             IReadOnlyDictionary<int, StageTileFeatureDefinition> tileFeaturesById,
-            bool hasMoonBlockSpawn)
+            bool hasMoonBlockSource)
         {
             StageName = string.IsNullOrWhiteSpace(stageName) ? "<unnamed stage>" : stageName;
             _zonesById = zonesById ?? throw new ArgumentNullException(nameof(zonesById));
             _tileFeaturesById = tileFeaturesById ?? new Dictionary<int, StageTileFeatureDefinition>();
-            HasMoonBlockSpawn = hasMoonBlockSpawn;
+            HasMoonBlockSource = hasMoonBlockSource;
         }
 
         public string StageName { get; }
 
-        public bool HasMoonBlockSpawn { get; }
+        public bool HasMoonBlockSource { get; }
 
         public bool TryGetZone(string zoneId, out StageZoneDefinition zone)
         {

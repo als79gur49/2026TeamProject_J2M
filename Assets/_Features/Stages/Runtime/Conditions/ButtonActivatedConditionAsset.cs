@@ -36,10 +36,10 @@ namespace Game.Feature.Stages
 
             if (tileFeature.BoxSelector == TileFeatureBoxSelector.MoonBlockOnly)
             {
-                if (!context.HasMoonBlockSpawn)
+                if (!context.HasMoonBlockSource)
                 {
                     throw new InvalidOperationException(
-                        $"Stage '{context.StageName}' condition '{name}' references Button TileId {tileId} with MoonBlockOnly selector, but the stage has no Moon box spawn.");
+                        $"Stage '{context.StageName}' condition '{name}' references Button TileId {tileId} with MoonBlockOnly selector, but the stage has no MoonBlock source.");
                 }
             }
         }
