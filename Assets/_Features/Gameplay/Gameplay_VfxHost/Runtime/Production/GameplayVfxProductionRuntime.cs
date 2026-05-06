@@ -8,13 +8,14 @@ using UnityEngine;
 namespace Game.Feature.Gameplay.Vfx.Host
 {
     [DisallowMultipleComponent]
-    public sealed class GameplayVfxProductionRuntime : MonoBehaviour, IGameplayTickPresentationExtension, IGameplayPresentationMigrationGate
+    public sealed class GameplayVfxProductionRuntime : MonoBehaviour, IGameplayTickPresentationExtension, IGameplayPresentationMigrationGate, IGameplayOutputCameraPresentationExtension
     {
         [SerializeField] private bool enableEnemyJumpTargetVfx;
         [SerializeField] private bool enableEnemyJumpLandingDustVfx;
         [SerializeField] private bool enableGameplayVfxDamageBurstMigration;
         [SerializeField] private bool enableGameplayVfxEnemyDamageBurstMigration;
         [SerializeField] private bool enableGameplayVfxEnemyDeathBurstMigration;
+        [SerializeField] private bool enableGameplayVfxEnemyDeathMotionMigration;
         [SerializeField] private bool enableGameplayVfxBoxDestroySmokeMigration;
         [SerializeField] private bool enableGameplayVfxItemConsumeBurstMigration;
         [SerializeField] private bool enableGameplayVfxFlipImpactBurstMigration;
@@ -46,6 +47,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private VfxCueMapAsset hostDefaultCueMap;
         private int flipDestroySelfMotionMissingBindingCount;
         private int boxSlideTrailMissingBindingCount;
+        private int enemyDeathMotionMissingBindingCount;
+        private int enemyDeathMotionMissingAnchorCount;
+        private Camera outputCamera;
+        private Transform localSpaceRoot;
 
         public bool EnableEnemyJumpTargetVfx
         {
@@ -139,7 +144,22 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
-        public bool SuppressLegacyEnemyDeathEffects => enableGameplayVfxEnemyDeathBurstMigration;
+        public bool EnableGameplayVfxEnemyDeathMotionMigration
+        {
+            get => enableGameplayVfxEnemyDeathMotionMigration;
+            set
+            {
+                if (enableGameplayVfxEnemyDeathMotionMigration == value)
+                {
+                    return;
+                }
+
+                enableGameplayVfxEnemyDeathMotionMigration = value;
+                ResetIfNoGameplayVfxEnabled();
+            }
+        }
+
+        public bool SuppressLegacyEnemyDeathEffects => enableGameplayVfxEnemyDeathMotionMigration;
 
         public bool SuppressLegacyBoxDestroySmokeEffects => enableGameplayVfxBoxDestroySmokeMigration;
 
@@ -265,9 +285,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public int MissingBindingCount =>
             (controller?.MissingBindingCount ?? 0) +
             flipDestroySelfMotionMissingBindingCount +
-            boxSlideTrailMissingBindingCount;
+            boxSlideTrailMissingBindingCount +
+            enemyDeathMotionMissingBindingCount;
 
-        public int MissingAnchorCount => controller?.MissingAnchorCount ?? 0;
+        public int MissingAnchorCount => (controller?.MissingAnchorCount ?? 0) + enemyDeathMotionMissingAnchorCount;
 
         public int MissingPrefabCount => pool?.MissingPrefabCount ?? 0;
 
@@ -297,10 +318,18 @@ namespace Game.Feature.Gameplay.Vfx.Host
             LastPlannedRequestCount = 0;
             flipDestroySelfMotionMissingBindingCount = 0;
             boxSlideTrailMissingBindingCount = 0;
+            enemyDeathMotionMissingBindingCount = 0;
+            enemyDeathMotionMissingAnchorCount = 0;
             playedFlipDestroySelfMotionKeys.Clear();
             playedBoxSlideTrailMotionKeys.Clear();
             controller?.HardCleanupAll();
             planBuilder.Clear();
+        }
+
+        public void ConfigureOutputCamera(Camera outputCamera, Transform localSpaceRoot)
+        {
+            this.outputCamera = outputCamera;
+            this.localSpaceRoot = localSpaceRoot;
         }
 
         public void Present(in GameplayTickPresentationExtensionContext context)
@@ -350,7 +379,13 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var shouldPlayBoxSlideTrail =
                 enableGameplayVfxBoxSlideTrail &&
                 HasBoxSlideMotion(context.Result.PresentationData);
-            if (plan.Requests.Count == 0 && !shouldPlayFlipDestroySelfMotion && !shouldPlayBoxSlideTrail)
+            var shouldPlayEnemyDeathMotion =
+                enableGameplayVfxEnemyDeathMotionMigration &&
+                HasEnemyDeathExitSignal(context.Result.PresentationData);
+            if (plan.Requests.Count == 0 &&
+                !shouldPlayFlipDestroySelfMotion &&
+                !shouldPlayBoxSlideTrail &&
+                !shouldPlayEnemyDeathMotion)
             {
                 controller?.Refresh(GameplayVfxRequestPlan.Empty);
                 return;
@@ -364,9 +399,13 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var boxSlideTrailCommandCount = shouldPlayBoxSlideTrail
                 ? PlayBoxSlideTrailCommands(context)
                 : 0;
+            var enemyDeathMotionCommandCount = shouldPlayEnemyDeathMotion
+                ? PlayEnemyDeathMotionCommands(context)
+                : 0;
             LastPlannedRequestCount = plan.Requests.Count +
                                       flipDestroySelfMotionCommandCount +
-                                      boxSlideTrailCommandCount;
+                                      boxSlideTrailCommandCount +
+                                      enemyDeathMotionCommandCount;
         }
 
         public void UpdatePresentation(float deltaTime)
@@ -477,6 +516,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             enableGameplayVfxDamageBurstMigration ||
             enableGameplayVfxEnemyDamageBurstMigration ||
             enableGameplayVfxEnemyDeathBurstMigration ||
+            enableGameplayVfxEnemyDeathMotionMigration ||
             enableGameplayVfxBoxDestroySmokeMigration ||
             enableGameplayVfxItemConsumeBurstMigration ||
             enableGameplayVfxFlipImpactBurstMigration ||
@@ -529,6 +569,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             return (enableGameplayVfxDamageBurstMigration && cueId == GameplayVfxCueId.From(PlayerVfxCue.Damage)) ||
                    (enableGameplayVfxEnemyDamageBurstMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.Damage)) ||
                    (enableGameplayVfxEnemyDeathBurstMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.Death)) ||
+                   (enableGameplayVfxEnemyDeathMotionMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.DeathMotion)) ||
                    (enableGameplayVfxUtilityWindupMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup)) ||
                    (enableGameplayVfxFrontFaceShieldActiveMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldActive)) ||
                    (enableGameplayVfxFrontFaceShieldBlockMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldBlock)) ||
@@ -539,6 +580,92 @@ namespace Game.Feature.Gameplay.Vfx.Host
                    (enableGameplayVfxBoxSlideTrail && cueId == GameplayVfxCueId.From(BoxVfxCue.SlideDustTrail)) ||
                    (enableEnemyJumpTargetVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)) ||
                    (enableEnemyJumpLandingDustVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingDust));
+        }
+
+        private int PlayEnemyDeathMotionCommands(in GameplayTickPresentationExtensionContext context)
+        {
+            var presentationData = context.Result.PresentationData;
+            if (presentationData == null || pool == null || bindingResolver == null)
+            {
+                return 0;
+            }
+
+            var trackState = new GameplayPresentationTrackState();
+            var poseResolver = new GameplayPoseResolver(context.StateStore, trackState);
+            var targetResolver = new EnemyDeathMotionTargetResolver(
+                localSpaceRoot,
+                outputCamera,
+                context.StateStore,
+                context.Projector.CellSize);
+            var plannedCommandCount = 0;
+            var signals = presentationData.EntityExitSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (!EnemyDeathMotionVfxCommandBuilder.IsEnemyDeathExitCandidate(signal))
+                {
+                    continue;
+                }
+
+                if (!EnemyDeathMotionVfxCommandBuilder.TryBuild(
+                        signal,
+                        context.TimingProfile,
+                        poseResolver,
+                        context.Projector,
+                        targetResolver,
+                        out var command))
+                {
+                    enemyDeathMotionMissingAnchorCount++;
+                    continue;
+                }
+
+                plannedCommandCount++;
+                TryPlayEnemyDeathMotionCommand(context.Result.TickIndex, command);
+            }
+
+            return plannedCommandCount;
+        }
+
+        private bool TryPlayEnemyDeathMotionCommand(
+            int tickIndex,
+            in EnemyDeathMotionVfxCommand command)
+        {
+            var parameterizedCommand = command.ToParameterizedMotionVfxCommand();
+            var cueId = GameplayVfxCueId.From(EnemyVfxCue.DeathMotion);
+            var request = new GameplayVfxRequest(
+                tickIndex: tickIndex,
+                sequenceId: parameterizedCommand.SequenceId,
+                presentationSeed: parameterizedCommand.PresentationSeed,
+                sourceEntityId: command.EntityId,
+                cueId: cueId,
+                anchor: VfxAnchor.ForCell(
+                    command.SourceCell,
+                    command.Topology,
+                    VfxAnchorSlot.CellCenter),
+                timing: VfxTimingKind.ImmediateOnTickPresentation,
+                isPersistent: false,
+                persistentKey: VfxPersistentKey.None);
+
+            if (!bindingResolver.TryResolve(request, out var policy))
+            {
+                enemyDeathMotionMissingBindingCount++;
+                return false;
+            }
+
+            policy.ValidateOrThrow();
+            if (policy.CueId != request.CueId)
+            {
+                throw new InvalidOperationException("Gameplay VFX binding cue does not match Enemy Death motion request cue.");
+            }
+
+            var anchor = VfxResolvedAnchor.ForCell(
+                command.SourceCell,
+                command.Topology,
+                VfxAnchorSlot.CellCenter,
+                command.SourceLocalPosition,
+                command.SourceLocalRotation);
+            var playbackCommand = new ResolvedVfxPlaybackCommand(request, policy, anchor);
+            return pool.PlayParameterizedMotion(playbackCommand, parameterizedCommand) != null;
         }
 
         private int PlayBoxSlideTrailCommands(in GameplayTickPresentationExtensionContext context)
@@ -749,6 +876,25 @@ namespace Game.Feature.Gameplay.Vfx.Host
             {
                 if (motions[i].MotionKind == TickEntityMotionKind.BoxSlide &&
                     motions[i].EntityId > 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool HasEnemyDeathExitSignal(TickPresentationData presentationData)
+        {
+            if (presentationData == null)
+            {
+                return false;
+            }
+
+            var signals = presentationData.EntityExitSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                if (EnemyDeathMotionVfxCommandBuilder.IsEnemyDeathExitCandidate(signals[i]))
                 {
                     return true;
                 }
