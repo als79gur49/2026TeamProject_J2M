@@ -110,6 +110,7 @@ namespace Game.Feature.Stages
             var tileIds = new HashSet<int>();
             var slideCells = new HashSet<SurfaceCell>();
             var barricadeCells = new HashSet<SurfaceCell>();
+            var exitCount = 0;
             var wallCells = BuildWallCells(spawnEntries);
 
             for (var i = 0; i < tileFeatures.Count; i++)
@@ -175,6 +176,13 @@ namespace Game.Feature.Stages
                         $"Stage '{stageName}' {label} Barricade must use FrontFaceOnly activation.");
                 }
 
+                if (tileFeature.Kind == TileFeatureKind.Exit &&
+                    tileFeature.ActivationRule != TileFeatureActivationRule.BottomFaceOnly)
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' {label} Exit must use BottomFaceOnly activation.");
+                }
+
                 if (!Enum.IsDefined(typeof(Direction2D), tileFeature.Direction))
                 {
                     throw new InvalidOperationException(
@@ -193,6 +201,13 @@ namespace Game.Feature.Stages
                 {
                     throw new InvalidOperationException(
                         $"Stage '{stageName}' {label} Barricade must use Direction2D.None.");
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.Exit &&
+                    tileFeature.Direction != Direction2D.None)
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' {label} Exit must use Direction2D.None.");
                 }
 
                 if (!Enum.IsDefined(typeof(TileFeatureBoxSelector), tileFeature.BoxSelector))
@@ -215,6 +230,13 @@ namespace Game.Feature.Stages
                         $"Stage '{stageName}' {label} Barricade must use TileFeatureBoxSelector.None.");
                 }
 
+                if (tileFeature.Kind == TileFeatureKind.Exit &&
+                    tileFeature.BoxSelector != TileFeatureBoxSelector.None)
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' {label} Exit must use TileFeatureBoxSelector.None.");
+                }
+
                 if (tileFeature.Kind == TileFeatureKind.Slide &&
                     !slideCells.Add(tileFeature.Cell))
                 {
@@ -227,6 +249,16 @@ namespace Game.Feature.Stages
                 {
                     throw new InvalidOperationException(
                         $"Stage '{stageName}' contains duplicate Barricade at {tileFeature.Cell}.");
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.Exit)
+                {
+                    exitCount++;
+                    if (exitCount > 1)
+                    {
+                        throw new InvalidOperationException(
+                            $"Stage '{stageName}' contains more than one Exit TileFeature. Exit MVP supports exactly one Exit when authored.");
+                    }
                 }
 
                 if (wallCells.Contains(tileFeature.Cell))
@@ -300,6 +332,12 @@ namespace Game.Feature.Stages
                 stageName,
                 objective.CompletionPolicy,
                 normalizedConditionEntries);
+            ValidateExitObjectiveContract(
+                stageName,
+                objective.CompletionPolicy,
+                normalizedConditionEntries,
+                zonesById,
+                tileFeatures);
 
             return new StageObjectiveAuthoring
             {
@@ -308,6 +346,111 @@ namespace Game.Feature.Stages
                 ObjectiveSummary = objective.ObjectiveSummary?.Trim() ?? string.Empty,
                 ConditionEntries = normalizedConditionEntries,
             };
+        }
+
+        private static void ValidateExitObjectiveContract(
+            string stageName,
+            StageCompletionPolicy completionPolicy,
+            IReadOnlyList<StageObjectiveConditionEntry> conditionEntries,
+            IReadOnlyDictionary<string, StageZoneDefinition> zonesById,
+            IReadOnlyList<StageTileFeatureDefinition> tileFeatures)
+        {
+            if (!TryGetSingleExit(tileFeatures, out var exit))
+            {
+                return;
+            }
+
+            if (completionPolicy != StageCompletionPolicy.RequireAllConditions)
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{stageName}' has an Exit TileFeature and must use objective policy {StageCompletionPolicy.RequireAllConditions}.");
+            }
+
+            var requiredPrimaryGoalCount = 0;
+            StageObjectiveConditionEntry primaryGoalEntry = default;
+            for (var i = 0; i < conditionEntries.Count; i++)
+            {
+                if (conditionEntries[i].Role != StageObjectiveConditionRole.PrimaryGoal ||
+                    !conditionEntries[i].Required)
+                {
+                    continue;
+                }
+
+                requiredPrimaryGoalCount++;
+                primaryGoalEntry = conditionEntries[i];
+            }
+
+            if (requiredPrimaryGoalCount != 1)
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{stageName}' has an Exit TileFeature and must contain exactly one required PrimaryGoal condition entry.");
+            }
+
+            if (primaryGoalEntry.Condition is not PlayerAtAnyZoneConditionAsset playerAtZoneCondition)
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{stageName}' Exit PrimaryGoal must use PlayerAtAnyZoneConditionAsset.");
+            }
+
+            var zoneIds = playerAtZoneCondition.ZoneIds;
+            if (zoneIds.Length != 1)
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{stageName}' Exit PrimaryGoal must reference exactly one goal zone.");
+            }
+
+            var zoneId = zoneIds[0]?.Trim() ?? string.Empty;
+            if (!zonesById.TryGetValue(zoneId, out var zone))
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{stageName}' Exit PrimaryGoal references unknown zone id '{zoneId}'.");
+            }
+
+            if (!TryGetSingleCell(zone, out var goalCell))
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{stageName}' Exit goal zone '{zone.ZoneId}' must be exactly one center cell.");
+            }
+
+            if (!goalCell.Equals(exit.Cell))
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{stageName}' Exit center cell {exit.Cell} must match goal zone '{zone.ZoneId}' cell {goalCell}.");
+            }
+        }
+
+        private static bool TryGetSingleExit(
+            IReadOnlyList<StageTileFeatureDefinition> tileFeatures,
+            out StageTileFeatureDefinition exit)
+        {
+            if (tileFeatures != null)
+            {
+                for (var i = 0; i < tileFeatures.Count; i++)
+                {
+                    if (tileFeatures[i].Kind == TileFeatureKind.Exit)
+                    {
+                        exit = tileFeatures[i];
+                        return true;
+                    }
+                }
+            }
+
+            exit = default;
+            return false;
+        }
+
+        private static bool TryGetSingleCell(StageZoneDefinition zone, out SurfaceCell cell)
+        {
+            var regions = zone.GetRegionsOrEmpty();
+            if (regions.Length == 1 &&
+                regions[0].MinInclusive == regions[0].MaxInclusive)
+            {
+                cell = new SurfaceCell(zone.FaceId, regions[0].MinInclusive.x, regions[0].MinInclusive.y);
+                return true;
+            }
+
+            cell = default;
+            return false;
         }
 
         private static StageObjectiveConditionEntry[] ValidateConditionEntries(

@@ -308,11 +308,23 @@ namespace Game.Feature.Stages
                 tileFeatureRuntimeDefinitionsById);
             var runtimeEntries = new List<StageObjectiveConditionRuntimeDefinitionEntry>();
             var displayEntries = new List<StageObjectiveConditionDisplayMetadata>();
+            var hasExit = TryGetSingleExit(validated.TileFeatures, out var exitTileFeature);
 
             for (var i = 0; i < conditionEntries.Length; i++)
             {
                 var authoringEntry = conditionEntries[i];
                 var runtimeDefinition = authoringEntry.Condition.Compile(in compilationContext);
+                if (hasExit && authoringEntry.Role == StageObjectiveConditionRole.PrimaryGoal)
+                {
+                    runtimeDefinition = CreateExitPrimaryGoalRuntimeDefinition(
+                        validated,
+                        zonesById,
+                        tileFeatureRuntimeDefinitionsById,
+                        exitTileFeature,
+                        authoringEntry,
+                        runtimeDefinition);
+                }
+
                 var stableConditionId = ResolveStableConditionId(authoringEntry.StableConditionId, i, runtimeDefinition);
 
                 runtimeEntries.Add(new StageObjectiveConditionRuntimeDefinitionEntry(
@@ -335,6 +347,65 @@ namespace Game.Feature.Stages
             return runtimeEntries.Count == 0
                 ? Array.Empty<StageObjectiveConditionRuntimeDefinitionEntry>()
                 : runtimeEntries.ToArray();
+        }
+
+        private static StageConditionRuntimeDefinition CreateExitPrimaryGoalRuntimeDefinition(
+            StageDefinitionValidator.ValidatedStageData validated,
+            IReadOnlyDictionary<string, StageZoneRuntimeDefinition> zonesById,
+            IReadOnlyDictionary<int, TileFeatureRuntimeDefinition> tileFeatureRuntimeDefinitionsById,
+            StageTileFeatureDefinition exitTileFeature,
+            StageObjectiveConditionEntry authoringEntry,
+            StageConditionRuntimeDefinition baseRuntimeDefinition)
+        {
+            if (authoringEntry.Condition is not PlayerAtAnyZoneConditionAsset playerAtZoneCondition)
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{validated.StageName}' Exit PrimaryGoal must compile from PlayerAtAnyZoneConditionAsset.");
+            }
+
+            var zoneIds = playerAtZoneCondition.ZoneIds;
+            var zoneId = zoneIds.Length == 1 ? zoneIds[0]?.Trim() ?? string.Empty : string.Empty;
+            if (zoneIds.Length != 1 ||
+                !zonesById.TryGetValue(zoneId, out var targetZone))
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{validated.StageName}' Exit PrimaryGoal must reference exactly one known goal zone.");
+            }
+
+            if (!tileFeatureRuntimeDefinitionsById.TryGetValue(exitTileFeature.TileId, out var exitRuntimeDefinition))
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{validated.StageName}' Exit TileId {exitTileFeature.TileId} did not produce a TileFeatureRuntimeDefinition.");
+            }
+
+            return new PlayerAtActiveExitConditionRuntimeDefinition(
+                baseRuntimeDefinition.ConditionId,
+                baseRuntimeDefinition.DisplayName,
+                validated.PlayerEntityId,
+                exitTileFeature.TileId,
+                exitRuntimeDefinition,
+                targetZone,
+                playerAtZoneCondition.RequireAlive);
+        }
+
+        private static bool TryGetSingleExit(
+            IReadOnlyList<StageTileFeatureDefinition> tileFeatures,
+            out StageTileFeatureDefinition exitTileFeature)
+        {
+            if (tileFeatures != null)
+            {
+                for (var i = 0; i < tileFeatures.Count; i++)
+                {
+                    if (tileFeatures[i].Kind == TileFeatureKind.Exit)
+                    {
+                        exitTileFeature = tileFeatures[i];
+                        return true;
+                    }
+                }
+            }
+
+            exitTileFeature = default;
+            return false;
         }
 
         private static string ResolveStableConditionId(
