@@ -228,7 +228,7 @@ namespace Game.Feature.Gameplay.Host
         {
             if (exitCause == TickEntityExitCause.BoxDestroy)
             {
-                return suppressLegacyBoxDestroyShrinkEffects;
+                return true;
             }
 
             if (exitCause == TickEntityExitCause.Killed)
@@ -236,8 +236,7 @@ namespace Game.Feature.Gameplay.Host
                 return suppressLegacyEnemyDeathEffects;
             }
 
-            return exitCause == TickEntityExitCause.ItemConsume &&
-                   suppressLegacyItemConsumeEffects;
+            return exitCause == TickEntityExitCause.ItemConsume;
         }
 
         public void ApplyEntityExitOwnership()

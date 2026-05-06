@@ -356,7 +356,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Coordinator_FlagOff_UsesLegacyPresenterOnly()
+        public void Coordinator_FlagOff_DoesNotUseLegacyFallback()
         {
             var scenario = CreateCoordinatorScenario("UtilityWindupLegacyFlagOff");
             try
@@ -373,7 +373,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     presentationData: CreatePresentationData(
                         summonWindupWarnings: new[] { CreateSummonWindupWarningSignal(40, scenario.SourceCell, scenario.Topology) })));
 
-                Assert.That(CountDescendantsByNamePrefix(scenario.Root.transform, "SummonWindupWarning_40"), Is.EqualTo(1));
+                Assert.That(CountDescendantsByNamePrefix(scenario.Root.transform, "SummonWindupWarning_40"), Is.Zero);
                 Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
             }
@@ -446,6 +446,51 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 scenario.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void LegacyPresenter_EmptyRefreshCleansExistingWarnings()
+        {
+            var root = new GameObject("UtilityWindupLegacyCleanup");
+            var warningPrefab = new GameObject("UtilityWindupLegacyCleanup_LegacyWarningPrefab");
+            var sourceObject = new GameObject("UtilityWindupLegacyCleanup_Source");
+            try
+            {
+                var sourceView = sourceObject.AddComponent<GameplayEntityView>();
+                sourceView.Initialize(40);
+                var utilityAuthoring = sourceObject.AddComponent<EnemyUtilityWindupPresentationAuthoring>();
+                SetField(utilityAuthoring, "summonWindupWarningPrefab", warningPrefab);
+                SetField(utilityAuthoring, "attachSummonWarningToSourceView", true);
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var stateStore = new GameplayPresentationStateStore();
+                stateStore.ResetSession(topology);
+                stateStore.ViewsByEntityId[40] = sourceView;
+                stateStore.CommittedLocalTargetPoses[40] = new GameplayEntityPose(Vector3.zero, Quaternion.identity);
+                var projector = new GameplayCubeProjector(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                    1f);
+                var presenter = new GameplayUtilityWindupVfxPresenter();
+                presenter.Initialize(root.transform);
+
+                presenter.RefreshSummonWarnings(
+                    new[] { CreateSummonWindupWarningSignal(40, sourceCell, topology) },
+                    stateStore,
+                    projector);
+                Assert.That(CountDescendantsByNamePrefix(sourceObject.transform, "SummonWindupWarning_40"), Is.EqualTo(1));
+
+                presenter.RefreshSummonWarnings(
+                    Array.Empty<TickSummonWindupWarningSignal>(),
+                    stateStore,
+                    projector);
+
+                Assert.That(CountDescendantsByNamePrefix(sourceObject.transform, "SummonWindupWarning_40"), Is.Zero);
+            }
+            finally
+            {
+                Destroy(warningPrefab, sourceObject, root);
             }
         }
 

@@ -173,7 +173,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Coordinator_DamageMigrationFlagOff_UsesOldPresenterOnly()
+        public void Coordinator_DamageMigrationFlagOff_DoesNotUseOldFallback()
         {
             var rootObject = new GameObject("Coordinator_DamageMigrationFlagOff");
             var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("DamageMigrationFlagOff_PlayerPrefab");
@@ -191,7 +191,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     topology,
                     new[] { CreatePlayerUnit(10, playerCell, hp: 2) }));
 
-                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+                Assert.That(presenter.ActiveTransientEffectCount, Is.Zero);
             }
             finally
             {

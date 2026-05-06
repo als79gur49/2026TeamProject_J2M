@@ -244,36 +244,44 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void Coordinator_ActiveFlagOn_CleansLegacyActiveAndDoesNotRecreate()
         {
-            var scenario = CreateCoordinatorScenario("FrontFaceShieldLegacyActiveCleanup");
+            var root = new GameObject("FrontFaceShieldLegacyActiveCleanup");
+            var activePrefab = new GameObject("FrontFaceShieldLegacyActiveCleanup_LegacyActivePrefab");
+            var sourceObject = new GameObject("FrontFaceShieldLegacyActiveCleanup_Source");
             try
             {
-                var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxFrontFaceShieldActiveMigration = false;
-                runtime.EnableGameplayVfxFrontFaceShieldBlockMigration = false;
-                scenario.Presenter.AttachPresentationExtension(runtime);
-                scenario.Presenter.PresentInitial(new[] { CreateEnemyUnit(40, scenario.SourceCell) }, scenario.Topology);
+                var sourceView = sourceObject.AddComponent<GameplayEntityView>();
+                sourceView.Initialize(40);
+                var shieldAuthoring = sourceObject.AddComponent<EnemyFrontFaceShieldPresentationAuthoring>();
+                SetField(shieldAuthoring, "activeLoopPrefab", activePrefab);
+                SetField(shieldAuthoring, "attachActiveLoopToSourceView", true);
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var stateStore = new GameplayPresentationStateStore();
+                stateStore.ResetSession(topology);
+                stateStore.ViewsByEntityId[40] = sourceView;
+                stateStore.CommittedLocalTargetPoses[40] = new GameplayEntityPose(Vector3.zero, Quaternion.identity);
+                var projector = new GameplayCubeProjector(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                    1f);
+                var presenter = new GameplayFrontFaceShieldVfxPresenter();
+                presenter.Initialize(root.transform, 1f);
 
-                scenario.Presenter.Present(CreateTickResult(
-                    12,
-                    new[] { CreateEnemyUnit(40, scenario.SourceCell) },
-                    scenario.Topology,
-                    CreatePresentationData(activeSignals: new[] { CreateSourceSignal(40, scenario.SourceCell, scenario.Topology) })));
-                Assert.That(CountDescendantsByNamePrefix(scenario.Root.transform, "FrontFaceShieldActiveLoop_40"), Is.EqualTo(1));
+                presenter.RefreshActiveSources(
+                    new[] { CreateSourceSignal(40, sourceCell, topology) },
+                    stateStore,
+                    projector);
+                Assert.That(CountDescendantsByNamePrefix(sourceObject.transform, "FrontFaceShieldActiveLoop_40"), Is.EqualTo(1));
 
-                runtime.EnableGameplayVfxFrontFaceShieldActiveMigration = true;
-                scenario.Presenter.Present(CreateTickResult(
-                    13,
-                    new[] { CreateEnemyUnit(40, scenario.SourceCell) },
-                    scenario.Topology,
-                    CreatePresentationData(activeSignals: new[] { CreateSourceSignal(40, scenario.SourceCell, scenario.Topology, tickIndex: 13) })));
+                presenter.RefreshActiveSources(
+                    Array.Empty<TickFrontFaceShieldSourceSignal>(),
+                    stateStore,
+                    projector);
 
-                Assert.That(CountDescendantsByNamePrefix(scenario.Root.transform, "FrontFaceShieldActiveLoop_40"), Is.Zero);
-                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
-                Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
+                Assert.That(CountDescendantsByNamePrefix(sourceObject.transform, "FrontFaceShieldActiveLoop_40"), Is.Zero);
             }
             finally
             {
-                scenario.Destroy();
+                Destroy(activePrefab, sourceObject, root);
             }
         }
 
@@ -310,7 +318,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Coordinator_FlagOff_UsesLegacyShieldPresenter()
+        public void Coordinator_FlagOff_DoesNotUseLegacyActiveOrBlockFallback()
         {
             var scenario = CreateCoordinatorScenario("FrontFaceShieldLegacyFlagOff");
             try
@@ -332,8 +340,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             CreateBlockSignal(40, 20, 10, new SurfaceCell(FaceId.Floor, 1, 0), scenario.Topology),
                         })));
 
-                Assert.That(CountDescendantsByNamePrefix(scenario.Root.transform, "FrontFaceShieldActiveLoop_40"), Is.EqualTo(1));
-                Assert.That(CountDescendantsByNamePrefix(scenario.Root.transform, "FrontFaceShieldBlockBurst_40_20"), Is.EqualTo(1));
+                Assert.That(CountDescendantsByNamePrefix(scenario.Root.transform, "FrontFaceShieldActiveLoop_40"), Is.Zero);
+                Assert.That(CountDescendantsByNamePrefix(scenario.Root.transform, "FrontFaceShieldBlockBurst_40_20"), Is.Zero);
                 Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
             }
             finally

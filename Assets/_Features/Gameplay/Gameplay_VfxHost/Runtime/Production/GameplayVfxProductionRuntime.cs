@@ -100,7 +100,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
-        public bool SuppressLegacyPlayerDamageHitEffects => enableGameplayVfxDamageBurstMigration;
+        public bool SuppressLegacyPlayerDamageHitEffects => true;
 
         public bool EnableGameplayVfxEnemyDamageBurstMigration
         {
@@ -179,7 +179,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public bool SuppressLegacyEnemyDeathEffects => enableGameplayVfxEnemyDeathMotionMigration;
 
-        public bool SuppressLegacyBoxDestroyShrinkEffects => enableGameplayVfxBoxDestroyShrinkMigration;
+        public bool SuppressLegacyBoxDestroyShrinkEffects => true;
 
         public bool SuppressLegacyBoxDestroySmokeEffects => false;
 
@@ -198,7 +198,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
-        public bool SuppressLegacyItemConsumeEffects => enableGameplayVfxItemConsumeBurstMigration;
+        public bool SuppressLegacyItemConsumeEffects => true;
 
         public bool EnableGameplayVfxFlipImpactBurstMigration
         {
@@ -262,7 +262,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
-        public bool SuppressLegacyUtilityWindupVfx => enableGameplayVfxUtilityWindupMigration;
+        public bool SuppressLegacyUtilityWindupVfx => true;
 
         public bool EnableGameplayVfxFrontFaceShieldActiveMigration
         {
@@ -279,7 +279,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
-        public bool SuppressLegacyFrontFaceShieldActiveVfx => enableGameplayVfxFrontFaceShieldActiveMigration;
+        public bool SuppressLegacyFrontFaceShieldActiveVfx => true;
 
         public bool EnableGameplayVfxFrontFaceShieldBlockMigration
         {
@@ -296,7 +296,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
-        public bool SuppressLegacyFrontFaceShieldBlockVfx => enableGameplayVfxFrontFaceShieldBlockMigration;
+        public bool SuppressLegacyFrontFaceShieldBlockVfx => true;
 
         public int LastPlannedRequestCount { get; private set; }
 

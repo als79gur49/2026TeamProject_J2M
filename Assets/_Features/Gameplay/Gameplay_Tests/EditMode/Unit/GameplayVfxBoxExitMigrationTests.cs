@@ -258,7 +258,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
                 Assert.That(runtime.SuppressLegacyBoxDestroySmokeEffects, Is.False);
-                Assert.That(runtime.SuppressLegacyBoxDestroyShrinkEffects, Is.False);
+                Assert.That(runtime.SuppressLegacyBoxDestroyShrinkEffects, Is.True);
             }
             finally
             {
@@ -371,7 +371,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Coordinator_BoxDestroyFlagOff_UsesOldExitEffect()
+        public void Coordinator_BoxDestroyFlagOff_DoesNotUseOldExitFallbackAndKeepsCleanup()
         {
             var scenario = CreatePresenterScenario("BoxDestroyFlagOff");
             try
@@ -385,7 +385,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     scenario.Topology,
                     Array.Empty<EntityState>()));
 
-                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.Zero);
+                Assert.That(scenario.Registry.TryGetView(20, out var boxView), Is.True);
+                Assert.That(boxView.gameObject.activeSelf, Is.False);
             }
             finally
             {
@@ -438,7 +440,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Coordinator_SmokeOnShrinkOff_AllowsOldExitEffectAndSmoke()
+        public void Coordinator_SmokeOnShrinkOff_UsesSmokeOnlyAndNoOldExitEffect()
         {
             var scenario = CreatePresenterScenario("SmokeOnShrinkOff");
             var vfxPrefab = new GameObject("SmokeOnShrinkOff_VfxPrefab");
@@ -462,9 +464,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     scenario.Topology,
                     Array.Empty<EntityState>()));
 
-                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.Zero);
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
+                Assert.That(scenario.Registry.TryGetView(20, out var boxView), Is.True);
+                Assert.That(boxView.gameObject.activeSelf, Is.False);
             }
             finally
             {
@@ -532,6 +536,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.Zero);
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
+                Assert.That(scenario.Registry.TryGetView(21, out var itemView), Is.True);
+                Assert.That(itemView.gameObject.activeSelf, Is.False);
+            }
+            finally
+            {
+                scenario.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Coordinator_ItemConsumeFlagOff_DoesNotUseOldFallbackAndKeepsCleanup()
+        {
+            var scenario = CreatePresenterScenario("ItemConsumeFlagOff");
+            try
+            {
+                var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxItemConsumeBurstMigration = false;
+                scenario.Presenter.AttachPresentationExtension(runtime);
+                scenario.Presenter.PresentInitial(
+                    new[] { CreateBox(21, scenario.BoxCell) },
+                    scenario.Topology);
+
+                scenario.Presenter.Present(CreateResult(
+                    CreatePresentationData(new[] { CreateExitSignal(21, TickEntityExitCause.ItemConsume, scenario.BoxCell, scenario.Topology) }),
+                    scenario.Topology,
+                    Array.Empty<EntityState>()));
+
+                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.Zero);
+                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
                 Assert.That(scenario.Registry.TryGetView(21, out var itemView), Is.True);
                 Assert.That(itemView.gameObject.activeSelf, Is.False);

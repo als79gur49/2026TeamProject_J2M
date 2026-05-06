@@ -284,8 +284,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("High-risk parameterized motion and clone/source-view VFX require manual parity approval"));
             Assert.That(document, Does.Contain("`EnableGameplayVfxEnemyDeathMotionMigration` owns `SuppressLegacyEnemyDeathEffects`"));
             Assert.That(document, Does.Contain("`EnableGameplayVfxEnemyDeathBurstMigration` does not suppress the old enemy death fly-away"));
-            Assert.That(document, Does.Contain("`EnableGameplayVfxBoxDestroyShrinkMigration` owns `SuppressLegacyBoxDestroyShrinkEffects`"));
-            Assert.That(document, Does.Contain("`EnableGameplayVfxBoxDestroySmokeMigration` does not suppress the old BoxDestroy shrink/fade"));
+            Assert.That(document, Does.Contain("After legacy old path cleanup, cleaned cue flags use canonical/off semantics"));
+            Assert.That(document, Does.Contain("Old BoxDestroy shrink/fade playback is disabled independently of `EnableGameplayVfxBoxDestroyShrinkMigration`"));
+            Assert.That(document, Does.Contain("`EnableGameplayVfxBoxDestroySmokeMigration` gates smoke only and does not own shrink playback"));
             Assert.That(document, Does.Contain("High-risk motion/parity flags require post-rollout visual monitoring"));
             Assert.That(document, Does.Contain("Burst + Motion simultaneous output remains visually monitored"));
         }

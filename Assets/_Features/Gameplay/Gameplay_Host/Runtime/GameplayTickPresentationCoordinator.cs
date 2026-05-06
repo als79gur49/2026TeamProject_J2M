@@ -239,40 +239,20 @@ namespace Game.Feature.Gameplay.Host
                 TopologyCommitted);
             PresentExtensions(result);
             TraceStep("RefreshUtilityWindupWarnings");
-            if (ShouldSuppressLegacyUtilityWindupVfx())
-            {
-                _utilityWindupVfxPresenter.RefreshSummonWarnings(
-                    Array.Empty<TickSummonWindupWarningSignal>(),
-                    _stateStore,
-                    _projector);
-            }
-            else
-            {
-                _utilityWindupVfxPresenter.RefreshSummonWarnings(
-                    result.PresentationData.SummonWindupWarnings,
-                    _stateStore,
-                    _projector);
-            }
+            _utilityWindupVfxPresenter.RefreshSummonWarnings(
+                Array.Empty<TickSummonWindupWarningSignal>(),
+                _stateStore,
+                _projector);
 
             _frontFaceShieldVfxPresenter.RefreshWindupWarnings(
                 result.PresentationData.FrontFaceShieldWindupWarnings,
                 _stateStore,
                 _projector);
             TraceStep("RefreshFrontFaceShieldSources");
-            if (ShouldSuppressLegacyFrontFaceShieldActiveVfx())
-            {
-                _frontFaceShieldVfxPresenter.RefreshActiveSources(
-                    Array.Empty<TickFrontFaceShieldSourceSignal>(),
-                    _stateStore,
-                    _projector);
-            }
-            else
-            {
-                _frontFaceShieldVfxPresenter.RefreshActiveSources(
-                    result.PresentationData.FrontFaceShieldSources,
-                    _stateStore,
-                    _projector);
-            }
+            _frontFaceShieldVfxPresenter.RefreshActiveSources(
+                Array.Empty<TickFrontFaceShieldSourceSignal>(),
+                _stateStore,
+                _projector);
             _exitPresentationController.RefreshEntityExitPlan(result.PresentationData);
             _planner.RefreshPlayerLocomotionSignals(result.PresentationData);
             _topologyTransitionController.RefreshTopologyTrack(
@@ -301,18 +281,7 @@ namespace Game.Feature.Gameplay.Host
                     actionKind,
                     _timingProfile));
             TraceStep("PlayPlayerHitEffects");
-            if (!ShouldSuppressLegacyPlayerDamageHitEffects())
-            {
-                PlayPlayerHitEffects(result);
-            }
             TraceStep("PlayFrontFaceShieldBlockBursts");
-            if (!ShouldSuppressLegacyFrontFaceShieldBlockVfx())
-            {
-                _frontFaceShieldVfxPresenter.PlayBlockBursts(
-                    result.PresentationData.FrontFaceShieldBlocks,
-                    _stateStore,
-                    _projector);
-            }
             TraceStep("PlayPlannedAudio");
             _audioPresentationController.PlayPlannedAudio();
             _actionAudioPresentationController.PlayPlannedAudio();

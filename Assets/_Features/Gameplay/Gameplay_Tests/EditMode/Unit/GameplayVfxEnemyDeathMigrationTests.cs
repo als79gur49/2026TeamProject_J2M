@@ -595,8 +595,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(expectedRequests));
                 Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.False);
                 Assert.That(runtime.SuppressLegacyBoxDestroySmokeEffects, Is.False);
-                Assert.That(runtime.SuppressLegacyBoxDestroyShrinkEffects, Is.False);
-                Assert.That(runtime.SuppressLegacyItemConsumeEffects, Is.EqualTo(itemEnabled));
+                Assert.That(runtime.SuppressLegacyBoxDestroyShrinkEffects, Is.True);
+                Assert.That(runtime.SuppressLegacyItemConsumeEffects, Is.True);
             }
             finally
             {
