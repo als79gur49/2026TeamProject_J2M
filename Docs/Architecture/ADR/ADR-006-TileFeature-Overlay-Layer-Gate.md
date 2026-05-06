@@ -98,8 +98,11 @@ MoonBlock:
 
 MoonBlockGenerator:
 
-- MoonBlockGenerator respawn is gameplay-only in this phase.
-- MoonBlockGenerator does not emit `MoonBlockGenerated` or `MoonBlockGeneratorBlocked` presentation events yet.
+- MoonBlockGenerator respawn is authoritative gameplay; feedback is presentation-only.
+- MoonBlockGenerator emits `MoonBlockGenerated` only after actual respawn success.
+- MoonBlockGenerator does not emit `MoonBlockGeneratorBlocked` presentation events yet.
+- `MoonBlockGenerated` event `TargetEntityId` is the respawned MoonBlock entity id.
+- `MoonBlockGenerated` is sourced from respawn processor success facts, not final snapshot diffing.
 - MoonBlockGenerator must use `BottomFaceOnly`, `Direction2D.None`, and `TileFeatureBoxSelector.None`.
 - MoonBlockGenerator reuses the bound initial MoonBlock entity id and respawn template.
 - Unit/player/enemy occupants defer MoonBlockGenerator respawn.
@@ -246,7 +249,7 @@ Barricade box-only blocker MVP is implemented. Barricade remains a TileFeature o
 
 Barricade presentation is implemented as feedback-only metadata. `BarricadeBlocked` is sourced from movement blocker facts because a blocked box never enters the Barricade cell and no `TileEffectBoxContact` exists. `BarricadeCrushed` is sourced from `TileFeatureEffectResolver.ResolveBarricadeCrushes` only after an actual box destroy operation is created.
 
-Barricade events flow through `TilePresentationEvent`, `TilePresentationRequest`, optional tile visual interfaces, and optional TileFeatureAudio Sfx cues. Events do not mutate gameplay state, do not enter the determinism hash, and presentation consumers must not call `WorldState.CreateSnapshot`.
+Barricade and MoonBlockGenerated events flow through `TilePresentationEvent`, `TilePresentationRequest`, optional tile visual interfaces, and optional TileFeatureAudio Sfx cues. Events do not mutate gameplay state, do not enter the determinism hash, and presentation consumers must not call `WorldState.CreateSnapshot`.
 
 ## TerrainFlags Boundary
 

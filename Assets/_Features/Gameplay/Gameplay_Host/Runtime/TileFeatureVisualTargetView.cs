@@ -14,6 +14,7 @@ namespace Game.Feature.Gameplay.Host
         IBarricadeCrushedVisualTarget,
         IExitOpenedVisualTarget,
         IExitEnteredVisualTarget,
+        IMoonBlockGeneratedVisualTarget,
         ITileFeatureVisualTargetConfigurator
     {
         [SerializeField] private int tileId;
@@ -26,6 +27,7 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private string barricadeCrushedTriggerName = "BarricadeCrushed";
         [SerializeField] private string exitOpenedTriggerName = "ExitOpened";
         [SerializeField] private string exitEnteredTriggerName = "ExitEntered";
+        [SerializeField] private string moonBlockGeneratedTriggerName = "MoonBlockGenerated";
         [SerializeField] private ParticleSystem buttonActivatedParticles;
         [SerializeField] private ParticleSystem destroyTileTriggeredParticles;
         [SerializeField] private ParticleSystem slideTileRedirectedParticles;
@@ -33,6 +35,7 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private ParticleSystem barricadeCrushedParticles;
         [SerializeField] private ParticleSystem exitOpenedParticles;
         [SerializeField] private ParticleSystem exitEnteredParticles;
+        [SerializeField] private ParticleSystem moonBlockGeneratedParticles;
         [SerializeField] private UnityEvent buttonActivatedPlayed;
         [SerializeField] private UnityEvent destroyTileTriggeredPlayed;
         [SerializeField] private UnityEvent slideTileRedirectedPlayed;
@@ -40,6 +43,7 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private UnityEvent barricadeCrushedPlayed;
         [SerializeField] private UnityEvent exitOpenedPlayed;
         [SerializeField] private UnityEvent exitEnteredPlayed;
+        [SerializeField] private UnityEvent moonBlockGeneratedPlayed;
 
         private int _debugPlayButtonActivatedCount;
         private int _debugPlayDestroyTileTriggeredCount;
@@ -48,12 +52,14 @@ namespace Game.Feature.Gameplay.Host
         private int _debugPlayBarricadeCrushedCount;
         private int _debugPlayExitOpenedCount;
         private int _debugPlayExitEnteredCount;
+        private int _debugPlayMoonBlockGeneratedCount;
         private Direction _debugLastSlideTileDirection = Direction.None;
         private Direction _debugLastBarricadeBlockedDirection = Direction.None;
         private int _debugLastSlideTileTargetEntityId;
         private int _debugLastBarricadeBlockedTargetEntityId;
         private int _debugLastBarricadeCrushedTargetEntityId;
         private int _debugLastExitEnteredPlayerEntityId;
+        private int _debugLastMoonBlockGeneratedEntityId;
 
         public int TileId => tileId;
 
@@ -73,6 +79,8 @@ namespace Game.Feature.Gameplay.Host
 
         public int DebugPlayExitEnteredCount => _debugPlayExitEnteredCount;
 
+        public int DebugPlayMoonBlockGeneratedCount => _debugPlayMoonBlockGeneratedCount;
+
         public Direction DebugLastSlideTileDirection => _debugLastSlideTileDirection;
 
         public Direction DebugLastBarricadeBlockedDirection => _debugLastBarricadeBlockedDirection;
@@ -84,6 +92,8 @@ namespace Game.Feature.Gameplay.Host
         public int DebugLastBarricadeCrushedTargetEntityId => _debugLastBarricadeCrushedTargetEntityId;
 
         public int DebugLastExitEnteredPlayerEntityId => _debugLastExitEnteredPlayerEntityId;
+
+        public int DebugLastMoonBlockGeneratedEntityId => _debugLastMoonBlockGeneratedEntityId;
 
         public void Configure(int newTileId, SurfaceCell newCell)
         {
@@ -233,6 +243,26 @@ namespace Game.Feature.Gameplay.Host
             }
 
             exitEnteredPlayed?.Invoke();
+        }
+
+        public void PlayMoonBlockGenerated(int moonBlockEntityId)
+        {
+            _debugPlayMoonBlockGeneratedCount++;
+            _debugLastMoonBlockGeneratedEntityId = moonBlockEntityId;
+
+            if (animator != null &&
+                animator.runtimeAnimatorController != null &&
+                !string.IsNullOrWhiteSpace(moonBlockGeneratedTriggerName))
+            {
+                animator.SetTrigger(Animator.StringToHash(moonBlockGeneratedTriggerName));
+            }
+
+            if (moonBlockGeneratedParticles != null)
+            {
+                moonBlockGeneratedParticles.Play(withChildren: true);
+            }
+
+            moonBlockGeneratedPlayed?.Invoke();
         }
     }
 }

@@ -42,6 +42,7 @@ namespace Game.Feature.Gameplay.Loop
         BarricadeCrushed = 5,
         ExitOpened = 6,
         ExitEntered = 7,
+        MoonBlockGenerated = 8,
     }
 
     public readonly struct TilePresentationEvent

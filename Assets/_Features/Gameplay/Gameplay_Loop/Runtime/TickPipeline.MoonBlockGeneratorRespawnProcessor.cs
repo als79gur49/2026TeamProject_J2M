@@ -6,7 +6,7 @@ namespace Game.Feature.Gameplay.Loop
 {
     internal sealed class MoonBlockGeneratorRespawnProcessor
     {
-        public IReadOnlyList<string> Process(
+        public MoonBlockGeneratorRespawnProcessorResult Process(
             WorldSnapshot postCleanupSnapshot,
             Func<WorldSnapshot> refreshedSnapshotFactory,
             bool refreshAfterPriorRespawnMutation,
@@ -22,7 +22,7 @@ namespace Game.Feature.Gameplay.Loop
 
             if (respawnDefinitions == null || respawnDefinitions.Count == 0)
             {
-                return Array.Empty<string>();
+                return MoonBlockGeneratorRespawnProcessorResult.Empty;
             }
 
             if (writeContext == null)
@@ -33,6 +33,7 @@ namespace Game.Feature.Gameplay.Loop
             var snapshot = postCleanupSnapshot;
             var didRefresh = false;
             var eventLogEntries = new List<string>();
+            var respawnFacts = new List<MoonBlockGeneratorRespawnFact>();
 
             for (var i = 0; i < respawnDefinitions.Count; i++)
             {
@@ -134,11 +135,19 @@ namespace Game.Feature.Gameplay.Loop
                 var respawnEntity = BuildRespawnEntity(definition, tickIndex);
                 writeContext.SpawnEntity(respawnEntity);
                 writeContext.RemoveBoxInteractionLockState(respawnEntity.entityId);
+                respawnFacts.Add(
+                    new MoonBlockGeneratorRespawnFact(
+                        definition.GeneratorTileId,
+                        spawnCell,
+                        respawnEntity.entityId,
+                        generator.SourceEntityId,
+                        generator.OwnerEntityId,
+                        generator.TeamId));
                 eventLogEntries.Add(
                     $"MoonBlockGeneratorRespawnCommitted|TileId={definition.GeneratorTileId}|E={respawnEntity.entityId}|Pos=({respawnEntity.position.x},{respawnEntity.position.y})|Face={respawnEntity.position.face}|Tick={tickIndex}");
             }
 
-            return eventLogEntries;
+            return new MoonBlockGeneratorRespawnProcessorResult(eventLogEntries, respawnFacts);
         }
 
         private static EntityState BuildRespawnEntity(
@@ -193,5 +202,27 @@ namespace Game.Feature.Gameplay.Loop
             definition = default;
             return false;
         }
+    }
+
+    internal sealed class MoonBlockGeneratorRespawnProcessorResult
+    {
+        public static readonly MoonBlockGeneratorRespawnProcessorResult Empty = new(
+            Array.Empty<string>(),
+            Array.Empty<MoonBlockGeneratorRespawnFact>());
+
+        private readonly IReadOnlyList<string> _eventLogEntries;
+        private readonly IReadOnlyList<MoonBlockGeneratorRespawnFact> _respawnFacts;
+
+        public MoonBlockGeneratorRespawnProcessorResult(
+            IReadOnlyList<string> eventLogEntries,
+            IReadOnlyList<MoonBlockGeneratorRespawnFact> respawnFacts)
+        {
+            _eventLogEntries = eventLogEntries ?? throw new ArgumentNullException(nameof(eventLogEntries));
+            _respawnFacts = respawnFacts ?? throw new ArgumentNullException(nameof(respawnFacts));
+        }
+
+        public IReadOnlyList<string> EventLogEntries => _eventLogEntries;
+
+        public IReadOnlyList<MoonBlockGeneratorRespawnFact> RespawnFacts => _respawnFacts;
     }
 }

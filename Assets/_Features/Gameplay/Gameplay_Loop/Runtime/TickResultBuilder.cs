@@ -195,11 +195,13 @@ namespace Game.Feature.Gameplay.Loop
         public static readonly RespawnPhaseResult Empty = new(
             Array.Empty<EntityState>(),
             Array.Empty<string>(),
-            respawnPlacementRecords: Array.Empty<RespawnPlacementRecord>());
+            respawnPlacementRecords: Array.Empty<RespawnPlacementRecord>(),
+            moonBlockGeneratorRespawnFacts: Array.Empty<MoonBlockGeneratorRespawnFact>());
 
         private readonly ReadOnlyCollection<string> _eventLogEntries;
         private readonly ReadOnlyCollection<PlayerRespawnDelayRecord> _playerRespawnDelayRecords;
         private readonly ReadOnlyCollection<RespawnPlacementRecord> _respawnPlacementRecords;
+        private readonly ReadOnlyCollection<MoonBlockGeneratorRespawnFact> _moonBlockGeneratorRespawnFacts;
         private readonly ReadOnlyCollection<EntityState> _respawnedEntities;
 
         public RespawnPhaseResult(
@@ -211,7 +213,8 @@ namespace Game.Feature.Gameplay.Loop
                 eventLogEntries,
                 playerRespawnDelayRecords: null,
                 respawnPlacementRecords: null,
-                topologyResetRequest: topologyResetRequest)
+                topologyResetRequest: topologyResetRequest,
+                moonBlockGeneratorRespawnFacts: null)
         {
         }
 
@@ -220,7 +223,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<string> eventLogEntries,
             IEnumerable<PlayerRespawnDelayRecord> playerRespawnDelayRecords = null,
             IEnumerable<RespawnPlacementRecord> respawnPlacementRecords = null,
-            RespawnTopologyResetRequest? topologyResetRequest = null)
+            RespawnTopologyResetRequest? topologyResetRequest = null,
+            IEnumerable<MoonBlockGeneratorRespawnFact> moonBlockGeneratorRespawnFacts = null)
         {
             if (respawnedEntities == null)
             {
@@ -240,6 +244,9 @@ namespace Game.Feature.Gameplay.Loop
             _respawnPlacementRecords = new ReadOnlyCollection<RespawnPlacementRecord>(
                 new List<RespawnPlacementRecord>(
                     respawnPlacementRecords ?? Array.Empty<RespawnPlacementRecord>()));
+            _moonBlockGeneratorRespawnFacts = new ReadOnlyCollection<MoonBlockGeneratorRespawnFact>(
+                new List<MoonBlockGeneratorRespawnFact>(
+                    moonBlockGeneratorRespawnFacts ?? Array.Empty<MoonBlockGeneratorRespawnFact>()));
             TopologyResetRequest = topologyResetRequest;
         }
 
@@ -251,7 +258,40 @@ namespace Game.Feature.Gameplay.Loop
 
         public IReadOnlyList<RespawnPlacementRecord> RespawnPlacementRecords => _respawnPlacementRecords;
 
+        public IReadOnlyList<MoonBlockGeneratorRespawnFact> MoonBlockGeneratorRespawnFacts => _moonBlockGeneratorRespawnFacts;
+
         public RespawnTopologyResetRequest? TopologyResetRequest { get; }
+    }
+
+    internal readonly struct MoonBlockGeneratorRespawnFact
+    {
+        public MoonBlockGeneratorRespawnFact(
+            int generatorTileId,
+            SurfaceCell cell,
+            int moonBlockEntityId,
+            int sourceEntityId,
+            int ownerEntityId,
+            int teamId)
+        {
+            GeneratorTileId = generatorTileId;
+            Cell = cell;
+            MoonBlockEntityId = moonBlockEntityId;
+            SourceEntityId = sourceEntityId;
+            OwnerEntityId = ownerEntityId;
+            TeamId = teamId;
+        }
+
+        public int GeneratorTileId { get; }
+
+        public SurfaceCell Cell { get; }
+
+        public int MoonBlockEntityId { get; }
+
+        public int SourceEntityId { get; }
+
+        public int OwnerEntityId { get; }
+
+        public int TeamId { get; }
     }
 
     internal readonly struct RespawnPlacementRecord
@@ -634,6 +674,23 @@ namespace Game.Feature.Gameplay.Loop
             for (var i = 0; i < context.TileEvents.Count; i++)
             {
                 tileEvents.Add(context.TileEvents[i]);
+            }
+
+            var moonBlockGeneratorRespawnFacts = context.RespawnPhaseResult.MoonBlockGeneratorRespawnFacts;
+            for (var i = 0; i < moonBlockGeneratorRespawnFacts.Count; i++)
+            {
+                var fact = moonBlockGeneratorRespawnFacts[i];
+                tileEvents.Add(
+                    new TilePresentationEvent(
+                        TilePresentationEventKind.MoonBlockGenerated,
+                        fact.GeneratorTileId,
+                        fact.Cell,
+                        TileFeatureKind.MoonBlockGenerator,
+                        fact.SourceEntityId,
+                        fact.OwnerEntityId,
+                        fact.TeamId,
+                        targetEntityId: fact.MoonBlockEntityId,
+                        direction: Direction.None));
             }
 
             var barricadeBlockFacts = context.MovementPhaseResult.BarricadeBlockFacts;

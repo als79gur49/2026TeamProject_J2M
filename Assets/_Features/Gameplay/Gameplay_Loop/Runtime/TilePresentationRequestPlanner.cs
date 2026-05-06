@@ -13,6 +13,7 @@ namespace Game.Feature.Gameplay.Loop
         BarricadeCrushed = 4,
         ExitOpened = 5,
         ExitEntered = 6,
+        MoonBlockGenerated = 7,
     }
 
     public readonly struct TilePresentationRequest
@@ -123,6 +124,9 @@ namespace Game.Feature.Gameplay.Loop
                     return true;
                 case TilePresentationEventKind.ExitEntered:
                     requestKind = TilePresentationRequestKind.ExitEntered;
+                    return true;
+                case TilePresentationEventKind.MoonBlockGenerated:
+                    requestKind = TilePresentationRequestKind.MoonBlockGenerated;
                     return true;
                 default:
                     requestKind = default;

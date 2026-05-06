@@ -201,6 +201,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void MoonBlockGeneratedRequest_WithSupportedTargetView_CallsPlayMoonBlockGeneratedOnce()
+        {
+            var rootObject = new GameObject(nameof(MoonBlockGeneratedRequest_WithSupportedTargetView_CallsPlayMoonBlockGeneratedOnce));
+            var targetObject = new GameObject("MoonBlockGeneratorVisualTarget");
+            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+
+            try
+            {
+                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+                target.Configure(100, cell);
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(registry);
+
+                controller.PlayRequests(new[] { CreateMoonBlockGeneratedRequest(100, cell, moonBlockEntityId: 20) });
+
+                Assert.That(target.DebugPlayMoonBlockGeneratedCount, Is.EqualTo(1));
+                Assert.That(target.DebugLastMoonBlockGeneratedEntityId, Is.EqualTo(20));
+                Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void ButtonActivatedRequest_MissingTarget_NoOpsWithOptionalDiagnostic()
         {
             var diagnostics = new List<string>();
@@ -294,6 +324,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(diagnostics, Has.Count.EqualTo(2));
             Assert.That(diagnostics[0], Does.Contain("unsupported ExitOpened"));
             Assert.That(diagnostics[1], Does.Contain("unsupported ExitEntered"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MoonBlockGeneratedRequest_UnsupportedTarget_NoOpWithOptionalDiagnostic()
+        {
+            var diagnostics = new List<string>();
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var target = new RecordingTarget(100, cell);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(new RecordingRegistry(target));
+            controller.SetDiagnosticSink(diagnostics.Add);
+
+            controller.PlayRequests(new[] { CreateMoonBlockGeneratedRequest(100, cell, moonBlockEntityId: 20) });
+
+            Assert.That(target.PlayCount, Is.Zero);
+            Assert.That(diagnostics, Has.Count.EqualTo(1));
+            Assert.That(diagnostics[0], Does.Contain("unsupported MoonBlockGenerated"));
         }
 
         [Test]
@@ -467,6 +515,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(target.EnteredPlayCount, Is.EqualTo(2));
             Assert.That(target.LastPlayerEntityId, Is.EqualTo(11));
             Assert.That(registry.LookupOrder.ToArray(), Is.EqualTo(new[] { 100, 100, 100, 100 }));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void DuplicateMoonBlockGeneratedRequests_AreNotDeduped()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var target = new RecordingMoonBlockGeneratedTarget(100, cell);
+            var registry = new RecordingRegistry(target);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(registry);
+
+            controller.PlayRequests(new[]
+            {
+                CreateMoonBlockGeneratedRequest(target.TileId, target.Cell, moonBlockEntityId: 20),
+                CreateMoonBlockGeneratedRequest(target.TileId, target.Cell, moonBlockEntityId: 21),
+            });
+
+            Assert.That(target.GeneratedPlayCount, Is.EqualTo(2));
+            Assert.That(target.LastMoonBlockEntityId, Is.EqualTo(21));
+            Assert.That(registry.LookupOrder.ToArray(), Is.EqualTo(new[] { 100, 100 }));
         }
 
         [Test]
@@ -698,6 +767,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 targetEntityId: playerEntityId);
         }
 
+        private static TilePresentationRequest CreateMoonBlockGeneratedRequest(
+            int tileId,
+            SurfaceCell cell,
+            int moonBlockEntityId)
+        {
+            return new TilePresentationRequest(
+                TilePresentationRequestKind.MoonBlockGenerated,
+                tileId,
+                cell,
+                TileFeatureKind.MoonBlockGenerator,
+                sourceEntityId: tileId + 1,
+                ownerEntityId: tileId + 2,
+                teamId: tileId + 3,
+                targetEntityId: moonBlockEntityId);
+        }
+
         private static void InvokeStageTileFeatureVisualInstantiation(
             IReadOnlyList<TileFeaturePresentationResolvedBinding> bindings,
             IReadOnlyList<TileFeatureState> initialTileFeatures,
@@ -910,6 +995,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 EnteredPlayCount++;
                 LastPlayerEntityId = playerEntityId;
+            }
+        }
+
+        private sealed class RecordingMoonBlockGeneratedTarget :
+            ITileFeatureVisualTarget,
+            IMoonBlockGeneratedVisualTarget
+        {
+            public RecordingMoonBlockGeneratedTarget(int tileId, SurfaceCell cell)
+            {
+                TileId = tileId;
+                Cell = cell;
+            }
+
+            public int TileId { get; }
+
+            public SurfaceCell Cell { get; }
+
+            public int ButtonPlayCount { get; private set; }
+
+            public int GeneratedPlayCount { get; private set; }
+
+            public int LastMoonBlockEntityId { get; private set; }
+
+            public void PlayButtonActivated()
+            {
+                ButtonPlayCount++;
+            }
+
+            public void PlayMoonBlockGenerated(int moonBlockEntityId)
+            {
+                GeneratedPlayCount++;
+                LastMoonBlockEntityId = moonBlockEntityId;
             }
         }
     }

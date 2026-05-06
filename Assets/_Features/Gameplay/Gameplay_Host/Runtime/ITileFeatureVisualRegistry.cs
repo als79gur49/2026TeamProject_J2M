@@ -46,6 +46,11 @@ namespace Game.Feature.Gameplay.Host
         void PlayExitEntered(int playerEntityId);
     }
 
+    public interface IMoonBlockGeneratedVisualTarget
+    {
+        void PlayMoonBlockGenerated(int moonBlockEntityId);
+    }
+
     public interface ITileFeatureVisualTargetConfigurator
     {
         void ConfigureTileFeature(int tileId, SurfaceCell cell);

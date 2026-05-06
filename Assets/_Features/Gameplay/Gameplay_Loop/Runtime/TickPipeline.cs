@@ -1396,7 +1396,7 @@ namespace Game.Feature.Gameplay.Loop
                 _playerRespawnDelayTicks,
                 _allowPlayerRespawn,
                 writeContext);
-            var moonBlockGeneratorEvents = _moonBlockGeneratorRespawnProcessor.Process(
+            var moonBlockGeneratorResult = _moonBlockGeneratorRespawnProcessor.Process(
                 postCleanupSnapshot,
                 () => SnapshotBuilder.Create(_worldState),
                 respawnPhaseResult.RespawnedEntities.Count > 0 ||
@@ -1405,18 +1405,25 @@ namespace Game.Feature.Gameplay.Loop
                 _tileFeatureDefinitions,
                 tickIndex,
                 writeContext);
-            if (moonBlockGeneratorEvents.Count > 0)
+            if (moonBlockGeneratorResult.EventLogEntries.Count > 0 ||
+                moonBlockGeneratorResult.RespawnFacts.Count > 0)
             {
                 var eventLogEntries = new List<string>(
-                    respawnPhaseResult.EventLogEntries.Count + moonBlockGeneratorEvents.Count);
+                    respawnPhaseResult.EventLogEntries.Count + moonBlockGeneratorResult.EventLogEntries.Count);
                 AddRange(eventLogEntries, respawnPhaseResult.EventLogEntries);
-                AddRange(eventLogEntries, moonBlockGeneratorEvents);
+                AddRange(eventLogEntries, moonBlockGeneratorResult.EventLogEntries);
+                var respawnFacts = new List<MoonBlockGeneratorRespawnFact>(
+                    respawnPhaseResult.MoonBlockGeneratorRespawnFacts.Count +
+                    moonBlockGeneratorResult.RespawnFacts.Count);
+                AddRange(respawnFacts, respawnPhaseResult.MoonBlockGeneratorRespawnFacts);
+                AddRange(respawnFacts, moonBlockGeneratorResult.RespawnFacts);
                 respawnPhaseResult = new RespawnPhaseResult(
                     respawnPhaseResult.RespawnedEntities,
                     eventLogEntries,
                     respawnPhaseResult.PlayerRespawnDelayRecords,
                     respawnPhaseResult.RespawnPlacementRecords,
-                    respawnPhaseResult.TopologyResetRequest);
+                    respawnPhaseResult.TopologyResetRequest,
+                    respawnFacts);
             }
 
             phaseTrace.Add("Respawn:Exit");

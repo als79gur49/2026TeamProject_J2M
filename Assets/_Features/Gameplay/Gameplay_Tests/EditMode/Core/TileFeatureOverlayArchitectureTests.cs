@@ -100,8 +100,11 @@ namespace Game.Feature.Gameplay.Tests.Core
                 "Do not add `BoxCapabilities." + "Moon`.",
                 "`MoonBlockOnly` selector is identity-based and must not re-check Push capability.",
                 "`HasMoonBlockSource` currently means an initial MoonBlock spawn.",
-                "MoonBlockGenerator respawn is gameplay-only in this phase.",
-                "MoonBlockGenerator does not emit `MoonBlockGenerated` or `MoonBlockGeneratorBlocked` presentation events yet.",
+                "MoonBlockGenerator respawn is authoritative gameplay; feedback is presentation-only.",
+                "MoonBlockGenerator emits `MoonBlockGenerated` only after actual respawn success.",
+                "MoonBlockGenerator does not emit `MoonBlockGeneratorBlocked` presentation events yet.",
+                "`MoonBlockGenerated` event `TargetEntityId` is the respawned MoonBlock entity id.",
+                "`MoonBlockGenerated` is sourced from respawn processor success facts, not final snapshot diffing.",
                 "MoonBlockGenerator must use `BottomFaceOnly`, `Direction2D.None`, and `TileFeatureBoxSelector.None`.",
                 "MoonBlockGenerator reuses the bound initial MoonBlock entity id and respawn template.",
                 "Unit/player/enemy occupants defer MoonBlockGenerator respawn.",
@@ -129,7 +132,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 "unit, enemy, projectile, flip landing, impact follow-through, and topology relocation traversal ignore Barricade",
                 "`BarricadeBlocked` is sourced from movement blocker facts",
                 "`BarricadeCrushed` is sourced from `TileFeatureEffectResolver.ResolveBarricadeCrushes`",
-                "Barricade events flow through `TilePresentationEvent`, `TilePresentationRequest`, optional tile visual interfaces, and optional TileFeatureAudio Sfx cues.",
+                "Barricade and MoonBlockGenerated events flow through `TilePresentationEvent`, `TilePresentationRequest`, optional tile visual interfaces, and optional TileFeatureAudio Sfx cues.",
                 "Events do not mutate gameplay state, do not enter the determinism hash",
             };
 
@@ -299,15 +302,15 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
-        public void MoonBlockGeneratorPresentationAudioSurface_IsNotOpenInGameplayMvp()
+        public void MoonBlockGeneratorPresentationAudioSurface_OpensGeneratedAndKeepsBlockedClosed()
         {
-            Assert.That(Enum.GetNames(typeof(TilePresentationEventKind)), Does.Not.Contain("MoonBlockGenerated"));
+            Assert.That(Enum.GetNames(typeof(TilePresentationEventKind)), Does.Contain("MoonBlockGenerated"));
             Assert.That(Enum.GetNames(typeof(TilePresentationEventKind)), Does.Not.Contain("MoonBlockGeneratorBlocked"));
-            Assert.That(Enum.GetNames(typeof(TilePresentationRequestKind)), Does.Not.Contain("MoonBlockGenerated"));
+            Assert.That(Enum.GetNames(typeof(TilePresentationRequestKind)), Does.Contain("MoonBlockGenerated"));
             Assert.That(Enum.GetNames(typeof(TilePresentationRequestKind)), Does.Not.Contain("MoonBlockGeneratorBlocked"));
 
             var audioTypesSource = File.ReadAllText(GetAbsolutePath(TileFeatureAudioTypesPath));
-            Assert.That(audioTypesSource, Does.Not.Contain("MoonBlockGenerated"));
+            Assert.That(audioTypesSource, Does.Contain("MoonBlockGenerated"));
             Assert.That(audioTypesSource, Does.Not.Contain("MoonBlockGeneratorBlocked"));
         }
 

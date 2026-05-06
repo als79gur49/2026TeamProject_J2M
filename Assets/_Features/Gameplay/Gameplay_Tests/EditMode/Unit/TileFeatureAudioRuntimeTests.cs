@@ -204,6 +204,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(requests[1].TargetEntityId, Is.EqualTo(10));
         }
 
+        [Test]
+        [Category("Extended")]
+        public void TileFeatureAudioRequestPlanner_MoonBlockGenerated_PreservesPayload()
+        {
+            var planner = new TileFeatureAudioRequestPlanner();
+            var cell = new SurfaceCell(FaceId.Floor, 2, 3);
+
+            var requests = planner.BuildRequests(new[]
+            {
+                CreateTilePresentationRequest(
+                    100,
+                    cell,
+                    sourceEntityId: 30,
+                    ownerEntityId: 40,
+                    teamId: 2,
+                    requestKind: TilePresentationRequestKind.MoonBlockGenerated,
+                    tileFeatureKind: TileFeatureKind.MoonBlockGenerator,
+                    targetEntityId: 50),
+            });
+
+            Assert.That(requests, Has.Count.EqualTo(1));
+            Assert.That(requests[0].Cue, Is.EqualTo(TileFeatureAudioCue.MoonBlockGenerated));
+            Assert.That(requests[0].TileId, Is.EqualTo(100));
+            Assert.That(requests[0].Cell, Is.EqualTo(cell));
+            Assert.That(requests[0].SourceEntityId, Is.EqualTo(30));
+            Assert.That(requests[0].OwnerEntityId, Is.EqualTo(40));
+            Assert.That(requests[0].TeamId, Is.EqualTo(2));
+            Assert.That(requests[0].Context.OwnerEntityId, Is.EqualTo(40));
+            Assert.That(requests[0].Context.DebugTag, Is.EqualTo("MoonBlockGenerated"));
+            Assert.That(requests[0].TargetEntityId, Is.EqualTo(50));
+        }
+
 
         [Test]
         [Category("Extended")]
@@ -322,6 +354,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(map.TryResolveOptional(TileFeatureAudioCue.SlideTileRedirected, out _), Is.False);
             Assert.That(map.TryResolveOptional(TileFeatureAudioCue.ExitOpened, out _), Is.False);
             Assert.That(map.TryResolveOptional(TileFeatureAudioCue.ExitEntered, out _), Is.False);
+            Assert.That(map.TryResolveOptional(TileFeatureAudioCue.MoonBlockGenerated, out _), Is.False);
         }
 
         [Test]
@@ -336,6 +369,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var barricadeCrushedBinding = scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false));
             var exitOpenedBinding = scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false));
             var exitEnteredBinding = scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false));
+            var moonBlockGeneratedBinding = scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false));
             SetEntries(
                 map,
                 (TileFeatureAudioCue.ButtonActivated, scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false))),
@@ -344,7 +378,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 (TileFeatureAudioCue.BarricadeBlocked, barricadeBlockedBinding),
                 (TileFeatureAudioCue.BarricadeCrushed, barricadeCrushedBinding),
                 (TileFeatureAudioCue.ExitOpened, exitOpenedBinding),
-                (TileFeatureAudioCue.ExitEntered, exitEnteredBinding));
+                (TileFeatureAudioCue.ExitEntered, exitEnteredBinding),
+                (TileFeatureAudioCue.MoonBlockGenerated, moonBlockGeneratedBinding));
 
             Assert.That(map.TryResolveOptional(TileFeatureAudioCue.DestroyTileTriggered, out var resolved), Is.True);
             Assert.That(resolved, Is.SameAs(binding));
@@ -358,6 +393,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(resolvedExitOpened, Is.SameAs(exitOpenedBinding));
             Assert.That(map.TryResolveOptional(TileFeatureAudioCue.ExitEntered, out var resolvedExitEntered), Is.True);
             Assert.That(resolvedExitEntered, Is.SameAs(exitEnteredBinding));
+            Assert.That(map.TryResolveOptional(TileFeatureAudioCue.MoonBlockGenerated, out var resolvedGenerated), Is.True);
+            Assert.That(resolvedGenerated, Is.SameAs(moonBlockGeneratedBinding));
         }
 
         [Test]
@@ -496,6 +533,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     ownerEntityId: 0,
                     cue: TileFeatureAudioCue.ExitEntered,
                     targetEntityId: 10),
+            });
+            controller.PlayPlannedAudio();
+
+            Assert.That(playbackPort.TwoDCalls, Is.Empty);
+            Assert.That(playbackPort.AttachedCalls, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TileFeatureAudioPresentationController_MoonBlockGeneratedMissingOptionalBinding_NoOp()
+        {
+            using var scope = new TestAssetScope();
+            var map = scope.CreateMap();
+            SetEntries(map, (TileFeatureAudioCue.ButtonActivated, scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false))));
+            var controller = new TileFeatureAudioPresentationController(new GameplayPresentationStateStore());
+            var playbackPort = new RecordingGameplayAudioPlaybackPort();
+
+            controller.AttachRuntime(playbackPort, map);
+            controller.ReplacePendingPlan(new[]
+            {
+                CreateTileAudioRequest(
+                    30,
+                    ownerEntityId: 0,
+                    cue: TileFeatureAudioCue.MoonBlockGenerated,
+                    targetEntityId: 20),
             });
             controller.PlayPlannedAudio();
 
@@ -659,6 +721,44 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
                 Is.EqualTo(new[] { "ExitOpened:30", "ExitOpened:30", "ExitEntered:31" }));
+            Assert.That(playbackPort.AttachedCalls, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TileFeatureAudioPresentationController_MoonBlockGeneratedBinding_PlaysDuplicatesWhenPresent()
+        {
+            using var scope = new TestAssetScope();
+            var map = scope.CreateMap();
+            var definition = scope.CreateDefinition(AudioCategory.Sfx, loop: false);
+            SetEntries(
+                map,
+                (TileFeatureAudioCue.ButtonActivated, scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false))),
+                (TileFeatureAudioCue.MoonBlockGenerated, scope.CreateBinding(definition)));
+            var controller = new TileFeatureAudioPresentationController(new GameplayPresentationStateStore());
+            var playbackPort = new RecordingGameplayAudioPlaybackPort();
+
+            controller.AttachRuntime(playbackPort, map);
+            controller.ReplacePendingPlan(new[]
+            {
+                CreateTileAudioRequest(
+                    30,
+                    ownerEntityId: 0,
+                    cue: TileFeatureAudioCue.MoonBlockGenerated,
+                    targetEntityId: 20),
+                CreateTileAudioRequest(
+                    30,
+                    ownerEntityId: 0,
+                    cue: TileFeatureAudioCue.MoonBlockGenerated,
+                    targetEntityId: 21),
+            });
+            controller.PlayPlannedAudio();
+
+            Assert.That(playbackPort.TwoDCalls, Has.Count.EqualTo(2));
+            Assert.That(playbackPort.TwoDCalls.All(call => ReferenceEquals(call.Definition, definition)), Is.True);
+            Assert.That(
+                playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
+                Is.EqualTo(new[] { "MoonBlockGenerated:30", "MoonBlockGenerated:30" }));
             Assert.That(playbackPort.AttachedCalls, Is.Empty);
         }
 

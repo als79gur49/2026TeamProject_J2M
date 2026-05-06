@@ -70,6 +70,9 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
                 case TilePresentationRequestKind.ExitEntered:
                     cue = TileFeatureAudioCue.ExitEntered;
                     return true;
+                case TilePresentationRequestKind.MoonBlockGenerated:
+                    cue = TileFeatureAudioCue.MoonBlockGenerated;
+                    return true;
                 default:
                     cue = default;
                     return false;
