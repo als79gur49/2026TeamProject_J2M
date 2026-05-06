@@ -163,13 +163,57 @@ First concrete user:
 - runtime command: `ParameterizedMotionVfxCommand`
 - playback: source pose to target pose with arc height, rotation slerp, break/fade onset, authored tail, and pool release
 
-Future possible users:
+Second concrete user:
 
 - Box Slide trail
+- cue: `BoxVfxCue.SlideDustTrail`
+- adapter source: `TickPresentationData.EntityMotions` filtered to `TickEntityMotionKind.BoxSlide`
+- playback: `PrefabOnly` soft dust/trail emitter moved from source cell pose to destination cell pose
+
+Future possible users:
+
 - Unit movement trail
 - Projectile trail
 
-Those future users are not applied in this slice. Box Slide, Unit movement, Projectile movement, generic gameplay motion drivers, and full `VfxAnchorKind.MotionTrack` resolver support remain outside this change.
+Unit movement, Projectile movement, generic gameplay motion drivers, exact scrape/decal trails, and full `VfxAnchorKind.MotionTrack` resolver support remain outside this change.
+
+## Box Slide Trail VFX Adapter
+
+The Box Slide trail adapter is an augmentation, not a migration. It adds a soft moving dust/trail emitter for committed box slide presentation facts while leaving existing box motion presentation active.
+
+Source and cue:
+
+- source fact: `TickPresentationData.EntityMotions`
+- filter: `TickEntityMotionKind.BoxSlide`
+- cue: `BoxVfxCue.SlideDustTrail`
+- one command is emitted per slide segment; multi-segment slides are not collapsed
+
+Motion mapping:
+
+- source `SurfaceCell` to destination `SurfaceCell` is projected through the host `GameplayCubeProjector` / `GameplayPoseResolver` path
+- source and destination face/topology/facing metadata from `TickEntityMotion` is preserved through projection
+- duration comes from existing box slide timing, `GameplayMotionTimingResolver.ResolveGlobalMotionDurationSeconds(TickEntityMotionKind.BoxSlide, timingProfile)`
+- sequence and presentation seed are deterministic from tick, entity id, source cell, destination cell, and cue
+
+Runtime behavior:
+
+- feature flag: `EnableGameplayVfxBoxSlideTrail`
+- default false
+- flag off emits no slide trail VFX and does not affect box movement
+- flag on plays a `ParameterizedMotionVfxCommand` when the binding is present
+- missing binding is diagnostic/no-op
+- no legacy presenter bypass or suppress gate exists because there is no old slide dust/trail path to migrate
+
+Visual and boundaries:
+
+- prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/BoxSlideDustTrailVfx.prefab`
+- material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_BoxSlideDustTrail_SoftDust.mat`
+- binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/BoxSlideDustTrail_Binding.asset`
+- clone mode: `PrefabOnly`
+- fade mode: `AlphaOnly`
+- the v1 visual is rotation/pose tolerant because the current parameterized sampler is still flip-oriented
+- exact linear sampler, scrape/decal trails, Unit movement trail, and Projectile trail remain future work
+- this adapter does not change `TickPipeline`, `WorldState`, `WorldSnapshot`, `ProjectedWorld`, `TickPresentationData`, `TickEntityMotion`, box movement drivers, legality, settlement, or traversal
 
 ## FlipDestroySelf Source-View Clone Parity
 

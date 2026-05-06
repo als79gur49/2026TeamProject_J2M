@@ -19,6 +19,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         [SerializeField] private bool enableGameplayVfxItemConsumeBurstMigration;
         [SerializeField] private bool enableGameplayVfxFlipImpactBurstMigration;
         [SerializeField] private bool enableGameplayVfxFlipDestroySelfMotionMigration;
+        [SerializeField] private bool enableGameplayVfxBoxSlideTrail;
         [SerializeField] private bool enableGameplayVfxUtilityWindupMigration;
         [SerializeField] private VfxProfileAsset[] familyProfiles = Array.Empty<VfxProfileAsset>();
 
@@ -28,6 +29,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private readonly EnemyVfxRequestPlanner enemyPlanner = new();
         private readonly GameplayVfxRequestPlanBuilder planBuilder = new();
         private readonly HashSet<FlipDestroySelfMotionInstanceKey> playedFlipDestroySelfMotionKeys = new();
+        private readonly HashSet<BoxSlideTrailMotionInstanceKey> playedBoxSlideTrailMotionKeys = new();
 
         private AuthoringPrefabProvider prefabProvider;
         private GameplayVfxGameObjectPool pool;
@@ -41,6 +43,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private EnemyPresentationVfxProfileProvider enemyPresentationVfxProfileProvider;
         private VfxCueMapAsset hostDefaultCueMap;
         private int flipDestroySelfMotionMissingBindingCount;
+        private int boxSlideTrailMissingBindingCount;
 
         public bool EnableEnemyJumpTargetVfx
         {
@@ -187,6 +190,21 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public bool SuppressLegacyFlipDestroySelfEffects => enableGameplayVfxFlipDestroySelfMotionMigration;
 
+        public bool EnableGameplayVfxBoxSlideTrail
+        {
+            get => enableGameplayVfxBoxSlideTrail;
+            set
+            {
+                if (enableGameplayVfxBoxSlideTrail == value)
+                {
+                    return;
+                }
+
+                enableGameplayVfxBoxSlideTrail = value;
+                ResetIfNoGameplayVfxEnabled();
+            }
+        }
+
         public bool EnableGameplayVfxUtilityWindupMigration
         {
             get => enableGameplayVfxUtilityWindupMigration;
@@ -208,7 +226,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public int ActiveVfxInstanceCount => pool?.ActiveCount ?? 0;
 
-        public int MissingBindingCount => (controller?.MissingBindingCount ?? 0) + flipDestroySelfMotionMissingBindingCount;
+        public int MissingBindingCount =>
+            (controller?.MissingBindingCount ?? 0) +
+            flipDestroySelfMotionMissingBindingCount +
+            boxSlideTrailMissingBindingCount;
 
         public int MissingAnchorCount => controller?.MissingAnchorCount ?? 0;
 
@@ -239,7 +260,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
         {
             LastPlannedRequestCount = 0;
             flipDestroySelfMotionMissingBindingCount = 0;
+            boxSlideTrailMissingBindingCount = 0;
             playedFlipDestroySelfMotionKeys.Clear();
+            playedBoxSlideTrailMotionKeys.Clear();
             controller?.HardCleanupAll();
             planBuilder.Clear();
         }
@@ -288,7 +311,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var shouldPlayFlipDestroySelfMotion =
                 enableGameplayVfxFlipDestroySelfMotionMigration &&
                 HasDestroySelfFlipImpactSignal(context.Result.PresentationData);
-            if (plan.Requests.Count == 0 && !shouldPlayFlipDestroySelfMotion)
+            var shouldPlayBoxSlideTrail =
+                enableGameplayVfxBoxSlideTrail &&
+                HasBoxSlideMotion(context.Result.PresentationData);
+            if (plan.Requests.Count == 0 && !shouldPlayFlipDestroySelfMotion && !shouldPlayBoxSlideTrail)
             {
                 controller?.Refresh(GameplayVfxRequestPlan.Empty);
                 return;
@@ -299,7 +325,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var flipDestroySelfMotionCommandCount = shouldPlayFlipDestroySelfMotion
                 ? PlayFlipDestroySelfMotionCommands(context)
                 : 0;
-            LastPlannedRequestCount = plan.Requests.Count + flipDestroySelfMotionCommandCount;
+            var boxSlideTrailCommandCount = shouldPlayBoxSlideTrail
+                ? PlayBoxSlideTrailCommands(context)
+                : 0;
+            LastPlannedRequestCount = plan.Requests.Count +
+                                      flipDestroySelfMotionCommandCount +
+                                      boxSlideTrailCommandCount;
         }
 
         public void UpdatePresentation(float deltaTime)
@@ -414,6 +445,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             enableGameplayVfxItemConsumeBurstMigration ||
             enableGameplayVfxFlipImpactBurstMigration ||
             enableGameplayVfxFlipDestroySelfMotionMigration ||
+            enableGameplayVfxBoxSlideTrail ||
             enableGameplayVfxUtilityWindupMigration;
 
         private void ResetIfNoEnemyJumpVfxEnabled()
@@ -464,8 +496,102 @@ namespace Game.Feature.Gameplay.Vfx.Host
                    (enableGameplayVfxItemConsumeBurstMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.ItemConsume)) ||
                    (enableGameplayVfxFlipImpactBurstMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.FlipImpactBurst)) ||
                    (enableGameplayVfxFlipDestroySelfMotionMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.FlipDestroySelfMotion)) ||
+                   (enableGameplayVfxBoxSlideTrail && cueId == GameplayVfxCueId.From(BoxVfxCue.SlideDustTrail)) ||
                    (enableEnemyJumpTargetVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)) ||
                    (enableEnemyJumpLandingDustVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingDust));
+        }
+
+        private int PlayBoxSlideTrailCommands(in GameplayTickPresentationExtensionContext context)
+        {
+            var presentationData = context.Result.PresentationData;
+            if (presentationData == null || pool == null || bindingResolver == null)
+            {
+                return 0;
+            }
+
+            var trackState = new GameplayPresentationTrackState();
+            var poseResolver = new GameplayPoseResolver(context.StateStore, trackState);
+            var motionTimingResolver = new GameplayMotionTimingResolver(context.StateStore, trackState);
+            var plannedCommandCount = 0;
+            var motions = presentationData.EntityMotions;
+            for (var i = 0; i < motions.Count; i++)
+            {
+                var motion = motions[i];
+                if (!BoxSlideTrailVfxCommandBuilder.TryBuild(
+                        context.Result.TickIndex,
+                        motion,
+                        context.TimingProfile,
+                        motionTimingResolver,
+                        poseResolver,
+                        context.Projector,
+                        context.Topology,
+                        out var command))
+                {
+                    continue;
+                }
+
+                plannedCommandCount++;
+                var key = BoxSlideTrailVfxCommandBuilder.CreateInstanceKey(
+                    context.Result.TickIndex,
+                    motion);
+                if (playedBoxSlideTrailMotionKeys.Contains(key))
+                {
+                    continue;
+                }
+
+                if (TryPlayBoxSlideTrailCommand(context.Result.TickIndex, motion, command))
+                {
+                    playedBoxSlideTrailMotionKeys.Add(key);
+                }
+            }
+
+            return plannedCommandCount;
+        }
+
+        private bool TryPlayBoxSlideTrailCommand(
+            int tickIndex,
+            TickEntityMotion motion,
+            in ParameterizedMotionVfxCommand command)
+        {
+            var cueId = GameplayVfxCueId.From(BoxVfxCue.SlideDustTrail);
+            var sourceTopology = motion.SourceTopology ??
+                                 motion.DestinationTopology ??
+                                 configuredStateStore?.CommittedTopology ??
+                                 default;
+            var request = new GameplayVfxRequest(
+                tickIndex: tickIndex,
+                sequenceId: command.SequenceId,
+                presentationSeed: command.PresentationSeed,
+                sourceEntityId: motion.EntityId,
+                cueId: cueId,
+                anchor: VfxAnchor.ForCell(
+                    motion.SourceCell,
+                    sourceTopology,
+                    VfxAnchorSlot.CellCenter),
+                timing: VfxTimingKind.ImmediateOnTickPresentation,
+                isPersistent: false,
+                persistentKey: VfxPersistentKey.None);
+
+            if (!bindingResolver.TryResolve(request, out var policy))
+            {
+                boxSlideTrailMissingBindingCount++;
+                return false;
+            }
+
+            policy.ValidateOrThrow();
+            if (policy.CueId != request.CueId)
+            {
+                throw new InvalidOperationException("Gameplay VFX binding cue does not match Box Slide trail request cue.");
+            }
+
+            var anchor = VfxResolvedAnchor.ForCell(
+                motion.SourceCell,
+                sourceTopology,
+                VfxAnchorSlot.CellCenter,
+                command.SourceLocalPosition,
+                command.SourceLocalRotation);
+            var playbackCommand = new ResolvedVfxPlaybackCommand(request, policy, anchor);
+            return pool.PlayParameterizedMotion(playbackCommand, command) != null;
         }
 
         private int PlayFlipDestroySelfMotionCommands(in GameplayTickPresentationExtensionContext context)
@@ -563,6 +689,26 @@ namespace Game.Feature.Gameplay.Vfx.Host
             for (var i = 0; i < signals.Count; i++)
             {
                 if (signals[i].Disposition == FlipImpactPresentationDisposition.DestroySelf)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool HasBoxSlideMotion(TickPresentationData presentationData)
+        {
+            if (presentationData == null)
+            {
+                return false;
+            }
+
+            var motions = presentationData.EntityMotions;
+            for (var i = 0; i < motions.Count; i++)
+            {
+                if (motions[i].MotionKind == TickEntityMotionKind.BoxSlide &&
+                    motions[i].EntityId > 0)
                 {
                     return true;
                 }
