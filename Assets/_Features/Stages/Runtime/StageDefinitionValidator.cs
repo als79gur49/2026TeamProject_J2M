@@ -108,6 +108,7 @@ namespace Game.Feature.Stages
 
             var normalized = new StageTileFeatureDefinition[tileFeatures.Count];
             var tileIds = new HashSet<int>();
+            var slideCells = new HashSet<SurfaceCell>();
             var wallCells = BuildWallCells(spawnEntries);
 
             for (var i = 0; i < tileFeatures.Count; i++)
@@ -159,16 +160,44 @@ namespace Game.Feature.Stages
                         $"Stage '{stageName}' {label} DestroyTile must use BottomFaceOnly activation.");
                 }
 
+                if (tileFeature.Kind == TileFeatureKind.Slide &&
+                    tileFeature.ActivationRule != TileFeatureActivationRule.FrontFaceOnly)
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' {label} SlideTile must use FrontFaceOnly activation.");
+                }
+
                 if (!Enum.IsDefined(typeof(Direction2D), tileFeature.Direction))
                 {
                     throw new InvalidOperationException(
                         $"Stage '{stageName}' {label} has invalid Direction2D value {(int)tileFeature.Direction}.");
                 }
 
+                if (tileFeature.Kind == TileFeatureKind.Slide &&
+                    !IsCardinalDirection(tileFeature.Direction))
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' {label} SlideTile must use a cardinal Direction2D.");
+                }
+
                 if (!Enum.IsDefined(typeof(TileFeatureBoxSelector), tileFeature.BoxSelector))
                 {
                     throw new InvalidOperationException(
                         $"Stage '{stageName}' {label} has invalid TileFeatureBoxSelector value {(int)tileFeature.BoxSelector}.");
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.Slide &&
+                    tileFeature.BoxSelector != TileFeatureBoxSelector.None)
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' {label} SlideTile must use TileFeatureBoxSelector.None.");
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.Slide &&
+                    !slideCells.Add(tileFeature.Cell))
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' contains duplicate SlideTile at {tileFeature.Cell}.");
                 }
 
                 if (wallCells.Contains(tileFeature.Cell))
@@ -192,6 +221,14 @@ namespace Game.Feature.Stages
 
             Array.Sort(normalized, (left, right) => left.TileId.CompareTo(right.TileId));
             return normalized;
+        }
+
+        private static bool IsCardinalDirection(Direction2D direction)
+        {
+            return direction == Direction2D.Up ||
+                   direction == Direction2D.Right ||
+                   direction == Direction2D.Down ||
+                   direction == Direction2D.Left;
         }
 
         private static HashSet<SurfaceCell> BuildWallCells(IReadOnlyList<ExplicitSpawnEntry> spawnEntries)

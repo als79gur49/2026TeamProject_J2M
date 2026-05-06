@@ -375,6 +375,7 @@ namespace Game.Feature.Stages
             StageValidationReport report)
         {
             var tileIds = new HashSet<int>();
+            var slideCells = new HashSet<SurfaceCell>();
             var tileFeatures = authoring.TileFeatures;
             for (var i = 0; i < tileFeatures.Count; i++)
             {
@@ -423,6 +424,17 @@ namespace Game.Feature.Stages
                         options.Timing);
                 }
 
+                if (!Enum.IsDefined(typeof(TileFeatureActivationRule), tileFeature.ActivationRule))
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.activation-invalid",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] has invalid activation rule value {(int)tileFeature.ActivationRule}.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
                 if (tileFeature.Kind == TileFeatureKind.Destroy &&
                     tileFeature.ActivationRule != TileFeatureActivationRule.BottomFaceOnly)
                 {
@@ -430,6 +442,74 @@ namespace Game.Feature.Stages
                         severity,
                         "authoring.tile-feature.destroy-activation-unsupported",
                         $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] DestroyTile must use BottomFaceOnly activation.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.Slide &&
+                    tileFeature.ActivationRule != TileFeatureActivationRule.FrontFaceOnly)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.slide-activation-unsupported",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] SlideTile must use FrontFaceOnly activation.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
+                if (!Enum.IsDefined(typeof(Direction2D), tileFeature.Direction))
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.direction-invalid",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] has invalid Direction2D value {(int)tileFeature.Direction}.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+                else if (tileFeature.Kind == TileFeatureKind.Slide &&
+                         !IsCardinalDirection(tileFeature.Direction))
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.slide-direction-unsupported",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] SlideTile must use a cardinal Direction2D.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
+                if (!Enum.IsDefined(typeof(TileFeatureBoxSelector), tileFeature.BoxSelector))
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.box-selector-invalid",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] has invalid TileFeatureBoxSelector value {(int)tileFeature.BoxSelector}.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+                else if (tileFeature.Kind == TileFeatureKind.Slide &&
+                         tileFeature.BoxSelector != TileFeatureBoxSelector.None)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.slide-box-selector-unsupported",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] SlideTile must use TileFeatureBoxSelector.None.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.Slide &&
+                    !slideCells.Add(tileFeature.Cell))
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.slide-cell-duplicate",
+                        $"StageAuthoringDefinition '{authoring.name}' contains duplicate SlideTile at {tileFeature.Cell}.",
                         authoring,
                         authoringPath,
                         options.Timing);
@@ -446,6 +526,14 @@ namespace Game.Feature.Stages
                         options.Timing);
                 }
             }
+        }
+
+        private static bool IsCardinalDirection(Direction2D direction)
+        {
+            return direction == Direction2D.Up ||
+                   direction == Direction2D.Right ||
+                   direction == Direction2D.Down ||
+                   direction == Direction2D.Left;
         }
 
         private static void ValidateAuthoringGeneratedSync(

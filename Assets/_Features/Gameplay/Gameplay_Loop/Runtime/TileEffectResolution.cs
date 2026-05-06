@@ -127,7 +127,8 @@ namespace Game.Feature.Gameplay.Loop
                 operations.Add(TileFeatureOperation.Update(CreateActivatedState(tileFeature)));
             }
 
-            var entityOperations = ResolveDestroyTiles(context, out var tileEvents);
+            var entityOperations = ResolveDestroyTiles(context, out var tileEvents, out var destroyedBoxIds);
+            entityOperations.MergeFrom(ResolveSlideTiles(context, destroyedBoxIds));
 
             return (operations == null || operations.IsEmpty) &&
                    entityOperations.Operations.Count == 0 &&
@@ -160,16 +161,17 @@ namespace Game.Feature.Gameplay.Loop
 
         private static FinalizationBatch ResolveDestroyTiles(
             in TileEffectResolutionContext context,
-            out List<TilePresentationEvent> tileEvents)
+            out List<TilePresentationEvent> tileEvents,
+            out HashSet<int> destroyedBoxIds)
         {
             tileEvents = new List<TilePresentationEvent>();
             var batch = new FinalizationBatch();
+            destroyedBoxIds = new HashSet<int>();
             if (context.BoxContacts.Count == 0)
             {
                 return batch;
             }
 
-            var destroyedBoxIds = new HashSet<int>();
             var orderedContacts = new List<TileEffectBoxContact>(context.BoxContacts);
             orderedContacts.Sort(CompareTileEffectBoxContacts);
             var tileFeaturesAtCell = new List<TileFeatureState>();
@@ -212,6 +214,61 @@ namespace Game.Feature.Gameplay.Loop
                         tileFeature.TeamId,
                         targetEntityId: contact.BoxEntityId));
                     destroyedBoxIds.Add(contact.BoxEntityId);
+                    break;
+                }
+            }
+
+            return batch;
+        }
+
+        private static FinalizationBatch ResolveSlideTiles(
+            in TileEffectResolutionContext context,
+            HashSet<int> destroyedBoxIds)
+        {
+            var batch = new FinalizationBatch();
+            if (context.BoxContacts.Count == 0)
+            {
+                return batch;
+            }
+
+            var redirectedBoxIds = new HashSet<int>();
+            var orderedContacts = new List<TileEffectBoxContact>(context.BoxContacts);
+            orderedContacts.Sort(CompareTileEffectBoxContacts);
+            var tileFeaturesAtCell = new List<TileFeatureState>();
+
+            for (var i = 0; i < orderedContacts.Count; i++)
+            {
+                var contact = orderedContacts[i];
+                if (!IsSlideRedirectContact(contact.Kind) ||
+                    contact.BoxEntityId <= 0 ||
+                    (destroyedBoxIds != null && destroyedBoxIds.Contains(contact.BoxEntityId)) ||
+                    redirectedBoxIds.Contains(contact.BoxEntityId) ||
+                    !TryGetValidSlideTarget(context.Snapshot, contact.BoxEntityId, contact.Cell, out var box))
+                {
+                    continue;
+                }
+
+                context.Snapshot.EnumerateTileFeaturesAt(contact.Cell, tileFeaturesAtCell);
+                for (var tileIndex = 0; tileIndex < tileFeaturesAtCell.Count; tileIndex++)
+                {
+                    var tileFeature = tileFeaturesAtCell[tileIndex];
+                    if (tileFeature.Kind != TileFeatureKind.Slide ||
+                        !TryFindDefinition(context.TileFeatureDefinitions, tileFeature.TileId, out var definition) ||
+                        !TileFeatureActivationQueries.IsActive(tileFeature, definition, context.Snapshot.Topology) ||
+                        !TryResolveDirection(definition.Direction, out var redirectDirection))
+                    {
+                        continue;
+                    }
+
+                    if (box.facing != redirectDirection)
+                    {
+                        batch.SetFacing(
+                            contact.BoxEntityId,
+                            redirectDirection,
+                            CreateSlideTileRedirectMetadata(context.TickIndex, contact.BoxEntityId, contact.Cell));
+                    }
+
+                    redirectedBoxIds.Add(contact.BoxEntityId);
                     break;
                 }
             }
@@ -268,6 +325,54 @@ namespace Game.Feature.Gameplay.Loop
             return false;
         }
 
+        private static bool TryGetValidSlideTarget(
+            WorldSnapshot snapshot,
+            int boxEntityId,
+            SurfaceCell contactCell,
+            out EntityState box)
+        {
+            if (TryGetValidDestroyTarget(snapshot, boxEntityId, contactCell, out box) &&
+                box.state == EntityPhaseState.Sliding)
+            {
+                return true;
+            }
+
+            box = default;
+            return false;
+        }
+
+        private static bool IsSlideRedirectContact(TileEffectBoxContactKind kind)
+        {
+            return kind == TileEffectBoxContactKind.PushEnter ||
+                   kind == TileEffectBoxContactKind.SlideEnter;
+        }
+
+        private static bool TryResolveDirection(Direction2D direction, out Direction resolved)
+        {
+            switch (direction)
+            {
+                case Direction2D.Up:
+                    resolved = Direction.Up;
+                    return true;
+
+                case Direction2D.Right:
+                    resolved = Direction.Right;
+                    return true;
+
+                case Direction2D.Down:
+                    resolved = Direction.Down;
+                    return true;
+
+                case Direction2D.Left:
+                    resolved = Direction.Left;
+                    return true;
+
+                default:
+                    resolved = Direction.None;
+                    return false;
+            }
+        }
+
         private static FinalizationOperationMetadata CreateDestroyTileMetadata(
             int tickIndex,
             int boxEntityId,
@@ -283,6 +388,22 @@ namespace Game.Feature.Gameplay.Loop
                 presentationTargetCell: contactCell,
                 movementExecutionBoundaryKind: MovementExecutionBoundaryKind.ScriptedRelocation,
                 boundaryReason: "DestroyTile");
+        }
+
+        private static FinalizationOperationMetadata CreateSlideTileRedirectMetadata(
+            int tickIndex,
+            int boxEntityId,
+            SurfaceCell contactCell)
+        {
+            return new FinalizationOperationMetadata(
+                TickPhase.Resolve,
+                ResolvedActionSemanticKind.Slide,
+                sourceActorEntityId: boxEntityId,
+                actionPlanId: tickIndex,
+                movementSemanticKind: MovementSemanticKind.Slide,
+                presentationTargetCell: contactCell,
+                movementExecutionBoundaryKind: MovementExecutionBoundaryKind.ScriptedRelocation,
+                boundaryReason: "SlideTileRedirect");
         }
 
         private static bool TryFindDefinition(

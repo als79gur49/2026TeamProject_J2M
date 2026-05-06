@@ -406,6 +406,205 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void SlideTile_ActiveFrontFace_RedirectsPushEnterAndSlideEnterBoxes()
+        {
+            var pushCell = new SurfaceCell(FaceId.Front, 1, 1);
+            var slideCell = new SurfaceCell(FaceId.Front, 2, 1);
+            var snapshot = CreateWorldState(
+                    new[]
+                    {
+                        CreateBox(20, pushCell, state: EntityPhaseState.Sliding),
+                        CreateBox(30, slideCell, state: EntityPhaseState.Sliding),
+                    },
+                    new[]
+                    {
+                        CreateTileFeature(100, pushCell, TileFeatureKind.Slide),
+                        CreateTileFeature(200, slideCell, TileFeatureKind.Slide),
+                    })
+                .CreateSnapshot();
+
+            var result = Resolve(
+                snapshot,
+                new[]
+                {
+                    new TileEffectBoxContact(20, pushCell, TileEffectBoxContactKind.PushEnter),
+                    new TileEffectBoxContact(30, slideCell, TileEffectBoxContactKind.SlideEnter),
+                },
+                CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, direction: Direction2D.Up, selector: TileFeatureBoxSelector.None),
+                CreateDefinition(200, TileFeatureActivationRule.FrontFaceOnly, direction: Direction2D.Left, selector: TileFeatureBoxSelector.None));
+
+            Assert.That(result.Operations.IsEmpty, Is.True);
+            Assert.That(result.TileEvents, Is.Empty);
+            Assert.That(result.EntityOperations.Operations.Count, Is.EqualTo(2));
+            Assert.That(result.EntityOperations.Operations[0].Kind, Is.EqualTo(FinalizationOperationKind.SetFacing));
+            Assert.That(result.EntityOperations.Operations[0].EntityId, Is.EqualTo(20));
+            Assert.That(result.EntityOperations.Operations[0].Facing, Is.EqualTo(Direction.Up));
+            Assert.That(result.EntityOperations.Operations[1].Kind, Is.EqualTo(FinalizationOperationKind.SetFacing));
+            Assert.That(result.EntityOperations.Operations[1].EntityId, Is.EqualTo(30));
+            Assert.That(result.EntityOperations.Operations[1].Facing, Is.EqualTo(Direction.Left));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SlideTile_InactiveOrNonFrontOrStationaryTargets_DoNotRedirect()
+        {
+            var floorCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var frontCell = new SurfaceCell(FaceId.Front, 1, 1);
+            var cases = new[]
+            {
+                new object[]
+                {
+                    "InactiveFloorFace",
+                    CreateWorldState(
+                        new[] { CreateBox(20, floorCell, state: EntityPhaseState.Sliding) },
+                        new[] { CreateTileFeature(100, floorCell, TileFeatureKind.Slide) }).CreateSnapshot(),
+                    new[] { new TileEffectBoxContact(20, floorCell, TileEffectBoxContactKind.PushEnter) },
+                    CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, direction: Direction2D.Up, selector: TileFeatureBoxSelector.None),
+                },
+                new object[]
+                {
+                    "StationaryBox",
+                    CreateWorldState(
+                        new[] { CreateBox(20, frontCell, state: EntityPhaseState.Idle) },
+                        new[] { CreateTileFeature(100, frontCell, TileFeatureKind.Slide) }).CreateSnapshot(),
+                    new[] { new TileEffectBoxContact(20, frontCell, TileEffectBoxContactKind.PushEnter) },
+                    CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, direction: Direction2D.Up, selector: TileFeatureBoxSelector.None),
+                },
+                new object[]
+                {
+                    "MissingContact",
+                    CreateWorldState(
+                        new[] { CreateBox(20, frontCell, state: EntityPhaseState.Sliding) },
+                        new[] { CreateTileFeature(100, frontCell, TileFeatureKind.Slide) }).CreateSnapshot(),
+                    Array.Empty<TileEffectBoxContact>(),
+                    CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, direction: Direction2D.Up, selector: TileFeatureBoxSelector.None),
+                },
+            };
+
+            for (var i = 0; i < cases.Length; i++)
+            {
+                var name = (string)cases[i][0];
+                var snapshot = (WorldSnapshot)cases[i][1];
+                var contacts = (TileEffectBoxContact[])cases[i][2];
+                var definition = (TileFeatureRuntimeDefinition)cases[i][3];
+
+                var result = Resolve(snapshot, contacts, definition);
+
+                Assert.That(result.IsEmpty, Is.True, name);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SlideTile_InvalidTargetsAndUnsupportedContacts_DoNotRedirect()
+        {
+            var cell = new SurfaceCell(FaceId.Front, 1, 1);
+            var cases = new[]
+            {
+                new object[] { "Unit", new[] { CreateUnit(20, cell) }, TileEffectBoxContactKind.PushEnter },
+                new object[] { "Projectile", new[] { CreateProjectile(20, cell) }, TileEffectBoxContactKind.PushEnter },
+                new object[] { "NonBoxSolid", new[] { CreateSolid(20, cell) }, TileEffectBoxContactKind.PushEnter },
+                new object[] { "DeadBox", new[] { CreateBox(20, cell, hp: 0, state: EntityPhaseState.Sliding) }, TileEffectBoxContactKind.PushEnter },
+                new object[] { "DetachedBox", new[] { CreateBox(20, cell, state: EntityPhaseState.Sliding, boardPresence: EntityBoardPresence.Detached) }, TileEffectBoxContactKind.PushEnter },
+                new object[] { "MarkedBox", new[] { CreateBox(20, cell, state: EntityPhaseState.Sliding, markedForDeath: true) }, TileEffectBoxContactKind.PushEnter },
+                new object[] { "FlipLanding", new[] { CreateBox(20, cell, state: EntityPhaseState.Sliding) }, TileEffectBoxContactKind.FlipLanding },
+                new object[] { "ImpactFollowThrough", new[] { CreateBox(20, cell, state: EntityPhaseState.Sliding) }, TileEffectBoxContactKind.ImpactFollowThrough },
+            };
+
+            for (var i = 0; i < cases.Length; i++)
+            {
+                var name = (string)cases[i][0];
+                var entities = (EntityState[])cases[i][1];
+                var contactKind = (TileEffectBoxContactKind)cases[i][2];
+                var snapshot = CreateWorldState(
+                        entities,
+                        new[] { CreateTileFeature(100, cell, TileFeatureKind.Slide) })
+                    .CreateSnapshot();
+
+                var result = Resolve(
+                    snapshot,
+                    new[] { new TileEffectBoxContact(20, cell, contactKind) },
+                    CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, direction: Direction2D.Up, selector: TileFeatureBoxSelector.None));
+
+                Assert.That(result.IsEmpty, Is.True, name);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SlideTile_DuplicateContacts_CreateSingleRedirect()
+        {
+            var cell = new SurfaceCell(FaceId.Front, 1, 1);
+            var snapshot = CreateWorldState(
+                    new[] { CreateBox(20, cell, state: EntityPhaseState.Sliding) },
+                    new[] { CreateTileFeature(100, cell, TileFeatureKind.Slide) })
+                .CreateSnapshot();
+
+            var result = Resolve(
+                snapshot,
+                new[]
+                {
+                    new TileEffectBoxContact(20, cell, TileEffectBoxContactKind.PushEnter),
+                    new TileEffectBoxContact(20, cell, TileEffectBoxContactKind.SlideEnter),
+                },
+                CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, direction: Direction2D.Up, selector: TileFeatureBoxSelector.None));
+
+            Assert.That(result.EntityOperations.Operations.Count, Is.EqualTo(1));
+            Assert.That(result.EntityOperations.Operations[0].Kind, Is.EqualTo(FinalizationOperationKind.SetFacing));
+            Assert.That(result.EntityOperations.Operations[0].EntityId, Is.EqualTo(20));
+            Assert.That(result.EntityOperations.Operations[0].Facing, Is.EqualTo(Direction.Up));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SlideTile_SameCellDestroyTile_DestroysAndDoesNotRedirect()
+        {
+            var cell = new SurfaceCell(FaceId.Front, 1, 1);
+            var snapshot = CreateWorldState(
+                    new[] { CreateBox(20, cell, state: EntityPhaseState.Sliding) },
+                    new[]
+                    {
+                        CreateTileFeature(100, cell, TileFeatureKind.Destroy),
+                        CreateTileFeature(200, cell, TileFeatureKind.Slide),
+                    })
+                .CreateSnapshot();
+
+            var result = Resolve(
+                snapshot,
+                new[] { new TileEffectBoxContact(20, cell, TileEffectBoxContactKind.PushEnter) },
+                CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                CreateDefinition(200, TileFeatureActivationRule.FrontFaceOnly, direction: Direction2D.Up, selector: TileFeatureBoxSelector.None));
+
+            Assert.That(result.EntityOperations.Operations.Count, Is.EqualTo(2));
+            Assert.That(result.EntityOperations.Operations.Select(operation => operation.Kind).ToArray(),
+                Is.EqualTo(new[] { FinalizationOperationKind.SetBoardPresence, FinalizationOperationKind.MarkDestroy }));
+            Assert.That(result.TileEvents, Has.Count.EqualTo(1));
+            Assert.That(result.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.DestroyTileTriggered));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SlideTile_RedirectKeepsTileStateUnchanged()
+        {
+            var cell = new SurfaceCell(FaceId.Front, 1, 1);
+            var slideTile = CreateTileFeature(100, cell, TileFeatureKind.Slide);
+            var snapshot = CreateWorldState(
+                    new[] { CreateBox(20, cell, state: EntityPhaseState.Sliding) },
+                    new[] { slideTile })
+                .CreateSnapshot();
+
+            var result = Resolve(
+                snapshot,
+                new[] { new TileEffectBoxContact(20, cell, TileEffectBoxContactKind.PushEnter) },
+                CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, direction: Direction2D.Up, selector: TileFeatureBoxSelector.None));
+
+            Assert.That(result.Operations.IsEmpty, Is.True);
+            Assert.That(snapshot.TryGetTileFeature(100, out var storedTile), Is.True);
+            Assert.That(storedTile, Is.EqualTo(slideTile));
+        }
+
+        [Test]
+        [Category("Core")]
         public void DestroyTile_Pipeline_RemovesMovedBoxBeforeFinalAttackRead()
         {
             var destroyCell = new SurfaceCell(FaceId.Floor, 2, 0);
@@ -442,6 +641,55 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void SlideTile_Pipeline_RedirectsFacingBeforeFinalAttackReadAndNextSlideContinuation()
+        {
+            var slideCell = new SurfaceCell(FaceId.Front, 2, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Front, 0, 0)),
+                    CreateBox(20, new SurfaceCell(FaceId.Front, 1, 0)),
+                },
+                new[] { CreateTileFeature(100, slideCell, TileFeatureKind.Slide) });
+            var attackLogic = new CapturingAttackLogic();
+            var pipeline = CreatePipeline(
+                worldState,
+                new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, direction: Direction2D.Up, selector: TileFeatureBoxSelector.None) },
+                new IEntityLogic[]
+                {
+                    new ScriptedMovementLogic(
+                        new RawMovementIntent(10, 100, new Vector2Int(1, 0), MovementCommandKind.Push),
+                        executeTick: 1),
+                    attackLogic,
+                });
+
+            pipeline.RunTick(new TickInput(1));
+            var firstFinalSnapshot = worldState.CreateSnapshot();
+            var firstAttackReadSnapshot = attackLogic.CapturedSnapshots.Last();
+
+            Assert.That(firstFinalSnapshot.TryGetEntity(20, out var firstFinalBox), Is.True);
+            Assert.That(firstFinalBox.position, Is.EqualTo(slideCell));
+            Assert.That(firstFinalBox.facing, Is.EqualTo(Direction.Up));
+            Assert.That(firstFinalBox.state, Is.EqualTo(EntityPhaseState.Sliding));
+            Assert.That(firstAttackReadSnapshot.TryGetEntity(20, out var attackReadBox), Is.True);
+            Assert.That(attackReadBox.facing, Is.EqualTo(Direction.Up));
+
+            for (var tick = 2; tick <= 12; tick++)
+            {
+                pipeline.RunTick(new TickInput(tick));
+            }
+
+            pipeline.RunTick(new TickInput(13));
+            var secondFinalSnapshot = worldState.CreateSnapshot();
+
+            Assert.That(secondFinalSnapshot.TryGetEntity(20, out var secondFinalBox), Is.True);
+            Assert.That(secondFinalBox.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 2, 1)));
+            Assert.That(secondFinalBox.facing, Is.EqualTo(Direction.Up));
+            Assert.That(secondFinalBox.state, Is.EqualTo(EntityPhaseState.Sliding));
+        }
+
+        [Test]
+        [Category("Core")]
         public void DestroyTile_Pipeline_DestroyPathAddsOnlyPostTileEffectSnapshot()
         {
             var withoutDestroyCounts = RunDestroyTileBudgetScenario(includeDestroyTile: false);
@@ -457,6 +705,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void SlideTile_Pipeline_RedirectPathAddsOnlyPostTileEffectSnapshot()
+        {
+            var withoutSlideCounts = RunSlideTileBudgetScenario(includeSlideTile: false);
+            var withSlideCounts = RunSlideTileBudgetScenario(includeSlideTile: true);
+
+            Assert.That(
+                withSlideCounts.ProjectedWorldMaterializedSnapshotCount,
+                Is.EqualTo(withoutSlideCounts.ProjectedWorldMaterializedSnapshotCount + 1));
+            Assert.That(
+                withSlideCounts.ProjectedWorldCacheHitCount,
+                Is.EqualTo(withoutSlideCounts.ProjectedWorldCacheHitCount));
+        }
+
+        [Test]
+        [Category("Core")]
         public void DestroyTile_DeterminismHash_ChangesAndReplaysStably()
         {
             var withoutDestroy = RunDestroyTileHashScenario(includeDestroyTile: false);
@@ -465,6 +728,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(withDestroyFirst, Is.EqualTo(withDestroySecond));
             Assert.That(withDestroyFirst, Is.Not.EqualTo(withoutDestroy));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SlideTile_DeterminismHash_ChangesAndReplaysStably()
+        {
+            var withoutSlide = RunSlideTileHashScenario(includeSlideTile: false);
+            var withSlideFirst = RunSlideTileHashScenario(includeSlideTile: true);
+            var withSlideSecond = RunSlideTileHashScenario(includeSlideTile: true);
+
+            Assert.That(withSlideFirst, Is.EqualTo(withSlideSecond));
+            Assert.That(withSlideFirst, Is.Not.EqualTo(withoutSlide));
         }
 
         [Test]
@@ -678,6 +953,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return pipeline.RunTick(new TickInput(7)).DeterminismHash;
         }
 
+        private static string RunSlideTileHashScenario(bool includeSlideTile)
+        {
+            var slideCell = new SurfaceCell(FaceId.Front, 2, 0);
+            var tileFeatures = includeSlideTile
+                ? new[] { CreateTileFeature(100, slideCell, TileFeatureKind.Slide) }
+                : Array.Empty<TileFeatureState>();
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Front, 0, 0)),
+                    CreateBox(20, new SurfaceCell(FaceId.Front, 1, 0)),
+                },
+                tileFeatures);
+            var pipeline = CreatePipeline(
+                worldState,
+                includeSlideTile
+                    ? new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, direction: Direction2D.Up, selector: TileFeatureBoxSelector.None) }
+                    : Array.Empty<TileFeatureRuntimeDefinition>(),
+                new IEntityLogic[]
+                {
+                    new ScriptedMovementLogic(new RawMovementIntent(10, 100, new Vector2Int(1, 0), MovementCommandKind.Push)),
+                });
+
+            return pipeline.RunTick(new TickInput(7)).DeterminismHash;
+        }
+
         private static SnapshotMaterializationCounts RunDestroyTileBudgetScenario(bool includeDestroyTile)
         {
             var destroyCell = new SurfaceCell(FaceId.Floor, 2, 0);
@@ -695,6 +996,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 worldState,
                 includeDestroyTile
                     ? new[] { CreateDefinition(100, TileFeatureActivationRule.BottomFaceOnly) }
+                    : Array.Empty<TileFeatureRuntimeDefinition>(),
+                new IEntityLogic[]
+                {
+                    new ScriptedMovementLogic(new RawMovementIntent(10, 100, new Vector2Int(1, 0), MovementCommandKind.Push)),
+                });
+
+            using var capture = SnapshotMaterializationDiagnostics.BeginCapture();
+            pipeline.RunTick(new TickInput(7));
+            return capture.Counts;
+        }
+
+        private static SnapshotMaterializationCounts RunSlideTileBudgetScenario(bool includeSlideTile)
+        {
+            var slideCell = new SurfaceCell(FaceId.Front, 2, 0);
+            var tileFeatures = includeSlideTile
+                ? new[] { CreateTileFeature(100, slideCell, TileFeatureKind.Slide) }
+                : Array.Empty<TileFeatureState>();
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Front, 0, 0)),
+                    CreateBox(20, new SurfaceCell(FaceId.Front, 1, 0)),
+                },
+                tileFeatures);
+            var pipeline = CreatePipeline(
+                worldState,
+                includeSlideTile
+                    ? new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, direction: Direction2D.Up, selector: TileFeatureBoxSelector.None) }
                     : Array.Empty<TileFeatureRuntimeDefinition>(),
                 new IEntityLogic[]
                 {
@@ -804,12 +1133,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static TileFeatureRuntimeDefinition CreateDefinition(
             int tileId,
             TileFeatureActivationRule activationRule = TileFeatureActivationRule.Always,
+            Direction2D direction = Direction2D.None,
             TileFeatureBoxSelector selector = TileFeatureBoxSelector.AnyPushableBox)
         {
             return new TileFeatureRuntimeDefinition(
                 tileId,
                 activationRule,
-                Direction2D.None,
+                direction,
                 selector,
                 boundEntityId: 0,
                 presentationKey: string.Empty);
@@ -852,6 +1182,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
             };
         }
 
+        private static EntityState CreateSolid(int entityId, SurfaceCell position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.None,
+                state = EntityPhaseState.Idle,
+                facing = Direction.Right,
+                boardPresence = EntityBoardPresence.Occupying,
+            };
+        }
+
         private static EntityState CreateBox(
             int entityId,
             SurfaceCell position,
@@ -859,7 +1205,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             BoxCapabilities boxCapabilities = BoxCapabilities.Push,
             EntityBoardPresence boardPresence = EntityBoardPresence.Occupying,
             bool markedForDeath = false,
-            BoxArchetype boxArchetype = BoxArchetype.Normal)
+            BoxArchetype boxArchetype = BoxArchetype.Normal,
+            EntityPhaseState state = EntityPhaseState.Idle,
+            Direction facing = Direction.Right)
         {
             return new EntityState
             {
@@ -869,8 +1217,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 maxHp = Math.Max(1, hp),
                 teamId = 0,
                 type = EntityType.Box,
-                state = EntityPhaseState.Idle,
-                facing = Direction.Right,
+                state = state,
+                facing = facing,
                 boxCapabilities = boxCapabilities,
                 boxArchetype = boxArchetype,
                 boardPresence = boardPresence,
@@ -896,10 +1244,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private sealed class ScriptedMovementLogic : IMovementEntityLogic, IEntityLogicSourceBinding
         {
             private readonly RawMovementIntent _movementIntent;
+            private readonly int? _executeTick;
 
-            public ScriptedMovementLogic(RawMovementIntent movementIntent)
+            public ScriptedMovementLogic(RawMovementIntent movementIntent, int? executeTick = null)
             {
                 _movementIntent = movementIntent;
+                _executeTick = executeTick;
             }
 
             public int ControlledEntityId => _movementIntent.SourceId;
@@ -909,6 +1259,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 in TickInput input,
                 List<RawMovementIntent> buffer)
             {
+                if (_executeTick.HasValue &&
+                    input.TickIndex != _executeTick.Value)
+                {
+                    return;
+                }
+
                 buffer.Add(_movementIntent);
             }
         }

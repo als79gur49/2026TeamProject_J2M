@@ -133,7 +133,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var tileFeature = CreateTileFeature(
                 100,
                 new SurfaceCell(FaceId.Floor, 1, 2),
-                TileFeatureKind.Slide,
+                TileFeatureKind.Button,
                 TileFeatureActivationRule.ActiveFaceOnly,
                 Direction2D.Right,
                 TileFeatureBoxSelector.BoundEntity,
@@ -255,6 +255,144 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 });
 
             AssertBuildThrows(stage, "DestroyTile must use BottomFaceOnly activation");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_SlideTile_FrontFaceCardinalDirectionAndNoSelectorAccepted()
+        {
+            var stage = CreateStageWithTileFeatures(
+                "SlideTileValid",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Slide,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        Direction2D.Right,
+                        TileFeatureBoxSelector.None),
+                });
+
+            var buildResult = StageRuntimeBuilder.Build(stage);
+
+            Assert.That(buildResult.TileFeatureDefinitions[0].ActivationRule, Is.EqualTo(TileFeatureActivationRule.FrontFaceOnly));
+            Assert.That(buildResult.TileFeatureDefinitions[0].Direction, Is.EqualTo(Direction2D.Right));
+            Assert.That(buildResult.TileFeatureDefinitions[0].BoxSelector, Is.EqualTo(TileFeatureBoxSelector.None));
+            Assert.That(buildResult.InitialTileFeatures[0].Kind, Is.EqualTo(TileFeatureKind.Slide));
+            UnityEngine.Object.DestroyImmediate(stage);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_SlideTile_UnsupportedActivationRejects()
+        {
+            var unsupportedRules = new[]
+            {
+                TileFeatureActivationRule.BottomFaceOnly,
+                TileFeatureActivationRule.Always,
+                TileFeatureActivationRule.ActiveFaceOnly,
+                TileFeatureActivationRule.InactiveFaceOnly,
+            };
+
+            for (var i = 0; i < unsupportedRules.Length; i++)
+            {
+                var stage = CreateStageWithTileFeatures(
+                    $"SlideTileUnsupportedActivation{i}",
+                    new[]
+                    {
+                        CreateTileFeature(
+                            100,
+                            new SurfaceCell(FaceId.Floor, 1, 1),
+                            TileFeatureKind.Slide,
+                            unsupportedRules[i],
+                            Direction2D.Right,
+                            TileFeatureBoxSelector.None),
+                    });
+
+                AssertBuildThrows(stage, "SlideTile must use FrontFaceOnly activation");
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_SlideTile_InvalidDirectionRejects()
+        {
+            var noneDirectionStage = CreateStageWithTileFeatures(
+                "SlideTileNoneDirection",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Slide,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        Direction2D.None,
+                        TileFeatureBoxSelector.None),
+                });
+            AssertBuildThrows(noneDirectionStage, "SlideTile must use a cardinal Direction2D");
+
+            var invalidEnumStage = CreateStageWithTileFeatures(
+                "SlideTileInvalidDirection",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Slide,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        (Direction2D)99,
+                        TileFeatureBoxSelector.None),
+                });
+            AssertBuildThrows(invalidEnumStage, "invalid Direction2D value 99");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_SlideTile_UnsupportedBoxSelectorRejects()
+        {
+            var stage = CreateStageWithTileFeatures(
+                "SlideTileUnsupportedSelector",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Slide,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        Direction2D.Right,
+                        TileFeatureBoxSelector.AnyPushableBox),
+                });
+
+            AssertBuildThrows(stage, "SlideTile must use TileFeatureBoxSelector.None");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_SlideTile_DuplicateSameCellRejects()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var stage = CreateStageWithTileFeatures(
+                "SlideTileDuplicateCell",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        cell,
+                        TileFeatureKind.Slide,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        Direction2D.Right,
+                        TileFeatureBoxSelector.None),
+                    CreateTileFeature(
+                        101,
+                        cell,
+                        TileFeatureKind.Slide,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        Direction2D.Up,
+                        TileFeatureBoxSelector.None),
+                });
+
+            AssertBuildThrows(stage, "duplicate SlideTile");
         }
 
         [Test]
