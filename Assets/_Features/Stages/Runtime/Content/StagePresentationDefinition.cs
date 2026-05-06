@@ -5,6 +5,13 @@ using UnityEngine;
 
 namespace Game.Feature.Stages
 {
+    [Serializable]
+    public sealed class TileFeaturePresentationBinding
+    {
+        public int TileId;
+        public GameObject VisualPrefab;
+    }
+
     [CreateAssetMenu(menuName = "Gameplay/Stages/Stage Presentation Definition", fileName = "stage-presentation")]
     public sealed class StagePresentationDefinition : StageCompanionDefinitionBase
     {
@@ -18,6 +25,7 @@ namespace Game.Feature.Stages
         [SerializeField] private EnemyPresentationBinding[] enemyPresentationBindings = Array.Empty<EnemyPresentationBinding>();
         [SerializeField] private StaticEntityPresentationCatalog staticEntityPresentationCatalog;
         [SerializeField] private StaticEntityPresentationBinding[] staticEntityPresentationBindings = Array.Empty<StaticEntityPresentationBinding>();
+        [SerializeField] private TileFeaturePresentationBinding[] tileFeaturePresentationBindings = Array.Empty<TileFeaturePresentationBinding>();
         [SerializeField] private string resultTitle = "Stage Cleared";
         [SerializeField] private string resultSummaryText = string.Empty;
         [SerializeField] private string resultDetailText = string.Empty;
@@ -44,6 +52,9 @@ namespace Game.Feature.Stages
         public StaticEntityPresentationBinding[] StaticEntityPresentationBindings =>
             staticEntityPresentationBindings ?? Array.Empty<StaticEntityPresentationBinding>();
 
+        public TileFeaturePresentationBinding[] TileFeaturePresentationBindings =>
+            tileFeaturePresentationBindings ?? Array.Empty<TileFeaturePresentationBinding>();
+
         public string ResultTitle => resultTitle ?? string.Empty;
 
         public string ResultSummaryText => resultSummaryText ?? string.Empty;
@@ -66,6 +77,8 @@ namespace Game.Feature.Stages
             staticEntityPresentationCatalog = resolvedData.StaticEntityPresentationCatalog;
             staticEntityPresentationBindings =
                 resolvedData.StaticEntityPresentationBindings ?? Array.Empty<StaticEntityPresentationBinding>();
+            tileFeaturePresentationBindings =
+                StagePresentationAssembler.ToAuthoringBindings(resolvedData.TileFeatureBindings);
             resultTitle = resolvedData.ResultTitle;
             resultSummaryText = resolvedData.ResultSummaryText;
             resultDetailText = resolvedData.ResultDetailText;

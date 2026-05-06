@@ -40,7 +40,13 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentOutOfRangeException(nameof(target), "Registered tile feature visuals must expose a positive tile ID.");
             }
 
-            _targetsByTileId[target.TileId] = target;
+            if (_targetsByTileId.ContainsKey(target.TileId))
+            {
+                UnityEngine.Debug.LogWarning($"Duplicate tile feature visual target registration for TileId {target.TileId}; keeping the first registered target.");
+                return;
+            }
+
+            _targetsByTileId.Add(target.TileId, target);
         }
 
         public void Rebuild()
@@ -57,7 +63,13 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                _targetsByTileId[target.TileId] = target;
+                if (_targetsByTileId.ContainsKey(target.TileId))
+                {
+                    UnityEngine.Debug.LogWarning($"Duplicate tile feature visual target discovered for TileId {target.TileId}; keeping the first discovered target.");
+                    continue;
+                }
+
+                _targetsByTileId.Add(target.TileId, target);
             }
         }
 

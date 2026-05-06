@@ -159,6 +159,44 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void GeneratedPresentationBindings_DoNotClearTileFeatureVisualBindings()
+        {
+            var fixture = CreateFixture(
+                new[] { "enemy-view" },
+                Array.Empty<string>(),
+                Placement("player", StageAuthoringEntityKind.Player, 0, 0),
+                Placement("enemy", StageAuthoringEntityKind.Enemy, 1, 0, presentationId: "enemy-view"));
+            var prefab = new GameObject("ButtonTileVisualPrefab");
+            prefab.AddComponent<TileFeatureVisualTargetView>();
+
+            try
+            {
+                SetTileFeaturePresentationBindings(
+                    fixture.Presentation,
+                    new[]
+                    {
+                        new TileFeaturePresentationBinding
+                        {
+                            TileId = 100,
+                            VisualPrefab = prefab,
+                        },
+                    });
+
+                var report = StageAuthoringGenerator.Generate(fixture.Authoring, StageAuthoringGenerateOptions.WriteAll);
+                Assert.That(report.HasErrors, Is.False, FormatIssues(report));
+
+                Assert.That(fixture.Presentation.TileFeaturePresentationBindings, Has.Length.EqualTo(1));
+                Assert.That(fixture.Presentation.TileFeaturePresentationBindings[0].TileId, Is.EqualTo(100));
+                Assert.That(fixture.Presentation.TileFeaturePresentationBindings[0].VisualPrefab, Is.SameAs(prefab));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(prefab);
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
         public void GenerateDoesNotMutatePresentationMetadata()
         {
             var fixture = CreateFixture(
@@ -350,6 +388,23 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             var serializedObject = new SerializedObject(presentation);
             serializedObject.FindProperty(fieldName).stringValue = value;
+            serializedObject.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void SetTileFeaturePresentationBindings(
+            StagePresentationDefinition presentation,
+            IReadOnlyList<TileFeaturePresentationBinding> bindings)
+        {
+            var serializedObject = new SerializedObject(presentation);
+            var property = serializedObject.FindProperty("tileFeaturePresentationBindings");
+            property.arraySize = bindings.Count;
+            for (var i = 0; i < bindings.Count; i++)
+            {
+                var element = property.GetArrayElementAtIndex(i);
+                element.FindPropertyRelative("TileId").intValue = bindings[i].TileId;
+                element.FindPropertyRelative("VisualPrefab").objectReferenceValue = bindings[i].VisualPrefab;
+            }
+
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
         }
 

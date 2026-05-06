@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
@@ -718,6 +719,102 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(tutorialEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
             Assert.That(TryGetProfileOverride(buildResult, TutorialEnemyId, out var tutorialOverride), Is.True);
             Assert.That(tutorialOverride, Is.SameAs(tutorialEnemyProfile));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StagePresentationDefinition_DefaultsTileFeaturePresentationBindingsToEmpty()
+        {
+            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+
+            try
+            {
+                Assert.That(presentation.TileFeaturePresentationBindings, Is.Not.Null);
+                Assert.That(presentation.TileFeaturePresentationBindings, Is.Empty);
+
+                var resolved = StagePresentationAssembler.Resolve(presentation);
+                Assert.That(resolved.TileFeatureBindings, Is.Not.Null);
+                Assert.That(resolved.TileFeatureBindings, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(presentation);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StagePresentationAssembler_ResolvesTileFeaturePresentationBindingsAsReadOnlyData()
+        {
+            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            var prefab = new GameObject("ButtonTileVisualPrefab");
+
+            try
+            {
+                SetPrivateField(
+                    presentation,
+                    "tileFeaturePresentationBindings",
+                    new[]
+                    {
+                        new TileFeaturePresentationBinding
+                        {
+                            TileId = 100,
+                            VisualPrefab = prefab,
+                        },
+                    });
+
+                var resolved = StagePresentationAssembler.Resolve(presentation);
+
+                Assert.That(resolved.TileFeatureBindings, Is.InstanceOf<ReadOnlyCollection<TileFeaturePresentationResolvedBinding>>());
+                Assert.That(resolved.TileFeatureBindings, Has.Count.EqualTo(1));
+                Assert.That(resolved.TileFeatureBindings[0].TileId, Is.EqualTo(100));
+                Assert.That(resolved.TileFeatureBindings[0].VisualPrefab, Is.SameAs(prefab));
+                Assert.Throws<NotSupportedException>(() =>
+                    ((IList<TileFeaturePresentationResolvedBinding>)resolved.TileFeatureBindings).Add(
+                        new TileFeaturePresentationResolvedBinding(200, prefab)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(prefab);
+                UnityEngine.Object.DestroyImmediate(presentation);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StagePresentationDefinition_ApplyResolvedData_PreservesTileFeaturePresentationBindings()
+        {
+            var source = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            var copy = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            var prefab = new GameObject("ButtonTileVisualPrefab");
+
+            try
+            {
+                SetPrivateField(
+                    source,
+                    "tileFeaturePresentationBindings",
+                    new[]
+                    {
+                        new TileFeaturePresentationBinding
+                        {
+                            TileId = 100,
+                            VisualPrefab = prefab,
+                        },
+                    });
+
+                copy.ApplyResolvedData(StagePresentationAssembler.Resolve(source));
+                var roundTrip = StagePresentationAssembler.Resolve(copy);
+
+                Assert.That(roundTrip.TileFeatureBindings, Has.Count.EqualTo(1));
+                Assert.That(roundTrip.TileFeatureBindings[0].TileId, Is.EqualTo(100));
+                Assert.That(roundTrip.TileFeatureBindings[0].VisualPrefab, Is.SameAs(prefab));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(prefab);
+                UnityEngine.Object.DestroyImmediate(copy);
+                UnityEngine.Object.DestroyImmediate(source);
+            }
         }
 
         private static StageDefinition CreateStage(

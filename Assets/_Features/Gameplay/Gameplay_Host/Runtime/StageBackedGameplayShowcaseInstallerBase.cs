@@ -60,7 +60,8 @@ namespace Game.Feature.Gameplay.Host
                 compositionData.PresentationData.EnemyPresentationArchetypeCatalog,
                 compositionData.PresentationData.EnemyPresentationBindings,
                 compositionData.PresentationData.StaticEntityPresentationCatalog,
-                compositionData.PresentationData.StaticEntityPresentationBindings);
+                compositionData.PresentationData.StaticEntityPresentationBindings,
+                compositionData.PresentationData.TileFeatureBindings);
         }
 
         protected override void ConfigureRuntimeConfiguration(

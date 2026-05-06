@@ -1,11 +1,25 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using Game.Feature.Gameplay.Host;
 using Game.Shared.AudioContracts;
 using UnityEngine;
 
 namespace Game.Feature.Stages
 {
+    public readonly struct TileFeaturePresentationResolvedBinding
+    {
+        public TileFeaturePresentationResolvedBinding(int tileId, GameObject visualPrefab)
+        {
+            TileId = tileId;
+            VisualPrefab = visualPrefab;
+        }
+
+        public int TileId { get; }
+
+        public GameObject VisualPrefab { get; }
+    }
+
     public sealed class StagePresentationResolvedData
     {
         public StagePresentationResolvedData(
@@ -19,6 +33,7 @@ namespace Game.Feature.Stages
             EnemyPresentationBinding[] enemyPresentationBindings,
             StaticEntityPresentationCatalog staticEntityPresentationCatalog,
             StaticEntityPresentationBinding[] staticEntityPresentationBindings,
+            IReadOnlyList<TileFeaturePresentationResolvedBinding> tileFeatureBindings,
             string resultTitle,
             string resultSummaryText,
             string resultDetailText,
@@ -34,6 +49,7 @@ namespace Game.Feature.Stages
             EnemyPresentationBindings = enemyPresentationBindings ?? Array.Empty<EnemyPresentationBinding>();
             StaticEntityPresentationCatalog = staticEntityPresentationCatalog;
             StaticEntityPresentationBindings = staticEntityPresentationBindings ?? Array.Empty<StaticEntityPresentationBinding>();
+            TileFeatureBindings = CloneReadOnlyBindings(tileFeatureBindings);
             ResultTitle = resultTitle ?? string.Empty;
             ResultSummaryText = resultSummaryText ?? string.Empty;
             ResultDetailText = resultDetailText ?? string.Empty;
@@ -60,6 +76,8 @@ namespace Game.Feature.Stages
 
         public StaticEntityPresentationBinding[] StaticEntityPresentationBindings { get; }
 
+        public IReadOnlyList<TileFeaturePresentationResolvedBinding> TileFeatureBindings { get; }
+
         public string ResultTitle { get; }
 
         public string ResultSummaryText { get; }
@@ -67,6 +85,23 @@ namespace Game.Feature.Stages
         public string ResultDetailText { get; }
 
         public string ResultContinueLabel { get; }
+
+        private static IReadOnlyList<TileFeaturePresentationResolvedBinding> CloneReadOnlyBindings(
+            IReadOnlyList<TileFeaturePresentationResolvedBinding> source)
+        {
+            if (source == null || source.Count == 0)
+            {
+                return Array.Empty<TileFeaturePresentationResolvedBinding>();
+            }
+
+            var bindings = new TileFeaturePresentationResolvedBinding[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                bindings[i] = source[i];
+            }
+
+            return new ReadOnlyCollection<TileFeaturePresentationResolvedBinding>(bindings);
+        }
     }
 
     public sealed class StageSceneCompositionData
@@ -102,6 +137,7 @@ namespace Game.Feature.Stages
             Array.Empty<EnemyPresentationBinding>(),
             null,
             Array.Empty<StaticEntityPresentationBinding>(),
+            Array.Empty<TileFeaturePresentationResolvedBinding>(),
             string.Empty,
             string.Empty,
             string.Empty,
@@ -125,10 +161,32 @@ namespace Game.Feature.Stages
                 CloneBindings(definition.EnemyPresentationBindings),
                 definition.StaticEntityPresentationCatalog,
                 CloneBindings(definition.StaticEntityPresentationBindings),
+                ResolveTileFeatureBindings(definition.TileFeaturePresentationBindings),
                 definition.ResultTitle,
                 definition.ResultSummaryText,
                 definition.ResultDetailText,
                 definition.ResultContinueLabel);
+        }
+
+        public static TileFeaturePresentationBinding[] ToAuthoringBindings(
+            IReadOnlyList<TileFeaturePresentationResolvedBinding> source)
+        {
+            if (source == null || source.Count == 0)
+            {
+                return Array.Empty<TileFeaturePresentationBinding>();
+            }
+
+            var bindings = new TileFeaturePresentationBinding[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                bindings[i] = new TileFeaturePresentationBinding
+                {
+                    TileId = source[i].TileId,
+                    VisualPrefab = source[i].VisualPrefab,
+                };
+            }
+
+            return bindings;
         }
 
         internal static EnemyPresentationBinding[] BuildEnemyBindings(IReadOnlyList<StageSpawnDefinition> spawns)
@@ -202,6 +260,26 @@ namespace Game.Feature.Stages
             return source == null || source.Length == 0
                 ? Array.Empty<StaticEntityPresentationBinding>()
                 : (StaticEntityPresentationBinding[])source.Clone();
+        }
+
+        private static IReadOnlyList<TileFeaturePresentationResolvedBinding> ResolveTileFeatureBindings(
+            IReadOnlyList<TileFeaturePresentationBinding> source)
+        {
+            if (source == null || source.Count == 0)
+            {
+                return Array.Empty<TileFeaturePresentationResolvedBinding>();
+            }
+
+            var bindings = new TileFeaturePresentationResolvedBinding[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                var binding = source[i];
+                bindings[i] = binding == null
+                    ? default
+                    : new TileFeaturePresentationResolvedBinding(binding.TileId, binding.VisualPrefab);
+            }
+
+            return new ReadOnlyCollection<TileFeaturePresentationResolvedBinding>(bindings);
         }
 
         private static string NormalizePresentationId(string presentationId)

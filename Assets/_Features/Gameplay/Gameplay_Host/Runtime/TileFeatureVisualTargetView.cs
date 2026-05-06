@@ -5,7 +5,7 @@ using UnityEngine.Events;
 namespace Game.Feature.Gameplay.Host
 {
     [DisallowMultipleComponent]
-    public sealed class TileFeatureVisualTargetView : MonoBehaviour, ITileFeatureVisualTarget
+    public sealed class TileFeatureVisualTargetView : MonoBehaviour, ITileFeatureVisualTarget, ITileFeatureVisualTargetConfigurator
     {
         [SerializeField] private int tileId;
         [SerializeField] private SurfaceCell cell;
@@ -23,6 +23,11 @@ namespace Game.Feature.Gameplay.Host
         public int DebugPlayButtonActivatedCount => _debugPlayButtonActivatedCount;
 
         public void Configure(int newTileId, SurfaceCell newCell)
+        {
+            ConfigureTileFeature(newTileId, newCell);
+        }
+
+        public void ConfigureTileFeature(int newTileId, SurfaceCell newCell)
         {
             tileId = newTileId;
             cell = newCell;

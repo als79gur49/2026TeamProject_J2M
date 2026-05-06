@@ -15,8 +15,16 @@ namespace Game.Feature.Gameplay.Tests.Core
             "Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TilePresentationRequestPlanner.cs";
         private const string GameplayTickPresentationCoordinatorPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs";
+        private const string GameplayHostRuntimeFactoryPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeFactory.cs";
         private const string GameplayLoopRuntimePath =
             "Assets/_Features/Gameplay/Gameplay_Loop/Runtime";
+        private const string StageDefinitionPath =
+            "Assets/_Features/Stages/Runtime/StageDefinition.cs";
+        private const string StageRuntimeBuildResultPath =
+            "Assets/_Features/Stages/Runtime/StageRuntimeBuildResult.cs";
+        private const string GameplayBoardStateRuntimePath =
+            "Assets/_Features/Gameplay/Gameplay_BoardState/Runtime";
         private static readonly string[] TileFeatureVisualRuntimePaths =
         {
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/ITileFeatureVisualRegistry.cs",
@@ -242,6 +250,64 @@ namespace Game.Feature.Gameplay.Tests.Core
                     source,
                     Does.Not.Contain(forbiddenTokens[i]),
                     $"Tile feature visual target must not expose gameplay mutation token '{forbiddenTokens[i]}'.");
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileFeatureVisualBinding_RemainsPresentationOwned()
+        {
+            var stageDefinitionSource = File.ReadAllText(GetAbsolutePath(StageDefinitionPath));
+            var buildResultSource = File.ReadAllText(GetAbsolutePath(StageRuntimeBuildResultPath));
+
+            Assert.That(stageDefinitionSource, Does.Not.Contain("TileFeaturePresentationBinding"));
+            Assert.That(stageDefinitionSource, Does.Not.Contain("VisualPrefab"));
+            Assert.That(stageDefinitionSource, Does.Not.Contain("GameObject"));
+            Assert.That(buildResultSource, Does.Not.Contain("TileFeaturePresentationBinding"));
+            Assert.That(buildResultSource, Does.Not.Contain("TileFeaturePresentationResolvedBinding"));
+            Assert.That(buildResultSource, Does.Not.Contain("VisualPrefab"));
+            Assert.That(buildResultSource, Does.Not.Contain("GameObject"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayBoardState_DoesNotReferenceStagePresentationDefinition()
+        {
+            var sources = Directory.GetFiles(GetAbsolutePath(GameplayBoardStateRuntimePath), "*.cs", SearchOption.TopDirectoryOnly);
+            Assert.That(sources, Is.Not.Empty);
+
+            for (var i = 0; i < sources.Length; i++)
+            {
+                var source = File.ReadAllText(sources[i]);
+                Assert.That(source, Does.Not.Contain("StagePresentationDefinition"), sources[i]);
+                Assert.That(source, Does.Not.Contain("TileFeaturePresentationBinding"), sources[i]);
+                Assert.That(source, Does.Not.Contain("VisualPrefab"), sources[i]);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageTileFeatureVisualInstantiation_DoesNotReferenceAuthorityOrMutationTypes()
+        {
+            var source = File.ReadAllText(GetAbsolutePath(GameplayHostRuntimeFactoryPath));
+            var body = ExtractMethodBody(source, "private static void InstantiateStageTileFeatureVisuals(");
+            var forbiddenTokens = new[]
+            {
+                "WorldState",
+                "WorldSnapshot",
+                "CreateSnapshot",
+                "TickPipeline",
+                "ProjectedWorld",
+                "FinalizationBatch",
+                "TileEffectResolver",
+            };
+
+            for (var i = 0; i < forbiddenTokens.Length; i++)
+            {
+                Assert.That(
+                    body,
+                    Does.Not.Contain(forbiddenTokens[i]),
+                    $"Stage TileFeature visual instantiation must not reference authority or mutation token '{forbiddenTokens[i]}'.");
             }
         }
 

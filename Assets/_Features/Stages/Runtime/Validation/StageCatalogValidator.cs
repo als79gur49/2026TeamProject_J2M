@@ -775,7 +775,165 @@ namespace Game.Feature.Stages
             if (entry.PresentationDefinition != null)
             {
                 ValidateBgmReference(entry.PresentationDefinition.BgmReference, entry.PresentationDefinition, options, report);
+                ValidateTileFeaturePresentationBindings(entry, options, report);
             }
+        }
+
+        private static void ValidateTileFeaturePresentationBindings(
+            StageContentEntry entry,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            var presentation = entry.PresentationDefinition;
+            if (presentation == null)
+            {
+                return;
+            }
+
+            var presentationPath = GetAssetPath(presentation, options);
+            var bindings = presentation.TileFeaturePresentationBindings;
+            if (bindings.Length == 0)
+            {
+                return;
+            }
+
+            var gameplayTileFeatureIds = BuildGameplayTileFeatureIds(entry.GameplayDefinition);
+            var boundTileIds = new HashSet<int>();
+            for (var i = 0; i < bindings.Length; i++)
+            {
+                var binding = bindings[i];
+                var fieldPrefix = $"TileFeaturePresentationBindings[{i}]";
+                if (binding == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.binding-null",
+                        $"StagePresentationDefinition '{presentation.name}' tile feature visual binding[{i}] is null.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                    continue;
+                }
+
+                if (binding.TileId <= 0)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.tile-id-non-positive",
+                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} must use a positive TileId.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                }
+                else
+                {
+                    if (!boundTileIds.Add(binding.TileId))
+                    {
+                        report.Add(
+                            StageValidationSeverity.Error,
+                            "presentation.tile-feature.tile-id-duplicate",
+                            $"StagePresentationDefinition '{presentation.name}' contains duplicate TileFeature visual binding for TileId {binding.TileId}.",
+                            presentation,
+                            presentationPath,
+                            options.Timing);
+                    }
+
+                    if (!gameplayTileFeatureIds.Contains(binding.TileId))
+                    {
+                        report.Add(
+                            StageValidationSeverity.Error,
+                            "presentation.tile-feature.tile-id-missing",
+                            $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} references missing StageDefinition TileFeature TileId {binding.TileId}.",
+                            presentation,
+                            presentationPath,
+                            options.Timing);
+                    }
+                }
+
+                if (binding.VisualPrefab == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.prefab-null",
+                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} must assign a visual prefab.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                    continue;
+                }
+
+                if (!PrefabHasConfigurableTileFeatureVisualTarget(binding.VisualPrefab))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.prefab-target-missing",
+                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} prefab '{binding.VisualPrefab.name}' must provide a configurable TileFeature visual target.",
+                        binding.VisualPrefab,
+                        GetAssetPath(binding.VisualPrefab, options),
+                        options.Timing);
+                }
+            }
+        }
+
+        private static HashSet<int> BuildGameplayTileFeatureIds(StageDefinition gameplayDefinition)
+        {
+            var tileIds = new HashSet<int>();
+            if (gameplayDefinition == null)
+            {
+                return tileIds;
+            }
+
+            var tileFeatures = gameplayDefinition.TileFeatures;
+            for (var i = 0; i < tileFeatures.Length; i++)
+            {
+                if (tileFeatures[i].TileId > 0)
+                {
+                    tileIds.Add(tileFeatures[i].TileId);
+                }
+            }
+
+            return tileIds;
+        }
+
+        private static bool PrefabHasConfigurableTileFeatureVisualTarget(GameObject prefab)
+        {
+            if (prefab == null)
+            {
+                return false;
+            }
+
+            var behaviours = prefab.GetComponentsInChildren<MonoBehaviour>(includeInactive: true);
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                if (behaviours[i] == null)
+                {
+                    continue;
+                }
+
+                var behaviourType = behaviours[i].GetType();
+                if (behaviourType.FullName == "Game.Feature.Gameplay.Host.TileFeatureVisualTargetView" ||
+                    TypeImplements(behaviourType, "Game.Feature.Gameplay.Host.ITileFeatureVisualTarget") &&
+                    TypeImplements(behaviourType, "Game.Feature.Gameplay.Host.ITileFeatureVisualTargetConfigurator"))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TypeImplements(Type type, string interfaceFullName)
+        {
+            var interfaces = type.GetInterfaces();
+            for (var i = 0; i < interfaces.Length; i++)
+            {
+                if (interfaces[i].FullName == interfaceFullName)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static void ValidateLegacyPresentationIds(

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Objectives;
@@ -138,6 +139,87 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 });
 
             Assert.That(report.Issues.Any(issue => issue.Code == "bgm-key.invalid"), Is.True);
+        }
+
+        [Test]
+        public void StageCatalogValidator_TileFeatureVisualBinding_WithValidPrefab_Passes()
+        {
+            var prefab = CreateTileFeatureVisualPrefab("ButtonTileVisualPrefab");
+            var entry = CreateEntryWithTileFeatureVisualBinding(100, 100, prefab);
+
+            var report = ValidateSingleEntry(entry);
+
+            Assert.That(
+                report.Issues.Any(issue => issue.Code.StartsWith("presentation.tile-feature", StringComparison.Ordinal)),
+                Is.False);
+        }
+
+        [Test]
+        public void StageCatalogValidator_TileFeatureVisualBinding_RejectsNonPositiveTileId()
+        {
+            var prefab = CreateTileFeatureVisualPrefab("ButtonTileVisualPrefab");
+            var entry = CreateEntryWithTileFeatureVisualBinding(100, 0, prefab);
+
+            var report = ValidateSingleEntry(entry);
+
+            Assert.That(report.Issues.Any(issue => issue.Code == "presentation.tile-feature.tile-id-non-positive"), Is.True);
+        }
+
+        [Test]
+        public void StageCatalogValidator_TileFeatureVisualBinding_RejectsDuplicateTileId()
+        {
+            var prefab = CreateTileFeatureVisualPrefab("ButtonTileVisualPrefab");
+            var entry = CreateEntryWithTileFeatureVisualBinding(
+                gameplayTileId: 100,
+                bindings: new[]
+                {
+                    new TileFeaturePresentationBinding
+                    {
+                        TileId = 100,
+                        VisualPrefab = prefab,
+                    },
+                    new TileFeaturePresentationBinding
+                    {
+                        TileId = 100,
+                        VisualPrefab = prefab,
+                    },
+                });
+
+            var report = ValidateSingleEntry(entry);
+
+            Assert.That(report.Issues.Any(issue => issue.Code == "presentation.tile-feature.tile-id-duplicate"), Is.True);
+        }
+
+        [Test]
+        public void StageCatalogValidator_TileFeatureVisualBinding_RejectsMissingGameplayTileFeature()
+        {
+            var prefab = CreateTileFeatureVisualPrefab("ButtonTileVisualPrefab");
+            var entry = CreateEntryWithTileFeatureVisualBinding(100, 404, prefab);
+
+            var report = ValidateSingleEntry(entry);
+
+            Assert.That(report.Issues.Any(issue => issue.Code == "presentation.tile-feature.tile-id-missing"), Is.True);
+        }
+
+        [Test]
+        public void StageCatalogValidator_TileFeatureVisualBinding_RejectsNullPrefab()
+        {
+            var entry = CreateEntryWithTileFeatureVisualBinding(100, 100, visualPrefab: null);
+
+            var report = ValidateSingleEntry(entry);
+
+            Assert.That(report.Issues.Any(issue => issue.Code == "presentation.tile-feature.prefab-null"), Is.True);
+        }
+
+        [Test]
+        public void StageCatalogValidator_TileFeatureVisualBinding_RejectsPrefabWithoutTarget()
+        {
+            var prefab = new GameObject("MissingTargetPrefab");
+            var entry = CreateEntryWithTileFeatureVisualBinding(100, 100, prefab);
+
+            var report = ValidateSingleEntry(entry);
+
+            Assert.That(report.Issues.Any(issue => issue.Code == "presentation.tile-feature.prefab-target-missing"), Is.True);
         }
 
         [Test]
@@ -483,6 +565,65 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetPrivateField(stage, "enemySpawns", Array.Empty<StageSpawnDefinition>());
             SetPrivateField(stage, "wallSpawns", Array.Empty<StageSpawnDefinition>());
             return stage;
+        }
+
+        private static StageContentEntry CreateEntryWithTileFeatureVisualBinding(
+            int gameplayTileId,
+            int bindingTileId,
+            GameObject visualPrefab)
+        {
+            return CreateEntryWithTileFeatureVisualBinding(
+                gameplayTileId,
+                new[]
+                {
+                    new TileFeaturePresentationBinding
+                    {
+                        TileId = bindingTileId,
+                        VisualPrefab = visualPrefab,
+                    },
+                });
+        }
+
+        private static StageContentEntry CreateEntryWithTileFeatureVisualBinding(
+            int gameplayTileId,
+            TileFeaturePresentationBinding[] bindings)
+        {
+            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            SetPrivateField(presentation, "tileFeaturePresentationBindings", bindings);
+            var entry = CreateEntry("stage-a", presentationDefinition: presentation);
+            SetPrivateField(
+                entry.GameplayDefinition,
+                "tileFeatures",
+                new[]
+                {
+                    new StageTileFeatureDefinition
+                    {
+                        TileId = gameplayTileId,
+                        Cell = new SurfaceCell(FaceId.Floor, 1, 1),
+                        Kind = TileFeatureKind.Button,
+                        ActivationRule = TileFeatureActivationRule.ActiveFaceOnly,
+                    },
+                });
+            return entry;
+        }
+
+        private static GameObject CreateTileFeatureVisualPrefab(string name)
+        {
+            var prefab = new GameObject(name);
+            prefab.AddComponent<TileFeatureVisualTargetView>();
+            return prefab;
+        }
+
+        private static StageValidationReport ValidateSingleEntry(StageContentEntry entry)
+        {
+            return new StageCatalogValidator().ValidateEntries(
+                new[] { entry },
+                aliasTable: null,
+                new StageCatalogValidationOptions
+                {
+                    RequirePresentationDefinition = true,
+                    Timing = StageValidationTiming.TestOrCi,
+                });
         }
 
         private static PlayerAtAnyZoneConditionAsset CreatePlayerAtExitCondition()

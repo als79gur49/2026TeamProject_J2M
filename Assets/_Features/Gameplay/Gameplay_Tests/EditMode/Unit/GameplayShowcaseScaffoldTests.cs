@@ -1068,7 +1068,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     InitialEnemyPresentationArchetypeCatalogOverride,
                     Array.Empty<EnemyPresentationBinding>(),
                     InitialStaticEntityPresentationCatalogOverride,
-                    Array.Empty<StaticEntityPresentationBinding>());
+                    Array.Empty<StaticEntityPresentationBinding>(),
+                    Array.Empty<TileFeaturePresentationResolvedBinding>());
             }
 
         }

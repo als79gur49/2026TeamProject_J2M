@@ -15,4 +15,9 @@ namespace Game.Feature.Gameplay.Host
 
         void PlayButtonActivated();
     }
+
+    public interface ITileFeatureVisualTargetConfigurator
+    {
+        void ConfigureTileFeature(int tileId, SurfaceCell cell);
+    }
 }

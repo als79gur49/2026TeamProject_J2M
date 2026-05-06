@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -158,6 +160,108 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(requests, Has.Count.EqualTo(2));
         }
 
+        [Test]
+        [Category("Extended")]
+        public void StageTileFeatureVisualBinding_InstantiatesConfiguresRegistersAndConsumesButtonRequest()
+        {
+            var rootObject = new GameObject(nameof(StageTileFeatureVisualBinding_InstantiatesConfiguresRegistersAndConsumesButtonRequest));
+            var prefab = new GameObject("ButtonTileVisualPrefab");
+
+            try
+            {
+                prefab.AddComponent<TileFeatureVisualTargetView>();
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var cell = new SurfaceCell(FaceId.Floor, 2, 1);
+
+                InvokeStageTileFeatureVisualInstantiation(
+                    new[]
+                    {
+                        new TileFeaturePresentationResolvedBinding(100, prefab),
+                    },
+                    new[]
+                    {
+                        new TileFeatureState(
+                            100,
+                            cell,
+                            TileFeatureKind.Button,
+                            TileFeatureFlags.None,
+                            sourceEntityId: 0,
+                            ownerEntityId: 0,
+                            teamId: 0,
+                            lifetimeTicks: 0,
+                            charges: 0),
+                    },
+                    rootObject.transform,
+                    registry);
+
+                Assert.That(registry.TryGetTileVisual(100, out var target), Is.True);
+                Assert.That(target.TileId, Is.EqualTo(100));
+                Assert.That(target.Cell, Is.EqualTo(cell));
+                Assert.That(rootObject.transform.childCount, Is.EqualTo(1));
+
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(registry);
+                controller.PlayButtonActivatedRequests(new[] { CreateRequest(100, cell) });
+
+                Assert.That(((TileFeatureVisualTargetView)target).DebugPlayButtonActivatedCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+                Object.DestroyImmediate(prefab);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageTileFeatureVisualBinding_DuplicateManualTarget_FirstRegisteredTargetWins()
+        {
+            var rootObject = new GameObject(nameof(StageTileFeatureVisualBinding_DuplicateManualTarget_FirstRegisteredTargetWins));
+            var manualObject = new GameObject("ManualTarget");
+            var prefab = new GameObject("StageTargetPrefab");
+
+            try
+            {
+                manualObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+                var manualTarget = manualObject.AddComponent<TileFeatureVisualTargetView>();
+                manualTarget.ConfigureTileFeature(100, cell);
+                prefab.AddComponent<TileFeatureVisualTargetView>();
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                registry.ConfigureSearchRoot(rootObject.transform);
+
+                InvokeStageTileFeatureVisualInstantiation(
+                    new[]
+                    {
+                        new TileFeaturePresentationResolvedBinding(100, prefab),
+                    },
+                    new[]
+                    {
+                        new TileFeatureState(
+                            100,
+                            cell,
+                            TileFeatureKind.Button,
+                            TileFeatureFlags.None,
+                            sourceEntityId: 0,
+                            ownerEntityId: 0,
+                            teamId: 0,
+                            lifetimeTicks: 0,
+                            charges: 0),
+                    },
+                    rootObject.transform,
+                    registry);
+
+                Assert.That(registry.TryGetTileVisual(100, out var resolved), Is.True);
+                Assert.That(resolved, Is.SameAs(manualTarget));
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+                Object.DestroyImmediate(prefab);
+            }
+        }
+
         private static TilePresentationRequest CreateRequest(int tileId, SurfaceCell cell)
         {
             return new TilePresentationRequest(
@@ -168,6 +272,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 sourceEntityId: tileId + 1,
                 ownerEntityId: tileId + 2,
                 teamId: tileId + 3);
+        }
+
+        private static void InvokeStageTileFeatureVisualInstantiation(
+            IReadOnlyList<TileFeaturePresentationResolvedBinding> bindings,
+            IReadOnlyList<TileFeatureState> initialTileFeatures,
+            Transform parent,
+            TileFeatureVisualRegistry registry)
+        {
+            var method = typeof(GameplayHostRuntimeFactory).GetMethod(
+                "InstantiateStageTileFeatureVisuals",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            method.Invoke(
+                null,
+                new object[]
+                {
+                    bindings,
+                    initialTileFeatures,
+                    parent,
+                    registry,
+                });
         }
 
         private sealed class RecordingRegistry : ITileFeatureVisualRegistry

@@ -33,7 +33,8 @@ namespace Game.Feature.Gameplay.Host
                 EnemyPresentationArchetypeCatalog enemyPresentationArchetypeCatalog,
                 EnemyPresentationBinding[] enemyPresentationBindings,
                 StaticEntityPresentationCatalog staticEntityPresentationCatalog,
-                StaticEntityPresentationBinding[] staticEntityPresentationBindings)
+                StaticEntityPresentationBinding[] staticEntityPresentationBindings,
+                IReadOnlyList<TileFeaturePresentationResolvedBinding> tileFeaturePresentationBindings)
             {
                 BoardBounds = boardBounds;
                 InitialTopology = initialTopology;
@@ -51,6 +52,8 @@ namespace Game.Feature.Gameplay.Host
                 EnemyPresentationBindings = enemyPresentationBindings ?? Array.Empty<EnemyPresentationBinding>();
                 StaticEntityPresentationCatalog = staticEntityPresentationCatalog;
                 StaticEntityPresentationBindings = staticEntityPresentationBindings ?? Array.Empty<StaticEntityPresentationBinding>();
+                TileFeaturePresentationBindings =
+                    tileFeaturePresentationBindings ?? Array.Empty<TileFeaturePresentationResolvedBinding>();
             }
 
             public BoardBounds BoardBounds { get; }
@@ -84,6 +87,8 @@ namespace Game.Feature.Gameplay.Host
             public StaticEntityPresentationCatalog StaticEntityPresentationCatalog { get; }
 
             public StaticEntityPresentationBinding[] StaticEntityPresentationBindings { get; }
+
+            public IReadOnlyList<TileFeaturePresentationResolvedBinding> TileFeaturePresentationBindings { get; }
         }
 
         [Header("Bootstrap")]
@@ -286,6 +291,7 @@ namespace Game.Feature.Gameplay.Host
                 EnemyPresentationCatalog = ResolveConfiguredEnemyPresentationCatalog(initialState),
                 StaticEntityPresentationBindings = initialState.StaticEntityPresentationBindings,
                 StaticEntityPresentationCatalog = ResolveConfiguredStaticEntityPresentationCatalog(initialState),
+                TileFeaturePresentationBindings = initialState.TileFeaturePresentationBindings,
                 InitialBoardBounds = initialState.BoardBounds,
                 InitialEntities = initialState.InitialEntities,
                 InitialTerrain = initialState.InitialTerrain,

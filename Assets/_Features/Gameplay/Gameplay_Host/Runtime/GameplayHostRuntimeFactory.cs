@@ -8,6 +8,7 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.UIAccess.Queries;
+using Game.Feature.Stages;
 using Game.Shared.Audio;
 using Game.Shared.Input;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
@@ -121,6 +122,11 @@ namespace Game.Feature.Gameplay.Host
                         BuildStaticViewPrefabs(configuration))
                     : null);
             var viewBinder = new GameplayEntityViewBinder(viewRegistry, viewFactory);
+            InstantiateStageTileFeatureVisuals(
+                configuration.TileFeaturePresentationBindings,
+                initialTileFeatures,
+                boardRoot.transform,
+                tileFeatureVisualRegistry);
 
             presenter.Initialize(
                 viewBinder,
@@ -246,6 +252,105 @@ namespace Game.Feature.Gameplay.Host
                 configuration?.StaticEntityPresentationCatalog,
                 configuration?.StaticEntityPresentationBindings,
                 nameof(GameplaySceneHostConfiguration));
+        }
+
+        private static void InstantiateStageTileFeatureVisuals(
+            IReadOnlyList<TileFeaturePresentationResolvedBinding> bindings,
+            IReadOnlyList<TileFeatureState> initialTileFeatures,
+            Transform parent,
+            TileFeatureVisualRegistry registry)
+        {
+            if (bindings == null || bindings.Count == 0)
+            {
+                return;
+            }
+
+            for (var i = 0; i < bindings.Count; i++)
+            {
+                var binding = bindings[i];
+                if (binding.TileId <= 0 ||
+                    binding.VisualPrefab == null)
+                {
+                    UnityEngine.Debug.LogWarning($"Skipping invalid stage TileFeature visual binding at index {i}.");
+                    continue;
+                }
+
+                if (!TryGetTileFeatureCell(initialTileFeatures, binding.TileId, out var cell))
+                {
+                    UnityEngine.Debug.LogWarning($"Skipping stage TileFeature visual binding for missing TileId {binding.TileId}.");
+                    continue;
+                }
+
+                var instance = UnityEngine.Object.Instantiate(binding.VisualPrefab, parent, worldPositionStays: false);
+                instance.name = binding.VisualPrefab.name;
+                if (!TryGetConfigurableTileFeatureVisualTarget(
+                        instance,
+                        out var target,
+                        out var configurator))
+                {
+                    UnityEngine.Debug.LogWarning(
+                        $"Skipping stage TileFeature visual binding for TileId {binding.TileId}; prefab '{binding.VisualPrefab.name}' has no configurable tile visual target.");
+                    UnityEngine.Object.Destroy(instance);
+                    continue;
+                }
+
+                configurator.ConfigureTileFeature(binding.TileId, cell);
+                registry.Register(target);
+            }
+
+            registry.Rebuild();
+        }
+
+        private static bool TryGetTileFeatureCell(
+            IReadOnlyList<TileFeatureState> initialTileFeatures,
+            int tileId,
+            out SurfaceCell cell)
+        {
+            if (initialTileFeatures != null)
+            {
+                for (var i = 0; i < initialTileFeatures.Count; i++)
+                {
+                    var tileFeature = initialTileFeatures[i];
+                    if (tileFeature.TileId == tileId)
+                    {
+                        cell = tileFeature.Cell;
+                        return true;
+                    }
+                }
+            }
+
+            cell = default;
+            return false;
+        }
+
+        private static bool TryGetConfigurableTileFeatureVisualTarget(
+            GameObject instance,
+            out ITileFeatureVisualTarget target,
+            out ITileFeatureVisualTargetConfigurator configurator)
+        {
+            var targetView = instance.GetComponentInChildren<TileFeatureVisualTargetView>(includeInactive: true);
+            if (targetView != null)
+            {
+                target = targetView;
+                configurator = targetView;
+                return true;
+            }
+
+            var behaviours = instance.GetComponentsInChildren<MonoBehaviour>(includeInactive: true);
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                if (behaviours[i] is ITileFeatureVisualTarget candidateTarget &&
+                    behaviours[i] is ITileFeatureVisualTargetConfigurator candidateConfigurator)
+                {
+                    target = candidateTarget;
+                    configurator = candidateConfigurator;
+                    return true;
+                }
+            }
+
+            target = null;
+            configurator = null;
+            return false;
         }
 
         private static List<EntityState> NormalizeInitialEntitiesForRuntime(
