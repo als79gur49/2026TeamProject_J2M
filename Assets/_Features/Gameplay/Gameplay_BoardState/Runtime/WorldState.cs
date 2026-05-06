@@ -729,7 +729,7 @@ namespace Game.Feature.Gameplay.BoardState
             }
         }
 
-        public void AddTileFeature(TileFeatureState state)
+        private void AddTileFeature(TileFeatureState state)
         {
             ValidateTileFeatureState(state);
 
@@ -743,7 +743,7 @@ namespace Game.Feature.Gameplay.BoardState
             AddTileFeatureCellIndex(state.TileId, state.Cell);
         }
 
-        public void UpdateTileFeature(TileFeatureState state)
+        private void UpdateTileFeature(TileFeatureState state)
         {
             ValidateTileFeatureState(state);
 
@@ -761,7 +761,7 @@ namespace Game.Feature.Gameplay.BoardState
             }
         }
 
-        public void RemoveTileFeature(int tileId)
+        private void RemoveTileFeature(int tileId)
         {
             if (tileId <= 0)
             {

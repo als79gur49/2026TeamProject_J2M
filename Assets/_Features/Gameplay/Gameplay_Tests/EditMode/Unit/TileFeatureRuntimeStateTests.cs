@@ -39,12 +39,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void WorldState_AddTileFeature_AppearsInSnapshot()
+        public void WorldWriteContext_AddTileFeature_AppearsInSnapshot()
         {
             var worldState = CreateWorldState(Array.Empty<EntityState>(), Array.Empty<TileFeatureState>());
+            var writeContext = worldState.CreateWriteContext();
             var added = CreateTileFeature(10, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Button);
 
-            worldState.AddTileFeature(added);
+            writeContext.AddTileFeature(added);
             var snapshot = worldState.CreateSnapshot();
 
             Assert.That(snapshot.TryGetTileFeature(10, out var stored), Is.True);
@@ -53,16 +54,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void WorldState_UpdateTileFeature_ReplacesStateAndCellIndex()
+        public void WorldWriteContext_UpdateTileFeature_ReplacesStateAndCellIndex()
         {
             var oldCell = new SurfaceCell(FaceId.Floor, 1, 1);
             var newCell = new SurfaceCell(FaceId.Floor, 2, 1);
             var original = CreateTileFeature(10, oldCell, TileFeatureKind.Button, charges: 1);
             var updated = CreateTileFeature(10, newCell, TileFeatureKind.Button, charges: 2);
             var worldState = CreateWorldState(Array.Empty<EntityState>(), new[] { original });
+            var writeContext = worldState.CreateWriteContext();
             var tileFeatures = new List<TileFeatureState>();
 
-            worldState.UpdateTileFeature(updated);
+            writeContext.UpdateTileFeature(updated);
             var snapshot = worldState.CreateSnapshot();
 
             Assert.That(snapshot.TryGetTileFeature(10, out var stored), Is.True);
@@ -75,15 +77,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void WorldState_RemoveTileFeature_ClearsIdAndCellIndex()
+        public void WorldWriteContext_RemoveTileFeature_ClearsIdAndCellIndex()
         {
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
             var worldState = CreateWorldState(
                 Array.Empty<EntityState>(),
                 new[] { CreateTileFeature(10, cell, TileFeatureKind.Button) });
+            var writeContext = worldState.CreateWriteContext();
             var tileFeatures = new List<TileFeatureState>();
 
-            worldState.RemoveTileFeature(10);
+            writeContext.RemoveTileFeature(10);
             var snapshot = worldState.CreateSnapshot();
 
             Assert.That(snapshot.TryGetTileFeature(10, out _), Is.False);
@@ -93,22 +96,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void WorldState_TileFeatureMutationRejectsInvalidWrites()
+        public void WorldWriteContext_TileFeatureMutationRejectsInvalidWrites()
         {
             var worldState = CreateWorldState(
                 Array.Empty<EntityState>(),
                 new[] { CreateTileFeature(10, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Button) });
+            var writeContext = worldState.CreateWriteContext();
 
             var duplicateAdd = Assert.Throws<InvalidOperationException>(
-                () => worldState.AddTileFeature(CreateTileFeature(10, new SurfaceCell(FaceId.Floor, 2, 1), TileFeatureKind.Exit)));
+                () => writeContext.AddTileFeature(CreateTileFeature(10, new SurfaceCell(FaceId.Floor, 2, 1), TileFeatureKind.Exit)));
             var missingUpdate = Assert.Throws<InvalidOperationException>(
-                () => worldState.UpdateTileFeature(CreateTileFeature(20, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Button)));
+                () => writeContext.UpdateTileFeature(CreateTileFeature(20, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Button)));
             var missingRemove = Assert.Throws<InvalidOperationException>(
-                () => worldState.RemoveTileFeature(20));
+                () => writeContext.RemoveTileFeature(20));
             var nonPositive = Assert.Throws<InvalidOperationException>(
-                () => worldState.RemoveTileFeature(0));
+                () => writeContext.RemoveTileFeature(0));
             var outOfBounds = Assert.Throws<InvalidOperationException>(
-                () => worldState.AddTileFeature(CreateTileFeature(30, new SurfaceCell(FaceId.Floor, 5, 1), TileFeatureKind.Button)));
+                () => writeContext.AddTileFeature(CreateTileFeature(30, new SurfaceCell(FaceId.Floor, 5, 1), TileFeatureKind.Button)));
 
             StringAssert.Contains("Duplicate TileFeature id 10", duplicateAdd.Message);
             StringAssert.Contains("Cannot update missing TileFeature id 20", missingUpdate.Message);
