@@ -32,6 +32,7 @@ namespace Game.Feature.Stages
         public Direction Facing;
         public int Hp;
         public BoxCapabilities BoxCapabilities;
+        public BoxArchetype BoxArchetype;
         public EnemyAiMode EnemyAiMode;
         public int EnemyAiStateTimer;
         public EnemyAiProfile EnemyAiProfile;

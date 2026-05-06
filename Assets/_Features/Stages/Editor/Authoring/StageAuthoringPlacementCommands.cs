@@ -37,6 +37,7 @@ namespace Game.Feature.Stages.Editor
             element.FindPropertyRelative("Hp").intValue = 1;
             element.FindPropertyRelative("UnitStackGroup").stringValue = string.Empty;
             element.FindPropertyRelative("BoxCapabilities").intValue = (int)BoxCapabilities.None;
+            element.FindPropertyRelative("BoxArchetype").intValue = (int)BoxArchetype.Normal;
             element.FindPropertyRelative("EnemyAiMode").intValue = 0;
             element.FindPropertyRelative("EnemyAiStateTimer").intValue = 0;
             element.FindPropertyRelative("EnemyAiProfileOverride").objectReferenceValue = null;

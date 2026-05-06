@@ -134,15 +134,12 @@ namespace Game.Feature.Gameplay.Loop
             switch (selector)
             {
                 case TileFeatureBoxSelector.AnyPushableBox:
-                    return snapshot.TryGetSolidSemanticAt(cell, out var semantic) &&
-                           semantic.Kind == SolidKind.Box &&
-                           (semantic.Entity.boxCapabilities & BoxCapabilities.Push) != 0 &&
-                           semantic.Entity.boardPresence == EntityBoardPresence.Occupying &&
-                           semantic.Entity.hp > 0 &&
-                           !semantic.Entity.markedForDeath;
+                    return TryGetValidOccupyingBox(snapshot, cell, out var anyBox) &&
+                           (anyBox.boxCapabilities & BoxCapabilities.Push) != 0;
 
                 case TileFeatureBoxSelector.MoonBlockOnly:
-                    return false;
+                    return TryGetValidOccupyingBox(snapshot, cell, out var moonBox) &&
+                           moonBox.boxArchetype == BoxArchetype.Moon;
 
                 case TileFeatureBoxSelector.None:
                 case TileFeatureBoxSelector.FeatureCell:
@@ -152,6 +149,23 @@ namespace Game.Feature.Gameplay.Loop
                 default:
                     throw new ArgumentOutOfRangeException(nameof(selector), selector, "Unknown TileFeature box selector.");
             }
+        }
+
+        private static bool TryGetValidOccupyingBox(WorldSnapshot snapshot, SurfaceCell cell, out EntityState box)
+        {
+            if (snapshot.TryGetSolidSemanticAt(cell, out var semantic) &&
+                semantic.Kind == SolidKind.Box &&
+                semantic.Entity.type == EntityType.Box &&
+                semantic.Entity.boardPresence == EntityBoardPresence.Occupying &&
+                semantic.Entity.hp > 0 &&
+                !semantic.Entity.markedForDeath)
+            {
+                box = semantic.Entity;
+                return true;
+            }
+
+            box = default;
+            return false;
         }
 
         private static TileFeatureState CreateActivatedState(TileFeatureState tileFeature)

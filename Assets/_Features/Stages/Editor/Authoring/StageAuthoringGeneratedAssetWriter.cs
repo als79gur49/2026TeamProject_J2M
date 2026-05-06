@@ -133,6 +133,7 @@ namespace Game.Feature.Stages.Editor
                 element.FindPropertyRelative("Facing").intValue = (int)spawn.Facing;
                 element.FindPropertyRelative("Hp").intValue = spawn.Hp;
                 element.FindPropertyRelative("BoxCapabilities").intValue = (int)spawn.BoxCapabilities;
+                element.FindPropertyRelative("BoxArchetype").intValue = (int)spawn.BoxArchetype;
                 element.FindPropertyRelative("EnemyAiMode").intValue = (int)spawn.EnemyAiMode;
                 element.FindPropertyRelative("EnemyAiStateTimer").intValue = spawn.EnemyAiStateTimer;
                 element.FindPropertyRelative("EnemyAiProfile").objectReferenceValue = spawn.EnemyAiProfile;

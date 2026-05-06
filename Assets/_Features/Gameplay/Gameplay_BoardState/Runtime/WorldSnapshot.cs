@@ -384,6 +384,16 @@ namespace Game.Feature.Gameplay.BoardState
             return TryGetBoxAt(CreateDefaultQueryCell(cell), out entity);
         }
 
+        public bool TryGetBoxArchetypeAt(SurfaceCell cell, out BoxArchetype boxArchetype)
+        {
+            return TryGetBoxArchetypeAt(_topology, cell, out boxArchetype);
+        }
+
+        public bool TryGetBoxArchetypeAt(Vector2Int cell, out BoxArchetype boxArchetype)
+        {
+            return TryGetBoxArchetypeAt(CreateDefaultQueryCell(cell), out boxArchetype);
+        }
+
         public bool TryGetSolidSemanticAt(SurfaceCell cell, out SolidSemantic semantic)
         {
             return TryGetSolidSemanticAt(_topology, cell, out semantic);
@@ -1096,6 +1106,19 @@ namespace Game.Feature.Gameplay.BoardState
         internal bool TryGetBoxAt(CubeTopologyState topology, SurfaceCell cell, out EntityState entity)
         {
             return SnapshotReadQueries.TryGetBoxAt(_entitiesById, _solidOccupancy, topology, cell, out entity);
+        }
+
+        internal bool TryGetBoxArchetypeAt(CubeTopologyState topology, SurfaceCell cell, out BoxArchetype boxArchetype)
+        {
+            if (TryGetSolidSemanticAt(topology, cell, out var semantic) &&
+                semantic.Kind == SolidKind.Box)
+            {
+                boxArchetype = semantic.Entity.boxArchetype;
+                return true;
+            }
+
+            boxArchetype = BoxArchetype.Normal;
+            return false;
         }
 
         internal bool TryGetSolidSemanticAt(CubeTopologyState topology, SurfaceCell cell, out SolidSemantic semantic)

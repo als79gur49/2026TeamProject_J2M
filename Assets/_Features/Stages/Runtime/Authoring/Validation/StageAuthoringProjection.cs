@@ -162,6 +162,7 @@ namespace Game.Feature.Stages
                     placement.Hp,
                     Normalize(placement.UnitStackGroup),
                     placement.BoxCapabilities,
+                    placement.BoxArchetype,
                     placement.EnemyAiMode,
                     placement.EnemyAiStateTimer,
                     placement.EnemyAiProfileOverride));
@@ -278,6 +279,7 @@ namespace Game.Feature.Stages
                     spawn.Hp,
                     Normalize(spawn.UnitStackGroup),
                     spawn.BoxCapabilities,
+                    spawn.BoxArchetype,
                     spawn.EnemyAiMode,
                     spawn.EnemyAiStateTimer,
                     spawn.EnemyAiProfile));

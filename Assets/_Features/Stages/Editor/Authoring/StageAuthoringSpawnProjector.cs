@@ -86,6 +86,17 @@ namespace Game.Feature.Stages.Editor
                     continue;
                 }
 
+                if (!Enum.IsDefined(typeof(BoxArchetype), placement.BoxArchetype))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "authoring.box-archetype.invalid",
+                        $"Placement '{normalizedGuid}' has invalid BoxArchetype value {(int)placement.BoxArchetype}.",
+                        source,
+                        string.Empty);
+                    continue;
+                }
+
                 if (placement.Hp <= 0)
                 {
                     report.Add(
@@ -128,6 +139,7 @@ namespace Game.Feature.Stages.Editor
                     Facing = placement.Facing,
                     Hp = placement.Hp,
                     BoxCapabilities = placement.BoxCapabilities,
+                    BoxArchetype = placement.BoxArchetype,
                     EnemyAiMode = placement.EnemyAiMode,
                     EnemyAiStateTimer = placement.EnemyAiStateTimer,
                     EnemyAiProfile = placement.EnemyAiProfileOverride,

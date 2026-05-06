@@ -24,9 +24,10 @@ namespace Game.Feature.Stages
             var boardBounds = CreateBoardBounds(stageName, board);
             var spawnEntries = NormalizeExplicitSpawns(stage.GetSpawnGroups());
             var playerEntityId = ValidateEntities(stageName, spawnEntries, boardBounds);
+            var hasMoonBlockSpawn = ContainsMoonBlockSpawn(spawnEntries);
             var zones = ValidateZones(stageName, stage.Zones, boardBounds);
             var tileFeatures = ValidateTileFeatures(stageName, stage.TileFeatures, spawnEntries, boardBounds);
-            var objective = ValidateObjective(stageName, stage.Objective, zones, tileFeatures);
+            var objective = ValidateObjective(stageName, stage.Objective, zones, tileFeatures, hasMoonBlockSpawn);
 
             return new ValidatedStageData(
                 stageName,
@@ -205,12 +206,17 @@ namespace Game.Feature.Stages
             string stageName,
             StageObjectiveAuthoring objective,
             IReadOnlyList<StageZoneDefinition> zones,
-            IReadOnlyList<StageTileFeatureDefinition> tileFeatures)
+            IReadOnlyList<StageTileFeatureDefinition> tileFeatures,
+            bool hasMoonBlockSpawn)
         {
             var conditionEntries = objective.GetConditionEntriesOrEmpty();
             var zonesById = BuildZonesById(zones);
             var tileFeaturesById = BuildTileFeaturesById(tileFeatures);
-            var validationContext = new StageConditionValidationContext(stageName, zonesById, tileFeaturesById);
+            var validationContext = new StageConditionValidationContext(
+                stageName,
+                zonesById,
+                tileFeaturesById,
+                hasMoonBlockSpawn);
 
             var normalizedConditionEntries = ValidateConditionEntries(
                 stageName,
@@ -497,6 +503,21 @@ namespace Game.Feature.Stages
             }
 
             return spawns;
+        }
+
+        private static bool ContainsMoonBlockSpawn(IReadOnlyList<ExplicitSpawnEntry> spawnEntries)
+        {
+            for (var i = 0; i < spawnEntries.Count; i++)
+            {
+                var spawn = spawnEntries[i].Spawn;
+                if (spawn.Kind == StageSpawnKind.Box &&
+                    spawn.BoxArchetype == BoxArchetype.Moon)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         internal static string FormatSpawnLabel(ExplicitSpawnEntry spawnEntry)

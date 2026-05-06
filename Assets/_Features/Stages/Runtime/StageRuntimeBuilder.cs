@@ -173,6 +173,7 @@ namespace Game.Feature.Stages
                         state = EntityPhaseState.Idle,
                         facing = ResolveFacing(spawn.Facing, Direction.Right),
                         boxCapabilities = spawn.BoxCapabilities,
+                        boxArchetype = spawn.BoxArchetype,
                     };
 
                 case StageSpawnKind.Wall:

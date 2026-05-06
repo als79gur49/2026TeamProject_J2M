@@ -14,6 +14,7 @@ namespace Game.Feature.Stages
             int hp,
             string unitStackGroup,
             BoxCapabilities boxCapabilities,
+            BoxArchetype boxArchetype,
             EnemyAiMode enemyAiMode,
             int enemyAiStateTimer,
             EnemyAiProfile enemyAiProfile)
@@ -26,6 +27,7 @@ namespace Game.Feature.Stages
             Hp = hp;
             UnitStackGroup = unitStackGroup ?? string.Empty;
             BoxCapabilities = boxCapabilities;
+            BoxArchetype = boxArchetype;
             EnemyAiMode = enemyAiMode;
             EnemyAiStateTimer = enemyAiStateTimer;
             EnemyAiProfile = enemyAiProfile;
@@ -46,6 +48,8 @@ namespace Game.Feature.Stages
         public string UnitStackGroup { get; }
 
         public BoxCapabilities BoxCapabilities { get; }
+
+        public BoxArchetype BoxArchetype { get; }
 
         public EnemyAiMode EnemyAiMode { get; }
 

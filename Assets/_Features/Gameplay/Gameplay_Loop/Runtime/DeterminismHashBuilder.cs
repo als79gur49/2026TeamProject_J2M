@@ -152,6 +152,7 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entity.markedForDeath ? 1 : 0).Append('|')
                     .Append(entity.spawnTick).Append('|')
                     .Append((int)entity.boxCapabilities).Append('|')
+                    .Append((int)entity.boxArchetype).Append('|')
                     .Append(entity.kineticInstigatorEntityId).Append('|')
                     .Append(entity.kineticInstigatorTeamId).Append('|')
                     .Append((int)entity.aiMode).Append('|')

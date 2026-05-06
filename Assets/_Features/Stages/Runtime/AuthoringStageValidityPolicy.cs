@@ -15,6 +15,7 @@ namespace Game.Feature.Stages
             var explicitEntityIds = new HashSet<int>();
             var playerCount = 0;
             var playerEntityId = 0;
+            var moonBlockCount = 0;
 
             for (var i = 0; i < spawnEntries.Count; i++)
             {
@@ -52,6 +53,8 @@ namespace Game.Feature.Stages
                         $"Stage '{stageName}' {spawnLabel} must use a positive Hp value.");
                 }
 
+                ValidateBoxArchetype(stageName, spawnLabel, spawn, ref moonBlockCount);
+
                 if (!spawnsByCell.TryGetValue(spawn.Cell, out var cellEntries))
                 {
                     cellEntries = new List<StageDefinitionValidator.ExplicitSpawnEntry>();
@@ -83,6 +86,45 @@ namespace Game.Feature.Stages
             }
 
             return playerEntityId;
+        }
+
+        private static void ValidateBoxArchetype(
+            string stageName,
+            string spawnLabel,
+            StageSpawnDefinition spawn,
+            ref int moonBlockCount)
+        {
+            if (!Enum.IsDefined(typeof(BoxArchetype), spawn.BoxArchetype))
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{stageName}' {spawnLabel} has invalid BoxArchetype value {(int)spawn.BoxArchetype}.");
+            }
+
+            if (spawn.BoxArchetype == BoxArchetype.Normal)
+            {
+                return;
+            }
+
+            if (spawn.Kind != StageSpawnKind.Box)
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{stageName}' {spawnLabel} uses BoxArchetype {spawn.BoxArchetype}, but box archetypes are only valid on Box spawns.");
+            }
+
+            moonBlockCount++;
+            if (moonBlockCount > 1)
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{stageName}' contains more than one Moon box spawn.");
+            }
+
+            const BoxCapabilities requiredMoonCapabilities =
+                BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy;
+            if ((spawn.BoxCapabilities & requiredMoonCapabilities) != requiredMoonCapabilities)
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{stageName}' {spawnLabel} uses BoxArchetype {spawn.BoxArchetype}, but Moon boxes require BoxCapabilities {requiredMoonCapabilities}.");
+            }
         }
 
         private static void ValidateCellOccupancy(

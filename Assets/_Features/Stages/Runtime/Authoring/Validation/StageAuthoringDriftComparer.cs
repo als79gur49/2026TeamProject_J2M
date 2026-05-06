@@ -142,6 +142,7 @@ namespace Game.Feature.Stages
             if (expected.Kind == StageSpawnKind.Box)
             {
                 AddIfDifferent(issues, context, "GameplayDrift.SpawnFieldMismatch", "BoxCapabilities", expected.BoxCapabilities, actual.BoxCapabilities, expected.EntityId, expected.StableGuid);
+                AddIfDifferent(issues, context, "GameplayDrift.SpawnFieldMismatch", "BoxArchetype", expected.BoxArchetype, actual.BoxArchetype, expected.EntityId, expected.StableGuid);
             }
         }
 
