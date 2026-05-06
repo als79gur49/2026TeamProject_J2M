@@ -5,6 +5,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.TileFeatureAudio;
 using NUnit.Framework;
 
 namespace Game.Feature.Gameplay.Tests.Unit
@@ -167,6 +168,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void RepeatedUnitConflictDefer_EmitsNoBlockedEventRequestAudioOrRespawn()
+        {
+            var template = CreateMoonBlock(20, InitialMoonCell);
+            var unit = CreateEnemy(30, GeneratorCell);
+            var worldState = CreateWorld(new[] { CreatePlayer(), unit });
+            var pipeline = CreatePipeline(worldState, template);
+            var requestPlanner = new TilePresentationRequestPlanner();
+            var audioPlanner = new TileFeatureAudioRequestPlanner();
+
+            var first = pipeline.RunTick(new TickInput(1));
+            var second = pipeline.RunTick(new TickInput(2));
+
+            AssertGeneratorDeferIsSilent(first, requestPlanner, audioPlanner);
+            AssertGeneratorDeferIsSilent(second, requestPlanner, audioPlanner);
+            var snapshot = GameplayCompositionRoot.CreateSnapshot(worldState);
+            Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
+            Assert.That(snapshot.TryGetEntity(30, out var finalUnit), Is.True);
+            Assert.That(finalUnit.position, Is.EqualTo(GeneratorCell));
+            Assert.That(finalUnit.markedForDeath, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
         public void CleanupRemovedMoonBlock_RespawnsAfterCleanup()
         {
             var template = CreateMoonBlock(20, InitialMoonCell);
@@ -233,6 +257,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(tileEvent.SourceEntityId, Is.EqualTo(101));
             Assert.That(tileEvent.OwnerEntityId, Is.EqualTo(102));
             Assert.That(tileEvent.TeamId, Is.EqualTo(7));
+        }
+
+        private static void AssertGeneratorDeferIsSilent(
+            TickResult result,
+            TilePresentationRequestPlanner requestPlanner,
+            TileFeatureAudioRequestPlanner audioPlanner)
+        {
+            Assert.That(result.EventLog, Has.None.Contains("MoonBlockGeneratorRespawnCommitted"));
+            Assert.That(result.EventLog, Has.None.Contains("MoonBlockGeneratorBlockingBoxDestroyed"));
+            Assert.That(result.PresentationData.TileEvents, Is.Empty);
+            var requests = requestPlanner.BuildRequests(result.PresentationData);
+            Assert.That(requests, Is.Empty);
+            Assert.That(audioPlanner.BuildRequests(requests), Is.Empty);
         }
 
         private static TickResult RunSingleTick(WorldState worldState, EntityState template)

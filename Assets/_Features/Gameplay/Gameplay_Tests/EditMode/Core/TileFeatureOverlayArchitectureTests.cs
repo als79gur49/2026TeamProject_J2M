@@ -19,6 +19,12 @@ namespace Game.Feature.Gameplay.Tests.Core
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeFactory.cs";
         private const string GameplayLoopRuntimePath =
             "Assets/_Features/Gameplay/Gameplay_Loop/Runtime";
+        private const string GameplayHostRuntimePath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime";
+        private const string TileFeatureAudioRuntimePath =
+            "Assets/_Features/Gameplay/Gameplay_TileFeatureAudio/Runtime";
+        private const string UiRuntimePath =
+            "Assets/_Features/UI";
         private const string StageDefinitionPath =
             "Assets/_Features/Stages/Runtime/StageDefinition.cs";
         private const string StageRuntimeBuildResultPath =
@@ -53,6 +59,9 @@ namespace Game.Feature.Gameplay.Tests.Core
             "Aura",
             "Zone",
             "TileFeature",
+            "MoonBlockGenerator",
+            "Barricade",
+            "Exit",
             "Effect",
         };
 
@@ -69,18 +78,18 @@ namespace Game.Feature.Gameplay.Tests.Core
         {
             var document = File.ReadAllText(GetAbsolutePath(TileFeatureOverlayAdrPath));
 
-            Assert.That(document, Does.Contain("TileFeature is a SurfaceCell-based gameplay overlay layer."));
+            Assert.That(document, Does.Contain("TileFeature is a `SurfaceCell`-based gameplay overlay layer."));
             Assert.That(document, Does.Contain("TileFeature is not Unit/Solid/Projectile occupancy."));
-            Assert.That(document, Does.Contain("Blocking Terrain remains owned by `TerrainData` and `TerrainFlags`."));
+            Assert.That(document, Does.Contain("Blocking Terrain remains owned by `TerrainData` and `TerrainFlags`"));
             Assert.That(document, Does.Contain("Box + TileFeature is allowed."));
             Assert.That(document, Does.Contain("Other Solid + TileFeature"));
             Assert.That(document, Does.Contain("requires an explicit future policy decision"));
-            Assert.That(document, Does.Contain("State surface phase"));
-            Assert.That(document, Does.Contain("Dynamic mutation phase"));
-            Assert.That(document, Does.Contain("Presentation phase"));
+            Assert.That(document, Does.Contain("## Implemented Order"));
+            Assert.That(document, Does.Contain("19. MoonBlockGenerated feedback"));
             Assert.That(document, Does.Contain("Dynamic TileEffect mutation must not be implemented before TileFeature state/query/export/hash exists"));
-            Assert.That(document, Does.Contain("TileEffect-free ticks must add zero snapshot materialization."));
-            Assert.That(document, Does.Contain("postTileEffectSnapshot` must not be eagerly created"));
+            Assert.That(document, Does.Contain("TileEffect-free ticks must not increase snapshot materialization budget."));
+            Assert.That(document, Does.Contain("`StageRuntimeBuildResult` is a gameplay-only seed."));
+            Assert.That(document, Does.Contain("Presentation prefab and binding data are owned by `StagePresentationDefinition`"));
             Assert.That(document, Does.Contain("VFX, audio, and UI must not call `WorldState.CreateSnapshot`"));
         }
 
@@ -99,18 +108,18 @@ namespace Game.Feature.Gameplay.Tests.Core
                 "Do not add `EntityType." + "MoonBlock`.",
                 "Do not add `BoxCapabilities." + "Moon`.",
                 "`MoonBlockOnly` selector is identity-based and must not re-check Push capability.",
-                "`HasMoonBlockSource` currently means an initial MoonBlock spawn.",
-                "MoonBlockGenerator respawn is authoritative gameplay; feedback is presentation-only.",
-                "MoonBlockGenerator emits `MoonBlockGenerated` only after actual respawn success.",
-                "MoonBlockGenerator does not emit `MoonBlockGeneratorBlocked` presentation events yet.",
-                "`MoonBlockGenerated` event `TargetEntityId` is the respawned MoonBlock entity id.",
-                "`MoonBlockGenerated` is sourced from respawn processor success facts, not final snapshot diffing.",
-                "MoonBlockGenerator must use `BottomFaceOnly`, `Direction2D.None`, and `TileFeatureBoxSelector.None`.",
-                "MoonBlockGenerator reuses the bound initial MoonBlock entity id and respawn template.",
-                "Unit/player/enemy occupants defer MoonBlockGenerator respawn.",
-                "Projectile occupants do not block MoonBlockGenerator respawn.",
-                "Normal Box occupants are detached/marked before the bound MoonBlock respawns.",
-                "TickPipeline must not run MoonBlockGenerator prefab, audio, UI, or visual work.",
+                "`HasMoonBlockSource` is retained as current/future naming.",
+                "`MoonBlockGenerated` event emits only on actual respawn success.",
+                "Event source is MoonBlockGenerator respawn processor success fact.",
+                "`MoonBlockGeneratorBlocked` is intentionally not implemented.",
+                "`TargetEntityId` is the respawned MoonBlock entity id.",
+                "Final snapshot diffing must not create the event.",
+                "MoonBlockGenerator activation rule is `BottomFaceOnly`.",
+                "Generator-bound initial MoonBlock spawn is the stable id/template source.",
+                "Unit/player/enemy at the generator cell causes defer; no kill or eject occurs.",
+                "Projectile is not a blocker and is not destroyed.",
+                "Normal/non-Moon Box at the generator cell is detached/marked destroy before MoonBlock spawn.",
+                "`TickPipeline` does not execute visual/audio/UI.",
                 "DestroyTile uses movement-derived `TileEffectBoxContact`, not final snapshot scanning.",
                 "Post-attack follow-through, flip landing, spawn/respawn, and topology relocation are not DestroyTile contact sources.",
                 "`DestroyTileTriggered` event `TargetEntityId` is the destroyed box id.",
@@ -120,20 +129,23 @@ namespace Game.Feature.Gameplay.Tests.Core
                 "For sliding boxes, `EntityState.facing` is the authoritative continuation direction. SlideTile redirect changes facing, not position.",
                 "DestroyTile wins: a destroyed box is not Slide redirected.",
                 "`SlideTileRedirected` event carries a `Direction` payload.",
-                "TilePresentationEvent source is currently hybrid:",
+                "Current `TilePresentationEvent` source matrix:",
                 "Coordinator request cache is replaced every tick.",
                 "Dedupe belongs to event generation.",
                 "Visual consumers read only `CurrentTilePresentationRequests`.",
                 "TileFeatureAudio is separate from core GameplayAudio, GameplayActionAudio, and UI audio lanes.",
                 "Only Sfx one-shot playback is allowed.",
-                "`StagePresentationDefinition` has no TileFeature audio binding yet.",
+                "`StagePresentationDefinition` has no TileFeature audio binding.",
                 "Barricade box-only blocker MVP is implemented.",
                 "Barricade remains a TileFeature overlay, not occupancy, terrain, or an entity type.",
-                "unit, enemy, projectile, flip landing, impact follow-through, and topology relocation traversal ignore Barricade",
+                "Unit/player/enemy traversal is not blocked.",
                 "`BarricadeBlocked` is sourced from movement blocker facts",
                 "`BarricadeCrushed` is sourced from `TileFeatureEffectResolver.ResolveBarricadeCrushes`",
-                "Barricade and MoonBlockGenerated events flow through `TilePresentationEvent`, `TilePresentationRequest`, optional tile visual interfaces, and optional TileFeatureAudio Sfx cues.",
-                "Events do not mutate gameplay state, do not enter the determinism hash",
+                "Exit open is derived from required non-PrimaryGoal conditions complete plus active Exit.",
+                "Exit open is not mutable TileFeature state and must not reuse `TileFeatureFlags.Activated`.",
+                "Same-tick open and enter emits both events, ordered `ExitOpened` before `ExitEntered`.",
+                "No `TilePresentationEventKind.MoonBlockGeneratorBlocked`.",
+                "Blocked/defer feedback requires debounce/noise policy before opening.",
             };
 
             for (var i = 0; i < requiredSnippets.Length; i++)
@@ -151,6 +163,7 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(Enum.GetNames(typeof(EntityType)), Does.Not.Contain("MoonBlock"));
             Assert.That(Enum.GetNames(typeof(EntityType)), Does.Not.Contain("SlideTile"));
             Assert.That(Enum.GetNames(typeof(EntityType)), Does.Not.Contain("Barricade"));
+            Assert.That(Enum.GetNames(typeof(EntityType)), Does.Not.Contain("Exit"));
         }
 
         [Test]
@@ -295,6 +308,12 @@ namespace Game.Feature.Gameplay.Tests.Core
                 Assert.That(source, Does.Not.Contain("TileFeatureVisual"), pipelineFiles[i]);
                 Assert.That(source, Does.Not.Contain("TileFeatureAudio"), pipelineFiles[i]);
                 Assert.That(source, Does.Not.Contain("GameplayAudio"), pipelineFiles[i]);
+                Assert.That(source, Does.Not.Contain("Play2D"), pipelineFiles[i]);
+                Assert.That(source, Does.Not.Contain("PlayAttached"), pipelineFiles[i]);
+                Assert.That(source, Does.Not.Contain("Instantiate"), pipelineFiles[i]);
+                Assert.That(source, Does.Not.Contain("UnityEvent"), pipelineFiles[i]);
+                Assert.That(source, Does.Not.Contain("Animator"), pipelineFiles[i]);
+                Assert.That(source, Does.Not.Contain("ParticleSystem"), pipelineFiles[i]);
                 Assert.That(source, Does.Not.Contain("GameObject"), pipelineFiles[i]);
                 Assert.That(source, Does.Not.Contain("Prefab"), pipelineFiles[i]);
             }
@@ -312,6 +331,15 @@ namespace Game.Feature.Gameplay.Tests.Core
             var audioTypesSource = File.ReadAllText(GetAbsolutePath(TileFeatureAudioTypesPath));
             Assert.That(audioTypesSource, Does.Contain("MoonBlockGenerated"));
             Assert.That(audioTypesSource, Does.Not.Contain("MoonBlockGeneratorBlocked"));
+
+            var visualRegistrySource = File.ReadAllText(GetAbsolutePath(
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/ITileFeatureVisualRegistry.cs"));
+            Assert.That(visualRegistrySource, Does.Contain("IMoonBlockGeneratedVisualTarget"));
+            Assert.That(visualRegistrySource, Does.Not.Contain("IMoonBlockGeneratorBlockedVisualTarget"));
+
+            var requestPlannerSource = File.ReadAllText(GetAbsolutePath(TilePresentationRequestPlannerPath));
+            Assert.That(requestPlannerSource, Does.Contain("MoonBlockGenerated"));
+            Assert.That(requestPlannerSource, Does.Not.Contain("MoonBlockGeneratorBlocked"));
         }
 
         [Test]
@@ -414,6 +442,91 @@ namespace Game.Feature.Gameplay.Tests.Core
                         source,
                         Does.Not.Contain("TileFeatureAudio"),
                         $"{sources[sourceIndex]} must not reference TileFeatureAudio.");
+                }
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Ui_DoesNotInferTileFeatureStateOrUsePresentationFactsAsObjectiveEvidence()
+        {
+            var root = GetAbsolutePath(UiRuntimePath);
+            Assert.That(Directory.Exists(root), Is.True);
+
+            var forbiddenTokens = new[]
+            {
+                "WorldState.CreateSnapshot",
+                "TilePresentationEvent",
+                "TilePresentationRequest",
+                "TileFeatureAudio",
+                "TileFeatureFlags.Activated",
+            };
+            var sources = Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories);
+            for (var sourceIndex = 0; sourceIndex < sources.Length; sourceIndex++)
+            {
+                var source = File.ReadAllText(sources[sourceIndex]);
+                for (var tokenIndex = 0; tokenIndex < forbiddenTokens.Length; tokenIndex++)
+                {
+                    Assert.That(
+                        source,
+                        Does.Not.Contain(forbiddenTokens[tokenIndex]),
+                        $"{sources[sourceIndex]} must not use '{forbiddenTokens[tokenIndex]}' as UI TileFeature authority.");
+                }
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileFeaturePresentationConsumers_DoNotInferStateThroughWorldSnapshots()
+        {
+            var roots = new[]
+            {
+                GameplayHostRuntimePath,
+                TileFeatureAudioRuntimePath,
+            };
+
+            for (var rootIndex = 0; rootIndex < roots.Length; rootIndex++)
+            {
+                var root = GetAbsolutePath(roots[rootIndex]);
+                Assert.That(Directory.Exists(root), Is.True, root);
+                var sources = Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories);
+                for (var sourceIndex = 0; sourceIndex < sources.Length; sourceIndex++)
+                {
+                    var source = File.ReadAllText(sources[sourceIndex]);
+                    Assert.That(
+                        source,
+                        Does.Not.Contain("WorldState.CreateSnapshot"),
+                        $"{sources[sourceIndex]} must not infer TileFeature state through WorldState.CreateSnapshot.");
+                }
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileFeatureAudio_DoesNotOpenSpatialOrStagePresentationBindingSurface()
+        {
+            var root = GetAbsolutePath(TileFeatureAudioRuntimePath);
+            Assert.That(Directory.Exists(root), Is.True);
+
+            var forbiddenTokens = new[]
+            {
+                "Play3D",
+                "Spatial",
+                "spatial",
+                "StagePresentationDefinition",
+                "TileFeaturePresentationBinding",
+                "VisualPrefab",
+            };
+            var sources = Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories);
+            for (var sourceIndex = 0; sourceIndex < sources.Length; sourceIndex++)
+            {
+                var source = File.ReadAllText(sources[sourceIndex]);
+                for (var tokenIndex = 0; tokenIndex < forbiddenTokens.Length; tokenIndex++)
+                {
+                    Assert.That(
+                        source,
+                        Does.Not.Contain(forbiddenTokens[tokenIndex]),
+                        $"{sources[sourceIndex]} must not open TileFeatureAudio token '{forbiddenTokens[tokenIndex]}'.");
                 }
             }
         }

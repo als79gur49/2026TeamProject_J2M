@@ -2,62 +2,45 @@
 
 - Status: Accepted
 - Date: 2026-04-30
+- Last updated: 2026-05-07
 
 ## Decision
 
-TileFeature is a SurfaceCell-based gameplay overlay layer.
+TileFeature is a `SurfaceCell`-based gameplay overlay layer.
 
-TileFeature is not Unit/Solid/Projectile occupancy. It must not be modeled as `EntityType.TileFeature`, as a Unit stack entry, as Solid occupancy, or as Projectile occupancy.
+TileFeature is not Unit/Solid/Projectile occupancy. It must not be modeled as `EntityType.TileFeature`, as a Unit stack entry, as Solid occupancy, or as Projectile occupancy. TileFeature-specific kinds such as DestroyTile, SlideTile, Barricade, Exit, MoonBlock, and MoonBlockGenerator must not be added to `EntityType`.
 
-Blocking Terrain remains owned by `TerrainData` and `TerrainFlags`. Overlay TileFeature state is owned by a future separate `TileFeatureLayer`.
+TileFeature is not a `TerrainFlags` effect semantic. Blocking Terrain remains owned by `TerrainData` and `TerrainFlags`; non-blocker overlay behavior belongs to TileFeature or a future ADR-approved layer.
 
-Overlay TileFeature state is allowed to overlap Unit, Box, and Projectile occupants on the same `SurfaceCell` unless a later explicit TileFeature policy rejects that overlap.
+TileFeature may coexist with Unit, Box, and Projectile occupants on the same `SurfaceCell`. Wall-like solid + TileFeature requires explicit policy. TileFeature + TileFeature same-cell support is a storage capability; gameplay policy for each pair remains explicit.
 
-Other Solid occupants, including Wall-like solid occupants, require an explicit future TileFeature overlap policy.
+`StageRuntimeBuildResult` is a gameplay-only seed. Presentation prefab and binding data are owned by `StagePresentationDefinition` or a presentation companion. VFX, audio, and UI consume facts derived from `TilePresentationEvent` or `TilePresentationRequest`; they must not call `WorldState.CreateSnapshot` to infer TileFeature state. `TickPipeline` transports presentation facts where necessary but must not execute prefab, audio, or UI work.
 
-Solid overlap is policy-controlled; Box overlap is allowed by default because the known requirement explicitly includes box overlap.
+## Implemented Order
 
-## Non-Goals For This Phase
+The implemented TileFeature pipeline followed this order and future work must preserve the same dependency direction:
 
-- No TileEffect runtime implementation.
-- No TileFeature runtime storage implementation.
-- No Stage authoring implementation.
-- No VFX runtime implementation.
-- No `postTileEffectSnapshot` in `TickPipeline`.
-- No interface, delegate, or executor-based phase chain.
+1. `TileFeatureState` / `WorldState` overlay layer / `WorldSnapshot` query / hash/export
+2. Stage authoring / `TileFeatureRuntimeDefinition` / activation query
+3. `ProjectedWorld` TileFeature operation
+4. TileEffect lazy seam
+5. `FinalizationBatch` TileFeature authoritative write path
+6. Button latch
+7. `ButtonActivatedCondition`
+8. `TickPresentationData.TileEvents`
+9. `TilePresentationRequest` planner/cache
+10. Visual hook
+11. `StagePresentationDefinition` visual binding
+12. `TileFeatureAudio` lane
+13. MoonBlock identity
+14. DestroyTile
+15. SlideTile
+16. Barricade
+17. Exit
+18. MoonBlockGenerator
+19. MoonBlockGenerated feedback
 
-## Vocabulary
-
-- Blocking Terrain: terrain blocker state owned by `TerrainData` and `TerrainFlags`.
-- Overlay TileFeature: deterministic gameplay overlay state keyed by `SurfaceCell`.
-- Unit-owned TileFeature: overlay TileFeature with owner/source attribution in TileFeature state.
-- TileEffect: future deterministic gameplay resolve for TileFeature triggers, consumption, expiry, and mutation.
-- TilePresentationEvent: future presentation-only fact derived from authoritative tick data.
-
-## Required Future State Surface
-
-Future runtime implementation must preserve the following dependency order. Dynamic TileEffect mutation must not be implemented before TileFeature state/query/export/hash exists.
-
-State surface phase:
-
-1. `TileFeatureState`
-2. `WorldState` TileFeatureLayer
-3. `WorldSnapshot` tile query
-4. ordered tile export
-5. `DeterminismHashBuilder` tile hash
-6. `StageRuntimeBuildResult.InitialTileFeatures`
-
-Dynamic mutation phase:
-
-7. `ProjectedWorld` tile operation support
-8. TileEffect lazy seam
-
-Presentation phase:
-
-9. `TickPresentationData.TileEvents`
-10. VFX presentation-only lane
-
-TileEffect consume, expire, spawn, or move mutation must not be implemented before `ProjectedWorld` tile operation support exists.
+Dynamic TileEffect mutation must not be implemented before TileFeature state/query/export/hash exists. TileEffect-free ticks must not increase snapshot materialization budget.
 
 ## Overlap Rule
 
@@ -70,20 +53,19 @@ TileEffect consume, expire, spawn, or move mutation must not be implemented befo
 - DestroyTile + SlideTile same-cell is allowed; DestroyTile wins over SlideTile redirect for destroyed boxes.
 - Terrain blocker + TileFeature requires an explicit future policy decision.
 
-## Implemented TileFeature Policies
-
-Button:
+## Button Policy
 
 - Button latch is runtime state stored as `TileFeatureFlags.Activated`.
 - Stage authoring must not set initial Button `Activated` state.
 - `ButtonActivatedCondition` reads only the final `WorldSnapshot` `Activated` flag.
 - `ButtonActivatedCondition` must not read `TilePresentationEvent` or `TilePresentationRequest` as objective completion evidence.
-- `ButtonActivated` `TilePresentationEvent` is derived from a pre/final state transition.
+- `ButtonActivated` event is derived from a pre/final state transition.
 - An already Activated Button must not create duplicate event, request, audio, or visual output on the next tick.
 - `ButtonActivated` event `TargetEntityId` is `0`.
 - `ButtonActivated` event does not carry the triggering box id yet. If needed later, add `TriggerEntityId` or an equivalent payload in a separate step.
+- If topology changes later make the Button inactive, an already completed Button objective condition remains complete because it reads the latched final snapshot flag.
 
-MoonBlock:
+## MoonBlock Policy
 
 - MoonBlock identity is `EntityType.Box + BoxArchetype.Moon`.
 - Do not add `EntityType.MoonBlock`.
@@ -92,25 +74,11 @@ MoonBlock:
 - A stage may have at most one initial MoonBlock spawn.
 - MoonBlock must carry `Push | Flip | Destroy` capability.
 - `MoonBlockOnly` selector is identity-based and must not re-check Push capability. Push/Flip/Destroy capability is guaranteed by stage validation.
-- `HasMoonBlockSource` currently means an initial MoonBlock spawn. MoonBlockGenerator MVP uses that spawn as its stable id/template source.
+- `WorldSnapshot.TryGetBoxArchetypeAt(Vector2Int, ...)` is legacy/convenience only. TileFeature selector code must use the `SurfaceCell` overload.
+- `HasMoonBlockSource` is retained as current/future naming. It currently means a generator-bound initial MoonBlock spawn; if generator-only templates are opened later, the meaning may expand by policy.
 - Generator-only MoonBlock templates are intentionally closed until a later authoring policy is defined.
-- `WorldSnapshot.TryGetBoxArchetypeAt(Vector2Int, ...)` is legacy/convenience only. TileFeature and MoonBlock selector code must use the `SurfaceCell` overload.
 
-MoonBlockGenerator:
-
-- MoonBlockGenerator respawn is authoritative gameplay; feedback is presentation-only.
-- MoonBlockGenerator emits `MoonBlockGenerated` only after actual respawn success.
-- MoonBlockGenerator does not emit `MoonBlockGeneratorBlocked` presentation events yet.
-- `MoonBlockGenerated` event `TargetEntityId` is the respawned MoonBlock entity id.
-- `MoonBlockGenerated` is sourced from respawn processor success facts, not final snapshot diffing.
-- MoonBlockGenerator must use `BottomFaceOnly`, `Direction2D.None`, and `TileFeatureBoxSelector.None`.
-- MoonBlockGenerator reuses the bound initial MoonBlock entity id and respawn template.
-- Unit/player/enemy occupants defer MoonBlockGenerator respawn.
-- Projectile occupants do not block MoonBlockGenerator respawn.
-- Normal Box occupants are detached/marked before the bound MoonBlock respawns.
-- TickPipeline must not run MoonBlockGenerator prefab, audio, UI, or visual work.
-
-DestroyTile:
+## DestroyTile Policy
 
 - DestroyTile uses movement-derived `TileEffectBoxContact`, not final snapshot scanning.
 - Stationary boxes are not destroyed.
@@ -126,7 +94,7 @@ DestroyTile:
 - DestroyTile activation rule is `BottomFaceOnly`.
 - `DestroyTileTriggered` event `TargetEntityId` is the destroyed box id.
 
-SlideTile:
+## SlideTile Policy
 
 - SlideTile activation rule is `FrontFaceOnly`.
 - SlideTile direction must be Up, Right, Down, or Left.
@@ -142,63 +110,161 @@ SlideTile:
 - `SlideTileRedirected` event carries a `Direction` payload.
 - `SlideTileRedirected` event, request, audio, and visual output are presentation-only and do not directly enter the canonical determinism hash.
 
-## Future TileFeatureState Draft
+## Barricade Policy
 
-The first runtime type should remain SurfaceCell-based and carry owner/source attribution:
+Barricade box-only blocker MVP is implemented. Barricade remains a TileFeature overlay, not occupancy, terrain, or an entity type.
 
-```csharp
-public readonly struct TileFeatureState
-{
-    public int TileId;
-    public SurfaceCell Cell;
-    public TileFeatureKind Kind;
-    public TileFeatureFlags Flags;
-    public int SourceEntityId;
-    public int OwnerEntityId;
-    public int TeamId;
-    public int LifetimeTicks;
-    public int Charges;
-}
-```
+- Barricade activation rule is `FrontFaceOnly`.
+- Barricade direction must be `None`.
+- Barricade selector must be `None`.
+- Barricade is a box-only movement blocker.
+- Unit/player/enemy traversal is not blocked.
+- Projectile movement is not blocked.
+- Flip landing, impact follow-through, and topology relocation are not blocked by Barricade.
+- Active Barricade blocks box push first step and sliding continuation entry.
+- Inactive Barricade does not block existing DestroyTile or SlideTile behavior.
+- Push/Destroy first-step blocked fallback stays the existing first-step semantics.
+- Active Barricade + DestroyTile same-cell emits `BarricadeBlocked`, not `DestroyTileTriggered`.
+- Active Barricade + SlideTile same-cell emits `BarricadeBlocked`, not `SlideTileRedirected`.
 
-This ADR does not implement the type.
+Barricade active-transition crush is separate from movement blocking.
 
-## Unit-Owned Tile Policies
+- Inactive to active transition may destroy a same-cell valid Box.
+- Active Barricade cells are not scanned every tick.
+- Crush uses logical `CubeTopologyState`, not visual progress, presenter state, or camera state.
+- Unit kill/eject and Projectile interaction are not implemented.
+- MoonBlock is a Box, so it may be crushed.
+- If DestroyTile and Barricade attempt to destroy the same box, DestroyTile wins.
+- `BarricadeCrushed` is emitted only when an actual crush operation is created.
 
-- StaticOwned
-- FollowOwner
-- LeaveTrail
-- PulseAroundOwner
+`BarricadeBlocked` is sourced from movement blocker facts. `BarricadeCrushed` is sourced from `TileFeatureEffectResolver.ResolveBarricadeCrushes`. They must not be merged into a generic BarricadeTriggered event.
 
-The first implementation should prioritize StaticOwned.
+## Exit Policy
 
-## Snapshot Budget Rule
+- Exit is a TileFeature overlay.
+- Exit is not `EntityType.Exit`.
+- Exit is not `TerrainFlags.Exit`.
+- Exit activation rule is `BottomFaceOnly`.
+- Exit direction must be `None`.
+- Exit selector must be `None`.
+- A stage may have at most one Exit.
+- Exit center cell is the canonical clear cell.
+- Exit 3x3 footprint is presentation/future prefab responsibility, not gameplay modeling.
+- Existing goal zone remains the canonical clear target.
+- In an Exit stage, the goal zone including face must exactly equal the Exit center one-cell zone.
+- Exit open is derived from required non-PrimaryGoal conditions complete plus active Exit.
+- Exit open is not mutable TileFeature state and must not reuse `TileFeatureFlags.Activated`.
+- Player is the only Exit clear trigger.
+- Enemy, projectile, MoonBlock, and Box do not trigger clear.
+- Box on Exit center blocks player clear through existing solid occupancy.
+- Exit clear uses the existing StageSession/evaluation/reward/progression lane.
+- Exit does not directly create `StageClearResult`.
 
-TileEffect-free ticks must add zero snapshot materialization. `postTileEffectSnapshot` must not be eagerly created.
+Exit presentation is presentation-only.
 
-A future TileEffect seam belongs after final movement/jump/phase relocation resolution and before final attack plan input collection. The attack input read surface must be materialized lazily only when TileEffect operations exist.
+- `ExitOpened` source is objective-derived transition.
+- `ExitOpened` emits only for required non-primary conditions incomplete to complete plus active Exit.
+- A stage with no required non-primary conditions is initially open and emits no `ExitOpened`.
+- `ExitEntered` source is objective clear tick plus player occupancy at active Exit center.
+- Same-tick open and enter emits both events, ordered `ExitOpened` before `ExitEntered`.
+- Exit events do not directly enter the canonical determinism hash.
+- UI/HUD, `StageResult`, and `ObjectiveStatus` are not changed by this TileFeature pass.
 
-Empty TileEffect batches must not dirty `ProjectedWorld`.
+## MoonBlockGenerator Policy
 
-Future TileEffect implementation should prefer a call-site guard that does not call `ProjectedWorld.ApplyBatch` when the TileEffect batch is empty, unless `ProjectedWorld.ApplyBatch` semantics are explicitly changed and snapshot budget tests are updated.
+- MoonBlockGenerator is a TileFeature overlay.
+- MoonBlockGenerator activation rule is `BottomFaceOnly`.
+- Direction must be `None`.
+- BoxSelector must be `None`.
+- `BoundEntityId > 0` is required.
+- `BoundEntityId` must reference an existing `StageSpawnKind.Box`.
+- The referenced Box must be `BoxArchetype.Moon`.
+- The referenced MoonBlock must have `Push | Flip | Destroy` capability.
+- A stage may have at most one MoonBlockGenerator.
+- Generator-only templates are not implemented.
+- Generator-bound initial MoonBlock spawn is the stable id/template source.
+- A live MoonBlock anywhere makes the generator a no-op.
+- Missing, dead, detached, or marked MoonBlock lets an active generator attempt respawn.
+- Empty generator cell respawns the MoonBlock.
+- Normal/non-Moon Box at the generator cell is detached/marked destroy before MoonBlock spawn.
+- Unit/player/enemy at the generator cell causes defer; no kill or eject occurs.
+- Projectile is not a blocker and is not destroyed.
+- Wall-like/non-box solid causes defer.
+- Blocking box destroy then MoonBlock spawn ordering is deterministic.
+- Final solid occupant at the generator cell must be the single MoonBlock.
+- Respawn uses the same stable entity id.
+- Respawn resets hp, board presence, marked/transient/timer/lock state.
+- Facing, archetype, and capabilities come from the template.
+- MoonBlockGenerator feedback must not use the generic RespawnedEntities presentation path.
+
+## MoonBlockGenerated Policy
+
+- `MoonBlockGenerated` event emits only on actual respawn success.
+- Event source is MoonBlockGenerator respawn processor success fact.
+- Final snapshot diffing must not create the event.
+- Event is created from the success fact after `writeContext.SpawnEntity(respawnEntity)`.
+- Live MoonBlock no-op emits no event.
+- Inactive generator emits no event.
+- Unit conflict defer emits no event.
+- Wall-like/non-box solid defer emits no event.
+- Invalid/skipped path emits no event.
+- `TargetEntityId` is the respawned MoonBlock entity id.
+- Event `Cell` is the generator cell.
+- `TileFeatureKind` is `MoonBlockGenerator`.
+- Blocking box id, spawn reason, and conflict replacement payload are not implemented.
+- Visual target is generator-tile feedback only and must not find MoonBlock entity views directly.
+- `MoonBlockGenerated` audio cue is optional.
+- `ButtonActivated` remains the only required TileFeatureAudio cue.
+
+## MoonBlockGeneratorBlocked Closed Policy
+
+`MoonBlockGeneratorBlocked` is intentionally not implemented.
+
+- No `TilePresentationEventKind.MoonBlockGeneratorBlocked`.
+- No `TilePresentationRequestKind.MoonBlockGeneratorBlocked`.
+- No `TileFeatureAudioCue.MoonBlockGeneratorBlocked`.
+- No `IMoonBlockGeneratorBlockedVisualTarget`.
+- Unit conflict defer emits no blocked event.
+- Wall-like/non-box solid defer emits no blocked event.
+- Inactive generator emits no blocked event.
+- Live MoonBlock no-op emits no blocked event.
+- Placement blocked or skipped invalid paths emit no blocked event.
+- Repeated defer across ticks emits no request, audio, or visual.
+- Blocked/defer feedback requires debounce/noise policy before opening.
+
+Future policy questions must be answered before opening this surface:
+
+- Emit every blocked tick or only first blocked tick?
+- Re-emit when blocker identity changes?
+- Separate UnitDefer and SolidBlocked event kinds?
+- Should inactive generator be silent forever?
+- Should wall-like solid block be warning-only, event, or validation error?
+- Should blocked audio be optional and throttled?
+- Should blocked visual be generator-local only?
+- Should blocked state be transient presentation memory or derived per tick?
 
 ## Presentation Rule
 
-TilePresentationEvent source is currently hybrid:
+Current `TilePresentationEvent` source matrix:
 
 - `ButtonActivated`: pre/final snapshot diff.
 - `DestroyTileTriggered`: TileEffectResolver-origin event.
 - `SlideTileRedirected`: TileEffectResolver-origin event.
+- `BarricadeBlocked`: movement blocker fact.
+- `BarricadeCrushed`: TileEffectResolver-origin event.
+- `ExitOpened`: objective-derived transition.
+- `ExitEntered`: objective clear tick plus player at active Exit center.
+- `MoonBlockGenerated`: MoonBlockGenerator respawn processor success fact.
 
 `TilePresentationEvent` is a presentation-only fact and must not enter the canonical determinism hash.
 
-`TilePresentationRequestPlanner` converts `TickPresentationData.TileEvents` to requests. It must not decide gameplay, read `WorldState`, read `WorldSnapshot`, or call `CreateSnapshot`.
+`TilePresentationRequestPlanner` converts events to requests only. It must not decide gameplay, read `WorldState`, read `WorldSnapshot`, or call `CreateSnapshot`.
 
 Coordinator request cache is replaced every tick. A no-event tick clears the cache to empty. Consumers must not consume, remove, or clear the request cache.
 
 Dedupe belongs to event generation. Planner and consumers do not dedupe; duplicate requests intentionally produce duplicate visual/audio handling.
 
-VFX, audio, and UI read `TilePresentationEvent` facts derived from `TickPresentationData`.
+VFX, audio, and UI consume facts derived from `TilePresentationEvent` or `TilePresentationRequest`.
 
 VFX, audio, and UI must not call `WorldState.CreateSnapshot` to infer TileFeature state.
 
@@ -210,6 +276,7 @@ VFX, audio, and UI must not call `WorldState.CreateSnapshot` to infer TileFeatur
 - Visual consumers must not parse `TickPresentationData.TileEvents` directly and must not call `TilePresentationRequestPlanner`.
 - Visual consumers must not reference `WorldState`, `WorldSnapshot`, `CreateSnapshot`, `ProjectedWorld`, `FinalizationBatch`, or `TickPipeline`.
 - Missing visual targets and unsupported optional target interfaces are no-op with optional diagnostics.
+- Duplicate requests are not deduped.
 - TileFeature visual binding is owned by `StagePresentationDefinition`.
 - Direct `TileId -> VisualPrefab` binding is the MVP.
 - `StageRuntimeBuildResult` must not contain TileFeature visual prefab or binding data.
@@ -222,7 +289,8 @@ VFX, audio, and UI must not call `WorldState.CreateSnapshot` to infer TileFeatur
 - TileFeatureAudio reads only `CurrentTilePresentationRequests`.
 - `TileFeatureAudioRequestPlanner` reads `TilePresentationRequest` values, not `TickPresentationData.TileEvents`, and must not call `TilePresentationRequestPlanner`.
 - `ButtonActivated` cue is required.
-- `DestroyTileTriggered` and `SlideTileRedirected` cues are optional.
+- `DestroyTileTriggered`, `SlideTileRedirected`, `BarricadeBlocked`, `BarricadeCrushed`, `ExitOpened`, `ExitEntered`, and `MoonBlockGenerated` cues are optional.
+- `MoonBlockGeneratorBlocked` cue does not exist.
 - Only Sfx one-shot playback is allowed.
 - Ui, Bgm, Voice, Ambience, Master, loop, and non-null playback policy bindings are rejected.
 - Missing optional bindings are no-op.
@@ -230,6 +298,7 @@ VFX, audio, and UI must not call `WorldState.CreateSnapshot` to infer TileFeatur
 - If a map is provided and `ButtonActivated` is missing, fail fast.
 - Do not open Play3D or spatial audio APIs.
 - SurfaceCell world-position audio is not implemented.
+- `StagePresentationDefinition` has no TileFeature audio binding.
 
 ## StagePresentationDefinition TileFeature Binding Rule
 
@@ -240,21 +309,45 @@ VFX, audio, and UI must not call `WorldState.CreateSnapshot` to infer TileFeatur
 - Duplicate registry policy is warning plus first-win.
 - Missing visual binding has no gameplay effect.
 - Runtime invalid binding is warning plus skip.
-- `StagePresentationDefinition` has no TileFeature audio binding yet.
+- `StagePresentationDefinition` has no TileFeature audio binding.
 - TileFeature visual binding and audio binding must not be mixed.
+- 3x3 Exit footprint placement is future/prefab authoring, not gameplay model.
 
-## Barricade Policy
+## UI Boundary
 
-Barricade box-only blocker MVP is implemented. Barricade remains a TileFeature overlay, not occupancy, terrain, or an entity type. Active Barricade blocks box push first-step and sliding-continuation entry only when active through `FrontFaceOnly`; unit, enemy, projectile, flip landing, impact follow-through, and topology relocation traversal ignore Barricade.
+- UI is not gameplay authority.
+- UI must not mutate `WorldState`.
+- UI must not call `WorldState.CreateSnapshot` to infer TileFeature state.
+- UI must not read `TilePresentationEvent` or `TilePresentationRequest` as objective completion evidence.
+- UI/HUD notifications for TileFeature are not implemented unless a separate UI.Application mapping step opens them.
+- `ObjectiveStatus` and `StageResult` are not modified by this hardening pass.
+- UI uses UIAccess / presentation snapshot / viewmodel flow.
 
-Barricade presentation is implemented as feedback-only metadata. `BarricadeBlocked` is sourced from movement blocker facts because a blocked box never enters the Barricade cell and no `TileEffectBoxContact` exists. `BarricadeCrushed` is sourced from `TileFeatureEffectResolver.ResolveBarricadeCrushes` only after an actual box destroy operation is created.
+## Audio Boundary
 
-Barricade and MoonBlockGenerated events flow through `TilePresentationEvent`, `TilePresentationRequest`, optional tile visual interfaces, and optional TileFeatureAudio Sfx cues. Events do not mutate gameplay state, do not enter the determinism hash, and presentation consumers must not call `WorldState.CreateSnapshot`.
+- Audio is a presentation concern.
+- `WorldState`, `TickPipeline`, and EntityLogic must not call playback.
+- Public playback remains 2D-only.
+- No Play3D or spatial contract is open.
+- Semantic meaning is owned by maps/profiles, not `AudioDefinition`.
+- TileFeatureAudio remains a separate lane.
+- UI audio remains hidden Ui channel and separate from TileFeatureAudio.
+
+## TickPipeline Authority Boundary
+
+- `WorldState` exposes no public TileFeature mutation API.
+- TileEffect resolver does not directly mutate `WorldState`.
+- Resolve stage uses `ProjectedWorld` / `FinalizationBatch`.
+- Finalize applies authoritative `WorldState` mutation.
+- Respawn phase write path uses `IWorldWriteContext`.
+- `TickPipeline` does not plan `TilePresentationRequest`.
+- `TickPipeline` does not execute visual/audio/UI.
+- `TickPipeline` only transports presentation facts where necessary.
 
 ## TerrainFlags Boundary
 
 `TerrainFlags` remains blocker terrain vocabulary. Future blocker-only flags may be added only when they preserve terrain blocker semantics.
 
-Do not add Trap, Hazard, Buff, Trigger, Aura, Zone, TileFeature, or other effect semantics to `TerrainFlags`.
+Do not add Trap, Hazard, Buff, Trigger, Aura, Zone, TileFeature, MoonBlockGenerator, Barricade, Exit, or other effect semantics to `TerrainFlags`.
 
 Any non-blocker terrain behavior or gameplay overlay effect belongs to TileFeature or another explicitly accepted future ADR. Any new `TerrainFlags` value that is not clearly blocker terrain vocabulary requires an ADR/test update before implementation.
