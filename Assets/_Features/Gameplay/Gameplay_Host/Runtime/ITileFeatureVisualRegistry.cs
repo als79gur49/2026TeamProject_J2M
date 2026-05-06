@@ -16,6 +16,11 @@ namespace Game.Feature.Gameplay.Host
         void PlayButtonActivated();
     }
 
+    public interface IDestroyTileVisualTarget
+    {
+        void PlayDestroyTileTriggered();
+    }
+
     public interface ITileFeatureVisualTargetConfigurator
     {
         void ConfigureTileFeature(int tileId, SurfaceCell cell);

@@ -36,6 +36,7 @@ namespace Game.Feature.Gameplay.Loop
     {
         None = 0,
         ButtonActivated = 1,
+        DestroyTileTriggered = 2,
     }
 
     public readonly struct TilePresentationEvent
@@ -47,7 +48,8 @@ namespace Game.Feature.Gameplay.Loop
             TileFeatureKind tileFeatureKind,
             int sourceEntityId,
             int ownerEntityId,
-            int teamId)
+            int teamId,
+            int targetEntityId = 0)
         {
             EventKind = eventKind;
             TileId = tileId;
@@ -56,6 +58,7 @@ namespace Game.Feature.Gameplay.Loop
             SourceEntityId = sourceEntityId;
             OwnerEntityId = ownerEntityId;
             TeamId = teamId;
+            TargetEntityId = targetEntityId;
         }
 
         public TilePresentationEventKind EventKind { get; }
@@ -71,6 +74,8 @@ namespace Game.Feature.Gameplay.Loop
         public int OwnerEntityId { get; }
 
         public int TeamId { get; }
+
+        public int TargetEntityId { get; }
     }
 
     public readonly struct TickEntityMotion

@@ -8,6 +8,7 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
     {
         None = 0,
         ButtonActivated = 1,
+        DestroyTileTriggered = 2,
     }
 
     public readonly struct TileFeatureAudioRequest
@@ -19,7 +20,8 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
             int sourceEntityId,
             int ownerEntityId,
             int teamId,
-            in AudioPlaybackContext context)
+            in AudioPlaybackContext context,
+            int targetEntityId = 0)
         {
             Cue = cue;
             TileId = tileId;
@@ -28,6 +30,7 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
             OwnerEntityId = ownerEntityId;
             TeamId = teamId;
             Context = context;
+            TargetEntityId = targetEntityId;
         }
 
         public TileFeatureAudioCue Cue { get; }
@@ -43,6 +46,8 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
         public int TeamId { get; }
 
         public AudioPlaybackContext Context { get; }
+
+        public int TargetEntityId { get; }
     }
 
     public static class TileFeatureAudioCueCatalog
@@ -60,6 +65,7 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
             {
                 TileFeatureAudioCue.None => nameof(TileFeatureAudioCue.None),
                 TileFeatureAudioCue.ButtonActivated => nameof(TileFeatureAudioCue.ButtonActivated),
+                TileFeatureAudioCue.DestroyTileTriggered => nameof(TileFeatureAudioCue.DestroyTileTriggered),
                 _ => throw new System.ArgumentOutOfRangeException(nameof(cue), cue, "Unsupported tile feature audio cue."),
             };
         }

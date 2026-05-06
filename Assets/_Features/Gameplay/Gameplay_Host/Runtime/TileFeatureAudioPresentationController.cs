@@ -84,7 +84,11 @@ namespace Game.Feature.Gameplay.Host
 
         private void PlayRequest(in TileFeatureAudioRequest request)
         {
-            var binding = _audioMap.ResolveOrThrow(request.Cue);
+            if (!TryResolveBinding(request.Cue, out var binding))
+            {
+                return;
+            }
+
             if (binding.HasAttachmentSlot &&
                 request.OwnerEntityId > 0 &&
                 TryResolveOwner(request.OwnerEntityId, out var owner))
@@ -94,6 +98,17 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _playbackPort.Play2D(binding.Definition, request.Context);
+        }
+
+        private bool TryResolveBinding(TileFeatureAudioCue cue, out AudioBinding binding)
+        {
+            if (cue == TileFeatureAudioCue.ButtonActivated)
+            {
+                binding = _audioMap.ResolveOrThrow(cue);
+                return true;
+            }
+
+            return _audioMap.TryResolveOptional(cue, out binding);
         }
 
         private bool TryResolveOwner(int ownerEntityId, out GameplayEntityView owner)

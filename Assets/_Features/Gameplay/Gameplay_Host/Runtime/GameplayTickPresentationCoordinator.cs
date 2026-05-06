@@ -239,7 +239,7 @@ namespace Game.Feature.Gameplay.Host
             RefreshTilePresentationRequests(result.PresentationData);
             _tileFeatureAudioPresentationController.ReplacePendingPlan(
                 _tileFeatureAudioRequestPlanner.BuildRequests(_currentTilePresentationRequests));
-            _tileFeatureVisualPresentationController.PlayButtonActivatedRequests(_currentTilePresentationRequests);
+            _tileFeatureVisualPresentationController.PlayRequests(_currentTilePresentationRequests);
             _summonedEnemyPresentationResolver.Reconcile(result);
             _committedFrameBuilder.StoreCommittedFrame(
                 result.FinalEntities,

@@ -251,7 +251,8 @@ namespace Game.Feature.Gameplay.Loop
                 snapshotAfterEnemyAi,
                 input.PlayerCommand,
                 resolvePhaseResult.ResolutionRecords,
-                _enemyGlidePresentationSettingsResolver);
+                _enemyGlidePresentationSettingsResolver,
+                resolvePhaseResult.TilePresentationEvents);
             var pendingDelayedAttackEffects = _delayedAttackEffectQueue.Snapshot();
             var tickResultData = _tickResultBuilder.Build(
                 finalAuthoritativeSnapshot,
@@ -996,12 +997,14 @@ namespace Game.Feature.Gameplay.Loop
                 movementStageBatch,
                 jumpLandingResolveBatch,
                 phaseRelocationResolveBatch);
+            IReadOnlyList<TilePresentationEvent> tilePresentationEvents = Array.Empty<TilePresentationEvent>();
             var tileEffectResult = _tileEffectResolver.Resolve(
                 new TileEffectResolutionContext(
                     tickIndex,
                     attackReadSnapshot,
                     _tileFeatureDefinitions,
                     tileEffectBoxContacts));
+            tilePresentationEvents = tileEffectResult.TileEvents;
             if (!tileEffectResult.IsEmpty)
             {
                 if (!tileEffectResult.Operations.IsEmpty)
@@ -1206,7 +1209,8 @@ namespace Game.Feature.Gameplay.Loop
                 postMovementSnapshot,
                 postAttackSnapshot,
                 contests,
-                resolutionRecords);
+                resolutionRecords,
+                tilePresentationEvents);
         }
 
         private void RunFinalizePhase(

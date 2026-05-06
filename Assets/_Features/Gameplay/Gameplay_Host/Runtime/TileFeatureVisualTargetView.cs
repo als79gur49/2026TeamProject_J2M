@@ -5,22 +5,32 @@ using UnityEngine.Events;
 namespace Game.Feature.Gameplay.Host
 {
     [DisallowMultipleComponent]
-    public sealed class TileFeatureVisualTargetView : MonoBehaviour, ITileFeatureVisualTarget, ITileFeatureVisualTargetConfigurator
+    public sealed class TileFeatureVisualTargetView :
+        MonoBehaviour,
+        ITileFeatureVisualTarget,
+        IDestroyTileVisualTarget,
+        ITileFeatureVisualTargetConfigurator
     {
         [SerializeField] private int tileId;
         [SerializeField] private SurfaceCell cell;
         [SerializeField] private Animator animator;
         [SerializeField] private string buttonActivatedTriggerName = "ButtonActivated";
+        [SerializeField] private string destroyTileTriggeredTriggerName = "DestroyTileTriggered";
         [SerializeField] private ParticleSystem buttonActivatedParticles;
+        [SerializeField] private ParticleSystem destroyTileTriggeredParticles;
         [SerializeField] private UnityEvent buttonActivatedPlayed;
+        [SerializeField] private UnityEvent destroyTileTriggeredPlayed;
 
         private int _debugPlayButtonActivatedCount;
+        private int _debugPlayDestroyTileTriggeredCount;
 
         public int TileId => tileId;
 
         public SurfaceCell Cell => cell;
 
         public int DebugPlayButtonActivatedCount => _debugPlayButtonActivatedCount;
+
+        public int DebugPlayDestroyTileTriggeredCount => _debugPlayDestroyTileTriggeredCount;
 
         public void Configure(int newTileId, SurfaceCell newCell)
         {
@@ -50,6 +60,25 @@ namespace Game.Feature.Gameplay.Host
             }
 
             buttonActivatedPlayed?.Invoke();
+        }
+
+        public void PlayDestroyTileTriggered()
+        {
+            _debugPlayDestroyTileTriggeredCount++;
+
+            if (animator != null &&
+                animator.runtimeAnimatorController != null &&
+                !string.IsNullOrWhiteSpace(destroyTileTriggeredTriggerName))
+            {
+                animator.SetTrigger(Animator.StringToHash(destroyTileTriggeredTriggerName));
+            }
+
+            if (destroyTileTriggeredParticles != null)
+            {
+                destroyTileTriggeredParticles.Play(withChildren: true);
+            }
+
+            destroyTileTriggeredPlayed?.Invoke();
         }
     }
 }

@@ -59,11 +59,16 @@ namespace Game.Feature.Gameplay.Loop
     {
         private readonly TileFeatureOperationBatch _operations;
         private readonly FinalizationBatch _entityOperations;
+        private readonly IReadOnlyList<TilePresentationEvent> _tileEvents;
 
-        public TileEffectResolutionResult(TileFeatureOperationBatch operations, FinalizationBatch entityOperations = null)
+        public TileEffectResolutionResult(
+            TileFeatureOperationBatch operations,
+            FinalizationBatch entityOperations = null,
+            IReadOnlyList<TilePresentationEvent> tileEvents = null)
         {
             _operations = operations ?? throw new ArgumentNullException(nameof(operations));
             _entityOperations = entityOperations;
+            _tileEvents = tileEvents ?? Array.Empty<TilePresentationEvent>();
         }
 
         public static TileEffectResolutionResult Empty => new(new TileFeatureOperationBatch());
@@ -72,7 +77,9 @@ namespace Game.Feature.Gameplay.Loop
 
         public FinalizationBatch EntityOperations => _entityOperations ?? new FinalizationBatch();
 
-        public bool IsEmpty => Operations.IsEmpty && EntityOperations.Operations.Count == 0;
+        public IReadOnlyList<TilePresentationEvent> TileEvents => _tileEvents ?? Array.Empty<TilePresentationEvent>();
+
+        public bool IsEmpty => Operations.IsEmpty && EntityOperations.Operations.Count == 0 && TileEvents.Count == 0;
     }
 
     internal interface ITileEffectResolver
@@ -120,12 +127,16 @@ namespace Game.Feature.Gameplay.Loop
                 operations.Add(TileFeatureOperation.Update(CreateActivatedState(tileFeature)));
             }
 
-            var entityOperations = ResolveDestroyTiles(context);
+            var entityOperations = ResolveDestroyTiles(context, out var tileEvents);
 
             return (operations == null || operations.IsEmpty) &&
-                   entityOperations.Operations.Count == 0
+                   entityOperations.Operations.Count == 0 &&
+                   tileEvents.Count == 0
                 ? TileEffectResolutionResult.Empty
-                : new TileEffectResolutionResult(operations ?? new TileFeatureOperationBatch(), entityOperations);
+                : new TileEffectResolutionResult(
+                    operations ?? new TileFeatureOperationBatch(),
+                    entityOperations,
+                    tileEvents);
         }
 
         private static bool ShouldLatchButton(
@@ -147,8 +158,11 @@ namespace Game.Feature.Gameplay.Loop
             return IsAcceptedBox(context.Snapshot, tileFeature.Cell, definition.BoxSelector);
         }
 
-        private static FinalizationBatch ResolveDestroyTiles(in TileEffectResolutionContext context)
+        private static FinalizationBatch ResolveDestroyTiles(
+            in TileEffectResolutionContext context,
+            out List<TilePresentationEvent> tileEvents)
         {
+            tileEvents = new List<TilePresentationEvent>();
             var batch = new FinalizationBatch();
             if (context.BoxContacts.Count == 0)
             {
@@ -156,11 +170,13 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             var destroyedBoxIds = new HashSet<int>();
+            var orderedContacts = new List<TileEffectBoxContact>(context.BoxContacts);
+            orderedContacts.Sort(CompareTileEffectBoxContacts);
             var tileFeaturesAtCell = new List<TileFeatureState>();
 
-            for (var i = 0; i < context.BoxContacts.Count; i++)
+            for (var i = 0; i < orderedContacts.Count; i++)
             {
-                var contact = context.BoxContacts[i];
+                var contact = orderedContacts[i];
                 if (contact.BoxEntityId <= 0 ||
                     destroyedBoxIds.Contains(contact.BoxEntityId))
                 {
@@ -186,12 +202,50 @@ namespace Game.Feature.Gameplay.Loop
                     batch.MarkDestroy(
                         contact.BoxEntityId,
                         CreateDestroyTileMetadata(context.TickIndex, contact.BoxEntityId, contact.Cell));
+                    tileEvents.Add(new TilePresentationEvent(
+                        TilePresentationEventKind.DestroyTileTriggered,
+                        tileFeature.TileId,
+                        tileFeature.Cell,
+                        tileFeature.Kind,
+                        tileFeature.SourceEntityId,
+                        tileFeature.OwnerEntityId,
+                        tileFeature.TeamId,
+                        targetEntityId: contact.BoxEntityId));
                     destroyedBoxIds.Add(contact.BoxEntityId);
                     break;
                 }
             }
 
             return batch;
+        }
+
+        private static int CompareTileEffectBoxContacts(TileEffectBoxContact left, TileEffectBoxContact right)
+        {
+            var cellCompare = CompareSurfaceCells(left.Cell, right.Cell);
+            if (cellCompare != 0)
+            {
+                return cellCompare;
+            }
+
+            var boxCompare = left.BoxEntityId.CompareTo(right.BoxEntityId);
+            if (boxCompare != 0)
+            {
+                return boxCompare;
+            }
+
+            return left.Kind.CompareTo(right.Kind);
+        }
+
+        private static int CompareSurfaceCells(SurfaceCell left, SurfaceCell right)
+        {
+            var faceCompare = left.face.CompareTo(right.face);
+            if (faceCompare != 0)
+            {
+                return faceCompare;
+            }
+
+            var xCompare = left.x.CompareTo(right.x);
+            return xCompare != 0 ? xCompare : left.y.CompareTo(right.y);
         }
 
         private static bool TryGetValidDestroyTarget(

@@ -7,6 +7,7 @@ namespace Game.Feature.Gameplay.Loop
     public enum TilePresentationRequestKind
     {
         ButtonActivated = 0,
+        DestroyTileTriggered = 1,
     }
 
     public readonly struct TilePresentationRequest
@@ -18,7 +19,8 @@ namespace Game.Feature.Gameplay.Loop
             TileFeatureKind tileFeatureKind,
             int sourceEntityId,
             int ownerEntityId,
-            int teamId)
+            int teamId,
+            int targetEntityId = 0)
         {
             RequestKind = requestKind;
             TileId = tileId;
@@ -27,6 +29,7 @@ namespace Game.Feature.Gameplay.Loop
             SourceEntityId = sourceEntityId;
             OwnerEntityId = ownerEntityId;
             TeamId = teamId;
+            TargetEntityId = targetEntityId;
         }
 
         public TilePresentationRequestKind RequestKind { get; }
@@ -42,6 +45,8 @@ namespace Game.Feature.Gameplay.Loop
         public int OwnerEntityId { get; }
 
         public int TeamId { get; }
+
+        public int TargetEntityId { get; }
     }
 
     public sealed class TilePresentationRequestPlanner
@@ -63,22 +68,41 @@ namespace Game.Feature.Gameplay.Loop
             for (var i = 0; i < tileEvents.Count; i++)
             {
                 var tileEvent = tileEvents[i];
-                if (tileEvent.EventKind != TilePresentationEventKind.ButtonActivated)
+                if (!TryMapRequestKind(tileEvent.EventKind, out var requestKind))
                 {
                     continue;
                 }
 
                 requests.Add(new TilePresentationRequest(
-                    TilePresentationRequestKind.ButtonActivated,
+                    requestKind,
                     tileEvent.TileId,
                     tileEvent.Cell,
                     tileEvent.TileFeatureKind,
                     tileEvent.SourceEntityId,
                     tileEvent.OwnerEntityId,
-                    tileEvent.TeamId));
+                    tileEvent.TeamId,
+                    tileEvent.TargetEntityId));
             }
 
             return requests.Count == 0 ? Array.Empty<TilePresentationRequest>() : requests;
+        }
+
+        private static bool TryMapRequestKind(
+            TilePresentationEventKind eventKind,
+            out TilePresentationRequestKind requestKind)
+        {
+            switch (eventKind)
+            {
+                case TilePresentationEventKind.ButtonActivated:
+                    requestKind = TilePresentationRequestKind.ButtonActivated;
+                    return true;
+                case TilePresentationEventKind.DestroyTileTriggered:
+                    requestKind = TilePresentationRequestKind.DestroyTileTriggered;
+                    return true;
+                default:
+                    requestKind = default;
+                    return false;
+            }
         }
     }
 }

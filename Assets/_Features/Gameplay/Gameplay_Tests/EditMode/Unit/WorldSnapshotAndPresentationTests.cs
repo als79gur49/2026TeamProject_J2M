@@ -89,6 +89,46 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(tileEvent.SourceEntityId, Is.EqualTo(31));
             Assert.That(tileEvent.OwnerEntityId, Is.EqualTo(41));
             Assert.That(tileEvent.TeamId, Is.EqualTo(3));
+            Assert.That(tileEvent.TargetEntityId, Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TickPresentationDataBuilder_TileEvents_MergesAndSortsResolverAndButtonEvents()
+        {
+            var buttonCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var destroyCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var preButton = CreateTileFeature(100, buttonCell, TileFeatureKind.Button, TileFeatureFlags.None);
+            var finalButton = CreateTileFeature(100, buttonCell, TileFeatureKind.Button, TileFeatureFlags.Activated);
+            var preSnapshot = CreateTileFeatureSnapshot(preButton);
+            var finalSnapshot = CreateTileFeatureSnapshot(finalButton);
+            var destroyEvent = new TilePresentationEvent(
+                TilePresentationEventKind.DestroyTileTriggered,
+                200,
+                destroyCell,
+                TileFeatureKind.Destroy,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0,
+                targetEntityId: 30);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileEvents: new[] { destroyEvent }));
+
+            Assert.That(presentationData.TileEvents, Has.Count.EqualTo(2));
+            Assert.That(
+                presentationData.TileEvents.Select(tileEvent => tileEvent.EventKind).ToArray(),
+                Is.EqualTo(new[] { TilePresentationEventKind.DestroyTileTriggered, TilePresentationEventKind.ButtonActivated }));
+            Assert.That(presentationData.TileEvents[0].TargetEntityId, Is.EqualTo(30));
+            Assert.That(presentationData.TileEvents[1].TargetEntityId, Is.Zero);
         }
 
         [Test]

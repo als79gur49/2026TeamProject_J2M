@@ -69,6 +69,46 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
             return resolved;
         }
 
+        public bool TryResolveOptional(TileFeatureAudioCue cue, out AudioBinding binding)
+        {
+            if (cue == TileFeatureAudioCue.None)
+            {
+                throw new ArgumentException("Tile feature audio cue cannot be None.", nameof(cue));
+            }
+
+            var cueLabel = TileFeatureAudioCueCatalog.Format(cue);
+            var found = false;
+            binding = null;
+            for (var i = 0; i < entries.Length; i++)
+            {
+                if (entries[i].Cue != cue)
+                {
+                    continue;
+                }
+
+                if (found)
+                {
+                    throw new InvalidOperationException(
+                        $"{name} contains duplicate tile feature audio cue '{cueLabel}'.");
+                }
+
+                found = true;
+                binding = entries[i].Binding;
+            }
+
+            if (!found)
+            {
+                return false;
+            }
+
+            AudioBindingDiagnostics.ValidateOrThrow(
+                binding,
+                name,
+                $"cue '{cueLabel}'",
+                CreateValidationOptions());
+            return true;
+        }
+
         public void ValidateOrThrow()
         {
             var validationErrors = CollectValidationErrors();

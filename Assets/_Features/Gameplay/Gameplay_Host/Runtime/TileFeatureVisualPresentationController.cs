@@ -21,6 +21,11 @@ namespace Game.Feature.Gameplay.Host
 
         public void PlayButtonActivatedRequests(IReadOnlyList<TilePresentationRequest> requests)
         {
+            PlayRequests(requests);
+        }
+
+        public void PlayRequests(IReadOnlyList<TilePresentationRequest> requests)
+        {
             if (requests == null)
             {
                 throw new ArgumentNullException(nameof(requests));
@@ -35,7 +40,7 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < requests.Count; i++)
             {
                 var request = requests[i];
-                if (request.RequestKind != TilePresentationRequestKind.ButtonActivated)
+                if (!IsSupportedVisualRequest(request.RequestKind))
                 {
                     continue;
                 }
@@ -44,12 +49,40 @@ namespace Game.Feature.Gameplay.Host
                     target == null)
                 {
                     _diagnosticSink?.Invoke(
-                        $"{nameof(TileFeatureVisualPresentationController)} missing ButtonActivated visual target for tile {request.TileId}.");
+                        $"{nameof(TileFeatureVisualPresentationController)} missing {request.RequestKind} visual target for tile {request.TileId}.");
                     continue;
                 }
 
-                target.PlayButtonActivated();
+                PlayRequest(request, target);
             }
+        }
+
+        private void PlayRequest(TilePresentationRequest request, ITileFeatureVisualTarget target)
+        {
+            switch (request.RequestKind)
+            {
+                case TilePresentationRequestKind.ButtonActivated:
+                    target.PlayButtonActivated();
+                    return;
+                case TilePresentationRequestKind.DestroyTileTriggered:
+                    if (target is IDestroyTileVisualTarget destroyTileTarget)
+                    {
+                        destroyTileTarget.PlayDestroyTileTriggered();
+                    }
+                    else
+                    {
+                        _diagnosticSink?.Invoke(
+                            $"{nameof(TileFeatureVisualPresentationController)} unsupported DestroyTileTriggered visual target for tile {request.TileId}.");
+                    }
+
+                    return;
+            }
+        }
+
+        private static bool IsSupportedVisualRequest(TilePresentationRequestKind requestKind)
+        {
+            return requestKind == TilePresentationRequestKind.ButtonActivated ||
+                   requestKind == TilePresentationRequestKind.DestroyTileTriggered;
         }
     }
 }

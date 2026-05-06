@@ -209,7 +209,8 @@ namespace Game.Feature.Gameplay.Loop
             WorldSnapshot postMovementSnapshot,
             WorldSnapshot postAttackSnapshot,
             List<Contest> contests,
-            List<ResolutionRecord> resolutionRecords)
+            List<ResolutionRecord> resolutionRecords,
+            IReadOnlyList<TilePresentationEvent> tilePresentationEvents = null)
         {
             MovementPhaseResult = movementPhaseResult ?? throw new ArgumentNullException(nameof(movementPhaseResult));
             AttackPhaseResult = attackPhaseResult ?? throw new ArgumentNullException(nameof(attackPhaseResult));
@@ -219,6 +220,7 @@ namespace Game.Feature.Gameplay.Loop
             PostAttackSnapshot = postAttackSnapshot ?? throw new ArgumentNullException(nameof(postAttackSnapshot));
             Contests = contests ?? throw new ArgumentNullException(nameof(contests));
             ResolutionRecords = resolutionRecords ?? throw new ArgumentNullException(nameof(resolutionRecords));
+            TilePresentationEvents = tilePresentationEvents ?? Array.Empty<TilePresentationEvent>();
         }
 
         public MovementPhaseResult MovementPhaseResult { get; }
@@ -236,6 +238,8 @@ namespace Game.Feature.Gameplay.Loop
         public List<Contest> Contests { get; }
 
         public List<ResolutionRecord> ResolutionRecords { get; }
+
+        public IReadOnlyList<TilePresentationEvent> TilePresentationEvents { get; }
     }
 
     internal sealed class AttackPlanBuildResult

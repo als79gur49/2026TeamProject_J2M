@@ -212,6 +212,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void GameplayTickViewPresenter_DestroyTileRequest_InvokesAttachedTileVisualTargetAndKeepsRequestCache()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_DestroyTileRequest_InvokesAttachedTileVisualTargetAndKeepsRequestCache));
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                var target = AttachTileVisualTarget(rootObject, presenter, 100, cell);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    Array.Empty<EntityState>(),
+                    topology,
+                    CreateTilePresentationData(CreateDestroyTileTriggeredTileEvent(100, cell, targetEntityId: 20))));
+
+                Assert.That(target.DebugPlayDestroyTileTriggeredCount, Is.EqualTo(1));
+                Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
+                Assert.That(presenter.CurrentTilePresentationRequests, Has.Count.EqualTo(1));
+                Assert.That(presenter.CurrentTilePresentationRequests[0].RequestKind, Is.EqualTo(TilePresentationRequestKind.DestroyTileTriggered));
+                Assert.That(presenter.CurrentTilePresentationRequests[0].TargetEntityId, Is.EqualTo(20));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void GameplayTickViewPresenter_ButtonActivatedRequest_NextTickWithoutRequest_DoesNotInvokeAgain()
         {
             var rootObject = new GameObject(nameof(GameplayTickViewPresenter_ButtonActivatedRequest_NextTickWithoutRequest_DoesNotInvokeAgain));
@@ -4501,6 +4531,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 sourceEntityId: tileId + 1,
                 ownerEntityId: tileId + 2,
                 teamId: tileId + 3);
+        }
+
+        private static TilePresentationEvent CreateDestroyTileTriggeredTileEvent(
+            int tileId,
+            SurfaceCell cell,
+            int targetEntityId)
+        {
+            return new TilePresentationEvent(
+                TilePresentationEventKind.DestroyTileTriggered,
+                tileId,
+                cell,
+                TileFeatureKind.Destroy,
+                sourceEntityId: tileId + 1,
+                ownerEntityId: tileId + 2,
+                teamId: tileId + 3,
+                targetEntityId: targetEntityId);
         }
 
         private static TickPresentationData CreateKinematicPresentationData(

@@ -24,13 +24,13 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
             for (var i = 0; i < tilePresentationRequests.Count; i++)
             {
                 var request = tilePresentationRequests[i];
-                if (request.RequestKind != TilePresentationRequestKind.ButtonActivated)
+                if (!TryMapCue(request.RequestKind, out var cue))
                 {
                     continue;
                 }
 
                 requests.Add(new TileFeatureAudioRequest(
-                    TileFeatureAudioCue.ButtonActivated,
+                    cue,
                     request.TileId,
                     request.Cell,
                     request.SourceEntityId,
@@ -38,10 +38,27 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
                     request.TeamId,
                     new AudioPlaybackContext(
                         ownerEntityId: request.OwnerEntityId > 0 ? request.OwnerEntityId : null,
-                        debugTag: TileFeatureAudioCueCatalog.Format(TileFeatureAudioCue.ButtonActivated))));
+                        debugTag: TileFeatureAudioCueCatalog.Format(cue)),
+                    request.TargetEntityId));
             }
 
             return requests.Count == 0 ? Array.Empty<TileFeatureAudioRequest>() : requests;
+        }
+
+        private static bool TryMapCue(TilePresentationRequestKind requestKind, out TileFeatureAudioCue cue)
+        {
+            switch (requestKind)
+            {
+                case TilePresentationRequestKind.ButtonActivated:
+                    cue = TileFeatureAudioCue.ButtonActivated;
+                    return true;
+                case TilePresentationRequestKind.DestroyTileTriggered:
+                    cue = TileFeatureAudioCue.DestroyTileTriggered;
+                    return true;
+                default:
+                    cue = default;
+                    return false;
+            }
         }
     }
 }

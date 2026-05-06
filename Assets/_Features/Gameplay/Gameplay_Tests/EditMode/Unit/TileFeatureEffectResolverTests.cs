@@ -275,6 +275,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(result.EntityOperations.Operations[0].Kind, Is.EqualTo(FinalizationOperationKind.SetBoardPresence));
             Assert.That(result.EntityOperations.Operations[1].Kind, Is.EqualTo(FinalizationOperationKind.MarkDestroy));
             Assert.That(result.EntityOperations.Operations[1].EntityId, Is.EqualTo(20));
+            Assert.That(result.TileEvents, Has.Count.EqualTo(1));
+            var tileEvent = result.TileEvents[0];
+            Assert.That(tileEvent.EventKind, Is.EqualTo(TilePresentationEventKind.DestroyTileTriggered));
+            Assert.That(tileEvent.TileId, Is.EqualTo(10));
+            Assert.That(tileEvent.Cell, Is.EqualTo(cell));
+            Assert.That(tileEvent.TileFeatureKind, Is.EqualTo(TileFeatureKind.Destroy));
+            Assert.That(tileEvent.TargetEntityId, Is.EqualTo(20));
             Assert.That(snapshot.TryGetTileFeature(10, out var storedTile), Is.True);
             Assert.That(storedTile.Kind, Is.EqualTo(TileFeatureKind.Destroy));
         }
@@ -358,6 +365,43 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(result.EntityOperations.Operations.Count, Is.EqualTo(2));
             Assert.That(result.EntityOperations.Operations[1].Kind, Is.EqualTo(FinalizationOperationKind.MarkDestroy));
+            Assert.That(result.TileEvents, Has.Count.EqualTo(1));
+            Assert.That(result.TileEvents[0].TargetEntityId, Is.EqualTo(20));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DestroyTile_MultipleMovingBoxes_ProducesDeterministicPresentationEvents()
+        {
+            var firstCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var secondCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var snapshot = CreateWorldState(
+                    new[]
+                    {
+                        CreateBox(30, firstCell),
+                        CreateBox(20, secondCell),
+                    },
+                    new[]
+                    {
+                        CreateTileFeature(300, firstCell, TileFeatureKind.Destroy),
+                        CreateTileFeature(100, secondCell, TileFeatureKind.Destroy),
+                    })
+                .CreateSnapshot();
+
+            var result = Resolve(
+                snapshot,
+                new[]
+                {
+                    new TileEffectBoxContact(30, firstCell, TileEffectBoxContactKind.PushEnter),
+                    new TileEffectBoxContact(20, secondCell, TileEffectBoxContactKind.PushEnter),
+                    new TileEffectBoxContact(20, secondCell, TileEffectBoxContactKind.SlideEnter),
+                },
+                CreateDefinition(300, TileFeatureActivationRule.BottomFaceOnly),
+                CreateDefinition(100, TileFeatureActivationRule.BottomFaceOnly));
+
+            Assert.That(result.EntityOperations.Operations.Count, Is.EqualTo(4));
+            Assert.That(result.TileEvents.Select(tileEvent => tileEvent.TargetEntityId).ToArray(), Is.EqualTo(new[] { 20, 30 }));
+            Assert.That(result.TileEvents.Select(tileEvent => tileEvent.TileId).ToArray(), Is.EqualTo(new[] { 100, 300 }));
         }
 
         [Test]
@@ -391,6 +435,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(attackReadSnapshot.TryGetSolidSemanticAt(destroyCell, out _), Is.False);
             Assert.That(worldState.CreateSnapshot().TryGetEntity(20, out _), Is.False);
             Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=20"));
+            Assert.That(result.PresentationData.TileEvents, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.DestroyTileTriggered));
+            Assert.That(result.PresentationData.TileEvents[0].TargetEntityId, Is.EqualTo(20));
         }
 
         [Test]
@@ -418,6 +465,50 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(withDestroyFirst, Is.EqualTo(withDestroySecond));
             Assert.That(withDestroyFirst, Is.Not.EqualTo(withoutDestroy));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DestroyTile_PresentationEvent_DoesNotEnterDeterminismHash()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var snapshot = CreateWorldState(
+                    Array.Empty<EntityState>(),
+                    new[] { CreateTileFeature(100, cell, TileFeatureKind.Destroy) })
+                .CreateSnapshot();
+            var hashBuilder = new DeterminismHashBuilder();
+            var presentationData = new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                Array.Empty<TickPlayerDeathPresentationSignal>(),
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                Array.Empty<TickEnemyChargePresentationSignal>(),
+                Array.Empty<TickEntityExitPresentationSignal>(),
+                Array.Empty<TickImpactTransientPresentationSignal>(),
+                Array.Empty<FlipImpactPresentationSignal>(),
+                tileEvents: new[]
+                {
+                    new TilePresentationEvent(
+                        TilePresentationEventKind.DestroyTileTriggered,
+                        100,
+                        cell,
+                        TileFeatureKind.Destroy,
+                        sourceEntityId: 0,
+                        ownerEntityId: 0,
+                        teamId: 0,
+                        targetEntityId: 20),
+                });
+
+            Assert.That(
+                hashBuilder.Build(3, snapshot, CreateTickResultData(snapshot, TickPresentationData.Empty)),
+                Is.EqualTo(hashBuilder.Build(3, snapshot, CreateTickResultData(snapshot, presentationData))));
         }
 
         [Test]
@@ -655,14 +746,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(counts.ProjectedWorldEmptyApplyBatchCount, Is.EqualTo(12));
         }
 
-        private static TickResultData CreateTickResultData(WorldSnapshot snapshot)
+        private static TickResultData CreateTickResultData(
+            WorldSnapshot snapshot,
+            TickPresentationData presentationData = null)
         {
             var finalEntities = new List<EntityState>();
             snapshot.EnumerateEntitiesOrdered(finalEntities);
             return new TickResultData(
                 finalEntities,
                 Array.Empty<DelayedAttackEffectRecord>(),
-                Array.Empty<string>());
+                Array.Empty<string>(),
+                presentationData ?? TickPresentationData.Empty);
         }
 
         private static WorldState CreateWorldState(
@@ -690,16 +784,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int tileId,
             SurfaceCell cell,
             TileFeatureKind kind,
-            TileFeatureFlags flags = TileFeatureFlags.None)
+            TileFeatureFlags flags = TileFeatureFlags.None,
+            int sourceEntityId = 0,
+            int ownerEntityId = 0,
+            int teamId = 0)
         {
             return new TileFeatureState(
                 tileId,
                 cell,
                 kind,
                 flags,
-                sourceEntityId: 0,
-                ownerEntityId: 0,
-                teamId: 0,
+                sourceEntityId,
+                ownerEntityId,
+                teamId,
                 lifetimeTicks: 0,
                 charges: 0);
         }

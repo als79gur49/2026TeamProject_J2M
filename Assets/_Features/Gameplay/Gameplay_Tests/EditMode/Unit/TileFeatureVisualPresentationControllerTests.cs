@@ -44,6 +44,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void DestroyTileTriggeredRequest_WithSupportedTargetView_CallsPlayDestroyTileTriggeredOnce()
+        {
+            var rootObject = new GameObject(nameof(DestroyTileTriggeredRequest_WithSupportedTargetView_CallsPlayDestroyTileTriggeredOnce));
+            var targetObject = new GameObject("DestroyTileVisualTarget");
+            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+
+            try
+            {
+                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+                target.Configure(100, cell);
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(registry);
+
+                controller.PlayRequests(new[] { CreateDestroyRequest(100, cell) });
+
+                Assert.That(target.DebugPlayDestroyTileTriggeredCount, Is.EqualTo(1));
+                Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void ButtonActivatedRequest_MissingTarget_NoOpsWithOptionalDiagnostic()
         {
             var diagnostics = new List<string>();
@@ -55,6 +84,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(diagnostics, Has.Count.EqualTo(1));
             Assert.That(diagnostics[0], Does.Contain("404"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void DestroyTileTriggeredRequest_UnsupportedTarget_NoOpsWithOptionalDiagnostic()
+        {
+            var diagnostics = new List<string>();
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var target = new RecordingTarget(100, cell);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(new RecordingRegistry(target));
+            controller.SetDiagnosticSink(diagnostics.Add);
+
+            controller.PlayRequests(new[] { CreateDestroyRequest(100, cell) });
+
+            Assert.That(target.PlayCount, Is.Zero);
+            Assert.That(diagnostics, Has.Count.EqualTo(1));
+            Assert.That(diagnostics[0], Does.Contain("unsupported DestroyTileTriggered"));
         }
 
         [Test]
@@ -135,6 +182,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
             });
 
             Assert.That(target.PlayCount, Is.EqualTo(2));
+            Assert.That(registry.LookupOrder.ToArray(), Is.EqualTo(new[] { 100, 100 }));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void DuplicateDestroyTileRequests_AreNotDeduped()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var target = new RecordingDestroyTarget(100, cell);
+            var registry = new RecordingRegistry(target);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(registry);
+
+            controller.PlayRequests(new[]
+            {
+                CreateDestroyRequest(target.TileId, target.Cell),
+                CreateDestroyRequest(target.TileId, target.Cell),
+            });
+
+            Assert.That(target.DestroyPlayCount, Is.EqualTo(2));
             Assert.That(registry.LookupOrder.ToArray(), Is.EqualTo(new[] { 100, 100 }));
         }
 
@@ -274,6 +341,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 teamId: tileId + 3);
         }
 
+        private static TilePresentationRequest CreateDestroyRequest(int tileId, SurfaceCell cell)
+        {
+            return new TilePresentationRequest(
+                TilePresentationRequestKind.DestroyTileTriggered,
+                tileId,
+                cell,
+                TileFeatureKind.Destroy,
+                sourceEntityId: tileId + 1,
+                ownerEntityId: tileId + 2,
+                teamId: tileId + 3,
+                targetEntityId: tileId + 4);
+        }
+
         private static void InvokeStageTileFeatureVisualInstantiation(
             IReadOnlyList<TileFeaturePresentationResolvedBinding> bindings,
             IReadOnlyList<TileFeatureState> initialTileFeatures,
@@ -340,6 +420,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 PlayCount++;
                 _calls?.Add(TileId);
+            }
+        }
+
+        private sealed class RecordingDestroyTarget : ITileFeatureVisualTarget, IDestroyTileVisualTarget
+        {
+            public RecordingDestroyTarget(int tileId, SurfaceCell cell)
+            {
+                TileId = tileId;
+                Cell = cell;
+            }
+
+            public int TileId { get; }
+
+            public SurfaceCell Cell { get; }
+
+            public int ButtonPlayCount { get; private set; }
+
+            public int DestroyPlayCount { get; private set; }
+
+            public void PlayButtonActivated()
+            {
+                ButtonPlayCount++;
+            }
+
+            public void PlayDestroyTileTriggered()
+            {
+                DestroyPlayCount++;
             }
         }
     }

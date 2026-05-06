@@ -330,7 +330,8 @@ namespace Game.Feature.Gameplay.Loop
             WorldSnapshot jumpBaselineSnapshot = null,
             PlayerTickCommand playerCommand = default,
             IReadOnlyList<ResolutionRecord> resolutionRecords = null,
-            IEnemyGlidePresentationSettingsResolver enemyGlidePresentationSettingsResolver = null)
+            IEnemyGlidePresentationSettingsResolver enemyGlidePresentationSettingsResolver = null,
+            IReadOnlyList<TilePresentationEvent> tileEvents = null)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -344,7 +345,8 @@ namespace Game.Feature.Gameplay.Loop
                 jumpBaselineSnapshot,
                 playerCommand,
                 resolutionRecords,
-                enemyGlidePresentationSettingsResolver)
+                enemyGlidePresentationSettingsResolver,
+                tileEvents)
         {
         }
 
@@ -361,7 +363,8 @@ namespace Game.Feature.Gameplay.Loop
             WorldSnapshot jumpBaselineSnapshot = null,
             PlayerTickCommand playerCommand = default,
             IReadOnlyList<ResolutionRecord> resolutionRecords = null,
-            IEnemyGlidePresentationSettingsResolver enemyGlidePresentationSettingsResolver = null)
+            IEnemyGlidePresentationSettingsResolver enemyGlidePresentationSettingsResolver = null,
+            IReadOnlyList<TilePresentationEvent> tileEvents = null)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -376,7 +379,8 @@ namespace Game.Feature.Gameplay.Loop
                 jumpBaselineSnapshot,
                 playerCommand,
                 resolutionRecords,
-                enemyGlidePresentationSettingsResolver)
+                enemyGlidePresentationSettingsResolver,
+                tileEvents)
         {
         }
 
@@ -393,7 +397,8 @@ namespace Game.Feature.Gameplay.Loop
             WorldSnapshot jumpBaselineSnapshot = null,
             PlayerTickCommand playerCommand = default,
             IReadOnlyList<ResolutionRecord> resolutionRecords = null,
-            IEnemyGlidePresentationSettingsResolver enemyGlidePresentationSettingsResolver = null)
+            IEnemyGlidePresentationSettingsResolver enemyGlidePresentationSettingsResolver = null,
+            IReadOnlyList<TilePresentationEvent> tileEvents = null)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -408,7 +413,8 @@ namespace Game.Feature.Gameplay.Loop
                 jumpBaselineSnapshot,
                 playerCommand,
                 resolutionRecords,
-                enemyGlidePresentationSettingsResolver)
+                enemyGlidePresentationSettingsResolver,
+                tileEvents)
         {
         }
 
@@ -426,7 +432,8 @@ namespace Game.Feature.Gameplay.Loop
             WorldSnapshot jumpBaselineSnapshot = null,
             PlayerTickCommand playerCommand = default,
             IReadOnlyList<ResolutionRecord> resolutionRecords = null,
-            IEnemyGlidePresentationSettingsResolver enemyGlidePresentationSettingsResolver = null)
+            IEnemyGlidePresentationSettingsResolver enemyGlidePresentationSettingsResolver = null,
+            IReadOnlyList<TilePresentationEvent> tileEvents = null)
         {
             PreMovementSnapshot = preMovementSnapshot ?? throw new ArgumentNullException(nameof(preMovementSnapshot));
             PostMovementSnapshot = postMovementSnapshot ?? throw new ArgumentNullException(nameof(postMovementSnapshot));
@@ -442,6 +449,7 @@ namespace Game.Feature.Gameplay.Loop
             PlayerCommand = playerCommand;
             ResolutionRecords = resolutionRecords ?? Array.Empty<ResolutionRecord>();
             EnemyGlidePresentationSettingsResolver = enemyGlidePresentationSettingsResolver;
+            TileEvents = tileEvents ?? Array.Empty<TilePresentationEvent>();
         }
 
         public WorldSnapshot PreMovementSnapshot { get; }
@@ -472,6 +480,8 @@ namespace Game.Feature.Gameplay.Loop
         public PlayerTickCommand PlayerCommand { get; }
 
         public IReadOnlyList<ResolutionRecord> ResolutionRecords { get; }
+
+        public IReadOnlyList<TilePresentationEvent> TileEvents { get; }
 
         internal IEnemyGlidePresentationSettingsResolver EnemyGlidePresentationSettingsResolver { get; }
     }
@@ -591,6 +601,11 @@ namespace Game.Feature.Gameplay.Loop
             in TickPresentationBuildContext context,
             List<TilePresentationEvent> tileEvents)
         {
+            for (var i = 0; i < context.TileEvents.Count; i++)
+            {
+                tileEvents.Add(context.TileEvents[i]);
+            }
+
             var finalTileFeatures = new List<TileFeatureState>();
             context.FinalAuthoritativeSnapshot.EnumerateTileFeaturesOrdered(finalTileFeatures);
 
@@ -620,6 +635,56 @@ namespace Game.Feature.Gameplay.Loop
                         finalTileFeature.OwnerEntityId,
                         finalTileFeature.TeamId));
             }
+
+            tileEvents.Sort(CompareTilePresentationEvents);
+        }
+
+        private static int CompareTilePresentationEvents(TilePresentationEvent left, TilePresentationEvent right)
+        {
+            var cellCompare = CompareSurfaceCells(left.Cell, right.Cell);
+            if (cellCompare != 0)
+            {
+                return cellCompare;
+            }
+
+            var tileCompare = left.TileId.CompareTo(right.TileId);
+            if (tileCompare != 0)
+            {
+                return tileCompare;
+            }
+
+            var kindCompare = left.EventKind.CompareTo(right.EventKind);
+            if (kindCompare != 0)
+            {
+                return kindCompare;
+            }
+
+            var targetCompare = left.TargetEntityId.CompareTo(right.TargetEntityId);
+            if (targetCompare != 0)
+            {
+                return targetCompare;
+            }
+
+            var sourceCompare = left.SourceEntityId.CompareTo(right.SourceEntityId);
+            if (sourceCompare != 0)
+            {
+                return sourceCompare;
+            }
+
+            var ownerCompare = left.OwnerEntityId.CompareTo(right.OwnerEntityId);
+            return ownerCompare != 0 ? ownerCompare : left.TeamId.CompareTo(right.TeamId);
+        }
+
+        private static int CompareSurfaceCells(SurfaceCell left, SurfaceCell right)
+        {
+            var faceCompare = left.face.CompareTo(right.face);
+            if (faceCompare != 0)
+            {
+                return faceCompare;
+            }
+
+            var xCompare = left.x.CompareTo(right.x);
+            return xCompare != 0 ? xCompare : left.y.CompareTo(right.y);
         }
 
         private static void BuildPlayerDeathHoldPresentation(
