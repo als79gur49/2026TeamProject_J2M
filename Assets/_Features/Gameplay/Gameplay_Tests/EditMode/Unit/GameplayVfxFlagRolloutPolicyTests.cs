@@ -25,25 +25,116 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static readonly FlagInfo[] VfxFlags =
         {
-            new("EnableEnemyJumpTargetVfx", "enableEnemyJumpTargetVfx", "EnemyVfxCue.JumperLandingTarget"),
-            new("EnableEnemyJumpLandingDustVfx", "enableEnemyJumpLandingDustVfx", "EnemyVfxCue.JumperLandingDust"),
-            new("EnableGameplayVfxDamageBurstMigration", "enableGameplayVfxDamageBurstMigration", "PlayerVfxCue.Damage"),
-            new("EnableGameplayVfxEnemyDamageBurstMigration", "enableGameplayVfxEnemyDamageBurstMigration", "EnemyVfxCue.Damage"),
-            new("EnableGameplayVfxBoxDestroySmokeMigration", "enableGameplayVfxBoxDestroySmokeMigration", "BoxVfxCue.DestroySmoke"),
-            new("EnableGameplayVfxItemConsumeBurstMigration", "enableGameplayVfxItemConsumeBurstMigration", "BoxVfxCue.ItemConsume"),
-            new("EnableGameplayVfxEnemyDeathBurstMigration", "enableGameplayVfxEnemyDeathBurstMigration", "EnemyVfxCue.Death"),
-            new("EnableGameplayVfxEnemyDeathMotionMigration", "enableGameplayVfxEnemyDeathMotionMigration", "EnemyVfxCue.DeathMotion"),
-            new("EnableGameplayVfxUtilityWindupMigration", "enableGameplayVfxUtilityWindupMigration", "EnemyVfxCue.UtilityWindup"),
-            new("EnableGameplayVfxFrontFaceShieldActiveMigration", "enableGameplayVfxFrontFaceShieldActiveMigration", "EnemyVfxCue.FrontFaceShieldActive"),
-            new("EnableGameplayVfxFrontFaceShieldBlockMigration", "enableGameplayVfxFrontFaceShieldBlockMigration", "EnemyVfxCue.FrontFaceShieldBlock"),
-            new("EnableGameplayVfxFlipImpactBurstMigration", "enableGameplayVfxFlipImpactBurstMigration", "BoxVfxCue.FlipImpactBurst"),
-            new("EnableGameplayVfxFlipDestroySelfMotionMigration", "enableGameplayVfxFlipDestroySelfMotionMigration", "BoxVfxCue.FlipDestroySelfMotion"),
-            new("EnableGameplayVfxBoxSlideTrail", "enableGameplayVfxBoxSlideTrail", "BoxVfxCue.SlideDustTrail"),
+            new(
+                "EnableGameplayVfxDamageBurstMigration",
+                "enableGameplayVfxDamageBurstMigration",
+                "PlayerVfxCue.Damage",
+                "Migration",
+                "Tier 1",
+                "targeted tests + visual spot check"),
+            new(
+                "EnableGameplayVfxEnemyDamageBurstMigration",
+                "enableGameplayVfxEnemyDamageBurstMigration",
+                "EnemyVfxCue.Damage",
+                "Augmentation-style VFX lane",
+                "Tier 1",
+                "targeted tests + visual spot check"),
+            new(
+                "EnableGameplayVfxBoxDestroySmokeMigration",
+                "enableGameplayVfxBoxDestroySmokeMigration",
+                "BoxVfxCue.DestroySmoke",
+                "Migration",
+                "Tier 1",
+                "targeted tests + visual spot check"),
+            new(
+                "EnableGameplayVfxItemConsumeBurstMigration",
+                "enableGameplayVfxItemConsumeBurstMigration",
+                "BoxVfxCue.ItemConsume",
+                "Migration",
+                "Tier 1",
+                "targeted tests + visual spot check"),
+            new(
+                "EnableEnemyJumpLandingDustVfx",
+                "enableEnemyJumpLandingDustVfx",
+                "EnemyVfxCue.JumperLandingDust",
+                "Augmentation",
+                "Tier 1",
+                "targeted tests + visual spot check"),
+            new(
+                "EnableGameplayVfxBoxSlideTrail",
+                "enableGameplayVfxBoxSlideTrail",
+                "BoxVfxCue.SlideDustTrail",
+                "Augmentation / parameterized motion",
+                "Tier 1",
+                "targeted tests + density visual spot check"),
+            new(
+                "EnableEnemyJumpTargetVfx",
+                "enableEnemyJumpTargetVfx",
+                "EnemyVfxCue.JumperLandingTarget",
+                "Augmentation",
+                "Tier 2",
+                "manual visual approval + targeted regression"),
+            new(
+                "EnableGameplayVfxUtilityWindupMigration",
+                "enableGameplayVfxUtilityWindupMigration",
+                "EnemyVfxCue.UtilityWindup",
+                "Migration",
+                "Tier 2",
+                "manual visual approval + targeted regression"),
+            new(
+                "EnableGameplayVfxFrontFaceShieldActiveMigration",
+                "enableGameplayVfxFrontFaceShieldActiveMigration",
+                "EnemyVfxCue.FrontFaceShieldActive",
+                "Migration",
+                "Tier 2",
+                "manual visual approval + targeted regression"),
+            new(
+                "EnableGameplayVfxFrontFaceShieldBlockMigration",
+                "enableGameplayVfxFrontFaceShieldBlockMigration",
+                "EnemyVfxCue.FrontFaceShieldBlock",
+                "Migration",
+                "Tier 2",
+                "manual visual approval + targeted regression"),
+            new(
+                "EnableGameplayVfxFlipImpactBurstMigration",
+                "enableGameplayVfxFlipImpactBurstMigration",
+                "BoxVfxCue.FlipImpactBurst",
+                "Migration",
+                "Tier 2",
+                "manual visual approval + targeted regression"),
+            new(
+                "EnableGameplayVfxEnemyDeathBurstMigration",
+                "enableGameplayVfxEnemyDeathBurstMigration",
+                "EnemyVfxCue.Death",
+                "Migration burst",
+                "Tier 3",
+                "parity visual approval + targeted regression + rollback review"),
+            new(
+                "EnableGameplayVfxEnemyDeathMotionMigration",
+                "enableGameplayVfxEnemyDeathMotionMigration",
+                "EnemyVfxCue.DeathMotion",
+                "Migration / parameterized motion",
+                "Tier 3",
+                "parity visual approval + targeted regression + rollback review"),
+            new(
+                "EnableGameplayVfxFlipDestroySelfMotionMigration",
+                "enableGameplayVfxFlipDestroySelfMotionMigration",
+                "BoxVfxCue.FlipDestroySelfMotion",
+                "Migration / parameterized clone motion",
+                "Tier 3",
+                "parity visual approval + targeted regression + rollback review"),
+        };
+
+        private static readonly string[] HighRiskDefaultTrueCandidateFlags =
+        {
+            "EnableGameplayVfxEnemyDeathBurstMigration",
+            "EnableGameplayVfxEnemyDeathMotionMigration",
+            "EnableGameplayVfxFlipDestroySelfMotionMigration",
         };
 
         [Test]
         [Category("Extended")]
-        public void RuntimeDefaults_AreProductionSafe()
+        public void RuntimeDefaults_RemainConservativeUntilApproval()
         {
             var owner = new GameObject("GameplayVfxFlagRolloutDefaults");
             try
@@ -135,6 +226,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void ShowcaseScene_FlagsAreExplicit()
         {
+            var document = ReadRepoFile(GovernancePath);
             var combinedScene = ReadRepoFile(CombinedGameplayShowcaseScenePath);
             Assert.That(combinedScene, Does.Contain("enableEnemyJumpTargetVfx: 1"));
             Assert.That(combinedScene, Does.Contain("enableEnemyJumpLandingDustVfx: 1"));
@@ -155,6 +247,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 Assert.That(tutorialScene, Does.Not.Contain($"{flag.SerializedFieldName}: 1"), $"{flag.PropertyName} must not be on in TutorialScene.");
             }
+
+            Assert.That(document, Does.Contain("CombinedGameplayShowcase.unity` is a jump VFX visual review scene override"));
+            Assert.That(document, Does.Contain("UIAudioScene.unity` is an explicit visual review scene override with all current Gameplay VFX flags on"));
+            Assert.That(document, Does.Contain("TutorialScene.unity` remains production-safe/off"));
+            Assert.That(document, Does.Contain("high-risk flag combinations for review only"));
+            foreach (var flagName in HighRiskDefaultTrueCandidateFlags)
+            {
+                var flag = VfxFlags.Single(candidate => candidate.PropertyName == flagName);
+                Assert.That(uiAudioScene, Does.Contain($"{flag.SerializedFieldName}: 1"));
+            }
         }
 
         [Test]
@@ -165,15 +267,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(document, Does.Contain("## Gameplay VFX Flag Rollout Policy"));
             Assert.That(document, Does.Contain("Production runtime defaults are default false first."));
+            Assert.That(document, Does.Contain("Every current Gameplay VFX flag is a long-term default-true candidate"));
+            Assert.That(document, Does.Contain("Actual runtime default-on rollout still requires manual visual approval"));
+            Assert.That(document, Does.Contain("Runtime defaults remain conservative until each flag is explicitly approved."));
             Assert.That(document, Does.Contain("Scene-local overrides are separate from runtime defaults"));
-            Assert.That(document, Does.Contain("High-risk parameterized motion and clone/source-view VFX require manual visual validation"));
+            Assert.That(document, Does.Contain("High-risk parameterized motion and clone/source-view VFX require manual visual approval"));
             Assert.That(document, Does.Contain("`EnableGameplayVfxEnemyDeathMotionMigration` owns `SuppressLegacyEnemyDeathEffects`"));
             Assert.That(document, Does.Contain("`EnableGameplayVfxEnemyDeathBurstMigration` does not suppress the old enemy death fly-away"));
+            Assert.That(document, Does.Contain("Burst + Motion simultaneous output requires manual visual approval"));
         }
 
         [Test]
         [Category("Extended")]
-        public void AllVfxFlags_AreListedInGovernance()
+        public void AllVfxFlags_AreListedAsDefaultTrueCandidates()
         {
             var document = ReadRepoFile(GovernancePath);
             var runtimeFlagNames = typeof(GameplayVfxProductionRuntime)
@@ -193,6 +299,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 Assert.That(document, Does.Contain($"`{flag.PropertyName}`"));
                 Assert.That(document, Does.Contain($"`{flag.CueName}`"));
+                Assert.That(document, Does.Contain(BuildFlagTableRow(flag)));
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void AllVfxFlags_HaveRiskTier()
+        {
+            var document = ReadRepoFile(GovernancePath);
+
+            Assert.That(VfxFlags.Select(flag => flag.Tier).Distinct().ToArray(), Is.EquivalentTo(new[] { "Tier 1", "Tier 2", "Tier 3" }));
+            foreach (var flag in VfxFlags)
+            {
+                Assert.That(document, Does.Contain(BuildFlagTableRow(flag)));
+                Assert.That(document, Does.Contain($"| `{flag.PropertyName}` | `{flag.CueName}` | {flag.Type} | False | {flag.Tier} | Yes | {flag.ApprovalGate} |"));
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void HighRiskFlags_RequireManualVisualApproval()
+        {
+            var document = ReadRepoFile(GovernancePath);
+
+            Assert.That(document, Does.Contain("High-risk parameterized motion and clone/source-view VFX require manual visual approval"));
+            Assert.That(document, Does.Contain("parity visual approval covers camera direction, clone/source-pose parity, density, combined cue polish, and rollback review"));
+            foreach (var flagName in HighRiskDefaultTrueCandidateFlags)
+            {
+                var flag = VfxFlags.Single(candidate => candidate.PropertyName == flagName);
+                Assert.That(flag.Tier, Is.EqualTo("Tier 3"));
+                Assert.That(flag.ApprovalGate, Does.Contain("parity visual approval"));
+                Assert.That(flag.ApprovalGate, Does.Contain("targeted regression"));
+                Assert.That(flag.ApprovalGate, Does.Contain("rollback review"));
+                Assert.That(document, Does.Contain(BuildFlagTableRow(flag)));
             }
         }
 
@@ -218,13 +358,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return File.ReadAllText(path);
         }
 
+        private static string BuildFlagTableRow(FlagInfo flag)
+        {
+            return $"| `{flag.PropertyName}` | `{flag.CueName}` | {flag.Type} | False | {flag.Tier} | Yes | {flag.ApprovalGate} |";
+        }
+
         private readonly struct FlagInfo
         {
-            public FlagInfo(string propertyName, string serializedFieldName, string cueName)
+            public FlagInfo(
+                string propertyName,
+                string serializedFieldName,
+                string cueName,
+                string type,
+                string tier,
+                string approvalGate)
             {
                 PropertyName = propertyName;
                 SerializedFieldName = serializedFieldName;
                 CueName = cueName;
+                Type = type;
+                Tier = tier;
+                ApprovalGate = approvalGate;
             }
 
             public string PropertyName { get; }
@@ -232,6 +386,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public string SerializedFieldName { get; }
 
             public string CueName { get; }
+
+            public string Type { get; }
+
+            public string Tier { get; }
+
+            public string ApprovalGate { get; }
         }
     }
 }
