@@ -170,12 +170,21 @@ Second concrete user:
 - adapter source: `TickPresentationData.EntityMotions` filtered to `TickEntityMotionKind.BoxSlide`
 - playback: `PrefabOnly` soft dust/trail emitter moved from source cell pose to destination cell pose
 
+### Parameterized Motion Sampler Modes
+
+`ParameterizedMotionVfxCommand` carries an explicit sampler mode so presentation VFX can choose the correct source-to-target pose policy without changing gameplay movement carriers.
+
+- `FlipArc`: the existing arc/tumble sampler for `FlipDestroySelfMotion` and other flip-styled source-to-impact motion. It preserves the existing arc height, tumble rotation, break/fade, clone, and material behavior.
+- `Linear`: exact source-to-target interpolation for `BoxVfxCue.SlideDustTrail`. Position uses direct linear interpolation, rotation uses direct slerp, and arc height/tumble are not applied.
+
+Sampler modes are presentation-only. They do not change box slide movement, `TickPipeline`, `WorldState`, `WorldSnapshot`, `TickPresentationData`, `TickEntityMotion`, `MotionTrack`, `MotionClip`, or box slide timing. `BoxSlideTrail` v1 now uses `Linear`; exact scrape/decal primitives remain future work.
+
 Future possible users:
 
 - Unit movement trail
 - Projectile trail
 
-Unit movement, Projectile movement, generic gameplay motion drivers, exact scrape/decal trails, and full `VfxAnchorKind.MotionTrack` resolver support remain outside this change.
+Unit movement, Projectile movement, generic gameplay motion drivers, exact scrape/decal trails, and full `VfxAnchorKind.MotionTrack` resolver support remain outside this sampler change.
 
 ## Box Slide Trail VFX Adapter
 
@@ -211,8 +220,8 @@ Visual and boundaries:
 - binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/BoxSlideDustTrail_Binding.asset`
 - clone mode: `PrefabOnly`
 - fade mode: `AlphaOnly`
-- the v1 visual is rotation/pose tolerant because the current parameterized sampler is still flip-oriented
-- exact linear sampler, scrape/decal trails, Unit movement trail, and Projectile trail remain future work
+- sampler mode: `Linear`
+- the v1 visual remains a moving dust emitter; exact scrape/decal trails, Unit movement trail, and Projectile trail remain future work
 - this adapter does not change `TickPipeline`, `WorldState`, `WorldSnapshot`, `ProjectedWorld`, `TickPresentationData`, `TickEntityMotion`, box movement drivers, legality, settlement, or traversal
 
 ## FlipDestroySelf Source-View Clone Parity

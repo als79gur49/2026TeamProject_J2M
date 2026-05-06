@@ -98,6 +98,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("red/orange danger palette"));
             Assert.That(document, Does.Contain("AuthoredDuration"));
             Assert.That(document, Does.Contain("Parameterized Motion VFX Generalization"));
+            Assert.That(document, Does.Contain("Parameterized Motion Sampler Modes"));
+            Assert.That(document, Does.Contain("`FlipArc`"));
+            Assert.That(document, Does.Contain("`Linear`"));
+            Assert.That(document, Does.Contain("Position uses direct linear interpolation"));
+            Assert.That(document, Does.Contain("Sampler modes are presentation-only"));
             Assert.That(document, Does.Contain("FlipDestroySelf Source-View Clone Parity"));
             Assert.That(document, Does.Contain("ParameterizedMotionVfxCommand"));
             Assert.That(document, Does.Contain("SourceViewCloneWithPrefabFallback"));

@@ -19,6 +19,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
         SourceViewCloneWithPrefabFallback = 2,
     }
 
+    public enum ParameterizedMotionVfxSamplerMode
+    {
+        FlipArc = 0,
+        Linear = 1,
+    }
+
     public readonly struct ParameterizedMotionVfxCommand
     {
         public ParameterizedMotionVfxCommand(
@@ -35,7 +41,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             float breakStartSeconds,
             float fadeDurationSeconds,
             ParameterizedMotionVfxFadeMode fadeMode,
-            ParameterizedMotionVfxCloneMode cloneMode)
+            ParameterizedMotionVfxCloneMode cloneMode,
+            ParameterizedMotionVfxSamplerMode samplerMode = ParameterizedMotionVfxSamplerMode.FlipArc)
         {
             CueId = cueId;
             SourceEntityId = sourceEntityId;
@@ -51,6 +58,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             FadeDurationSeconds = Mathf.Max(0f, fadeDurationSeconds);
             FadeMode = fadeMode;
             CloneMode = cloneMode;
+            SamplerMode = samplerMode;
         }
 
         public GameplayVfxCueId CueId { get; }
@@ -81,8 +89,99 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public ParameterizedMotionVfxCloneMode CloneMode { get; }
 
+        public ParameterizedMotionVfxSamplerMode SamplerMode { get; }
+
         internal GameplayEntityPose SourcePose => new(SourceLocalPosition, SourceLocalRotation);
 
         internal GameplayEntityPose TargetPose => new(TargetLocalPosition, TargetLocalRotation);
+    }
+
+    public readonly struct ParameterizedMotionVfxSample
+    {
+        public ParameterizedMotionVfxSample(
+            Vector3 localPosition,
+            Quaternion localRotation,
+            float normalizedTime,
+            float fadeProgress)
+        {
+            LocalPosition = localPosition;
+            LocalRotation = localRotation;
+            NormalizedTime = normalizedTime;
+            FadeProgress = fadeProgress;
+        }
+
+        public Vector3 LocalPosition { get; }
+
+        public Quaternion LocalRotation { get; }
+
+        public float NormalizedTime { get; }
+
+        public float FadeProgress { get; }
+    }
+
+    public static class ParameterizedMotionVfxSampler
+    {
+        public static ParameterizedMotionVfxSample Sample(
+            in ParameterizedMotionVfxCommand command,
+            float elapsedSeconds)
+        {
+            var normalizedTime = command.DurationSeconds <= 0f
+                ? 1f
+                : Mathf.Clamp01(elapsedSeconds / command.DurationSeconds);
+            var pose = SamplePose(command, elapsedSeconds, normalizedTime);
+            return new ParameterizedMotionVfxSample(
+                pose.Position,
+                pose.Rotation,
+                normalizedTime,
+                SampleFadeProgress(command, elapsedSeconds));
+        }
+
+        private static GameplayEntityPose SamplePose(
+            in ParameterizedMotionVfxCommand command,
+            float elapsedSeconds,
+            float normalizedTime)
+        {
+            if (elapsedSeconds >= command.DurationSeconds)
+            {
+                return command.TargetPose;
+            }
+
+            switch (command.SamplerMode)
+            {
+                case ParameterizedMotionVfxSamplerMode.Linear:
+                    return new GameplayEntityPose(
+                        Vector3.Lerp(command.SourceLocalPosition, command.TargetLocalPosition, normalizedTime),
+                        Quaternion.Slerp(command.SourceLocalRotation, command.TargetLocalRotation, normalizedTime));
+                case ParameterizedMotionVfxSamplerMode.FlipArc:
+                    return FlipArcSampler.Sample(
+                        command.SourcePose,
+                        command.TargetPose,
+                        normalizedTime,
+                        command.ArcHeight);
+                default:
+                    return FlipArcSampler.Sample(
+                        command.SourcePose,
+                        command.TargetPose,
+                        normalizedTime,
+                        command.ArcHeight);
+            }
+        }
+
+        private static float SampleFadeProgress(
+            in ParameterizedMotionVfxCommand command,
+            float elapsedSeconds)
+        {
+            if (elapsedSeconds <= command.BreakStartSeconds)
+            {
+                return 0f;
+            }
+
+            if (command.FadeDurationSeconds <= 0f)
+            {
+                return 1f;
+            }
+
+            return Mathf.Clamp01((elapsedSeconds - command.BreakStartSeconds) / command.FadeDurationSeconds);
+        }
     }
 }

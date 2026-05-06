@@ -27,6 +27,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/BoxSlideDustTrail_Binding.asset";
         private const string CommandBuilderPath =
             "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/ParameterizedMotion/BoxSlideTrailVfxCommandBuilder.cs";
+        private const string ParameterizedMotionCommandPath =
+            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/ParameterizedMotion/ParameterizedMotionVfxCommand.cs";
+        private const string VfxEnumsPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxEnums.cs";
         private const string ProductionRuntimePath =
             "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/GameplayVfxProductionRuntime.cs";
         private const string TickPresentationDataPath =
@@ -137,6 +141,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 out var command);
 
             Assert.That(command.DurationSeconds, Is.EqualTo(0.37f).Within(0.0001f));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Command_UsesLinearSampler()
+        {
+            var fixture = CreateBuilderFixture();
+
+            BoxSlideTrailVfxCommandBuilder.TryBuild(
+                12,
+                CreateMotion(),
+                fixture.TimingProfile,
+                fixture.MotionTimingResolver,
+                fixture.PoseResolver,
+                fixture.Projector,
+                fixture.Topology,
+                out var command);
+
+            Assert.That(command.SamplerMode, Is.EqualTo(ParameterizedMotionVfxSamplerMode.Linear));
         }
 
         [Test]
@@ -361,7 +384,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     breakStartSeconds: 0.5f,
                     fadeDurationSeconds: 0.20f,
                     ParameterizedMotionVfxFadeMode.AlphaOnly,
-                    ParameterizedMotionVfxCloneMode.PrefabOnly);
+                    ParameterizedMotionVfxCloneMode.PrefabOnly,
+                    ParameterizedMotionVfxSamplerMode.Linear);
 
                 fixture.Pool.PlayParameterizedMotion(fixture.PlaybackCommand, command);
 
@@ -373,6 +397,45 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 fixture.Pool.Advance(0.21f);
                 Assert.That(fixture.Pool.ActiveCount, Is.Zero);
                 Assert.That(fixture.Pool.PooledCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SlideTrailRuntime_ParameterizedInstanceMovesLinearly()
+        {
+            var fixture = CreatePoolFixture(tailSeconds: 0.20f);
+            try
+            {
+                var command = new ParameterizedMotionVfxCommand(
+                    GameplayVfxCueId.From(BoxVfxCue.SlideDustTrail),
+                    sourceEntityId: 30,
+                    sequenceId: 7,
+                    presentationSeed: 7,
+                    sourceLocalPosition: Vector3.zero,
+                    sourceLocalRotation: Quaternion.identity,
+                    targetLocalPosition: new Vector3(2f, 0f, 0f),
+                    targetLocalRotation: Quaternion.identity,
+                    durationSeconds: 0.5f,
+                    arcHeight: 1f,
+                    breakStartSeconds: 0.5f,
+                    fadeDurationSeconds: 0.20f,
+                    ParameterizedMotionVfxFadeMode.AlphaOnly,
+                    ParameterizedMotionVfxCloneMode.PrefabOnly,
+                    ParameterizedMotionVfxSamplerMode.Linear);
+
+                fixture.Pool.PlayParameterizedMotion(fixture.PlaybackCommand, command);
+                var instance = fixture.Root.OneShotRoot.GetChild(0);
+
+                fixture.TimeProvider.TimeSeconds = 0.25f;
+                fixture.Pool.Advance(0.25f);
+
+                Assert.That(Vector3.Distance(instance.localPosition, new Vector3(1f, 0f, 0f)), Is.LessThanOrEqualTo(0.0001f));
+                Assert.That(instance.localPosition.z, Is.EqualTo(0f).Within(0.0001f));
             }
             finally
             {
@@ -435,9 +498,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void Boundary_NoAuthorityCarrierOrUnitProjectileTrailExpansion()
         {
             var slideAdapterSource = ReadRepoFile(CommandBuilderPath);
+            var parameterizedSamplerSource = ReadRepoFile(ParameterizedMotionCommandPath);
             var runtimeSource = ReadRepoFile(ProductionRuntimePath);
             var tickPresentationDataSource = ReadRepoFile(TickPresentationDataPath);
-            var source = slideAdapterSource + "\n" + runtimeSource;
+            var cueSource = ReadRepoFile(VfxEnumsPath);
+            var source = slideAdapterSource + "\n" + parameterizedSamplerSource + "\n" + runtimeSource;
             var forbiddenTokens = new[]
             {
                 "WorldState",
@@ -446,6 +511,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "ProjectedWorld",
                 "FinalizationBatch",
                 "DeterminismHashBuilder",
+                "MotionTrack",
+                "MotionClip",
+                "SampleLinearConstant",
                 "UnitMovementTrail",
                 "ProjectileTrail",
             };
@@ -458,6 +526,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(slideAdapterSource, Does.Not.Contain("ActionPlanId"));
             Assert.That(tickPresentationDataSource, Does.Not.Contain("SlideDustTrail"));
             Assert.That(tickPresentationDataSource, Does.Not.Contain("BoxSlideTrail"));
+            Assert.That(Enum.GetNames(typeof(BoxVfxCue)), Has.Length.EqualTo(9));
+            Assert.That(cueSource, Does.Not.Contain("ExactLinear"));
+            Assert.That(runtimeSource, Does.Not.Contain("EnableGameplayVfxExactLinear"));
         }
 
         private static BuilderFixture CreateBuilderFixture(

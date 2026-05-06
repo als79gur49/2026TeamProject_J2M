@@ -136,6 +136,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void ParameterizedCommand_UsesFlipArcSampler()
+        {
+            var fixture = CreateBuilderFixture();
+
+            FlipDestroySelfMotionVfxCommandBuilder.TryBuild(
+                CreateSignal(FlipImpactPresentationDisposition.DestroySelf),
+                fixture.TimingProfile,
+                fixture.MotionTimingResolver,
+                fixture.PoseResolver,
+                fixture.Projector,
+                out var command);
+
+            Assert.That(command.ToParameterizedMotionVfxCommand().SamplerMode, Is.EqualTo(ParameterizedMotionVfxSamplerMode.FlipArc));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void PreservesSurfaceCellFaceTopologyAndFacing()
         {
             var sourceCell = new SurfaceCell(FaceId.Front, 2, 3);

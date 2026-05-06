@@ -275,25 +275,20 @@ namespace Game.Feature.Gameplay.Vfx.Host
             in ParameterizedMotionVfxCommand command,
             float elapsedSeconds)
         {
-            var flightNormalizedTime = Mathf.Clamp01(elapsedSeconds / command.DurationSeconds);
-            var sampledPose = elapsedSeconds < command.DurationSeconds
-                ? FlipArcSampler.Sample(command.SourcePose, command.TargetPose, flightNormalizedTime, command.ArcHeight)
-                : command.TargetPose;
-            Transform.localPosition = sampledPose.Position;
-            Transform.localRotation = sampledPose.Rotation;
+            var sample = ParameterizedMotionVfxSampler.Sample(command, elapsedSeconds);
+            Transform.localPosition = sample.LocalPosition;
+            Transform.localRotation = sample.LocalRotation;
 
-            if (elapsedSeconds <= command.BreakStartSeconds)
+            if (sample.FadeProgress <= 0f)
             {
                 ApplyFadeState(command, scaleProgress: 0f, alpha: 1f);
                 return;
             }
 
-            var breakDurationSeconds = Mathf.Max(0.0001f, command.FadeDurationSeconds);
-            var breakNormalizedTime = Mathf.Clamp01((elapsedSeconds - command.BreakStartSeconds) / breakDurationSeconds);
             ApplyFadeState(
                 command,
-                Mathf.Pow(breakNormalizedTime, 2f),
-                1f - Mathf.Pow(breakNormalizedTime, 2.5f));
+                Mathf.Pow(sample.FadeProgress, 2f),
+                1f - Mathf.Pow(sample.FadeProgress, 2.5f));
         }
 
         private void ApplyFadeState(

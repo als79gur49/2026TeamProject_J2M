@@ -91,6 +91,104 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void LinearSampler_StartsAtSourcePosition()
+        {
+            var command = CreateCommand(samplerMode: ParameterizedMotionVfxSamplerMode.Linear);
+
+            var sample = ParameterizedMotionVfxSampler.Sample(command, elapsedSeconds: 0f);
+
+            Assert.That(Vector3.Distance(sample.LocalPosition, command.SourceLocalPosition), Is.LessThanOrEqualTo(0.0001f));
+            Assert.That(Quaternion.Angle(sample.LocalRotation, command.SourceLocalRotation), Is.LessThanOrEqualTo(0.001f));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void LinearSampler_ReachesTargetPositionAtEnd()
+        {
+            var command = CreateCommand(samplerMode: ParameterizedMotionVfxSamplerMode.Linear);
+
+            var sample = ParameterizedMotionVfxSampler.Sample(command, command.DurationSeconds);
+
+            Assert.That(Vector3.Distance(sample.LocalPosition, command.TargetLocalPosition), Is.LessThanOrEqualTo(0.0001f));
+            Assert.That(Quaternion.Angle(sample.LocalRotation, command.TargetLocalRotation), Is.LessThanOrEqualTo(0.001f));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void LinearSampler_MidpointIsExactLinearMidpoint()
+        {
+            var command = CreateCommand(
+                arcHeight: 0f,
+                samplerMode: ParameterizedMotionVfxSamplerMode.Linear);
+
+            var sample = ParameterizedMotionVfxSampler.Sample(command, command.DurationSeconds * 0.5f);
+
+            Assert.That(Vector3.Distance(sample.LocalPosition, new Vector3(1f, 0f, 0f)), Is.LessThanOrEqualTo(0.0001f));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void LinearSampler_IgnoresArcHeight()
+        {
+            var lowArcCommand = CreateCommand(
+                arcHeight: 0f,
+                samplerMode: ParameterizedMotionVfxSamplerMode.Linear);
+            var highArcCommand = CreateCommand(
+                arcHeight: 10f,
+                samplerMode: ParameterizedMotionVfxSamplerMode.Linear);
+
+            var lowArcSample = ParameterizedMotionVfxSampler.Sample(lowArcCommand, lowArcCommand.DurationSeconds * 0.5f);
+            var highArcSample = ParameterizedMotionVfxSampler.Sample(highArcCommand, highArcCommand.DurationSeconds * 0.5f);
+
+            Assert.That(Vector3.Distance(highArcSample.LocalPosition, lowArcSample.LocalPosition), Is.LessThanOrEqualTo(0.0001f));
+            Assert.That(Quaternion.Angle(highArcSample.LocalRotation, lowArcSample.LocalRotation), Is.LessThanOrEqualTo(0.001f));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void LinearSampler_DoesNotUseFlipArcClamp()
+        {
+            var command = CreateCommand(
+                arcHeight: 0f,
+                samplerMode: ParameterizedMotionVfxSamplerMode.Linear);
+
+            var sample = ParameterizedMotionVfxSampler.Sample(command, command.DurationSeconds * 0.5f);
+            var flipArcSample = FlipArcSampler.Sample(command.SourcePose, command.TargetPose, 0.5f, command.ArcHeight);
+
+            Assert.That(sample.LocalPosition.z, Is.EqualTo(0f).Within(0.0001f));
+            Assert.That(Vector3.Distance(sample.LocalPosition, flipArcSample.Position), Is.GreaterThan(0.00001f));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void LinearSampler_SlerpsRotation()
+        {
+            var command = CreateCommand(samplerMode: ParameterizedMotionVfxSamplerMode.Linear);
+            var expectedRotation = Quaternion.Slerp(
+                command.SourceLocalRotation,
+                command.TargetLocalRotation,
+                0.5f);
+
+            var sample = ParameterizedMotionVfxSampler.Sample(command, command.DurationSeconds * 0.5f);
+
+            Assert.That(Quaternion.Angle(sample.LocalRotation, expectedRotation), Is.LessThanOrEqualTo(0.001f));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void FlipArcSampler_Regression_UnchangedForFlipDestroySelf()
+        {
+            var command = CreateCommand(samplerMode: ParameterizedMotionVfxSamplerMode.FlipArc);
+            var expected = FlipArcSampler.Sample(command.SourcePose, command.TargetPose, 0.5f, command.ArcHeight);
+
+            var sample = ParameterizedMotionVfxSampler.Sample(command, command.DurationSeconds * 0.5f);
+
+            Assert.That(Vector3.Distance(sample.LocalPosition, expected.Position), Is.LessThanOrEqualTo(0.0001f));
+            Assert.That(Quaternion.Angle(sample.LocalRotation, expected.Rotation), Is.LessThanOrEqualTo(0.001f));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void ParameterizedMotion_BreakFade_StartsAtBreakStart()
         {
             var fixture = CreatePoolFixture(tailSeconds: 0f);
@@ -206,7 +304,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             float arcHeight = 0.6f,
             float breakStartSeconds = 0.7f,
             float fadeDurationSeconds = 0.3f,
-            ParameterizedMotionVfxCloneMode cloneMode = ParameterizedMotionVfxCloneMode.PrefabOnly)
+            ParameterizedMotionVfxCloneMode cloneMode = ParameterizedMotionVfxCloneMode.PrefabOnly,
+            ParameterizedMotionVfxSamplerMode samplerMode = ParameterizedMotionVfxSamplerMode.FlipArc)
         {
             return new ParameterizedMotionVfxCommand(
                 GameplayVfxCueId.From(BoxVfxCue.FlipDestroySelfMotion),
@@ -222,7 +321,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 breakStartSeconds,
                 fadeDurationSeconds,
                 ParameterizedMotionVfxFadeMode.ScaleAndAlpha,
-                cloneMode);
+                cloneMode,
+                samplerMode);
         }
 
         internal static PoolFixture CreatePoolFixture(
