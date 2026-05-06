@@ -81,16 +81,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ProductionRuntime_EnemyDamageMigrationFlag_DefaultsFalse()
+        public void ProductionRuntime_EnemyDamageMigrationFlag_DefaultsTrue()
         {
             var owner = new GameObject("EnemyDamageMigrationDefaultFlag");
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
 
-                Assert.That(runtime.EnableGameplayVfxEnemyDamageBurstMigration, Is.False);
-                Assert.That(runtime.EnableGameplayVfxDamageBurstMigration, Is.False);
-                Assert.That(runtime.SuppressLegacyPlayerDamageHitEffects, Is.False);
+                Assert.That(runtime.EnableGameplayVfxEnemyDamageBurstMigration, Is.True);
+                Assert.That(runtime.EnableGameplayVfxDamageBurstMigration, Is.True);
+                Assert.That(runtime.SuppressLegacyPlayerDamageHitEffects, Is.True);
             }
             finally
             {
@@ -106,6 +106,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxDamageBurstMigration = false;
                 runtime.EnableGameplayVfxEnemyDamageBurstMigration = true;
 
                 runtime.Present(CreateExtensionContext());

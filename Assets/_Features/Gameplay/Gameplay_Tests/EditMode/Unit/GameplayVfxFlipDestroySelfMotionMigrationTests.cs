@@ -192,15 +192,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Flag_DefaultFalse()
+        public void Flag_DefaultTrue()
         {
             var owner = new GameObject("FlipDestroySelfDefaultFlag");
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
 
-                Assert.That(runtime.EnableGameplayVfxFlipDestroySelfMotionMigration, Is.False);
-                Assert.That(runtime.SuppressLegacyFlipDestroySelfEffects, Is.False);
+                Assert.That(runtime.EnableGameplayVfxFlipDestroySelfMotionMigration, Is.True);
+                Assert.That(runtime.SuppressLegacyFlipDestroySelfEffects, Is.True);
             }
             finally
             {
@@ -217,6 +217,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxFlipDestroySelfMotionMigration = false;
 
                 Assert.That(runtime.SuppressLegacyFlipDestroySelfEffects, Is.False);
                 Assert.That(source, Does.Contain("PlayFlipImpactDestroyEffect"));
@@ -240,6 +241,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 binding = CreateBinding(prefab, BoxVfxCue.FlipDestroySelfMotion, tailSeconds: 0.18f);
                 cueMap = CreateCueMap(binding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxFlipImpactBurstMigration = false;
                 runtime.EnableGameplayVfxFlipDestroySelfMotionMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
 
@@ -276,6 +278,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxFlipImpactBurstMigration = false;
                 runtime.EnableGameplayVfxFlipDestroySelfMotionMigration = true;
 
                 runtime.Present(CreateExtensionContext(CreateSignal(FlipImpactPresentationDisposition.DestroySelf)));
@@ -300,6 +303,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxFlipDestroySelfMotionMigration = false;
                 runtime.EnableGameplayVfxFlipImpactBurstMigration = true;
 
                 runtime.Present(CreateExtensionContext(CreateSignal(FlipImpactPresentationDisposition.DestroySelf)));
@@ -351,6 +355,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxFlipImpactBurstMigration = false;
                 runtime.EnableGameplayVfxFlipDestroySelfMotionMigration = true;
 
                 runtime.Present(CreateExtensionContext(CreateSignal(FlipImpactPresentationDisposition.Stay)));
@@ -533,6 +538,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 cueMap = CreateCueMap(hostBinding);
                 profile = CreateProfile(profileBinding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxFlipImpactBurstMigration = false;
                 runtime.EnableGameplayVfxFlipDestroySelfMotionMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
                 runtime.ConfigureFamilyProfiles(new[] { profile });

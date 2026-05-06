@@ -155,17 +155,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ProductionRuntime_BoxExitMigrationFlags_DefaultFalse()
+        public void ProductionRuntime_BoxExitMigrationFlags_DefaultTrue()
         {
             var owner = new GameObject("BoxExitDefaultFlags");
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
 
-                Assert.That(runtime.EnableGameplayVfxBoxDestroySmokeMigration, Is.False);
-                Assert.That(runtime.EnableGameplayVfxItemConsumeBurstMigration, Is.False);
-                Assert.That(runtime.SuppressLegacyBoxDestroySmokeEffects, Is.False);
-                Assert.That(runtime.SuppressLegacyItemConsumeEffects, Is.False);
+                Assert.That(runtime.EnableGameplayVfxBoxDestroySmokeMigration, Is.True);
+                Assert.That(runtime.EnableGameplayVfxItemConsumeBurstMigration, Is.True);
+                Assert.That(runtime.SuppressLegacyBoxDestroySmokeEffects, Is.True);
+                Assert.That(runtime.SuppressLegacyItemConsumeEffects, Is.True);
             }
             finally
             {
@@ -322,6 +322,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 binding = CreateBinding(vfxPrefab, BoxVfxCue.DestroySmoke);
                 cueMap = CreateCueMap(binding);
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxEnemyDeathBurstMigration = false;
+                runtime.EnableGameplayVfxEnemyDeathMotionMigration = false;
                 runtime.EnableGameplayVfxBoxDestroySmokeMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
                 scenario.Presenter.AttachPresentationExtension(runtime);
@@ -387,6 +389,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxEnemyDeathBurstMigration = false;
+                runtime.EnableGameplayVfxEnemyDeathMotionMigration = false;
                 runtime.EnableGameplayVfxBoxDestroySmokeMigration = true;
                 runtime.EnableGameplayVfxItemConsumeBurstMigration = true;
                 scenario.Presenter.AttachPresentationExtension(runtime);

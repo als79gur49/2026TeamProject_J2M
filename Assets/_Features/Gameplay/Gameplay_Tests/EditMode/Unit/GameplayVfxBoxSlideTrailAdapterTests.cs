@@ -241,14 +241,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Flag_DefaultFalse()
+        public void Flag_DefaultTrue()
         {
             var owner = new GameObject("BoxSlideTrailDefaultFlag");
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
 
-                Assert.That(runtime.EnableGameplayVfxBoxSlideTrail, Is.False);
+                Assert.That(runtime.EnableGameplayVfxBoxSlideTrail, Is.True);
             }
             finally
             {
@@ -264,6 +264,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxBoxSlideTrail = false;
 
                 runtime.Present(CreateExtensionContext(CreateMotion()));
 
@@ -337,6 +338,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxBoxSlideTrail = false;
                 runtime.EnableGameplayVfxBoxDestroySmokeMigration = true;
                 runtime.EnableGameplayVfxFlipImpactBurstMigration = true;
                 runtime.EnableGameplayVfxFlipDestroySelfMotionMigration = true;

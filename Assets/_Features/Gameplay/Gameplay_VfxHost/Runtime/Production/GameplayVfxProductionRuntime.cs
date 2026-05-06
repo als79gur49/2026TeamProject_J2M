@@ -10,20 +10,20 @@ namespace Game.Feature.Gameplay.Vfx.Host
     [DisallowMultipleComponent]
     public sealed class GameplayVfxProductionRuntime : MonoBehaviour, IGameplayTickPresentationExtension, IGameplayPresentationMigrationGate, IGameplayOutputCameraPresentationExtension
     {
-        [SerializeField] private bool enableEnemyJumpTargetVfx;
-        [SerializeField] private bool enableEnemyJumpLandingDustVfx;
-        [SerializeField] private bool enableGameplayVfxDamageBurstMigration;
-        [SerializeField] private bool enableGameplayVfxEnemyDamageBurstMigration;
-        [SerializeField] private bool enableGameplayVfxEnemyDeathBurstMigration;
-        [SerializeField] private bool enableGameplayVfxEnemyDeathMotionMigration;
-        [SerializeField] private bool enableGameplayVfxBoxDestroySmokeMigration;
-        [SerializeField] private bool enableGameplayVfxItemConsumeBurstMigration;
-        [SerializeField] private bool enableGameplayVfxFlipImpactBurstMigration;
-        [SerializeField] private bool enableGameplayVfxFlipDestroySelfMotionMigration;
-        [SerializeField] private bool enableGameplayVfxBoxSlideTrail;
-        [SerializeField] private bool enableGameplayVfxUtilityWindupMigration;
-        [SerializeField] private bool enableGameplayVfxFrontFaceShieldActiveMigration;
-        [SerializeField] private bool enableGameplayVfxFrontFaceShieldBlockMigration;
+        [SerializeField] private bool enableEnemyJumpTargetVfx = true;
+        [SerializeField] private bool enableEnemyJumpLandingDustVfx = true;
+        [SerializeField] private bool enableGameplayVfxDamageBurstMigration = true;
+        [SerializeField] private bool enableGameplayVfxEnemyDamageBurstMigration = true;
+        [SerializeField] private bool enableGameplayVfxEnemyDeathBurstMigration = true;
+        [SerializeField] private bool enableGameplayVfxEnemyDeathMotionMigration = true;
+        [SerializeField] private bool enableGameplayVfxBoxDestroySmokeMigration = true;
+        [SerializeField] private bool enableGameplayVfxItemConsumeBurstMigration = true;
+        [SerializeField] private bool enableGameplayVfxFlipImpactBurstMigration = true;
+        [SerializeField] private bool enableGameplayVfxFlipDestroySelfMotionMigration = true;
+        [SerializeField] private bool enableGameplayVfxBoxSlideTrail = true;
+        [SerializeField] private bool enableGameplayVfxUtilityWindupMigration = true;
+        [SerializeField] private bool enableGameplayVfxFrontFaceShieldActiveMigration = true;
+        [SerializeField] private bool enableGameplayVfxFrontFaceShieldBlockMigration = true;
         [SerializeField] private VfxProfileAsset[] familyProfiles = Array.Empty<VfxProfileAsset>();
 
         private readonly PlayerVfxRequestPlanner playerPlanner = new();

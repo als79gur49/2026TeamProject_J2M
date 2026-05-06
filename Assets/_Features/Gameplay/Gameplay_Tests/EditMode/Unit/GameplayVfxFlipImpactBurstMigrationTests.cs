@@ -136,14 +136,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void FlipImpactBurstFlag_DefaultFalse()
+        public void FlipImpactBurstFlag_DefaultTrue()
         {
             var owner = new GameObject("FlipImpactBurstDefaultFlag");
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
 
-                Assert.That(runtime.EnableGameplayVfxFlipImpactBurstMigration, Is.False);
+                Assert.That(runtime.EnableGameplayVfxFlipImpactBurstMigration, Is.True);
                 Assert.That(ReadRepoFile(VfxProductionRuntimePath), Does.Not.Contain("SuppressLegacyFlipImpact"));
             }
             finally
@@ -160,6 +160,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxFlipImpactBurstMigration = false;
 
                 runtime.Present(CreateExtensionContext(CreateSignal(FlipImpactPresentationDisposition.Stay)));
 
@@ -488,6 +489,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxFlipImpactBurstMigration = false;
                 enableFlag(runtime);
 
                 runtime.Present(CreateExtensionContext(CreateSignal(FlipImpactPresentationDisposition.Stay)));

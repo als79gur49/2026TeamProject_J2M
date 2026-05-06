@@ -149,15 +149,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ProductionRuntime_FeatureFlag_DefaultsFalse()
+        public void ProductionRuntime_FeatureFlag_DefaultsTrue()
         {
             var owner = new GameObject("VfxRuntimeDefaultFlag");
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
 
-                Assert.That(runtime.EnableEnemyJumpTargetVfx, Is.False);
-                Assert.That(runtime.EnableEnemyJumpLandingDustVfx, Is.False);
+                Assert.That(runtime.EnableEnemyJumpTargetVfx, Is.True);
+                Assert.That(runtime.EnableEnemyJumpLandingDustVfx, Is.True);
                 Assert.That(runtime.IsRuntimeInitialized, Is.False);
             }
             finally

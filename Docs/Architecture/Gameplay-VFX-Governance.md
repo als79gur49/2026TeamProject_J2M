@@ -80,7 +80,7 @@ Anchor and lifecycle:
 Feature flag:
 
 - `EnableGameplayVfxFlipImpactBurstMigration`
-- default false
+- default true after the Tier 1/2 rollout batch
 - flag off drops the new burst request
 - flag on allows only the new contact burst request
 
@@ -130,7 +130,7 @@ Timing contract:
 Feature flag:
 
 - `EnableGameplayVfxFlipDestroySelfMotionMigration`
-- default false
+- default true after the Tier 3 rollout batch
 - flag off keeps the old `PlayFlipImpactDestroyEffect` clone/arc/fade path
 - flag on suppresses only the old DestroySelf clone/fade path through `IGameplayPresentationMigrationGate.SuppressLegacyFlipDestroySelfEffects`
 - `ApplyEntityExitOwnership()` remains active and still hides/cleans the authoritative view
@@ -215,7 +215,7 @@ Motion mapping:
 Runtime behavior:
 
 - feature flag: `EnableGameplayVfxBoxSlideTrail`
-- default false
+- default true after the Tier 1/2 rollout batch
 - flag off emits no slide trail VFX and does not affect box movement
 - flag on plays a `ParameterizedMotionVfxCommand` when the binding is present
 - missing binding is diagnostic/no-op
@@ -246,7 +246,7 @@ Feature flags:
 
 - `EnableGameplayVfxFrontFaceShieldActiveMigration`
 - `EnableGameplayVfxFrontFaceShieldBlockMigration`
-- both default false and filter their cues independently.
+- both default true after the Tier 1/2 rollout batch and filter their cues independently.
 
 Old presenter bypass:
 
@@ -320,7 +320,7 @@ Binding:
 Feature flag:
 
 - `EnableEnemyJumpTargetVfx`
-- default false
+- default true after the Tier 1/2 rollout batch
 
 Non-goals:
 
@@ -415,7 +415,7 @@ V1 policy:
 Feature flag:
 
 - `EnableEnemyJumpLandingDustVfx`
-- default false
+- default true after the Tier 1/2 rollout batch
 - independent from `EnableEnemyJumpTargetVfx`
 
 Cue distinction:
@@ -442,10 +442,10 @@ Ownership:
 
 Flag policy:
 
-- default false means old presenter path only.
+- default true after the Tier 1/2 rollout batch means the Gameplay VFX lane owns playback.
+- rollback is setting `EnableGameplayVfxDamageBurstMigration` false.
 - true means old presenter path is skipped and the Gameplay VFX lane owns playback.
 - missing binding under the true flag is diagnostic/no-op; it must not fall back to the old presenter path.
-- rollback is setting `EnableGameplayVfxDamageBurstMigration` false.
 
 Default binding:
 
@@ -469,7 +469,7 @@ Ownership:
 
 Flag policy:
 
-- default false means no enemy damage burst request reaches VFX playback.
+- default true after the Tier 1/2 rollout batch means the Gameplay VFX lane owns the enemy damage burst.
 - true means the Gameplay VFX lane owns the enemy damage burst.
 - player damage and enemy damage flags are independent.
 - missing binding under the true flag is diagnostic/no-op; it must not fall back to a legacy transient presenter path.
@@ -638,7 +638,7 @@ Ownership:
 
 Migration flag and bypass:
 
-- `GameplayVfxProductionRuntime.EnableGameplayVfxUtilityWindupMigration` gates `EnemyVfxCue.UtilityWindup` playback and defaults false.
+- `GameplayVfxProductionRuntime.EnableGameplayVfxUtilityWindupMigration` gates `EnemyVfxCue.UtilityWindup` playback and defaults true after the Tier 1/2 rollout batch.
 - `IGameplayPresentationMigrationGate.SuppressLegacyUtilityWindupVfx` suppresses only old `GameplayUtilityWindupVfxPresenter` summon warning spawning.
 - when suppressed, the coordinator clears legacy summon warning instances without bypassing `GameplayFrontFaceShieldVfxPresenter`.
 - missing binding under the migration flag is diagnostic/no-op and must not fall back to the old presenter.
@@ -942,21 +942,23 @@ This stage only proves conversion and resolver composition. It does not expose h
 
 ## Gameplay VFX Flag Rollout Policy
 
-Production runtime defaults are default false first. Every current Gameplay VFX flag is a long-term default-true candidate once its targeted tests pass. Actual runtime default-on rollout still requires manual visual approval, no missing binding / missing anchor / missing source pose / missing target context diagnostics in target scenes, no double-play with legacy presenters, successful targeted VFX regression tests, and a rollback path through the same flag. Runtime defaults remain conservative until each flag is explicitly approved.
+Every current Gameplay VFX flag is a long-term default-true candidate once its targeted tests pass. Tier 1 and Tier 2 flags are default-on after the Tier 1/2 rollout batch, based on targeted tests, visual spot check/manual visual approval, no missing binding / missing anchor / missing source pose / missing target context diagnostics in target scenes, no double-play with legacy presenters, successful targeted VFX regression tests, and a rollback path through the same flag. Tier 3 flags are approved in the Tier 3 rollout batch after parity review.
+
+After Tier 3 rollout, all current Gameplay VFX flags are runtime default-on. Scene-local overrides may still opt out. High-risk motion/parity flags require post-rollout visual monitoring and may be rolled back individually through their migration flags.
 
 Migration flags own only their documented legacy presenter bypass. When a migration flag is on and its binding, prefab, anchor, source pose, or target context is missing, the new path reports diagnostic/no-op and does not fall back to the old presenter path. Rollback remains setting the migration flag false while keeping the old presenter and migration gate in place.
 
 Augmentation flags do not own legacy fallback or suppress gates. They may add Gameplay VFX lane playback alongside existing presentation behavior, but missing binding remains diagnostic/no-op and must not create a new old-path ownership rule. `EnableGameplayVfxBoxSlideTrail`, enemy damage burst, and enemy jump cue flags have no legacy suppress gate.
 
-High-risk parameterized motion and clone/source-view VFX require manual visual approval before any default-on rollout. `EnableGameplayVfxEnemyDeathBurstMigration`, `EnableGameplayVfxEnemyDeathMotionMigration`, and `EnableGameplayVfxFlipDestroySelfMotionMigration` stay production default false until parity visual approval covers camera direction, clone/source-pose parity, density, combined cue polish, and rollback review.
+High-risk parameterized motion and clone/source-view VFX require manual parity approval before any default-on rollout. `EnableGameplayVfxEnemyDeathBurstMigration`, `EnableGameplayVfxEnemyDeathMotionMigration`, and `EnableGameplayVfxFlipDestroySelfMotionMigration` are approved in the Tier 3 rollout batch; post-rollout visual monitoring covers camera direction, clone/source-pose parity, density, combined cue polish, and rollback review.
 
 Scene-local overrides are separate from runtime defaults:
 
-- `Assets/Scenes/CombinedGameplayShowcase.unity` is a jump VFX visual review scene override with `EnableEnemyJumpTargetVfx` and `EnableEnemyJumpLandingDustVfx` on; other flags use production defaults unless explicitly added for review.
+- `Assets/Scenes/CombinedGameplayShowcase.unity` is a jump VFX visual review scene override with `EnableEnemyJumpTargetVfx` and `EnableEnemyJumpLandingDustVfx` on; Tier 3 flags use runtime default-on for broad VFX review unless explicitly added for rollback review.
 - `Assets/Scenes/UIAudioScene.unity` is an explicit visual review scene override with all current Gameplay VFX flags on; this is not production default policy and covers documented high-risk flag combinations for review only.
-- `Assets/Scenes/TutorialScene.unity` remains production-safe/off for Gameplay VFX flags.
+- `Assets/Scenes/TutorialScene.unity` remains production-safe/off for Gameplay VFX flags through explicit scene-local false overrides.
 
-Enemy death suppress ownership is fixed. `EnableGameplayVfxEnemyDeathMotionMigration` owns `SuppressLegacyEnemyDeathEffects`. `EnableGameplayVfxEnemyDeathBurstMigration` does not suppress the old enemy death fly-away. `EnableGameplayVfxEnemyDeathBurstMigration` is a default-true candidate. `EnableGameplayVfxEnemyDeathMotionMigration` is a default-true candidate and requires high-risk parity approval. Burst + Motion simultaneous output requires manual visual approval. The supported combinations remain:
+Enemy death suppress ownership is fixed. `EnableGameplayVfxEnemyDeathMotionMigration` owns `SuppressLegacyEnemyDeathEffects`. `EnableGameplayVfxEnemyDeathBurstMigration` does not suppress the old enemy death fly-away. Both enemy death Tier 3 flags are runtime default-on after the Tier 3 rollout batch. Burst + Motion simultaneous output remains visually monitored. The supported combinations remain:
 
 - burst off / motion off: old fly-away only.
 - burst on / motion off: old fly-away plus `EnemyVfxCue.Death`.
@@ -966,20 +968,20 @@ Enemy death suppress ownership is fixed. `EnableGameplayVfxEnemyDeathMotionMigra
 
 | Flag | Cue | Type | Actual Default | Tier | Candidate | Approval Gate |
 |---|---|---|---|---|---|---|
-| `EnableGameplayVfxDamageBurstMigration` | `PlayerVfxCue.Damage` | Migration | False | Tier 1 | Yes | targeted tests + visual spot check |
-| `EnableGameplayVfxEnemyDamageBurstMigration` | `EnemyVfxCue.Damage` | Augmentation-style VFX lane | False | Tier 1 | Yes | targeted tests + visual spot check |
-| `EnableGameplayVfxBoxDestroySmokeMigration` | `BoxVfxCue.DestroySmoke` | Migration | False | Tier 1 | Yes | targeted tests + visual spot check |
-| `EnableGameplayVfxItemConsumeBurstMigration` | `BoxVfxCue.ItemConsume` | Migration | False | Tier 1 | Yes | targeted tests + visual spot check |
-| `EnableEnemyJumpLandingDustVfx` | `EnemyVfxCue.JumperLandingDust` | Augmentation | False | Tier 1 | Yes | targeted tests + visual spot check |
-| `EnableGameplayVfxBoxSlideTrail` | `BoxVfxCue.SlideDustTrail` | Augmentation / parameterized motion | False | Tier 1 | Yes | targeted tests + density visual spot check |
-| `EnableEnemyJumpTargetVfx` | `EnemyVfxCue.JumperLandingTarget` | Augmentation | False | Tier 2 | Yes | manual visual approval + targeted regression |
-| `EnableGameplayVfxUtilityWindupMigration` | `EnemyVfxCue.UtilityWindup` | Migration | False | Tier 2 | Yes | manual visual approval + targeted regression |
-| `EnableGameplayVfxFrontFaceShieldActiveMigration` | `EnemyVfxCue.FrontFaceShieldActive` | Migration | False | Tier 2 | Yes | manual visual approval + targeted regression |
-| `EnableGameplayVfxFrontFaceShieldBlockMigration` | `EnemyVfxCue.FrontFaceShieldBlock` | Migration | False | Tier 2 | Yes | manual visual approval + targeted regression |
-| `EnableGameplayVfxFlipImpactBurstMigration` | `BoxVfxCue.FlipImpactBurst` | Migration | False | Tier 2 | Yes | manual visual approval + targeted regression |
-| `EnableGameplayVfxEnemyDeathBurstMigration` | `EnemyVfxCue.Death` | Migration burst | False | Tier 3 | Yes | parity visual approval + targeted regression + rollback review |
-| `EnableGameplayVfxEnemyDeathMotionMigration` | `EnemyVfxCue.DeathMotion` | Migration / parameterized motion | False | Tier 3 | Yes | parity visual approval + targeted regression + rollback review |
-| `EnableGameplayVfxFlipDestroySelfMotionMigration` | `BoxVfxCue.FlipDestroySelfMotion` | Migration / parameterized clone motion | False | Tier 3 | Yes | parity visual approval + targeted regression + rollback review |
+| `EnableGameplayVfxDamageBurstMigration` | `PlayerVfxCue.Damage` | Migration | True | Tier 1 | Yes | targeted tests + visual spot check |
+| `EnableGameplayVfxEnemyDamageBurstMigration` | `EnemyVfxCue.Damage` | Augmentation-style VFX lane | True | Tier 1 | Yes | targeted tests + visual spot check |
+| `EnableGameplayVfxBoxDestroySmokeMigration` | `BoxVfxCue.DestroySmoke` | Migration | True | Tier 1 | Yes | targeted tests + visual spot check |
+| `EnableGameplayVfxItemConsumeBurstMigration` | `BoxVfxCue.ItemConsume` | Migration | True | Tier 1 | Yes | targeted tests + visual spot check |
+| `EnableEnemyJumpLandingDustVfx` | `EnemyVfxCue.JumperLandingDust` | Augmentation | True | Tier 1 | Yes | targeted tests + visual spot check |
+| `EnableGameplayVfxBoxSlideTrail` | `BoxVfxCue.SlideDustTrail` | Augmentation / parameterized motion | True | Tier 1 | Yes | targeted tests + density visual spot check |
+| `EnableEnemyJumpTargetVfx` | `EnemyVfxCue.JumperLandingTarget` | Augmentation | True | Tier 2 | Yes | manual visual approval + targeted regression |
+| `EnableGameplayVfxUtilityWindupMigration` | `EnemyVfxCue.UtilityWindup` | Migration | True | Tier 2 | Yes | manual visual approval + targeted regression |
+| `EnableGameplayVfxFrontFaceShieldActiveMigration` | `EnemyVfxCue.FrontFaceShieldActive` | Migration | True | Tier 2 | Yes | manual visual approval + targeted regression |
+| `EnableGameplayVfxFrontFaceShieldBlockMigration` | `EnemyVfxCue.FrontFaceShieldBlock` | Migration | True | Tier 2 | Yes | manual visual approval + targeted regression |
+| `EnableGameplayVfxFlipImpactBurstMigration` | `BoxVfxCue.FlipImpactBurst` | Migration | True | Tier 2 | Yes | manual visual approval + targeted regression |
+| `EnableGameplayVfxEnemyDeathBurstMigration` | `EnemyVfxCue.Death` | Migration burst | True | Tier 3 | Yes | approved in Tier 3 rollout batch; requires post-rollout visual monitoring + rollback review |
+| `EnableGameplayVfxEnemyDeathMotionMigration` | `EnemyVfxCue.DeathMotion` | Migration / parameterized motion | True | Tier 3 | Yes | approved in Tier 3 rollout batch; requires post-rollout visual monitoring + rollback review |
+| `EnableGameplayVfxFlipDestroySelfMotionMigration` | `BoxVfxCue.FlipDestroySelfMotion` | Migration / parameterized clone motion | True | Tier 3 | Yes | approved in Tier 3 rollout batch; requires post-rollout visual monitoring + rollback review |
 
 ## Binding Asset Ownership
 

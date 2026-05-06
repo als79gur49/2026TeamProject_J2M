@@ -108,17 +108,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ProductionRuntime_ShieldMigrationFlags_DefaultFalse()
+        public void ProductionRuntime_ShieldMigrationFlags_DefaultTrue()
         {
             var owner = new GameObject("FrontFaceShieldDefaultFlags");
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
 
-                Assert.That(runtime.EnableGameplayVfxFrontFaceShieldActiveMigration, Is.False);
-                Assert.That(runtime.EnableGameplayVfxFrontFaceShieldBlockMigration, Is.False);
-                Assert.That(runtime.SuppressLegacyFrontFaceShieldActiveVfx, Is.False);
-                Assert.That(runtime.SuppressLegacyFrontFaceShieldBlockVfx, Is.False);
+                Assert.That(runtime.EnableGameplayVfxFrontFaceShieldActiveMigration, Is.True);
+                Assert.That(runtime.EnableGameplayVfxFrontFaceShieldBlockMigration, Is.True);
+                Assert.That(runtime.SuppressLegacyFrontFaceShieldActiveVfx, Is.True);
+                Assert.That(runtime.SuppressLegacyFrontFaceShieldBlockVfx, Is.True);
             }
             finally
             {
@@ -248,6 +248,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxFrontFaceShieldActiveMigration = false;
+                runtime.EnableGameplayVfxFrontFaceShieldBlockMigration = false;
                 scenario.Presenter.AttachPresentationExtension(runtime);
                 scenario.Presenter.PresentInitial(new[] { CreateEnemyUnit(40, scenario.SourceCell) }, scenario.Topology);
 
@@ -314,6 +316,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxFrontFaceShieldActiveMigration = false;
+                runtime.EnableGameplayVfxFrontFaceShieldBlockMigration = false;
                 scenario.Presenter.AttachPresentationExtension(runtime);
                 scenario.Presenter.PresentInitial(new[] { CreateEnemyUnit(40, scenario.SourceCell) }, scenario.Topology);
 

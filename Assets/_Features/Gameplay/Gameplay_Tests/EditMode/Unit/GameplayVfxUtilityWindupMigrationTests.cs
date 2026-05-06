@@ -93,15 +93,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ProductionRuntime_UtilityWindupMigrationFlag_DefaultsFalse()
+        public void ProductionRuntime_UtilityWindupMigrationFlag_DefaultsTrue()
         {
             var owner = new GameObject("UtilityWindupDefaultFlag");
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
 
-                Assert.That(runtime.EnableGameplayVfxUtilityWindupMigration, Is.False);
-                Assert.That(runtime.SuppressLegacyUtilityWindupVfx, Is.False);
+                Assert.That(runtime.EnableGameplayVfxUtilityWindupMigration, Is.True);
+                Assert.That(runtime.SuppressLegacyUtilityWindupVfx, Is.True);
                 Assert.That(runtime.IsRuntimeInitialized, Is.False);
             }
             finally
@@ -118,6 +118,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxUtilityWindupMigration = false;
 
                 runtime.Present(CreateExtensionContext(CreatePresentationData(
                     summonWindupWarnings: new[]
@@ -176,6 +177,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 binding = CreateUtilityWindupBinding(prefab);
                 cueMap = CreateCueMap(binding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxEnemyDeathBurstMigration = false;
+                runtime.EnableGameplayVfxEnemyDeathMotionMigration = false;
                 runtime.EnableGameplayVfxUtilityWindupMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
                 var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
@@ -246,6 +249,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 binding = CreateUtilityWindupBinding(prefab, tailSeconds: 0f);
                 cueMap = CreateCueMap(binding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxEnemyDeathBurstMigration = false;
+                runtime.EnableGameplayVfxEnemyDeathMotionMigration = false;
                 runtime.EnableGameplayVfxUtilityWindupMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
                 var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
@@ -357,6 +362,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxUtilityWindupMigration = false;
                 scenario.Presenter.AttachPresentationExtension(runtime);
                 scenario.Presenter.PresentInitial(new[] { CreateEnemyUnit(40, scenario.SourceCell) }, scenario.Topology);
 

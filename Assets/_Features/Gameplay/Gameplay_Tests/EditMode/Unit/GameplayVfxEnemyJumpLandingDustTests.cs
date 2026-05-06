@@ -91,14 +91,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ProductionRuntime_LandingDustFlag_DefaultsFalse()
+        public void ProductionRuntime_LandingDustFlag_DefaultsTrue()
         {
             var owner = new GameObject("LandingDustDefaultFlag");
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
 
-                Assert.That(runtime.EnableEnemyJumpLandingDustVfx, Is.False);
+                Assert.That(runtime.EnableEnemyJumpLandingDustVfx, Is.True);
             }
             finally
             {
@@ -114,6 +114,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableEnemyJumpLandingDustVfx = false;
                 var context = CreateExtensionContext(CreateJumpSignal(
                     new SurfaceCell(FaceId.Floor, 0, 0),
                     landed: true,

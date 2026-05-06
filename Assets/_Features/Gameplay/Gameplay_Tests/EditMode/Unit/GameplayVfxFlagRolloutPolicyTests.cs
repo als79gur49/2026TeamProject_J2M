@@ -108,21 +108,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "EnemyVfxCue.Death",
                 "Migration burst",
                 "Tier 3",
-                "parity visual approval + targeted regression + rollback review"),
+                "approved in Tier 3 rollout batch; requires post-rollout visual monitoring + rollback review"),
             new(
                 "EnableGameplayVfxEnemyDeathMotionMigration",
                 "enableGameplayVfxEnemyDeathMotionMigration",
                 "EnemyVfxCue.DeathMotion",
                 "Migration / parameterized motion",
                 "Tier 3",
-                "parity visual approval + targeted regression + rollback review"),
+                "approved in Tier 3 rollout batch; requires post-rollout visual monitoring + rollback review"),
             new(
                 "EnableGameplayVfxFlipDestroySelfMotionMigration",
                 "enableGameplayVfxFlipDestroySelfMotionMigration",
                 "BoxVfxCue.FlipDestroySelfMotion",
                 "Migration / parameterized clone motion",
                 "Tier 3",
-                "parity visual approval + targeted regression + rollback review"),
+                "approved in Tier 3 rollout batch; requires post-rollout visual monitoring + rollback review"),
         };
 
         private static readonly string[] HighRiskDefaultTrueCandidateFlags =
@@ -134,7 +134,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void RuntimeDefaults_RemainConservativeUntilApproval()
+        public void RuntimeDefaults_AllCurrentVfxFlagsAreDefaultOn()
         {
             var owner = new GameObject("GameplayVfxFlagRolloutDefaults");
             try
@@ -145,17 +145,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     var property = typeof(GameplayVfxProductionRuntime).GetProperty(flag.PropertyName);
                     Assert.That(property, Is.Not.Null, $"{flag.PropertyName} must remain a public rollout flag.");
-                    Assert.That(property.GetValue(runtime), Is.False, $"{flag.PropertyName} must default false.");
+                    Assert.That(property.GetValue(runtime), Is.True, $"{flag.PropertyName} must default true after Tier 3 rollout.");
                 }
 
-                Assert.That(runtime.SuppressLegacyPlayerDamageHitEffects, Is.False);
-                Assert.That(runtime.SuppressLegacyBoxDestroySmokeEffects, Is.False);
-                Assert.That(runtime.SuppressLegacyItemConsumeEffects, Is.False);
-                Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.False);
-                Assert.That(runtime.SuppressLegacyFlipDestroySelfEffects, Is.False);
-                Assert.That(runtime.SuppressLegacyUtilityWindupVfx, Is.False);
-                Assert.That(runtime.SuppressLegacyFrontFaceShieldActiveVfx, Is.False);
-                Assert.That(runtime.SuppressLegacyFrontFaceShieldBlockVfx, Is.False);
+                Assert.That(runtime.SuppressLegacyPlayerDamageHitEffects, Is.True);
+                Assert.That(runtime.SuppressLegacyBoxDestroySmokeEffects, Is.True);
+                Assert.That(runtime.SuppressLegacyItemConsumeEffects, Is.True);
+                Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.True);
+                Assert.That(runtime.SuppressLegacyFlipDestroySelfEffects, Is.True);
+                Assert.That(runtime.SuppressLegacyUtilityWindupVfx, Is.True);
+                Assert.That(runtime.SuppressLegacyFrontFaceShieldActiveVfx, Is.True);
+                Assert.That(runtime.SuppressLegacyFrontFaceShieldBlockVfx, Is.True);
             }
             finally
             {
@@ -172,6 +172,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
 
+                runtime.EnableGameplayVfxEnemyDeathMotionMigration = false;
                 runtime.EnableGameplayVfxEnemyDeathBurstMigration = true;
                 Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.False);
 
@@ -230,7 +231,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var combinedScene = ReadRepoFile(CombinedGameplayShowcaseScenePath);
             Assert.That(combinedScene, Does.Contain("enableEnemyJumpTargetVfx: 1"));
             Assert.That(combinedScene, Does.Contain("enableEnemyJumpLandingDustVfx: 1"));
-            foreach (var flag in VfxFlags.Where(flag => !flag.PropertyName.StartsWith("EnableEnemyJump", StringComparison.Ordinal)))
+            foreach (var flag in VfxFlags.Where(flag => flag.Tier == "Tier 3"))
             {
                 Assert.That(combinedScene, Does.Not.Contain($"{flag.SerializedFieldName}: 1"));
             }
@@ -242,15 +243,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             var tutorialScene = ReadRepoFile(TutorialScenePath);
-            Assert.That(tutorialScene, Does.Contain("enableEnemyJumpTargetVfx: 0"));
             foreach (var flag in VfxFlags)
             {
+                Assert.That(tutorialScene, Does.Contain($"{flag.SerializedFieldName}: 0"), $"{flag.PropertyName} must be explicit off in TutorialScene.");
                 Assert.That(tutorialScene, Does.Not.Contain($"{flag.SerializedFieldName}: 1"), $"{flag.PropertyName} must not be on in TutorialScene.");
             }
 
             Assert.That(document, Does.Contain("CombinedGameplayShowcase.unity` is a jump VFX visual review scene override"));
+            Assert.That(document, Does.Contain("Tier 3 flags use runtime default-on for broad VFX review"));
             Assert.That(document, Does.Contain("UIAudioScene.unity` is an explicit visual review scene override with all current Gameplay VFX flags on"));
             Assert.That(document, Does.Contain("TutorialScene.unity` remains production-safe/off"));
+            Assert.That(document, Does.Contain("explicit scene-local false overrides"));
             Assert.That(document, Does.Contain("high-risk flag combinations for review only"));
             foreach (var flagName in HighRiskDefaultTrueCandidateFlags)
             {
@@ -266,15 +269,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var document = ReadRepoFile(GovernancePath);
 
             Assert.That(document, Does.Contain("## Gameplay VFX Flag Rollout Policy"));
-            Assert.That(document, Does.Contain("Production runtime defaults are default false first."));
             Assert.That(document, Does.Contain("Every current Gameplay VFX flag is a long-term default-true candidate"));
-            Assert.That(document, Does.Contain("Actual runtime default-on rollout still requires manual visual approval"));
-            Assert.That(document, Does.Contain("Runtime defaults remain conservative until each flag is explicitly approved."));
+            Assert.That(document, Does.Contain("After Tier 3 rollout, all current Gameplay VFX flags are runtime default-on."));
+            Assert.That(document, Does.Contain("approved in the Tier 3 rollout batch"));
             Assert.That(document, Does.Contain("Scene-local overrides are separate from runtime defaults"));
-            Assert.That(document, Does.Contain("High-risk parameterized motion and clone/source-view VFX require manual visual approval"));
+            Assert.That(document, Does.Contain("High-risk parameterized motion and clone/source-view VFX require manual parity approval"));
             Assert.That(document, Does.Contain("`EnableGameplayVfxEnemyDeathMotionMigration` owns `SuppressLegacyEnemyDeathEffects`"));
             Assert.That(document, Does.Contain("`EnableGameplayVfxEnemyDeathBurstMigration` does not suppress the old enemy death fly-away"));
-            Assert.That(document, Does.Contain("Burst + Motion simultaneous output requires manual visual approval"));
+            Assert.That(document, Does.Contain("High-risk motion/parity flags require post-rollout visual monitoring"));
+            Assert.That(document, Does.Contain("Burst + Motion simultaneous output remains visually monitored"));
         }
 
         [Test]
@@ -313,24 +316,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
             foreach (var flag in VfxFlags)
             {
                 Assert.That(document, Does.Contain(BuildFlagTableRow(flag)));
-                Assert.That(document, Does.Contain($"| `{flag.PropertyName}` | `{flag.CueName}` | {flag.Type} | False | {flag.Tier} | Yes | {flag.ApprovalGate} |"));
+                Assert.That(document, Does.Contain($"| `{flag.PropertyName}` | `{flag.CueName}` | {flag.Type} | {flag.ActualDefault} | {flag.Tier} | Yes | {flag.ApprovalGate} |"));
             }
         }
 
         [Test]
         [Category("Extended")]
-        public void HighRiskFlags_RequireManualVisualApproval()
+        public void HighRiskFlags_RequirePostRolloutVisualMonitoring()
         {
             var document = ReadRepoFile(GovernancePath);
 
-            Assert.That(document, Does.Contain("High-risk parameterized motion and clone/source-view VFX require manual visual approval"));
-            Assert.That(document, Does.Contain("parity visual approval covers camera direction, clone/source-pose parity, density, combined cue polish, and rollback review"));
+            Assert.That(document, Does.Contain("High-risk parameterized motion and clone/source-view VFX require manual parity approval"));
+            Assert.That(document, Does.Contain("post-rollout visual monitoring covers camera direction, clone/source-pose parity, density, combined cue polish, and rollback review"));
             foreach (var flagName in HighRiskDefaultTrueCandidateFlags)
             {
                 var flag = VfxFlags.Single(candidate => candidate.PropertyName == flagName);
                 Assert.That(flag.Tier, Is.EqualTo("Tier 3"));
-                Assert.That(flag.ApprovalGate, Does.Contain("parity visual approval"));
-                Assert.That(flag.ApprovalGate, Does.Contain("targeted regression"));
+                Assert.That(flag.ApprovalGate, Does.Contain("approved in Tier 3 rollout batch"));
+                Assert.That(flag.ApprovalGate, Does.Contain("post-rollout visual monitoring"));
                 Assert.That(flag.ApprovalGate, Does.Contain("rollback review"));
                 Assert.That(document, Does.Contain(BuildFlagTableRow(flag)));
             }
@@ -360,7 +363,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static string BuildFlagTableRow(FlagInfo flag)
         {
-            return $"| `{flag.PropertyName}` | `{flag.CueName}` | {flag.Type} | False | {flag.Tier} | Yes | {flag.ApprovalGate} |";
+            return $"| `{flag.PropertyName}` | `{flag.CueName}` | {flag.Type} | {flag.ActualDefault} | {flag.Tier} | Yes | {flag.ApprovalGate} |";
         }
 
         private readonly struct FlagInfo
@@ -392,6 +395,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public string Tier { get; }
 
             public string ApprovalGate { get; }
+
+            public string ActualDefault => "True";
         }
     }
 }

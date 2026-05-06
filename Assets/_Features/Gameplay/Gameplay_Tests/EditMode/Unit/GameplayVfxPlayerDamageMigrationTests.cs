@@ -68,15 +68,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ProductionRuntime_DamageMigrationFlag_DefaultsFalse()
+        public void ProductionRuntime_DamageMigrationFlag_DefaultsTrue()
         {
             var owner = new GameObject("DamageMigrationDefaultFlag");
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
 
-                Assert.That(runtime.EnableGameplayVfxDamageBurstMigration, Is.False);
-                Assert.That(runtime.SuppressLegacyPlayerDamageHitEffects, Is.False);
+                Assert.That(runtime.EnableGameplayVfxDamageBurstMigration, Is.True);
+                Assert.That(runtime.SuppressLegacyPlayerDamageHitEffects, Is.True);
             }
             finally
             {
