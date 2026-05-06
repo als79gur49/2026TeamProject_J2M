@@ -189,6 +189,66 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void LegacyEnemyDeathSampler_UsesEaseOutArcAndSpin()
+        {
+            var command = new ParameterizedMotionVfxCommand(
+                GameplayVfxCueId.From(EnemyVfxCue.DeathMotion),
+                sourceEntityId: 40,
+                sequenceId: 9127,
+                presentationSeed: 9127,
+                sourceLocalPosition: Vector3.zero,
+                sourceLocalRotation: Quaternion.identity,
+                targetLocalPosition: new Vector3(0f, 0f, -2f),
+                targetLocalRotation: Quaternion.identity,
+                durationSeconds: 1f,
+                arcHeight: 0.2f,
+                breakStartSeconds: 0.12f,
+                fadeDurationSeconds: 0.88f,
+                ParameterizedMotionVfxFadeMode.LegacyEnemyDeath,
+                ParameterizedMotionVfxCloneMode.SourceViewCloneWithPrefabFallback,
+                ParameterizedMotionVfxSamplerMode.LegacyEnemyDeathFlyAway,
+                arcLocalDirection: Vector3.up,
+                spinDegrees: 360f,
+                spinAxisLocal: Vector3.forward);
+
+            var sample = ParameterizedMotionVfxSampler.Sample(command, 0.5f);
+            var expectedEasedTime = 1f - Mathf.Pow(0.5f, 3f);
+            var expectedPosition = Vector3.LerpUnclamped(
+                command.SourceLocalPosition,
+                command.TargetLocalPosition,
+                expectedEasedTime) + Vector3.up * command.ArcHeight;
+
+            Assert.That(Vector3.Distance(sample.LocalPosition, expectedPosition), Is.LessThanOrEqualTo(0.0001f));
+            Assert.That(Quaternion.Angle(sample.LocalRotation, Quaternion.AngleAxis(360f * expectedEasedTime, Vector3.forward)), Is.LessThanOrEqualTo(0.001f));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void LegacyEnemyDeathFade_StartsAtTwelvePercent()
+        {
+            var command = new ParameterizedMotionVfxCommand(
+                GameplayVfxCueId.From(EnemyVfxCue.DeathMotion),
+                sourceEntityId: 40,
+                sequenceId: 9127,
+                presentationSeed: 9127,
+                sourceLocalPosition: Vector3.zero,
+                sourceLocalRotation: Quaternion.identity,
+                targetLocalPosition: Vector3.forward,
+                targetLocalRotation: Quaternion.identity,
+                durationSeconds: 1f,
+                arcHeight: 0.2f,
+                breakStartSeconds: 0.12f,
+                fadeDurationSeconds: 0.88f,
+                ParameterizedMotionVfxFadeMode.LegacyEnemyDeath,
+                ParameterizedMotionVfxCloneMode.PrefabOnly,
+                ParameterizedMotionVfxSamplerMode.LegacyEnemyDeathFlyAway);
+
+            Assert.That(ParameterizedMotionVfxSampler.Sample(command, 0.11f).FadeProgress, Is.Zero);
+            Assert.That(ParameterizedMotionVfxSampler.Sample(command, 1f).FadeProgress, Is.EqualTo(1f).Within(0.0001f));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void ParameterizedMotion_BreakFade_StartsAtBreakStart()
         {
             var fixture = CreatePoolFixture(tailSeconds: 0f);

@@ -91,6 +91,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("EnemyDeathBurstVfx.prefab"));
             Assert.That(document, Does.Contain("EnemyDeathBurst_Binding.asset"));
             Assert.That(document, Does.Contain("old clone/arc/fade"));
+            Assert.That(document, Does.Contain("Enemy Death Motion VFX Migration"));
+            Assert.That(document, Does.Contain("EnemyVfxCue.DeathMotion"));
+            Assert.That(document, Does.Contain("EnemyDeathMotionVfxCommand"));
+            Assert.That(document, Does.Contain("EnableGameplayVfxEnemyDeathMotionMigration"));
+            Assert.That(document, Does.Contain("SourceViewCloneWithPrefabFallback"));
+            Assert.That(document, Does.Contain("EnemyDeathMotionVfx.prefab"));
+            Assert.That(document, Does.Contain("EnemyDeathMotion_Binding.asset"));
             Assert.That(document, Does.Contain("FlipImpact DestroySelf Motion VFX Migration"));
             Assert.That(document, Does.Contain("BoxVfxCue.FlipDestroySelfMotion"));
             Assert.That(document, Does.Contain("EnableGameplayVfxFlipDestroySelfMotionMigration"));
@@ -101,6 +108,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("Parameterized Motion Sampler Modes"));
             Assert.That(document, Does.Contain("`FlipArc`"));
             Assert.That(document, Does.Contain("`Linear`"));
+            Assert.That(document, Does.Contain("`LegacyEnemyDeathFlyAway`"));
             Assert.That(document, Does.Contain("Position uses direct linear interpolation"));
             Assert.That(document, Does.Contain("Sampler modes are presentation-only"));
             Assert.That(document, Does.Contain("FlipDestroySelf Source-View Clone Parity"));

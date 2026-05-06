@@ -112,6 +112,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
 
                 Assert.That(runtime.EnableGameplayVfxEnemyDeathBurstMigration, Is.False);
+                Assert.That(runtime.EnableGameplayVfxEnemyDeathMotionMigration, Is.False);
                 Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.False);
             }
             finally
@@ -136,7 +137,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
-                Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.True);
+                Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.False);
             }
             finally
             {
@@ -267,7 +268,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Coordinator_EnemyDeathFlagOn_UsesVfxOnlyAndKeepsCleanup()
+        public void Coordinator_EnemyDeathBurstFlagOn_AllowsOldFlyawayAndKeepsCleanup()
         {
             var scenario = CreatePresenterScenario("EnemyDeathFlagOn");
             var vfxPrefab = new GameObject("EnemyDeathFlagOn_VfxPrefab");
@@ -294,7 +295,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     scenario.Topology,
                     Array.Empty<EntityState>()));
 
-                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.Zero);
+                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.EqualTo(1));
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
                 Assert.That(scenario.Registry.TryGetView(40, out var enemyView), Is.True);
@@ -309,7 +310,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Coordinator_EnemyDeathFlagOnMissingBinding_DoesNotFallbackAndKeepsCleanup()
+        public void Coordinator_EnemyDeathBurstFlagOnMissingBinding_DoesNotSuppressOldFlyawayAndKeepsCleanup()
         {
             var scenario = CreatePresenterScenario("EnemyDeathFlagOnMissingBinding");
             try
@@ -330,7 +331,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     scenario.Topology,
                     Array.Empty<EntityState>()));
 
-                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.Zero);
+                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.EqualTo(1));
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
@@ -582,7 +583,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(expectedRequests));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(expectedRequests));
-                Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.EqualTo(deathEnabled));
+                Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.False);
                 Assert.That(runtime.SuppressLegacyBoxDestroySmokeEffects, Is.EqualTo(boxEnabled));
                 Assert.That(runtime.SuppressLegacyItemConsumeEffects, Is.EqualTo(itemEnabled));
             }
