@@ -163,6 +163,50 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void TileFeatureAudioRequestPlanner_ExitRequests_PreservePayload()
+        {
+            var planner = new TileFeatureAudioRequestPlanner();
+            var cell = new SurfaceCell(FaceId.Floor, 2, 3);
+
+            var requests = planner.BuildRequests(new[]
+            {
+                CreateTilePresentationRequest(
+                    100,
+                    cell,
+                    sourceEntityId: 30,
+                    ownerEntityId: 40,
+                    teamId: 2,
+                    requestKind: TilePresentationRequestKind.ExitOpened,
+                    tileFeatureKind: TileFeatureKind.Exit),
+                CreateTilePresentationRequest(
+                    101,
+                    cell,
+                    sourceEntityId: 31,
+                    ownerEntityId: 41,
+                    teamId: 3,
+                    requestKind: TilePresentationRequestKind.ExitEntered,
+                    tileFeatureKind: TileFeatureKind.Exit,
+                    targetEntityId: 10),
+            });
+
+            Assert.That(requests, Has.Count.EqualTo(2));
+            Assert.That(requests[0].Cue, Is.EqualTo(TileFeatureAudioCue.ExitOpened));
+            Assert.That(requests[0].TileId, Is.EqualTo(100));
+            Assert.That(requests[0].Cell, Is.EqualTo(cell));
+            Assert.That(requests[0].SourceEntityId, Is.EqualTo(30));
+            Assert.That(requests[0].OwnerEntityId, Is.EqualTo(40));
+            Assert.That(requests[0].TeamId, Is.EqualTo(2));
+            Assert.That(requests[0].Context.DebugTag, Is.EqualTo("ExitOpened"));
+            Assert.That(requests[0].TargetEntityId, Is.Zero);
+            Assert.That(requests[1].Cue, Is.EqualTo(TileFeatureAudioCue.ExitEntered));
+            Assert.That(requests[1].TileId, Is.EqualTo(101));
+            Assert.That(requests[1].Context.DebugTag, Is.EqualTo("ExitEntered"));
+            Assert.That(requests[1].TargetEntityId, Is.EqualTo(10));
+        }
+
+
+        [Test]
+        [Category("Extended")]
         public void TileFeatureAudioRequestPlanner_PreservesOrderAndDuplicates_AndSkipsUnknownKinds()
         {
             var planner = new TileFeatureAudioRequestPlanner();
@@ -276,6 +320,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(map.ResolveOrThrow(TileFeatureAudioCue.ButtonActivated).Definition.Category, Is.EqualTo(AudioCategory.Sfx));
             Assert.That(map.TryResolveOptional(TileFeatureAudioCue.DestroyTileTriggered, out _), Is.False);
             Assert.That(map.TryResolveOptional(TileFeatureAudioCue.SlideTileRedirected, out _), Is.False);
+            Assert.That(map.TryResolveOptional(TileFeatureAudioCue.ExitOpened, out _), Is.False);
+            Assert.That(map.TryResolveOptional(TileFeatureAudioCue.ExitEntered, out _), Is.False);
         }
 
         [Test]
@@ -288,13 +334,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var slideBinding = scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false));
             var barricadeBlockedBinding = scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false));
             var barricadeCrushedBinding = scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false));
+            var exitOpenedBinding = scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false));
+            var exitEnteredBinding = scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false));
             SetEntries(
                 map,
                 (TileFeatureAudioCue.ButtonActivated, scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false))),
                 (TileFeatureAudioCue.DestroyTileTriggered, binding),
                 (TileFeatureAudioCue.SlideTileRedirected, slideBinding),
                 (TileFeatureAudioCue.BarricadeBlocked, barricadeBlockedBinding),
-                (TileFeatureAudioCue.BarricadeCrushed, barricadeCrushedBinding));
+                (TileFeatureAudioCue.BarricadeCrushed, barricadeCrushedBinding),
+                (TileFeatureAudioCue.ExitOpened, exitOpenedBinding),
+                (TileFeatureAudioCue.ExitEntered, exitEnteredBinding));
 
             Assert.That(map.TryResolveOptional(TileFeatureAudioCue.DestroyTileTriggered, out var resolved), Is.True);
             Assert.That(resolved, Is.SameAs(binding));
@@ -304,6 +354,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(resolvedBlocked, Is.SameAs(barricadeBlockedBinding));
             Assert.That(map.TryResolveOptional(TileFeatureAudioCue.BarricadeCrushed, out var resolvedCrushed), Is.True);
             Assert.That(resolvedCrushed, Is.SameAs(barricadeCrushedBinding));
+            Assert.That(map.TryResolveOptional(TileFeatureAudioCue.ExitOpened, out var resolvedExitOpened), Is.True);
+            Assert.That(resolvedExitOpened, Is.SameAs(exitOpenedBinding));
+            Assert.That(map.TryResolveOptional(TileFeatureAudioCue.ExitEntered, out var resolvedExitEntered), Is.True);
+            Assert.That(resolvedExitEntered, Is.SameAs(exitEnteredBinding));
         }
 
         [Test]
@@ -422,6 +476,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void TileFeatureAudioPresentationController_ExitMissingOptionalBindings_NoOp()
+        {
+            using var scope = new TestAssetScope();
+            var map = scope.CreateMap();
+            SetEntries(map, (TileFeatureAudioCue.ButtonActivated, scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false))));
+            var controller = new TileFeatureAudioPresentationController(new GameplayPresentationStateStore());
+            var playbackPort = new RecordingGameplayAudioPlaybackPort();
+
+            controller.AttachRuntime(playbackPort, map);
+            controller.ReplacePendingPlan(new[]
+            {
+                CreateTileAudioRequest(
+                    30,
+                    ownerEntityId: 0,
+                    cue: TileFeatureAudioCue.ExitOpened),
+                CreateTileAudioRequest(
+                    31,
+                    ownerEntityId: 0,
+                    cue: TileFeatureAudioCue.ExitEntered,
+                    targetEntityId: 10),
+            });
+            controller.PlayPlannedAudio();
+
+            Assert.That(playbackPort.TwoDCalls, Is.Empty);
+            Assert.That(playbackPort.AttachedCalls, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void TileFeatureAudioPresentationController_DestroyTileBinding_PlaysWhenPresent()
         {
             using var scope = new TestAssetScope();
@@ -531,6 +614,51 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
                 Is.EqualTo(new[] { "BarricadeBlocked:30", "BarricadeBlocked:30", "BarricadeCrushed:31" }));
+            Assert.That(playbackPort.AttachedCalls, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TileFeatureAudioPresentationController_ExitBindings_PlayDuplicatesWhenPresent()
+        {
+            using var scope = new TestAssetScope();
+            var map = scope.CreateMap();
+            var openedDefinition = scope.CreateDefinition(AudioCategory.Sfx, loop: false);
+            var enteredDefinition = scope.CreateDefinition(AudioCategory.Sfx, loop: false);
+            SetEntries(
+                map,
+                (TileFeatureAudioCue.ButtonActivated, scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false))),
+                (TileFeatureAudioCue.ExitOpened, scope.CreateBinding(openedDefinition)),
+                (TileFeatureAudioCue.ExitEntered, scope.CreateBinding(enteredDefinition)));
+            var controller = new TileFeatureAudioPresentationController(new GameplayPresentationStateStore());
+            var playbackPort = new RecordingGameplayAudioPlaybackPort();
+
+            controller.AttachRuntime(playbackPort, map);
+            controller.ReplacePendingPlan(new[]
+            {
+                CreateTileAudioRequest(
+                    30,
+                    ownerEntityId: 0,
+                    cue: TileFeatureAudioCue.ExitOpened),
+                CreateTileAudioRequest(
+                    30,
+                    ownerEntityId: 0,
+                    cue: TileFeatureAudioCue.ExitOpened),
+                CreateTileAudioRequest(
+                    31,
+                    ownerEntityId: 0,
+                    cue: TileFeatureAudioCue.ExitEntered,
+                    targetEntityId: 10),
+            });
+            controller.PlayPlannedAudio();
+
+            Assert.That(playbackPort.TwoDCalls, Has.Count.EqualTo(3));
+            Assert.That(playbackPort.TwoDCalls[0].Definition, Is.SameAs(openedDefinition));
+            Assert.That(playbackPort.TwoDCalls[1].Definition, Is.SameAs(openedDefinition));
+            Assert.That(playbackPort.TwoDCalls[2].Definition, Is.SameAs(enteredDefinition));
+            Assert.That(
+                playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
+                Is.EqualTo(new[] { "ExitOpened:30", "ExitOpened:30", "ExitEntered:31" }));
             Assert.That(playbackPort.AttachedCalls, Is.Empty);
         }
 

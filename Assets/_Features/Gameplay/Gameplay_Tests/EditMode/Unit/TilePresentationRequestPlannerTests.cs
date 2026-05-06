@@ -166,6 +166,48 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void BuildRequests_ExitEvents_PreservePresentationFacts()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 2, 3);
+            var planner = new TilePresentationRequestPlanner();
+            var presentationData = CreatePresentationData(
+                new TilePresentationEvent(
+                    TilePresentationEventKind.ExitOpened,
+                    100,
+                    cell,
+                    TileFeatureKind.Exit,
+                    30,
+                    40,
+                    2),
+                new TilePresentationEvent(
+                    TilePresentationEventKind.ExitEntered,
+                    100,
+                    cell,
+                    TileFeatureKind.Exit,
+                    30,
+                    40,
+                    2,
+                    targetEntityId: 50));
+
+            var requests = planner.BuildRequests(presentationData);
+
+            Assert.That(requests, Has.Count.EqualTo(2));
+            Assert.That(requests[0].RequestKind, Is.EqualTo(TilePresentationRequestKind.ExitOpened));
+            Assert.That(requests[0].TileId, Is.EqualTo(100));
+            Assert.That(requests[0].Cell, Is.EqualTo(cell));
+            Assert.That(requests[0].TileFeatureKind, Is.EqualTo(TileFeatureKind.Exit));
+            Assert.That(requests[0].SourceEntityId, Is.EqualTo(30));
+            Assert.That(requests[0].OwnerEntityId, Is.EqualTo(40));
+            Assert.That(requests[0].TeamId, Is.EqualTo(2));
+            Assert.That(requests[0].TargetEntityId, Is.Zero);
+            Assert.That(requests[0].Direction, Is.EqualTo(Direction.None));
+            Assert.That(requests[1].RequestKind, Is.EqualTo(TilePresentationRequestKind.ExitEntered));
+            Assert.That(requests[1].TargetEntityId, Is.EqualTo(50));
+            Assert.That(requests[1].Direction, Is.EqualTo(Direction.None));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void BuildRequests_PreservesTileEventOrder()
         {
             var planner = new TilePresentationRequestPlanner();

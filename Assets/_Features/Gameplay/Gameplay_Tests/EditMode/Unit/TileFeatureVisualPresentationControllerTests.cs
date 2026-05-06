@@ -166,6 +166,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void ExitRequests_WithSupportedTargetView_CallExitVisualHooks()
+        {
+            var rootObject = new GameObject(nameof(ExitRequests_WithSupportedTargetView_CallExitVisualHooks));
+            var targetObject = new GameObject("ExitVisualTarget");
+            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+
+            try
+            {
+                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+                target.Configure(100, cell);
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(registry);
+
+                controller.PlayRequests(new[]
+                {
+                    CreateExitOpenedRequest(100, cell),
+                    CreateExitEnteredRequest(100, cell, playerEntityId: 10),
+                });
+
+                Assert.That(target.DebugPlayExitOpenedCount, Is.EqualTo(1));
+                Assert.That(target.DebugPlayExitEnteredCount, Is.EqualTo(1));
+                Assert.That(target.DebugLastExitEnteredPlayerEntityId, Is.EqualTo(10));
+                Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void ButtonActivatedRequest_MissingTarget_NoOpsWithOptionalDiagnostic()
         {
             var diagnostics = new List<string>();
@@ -236,6 +271,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(diagnostics, Has.Count.EqualTo(2));
             Assert.That(diagnostics[0], Does.Contain("unsupported BarricadeBlocked"));
             Assert.That(diagnostics[1], Does.Contain("unsupported BarricadeCrushed"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ExitRequests_UnsupportedTargets_NoOpWithOptionalDiagnostics()
+        {
+            var diagnostics = new List<string>();
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var target = new RecordingTarget(100, cell);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(new RecordingRegistry(target));
+            controller.SetDiagnosticSink(diagnostics.Add);
+
+            controller.PlayRequests(new[]
+            {
+                CreateExitOpenedRequest(100, cell),
+                CreateExitEnteredRequest(100, cell, playerEntityId: 10),
+            });
+
+            Assert.That(target.PlayCount, Is.Zero);
+            Assert.That(diagnostics, Has.Count.EqualTo(2));
+            Assert.That(diagnostics[0], Does.Contain("unsupported ExitOpened"));
+            Assert.That(diagnostics[1], Does.Contain("unsupported ExitEntered"));
         }
 
         [Test]
@@ -384,6 +442,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(target.LastBlockedDirection, Is.EqualTo(Direction.Left));
             Assert.That(target.LastBlockedTargetEntityId, Is.EqualTo(30));
             Assert.That(target.LastCrushedTargetEntityId, Is.EqualTo(50));
+            Assert.That(registry.LookupOrder.ToArray(), Is.EqualTo(new[] { 100, 100, 100, 100 }));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void DuplicateExitRequests_AreNotDeduped()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var target = new RecordingExitTarget(100, cell);
+            var registry = new RecordingRegistry(target);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(registry);
+
+            controller.PlayRequests(new[]
+            {
+                CreateExitOpenedRequest(target.TileId, target.Cell),
+                CreateExitOpenedRequest(target.TileId, target.Cell),
+                CreateExitEnteredRequest(target.TileId, target.Cell, playerEntityId: 10),
+                CreateExitEnteredRequest(target.TileId, target.Cell, playerEntityId: 11),
+            });
+
+            Assert.That(target.OpenedPlayCount, Is.EqualTo(2));
+            Assert.That(target.EnteredPlayCount, Is.EqualTo(2));
+            Assert.That(target.LastPlayerEntityId, Is.EqualTo(11));
             Assert.That(registry.LookupOrder.ToArray(), Is.EqualTo(new[] { 100, 100, 100, 100 }));
         }
 
@@ -588,6 +670,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 targetEntityId: targetEntityId);
         }
 
+        private static TilePresentationRequest CreateExitOpenedRequest(int tileId, SurfaceCell cell)
+        {
+            return new TilePresentationRequest(
+                TilePresentationRequestKind.ExitOpened,
+                tileId,
+                cell,
+                TileFeatureKind.Exit,
+                sourceEntityId: tileId + 1,
+                ownerEntityId: tileId + 2,
+                teamId: tileId + 3);
+        }
+
+        private static TilePresentationRequest CreateExitEnteredRequest(
+            int tileId,
+            SurfaceCell cell,
+            int playerEntityId)
+        {
+            return new TilePresentationRequest(
+                TilePresentationRequestKind.ExitEntered,
+                tileId,
+                cell,
+                TileFeatureKind.Exit,
+                sourceEntityId: tileId + 1,
+                ownerEntityId: tileId + 2,
+                teamId: tileId + 3,
+                targetEntityId: playerEntityId);
+        }
+
         private static void InvokeStageTileFeatureVisualInstantiation(
             IReadOnlyList<TileFeaturePresentationResolvedBinding> bindings,
             IReadOnlyList<TileFeatureState> initialTileFeatures,
@@ -760,6 +870,46 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 CrushedPlayCount++;
                 LastCrushedTargetEntityId = targetEntityId;
+            }
+        }
+
+        private sealed class RecordingExitTarget :
+            ITileFeatureVisualTarget,
+            IExitOpenedVisualTarget,
+            IExitEnteredVisualTarget
+        {
+            public RecordingExitTarget(int tileId, SurfaceCell cell)
+            {
+                TileId = tileId;
+                Cell = cell;
+            }
+
+            public int TileId { get; }
+
+            public SurfaceCell Cell { get; }
+
+            public int ButtonPlayCount { get; private set; }
+
+            public int OpenedPlayCount { get; private set; }
+
+            public int EnteredPlayCount { get; private set; }
+
+            public int LastPlayerEntityId { get; private set; }
+
+            public void PlayButtonActivated()
+            {
+                ButtonPlayCount++;
+            }
+
+            public void PlayExitOpened()
+            {
+                OpenedPlayCount++;
+            }
+
+            public void PlayExitEntered(int playerEntityId)
+            {
+                EnteredPlayCount++;
+                LastPlayerEntityId = playerEntityId;
             }
         }
     }
