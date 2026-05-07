@@ -303,6 +303,42 @@ namespace Game.Feature.Gameplay.Vfx
                             activationSequence: signal.ActivationSequence)));
             }
 
+            var frontFaceShieldWindupWarnings = presentationData.FrontFaceShieldWindupWarnings;
+            for (var i = 0; i < frontFaceShieldWindupWarnings.Count; i++)
+            {
+                var signal = frontFaceShieldWindupWarnings[i];
+                if (signal.SourceEntityId <= 0 ||
+                    DidEnemyExitThisTick(presentationData, signal.SourceEntityId))
+                {
+                    continue;
+                }
+
+                var cueId = GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldWindup);
+                builder.Add(
+                    new GameplayVfxRequest(
+                        tickIndex: context.TickIndex,
+                        sequenceId: signal.SourceEntityId,
+                        presentationSeed: signal.PresentationSeed != 0
+                            ? signal.PresentationSeed
+                            : signal.SourceEntityId,
+                        sourceEntityId: signal.SourceEntityId,
+                        cueId: cueId,
+                        anchor: VfxAnchor.ForEntity(
+                            signal.SourceEntityId,
+                            VfxAnchorSlot.EntityCenter,
+                            signal.SourceCell,
+                            signal.Topology,
+                            hasFallbackCell: true),
+                        timing: VfxTimingKind.ImmediateOnTickPresentation,
+                        isPersistent: true,
+                        persistentKey: new VfxPersistentKey(
+                            cueId,
+                            VfxAnchorKind.Entity,
+                            entityId: signal.SourceEntityId,
+                            effectIndex: signal.EffectIndex,
+                            activationSequence: signal.ActivationSequence)));
+            }
+
             var frontFaceShieldSources = presentationData.FrontFaceShieldSources;
             for (var i = 0; i < frontFaceShieldSources.Count; i++)
             {

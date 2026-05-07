@@ -245,7 +245,7 @@ namespace Game.Feature.Gameplay.Host
                 _projector);
 
             _frontFaceShieldVfxPresenter.RefreshWindupWarnings(
-                result.PresentationData.FrontFaceShieldWindupWarnings,
+                Array.Empty<TickFrontFaceShieldWindupWarningSignal>(),
                 _stateStore,
                 _projector);
             TraceStep("RefreshFrontFaceShieldSources");

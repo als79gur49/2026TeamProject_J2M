@@ -75,52 +75,7 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentNullException(nameof(projector));
             }
 
-            _seenWarningKeys.Clear();
-            for (var i = 0; i < signals.Count; i++)
-            {
-                var signal = signals[i];
-                var key = new FrontFaceShieldWarningKey(
-                    signal.SourceEntityId,
-                    signal.EffectIndex,
-                    signal.ActivationSequence);
-                _seenWarningKeys.Add(key);
-                if (_warningShieldsByKey.TryGetValue(key, out var existingRuntime))
-                {
-                    existingRuntime.LastSeenTick = signal.TickIndex;
-                    existingRuntime.SourceCell = signal.SourceCell;
-                    existingRuntime.Topology = signal.Topology;
-                    UpdateWarningPlacement(existingRuntime, signal, stateStore, projector);
-                    continue;
-                }
-
-                if (!TryCreateWarningRuntime(signal, stateStore, projector, out var runtime))
-                {
-                    continue;
-                }
-
-                _warningShieldsByKey[key] = runtime;
-            }
-
-            _warningRemovalBuffer.Clear();
-            foreach (var pair in _warningShieldsByKey)
-            {
-                if (!_seenWarningKeys.Contains(pair.Key))
-                {
-                    _warningRemovalBuffer.Add(pair.Key);
-                }
-            }
-
-            for (var i = 0; i < _warningRemovalBuffer.Count; i++)
-            {
-                var key = _warningRemovalBuffer[i];
-                if (!_warningShieldsByKey.TryGetValue(key, out var runtime))
-                {
-                    continue;
-                }
-
-                runtime.Dispose();
-                _warningShieldsByKey.Remove(key);
-            }
+            Clear();
         }
 
         public void RefreshActiveSources(

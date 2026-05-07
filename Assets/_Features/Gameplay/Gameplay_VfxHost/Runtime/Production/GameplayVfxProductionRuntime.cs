@@ -25,6 +25,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         [SerializeField] private bool enableGameplayVfxUtilityWindupMigration = true;
         [SerializeField] private bool enableGameplayVfxFrontFaceShieldActiveMigration = true;
         [SerializeField] private bool enableGameplayVfxFrontFaceShieldBlockMigration = true;
+        [SerializeField] private bool enableGameplayVfxFrontFaceShieldWindupMigration = true;
         [SerializeField] private VfxProfileAsset[] familyProfiles = Array.Empty<VfxProfileAsset>();
 
         private readonly PlayerVfxRequestPlanner playerPlanner = new();
@@ -276,6 +277,21 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 }
 
                 enableGameplayVfxFrontFaceShieldBlockMigration = value;
+                ResetIfNoGameplayVfxEnabled();
+            }
+        }
+
+        public bool EnableGameplayVfxFrontFaceShieldWindupMigration
+        {
+            get => enableGameplayVfxFrontFaceShieldWindupMigration;
+            set
+            {
+                if (enableGameplayVfxFrontFaceShieldWindupMigration == value)
+                {
+                    return;
+                }
+
+                enableGameplayVfxFrontFaceShieldWindupMigration = value;
                 ResetIfNoGameplayVfxEnabled();
             }
         }
@@ -542,7 +558,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             enableGameplayVfxBoxSlideTrail ||
             enableGameplayVfxUtilityWindupMigration ||
             enableGameplayVfxFrontFaceShieldActiveMigration ||
-            enableGameplayVfxFrontFaceShieldBlockMigration;
+            enableGameplayVfxFrontFaceShieldBlockMigration ||
+            enableGameplayVfxFrontFaceShieldWindupMigration;
 
         private void ResetIfNoEnemyJumpVfxEnabled()
         {
@@ -591,6 +608,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                    (enableGameplayVfxUtilityWindupMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup)) ||
                    (enableGameplayVfxFrontFaceShieldActiveMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldActive)) ||
                    (enableGameplayVfxFrontFaceShieldBlockMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldBlock)) ||
+                   (enableGameplayVfxFrontFaceShieldWindupMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldWindup)) ||
                    (enableGameplayVfxBoxDestroySmokeMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.DestroySmoke)) ||
                    (enableGameplayVfxBoxDestroyShrinkMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.DestroyShrink)) ||
                    (enableGameplayVfxItemConsumeBurstMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.ItemConsume)) ||

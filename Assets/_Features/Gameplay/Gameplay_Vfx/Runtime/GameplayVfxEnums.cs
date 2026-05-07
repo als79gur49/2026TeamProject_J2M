@@ -54,6 +54,7 @@ namespace Game.Feature.Gameplay.Vfx
         FrontFaceShieldActive = 13,
         FrontFaceShieldBlock = 14,
         DeathMotion = 15,
+        FrontFaceShieldWindup = 16,
     }
 
     public enum TileFeatureVfxCue
