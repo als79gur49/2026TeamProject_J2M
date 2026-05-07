@@ -8,8 +8,14 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
-    public sealed class FlipImpactTrackTests
+    public sealed class PresentationMotionTrackTests
     {
+        private const string ExitControllerPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayExitPresentationController.cs";
+        private const string PresentationMotionTrackPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/PresentationMotionTrack.cs";
+        private const string GameplayTrackPlannerPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTrackPlanner.cs";
         private const string StayCommandPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/FlipImpactStayMotionCommand.cs";
         private const string StayCommandBuilderPath =
@@ -18,79 +24,61 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxEnums.cs";
         private const string VfxProductionRuntimePath =
             "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/GameplayVfxProductionRuntime.cs";
+        private const string GameplayEntityPresentationApplierPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayEntityPresentationApplier.cs";
+        private const string BoxFlipInteractionDriverPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxFlipInteractionDriver.cs";
 
         [Test]
         [Category("Extended")]
-        public void FlipImpactTrack_Stay_SamplesPreContactArc()
+        public void PresentationMotionTrack_Stay_PreContactArcMatchesExpected()
         {
-            var track = CreateTrack();
             var command = CreateCommand();
+            var track = CreatePresentationTrack(command);
+            var sampleTime = command.ContactNormalizedTime * 0.5f;
+            var expectedPose = FlipArcSampler.Sample(
+                command.SourcePose,
+                command.ImpactPose,
+                0.5f,
+                command.ArcHeightWorld);
 
-            track.Advance(command.DurationSeconds * command.ContactNormalizedTime * 0.5f);
+            track.Advance(command.DurationSeconds * sampleTime);
             var sample = track.Sample();
 
-            Assert.That(sample.Position.x, Is.GreaterThan(command.SourceLocalPosition.x));
-            Assert.That(sample.Position.x, Is.LessThan(command.ImpactLocalPosition.x));
-            Assert.That(sample.Position.z, Is.LessThan(-0.01f));
+            AssertSamplePoseMatches(sample, expectedPose);
+            Assert.That(sample.LocalPose.Position.x, Is.GreaterThan(command.SourceLocalPosition.x));
+            Assert.That(sample.LocalPose.Position.x, Is.LessThan(command.ImpactLocalPosition.x));
+            Assert.That(sample.LocalPose.Position.z, Is.LessThan(-0.01f));
         }
 
         [Test]
         [Category("Extended")]
-        public void FlipImpactTrack_Stay_HoldsAtContactWindow()
+        public void PresentationMotionTrack_Stay_HoldWindowMatchesExpected()
         {
             var command = CreateCommand();
-            var track = CreateTrack(command);
+            var track = CreatePresentationTrack(command);
             var holdSampleTime = command.ContactNormalizedTime +
                                  (command.PostContactHoldNormalizedDuration * 0.5f);
 
             track.Advance(command.DurationSeconds * holdSampleTime);
             var sample = track.Sample();
 
-            Assert.That(Vector3.Distance(sample.Position, command.ImpactLocalPosition), Is.LessThanOrEqualTo(0.0001f));
-            Assert.That(Quaternion.Angle(sample.Rotation, command.ImpactLocalRotation), Is.LessThanOrEqualTo(0.001f));
+            Assert.That(Vector3.Distance(sample.LocalPose.Position, command.ImpactLocalPosition), Is.LessThanOrEqualTo(0.0001f));
+            Assert.That(Quaternion.Angle(sample.LocalPose.Rotation, command.ImpactLocalRotation), Is.LessThanOrEqualTo(0.001f));
         }
 
         [Test]
         [Category("Extended")]
-        public void FlipImpactTrack_Stay_ReturnsThroughArcToSource()
+        public void PresentationMotionTrack_Stay_SquashScaleMatchesExpected()
         {
             var command = CreateCommand();
-            var track = CreateTrack(command);
-            var holdEndTime = command.ContactNormalizedTime + command.PostContactHoldNormalizedDuration;
-            var returnMidpointTime = holdEndTime + ((1f - holdEndTime) * 0.5f);
-
-            track.Advance(command.DurationSeconds * returnMidpointTime);
-            var sample = track.Sample();
-
-            Assert.That(sample.Position.x, Is.GreaterThan(command.SourceLocalPosition.x));
-            Assert.That(sample.Position.x, Is.LessThan(command.ImpactLocalPosition.x));
-            Assert.That(sample.Position.z, Is.GreaterThan(0.01f));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void FlipImpactTrack_Stay_ReturnsToExactSourcePoseAtCompletion()
-        {
-            var command = CreateCommand();
-            var track = CreateTrack(command);
-
-            track.Advance(command.DurationSeconds);
-            var sample = track.Sample();
-
-            Assert.That(Vector3.Distance(sample.Position, command.SourceLocalPosition), Is.LessThanOrEqualTo(0.0001f));
-            Assert.That(Quaternion.Angle(sample.Rotation, command.SourceLocalRotation), Is.LessThanOrEqualTo(0.001f));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void FlipImpactTrack_Stay_ContactSquashPreserved()
-        {
-            var command = CreateCommand();
-            var track = CreateTrack(command);
+            var track = CreatePresentationTrack(command);
+            var expectedScale = BoxMotionVisualScaleSampler.SampleFlipFlight(1f);
 
             track.Advance(command.DurationSeconds * command.ContactNormalizedTime);
-            var scale = track.SampleVisualScaleMultiplier();
+            var scale = track.Sample().VisualScaleMultiplier;
 
+            Assert.That(Vector3.Distance(scale, expectedScale), Is.LessThanOrEqualTo(0.0001f));
             Assert.That(scale.x, Is.GreaterThan(1f));
             Assert.That(scale.y, Is.GreaterThan(1f));
             Assert.That(scale.z, Is.LessThan(1f));
@@ -98,20 +86,97 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void FlipImpactTrack_CreateStay_UsesCommand()
+        public void PresentationMotionTrack_Stay_ReturnArcMatchesExpected()
         {
-            var command = CreateCommand(sourceActionPlanId: 0, presentationSeed: 99);
+            var command = CreateCommand();
+            var track = CreatePresentationTrack(command);
+            var holdEndTime = command.ContactNormalizedTime + command.PostContactHoldNormalizedDuration;
+            var returnMidpointTime = holdEndTime + ((1f - holdEndTime) * 0.5f);
+            var expectedPose = FlipArcSampler.Sample(
+                command.ImpactPose,
+                command.SourcePose,
+                0.5f,
+                command.ArcHeightWorld * command.ReturnArcMultiplier);
 
-            var track = FlipImpactTrack.CreateStay(command);
+            track.Advance(command.DurationSeconds * returnMidpointTime);
+            var sample = track.Sample();
 
-            Assert.That(track.InstanceKey, Is.EqualTo(new FlipImpactInstanceKey(99, command.BoxEntityId, true)));
-            Assert.That(track.Signal.Disposition, Is.EqualTo(FlipImpactPresentationDisposition.Stay));
-            Assert.That(track.Signal.SourceCell, Is.EqualTo(command.SourceCell));
-            Assert.That(track.Signal.ImpactCell, Is.EqualTo(command.ImpactCell));
-            Assert.That(track.DurationSeconds, Is.EqualTo(command.DurationSeconds).Within(0.0001f));
-            Assert.That(Vector3.Distance(track.SourcePose.Position, command.SourceLocalPosition), Is.LessThanOrEqualTo(0.0001f));
-            Assert.That(Vector3.Distance(track.ImpactPose.Position, command.ImpactLocalPosition), Is.LessThanOrEqualTo(0.0001f));
-            Assert.That(track.ContactNormalizedTime, Is.EqualTo(command.ContactNormalizedTime).Within(0.0001f));
+            AssertSamplePoseMatches(sample, expectedPose);
+            Assert.That(sample.LocalPose.Position.x, Is.GreaterThan(command.SourceLocalPosition.x));
+            Assert.That(sample.LocalPose.Position.x, Is.LessThan(command.ImpactLocalPosition.x));
+            Assert.That(sample.LocalPose.Position.z, Is.GreaterThan(0.01f));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PresentationMotionTrack_Stay_CompletesAtExactSourcePose()
+        {
+            var command = CreateCommand();
+            var track = CreatePresentationTrack(command);
+
+            track.Advance(command.DurationSeconds);
+            var sample = track.Sample();
+
+            Assert.That(track.IsComplete, Is.True);
+            Assert.That(sample.IsComplete, Is.True);
+            Assert.That(Vector3.Distance(sample.LocalPose.Position, command.SourceLocalPosition), Is.LessThanOrEqualTo(0.0001f));
+            Assert.That(Quaternion.Angle(sample.LocalPose.Rotation, command.SourceLocalRotation), Is.LessThanOrEqualTo(0.001f));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PresentationMotionTrack_Stay_ReportsCompletionPoseAndResetScale()
+        {
+            var command = CreateCommand();
+            var track = CreatePresentationTrack(command);
+
+            track.Advance(command.DurationSeconds);
+            var sample = track.Sample();
+
+            Assert.That(sample.IsComplete, Is.True);
+            Assert.That(Vector3.Distance(sample.CompletionPose.Position, command.SourceLocalPosition), Is.LessThanOrEqualTo(0.0001f));
+            Assert.That(Quaternion.Angle(sample.CompletionPose.Rotation, command.SourceLocalRotation), Is.LessThanOrEqualTo(0.001f));
+            Assert.That(Vector3.Distance(sample.VisualScaleMultiplier, Vector3.one), Is.LessThanOrEqualTo(0.0001f));
+            Assert.That(sample.SuppressBoxInteractionOverlay, Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PresentationMotionInstanceKey_CreateFlipImpactStay_IsStable()
+        {
+            var actionPlanCommand = CreateCommand(sourceActionPlanId: 7, presentationSeed: 99);
+            var fallbackCommand = CreateCommand(sourceActionPlanId: 0, presentationSeed: 99);
+            var actionPlanSignal = CreateSignal(FlipImpactPresentationDisposition.Stay, sourceActionPlanId: 7);
+            var fallbackSignal = CreateSignal(FlipImpactPresentationDisposition.Stay, sourceActionPlanId: 0);
+
+            Assert.That(
+                PresentationMotionInstanceKey.CreateFlipImpactStay(actionPlanCommand),
+                Is.EqualTo(new PresentationMotionInstanceKey(
+                    PresentationMotionKind.FlipImpactStay,
+                    7,
+                    actionPlanCommand.BoxEntityId,
+                    usesTickFallback: false)));
+            Assert.That(
+                PresentationMotionInstanceKey.CreateFlipImpactStay(fallbackCommand),
+                Is.EqualTo(new PresentationMotionInstanceKey(
+                    PresentationMotionKind.FlipImpactStay,
+                    99,
+                    fallbackCommand.BoxEntityId,
+                    usesTickFallback: true)));
+            Assert.That(
+                PresentationMotionInstanceKey.CreateFlipImpactStay(actionPlanSignal, tickIndexFallback: 55),
+                Is.EqualTo(new PresentationMotionInstanceKey(
+                    PresentationMotionKind.FlipImpactStay,
+                    7,
+                    actionPlanSignal.BoxEntityId,
+                    usesTickFallback: false)));
+            Assert.That(
+                PresentationMotionInstanceKey.CreateFlipImpactStay(fallbackSignal, tickIndexFallback: 55),
+                Is.EqualTo(new PresentationMotionInstanceKey(
+                    PresentationMotionKind.FlipImpactStay,
+                    55,
+                    fallbackSignal.BoxEntityId,
+                    usesTickFallback: true)));
         }
 
         [Test]
@@ -147,58 +212,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void PresentationMotionTrack_FlipImpactStay_MatchesLegacyTrackSamples()
-        {
-            var command = CreateCommand();
-            var legacyTrack = FlipImpactTrack.CreateStay(command);
-            var genericTrack = PresentationMotionTrack.CreateFlipImpactStay(command);
-
-            AdvanceAndAssertSampleMatches(
-                legacyTrack,
-                genericTrack,
-                command.DurationSeconds * command.ContactNormalizedTime * 0.5f);
-            AdvanceAndAssertSampleMatches(
-                legacyTrack,
-                genericTrack,
-                command.DurationSeconds * command.PostContactHoldNormalizedDuration * 0.5f);
-            AdvanceAndAssertSampleMatches(
-                legacyTrack,
-                genericTrack,
-                command.DurationSeconds * (1f - command.ContactNormalizedTime));
-        }
-
-        [Test]
-        [Category("Extended")]
         public void PresentationMotionTrack_FlipImpactStay_ReturnArcMultiplierZero_ReturnsWithoutArcLift()
         {
             var command = CreateCommand(returnArcMultiplier: 0f);
             var track = PresentationMotionTrack.CreateFlipImpactStay(command);
             var holdEndTime = command.ContactNormalizedTime + command.PostContactHoldNormalizedDuration;
             var returnMidpointTime = holdEndTime + ((1f - holdEndTime) * 0.5f);
+            var expectedPose = FlipArcSampler.Sample(
+                command.ImpactPose,
+                command.SourcePose,
+                0.5f,
+                0f);
 
             track.Advance(command.DurationSeconds * returnMidpointTime);
             var sample = track.Sample();
 
+            AssertSamplePoseMatches(sample, expectedPose);
             Assert.That(sample.LocalPose.Position.x, Is.GreaterThan(command.SourceLocalPosition.x));
             Assert.That(sample.LocalPose.Position.x, Is.LessThan(command.ImpactLocalPosition.x));
             Assert.That(Mathf.Abs(sample.LocalPose.Position.z), Is.LessThanOrEqualTo(0.0001f));
             Assert.That(sample.SuppressBoxInteractionOverlay, Is.True);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void PresentationMotionTrack_FlipImpactStay_CompletesAtExactSourcePose()
-        {
-            var command = CreateCommand();
-            var track = PresentationMotionTrack.CreateFlipImpactStay(command);
-
-            track.Advance(command.DurationSeconds);
-            var sample = track.Sample();
-
-            Assert.That(track.IsComplete, Is.True);
-            Assert.That(Vector3.Distance(sample.LocalPose.Position, command.SourceLocalPosition), Is.LessThanOrEqualTo(0.0001f));
-            Assert.That(Quaternion.Angle(sample.LocalPose.Rotation, command.SourceLocalRotation), Is.LessThanOrEqualTo(0.001f));
-            Assert.That(Vector3.Distance(sample.CompletionPose.Position, command.SourceLocalPosition), Is.LessThanOrEqualTo(0.0001f));
         }
 
         [Test]
@@ -245,6 +278,53 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(result, Is.False);
             Assert.That(command.BoxEntityId, Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayExitPresentationController_DestroySelfBookkeeping_DoesNotUsePresentationMotionKey()
+        {
+            var exitController = ReadRepoFile(ExitControllerPath);
+
+            Assert.That(exitController, Does.Contain("HashSet<int> _entitiesWithDestroySelfFlipImpact"));
+            Assert.That(exitController, Does.Contain("_entitiesWithDestroySelfFlipImpact.Add(signal.BoxEntityId)"));
+            Assert.That(exitController, Does.Not.Contain("PresentationMotionInstanceKey"));
+            Assert.That(exitController, Does.Not.Contain("FlipImpactInstanceKey"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void NoFlipImpactTrackAdapterSurface_Remains()
+        {
+            Assert.That(File.Exists(GetAbsolutePath("Assets/_Features/Gameplay/Gameplay_Host/Runtime/FlipImpactTrack.cs")), Is.False);
+            Assert.That(File.Exists(GetAbsolutePath("Assets/_Features/Gameplay/Gameplay_Host/Runtime/FlipImpactTrack.cs.meta")), Is.False);
+
+            var productionSource = ReadRepoFile(ExitControllerPath) + "\n" +
+                                   ReadRepoFile(PresentationMotionTrackPath) + "\n" +
+                                   ReadRepoFile(GameplayTrackPlannerPath) + "\n" +
+                                   ReadRepoFile(GameplayEntityPresentationApplierPath);
+
+            Assert.That(productionSource, Does.Not.Contain("FlipImpactTrack"));
+            Assert.That(productionSource, Does.Not.Contain("FlipImpactInstanceKey"));
+            Assert.That(productionSource, Does.Not.Contain("ToFlipImpactInstanceKey"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void RetainedOriginalViewMotionOwners_Remain()
+        {
+            var presentationTrack = ReadRepoFile(PresentationMotionTrackPath);
+            var planner = ReadRepoFile(GameplayTrackPlannerPath);
+            var applier = ReadRepoFile(GameplayEntityPresentationApplierPath);
+            var boxFlipInteractionDriver = ReadRepoFile(BoxFlipInteractionDriverPath);
+
+            Assert.That(presentationTrack, Does.Contain("internal sealed class PresentationMotionTrack"));
+            Assert.That(presentationTrack, Does.Contain("PresentationMotionSample"));
+            Assert.That(planner, Does.Contain("OriginalViewMotionTracks"));
+            Assert.That(planner, Does.Contain("CompletedPresentationMotionKeys"));
+            Assert.That(planner, Does.Contain("PresentationMotionTrack.CreateFlipImpactStay(command)"));
+            Assert.That(applier, Does.Contain("HasSuppressingOriginalViewMotion(track.BoxEntityId)"));
+            Assert.That(boxFlipInteractionDriver, Does.Contain("BoxFlipInteractionDriver"));
         }
 
         [Test]
@@ -338,6 +418,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void BoxFlipInteractionDriver_SuppressedOnlyForSuppressingOriginalViewMotion()
+        {
+            var applier = ReadRepoFile(GameplayEntityPresentationApplierPath);
+
+            Assert.That(applier, Does.Contain("HasSuppressingOriginalViewMotion(track.BoxEntityId)"));
+            Assert.That(applier, Does.Contain("_trackState.OriginalViewMotionTracks.TryGetValue(entityId, out var track)"));
+            Assert.That(applier, Does.Contain("PresentationMotionInteractionPolicy.SuppressBoxInteractionOverlay"));
+            Assert.That(applier, Does.Not.Contain("FlipImpactBurst"));
+            Assert.That(applier, Does.Not.Contain("BoxVfxCue"));
+            Assert.That(applier, Does.Not.Contain("GameplayVfxProductionRuntime"));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void BoxFlipInteractionDriver_ResetRegression()
         {
             var owner = new GameObject("BoxFlipInteractionDriver_ResetRegression");
@@ -367,31 +461,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        private static FlipImpactTrack CreateTrack()
+        private static PresentationMotionTrack CreatePresentationTrack(in FlipImpactStayMotionCommand command)
         {
-            return CreateTrack(CreateCommand());
+            return PresentationMotionTrack.CreateFlipImpactStay(command);
         }
 
-        private static FlipImpactTrack CreateTrack(in FlipImpactStayMotionCommand command)
+        private static void AssertSamplePoseMatches(PresentationMotionSample sample, GameplayEntityPose expectedPose)
         {
-            return FlipImpactTrack.CreateStay(command);
-        }
-
-        private static void AdvanceAndAssertSampleMatches(
-            FlipImpactTrack legacyTrack,
-            PresentationMotionTrack genericTrack,
-            float deltaSeconds)
-        {
-            legacyTrack.Advance(deltaSeconds);
-            genericTrack.Advance(deltaSeconds);
-
-            var legacyPose = legacyTrack.Sample();
-            var genericSample = genericTrack.Sample();
-            var legacyScale = legacyTrack.SampleVisualScaleMultiplier();
-
-            Assert.That(Vector3.Distance(genericSample.LocalPose.Position, legacyPose.Position), Is.LessThanOrEqualTo(0.0001f));
-            Assert.That(Quaternion.Angle(genericSample.LocalPose.Rotation, legacyPose.Rotation), Is.LessThanOrEqualTo(0.001f));
-            Assert.That(Vector3.Distance(genericSample.VisualScaleMultiplier, legacyScale), Is.LessThanOrEqualTo(0.0001f));
+            Assert.That(Vector3.Distance(sample.LocalPose.Position, expectedPose.Position), Is.LessThanOrEqualTo(0.0001f));
+            Assert.That(Quaternion.Angle(sample.LocalPose.Rotation, expectedPose.Rotation), Is.LessThanOrEqualTo(0.001f));
         }
 
         private static FlipImpactStayMotionCommand CreateCommand(
@@ -427,10 +505,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presentationSeed);
         }
 
-        private static FlipImpactPresentationSignal CreateSignal(FlipImpactPresentationDisposition disposition)
+        private static FlipImpactPresentationSignal CreateSignal(
+            FlipImpactPresentationDisposition disposition,
+            int sourceActionPlanId = 7)
         {
             return new FlipImpactPresentationSignal(
-                sourceActionPlanId: 7,
+                sourceActionPlanId: sourceActionPlanId,
                 boxEntityId: 30,
                 impactTargetEntityId: 40,
                 actorEntityId: 10,
@@ -512,5 +592,4 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public GameplayCubeProjector Projector { get; }
         }
     }
-
 }

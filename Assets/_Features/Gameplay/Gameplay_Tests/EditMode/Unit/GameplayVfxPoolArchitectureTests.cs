@@ -31,7 +31,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayFrontFaceShieldVfxPresenter.cs",
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayUtilityWindupVfxPresenter.cs",
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxFlipInteractionDriver.cs",
-            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/FlipImpactTrack.cs",
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/PresentationMotionTrack.cs",
         };
 
         [Test]

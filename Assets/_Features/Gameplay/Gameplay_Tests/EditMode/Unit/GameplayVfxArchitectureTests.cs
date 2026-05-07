@@ -19,8 +19,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string GovernancePath = "Docs/Architecture/Gameplay-VFX-Governance.md";
         private const string VfxRuntimePath = "Assets/_Features/Gameplay/Gameplay_Vfx/Runtime";
         private const string VfxPlanningPath = "Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxPlanning.cs";
+        private const string VfxEnumsPath = "Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxEnums.cs";
+        private const string PresentationMotionTrackPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/PresentationMotionTrack.cs";
+        private const string FlipImpactStayMotionCommandPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/FlipImpactStayMotionCommand.cs";
+        private const string FlipImpactStayMotionCommandBuilderPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/FlipImpactStayMotionCommandBuilder.cs";
+        private const string GameplayPresentationTrackStatePath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayPresentationTrackState.cs";
+        private const string GameplayEntityPresentationApplierPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayEntityPresentationApplier.cs";
         private const string CoordinatorPath = "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs";
         private const string ExitControllerPath = "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayExitPresentationController.cs";
+        private const string VfxProductionRuntimePath =
+            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/GameplayVfxProductionRuntime.cs";
+        private const string ParameterizedMotionVfxCommandPath =
+            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/ParameterizedMotion/ParameterizedMotionVfxCommand.cs";
+        private const string FlipImpactBurstVfxRequestPlannerPath =
+            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/FlipImpactBurstVfxRequestPlanner.cs";
+        private const string FlipDestroySelfMotionVfxCommandBuilderPath =
+            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/FlipDestroySelfMotionVfxCommandBuilder.cs";
         private const string EnemyDeathExitEffectPlanBuilderPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyDeathExitEffectPlanBuilder.cs";
         private const string FrontFaceShieldPresenterPath = "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayFrontFaceShieldVfxPresenter.cs";
@@ -56,8 +75,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("GameplayFrontFaceShieldVfxPresenter"));
             Assert.That(document, Does.Contain("GameplayUtilityWindupVfxPresenter"));
             Assert.That(document, Does.Contain("BoxFlipInteractionDriver"));
-            Assert.That(document, Does.Contain("FlipImpactTrack"));
+            Assert.That(document, Does.Contain("PresentationMotionTrack"));
             Assert.That(document, Does.Contain("FlipImpact MotionTrack Anchor Gate"));
+            Assert.That(document, Does.Contain("PresentationMotionTrack Original-View Motion Lane"));
+            Assert.That(document, Does.Contain("not Gameplay VFX playback"));
+            Assert.That(document, Does.Contain("does not own prefabs, materials, bindings, cue maps, VFX anchors, or pooled VFX instances"));
+            Assert.That(document, Does.Contain("FlipImpactTrack adapter was removed"));
+            Assert.That(document, Does.Contain("PresentationMotionTrack Multi-User Expansion"));
+            Assert.That(document, Does.Contain("MotionTrack-Following VFX Support"));
+            Assert.That(document, Does.Contain("successful flip motion"));
+            Assert.That(document, Does.Contain("box slide presentation"));
+            Assert.That(document, Does.Contain("unit kinematic locomotion"));
             Assert.That(document, Does.Contain("FlipImpactContactVfxAnchor"));
             Assert.That(document, Does.Contain("VfxAnchorKind.MotionTrack` remains unsupported"));
             Assert.That(document, Does.Contain("must not consume the same fact concurrently"));
@@ -163,6 +191,99 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void PresentationMotionTrack_IsHostOriginalViewMotion_NotGameplayVfx()
+        {
+            var source = ReadRepoFile(PresentationMotionTrackPath);
+            var trackState = ReadRepoFile(GameplayPresentationTrackStatePath);
+            var applier = ReadRepoFile(GameplayEntityPresentationApplierPath);
+
+            Assert.That(source, Does.Contain("internal sealed class PresentationMotionTrack"));
+            Assert.That(source, Does.Contain("internal readonly struct PresentationMotionCommand"));
+            Assert.That(source, Does.Contain("internal readonly struct PresentationMotionSample"));
+            Assert.That(trackState, Does.Contain("Dictionary<int, PresentationMotionTrack> _originalViewMotionTracks"));
+            Assert.That(applier, Does.Contain("originalViewMotionTrack.Sample()"));
+            Assert.That(applier, Does.Contain("motionVisualScaleMultiplier = sample.VisualScaleMultiplier"));
+            Assert.That(applier, Does.Contain("localPose = sample.LocalPose"));
+            Assert.That(source, Does.Not.Contain("Game.Feature.Gameplay.Vfx"));
+            Assert.That(source, Does.Not.Contain("GameplayVfx"));
+            Assert.That(source, Does.Not.Contain("BoxVfxCue"));
+            Assert.That(source, Does.Not.Contain("EnemyVfxCue"));
+            Assert.That(source, Does.Not.Contain("ParameterizedMotionVfxCommand"));
+            Assert.That(source, Does.Not.Contain("prefab"));
+            Assert.That(source, Does.Not.Contain("material"));
+            Assert.That(source, Does.Not.Contain("binding"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void NoFlipImpactStayVfxCueExists()
+        {
+            var vfxEnums = ReadRepoFile(VfxEnumsPath);
+            var vfxPlanning = ReadRepoFile(VfxPlanningPath);
+            var productionRuntime = ReadRepoFile(VfxProductionRuntimePath);
+
+            Assert.That(vfxEnums, Does.Not.Contain("FlipImpactStay"));
+            Assert.That(vfxEnums, Does.Not.Contain("StayMotion"));
+            Assert.That(vfxPlanning, Does.Not.Contain("FlipImpactStayMotion"));
+            Assert.That(productionRuntime, Does.Not.Contain("FlipImpactStayMotion"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayVfxRuntime_DoesNotOwnOriginalViewMotion()
+        {
+            var productionRuntime = ReadRepoFile(VfxProductionRuntimePath);
+
+            Assert.That(productionRuntime, Does.Not.Contain("PresentationMotionTrack"));
+            Assert.That(productionRuntime, Does.Not.Contain("PresentationMotionSample"));
+            Assert.That(productionRuntime, Does.Not.Contain("OriginalViewMotionTracks"));
+            Assert.That(productionRuntime, Does.Not.Contain("CompletedPresentationMotionKeys"));
+            Assert.That(productionRuntime, Does.Not.Contain("HasSuppressingOriginalViewMotion"));
+            Assert.That(productionRuntime, Does.Not.Contain("BoxFlipInteractionDriver"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ParameterizedMotionVfxCommand_NotUsedForStayOriginalViewMotion()
+        {
+            var parameterizedMotion = ReadRepoFile(ParameterizedMotionVfxCommandPath);
+            var stayMotionSource = ReadRepoFile(FlipImpactStayMotionCommandPath) + "\n" +
+                                   ReadRepoFile(FlipImpactStayMotionCommandBuilderPath) + "\n" +
+                                   ReadRepoFile(PresentationMotionTrackPath);
+
+            Assert.That(parameterizedMotion, Does.Not.Contain("FlipImpactStay"));
+            Assert.That(parameterizedMotion, Does.Not.Contain("PresentationMotionTrack"));
+            Assert.That(stayMotionSource, Does.Not.Contain("ParameterizedMotionVfxCommand"));
+            Assert.That(stayMotionSource, Does.Not.Contain("GameplayVfxProductionRuntime"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void FlipImpactBurst_RemainsContactFeedbackOnly()
+        {
+            var planner = ReadRepoFile(FlipImpactBurstVfxRequestPlannerPath);
+
+            Assert.That(planner, Does.Contain("FlipImpactContactVfxAnchorBuilder.TryBuild"));
+            Assert.That(planner, Does.Contain("BoxVfxCue.FlipImpactBurst"));
+            Assert.That(planner, Does.Contain("VfxAnchor.ForCell"));
+            Assert.That(planner, Does.Contain("contactAnchor.ImpactCell"));
+            Assert.That(planner, Does.Not.Contain("PresentationMotionTrack"));
+            Assert.That(planner, Does.Not.Contain("OriginalViewMotionTracks"));
+            Assert.That(planner, Does.Not.Contain("Suppress"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void FlipDestroySelfMotion_RejectsStayDisposition()
+        {
+            var builder = ReadRepoFile(FlipDestroySelfMotionVfxCommandBuilderPath);
+
+            Assert.That(builder, Does.Contain("signal.Disposition != FlipImpactPresentationDisposition.DestroySelf"));
+            Assert.That(builder, Does.Not.Contain("FlipImpactPresentationDisposition.Stay"));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void LegacyFinalization_RemovesOldPlaybackButKeepsCleanupOwners()
         {
             var coordinator = ReadRepoFile(CoordinatorPath);
@@ -178,7 +299,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(coordinator, Does.Not.Contain("PlayPlayerHitEffects(TickResult"));
 
             Assert.That(exitController, Does.Contain("public void ApplyEntityExitOwnership()"));
-            Assert.That(exitController, Does.Contain("_destroySelfFlipImpactKeysByEntityId"));
+            Assert.That(exitController, Does.Contain("_entitiesWithDestroySelfFlipImpact"));
+            Assert.That(exitController, Does.Not.Contain("FlipImpactInstanceKey"));
+            Assert.That(exitController, Does.Not.Contain("PresentationMotionInstanceKey"));
             Assert.That(exitController, Does.Not.Contain("PlayExitEffect"));
             Assert.That(exitController, Does.Not.Contain("PlayFlipImpactDestroyEffect"));
             Assert.That(exitController, Does.Not.Contain("suppressLegacyEnemyDeathEffects"));

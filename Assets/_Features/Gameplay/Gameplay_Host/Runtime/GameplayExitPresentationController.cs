@@ -7,10 +7,9 @@ namespace Game.Feature.Gameplay.Host
     internal sealed class GameplayExitPresentationController
     {
         private readonly HashSet<int> _exitOwnedEntityIds = new();
-        private readonly Dictionary<int, FlipImpactInstanceKey> _destroySelfFlipImpactKeysByEntityId = new();
+        private readonly HashSet<int> _entitiesWithDestroySelfFlipImpact = new();
         private readonly GameplayPresentationStateStore _stateStore;
         private readonly GameplayPresentationTrackState _trackState;
-        private int _refreshSequence;
 
         public GameplayExitPresentationController(
             GameplayPresentationStateStore stateStore,
@@ -29,8 +28,7 @@ namespace Game.Feature.Gameplay.Host
         public void Reset()
         {
             _exitOwnedEntityIds.Clear();
-            _destroySelfFlipImpactKeysByEntityId.Clear();
-            _refreshSequence = 0;
+            _entitiesWithDestroySelfFlipImpact.Clear();
         }
 
         public bool IsExitOwned(int entityId)
@@ -46,8 +44,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _exitOwnedEntityIds.Clear();
-            _destroySelfFlipImpactKeysByEntityId.Clear();
-            _refreshSequence++;
+            _entitiesWithDestroySelfFlipImpact.Clear();
 
             for (var i = 0; i < presentationData.EntityExitSignals.Count; i++)
             {
@@ -62,13 +59,12 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                var key = FlipImpactInstanceKey.Create(signal, _refreshSequence);
-                if (_destroySelfFlipImpactKeysByEntityId.ContainsKey(signal.BoxEntityId))
+                if (_entitiesWithDestroySelfFlipImpact.Contains(signal.BoxEntityId))
                 {
                     continue;
                 }
 
-                _destroySelfFlipImpactKeysByEntityId[signal.BoxEntityId] = key;
+                _entitiesWithDestroySelfFlipImpact.Add(signal.BoxEntityId);
             }
         }
 
@@ -76,7 +72,7 @@ namespace Game.Feature.Gameplay.Host
         {
             foreach (var entityId in _exitOwnedEntityIds)
             {
-                if (!_destroySelfFlipImpactKeysByEntityId.ContainsKey(entityId))
+                if (!_entitiesWithDestroySelfFlipImpact.Contains(entityId))
                 {
                     QueueFlipInteractionReset(entityId);
                 }

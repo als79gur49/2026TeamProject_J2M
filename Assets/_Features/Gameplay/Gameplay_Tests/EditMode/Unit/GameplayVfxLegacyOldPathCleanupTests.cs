@@ -23,8 +23,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyDeathExitEffectPlanBuilder.cs";
         private const string TransientEffectTrackUtilityPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTransientEffectTrackUtility.cs";
-        private const string FlipImpactTrackPath =
-            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/FlipImpactTrack.cs";
+        private const string PresentationMotionTrackPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/PresentationMotionTrack.cs";
         private const string BoxFlipInteractionDriverPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxFlipInteractionDriver.cs";
         private const string RuntimePath =
@@ -108,7 +108,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("Remaining old canonical presentation responsibilities"));
             Assert.That(document, Does.Contain("old impact break playback removed"));
             Assert.That(document, Does.Contain("old OutOfBounds fade track removed"));
-            Assert.That(document, Does.Contain("`BoxFlipInteractionDriver` and `FlipImpactTrack` Stay branch"));
+            Assert.That(document, Does.Contain("`PresentationMotionTrack` Stay original-view motion"));
             Assert.That(document, Does.Not.Contain("windup warning path remains old canonical presentation"));
         }
 
@@ -275,13 +275,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var exitController = ReadRepoFile(ExitControllerPath);
             var deathPlanBuilder = ReadRepoFile(EnemyDeathExitEffectPlanBuilderPath);
             var trackUtility = ReadRepoFile(TransientEffectTrackUtilityPath);
-            var flipImpactTrack = ReadRepoFile(FlipImpactTrackPath);
+            var presentationMotionTrack = ReadRepoFile(PresentationMotionTrackPath);
             var boxFlipInteractionDriver = ReadRepoFile(BoxFlipInteractionDriverPath);
 
             Assert.That(exitController, Does.Contain("public void ApplyEntityExitOwnership()"));
             Assert.That(deathPlanBuilder, Does.Contain("EnemyDeathExitEffectPlanBuilder"));
             Assert.That(trackUtility, Does.Contain("SafeDestroy"));
-            Assert.That(flipImpactTrack, Does.Contain("FlipImpactPresentationDisposition.Stay"));
+            Assert.That(presentationMotionTrack, Does.Contain("PresentationMotionTrack"));
+            Assert.That(presentationMotionTrack, Does.Contain("CreateFlipImpactStay"));
             Assert.That(boxFlipInteractionDriver, Does.Contain("BoxFlipInteractionDriver"));
         }
 

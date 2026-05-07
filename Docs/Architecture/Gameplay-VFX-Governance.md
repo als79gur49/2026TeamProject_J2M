@@ -49,7 +49,7 @@ Existing VFX-like presenters remain the production playback path for their curre
 - `GameplayExitPresentationController`
 - `GameplayFrontFaceShieldVfxPresenter`
 - `GameplayUtilityWindupVfxPresenter`
-- `BoxFlipInteractionDriver` / `FlipImpactTrack`
+- `BoxFlipInteractionDriver` / `PresentationMotionTrack`
 
 `GameplayTransientEffectPresenter` playback surface removed after the ImpactTransient and OutOfBounds migrations; retained helper math lives in `EnemyDeathExitEffectPlanBuilder` for current `EnemyDeathMotion`.
 
@@ -87,9 +87,9 @@ Feature flag:
 
 Original-view motion:
 
-- `BoxFlipInteractionDriver` and `FlipImpactTrack` remain active for original box view presentation.
+- `BoxFlipInteractionDriver` and `PresentationMotionTrack` remain active for original box view presentation.
 - `FlipImpactPresentationDisposition.Stay` is source-to-impact-to-hold/squash-to-return motion, not Gameplay VFX playback.
-- `FlipImpactStayMotionCommand` extracts the Stay motion contract before `FlipImpactTrack` samples it.
+- `FlipImpactStayMotionCommand` extracts the Stay motion contract before `PresentationMotionTrack` samples it.
 - This is not a VFX migration for Stay.
 
 Missing binding:
@@ -116,7 +116,7 @@ Future:
 Ownership:
 
 - `FlipImpactStayMotionCommand` preserves source/impact cells, topology, facing, local source/impact poses, duration, contact timing, post-contact hold, squash timing, return arc multiplier, arc height, and presentation seed.
-- `FlipImpactTrack` remains as the Stay compatibility adapter, while generic original-view presentation motion sampling executes source -> impact -> contact hold/squash -> return arc -> exact source reset.
+- `PresentationMotionTrack` is the canonical Stay original-view motion owner and samples source -> impact -> contact hold/squash -> return arc -> exact source reset.
 - `GameplayEntityPresentationApplier` applies the sampled pose to the original entity view and performs completion cleanup.
 - `BoxFlipInteractionDriver` remains the grip point and visualRoot overlay/reset coupling for player hand and box interaction. It is not a VFX spawner.
 
@@ -127,6 +127,46 @@ Boundaries:
 - `BoxDestroySmoke`/`DestroyShrink` duplicate guards remain DestroySelf/exit cleanup concerns.
 - `ImpactTransientBreak` remains a reserved break hook, not a Stay replacement.
 - `GameplayVfxProductionRuntime` must not own or move the original box view transform for Stay.
+
+## PresentationMotionTrack Original-View Motion Lane
+
+`PresentationMotionTrack` is the host presentation lane for original entity view transform, pose, and scale overrides. It is not Gameplay VFX playback and does not own prefabs, materials, bindings, cue maps, VFX anchors, or pooled VFX instances.
+
+Ownership:
+
+- `PresentationMotionCommand` describes host-side original-view motion inputs, phases, timing, completion pose, interaction policy, and scale policy.
+- `PresentationMotionSample` is the sampled local pose and visual scale multiplier that `GameplayEntityPresentationApplier` applies to the original entity view.
+- `GameplayEntityPresentationApplier` owns applying sampled pose/scale to the original entity view and owns completion cleanup for `OriginalViewMotionTracks`.
+- `BoxFlipInteractionDriver` remains the grip, visualRoot overlay, and reset owner. Original-view motion can suppress that overlay through `PresentationMotionInteractionPolicy.SuppressBoxInteractionOverlay`; Gameplay VFX does not make that decision.
+
+Current concrete user:
+
+- `FlipImpact Stay` is the first concrete `PresentationMotionTrack` user.
+- FlipImpactTrack adapter was removed; `FlipImpactInstanceKey` was removed with it.
+- DestroySelf cleanup bookkeeping uses entity-id membership, not `PresentationMotionInstanceKey`, because DestroySelf is exit/VFX cleanup and not Stay original-view motion ownership.
+
+VFX boundaries:
+
+- `FlipImpactBurst` remains contact feedback only.
+- `FlipDestroySelfMotion` remains DestroySelf clone/fade VFX only and must reject Stay.
+- `ParameterizedMotionVfxCommand` must not replace Stay original-view motion.
+- `GameplayVfxProductionRuntime` must not move or own original entity views through `PresentationMotionTrack` or `OriginalViewMotionTracks`.
+
+Future inventory:
+
+| Motion type | Current owner | Can use PresentationMotionTrack later? | Risk | Include now? |
+|---|---|---:|---|---:|
+| successful flip motion | `MotionTrack` / `FlipInteractionTrack` host presentation paths | Yes | interaction overlay and committed movement timing overlap | No |
+| box slide presentation | `MotionTrack` with `TickEntityMotionKind.BoxSlide` | Yes | slide scale/trail VFX already has separate VFX lane | No |
+| unit kinematic locomotion | `KinematicPoseOverrides` / continuous locomotion carriers | Maybe | live locomotion semantics differ from finite impact motion | No |
+| enemy kinematic locomotion | `KinematicPoseOverrides` / continuous locomotion carriers | Maybe | AI semantic state and glide/jump overlays interact | No |
+| jump/airborne presentation | `JumpTrack` / `JumpDetachedVisibilityState` | Maybe | detached visibility and landing timing are special | No |
+| death displacement / visibility tracks | `PlayerDeathDisplacementTrack`, `VisibilityTrack`, exit ownership | Low priority | visibility/exit ownership is not pure pose sampling | No |
+
+Future slices:
+
+- `PresentationMotionTrack Multi-User Expansion`: successful flip, box slide, unit motion, and other original-view motion candidates.
+- `MotionTrack-Following VFX Support`: VFX anchor/follow support that follows original-view motion without replacing the motion owner.
 
 ## FlipImpact DestroySelf Motion VFX Migration
 
@@ -169,7 +209,7 @@ Visual parity:
 
 Boundaries:
 
-- `Stay` branch `FlipImpactTrack` sampling is unchanged
+- `Stay` branch `PresentationMotionTrack` sampling is unchanged
 - `BoxFlipInteractionDriver` overlay behavior is unchanged
 - `BoxVfxCue.FlipImpactBurst` Slice 2 behavior is unchanged
 - generic `VfxAnchorKind.MotionTrack` host resolver support remains unsupported in production
@@ -461,7 +501,7 @@ Cue distinction:
 
 Existing presenter overlap:
 
-- the checked presenter paths are `GameplayExitPresentationController`, `GameplayFrontFaceShieldVfxPresenter`, `GameplayUtilityWindupVfxPresenter`, `BoxFlipInteractionDriver`, and `FlipImpactTrack`; `EnemyDeathExitEffectPlanBuilder` is retained helper math, not an old playback presenter.
+- the checked presenter paths are `GameplayExitPresentationController`, `GameplayFrontFaceShieldVfxPresenter`, `GameplayUtilityWindupVfxPresenter`, `BoxFlipInteractionDriver`, and `PresentationMotionTrack`; `EnemyDeathExitEffectPlanBuilder` is retained helper math, not an old playback presenter.
 - these presenters do not consume `JumperLandingDust`; existing presenter migration remains out of scope.
 
 ## Player Damage Hit Burst Migration
@@ -1081,7 +1121,7 @@ Cleaned legacy direct playback:
 | `GameplayFrontFaceShieldVfxPresenter.PlayBlockBursts` | `EnemyVfxCue.FrontFaceShieldBlock` | old block burst disabled | no block burst VFX | one-shot old fallback removed |
 | `GameplayFrontFaceShieldVfxPresenter.RefreshWindupWarnings` | `EnemyVfxCue.FrontFaceShieldWindup` | old telegraph spawn disabled; cleanup-only empty refresh retained | no FrontFace shield windup VFX | `telegraphPrefab` and old telegraph assets retained for deferred cleanup |
 | enemy killed old entity exit transient track | `EnemyVfxCue.DeathMotion` + `EnemyVfxCue.Death` | old fly-away track removed; `ApplyEntityExitOwnership()` retained; `EnemyDeathExitEffectPlanBuilder` retained for DeathMotion target math | no death motion VFX when motion flag is off; no burst VFX when burst flag is off | death flags control new VFX playback only |
-| old flip destroy-self clone/fade transient track | `BoxVfxCue.FlipDestroySelfMotion` | old clone/fade track removed; DestroySelf key bookkeeping retained | no flip destroy-self motion VFX | `FlipImpactTrack` Stay branch remains unchanged |
+| old flip destroy-self clone/fade transient track | `BoxVfxCue.FlipDestroySelfMotion` | old clone/fade track removed; DestroySelf entity membership bookkeeping retained | no flip destroy-self motion VFX | `PresentationMotionTrack` Stay branch remains unchanged |
 | old impact break transient track | `BoxVfxCue.ImpactTransientBreak` | old impact break playback removed; duplicate ownership retained | no ImpactTransient break VFX | no normal producer added |
 | OutOfBounds old entity exit transient track | `BoxVfxCue.OutOfBoundsExit` / `EnemyVfxCue.OutOfBoundsExit` | old OutOfBounds fade track removed; `ApplyEntityExitOwnership()` retained | no OutOfBounds VFX | dormant/reserved hook only; no producer added |
 
@@ -1098,14 +1138,14 @@ Retained cleanup and motion responsibilities remain:
 - `ApplyEntityExitOwnership`
 - `EnemyDeathExitEffectPlanBuilder`
 - `GameplayTransientEffectTrackUtility.SafeDestroy`
-- `FlipImpactTrack` Stay branch
+- `PresentationMotionTrack` Stay original-view motion
 - `BoxFlipInteractionDriver`
 
 Remaining old canonical presentation responsibilities:
 
 | Old path | New VFX | Cleanup status | Flag-off semantics | Notes |
 |---|---|---|---|---|
-| `BoxFlipInteractionDriver` and `FlipImpactTrack` Stay branch | none | retained | not a VFX fallback | transform/grip/reset and motion sampling ownership remain |
+| `BoxFlipInteractionDriver` and `PresentationMotionTrack` Stay branch | none | retained | not a VFX fallback | transform/grip/reset and motion sampling ownership remain |
 
 Legacy Surface Simplification removed the suppress compatibility gates and the `IGameplayPresentationMigrationGate` interface. Cleaned and high-risk old presenter fallbacks remain absent; no compatibility alias now defines rollback to an old presenter path. In this document, old fallback = none for all current migrated Gameplay VFX cues.
 

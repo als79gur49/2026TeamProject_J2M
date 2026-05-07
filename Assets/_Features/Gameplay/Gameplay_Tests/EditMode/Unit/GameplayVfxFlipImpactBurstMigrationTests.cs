@@ -251,7 +251,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void FlagOn_DoesNotSuppressFlipImpactTrack()
+        public void FlagOn_DoesNotSuppressPresentationMotionTrack()
         {
             var oldPresenterSource = ReadOldPresenterSource();
             var runtimeSource = ReadRepoFile(VfxProductionRuntimePath);
@@ -641,7 +641,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             return ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxFlipInteractionDriver.cs") +
                    "\n" +
-                   ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Host/Runtime/FlipImpactTrack.cs") +
+                   ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Host/Runtime/PresentationMotionTrack.cs") +
                    "\n" +
                    ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayExitPresentationController.cs");
         }

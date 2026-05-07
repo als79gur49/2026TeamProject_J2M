@@ -102,10 +102,6 @@ namespace Game.Feature.Gameplay.Host
                 signal.SourceActionPlanId <= 0);
         }
 
-        public FlipImpactInstanceKey ToFlipImpactInstanceKey()
-        {
-            return new FlipImpactInstanceKey(CorrelationId, EntityId, UsesTickFallback);
-        }
     }
 
     internal readonly struct PresentationMotionPhase
