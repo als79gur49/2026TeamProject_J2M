@@ -88,6 +88,36 @@ namespace Game.Feature.Gameplay.Loop
         public Direction Direction { get; }
     }
 
+    public enum GravityFieldPresentationEventKind
+    {
+        None = 0,
+        Activated = 1,
+        Expired = 2,
+    }
+
+    public readonly struct GravityFieldPresentationEvent
+    {
+        public GravityFieldPresentationEvent(
+            GravityFieldPresentationEventKind eventKind,
+            int emitterEntityId,
+            SurfaceCell cell,
+            int targetEntityId = 0)
+        {
+            EventKind = eventKind;
+            EmitterEntityId = emitterEntityId;
+            Cell = cell;
+            TargetEntityId = targetEntityId;
+        }
+
+        public GravityFieldPresentationEventKind EventKind { get; }
+
+        public int EmitterEntityId { get; }
+
+        public SurfaceCell Cell { get; }
+
+        public int TargetEntityId { get; }
+    }
+
     public readonly struct TickEntityMotion
     {
         // Motion records describe a render transition between already-committed logical cells.
@@ -1248,6 +1278,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<TickKinematicMotionTrack> _kinematicMotionTracks;
         private readonly ReadOnlyCollection<TickContinuousLocomotionTrack> _continuousLocomotionTracks;
         private readonly ReadOnlyCollection<TilePresentationEvent> _tileEvents;
+        private readonly ReadOnlyCollection<GravityFieldPresentationEvent> _gravityFieldEvents;
         private ReadOnlyCollection<TickFrontFaceShieldBlockSignal> _frontFaceShieldBlocks;
         private ReadOnlyCollection<TickFrontFaceShieldSourceSignal> _frontFaceShieldSources;
         private ReadOnlyCollection<TickFrontFaceShieldWindupWarningSignal> _frontFaceShieldWindupWarnings;
@@ -1591,7 +1622,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickPlayerDeathHoldPresentationSignal> playerDeathHoldSignals = null,
             IEnumerable<TickContinuousLocomotionTrack> continuousLocomotionTracks = null,
             IEnumerable<TickEnemyGlidePresentationSignal> enemyGlideSignals = null,
-            IEnumerable<TilePresentationEvent> tileEvents = null)
+            IEnumerable<TilePresentationEvent> tileEvents = null,
+            IEnumerable<GravityFieldPresentationEvent> gravityFieldEvents = null)
         {
             if (entityMotions == null)
             {
@@ -1668,6 +1700,9 @@ namespace Game.Feature.Gameplay.Loop
             _tileEvents = new ReadOnlyCollection<TilePresentationEvent>(
                 new List<TilePresentationEvent>(
                     tileEvents ?? Array.Empty<TilePresentationEvent>()));
+            _gravityFieldEvents = new ReadOnlyCollection<GravityFieldPresentationEvent>(
+                new List<GravityFieldPresentationEvent>(
+                    gravityFieldEvents ?? Array.Empty<GravityFieldPresentationEvent>()));
             _topologyMotion = topologyMotion;
             _visibilityChanges = new ReadOnlyCollection<TickVisibilityChange>(new List<TickVisibilityChange>(visibilityChanges));
             _transitionVisibilityChanges = new ReadOnlyCollection<TickTransitionVisibilityChange>(
@@ -1802,7 +1837,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickPlayerDeathHoldPresentationSignal> playerDeathHoldSignals = null,
             IEnumerable<TickContinuousLocomotionTrack> continuousLocomotionTracks = null,
             IEnumerable<TickEnemyGlidePresentationSignal> enemyGlideSignals = null,
-            IEnumerable<TilePresentationEvent> tileEvents = null)
+            IEnumerable<TilePresentationEvent> tileEvents = null,
+            IEnumerable<GravityFieldPresentationEvent> gravityFieldEvents = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -1822,7 +1858,8 @@ namespace Game.Feature.Gameplay.Loop
                 playerDeathHoldSignals: playerDeathHoldSignals,
                 continuousLocomotionTracks: continuousLocomotionTracks,
                 enemyGlideSignals: enemyGlideSignals,
-                tileEvents: tileEvents)
+                tileEvents: tileEvents,
+                gravityFieldEvents: gravityFieldEvents)
         {
             if (impactTransientSignals == null)
             {
@@ -1858,7 +1895,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickPlayerDeathHoldPresentationSignal> playerDeathHoldSignals = null,
             IEnumerable<TickContinuousLocomotionTrack> continuousLocomotionTracks = null,
             IEnumerable<TickEnemyGlidePresentationSignal> enemyGlideSignals = null,
-            IEnumerable<TilePresentationEvent> tileEvents = null)
+            IEnumerable<TilePresentationEvent> tileEvents = null,
+            IEnumerable<GravityFieldPresentationEvent> gravityFieldEvents = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -1879,7 +1917,8 @@ namespace Game.Feature.Gameplay.Loop
                 playerDeathHoldSignals,
                 continuousLocomotionTracks,
                 enemyGlideSignals,
-                tileEvents)
+                tileEvents,
+                gravityFieldEvents)
         {
             if (summonedEnemyPresentationBindings == null)
             {
@@ -1909,6 +1948,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<TickContinuousLocomotionTrack> ContinuousLocomotionTracks => _continuousLocomotionTracks;
 
         public IReadOnlyList<TilePresentationEvent> TileEvents => _tileEvents;
+
+        public IReadOnlyList<GravityFieldPresentationEvent> GravityFieldEvents => _gravityFieldEvents;
 
         public TickTopologyMotion? TopologyMotion => _topologyMotion;
 

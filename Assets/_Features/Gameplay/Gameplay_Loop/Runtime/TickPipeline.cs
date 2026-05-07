@@ -269,7 +269,8 @@ namespace Game.Feature.Gameplay.Loop
                 resolvePhaseResult.TilePresentationEvents,
                 objectiveResult,
                 _objectiveTracker.ObjectiveDefinition,
-                _tileFeatureDefinitions);
+                _tileFeatureDefinitions,
+                resolvePhaseResult.GravityFieldPresentationEvents);
             var pendingDelayedAttackEffects = _delayedAttackEffectQueue.Snapshot();
             var tickResultData = _tickResultBuilder.Build(
                 finalAuthoritativeSnapshot,
@@ -534,15 +535,13 @@ namespace Game.Feature.Gameplay.Loop
                 snapshotAfterEnemyAi = projectedWorld.CreateSnapshot();
             }
 
-            var gravityFieldBatch = new FinalizationBatch();
-            var gravityFieldEvents = new List<string>();
-            GravityFieldRuntimeResolver.ResolvePreMovement(
+            var gravityFieldResult = GravityFieldRuntimeResolver.ResolvePreMovement(
                 snapshotAfterEnemyAi,
                 input.TickIndex,
                 _gravityFieldChargeTicks,
-                _gravityFieldActiveTicks,
-                gravityFieldBatch,
-                gravityFieldEvents);
+                _gravityFieldActiveTicks);
+            var gravityFieldBatch = gravityFieldResult.Batch;
+            var gravityFieldEvents = gravityFieldResult.EventLogEntries;
             if (gravityFieldBatch.Operations.Count > 0)
             {
                 planFinalizationBatch.MergeFrom(gravityFieldBatch);
@@ -740,7 +739,8 @@ namespace Game.Feature.Gameplay.Loop
                 preMovementStateResult,
                 snapshotAfterEnemyAi,
                 planSnapshot,
-                planFinalizationBatch);
+                planFinalizationBatch,
+                gravityFieldResult.PresentationEvents);
         }
 
         private ResolvePhaseResult RunResolvePhase(
@@ -1253,7 +1253,8 @@ namespace Game.Feature.Gameplay.Loop
                 postAttackSnapshot,
                 contests,
                 resolutionRecords,
-                tilePresentationEvents);
+                tilePresentationEvents,
+                planPhaseResult.GravityFieldPresentationEvents);
         }
 
         private void RunFinalizePhase(

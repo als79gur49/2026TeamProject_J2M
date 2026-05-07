@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Model.Phases;
@@ -12,31 +13,44 @@ namespace Game.Feature.Gameplay.Loop
         public const float ActiveDurationSeconds = 3f;
     }
 
+    internal readonly struct GravityFieldRuntimeResolverResult
+    {
+        public GravityFieldRuntimeResolverResult(
+            FinalizationBatch batch,
+            IReadOnlyList<string> eventLogEntries,
+            IReadOnlyList<GravityFieldPresentationEvent> presentationEvents)
+        {
+            Batch = batch ?? throw new ArgumentNullException(nameof(batch));
+            EventLogEntries = new ReadOnlyCollection<string>(
+                new List<string>(eventLogEntries ?? Array.Empty<string>()));
+            PresentationEvents = new ReadOnlyCollection<GravityFieldPresentationEvent>(
+                new List<GravityFieldPresentationEvent>(
+                    presentationEvents ?? Array.Empty<GravityFieldPresentationEvent>()));
+        }
+
+        public FinalizationBatch Batch { get; }
+
+        public IReadOnlyList<string> EventLogEntries { get; }
+
+        public IReadOnlyList<GravityFieldPresentationEvent> PresentationEvents { get; }
+    }
+
     internal static class GravityFieldRuntimeResolver
     {
-        public static void ResolvePreMovement(
+        public static GravityFieldRuntimeResolverResult ResolvePreMovement(
             WorldSnapshot snapshot,
             int tickIndex,
             int chargeTicks,
-            int activeTicks,
-            FinalizationBatch batch,
-            List<string> eventLogEntries)
+            int activeTicks)
         {
             if (snapshot == null)
             {
                 throw new ArgumentNullException(nameof(snapshot));
             }
 
-            if (batch == null)
-            {
-                throw new ArgumentNullException(nameof(batch));
-            }
-
-            if (eventLogEntries == null)
-            {
-                throw new ArgumentNullException(nameof(eventLogEntries));
-            }
-
+            var batch = new FinalizationBatch();
+            var eventLogEntries = new List<string>();
+            var presentationEvents = new List<GravityFieldPresentationEvent>();
             var entities = new List<EntityState>();
             snapshot.EnumerateEntitiesOrdered(entities);
             var plannedLocksByBoxEntityId = new Dictionary<int, BoxInteractionLockState>();
@@ -57,12 +71,13 @@ namespace Game.Feature.Gameplay.Loop
                     activeTicks,
                     batch,
                     eventLogEntries,
+                    presentationEvents,
                     plannedLocksByBoxEntityId);
             }
 
             if (plannedLocksByBoxEntityId.Count == 0)
             {
-                return;
+                return new GravityFieldRuntimeResolverResult(batch, eventLogEntries, presentationEvents);
             }
 
             var orderedTargetIds = new List<int>(plannedLocksByBoxEntityId.Keys);
@@ -88,6 +103,8 @@ namespace Game.Feature.Gameplay.Loop
                 eventLogEntries.Add(
                     $"GravityFieldLockApplied|Source={state.SourceEntityId}|Box={targetId}|Expires={state.ExpiresTickExclusive}|BlocksPush={(state.BlocksPush ? 1 : 0)}|BlocksFlip={(state.BlocksFlip ? 1 : 0)}|BlocksDestroy={(state.BlocksDestroy ? 1 : 0)}");
             }
+
+            return new GravityFieldRuntimeResolverResult(batch, eventLogEntries, presentationEvents);
         }
 
         private static void ResolveEmitter(
@@ -98,6 +115,7 @@ namespace Game.Feature.Gameplay.Loop
             int activeTicks,
             FinalizationBatch batch,
             List<string> eventLogEntries,
+            List<GravityFieldPresentationEvent> presentationEvents,
             IDictionary<int, BoxInteractionLockState> plannedLocksByBoxEntityId)
         {
             if (!IsEligibleEmitter(snapshot, emitter))
@@ -109,6 +127,7 @@ namespace Game.Feature.Gameplay.Loop
             var nextPhase = emitter.gravityFieldPhase;
             var nextTimer = Math.Max(0, emitter.gravityFieldTimerTicks);
             var applyActiveField = false;
+            var presentationEventKind = GravityFieldPresentationEventKind.None;
             switch (emitter.gravityFieldPhase)
             {
                 case GravityFieldPhase.Charging:
@@ -117,6 +136,7 @@ namespace Game.Feature.Gameplay.Loop
                         nextPhase = GravityFieldPhase.Active;
                         nextTimer = activeTicks;
                         applyActiveField = true;
+                        presentationEventKind = GravityFieldPresentationEventKind.Activated;
                     }
                     else
                     {
@@ -130,6 +150,7 @@ namespace Game.Feature.Gameplay.Loop
                     {
                         nextPhase = GravityFieldPhase.Charging;
                         nextTimer = chargeTicks;
+                        presentationEventKind = GravityFieldPresentationEventKind.Expired;
                     }
                     else
                     {
@@ -145,7 +166,16 @@ namespace Game.Feature.Gameplay.Loop
                     break;
             }
 
-            SetEmitterStateIfChanged(batch, eventLogEntries, emitter, nextPhase, nextTimer);
+            var stateChanged = SetEmitterStateIfChanged(batch, eventLogEntries, emitter, nextPhase, nextTimer);
+            if (stateChanged &&
+                presentationEventKind != GravityFieldPresentationEventKind.None)
+            {
+                presentationEvents.Add(new GravityFieldPresentationEvent(
+                    presentationEventKind,
+                    emitter.entityId,
+                    emitter.position));
+            }
+
             if (applyActiveField)
             {
                 ApplyActiveField(snapshot, emitter, tickIndex, plannedLocksByBoxEntityId);
@@ -239,7 +269,7 @@ namespace Game.Feature.Gameplay.Loop
                    phasedState.IsActive;
         }
 
-        private static void SetEmitterStateIfChanged(
+        private static bool SetEmitterStateIfChanged(
             FinalizationBatch batch,
             List<string> eventLogEntries,
             in EntityState emitter,
@@ -249,7 +279,7 @@ namespace Game.Feature.Gameplay.Loop
             if (emitter.gravityFieldPhase == phase &&
                 emitter.gravityFieldTimerTicks == timerTicks)
             {
-                return;
+                return false;
             }
 
             batch.SetGravityFieldState(
@@ -263,6 +293,7 @@ namespace Game.Feature.Gameplay.Loop
                     actionPlanId: 0));
             eventLogEntries.Add(
                 $"GravityFieldStateUpdated|Source={emitter.entityId}|Phase={phase}|Timer={timerTicks}");
+            return true;
         }
     }
 

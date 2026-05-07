@@ -374,7 +374,8 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<TilePresentationEvent> tileEvents = null,
             StageObjectiveTickResult objectiveResult = null,
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
-            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
+            IReadOnlyList<GravityFieldPresentationEvent> gravityFieldEvents = null)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -392,7 +393,8 @@ namespace Game.Feature.Gameplay.Loop
                 tileEvents,
                 objectiveResult,
                 objectiveDefinition,
-                tileFeatureDefinitions)
+                tileFeatureDefinitions,
+                gravityFieldEvents)
         {
         }
 
@@ -413,7 +415,8 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<TilePresentationEvent> tileEvents = null,
             StageObjectiveTickResult objectiveResult = null,
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
-            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
+            IReadOnlyList<GravityFieldPresentationEvent> gravityFieldEvents = null)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -432,7 +435,8 @@ namespace Game.Feature.Gameplay.Loop
                 tileEvents,
                 objectiveResult,
                 objectiveDefinition,
-                tileFeatureDefinitions)
+                tileFeatureDefinitions,
+                gravityFieldEvents)
         {
         }
 
@@ -494,7 +498,8 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<TilePresentationEvent> tileEvents = null,
             StageObjectiveTickResult objectiveResult = null,
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
-            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
+            IReadOnlyList<GravityFieldPresentationEvent> gravityFieldEvents = null)
         {
             PreMovementSnapshot = preMovementSnapshot ?? throw new ArgumentNullException(nameof(preMovementSnapshot));
             PostMovementSnapshot = postMovementSnapshot ?? throw new ArgumentNullException(nameof(postMovementSnapshot));
@@ -514,6 +519,7 @@ namespace Game.Feature.Gameplay.Loop
             ObjectiveResult = objectiveResult ?? StageObjectiveTickResult.NoObjective;
             ObjectiveDefinition = objectiveDefinition ?? StageObjectiveRuntimeDefinition.Disabled;
             TileFeatureDefinitions = tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
+            GravityFieldEvents = gravityFieldEvents ?? Array.Empty<GravityFieldPresentationEvent>();
         }
 
         public WorldSnapshot PreMovementSnapshot { get; }
@@ -546,6 +552,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<ResolutionRecord> ResolutionRecords { get; }
 
         public IReadOnlyList<TilePresentationEvent> TileEvents { get; }
+
+        public IReadOnlyList<GravityFieldPresentationEvent> GravityFieldEvents { get; }
 
         public StageObjectiveTickResult ObjectiveResult { get; }
 
@@ -584,9 +592,11 @@ namespace Game.Feature.Gameplay.Loop
             var kinematicMotionTracks = new List<TickKinematicMotionTrack>();
             var continuousLocomotionTracks = new List<TickContinuousLocomotionTrack>();
             var tileEvents = new List<TilePresentationEvent>();
+            var gravityFieldEvents = new List<GravityFieldPresentationEvent>();
             var exitOwnedEntityIds = new HashSet<int>();
 
             BuildTilePresentationEvents(context, tileEvents);
+            BuildGravityFieldPresentationEvents(context, gravityFieldEvents);
             BuildEntityExitPresentation(context, entityExitSignals, exitOwnedEntityIds);
             BuildFlipImpactPresentation(context, flipImpactSignals);
             BuildImpactTransientPresentation(context, impactTransientSignals);
@@ -637,6 +647,7 @@ namespace Game.Feature.Gameplay.Loop
                    kinematicMotionTracks.Count == 0 &&
                    continuousLocomotionTracks.Count == 0 &&
                    tileEvents.Count == 0 &&
+                   gravityFieldEvents.Count == 0 &&
                    !topologyMotion.HasValue
                 ? TickPresentationData.Empty
                 : new TickPresentationData(
@@ -664,7 +675,18 @@ namespace Game.Feature.Gameplay.Loop
                     playerDeathHoldSignals,
                     continuousLocomotionTracks,
                     enemyGlideSignals,
-                    tileEvents);
+                    tileEvents,
+                    gravityFieldEvents);
+        }
+
+        private static void BuildGravityFieldPresentationEvents(
+            in TickPresentationBuildContext context,
+            List<GravityFieldPresentationEvent> gravityFieldEvents)
+        {
+            for (var i = 0; i < context.GravityFieldEvents.Count; i++)
+            {
+                gravityFieldEvents.Add(context.GravityFieldEvents[i]);
+            }
         }
 
         private static void BuildTilePresentationEvents(
