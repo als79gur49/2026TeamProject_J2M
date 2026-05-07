@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Vfx.Host;
 using NUnit.Framework;
@@ -13,6 +14,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs";
         private const string ExitControllerPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayExitPresentationController.cs";
+        private const string OldTransientPresenterPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTransientEffectPresenter.cs";
+        private const string EnemyDeathExitEffectPlanBuilderPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyDeathExitEffectPlanBuilder.cs";
         private const string RuntimePath =
             "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/GameplayVfxProductionRuntime.cs";
         private const string UtilityWindupAuthoringPath =
@@ -72,8 +77,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var document = ReadRepoFile(GovernancePath);
 
             Assert.That(document, Does.Contain("Player damage direct hit prefab fallback"));
-            Assert.That(document, Does.Contain("BoxDestroy `GameplayExitPresentationController.PlayExitEffect`"));
-            Assert.That(document, Does.Contain("ItemConsume `GameplayExitPresentationController.PlayExitEffect`"));
+            Assert.That(document, Does.Contain("BoxDestroy old entity exit transient track"));
+            Assert.That(document, Does.Contain("ItemConsume old entity exit transient track"));
             Assert.That(document, Does.Contain("`GameplayUtilityWindupVfxPresenter.RefreshSummonWarnings`"));
             Assert.That(document, Does.Contain("`GameplayFrontFaceShieldVfxPresenter.RefreshActiveSources`"));
             Assert.That(document, Does.Contain("`GameplayFrontFaceShieldVfxPresenter.PlayBlockBursts`"));
@@ -86,11 +91,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var document = ReadRepoFile(GovernancePath);
 
-            Assert.That(document, Does.Contain("old fly-away disabled"));
-            Assert.That(document, Does.Contain("old clone/fade disabled"));
+            Assert.That(document, Does.Contain("old fly-away track removed"));
+            Assert.That(document, Does.Contain("old clone/fade track removed"));
             Assert.That(document, Does.Contain("Remaining old canonical presentation responsibilities"));
-            Assert.That(document, Does.Contain("old impact break playback disabled"));
-            Assert.That(document, Does.Contain("old OutOfBounds fade disabled"));
+            Assert.That(document, Does.Contain("old impact break playback removed"));
+            Assert.That(document, Does.Contain("old OutOfBounds fade track removed"));
             Assert.That(document, Does.Contain("`BoxFlipInteractionDriver` and `FlipImpactTrack` Stay branch"));
             Assert.That(document, Does.Not.Contain("windup warning path remains old canonical presentation"));
         }
@@ -106,7 +111,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("no OutOfBounds gameplay producer is added"));
             Assert.That(document, Does.Contain("BoxVfxCue.OutOfBoundsExit"));
             Assert.That(document, Does.Contain("EnemyVfxCue.OutOfBoundsExit"));
-            Assert.That(document, Does.Contain("old `GameplayExitPresentationController.PlayExitEffect` playback is disabled"));
+            Assert.That(document, Does.Contain("old `GameplayExitPresentationController.PlayExitEffect` playback surface is removed"));
         }
 
         [Test]
@@ -194,6 +199,47 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void OldTransientTracks_AreRemoved()
+        {
+            AssertFileDoesNotExist(OldTransientPresenterPath);
+            AssertFileDoesNotExist(OldTransientPresenterPath + ".meta");
+
+            var exitController = ReadRepoFile(ExitControllerPath);
+            Assert.That(exitController, Does.Not.Contain("EntityExitEffectTrack"));
+            Assert.That(exitController, Does.Not.Contain("ImpactBreakEffectTrack"));
+            Assert.That(exitController, Does.Not.Contain("GameplayPresentationEffectFactory"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTransientEffectPresenter_DoesNotExposeOldPlaybackMethods()
+        {
+            AssertFileDoesNotExist(OldTransientPresenterPath);
+
+            var hostRuntimeSource = ReadCombinedSource("Assets/_Features/Gameplay/Gameplay_Host/Runtime");
+            Assert.That(hostRuntimeSource, Does.Not.Contain("PlayExitEffect"));
+            Assert.That(hostRuntimeSource, Does.Not.Contain("PlayImpactBreakEffect"));
+            Assert.That(hostRuntimeSource, Does.Not.Contain("CreateExitEffect"));
+            Assert.That(hostRuntimeSource, Does.Not.Contain("CreateImpactBreakEffect"));
+            Assert.That(hostRuntimeSource, Does.Not.Contain("EntityExitEffectTrack"));
+            Assert.That(hostRuntimeSource, Does.Not.Contain("ImpactBreakEffectTrack"));
+            Assert.That(hostRuntimeSource, Does.Not.Contain("GameplayPresentationEffectFactory"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyDeathExitEffectPlanBuilder_RetainedForDeathMotion()
+        {
+            var builder = ReadRepoFile(EnemyDeathExitEffectPlanBuilderPath);
+            var deathMotionBuilder = ReadRepoFile(
+                "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/EnemyDeathMotionVfxCommandBuilder.cs");
+
+            Assert.That(builder, Does.Contain("EnemyDeathExitEffectPlanBuilder"));
+            Assert.That(deathMotionBuilder, Does.Contain("EnemyDeathExitEffectPlanBuilder.Build"));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void NoAuthorityOrPresentationCarrierShapeChanges_Documented()
         {
             var document = ReadRepoFile(GovernancePath);
@@ -275,6 +321,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             Assert.That(File.Exists(path), Is.True, $"Missing repo file: {path}");
             return File.ReadAllText(path);
+        }
+
+        private static string ReadCombinedSource(string relativeDirectory)
+        {
+            return string.Join(
+                "\n",
+                Directory.GetFiles(relativeDirectory, "*.cs", SearchOption.AllDirectories)
+                    .OrderBy(path => path, StringComparer.Ordinal)
+                    .Select(File.ReadAllText));
         }
 
         private static void AssertFileExists(string path)

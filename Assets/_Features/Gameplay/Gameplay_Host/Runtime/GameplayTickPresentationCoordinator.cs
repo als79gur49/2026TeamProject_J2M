@@ -28,7 +28,6 @@ namespace Game.Feature.Gameplay.Host
         private readonly SummonedEnemyPresentationResolver _summonedEnemyPresentationResolver = new();
         private readonly GameplayPresentationTrackState _trackState = new();
         private readonly GameplayTopologyTransitionController _topologyTransitionController;
-        private readonly GameplayTransientEffectPresenter _transientEffectPresenter = new();
         private readonly GameplayFrontFaceShieldVfxPresenter _frontFaceShieldVfxPresenter = new();
         private readonly GameplayUtilityWindupVfxPresenter _utilityWindupVfxPresenter = new();
         private readonly GameplayMotionTimingResolver _motionTimingResolver;
@@ -48,9 +47,7 @@ namespace Game.Feature.Gameplay.Host
         {
             _audioPresentationController = new GameplayAudioPresentationController(_stateStore);
             _actionAudioPresentationController = new GameplayActionAudioPresentationController(_stateStore);
-            _presentationActivityInspector = new GameplayPresentationActivityInspector(
-                _trackState,
-                _transientEffectPresenter);
+            _presentationActivityInspector = new GameplayPresentationActivityInspector(_trackState);
             _motionTimingResolver = new GameplayMotionTimingResolver(_stateStore, _trackState);
             _topologyTransitionController = new GameplayTopologyTransitionController(_motionTimingResolver);
             _poseResolver = new GameplayPoseResolver(
@@ -70,10 +67,7 @@ namespace Game.Feature.Gameplay.Host
                 _committedFrameBuilder);
             _exitPresentationController = new GameplayExitPresentationController(
                 _stateStore,
-                _trackState,
-                _motionTimingResolver,
-                _poseResolver,
-                _transientEffectPresenter);
+                _trackState);
             _planner = new GameplayTrackPlanner(
                 _stateStore,
                 _trackState,
@@ -99,7 +93,7 @@ namespace Game.Feature.Gameplay.Host
 
         public bool IsTopologyTransitionActive => CurrentPresentationPhase == GameplayPresentationPhase.TopologyTransition;
 
-        public int ActiveTransientEffectCount => _transientEffectPresenter.ActiveEffectCount;
+        public int ActiveTransientEffectCount => 0;
 
         public TopologyTransitionVisualState CurrentTopologyTransitionVisualState =>
             _topologyTransitionController.CurrentVisualState;
@@ -157,7 +151,6 @@ namespace Game.Feature.Gameplay.Host
             _actionAudioPresentationController.ResetSession();
             _entityPresentationApplier.ResetAllPlayerDeathDisplacements();
             _trackState.ResetSession();
-            _transientEffectPresenter.Initialize(viewBinder.SearchRoot, cellSize);
             _frontFaceShieldVfxPresenter.Initialize(viewBinder.SearchRoot, cellSize);
             _utilityWindupVfxPresenter.Initialize(viewBinder.SearchRoot);
             _animationSync.Reset();
@@ -180,7 +173,6 @@ namespace Game.Feature.Gameplay.Host
         public void AttachOutputCamera(Camera outputCamera)
         {
             _outputCamera = outputCamera;
-            _transientEffectPresenter.ConfigureOutputCamera(outputCamera);
             _planner.ConfigureOutputCamera(outputCamera, _viewBinder != null ? _viewBinder.SearchRoot : null);
             ConfigureOutputCameraPresentationExtensions();
         }
@@ -267,8 +259,6 @@ namespace Game.Feature.Gameplay.Host
                 previousCommittedTopology,
                 _projector,
                 _timingProfile);
-            TraceStep("PlayEntityExitEffects");
-            _exitPresentationController.PlayEntityExitEffects();
             _animationSync.ApplyTickPresentation(
                 result,
                 _stateStore.ViewsByEntityId,
@@ -299,7 +289,6 @@ namespace Game.Feature.Gameplay.Host
             _entityPresentationApplier.ResetAllPlayerDeathDisplacements();
             _trackState.ResetSession();
             _exitPresentationController.Reset();
-            _transientEffectPresenter.Clear();
             _frontFaceShieldVfxPresenter.Clear();
             _utilityWindupVfxPresenter.Clear();
             ResetExtensions();
@@ -337,7 +326,6 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _topologyTransitionController.UpdatePresentation(deltaTime, _stateStore.CommittedTopology);
-            _transientEffectPresenter.Update(deltaTime);
             _frontFaceShieldVfxPresenter.Update(deltaTime);
             UpdateExtensions(deltaTime);
             _entityPresentationApplier.Apply(

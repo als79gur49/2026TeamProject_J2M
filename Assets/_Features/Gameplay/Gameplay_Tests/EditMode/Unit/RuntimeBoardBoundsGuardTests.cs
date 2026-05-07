@@ -5922,11 +5922,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(registry.TryGetView(20, out var itemView), Is.True);
                 Assert.That(itemView.gameObject.activeSelf, Is.False);
-                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(0));
 
                 presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds);
                 Assert.That(itemView.gameObject.activeSelf, Is.False);
-                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(0));
 
                 presenter.UpdatePresentation(
                     timingProfile.ItemConsumeEffectDurationSeconds - timingProfile.PushMotionDurationSeconds);
@@ -6008,11 +6008,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(registry.TryGetView(20, out var boxView), Is.True);
                 Assert.That(boxView.gameObject.activeSelf, Is.False);
-                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(0));
 
                 presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds);
                 Assert.That(boxView.gameObject.activeSelf, Is.False);
-                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(0));
 
                 presenter.UpdatePresentation(
                     timingProfile.BoxDestroyEffectDurationSeconds - timingProfile.PushMotionDurationSeconds);
@@ -6107,11 +6107,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(registry.TryGetView(40, out var enemyView), Is.True);
                 Assert.That(enemyView.gameObject.activeSelf, Is.False);
-                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(0));
 
                 presenter.UpdatePresentation(timingProfile.EnemyDeathEffectDurationSeconds * 0.5f);
                 Assert.That(enemyView.gameObject.activeSelf, Is.False);
-                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(0));
 
                 presenter.UpdatePresentation(timingProfile.EnemyDeathEffectDurationSeconds * 0.5f);
                 Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(0));

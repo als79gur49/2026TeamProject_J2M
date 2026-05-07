@@ -270,10 +270,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 poseResolver,
                 new GameplayExitPresentationController(
                     stateStore,
-                    trackState,
-                    motionTimingResolver,
-                    poseResolver,
-                    new GameplayTransientEffectPresenter()),
+                    trackState),
                 entityApplier);
             var timingProfile = GameplayTimingProfile.CreateDefault();
             var projector = new GameplayCubeProjector(new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)), 1f);

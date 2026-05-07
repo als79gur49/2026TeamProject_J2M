@@ -685,10 +685,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             Assert.That(host.ViewRegistry.TryGetView(30, out var itemView), Is.True);
             Assert.That(itemView.gameObject.activeSelf, Is.False);
-            Assert.That(host.Presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+            Assert.That(host.Presenter.ActiveTransientEffectCount, Is.EqualTo(0));
 
             host.Presenter.UpdatePresentation(host.TimingProfile.MoveMotionDurationSeconds);
-            Assert.That(host.Presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+            Assert.That(host.Presenter.ActiveTransientEffectCount, Is.EqualTo(0));
 
             EntityState playerEntity = default;
             var reachedNextTile = false;
@@ -733,11 +733,11 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             Assert.That(host.ViewRegistry.TryGetView(30, out var boxView), Is.True);
             Assert.That(boxView.gameObject.activeSelf, Is.False);
-            Assert.That(host.Presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+            Assert.That(host.Presenter.ActiveTransientEffectCount, Is.EqualTo(0));
 
             host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
             Assert.That(boxView.gameObject.activeSelf, Is.False);
-            Assert.That(host.Presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+            Assert.That(host.Presenter.ActiveTransientEffectCount, Is.EqualTo(0));
 
             yield return DestroyHost(host);
         }

@@ -497,14 +497,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static void AssertExitControllerOldImpactPathDisabled()
         {
             var source = File.ReadAllText(ExitControllerPath);
-            Assert.That(source, Does.Not.Contain("_transientEffectPresenter.PlayImpactBreakEffect("));
+            Assert.That(source, Does.Not.Contain("PlayImpactBreakEffect"));
+            Assert.That(File.Exists("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTransientEffectPresenter.cs"), Is.False);
         }
 
         private static void AssertExitControllerOldOutOfBoundsPathDisabled()
         {
             var source = File.ReadAllText(ExitControllerPath);
-            Assert.That(source, Does.Contain("ShouldPlayLegacyEntityExitEffect"));
-            Assert.That(source, Does.Contain("return false;"));
+            Assert.That(source, Does.Not.Contain("ShouldPlayLegacyEntityExitEffect"));
+            Assert.That(source, Does.Not.Contain("PlayExitEffect"));
         }
 
         private static void Destroy(params Object[] objects)

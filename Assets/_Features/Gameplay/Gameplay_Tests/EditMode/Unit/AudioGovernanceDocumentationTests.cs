@@ -64,7 +64,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("`BGM lane -> source pool and active controller set -> attached registry`"));
             Assert.That(doc, Does.Contain("FadeOutIn은 request-based BGM runtime에 포함되어 있고"));
             Assert.That(doc, Does.Contain("second feature map consumer"));
-            Assert.That(doc, Does.Contain("PlayEntityExitEffects()"));
             Assert.That(doc, Does.Contain("PlayPlannedAudio()"));
             Assert.That(doc, Does.Contain("RefreshAudioPlan(result) 내부에서는 core gameplay one-shot plan과 action-audio plan을 함께 refresh한다."));
             Assert.That(doc, Does.Contain("ApplyEntityExitOwnership()"));

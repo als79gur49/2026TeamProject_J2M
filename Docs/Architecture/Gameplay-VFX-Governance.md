@@ -46,11 +46,12 @@ The family planners preserve domain-specific presentation facts and translate th
 
 Existing VFX-like presenters remain the production playback path for their current facts:
 
-- `GameplayTransientEffectPresenter`
 - `GameplayExitPresentationController`
 - `GameplayFrontFaceShieldVfxPresenter`
 - `GameplayUtilityWindupVfxPresenter`
 - `BoxFlipInteractionDriver` / `FlipImpactTrack`
+
+`GameplayTransientEffectPresenter` playback surface removed after the ImpactTransient and OutOfBounds migrations; retained helper math lives in `EnemyDeathExitEffectPlanBuilder` for current `EnemyDeathMotion`.
 
 The new Gameplay VFX lane must not consume the same fact concurrently with these presenters. Existing presenter migration is a future slice and must include a feature flag or adapter strategy plus duplicate-prevention tests. The first production VFX slice must choose a bounded fact that does not overlap existing presenters.
 
@@ -438,7 +439,7 @@ Cue distinction:
 
 Existing presenter overlap:
 
-- the checked presenter paths are `GameplayTransientEffectPresenter`, `GameplayExitPresentationController`, `GameplayFrontFaceShieldVfxPresenter`, `GameplayUtilityWindupVfxPresenter`, `BoxFlipInteractionDriver`, and `FlipImpactTrack`.
+- the checked presenter paths are `GameplayExitPresentationController`, `GameplayFrontFaceShieldVfxPresenter`, `GameplayUtilityWindupVfxPresenter`, `BoxFlipInteractionDriver`, and `FlipImpactTrack`; `EnemyDeathExitEffectPlanBuilder` is retained helper math, not an old playback presenter.
 - these presenters do not consume `JumperLandingDust`; existing presenter migration remains out of scope.
 
 ## Player Damage Hit Burst Migration
@@ -476,7 +477,7 @@ Ownership:
 
 - new path: `EnemyVfxRequestPlanner` emits one `EnemyVfxCue.Damage` request for a non-fatal `TookDamageThisTick` signal.
 - current old visual response: `EnemyAnimatorDriver` consumes the mapped enemy damage state and fires the Hit animation trigger.
-- bypass: no `GameplayTransientEffectPresenter` bypass is added for enemy damage in this slice because current source has no enemy transient hit burst presenter path.
+- bypass: no old transient presenter bypass is added for enemy damage in this slice because current source has no enemy transient hit burst presenter path.
 - production flag: `GameplayVfxProductionRuntime.EnableGameplayVfxEnemyDamageBurstMigration`.
 
 Flag policy:
@@ -1000,7 +1001,7 @@ Flag and fallback:
 - flag: `EnableGameplayVfxImpactTransientBreakMigration`
 - default true
 - flag off means no ImpactTransient break VFX and no old presenter fallback
-- old `GameplayTransientEffectPresenter.PlayImpactBreakEffect` playback is disabled
+- old `GameplayTransientEffectPresenter.PlayImpactBreakEffect` playback surface is removed
 - missing binding, prefab, anchor, source pose, or impact pose is diagnostic/no-op
 - missing binding no fallback applies to this reserved hook
 
@@ -1037,7 +1038,7 @@ Flag and fallback:
 - flag: `EnableGameplayVfxOutOfBoundsExitMigration`
 - default true
 - flag off means no OutOfBounds VFX and no old presenter fallback
-- old `GameplayExitPresentationController.PlayExitEffect` playback is disabled for OutOfBounds
+- old `GameplayExitPresentationController.PlayExitEffect` playback surface is removed for OutOfBounds
 - missing binding, prefab, anchor, or source pose is diagnostic/no-op
 - missing binding no fallback applies to this reserved hook
 - if no normal producer exists, tests use synthetic presentation facts
@@ -1051,16 +1052,18 @@ Cleaned legacy direct playback:
 | Old path | New VFX | Cleanup status | Flag-off semantics | Notes |
 |---|---|---|---|---|
 | Player damage direct hit prefab fallback | `PlayerVfxCue.Damage` | old hit playback disabled | no damage VFX | direct hit prefab fallback removed |
-| BoxDestroy `GameplayExitPresentationController.PlayExitEffect` | `BoxVfxCue.DestroyShrink` + `BoxVfxCue.DestroySmoke` | old shrink/fade disabled; `ApplyEntityExitOwnership()` retained | shrink flag off disables shrink; smoke flag off disables smoke | smoke does not own shrink suppression |
-| ItemConsume `GameplayExitPresentationController.PlayExitEffect` | `BoxVfxCue.ItemConsume` | old consume fade disabled; `ApplyEntityExitOwnership()` retained | no item consume VFX | cleanup remains exit ownership |
+| BoxDestroy old entity exit transient track | `BoxVfxCue.DestroyShrink` + `BoxVfxCue.DestroySmoke` | old shrink/fade track removed; `ApplyEntityExitOwnership()` retained | shrink flag off disables shrink; smoke flag off disables smoke | smoke does not own shrink suppression |
+| ItemConsume old entity exit transient track | `BoxVfxCue.ItemConsume` | old consume fade track removed; `ApplyEntityExitOwnership()` retained | no item consume VFX | cleanup remains exit ownership |
 | `GameplayUtilityWindupVfxPresenter.RefreshSummonWarnings` | `EnemyVfxCue.UtilityWindup` | old spawn disabled; cleanup-only empty refresh retained | no utility windup VFX | presenter kept for legacy instance disposal |
 | `GameplayFrontFaceShieldVfxPresenter.RefreshActiveSources` | `EnemyVfxCue.FrontFaceShieldActive` | old active-loop spawn disabled; cleanup-only empty refresh retained | no active shield VFX | active loop old fallback removed |
 | `GameplayFrontFaceShieldVfxPresenter.PlayBlockBursts` | `EnemyVfxCue.FrontFaceShieldBlock` | old block burst disabled | no block burst VFX | one-shot old fallback removed |
 | `GameplayFrontFaceShieldVfxPresenter.RefreshWindupWarnings` | `EnemyVfxCue.FrontFaceShieldWindup` | old telegraph spawn disabled; cleanup-only empty refresh retained | no FrontFace shield windup VFX | `telegraphPrefab` and old telegraph assets retained for deferred cleanup |
-| enemy killed `GameplayExitPresentationController.PlayExitEffect` | `EnemyVfxCue.DeathMotion` + `EnemyVfxCue.Death` | old fly-away disabled; `ApplyEntityExitOwnership()` retained | no death motion VFX when motion flag is off; no burst VFX when burst flag is off | death flags control new VFX playback only |
-| `GameplayTransientEffectPresenter.PlayFlipImpactDestroyEffect` | `BoxVfxCue.FlipDestroySelfMotion` | old clone/fade disabled; DestroySelf key bookkeeping retained | no flip destroy-self motion VFX | `FlipImpactTrack` Stay branch remains unchanged |
-| `GameplayTransientEffectPresenter.PlayImpactBreakEffect` | `BoxVfxCue.ImpactTransientBreak` | old impact break playback disabled; duplicate ownership retained | no ImpactTransient break VFX | no normal producer added |
-| OutOfBounds `GameplayExitPresentationController.PlayExitEffect` | `BoxVfxCue.OutOfBoundsExit` / `EnemyVfxCue.OutOfBoundsExit` | old OutOfBounds fade disabled; `ApplyEntityExitOwnership()` retained | no OutOfBounds VFX | dormant/reserved hook only; no producer added |
+| enemy killed old entity exit transient track | `EnemyVfxCue.DeathMotion` + `EnemyVfxCue.Death` | old fly-away track removed; `ApplyEntityExitOwnership()` retained; `EnemyDeathExitEffectPlanBuilder` retained for DeathMotion target math | no death motion VFX when motion flag is off; no burst VFX when burst flag is off | death flags control new VFX playback only |
+| old flip destroy-self clone/fade transient track | `BoxVfxCue.FlipDestroySelfMotion` | old clone/fade track removed; DestroySelf key bookkeeping retained | no flip destroy-self motion VFX | `FlipImpactTrack` Stay branch remains unchanged |
+| old impact break transient track | `BoxVfxCue.ImpactTransientBreak` | old impact break playback removed; duplicate ownership retained | no ImpactTransient break VFX | no normal producer added |
+| OutOfBounds old entity exit transient track | `BoxVfxCue.OutOfBoundsExit` / `EnemyVfxCue.OutOfBoundsExit` | old OutOfBounds fade track removed; `ApplyEntityExitOwnership()` retained | no OutOfBounds VFX | dormant/reserved hook only; no producer added |
+
+No stale old transient playback fallback remains: `GameplayTransientEffectPresenter`, `ImpactBreakEffectTrack`, `EntityExitEffectTrack`, `PlayImpactBreakEffect`, and `PlayExitEffect` playback APIs are removed.
 
 Remaining old canonical presentation responsibilities:
 

@@ -1621,7 +1621,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(registry.TryGetView(20, out var itemView), Is.True);
                 Assert.That(itemView.gameObject.activeSelf, Is.False);
-                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(0));
 
                 presenter.UpdatePresentation(itemConsumeEffectDurationSeconds + 0.01f);
                 Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(0));
@@ -1730,12 +1730,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         TickTrace.Empty));
 
                 Assert.That(boxView.gameObject.activeSelf, Is.False);
-                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(1));
-                Assert.That(presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.EntityMotion));
+                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(0));
+                Assert.That(presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.Idle));
 
                 presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds + 0.01f);
-                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(1));
-                Assert.That(presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.EntityMotion));
+                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(0));
+                Assert.That(presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.Idle));
 
                 presenter.UpdatePresentation(boxDestroyEffectDurationSeconds - timingProfile.PushMotionDurationSeconds);
                 Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(0));
@@ -1849,10 +1849,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         TickTrace.Empty));
 
                 Assert.That(boxView.gameObject.activeSelf, Is.False);
-                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(0));
 
                 presenter.UpdatePresentation(boxDestroyEffectDurationSeconds + 0.01f);
-                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(0));
 
                 presenter.UpdatePresentation((flipMotionDurationSeconds - boxDestroyEffectDurationSeconds) + 0.05f);
                 Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(0));

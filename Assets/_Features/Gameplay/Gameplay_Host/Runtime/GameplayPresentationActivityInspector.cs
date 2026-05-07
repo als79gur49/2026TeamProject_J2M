@@ -1,20 +1,15 @@
 namespace Game.Feature.Gameplay.Host
 {
     /// <summary>
-    /// Reads track and transient-effect activity so facade-level phase decisions stay thin.
+    /// Reads track activity so facade-level phase decisions stay thin.
     /// </summary>
     internal sealed class GameplayPresentationActivityInspector
     {
         private readonly GameplayPresentationTrackState _trackState;
-        private readonly GameplayTransientEffectPresenter _transientEffectPresenter;
 
-        public GameplayPresentationActivityInspector(
-            GameplayPresentationTrackState trackState,
-            GameplayTransientEffectPresenter transientEffectPresenter)
+        public GameplayPresentationActivityInspector(GameplayPresentationTrackState trackState)
         {
             _trackState = trackState ?? throw new System.ArgumentNullException(nameof(trackState));
-            _transientEffectPresenter =
-                transientEffectPresenter ?? throw new System.ArgumentNullException(nameof(transientEffectPresenter));
         }
 
         public bool HasActiveEntityPresentationClips()
@@ -72,7 +67,7 @@ namespace Game.Feature.Gameplay.Host
                 return true;
             }
 
-            return _transientEffectPresenter.HasActiveEffects;
+            return false;
         }
     }
 }

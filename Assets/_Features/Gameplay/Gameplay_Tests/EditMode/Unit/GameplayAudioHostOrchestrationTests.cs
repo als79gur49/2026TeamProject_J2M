@@ -40,7 +40,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "RefreshAudioPlan",
                     "RefreshUtilityWindupWarnings",
                     "RefreshFrontFaceShieldSources",
-                    "PlayEntityExitEffects",
                     "PlayPlannedAudio",
                     "ApplyEntityExitOwnership",
                 }));
@@ -74,7 +73,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "RefreshAudioPlan",
                     "RefreshUtilityWindupWarnings",
                     "RefreshFrontFaceShieldSources",
-                    "PlayEntityExitEffects",
                     "PlayPlannedAudio",
                     "Playback:Play2D",
                     "ApplyEntityExitOwnership",

@@ -21,7 +21,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string VfxPlanningPath = "Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxPlanning.cs";
         private const string CoordinatorPath = "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs";
         private const string ExitControllerPath = "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayExitPresentationController.cs";
-        private const string TransientPresenterPath = "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTransientEffectPresenter.cs";
+        private const string EnemyDeathExitEffectPlanBuilderPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyDeathExitEffectPlanBuilder.cs";
         private const string FrontFaceShieldPresenterPath = "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayFrontFaceShieldVfxPresenter.cs";
         private const string UtilityWindupAuthoringPath =
             "Assets/_Features/Gameplay/Gameplay_EntityView/Runtime/EnemyUtilityWindupPresentationAuthoring.cs";
@@ -47,7 +48,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("ReleasedToPool"));
             Assert.That(document, Does.Contain("persistent desired state"));
             Assert.That(document, Does.Contain("SurfaceCell"));
-            Assert.That(document, Does.Contain("GameplayTransientEffectPresenter"));
+            Assert.That(document, Does.Contain("GameplayTransientEffectPresenter` playback surface removed"));
             Assert.That(document, Does.Contain("GameplayExitPresentationController"));
             Assert.That(document, Does.Contain("GameplayFrontFaceShieldVfxPresenter"));
             Assert.That(document, Does.Contain("GameplayUtilityWindupVfxPresenter"));
@@ -163,7 +164,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var coordinator = ReadRepoFile(CoordinatorPath);
             var exitController = ReadRepoFile(ExitControllerPath);
-            var transientPresenter = ReadRepoFile(TransientPresenterPath);
+            var deathPlanBuilder = ReadRepoFile(EnemyDeathExitEffectPlanBuilderPath);
             var frontFaceShieldPresenter = ReadRepoFile(FrontFaceShieldPresenterPath);
             var utilityWindupAuthoring = ReadRepoFile(UtilityWindupAuthoringPath);
             var frontFaceShieldAuthoring = ReadRepoFile(FrontFaceShieldAuthoringPath);
@@ -175,15 +176,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(exitController, Does.Contain("public void ApplyEntityExitOwnership()"));
             Assert.That(exitController, Does.Contain("_destroySelfFlipImpactKeysByEntityId"));
-            Assert.That(exitController, Does.Contain("TickEntityExitCause.OutOfBounds"));
+            Assert.That(exitController, Does.Not.Contain("PlayExitEffect"));
             Assert.That(exitController, Does.Not.Contain("PlayFlipImpactDestroyEffect"));
             Assert.That(exitController, Does.Not.Contain("suppressLegacyEnemyDeathEffects"));
 
-            Assert.That(transientPresenter, Does.Contain("ImpactBreakEffectTrack"));
-            Assert.That(transientPresenter, Does.Contain("EnemyDeathExitEffectPlanBuilder"));
-            Assert.That(transientPresenter, Does.Not.Contain("PlayHitEffect("));
-            Assert.That(transientPresenter, Does.Not.Contain("FlipImpactDestroyEffectTrack"));
-            Assert.That(transientPresenter, Does.Not.Contain("EnemyDeathExitEffectTrack"));
+            Assert.That(File.Exists(GetAbsolutePath("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTransientEffectPresenter.cs")), Is.False);
+            Assert.That(deathPlanBuilder, Does.Contain("EnemyDeathExitEffectPlanBuilder"));
+            Assert.That(deathPlanBuilder, Does.Not.Contain("ImpactBreakEffectTrack"));
+            Assert.That(deathPlanBuilder, Does.Not.Contain("EntityExitEffectTrack"));
 
             Assert.That(frontFaceShieldPresenter, Does.Contain("RefreshWindupWarnings"));
             Assert.That(frontFaceShieldPresenter, Does.Contain("RefreshActiveSources"));

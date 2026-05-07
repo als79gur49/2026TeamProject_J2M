@@ -22,7 +22,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Normalize("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickResultBuilder.cs"),
             Normalize("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayExitPresentationController.cs"),
             Normalize("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayPoseResolver.cs"),
-            Normalize("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTransientEffectPresenter.cs"),
+            Normalize("Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyDeathExitEffectPlanBuilder.cs"),
         };
 
         [Test]

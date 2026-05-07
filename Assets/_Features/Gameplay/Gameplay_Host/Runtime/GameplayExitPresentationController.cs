@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Game.Feature.Gameplay;
-using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 
 namespace Game.Feature.Gameplay.Host
@@ -9,44 +7,28 @@ namespace Game.Feature.Gameplay.Host
     internal sealed class GameplayExitPresentationController
     {
         private readonly HashSet<int> _exitOwnedEntityIds = new();
-        private readonly List<TickEntityExitPresentationSignal> _pendingEntityExitSignals = new();
-        private readonly List<TickImpactTransientPresentationSignal> _pendingImpactTransientSignals = new();
-        private readonly HashSet<int> _impactTransientEntityIds = new();
         private readonly Dictionary<int, FlipImpactInstanceKey> _destroySelfFlipImpactKeysByEntityId = new();
-        private readonly GameplayPoseResolver _poseResolver;
         private readonly GameplayPresentationStateStore _stateStore;
         private readonly GameplayPresentationTrackState _trackState;
-        private readonly GameplayTransientEffectPresenter _transientEffectPresenter;
-        private GameplayCubeProjector _projector;
-        private GameplayTimingProfile _timingProfile;
         private int _refreshSequence;
 
         public GameplayExitPresentationController(
             GameplayPresentationStateStore stateStore,
-            GameplayPresentationTrackState trackState,
-            GameplayMotionTimingResolver motionTimingResolver,
-            GameplayPoseResolver poseResolver,
-            GameplayTransientEffectPresenter transientEffectPresenter)
+            GameplayPresentationTrackState trackState)
         {
             _stateStore = stateStore ?? throw new ArgumentNullException(nameof(stateStore));
             _trackState = trackState ?? throw new ArgumentNullException(nameof(trackState));
-            _ = motionTimingResolver ?? throw new ArgumentNullException(nameof(motionTimingResolver));
-            _poseResolver = poseResolver ?? throw new ArgumentNullException(nameof(poseResolver));
-            _transientEffectPresenter = transientEffectPresenter ?? throw new ArgumentNullException(nameof(transientEffectPresenter));
         }
 
         public void Configure(GameplayCubeProjector projector, GameplayTimingProfile timingProfile)
         {
-            _projector = projector ?? throw new ArgumentNullException(nameof(projector));
-            _timingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
+            _ = projector ?? throw new ArgumentNullException(nameof(projector));
+            _ = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
         }
 
         public void Reset()
         {
             _exitOwnedEntityIds.Clear();
-            _pendingEntityExitSignals.Clear();
-            _pendingImpactTransientSignals.Clear();
-            _impactTransientEntityIds.Clear();
             _destroySelfFlipImpactKeysByEntityId.Clear();
             _refreshSequence = 0;
         }
@@ -64,30 +46,12 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _exitOwnedEntityIds.Clear();
-            _pendingEntityExitSignals.Clear();
-            _pendingImpactTransientSignals.Clear();
-            _impactTransientEntityIds.Clear();
             _destroySelfFlipImpactKeysByEntityId.Clear();
             _refreshSequence++;
 
             for (var i = 0; i < presentationData.EntityExitSignals.Count; i++)
             {
-                var signal = presentationData.EntityExitSignals[i];
-                if (!_exitOwnedEntityIds.Add(signal.ExitedEntityId))
-                {
-                    continue;
-                }
-
-                _pendingEntityExitSignals.Add(signal);
-            }
-
-            for (var i = 0; i < presentationData.ImpactTransientSignals.Count; i++)
-            {
-                var signal = presentationData.ImpactTransientSignals[i];
-                if (_impactTransientEntityIds.Add(signal.EntityId))
-                {
-                    _pendingImpactTransientSignals.Add(signal);
-                }
+                _exitOwnedEntityIds.Add(presentationData.EntityExitSignals[i].ExitedEntityId);
             }
 
             for (var i = 0; i < presentationData.FlipImpactSignals.Count; i++)
@@ -108,43 +72,6 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        public void PlayEntityExitEffects()
-        {
-            for (var i = 0; i < _pendingEntityExitSignals.Count; i++)
-            {
-                var signal = _pendingEntityExitSignals[i];
-                if (_impactTransientEntityIds.Contains(signal.ExitedEntityId) ||
-                    _destroySelfFlipImpactKeysByEntityId.ContainsKey(signal.ExitedEntityId))
-                {
-                    continue;
-                }
-
-                if (!ShouldPlayLegacyEntityExitEffect(signal.ExitCause))
-                {
-                    continue;
-                }
-
-                if (!_poseResolver.TryResolveEntityExitSignalLocalPose(_projector, signal, out var localPose))
-                {
-                    continue;
-                }
-
-                _stateStore.ViewsByEntityId.TryGetValue(signal.ExitedEntityId, out var sourceView);
-                _transientEffectPresenter.PlayExitEffect(
-                    signal,
-                    sourceView,
-                    localPose,
-                    ResolveEntityExitEffectDurationSeconds(signal.ExitCause));
-            }
-
-        }
-
-        private static bool ShouldPlayLegacyEntityExitEffect(TickEntityExitCause exitCause)
-        {
-            _ = exitCause;
-            return false;
-        }
-
         public void ApplyEntityExitOwnership()
         {
             foreach (var entityId in _exitOwnedEntityIds)
@@ -154,8 +81,6 @@ namespace Game.Feature.Gameplay.Host
                     QueueFlipInteractionReset(entityId);
                 }
 
-                // Exit ownership removes the authoritative entity view from presentation
-                // state immediately. Any lingering visual is transient-effect-only.
                 _trackState.JumpTracks.Remove(entityId);
                 _trackState.LocalMotionTracks.Remove(entityId);
                 _trackState.StayFlipImpactTracks.Remove(entityId);
@@ -203,25 +128,5 @@ namespace Game.Feature.Gameplay.Host
                 _trackState.FlipInteractionTracks.Remove(_trackState.CompletedFlipInteractionTrackIds[i]);
             }
         }
-
-        private float ResolveEntityExitEffectDurationSeconds(TickEntityExitCause exitCause)
-        {
-            return exitCause switch
-            {
-                TickEntityExitCause.ItemConsume => _timingProfile.ItemConsumeEffectDurationSeconds,
-                TickEntityExitCause.DestroyedByImpact => _timingProfile.BoxDestroyEffectDurationSeconds,
-                TickEntityExitCause.Killed => _timingProfile.EnemyDeathEffectDurationSeconds,
-                TickEntityExitCause.OutOfBounds => _timingProfile.ItemConsumeEffectDurationSeconds,
-                _ => _timingProfile.ItemConsumeEffectDurationSeconds,
-            };
-        }
-
-        private float ResolveImpactBreakEffectDurationSeconds()
-        {
-            return Math.Max(
-                _timingProfile.BoxDestroyEffectDurationSeconds,
-                _timingProfile.FlipMotionDurationSeconds);
-        }
-
     }
 }
