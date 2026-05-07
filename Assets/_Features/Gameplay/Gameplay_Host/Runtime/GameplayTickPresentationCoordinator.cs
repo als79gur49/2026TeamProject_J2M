@@ -42,6 +42,7 @@ namespace Game.Feature.Gameplay.Host
         private GameplayEntityViewBinder _viewBinder;
         private Camera _outputCamera;
         private Action<string> _traceSink;
+        private int _lastPresentedTickIndex;
 
         public GameplayTickPresentationCoordinator()
         {
@@ -257,6 +258,8 @@ namespace Game.Feature.Gameplay.Host
                 previousCommittedTopology,
                 _projector,
                 _timingProfile);
+            _lastPresentedTickIndex = result.TickIndex;
+            RefreshPresentationMotionVfx(result.TickIndex);
             _animationSync.ApplyTickPresentation(
                 result,
                 _stateStore.ViewsByEntityId,
@@ -331,6 +334,7 @@ namespace Game.Feature.Gameplay.Host
                 _topologyTransitionController.HasActiveBoardRotationTween,
                 _viewBinder,
                 _timingProfile);
+            RefreshPresentationMotionVfx(_lastPresentedTickIndex);
         }
 
         internal void AttachGameplayAudioRuntime(
@@ -417,6 +421,28 @@ namespace Game.Feature.Gameplay.Host
                     outputCameraExtension.ConfigureOutputCamera(
                         _outputCamera,
                         _viewBinder != null ? _viewBinder.SearchRoot : null);
+                }
+            }
+        }
+
+        private void RefreshPresentationMotionVfx(int tickIndex)
+        {
+            if (_presentationExtensions.Count == 0)
+            {
+                return;
+            }
+
+            var context = new GameplayPresentationMotionVfxContext(
+                tickIndex,
+                _trackState,
+                _stateStore,
+                _projector,
+                _timingProfile);
+            for (var i = 0; i < _presentationExtensions.Count; i++)
+            {
+                if (_presentationExtensions[i] is IGameplayPresentationMotionVfxExtension motionVfxExtension)
+                {
+                    motionVfxExtension.RefreshPresentationMotionVfx(context);
                 }
             }
         }

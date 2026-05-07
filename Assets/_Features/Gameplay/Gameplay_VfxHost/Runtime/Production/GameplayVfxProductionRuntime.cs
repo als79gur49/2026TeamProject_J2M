@@ -8,7 +8,7 @@ using UnityEngine;
 namespace Game.Feature.Gameplay.Vfx.Host
 {
     [DisallowMultipleComponent]
-    public sealed class GameplayVfxProductionRuntime : MonoBehaviour, IGameplayTickPresentationExtension, IGameplayOutputCameraPresentationExtension
+    public sealed class GameplayVfxProductionRuntime : MonoBehaviour, IGameplayTickPresentationExtension, IGameplayOutputCameraPresentationExtension, IGameplayPresentationMotionVfxExtension
     {
         [SerializeField] private bool enableEnemyJumpTargetVfx = true;
         [SerializeField] private bool enableEnemyJumpLandingDustVfx = true;
@@ -21,6 +21,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         [SerializeField] private bool enableGameplayVfxItemConsumeBurstMigration = true;
         [SerializeField] private bool enableGameplayVfxFlipImpactBurstMigration = true;
         [SerializeField] private bool enableGameplayVfxFlipDestroySelfMotionMigration = true;
+        [SerializeField] private bool enableGameplayVfxFlipImpactStayTrail = true;
         [SerializeField] private bool enableGameplayVfxBoxSlideTrail = true;
         [SerializeField] private bool enableGameplayVfxImpactTransientBreakMigration = true;
         [SerializeField] private bool enableGameplayVfxOutOfBoundsExitMigration = true;
@@ -39,6 +40,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private readonly HashSet<BoxSlideTrailMotionInstanceKey> playedBoxSlideTrailMotionKeys = new();
         private readonly HashSet<ImpactTransientBreakInstanceKey> playedImpactTransientBreakKeys = new();
         private readonly HashSet<OutOfBoundsExitInstanceKey> playedOutOfBoundsExitKeys = new();
+        private readonly PresentationMotionFollowingVfxController motionFollowingVfxController = new();
 
         private AuthoringPrefabProvider prefabProvider;
         private GameplayVfxGameObjectPool pool;
@@ -52,6 +54,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private EnemyPresentationVfxProfileProvider enemyPresentationVfxProfileProvider;
         private VfxCueMapAsset hostDefaultCueMap;
         private int flipDestroySelfMotionMissingBindingCount;
+        private int flipImpactStayTrailMissingBindingCount;
+        private int flipImpactStayTrailMissingOwnerViewCount;
         private int boxSlideTrailMissingBindingCount;
         private int boxDestroyShrinkMissingBindingCount;
         private int boxDestroyShrinkMissingAnchorCount;
@@ -229,6 +233,32 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
+        public bool EnableGameplayVfxFlipImpactStayTrail
+        {
+            get => enableGameplayVfxFlipImpactStayTrail;
+            set
+            {
+                if (enableGameplayVfxFlipImpactStayTrail == value)
+                {
+                    return;
+                }
+
+                enableGameplayVfxFlipImpactStayTrail = value;
+                if (!value)
+                {
+                    motionFollowingVfxController.Refresh(
+                        0,
+                        null,
+                        null,
+                        pool,
+                        bindingResolver,
+                        enabled: false);
+                }
+
+                ResetIfNoGameplayVfxEnabled();
+            }
+        }
+
         public bool EnableGameplayVfxBoxSlideTrail
         {
             get => enableGameplayVfxBoxSlideTrail;
@@ -341,6 +371,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public int MissingBindingCount =>
             (controller?.MissingBindingCount ?? 0) +
             flipDestroySelfMotionMissingBindingCount +
+            flipImpactStayTrailMissingBindingCount +
             boxSlideTrailMissingBindingCount +
             boxDestroyShrinkMissingBindingCount +
             impactTransientBreakMissingBindingCount +
@@ -349,6 +380,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public int MissingAnchorCount =>
             (controller?.MissingAnchorCount ?? 0) +
+            flipImpactStayTrailMissingOwnerViewCount +
             boxDestroyShrinkMissingAnchorCount +
             impactTransientBreakMissingAnchorCount +
             outOfBoundsExitMissingAnchorCount +
@@ -381,6 +413,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
         {
             LastPlannedRequestCount = 0;
             flipDestroySelfMotionMissingBindingCount = 0;
+            flipImpactStayTrailMissingBindingCount = 0;
+            flipImpactStayTrailMissingOwnerViewCount = 0;
             boxSlideTrailMissingBindingCount = 0;
             boxDestroyShrinkMissingBindingCount = 0;
             boxDestroyShrinkMissingAnchorCount = 0;
@@ -394,6 +428,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             playedBoxSlideTrailMotionKeys.Clear();
             playedImpactTransientBreakKeys.Clear();
             playedOutOfBoundsExitKeys.Clear();
+            motionFollowingVfxController.ResetSession();
             controller?.HardCleanupAll();
             planBuilder.Clear();
         }
@@ -509,8 +544,42 @@ namespace Game.Feature.Gameplay.Vfx.Host
             pool?.Advance(deltaTime);
         }
 
+        public void RefreshPresentationMotionVfx(in GameplayPresentationMotionVfxContext context)
+        {
+            if (!enableGameplayVfxFlipImpactStayTrail)
+            {
+                motionFollowingVfxController.Refresh(
+                    context.TickIndex,
+                    context.TrackState as GameplayPresentationTrackState,
+                    context.StateStore,
+                    pool,
+                    bindingResolver,
+                    enabled: false);
+                return;
+            }
+
+            if (!AnyGameplayVfxEnabled)
+            {
+                return;
+            }
+
+            EnsureRuntime(
+                context.Projector,
+                context.StateStore);
+            motionFollowingVfxController.Refresh(
+                context.TickIndex,
+                context.TrackState as GameplayPresentationTrackState,
+                context.StateStore,
+                pool,
+                bindingResolver,
+                enabled: true);
+            flipImpactStayTrailMissingBindingCount = motionFollowingVfxController.MissingBindingCount;
+            flipImpactStayTrailMissingOwnerViewCount = motionFollowingVfxController.MissingOwnerViewCount;
+        }
+
         public void HardCleanup()
         {
+            motionFollowingVfxController.HardCleanup();
             controller?.HardCleanupAll();
             LastPlannedRequestCount = 0;
             playedFlipDestroySelfMotionKeys.Clear();
@@ -521,37 +590,45 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         private void EnsureRuntime(in GameplayTickPresentationExtensionContext context)
         {
-            if (context.Projector == null)
+            EnsureRuntime(context.Projector, context.StateStore);
+        }
+
+        private void EnsureRuntime(
+            GameplayCubeProjector projector,
+            GameplayPresentationStateStore stateStore)
+        {
+            if (projector == null)
             {
                 throw new InvalidOperationException("Gameplay VFX production runtime requires a gameplay cube projector.");
             }
 
-            if (context.StateStore == null)
+            if (stateStore == null)
             {
                 throw new InvalidOperationException("Gameplay VFX production runtime requires a presentation state store.");
             }
 
             if (controller != null &&
-                ReferenceEquals(configuredProjector, context.Projector) &&
-                ReferenceEquals(configuredStateStore, context.StateStore))
+                ReferenceEquals(configuredProjector, projector) &&
+                ReferenceEquals(configuredStateStore, stateStore))
             {
                 return;
             }
 
+            motionFollowingVfxController.HardCleanup();
             controller?.HardCleanupAll();
-            configuredProjector = context.Projector;
-            configuredStateStore = context.StateStore;
+            configuredProjector = projector;
+            configuredStateStore = stateStore;
             runtimeRoot = runtimeRoot != null
                 ? runtimeRoot
                 : GameplayVfxRuntimeRoot.CreateUnder(transform);
             RebuildBindingRuntime();
             var anchorResolver = new GameplayVfxHostAnchorResolver(
-                new GameplayVfxHostCellAnchorProjector(context.Projector),
-                new GameplayVfxHostEntityAnchorProjector(context.StateStore));
+                new GameplayVfxHostCellAnchorProjector(projector),
+                new GameplayVfxHostEntityAnchorProjector(stateStore));
             pool = new GameplayVfxGameObjectPool(
                 runtimeRoot,
                 prefabProvider,
-                cloneSourceProvider: new GameplayVfxStateStoreCloneSourceProvider(context.StateStore));
+                cloneSourceProvider: new GameplayVfxStateStoreCloneSourceProvider(stateStore));
             controller = new GameplayVfxPresentationController(
                 pool,
                 anchorResolver,
@@ -603,6 +680,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         private void ResetRuntimeComposition()
         {
+            motionFollowingVfxController.HardCleanup();
             controller?.HardCleanupAll();
             controller = null;
             pool = null;
@@ -621,6 +699,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             enableGameplayVfxItemConsumeBurstMigration ||
             enableGameplayVfxFlipImpactBurstMigration ||
             enableGameplayVfxFlipDestroySelfMotionMigration ||
+            enableGameplayVfxFlipImpactStayTrail ||
             enableGameplayVfxBoxSlideTrail ||
             enableGameplayVfxImpactTransientBreakMigration ||
             enableGameplayVfxOutOfBoundsExitMigration ||
@@ -683,6 +762,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                    (enableGameplayVfxItemConsumeBurstMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.ItemConsume)) ||
                    (enableGameplayVfxFlipImpactBurstMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.FlipImpactBurst)) ||
                    (enableGameplayVfxFlipDestroySelfMotionMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.FlipDestroySelfMotion)) ||
+                   (enableGameplayVfxFlipImpactStayTrail && cueId == GameplayVfxCueId.From(BoxVfxCue.FlipImpactStayTrail)) ||
                    (enableGameplayVfxBoxSlideTrail && cueId == GameplayVfxCueId.From(BoxVfxCue.SlideDustTrail)) ||
                    (enableGameplayVfxImpactTransientBreakMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak)) ||
                    (enableGameplayVfxOutOfBoundsExitMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.OutOfBoundsExit)) ||

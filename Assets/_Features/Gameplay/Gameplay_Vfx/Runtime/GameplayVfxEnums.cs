@@ -37,6 +37,7 @@ namespace Game.Feature.Gameplay.Vfx
         DestroyShrink = 10,
         ImpactTransientBreak = 11,
         OutOfBoundsExit = 12,
+        FlipImpactStayTrail = 13,
     }
 
     public enum EnemyVfxCue

@@ -43,6 +43,13 @@ namespace Game.Feature.Gameplay.Vfx.Host
             return Play(command, root.OneShotRoot);
         }
 
+        public IVfxPlaybackHandle PlayAttachedTransient(
+            in ResolvedVfxPlaybackCommand command,
+            Transform parent)
+        {
+            return Play(command, parent != null ? parent : root.OneShotRoot);
+        }
+
         public IVfxPlaybackHandle PlayFlipDestroySelfMotion(
             in ResolvedVfxPlaybackCommand command,
             in FlipDestroySelfMotionVfxCommand motionCommand)

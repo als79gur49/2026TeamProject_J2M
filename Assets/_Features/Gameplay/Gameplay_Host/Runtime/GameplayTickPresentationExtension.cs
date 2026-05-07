@@ -55,4 +55,36 @@ namespace Game.Feature.Gameplay.Host
         void ConfigureOutputCamera(Camera outputCamera, Transform localSpaceRoot);
     }
 
+    public readonly struct GameplayPresentationMotionVfxContext
+    {
+        public GameplayPresentationMotionVfxContext(
+            int tickIndex,
+            object trackState,
+            GameplayPresentationStateStore stateStore,
+            GameplayCubeProjector projector,
+            GameplayTimingProfile timingProfile)
+        {
+            TickIndex = tickIndex;
+            TrackState = trackState;
+            StateStore = stateStore;
+            Projector = projector;
+            TimingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
+        }
+
+        public int TickIndex { get; }
+
+        public object TrackState { get; }
+
+        public GameplayPresentationStateStore StateStore { get; }
+
+        public GameplayCubeProjector Projector { get; }
+
+        public GameplayTimingProfile TimingProfile { get; }
+    }
+
+    public interface IGameplayPresentationMotionVfxExtension
+    {
+        void RefreshPresentationMotionVfx(in GameplayPresentationMotionVfxContext context);
+    }
+
 }
