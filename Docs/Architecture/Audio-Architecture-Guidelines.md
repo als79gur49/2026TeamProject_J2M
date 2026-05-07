@@ -145,10 +145,11 @@ TickResult
 - gameplay-origin one-shot SFX는 `GameplayTickPresentationCoordinator`가 orchestration owner다.
 - canonical ordering은 아래 exact sequence로 고정한다.
   1. `RefreshAudioPlan(result)`
-  2. `PlayEntityExitEffects()`
-  3. `PlayPlayerHitEffects(result)`
-  4. `PlayPlannedAudio()`
-  5. `ApplyEntityExitOwnership()`
+  2. `RefreshUtilityWindupWarnings()`
+  3. `RefreshFrontFaceShieldSources()`
+  4. `PlayEntityExitEffects()`
+  5. `PlayPlannedAudio()`
+  6. `ApplyEntityExitOwnership()`
 - `RefreshAudioPlan(result)` 내부에서는 core gameplay one-shot plan과 action-audio plan을 함께 refresh한다.
 - RefreshAudioPlan(result) 내부에서는 core gameplay one-shot plan과 action-audio plan을 함께 refresh한다.
 - `PlayPlannedAudio()` 내부에서는 core gameplay one-shot requests를 먼저 실행하고, 그 다음 action-audio requests를 실행한다.

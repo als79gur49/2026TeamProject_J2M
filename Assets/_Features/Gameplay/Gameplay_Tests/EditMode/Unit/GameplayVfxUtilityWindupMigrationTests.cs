@@ -101,7 +101,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
 
                 Assert.That(runtime.EnableGameplayVfxUtilityWindupMigration, Is.True);
-                Assert.That(runtime.SuppressLegacyUtilityWindupVfx, Is.True);
                 Assert.That(runtime.IsRuntimeInitialized, Is.False);
             }
             finally
@@ -156,7 +155,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(runtime.IsRuntimeInitialized, Is.True);
                 Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
-                Assert.That(runtime.SuppressLegacyUtilityWindupVfx, Is.True);
             }
             finally
             {

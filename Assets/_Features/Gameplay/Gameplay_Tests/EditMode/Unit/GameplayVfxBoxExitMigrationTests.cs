@@ -220,9 +220,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(runtime.EnableGameplayVfxBoxDestroySmokeMigration, Is.True);
                 Assert.That(runtime.EnableGameplayVfxBoxDestroyShrinkMigration, Is.True);
                 Assert.That(runtime.EnableGameplayVfxItemConsumeBurstMigration, Is.True);
-                Assert.That(runtime.SuppressLegacyBoxDestroySmokeEffects, Is.False);
-                Assert.That(runtime.SuppressLegacyBoxDestroyShrinkEffects, Is.True);
-                Assert.That(runtime.SuppressLegacyItemConsumeEffects, Is.True);
             }
             finally
             {
@@ -257,8 +254,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
-                Assert.That(runtime.SuppressLegacyBoxDestroySmokeEffects, Is.False);
-                Assert.That(runtime.SuppressLegacyBoxDestroyShrinkEffects, Is.True);
             }
             finally
             {
@@ -283,7 +278,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
-                Assert.That(runtime.SuppressLegacyBoxDestroyShrinkEffects, Is.True);
             }
             finally
             {
@@ -307,7 +301,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
-                Assert.That(runtime.SuppressLegacyItemConsumeEffects, Is.True);
             }
             finally
             {

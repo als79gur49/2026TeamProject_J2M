@@ -359,10 +359,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void NoLegacyPresenterSuppressGate()
         {
             var runtimeSource = ReadRepoFile(ProductionRuntimePath);
-            var gateProperties = typeof(IGameplayPresentationMigrationGate).GetProperties();
 
             Assert.That(runtimeSource, Does.Not.Contain("SuppressLegacyBoxSlide"));
-            Assert.That(Array.Exists(gateProperties, property => property.Name.Contains("BoxSlide", StringComparison.Ordinal)), Is.False);
+            Assert.That(runtimeSource, Does.Not.Contain("SuppressLegacy"));
         }
 
         [Test]

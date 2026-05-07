@@ -15,16 +15,12 @@ namespace Game.Feature.Gameplay.Host
             float hitEffectDurationSeconds,
             float deathEffectDurationSeconds,
             float deathViewTailSeconds,
-            GameObject hitVfxPrefab,
-            GameObject deathVfxPrefab,
             DeathPresentationOwnershipMode deathOwnershipMode,
             string deathAnchorName)
         {
             HitEffectDurationSeconds = hitEffectDurationSeconds;
             DeathEffectDurationSeconds = deathEffectDurationSeconds;
             DeathViewTailSeconds = deathViewTailSeconds;
-            HitVfxPrefab = hitVfxPrefab;
-            DeathVfxPrefab = deathVfxPrefab;
             DeathOwnershipMode = deathOwnershipMode;
             DeathAnchorName = deathAnchorName ?? string.Empty;
         }
@@ -35,17 +31,9 @@ namespace Game.Feature.Gameplay.Host
 
         public float DeathViewTailSeconds { get; }
 
-        public GameObject HitVfxPrefab { get; }
-
-        public GameObject DeathVfxPrefab { get; }
-
         public DeathPresentationOwnershipMode DeathOwnershipMode { get; }
 
         public string DeathAnchorName { get; }
-
-        public bool HasHitVfxPrefab => HitVfxPrefab != null;
-
-        public bool HasDeathVfxPrefab => DeathVfxPrefab != null;
 
         public bool HasHitEffectDurationOverride => EntityEffectPresentationAuthoring.IsOverrideDuration(HitEffectDurationSeconds);
 
@@ -63,9 +51,6 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private float deathEffectDurationSeconds = UseGlobalTimingSentinel;
         [SerializeField] private float deathViewTailSeconds = UseGlobalTimingSentinel;
 
-        [SerializeField] private GameObject hitVfxPrefab;
-        [SerializeField] private GameObject deathVfxPrefab;
-
         [SerializeField] private DeathPresentationOwnershipMode deathOwnershipMode;
         [SerializeField] private string deathAnchorName = "Chest";
 
@@ -74,10 +59,6 @@ namespace Game.Feature.Gameplay.Host
         public float DeathEffectDurationSeconds => deathEffectDurationSeconds;
 
         public float DeathViewTailSeconds => deathViewTailSeconds;
-
-        public GameObject HitVfxPrefab => hitVfxPrefab;
-
-        public GameObject DeathVfxPrefab => deathVfxPrefab;
 
         public DeathPresentationOwnershipMode DeathOwnershipMode => deathOwnershipMode;
 
@@ -105,8 +86,6 @@ namespace Game.Feature.Gameplay.Host
                 hitEffectDurationSeconds,
                 deathEffectDurationSeconds,
                 deathViewTailSeconds,
-                hitVfxPrefab,
-                deathVfxPrefab,
                 deathOwnershipMode,
                 deathAnchorName);
         }

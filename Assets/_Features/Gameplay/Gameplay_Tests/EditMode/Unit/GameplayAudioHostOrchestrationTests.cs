@@ -38,8 +38,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(trace, Is.EqualTo(new[]
                 {
                     "RefreshAudioPlan",
+                    "RefreshUtilityWindupWarnings",
+                    "RefreshFrontFaceShieldSources",
                     "PlayEntityExitEffects",
-                    "PlayPlayerHitEffects",
                     "PlayPlannedAudio",
                     "ApplyEntityExitOwnership",
                 }));
@@ -71,8 +72,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(trace, Is.EqualTo(new[]
                 {
                     "RefreshAudioPlan",
+                    "RefreshUtilityWindupWarnings",
+                    "RefreshFrontFaceShieldSources",
                     "PlayEntityExitEffects",
-                    "PlayPlayerHitEffects",
                     "PlayPlannedAudio",
                     "Playback:Play2D",
                     "ApplyEntityExitOwnership",

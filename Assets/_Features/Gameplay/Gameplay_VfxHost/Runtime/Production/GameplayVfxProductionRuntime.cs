@@ -8,7 +8,7 @@ using UnityEngine;
 namespace Game.Feature.Gameplay.Vfx.Host
 {
     [DisallowMultipleComponent]
-    public sealed class GameplayVfxProductionRuntime : MonoBehaviour, IGameplayTickPresentationExtension, IGameplayPresentationMigrationGate, IGameplayOutputCameraPresentationExtension
+    public sealed class GameplayVfxProductionRuntime : MonoBehaviour, IGameplayTickPresentationExtension, IGameplayOutputCameraPresentationExtension
     {
         [SerializeField] private bool enableEnemyJumpTargetVfx = true;
         [SerializeField] private bool enableEnemyJumpLandingDustVfx = true;
@@ -100,8 +100,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
-        public bool SuppressLegacyPlayerDamageHitEffects => true;
-
         public bool EnableGameplayVfxEnemyDamageBurstMigration
         {
             get => enableGameplayVfxEnemyDamageBurstMigration;
@@ -177,12 +175,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
-        public bool SuppressLegacyEnemyDeathEffects => true;
-
-        public bool SuppressLegacyBoxDestroyShrinkEffects => true;
-
-        public bool SuppressLegacyBoxDestroySmokeEffects => false;
-
         public bool EnableGameplayVfxItemConsumeBurstMigration
         {
             get => enableGameplayVfxItemConsumeBurstMigration;
@@ -197,8 +189,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 ResetIfNoGameplayVfxEnabled();
             }
         }
-
-        public bool SuppressLegacyItemConsumeEffects => true;
 
         public bool EnableGameplayVfxFlipImpactBurstMigration
         {
@@ -230,8 +220,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
-        public bool SuppressLegacyFlipDestroySelfEffects => true;
-
         public bool EnableGameplayVfxBoxSlideTrail
         {
             get => enableGameplayVfxBoxSlideTrail;
@@ -262,8 +250,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
-        public bool SuppressLegacyUtilityWindupVfx => true;
-
         public bool EnableGameplayVfxFrontFaceShieldActiveMigration
         {
             get => enableGameplayVfxFrontFaceShieldActiveMigration;
@@ -279,8 +265,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
-        public bool SuppressLegacyFrontFaceShieldActiveVfx => true;
-
         public bool EnableGameplayVfxFrontFaceShieldBlockMigration
         {
             get => enableGameplayVfxFrontFaceShieldBlockMigration;
@@ -295,8 +279,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 ResetIfNoGameplayVfxEnabled();
             }
         }
-
-        public bool SuppressLegacyFrontFaceShieldBlockVfx => true;
 
         public int LastPlannedRequestCount { get; private set; }
 

@@ -117,8 +117,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(runtime.EnableGameplayVfxFrontFaceShieldActiveMigration, Is.True);
                 Assert.That(runtime.EnableGameplayVfxFrontFaceShieldBlockMigration, Is.True);
-                Assert.That(runtime.SuppressLegacyFrontFaceShieldActiveVfx, Is.True);
-                Assert.That(runtime.SuppressLegacyFrontFaceShieldBlockVfx, Is.True);
             }
             finally
             {
@@ -229,10 +227,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(activeRuntime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(activeRuntime.MissingBindingCount, Is.EqualTo(1));
-                Assert.That(activeRuntime.SuppressLegacyFrontFaceShieldActiveVfx, Is.True);
                 Assert.That(blockRuntime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(blockRuntime.MissingBindingCount, Is.EqualTo(1));
-                Assert.That(blockRuntime.SuppressLegacyFrontFaceShieldBlockVfx, Is.True);
             }
             finally
             {

@@ -90,7 +90,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(runtime.EnableGameplayVfxEnemyDamageBurstMigration, Is.True);
                 Assert.That(runtime.EnableGameplayVfxDamageBurstMigration, Is.True);
-                Assert.That(runtime.SuppressLegacyPlayerDamageHitEffects, Is.True);
             }
             finally
             {
@@ -115,7 +114,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
-                Assert.That(runtime.SuppressLegacyPlayerDamageHitEffects, Is.True);
             }
             finally
             {
@@ -405,9 +403,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 runtime.Present(CreateExtensionContext(includePlayerDamage: true));
 
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(expectedRequests));
-                Assert.That(
-                    runtime.SuppressLegacyPlayerDamageHitEffects,
-                    Is.True);
             }
             finally
             {

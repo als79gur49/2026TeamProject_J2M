@@ -1865,11 +1865,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void GameplayTickPresentationCoordinator_PlayerAcceptedHit_WithHitVfxPrefab_SpawnsTransientHitEffect()
+        public void GameplayTickPresentationCoordinator_PlayerAcceptedHit_DoesNotSpawnLegacyHitEffect()
         {
-            var rootObject = new GameObject("GameplayTickPresentationCoordinator_PlayerAcceptedHit_WithHitVfxPrefab_SpawnsTransientHitEffect");
+            var rootObject = new GameObject("GameplayTickPresentationCoordinator_PlayerAcceptedHit_DoesNotSpawnLegacyHitEffect");
             var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("GameplayTickPresentationCoordinator_PlayerAcceptedHit_PlayerPrefab");
-            var hitVfxPrefab = new GameObject("GameplayTickPresentationCoordinator_PlayerAcceptedHit_HitVfxPrefab");
 
             try
             {
@@ -1880,7 +1879,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var topology = new CubeTopologyState(FaceId.Floor);
                 var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
                 var effectAuthoring = playerViewPrefab.gameObject.AddComponent<EntityEffectPresentationAuthoring>();
-                PlayerViewPrefabTestUtility.SetSerializedField(effectAuthoring, "hitVfxPrefab", hitVfxPrefab);
                 PlayerViewPrefabTestUtility.SetSerializedField(effectAuthoring, "hitEffectDurationSeconds", 0.2f);
 
                 var binder = new GameplayEntityViewBinder(
@@ -1929,14 +1927,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         string.Empty,
                         TickTrace.Empty));
 
-                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(0));
 
                 presenter.UpdatePresentation(0.21f);
                 Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(0));
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(hitVfxPrefab);
                 UnityEngine.Object.DestroyImmediate(playerViewPrefab.gameObject);
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
@@ -2357,7 +2354,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var rootObject = new GameObject("GameplayTickPresentationCoordinator_PlayerDeathTick_SuppressesHitVfx");
             var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("GameplayTickPresentationCoordinator_PlayerDeathTick_PlayerPrefab");
-            var hitVfxPrefab = new GameObject("GameplayTickPresentationCoordinator_PlayerDeathTick_HitVfxPrefab");
 
             try
             {
@@ -2368,7 +2364,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var topology = new CubeTopologyState(FaceId.Floor);
                 var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
                 var effectAuthoring = playerViewPrefab.gameObject.AddComponent<EntityEffectPresentationAuthoring>();
-                PlayerViewPrefabTestUtility.SetSerializedField(effectAuthoring, "hitVfxPrefab", hitVfxPrefab);
                 PlayerViewPrefabTestUtility.SetSerializedField(effectAuthoring, "hitEffectDurationSeconds", 0.2f);
 
                 var binder = new GameplayEntityViewBinder(
@@ -2430,7 +2425,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(hitVfxPrefab);
                 UnityEngine.Object.DestroyImmediate(playerViewPrefab.gameObject);
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }

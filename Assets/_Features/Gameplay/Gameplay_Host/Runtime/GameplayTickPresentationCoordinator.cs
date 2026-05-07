@@ -276,8 +276,6 @@ namespace Game.Feature.Gameplay.Host
                     entityId,
                     actionKind,
                     _timingProfile));
-            TraceStep("PlayPlayerHitEffects");
-            TraceStep("PlayFrontFaceShieldBlockBursts");
             TraceStep("PlayPlannedAudio");
             _audioPresentationController.PlayPlannedAudio();
             _actionAudioPresentationController.PlayPlannedAudio();

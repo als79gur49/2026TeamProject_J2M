@@ -90,7 +90,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("Enemy Death Burst Migration"));
             Assert.That(document, Does.Contain("EnemyVfxCue.Death"));
             Assert.That(document, Does.Contain("EnableGameplayVfxEnemyDeathBurstMigration"));
-            Assert.That(document, Does.Contain("SuppressLegacyEnemyDeathEffects"));
+            Assert.That(document, Does.Contain("suppress compatibility gates were removed"));
             Assert.That(document, Does.Contain("EnemyDeathBurstVfx.prefab"));
             Assert.That(document, Does.Contain("EnemyDeathBurst_Binding.asset"));
             Assert.That(document, Does.Contain("old clone/arc/fade"));
@@ -104,7 +104,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("FlipImpact DestroySelf Motion VFX Migration"));
             Assert.That(document, Does.Contain("BoxVfxCue.FlipDestroySelfMotion"));
             Assert.That(document, Does.Contain("EnableGameplayVfxFlipDestroySelfMotionMigration"));
-            Assert.That(document, Does.Contain("SuppressLegacyFlipDestroySelfEffects"));
+            Assert.That(document, Does.Contain("old clone/fade fallback"));
             Assert.That(document, Does.Contain("red/orange danger palette"));
             Assert.That(document, Does.Contain("AuthoredDuration"));
             Assert.That(document, Does.Contain("Parameterized Motion VFX Generalization"));
@@ -124,7 +124,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("TickPresentationData.SummonWindupWarnings"));
             Assert.That(document, Does.Contain("EnemyVfxCue.UtilityWindup"));
             Assert.That(document, Does.Contain("EnableGameplayVfxUtilityWindupMigration"));
-            Assert.That(document, Does.Contain("SuppressLegacyUtilityWindupVfx"));
+            Assert.That(document, Does.Contain("cleanup-only empty refresh"));
             Assert.That(document, Does.Contain("FrontFace Shield VFX Migration"));
             Assert.That(document, Does.Contain("TickPresentationData.FrontFaceShieldSources"));
             Assert.That(document, Does.Contain("TickPresentationData.FrontFaceShieldBlocks"));
@@ -132,8 +132,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("EnemyVfxCue.FrontFaceShieldBlock"));
             Assert.That(document, Does.Contain("EnableGameplayVfxFrontFaceShieldActiveMigration"));
             Assert.That(document, Does.Contain("EnableGameplayVfxFrontFaceShieldBlockMigration"));
-            Assert.That(document, Does.Contain("SuppressLegacyFrontFaceShieldActiveVfx"));
-            Assert.That(document, Does.Contain("SuppressLegacyFrontFaceShieldBlockVfx"));
+            Assert.That(document, Does.Contain("VFX_FrontFaceShield_Telegraph"));
             Assert.That(document, Does.Contain("cleanup-only empty refresh"));
             Assert.That(document, Does.Contain("VfxPersistentKey"));
             Assert.That(document, Does.Contain("EnemyUtilityWindupTelegraphVfx.prefab"));
@@ -158,8 +157,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var transientPresenter = ReadRepoFile(TransientPresenterPath);
             var frontFaceShieldPresenter = ReadRepoFile(FrontFaceShieldPresenterPath);
 
-            Assert.That(coordinator, Does.Contain("TraceStep(\"PlayPlayerHitEffects\")"));
-            Assert.That(coordinator, Does.Contain("TraceStep(\"PlayFrontFaceShieldBlockBursts\")"));
+            Assert.That(coordinator, Does.Not.Contain("TraceStep(\"PlayPlayerHitEffects\")"));
+            Assert.That(coordinator, Does.Not.Contain("TraceStep(\"PlayFrontFaceShieldBlockBursts\")"));
             Assert.That(coordinator, Does.Contain("_exitPresentationController.ApplyEntityExitOwnership();"));
             Assert.That(coordinator, Does.Not.Contain("PlayPlayerHitEffects(TickResult"));
 

@@ -25,8 +25,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("For all current migrated cues, flag off means that VFX is off"));
             Assert.That(document, Does.Contain("it does not mean old presenter fallback"));
             Assert.That(document, Does.Contain("Cleanup, visibility, transform reset, and motion ownership responsibilities remain"));
-            Assert.That(document, Does.Contain("Compatibility migration gate properties remain"));
-            Assert.That(document, Does.Contain("Cleaned and high-risk suppress gates are compatibility aliases"));
+            Assert.That(document, Does.Contain("suppress compatibility gates were removed"));
+            Assert.That(document, Does.Contain("old fallback = none"));
             Assert.That(document, Does.Contain("For all current migrated cues, flag off means that VFX is off"));
         }
 
@@ -36,7 +36,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var document = ReadRepoFile(GovernancePath);
 
-            Assert.That(document, Does.Contain("`GameplayTickPresentationCoordinator.PlayPlayerHitEffects`"));
+            Assert.That(document, Does.Contain("Player damage direct hit prefab fallback"));
             Assert.That(document, Does.Contain("BoxDestroy `GameplayExitPresentationController.PlayExitEffect`"));
             Assert.That(document, Does.Contain("ItemConsume `GameplayExitPresentationController.PlayExitEffect`"));
             Assert.That(document, Does.Contain("`GameplayUtilityWindupVfxPresenter.RefreshSummonWarnings`"));
@@ -86,32 +86,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(exitController, Does.Not.Contain("suppressLegacyFlipDestroySelfEffects"));
             Assert.That(exitController, Does.Not.Contain("suppressLegacyEnemyDeathEffects"));
             Assert.That(coordinator, Does.Not.Contain("PlayPlayerHitEffects(TickResult"));
-            Assert.That(runtime, Does.Contain("SuppressLegacyEnemyDeathEffects => true"));
-            Assert.That(runtime, Does.Contain("SuppressLegacyFlipDestroySelfEffects => true"));
+            Assert.That(runtime, Does.Not.Contain("SuppressLegacy"));
         }
 
         [Test]
         [Category("Extended")]
-        public void CleanedSuppressGates_AreCompatibilityAliases()
+        public void SuppressGateInterface_Removed()
         {
+            var extensionSource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationExtension.cs");
             var runtime = ReadRepoFile(RuntimePath);
 
-            Assert.That(typeof(IGameplayPresentationMigrationGate).GetProperty("SuppressLegacyPlayerDamageHitEffects"), Is.Not.Null);
-            Assert.That(typeof(IGameplayPresentationMigrationGate).GetProperty("SuppressLegacyBoxDestroyShrinkEffects"), Is.Not.Null);
-            Assert.That(typeof(IGameplayPresentationMigrationGate).GetProperty("SuppressLegacyItemConsumeEffects"), Is.Not.Null);
-            Assert.That(typeof(IGameplayPresentationMigrationGate).GetProperty("SuppressLegacyEnemyDeathEffects"), Is.Not.Null);
-            Assert.That(typeof(IGameplayPresentationMigrationGate).GetProperty("SuppressLegacyFlipDestroySelfEffects"), Is.Not.Null);
-            Assert.That(typeof(IGameplayPresentationMigrationGate).GetProperty("SuppressLegacyUtilityWindupVfx"), Is.Not.Null);
-            Assert.That(typeof(IGameplayPresentationMigrationGate).GetProperty("SuppressLegacyFrontFaceShieldActiveVfx"), Is.Not.Null);
-            Assert.That(typeof(IGameplayPresentationMigrationGate).GetProperty("SuppressLegacyFrontFaceShieldBlockVfx"), Is.Not.Null);
-            Assert.That(runtime, Does.Contain("SuppressLegacyPlayerDamageHitEffects => true"));
-            Assert.That(runtime, Does.Contain("SuppressLegacyBoxDestroyShrinkEffects => true"));
-            Assert.That(runtime, Does.Contain("SuppressLegacyItemConsumeEffects => true"));
-            Assert.That(runtime, Does.Contain("SuppressLegacyEnemyDeathEffects => true"));
-            Assert.That(runtime, Does.Contain("SuppressLegacyFlipDestroySelfEffects => true"));
-            Assert.That(runtime, Does.Contain("SuppressLegacyUtilityWindupVfx => true"));
-            Assert.That(runtime, Does.Contain("SuppressLegacyFrontFaceShieldActiveVfx => true"));
-            Assert.That(runtime, Does.Contain("SuppressLegacyFrontFaceShieldBlockVfx => true"));
+            Assert.That(extensionSource, Does.Not.Contain("IGameplayPresentationMigrationGate"));
+            Assert.That(runtime, Does.Not.Contain("IGameplayPresentationMigrationGate"));
+            Assert.That(runtime, Does.Not.Contain("SuppressLegacy"));
         }
 
         [Test]

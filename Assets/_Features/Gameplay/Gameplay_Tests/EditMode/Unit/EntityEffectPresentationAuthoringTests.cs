@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
@@ -17,11 +18,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void EntityEffectPresentationAuthoring_CreateSnapshot_PreservesOverridesPrefabsAndOwnership()
+        public void EntityEffectPresentationAuthoring_CreateSnapshot_PreservesOverridesAndOwnership()
         {
             var rootObject = new GameObject("EntityEffectPresentationAuthoring_CreateSnapshot");
-            var hitPrefab = new GameObject("HitVfxPrefab");
-            var deathPrefab = new GameObject("DeathVfxPrefab");
 
             try
             {
@@ -29,8 +28,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 PlayerViewPrefabTestUtility.SetSerializedField(authoring, "hitEffectDurationSeconds", 0.2f);
                 PlayerViewPrefabTestUtility.SetSerializedField(authoring, "deathEffectDurationSeconds", EntityEffectPresentationAuthoring.UseGlobalTimingSentinel);
                 PlayerViewPrefabTestUtility.SetSerializedField(authoring, "deathViewTailSeconds", 0.45f);
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "hitVfxPrefab", hitPrefab);
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "deathVfxPrefab", deathPrefab);
                 PlayerViewPrefabTestUtility.SetSerializedField(authoring, "deathOwnershipMode", DeathPresentationOwnershipMode.AnchorToNamedTransform);
                 PlayerViewPrefabTestUtility.SetSerializedField(authoring, "deathAnchorName", "Head");
 
@@ -39,22 +36,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(snapshot.HitEffectDurationSeconds, Is.EqualTo(0.2f));
                 Assert.That(snapshot.DeathEffectDurationSeconds, Is.EqualTo(EntityEffectPresentationAuthoring.UseGlobalTimingSentinel));
                 Assert.That(snapshot.DeathViewTailSeconds, Is.EqualTo(0.45f));
-                Assert.That(snapshot.HitVfxPrefab, Is.SameAs(hitPrefab));
-                Assert.That(snapshot.DeathVfxPrefab, Is.SameAs(deathPrefab));
                 Assert.That(snapshot.DeathOwnershipMode, Is.EqualTo(DeathPresentationOwnershipMode.AnchorToNamedTransform));
                 Assert.That(snapshot.DeathAnchorName, Is.EqualTo("Head"));
                 Assert.That(snapshot.HasHitEffectDurationOverride, Is.True);
                 Assert.That(snapshot.HasDeathEffectDurationOverride, Is.False);
                 Assert.That(snapshot.HasDeathViewTailOverride, Is.True);
-                Assert.That(snapshot.HasHitVfxPrefab, Is.True);
-                Assert.That(snapshot.HasDeathVfxPrefab, Is.True);
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(deathPrefab);
-                UnityEngine.Object.DestroyImmediate(hitPrefab);
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EntityEffectPresentationAuthoring_NoDeadHitDeathPrefabFields()
+        {
+            Assert.That(
+                typeof(EntityEffectPresentationAuthoring).GetField("hitVfxPrefab", BindingFlags.Instance | BindingFlags.NonPublic),
+                Is.Null);
+            Assert.That(
+                typeof(EntityEffectPresentationAuthoring).GetField("deathVfxPrefab", BindingFlags.Instance | BindingFlags.NonPublic),
+                Is.Null);
+            Assert.That(typeof(EntityEffectPresentationAuthoring).GetProperty("HitVfxPrefab"), Is.Null);
+            Assert.That(typeof(EntityEffectPresentationAuthoring).GetProperty("DeathVfxPrefab"), Is.Null);
+            Assert.That(typeof(EntityEffectPresentationSnapshot).GetProperty("HitVfxPrefab"), Is.Null);
+            Assert.That(typeof(EntityEffectPresentationSnapshot).GetProperty("DeathVfxPrefab"), Is.Null);
+            Assert.That(typeof(EntityEffectPresentationSnapshot).GetProperty("HasHitVfxPrefab"), Is.Null);
+            Assert.That(typeof(EntityEffectPresentationSnapshot).GetProperty("HasDeathVfxPrefab"), Is.Null);
         }
 
         [Test]
@@ -193,7 +202,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             AssertEnemyDeathAuthoringSurface(BlackEyePrefabPath, expectedReferenceClipName: "Die");
         }
 
-        [TestCase(PlayerPrefabPath)]
         [TestCase(StartisPrefabPath)]
         [TestCase(BlackEyePrefabPath)]
         public void GameplayPrefabs_HaveEntityEffectPresentationAuthoringOnRoot(string prefabPath)
@@ -205,7 +213,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(authoring.gameObject, Is.SameAs(view.gameObject));
         }
 
-        [TestCase(PlayerPrefabPath)]
         [TestCase(StartisPrefabPath)]
         [TestCase(BlackEyePrefabPath)]
         public void GameplayPrefabs_EntityEffectPresentationAuthoring_CreateSnapshot_UsesRolloutDefaults(string prefabPath)
@@ -220,18 +227,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(snapshot.HitEffectDurationSeconds, Is.EqualTo(EntityEffectPresentationAuthoring.UseGlobalTimingSentinel));
             Assert.That(snapshot.DeathEffectDurationSeconds, Is.EqualTo(EntityEffectPresentationAuthoring.UseGlobalTimingSentinel));
             Assert.That(snapshot.DeathViewTailSeconds, Is.EqualTo(EntityEffectPresentationAuthoring.UseGlobalTimingSentinel));
-            Assert.That(snapshot.HitVfxPrefab, Is.Null);
-            Assert.That(snapshot.DeathVfxPrefab, Is.Null);
             Assert.That(snapshot.DeathOwnershipMode, Is.EqualTo(DeathPresentationOwnershipMode.CloneSourceView));
             Assert.That(snapshot.DeathAnchorName, Is.EqualTo("Chest"));
             Assert.That(snapshot.HasHitEffectDurationOverride, Is.False);
             Assert.That(snapshot.HasDeathEffectDurationOverride, Is.False);
             Assert.That(snapshot.HasDeathViewTailOverride, Is.False);
-            Assert.That(snapshot.HasHitVfxPrefab, Is.False);
-            Assert.That(snapshot.HasDeathVfxPrefab, Is.False);
         }
 
-        [TestCase(PlayerPrefabPath)]
         [TestCase(StartisPrefabPath)]
         [TestCase(BlackEyePrefabPath)]
         public void GameplayPrefabs_EntityEffectPresentationAuthoring_PassesPrefabValidationWithCloneSourceViewDefaults(string prefabPath)

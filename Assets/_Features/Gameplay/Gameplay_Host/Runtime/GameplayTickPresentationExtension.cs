@@ -55,22 +55,4 @@ namespace Game.Feature.Gameplay.Host
         void ConfigureOutputCamera(Camera outputCamera, Transform localSpaceRoot);
     }
 
-    public interface IGameplayPresentationMigrationGate
-    {
-        bool SuppressLegacyPlayerDamageHitEffects { get; }
-
-        bool SuppressLegacyBoxDestroyShrinkEffects { get; }
-
-        bool SuppressLegacyItemConsumeEffects { get; }
-
-        bool SuppressLegacyEnemyDeathEffects { get; }
-
-        bool SuppressLegacyFlipDestroySelfEffects { get; }
-
-        bool SuppressLegacyUtilityWindupVfx { get; }
-
-        bool SuppressLegacyFrontFaceShieldActiveVfx { get; }
-
-        bool SuppressLegacyFrontFaceShieldBlockVfx { get; }
-    }
 }

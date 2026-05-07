@@ -113,7 +113,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(runtime.EnableGameplayVfxEnemyDeathBurstMigration, Is.True);
                 Assert.That(runtime.EnableGameplayVfxEnemyDeathMotionMigration, Is.True);
-                Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.True);
             }
             finally
             {
@@ -138,7 +137,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
-                Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.True);
             }
             finally
             {
@@ -377,7 +375,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Array.Empty<EntityState>()));
 
                 Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.Zero);
-                Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.True);
             }
             finally
             {
@@ -593,10 +590,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(expectedRequests));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(expectedRequests));
-                Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.True);
-                Assert.That(runtime.SuppressLegacyBoxDestroySmokeEffects, Is.False);
-                Assert.That(runtime.SuppressLegacyBoxDestroyShrinkEffects, Is.True);
-                Assert.That(runtime.SuppressLegacyItemConsumeEffects, Is.True);
             }
             finally
             {

@@ -76,7 +76,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
 
                 Assert.That(runtime.EnableGameplayVfxDamageBurstMigration, Is.True);
-                Assert.That(runtime.SuppressLegacyPlayerDamageHitEffects, Is.True);
             }
             finally
             {
@@ -100,7 +99,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
-                Assert.That(runtime.SuppressLegacyPlayerDamageHitEffects, Is.True);
             }
             finally
             {
@@ -177,11 +175,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var rootObject = new GameObject("Coordinator_DamageMigrationFlagOff");
             var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("DamageMigrationFlagOff_PlayerPrefab");
-            var hitVfxPrefab = new GameObject("DamageMigrationFlagOff_OldHitPrefab");
 
             try
             {
-                var presenter = CreatePresenter(rootObject, playerViewPrefab, hitVfxPrefab);
+                var presenter = CreatePresenter(rootObject, playerViewPrefab);
                 var topology = new CubeTopologyState(FaceId.Floor);
                 var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
                 presenter.PresentInitial(new[] { CreatePlayerUnit(10, playerCell) }, topology);
@@ -195,7 +192,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                Destroy(hitVfxPrefab, playerViewPrefab.gameObject, rootObject);
+                Destroy(playerViewPrefab.gameObject, rootObject);
             }
         }
 
@@ -205,7 +202,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var rootObject = new GameObject("Coordinator_DamageMigrationFlagOn");
             var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("DamageMigrationFlagOn_PlayerPrefab");
-            var hitVfxPrefab = new GameObject("DamageMigrationFlagOn_OldHitPrefab");
             var vfxPrefab = new GameObject("DamageMigrationFlagOn_NewPrefab");
             VfxBindingDefinitionAsset binding = null;
             VfxCueMapAsset cueMap = null;
@@ -214,7 +210,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 binding = CreateBinding(vfxPrefab);
                 cueMap = CreateCueMap(binding);
-                var presenter = CreatePresenter(rootObject, playerViewPrefab, hitVfxPrefab);
+                var presenter = CreatePresenter(rootObject, playerViewPrefab);
                 var runtime = rootObject.AddComponent<GameplayVfxProductionRuntime>();
                 runtime.EnableGameplayVfxDamageBurstMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
@@ -234,7 +230,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                Destroy(cueMap, binding, vfxPrefab, hitVfxPrefab, playerViewPrefab.gameObject, rootObject);
+                Destroy(cueMap, binding, vfxPrefab, playerViewPrefab.gameObject, rootObject);
             }
         }
 
@@ -244,11 +240,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var rootObject = new GameObject("Coordinator_DamageMigrationMissingBinding");
             var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("DamageMigrationMissingBinding_PlayerPrefab");
-            var hitVfxPrefab = new GameObject("DamageMigrationMissingBinding_OldHitPrefab");
 
             try
             {
-                var presenter = CreatePresenter(rootObject, playerViewPrefab, hitVfxPrefab);
+                var presenter = CreatePresenter(rootObject, playerViewPrefab);
                 var runtime = rootObject.AddComponent<GameplayVfxProductionRuntime>();
                 runtime.EnableGameplayVfxDamageBurstMigration = true;
                 presenter.AttachPresentationExtension(runtime);
@@ -268,7 +263,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                Destroy(hitVfxPrefab, playerViewPrefab.gameObject, rootObject);
+                Destroy(playerViewPrefab.gameObject, rootObject);
             }
         }
 
@@ -367,13 +362,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static GameplayTickViewPresenter CreatePresenter(
             GameObject rootObject,
-            GameplayEntityView playerViewPrefab,
-            GameObject hitVfxPrefab)
+            GameplayEntityView playerViewPrefab)
         {
             var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
             var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
             var effectAuthoring = playerViewPrefab.gameObject.AddComponent<EntityEffectPresentationAuthoring>();
-            SetField(effectAuthoring, "hitVfxPrefab", hitVfxPrefab);
             SetField(effectAuthoring, "hitEffectDurationSeconds", 0.2f);
             var binder = new GameplayEntityViewBinder(
                 registry,

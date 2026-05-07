@@ -154,16 +154,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Assert.That(property, Is.Not.Null, $"{flag.PropertyName} must remain a public rollout flag.");
                     Assert.That(property.GetValue(runtime), Is.True, $"{flag.PropertyName} must default true after Tier 3 rollout.");
                 }
-
-                Assert.That(runtime.SuppressLegacyPlayerDamageHitEffects, Is.True);
-                Assert.That(runtime.SuppressLegacyBoxDestroySmokeEffects, Is.False);
-                Assert.That(runtime.SuppressLegacyBoxDestroyShrinkEffects, Is.True);
-                Assert.That(runtime.SuppressLegacyItemConsumeEffects, Is.True);
-                Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.True);
-                Assert.That(runtime.SuppressLegacyFlipDestroySelfEffects, Is.True);
-                Assert.That(runtime.SuppressLegacyUtilityWindupVfx, Is.True);
-                Assert.That(runtime.SuppressLegacyFrontFaceShieldActiveVfx, Is.True);
-                Assert.That(runtime.SuppressLegacyFrontFaceShieldBlockVfx, Is.True);
             }
             finally
             {
@@ -173,7 +163,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void HighRiskSuppressGates_AreCompatibilityAliases()
+        public void HighRiskFlags_FlagOffMeansNoOldFallback()
         {
             var owner = new GameObject("GameplayVfxEnemyDeathSuppressOwner");
             try
@@ -183,19 +173,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 runtime.EnableGameplayVfxEnemyDeathMotionMigration = false;
                 runtime.EnableGameplayVfxEnemyDeathBurstMigration = true;
                 runtime.EnableGameplayVfxFlipDestroySelfMotionMigration = false;
-                Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.True);
-                Assert.That(runtime.SuppressLegacyFlipDestroySelfEffects, Is.True);
+                Assert.That(runtime.EnableGameplayVfxEnemyDeathMotionMigration, Is.False);
+                Assert.That(runtime.EnableGameplayVfxFlipDestroySelfMotionMigration, Is.False);
 
                 runtime.EnableGameplayVfxEnemyDeathMotionMigration = true;
-                Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.True);
+                Assert.That(runtime.EnableGameplayVfxEnemyDeathMotionMigration, Is.True);
 
                 runtime.EnableGameplayVfxEnemyDeathBurstMigration = false;
-                Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.True);
+                Assert.That(runtime.EnableGameplayVfxEnemyDeathBurstMigration, Is.False);
 
                 runtime.EnableGameplayVfxEnemyDeathMotionMigration = false;
                 runtime.EnableGameplayVfxFlipDestroySelfMotionMigration = true;
-                Assert.That(runtime.SuppressLegacyEnemyDeathEffects, Is.True);
-                Assert.That(runtime.SuppressLegacyFlipDestroySelfEffects, Is.True);
+                Assert.That(runtime.EnableGameplayVfxEnemyDeathMotionMigration, Is.False);
+                Assert.That(runtime.EnableGameplayVfxFlipDestroySelfMotionMigration, Is.True);
             }
             finally
             {
@@ -217,17 +207,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void AugmentationFlags_DoNotExposeLegacySuppressGates()
+        public void GameplayVfxProductionRuntime_DoesNotExposeLegacySuppressAliases()
         {
-            var suppressGateNames = typeof(IGameplayPresentationMigrationGate)
+            var suppressAliasNames = typeof(GameplayVfxProductionRuntime)
                 .GetProperties()
                 .Select(property => property.Name)
+                .Where(name => name.StartsWith("SuppressLegacy", StringComparison.Ordinal))
                 .ToArray();
 
-            Assert.That(suppressGateNames, Does.Not.Contain("SuppressLegacyEnemyDamageBurstEffects"));
-            Assert.That(suppressGateNames, Does.Not.Contain("SuppressLegacyEnemyJumpTargetVfx"));
-            Assert.That(suppressGateNames, Does.Not.Contain("SuppressLegacyEnemyJumpLandingDustVfx"));
-            Assert.That(suppressGateNames, Does.Not.Contain("SuppressLegacyBoxSlideTrailEffects"));
+            Assert.That(suppressAliasNames, Is.Empty);
+
+            var runtimeSource = ReadRepoFile(RuntimePath);
+            Assert.That(runtimeSource, Does.Not.Contain("SuppressLegacy"));
 
             var document = ReadRepoFile(GovernancePath);
             Assert.That(document, Does.Contain("Augmentation flags do not own legacy fallback or suppress gates."));
@@ -286,8 +277,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("approved in the Tier 3 rollout batch"));
             Assert.That(document, Does.Contain("Scene-local overrides are separate from runtime defaults"));
             Assert.That(document, Does.Contain("High-risk parameterized motion and clone/source-view VFX required manual parity approval"));
-            Assert.That(document, Does.Contain("`SuppressLegacyEnemyDeathEffects` is an always true compatibility alias"));
-            Assert.That(document, Does.Contain("`SuppressLegacyFlipDestroySelfEffects` is an always true compatibility alias"));
+            Assert.That(document, Does.Contain("suppress compatibility gates were removed"));
             Assert.That(document, Does.Contain("After legacy old path cleanup, all current migrated cue flags use canonical/off semantics"));
             Assert.That(document, Does.Contain("Old BoxDestroy shrink/fade playback is disabled independently of `EnableGameplayVfxBoxDestroyShrinkMigration`"));
             Assert.That(document, Does.Contain("`EnableGameplayVfxBoxDestroySmokeMigration` gates smoke only and does not own shrink playback"));
