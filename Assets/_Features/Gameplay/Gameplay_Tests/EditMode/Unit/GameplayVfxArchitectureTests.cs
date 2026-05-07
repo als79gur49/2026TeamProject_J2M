@@ -216,16 +216,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void NoFlipImpactStayVfxCueExists()
+        public void FlipImpactStayTrail_IsAttachedFollowerNotMotionCommand()
         {
             var vfxEnums = ReadRepoFile(VfxEnumsPath);
             var vfxPlanning = ReadRepoFile(VfxPlanningPath);
             var productionRuntime = ReadRepoFile(VfxProductionRuntimePath);
 
-            Assert.That(vfxEnums, Does.Not.Contain("FlipImpactStay"));
+            Assert.That(vfxEnums, Does.Contain("FlipImpactStayTrail"));
             Assert.That(vfxEnums, Does.Not.Contain("StayMotion"));
             Assert.That(vfxPlanning, Does.Not.Contain("FlipImpactStayMotion"));
             Assert.That(productionRuntime, Does.Not.Contain("FlipImpactStayMotion"));
+            Assert.That(productionRuntime, Does.Contain("PresentationMotionFollowingVfxController"));
         }
 
         [Test]

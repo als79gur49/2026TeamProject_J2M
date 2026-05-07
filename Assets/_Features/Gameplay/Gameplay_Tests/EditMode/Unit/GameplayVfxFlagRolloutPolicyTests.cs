@@ -151,6 +151,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "Migration / parameterized clone motion",
                 "Tier 3",
                 "approved in Tier 3 rollout batch; requires post-rollout visual monitoring + rollback review"),
+            new(
+                "EnableGameplayVfxFlipImpactStayTrail",
+                "enableGameplayVfxFlipImpactStayTrail",
+                "BoxVfxCue.FlipImpactStayTrail",
+                "Augmentation / MotionTrack-attached VFX",
+                "Tier 1",
+                "targeted MotionTrack-following tests + visual spot check"),
         };
 
         private static readonly string[] HighRiskDefaultTrueCandidateFlags =
