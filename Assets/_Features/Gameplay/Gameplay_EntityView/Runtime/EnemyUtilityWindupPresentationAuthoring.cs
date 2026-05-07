@@ -6,20 +6,16 @@ namespace Game.Feature.Gameplay.Host
     public readonly struct EnemyUtilityWindupPresentationSnapshot
     {
         public EnemyUtilityWindupPresentationSnapshot(
-            GameObject summonWindupWarningPrefab,
             float summonWindupWarningSeconds,
             bool attachSummonWarningToSourceView,
             Vector3 localOffset,
             string attachSlot)
         {
-            SummonWindupWarningPrefab = summonWindupWarningPrefab;
             SummonWindupWarningSeconds = summonWindupWarningSeconds;
             AttachSummonWarningToSourceView = attachSummonWarningToSourceView;
             LocalOffset = localOffset;
             AttachSlot = attachSlot ?? string.Empty;
         }
-
-        public GameObject SummonWindupWarningPrefab { get; }
 
         public float SummonWindupWarningSeconds { get; }
 
@@ -28,20 +24,15 @@ namespace Game.Feature.Gameplay.Host
         public Vector3 LocalOffset { get; }
 
         public string AttachSlot { get; }
-
-        public bool HasSummonWindupWarningPrefab => SummonWindupWarningPrefab != null;
     }
 
     [DisallowMultipleComponent]
     public sealed class EnemyUtilityWindupPresentationAuthoring : MonoBehaviour
     {
-        [SerializeField] private GameObject summonWindupWarningPrefab;
         [SerializeField] private float summonWindupWarningSeconds = 0.15f;
         [SerializeField] private bool attachSummonWarningToSourceView = true;
         [SerializeField] private Vector3 localOffset;
         [SerializeField] private string attachSlot = string.Empty;
-
-        public GameObject SummonWindupWarningPrefab => summonWindupWarningPrefab;
 
         public float SummonWindupWarningSeconds => summonWindupWarningSeconds;
 
@@ -65,7 +56,6 @@ namespace Game.Feature.Gameplay.Host
         {
             Validate();
             return new EnemyUtilityWindupPresentationSnapshot(
-                summonWindupWarningPrefab,
                 summonWindupWarningSeconds,
                 attachSummonWarningToSourceView,
                 localOffset,

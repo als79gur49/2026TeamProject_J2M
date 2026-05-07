@@ -14,6 +14,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayExitPresentationController.cs";
         private const string RuntimePath =
             "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/GameplayVfxProductionRuntime.cs";
+        private const string UtilityWindupAuthoringPath =
+            "Assets/_Features/Gameplay/Gameplay_EntityView/Runtime/EnemyUtilityWindupPresentationAuthoring.cs";
+        private const string FrontFaceShieldAuthoringPath =
+            "Assets/_Features/Gameplay/Gameplay_EntityView/Runtime/EnemyFrontFaceShieldPresentationAuthoring.cs";
+        private const string FrontFaceShieldPresenterPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayFrontFaceShieldVfxPresenter.cs";
+        private const string FrontFaceShieldPrefabPath =
+            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Prefabs/EnemyView_FrontFaceShield.prefab";
 
         [Test]
         [Category("Extended")]
@@ -122,10 +130,77 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("no `TickPipeline`, `WorldState`, `WorldSnapshot`, `ProjectedWorld`, `FinalizationBatch`, `DeterminismHashBuilder`, `TickPresentationData`, `TickEntityExitPresentationSignal`, `TickEntityMotion`, or `TickResultBuilder` changes"));
         }
 
+        [Test]
+        [Category("Extended")]
+        public void DeferredSerializedReferenceFields_AreRemovedFromSourceAndYaml()
+        {
+            var utilityAuthoring = ReadRepoFile(UtilityWindupAuthoringPath);
+            var shieldAuthoring = ReadRepoFile(FrontFaceShieldAuthoringPath);
+            var shieldPresenter = ReadRepoFile(FrontFaceShieldPresenterPath);
+            var shieldPrefab = ReadRepoFile(FrontFaceShieldPrefabPath);
+
+            Assert.That(utilityAuthoring, Does.Not.Contain(UtilityRemovedField()));
+            Assert.That(utilityAuthoring, Does.Not.Contain("Summon" + "WindupWarningPrefab"));
+            Assert.That(shieldAuthoring, Does.Not.Contain(ShieldActiveRemovedField()));
+            Assert.That(shieldAuthoring, Does.Not.Contain(ShieldBlockRemovedField()));
+            Assert.That(shieldAuthoring, Does.Not.Contain("Active" + "LoopPrefab"));
+            Assert.That(shieldAuthoring, Does.Not.Contain("Block" + "BurstPrefab"));
+            Assert.That(shieldPresenter, Does.Not.Contain("Active" + "LoopPrefab"));
+            Assert.That(shieldPresenter, Does.Not.Contain("Block" + "BurstPrefab"));
+
+            Assert.That(shieldPrefab, Does.Not.Contain(ShieldActiveRemovedField()));
+            Assert.That(shieldPrefab, Does.Not.Contain(ShieldBlockRemovedField()));
+            Assert.That(shieldPrefab, Does.Contain("telegraphPrefab"));
+            Assert.That(shieldPrefab, Does.Contain("6cd12717bd9bde896dd0a4a174eb8512"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void DeferredSerializedReferenceCleanup_IsDocumentedAsRemovedWithoutAssetDeletion()
+        {
+            var document = ReadRepoFile(GovernancePath);
+
+            Assert.That(document, Does.Contain("EnemyUtilityWindupPresentationAuthoring." + UtilityRemovedField()));
+            Assert.That(document, Does.Contain("EnemyFrontFaceShieldPresentationAuthoring." + ShieldActiveRemovedField()));
+            Assert.That(document, Does.Contain("EnemyFrontFaceShieldPresentationAuthoring." + ShieldBlockRemovedField()));
+            Assert.That(document, Does.Contain("old FrontFaceShield active/block prefab and material assets are deletion candidates only after GUID reference scans confirm zero external references"));
+            Assert.That(document, Does.Contain("no old asset file deletion occurred in this slice"));
+            Assert.That(document, Does.Contain("VFX_FrontFaceShield_Telegraph"));
+            Assert.That(document, Does.Contain("M_FrontFaceShield_Telegraph.mat"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProtectedVfxAssets_AreStillPresent()
+        {
+            Assert.That(File.Exists("Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/FrontFaceShieldActiveVfx.prefab"), Is.True);
+            Assert.That(File.Exists("Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/FrontFaceShieldBlockVfx.prefab"), Is.True);
+            Assert.That(File.Exists("Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/EnemyUtilityWindupTelegraphVfx.prefab"), Is.True);
+            Assert.That(File.Exists("Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/VFX/FrontFaceShield/VFX_FrontFaceShield_ActiveLoop.prefab"), Is.True);
+            Assert.That(File.Exists("Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/VFX/FrontFaceShield/VFX_FrontFaceShield_BlockBurst.prefab"), Is.True);
+            Assert.That(File.Exists("Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/VFX/FrontFaceShield/VFX_FrontFaceShield_Telegraph.prefab"), Is.True);
+            Assert.That(File.Exists("Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/VFX/FrontFaceShield/M_FrontFaceShield_Telegraph.mat"), Is.True);
+        }
+
         private static string ReadRepoFile(string path)
         {
             Assert.That(File.Exists(path), Is.True, $"Missing repo file: {path}");
             return File.ReadAllText(path);
+        }
+
+        private static string UtilityRemovedField()
+        {
+            return "summon" + "WindupWarningPrefab";
+        }
+
+        private static string ShieldActiveRemovedField()
+        {
+            return "active" + "LoopPrefab";
+        }
+
+        private static string ShieldBlockRemovedField()
+        {
+            return "block" + "BurstPrefab";
         }
     }
 }

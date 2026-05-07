@@ -10,31 +10,13 @@ namespace Game.Feature.Gameplay.Host
 {
     internal sealed class GameplayFrontFaceShieldVfxPresenter
     {
-        private readonly Dictionary<int, ActiveShieldRuntime> _activeShieldsBySourceId = new();
         private readonly Dictionary<FrontFaceShieldWarningKey, WarningShieldRuntime> _warningShieldsByKey = new();
         private readonly HashSet<FrontFaceShieldWarningKey> _seenWarningKeys = new();
         private readonly List<FrontFaceShieldWarningKey> _warningRemovalBuffer = new();
-        private readonly List<int> _removalBuffer = new();
-        private readonly HashSet<int> _seenSourceIds = new();
         private float _cellSize = 1f;
         private Transform _parent;
 
-        internal int ActiveLoopInstanceCount
-        {
-            get
-            {
-                var count = 0;
-                foreach (var pair in _activeShieldsBySourceId)
-                {
-                    if (pair.Value.ActiveLoopInstance != null)
-                    {
-                        count++;
-                    }
-                }
-
-                return count;
-            }
-        }
+        internal int ActiveLoopInstanceCount => 0;
 
         internal int WarningInstanceCount
         {
@@ -62,13 +44,6 @@ namespace Game.Feature.Gameplay.Host
 
         public void Clear()
         {
-            foreach (var pair in _activeShieldsBySourceId)
-            {
-                pair.Value.Dispose();
-            }
-
-            _activeShieldsBySourceId.Clear();
-
             foreach (var pair in _warningShieldsByKey)
             {
                 pair.Value.Dispose();
@@ -76,8 +51,6 @@ namespace Game.Feature.Gameplay.Host
 
             _warningShieldsByKey.Clear();
 
-            _seenSourceIds.Clear();
-            _removalBuffer.Clear();
             _seenWarningKeys.Clear();
             _warningRemovalBuffer.Clear();
         }
@@ -169,77 +142,10 @@ namespace Game.Feature.Gameplay.Host
             {
                 throw new ArgumentNullException(nameof(projector));
             }
-
-            _seenSourceIds.Clear();
-            for (var i = 0; i < signals.Count; i++)
-            {
-                var signal = signals[i];
-                _seenSourceIds.Add(signal.SourceEntityId);
-                if (_activeShieldsBySourceId.TryGetValue(signal.SourceEntityId, out var existingRuntime))
-                {
-                    existingRuntime.LastSeenTick = signal.TickIndex;
-                    existingRuntime.SourceCell = signal.SourceCell;
-                    existingRuntime.Topology = signal.Topology;
-                    UpdateActiveLoopPlacement(existingRuntime, signal, stateStore, projector);
-                    continue;
-                }
-
-                if (!TryCreateActiveRuntime(signal, stateStore, projector, out var runtime))
-                {
-                    continue;
-                }
-
-                _activeShieldsBySourceId[signal.SourceEntityId] = runtime;
-            }
-
-            _removalBuffer.Clear();
-            foreach (var pair in _activeShieldsBySourceId)
-            {
-                if (!_seenSourceIds.Contains(pair.Key))
-                {
-                    _removalBuffer.Add(pair.Key);
-                }
-            }
-
-            for (var i = 0; i < _removalBuffer.Count; i++)
-            {
-                var sourceId = _removalBuffer[i];
-                if (!_activeShieldsBySourceId.TryGetValue(sourceId, out var runtime))
-                {
-                    continue;
-                }
-
-                runtime.Dispose();
-                _activeShieldsBySourceId.Remove(sourceId);
-            }
         }
 
         public void Update(float deltaTime)
         {
-        }
-
-        private bool TryCreateActiveRuntime(
-            TickFrontFaceShieldSourceSignal signal,
-            GameplayPresentationStateStore stateStore,
-            GameplayCubeProjector projector,
-            out ActiveShieldRuntime runtime)
-        {
-            runtime = null;
-            if (!TryResolveShieldSnapshot(signal.SourceEntityId, stateStore, out var snapshot))
-            {
-                return false;
-            }
-
-            var activeLoop = CreateActiveLoop(signal, snapshot, stateStore, projector);
-
-            runtime = new ActiveShieldRuntime(
-                signal.SourceEntityId,
-                signal.SourceCell,
-                signal.Topology,
-                snapshot,
-                activeLoop);
-            runtime.LastSeenTick = signal.TickIndex;
-            return true;
         }
 
         private bool TryCreateWarningRuntime(
@@ -274,49 +180,6 @@ namespace Game.Feature.Gameplay.Host
             return true;
         }
 
-        private GameObject CreateActiveLoop(
-            TickFrontFaceShieldSourceSignal signal,
-            EnemyFrontFaceShieldPresentationSnapshot snapshot,
-            GameplayPresentationStateStore stateStore,
-            GameplayCubeProjector projector)
-        {
-            if (!snapshot.HasActiveLoopPrefab ||
-                _parent == null)
-            {
-                return null;
-            }
-
-            var scale = ResolveRadiusScale(signal, snapshot);
-            if (snapshot.AttachActiveLoopToSourceView &&
-                stateStore.ViewsByEntityId.TryGetValue(signal.SourceEntityId, out var sourceView) &&
-                sourceView != null)
-            {
-                var attachParent = ResolveAttachParent(sourceView, snapshot);
-                return InstantiateVfx(
-                    snapshot.ActiveLoopPrefab,
-                    attachParent,
-                    $"FrontFaceShieldActiveLoop_{signal.SourceEntityId}",
-                    snapshot.LocalOffset,
-                    Quaternion.identity,
-                    scale,
-                    useLocalTransform: true);
-            }
-
-            if (!TryResolveSourcePose(signal, stateStore, projector, out var pose))
-            {
-                return null;
-            }
-
-            return InstantiateVfx(
-                snapshot.ActiveLoopPrefab,
-                _parent,
-                $"FrontFaceShieldActiveLoop_{signal.SourceEntityId}",
-                pose.Position + (pose.Rotation * snapshot.LocalOffset),
-                pose.Rotation,
-                scale,
-                useLocalTransform: true);
-        }
-
         private GameObject CreateWarningInstance(
             TickFrontFaceShieldWindupWarningSignal signal,
             EnemyFrontFaceShieldPresentationSnapshot snapshot,
@@ -338,29 +201,6 @@ namespace Game.Feature.Gameplay.Host
                 pose.Rotation,
                 ResolveRadiusScale(signal, snapshot),
                 useLocalTransform: true);
-        }
-
-        private void UpdateActiveLoopPlacement(
-            ActiveShieldRuntime runtime,
-            TickFrontFaceShieldSourceSignal signal,
-            GameplayPresentationStateStore stateStore,
-            GameplayCubeProjector projector)
-        {
-            if (runtime.ActiveLoopInstance == null ||
-                runtime.Snapshot.AttachActiveLoopToSourceView)
-            {
-                return;
-            }
-
-            if (!TryResolveSourcePose(signal, stateStore, projector, out var pose))
-            {
-                return;
-            }
-
-            runtime.ActiveLoopInstance.transform.localPosition =
-                pose.Position + (pose.Rotation * runtime.Snapshot.LocalOffset);
-            runtime.ActiveLoopInstance.transform.localRotation = pose.Rotation;
-            runtime.ActiveLoopInstance.transform.localScale = ResolveRadiusScale(signal, runtime.Snapshot);
         }
 
         private void UpdateWarningPlacement(
@@ -386,12 +226,6 @@ namespace Game.Feature.Gameplay.Host
             GameplayPresentationStateStore stateStore,
             out EnemyFrontFaceShieldPresentationSnapshot snapshot)
         {
-            if (_activeShieldsBySourceId.TryGetValue(sourceEntityId, out var runtime))
-            {
-                snapshot = runtime.Snapshot;
-                return true;
-            }
-
             if (!stateStore.ViewsByEntityId.TryGetValue(sourceEntityId, out var sourceView) ||
                 sourceView == null)
             {
@@ -408,21 +242,6 @@ namespace Game.Feature.Gameplay.Host
 
             snapshot = authoring.CreateSnapshot();
             return true;
-        }
-
-        private bool TryResolveSourcePose(
-            TickFrontFaceShieldSourceSignal signal,
-            GameplayPresentationStateStore stateStore,
-            GameplayCubeProjector projector,
-            out GameplayEntityPose pose)
-        {
-            return TryResolveSourcePose(
-                signal.SourceEntityId,
-                signal.SourceCell,
-                signal.Topology,
-                stateStore,
-                projector,
-                out pose);
         }
 
         private bool TryResolveSourcePose(
@@ -477,52 +296,6 @@ namespace Game.Feature.Gameplay.Host
 
             pose = new GameplayEntityPose(projectedPose.LocalPosition, projectedPose.LocalRotation);
             return true;
-        }
-
-        private static Transform ResolveAttachParent(
-            GameplayEntityView sourceView,
-            EnemyFrontFaceShieldPresentationSnapshot snapshot)
-        {
-            if (!string.IsNullOrWhiteSpace(snapshot.AttachSlot) &&
-                TryFindDescendant(sourceView.transform, snapshot.AttachSlot, out var slot))
-            {
-                return slot;
-            }
-
-            return sourceView.transform;
-        }
-
-        private static bool TryFindDescendant(Transform root, string name, out Transform result)
-        {
-            if (root == null)
-            {
-                result = null;
-                return false;
-            }
-
-            if (string.Equals(root.name, name, StringComparison.Ordinal))
-            {
-                result = root;
-                return true;
-            }
-
-            for (var i = 0; i < root.childCount; i++)
-            {
-                if (TryFindDescendant(root.GetChild(i), name, out result))
-                {
-                    return true;
-                }
-            }
-
-            result = null;
-            return false;
-        }
-
-        private Vector3 ResolveRadiusScale(
-            TickFrontFaceShieldSourceSignal signal,
-            EnemyFrontFaceShieldPresentationSnapshot snapshot)
-        {
-            return ResolveRadiusScale(signal.Radius, signal.TargetPattern, snapshot);
         }
 
         private Vector3 ResolveRadiusScale(
@@ -595,40 +368,6 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < colliders.Length; i++)
             {
                 GameplayTransientEffectTrackUtility.SafeDestroy(colliders[i]);
-            }
-        }
-
-        private sealed class ActiveShieldRuntime : IDisposable
-        {
-            public ActiveShieldRuntime(
-                int sourceEntityId,
-                SurfaceCell sourceCell,
-                CubeTopologyState topology,
-                EnemyFrontFaceShieldPresentationSnapshot snapshot,
-                GameObject activeLoopInstance)
-            {
-                SourceEntityId = sourceEntityId;
-                SourceCell = sourceCell;
-                Topology = topology;
-                Snapshot = snapshot;
-                ActiveLoopInstance = activeLoopInstance;
-            }
-
-            public int SourceEntityId { get; }
-
-            public SurfaceCell SourceCell { get; set; }
-
-            public CubeTopologyState Topology { get; set; }
-
-            public int LastSeenTick { get; set; }
-
-            public EnemyFrontFaceShieldPresentationSnapshot Snapshot { get; }
-
-            public GameObject ActiveLoopInstance { get; }
-
-            public void Dispose()
-            {
-                GameplayTransientEffectTrackUtility.SafeDestroy(ActiveLoopInstance);
             }
         }
 

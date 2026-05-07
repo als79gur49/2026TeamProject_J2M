@@ -213,8 +213,6 @@ MonoBehaviour:
   hitEffectDurationSeconds: -1
   deathEffectDurationSeconds: -1
   deathViewTailSeconds: -1
-  hitVfxPrefab: {fileID: 0}
-  deathVfxPrefab: {fileID: 0}
   deathOwnershipMode: 0
   deathAnchorName: Chest
 --- !u!1 &2671696761220166410

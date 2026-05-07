@@ -23,6 +23,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string ExitControllerPath = "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayExitPresentationController.cs";
         private const string TransientPresenterPath = "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTransientEffectPresenter.cs";
         private const string FrontFaceShieldPresenterPath = "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayFrontFaceShieldVfxPresenter.cs";
+        private const string UtilityWindupAuthoringPath =
+            "Assets/_Features/Gameplay/Gameplay_EntityView/Runtime/EnemyUtilityWindupPresentationAuthoring.cs";
+        private const string FrontFaceShieldAuthoringPath =
+            "Assets/_Features/Gameplay/Gameplay_EntityView/Runtime/EnemyFrontFaceShieldPresentationAuthoring.cs";
 
         [Test]
         [Category("Extended")]
@@ -156,6 +160,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var exitController = ReadRepoFile(ExitControllerPath);
             var transientPresenter = ReadRepoFile(TransientPresenterPath);
             var frontFaceShieldPresenter = ReadRepoFile(FrontFaceShieldPresenterPath);
+            var utilityWindupAuthoring = ReadRepoFile(UtilityWindupAuthoringPath);
+            var frontFaceShieldAuthoring = ReadRepoFile(FrontFaceShieldAuthoringPath);
 
             Assert.That(coordinator, Does.Not.Contain("TraceStep(\"PlayPlayerHitEffects\")"));
             Assert.That(coordinator, Does.Not.Contain("TraceStep(\"PlayFrontFaceShieldBlockBursts\")"));
@@ -177,6 +183,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(frontFaceShieldPresenter, Does.Contain("RefreshWindupWarnings"));
             Assert.That(frontFaceShieldPresenter, Does.Contain("RefreshActiveSources"));
             Assert.That(frontFaceShieldPresenter, Does.Not.Contain("PlayBlockBursts("));
+            Assert.That(frontFaceShieldPresenter, Does.Not.Contain("Active" + "LoopPrefab"));
+            Assert.That(frontFaceShieldPresenter, Does.Not.Contain("Block" + "BurstPrefab"));
+            Assert.That(utilityWindupAuthoring, Does.Not.Contain("summon" + "WindupWarningPrefab"));
+            Assert.That(frontFaceShieldAuthoring, Does.Not.Contain("active" + "LoopPrefab"));
+            Assert.That(frontFaceShieldAuthoring, Does.Not.Contain("block" + "BurstPrefab"));
+            Assert.That(frontFaceShieldAuthoring, Does.Contain("telegraphPrefab"));
         }
 
         [Test]

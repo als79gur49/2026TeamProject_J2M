@@ -238,17 +238,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Coordinator_ActiveFlagOn_CleansLegacyActiveAndDoesNotRecreate()
+        public void LegacyPresenter_ActiveRefreshDoesNotSpawnOldLoop()
         {
-            var root = new GameObject("FrontFaceShieldLegacyActiveCleanup");
-            var activePrefab = new GameObject("FrontFaceShieldLegacyActiveCleanup_LegacyActivePrefab");
-            var sourceObject = new GameObject("FrontFaceShieldLegacyActiveCleanup_Source");
+            var root = new GameObject("FrontFaceShieldLegacyActiveNoSpawn");
+            var sourceObject = new GameObject("FrontFaceShieldLegacyActiveNoSpawn_Source");
             try
             {
                 var sourceView = sourceObject.AddComponent<GameplayEntityView>();
                 sourceView.Initialize(40);
                 var shieldAuthoring = sourceObject.AddComponent<EnemyFrontFaceShieldPresentationAuthoring>();
-                SetField(shieldAuthoring, "activeLoopPrefab", activePrefab);
                 SetField(shieldAuthoring, "attachActiveLoopToSourceView", true);
                 var topology = new CubeTopologyState(FaceId.Floor);
                 var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
@@ -266,7 +264,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new[] { CreateSourceSignal(40, sourceCell, topology) },
                     stateStore,
                     projector);
-                Assert.That(CountDescendantsByNamePrefix(sourceObject.transform, "FrontFaceShieldActiveLoop_40"), Is.EqualTo(1));
+                Assert.That(CountDescendantsByNamePrefix(sourceObject.transform, "FrontFaceShieldActiveLoop_40"), Is.Zero);
+                Assert.That(presenter.ActiveLoopInstanceCount, Is.Zero);
 
                 presenter.RefreshActiveSources(
                     Array.Empty<TickFrontFaceShieldSourceSignal>(),
@@ -277,7 +276,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                Destroy(activePrefab, sourceObject, root);
+                Destroy(sourceObject, root);
             }
         }
 
@@ -636,8 +635,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static CoordinatorScenario CreateCoordinatorScenario(string name)
         {
             var root = new GameObject(name);
-            var activePrefab = new GameObject($"{name}_LegacyActivePrefab");
-            var blockPrefab = new GameObject($"{name}_LegacyBlockPrefab");
             var enemyPrefabObject = new GameObject($"{name}_EnemyPrefab");
             var enemyPrefab = enemyPrefabObject.AddComponent<GameplayEntityView>();
             enemyPrefab.Initialize(40);
@@ -648,8 +645,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var entityAuthoring = enemyPrefabObject.AddComponent<EntityMotionPresentationAuthoring>();
             SetField(entityAuthoring, "moveMotionDurationSeconds", EntityMotionPresentationAuthoring.UseGlobalTimingSentinel);
             var shieldAuthoring = enemyPrefabObject.AddComponent<EnemyFrontFaceShieldPresentationAuthoring>();
-            SetField(shieldAuthoring, "activeLoopPrefab", activePrefab);
-            SetField(shieldAuthoring, "blockBurstPrefab", blockPrefab);
             SetField(shieldAuthoring, "attachActiveLoopToSourceView", true);
 
             var presenter = root.AddComponent<GameplayTickViewPresenter>();
@@ -673,7 +668,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 1f,
                 CreateTimingProfile());
 
-            return new CoordinatorScenario(root, presenter, enemyPrefabObject, activePrefab, blockPrefab, sourceCell, topology);
+            return new CoordinatorScenario(root, presenter, enemyPrefabObject, sourceCell, topology);
         }
 
         private static GameplayTimingProfile CreateTimingProfile()
@@ -832,16 +827,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 GameObject root,
                 GameplayTickViewPresenter presenter,
                 GameObject enemyPrefab,
-                GameObject activePrefab,
-                GameObject blockPrefab,
                 SurfaceCell sourceCell,
                 CubeTopologyState topology)
             {
                 Root = root;
                 Presenter = presenter;
                 EnemyPrefab = enemyPrefab;
-                ActivePrefab = activePrefab;
-                BlockPrefab = blockPrefab;
                 SourceCell = sourceCell;
                 Topology = topology;
             }
@@ -852,17 +843,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public GameObject EnemyPrefab { get; }
 
-            public GameObject ActivePrefab { get; }
-
-            public GameObject BlockPrefab { get; }
-
             public SurfaceCell SourceCell { get; }
 
             public CubeTopologyState Topology { get; }
 
             public void Destroy()
             {
-                GameplayVfxFrontFaceShieldMigrationTests.Destroy(BlockPrefab, ActivePrefab, EnemyPrefab, Root);
+                GameplayVfxFrontFaceShieldMigrationTests.Destroy(EnemyPrefab, Root);
             }
         }
     }

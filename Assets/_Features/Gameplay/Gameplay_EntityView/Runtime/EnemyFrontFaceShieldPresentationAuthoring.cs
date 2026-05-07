@@ -7,8 +7,6 @@ namespace Game.Feature.Gameplay.Host
     {
         public EnemyFrontFaceShieldPresentationSnapshot(
             GameObject telegraphPrefab,
-            GameObject activeLoopPrefab,
-            GameObject blockBurstPrefab,
             float telegraphSeconds,
             float activeFadeInSeconds,
             float activeFadeOutSeconds,
@@ -19,8 +17,6 @@ namespace Game.Feature.Gameplay.Host
             string attachSlot)
         {
             TelegraphPrefab = telegraphPrefab;
-            ActiveLoopPrefab = activeLoopPrefab;
-            BlockBurstPrefab = blockBurstPrefab;
             TelegraphSeconds = telegraphSeconds;
             ActiveFadeInSeconds = activeFadeInSeconds;
             ActiveFadeOutSeconds = activeFadeOutSeconds;
@@ -32,10 +28,6 @@ namespace Game.Feature.Gameplay.Host
         }
 
         public GameObject TelegraphPrefab { get; }
-
-        public GameObject ActiveLoopPrefab { get; }
-
-        public GameObject BlockBurstPrefab { get; }
 
         public float TelegraphSeconds { get; }
 
@@ -54,18 +46,12 @@ namespace Game.Feature.Gameplay.Host
         public string AttachSlot { get; }
 
         public bool HasTelegraphPrefab => TelegraphPrefab != null;
-
-        public bool HasActiveLoopPrefab => ActiveLoopPrefab != null;
-
-        public bool HasBlockBurstPrefab => BlockBurstPrefab != null;
     }
 
     [DisallowMultipleComponent]
     public sealed class EnemyFrontFaceShieldPresentationAuthoring : MonoBehaviour
     {
         [SerializeField] private GameObject telegraphPrefab;
-        [SerializeField] private GameObject activeLoopPrefab;
-        [SerializeField] private GameObject blockBurstPrefab;
         [SerializeField] private float telegraphSeconds = 0.15f;
         [SerializeField] private float activeFadeInSeconds = 0.1f;
         [SerializeField] private float activeFadeOutSeconds = 0.12f;
@@ -76,10 +62,6 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private string attachSlot = string.Empty;
 
         public GameObject TelegraphPrefab => telegraphPrefab;
-
-        public GameObject ActiveLoopPrefab => activeLoopPrefab;
-
-        public GameObject BlockBurstPrefab => blockBurstPrefab;
 
         public float TelegraphSeconds => telegraphSeconds;
 
@@ -110,8 +92,6 @@ namespace Game.Feature.Gameplay.Host
             Validate();
             return new EnemyFrontFaceShieldPresentationSnapshot(
                 telegraphPrefab,
-                activeLoopPrefab,
-                blockBurstPrefab,
                 telegraphSeconds,
                 activeFadeInSeconds,
                 activeFadeOutSeconds,

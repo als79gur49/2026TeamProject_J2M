@@ -449,17 +449,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void LegacyPresenter_EmptyRefreshCleansExistingWarnings()
+        public void LegacyPresenter_RefreshDoesNotSpawnOldWarnings()
         {
-            var root = new GameObject("UtilityWindupLegacyCleanup");
-            var warningPrefab = new GameObject("UtilityWindupLegacyCleanup_LegacyWarningPrefab");
-            var sourceObject = new GameObject("UtilityWindupLegacyCleanup_Source");
+            var root = new GameObject("UtilityWindupLegacyNoSpawn");
+            var sourceObject = new GameObject("UtilityWindupLegacyNoSpawn_Source");
             try
             {
                 var sourceView = sourceObject.AddComponent<GameplayEntityView>();
                 sourceView.Initialize(40);
                 var utilityAuthoring = sourceObject.AddComponent<EnemyUtilityWindupPresentationAuthoring>();
-                SetField(utilityAuthoring, "summonWindupWarningPrefab", warningPrefab);
                 SetField(utilityAuthoring, "attachSummonWarningToSourceView", true);
                 var topology = new CubeTopologyState(FaceId.Floor);
                 var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
@@ -477,7 +475,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new[] { CreateSummonWindupWarningSignal(40, sourceCell, topology) },
                     stateStore,
                     projector);
-                Assert.That(CountDescendantsByNamePrefix(sourceObject.transform, "SummonWindupWarning_40"), Is.EqualTo(1));
+                Assert.That(CountDescendantsByNamePrefix(sourceObject.transform, "SummonWindupWarning_40"), Is.Zero);
+                Assert.That(presenter.SummonWarningInstanceCount, Is.Zero);
 
                 presenter.RefreshSummonWarnings(
                     Array.Empty<TickSummonWindupWarningSignal>(),
@@ -488,7 +487,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                Destroy(warningPrefab, sourceObject, root);
+                Destroy(sourceObject, root);
             }
         }
 
@@ -752,7 +751,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static CoordinatorScenario CreateCoordinatorScenario(string name)
         {
             var root = new GameObject(name);
-            var legacyWarningPrefab = new GameObject($"{name}_LegacyWarningPrefab");
             var enemyPrefabObject = new GameObject($"{name}_EnemyPrefab");
             var enemyPrefab = enemyPrefabObject.AddComponent<GameplayEntityView>();
             enemyPrefab.Initialize(40);
@@ -763,7 +761,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var entityAuthoring = enemyPrefabObject.AddComponent<EntityMotionPresentationAuthoring>();
             SetField(entityAuthoring, "moveMotionDurationSeconds", EntityMotionPresentationAuthoring.UseGlobalTimingSentinel);
             var utilityAuthoring = enemyPrefabObject.AddComponent<EnemyUtilityWindupPresentationAuthoring>();
-            SetField(utilityAuthoring, "summonWindupWarningPrefab", legacyWarningPrefab);
             SetField(utilityAuthoring, "attachSummonWarningToSourceView", true);
 
             var presenter = root.AddComponent<GameplayTickViewPresenter>();
@@ -787,7 +784,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 1f,
                 CreateTimingProfile());
 
-            return new CoordinatorScenario(root, presenter, enemyPrefabObject, legacyWarningPrefab, sourceCell, topology);
+            return new CoordinatorScenario(root, presenter, enemyPrefabObject, sourceCell, topology);
         }
 
         private static GameplayTimingProfile CreateTimingProfile()
@@ -900,14 +897,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 GameObject root,
                 GameplayTickViewPresenter presenter,
                 GameObject enemyPrefab,
-                GameObject legacyWarningPrefab,
                 SurfaceCell sourceCell,
                 CubeTopologyState topology)
             {
                 Root = root;
                 Presenter = presenter;
                 EnemyPrefab = enemyPrefab;
-                LegacyWarningPrefab = legacyWarningPrefab;
                 SourceCell = sourceCell;
                 Topology = topology;
             }
@@ -918,15 +913,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public GameObject EnemyPrefab { get; }
 
-            public GameObject LegacyWarningPrefab { get; }
-
             public SurfaceCell SourceCell { get; }
 
             public CubeTopologyState Topology { get; }
 
             public void Destroy()
             {
-                GameplayVfxUtilityWindupMigrationTests.Destroy(LegacyWarningPrefab, EnemyPrefab, Root);
+                GameplayVfxUtilityWindupMigrationTests.Destroy(EnemyPrefab, Root);
             }
         }
     }

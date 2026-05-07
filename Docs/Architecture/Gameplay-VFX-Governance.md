@@ -989,10 +989,11 @@ Legacy Surface Simplification removed the suppress compatibility gates and the `
 
 Serialized reference cleanup status:
 
-- removed fields: `EntityEffectPresentationAuthoring.hitVfxPrefab` and `EntityEffectPresentationAuthoring.deathVfxPrefab`.
-- deferred fields: `EnemyUtilityWindupPresentationAuthoring.summonWindupWarningPrefab`, `EnemyFrontFaceShieldPresentationAuthoring.activeLoopPrefab`, and `EnemyFrontFaceShieldPresentationAuthoring.blockBurstPrefab`.
+- removed fields: `EntityEffectPresentationAuthoring.hitVfxPrefab`, `EntityEffectPresentationAuthoring.deathVfxPrefab`, `EnemyUtilityWindupPresentationAuthoring.summonWindupWarningPrefab`, `EnemyFrontFaceShieldPresentationAuthoring.activeLoopPrefab`, and `EnemyFrontFaceShieldPresentationAuthoring.blockBurstPrefab`.
 - retained fields: `telegraphPrefab`, `deathViewTailSeconds`, timing overrides, ownership mode, and death anchor.
-- asset deletion is deferred to Legacy Asset Removal; no prefab, material, binding, or GUID/YAML cleanup belongs to this slice.
+- removed-field YAML residue is cleaned for the active/block FrontFaceShield prefab references and stale null hit/death prefab keys.
+- old FrontFaceShield active/block prefab and material assets are deletion candidates only after GUID reference scans confirm zero external references; no old asset file deletion occurred in this slice.
+- `VFX_FrontFaceShield_Telegraph` and `M_FrontFaceShield_Telegraph.mat` are retained because FrontFaceShield windup warning remains canonical old presentation.
 
 Authority and carrier boundaries remain unchanged: no `TickPipeline`, `WorldState`, `WorldSnapshot`, `ProjectedWorld`, `FinalizationBatch`, `DeterminismHashBuilder`, `TickPresentationData`, `TickEntityExitPresentationSignal`, `TickEntityMotion`, or `TickResultBuilder` changes are part of legacy old path cleanup.
 
