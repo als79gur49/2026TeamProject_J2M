@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
@@ -59,6 +60,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(TryGetEntity(worldState, 20, out var target), Is.True);
             Assert.That(target.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(result.PresentationData.TileEvents, Is.Empty);
+            Assert.That(result.PresentationData.GravityFieldEvents, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.GravityFieldEvents[0].EventKind, Is.EqualTo(GravityFieldPresentationEventKind.Activated));
+            Assert.That(result.PresentationData.GravityFieldEvents[0].EmitterEntityId, Is.EqualTo(30));
+            Assert.That(result.PresentationData.GravityFieldEvents[0].Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 1)));
+            Assert.That(result.PresentationData.GravityFieldEvents[0].TargetEntityId, Is.Zero);
         }
 
         [Test]
@@ -98,12 +104,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateBox(30, new SurfaceCell(FaceId.Floor, 0, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Active, timerTicks: 1),
             });
 
-            GameplayCompositionRoot.CreateTickPipeline(worldState).RunTick(new TickInput(1));
+            var result = GameplayCompositionRoot.CreateTickPipeline(worldState).RunTick(new TickInput(1));
 
             Assert.That(TryGetEntity(worldState, 30, out var emitter), Is.True);
             Assert.That(emitter.gravityFieldPhase, Is.EqualTo(GravityFieldPhase.Charging));
             Assert.That(emitter.gravityFieldTimerTicks, Is.EqualTo(8 * GameplayTimingProfile.DefaultSimulationTicksPerSecond));
             Assert.That(worldState.CreateSnapshot().TryGetActiveBoxInteractionLockState(20, 1, out _), Is.False);
+            Assert.That(result.PresentationData.GravityFieldEvents, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.GravityFieldEvents[0].EventKind, Is.EqualTo(GravityFieldPresentationEventKind.Expired));
+            Assert.That(result.PresentationData.GravityFieldEvents[0].EmitterEntityId, Is.EqualTo(30));
+            Assert.That(result.PresentationData.GravityFieldEvents[0].Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(result.PresentationData.GravityFieldEvents[0].TargetEntityId, Is.Zero);
         }
 
         [Test]
@@ -125,12 +136,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 emitter,
             });
 
-            GameplayCompositionRoot.CreateTickPipeline(worldState).RunTick(new TickInput(1));
+            var result = GameplayCompositionRoot.CreateTickPipeline(worldState).RunTick(new TickInput(1));
 
             Assert.That(TryGetEntity(worldState, 30, out var updatedEmitter), Is.True);
             Assert.That(updatedEmitter.gravityFieldPhase, Is.EqualTo(GravityFieldPhase.Charging));
             Assert.That(updatedEmitter.gravityFieldTimerTicks, Is.EqualTo(8 * GameplayTimingProfile.DefaultSimulationTicksPerSecond));
             Assert.That(worldState.CreateSnapshot().TryGetActiveBoxInteractionLockState(20, 1, out _), Is.False);
+            Assert.That(result.PresentationData.GravityFieldEvents, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GravityField_TimerDecrementWithoutTransition_CreatesNoPresentationEvent()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreatePlayer(10, new SurfaceCell(FaceId.Floor, -4, -4)),
+                CreateBox(30, new SurfaceCell(FaceId.Floor, 0, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Charging, timerTicks: 2),
+            });
+
+            var result = GameplayCompositionRoot.CreateTickPipeline(worldState).RunTick(new TickInput(1));
+
+            Assert.That(TryGetEntity(worldState, 30, out var emitter), Is.True);
+            Assert.That(emitter.gravityFieldPhase, Is.EqualTo(GravityFieldPhase.Charging));
+            Assert.That(emitter.gravityFieldTimerTicks, Is.EqualTo(1));
+            Assert.That(result.PresentationData.GravityFieldEvents, Is.Empty);
         }
 
         [Test]
@@ -221,6 +251,63 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(activeResult.DeterminismHash, Is.Not.EqualTo(baselineResult.DeterminismHash));
             Assert.That(activeResult.Trace.Text, Does.Contain("GravityFieldPhase=Active"));
             Assert.That(activeResult.Trace.Text, Does.Contain("BlocksDestroy=1"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GravityFieldPresentationEvents_DoNotEnterDeterminismHashDirectly()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreatePlayer(10, new SurfaceCell(FaceId.Floor, -4, -4)),
+                CreateBox(30, new SurfaceCell(FaceId.Floor, 0, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Charging, timerTicks: 2),
+            });
+            var snapshot = worldState.CreateSnapshot();
+            var finalEntities = new[]
+            {
+                CreatePlayer(10, new SurfaceCell(FaceId.Floor, -4, -4)),
+                CreateBox(30, new SurfaceCell(FaceId.Floor, 0, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Charging, timerTicks: 2),
+            };
+            var baseline = new TickResultData(
+                finalEntities,
+                Array.Empty<DelayedAttackEffectRecord>(),
+                Array.Empty<string>(),
+                TickPresentationData.Empty);
+            var withPresentationEvent = new TickResultData(
+                finalEntities,
+                Array.Empty<DelayedAttackEffectRecord>(),
+                Array.Empty<string>(),
+                CreateGravityFieldPresentationData(new GravityFieldPresentationEvent(
+                    GravityFieldPresentationEventKind.Activated,
+                    30,
+                    new SurfaceCell(FaceId.Floor, 0, 0))));
+            var hashBuilder = new DeterminismHashBuilder();
+
+            Assert.That(
+                hashBuilder.Build(1, snapshot, withPresentationEvent),
+                Is.EqualTo(hashBuilder.Build(1, snapshot, baseline)));
+        }
+
+        private static TickPresentationData CreateGravityFieldPresentationData(
+            params GravityFieldPresentationEvent[] gravityFieldEvents)
+        {
+            return new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                Array.Empty<TickPlayerDeathPresentationSignal>(),
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                Array.Empty<TickEnemyChargePresentationSignal>(),
+                Array.Empty<TickEntityExitPresentationSignal>(),
+                Array.Empty<TickImpactTransientPresentationSignal>(),
+                Array.Empty<FlipImpactPresentationSignal>(),
+                gravityFieldEvents: gravityFieldEvents);
         }
 
         private static WorldState CreateWorldState(EntityState[] entities, GameplayTerrainData terrain = null)

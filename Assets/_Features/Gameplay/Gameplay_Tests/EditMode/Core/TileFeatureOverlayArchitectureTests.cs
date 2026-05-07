@@ -33,6 +33,12 @@ namespace Game.Feature.Gameplay.Tests.Core
             "Assets/_Features/Stages/Runtime/Content/StagePresentationDefinition.cs";
         private const string TileFeatureAudioTypesPath =
             "Assets/_Features/Gameplay/Gameplay_TileFeatureAudio/Runtime/TileFeatureAudioTypes.cs";
+        private const string GravityFieldPresentationRequestPlannerPath =
+            "Assets/_Features/Gameplay/Gameplay_Loop/Runtime/GravityFieldPresentationRequestPlanner.cs";
+        private const string GravityFieldVisualControllerPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GravityFieldVisualPresentationController.cs";
+        private const string GravityFieldAudioRuntimePath =
+            "Assets/_Features/Gameplay/Gameplay_GravityFieldAudio/Runtime";
         private const string WorldStatePath =
             "Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/WorldState.cs";
         private const string GameplayBoardStateRuntimePath =
@@ -317,6 +323,9 @@ namespace Game.Feature.Gameplay.Tests.Core
                 Assert.That(source, Does.Not.Contain("TilePresentationRequest"), pipelineFiles[i]);
                 Assert.That(source, Does.Not.Contain("TileFeatureVisual"), pipelineFiles[i]);
                 Assert.That(source, Does.Not.Contain("TileFeatureAudio"), pipelineFiles[i]);
+                Assert.That(source, Does.Not.Contain("GravityFieldPresentationRequest"), pipelineFiles[i]);
+                Assert.That(source, Does.Not.Contain("GravityFieldAudio"), pipelineFiles[i]);
+                Assert.That(source, Does.Not.Contain("GravityFieldVisual"), pipelineFiles[i]);
                 Assert.That(source, Does.Not.Contain("GameplayAudio"), pipelineFiles[i]);
                 Assert.That(source, Does.Not.Contain("Play2D"), pipelineFiles[i]);
                 Assert.That(source, Does.Not.Contain("PlayAttached"), pipelineFiles[i]);
@@ -350,6 +359,111 @@ namespace Game.Feature.Gameplay.Tests.Core
             var requestPlannerSource = File.ReadAllText(GetAbsolutePath(TilePresentationRequestPlannerPath));
             Assert.That(requestPlannerSource, Does.Contain("MoonBlockGenerated"));
             Assert.That(requestPlannerSource, Does.Not.Contain("MoonBlockGeneratorBlocked"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GravityFieldPresentationSurface_RemainsSeparateFromTileFeatureLane()
+        {
+            Assert.That(Enum.GetNames(typeof(TilePresentationEventKind)), Does.Not.Contain("GravityFieldActivated"));
+            Assert.That(Enum.GetNames(typeof(TilePresentationEventKind)), Does.Not.Contain("GravityFieldExpired"));
+            Assert.That(Enum.GetNames(typeof(TilePresentationRequestKind)), Does.Not.Contain("GravityFieldActivated"));
+            Assert.That(Enum.GetNames(typeof(TilePresentationRequestKind)), Does.Not.Contain("GravityFieldExpired"));
+
+            var tileFeatureAudioSource = File.ReadAllText(GetAbsolutePath(TileFeatureAudioTypesPath));
+            Assert.That(tileFeatureAudioSource, Does.Not.Contain("GravityField"));
+
+            var visualRegistrySource = File.ReadAllText(GetAbsolutePath(
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/ITileFeatureVisualRegistry.cs"));
+            Assert.That(visualRegistrySource, Does.Not.Contain("GravityField"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GravityFieldPresentationRequestPlanner_DoesNotReferenceAuthorityOrMutationTypes()
+        {
+            var source = File.ReadAllText(GetAbsolutePath(GravityFieldPresentationRequestPlannerPath));
+            var forbiddenTokens = new[]
+            {
+                "WorldState",
+                "WorldSnapshot",
+                "CreateSnapshot",
+                "TickPipeline",
+                "ProjectedWorld",
+                "FinalizationBatch",
+                "DeterminismHashBuilder",
+                "TilePresentationRequest",
+                "TileEvents",
+            };
+
+            for (var i = 0; i < forbiddenTokens.Length; i++)
+            {
+                Assert.That(
+                    source,
+                    Does.Not.Contain(forbiddenTokens[i]),
+                    $"GravityField presentation request planner must not reference authority or TileFeature token '{forbiddenTokens[i]}'.");
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GravityFieldVisualConsumer_DoesNotReferenceAuthorityTileFeatureOrPlaybackSurfaces()
+        {
+            var source = File.ReadAllText(GetAbsolutePath(GravityFieldVisualControllerPath));
+            var forbiddenTokens = new[]
+            {
+                "WorldState",
+                "WorldSnapshot",
+                "CreateSnapshot",
+                "ProjectedWorld",
+                "FinalizationBatch",
+                "TickPipeline",
+                "DeterminismHashBuilder",
+                "TileFeatureVisualRegistry",
+                "ITileFeatureVisualRegistry",
+                "StagePresentationDefinition",
+                "AudioMap",
+            };
+
+            for (var i = 0; i < forbiddenTokens.Length; i++)
+            {
+                Assert.That(
+                    source,
+                    Does.Not.Contain(forbiddenTokens[i]),
+                    $"GravityField visual consumer must not reference '{forbiddenTokens[i]}'.");
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GravityFieldAudio_DoesNotOpenTileFeatureSpatialOrStageBindingSurface()
+        {
+            var root = GetAbsolutePath(GravityFieldAudioRuntimePath);
+            Assert.That(Directory.Exists(root), Is.True);
+
+            var forbiddenTokens = new[]
+            {
+                "TileFeatureAudio",
+                "TileFeatureAudioCue",
+                "Play3D",
+                "Spatial",
+                "spatial",
+                "StagePresentationDefinition",
+                "TileFeaturePresentationBinding",
+                "VisualPrefab",
+            };
+            var sources = Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories);
+            for (var sourceIndex = 0; sourceIndex < sources.Length; sourceIndex++)
+            {
+                var source = File.ReadAllText(sources[sourceIndex]);
+                for (var tokenIndex = 0; tokenIndex < forbiddenTokens.Length; tokenIndex++)
+                {
+                    Assert.That(
+                        source,
+                        Does.Not.Contain(forbiddenTokens[tokenIndex]),
+                        $"{sources[sourceIndex]} must not open GravityFieldAudio token '{forbiddenTokens[tokenIndex]}'.");
+                }
+            }
         }
 
         [Test]
