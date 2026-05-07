@@ -150,6 +150,27 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(commandSource, Does.Not.Contain("SetTileFeatures"));
         }
 
+        [Test]
+        public void ExitGoalHelperEditor_DoesNotReferenceRuntimeGameplayMutationSurfaces()
+        {
+            var commandSource =
+                File.ReadAllText("Assets/_Features/Stages/Editor/Authoring/StageAuthoringExitGoalHelperCommands.cs");
+
+            Assert.That(commandSource, Does.Contain("SetZones"));
+            Assert.That(commandSource, Does.Not.Contain("StageRuntimeBuildResult"));
+            Assert.That(commandSource, Does.Not.Contain("TickPipeline"));
+            Assert.That(commandSource, Does.Not.Contain("WorldState"));
+            Assert.That(commandSource, Does.Not.Contain("TileEffect"));
+            Assert.That(commandSource, Does.Not.Contain("FinalizationBatch"));
+            Assert.That(commandSource, Does.Not.Contain("ProjectedWorld"));
+            Assert.That(commandSource, Does.Not.Contain("VisualPrefab"));
+            Assert.That(commandSource, Does.Not.Contain("TileFeaturePresentationBinding"));
+            Assert.That(commandSource, Does.Not.Contain("SetTileFeatures"));
+            Assert.That(commandSource, Does.Not.Contain("StageObjectiveTracker"));
+            Assert.That(commandSource, Does.Not.Contain("StageRuntimeBuilder"));
+            Assert.That(commandSource, Does.Not.Contain("3x3"));
+        }
+
         private static bool RuntimeSourceContains(string text)
         {
             return Directory

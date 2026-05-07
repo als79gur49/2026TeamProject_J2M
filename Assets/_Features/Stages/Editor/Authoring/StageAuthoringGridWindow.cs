@@ -1,3 +1,4 @@
+using System.Linq;
 using Game.Feature.Gameplay.BoardState;
 using UnityEditor;
 using UnityEngine;
@@ -190,6 +191,20 @@ namespace Game.Feature.Stages.Editor
         internal bool RemoveSelectedTileFeatureVisualBindingForTests(out string error)
         {
             return RemoveSelectedTileFeatureVisualBinding(out error);
+        }
+
+        internal ExitGoalZoneStatus GetSelectedExitGoalZoneStatusForTests()
+        {
+            StageAuthoringExitGoalHelperCommands.TryGetExitGoalZoneStatus(
+                authoring,
+                selection.SelectedTileFeatureId,
+                out var status);
+            return status;
+        }
+
+        internal bool SyncSelectedExitGoalZoneForTests(out string error)
+        {
+            return SyncSelectedExitGoalZone(out error);
         }
 
         internal void MoveSelectedPlacementToTargetCellForTests()
@@ -638,6 +653,7 @@ namespace Game.Feature.Stages.Editor
             EditorGUILayout.LabelField("Cell", feature.Cell.ToString());
 
             DrawTileFeatureDraftFields();
+            DrawExitGoalZoneSection(feature);
             DrawTileFeatureVisualBindingSection(feature.TileId);
 
             using (new EditorGUILayout.HorizontalScope())
@@ -736,6 +752,92 @@ namespace Game.Feature.Stages.Editor
                 _ => MessageType.Info,
             };
             EditorGUILayout.HelpBox(status.Message, messageType);
+        }
+
+        private void DrawExitGoalZoneSection(StageTileFeatureDefinition feature)
+        {
+            EditorGUILayout.Space();
+            StageAuthoringExitGoalHelperCommands.TryGetExitGoalZoneStatus(
+                authoring,
+                feature.TileId,
+                out var status);
+
+            if (feature.Kind != TileFeatureKind.Exit)
+            {
+                EditorGUILayout.LabelField("Exit Goal Zone", EditorStyles.boldLabel);
+                EditorGUILayout.HelpBox(status.Message, MessageType.Info);
+                return;
+            }
+
+            EditorGUILayout.LabelField("Exit Goal Zone", EditorStyles.boldLabel);
+            var hasMultipleExits = authoring.TileFeatures.Count(tileFeature => tileFeature.Kind == TileFeatureKind.Exit) > 1;
+            if (hasMultipleExits)
+            {
+                EditorGUILayout.HelpBox(
+                    "Stage has multiple Exit TileFeatures. Resolve the duplicate Exit before syncing the PrimaryGoal zone.",
+                    MessageType.Error);
+            }
+
+            DrawExitGoalZoneStatus(status);
+            EditorGUILayout.LabelField("Exit Cell", status.ExitCell.ToString());
+            if (!string.IsNullOrWhiteSpace(status.PrimaryGoalZoneId))
+            {
+                EditorGUILayout.LabelField("PrimaryGoal Zone", status.PrimaryGoalZoneId);
+            }
+
+            if (status.HasCurrentZoneCell)
+            {
+                EditorGUILayout.LabelField("Current Zone Cell", status.CurrentZoneCell.ToString());
+            }
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                using (new EditorGUI.DisabledScope(!status.CanSync || hasMultipleExits))
+                {
+                    if (GUILayout.Button("Sync Primary Goal Zone To Exit", GUILayout.Width(224)))
+                    {
+                        SyncSelectedExitGoalZone(out _);
+                    }
+                }
+
+                using (new EditorGUI.DisabledScope(status.PrimaryGoalCondition == null))
+                {
+                    if (GUILayout.Button("Ping PrimaryGoal Condition", GUILayout.Width(184)))
+                    {
+                        EditorGUIUtility.PingObject(status.PrimaryGoalCondition);
+                    }
+                }
+
+                using (new EditorGUI.DisabledScope(!status.HasCurrentZoneCell))
+                {
+                    if (GUILayout.Button("Select Goal Cell", GUILayout.Width(128)))
+                    {
+                        selection.SetTargetCell(
+                            status.CurrentZoneCell.face,
+                            new Vector2Int(status.CurrentZoneCell.x, status.CurrentZoneCell.y));
+                        Repaint();
+                    }
+                }
+            }
+        }
+
+        private static void DrawExitGoalZoneStatus(ExitGoalZoneStatus status)
+        {
+            EditorGUILayout.HelpBox(status.Message, ToMessageType(status.Kind));
+        }
+
+        private static MessageType ToMessageType(ExitGoalZoneStatusKind kind)
+        {
+            return kind switch
+            {
+                ExitGoalZoneStatusKind.Valid => MessageType.Info,
+                ExitGoalZoneStatusKind.ReferencedZoneMissing => MessageType.Warning,
+                ExitGoalZoneStatusKind.ZoneNotSingleCell => MessageType.Warning,
+                ExitGoalZoneStatusKind.ZoneCellMismatch => MessageType.Warning,
+                ExitGoalZoneStatusKind.NoExitSelected => MessageType.Info,
+                ExitGoalZoneStatusKind.SelectedTileFeatureIsNotExit => MessageType.Info,
+                _ => MessageType.Error,
+            };
         }
 
         private void AddTileFeatureAtTargetCell()
@@ -894,6 +996,24 @@ namespace Game.Feature.Stages.Editor
 
             selectedTileFeatureVisualPrefab = null;
             SetTileFeatureFeedback($"Removed TileFeature visual binding {selection.SelectedTileFeatureId}.", MessageType.Info);
+            Repaint();
+            return true;
+        }
+
+        private bool SyncSelectedExitGoalZone(out string error)
+        {
+            var changed = StageAuthoringExitGoalHelperCommands.TryEnsureExitPrimaryGoalZone(
+                authoring,
+                selection.SelectedTileFeatureId,
+                out error);
+            if (!changed)
+            {
+                SetTileFeatureFeedback(error, MessageType.Error);
+                return false;
+            }
+
+            serializedAuthoring.Update();
+            SetTileFeatureFeedback($"Synced Exit PrimaryGoal zone for TileFeature {selection.SelectedTileFeatureId}.", MessageType.Info);
             Repaint();
             return true;
         }

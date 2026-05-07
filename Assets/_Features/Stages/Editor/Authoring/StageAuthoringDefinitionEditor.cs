@@ -1,4 +1,5 @@
 using System.Linq;
+using Game.Feature.Gameplay.BoardState;
 using UnityEditor;
 using UnityEngine;
 
@@ -28,6 +29,7 @@ namespace Game.Feature.Stages.Editor
 
             EditorGUILayout.Space();
             DrawPlacementSummary(authoring);
+            DrawExitGoalSummary(authoring);
             DrawTileFeaturePresentationSummary(authoring);
             DrawToolbar(authoring);
             DrawReport(lastReport);
@@ -132,6 +134,57 @@ namespace Game.Feature.Stages.Editor
                     "No StagePresentationDefinition assigned; visual binding editing disabled.",
                     MessageType.Warning);
             }
+        }
+
+        private static void DrawExitGoalSummary(StageAuthoringDefinition authoring)
+        {
+            var exits = authoring.TileFeatures
+                .Where(feature => feature.Kind == TileFeatureKind.Exit)
+                .ToArray();
+            EditorGUILayout.LabelField("Exit TileFeatures", exits.Length.ToString());
+            if (exits.Length == 0)
+            {
+                return;
+            }
+
+            if (exits.Length > 1)
+            {
+                EditorGUILayout.HelpBox(
+                    $"Stage has multiple Exit TileFeatures ({exits.Length}). Exit MVP supports one Exit per stage.",
+                    MessageType.Error);
+                return;
+            }
+
+            StageAuthoringExitGoalHelperCommands.TryGetExitGoalZoneStatus(
+                authoring,
+                exits[0].TileId,
+                out var status);
+            EditorGUILayout.HelpBox(status.Message, ToMessageType(status.Kind));
+            if (!string.IsNullOrWhiteSpace(status.PrimaryGoalZoneId))
+            {
+                EditorGUILayout.LabelField("Exit PrimaryGoal Zone", status.PrimaryGoalZoneId);
+            }
+
+            if (status.Kind == ExitGoalZoneStatusKind.ZoneCellMismatch)
+            {
+                EditorGUILayout.HelpBox(
+                    "Exit center does not match PrimaryGoal zone.",
+                    MessageType.Warning);
+            }
+        }
+
+        private static MessageType ToMessageType(ExitGoalZoneStatusKind kind)
+        {
+            return kind switch
+            {
+                ExitGoalZoneStatusKind.Valid => MessageType.Info,
+                ExitGoalZoneStatusKind.ReferencedZoneMissing => MessageType.Warning,
+                ExitGoalZoneStatusKind.ZoneNotSingleCell => MessageType.Warning,
+                ExitGoalZoneStatusKind.ZoneCellMismatch => MessageType.Warning,
+                ExitGoalZoneStatusKind.NoExitSelected => MessageType.Info,
+                ExitGoalZoneStatusKind.SelectedTileFeatureIsNotExit => MessageType.Info,
+                _ => MessageType.Error,
+            };
         }
 
         private static int CountPlacements(
