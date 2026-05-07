@@ -1045,8 +1045,251 @@ namespace Game.Feature.Stages
             if (entry.PresentationDefinition != null)
             {
                 ValidateBgmReference(entry.PresentationDefinition.BgmReference, entry.PresentationDefinition, options, report);
+                ValidateTileFeaturePresentationCatalog(entry, options, report);
                 ValidateTileFeaturePresentationBindings(entry, options, report);
             }
+        }
+
+        private static void ValidateTileFeaturePresentationCatalog(
+            StageContentEntry entry,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            var presentation = entry.PresentationDefinition;
+            var catalog = presentation != null ? presentation.TileFeaturePresentationCatalog : null;
+            if (presentation == null ||
+                catalog == null)
+            {
+                ValidateTileFeatureCatalogUsage(entry, options, report);
+                return;
+            }
+
+            var catalogPath = GetAssetPath(catalog, options);
+            var entries = catalog.Entries;
+            var seenKeys = new HashSet<string>(StringComparer.Ordinal);
+            var defaultKinds = new HashSet<TileFeatureKind>();
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var catalogEntry = entries[i];
+                var fieldPrefix = $"TileFeaturePresentationCatalog.Entries[{i}]";
+                if (catalogEntry == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.catalog.entry-null",
+                        $"TileFeaturePresentationCatalog '{catalog.name}' entry[{i}] is null.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                    continue;
+                }
+
+                var presentationKey = catalogEntry.PresentationKey;
+                if (string.IsNullOrEmpty(presentationKey))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.catalog.key-empty",
+                        $"TileFeaturePresentationCatalog '{catalog.name}' {fieldPrefix} must declare a non-empty PresentationKey.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                }
+                else if (!seenKeys.Add(presentationKey))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.catalog.key-duplicate",
+                        $"TileFeaturePresentationCatalog '{catalog.name}' contains duplicate PresentationKey '{presentationKey}'.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                }
+
+                if (catalogEntry.Kind == TileFeatureKind.Unknown ||
+                    !Enum.IsDefined(typeof(TileFeatureKind), catalogEntry.Kind))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.catalog.kind-invalid",
+                        $"TileFeaturePresentationCatalog '{catalog.name}' {fieldPrefix} must use a known TileFeatureKind.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                }
+
+                if (catalogEntry.IsDefaultForKind &&
+                    !defaultKinds.Add(catalogEntry.Kind))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.catalog.default-duplicate",
+                        $"TileFeaturePresentationCatalog '{catalog.name}' has multiple default entries for {catalogEntry.Kind}.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                }
+
+                if (catalogEntry.VisualPrefab == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.catalog.prefab-null",
+                        $"TileFeaturePresentationCatalog '{catalog.name}' {fieldPrefix} must assign a visual prefab.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                    continue;
+                }
+
+                if (!PrefabHasConfigurableTileFeatureVisualTarget(catalogEntry.VisualPrefab))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.catalog.prefab-target-missing",
+                        $"TileFeaturePresentationCatalog '{catalog.name}' {fieldPrefix} prefab '{catalogEntry.VisualPrefab.name}' must provide a configurable TileFeature visual target.",
+                        catalogEntry.VisualPrefab,
+                        GetAssetPath(catalogEntry.VisualPrefab, options),
+                        options.Timing);
+                }
+            }
+
+            ValidateTileFeatureCatalogUsage(entry, options, report);
+        }
+
+        private static void ValidateTileFeatureCatalogUsage(
+            StageContentEntry entry,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            if (entry.GameplayDefinition == null ||
+                entry.PresentationDefinition == null)
+            {
+                return;
+            }
+
+            var presentation = entry.PresentationDefinition;
+            var catalog = presentation.TileFeaturePresentationCatalog;
+            var presentationPath = GetAssetPath(presentation, options);
+            var directTileIds = BuildDirectTileFeatureBindingIds(presentation);
+            var tileFeatures = entry.GameplayDefinition.TileFeatures;
+            for (var i = 0; i < tileFeatures.Length; i++)
+            {
+                var tileFeature = tileFeatures[i];
+                if (tileFeature.TileId <= 0)
+                {
+                    continue;
+                }
+
+                var hasDirectOverride = directTileIds.Contains(tileFeature.TileId);
+                var presentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(tileFeature.PresentationKey);
+                if (catalog == null)
+                {
+                    if (!hasDirectOverride)
+                    {
+                        report.Add(
+                            StageValidationSeverity.Warning,
+                            "presentation.tile-feature.catalog.missing",
+                            $"StagePresentationDefinition '{presentation.name}' has no TileFeaturePresentationCatalog for TileId {tileFeature.TileId}; visual will be skipped unless a direct override is added.",
+                            presentation,
+                            presentationPath,
+                            options.Timing);
+                    }
+
+                    continue;
+                }
+
+                if (string.IsNullOrEmpty(presentationKey))
+                {
+                    if (!hasDirectOverride &&
+                        !catalog.TryGetDefaultEntry(tileFeature.Kind, out _))
+                    {
+                        report.Add(
+                            StageValidationSeverity.Warning,
+                            "presentation.tile-feature.key-empty-no-default",
+                            $"TileFeature TileId {tileFeature.TileId} has no PresentationKey and no default catalog entry for {tileFeature.Kind}.",
+                            presentation,
+                            presentationPath,
+                            options.Timing);
+                    }
+
+                    continue;
+                }
+
+                var hasCatalogEntry = catalog.TryGetEntry(presentationKey, out var catalogEntry);
+                if (!hasCatalogEntry)
+                {
+                    if (!hasDirectOverride)
+                    {
+                        report.Add(
+                            StageValidationSeverity.Warning,
+                            "presentation.tile-feature.key-missing",
+                            $"TileFeature TileId {tileFeature.TileId} PresentationKey '{presentationKey}' is missing from TileFeaturePresentationCatalog '{catalog.name}'.",
+                            presentation,
+                            presentationPath,
+                            options.Timing);
+                    }
+
+                    continue;
+                }
+
+                if (hasDirectOverride)
+                {
+                    report.Add(
+                        StageValidationSeverity.Info,
+                        "presentation.tile-feature.direct-override-active",
+                        $"TileFeature TileId {tileFeature.TileId} has a direct visual override; catalog PresentationKey '{presentationKey}' is bypassed at runtime.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                }
+
+                if (catalogEntry.Kind != tileFeature.Kind)
+                {
+                    report.Add(
+                        StageValidationSeverity.Warning,
+                        "presentation.tile-feature.catalog-kind-mismatch",
+                        $"TileFeature TileId {tileFeature.TileId} kind {tileFeature.Kind} does not match catalog PresentationKey '{presentationKey}' kind {catalogEntry.Kind}.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                }
+
+                if (catalogEntry.DirectionHint != Direction2D.None &&
+                    tileFeature.Kind == TileFeatureKind.Slide &&
+                    catalogEntry.DirectionHint != tileFeature.Direction)
+                {
+                    report.Add(
+                        StageValidationSeverity.Warning,
+                        "presentation.tile-feature.catalog-direction-mismatch",
+                        $"TileFeature TileId {tileFeature.TileId} Slide direction {tileFeature.Direction} does not match catalog PresentationKey '{presentationKey}' hint {catalogEntry.DirectionHint}.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                }
+            }
+        }
+
+        private static HashSet<int> BuildDirectTileFeatureBindingIds(StagePresentationDefinition presentation)
+        {
+            var tileIds = new HashSet<int>();
+            if (presentation == null)
+            {
+                return tileIds;
+            }
+
+            var bindings = presentation.TileFeaturePresentationBindings;
+            for (var i = 0; i < bindings.Length; i++)
+            {
+                var binding = bindings[i];
+                if (binding != null &&
+                    binding.TileId > 0)
+                {
+                    tileIds.Add(binding.TileId);
+                }
+            }
+
+            return tileIds;
         }
 
         private static void ValidateTileFeaturePresentationBindings(
