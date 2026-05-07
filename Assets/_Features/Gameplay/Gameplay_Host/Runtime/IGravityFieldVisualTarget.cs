@@ -9,4 +9,11 @@ namespace Game.Feature.Gameplay.Host
     {
         void PlayGravityFieldExpired();
     }
+
+    public interface IGravityFieldContinuousVisualTarget
+    {
+        void ApplyGravityFieldVisualState(Game.Feature.Gameplay.Loop.GravityFieldVisualState state);
+
+        void ClearGravityFieldVisualState();
+    }
 }

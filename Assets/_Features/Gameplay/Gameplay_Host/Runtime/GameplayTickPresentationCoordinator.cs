@@ -20,6 +20,8 @@ namespace Game.Feature.Gameplay.Host
             Array.Empty<TilePresentationRequest>();
         private static readonly IReadOnlyList<GravityFieldPresentationRequest> EmptyGravityFieldPresentationRequests =
             Array.Empty<GravityFieldPresentationRequest>();
+        private static readonly IReadOnlyList<GravityFieldVisualState> EmptyGravityFieldVisualStates =
+            Array.Empty<GravityFieldVisualState>();
 
         private readonly GameplayAnimationSyncCoordinator _animationSync = new();
         private readonly GameplayActionAudioRequestPlanner _actionAudioRequestPlanner = new();
@@ -60,6 +62,8 @@ namespace Game.Feature.Gameplay.Host
         private IReadOnlyList<TilePresentationRequest> _currentTilePresentationRequests = EmptyTilePresentationRequests;
         private IReadOnlyList<GravityFieldPresentationRequest> _currentGravityFieldPresentationRequests =
             EmptyGravityFieldPresentationRequests;
+        private IReadOnlyList<GravityFieldVisualState> _currentGravityFieldVisualStates =
+            EmptyGravityFieldVisualStates;
         private Action<string> _traceSink;
 
         public GameplayTickPresentationCoordinator()
@@ -132,6 +136,9 @@ namespace Game.Feature.Gameplay.Host
         public IReadOnlyList<GravityFieldPresentationRequest> CurrentGravityFieldPresentationRequests =>
             _currentGravityFieldPresentationRequests;
 
+        public IReadOnlyList<GravityFieldVisualState> CurrentGravityFieldVisualStates =>
+            _currentGravityFieldVisualStates;
+
         internal int PendingGameplayAudioRequestCount => _audioPresentationController.PendingRequestCount;
 
         public Bounds VisibleCubeBounds
@@ -192,6 +199,7 @@ namespace Game.Feature.Gameplay.Host
             _stateStore.ResetSession(initialTopology);
             _currentTilePresentationRequests = EmptyTilePresentationRequests;
             _currentGravityFieldPresentationRequests = EmptyGravityFieldPresentationRequests;
+            _currentGravityFieldVisualStates = EmptyGravityFieldVisualStates;
             _summonedEnemyPresentationResolver.Initialize(
                 boardRoot != null ? boardRoot.EntityRoot : viewBinder.SearchRoot,
                 viewBinder.ViewRegistry,
@@ -254,6 +262,7 @@ namespace Game.Feature.Gameplay.Host
             _actionAudioPresentationController.ReplacePendingPlan(_actionAudioRequestPlanner.BuildRequests(result));
             RefreshTilePresentationRequests(result.PresentationData);
             RefreshGravityFieldPresentationRequests(result.PresentationData);
+            RefreshGravityFieldVisualStates(result.PresentationData);
             _tileFeatureAudioPresentationController.ReplacePendingPlan(
                 _tileFeatureAudioRequestPlanner.BuildRequests(_currentTilePresentationRequests));
             _gravityFieldAudioPresentationController.ReplacePendingPlan(
@@ -267,6 +276,7 @@ namespace Game.Feature.Gameplay.Host
                 _projector,
                 _viewBinder,
                 TopologyCommitted);
+            _gravityFieldVisualPresentationController.RefreshContinuousStates(_currentGravityFieldVisualStates);
             PresentExtensions(result);
             TraceStep("RefreshUtilityWindupWarnings");
             _utilityWindupVfxPresenter.RefreshSummonWarnings(
@@ -332,6 +342,7 @@ namespace Game.Feature.Gameplay.Host
 
             EnsureInitialized();
 
+            _gravityFieldVisualPresentationController.ClearTrackedContinuousStates();
             _audioPresentationController.ResetSession();
             _actionAudioPresentationController.ResetSession();
             _tileFeatureAudioPresentationController.ResetSession();
@@ -347,6 +358,7 @@ namespace Game.Feature.Gameplay.Host
             _stateStore.ResetSession(topology);
             _currentTilePresentationRequests = EmptyTilePresentationRequests;
             _currentGravityFieldPresentationRequests = EmptyGravityFieldPresentationRequests;
+            _currentGravityFieldVisualStates = EmptyGravityFieldVisualStates;
             _topologyTransitionController.Reset();
 
             _committedFrameBuilder.StoreCommittedFrame(
@@ -473,6 +485,15 @@ namespace Game.Feature.Gameplay.Host
                 ? EmptyGravityFieldPresentationRequests
                 : new ReadOnlyCollection<GravityFieldPresentationRequest>(
                     new List<GravityFieldPresentationRequest>(plannedRequests));
+        }
+
+        private void RefreshGravityFieldVisualStates(TickPresentationData presentationData)
+        {
+            var visualStates = presentationData.GravityFieldVisualStates;
+            _currentGravityFieldVisualStates = visualStates.Count == 0
+                ? EmptyGravityFieldVisualStates
+                : new ReadOnlyCollection<GravityFieldVisualState>(
+                    new List<GravityFieldVisualState>(visualStates));
         }
 
         internal void HardCleanupPresentationExtensions()

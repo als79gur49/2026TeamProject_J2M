@@ -56,6 +56,9 @@ namespace Game.Feature.Gameplay.Host
         public IReadOnlyList<GravityFieldPresentationRequest> CurrentGravityFieldPresentationRequests =>
             _presentationCoordinator.CurrentGravityFieldPresentationRequests;
 
+        public IReadOnlyList<GravityFieldVisualState> CurrentGravityFieldVisualStates =>
+            _presentationCoordinator.CurrentGravityFieldVisualStates;
+
         public void Initialize(
             GameplayEntityViewBinder viewBinder,
             BoardBounds boardBounds,
