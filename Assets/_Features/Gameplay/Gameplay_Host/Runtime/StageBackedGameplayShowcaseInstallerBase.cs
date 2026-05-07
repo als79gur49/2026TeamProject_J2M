@@ -65,7 +65,8 @@ namespace Game.Feature.Gameplay.Host
                 compositionData.PresentationData.StaticEntityPresentationCatalog,
                 compositionData.PresentationData.StaticEntityPresentationBindings,
                 compositionData.PresentationData.BoardTilePresentationCatalog,
-                compositionData.PresentationData.TileFeatureBindings);
+                compositionData.PresentationData.TileFeatureBindings,
+                compositionData.PresentationData.BoardTilePresentationOverrides);
         }
 
         protected override void ConfigureRuntimeConfiguration(

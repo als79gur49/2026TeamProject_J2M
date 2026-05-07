@@ -34,6 +34,7 @@ namespace Game.Feature.Stages
             StaticEntityPresentationCatalog staticEntityPresentationCatalog,
             StaticEntityPresentationBinding[] staticEntityPresentationBindings,
             BoardTilePresentationCatalog boardTilePresentationCatalog,
+            IReadOnlyList<BoardTilePresentationOverride> boardTilePresentationOverrides,
             TileFeaturePresentationCatalog tileFeaturePresentationCatalog,
             IReadOnlyList<TileFeaturePresentationResolvedBinding> tileFeatureBindings,
             string resultTitle,
@@ -52,6 +53,7 @@ namespace Game.Feature.Stages
             StaticEntityPresentationCatalog = staticEntityPresentationCatalog;
             StaticEntityPresentationBindings = staticEntityPresentationBindings ?? Array.Empty<StaticEntityPresentationBinding>();
             BoardTilePresentationCatalog = boardTilePresentationCatalog;
+            BoardTilePresentationOverrides = CloneReadOnlyBoardTileOverrides(boardTilePresentationOverrides);
             TileFeaturePresentationCatalog = tileFeaturePresentationCatalog;
             TileFeatureBindings = CloneReadOnlyBindings(tileFeatureBindings);
             ResultTitle = resultTitle ?? string.Empty;
@@ -82,6 +84,8 @@ namespace Game.Feature.Stages
 
         public BoardTilePresentationCatalog BoardTilePresentationCatalog { get; }
 
+        public IReadOnlyList<BoardTilePresentationOverride> BoardTilePresentationOverrides { get; }
+
         public TileFeaturePresentationCatalog TileFeaturePresentationCatalog { get; }
 
         public IReadOnlyList<TileFeaturePresentationResolvedBinding> TileFeatureBindings { get; }
@@ -109,6 +113,26 @@ namespace Game.Feature.Stages
             }
 
             return new ReadOnlyCollection<TileFeaturePresentationResolvedBinding>(bindings);
+        }
+
+        private static IReadOnlyList<BoardTilePresentationOverride> CloneReadOnlyBoardTileOverrides(
+            IReadOnlyList<BoardTilePresentationOverride> source)
+        {
+            if (source == null || source.Count == 0)
+            {
+                return Array.Empty<BoardTilePresentationOverride>();
+            }
+
+            var overrides = new BoardTilePresentationOverride[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                var entry = source[i];
+                overrides[i] = entry == null
+                    ? null
+                    : new BoardTilePresentationOverride(entry.Cell, entry.PresentationKey);
+            }
+
+            return new ReadOnlyCollection<BoardTilePresentationOverride>(overrides);
         }
     }
 
@@ -146,6 +170,7 @@ namespace Game.Feature.Stages
             null,
             Array.Empty<StaticEntityPresentationBinding>(),
             null,
+            Array.Empty<BoardTilePresentationOverride>(),
             null,
             Array.Empty<TileFeaturePresentationResolvedBinding>(),
             string.Empty,
@@ -172,6 +197,7 @@ namespace Game.Feature.Stages
                 definition.StaticEntityPresentationCatalog,
                 CloneBindings(definition.StaticEntityPresentationBindings),
                 definition.BoardTilePresentationCatalog,
+                definition.BoardTilePresentationOverrides,
                 definition.TileFeaturePresentationCatalog,
                 ResolveTileFeatureBindings(definition.TileFeaturePresentationBindings),
                 definition.ResultTitle,
@@ -201,6 +227,7 @@ namespace Game.Feature.Stages
                 definition.StaticEntityPresentationCatalog,
                 CloneBindings(definition.StaticEntityPresentationBindings),
                 definition.BoardTilePresentationCatalog,
+                definition.BoardTilePresentationOverrides,
                 definition.TileFeaturePresentationCatalog,
                 ResolveTileFeatureBindings(
                     gameplayDefinition,
@@ -231,6 +258,26 @@ namespace Game.Feature.Stages
             }
 
             return bindings;
+        }
+
+        public static BoardTilePresentationOverride[] ToAuthoringBoardTilePresentationOverrides(
+            IReadOnlyList<BoardTilePresentationOverride> source)
+        {
+            if (source == null || source.Count == 0)
+            {
+                return Array.Empty<BoardTilePresentationOverride>();
+            }
+
+            var overrides = new BoardTilePresentationOverride[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                var entry = source[i];
+                overrides[i] = entry == null
+                    ? null
+                    : new BoardTilePresentationOverride(entry.Cell, entry.PresentationKey);
+            }
+
+            return overrides;
         }
 
         internal static EnemyPresentationBinding[] BuildEnemyBindings(IReadOnlyList<StageSpawnDefinition> spawns)

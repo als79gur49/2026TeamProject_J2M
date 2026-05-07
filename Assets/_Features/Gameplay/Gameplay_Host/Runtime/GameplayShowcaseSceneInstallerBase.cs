@@ -38,7 +38,8 @@ namespace Game.Feature.Gameplay.Host
                 StaticEntityPresentationCatalog staticEntityPresentationCatalog,
                 StaticEntityPresentationBinding[] staticEntityPresentationBindings,
                 BoardTilePresentationCatalog boardTilePresentationCatalog,
-                IReadOnlyList<TileFeaturePresentationResolvedBinding> tileFeaturePresentationBindings)
+                IReadOnlyList<TileFeaturePresentationResolvedBinding> tileFeaturePresentationBindings,
+                IReadOnlyList<BoardTilePresentationOverride> boardTilePresentationOverrides = null)
             {
                 BoardBounds = boardBounds;
                 InitialTopology = initialTopology;
@@ -58,6 +59,8 @@ namespace Game.Feature.Gameplay.Host
                 StaticEntityPresentationCatalog = staticEntityPresentationCatalog;
                 StaticEntityPresentationBindings = staticEntityPresentationBindings ?? Array.Empty<StaticEntityPresentationBinding>();
                 BoardTilePresentationCatalog = boardTilePresentationCatalog;
+                BoardTilePresentationOverrides =
+                    boardTilePresentationOverrides ?? Array.Empty<BoardTilePresentationOverride>();
                 TileFeaturePresentationBindings =
                     tileFeaturePresentationBindings ?? Array.Empty<TileFeaturePresentationResolvedBinding>();
             }
@@ -97,6 +100,8 @@ namespace Game.Feature.Gameplay.Host
             public StaticEntityPresentationBinding[] StaticEntityPresentationBindings { get; }
 
             public BoardTilePresentationCatalog BoardTilePresentationCatalog { get; }
+
+            public IReadOnlyList<BoardTilePresentationOverride> BoardTilePresentationOverrides { get; }
 
             public IReadOnlyList<TileFeaturePresentationResolvedBinding> TileFeaturePresentationBindings { get; }
         }
@@ -314,6 +319,7 @@ namespace Game.Feature.Gameplay.Host
                 StaticEntityPresentationBindings = initialState.StaticEntityPresentationBindings,
                 StaticEntityPresentationCatalog = ResolveConfiguredStaticEntityPresentationCatalog(initialState),
                 BoardTilePresentationCatalog = initialState.BoardTilePresentationCatalog,
+                BoardTilePresentationOverrides = initialState.BoardTilePresentationOverrides,
                 TileFeaturePresentationBindings = initialState.TileFeaturePresentationBindings,
                 InitialBoardBounds = initialState.BoardBounds,
                 InitialEntities = initialState.InitialEntities,

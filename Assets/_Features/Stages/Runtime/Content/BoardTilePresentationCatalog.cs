@@ -47,6 +47,42 @@ namespace Game.Feature.Stages
         public IReadOnlyList<BoardTilePresentationCatalogEntry> Entries =>
             entries ?? Array.Empty<BoardTilePresentationCatalogEntry>();
 
+        public bool TryGetEntry(
+            string presentationKey,
+            out BoardTilePresentationCatalogEntry entry)
+        {
+            var normalizedKey = NormalizePresentationKey(presentationKey);
+            if (string.IsNullOrEmpty(normalizedKey))
+            {
+                entry = null;
+                return false;
+            }
+
+            BoardTilePresentationCatalogEntry match = null;
+            var matchCount = 0;
+            var source = Entries;
+            for (var i = 0; i < source.Count; i++)
+            {
+                var candidate = source[i];
+                if (candidate == null ||
+                    !string.Equals(candidate.PresentationKey, normalizedKey, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                match = candidate;
+                matchCount++;
+                if (matchCount > 1)
+                {
+                    entry = null;
+                    return false;
+                }
+            }
+
+            entry = matchCount == 1 ? match : null;
+            return entry != null;
+        }
+
         public bool TryGetDefaultEntry(
             BoardTileVisualRole role,
             out BoardTilePresentationCatalogEntry entry)

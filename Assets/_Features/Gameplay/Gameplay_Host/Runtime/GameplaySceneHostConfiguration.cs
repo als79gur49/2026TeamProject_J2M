@@ -137,6 +137,8 @@ namespace Game.Feature.Gameplay.Host
         public StaticEntityPresentationCatalog StaticEntityPresentationCatalog;
         public StaticEntityPresentationBinding[] StaticEntityPresentationBindings = Array.Empty<StaticEntityPresentationBinding>();
         public BoardTilePresentationCatalog BoardTilePresentationCatalog;
+        public IReadOnlyList<BoardTilePresentationOverride> BoardTilePresentationOverrides =
+            Array.Empty<BoardTilePresentationOverride>();
         public IReadOnlyList<TileFeaturePresentationResolvedBinding> TileFeaturePresentationBindings =
             Array.Empty<TileFeaturePresentationResolvedBinding>();
         public BoardBounds InitialBoardBounds = BoardBounds.Unbounded;
