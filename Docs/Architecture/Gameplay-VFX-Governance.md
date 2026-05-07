@@ -123,6 +123,7 @@ Ownership:
 Boundaries:
 
 - `FlipImpactBurst` remains contact feedback at the impact cell for Stay and DestroySelf.
+- `FlipImpactStayTrail` is the attached trail/emitter during Stay original-view motion; it is not contact feedback and not DestroySelf clone/fade.
 - `FlipDestroySelfMotion` remains DestroySelf clone/fade motion only and does not consume Stay.
 - `BoxDestroySmoke`/`DestroyShrink` duplicate guards remain DestroySelf/exit cleanup concerns.
 - `ImpactTransientBreak` remains a reserved break hook, not a Stay replacement.
@@ -148,9 +149,44 @@ Current concrete user:
 VFX boundaries:
 
 - `FlipImpactBurst` remains contact feedback only.
+- `FlipImpactStayTrail` may attach to the original box view/model root while `FlipImpact Stay` is active, but follows only through transform parenting.
 - `FlipDestroySelfMotion` remains DestroySelf clone/fade VFX only and must reject Stay.
 - `ParameterizedMotionVfxCommand` must not replace Stay original-view motion.
 - `GameplayVfxProductionRuntime` must not move or own original entity views through `PresentationMotionTrack` or `OriginalViewMotionTracks`.
+
+## MotionTrack-Following VFX Support
+
+MotionTrack-following VFX is a presentation-only attachment lifecycle for effects that should visually follow host-owned original-view motion. The v1 implementation is attached follower playback, not a sample-follow resolver.
+
+Categories:
+
+- Existing motion-like VFX computes its own source-to-target command, such as `BoxVfxCue.SlideDustTrail` through `ParameterizedMotionVfxCommand`.
+- MotionTrack-attached VFX follows original-view motion by parenting a pooled VFX instance under the source entity view/model root.
+- Future sample-following VFX may resolve `PresentationMotionTrack` samples into a VFX anchor directly; production `VfxAnchorKind.MotionTrack` sample resolving remains future work.
+
+First concrete user:
+
+- cue: `BoxVfxCue.FlipImpactStayTrail`
+- flag: `EnableGameplayVfxFlipImpactStayTrail`
+- source motion: `PresentationMotionKind.FlipImpactStay`
+- attach point: source box `GameplayEntityView.ModelRoot`, falling back to the view transform
+- lifecycle: attach on active track, detach on complete/cancel/missing owner/flag off, then `StopEmittingThenRelease` through the pool tail
+
+Ownership:
+
+- `PresentationMotionTrack` owns the Stay original-view motion sample.
+- `GameplayEntityPresentationApplier` owns applying sampled pose/scale to the original entity view.
+- `BoxFlipInteractionDriver` owns grip, visualRoot overlay, and reset behavior.
+- Gameplay VFX runtime/pool owns only the attached VFX instance and tail lifecycle.
+- Gameplay VFX does not move, reset, scale, or otherwise own the original box view transform.
+
+Boundaries:
+
+- No `TickPresentationData`, `WorldState`, `WorldSnapshot`, or `TickPipeline` shape change.
+- Missing trail binding, prefab, or owner view is diagnostic/no-op and does not suppress Stay motion.
+- `FlipImpactBurst` remains contact feedback.
+- `FlipDestroySelfMotion` remains DestroySelf clone/fade and must not consume Stay.
+- Box destroy, shrink, and reserved impact break duplicate guards remain unchanged.
 
 Future inventory:
 
@@ -166,7 +202,7 @@ Future inventory:
 Future slices:
 
 - `PresentationMotionTrack Multi-User Expansion`: successful flip, box slide, unit motion, and other original-view motion candidates.
-- `MotionTrack-Following VFX Support`: VFX anchor/follow support that follows original-view motion without replacing the motion owner.
+- `MotionTrack Sample-Follow VFX Support`: VFX anchor support that resolves motion samples directly without replacing the motion owner.
 
 ## FlipImpact DestroySelf Motion VFX Migration
 
@@ -1209,6 +1245,7 @@ Box destroy suppress ownership is cleaned up. Old BoxDestroy shrink/fade playbac
 | `EnableGameplayVfxEnemyDeathBurstMigration` | `EnemyVfxCue.Death` | Migration burst | True | Tier 3 | Yes | approved in Tier 3 rollout batch; requires post-rollout visual monitoring + rollback review |
 | `EnableGameplayVfxEnemyDeathMotionMigration` | `EnemyVfxCue.DeathMotion` | Migration / parameterized motion | True | Tier 3 | Yes | approved in Tier 3 rollout batch; requires post-rollout visual monitoring + rollback review |
 | `EnableGameplayVfxFlipDestroySelfMotionMigration` | `BoxVfxCue.FlipDestroySelfMotion` | Migration / parameterized clone motion | True | Tier 3 | Yes | approved in Tier 3 rollout batch; requires post-rollout visual monitoring + rollback review |
+| `EnableGameplayVfxFlipImpactStayTrail` | `BoxVfxCue.FlipImpactStayTrail` | Augmentation / MotionTrack-attached VFX | True | Tier 1 | Yes | targeted MotionTrack-following tests + visual spot check |
 
 ## Binding Asset Ownership
 
