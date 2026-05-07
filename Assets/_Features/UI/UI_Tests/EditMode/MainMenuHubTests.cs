@@ -7,6 +7,7 @@ using Game.Feature.UI.Composition;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 using NUnit.Framework;
+using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
@@ -32,6 +33,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(prefab.transform.Find("MainCommandPanel/StartButton").GetSiblingIndex(), Is.EqualTo(0));
             Assert.That(prefab.transform.Find("MainCommandPanel/SettingsButton").GetSiblingIndex(), Is.EqualTo(1));
             Assert.That(prefab.transform.Find("MainCommandPanel/QuitButton").GetSiblingIndex(), Is.EqualTo(2));
+            AssertCommandButtonHoverScaleEffect(prefab.transform, "MainCommandPanel/StartButton");
+            AssertCommandButtonHoverScaleEffect(prefab.transform, "MainCommandPanel/SettingsButton");
+            AssertCommandButtonHoverScaleEffect(prefab.transform, "MainCommandPanel/QuitButton");
         }
 
         [Test]
@@ -168,9 +172,7 @@ namespace Game.Feature.UI.Tests
                 var cards = new SaveSlotCardView[SaveSlotPanelView.RequiredSlotCardCount];
                 for (var i = 0; i < cards.Length; i++)
                 {
-                    var cardObject = new GameObject($"SaveSlotCard{i + 1}", typeof(RectTransform));
-                    cardObject.transform.SetParent(root.transform, false);
-                    cards[i] = cardObject.AddComponent<SaveSlotCardView>();
+                    cards[i] = CreateAuthoredSaveSlotCard($"SaveSlotCard{i + 1}", root.transform);
                 }
 
                 SetPrivateField(panel, "_slotCards", cards);
@@ -211,9 +213,7 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var panel = root.AddComponent<SaveSlotPanelView>();
-                var cardObject = new GameObject("SaveSlotCard1", typeof(RectTransform));
-                cardObject.transform.SetParent(root.transform, false);
-                var card = cardObject.AddComponent<SaveSlotCardView>();
+                var card = CreateAuthoredSaveSlotCard("SaveSlotCard1", root.transform);
                 SetPrivateField(panel, "_slotCards", new[] { card, null, null });
 
                 root.SetActive(true);
@@ -247,6 +247,7 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var card = root.AddComponent<SaveSlotCardView>();
+                AuthorSaveSlotCard(card);
                 root.SetActive(true);
                 InvokePrivate(card, "OnEnable");
 
@@ -614,6 +615,76 @@ namespace Game.Feature.UI.Tests
             var buttonObject = new GameObject(name, typeof(RectTransform));
             buttonObject.transform.SetParent(parent, false);
             return buttonObject.AddComponent<Button>();
+        }
+
+        private static SaveSlotCardView CreateAuthoredSaveSlotCard(string name, Transform parent)
+        {
+            var cardObject = new GameObject(name, typeof(RectTransform));
+            cardObject.transform.SetParent(parent, false);
+            var card = cardObject.AddComponent<SaveSlotCardView>();
+            AuthorSaveSlotCard(card);
+            return card;
+        }
+
+        private static void AuthorSaveSlotCard(SaveSlotCardView card)
+        {
+            var headerRow = CreateRow("HeaderRow", card.transform);
+            var detailRow = CreateRow("DetailRow", card.transform);
+            var metaRow = CreateRow("MetaRow", card.transform);
+            var actionRow = CreateRow("ActionRow", card.transform);
+
+            SetPrivateField(card, "_titleLabel", CreateLabel("Title", headerRow));
+            SetPrivateField(card, "_statusLabel", CreateLabel("Status", headerRow));
+            SetPrivateField(card, "_stageLabel", CreateLabel("Stage", detailRow));
+            SetPrivateField(card, "_chancesLabel", CreateLabel("Chances", detailRow));
+            SetPrivateField(card, "_deathsLabel", CreateLabel("Deaths", metaRow));
+            SetPrivateField(card, "_lastPlayedLabel", CreateLabel("LastPlayed", metaRow));
+
+            var primaryButton = CreateActionButton("PrimaryButton", actionRow, out var primaryButtonLabel);
+            SetPrivateField(card, "_primaryButton", primaryButton);
+            SetPrivateField(card, "_primaryButtonLabel", primaryButtonLabel);
+            SetPrivateField(card, "_restartButton", CreateActionButton("RestartButton", actionRow, out _));
+            SetPrivateField(card, "_deleteButton", CreateActionButton("DeleteButton", actionRow, out _));
+        }
+
+        private static Transform CreateRow(string name, Transform parent)
+        {
+            var rowObject = new GameObject(name, typeof(RectTransform));
+            rowObject.transform.SetParent(parent, false);
+            return rowObject.transform;
+        }
+
+        private static TMP_Text CreateLabel(string name, Transform parent)
+        {
+            var labelObject = new GameObject(name, typeof(RectTransform));
+            labelObject.transform.SetParent(parent, false);
+            return labelObject.AddComponent<TextMeshProUGUI>();
+        }
+
+        private static Button CreateActionButton(string name, Transform parent, out TMP_Text label)
+        {
+            var buttonObject = new GameObject(name, typeof(RectTransform));
+            buttonObject.transform.SetParent(parent, false);
+            var button = buttonObject.AddComponent<Button>();
+            label = CreateLabel("Label", buttonObject.transform);
+            return button;
+        }
+
+        private static void AssertCommandButtonHoverScaleEffect(Transform root, string path)
+        {
+            var button = root.Find(path) as RectTransform;
+            Assert.That(button, Is.Not.Null, path);
+
+            var effect = button.GetComponent<UiHoverScaleEffect>();
+            Assert.That(effect, Is.Not.Null, path);
+
+            var serialized = new SerializedObject(effect);
+            Assert.That(serialized.FindProperty("_target").objectReferenceValue, Is.EqualTo(button), path);
+            Assert.That(serialized.FindProperty("_hoverScale").floatValue, Is.EqualTo(1.10f).Within(0.001f), path);
+            Assert.That(serialized.FindProperty("_pressedScale").floatValue, Is.EqualTo(1.04f).Within(0.001f), path);
+            Assert.That(serialized.FindProperty("_durationSeconds").floatValue, Is.EqualTo(0.12f).Within(0.001f), path);
+            Assert.That(serialized.FindProperty("_useUnscaledTime").boolValue, Is.True, path);
+            Assert.That(serialized.FindProperty("_restoreOnDisable").boolValue, Is.True, path);
         }
 
         private static string ReadRepoFile(string relativePath)

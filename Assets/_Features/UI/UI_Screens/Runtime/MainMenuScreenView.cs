@@ -34,8 +34,11 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private RectTransform _mainCommandPanel;
         [SerializeField] private SaveSlotPanelView _saveSlotPanel;
         [SerializeField] private Button _startButton;
+        [SerializeField] private TMP_Text _startButtonLabel;
         [SerializeField] private Button _settingsButton;
+        [SerializeField] private TMP_Text _settingsButtonLabel;
         [SerializeField] private Button _quitButton;
+        [SerializeField] private TMP_Text _quitButtonLabel;
 
         public event Action<MainMenuCommandIntent> CommandRequested;
 
@@ -63,8 +66,11 @@ namespace Game.Feature.UI.Screens
                 _mainCommandPanel == null ||
                 _saveSlotPanel == null ||
                 _startButton == null ||
+                _startButtonLabel == null ||
                 _settingsButton == null ||
-                _quitButton == null)
+                _settingsButtonLabel == null ||
+                _quitButton == null ||
+                _quitButtonLabel == null)
             {
                 throw new InvalidOperationException(MissingAuthoredStructureMessage);
             }
@@ -73,7 +79,13 @@ namespace Game.Feature.UI.Screens
                 _contentHost.parent != transform ||
                 _bottomBar.parent != transform ||
                 _mainCommandPanel.parent != transform ||
-                _saveSlotPanel.transform.parent != _contentHost)
+                _saveSlotPanel.transform.parent != _contentHost ||
+                _startButton.transform.parent != _mainCommandPanel ||
+                _settingsButton.transform.parent != _mainCommandPanel ||
+                _quitButton.transform.parent != _mainCommandPanel ||
+                _startButtonLabel.transform.parent != _startButton.transform ||
+                _settingsButtonLabel.transform.parent != _settingsButton.transform ||
+                _quitButtonLabel.transform.parent != _quitButton.transform)
             {
                 throw new InvalidOperationException(MissingAuthoredStructureMessage);
             }
@@ -175,13 +187,7 @@ namespace Game.Feature.UI.Screens
                 _root = gameObject;
             }
 
-            var rootRect = _root.GetComponent<RectTransform>();
-            if (rootRect == null)
-            {
-                rootRect = _root.AddComponent<RectTransform>();
-            }
-
-            return rootRect;
+            return _root.GetComponent<RectTransform>();
         }
 
         private void ConfigureShellChild(
@@ -226,14 +232,14 @@ namespace Game.Feature.UI.Screens
                 childForceExpandWidth: false,
                 childForceExpandHeight: false);
 
-            ConfigureCommandButton(_startButton, 0, "Start");
-            ConfigureCommandButton(_settingsButton, 1, "Setting");
-            ConfigureCommandButton(_quitButton, 2, "Quit");
+            ConfigureCommandButton(_startButton, _startButtonLabel, 0, "Start");
+            ConfigureCommandButton(_settingsButton, _settingsButtonLabel, 1, "Setting");
+            ConfigureCommandButton(_quitButton, _quitButtonLabel, 2, "Quit");
         }
 
-        private void ConfigureCommandButton(Button button, int siblingIndex, string label)
+        private void ConfigureCommandButton(Button button, TMP_Text buttonLabel, int siblingIndex, string label)
         {
-            if (button == null || _mainCommandPanel == null)
+            if (button == null || buttonLabel == null || _mainCommandPanel == null)
             {
                 return;
             }
@@ -248,25 +254,15 @@ namespace Game.Feature.UI.Screens
                 preferredHeight: MainCommandButtonHeight,
                 flexibleWidth: 0f,
                 flexibleHeight: 0f);
-            EnsureButtonLabel(button, label);
+            ConfigureCommandButtonLabel(buttonLabel, label);
             button.transform.SetSiblingIndex(siblingIndex);
         }
 
-        private static void EnsureButtonLabel(Button button, string label)
+        private static void ConfigureCommandButtonLabel(TMP_Text text, string label)
         {
-            if (button == null)
-            {
-                return;
-            }
-
-            var text = button.GetComponentInChildren<TMP_Text>(true);
             if (text == null)
             {
-                var labelObject = new GameObject("Label", typeof(RectTransform));
-                labelObject.transform.SetParent(button.transform, false);
-                var labelRect = (RectTransform)labelObject.transform;
-                SettingsLayoutUtility.Stretch(labelRect);
-                text = labelObject.AddComponent<TextMeshProUGUI>();
+                return;
             }
 
             text.text = label ?? string.Empty;

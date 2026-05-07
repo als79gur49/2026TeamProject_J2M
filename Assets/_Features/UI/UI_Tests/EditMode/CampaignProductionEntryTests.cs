@@ -11,9 +11,11 @@ using Game.Feature.UI.Screens;
 using Game.Shared.Audio;
 using Game.Shared.Display;
 using NUnit.Framework;
+using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 namespace Game.Feature.UI.Tests
 {
@@ -133,6 +135,10 @@ namespace Game.Feature.UI.Tests
             Assert.That(prefab, Is.Not.Null);
             Assert.That(prefab.SaveSlotPanel, Is.Not.Null);
             Assert.That(prefab.SaveSlotPanel.GetComponentsInChildren<SaveSlotCardView>(true).Length, Is.EqualTo(3));
+            prefab.ValidateAuthoredStructureOrThrow();
+            Assert.That(prefab.transform.Find("MainCommandPanel/StartButton/Label").GetComponent<TMP_Text>(), Is.Not.Null);
+            Assert.That(prefab.transform.Find("MainCommandPanel/SettingsButton/Label").GetComponent<TMP_Text>(), Is.Not.Null);
+            Assert.That(prefab.transform.Find("MainCommandPanel/QuitButton/Label").GetComponent<TMP_Text>(), Is.Not.Null);
 
             var serialized = new SerializedObject(prefab.SaveSlotPanel);
             var cards = serialized.FindProperty("_slotCards");
@@ -140,8 +146,41 @@ namespace Game.Feature.UI.Tests
             Assert.That(cards.arraySize, Is.EqualTo(3));
             for (var i = 0; i < cards.arraySize; i++)
             {
-                Assert.That(cards.GetArrayElementAtIndex(i).objectReferenceValue, Is.TypeOf<SaveSlotCardView>());
+                var card = cards.GetArrayElementAtIndex(i).objectReferenceValue as SaveSlotCardView;
+                Assert.That(card, Is.Not.Null);
+                card.ValidateAuthoredStructureOrThrow();
+                Assert.That(card.GetComponent<Image>(), Is.Not.Null);
+                Assert.That(card.GetComponent<VerticalLayoutGroup>(), Is.Not.Null);
+                Assert.That(card.transform.Find("HeaderRow").GetComponent<HorizontalLayoutGroup>(), Is.Not.Null);
+                Assert.That(card.transform.Find("DetailRow").GetComponent<HorizontalLayoutGroup>(), Is.Not.Null);
+                Assert.That(card.transform.Find("MetaRow").GetComponent<HorizontalLayoutGroup>(), Is.Not.Null);
+                Assert.That(card.transform.Find("ActionRow").GetComponent<HorizontalLayoutGroup>(), Is.Not.Null);
+
+                var serializedCard = new SerializedObject(card);
+                AssertSerializedReference(serializedCard, "_titleLabel", typeof(TMP_Text));
+                AssertSerializedReference(serializedCard, "_statusLabel", typeof(TMP_Text));
+                AssertSerializedReference(serializedCard, "_stageLabel", typeof(TMP_Text));
+                AssertSerializedReference(serializedCard, "_chancesLabel", typeof(TMP_Text));
+                AssertSerializedReference(serializedCard, "_deathsLabel", typeof(TMP_Text));
+                AssertSerializedReference(serializedCard, "_lastPlayedLabel", typeof(TMP_Text));
+                AssertSerializedReference(serializedCard, "_primaryButton", typeof(Button));
+                AssertSerializedReference(serializedCard, "_primaryButtonLabel", typeof(TMP_Text));
+                AssertSerializedReference(serializedCard, "_restartButton", typeof(Button));
+                AssertSerializedReference(serializedCard, "_deleteButton", typeof(Button));
             }
+        }
+
+        [Test]
+        public void MainMenuScreenSource_DoesNotCreateAuthoredPrefabUiAtRuntime()
+        {
+            var mainMenuSource = ReadRepoFile("Assets/_Features/UI/UI_Screens/Runtime/MainMenuScreenView.cs");
+            var saveSlotSource = ReadRepoFile("Assets/_Features/UI/UI_Screens/Runtime/SaveSlotCardView.cs");
+
+            Assert.That(mainMenuSource, Does.Not.Contain("new GameObject"));
+            Assert.That(mainMenuSource, Does.Not.Contain("AddComponent<"));
+            Assert.That(saveSlotSource, Does.Not.Contain("new GameObject"));
+            Assert.That(saveSlotSource, Does.Not.Contain("AddComponent<"));
+            Assert.That(saveSlotSource, Does.Not.Contain("EnsureDefaultHierarchy"));
         }
 
         [Test]
@@ -486,6 +525,14 @@ namespace Game.Feature.UI.Tests
         private static string ReadRepoFile(string relativePath)
         {
             return File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), relativePath));
+        }
+
+        private static void AssertSerializedReference(SerializedObject serializedObject, string propertyName, Type expectedType)
+        {
+            var property = serializedObject.FindProperty(propertyName);
+            Assert.That(property, Is.Not.Null, propertyName);
+            Assert.That(property.objectReferenceValue, Is.Not.Null, propertyName);
+            Assert.That(expectedType.IsInstanceOfType(property.objectReferenceValue), Is.True, propertyName);
         }
 
         private static string CreatePrefsKey(string suffix)
