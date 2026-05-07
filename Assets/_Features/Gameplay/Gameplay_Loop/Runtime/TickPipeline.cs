@@ -270,7 +270,9 @@ namespace Game.Feature.Gameplay.Loop
                 objectiveResult,
                 _objectiveTracker.ObjectiveDefinition,
                 _tileFeatureDefinitions,
-                resolvePhaseResult.GravityFieldPresentationEvents);
+                resolvePhaseResult.GravityFieldPresentationEvents,
+                _gravityFieldChargeTicks,
+                _gravityFieldActiveTicks);
             var pendingDelayedAttackEffects = _delayedAttackEffectQueue.Snapshot();
             var tickResultData = _tickResultBuilder.Build(
                 finalAuthoritativeSnapshot,
