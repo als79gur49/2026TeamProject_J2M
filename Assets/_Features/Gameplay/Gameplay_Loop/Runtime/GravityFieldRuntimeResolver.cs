@@ -56,7 +56,8 @@ namespace Game.Feature.Gameplay.Loop
         public GravityFieldRuntimeResolverResult(
             FinalizationBatch batch,
             IReadOnlyList<string> eventLogEntries,
-            IReadOnlyList<GravityFieldPresentationEvent> presentationEvents)
+            IReadOnlyList<GravityFieldPresentationEvent> presentationEvents,
+            IReadOnlyList<GravityFieldLockedTargetFact> lockedTargetFacts = null)
         {
             Batch = batch ?? throw new ArgumentNullException(nameof(batch));
             EventLogEntries = new ReadOnlyCollection<string>(
@@ -64,6 +65,9 @@ namespace Game.Feature.Gameplay.Loop
             PresentationEvents = new ReadOnlyCollection<GravityFieldPresentationEvent>(
                 new List<GravityFieldPresentationEvent>(
                     presentationEvents ?? Array.Empty<GravityFieldPresentationEvent>()));
+            LockedTargetFacts = new ReadOnlyCollection<GravityFieldLockedTargetFact>(
+                new List<GravityFieldLockedTargetFact>(
+                    lockedTargetFacts ?? Array.Empty<GravityFieldLockedTargetFact>()));
         }
 
         public FinalizationBatch Batch { get; }
@@ -71,6 +75,27 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<string> EventLogEntries { get; }
 
         public IReadOnlyList<GravityFieldPresentationEvent> PresentationEvents { get; }
+
+        public IReadOnlyList<GravityFieldLockedTargetFact> LockedTargetFacts { get; }
+    }
+
+    internal readonly struct GravityFieldLockedTargetFact
+    {
+        public GravityFieldLockedTargetFact(
+            int emitterEntityId,
+            int targetEntityId,
+            SurfaceCell emitterCell)
+        {
+            EmitterEntityId = emitterEntityId;
+            TargetEntityId = targetEntityId;
+            EmitterCell = emitterCell;
+        }
+
+        public int EmitterEntityId { get; }
+
+        public int TargetEntityId { get; }
+
+        public SurfaceCell EmitterCell { get; }
     }
 
     internal static class GravityFieldRuntimeResolver
@@ -89,6 +114,7 @@ namespace Game.Feature.Gameplay.Loop
             var batch = new FinalizationBatch();
             var eventLogEntries = new List<string>();
             var presentationEvents = new List<GravityFieldPresentationEvent>();
+            var lockedTargetFacts = new List<GravityFieldLockedTargetFact>();
             var entities = new List<EntityState>();
             snapshot.EnumerateEntitiesOrdered(entities);
             var plannedLocksByBoxEntityId = new Dictionary<int, BoxInteractionLockState>();
@@ -110,12 +136,13 @@ namespace Game.Feature.Gameplay.Loop
                     batch,
                     eventLogEntries,
                     presentationEvents,
+                    lockedTargetFacts,
                     plannedLocksByBoxEntityId);
             }
 
             if (plannedLocksByBoxEntityId.Count == 0)
             {
-                return new GravityFieldRuntimeResolverResult(batch, eventLogEntries, presentationEvents);
+                return new GravityFieldRuntimeResolverResult(batch, eventLogEntries, presentationEvents, lockedTargetFacts);
             }
 
             var orderedTargetIds = new List<int>(plannedLocksByBoxEntityId.Keys);
@@ -142,7 +169,7 @@ namespace Game.Feature.Gameplay.Loop
                     $"GravityFieldLockApplied|Source={state.SourceEntityId}|Box={targetId}|Expires={state.ExpiresTickExclusive}|BlocksPush={(state.BlocksPush ? 1 : 0)}|BlocksFlip={(state.BlocksFlip ? 1 : 0)}|BlocksDestroy={(state.BlocksDestroy ? 1 : 0)}");
             }
 
-            return new GravityFieldRuntimeResolverResult(batch, eventLogEntries, presentationEvents);
+            return new GravityFieldRuntimeResolverResult(batch, eventLogEntries, presentationEvents, lockedTargetFacts);
         }
 
         private static void ResolveEmitter(
@@ -154,6 +181,7 @@ namespace Game.Feature.Gameplay.Loop
             FinalizationBatch batch,
             List<string> eventLogEntries,
             List<GravityFieldPresentationEvent> presentationEvents,
+            List<GravityFieldLockedTargetFact> lockedTargetFacts,
             IDictionary<int, BoxInteractionLockState> plannedLocksByBoxEntityId)
         {
             if (!IsEligibleEmitter(snapshot, emitter))
@@ -216,7 +244,7 @@ namespace Game.Feature.Gameplay.Loop
 
             if (applyActiveField)
             {
-                ApplyActiveField(snapshot, emitter, tickIndex, plannedLocksByBoxEntityId);
+                ApplyActiveField(snapshot, emitter, tickIndex, lockedTargetFacts, plannedLocksByBoxEntityId);
             }
         }
 
@@ -236,6 +264,7 @@ namespace Game.Feature.Gameplay.Loop
             WorldSnapshot snapshot,
             in EntityState emitter,
             int tickIndex,
+            List<GravityFieldLockedTargetFact> lockedTargetFacts,
             IDictionary<int, BoxInteractionLockState> plannedLocksByBoxEntityId)
         {
             var targetEntityIds = new HashSet<int>();
@@ -267,6 +296,10 @@ namespace Game.Feature.Gameplay.Loop
             for (var i = 0; i < orderedTargetIds.Count; i++)
             {
                 var targetId = orderedTargetIds[i];
+                lockedTargetFacts.Add(new GravityFieldLockedTargetFact(
+                    emitter.entityId,
+                    targetId,
+                    emitter.position));
                 var hasPlanned = plannedLocksByBoxEntityId.TryGetValue(targetId, out var planned);
                 var hasExisting = snapshot.TryGetActiveBoxInteractionLockState(targetId, tickIndex, out var existing);
                 var merged = !hasPlanned && !hasExisting

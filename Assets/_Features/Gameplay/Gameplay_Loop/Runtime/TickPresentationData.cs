@@ -154,6 +154,11 @@ namespace Game.Feature.Gameplay.Loop
 
     public readonly struct GravityFieldVisualState
     {
+        private static readonly IReadOnlyList<int> EmptyLockedTargetEntityIds =
+            new ReadOnlyCollection<int>(new List<int>());
+
+        private readonly IReadOnlyList<int> _lockedTargetEntityIds;
+
         public GravityFieldVisualState(
             int emitterEntityId,
             SurfaceCell cell,
@@ -168,7 +173,8 @@ namespace Game.Feature.Gameplay.Loop
                 timerTicks,
                 durationTicks,
                 progress01,
-                GravityFieldAreaFootprint.Empty)
+                GravityFieldAreaFootprint.Empty,
+                Array.Empty<int>())
         {
         }
 
@@ -180,6 +186,27 @@ namespace Game.Feature.Gameplay.Loop
             int durationTicks,
             float progress01,
             GravityFieldAreaFootprint areaFootprint)
+            : this(
+                emitterEntityId,
+                cell,
+                phase,
+                timerTicks,
+                durationTicks,
+                progress01,
+                areaFootprint,
+                Array.Empty<int>())
+        {
+        }
+
+        public GravityFieldVisualState(
+            int emitterEntityId,
+            SurfaceCell cell,
+            GravityFieldPhase phase,
+            int timerTicks,
+            int durationTicks,
+            float progress01,
+            GravityFieldAreaFootprint areaFootprint,
+            IEnumerable<int> lockedTargetEntityIds)
         {
             EmitterEntityId = emitterEntityId;
             Cell = cell;
@@ -188,6 +215,7 @@ namespace Game.Feature.Gameplay.Loop
             DurationTicks = durationTicks;
             Progress01 = Clamp01(progress01);
             AreaFootprint = areaFootprint;
+            _lockedTargetEntityIds = BuildLockedTargetEntityIds(phase, lockedTargetEntityIds);
         }
 
         public int EmitterEntityId { get; }
@@ -206,6 +234,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public IReadOnlyList<SurfaceCell> AreaCells => AreaFootprint.AreaCells;
 
+        public IReadOnlyList<int> LockedTargetEntityIds => _lockedTargetEntityIds ?? EmptyLockedTargetEntityIds;
+
         private static float Clamp01(float value)
         {
             if (value <= 0f)
@@ -214,6 +244,33 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return value >= 1f ? 1f : value;
+        }
+
+        private static IReadOnlyList<int> BuildLockedTargetEntityIds(
+            GravityFieldPhase phase,
+            IEnumerable<int> lockedTargetEntityIds)
+        {
+            if (phase != GravityFieldPhase.Active)
+            {
+                return EmptyLockedTargetEntityIds;
+            }
+
+            var ids = new List<int>();
+            foreach (var targetEntityId in lockedTargetEntityIds ?? Array.Empty<int>())
+            {
+                if (targetEntityId > 0 && !ids.Contains(targetEntityId))
+                {
+                    ids.Add(targetEntityId);
+                }
+            }
+
+            if (ids.Count == 0)
+            {
+                return EmptyLockedTargetEntityIds;
+            }
+
+            ids.Sort();
+            return new ReadOnlyCollection<int>(ids);
         }
     }
 

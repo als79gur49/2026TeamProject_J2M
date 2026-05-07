@@ -272,7 +272,8 @@ namespace Game.Feature.Gameplay.Loop
                 _tileFeatureDefinitions,
                 resolvePhaseResult.GravityFieldPresentationEvents,
                 _gravityFieldChargeTicks,
-                _gravityFieldActiveTicks);
+                _gravityFieldActiveTicks,
+                resolvePhaseResult.GravityFieldLockedTargetFacts);
             var pendingDelayedAttackEffects = _delayedAttackEffectQueue.Snapshot();
             var tickResultData = _tickResultBuilder.Build(
                 finalAuthoritativeSnapshot,
@@ -742,7 +743,8 @@ namespace Game.Feature.Gameplay.Loop
                 snapshotAfterEnemyAi,
                 planSnapshot,
                 planFinalizationBatch,
-                gravityFieldResult.PresentationEvents);
+                gravityFieldResult.PresentationEvents,
+                gravityFieldResult.LockedTargetFacts);
         }
 
         private ResolvePhaseResult RunResolvePhase(
@@ -1256,7 +1258,8 @@ namespace Game.Feature.Gameplay.Loop
                 contests,
                 resolutionRecords,
                 tilePresentationEvents,
-                planPhaseResult.GravityFieldPresentationEvents);
+                planPhaseResult.GravityFieldPresentationEvents,
+                planPhaseResult.GravityFieldLockedTargetFacts);
         }
 
         private void RunFinalizePhase(

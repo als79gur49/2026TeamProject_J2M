@@ -11,6 +11,8 @@ namespace Game.Feature.Gameplay.Tests.Core
     {
         private const string TileFeatureOverlayAdrPath =
             "Docs/Architecture/ADR/ADR-006-TileFeature-Overlay-Layer-Gate.md";
+        private const string GravityFieldLockedTargetPresentationPolicyPath =
+            "Docs/Architecture/GravityField-LockedTarget-Presentation-Policy.md";
         private const string TilePresentationRequestPlannerPath =
             "Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TilePresentationRequestPlanner.cs";
         private const string GameplayTickPresentationCoordinatorPath =
@@ -98,6 +100,29 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(document, Does.Contain("`StageRuntimeBuildResult` is a gameplay-only seed."));
             Assert.That(document, Does.Contain("Presentation prefab and binding data are owned by `StagePresentationDefinition`"));
             Assert.That(document, Does.Contain("VFX, audio, and UI must not call `WorldState.CreateSnapshot`"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GravityFieldLockedTargetPolicy_DocumentsReadModelAndClosedEventAudioScope()
+        {
+            var document = File.ReadAllText(GetAbsolutePath(GravityFieldLockedTargetPresentationPolicyPath));
+            var requiredSnippets = new[]
+            {
+                "GravityField is `EntityType.Box + BoxArchetype.GravityField`, not a TileFeature.",
+                "`GravityFieldVisualState.LockedTargetEntityIds` is the current presentation read model",
+                "`GravityFieldPresentationEventKind.LockedBox`, `GravityFieldPresentationRequestKind.LockedBox`, and `GravityFieldAudioCue.LockedBox` are intentionally not implemented",
+                "The read model must not be inferred from a final snapshot diff.",
+                "Future one-shot `LockedBox` event/audio, if opened, must debounce by emitter-target pair within a single active window.",
+                "The current MVP uses only a continuous read model, so there is no repeated event/audio spam path.",
+                "Locked target presentation data is presentation-only and does not enter the canonical determinism hash.",
+                "`TickPipeline` transports facts but must not execute prefab, audio, UI, or material work.",
+            };
+
+            for (var i = 0; i < requiredSnippets.Length; i++)
+            {
+                Assert.That(document, Does.Contain(requiredSnippets[i]));
+            }
         }
 
         [Test]

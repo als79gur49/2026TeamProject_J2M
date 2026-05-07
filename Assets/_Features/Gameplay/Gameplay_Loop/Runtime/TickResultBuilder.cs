@@ -377,7 +377,8 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
             IReadOnlyList<GravityFieldPresentationEvent> gravityFieldEvents = null,
             int gravityFieldChargeDurationTicks = 0,
-            int gravityFieldActiveDurationTicks = 0)
+            int gravityFieldActiveDurationTicks = 0,
+            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -398,7 +399,8 @@ namespace Game.Feature.Gameplay.Loop
                 tileFeatureDefinitions,
                 gravityFieldEvents,
                 gravityFieldChargeDurationTicks,
-                gravityFieldActiveDurationTicks)
+                gravityFieldActiveDurationTicks,
+                gravityFieldLockedTargetFacts)
         {
         }
 
@@ -422,7 +424,8 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
             IReadOnlyList<GravityFieldPresentationEvent> gravityFieldEvents = null,
             int gravityFieldChargeDurationTicks = 0,
-            int gravityFieldActiveDurationTicks = 0)
+            int gravityFieldActiveDurationTicks = 0,
+            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -444,7 +447,8 @@ namespace Game.Feature.Gameplay.Loop
                 tileFeatureDefinitions,
                 gravityFieldEvents,
                 gravityFieldChargeDurationTicks,
-                gravityFieldActiveDurationTicks)
+                gravityFieldActiveDurationTicks,
+                gravityFieldLockedTargetFacts)
         {
         }
 
@@ -468,7 +472,8 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
             IReadOnlyList<GravityFieldPresentationEvent> gravityFieldEvents = null,
             int gravityFieldChargeDurationTicks = 0,
-            int gravityFieldActiveDurationTicks = 0)
+            int gravityFieldActiveDurationTicks = 0,
+            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -490,7 +495,8 @@ namespace Game.Feature.Gameplay.Loop
                 tileFeatureDefinitions,
                 gravityFieldEvents,
                 gravityFieldChargeDurationTicks,
-                gravityFieldActiveDurationTicks)
+                gravityFieldActiveDurationTicks,
+                gravityFieldLockedTargetFacts)
         {
         }
 
@@ -515,7 +521,8 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
             IReadOnlyList<GravityFieldPresentationEvent> gravityFieldEvents = null,
             int gravityFieldChargeDurationTicks = 0,
-            int gravityFieldActiveDurationTicks = 0)
+            int gravityFieldActiveDurationTicks = 0,
+            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null)
         {
             PreMovementSnapshot = preMovementSnapshot ?? throw new ArgumentNullException(nameof(preMovementSnapshot));
             PostMovementSnapshot = postMovementSnapshot ?? throw new ArgumentNullException(nameof(postMovementSnapshot));
@@ -536,6 +543,7 @@ namespace Game.Feature.Gameplay.Loop
             ObjectiveDefinition = objectiveDefinition ?? StageObjectiveRuntimeDefinition.Disabled;
             TileFeatureDefinitions = tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
             GravityFieldEvents = gravityFieldEvents ?? Array.Empty<GravityFieldPresentationEvent>();
+            GravityFieldLockedTargetFacts = gravityFieldLockedTargetFacts ?? Array.Empty<GravityFieldLockedTargetFact>();
             GravityFieldChargeDurationTicks = gravityFieldChargeDurationTicks > 0
                 ? gravityFieldChargeDurationTicks
                 : GameplayTimingProfile.SecondsToCeilTicks(
@@ -580,6 +588,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<TilePresentationEvent> TileEvents { get; }
 
         public IReadOnlyList<GravityFieldPresentationEvent> GravityFieldEvents { get; }
+
+        public IReadOnlyList<GravityFieldLockedTargetFact> GravityFieldLockedTargetFacts { get; }
 
         public int GravityFieldChargeDurationTicks { get; }
 
@@ -719,6 +729,8 @@ namespace Game.Feature.Gameplay.Loop
         {
             var finalEntities = new List<EntityState>();
             var emittedEntityIds = new HashSet<int>();
+            var lockedTargetIdsByEmitterId = BuildGravityFieldLockedTargetIdsByEmitterId(
+                context.GravityFieldLockedTargetFacts);
             context.FinalAuthoritativeSnapshot.EnumerateEntitiesOrdered(finalEntities);
             for (var i = 0; i < finalEntities.Count; i++)
             {
@@ -737,6 +749,10 @@ namespace Game.Feature.Gameplay.Loop
                 var areaFootprint = entity.gravityFieldPhase == GravityFieldPhase.Active
                     ? GravityFieldAreaPolicy.BuildFootprint(context.FinalAuthoritativeSnapshot, entity.position)
                     : GravityFieldAreaFootprint.Empty;
+                IEnumerable<int> lockedTargetEntityIds = entity.gravityFieldPhase == GravityFieldPhase.Active &&
+                                                         lockedTargetIdsByEmitterId.TryGetValue(entity.entityId, out var targetIds)
+                    ? targetIds
+                    : Array.Empty<int>();
                 gravityFieldVisualStates.Add(
                     new GravityFieldVisualState(
                         entity.entityId,
@@ -745,8 +761,42 @@ namespace Game.Feature.Gameplay.Loop
                         Math.Max(0, entity.gravityFieldTimerTicks),
                         durationTicks,
                         CalculateProgress01(entity.gravityFieldTimerTicks, durationTicks),
-                        areaFootprint));
+                        areaFootprint,
+                        lockedTargetEntityIds));
             }
+        }
+
+        private static Dictionary<int, List<int>> BuildGravityFieldLockedTargetIdsByEmitterId(
+            IReadOnlyList<GravityFieldLockedTargetFact> facts)
+        {
+            var targetIdsByEmitterId = new Dictionary<int, List<int>>();
+            for (var i = 0; i < facts.Count; i++)
+            {
+                var fact = facts[i];
+                if (fact.EmitterEntityId <= 0 ||
+                    fact.TargetEntityId <= 0)
+                {
+                    continue;
+                }
+
+                if (!targetIdsByEmitterId.TryGetValue(fact.EmitterEntityId, out var targetIds))
+                {
+                    targetIds = new List<int>();
+                    targetIdsByEmitterId.Add(fact.EmitterEntityId, targetIds);
+                }
+
+                if (!targetIds.Contains(fact.TargetEntityId))
+                {
+                    targetIds.Add(fact.TargetEntityId);
+                }
+            }
+
+            foreach (var pair in targetIdsByEmitterId)
+            {
+                pair.Value.Sort();
+            }
+
+            return targetIdsByEmitterId;
         }
 
         private static int ResolveGravityFieldVisualDurationTicks(
