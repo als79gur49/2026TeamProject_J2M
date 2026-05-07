@@ -145,6 +145,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     .Append("|SpawnTick=").Append(entity.spawnTick)
                     .Append("|BoxCapabilities=").Append(entity.boxCapabilities)
                     .Append("|BoxArchetype=").Append(entity.boxArchetype)
+                    .Append("|GravityFieldPhase=").Append(entity.gravityFieldPhase)
+                    .Append("|GravityFieldTimer=").Append(entity.gravityFieldTimerTicks)
                     .Append("|KineticInstigator=").Append(entity.kineticInstigatorEntityId)
                     .Append("|KineticTeam=").Append(entity.kineticInstigatorTeamId)
                     .Append("|AiMode=").Append(entity.aiMode)

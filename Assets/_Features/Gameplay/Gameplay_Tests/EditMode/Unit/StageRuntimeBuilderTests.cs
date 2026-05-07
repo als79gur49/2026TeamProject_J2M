@@ -90,6 +90,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(TryGetEntity(buildResult.InitialEntities, 20, out var box), Is.True);
                 Assert.That(box.boxArchetype, Is.EqualTo(BoxArchetype.Normal));
+                Assert.That(box.gravityFieldPhase, Is.EqualTo(GravityFieldPhase.None));
+                Assert.That(box.gravityFieldTimerTicks, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_GravityFieldBoxArchetype_MaterializesChargingRuntime()
+        {
+            var stage = CreateStage(
+                "GravityFieldBoxArchetype",
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 1, 1), hp: 3, facing: Direction.Up),
+                CreateSpawn(
+                    20,
+                    StageSpawnKind.Box,
+                    new SurfaceCell(FaceId.Floor, 1, 2),
+                    hp: 1,
+                    boxArchetype: BoxArchetype.GravityField));
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(TryGetEntity(buildResult.InitialEntities, 20, out var box), Is.True);
+                Assert.That(box.boxArchetype, Is.EqualTo(BoxArchetype.GravityField));
+                Assert.That(box.gravityFieldPhase, Is.EqualTo(GravityFieldPhase.Charging));
+                Assert.That(box.gravityFieldTimerTicks, Is.EqualTo(8 * GameplayTimingProfile.DefaultSimulationTicksPerSecond));
             }
             finally
             {
@@ -990,6 +1022,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "NonBoxMoonArchetype",
                     CreateBoard(new Vector2Int(0, 0), new Vector2Int(3, 3)),
                     CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, boxArchetype: BoxArchetype.Moon)),
+                "box archetypes are only valid on Box spawns");
+
+            AssertBuildThrows(
+                CreateStage(
+                    "NonBoxGravityFieldArchetype",
+                    CreateBoard(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                    CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, boxArchetype: BoxArchetype.GravityField)),
                 "box archetypes are only valid on Box spawns");
 
             AssertBuildThrows(

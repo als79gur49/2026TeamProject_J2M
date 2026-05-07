@@ -62,6 +62,7 @@ namespace Game.Feature.Gameplay.Tests.Core
             "MoonBlockGenerator",
             "Barricade",
             "Exit",
+            "GravityField",
             "Effect",
         };
 
@@ -164,6 +165,7 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(Enum.GetNames(typeof(EntityType)), Does.Not.Contain("SlideTile"));
             Assert.That(Enum.GetNames(typeof(EntityType)), Does.Not.Contain("Barricade"));
             Assert.That(Enum.GetNames(typeof(EntityType)), Does.Not.Contain("Exit"));
+            Assert.That(Enum.GetNames(typeof(EntityType)), Does.Not.Contain("GravityField"));
         }
 
         [Test]
@@ -172,6 +174,14 @@ namespace Game.Feature.Gameplay.Tests.Core
         {
             Assert.That(Enum.GetNames(typeof(BoxCapabilities)), Does.Not.Contain("Moon"));
             Assert.That(Enum.GetNames(typeof(BoxCapabilities)), Does.Not.Contain("MoonBlock"));
+            Assert.That(Enum.GetNames(typeof(BoxCapabilities)), Does.Not.Contain("GravityField"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileFeatureKind_DoesNotContainGravityField()
+        {
+            Assert.That(Enum.GetNames(typeof(TileFeatureKind)), Does.Not.Contain("GravityField"));
         }
 
         [Test]
