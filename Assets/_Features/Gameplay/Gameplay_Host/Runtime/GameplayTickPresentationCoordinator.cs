@@ -171,6 +171,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _viewBinder = viewBinder;
+            _gravityFieldVisualPresentationController.AttachTargetViewRegistry(_viewBinder.ViewRegistry);
             _enemyPresentationCatalog = enemyPresentationCatalog;
             _enemyPresentationBindings = enemyPresentationBindings ?? Array.Empty<EnemyPresentationBinding>();
             var resolvedFaceSeamGap = faceSeamGap >= 0f ? faceSeamGap : cellSize;

@@ -9,8 +9,12 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplayPresentationStateStore _stateStore;
         private readonly HashSet<int> _currentContinuousEntityIds = new();
         private readonly HashSet<int> _previousContinuousEntityIds = new();
+        private readonly HashSet<LockedTargetPair> _currentLockedTargetPairs = new();
+        private readonly HashSet<LockedTargetPair> _previousLockedTargetPairs = new();
         private readonly List<int> _previousContinuousEntityIdBuffer = new();
+        private readonly List<LockedTargetPair> _previousLockedTargetPairBuffer = new();
         private Action<string> _diagnosticSink;
+        private GameplayEntityViewRegistry _targetViewRegistry;
 
         public GravityFieldVisualPresentationController(GameplayPresentationStateStore stateStore)
         {
@@ -20,6 +24,11 @@ namespace Game.Feature.Gameplay.Host
         public void SetDiagnosticSink(Action<string> diagnosticSink)
         {
             _diagnosticSink = diagnosticSink;
+        }
+
+        public void AttachTargetViewRegistry(GameplayEntityViewRegistry targetViewRegistry)
+        {
+            _targetViewRegistry = targetViewRegistry;
         }
 
         public void PlayRequests(IReadOnlyList<GravityFieldPresentationRequest> requests)
@@ -53,7 +62,14 @@ namespace Game.Feature.Gameplay.Host
                 _previousContinuousEntityIdBuffer.Add(entityId);
             }
 
+            _previousLockedTargetPairBuffer.Clear();
+            foreach (var pair in _previousLockedTargetPairs)
+            {
+                _previousLockedTargetPairBuffer.Add(pair);
+            }
+
             _currentContinuousEntityIds.Clear();
+            _currentLockedTargetPairs.Clear();
             for (var i = 0; i < states.Count; i++)
             {
                 var state = states[i];
@@ -65,6 +81,12 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 ApplyContinuousState(state);
+                AddLockedTargetPairs(state);
+            }
+
+            foreach (var pair in _currentLockedTargetPairs)
+            {
+                ApplyLockedTarget(pair);
             }
 
             for (var i = 0; i < _previousContinuousEntityIdBuffer.Count; i++)
@@ -78,10 +100,27 @@ namespace Game.Feature.Gameplay.Host
                 ClearContinuousState(entityId);
             }
 
+            for (var i = 0; i < _previousLockedTargetPairBuffer.Count; i++)
+            {
+                var pair = _previousLockedTargetPairBuffer[i];
+                if (_currentLockedTargetPairs.Contains(pair))
+                {
+                    continue;
+                }
+
+                ClearLockedTarget(pair);
+            }
+
             _previousContinuousEntityIds.Clear();
             foreach (var entityId in _currentContinuousEntityIds)
             {
                 _previousContinuousEntityIds.Add(entityId);
+            }
+
+            _previousLockedTargetPairs.Clear();
+            foreach (var pair in _currentLockedTargetPairs)
+            {
+                _previousLockedTargetPairs.Add(pair);
             }
         }
 
@@ -168,6 +207,73 @@ namespace Game.Feature.Gameplay.Host
                 $"{nameof(GravityFieldVisualPresentationController)} unsupported continuous clear visual target for entity {entityId}.");
         }
 
+        private void AddLockedTargetPairs(GravityFieldVisualState state)
+        {
+            var lockedTargetEntityIds = state.LockedTargetEntityIds;
+            for (var i = 0; i < lockedTargetEntityIds.Count; i++)
+            {
+                var targetEntityId = lockedTargetEntityIds[i];
+                if (targetEntityId <= 0)
+                {
+                    continue;
+                }
+
+                _currentLockedTargetPairs.Add(new LockedTargetPair(state.EmitterEntityId, targetEntityId));
+            }
+        }
+
+        private void ApplyLockedTarget(LockedTargetPair pair)
+        {
+            if (!TryGetActiveTargetView(pair, "locked target", out var view))
+            {
+                return;
+            }
+
+            var target = view.GetComponent<IGravityFieldLockedTargetVisualTarget>();
+            if (target != null)
+            {
+                target.ApplyGravityFieldLockedTarget(pair.EmitterEntityId);
+                return;
+            }
+
+            _diagnosticSink?.Invoke(
+                $"{nameof(GravityFieldVisualPresentationController)} unsupported locked target visual target for target entity {pair.TargetEntityId} from emitter {pair.EmitterEntityId}.");
+        }
+
+        private void ClearLockedTarget(LockedTargetPair pair)
+        {
+            if (!TryGetActiveTargetView(pair, "locked target clear", out var view))
+            {
+                return;
+            }
+
+            var target = view.GetComponent<IGravityFieldLockedTargetVisualTarget>();
+            if (target != null)
+            {
+                target.ClearGravityFieldLockedTarget(pair.EmitterEntityId);
+                return;
+            }
+
+            _diagnosticSink?.Invoke(
+                $"{nameof(GravityFieldVisualPresentationController)} unsupported locked target clear visual target for target entity {pair.TargetEntityId} from emitter {pair.EmitterEntityId}.");
+        }
+
+        private bool TryGetActiveTargetView(LockedTargetPair pair, string purpose, out GameplayEntityView view)
+        {
+            view = null;
+            if (_targetViewRegistry == null ||
+                !_targetViewRegistry.TryGetView(pair.TargetEntityId, out view) ||
+                view == null ||
+                !view.gameObject.activeInHierarchy)
+            {
+                _diagnosticSink?.Invoke(
+                    $"{nameof(GravityFieldVisualPresentationController)} missing {purpose} visual target for target entity {pair.TargetEntityId} from emitter {pair.EmitterEntityId}.");
+                return false;
+            }
+
+            return true;
+        }
+
         private bool TryGetActiveView(int entityId, string purpose, out GameplayEntityView view)
         {
             if (!_stateStore.ViewsByEntityId.TryGetValue(entityId, out view) ||
@@ -180,6 +286,38 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return true;
+        }
+
+        private readonly struct LockedTargetPair : IEquatable<LockedTargetPair>
+        {
+            public LockedTargetPair(int emitterEntityId, int targetEntityId)
+            {
+                EmitterEntityId = emitterEntityId;
+                TargetEntityId = targetEntityId;
+            }
+
+            public int EmitterEntityId { get; }
+
+            public int TargetEntityId { get; }
+
+            public bool Equals(LockedTargetPair other)
+            {
+                return EmitterEntityId == other.EmitterEntityId &&
+                       TargetEntityId == other.TargetEntityId;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is LockedTargetPair other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    return (EmitterEntityId * 397) ^ TargetEntityId;
+                }
+            }
         }
     }
 }

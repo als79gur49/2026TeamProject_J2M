@@ -16,4 +16,11 @@ namespace Game.Feature.Gameplay.Host
 
         void ClearGravityFieldVisualState();
     }
+
+    public interface IGravityFieldLockedTargetVisualTarget
+    {
+        void ApplyGravityFieldLockedTarget(int emitterEntityId);
+
+        void ClearGravityFieldLockedTarget(int emitterEntityId);
+    }
 }
