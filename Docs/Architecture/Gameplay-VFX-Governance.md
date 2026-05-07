@@ -1065,6 +1065,20 @@ Cleaned legacy direct playback:
 
 No stale old transient playback fallback remains: `GameplayTransientEffectPresenter`, `ImpactBreakEffectTrack`, `EntityExitEffectTrack`, `PlayImpactBreakEffect`, and `PlayExitEffect` playback APIs are removed.
 
+## Active Transient Effect Count Cleanup
+
+The old `GameplayTransientEffectPresenter` and its transient tracks were removed. `ActiveTransientEffectCount` compatibility surface was removed with them; old transient activity is no longer a public presentation concept and does not participate in presentation phase decisions.
+
+Current Gameplay VFX runtime activity must not be mapped into the removed property. If runtime VFX diagnostics need a public count later, introduce a separate API such as `GameplayVfxRuntimeDiagnostics`; that future API must not reuse the old property name or old transient activity vocabulary.
+
+Retained cleanup and motion responsibilities remain:
+
+- `ApplyEntityExitOwnership`
+- `EnemyDeathExitEffectPlanBuilder`
+- `GameplayTransientEffectTrackUtility.SafeDestroy`
+- `FlipImpactTrack` Stay branch
+- `BoxFlipInteractionDriver`
+
 Remaining old canonical presentation responsibilities:
 
 | Old path | New VFX | Cleanup status | Flag-off semantics | Notes |

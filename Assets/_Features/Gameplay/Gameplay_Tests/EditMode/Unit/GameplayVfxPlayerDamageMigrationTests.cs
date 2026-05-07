@@ -187,8 +187,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreatePresentationData(new[] { CreateDamageSignal() }, Array.Empty<TickPlayerDeathPresentationSignal>()),
                     topology,
                     new[] { CreatePlayerUnit(10, playerCell, hp: 2) }));
-
-                Assert.That(presenter.ActiveTransientEffectCount, Is.Zero);
             }
             finally
             {
@@ -223,8 +221,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreatePresentationData(new[] { CreateDamageSignal() }, Array.Empty<TickPlayerDeathPresentationSignal>()),
                     topology,
                     new[] { CreatePlayerUnit(10, playerCell, hp: 2) }));
-
-                Assert.That(presenter.ActiveTransientEffectCount, Is.Zero);
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
             }
@@ -255,8 +251,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreatePresentationData(new[] { CreateDamageSignal() }, Array.Empty<TickPlayerDeathPresentationSignal>()),
                     topology,
                     new[] { CreatePlayerUnit(10, playerCell, hp: 2) }));
-
-                Assert.That(presenter.ActiveTransientEffectCount, Is.Zero);
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);

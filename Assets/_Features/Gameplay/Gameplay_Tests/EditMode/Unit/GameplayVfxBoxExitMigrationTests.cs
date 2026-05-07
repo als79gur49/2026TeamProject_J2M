@@ -383,8 +383,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreatePresentationData(new[] { CreateExitSignal(20, TickEntityExitCause.BoxDestroy, scenario.BoxCell, scenario.Topology) }),
                     scenario.Topology,
                     Array.Empty<EntityState>()));
-
-                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.Zero);
                 Assert.That(scenario.Registry.TryGetView(20, out var boxView), Is.True);
                 Assert.That(boxView.gameObject.activeSelf, Is.False);
             }
@@ -423,8 +421,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreatePresentationData(new[] { CreateExitSignal(20, TickEntityExitCause.BoxDestroy, scenario.BoxCell, scenario.Topology) }),
                     scenario.Topology,
                     Array.Empty<EntityState>()));
-
-                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.Zero);
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(2));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(2));
                 Assert.That(scenario.Registry.TryGetView(20, out var boxView), Is.True);
@@ -462,8 +458,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreatePresentationData(new[] { CreateExitSignal(20, TickEntityExitCause.BoxDestroy, scenario.BoxCell, scenario.Topology) }),
                     scenario.Topology,
                     Array.Empty<EntityState>()));
-
-                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.Zero);
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
                 Assert.That(scenario.Registry.TryGetView(20, out var boxView), Is.True);
@@ -501,8 +495,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreatePresentationData(new[] { CreateExitSignal(20, TickEntityExitCause.BoxDestroy, scenario.BoxCell, scenario.Topology) }),
                     scenario.Topology,
                     Array.Empty<EntityState>()));
-
-                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.Zero);
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
             }
@@ -531,8 +523,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreatePresentationData(new[] { CreateExitSignal(21, TickEntityExitCause.ItemConsume, scenario.BoxCell, scenario.Topology) }),
                     scenario.Topology,
                     Array.Empty<EntityState>()));
-
-                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.Zero);
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
@@ -563,8 +553,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreatePresentationData(new[] { CreateExitSignal(21, TickEntityExitCause.ItemConsume, scenario.BoxCell, scenario.Topology) }),
                     scenario.Topology,
                     Array.Empty<EntityState>()));
-
-                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.Zero);
                 Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
                 Assert.That(scenario.Registry.TryGetView(21, out var itemView), Is.True);
@@ -600,8 +588,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     }),
                     scenario.Topology,
                     Array.Empty<EntityState>()));
-
-                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.Zero);
                 Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
             }
             finally

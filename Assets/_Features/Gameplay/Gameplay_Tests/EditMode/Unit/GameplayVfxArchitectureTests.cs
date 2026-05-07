@@ -49,6 +49,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("persistent desired state"));
             Assert.That(document, Does.Contain("SurfaceCell"));
             Assert.That(document, Does.Contain("GameplayTransientEffectPresenter` playback surface removed"));
+            Assert.That(document, Does.Contain("Active Transient Effect Count Cleanup"));
+            Assert.That(document, Does.Contain("`ActiveTransientEffectCount` compatibility surface was removed"));
+            Assert.That(document, Does.Contain("must not reuse the old property name"));
             Assert.That(document, Does.Contain("GameplayExitPresentationController"));
             Assert.That(document, Does.Contain("GameplayFrontFaceShieldVfxPresenter"));
             Assert.That(document, Does.Contain("GameplayUtilityWindupVfxPresenter"));

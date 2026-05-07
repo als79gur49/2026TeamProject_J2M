@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Vfx.Host;
 using NUnit.Framework;
@@ -14,10 +15,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs";
         private const string ExitControllerPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayExitPresentationController.cs";
+        private const string ActivityInspectorPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayPresentationActivityInspector.cs";
         private const string OldTransientPresenterPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTransientEffectPresenter.cs";
         private const string EnemyDeathExitEffectPlanBuilderPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyDeathExitEffectPlanBuilder.cs";
+        private const string TransientEffectTrackUtilityPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTransientEffectTrackUtility.cs";
+        private const string FlipImpactTrackPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/FlipImpactTrack.cs";
+        private const string BoxFlipInteractionDriverPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxFlipInteractionDriver.cs";
         private const string RuntimePath =
             "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/GameplayVfxProductionRuntime.cs";
         private const string UtilityWindupAuthoringPath =
@@ -68,6 +77,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("suppress compatibility gates were removed"));
             Assert.That(document, Does.Contain("old fallback = none"));
             Assert.That(document, Does.Contain("For all current migrated cues, flag off means that VFX is off"));
+            Assert.That(document, Does.Contain("## Active Transient Effect Count Cleanup"));
+            Assert.That(document, Does.Contain("`ActiveTransientEffectCount` compatibility surface was removed"));
+            Assert.That(document, Does.Contain("`GameplayVfxRuntimeDiagnostics`"));
         }
 
         [Test]
@@ -195,6 +207,82 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(exitController, Does.Contain("public void ApplyEntityExitOwnership()"));
             Assert.That(coordinator, Does.Contain("TraceStep(\"ApplyEntityExitOwnership\")"));
             Assert.That(coordinator, Does.Contain("_exitPresentationController.ApplyEntityExitOwnership();"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ActiveTransientEffectCount_PublicSurfaceRemoved()
+        {
+            Assert.That(
+                typeof(GameplayTickPresentationCoordinator).GetProperty(
+                    "ActiveTransientEffectCount",
+                    BindingFlags.Instance | BindingFlags.Public),
+                Is.Null);
+            Assert.That(
+                typeof(GameplayTickViewPresenter).GetProperty(
+                    "ActiveTransientEffectCount",
+                    BindingFlags.Instance | BindingFlags.Public),
+                Is.Null);
+
+            var hostRuntimeSource = ReadCombinedSource("Assets/_Features/Gameplay/Gameplay_Host/Runtime");
+            var vfxHostRuntimeSource = ReadCombinedSource("Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime");
+
+            Assert.That(hostRuntimeSource, Does.Not.Contain("ActiveTransientEffectCount"));
+            Assert.That(vfxHostRuntimeSource, Does.Not.Contain("ActiveTransientEffectCount"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void RemovedOldTransientPlaybackApis_StayOutOfProductionSource()
+        {
+            var hostRuntimeSource = ReadCombinedSource("Assets/_Features/Gameplay/Gameplay_Host/Runtime");
+            var vfxHostRuntimeSource = ReadCombinedSource("Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime");
+            var productionSource = hostRuntimeSource + "\n" + vfxHostRuntimeSource;
+
+            Assert.That(productionSource, Does.Not.Contain("GameplayTransientEffectPresenter"));
+            Assert.That(productionSource, Does.Not.Contain("PlayEntityExitEffects"));
+            Assert.That(productionSource, Does.Not.Contain("PlayImpactBreakEffect"));
+            Assert.That(productionSource, Does.Not.Contain("EntityExitEffectTrack"));
+            Assert.That(productionSource, Does.Not.Contain("ImpactBreakEffectTrack"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayVfxDiagnostics_DoesNotReuseOldTransientCount()
+        {
+            var runtime = ReadRepoFile(RuntimePath);
+
+            Assert.That(runtime, Does.Contain("ActiveVfxInstanceCount"));
+            Assert.That(runtime, Does.Not.Contain("ActiveTransientEffectCount"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void OldTransientActivity_IsNotPresentationActivityInput()
+        {
+            var inspector = ReadRepoFile(ActivityInspectorPath);
+
+            Assert.That(inspector, Does.Not.Contain("ActiveTransientEffectCount"));
+            Assert.That(inspector, Does.Not.Contain("TransientEffectCount"));
+            Assert.That(inspector, Does.Not.Contain("ActiveTransient"));
+            Assert.That(inspector, Does.Contain("HasActiveEntityPresentationClips"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void RetainedCleanupHelpers_AreStillPresent()
+        {
+            var exitController = ReadRepoFile(ExitControllerPath);
+            var deathPlanBuilder = ReadRepoFile(EnemyDeathExitEffectPlanBuilderPath);
+            var trackUtility = ReadRepoFile(TransientEffectTrackUtilityPath);
+            var flipImpactTrack = ReadRepoFile(FlipImpactTrackPath);
+            var boxFlipInteractionDriver = ReadRepoFile(BoxFlipInteractionDriverPath);
+
+            Assert.That(exitController, Does.Contain("public void ApplyEntityExitOwnership()"));
+            Assert.That(deathPlanBuilder, Does.Contain("EnemyDeathExitEffectPlanBuilder"));
+            Assert.That(trackUtility, Does.Contain("SafeDestroy"));
+            Assert.That(flipImpactTrack, Does.Contain("FlipImpactPresentationDisposition.Stay"));
+            Assert.That(boxFlipInteractionDriver, Does.Contain("BoxFlipInteractionDriver"));
         }
 
         [Test]

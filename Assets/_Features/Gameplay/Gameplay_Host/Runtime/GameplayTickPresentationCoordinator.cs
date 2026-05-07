@@ -93,8 +93,6 @@ namespace Game.Feature.Gameplay.Host
 
         public bool IsTopologyTransitionActive => CurrentPresentationPhase == GameplayPresentationPhase.TopologyTransition;
 
-        public int ActiveTransientEffectCount => 0;
-
         public TopologyTransitionVisualState CurrentTopologyTransitionVisualState =>
             _topologyTransitionController.CurrentVisualState;
 

@@ -37,8 +37,6 @@ namespace Game.Feature.Gameplay.Host
 
         public bool IsTopologyTransitionActive => _presentationCoordinator.IsTopologyTransitionActive;
 
-        public int ActiveTransientEffectCount => _presentationCoordinator.ActiveTransientEffectCount;
-
         public TopologyTransitionVisualState CurrentTopologyTransitionVisualState =>
             _presentationCoordinator.CurrentTopologyTransitionVisualState;
 

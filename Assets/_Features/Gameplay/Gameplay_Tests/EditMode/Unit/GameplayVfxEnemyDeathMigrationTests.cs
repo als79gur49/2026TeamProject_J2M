@@ -263,8 +263,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreatePresentationData(entityExitSignals: new[] { CreateEnemyExitSignal(40, TickEntityExitCause.Killed, scenario.EnemyCell, scenario.Topology) }),
                     scenario.Topology,
                     Array.Empty<EntityState>()));
-
-                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.Zero);
             }
             finally
             {
@@ -302,8 +300,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreatePresentationData(entityExitSignals: new[] { CreateEnemyExitSignal(40, TickEntityExitCause.Killed, scenario.EnemyCell, scenario.Topology) }),
                     scenario.Topology,
                     Array.Empty<EntityState>()));
-
-                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.Zero);
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
                 Assert.That(scenario.Registry.TryGetView(40, out var enemyView), Is.True);
@@ -339,8 +335,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreatePresentationData(entityExitSignals: new[] { CreateEnemyExitSignal(40, TickEntityExitCause.Killed, scenario.EnemyCell, scenario.Topology) }),
                     scenario.Topology,
                     Array.Empty<EntityState>()));
-
-                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.Zero);
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
@@ -378,8 +372,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreatePresentationData(entityExitSignals: new[] { CreateEnemyExitSignal(40, TickEntityExitCause.Killed, scenario.EnemyCell, scenario.Topology) }),
                     scenario.Topology,
                     Array.Empty<EntityState>()));
-
-                Assert.That(scenario.Presenter.ActiveTransientEffectCount, Is.Zero);
             }
             finally
             {
