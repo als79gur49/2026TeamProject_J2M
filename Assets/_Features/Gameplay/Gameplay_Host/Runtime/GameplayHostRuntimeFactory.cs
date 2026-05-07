@@ -131,11 +131,17 @@ namespace Game.Feature.Gameplay.Host
                         BuildStaticViewPrefabs(configuration))
                     : null);
             var viewBinder = new GameplayEntityViewBinder(viewRegistry, viewFactory);
+            var tileFeaturePoseResolver = new BoardSurfaceCellPresentationPoseResolver(
+                configuration.InitialBoardBounds,
+                configuration.CellSize,
+                configuration.InitialTopology,
+                faceSeamGap);
             InstantiateStageTileFeatureVisuals(
                 configuration.TileFeaturePresentationBindings,
                 initialTileFeatures,
                 boardRoot.transform,
-                tileFeatureVisualRegistry);
+                tileFeatureVisualRegistry,
+                tileFeaturePoseResolver);
 
             presenter.Initialize(
                 viewBinder,
@@ -267,7 +273,8 @@ namespace Game.Feature.Gameplay.Host
             IReadOnlyList<TileFeaturePresentationResolvedBinding> bindings,
             IReadOnlyList<TileFeatureState> initialTileFeatures,
             Transform parent,
-            TileFeatureVisualRegistry registry)
+            TileFeatureVisualRegistry registry,
+            ISurfaceCellPresentationPoseResolver poseResolver = null)
         {
             if (bindings == null || bindings.Count == 0)
             {
@@ -290,8 +297,29 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
+                var hasResolvedPose = false;
+                var resolvedPose = default(SurfaceCellPresentationPose);
+                if (poseResolver != null)
+                {
+                    if (!poseResolver.TryResolvePose(cell, out resolvedPose))
+                    {
+                        UnityEngine.Debug.LogWarning(
+                            $"Skipping stage TileFeature visual binding for TileId {binding.TileId}; cell '{cell}' could not resolve a presentation pose.");
+                        continue;
+                    }
+
+                    hasResolvedPose = true;
+                }
+
                 var instance = UnityEngine.Object.Instantiate(binding.VisualPrefab, parent, worldPositionStays: false);
                 instance.name = binding.VisualPrefab.name;
+                if (hasResolvedPose)
+                {
+                    instance.transform.localPosition = resolvedPose.LocalPosition;
+                    instance.transform.localRotation = resolvedPose.LocalRotation;
+                    instance.transform.localScale = resolvedPose.LocalScale;
+                }
+
                 if (!TryGetConfigurableTileFeatureVisualTarget(
                         instance,
                         out var target,

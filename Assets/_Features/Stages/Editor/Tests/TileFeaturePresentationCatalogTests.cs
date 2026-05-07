@@ -674,6 +674,7 @@ namespace Game.Feature.Stages.Editor.Tests
                     initialTileFeatures,
                     parent,
                     registry,
+                    null,
                 });
         }
 

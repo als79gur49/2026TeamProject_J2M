@@ -7,6 +7,7 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
@@ -599,12 +600,75 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(target.TileId, Is.EqualTo(100));
                 Assert.That(target.Cell, Is.EqualTo(cell));
                 Assert.That(rootObject.transform.childCount, Is.EqualTo(1));
+                Assert.That(rootObject.transform.GetChild(0).localPosition, Is.EqualTo(Vector3.zero));
+                Assert.That(Quaternion.Angle(rootObject.transform.GetChild(0).localRotation, Quaternion.identity), Is.LessThan(0.001f));
+                Assert.That(rootObject.transform.GetChild(0).localScale, Is.EqualTo(Vector3.one));
 
                 var controller = new TileFeatureVisualPresentationController();
                 controller.AttachRegistry(registry);
                 controller.PlayButtonActivatedRequests(new[] { CreateRequest(100, cell) });
 
                 Assert.That(((TileFeatureVisualTargetView)target).DebugPlayButtonActivatedCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+                Object.DestroyImmediate(prefab);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageTileFeatureVisualBinding_DirectOverrideResolvedBinding_AppliesResolvedLocalPose()
+        {
+            AssertStageTileFeatureVisualBindingAppliesResolvedLocalPose(
+                nameof(StageTileFeatureVisualBinding_DirectOverrideResolvedBinding_AppliesResolvedLocalPose),
+                tileId: 101,
+                prefabName: "DirectOverrideTileVisualPrefab");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageTileFeatureVisualBinding_CatalogResolvedBinding_AppliesResolvedLocalPose()
+        {
+            AssertStageTileFeatureVisualBindingAppliesResolvedLocalPose(
+                nameof(StageTileFeatureVisualBinding_CatalogResolvedBinding_AppliesResolvedLocalPose),
+                tileId: 102,
+                prefabName: "CatalogResolvedTileVisualPrefab");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageTileFeatureVisualBinding_PoseResolveFailure_WarnsAndSkips()
+        {
+            var rootObject = new GameObject(nameof(StageTileFeatureVisualBinding_PoseResolveFailure_WarnsAndSkips));
+            var prefab = new GameObject("UnprojectableTileVisualPrefab");
+
+            try
+            {
+                prefab.AddComponent<TileFeatureVisualTargetView>();
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var cell = new SurfaceCell(FaceId.Ceiling, 0, 0);
+
+                LogAssert.Expect(
+                    LogType.Warning,
+                    "Skipping stage TileFeature visual binding for TileId 100; cell 'Ceiling(0,0)' could not resolve a presentation pose.");
+                InvokeStageTileFeatureVisualInstantiation(
+                    new[]
+                    {
+                        new TileFeaturePresentationResolvedBinding(100, prefab),
+                    },
+                    new[]
+                    {
+                        CreateTileFeatureState(100, cell),
+                    },
+                    rootObject.transform,
+                    registry,
+                    new FixedPoseResolver(false, default));
+
+                Assert.That(rootObject.transform.childCount, Is.Zero);
+                Assert.That(registry.TryGetTileVisual(100, out _), Is.False);
             }
             finally
             {
@@ -783,11 +847,77 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 targetEntityId: moonBlockEntityId);
         }
 
+        private static void AssertStageTileFeatureVisualBindingAppliesResolvedLocalPose(
+            string objectName,
+            int tileId,
+            string prefabName)
+        {
+            var rootObject = new GameObject(objectName);
+            var prefab = new GameObject(prefabName);
+
+            try
+            {
+                prefab.AddComponent<TileFeatureVisualTargetView>();
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var cell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var expectedPose = new SurfaceCellPresentationPose(
+                    new Vector3(1.25f, -0.5f, 2.75f),
+                    Quaternion.Euler(20f, 45f, 10f),
+                    new Vector3(1f, 1.5f, 0.75f));
+                var resolver = new FixedPoseResolver(canResolve: true, expectedPose);
+
+                InvokeStageTileFeatureVisualInstantiation(
+                    new[]
+                    {
+                        new TileFeaturePresentationResolvedBinding(tileId, prefab),
+                    },
+                    new[]
+                    {
+                        CreateTileFeatureState(tileId, cell),
+                    },
+                    rootObject.transform,
+                    registry,
+                    resolver);
+
+                Assert.That(resolver.RequestedCells, Is.EqualTo(new[] { cell }));
+                Assert.That(rootObject.transform.childCount, Is.EqualTo(1));
+                var instance = rootObject.transform.GetChild(0);
+                Assert.That(Vector3.Distance(instance.localPosition, expectedPose.LocalPosition), Is.LessThan(0.001f));
+                Assert.That(Quaternion.Angle(instance.localRotation, expectedPose.LocalRotation), Is.LessThan(0.001f));
+                Assert.That(instance.localScale, Is.EqualTo(expectedPose.LocalScale));
+
+                Assert.That(registry.TryGetTileVisual(tileId, out var target), Is.True);
+                Assert.That(target.TileId, Is.EqualTo(tileId));
+                Assert.That(target.Cell, Is.EqualTo(cell));
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+                Object.DestroyImmediate(prefab);
+            }
+        }
+
+        private static TileFeatureState CreateTileFeatureState(int tileId, SurfaceCell cell)
+        {
+            return new TileFeatureState(
+                tileId,
+                cell,
+                TileFeatureKind.Button,
+                TileFeatureFlags.None,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0,
+                lifetimeTicks: 0,
+                charges: 0);
+        }
+
         private static void InvokeStageTileFeatureVisualInstantiation(
             IReadOnlyList<TileFeaturePresentationResolvedBinding> bindings,
             IReadOnlyList<TileFeatureState> initialTileFeatures,
             Transform parent,
-            TileFeatureVisualRegistry registry)
+            TileFeatureVisualRegistry registry,
+            ISurfaceCellPresentationPoseResolver poseResolver = null)
         {
             var method = typeof(GameplayHostRuntimeFactory).GetMethod(
                 "InstantiateStageTileFeatureVisuals",
@@ -801,7 +931,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialTileFeatures,
                     parent,
                     registry,
+                    poseResolver,
                 });
+        }
+
+        private sealed class FixedPoseResolver : ISurfaceCellPresentationPoseResolver
+        {
+            private readonly bool _canResolve;
+            private readonly SurfaceCellPresentationPose _pose;
+
+            public FixedPoseResolver(bool canResolve, SurfaceCellPresentationPose pose)
+            {
+                _canResolve = canResolve;
+                _pose = pose;
+            }
+
+            public List<SurfaceCell> RequestedCells { get; } = new();
+
+            public bool TryResolvePose(SurfaceCell cell, out SurfaceCellPresentationPose pose)
+            {
+                RequestedCells.Add(cell);
+                pose = _canResolve ? _pose : default;
+                return _canResolve;
+            }
         }
 
         private sealed class RecordingRegistry : ITileFeatureVisualRegistry

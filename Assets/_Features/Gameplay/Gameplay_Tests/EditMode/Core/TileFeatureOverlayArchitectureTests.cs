@@ -19,6 +19,8 @@ namespace Game.Feature.Gameplay.Tests.Core
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs";
         private const string GameplayHostRuntimeFactoryPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeFactory.cs";
+        private const string SurfaceCellPresentationPoseResolverPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoardSurfaceCellPresentationPoseResolver.cs";
         private const string GameplayLoopRuntimePath =
             "Assets/_Features/Gameplay/Gameplay_Loop/Runtime";
         private const string GameplayHostRuntimePath =
@@ -566,8 +568,11 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(buildResultSource, Does.Not.Contain("TileFeaturePresentationResolvedBinding"));
             Assert.That(buildResultSource, Does.Not.Contain("VisualPrefab"));
             Assert.That(buildResultSource, Does.Not.Contain("GameObject"));
+            Assert.That(buildResultSource, Does.Not.Contain("SurfaceCellPresentationPose"));
+            Assert.That(stageDefinitionSource, Does.Not.Contain("SurfaceCellPresentationPose"));
             Assert.That(stagePresentationDefinitionSource, Does.Contain("TileFeaturePresentationBinding"));
             Assert.That(stagePresentationDefinitionSource, Does.Contain("VisualPrefab"));
+            Assert.That(stagePresentationDefinitionSource, Does.Not.Contain("SurfaceCellPresentationPose"));
             Assert.That(stagePresentationDefinitionSource, Does.Not.Contain("TileFeatureAudio"));
         }
 
@@ -693,6 +698,8 @@ namespace Game.Feature.Gameplay.Tests.Core
                 Assert.That(source, Does.Not.Contain("StagePresentationDefinition"), sources[i]);
                 Assert.That(source, Does.Not.Contain("TileFeaturePresentationBinding"), sources[i]);
                 Assert.That(source, Does.Not.Contain("VisualPrefab"), sources[i]);
+                Assert.That(source, Does.Not.Contain("SurfaceCellPresentationPose"), sources[i]);
+                Assert.That(source, Does.Not.Contain("GameplayCubeProjector"), sources[i]);
             }
         }
 
@@ -719,6 +726,36 @@ namespace Game.Feature.Gameplay.Tests.Core
                     body,
                     Does.Not.Contain(forbiddenTokens[i]),
                     $"Stage TileFeature visual instantiation must not reference authority or mutation token '{forbiddenTokens[i]}'.");
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SurfaceCellPresentationPoseResolver_DoesNotReferenceAuthorityOrPlaybackSurfaces()
+        {
+            var source = File.ReadAllText(GetAbsolutePath(SurfaceCellPresentationPoseResolverPath));
+            var forbiddenTokens = new[]
+            {
+                "WorldState",
+                "WorldSnapshot",
+                "CreateSnapshot",
+                "TickPipeline",
+                "TileEffect",
+                "StageRuntimeBuildResult",
+                "StageDefinition",
+                "BoardTilePresentationCatalog",
+                "ReplaceBaseTile",
+                "Play3D",
+                "Spatial",
+                "spatial",
+            };
+
+            for (var i = 0; i < forbiddenTokens.Length; i++)
+            {
+                Assert.That(
+                    source,
+                    Does.Not.Contain(forbiddenTokens[i]),
+                    $"SurfaceCell presentation pose resolver must not reference '{forbiddenTokens[i]}'.");
             }
         }
 
