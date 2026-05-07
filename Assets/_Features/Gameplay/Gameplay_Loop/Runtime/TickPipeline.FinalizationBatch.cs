@@ -63,6 +63,7 @@ namespace Game.Feature.Gameplay.Loop
         SetEnemyFrontFaceSupportState = 24,
         SetUnitKinematicState = 25,
         SetUnitContinuousLocomotionState = 26,
+        SetGravityFieldState = 27,
     }
 
     internal enum ResolvedActionSemanticKind
@@ -218,6 +219,8 @@ namespace Game.Feature.Gameplay.Loop
             EnemyUtilityRuntimeState enemyUtilityState = null,
             EnemyFrontFaceSupportRuntimeState enemyFrontFaceSupportState = null,
             BoxInteractionLockState boxInteractionLockState = default,
+            GravityFieldPhase gravityFieldPhase = default,
+            int gravityFieldTimerTicks = 0,
             UnitKinematicRuntimeState unitKinematicState = default,
             UnitContinuousLocomotionState unitContinuousLocomotionState = default,
             PhasedRuntimeState phasedState = default,
@@ -256,6 +259,8 @@ namespace Game.Feature.Gameplay.Loop
             EnemyUtilityState = enemyUtilityState;
             EnemyFrontFaceSupportState = enemyFrontFaceSupportState;
             BoxInteractionLockState = boxInteractionLockState;
+            GravityFieldPhase = gravityFieldPhase;
+            GravityFieldTimerTicks = gravityFieldTimerTicks;
             UnitKinematicState = unitKinematicState;
             UnitContinuousLocomotionState = unitContinuousLocomotionState;
             PhasedState = phasedState;
@@ -323,6 +328,10 @@ namespace Game.Feature.Gameplay.Loop
 
         public BoxInteractionLockState BoxInteractionLockState { get; }
 
+        public GravityFieldPhase GravityFieldPhase { get; }
+
+        public int GravityFieldTimerTicks { get; }
+
         public UnitKinematicRuntimeState UnitKinematicState { get; }
 
         public UnitContinuousLocomotionState UnitContinuousLocomotionState { get; }
@@ -372,6 +381,8 @@ namespace Game.Feature.Gameplay.Loop
                 EnemyUtilityState,
                 EnemyFrontFaceSupportState,
                 BoxInteractionLockState,
+                GravityFieldPhase,
+                GravityFieldTimerTicks,
                 UnitKinematicState,
                 UnitContinuousLocomotionState,
                 PhasedState,
@@ -602,6 +613,23 @@ namespace Game.Feature.Gameplay.Loop
                 entityId: entityId);
         }
 
+        public static FinalizationOperation SetGravityFieldState(
+            long sequence,
+            int entityId,
+            GravityFieldPhase phase,
+            int timerTicks,
+            FinalizationOperationMetadata metadata = default)
+        {
+            return new FinalizationOperation(
+                sequence,
+                FinalizationOperationBucket.NonHpState,
+                FinalizationOperationKind.SetGravityFieldState,
+                metadata,
+                entityId: entityId,
+                gravityFieldPhase: phase,
+                gravityFieldTimerTicks: timerTicks);
+        }
+
         public static FinalizationOperation SetUnitKinematicState(
             long sequence,
             int entityId,
@@ -807,6 +835,11 @@ namespace Game.Feature.Gameplay.Loop
         public void RemoveBoxInteractionLockState(int entityId, FinalizationOperationMetadata metadata = default)
         {
             _operations.Add(FinalizationOperation.RemoveBoxInteractionLockState(_nextSequence++, entityId, metadata));
+        }
+
+        public void SetGravityFieldState(int entityId, GravityFieldPhase phase, int timerTicks, FinalizationOperationMetadata metadata = default)
+        {
+            _operations.Add(FinalizationOperation.SetGravityFieldState(_nextSequence++, entityId, phase, timerTicks, metadata));
         }
 
         public void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state, FinalizationOperationMetadata metadata = default)
@@ -1036,6 +1069,13 @@ namespace Game.Feature.Gameplay.Loop
                         writeContext.RemoveBoxInteractionLockState(operation.EntityId);
                         break;
 
+                    case FinalizationOperationKind.SetGravityFieldState:
+                        ((IPreMovementStateCommitContext)writeContext).SetGravityFieldState(
+                            operation.EntityId,
+                            operation.GravityFieldPhase,
+                            operation.GravityFieldTimerTicks);
+                        break;
+
                     case FinalizationOperationKind.SetUnitKinematicState:
                         writeContext.SetUnitKinematicState(operation.EntityId, operation.UnitKinematicState);
                         break;
@@ -1161,6 +1201,11 @@ namespace Game.Feature.Gameplay.Loop
         public void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state)
         {
             _batch.SetBoxInteractionLockState(entityId, state);
+        }
+
+        public void SetGravityFieldState(int entityId, GravityFieldPhase phase, int timerTicks)
+        {
+            _batch.SetGravityFieldState(entityId, phase, timerTicks);
         }
 
         public void SetEnemyChargeState(int entityId, EnemyChargeRuntimeState state)

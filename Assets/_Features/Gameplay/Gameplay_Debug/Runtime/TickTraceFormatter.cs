@@ -309,7 +309,7 @@ namespace Game.Feature.Gameplay.Debug
             {
                 var entry = entries[i];
                 lines.Add(
-                    $"Box={entry.EntityId}|Source={entry.State.SourceEntityId}|Effect={entry.State.SourceEffectIndex}|Expires={entry.State.ExpiresTickExclusive}|BlocksPush={(entry.State.BlocksPush ? 1 : 0)}|BlocksFlip={(entry.State.BlocksFlip ? 1 : 0)}");
+                    $"Box={entry.EntityId}|Source={entry.State.SourceEntityId}|Effect={entry.State.SourceEffectIndex}|Reason={entry.State.SourceReason}|Expires={entry.State.ExpiresTickExclusive}|BlocksPush={(entry.State.BlocksPush ? 1 : 0)}|BlocksFlip={(entry.State.BlocksFlip ? 1 : 0)}|BlocksDestroy={(entry.State.BlocksDestroy ? 1 : 0)}");
             }
 
             return lines;
@@ -648,13 +648,20 @@ namespace Game.Feature.Gameplay.Debug
                 case FinalizationOperationKind.SetBoxInteractionLockState:
                     builder.Append("|LockSource=").Append(operation.BoxInteractionLockState.SourceEntityId)
                         .Append("|LockEffect=").Append(operation.BoxInteractionLockState.SourceEffectIndex)
+                        .Append("|LockReason=").Append(operation.BoxInteractionLockState.SourceReason)
                         .Append("|Expires=").Append(operation.BoxInteractionLockState.ExpiresTickExclusive)
                         .Append("|BlocksPush=").Append(operation.BoxInteractionLockState.BlocksPush ? 1 : 0)
-                        .Append("|BlocksFlip=").Append(operation.BoxInteractionLockState.BlocksFlip ? 1 : 0);
+                        .Append("|BlocksFlip=").Append(operation.BoxInteractionLockState.BlocksFlip ? 1 : 0)
+                        .Append("|BlocksDestroy=").Append(operation.BoxInteractionLockState.BlocksDestroy ? 1 : 0);
                     break;
 
                 case FinalizationOperationKind.RemoveBoxInteractionLockState:
                     builder.Append("|RemoveLock=1");
+                    break;
+
+                case FinalizationOperationKind.SetGravityFieldState:
+                    builder.Append("|GravityFieldPhase=").Append(operation.GravityFieldPhase)
+                        .Append("|GravityFieldTimer=").Append(operation.GravityFieldTimerTicks);
                     break;
 
                 case FinalizationOperationKind.SetUnitKinematicState:
@@ -847,7 +854,7 @@ namespace Game.Feature.Gameplay.Debug
             var spatialGameplayVisible = hasSpatialState ? (spatialState.IsGameplayVisible ? 1 : 0) : -1;
             var spatialSource = hasSpatialState ? spatialState.Source.ToString() : "Unknown";
             return
-                $"E={entity.entityId}|Pos=({entity.position.x},{entity.position.y})|Hp={entity.hp}/{entity.maxHp}|Team={entity.teamId}|Type={entity.type}|State={entity.state}|Timer={entity.stateTimer}|Facing={entity.facing}|Marked={entity.markedForDeath}|SpawnTick={entity.spawnTick}|BoxCapabilities={entity.boxCapabilities}|BoxArchetype={entity.boxArchetype}|KineticInstigator={entity.kineticInstigatorEntityId}|KineticTeam={entity.kineticInstigatorTeamId}|AiMode={entity.aiMode}|AiTimer={entity.aiStateTimer}|LocomotionCooldown={entity.enemyLocomotionCooldownTicks}|Face={entity.position.face}|Presence={entity.boardPresence}|SpatialKind={spatialKind}|SpatialOccClaim={spatialOccClaim}|SpatialGameplayVisible={spatialGameplayVisible}|SpatialSource={spatialSource}";
+                $"E={entity.entityId}|Pos=({entity.position.x},{entity.position.y})|Hp={entity.hp}/{entity.maxHp}|Team={entity.teamId}|Type={entity.type}|State={entity.state}|Timer={entity.stateTimer}|Facing={entity.facing}|Marked={entity.markedForDeath}|SpawnTick={entity.spawnTick}|BoxCapabilities={entity.boxCapabilities}|BoxArchetype={entity.boxArchetype}|GravityFieldPhase={entity.gravityFieldPhase}|GravityFieldTimer={entity.gravityFieldTimerTicks}|KineticInstigator={entity.kineticInstigatorEntityId}|KineticTeam={entity.kineticInstigatorTeamId}|AiMode={entity.aiMode}|AiTimer={entity.aiStateTimer}|LocomotionCooldown={entity.enemyLocomotionCooldownTicks}|Face={entity.position.face}|Presence={entity.boardPresence}|SpatialKind={spatialKind}|SpatialOccClaim={spatialOccClaim}|SpatialGameplayVisible={spatialGameplayVisible}|SpatialSource={spatialSource}";
         }
 
         private static string FormatCell(SurfaceCell cell)

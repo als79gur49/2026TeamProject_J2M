@@ -78,6 +78,11 @@ namespace Game.Feature.Gameplay.BoardState
             _port.SetBoxInteractionLockState(entityId, state);
         }
 
+        public void SetGravityFieldState(int entityId, GravityFieldPhase phase, int timerTicks)
+        {
+            _port.SetGravityFieldState(entityId, phase, timerTicks);
+        }
+
         public void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state)
         {
             _port.SetUnitKinematicState(entityId, state);

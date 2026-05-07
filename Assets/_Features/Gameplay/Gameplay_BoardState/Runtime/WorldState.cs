@@ -493,6 +493,19 @@ namespace Game.Feature.Gameplay.BoardState
             _boxInteractionLockStatesByEntityId[entityId] = state;
         }
 
+        internal void SetGravityFieldState(int entityId, GravityFieldPhase phase, int timerTicks)
+        {
+            if (!_entitiesById.TryGetValue(entityId, out var entity) ||
+                entity.type != EntityType.Box)
+            {
+                return;
+            }
+
+            entity.gravityFieldPhase = phase;
+            entity.gravityFieldTimerTicks = timerTicks;
+            _entitiesById[entityId] = entity;
+        }
+
         internal void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state)
         {
             if (!_entitiesById.TryGetValue(entityId, out var entity))
@@ -1189,6 +1202,11 @@ namespace Game.Feature.Gameplay.BoardState
         void IWorldStateMutationPort.SetBoxInteractionLockState(int entityId, BoxInteractionLockState state)
         {
             SetBoxInteractionLockState(entityId, state);
+        }
+
+        void IWorldStateMutationPort.SetGravityFieldState(int entityId, GravityFieldPhase phase, int timerTicks)
+        {
+            SetGravityFieldState(entityId, phase, timerTicks);
         }
 
         void IWorldStateMutationPort.SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state)

@@ -153,6 +153,8 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entity.spawnTick).Append('|')
                     .Append((int)entity.boxCapabilities).Append('|')
                     .Append((int)entity.boxArchetype).Append('|')
+                    .Append((int)entity.gravityFieldPhase).Append('|')
+                    .Append(entity.gravityFieldTimerTicks).Append('|')
                     .Append(entity.kineticInstigatorEntityId).Append('|')
                     .Append(entity.kineticInstigatorTeamId).Append('|')
                     .Append((int)entity.aiMode).Append('|')
@@ -607,7 +609,9 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entry.State.SourceEffectIndex).Append('|')
                     .Append(entry.State.ExpiresTickExclusive).Append('|')
                     .Append(entry.State.BlocksPush ? 1 : 0).Append('|')
-                    .Append(entry.State.BlocksFlip ? 1 : 0).Append('\n');
+                    .Append(entry.State.BlocksFlip ? 1 : 0).Append('|')
+                    .Append(entry.State.BlocksDestroy ? 1 : 0).Append('|')
+                    .Append((int)entry.State.SourceReason).Append('\n');
             }
         }
 

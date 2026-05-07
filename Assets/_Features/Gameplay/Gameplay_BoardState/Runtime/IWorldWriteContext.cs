@@ -44,6 +44,8 @@ namespace Game.Feature.Gameplay.BoardState
         void SetEnemyFrontFaceSupportState(int entityId, EnemyFrontFaceSupportRuntimeState state);
 
         void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state);
+
+        void SetGravityFieldState(int entityId, GravityFieldPhase phase, int timerTicks);
     }
 
     internal interface IEnemyJumpCommitContext
@@ -119,6 +121,8 @@ namespace Game.Feature.Gameplay.BoardState
         void SetEnemyDefinitionBindingState(int entityId, EnemyDefinitionBindingState state);
 
         new void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state);
+
+        new void SetGravityFieldState(int entityId, GravityFieldPhase phase, int timerTicks);
 
         void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state);
 

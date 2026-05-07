@@ -17,7 +17,7 @@ namespace Game.Feature.Stages
         public static StageRuntimeBuildResult Build(StageDefinition stage, StageSimulationTiming timing)
         {
             var validated = StageDefinitionValidator.ValidateAndNormalize(stage);
-            var initialEntities = BuildInitialEntities(validated);
+            var initialEntities = BuildInitialEntities(validated, timing);
             var initialTileFeatures = BuildInitialTileFeatures(validated.TileFeatures);
             var tileFeatureDefinitions = BuildTileFeatureRuntimeDefinitions(validated.TileFeatures);
             var moonBlockRespawnDefinitions = BuildMoonBlockRespawnDefinitions(validated.TileFeatures, initialEntities);
@@ -37,13 +37,15 @@ namespace Game.Feature.Stages
                 enemyAiProfileOverrides);
         }
 
-        private static EntityState[] BuildInitialEntities(StageDefinitionValidator.ValidatedStageData validated)
+        private static EntityState[] BuildInitialEntities(
+            StageDefinitionValidator.ValidatedStageData validated,
+            StageSimulationTiming timing)
         {
             var entities = new List<EntityState>(validated.Spawns.Length);
 
             for (var i = 0; i < validated.Spawns.Length; i++)
             {
-                entities.Add(CreateSpawnEntity(validated.Spawns[i]));
+                entities.Add(CreateSpawnEntity(validated.Spawns[i], timing));
             }
 
             entities.Sort(EntityStateEntityIdComparer.Instance);
@@ -189,7 +191,7 @@ namespace Game.Feature.Stages
             return overrides.ToArray();
         }
 
-        private static EntityState CreateSpawnEntity(StageSpawnDefinition spawn)
+        private static EntityState CreateSpawnEntity(StageSpawnDefinition spawn, StageSimulationTiming timing)
         {
             switch (spawn.Kind)
             {
@@ -224,6 +226,12 @@ namespace Game.Feature.Stages
                     };
 
                 case StageSpawnKind.Box:
+                    var gravityFieldPhase = spawn.BoxArchetype == BoxArchetype.GravityField
+                        ? GravityFieldPhase.Charging
+                        : GravityFieldPhase.None;
+                    var gravityFieldTimerTicks = spawn.BoxArchetype == BoxArchetype.GravityField
+                        ? timing.SecondsToTicksCeil(Game.Feature.Gameplay.Loop.GravityFieldRuntimePolicy.ChargeDurationSeconds)
+                        : 0;
                     return new EntityState
                     {
                         entityId = spawn.EntityId,
@@ -237,6 +245,8 @@ namespace Game.Feature.Stages
                         facing = ResolveFacing(spawn.Facing, Direction.Right),
                         boxCapabilities = spawn.BoxCapabilities,
                         boxArchetype = spawn.BoxArchetype,
+                        gravityFieldPhase = gravityFieldPhase,
+                        gravityFieldTimerTicks = gravityFieldTimerTicks,
                     };
 
                 case StageSpawnKind.Wall:

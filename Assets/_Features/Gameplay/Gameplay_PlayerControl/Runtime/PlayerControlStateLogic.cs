@@ -185,7 +185,7 @@ namespace Game.Feature.Gameplay.PlayerControl
             {
                 if (input.PlayerCommand.MoveDirection != Direction.None &&
                     canStartSettledAction &&
-                    PlayerControlQueries.TryResolvePushContact(snapshot, entity, input.PlayerCommand.MoveDirection, out var pushTarget))
+                    PlayerControlQueries.TryResolvePushContact(snapshot, entity, input.PlayerCommand.MoveDirection, input.TickIndex, out var pushTarget))
                 {
                     nextState = PlayerControlQueries.StartAction(
                         nextState,
@@ -213,7 +213,7 @@ namespace Game.Feature.Gameplay.PlayerControl
             {
 
                 if (canStartSettledAction &&
-                    PlayerControlQueries.TryResolveFlipTarget(snapshot, entity, input.PlayerCommand.MoveDirection, out var flipTarget))
+                    PlayerControlQueries.TryResolveFlipTarget(snapshot, entity, input.PlayerCommand.MoveDirection, input.TickIndex, out var flipTarget))
                 {
                     nextState = PlayerControlQueries.StartAction(
                         nextState,
@@ -257,7 +257,7 @@ namespace Game.Feature.Gameplay.PlayerControl
             switch (queuedAction.kind)
             {
                 case PlayerQueuedFree2DActionKind.Push:
-                    if (!PlayerControlQueries.TryResolvePushContact(snapshot, entity, queuedAction.direction, out var pushTarget))
+                    if (!PlayerControlQueries.TryResolvePushContact(snapshot, entity, queuedAction.direction, tickIndex, out var pushTarget))
                     {
                         return false;
                     }
@@ -280,7 +280,7 @@ namespace Game.Feature.Gameplay.PlayerControl
                     return true;
 
                 case PlayerQueuedFree2DActionKind.Flip:
-                    if (!PlayerControlQueries.TryResolveFlipTarget(snapshot, entity, queuedAction.direction, out var flipTarget))
+                    if (!PlayerControlQueries.TryResolveFlipTarget(snapshot, entity, queuedAction.direction, tickIndex, out var flipTarget))
                     {
                         return false;
                     }

@@ -590,7 +590,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                     return;
                 }
 
-                if (HasBoxCapability(target, BoxCapabilities.Destroy))
+                if (HasBoxCapability(target, BoxCapabilities.Destroy) &&
+                    !TryGetDestroyBlockingBoxInteractionLock(snapshot, target.entityId, tickIndex, out _))
                 {
                     var destroyGroup = new ActionGroup(
                         intent.IntentId,
@@ -614,7 +615,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                     out var barricade))
             {
                 AddBarricadeBlockFact(barricadeBlockFacts, barricade, target.entityId, stepFacing);
-                if (HasBoxCapability(target, BoxCapabilities.Destroy))
+                if (HasBoxCapability(target, BoxCapabilities.Destroy) &&
+                    !TryGetDestroyBlockingBoxInteractionLock(snapshot, target.entityId, tickIndex, out _))
                 {
                     var destroyGroup = new ActionGroup(
                         intent.IntentId,
@@ -985,6 +987,20 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             return blocksPush
                 ? lockState.BlocksPush
                 : lockState.BlocksFlip;
+        }
+
+        private static bool TryGetDestroyBlockingBoxInteractionLock(
+            WorldSnapshot snapshot,
+            int boxEntityId,
+            int tickIndex,
+            out BoxInteractionLockState lockState)
+        {
+            if (!snapshot.TryGetActiveBoxInteractionLockState(boxEntityId, tickIndex, out lockState))
+            {
+                return false;
+            }
+
+            return lockState.BlocksDestroy;
         }
 
         private static bool IsSlidingPushBox(EntityState entity)

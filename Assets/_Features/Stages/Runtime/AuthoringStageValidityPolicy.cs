@@ -111,6 +111,11 @@ namespace Game.Feature.Stages
                     $"Stage '{stageName}' {spawnLabel} uses BoxArchetype {spawn.BoxArchetype}, but box archetypes are only valid on Box spawns.");
             }
 
+            if (spawn.BoxArchetype != BoxArchetype.Moon)
+            {
+                return;
+            }
+
             moonBlockCount++;
             if (moonBlockCount > 1)
             {

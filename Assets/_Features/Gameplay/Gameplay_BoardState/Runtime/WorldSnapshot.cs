@@ -7,6 +7,13 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.BoardState
 {
+    public enum BoxInteractionLockSourceReason
+    {
+        Unspecified = 0,
+        EnemyUtility = 1,
+        GravityField = 2,
+    }
+
     public readonly struct BoxInteractionLockState
     {
         public BoxInteractionLockState(
@@ -15,12 +22,33 @@ namespace Game.Feature.Gameplay.BoardState
             int expiresTickExclusive,
             bool blocksPush,
             bool blocksFlip)
+            : this(
+                sourceEntityId,
+                sourceEffectIndex,
+                expiresTickExclusive,
+                blocksPush,
+                blocksFlip,
+                blocksDestroy: false,
+                BoxInteractionLockSourceReason.EnemyUtility)
+        {
+        }
+
+        public BoxInteractionLockState(
+            int sourceEntityId,
+            int sourceEffectIndex,
+            int expiresTickExclusive,
+            bool blocksPush,
+            bool blocksFlip,
+            bool blocksDestroy,
+            BoxInteractionLockSourceReason sourceReason)
         {
             SourceEntityId = sourceEntityId;
             SourceEffectIndex = sourceEffectIndex;
             ExpiresTickExclusive = expiresTickExclusive;
             BlocksPush = blocksPush;
             BlocksFlip = blocksFlip;
+            BlocksDestroy = blocksDestroy;
+            SourceReason = sourceReason;
         }
 
         public int SourceEntityId { get; }
@@ -32,6 +60,10 @@ namespace Game.Feature.Gameplay.BoardState
         public bool BlocksPush { get; }
 
         public bool BlocksFlip { get; }
+
+        public bool BlocksDestroy { get; }
+
+        public BoxInteractionLockSourceReason SourceReason { get; }
     }
 
     internal readonly struct BoxInteractionLockSnapshotEntry

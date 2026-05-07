@@ -384,7 +384,7 @@ namespace Game.Feature.Gameplay.Loop
                 var boxEntityId = orderedBoxEntityIds[boxIndex];
                 var mergedState = plannedStatesByBoxEntityId[boxEntityId];
                 if (projectedSnapshot.TryGetActiveBoxInteractionLockState(boxEntityId, tickIndex, out var existingState) &&
-                    AreBoxInteractionLockStatesEqual(existingState, mergedState))
+                    BoxInteractionLockMerge.AreEqual(existingState, mergedState))
                 {
                     continue;
                 }
@@ -400,7 +400,7 @@ namespace Game.Feature.Gameplay.Loop
                 if (projectedSnapshot.TryGetEntity(boxEntityId, out var box))
                 {
                     eventLogEntries.Add(
-                        $"BoxInteractionLockApplied|Source={mergedState.SourceEntityId}|Effect={mergedState.SourceEffectIndex}|Box={boxEntityId}|Cell={box.position}|Expires={mergedState.ExpiresTickExclusive}|BlocksPush={(mergedState.BlocksPush ? 1 : 0)}|BlocksFlip={(mergedState.BlocksFlip ? 1 : 0)}");
+                        $"BoxInteractionLockApplied|Source={mergedState.SourceEntityId}|Effect={mergedState.SourceEffectIndex}|Reason={mergedState.SourceReason}|Box={boxEntityId}|Cell={box.position}|Expires={mergedState.ExpiresTickExclusive}|BlocksPush={(mergedState.BlocksPush ? 1 : 0)}|BlocksFlip={(mergedState.BlocksFlip ? 1 : 0)}|BlocksDestroy={(mergedState.BlocksDestroy ? 1 : 0)}");
                 }
             }
 
@@ -799,31 +799,14 @@ namespace Game.Feature.Gameplay.Loop
             in BoxInteractionLockState existingState,
             in BoxInteractionLockState newState)
         {
-            var mergedExpires = Math.Max(existingState.ExpiresTickExclusive, newState.ExpiresTickExclusive);
-            var useNewSource =
-                newState.ExpiresTickExclusive > existingState.ExpiresTickExclusive ||
-                (newState.ExpiresTickExclusive == existingState.ExpiresTickExclusive &&
-                 (newState.SourceEntityId < existingState.SourceEntityId ||
-                  (newState.SourceEntityId == existingState.SourceEntityId &&
-                   newState.SourceEffectIndex < existingState.SourceEffectIndex)));
-
-            return new BoxInteractionLockState(
-                useNewSource ? newState.SourceEntityId : existingState.SourceEntityId,
-                useNewSource ? newState.SourceEffectIndex : existingState.SourceEffectIndex,
-                mergedExpires,
-                existingState.BlocksPush || newState.BlocksPush,
-                existingState.BlocksFlip || newState.BlocksFlip);
+            return BoxInteractionLockMerge.Merge(existingState, newState);
         }
 
         private static bool AreBoxInteractionLockStatesEqual(
             in BoxInteractionLockState left,
             in BoxInteractionLockState right)
         {
-            return left.SourceEntityId == right.SourceEntityId &&
-                   left.SourceEffectIndex == right.SourceEffectIndex &&
-                   left.ExpiresTickExclusive == right.ExpiresTickExclusive &&
-                   left.BlocksPush == right.BlocksPush &&
-                   left.BlocksFlip == right.BlocksFlip;
+            return BoxInteractionLockMerge.AreEqual(left, right);
         }
 
         private static Direction TurnRight(Direction direction)

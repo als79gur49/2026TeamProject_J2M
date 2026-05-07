@@ -51,6 +51,8 @@ namespace Game.Feature.Gameplay.Loop
         private readonly int _playerMoveCooldownTicks;
         private readonly int _playerDamageCooldownTicks;
         private readonly int _playerRespawnDelayTicks;
+        private readonly int _gravityFieldChargeTicks;
+        private readonly int _gravityFieldActiveTicks;
         private readonly PlayerKinematicLocomotionTimingSnapshot _playerKinematicLocomotionTiming;
         private readonly PlayerContinuousLocomotionSnapshot _playerContinuousLocomotion;
         private readonly bool _allowPlayerRespawn;
@@ -135,6 +137,12 @@ namespace Game.Feature.Gameplay.Loop
             _playerMoveCooldownTicks = Math.Max(0, playerControlTiming.MoveCooldownTicks);
             _playerDamageCooldownTicks = Math.Max(0, playerControlTiming.DamageCooldownTicks);
             _playerRespawnDelayTicks = playerRespawnDelayTicks;
+            _gravityFieldChargeTicks = GameplayTimingProfile.SecondsToCeilTicks(
+                GravityFieldRuntimePolicy.ChargeDurationSeconds,
+                resolvedGeneralTimingProfile.SimulationTicksPerSecond);
+            _gravityFieldActiveTicks = GameplayTimingProfile.SecondsToCeilTicks(
+                GravityFieldRuntimePolicy.ActiveDurationSeconds,
+                resolvedGeneralTimingProfile.SimulationTicksPerSecond);
             _playerKinematicLocomotionTiming = playerKinematicLocomotionTiming.IsConfigured
                 ? playerKinematicLocomotionTiming
                 : PlayerKinematicLocomotionTimingSettings.CreateDefault()
@@ -526,6 +534,22 @@ namespace Game.Feature.Gameplay.Loop
                 snapshotAfterEnemyAi = projectedWorld.CreateSnapshot();
             }
 
+            var gravityFieldBatch = new FinalizationBatch();
+            var gravityFieldEvents = new List<string>();
+            GravityFieldRuntimeResolver.ResolvePreMovement(
+                snapshotAfterEnemyAi,
+                input.TickIndex,
+                _gravityFieldChargeTicks,
+                _gravityFieldActiveTicks,
+                gravityFieldBatch,
+                gravityFieldEvents);
+            if (gravityFieldBatch.Operations.Count > 0)
+            {
+                planFinalizationBatch.MergeFrom(gravityFieldBatch);
+                projectedWorld.ApplyBatch(gravityFieldBatch);
+                snapshotAfterEnemyAi = projectedWorld.CreateSnapshot();
+            }
+
             var preMovementBatch = new FinalizationBatch();
             var utilityTriggerIntents = new List<EnemyUtilityTriggerIntent>();
             var preMovementContext = new RecordingFinalizationContext(
@@ -541,6 +565,10 @@ namespace Game.Feature.Gameplay.Loop
             if (kinematicClosureEvents.Count > 0)
             {
                 preMovementStateResult.EventLogEntries.InsertRange(0, kinematicClosureEvents);
+            }
+            if (gravityFieldEvents.Count > 0)
+            {
+                preMovementStateResult.EventLogEntries.InsertRange(0, gravityFieldEvents);
             }
             utilityTriggerIntents.Sort(EnemyUtilityTriggerIntentComparer.Instance);
             preMovementStateResult.UtilityTriggerIntents.AddRange(utilityTriggerIntents);

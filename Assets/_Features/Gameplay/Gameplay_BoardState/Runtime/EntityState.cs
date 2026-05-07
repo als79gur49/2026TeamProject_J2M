@@ -18,6 +18,14 @@ namespace Game.Feature.Gameplay.BoardState
     {
         Normal = 0,
         Moon = 1,
+        GravityField = 2,
+    }
+
+    public enum GravityFieldPhase
+    {
+        None = 0,
+        Charging = 1,
+        Active = 2,
     }
 
     public struct EntityState
@@ -37,6 +45,8 @@ namespace Game.Feature.Gameplay.BoardState
         public int spawnTick;
         public BoxCapabilities boxCapabilities;
         public BoxArchetype boxArchetype;
+        public GravityFieldPhase gravityFieldPhase;
+        public int gravityFieldTimerTicks;
         public int kineticInstigatorEntityId;
         public int kineticInstigatorTeamId;
         public EnemyAiMode aiMode;

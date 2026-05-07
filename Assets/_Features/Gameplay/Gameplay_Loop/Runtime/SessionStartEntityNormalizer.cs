@@ -35,6 +35,20 @@ namespace Game.Feature.Gameplay.Loop
                     normalizedEntity.stateTimer = timingProfile.ProjectileStepIntervalTicks;
                 }
 
+                if (normalizedEntity.type == EntityType.Box &&
+                    normalizedEntity.boxArchetype == BoxArchetype.GravityField)
+                {
+                    normalizedEntity.gravityFieldPhase = GravityFieldPhase.Charging;
+                    normalizedEntity.gravityFieldTimerTicks = GameplayTimingProfile.SecondsToCeilTicks(
+                        GravityFieldRuntimePolicy.ChargeDurationSeconds,
+                        timingProfile.SimulationTicksPerSecond);
+                }
+                else
+                {
+                    normalizedEntity.gravityFieldPhase = GravityFieldPhase.None;
+                    normalizedEntity.gravityFieldTimerTicks = 0;
+                }
+
                 normalizedEntities.Add(normalizedEntity);
             }
 

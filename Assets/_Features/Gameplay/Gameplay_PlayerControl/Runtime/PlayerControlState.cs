@@ -287,6 +287,27 @@ namespace Game.Feature.Gameplay.PlayerControl
             Direction inputDirection,
             out PlayerActionTarget contact)
         {
+            return TryResolvePushContact(snapshot, player, inputDirection, tickIndex: 0, checkLocks: false, out contact);
+        }
+
+        public static bool TryResolvePushContact(
+            WorldSnapshot snapshot,
+            in EntityState player,
+            Direction inputDirection,
+            int tickIndex,
+            out PlayerActionTarget contact)
+        {
+            return TryResolvePushContact(snapshot, player, inputDirection, tickIndex, checkLocks: true, out contact);
+        }
+
+        private static bool TryResolvePushContact(
+            WorldSnapshot snapshot,
+            in EntityState player,
+            Direction inputDirection,
+            int tickIndex,
+            bool checkLocks,
+            out PlayerActionTarget contact)
+        {
             if (snapshot == null)
             {
                 throw new ArgumentNullException(nameof(snapshot));
@@ -310,6 +331,8 @@ namespace Game.Feature.Gameplay.PlayerControl
                 player.position,
                 inputDirection,
                 delta,
+                tickIndex,
+                checkLocks,
                 out contact);
         }
 
@@ -339,6 +362,8 @@ namespace Game.Feature.Gameplay.PlayerControl
                         currentAnchor,
                         actionDirection,
                         delta,
+                        tickIndex: 0,
+                        checkLocks: false,
                         out _);
 
                 case PlayerQueuedFree2DActionKind.Flip:
@@ -348,6 +373,8 @@ namespace Game.Feature.Gameplay.PlayerControl
                         currentAnchor,
                         actionDirection,
                         delta,
+                        tickIndex: 0,
+                        checkLocks: false,
                         out _);
 
                 default:
@@ -427,6 +454,27 @@ namespace Game.Feature.Gameplay.PlayerControl
             Direction inputDirection,
             out PlayerActionTarget target)
         {
+            return TryResolveFlipTarget(snapshot, player, inputDirection, tickIndex: 0, checkLocks: false, out target);
+        }
+
+        public static bool TryResolveFlipTarget(
+            WorldSnapshot snapshot,
+            in EntityState player,
+            Direction inputDirection,
+            int tickIndex,
+            out PlayerActionTarget target)
+        {
+            return TryResolveFlipTarget(snapshot, player, inputDirection, tickIndex, checkLocks: true, out target);
+        }
+
+        private static bool TryResolveFlipTarget(
+            WorldSnapshot snapshot,
+            in EntityState player,
+            Direction inputDirection,
+            int tickIndex,
+            bool checkLocks,
+            out PlayerActionTarget target)
+        {
             if (snapshot == null)
             {
                 throw new ArgumentNullException(nameof(snapshot));
@@ -445,6 +493,8 @@ namespace Game.Feature.Gameplay.PlayerControl
                 player.position,
                 inputDirection,
                 delta,
+                tickIndex,
+                checkLocks,
                 out target);
         }
 
@@ -454,6 +504,8 @@ namespace Game.Feature.Gameplay.PlayerControl
             SurfaceCell currentAnchor,
             Direction inputDirection,
             Vector2Int delta,
+            int tickIndex,
+            bool checkLocks,
             out PlayerActionTarget contact)
         {
             var anchoredPlayer = player;
@@ -465,6 +517,13 @@ namespace Game.Feature.Gameplay.PlayerControl
             }
 
             if (!TryResolvePushBoxContact(snapshot, movementTopology, targetCell, out var target))
+            {
+                contact = default;
+                return false;
+            }
+
+            if (checkLocks &&
+                TryGetActiveBoxInteractionLock(snapshot, target.entityId, tickIndex, blocksPush: true, out _))
             {
                 contact = default;
                 return false;
@@ -504,12 +563,21 @@ namespace Game.Feature.Gameplay.PlayerControl
             SurfaceCell currentAnchor,
             Direction inputDirection,
             Vector2Int delta,
+            int tickIndex,
+            bool checkLocks,
             out PlayerActionTarget target)
         {
             var anchoredPlayer = player;
             anchoredPlayer.position = currentAnchor;
             if (!snapshot.TryResolveLocalFlipCells(anchoredPlayer.position, delta, out var targetCell, out var landingCell) ||
                 !TryResolveFlippableBoxTarget(snapshot, targetCell, landingCell, out var entity))
+            {
+                target = default;
+                return false;
+            }
+
+            if (checkLocks &&
+                TryGetActiveBoxInteractionLock(snapshot, entity.entityId, tickIndex, blocksPush: false, out _))
             {
                 target = default;
                 return false;
@@ -682,6 +750,23 @@ namespace Game.Feature.Gameplay.PlayerControl
         private static bool HasBoxCapability(EntityState entity, BoxCapabilities capability)
         {
             return entity.type == EntityType.Box && (entity.boxCapabilities & capability) == capability;
+        }
+
+        private static bool TryGetActiveBoxInteractionLock(
+            WorldSnapshot snapshot,
+            int boxEntityId,
+            int tickIndex,
+            bool blocksPush,
+            out BoxInteractionLockState lockState)
+        {
+            if (!snapshot.TryGetActiveBoxInteractionLockState(boxEntityId, tickIndex, out lockState))
+            {
+                return false;
+            }
+
+            return blocksPush
+                ? lockState.BlocksPush
+                : lockState.BlocksFlip;
         }
     }
 
