@@ -22,6 +22,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayFrontFaceShieldVfxPresenter.cs";
         private const string FrontFaceShieldPrefabPath =
             "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Prefabs/EnemyView_FrontFaceShield.prefab";
+        private const string CurrentFrontFaceShieldActivePrefabPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/FrontFaceShieldActiveVfx.prefab";
+        private const string CurrentFrontFaceShieldBlockPrefabPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/FrontFaceShieldBlockVfx.prefab";
+        private const string CurrentFrontFaceShieldActiveMaterialPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_FrontFaceShieldActive_Blue.mat";
+        private const string CurrentFrontFaceShieldBlockMaterialPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_FrontFaceShieldBlock_Cyan.mat";
+        private const string CurrentFrontFaceShieldActiveBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/FrontFaceShieldActive_Binding.asset";
+        private const string CurrentFrontFaceShieldBlockBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/FrontFaceShieldBlock_Binding.asset";
+        private const string HostDefaultCueMapPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset";
+        private const string LegacyFrontFaceShieldActivePrefabPath =
+            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/VFX/FrontFaceShield/VFX_FrontFaceShield_ActiveLoop.prefab";
+        private const string LegacyFrontFaceShieldActiveMaterialPath =
+            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/VFX/FrontFaceShield/M_FrontFaceShield_ActiveLoop.mat";
+        private const string LegacyFrontFaceShieldBlockPrefabPath =
+            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/VFX/FrontFaceShield/VFX_FrontFaceShield_BlockBurst.prefab";
+        private const string LegacyFrontFaceShieldBlockMaterialPath =
+            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/VFX/FrontFaceShield/M_FrontFaceShield_BlockBurst.mat";
+        private const string LegacyFrontFaceShieldTelegraphPrefabPath =
+            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/VFX/FrontFaceShield/VFX_FrontFaceShield_Telegraph.prefab";
+        private const string LegacyFrontFaceShieldTelegraphMaterialPath =
+            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/VFX/FrontFaceShield/M_FrontFaceShield_Telegraph.mat";
 
         [Test]
         [Category("Extended")]
@@ -156,15 +182,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void DeferredSerializedReferenceCleanup_IsDocumentedAsRemovedWithoutAssetDeletion()
+        public void DeferredSerializedReferenceCleanup_IsDocumentedWithLegacyAssetRemoval()
         {
             var document = ReadRepoFile(GovernancePath);
 
             Assert.That(document, Does.Contain("EnemyUtilityWindupPresentationAuthoring." + UtilityRemovedField()));
             Assert.That(document, Does.Contain("EnemyFrontFaceShieldPresentationAuthoring." + ShieldActiveRemovedField()));
             Assert.That(document, Does.Contain("EnemyFrontFaceShieldPresentationAuthoring." + ShieldBlockRemovedField()));
-            Assert.That(document, Does.Contain("old FrontFaceShield active/block prefab and material assets are deletion candidates only after GUID reference scans confirm zero external references"));
-            Assert.That(document, Does.Contain("no old asset file deletion occurred in this slice"));
+            Assert.That(document, Does.Contain("old FrontFaceShield active/block prefab and material assets were removed after GUID reference scans confirmed zero external references"));
+            Assert.That(document, Does.Contain("FrontFaceShieldActiveVfx"));
+            Assert.That(document, Does.Contain("FrontFaceShieldBlockVfx"));
             Assert.That(document, Does.Contain("VFX_FrontFaceShield_Telegraph"));
             Assert.That(document, Does.Contain("M_FrontFaceShield_Telegraph.mat"));
         }
@@ -173,19 +200,46 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void ProtectedVfxAssets_AreStillPresent()
         {
-            Assert.That(File.Exists("Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/FrontFaceShieldActiveVfx.prefab"), Is.True);
-            Assert.That(File.Exists("Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/FrontFaceShieldBlockVfx.prefab"), Is.True);
+            AssertFileExists(CurrentFrontFaceShieldActivePrefabPath);
+            AssertFileExists(CurrentFrontFaceShieldBlockPrefabPath);
+            AssertFileExists(CurrentFrontFaceShieldActiveMaterialPath);
+            AssertFileExists(CurrentFrontFaceShieldBlockMaterialPath);
+            AssertFileExists(CurrentFrontFaceShieldActiveBindingPath);
+            AssertFileExists(CurrentFrontFaceShieldBlockBindingPath);
+            AssertFileExists(HostDefaultCueMapPath);
             Assert.That(File.Exists("Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/EnemyUtilityWindupTelegraphVfx.prefab"), Is.True);
-            Assert.That(File.Exists("Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/VFX/FrontFaceShield/VFX_FrontFaceShield_ActiveLoop.prefab"), Is.True);
-            Assert.That(File.Exists("Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/VFX/FrontFaceShield/VFX_FrontFaceShield_BlockBurst.prefab"), Is.True);
-            Assert.That(File.Exists("Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/VFX/FrontFaceShield/VFX_FrontFaceShield_Telegraph.prefab"), Is.True);
-            Assert.That(File.Exists("Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/VFX/FrontFaceShield/M_FrontFaceShield_Telegraph.mat"), Is.True);
+            AssertFileExists(LegacyFrontFaceShieldTelegraphPrefabPath);
+            AssertFileExists(LegacyFrontFaceShieldTelegraphMaterialPath);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void LegacyFrontFaceShieldActiveBlockAssets_AreRemoved()
+        {
+            AssertFileDoesNotExist(LegacyFrontFaceShieldActivePrefabPath);
+            AssertFileDoesNotExist(LegacyFrontFaceShieldActivePrefabPath + ".meta");
+            AssertFileDoesNotExist(LegacyFrontFaceShieldActiveMaterialPath);
+            AssertFileDoesNotExist(LegacyFrontFaceShieldActiveMaterialPath + ".meta");
+            AssertFileDoesNotExist(LegacyFrontFaceShieldBlockPrefabPath);
+            AssertFileDoesNotExist(LegacyFrontFaceShieldBlockPrefabPath + ".meta");
+            AssertFileDoesNotExist(LegacyFrontFaceShieldBlockMaterialPath);
+            AssertFileDoesNotExist(LegacyFrontFaceShieldBlockMaterialPath + ".meta");
         }
 
         private static string ReadRepoFile(string path)
         {
             Assert.That(File.Exists(path), Is.True, $"Missing repo file: {path}");
             return File.ReadAllText(path);
+        }
+
+        private static void AssertFileExists(string path)
+        {
+            Assert.That(File.Exists(path), Is.True, $"Missing repo file: {path}");
+        }
+
+        private static void AssertFileDoesNotExist(string path)
+        {
+            Assert.That(File.Exists(path), Is.False, $"Unexpected legacy asset file: {path}");
         }
 
         private static string UtilityRemovedField()

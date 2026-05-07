@@ -992,7 +992,7 @@ Serialized reference cleanup status:
 - removed fields: `EntityEffectPresentationAuthoring.hitVfxPrefab`, `EntityEffectPresentationAuthoring.deathVfxPrefab`, `EnemyUtilityWindupPresentationAuthoring.summonWindupWarningPrefab`, `EnemyFrontFaceShieldPresentationAuthoring.activeLoopPrefab`, and `EnemyFrontFaceShieldPresentationAuthoring.blockBurstPrefab`.
 - retained fields: `telegraphPrefab`, `deathViewTailSeconds`, timing overrides, ownership mode, and death anchor.
 - removed-field YAML residue is cleaned for the active/block FrontFaceShield prefab references and stale null hit/death prefab keys.
-- old FrontFaceShield active/block prefab and material assets are deletion candidates only after GUID reference scans confirm zero external references; no old asset file deletion occurred in this slice.
+- old FrontFaceShield active/block prefab and material assets were removed after GUID reference scans confirmed zero external references. The active/block replacements are `FrontFaceShieldActiveVfx` and `FrontFaceShieldBlockVfx` in the current Gameplay VFX lane.
 - `VFX_FrontFaceShield_Telegraph` and `M_FrontFaceShield_Telegraph.mat` are retained because FrontFaceShield windup warning remains canonical old presentation.
 
 Authority and carrier boundaries remain unchanged: no `TickPipeline`, `WorldState`, `WorldSnapshot`, `ProjectedWorld`, `FinalizationBatch`, `DeterminismHashBuilder`, `TickPresentationData`, `TickEntityExitPresentationSignal`, `TickEntityMotion`, or `TickResultBuilder` changes are part of legacy old path cleanup.
