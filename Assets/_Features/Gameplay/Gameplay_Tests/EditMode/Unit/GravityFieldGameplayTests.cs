@@ -125,11 +125,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             marked.markedForDeath = true;
             var detached = CreateBox(48, new SurfaceCell(FaceId.Floor, 1, 1), BoxArchetype.Normal, BoxCapabilities.Push);
             detached.boardPresence = EntityBoardPresence.Detached;
-            var projectile = CreateProjectile(49, new SurfaceCell(FaceId.Floor, 0, -1));
 
             var worldState = CreateWorldState(new[]
             {
-                CreatePlayer(10, new SurfaceCell(FaceId.Floor, -1, -1)),
+                CreatePlayer(10, new SurfaceCell(FaceId.Floor, -4, -4)),
                 CreateBox(40, new SurfaceCell(FaceId.Floor, 1, 0), BoxArchetype.Normal, BoxCapabilities.Push),
                 CreateBox(20, new SurfaceCell(FaceId.Floor, -1, 0), BoxArchetype.Normal, BoxCapabilities.Push),
                 CreateBox(30, new SurfaceCell(FaceId.Floor, 0, -1), BoxArchetype.Normal, BoxCapabilities.Push),
@@ -139,7 +138,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 dead,
                 marked,
                 detached,
-                projectile,
+                CreateProjectile(49, new SurfaceCell(FaceId.Floor, -1, -1)),
                 CreateBox(50, new SurfaceCell(FaceId.Floor, 0, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Active, timerTicks: 2),
             });
 
