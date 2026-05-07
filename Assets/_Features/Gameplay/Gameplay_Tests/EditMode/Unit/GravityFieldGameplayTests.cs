@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
@@ -281,14 +282,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     GravityFieldPresentationEventKind.Activated,
                     30,
                     new SurfaceCell(FaceId.Floor, 0, 0))));
+            var withVisualState = new TickResultData(
+                finalEntities,
+                Array.Empty<DelayedAttackEffectRecord>(),
+                Array.Empty<string>(),
+                CreateGravityFieldPresentationData(
+                    new[]
+                    {
+                        new GravityFieldVisualState(
+                            30,
+                            new SurfaceCell(FaceId.Floor, 0, 0),
+                            GravityFieldPhase.Charging,
+                            timerTicks: 2,
+                            durationTicks: 8 * GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                            progress01: 0.5f),
+                    }));
             var hashBuilder = new DeterminismHashBuilder();
 
             Assert.That(
                 hashBuilder.Build(1, snapshot, withPresentationEvent),
                 Is.EqualTo(hashBuilder.Build(1, snapshot, baseline)));
+            Assert.That(
+                hashBuilder.Build(1, snapshot, withVisualState),
+                Is.EqualTo(hashBuilder.Build(1, snapshot, baseline)));
         }
 
         private static TickPresentationData CreateGravityFieldPresentationData(
+            params GravityFieldPresentationEvent[] gravityFieldEvents)
+        {
+            return CreateGravityFieldPresentationData(
+                Array.Empty<GravityFieldVisualState>(),
+                gravityFieldEvents);
+        }
+
+        private static TickPresentationData CreateGravityFieldPresentationData(
+            IReadOnlyList<GravityFieldVisualState> gravityFieldVisualStates,
             params GravityFieldPresentationEvent[] gravityFieldEvents)
         {
             return new TickPresentationData(
@@ -307,7 +335,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<TickEntityExitPresentationSignal>(),
                 Array.Empty<TickImpactTransientPresentationSignal>(),
                 Array.Empty<FlipImpactPresentationSignal>(),
-                gravityFieldEvents: gravityFieldEvents);
+                gravityFieldEvents: gravityFieldEvents,
+                gravityFieldVisualStates: gravityFieldVisualStates);
         }
 
         private static WorldState CreateWorldState(EntityState[] entities, GameplayTerrainData terrain = null)
