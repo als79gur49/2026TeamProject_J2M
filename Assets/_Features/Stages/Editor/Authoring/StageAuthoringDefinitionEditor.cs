@@ -180,6 +180,15 @@ namespace Game.Feature.Stages.Editor
             var entryCount = catalog != null ? catalog.Entries.Count : 0;
             var invalidEntryCount = CountInvalidBoardTileCatalogEntries(catalog);
             var missingRoleDefaultCount = CountMissingBoardTileRoleDefaults(catalog);
+            var overrides = presentation != null
+                ? presentation.BoardTilePresentationOverrides
+                : System.Array.Empty<BoardTilePresentationOverride>();
+            var overrideCount = overrides.Count(entry => entry != null);
+            var duplicateOverrideCellCount = overrides
+                .Where(entry => entry != null)
+                .GroupBy(entry => entry.Cell)
+                .Count(group => group.Count() > 1);
+            var unresolvedOverrideKeyCount = CountUnresolvedBoardTileOverrideKeys(presentation, catalog);
 
             EditorGUILayout.LabelField(
                 "BoardTile Catalog",
@@ -187,6 +196,30 @@ namespace Game.Feature.Stages.Editor
             EditorGUILayout.LabelField(
                 "BoardTile Catalog Summary",
                 $"entries={entryCount}, invalid entries={invalidEntryCount}, missing role defaults={missingRoleDefaultCount}");
+            EditorGUILayout.LabelField(
+                "BoardTile Override Summary",
+                $"overrides={overrideCount}, duplicate cells={duplicateOverrideCellCount}, unresolved keys={unresolvedOverrideKeyCount}");
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                using (new EditorGUI.DisabledScope(presentation == null))
+                {
+                    if (GUILayout.Button("Open Presentation Definition"))
+                    {
+                        Selection.activeObject = presentation;
+                        EditorGUIUtility.PingObject(presentation);
+                    }
+                }
+
+                using (new EditorGUI.DisabledScope(catalog == null))
+                {
+                    if (GUILayout.Button("Open BoardTile Catalog"))
+                    {
+                        Selection.activeObject = catalog;
+                        EditorGUIUtility.PingObject(catalog);
+                    }
+                }
+            }
         }
 
         private static int CountInvalidBoardTileCatalogEntries(BoardTilePresentationCatalog catalog)
@@ -243,6 +276,37 @@ namespace Game.Feature.Stages.Editor
             }
 
             return missingCount;
+        }
+
+        private static int CountUnresolvedBoardTileOverrideKeys(
+            StagePresentationDefinition presentation,
+            BoardTilePresentationCatalog catalog)
+        {
+            if (presentation == null)
+            {
+                return 0;
+            }
+
+            var overrides = presentation.BoardTilePresentationOverrides;
+            var unresolvedCount = 0;
+            for (var i = 0; i < overrides.Count; i++)
+            {
+                var boardOverride = overrides[i];
+                if (boardOverride == null)
+                {
+                    continue;
+                }
+
+                var presentationKey = boardOverride.PresentationKey;
+                if (string.IsNullOrEmpty(presentationKey) ||
+                    catalog == null ||
+                    !catalog.TryGetEntry(presentationKey, out _))
+                {
+                    unresolvedCount++;
+                }
+            }
+
+            return unresolvedCount;
         }
 
         private static int CountUnresolvedTileFeaturePresentationKeys(

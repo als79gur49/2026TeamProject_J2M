@@ -9,6 +9,7 @@ namespace Game.Feature.Stages.Editor
     {
         EntityPlacement,
         TileFeaturePlacement,
+        BoardTilePresentation,
         ZoneEditing,
     }
 
@@ -33,6 +34,9 @@ namespace Game.Feature.Stages.Editor
         private bool tileFeatureEraseMode;
         private string tileFeatureFeedback = string.Empty;
         private MessageType tileFeatureFeedbackType = MessageType.Info;
+        private string boardTilePresentationKey = string.Empty;
+        private string boardTileFeedback = string.Empty;
+        private MessageType boardTileFeedbackType = MessageType.Info;
         private int loadedTileFeatureId;
         private GameObject selectedTileFeatureVisualPrefab;
         private bool tileFeatureVisualBindingAdvancedFoldout;
@@ -80,6 +84,8 @@ namespace Game.Feature.Stages.Editor
             selectedPresentationKey = string.Empty;
             tileFeatureEraseMode = false;
             tileFeatureFeedback = string.Empty;
+            boardTilePresentationKey = string.Empty;
+            boardTileFeedback = string.Empty;
             loadedTileFeatureId = 0;
             selectedTileFeatureVisualPrefab = null;
             tileFeatureVisualBindingAdvancedFoldout = false;
@@ -232,6 +238,38 @@ namespace Game.Feature.Stages.Editor
             return RemoveSelectedTileFeatureVisualBinding(out error);
         }
 
+        internal BoardTilePresentationCatalogOption[] GetBoardTileCatalogOptionsForTests()
+        {
+            return StageAuthoringPresentationBindingCommands.BuildBoardTilePresentationOptions(
+                authoring != null ? authoring.GeneratedPresentationDefinition : null);
+        }
+
+        internal BoardTilePresentationOverrideStatus GetBoardTileOverrideStatusForTests()
+        {
+            var cell = GetTargetSurfaceCell();
+            StageAuthoringPresentationBindingCommands.TryGetBoardTilePresentationOverrideStatus(
+                authoring != null ? authoring.GeneratedPresentationDefinition : null,
+                authoring,
+                cell,
+                out var status);
+            return status;
+        }
+
+        internal void SetBoardTilePresentationKeyForTests(string presentationKey)
+        {
+            boardTilePresentationKey = presentationKey ?? string.Empty;
+        }
+
+        internal bool SetBoardTileOverrideForTests(out string error)
+        {
+            return SetBoardTileOverride(out error);
+        }
+
+        internal bool ClearBoardTileOverrideForTests(out string error)
+        {
+            return ClearBoardTileOverride(out error);
+        }
+
         internal ExitGoalZoneStatus GetSelectedExitGoalZoneStatusForTests()
         {
             StageAuthoringExitGoalHelperCommands.TryGetExitGoalZoneStatus(
@@ -355,6 +393,10 @@ namespace Game.Feature.Stages.Editor
             {
                 DrawTileFeatureTools();
             }
+            else if (editMode == StageAuthoringGridEditMode.BoardTilePresentation)
+            {
+                DrawBoardTilePresentationTools();
+            }
             else
             {
                 EditorGUILayout.HelpBox("Zone editing is not implemented in this authoring tool phase.", MessageType.Info);
@@ -383,12 +425,13 @@ namespace Game.Feature.Stages.Editor
                 EditorGUILayout.LabelField("Mode", GUILayout.Width(48));
                 var nextMode = (StageAuthoringGridEditMode)GUILayout.Toolbar(
                     (int)editMode,
-                    new[] { "Entity", "TileFeature", "Zone" },
-                    GUILayout.MaxWidth(320));
+                    new[] { "Entity", "TileFeature", "Board Tile", "Zone" },
+                    GUILayout.MaxWidth(420));
                 if (nextMode != editMode)
                 {
                     editMode = nextMode;
                     tileFeatureFeedback = string.Empty;
+                    boardTileFeedback = string.Empty;
                 }
             }
         }
@@ -532,10 +575,7 @@ namespace Game.Feature.Stages.Editor
 
         private void DrawTileFeatureTools()
         {
-            var targetCell = new SurfaceCell(
-                selection.TargetFace,
-                selection.TargetCell.x,
-                selection.TargetCell.y);
+            var targetCell = GetTargetSurfaceCell();
             EditorGUILayout.LabelField("Target Cell", targetCell.ToString());
 
             tileFeatureEraseMode = EditorGUILayout.Toggle("Erase Mode", tileFeatureEraseMode);
@@ -574,6 +614,95 @@ namespace Game.Feature.Stages.Editor
 
             DrawTileFeatureFeedback();
             DrawTileFeatureListAtTarget(targetCell);
+        }
+
+        private void DrawBoardTilePresentationTools()
+        {
+            var targetCell = GetTargetSurfaceCell();
+            EditorGUILayout.LabelField("Target Cell", targetCell.ToString());
+            EditorGUILayout.LabelField("Board Tile Presentation", EditorStyles.boldLabel);
+
+            var presentation = authoring.GeneratedPresentationDefinition;
+            StageAuthoringPresentationBindingCommands.TryGetBoardTilePresentationOverrideStatus(
+                presentation,
+                authoring,
+                targetCell,
+                out var status);
+            DrawBoardTileOverrideStatus(status);
+
+            var options = StageAuthoringPresentationBindingCommands.BuildBoardTilePresentationOptions(presentation);
+            var labels = options.Select(option => option.Label).ToArray();
+            var activeKey = !string.IsNullOrWhiteSpace(boardTilePresentationKey)
+                ? BoardTilePresentationCatalog.NormalizePresentationKey(boardTilePresentationKey)
+                : status.PresentationKey;
+            var selectedIndex = 0;
+            for (var i = 0; i < options.Length; i++)
+            {
+                if (string.Equals(options[i].PresentationKey, activeKey, System.StringComparison.Ordinal))
+                {
+                    selectedIndex = i;
+                    break;
+                }
+            }
+
+            var editorDisabled = presentation == null ||
+                                 presentation.BoardTilePresentationCatalog == null ||
+                                 status.Kind == BoardTilePresentationOverrideStatusKind.InvalidCell ||
+                                 status.Kind == BoardTilePresentationOverrideStatusKind.OutsideBounds ||
+                                 options.Length == 0;
+            using (new EditorGUI.DisabledScope(editorDisabled))
+            {
+                var nextIndex = EditorGUILayout.Popup("Catalog Entry", selectedIndex, labels);
+                if (nextIndex >= 0 && nextIndex < options.Length)
+                {
+                    boardTilePresentationKey = options[nextIndex].PresentationKey;
+                }
+            }
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                using (new EditorGUI.DisabledScope(editorDisabled || string.IsNullOrWhiteSpace(boardTilePresentationKey)))
+                {
+                    if (GUILayout.Button("Set Override", GUILayout.Width(128)))
+                    {
+                        SetBoardTileOverride(out _);
+                    }
+                }
+
+                using (new EditorGUI.DisabledScope(
+                           presentation == null ||
+                           status.Kind == BoardTilePresentationOverrideStatusKind.MissingOverride ||
+                           status.Kind == BoardTilePresentationOverrideStatusKind.NoPresentationDefinition))
+                {
+                    if (GUILayout.Button("Clear Override", GUILayout.Width(128)))
+                    {
+                        ClearBoardTileOverride(out _);
+                    }
+                }
+            }
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                var catalog = presentation != null ? presentation.BoardTilePresentationCatalog : null;
+                using (new EditorGUI.DisabledScope(catalog == null))
+                {
+                    if (GUILayout.Button("Ping Catalog", GUILayout.Width(128)))
+                    {
+                        EditorGUIUtility.PingObject(catalog);
+                    }
+                }
+
+                var prefab = status.CatalogEntry != null ? status.CatalogEntry.TilePrefab : null;
+                using (new EditorGUI.DisabledScope(prefab == null))
+                {
+                    if (GUILayout.Button("Ping Prefab", GUILayout.Width(128)))
+                    {
+                        EditorGUIUtility.PingObject(prefab);
+                    }
+                }
+            }
+
+            DrawBoardTileFeedback();
         }
 
         private void DrawTileFeatureDraftFields()
@@ -903,6 +1032,23 @@ namespace Game.Feature.Stages.Editor
             EditorGUILayout.HelpBox(status.Message, messageType);
         }
 
+        private static void DrawBoardTileOverrideStatus(BoardTilePresentationOverrideStatus status)
+        {
+            var messageType = status.Kind switch
+            {
+                BoardTilePresentationOverrideStatusKind.NoPresentationDefinition => MessageType.Warning,
+                BoardTilePresentationOverrideStatusKind.CatalogMissing => MessageType.Warning,
+                BoardTilePresentationOverrideStatusKind.MissingOverride => MessageType.Info,
+                BoardTilePresentationOverrideStatusKind.Resolved => MessageType.Info,
+                BoardTilePresentationOverrideStatusKind.MissingKey => MessageType.Warning,
+                BoardTilePresentationOverrideStatusKind.DuplicateOverride => MessageType.Error,
+                BoardTilePresentationOverrideStatusKind.InvalidCell => MessageType.Error,
+                BoardTilePresentationOverrideStatusKind.OutsideBounds => MessageType.Warning,
+                _ => MessageType.Info,
+            };
+            EditorGUILayout.HelpBox(status.Message, messageType);
+        }
+
         private void DrawExitGoalZoneSection(StageTileFeatureDefinition feature)
         {
             EditorGUILayout.Space();
@@ -1010,7 +1156,7 @@ namespace Game.Feature.Stages.Editor
 
         private void AddTileFeatureAtTargetCell()
         {
-            var cell = new SurfaceCell(selection.TargetFace, selection.TargetCell.x, selection.TargetCell.y);
+            var cell = GetTargetSurfaceCell();
             var template = BuildTileFeatureDraft(cell);
             var expectedTileId = template.TileId > 0
                 ? template.TileId
@@ -1029,7 +1175,7 @@ namespace Game.Feature.Stages.Editor
 
         private void RemoveTileFeaturesAtTargetCell()
         {
-            var cell = new SurfaceCell(selection.TargetFace, selection.TargetCell.x, selection.TargetCell.y);
+            var cell = GetTargetSurfaceCell();
             if (!StageAuthoringPlacementCommands.TryRemoveTileFeaturesAt(authoring, cell, out var removedCount))
             {
                 SetTileFeatureFeedback("No TileFeatures were removed.", MessageType.Info);
@@ -1264,6 +1410,52 @@ namespace Game.Feature.Stages.Editor
             tileFeatureFeedbackType = messageType;
         }
 
+        private bool SetBoardTileOverride(out string error)
+        {
+            var cell = GetTargetSurfaceCell();
+            var changed = StageAuthoringPresentationBindingCommands.TrySetBoardTilePresentationOverride(
+                authoring.GeneratedPresentationDefinition,
+                authoring,
+                cell,
+                boardTilePresentationKey,
+                out error);
+            if (!changed)
+            {
+                SetBoardTileFeedback(error, MessageType.Error);
+                return false;
+            }
+
+            SetBoardTileFeedback($"Updated board tile override for {cell}.", MessageType.Info);
+            Repaint();
+            return true;
+        }
+
+        private bool ClearBoardTileOverride(out string error)
+        {
+            var cell = GetTargetSurfaceCell();
+            var changed = StageAuthoringPresentationBindingCommands.TryClearBoardTilePresentationOverride(
+                authoring.GeneratedPresentationDefinition,
+                authoring,
+                cell,
+                out error);
+            if (!changed)
+            {
+                SetBoardTileFeedback(error, MessageType.Error);
+                return false;
+            }
+
+            boardTilePresentationKey = string.Empty;
+            SetBoardTileFeedback($"Cleared board tile override for {cell}.", MessageType.Info);
+            Repaint();
+            return true;
+        }
+
+        private void SetBoardTileFeedback(string message, MessageType messageType)
+        {
+            boardTileFeedback = message ?? string.Empty;
+            boardTileFeedbackType = messageType;
+        }
+
         private void DrawTileFeatureFeedback()
         {
             if (string.IsNullOrWhiteSpace(tileFeatureFeedback))
@@ -1272,6 +1464,21 @@ namespace Game.Feature.Stages.Editor
             }
 
             EditorGUILayout.HelpBox(tileFeatureFeedback, tileFeatureFeedbackType);
+        }
+
+        private void DrawBoardTileFeedback()
+        {
+            if (string.IsNullOrWhiteSpace(boardTileFeedback))
+            {
+                return;
+            }
+
+            EditorGUILayout.HelpBox(boardTileFeedback, boardTileFeedbackType);
+        }
+
+        private SurfaceCell GetTargetSurfaceCell()
+        {
+            return new SurfaceCell(selection.TargetFace, selection.TargetCell.x, selection.TargetCell.y);
         }
 
         private MoonBoxEntityOption[] BuildMoonBoxEntityOptions()
