@@ -40,7 +40,9 @@ namespace Game.Feature.Gameplay.Host
         {
             var resolved = RuntimeContentResolver.Resolve(CreateStageLoadRequest());
             var buildResult = StageRuntimeBuilder.Build(resolved.Entry.GameplayDefinition);
-            var resolvedPresentation = StagePresentationAssembler.Resolve(resolved.Entry.PresentationDefinition);
+            var resolvedPresentation = StagePresentationAssembler.Resolve(
+                resolved.Entry.GameplayDefinition,
+                resolved.Entry.PresentationDefinition);
             _resolvedPresentationDefinition = resolved.Entry.PresentationDefinition;
             var compositionData = StageSceneCompositionAssembler.Compose(buildResult, resolvedPresentation);
 

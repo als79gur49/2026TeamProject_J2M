@@ -33,6 +33,7 @@ namespace Game.Feature.Stages
             EnemyPresentationBinding[] enemyPresentationBindings,
             StaticEntityPresentationCatalog staticEntityPresentationCatalog,
             StaticEntityPresentationBinding[] staticEntityPresentationBindings,
+            TileFeaturePresentationCatalog tileFeaturePresentationCatalog,
             IReadOnlyList<TileFeaturePresentationResolvedBinding> tileFeatureBindings,
             string resultTitle,
             string resultSummaryText,
@@ -49,6 +50,7 @@ namespace Game.Feature.Stages
             EnemyPresentationBindings = enemyPresentationBindings ?? Array.Empty<EnemyPresentationBinding>();
             StaticEntityPresentationCatalog = staticEntityPresentationCatalog;
             StaticEntityPresentationBindings = staticEntityPresentationBindings ?? Array.Empty<StaticEntityPresentationBinding>();
+            TileFeaturePresentationCatalog = tileFeaturePresentationCatalog;
             TileFeatureBindings = CloneReadOnlyBindings(tileFeatureBindings);
             ResultTitle = resultTitle ?? string.Empty;
             ResultSummaryText = resultSummaryText ?? string.Empty;
@@ -75,6 +77,8 @@ namespace Game.Feature.Stages
         public StaticEntityPresentationCatalog StaticEntityPresentationCatalog { get; }
 
         public StaticEntityPresentationBinding[] StaticEntityPresentationBindings { get; }
+
+        public TileFeaturePresentationCatalog TileFeaturePresentationCatalog { get; }
 
         public IReadOnlyList<TileFeaturePresentationResolvedBinding> TileFeatureBindings { get; }
 
@@ -137,6 +141,7 @@ namespace Game.Feature.Stages
             Array.Empty<EnemyPresentationBinding>(),
             null,
             Array.Empty<StaticEntityPresentationBinding>(),
+            null,
             Array.Empty<TileFeaturePresentationResolvedBinding>(),
             string.Empty,
             string.Empty,
@@ -161,7 +166,39 @@ namespace Game.Feature.Stages
                 CloneBindings(definition.EnemyPresentationBindings),
                 definition.StaticEntityPresentationCatalog,
                 CloneBindings(definition.StaticEntityPresentationBindings),
+                definition.TileFeaturePresentationCatalog,
                 ResolveTileFeatureBindings(definition.TileFeaturePresentationBindings),
+                definition.ResultTitle,
+                definition.ResultSummaryText,
+                definition.ResultDetailText,
+                definition.ResultContinueLabel);
+        }
+
+        public static StagePresentationResolvedData Resolve(
+            StageDefinition gameplayDefinition,
+            StagePresentationDefinition definition)
+        {
+            if (definition == null)
+            {
+                return EmptyResolvedData;
+            }
+
+            return new StagePresentationResolvedData(
+                definition.DisplayName,
+                definition.SummaryText,
+                definition.PreviewSprite,
+                definition.BackgroundPrefab,
+                definition.BgmReference,
+                definition.EnemyPresentationCatalog,
+                definition.EnemyPresentationArchetypeCatalog,
+                CloneBindings(definition.EnemyPresentationBindings),
+                definition.StaticEntityPresentationCatalog,
+                CloneBindings(definition.StaticEntityPresentationBindings),
+                definition.TileFeaturePresentationCatalog,
+                ResolveTileFeatureBindings(
+                    gameplayDefinition,
+                    definition.TileFeaturePresentationBindings,
+                    definition.TileFeaturePresentationCatalog),
                 definition.ResultTitle,
                 definition.ResultSummaryText,
                 definition.ResultDetailText,
@@ -280,6 +317,126 @@ namespace Game.Feature.Stages
             }
 
             return new ReadOnlyCollection<TileFeaturePresentationResolvedBinding>(bindings);
+        }
+
+        private static IReadOnlyList<TileFeaturePresentationResolvedBinding> ResolveTileFeatureBindings(
+            StageDefinition gameplayDefinition,
+            IReadOnlyList<TileFeaturePresentationBinding> directBindings,
+            TileFeaturePresentationCatalog catalog)
+        {
+            if (gameplayDefinition == null)
+            {
+                return ResolveTileFeatureBindings(directBindings);
+            }
+
+            var directByTileId = BuildDirectBindingsByTileId(directBindings);
+            var tileFeatures = gameplayDefinition.TileFeatures;
+            if ((tileFeatures == null || tileFeatures.Length == 0) &&
+                directByTileId.Count == 0)
+            {
+                return Array.Empty<TileFeaturePresentationResolvedBinding>();
+            }
+
+            var resolved = new List<TileFeaturePresentationResolvedBinding>();
+            if (tileFeatures != null)
+            {
+                for (var i = 0; i < tileFeatures.Length; i++)
+                {
+                    var tileFeature = tileFeatures[i];
+                    if (tileFeature.TileId <= 0)
+                    {
+                        continue;
+                    }
+
+                    if (directByTileId.TryGetValue(tileFeature.TileId, out var directBinding))
+                    {
+                        resolved.Add(new TileFeaturePresentationResolvedBinding(
+                            directBinding.TileId,
+                            directBinding.VisualPrefab));
+                        continue;
+                    }
+
+                    if (TryResolveCatalogPrefab(
+                            catalog,
+                            tileFeature,
+                            out var catalogPrefab))
+                    {
+                        resolved.Add(new TileFeaturePresentationResolvedBinding(
+                            tileFeature.TileId,
+                            catalogPrefab));
+                    }
+                }
+            }
+
+            if (resolved.Count == 0)
+            {
+                return Array.Empty<TileFeaturePresentationResolvedBinding>();
+            }
+
+            resolved.Sort((left, right) => left.TileId.CompareTo(right.TileId));
+            return new ReadOnlyCollection<TileFeaturePresentationResolvedBinding>(resolved);
+        }
+
+        private static Dictionary<int, TileFeaturePresentationBinding> BuildDirectBindingsByTileId(
+            IReadOnlyList<TileFeaturePresentationBinding> directBindings)
+        {
+            var directByTileId = new Dictionary<int, TileFeaturePresentationBinding>();
+            if (directBindings == null)
+            {
+                return directByTileId;
+            }
+
+            for (var i = 0; i < directBindings.Count; i++)
+            {
+                var binding = directBindings[i];
+                if (binding == null ||
+                    binding.TileId <= 0 ||
+                    directByTileId.ContainsKey(binding.TileId))
+                {
+                    continue;
+                }
+
+                directByTileId.Add(binding.TileId, binding);
+            }
+
+            return directByTileId;
+        }
+
+        private static bool TryResolveCatalogPrefab(
+            TileFeaturePresentationCatalog catalog,
+            StageTileFeatureDefinition tileFeature,
+            out GameObject visualPrefab)
+        {
+            visualPrefab = null;
+            if (catalog == null)
+            {
+                return false;
+            }
+
+            var presentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(tileFeature.PresentationKey);
+            if (!string.IsNullOrEmpty(presentationKey))
+            {
+                if (catalog.TryGetEntry(presentationKey, out var keyedEntry) &&
+                    keyedEntry.VisualPrefab != null)
+                {
+                    visualPrefab = keyedEntry.VisualPrefab;
+                    return true;
+                }
+
+                UnityEngine.Debug.LogWarning(
+                    $"TileFeature TileId {tileFeature.TileId} could not resolve PresentationKey '{presentationKey}' in TileFeaturePresentationCatalog '{catalog.name}'.");
+            }
+
+            if (catalog.TryGetDefaultEntry(tileFeature.Kind, out var defaultEntry) &&
+                defaultEntry.VisualPrefab != null)
+            {
+                visualPrefab = defaultEntry.VisualPrefab;
+                return true;
+            }
+
+            UnityEngine.Debug.LogWarning(
+                $"TileFeature TileId {tileFeature.TileId} has no resolved visual prefab for kind '{tileFeature.Kind}'.");
+            return false;
         }
 
         private static string NormalizePresentationId(string presentationId)
