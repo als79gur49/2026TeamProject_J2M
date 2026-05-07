@@ -84,7 +84,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateBox(30, new SurfaceCell(FaceId.Floor, 0, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Active, timerTicks: 2),
             });
 
-            GameplayCompositionRoot.CreateTickPipeline(worldState).RunTick(new TickInput(1));
+            var result = GameplayCompositionRoot.CreateTickPipeline(worldState).RunTick(new TickInput(1));
             var snapshot = worldState.CreateSnapshot();
 
             Assert.That(snapshot.TryGetActiveBoxInteractionLockState(20, 1, out _), Is.True);
@@ -92,6 +92,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(snapshot.TryGetActiveBoxInteractionLockState(21, 1, out _), Is.False);
             Assert.That(snapshot.TryGetActiveBoxInteractionLockState(22, 1, out _), Is.False);
             Assert.That(snapshot.TryGetActiveBoxInteractionLockState(23, 1, out _), Is.False);
+            Assert.That(result.PresentationData.GravityFieldVisualStates, Has.Count.EqualTo(1));
+            Assert.That(
+                result.PresentationData.GravityFieldVisualStates[0].AreaCells.ToArray(),
+                Is.EqualTo(new[]
+                {
+                    new SurfaceCell(FaceId.Floor, -1, -1),
+                    new SurfaceCell(FaceId.Floor, 0, -1),
+                    new SurfaceCell(FaceId.Floor, 1, -1),
+                    new SurfaceCell(FaceId.Floor, -1, 0),
+                    new SurfaceCell(FaceId.Floor, 0, 0),
+                    new SurfaceCell(FaceId.Floor, 1, 0),
+                    new SurfaceCell(FaceId.Floor, -1, 1),
+                    new SurfaceCell(FaceId.Floor, 0, 1),
+                    new SurfaceCell(FaceId.Floor, 1, 1),
+                }));
         }
 
         [Test]
@@ -295,7 +310,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             GravityFieldPhase.Charging,
                             timerTicks: 2,
                             durationTicks: 8 * GameplayTimingProfile.DefaultSimulationTicksPerSecond,
-                            progress01: 0.5f),
+                            progress01: 0.5f,
+                            areaFootprint: new GravityFieldAreaFootprint(
+                                new[]
+                                {
+                                    new SurfaceCell(FaceId.Floor, -1, -1),
+                                    new SurfaceCell(FaceId.Floor, 0, -1),
+                                    new SurfaceCell(FaceId.Floor, 1, -1),
+                                    new SurfaceCell(FaceId.Floor, -1, 0),
+                                    new SurfaceCell(FaceId.Floor, 0, 0),
+                                    new SurfaceCell(FaceId.Floor, 1, 0),
+                                    new SurfaceCell(FaceId.Floor, -1, 1),
+                                    new SurfaceCell(FaceId.Floor, 0, 1),
+                                    new SurfaceCell(FaceId.Floor, 1, 1),
+                                },
+                                slotVisibilityMask: 0x1FF)),
                     }));
             var hashBuilder = new DeterminismHashBuilder();
 

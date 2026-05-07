@@ -13,6 +13,44 @@ namespace Game.Feature.Gameplay.Loop
         public const float ActiveDurationSeconds = 3f;
     }
 
+    internal static class GravityFieldAreaPolicy
+    {
+        public static GravityFieldAreaFootprint BuildFootprint(WorldSnapshot snapshot, SurfaceCell emitterCell)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            var areaCells = new List<SurfaceCell>(GravityFieldAreaFootprint.SlotCount);
+            var slotVisibilityMask = 0;
+            for (var dy = -1; dy <= 1; dy++)
+            {
+                for (var dx = -1; dx <= 1; dx++)
+                {
+                    var slotIndex = ToSlotIndex(dx, dy);
+                    var cell = new SurfaceCell(emitterCell.face, emitterCell.x + dx, emitterCell.y + dy);
+                    if (!snapshot.IsInsideBoard(cell))
+                    {
+                        continue;
+                    }
+
+                    areaCells.Add(cell);
+                    slotVisibilityMask |= 1 << slotIndex;
+                }
+            }
+
+            return areaCells.Count == 0
+                ? GravityFieldAreaFootprint.Empty
+                : new GravityFieldAreaFootprint(areaCells, slotVisibilityMask);
+        }
+
+        public static int ToSlotIndex(int dx, int dy)
+        {
+            return (dy + 1) * 3 + (dx + 1);
+        }
+    }
+
     internal readonly struct GravityFieldRuntimeResolverResult
     {
         public GravityFieldRuntimeResolverResult(
@@ -201,21 +239,18 @@ namespace Game.Feature.Gameplay.Loop
             IDictionary<int, BoxInteractionLockState> plannedLocksByBoxEntityId)
         {
             var targetEntityIds = new HashSet<int>();
-            for (var dx = -1; dx <= 1; dx++)
+            var footprint = GravityFieldAreaPolicy.BuildFootprint(snapshot, emitter.position);
+            for (var i = 0; i < footprint.AreaCells.Count; i++)
             {
-                for (var dy = -1; dy <= 1; dy++)
+                var cell = footprint.AreaCells[i];
+                if (!snapshot.TryGetSolidSemanticAt(cell, out var semantic) ||
+                    semantic.Kind != SolidKind.Box ||
+                    !IsEligibleTarget(snapshot, semantic.Entity))
                 {
-                    var cell = new SurfaceCell(emitter.position.face, emitter.position.x + dx, emitter.position.y + dy);
-                    if (!snapshot.IsInsideBoard(cell) ||
-                        !snapshot.TryGetSolidSemanticAt(cell, out var semantic) ||
-                        semantic.Kind != SolidKind.Box ||
-                        !IsEligibleTarget(snapshot, semantic.Entity))
-                    {
-                        continue;
-                    }
-
-                    targetEntityIds.Add(semantic.Entity.entityId);
+                    continue;
                 }
+
+                targetEntityIds.Add(semantic.Entity.entityId);
             }
 
             var newState = new BoxInteractionLockState(

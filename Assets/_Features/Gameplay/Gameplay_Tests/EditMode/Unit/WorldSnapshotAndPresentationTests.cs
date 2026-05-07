@@ -136,6 +136,103 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void TickPresentationDataBuilder_GravityFieldVisualStates_ActiveIncludesDeterministicThreeByThreeArea()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateGravityFieldBox(30, new SurfaceCell(FaceId.Floor, 1, 1), GravityFieldPhase.Active, timerTicks: 2),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
+                GameplayTerrainData.Empty);
+            var presentationData = BuildPresentationDataForFinalSnapshot(CreateSnapshot(worldState));
+
+            Assert.That(presentationData.GravityFieldVisualStates, Has.Count.EqualTo(1));
+            var state = presentationData.GravityFieldVisualStates[0];
+            Assert.That(
+                state.AreaCells.ToArray(),
+                Is.EqualTo(new[]
+                {
+                    new SurfaceCell(FaceId.Floor, 0, 0),
+                    new SurfaceCell(FaceId.Floor, 1, 0),
+                    new SurfaceCell(FaceId.Floor, 2, 0),
+                    new SurfaceCell(FaceId.Floor, 0, 1),
+                    new SurfaceCell(FaceId.Floor, 1, 1),
+                    new SurfaceCell(FaceId.Floor, 2, 1),
+                    new SurfaceCell(FaceId.Floor, 0, 2),
+                    new SurfaceCell(FaceId.Floor, 1, 2),
+                    new SurfaceCell(FaceId.Floor, 2, 2),
+                }));
+            Assert.That(state.AreaFootprint.SlotVisibilityMask, Is.EqualTo(0x1FF));
+            Assert.That(state.AreaFootprint.IsSlotVisible(4), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TickPresentationDataBuilder_GravityFieldVisualStates_BoundedEdgeExcludesOutOfBoundsArea()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateGravityFieldBox(30, new SurfaceCell(FaceId.Floor, 0, 0), GravityFieldPhase.Active, timerTicks: 2),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty);
+            var presentationData = BuildPresentationDataForFinalSnapshot(CreateSnapshot(worldState));
+
+            var state = presentationData.GravityFieldVisualStates.Single();
+            Assert.That(
+                state.AreaCells.ToArray(),
+                Is.EqualTo(new[]
+                {
+                    new SurfaceCell(FaceId.Floor, 0, 0),
+                    new SurfaceCell(FaceId.Floor, 1, 0),
+                    new SurfaceCell(FaceId.Floor, 0, 1),
+                    new SurfaceCell(FaceId.Floor, 1, 1),
+                }));
+            Assert.That(state.AreaFootprint.IsSlotVisible(4), Is.True);
+            Assert.That(state.AreaFootprint.IsSlotVisible(5), Is.True);
+            Assert.That(state.AreaFootprint.IsSlotVisible(7), Is.True);
+            Assert.That(state.AreaFootprint.IsSlotVisible(8), Is.True);
+            Assert.That(state.AreaFootprint.IsSlotVisible(0), Is.False);
+            Assert.That(state.AreaFootprint.IsSlotVisible(3), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TickPresentationDataBuilder_GravityFieldVisualStates_ChargingHasEmptyArea()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateGravityFieldBox(30, new SurfaceCell(FaceId.Floor, 1, 1), GravityFieldPhase.Charging, timerTicks: 2),
+            });
+            var presentationData = BuildPresentationDataForFinalSnapshot(CreateSnapshot(worldState));
+
+            var state = presentationData.GravityFieldVisualStates.Single();
+            Assert.That(state.AreaCells, Is.Empty);
+            Assert.That(state.AreaFootprint.SlotVisibilityMask, Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GravityFieldAreaFootprint_DefensivelyCopiesAreaCells()
+        {
+            var cells = new List<SurfaceCell>
+            {
+                new SurfaceCell(FaceId.Floor, 1, 1),
+            };
+            var footprint = new GravityFieldAreaFootprint(cells, slotVisibilityMask: 1 << 4);
+            cells.Add(new SurfaceCell(FaceId.Floor, 2, 2));
+
+            Assert.That(footprint.AreaCells, Has.Count.EqualTo(1));
+            Assert.That(footprint.AreaCells[0], Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 1)));
+            var list = (IList<SurfaceCell>)footprint.AreaCells;
+            Assert.That(list.IsReadOnly, Is.True);
+            Assert.Throws<NotSupportedException>(() => list.Add(new SurfaceCell(FaceId.Floor, 3, 3)));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void TickPresentationDataBuilder_ButtonActivatedTileEvent_UsesFinalAuthoritativeTileFact()
         {
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);

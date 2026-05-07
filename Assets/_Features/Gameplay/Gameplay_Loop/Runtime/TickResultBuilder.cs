@@ -734,6 +734,9 @@ namespace Game.Feature.Gameplay.Loop
                 }
 
                 var durationTicks = ResolveGravityFieldVisualDurationTicks(context, entity.gravityFieldPhase);
+                var areaFootprint = entity.gravityFieldPhase == GravityFieldPhase.Active
+                    ? GravityFieldAreaPolicy.BuildFootprint(context.FinalAuthoritativeSnapshot, entity.position)
+                    : GravityFieldAreaFootprint.Empty;
                 gravityFieldVisualStates.Add(
                     new GravityFieldVisualState(
                         entity.entityId,
@@ -741,7 +744,8 @@ namespace Game.Feature.Gameplay.Loop
                         entity.gravityFieldPhase,
                         Math.Max(0, entity.gravityFieldTimerTicks),
                         durationTicks,
-                        CalculateProgress01(entity.gravityFieldTimerTicks, durationTicks)));
+                        CalculateProgress01(entity.gravityFieldTimerTicks, durationTicks),
+                        areaFootprint));
             }
         }
 

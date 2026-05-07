@@ -242,7 +242,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = CreateInitializedPresenter(rootObject, out var topology);
-                var visualState = CreateGravityFieldVisualState(30, cell, GravityFieldPhase.Active, timerTicks: 2, durationTicks: 5);
+                var visualState = CreateGravityFieldVisualState(
+                    30,
+                    cell,
+                    GravityFieldPhase.Active,
+                    timerTicks: 2,
+                    durationTicks: 5,
+                    new[]
+                    {
+                        cell,
+                    },
+                    slotVisibilityMask: 1 << 4);
 
                 presenter.Present(CreateTickResult(
                     1,
@@ -253,6 +263,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(presenter.CurrentGravityFieldVisualStates, Is.InstanceOf<ReadOnlyCollection<GravityFieldVisualState>>());
                 Assert.That(presenter.CurrentGravityFieldVisualStates, Has.Count.EqualTo(1));
                 Assert.That(presenter.CurrentGravityFieldVisualStates[0].EmitterEntityId, Is.EqualTo(30));
+                Assert.That(presenter.CurrentGravityFieldVisualStates[0].AreaCells.ToArray(), Is.EqualTo(new[] { cell }));
+                Assert.That(presenter.CurrentGravityFieldVisualStates[0].AreaFootprint.IsSlotVisible(4), Is.True);
                 var list = (IList<GravityFieldVisualState>)presenter.CurrentGravityFieldVisualStates;
                 Assert.That(list.IsReadOnly, Is.True);
                 Assert.Throws<NotSupportedException>(() => list.Add(default));
@@ -360,6 +372,141 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presenter.Present(CreateTickResult(2, new[] { emitter }, topology, TickPresentationData.Empty));
 
                 Assert.That(target.ClearContinuousCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_GravityFieldVisualStates_StateDisappearanceClearsAreaSlots()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_GravityFieldVisualStates_StateDisappearanceClearsAreaSlots));
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var emitter = CreateBox(30, cell);
+            var slots = CreateAreaSlots(rootObject.transform, slotCount: 9);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                presenter.PresentInitial(new[] { emitter }, topology);
+                var registry = rootObject.GetComponent<GameplayEntityViewRegistry>();
+                Assert.That(registry.TryGetView(30, out var view), Is.True);
+                var target = view.gameObject.AddComponent<GravityFieldVisualTargetView>();
+                PlayerViewPrefabTestUtility.SetSerializedField(target, "areaCellSlots", slots);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    new[] { emitter },
+                    topology,
+                    CreateGravityFieldVisualPresentationData(
+                        CreateGravityFieldVisualState(
+                            30,
+                            cell,
+                            GravityFieldPhase.Active,
+                            timerTicks: 2,
+                            durationTicks: 5,
+                            new[] { cell },
+                            slotVisibilityMask: 1 << 4))));
+
+                Assert.That(slots[4].activeSelf, Is.True);
+
+                presenter.Present(CreateTickResult(2, new[] { emitter }, topology, TickPresentationData.Empty));
+
+                Assert.That(slots.All(slot => !slot.activeSelf), Is.True);
+                Assert.That(target.DebugClearContinuousStateCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GravityFieldVisualTargetView_AppliesAndClearsAuthoredAreaSlots()
+        {
+            var rootObject = new GameObject(nameof(GravityFieldVisualTargetView_AppliesAndClearsAuthoredAreaSlots));
+            var slots = CreateAreaSlots(rootObject.transform, slotCount: 10);
+            var cell = new SurfaceCell(FaceId.Floor, 0, 0);
+
+            try
+            {
+                var target = rootObject.AddComponent<GravityFieldVisualTargetView>();
+                PlayerViewPrefabTestUtility.SetSerializedField(target, "areaCellSlots", slots);
+
+                target.ApplyGravityFieldVisualState(CreateGravityFieldVisualState(
+                    30,
+                    cell,
+                    GravityFieldPhase.Active,
+                    timerTicks: 2,
+                    durationTicks: 5,
+                    new[] { cell },
+                    slotVisibilityMask: (1 << 4) | (1 << 5) | (1 << 7) | (1 << 8)));
+
+                Assert.That(slots[4].activeSelf, Is.True);
+                Assert.That(slots[5].activeSelf, Is.True);
+                Assert.That(slots[7].activeSelf, Is.True);
+                Assert.That(slots[8].activeSelf, Is.True);
+                Assert.That(slots[0].activeSelf, Is.False);
+                Assert.That(slots[9].activeSelf, Is.False);
+                Assert.That(target.DebugLastAreaCellCount, Is.EqualTo(1));
+                Assert.That(target.DebugVisibleAreaSlotCount, Is.EqualTo(4));
+
+                target.ApplyGravityFieldVisualState(CreateGravityFieldVisualState(
+                    30,
+                    cell,
+                    GravityFieldPhase.Charging,
+                    timerTicks: 3,
+                    durationTicks: 10,
+                    new[] { cell },
+                    slotVisibilityMask: 1 << 4));
+
+                Assert.That(slots.All(slot => !slot.activeSelf), Is.True);
+                Assert.That(target.DebugVisibleAreaSlotCount, Is.Zero);
+
+                target.ApplyGravityFieldVisualState(CreateGravityFieldVisualState(
+                    30,
+                    cell,
+                    GravityFieldPhase.Active,
+                    timerTicks: 2,
+                    durationTicks: 5,
+                    new[] { cell },
+                    slotVisibilityMask: 1 << 4));
+                target.ClearGravityFieldVisualState();
+
+                Assert.That(slots.All(slot => !slot.activeSelf), Is.True);
+                Assert.That(target.DebugLastAreaCellCount, Is.Zero);
+                Assert.That(target.DebugVisibleAreaSlotCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GravityFieldVisualTargetView_MissingAreaSlotsNoOps()
+        {
+            var rootObject = new GameObject(nameof(GravityFieldVisualTargetView_MissingAreaSlotsNoOps));
+
+            try
+            {
+                var target = rootObject.AddComponent<GravityFieldVisualTargetView>();
+
+                Assert.DoesNotThrow(() => target.ApplyGravityFieldVisualState(CreateGravityFieldVisualState(
+                    30,
+                    new SurfaceCell(FaceId.Floor, 1, 1),
+                    GravityFieldPhase.Active,
+                    timerTicks: 2,
+                    durationTicks: 5,
+                    new[] { new SurfaceCell(FaceId.Floor, 1, 1) },
+                    slotVisibilityMask: 1 << 4)));
+                Assert.DoesNotThrow(target.ClearGravityFieldVisualState);
+                Assert.That(target.DebugVisibleAreaSlotCount, Is.Zero);
             }
             finally
             {
@@ -2934,6 +3081,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Path.Combine(hostRuntimeDirectory, "GravityFieldVisualTargetView.cs"));
             Assert.That(gravityFieldVisualController, Does.Not.Contain("TileFeatureVisualRegistry"));
             Assert.That(gravityFieldTargetView, Does.Not.Contain("TileFeatureVisualRegistry"));
+            Assert.That(gravityFieldTargetView, Does.Not.Contain("GameplayCubeProjector"));
+            Assert.That(gravityFieldTargetView, Does.Not.Contain("TryProject"));
+            Assert.That(gravityFieldTargetView, Does.Not.Contain(".material"));
+            Assert.That(gravityFieldTargetView, Does.Not.Contain("sharedMaterial"));
 
             var coordinatorSource = File.ReadAllText(Path.Combine(hostRuntimeDirectory, "GameplayTickPresentationCoordinator.cs"));
             var presenterSource = File.ReadAllText(Path.Combine(hostRuntimeDirectory, "GameplayTickViewPresenter.cs"));
@@ -4911,7 +5062,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SurfaceCell cell,
             GravityFieldPhase phase,
             int timerTicks,
-            int durationTicks)
+            int durationTicks,
+            IReadOnlyList<SurfaceCell> areaCells = null,
+            int slotVisibilityMask = 0)
         {
             var progress = durationTicks <= 0
                 ? 0f
@@ -4922,7 +5075,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 phase,
                 Math.Max(0, timerTicks),
                 durationTicks,
-                progress);
+                progress,
+                areaCells == null && slotVisibilityMask == 0
+                    ? GravityFieldAreaFootprint.Empty
+                    : new GravityFieldAreaFootprint(areaCells ?? Array.Empty<SurfaceCell>(), slotVisibilityMask));
         }
 
         private static TilePresentationEvent CreateButtonActivatedTileEvent(int tileId, SurfaceCell cell)
@@ -5400,6 +5556,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 1,
                 tickIndex,
                 tickIndex * 31 + sourceEntityId);
+        }
+
+        private static GameObject[] CreateAreaSlots(Transform parent, int slotCount)
+        {
+            var slots = new GameObject[slotCount];
+            for (var i = 0; i < slots.Length; i++)
+            {
+                var slot = new GameObject($"AreaSlot_{i}");
+                slot.transform.SetParent(parent, worldPositionStays: false);
+                slots[i] = slot;
+            }
+
+            return slots;
         }
 
         private static int CountDescendantsByNamePrefix(Transform root, string prefix)

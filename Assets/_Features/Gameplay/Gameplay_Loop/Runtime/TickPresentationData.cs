@@ -118,6 +118,40 @@ namespace Game.Feature.Gameplay.Loop
         public int TargetEntityId { get; }
     }
 
+    public readonly struct GravityFieldAreaFootprint
+    {
+        public const int SlotCount = 9;
+
+        public static readonly GravityFieldAreaFootprint Empty = new(
+            Array.Empty<SurfaceCell>(),
+            slotVisibilityMask: 0);
+
+        private static readonly IReadOnlyList<SurfaceCell> EmptyAreaCells =
+            new ReadOnlyCollection<SurfaceCell>(new List<SurfaceCell>());
+
+        private readonly IReadOnlyList<SurfaceCell> _areaCells;
+
+        public GravityFieldAreaFootprint(
+            IEnumerable<SurfaceCell> areaCells,
+            int slotVisibilityMask)
+        {
+            _areaCells = new ReadOnlyCollection<SurfaceCell>(
+                new List<SurfaceCell>(areaCells ?? Array.Empty<SurfaceCell>()));
+            SlotVisibilityMask = slotVisibilityMask & 0x1FF;
+        }
+
+        public IReadOnlyList<SurfaceCell> AreaCells => _areaCells ?? EmptyAreaCells;
+
+        public int SlotVisibilityMask { get; }
+
+        public bool IsSlotVisible(int slotIndex)
+        {
+            return slotIndex >= 0 &&
+                   slotIndex < SlotCount &&
+                   (SlotVisibilityMask & (1 << slotIndex)) != 0;
+        }
+    }
+
     public readonly struct GravityFieldVisualState
     {
         public GravityFieldVisualState(
@@ -127,6 +161,25 @@ namespace Game.Feature.Gameplay.Loop
             int timerTicks,
             int durationTicks,
             float progress01)
+            : this(
+                emitterEntityId,
+                cell,
+                phase,
+                timerTicks,
+                durationTicks,
+                progress01,
+                GravityFieldAreaFootprint.Empty)
+        {
+        }
+
+        public GravityFieldVisualState(
+            int emitterEntityId,
+            SurfaceCell cell,
+            GravityFieldPhase phase,
+            int timerTicks,
+            int durationTicks,
+            float progress01,
+            GravityFieldAreaFootprint areaFootprint)
         {
             EmitterEntityId = emitterEntityId;
             Cell = cell;
@@ -134,6 +187,7 @@ namespace Game.Feature.Gameplay.Loop
             TimerTicks = timerTicks;
             DurationTicks = durationTicks;
             Progress01 = Clamp01(progress01);
+            AreaFootprint = areaFootprint;
         }
 
         public int EmitterEntityId { get; }
@@ -147,6 +201,10 @@ namespace Game.Feature.Gameplay.Loop
         public int DurationTicks { get; }
 
         public float Progress01 { get; }
+
+        public GravityFieldAreaFootprint AreaFootprint { get; }
+
+        public IReadOnlyList<SurfaceCell> AreaCells => AreaFootprint.AreaCells;
 
         private static float Clamp01(float value)
         {

@@ -23,6 +23,7 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private ParticleSystem activeAuraParticles;
         [SerializeField] private ParticleSystem activatedParticles;
         [SerializeField] private ParticleSystem expiredParticles;
+        [SerializeField] private GameObject[] areaCellSlots;
         [SerializeField] private UnityEvent activatedPlayed;
         [SerializeField] private UnityEvent expiredPlayed;
         [SerializeField] private UnityEvent continuousStateApplied;
@@ -37,6 +38,8 @@ namespace Game.Feature.Gameplay.Host
         private int _debugLastTimerTicks;
         private int _debugLastDurationTicks;
         private float _debugLastProgress01;
+        private int _debugLastAreaCellCount;
+        private int _debugVisibleAreaSlotCount;
 
         public int DebugApplyContinuousStateCount => _debugApplyContinuousStateCount;
 
@@ -55,6 +58,10 @@ namespace Game.Feature.Gameplay.Host
         public int DebugLastDurationTicks => _debugLastDurationTicks;
 
         public float DebugLastProgress01 => _debugLastProgress01;
+
+        public int DebugLastAreaCellCount => _debugLastAreaCellCount;
+
+        public int DebugVisibleAreaSlotCount => _debugVisibleAreaSlotCount;
 
         public void PlayGravityFieldActivated()
         {
@@ -80,6 +87,7 @@ namespace Game.Feature.Gameplay.Host
             _debugLastTimerTicks = state.TimerTicks;
             _debugLastDurationTicks = state.DurationTicks;
             _debugLastProgress01 = state.Progress01;
+            _debugLastAreaCellCount = state.AreaCells.Count;
 
             var isActive = state.Phase == GravityFieldPhase.Active;
             var isCharging = state.Phase == GravityFieldPhase.Charging;
@@ -89,6 +97,7 @@ namespace Game.Feature.Gameplay.Host
             SetAnimatorBool(chargingBoolName, isCharging);
             SetAnimatorFloat(progressFloatName, state.Progress01);
             SetActiveAura(isActive);
+            ApplyAreaSlots(isActive ? state.AreaFootprint : GravityFieldAreaFootprint.Empty);
             continuousStateApplied?.Invoke();
         }
 
@@ -100,6 +109,7 @@ namespace Game.Feature.Gameplay.Host
             _debugLastTimerTicks = 0;
             _debugLastDurationTicks = 0;
             _debugLastProgress01 = 0f;
+            _debugLastAreaCellCount = 0;
 
             SetOptionalActive(activeVisualRoot, false);
             SetOptionalActive(chargingVisualRoot, false);
@@ -107,7 +117,29 @@ namespace Game.Feature.Gameplay.Host
             SetAnimatorBool(chargingBoolName, false);
             SetAnimatorFloat(progressFloatName, 0f);
             SetActiveAura(false);
+            ApplyAreaSlots(GravityFieldAreaFootprint.Empty);
             continuousStateCleared?.Invoke();
+        }
+
+        private void ApplyAreaSlots(GravityFieldAreaFootprint footprint)
+        {
+            _debugVisibleAreaSlotCount = 0;
+            if (areaCellSlots == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < areaCellSlots.Length; i++)
+            {
+                var isVisible = i < GravityFieldAreaFootprint.SlotCount &&
+                                footprint.IsSlotVisible(i);
+                if (isVisible)
+                {
+                    _debugVisibleAreaSlotCount++;
+                }
+
+                SetOptionalActive(areaCellSlots[i], isVisible);
+            }
         }
 
         private void SetActiveAura(bool isActive)
