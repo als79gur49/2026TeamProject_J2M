@@ -98,8 +98,7 @@ namespace Game.Feature.Gameplay.Host
             RefreshStayFlipImpactTracks(
                 result,
                 projector,
-                timingProfile,
-                flipImpactTimingSettings);
+                timingProfile);
             RefreshJumpDetachedVisibilityState(
                 result,
                 previousCommittedLocalTargetPoses,
@@ -860,8 +859,7 @@ namespace Game.Feature.Gameplay.Host
         private void RefreshStayFlipImpactTracks(
             TickResult result,
             GameplayCubeProjector projector,
-            GameplayTimingProfile timingProfile,
-            FlipImpactTimingSettings flipImpactTimingSettings)
+            GameplayTimingProfile timingProfile)
         {
             if (result == null)
             {
@@ -925,15 +923,6 @@ namespace Game.Feature.Gameplay.Host
                     _trackState.StayFlipImpactTracks.Remove(signal.BoxEntityId);
                 }
 
-                if (!_poseResolver.TryResolveFlipImpactSignalLocalPoses(
-                        projector,
-                        signal,
-                        out var sourcePose,
-                        out var impactPose))
-                {
-                    continue;
-                }
-
                 if (!TryGetFinalEntity(result.FinalEntities, signal.BoxEntityId, out var finalEntity) ||
                     finalEntity.boardPresence != EntityBoardPresence.Occupying ||
                     finalEntity.position != signal.SourceCell ||
@@ -942,17 +931,19 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                _trackState.StayFlipImpactTracks[signal.BoxEntityId] = new FlipImpactTrack(
-                    key,
-                    signal,
-                    sourcePose,
-                    impactPose,
-                    _motionTimingResolver.ResolveMotionDurationSeconds(
-                        signal.BoxEntityId,
-                        TickEntityMotionKind.Flip,
-                        timingProfile),
-                    timingProfile.FlipArcHeightInCells * projector.CellSize,
-                    flipImpactTimingSettings);
+                if (!FlipImpactStayMotionCommandBuilder.TryBuild(
+                        signal,
+                        result.TickIndex,
+                        timingProfile,
+                        _motionTimingResolver,
+                        _poseResolver,
+                        projector,
+                        out var command))
+                {
+                    continue;
+                }
+
+                _trackState.StayFlipImpactTracks[signal.BoxEntityId] = FlipImpactTrack.CreateStay(command);
             }
         }
 

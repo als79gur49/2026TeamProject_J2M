@@ -74,6 +74,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void FlipDestroySelfMotion_StayStillExcluded()
+        {
+            var fixture = CreateBuilderFixture();
+
+            var result = FlipDestroySelfMotionVfxCommandBuilder.TryBuild(
+                CreateSignal(FlipImpactPresentationDisposition.Stay),
+                fixture.TimingProfile,
+                fixture.MotionTimingResolver,
+                fixture.PoseResolver,
+                fixture.Projector,
+                out _);
+
+            Assert.That(result, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void InvalidBoxId_ReturnsFalse()
         {
             var fixture = CreateBuilderFixture();

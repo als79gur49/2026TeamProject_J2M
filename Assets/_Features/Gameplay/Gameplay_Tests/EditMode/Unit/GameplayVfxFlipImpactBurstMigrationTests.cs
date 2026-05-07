@@ -45,6 +45,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void FlipImpactBurst_StayContactStillEmits()
+        {
+            var signal = CreateSignal(FlipImpactPresentationDisposition.Stay);
+            var request = PlanSingleRequest(signal);
+
+            AssertFlipImpactBurstRequest(request, signal, expectedSequence: signal.SourceActionPlanId);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void DestroySelfFlipImpact_EmitsFlipImpactBurstRequest()
         {
             var signal = CreateSignal(FlipImpactPresentationDisposition.DestroySelf);

@@ -56,7 +56,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly FlipImpactTimingSettings _timingSettings;
         private float _elapsedSeconds;
 
-        public FlipImpactTrack(
+        private FlipImpactTrack(
             FlipImpactInstanceKey key,
             FlipImpactPresentationSignal signal,
             GameplayEntityPose sourcePose,
@@ -74,6 +74,36 @@ namespace Game.Feature.Gameplay.Host
             _timingSettings = timingSettings;
             _disposition = signal.Disposition;
             _elapsedSeconds = 0f;
+        }
+
+        public static FlipImpactTrack CreateStay(in FlipImpactStayMotionCommand command)
+        {
+            var signal = new FlipImpactPresentationSignal(
+                command.SourceActionPlanId,
+                command.BoxEntityId,
+                command.ImpactTargetEntityId,
+                command.ActorEntityId,
+                command.SourceCell,
+                command.ImpactCell,
+                command.Topology,
+                command.SourceFacing,
+                command.ImpactFacing,
+                FlipImpactPresentationDisposition.Stay,
+                hasLandingCell: false);
+            var timingSettings = new FlipImpactTimingSettings(
+                command.ContactNormalizedTime,
+                command.ReturnArcMultiplier,
+                0f,
+                command.PostContactHoldNormalizedDuration);
+
+            return new FlipImpactTrack(
+                FlipImpactInstanceKey.Create(signal, command.PresentationSeed),
+                signal,
+                command.SourcePose,
+                command.ImpactPose,
+                command.DurationSeconds,
+                command.ArcHeightWorld,
+                timingSettings);
         }
 
         public FlipImpactInstanceKey InstanceKey { get; }

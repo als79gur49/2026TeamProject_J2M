@@ -65,7 +65,7 @@ Full FlipImpact migration requires MotionTrack/contact timing ownership. This ga
 
 This gate itself does not suppress old paths, implement MotionTrack pooled playback, or complete full FlipImpact migration. `VfxAnchorKind.MotionTrack` remains unsupported by the host resolver in production.
 
-Slice 2 uses `FlipImpactContactVfxAnchor.ImpactCell` and `VfxAnchorSlot.CellFloor` to trigger a contact burst while the old FlipImpact motion track continues to own motion. Future Slice 3 may revisit DestroySelf clone/fade parity.
+Slice 2 uses `FlipImpactContactVfxAnchor.ImpactCell` and `VfxAnchorSlot.CellFloor` to trigger a contact burst while original-view FlipImpact motion remains owned by the host presentation track path.
 
 ## FlipImpact Contact Burst VFX Slice
 
@@ -85,11 +85,12 @@ Feature flag:
 - flag off drops the new burst request
 - flag on allows only the new contact burst request
 
-Old path:
+Original-view motion:
 
-- `BoxFlipInteractionDriver` and `FlipImpactTrack` remain active and continue to own source-to-impact-to-return motion.
-- DestroySelf clone/fade remains on the old path in this slice.
-- This is not full FlipImpact migration.
+- `BoxFlipInteractionDriver` and `FlipImpactTrack` remain active for original box view presentation.
+- `FlipImpactPresentationDisposition.Stay` is source-to-impact-to-hold/squash-to-return motion, not Gameplay VFX playback.
+- `FlipImpactStayMotionCommand` extracts the Stay motion contract before `FlipImpactTrack` samples it.
+- This is not a VFX migration for Stay.
 
 Missing binding:
 
@@ -103,8 +104,29 @@ Relation to `BoxVfxCue.DestroySmoke`:
 
 Future:
 
-- Slice 3 may refine DestroySelf exact source-view clone/material parity.
+- generic `PresentationMotionTrack`
+- multi-phase motion runtime
+- MotionTrack anchor/follow VFX support
 - full `VfxAnchorKind.MotionTrack` anchor playback remains future work.
+
+## FlipImpact Stay Presentation Motion Ownership
+
+`FlipImpactPresentationDisposition.Stay` is original-view presentation motion. The source fact is still `TickPresentationData.FlipImpactSignals`, but the host builds `FlipImpactStayMotionCommand` before creating the Stay track. The command is a presentation motion contract, not a Gameplay VFX command.
+
+Ownership:
+
+- `FlipImpactStayMotionCommand` preserves source/impact cells, topology, facing, local source/impact poses, duration, contact timing, post-contact hold, squash timing, return arc multiplier, arc height, and presentation seed.
+- `FlipImpactTrack` still executes sampling in this slice: source -> impact -> contact hold/squash -> return arc -> exact source reset.
+- `GameplayEntityPresentationApplier` applies the sampled pose to the original entity view and performs completion cleanup.
+- `BoxFlipInteractionDriver` remains the grip point and visualRoot overlay/reset coupling for player hand and box interaction. It is not a VFX spawner.
+
+Boundaries:
+
+- `FlipImpactBurst` remains contact feedback at the impact cell for Stay and DestroySelf.
+- `FlipDestroySelfMotion` remains DestroySelf clone/fade motion only and does not consume Stay.
+- `BoxDestroySmoke`/`DestroyShrink` duplicate guards remain DestroySelf/exit cleanup concerns.
+- `ImpactTransientBreak` remains a reserved break hook, not a Stay replacement.
+- `GameplayVfxProductionRuntime` must not own or move the original box view transform for Stay.
 
 ## FlipImpact DestroySelf Motion VFX Migration
 
