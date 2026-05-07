@@ -103,6 +103,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "Tier 2",
                 "manual visual approval + targeted regression"),
             new(
+                "EnableGameplayVfxFrontFaceShieldWindupMigration",
+                "enableGameplayVfxFrontFaceShieldWindupMigration",
+                "EnemyVfxCue.FrontFaceShieldWindup",
+                "Migration",
+                "Tier 2",
+                "manual visual approval + targeted regression"),
+            new(
                 "EnableGameplayVfxFlipImpactBurstMigration",
                 "enableGameplayVfxFlipImpactBurstMigration",
                 "BoxVfxCue.FlipImpactBurst",

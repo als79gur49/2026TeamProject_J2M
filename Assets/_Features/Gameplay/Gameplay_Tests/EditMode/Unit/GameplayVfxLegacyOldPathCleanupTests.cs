@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Vfx.Host;
@@ -76,6 +77,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("`GameplayUtilityWindupVfxPresenter.RefreshSummonWarnings`"));
             Assert.That(document, Does.Contain("`GameplayFrontFaceShieldVfxPresenter.RefreshActiveSources`"));
             Assert.That(document, Does.Contain("`GameplayFrontFaceShieldVfxPresenter.PlayBlockBursts`"));
+            Assert.That(document, Does.Contain("`GameplayFrontFaceShieldVfxPresenter.RefreshWindupWarnings`"));
         }
 
         [Test]
@@ -88,9 +90,53 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("old clone/fade disabled"));
             Assert.That(document, Does.Contain("Remaining old canonical presentation responsibilities"));
             Assert.That(document, Does.Contain("OutOfBounds `GameplayExitPresentationController.PlayExitEffect`"));
-            Assert.That(document, Does.Contain("`GameplayFrontFaceShieldVfxPresenter.RefreshWindupWarnings`"));
             Assert.That(document, Does.Contain("`GameplayExitPresentationController.PlayImpactBreakEffect`"));
             Assert.That(document, Does.Contain("`BoxFlipInteractionDriver` and `FlipImpactTrack` Stay branch"));
+            Assert.That(document, Does.Not.Contain("windup warning path remains old canonical presentation"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void OutOfBounds_DormantReservedPolicyIsDocumented()
+        {
+            var document = ReadRepoFile(GovernancePath);
+
+            Assert.That(document, Does.Contain("## OutOfBounds Exit Policy Gate"));
+            Assert.That(document, Does.Contain("dormant/reserved entity exit cause"));
+            Assert.That(document, Does.Contain("no Gameplay VFX cue is added for OutOfBounds"));
+            Assert.That(document, Does.Contain("no OutOfBounds gameplay producer is added"));
+            Assert.That(document, Does.Contain("not stale fallback for any migrated Gameplay VFX fact"));
+            Assert.That(document, Does.Contain("reserved old canonical exit presentation"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void OutOfBounds_NotConsumedByGameplayVfxPlanner()
+        {
+            var enums = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxEnums.cs");
+            var planning = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxPlanning.cs");
+            var boxShrinkBuilder = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/BoxDestroyShrinkVfxCommandBuilder.cs");
+            var enemyDeathBuilder = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/EnemyDeathMotionVfxCommandBuilder.cs");
+
+            Assert.That(enums, Does.Not.Contain("OutOfBoundsExit"));
+            Assert.That(enums, Does.Not.Contain("OutOfBounds"));
+            Assert.That(planning, Does.Not.Contain("TickEntityExitCause.OutOfBounds"));
+            Assert.That(boxShrinkBuilder, Does.Not.Contain("TickEntityExitCause.OutOfBounds"));
+            Assert.That(enemyDeathBuilder, Does.Not.Contain("TickEntityExitCause.OutOfBounds"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TickPipeline_DoesNotProduceOutOfBoundsExitCauseHint()
+        {
+            var loopFiles = Directory.GetFiles(
+                "Assets/_Features/Gameplay/Gameplay_Loop/Runtime",
+                "*.cs",
+                SearchOption.TopDirectoryOnly);
+            var combined = string.Join("\n", Array.ConvertAll(loopFiles, ReadRepoFile));
+
+            Assert.That(combined, Does.Not.Contain("exitCauseHint: TickEntityExitCause.OutOfBounds"));
+            Assert.That(combined, Does.Not.Contain("ExitCauseHint = TickEntityExitCause.OutOfBounds"));
         }
 
         [Test]

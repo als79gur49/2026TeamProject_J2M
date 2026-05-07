@@ -24,10 +24,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/FrontFaceShieldActiveVfx.prefab";
         private const string BlockPrefabPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/FrontFaceShieldBlockVfx.prefab";
+        private const string WindupPrefabPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/FrontFaceShieldWindupVfx.prefab";
         private const string ActiveBindingPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/FrontFaceShieldActive_Binding.asset";
         private const string BlockBindingPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/FrontFaceShieldBlock_Binding.asset";
+        private const string WindupBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/FrontFaceShieldWindup_Binding.asset";
         private const string VfxPlanningPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxPlanning.cs";
         private const string VfxProductionRuntimePath =
@@ -108,6 +112,86 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void EnemyPlanner_WindupSignal_EmitsPersistentWindupRequest()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Back, 2, 1);
+            var topology = new CubeTopologyState(FaceId.Back);
+
+            var request = PlanSingleWindupRequest(CreateWindupSignal(
+                40,
+                sourceCell,
+                topology,
+                effectIndex: 2,
+                activationSequence: 7,
+                presentationSeed: 991));
+
+            var cueId = GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldWindup);
+            Assert.That(request.CueId, Is.EqualTo(cueId));
+            Assert.That(request.SourceEntityId, Is.EqualTo(40));
+            Assert.That(request.PresentationSeed, Is.EqualTo(991));
+            Assert.That(request.IsPersistent, Is.True);
+            Assert.That(request.PersistentKey, Is.EqualTo(new VfxPersistentKey(
+                cueId,
+                VfxAnchorKind.Entity,
+                entityId: 40,
+                effectIndex: 2,
+                activationSequence: 7)));
+            Assert.That(request.Anchor.Kind, Is.EqualTo(VfxAnchorKind.Entity));
+            Assert.That(request.Anchor.Slot, Is.EqualTo(VfxAnchorSlot.EntityCenter));
+            Assert.That(request.Anchor.HasFallbackCell, Is.True);
+            Assert.That(request.Anchor.FallbackCell, Is.EqualTo(sourceCell));
+            Assert.That(request.Anchor.FallbackTopology, Is.EqualTo(topology));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyPlanner_WindupRequest_KeyChangesWithActivationSequence()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var first = PlanSingleWindupRequest(CreateWindupSignal(40, sourceCell, topology, activationSequence: 1));
+            var second = PlanSingleWindupRequest(CreateWindupSignal(40, sourceCell, topology, activationSequence: 2));
+
+            Assert.That(first.PersistentKey, Is.Not.EqualTo(second.PersistentKey));
+            Assert.That(first.PersistentKey.EffectIndex, Is.EqualTo(second.PersistentKey.EffectIndex));
+            Assert.That(first.PersistentKey.EntityId, Is.EqualTo(second.PersistentKey.EntityId));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyPlanner_WindupSourceExit_DoesNotEmitWindupRequest()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var plan = PlanRequests(CreatePresentationData(
+                windupSignals: new[] { CreateWindupSignal(40, sourceCell, topology) },
+                exitSignals: new[] { CreateExitSignal(40, sourceCell, topology) }));
+
+            Assert.That(plan.Requests, Has.None.Matches<GameplayVfxRequest>(
+                request => request.CueId == GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldWindup)));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyPlanner_ActiveBlockWindupSameTick_AllowedWithDistinctCues()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var plan = PlanRequests(CreatePresentationData(
+                activeSignals: new[] { CreateSourceSignal(40, sourceCell, topology) },
+                blockSignals: new[] { CreateBlockSignal(40, 20, 10, new SurfaceCell(FaceId.Floor, 1, 0), topology) },
+                windupSignals: new[] { CreateWindupSignal(40, sourceCell, topology) }));
+
+            Assert.That(plan.Requests, Has.Some.Matches<GameplayVfxRequest>(
+                request => request.CueId == GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldActive)));
+            Assert.That(plan.Requests, Has.Some.Matches<GameplayVfxRequest>(
+                request => request.CueId == GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldBlock)));
+            Assert.That(plan.Requests, Has.Some.Matches<GameplayVfxRequest>(
+                request => request.CueId == GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldWindup)));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void ProductionRuntime_ShieldMigrationFlags_DefaultTrue()
         {
             var owner = new GameObject("FrontFaceShieldDefaultFlags");
@@ -117,6 +201,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(runtime.EnableGameplayVfxFrontFaceShieldActiveMigration, Is.True);
                 Assert.That(runtime.EnableGameplayVfxFrontFaceShieldBlockMigration, Is.True);
+                Assert.That(runtime.EnableGameplayVfxFrontFaceShieldWindupMigration, Is.True);
             }
             finally
             {
@@ -132,6 +217,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
             AssertFlagCombinationPlans(activeEnabled: false, blockEnabled: true, expectedRequests: 1);
             AssertFlagCombinationPlans(activeEnabled: true, blockEnabled: true, expectedRequests: 2);
             AssertFlagCombinationPlans(activeEnabled: false, blockEnabled: false, expectedRequests: 0);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProductionRuntime_WindupFlag_IsIndependentFromActiveAndBlockFlags()
+        {
+            AssertFlagCombinationPlans(
+                activeEnabled: false,
+                blockEnabled: false,
+                windupEnabled: true,
+                expectedRequests: 1);
+            AssertFlagCombinationPlans(
+                activeEnabled: true,
+                blockEnabled: false,
+                windupEnabled: true,
+                expectedRequests: 2);
+            AssertFlagCombinationPlans(
+                activeEnabled: false,
+                blockEnabled: true,
+                windupEnabled: true,
+                expectedRequests: 2);
+            AssertFlagCombinationPlans(
+                activeEnabled: true,
+                blockEnabled: true,
+                windupEnabled: false,
+                expectedRequests: 2);
         }
 
         [Test]
@@ -155,6 +266,42 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     {
                         CreateSourceSignal(40, new SurfaceCell(FaceId.Floor, 0, 0), new CubeTopologyState(FaceId.Floor)),
                     })));
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
+
+                runtime.Present(CreateExtensionContext(CreatePresentationData()));
+                runtime.UpdatePresentation(0f);
+
+                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
+            }
+            finally
+            {
+                Destroy(cueMap, binding, prefab, owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProductionRuntime_WindupFlagOnWithBinding_StartsAndStopsPersistentHandle()
+        {
+            var owner = new GameObject("FrontFaceShieldWindupPersistent");
+            var prefab = new GameObject("FrontFaceShieldWindupPersistentPrefab");
+            VfxBindingDefinitionAsset binding = null;
+            VfxCueMapAsset cueMap = null;
+            try
+            {
+                binding = CreateWindupBinding(prefab, tailSeconds: 0f);
+                cueMap = CreateCueMap(binding);
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxFrontFaceShieldWindupMigration = true;
+                runtime.ConfigureHostDefaultMap(cueMap);
+
+                runtime.Present(CreateExtensionContext(CreatePresentationData(
+                    windupSignals: new[]
+                    {
+                        CreateWindupSignal(40, new SurfaceCell(FaceId.Floor, 0, 0), new CubeTopologyState(FaceId.Floor)),
+                    })));
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
 
                 runtime.Present(CreateExtensionContext(CreatePresentationData()));
@@ -229,6 +376,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(activeRuntime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(blockRuntime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(blockRuntime.MissingBindingCount, Is.EqualTo(1));
+
+                var windupOwner = new GameObject("FrontFaceShieldWindupMissingBinding");
+                try
+                {
+                    var windupRuntime = windupOwner.AddComponent<GameplayVfxProductionRuntime>();
+                    windupRuntime.EnableGameplayVfxFrontFaceShieldWindupMigration = true;
+                    windupRuntime.Present(CreateExtensionContext(CreatePresentationData(
+                        windupSignals: new[]
+                        {
+                            CreateWindupSignal(40, new SurfaceCell(FaceId.Floor, 0, 0), new CubeTopologyState(FaceId.Floor)),
+                        })));
+
+                    Assert.That(windupRuntime.LastPlannedRequestCount, Is.EqualTo(1));
+                    Assert.That(windupRuntime.MissingBindingCount, Is.EqualTo(1));
+                }
+                finally
+                {
+                    Destroy(windupOwner);
+                }
             }
             finally
             {
@@ -277,6 +443,45 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 Destroy(sourceObject, root);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void LegacyPresenter_WindupRefreshDoesNotSpawnOldTelegraph()
+        {
+            var root = new GameObject("FrontFaceShieldLegacyWindupNoSpawn");
+            var sourceObject = new GameObject("FrontFaceShieldLegacyWindupNoSpawn_Source");
+            var telegraphPrefab = new GameObject("FrontFaceShieldLegacyWindupPrefab");
+            try
+            {
+                var sourceView = sourceObject.AddComponent<GameplayEntityView>();
+                sourceView.Initialize(40);
+                var shieldAuthoring = sourceObject.AddComponent<EnemyFrontFaceShieldPresentationAuthoring>();
+                SetField(shieldAuthoring, "telegraphPrefab", telegraphPrefab);
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var stateStore = new GameplayPresentationStateStore();
+                stateStore.ResetSession(topology);
+                stateStore.ViewsByEntityId[40] = sourceView;
+                stateStore.CommittedLocalTargetPoses[40] = new GameplayEntityPose(Vector3.zero, Quaternion.identity);
+                var projector = new GameplayCubeProjector(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                    1f);
+                var presenter = new GameplayFrontFaceShieldVfxPresenter();
+                presenter.Initialize(root.transform, 1f);
+
+                presenter.RefreshWindupWarnings(
+                    new[] { CreateWindupSignal(40, sourceCell, topology) },
+                    stateStore,
+                    projector);
+
+                Assert.That(CountDescendantsByNamePrefix(root.transform, "FrontFaceShieldWindup_40"), Is.Zero);
+                Assert.That(presenter.WarningInstanceCount, Is.Zero);
+            }
+            finally
+            {
+                Destroy(telegraphPrefab, sourceObject, root);
             }
         }
 
@@ -393,20 +598,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var activeBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(ActiveBindingPath);
             var blockBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(BlockBindingPath);
+            var windupBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(WindupBindingPath);
             var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
 
             Assert.That(activeBinding, Is.Not.Null, ActiveBindingPath);
             Assert.That(blockBinding, Is.Not.Null, BlockBindingPath);
+            Assert.That(windupBinding, Is.Not.Null, WindupBindingPath);
             Assert.That(activeBinding.ValidateAuthoring().HasErrors, Is.False);
             Assert.That(blockBinding.ValidateAuthoring().HasErrors, Is.False);
+            Assert.That(windupBinding.ValidateAuthoring().HasErrors, Is.False);
             Assert.That(activeBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldActive)));
             Assert.That(activeBinding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.Loop));
             Assert.That(activeBinding.StopPolicy, Is.EqualTo(VfxStopPolicy.StopEmittingThenRelease));
             Assert.That(blockBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldBlock)));
             Assert.That(blockBinding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
             Assert.That(blockBinding.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
+            Assert.That(windupBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldWindup)));
+            Assert.That(windupBinding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.Loop));
+            Assert.That(windupBinding.StopPolicy, Is.EqualTo(VfxStopPolicy.StopEmittingThenRelease));
             Assert.That(cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldActive), out _), Is.True);
             Assert.That(cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldBlock), out _), Is.True);
+            Assert.That(cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldWindup), out _), Is.True);
         }
 
         [Test]
@@ -415,6 +627,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             AssertPrefabValid(ActivePrefabPath);
             AssertPrefabValid(BlockPrefabPath);
+            AssertPrefabValid(WindupPrefabPath);
         }
 
         [Test]
@@ -453,6 +666,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return plan.Requests[0];
         }
 
+        private static GameplayVfxRequest PlanSingleWindupRequest(TickFrontFaceShieldWindupWarningSignal signal)
+        {
+            var plan = PlanRequests(CreatePresentationData(windupSignals: new[] { signal }));
+            Assert.That(plan.Requests, Has.Count.EqualTo(1));
+            return plan.Requests[0];
+        }
+
         private static GameplayVfxRequestPlan PlanRequests(TickPresentationData presentationData)
         {
             var planner = new EnemyVfxRequestPlanner();
@@ -468,12 +688,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static void AssertFlagCombinationPlans(bool activeEnabled, bool blockEnabled, int expectedRequests)
         {
-            var owner = new GameObject($"FrontFaceShieldFlags_{activeEnabled}_{blockEnabled}");
+            AssertFlagCombinationPlans(activeEnabled, blockEnabled, windupEnabled: false, expectedRequests);
+        }
+
+        private static void AssertFlagCombinationPlans(
+            bool activeEnabled,
+            bool blockEnabled,
+            bool windupEnabled,
+            int expectedRequests)
+        {
+            var owner = new GameObject($"FrontFaceShieldFlags_{activeEnabled}_{blockEnabled}_{windupEnabled}");
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
                 runtime.EnableGameplayVfxFrontFaceShieldActiveMigration = activeEnabled;
                 runtime.EnableGameplayVfxFrontFaceShieldBlockMigration = blockEnabled;
+                runtime.EnableGameplayVfxFrontFaceShieldWindupMigration = windupEnabled;
                 runtime.Present(CreateExtensionContext(CreatePresentationData(
                     activeSignals: new[]
                     {
@@ -482,6 +712,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     blockSignals: new[]
                     {
                         CreateBlockSignal(40, 20, 10, new SurfaceCell(FaceId.Floor, 1, 0), new CubeTopologyState(FaceId.Floor)),
+                    },
+                    windupSignals: new[]
+                    {
+                        CreateWindupSignal(40, new SurfaceCell(FaceId.Floor, 0, 0), new CubeTopologyState(FaceId.Floor)),
                     })));
 
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(expectedRequests));
@@ -519,6 +753,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static TickPresentationData CreatePresentationData(
             TickFrontFaceShieldSourceSignal[] activeSignals = null,
             TickFrontFaceShieldBlockSignal[] blockSignals = null,
+            TickFrontFaceShieldWindupWarningSignal[] windupSignals = null,
             TickEntityExitPresentationSignal[] exitSignals = null)
         {
             return new TickPresentationData(
@@ -539,7 +774,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 flipImpactSignals: Array.Empty<FlipImpactPresentationSignal>(),
                 summonedEnemyPresentationBindings: Array.Empty<TickSummonedEnemyPresentationBinding>(),
                 frontFaceShieldSources: activeSignals ?? Array.Empty<TickFrontFaceShieldSourceSignal>(),
-                frontFaceShieldBlocks: blockSignals ?? Array.Empty<TickFrontFaceShieldBlockSignal>());
+                frontFaceShieldBlocks: blockSignals ?? Array.Empty<TickFrontFaceShieldBlockSignal>(),
+                frontFaceShieldWindupWarnings: windupSignals ?? Array.Empty<TickFrontFaceShieldWindupWarningSignal>());
         }
 
         private static TickFrontFaceShieldSourceSignal CreateSourceSignal(
@@ -576,6 +812,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new SurfaceCell(blockedCell.face, 0, 0),
                 FrontFaceShieldBlockMovementKind.SlidingContinuation,
                 topology,
+                tickIndex: 12,
+                presentationSeed);
+        }
+
+        private static TickFrontFaceShieldWindupWarningSignal CreateWindupSignal(
+            int sourceEntityId,
+            SurfaceCell sourceCell,
+            CubeTopologyState topology,
+            int effectIndex = 0,
+            int activationSequence = 1,
+            int presentationSeed = 884)
+        {
+            return new TickFrontFaceShieldWindupWarningSignal(
+                sourceEntityId,
+                effectIndex,
+                sourceCell,
+                topology,
+                radius: 1,
+                includeSourceCell: false,
+                FrontFaceShieldTargetPattern.ManhattanRadius,
+                windupStartTick: 12,
+                windupEndTick: 14,
+                activationSequence,
                 tickIndex: 12,
                 presentationSeed);
         }
@@ -711,6 +970,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 lifetimeSeconds: 0.3f,
                 tailSeconds: 0.2f,
                 maxConcurrent: 12);
+        }
+
+        private static VfxBindingDefinitionAsset CreateWindupBinding(
+            GameObject prefab,
+            float tailSeconds = 0.25f)
+        {
+            return CreateBinding(
+                prefab,
+                EnemyVfxCue.FrontFaceShieldWindup,
+                VfxPlaybackMode.Loop,
+                VfxStopPolicy.StopEmittingThenRelease,
+                lifetimeSeconds: 0f,
+                tailSeconds,
+                maxConcurrent: 8);
         }
 
         private static VfxBindingDefinitionAsset CreateBinding(

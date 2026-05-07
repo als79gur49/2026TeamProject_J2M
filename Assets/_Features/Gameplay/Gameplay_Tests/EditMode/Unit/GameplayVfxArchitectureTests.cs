@@ -134,13 +134,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("TickPresentationData.FrontFaceShieldBlocks"));
             Assert.That(document, Does.Contain("EnemyVfxCue.FrontFaceShieldActive"));
             Assert.That(document, Does.Contain("EnemyVfxCue.FrontFaceShieldBlock"));
+            Assert.That(document, Does.Contain("EnemyVfxCue.FrontFaceShieldWindup"));
             Assert.That(document, Does.Contain("EnableGameplayVfxFrontFaceShieldActiveMigration"));
             Assert.That(document, Does.Contain("EnableGameplayVfxFrontFaceShieldBlockMigration"));
+            Assert.That(document, Does.Contain("EnableGameplayVfxFrontFaceShieldWindupMigration"));
+            Assert.That(document, Does.Contain("TickPresentationData.FrontFaceShieldWindupWarnings"));
             Assert.That(document, Does.Contain("VFX_FrontFaceShield_Telegraph"));
             Assert.That(document, Does.Contain("cleanup-only empty refresh"));
             Assert.That(document, Does.Contain("VfxPersistentKey"));
             Assert.That(document, Does.Contain("EnemyUtilityWindupTelegraphVfx.prefab"));
             Assert.That(document, Does.Contain("EnemyUtilityWindupTelegraph_Binding.asset"));
+            Assert.That(document, Does.Contain("OutOfBounds Exit Policy Gate"));
+            Assert.That(document, Does.Contain("dormant/reserved"));
             Assert.That(document, Does.Contain("no one-shot fallback"));
             Assert.That(document, Does.Contain("VFX Planner Dependency Rule"));
             Assert.That(document, Does.Contain("Gameplay VFX planners may read presentation carriers"));

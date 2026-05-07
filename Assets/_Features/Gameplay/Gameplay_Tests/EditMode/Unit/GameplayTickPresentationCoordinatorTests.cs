@@ -2148,9 +2148,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GameplayTickPresentationCoordinator_FrontFaceShieldWindupWarning_ReconcilesTelegraphPrefab()
+        public void GameplayTickPresentationCoordinator_FrontFaceShieldWindupWarning_DoesNotSpawnOldTelegraphPrefab()
         {
-            var rootObject = new GameObject("GameplayTickPresentationCoordinator_FrontFaceShieldWindupWarning_ReconcilesTelegraphPrefab");
+            var rootObject = new GameObject("GameplayTickPresentationCoordinator_FrontFaceShieldWindupWarning_DoesNotSpawnOldTelegraphPrefab");
             var enemyPrefab = CreateEnemyViewPrefab(
                 "EnemyPrefab_FrontFaceShieldWindup",
                 UnitLocomotionPresentationAuthoring.UseGlobalTimingSentinel,
@@ -2182,7 +2182,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             Array.Empty<TickFrontFaceShieldBlockSignal>(),
                             new[] { CreateShieldWindupWarningSignal(20, sourceCell, topology, tickIndex: 1) })));
 
-                Assert.That(CountDescendantsByNamePrefix(rootObject.transform, "FrontFaceShieldWindup_20_0_1"), Is.EqualTo(1));
+                Assert.That(CountDescendantsByNamePrefix(rootObject.transform, "FrontFaceShieldWindup_20_0_1"), Is.EqualTo(0));
 
                 presenter.Present(
                     CreateTickResult(

@@ -1387,7 +1387,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.GameplayTickPresentationCoordinator_FrontFaceShieldWindupWarning_ReconcilesTelegraphPrefab",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.GameplayTickPresentationCoordinator_FrontFaceShieldWindupWarning_DoesNotSpawnOldTelegraphPrefab",
       "category": "Core",
       "contracts": [
         "gameplay_tick_presentation_coordinator_contract"
