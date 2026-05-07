@@ -141,6 +141,8 @@ namespace Game.Feature.Gameplay.Host
             Array.Empty<BoardTilePresentationOverride>();
         public IReadOnlyList<TileFeaturePresentationResolvedBinding> TileFeaturePresentationBindings =
             Array.Empty<TileFeaturePresentationResolvedBinding>();
+        public IReadOnlyList<SurfaceCell> SuppressedBaseTileCells =
+            Array.Empty<SurfaceCell>();
         public BoardBounds InitialBoardBounds = BoardBounds.Unbounded;
         public float InitialMoveDelaySeconds = -1f;
         public EntityState[] InitialEntities = Array.Empty<EntityState>();

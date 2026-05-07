@@ -629,6 +629,12 @@ namespace Game.Feature.Stages.Editor
                 targetCell,
                 out var status);
             DrawBoardTileOverrideStatus(status);
+            if (status.IsBaseTileSuppressed)
+            {
+                EditorGUILayout.HelpBox(
+                    $"Base tile suppressed by TileFeature: TileId {status.SuppressingTileId}. Board tile overrides will not be visible while suppressed.",
+                    MessageType.Info);
+            }
 
             var options = StageAuthoringPresentationBindingCommands.BuildBoardTilePresentationOptions(presentation);
             var labels = options.Select(option => option.Label).ToArray();
@@ -942,6 +948,22 @@ namespace Game.Feature.Stages.Editor
                 feature,
                 directOverrideActive);
             DrawTileFeatureCatalogStatus(catalogStatus);
+            EditorGUILayout.LabelField("Placement Mode", catalogStatus.PlacementMode.ToString());
+            EditorGUILayout.LabelField("Placement Source", FormatPlacementModeSource(catalogStatus.PlacementModeSource));
+            if (catalogStatus.PlacementMode == TileFeatureVisualPlacementMode.ReplaceBaseTile)
+            {
+                EditorGUILayout.HelpBox("Base board tile will be hidden at this SurfaceCell.", MessageType.Info);
+                var replaceCount = StageAuthoringPresentationBindingCommands.CountReplaceBaseTileSuppressorsForCell(
+                    presentation,
+                    authoring,
+                    feature.Cell);
+                if (replaceCount > 1)
+                {
+                    EditorGUILayout.HelpBox(
+                        $"SurfaceCell {feature.Cell} has {replaceCount} ReplaceBaseTile TileFeatures. Only one ReplaceBaseTile TileFeature is allowed per SurfaceCell.",
+                        MessageType.Error);
+                }
+            }
 
             var options = StageAuthoringTileFeaturePresentationCatalogCommands.BuildOptions(
                 presentation,
@@ -1008,6 +1030,16 @@ namespace Game.Feature.Stages.Editor
                 _ => MessageType.Info,
             };
             EditorGUILayout.HelpBox(status.Message, messageType);
+        }
+
+        private static string FormatPlacementModeSource(TileFeaturePresentationPlacementModeSource source)
+        {
+            return source switch
+            {
+                TileFeaturePresentationPlacementModeSource.CatalogKey => "Catalog key",
+                TileFeaturePresentationPlacementModeSource.CatalogDefault => "Catalog default",
+                _ => "Overlay fallback",
+            };
         }
 
         private static bool IsDirectOverrideActive(TileFeatureVisualBindingStatus status)

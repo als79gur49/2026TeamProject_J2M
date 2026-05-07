@@ -788,6 +788,76 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
+        public void ReplaceBaseTile_DoesNotEnterGameplayDefinitionsOrRuntimeBuildResult()
+        {
+            var forbiddenTokens = new[]
+            {
+                "Replace" + "BaseTile",
+                "TileFeature" + "Visual" + "PlacementMode",
+                "Placement" + "Mode",
+            };
+            var sourcePaths = new[]
+            {
+                StageDefinitionPath,
+                StageRuntimeBuildResultPath,
+            };
+
+            for (var sourceIndex = 0; sourceIndex < sourcePaths.Length; sourceIndex++)
+            {
+                var sourcePath = GetAbsolutePath(sourcePaths[sourceIndex]);
+                var source = File.ReadAllText(sourcePath);
+                for (var tokenIndex = 0; tokenIndex < forbiddenTokens.Length; tokenIndex++)
+                {
+                    Assert.That(source, Does.Not.Contain(forbiddenTokens[tokenIndex]), sourcePath);
+                }
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ReplaceBaseTile_DoesNotEnterBoardStateOrGameplayLoop()
+        {
+            var forbiddenTokens = new[]
+            {
+                "Replace" + "BaseTile",
+                "TileFeature" + "Visual" + "PlacementMode",
+            };
+            var sourcePaths = Directory
+                .GetFiles(GetAbsolutePath(GameplayLoopRuntimePath), "*.cs", SearchOption.AllDirectories);
+            var boardStateSourcePaths = Directory
+                .GetFiles(GetAbsolutePath(GameplayBoardStateRuntimePath), "*.cs", SearchOption.AllDirectories);
+
+            foreach (var sourcePath in sourcePaths)
+            {
+                var source = File.ReadAllText(sourcePath);
+                for (var tokenIndex = 0; tokenIndex < forbiddenTokens.Length; tokenIndex++)
+                {
+                    Assert.That(source, Does.Not.Contain(forbiddenTokens[tokenIndex]), sourcePath);
+                }
+            }
+
+            foreach (var sourcePath in boardStateSourcePaths)
+            {
+                var source = File.ReadAllText(sourcePath);
+                for (var tokenIndex = 0; tokenIndex < forbiddenTokens.Length; tokenIndex++)
+                {
+                    Assert.That(source, Does.Not.Contain(forbiddenTokens[tokenIndex]), sourcePath);
+                }
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickPipeline_DoesNotReferenceReplaceBaseTile()
+        {
+            var source = File.ReadAllText(GetAbsolutePath("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs"));
+
+            Assert.That(source, Does.Not.Contain("Replace" + "BaseTile"));
+            Assert.That(source, Does.Not.Contain("TileFeature" + "Visual" + "PlacementMode"));
+        }
+
+        [Test]
+        [Category("Core")]
         public void OccupancyLayer_DoesNotContainTileFeature_WhenLayerTypeExists()
         {
             var occupancyLayerType = typeof(EntityType).Assembly.GetType("Game.Feature.Gameplay.BoardState.OccupancyLayer");

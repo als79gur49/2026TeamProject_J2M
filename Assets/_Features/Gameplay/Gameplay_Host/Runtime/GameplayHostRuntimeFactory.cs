@@ -168,7 +168,8 @@ namespace Game.Feature.Gameplay.Host
                 faceSeamGap,
                 configuration.BoardSurfaceTexture,
                 configuration.BoardTilePresentationCatalog,
-                configuration.BoardTilePresentationOverrides);
+                configuration.BoardTilePresentationOverrides,
+                configuration.SuppressedBaseTileCells);
 
             var viewCameraTarget = boardRoot.CameraTargetRoot;
             var startupPlan = GameplayCameraStartupPlanComposer.Compose(

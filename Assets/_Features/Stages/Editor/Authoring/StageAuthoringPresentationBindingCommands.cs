@@ -65,7 +65,8 @@ namespace Game.Feature.Stages.Editor
             string presentationKey,
             BoardTilePresentationCatalogEntry catalogEntry,
             int overrideCount,
-            string message)
+            string message,
+            int suppressingTileId = 0)
         {
             Kind = kind;
             Cell = cell;
@@ -73,6 +74,7 @@ namespace Game.Feature.Stages.Editor
             CatalogEntry = catalogEntry;
             OverrideCount = overrideCount;
             Message = message ?? string.Empty;
+            SuppressingTileId = suppressingTileId;
         }
 
         public BoardTilePresentationOverrideStatusKind Kind { get; }
@@ -86,6 +88,10 @@ namespace Game.Feature.Stages.Editor
         public int OverrideCount { get; }
 
         public string Message { get; }
+
+        public int SuppressingTileId { get; }
+
+        public bool IsBaseTileSuppressed => SuppressingTileId > 0;
     }
 
     internal readonly struct BoardTilePresentationCatalogOption
@@ -220,29 +226,37 @@ namespace Game.Feature.Stages.Editor
         {
             if (presentation == null)
             {
-                status = new BoardTilePresentationOverrideStatus(
-                    BoardTilePresentationOverrideStatusKind.NoPresentationDefinition,
-                    cell,
-                    string.Empty,
-                    null,
-                    0,
-                    "No StagePresentationDefinition assigned; board tile override editing disabled.");
+                status = WithBaseTileSuppression(
+                    new BoardTilePresentationOverrideStatus(
+                        BoardTilePresentationOverrideStatusKind.NoPresentationDefinition,
+                        cell,
+                        string.Empty,
+                        null,
+                        0,
+                        "No StagePresentationDefinition assigned; board tile override editing disabled."),
+                    presentation,
+                    authoring,
+                    cell);
                 return false;
             }
 
             if (!IsValidBoardTileCell(authoring, cell, out var cellError))
             {
-                status = new BoardTilePresentationOverrideStatus(
-                    cellError == InvalidBoardTileCellReason.InvalidFace
-                        ? BoardTilePresentationOverrideStatusKind.InvalidCell
-                        : BoardTilePresentationOverrideStatusKind.OutsideBounds,
-                    cell,
-                    string.Empty,
-                    null,
-                    0,
-                    cellError == InvalidBoardTileCellReason.InvalidFace
-                        ? $"Board tile override cell {cell} has an invalid face value."
-                        : $"Board tile override cell {cell} is outside board bounds.");
+                status = WithBaseTileSuppression(
+                    new BoardTilePresentationOverrideStatus(
+                        cellError == InvalidBoardTileCellReason.InvalidFace
+                            ? BoardTilePresentationOverrideStatusKind.InvalidCell
+                            : BoardTilePresentationOverrideStatusKind.OutsideBounds,
+                        cell,
+                        string.Empty,
+                        null,
+                        0,
+                        cellError == InvalidBoardTileCellReason.InvalidFace
+                            ? $"Board tile override cell {cell} has an invalid face value."
+                            : $"Board tile override cell {cell} is outside board bounds."),
+                    presentation,
+                    authoring,
+                    cell);
                 return false;
             }
 
@@ -252,61 +266,137 @@ namespace Game.Feature.Stages.Editor
             var catalog = presentation.BoardTilePresentationCatalog;
             if (catalog == null)
             {
-                status = new BoardTilePresentationOverrideStatus(
-                    BoardTilePresentationOverrideStatusKind.CatalogMissing,
-                    cell,
-                    matches.Length > 0 ? matches[0].PresentationKey : string.Empty,
-                    null,
-                    matches.Length,
-                    "No BoardTilePresentationCatalog assigned; board tile override editing disabled.");
+                status = WithBaseTileSuppression(
+                    new BoardTilePresentationOverrideStatus(
+                        BoardTilePresentationOverrideStatusKind.CatalogMissing,
+                        cell,
+                        matches.Length > 0 ? matches[0].PresentationKey : string.Empty,
+                        null,
+                        matches.Length,
+                        "No BoardTilePresentationCatalog assigned; board tile override editing disabled."),
+                    presentation,
+                    authoring,
+                    cell);
                 return false;
             }
 
             if (matches.Length == 0)
             {
-                status = new BoardTilePresentationOverrideStatus(
-                    BoardTilePresentationOverrideStatusKind.MissingOverride,
-                    cell,
-                    string.Empty,
-                    null,
-                    0,
-                    "No board tile presentation override is set for this cell.");
+                status = WithBaseTileSuppression(
+                    new BoardTilePresentationOverrideStatus(
+                        BoardTilePresentationOverrideStatusKind.MissingOverride,
+                        cell,
+                        string.Empty,
+                        null,
+                        0,
+                        "No board tile presentation override is set for this cell."),
+                    presentation,
+                    authoring,
+                    cell);
                 return true;
             }
 
             var key = matches[0].PresentationKey;
             if (matches.Length > 1)
             {
-                status = new BoardTilePresentationOverrideStatus(
-                    BoardTilePresentationOverrideStatusKind.DuplicateOverride,
-                    cell,
-                    key,
-                    null,
-                    matches.Length,
-                    $"Board tile presentation override is duplicated for {cell} ({matches.Length}).");
+                status = WithBaseTileSuppression(
+                    new BoardTilePresentationOverrideStatus(
+                        BoardTilePresentationOverrideStatusKind.DuplicateOverride,
+                        cell,
+                        key,
+                        null,
+                        matches.Length,
+                        $"Board tile presentation override is duplicated for {cell} ({matches.Length})."),
+                    presentation,
+                    authoring,
+                    cell);
                 return true;
             }
 
             if (!catalog.TryGetEntry(key, out var entry))
             {
-                status = new BoardTilePresentationOverrideStatus(
-                    BoardTilePresentationOverrideStatusKind.MissingKey,
-                    cell,
-                    key,
-                    null,
-                    1,
-                    $"Board tile PresentationKey '{key}' is missing from BoardTilePresentationCatalog '{catalog.name}'.");
+                status = WithBaseTileSuppression(
+                    new BoardTilePresentationOverrideStatus(
+                        BoardTilePresentationOverrideStatusKind.MissingKey,
+                        cell,
+                        key,
+                        null,
+                        1,
+                        $"Board tile PresentationKey '{key}' is missing from BoardTilePresentationCatalog '{catalog.name}'."),
+                    presentation,
+                    authoring,
+                    cell);
                 return true;
             }
 
-            status = new BoardTilePresentationOverrideStatus(
-                BoardTilePresentationOverrideStatusKind.Resolved,
-                cell,
-                key,
-                entry,
-                1,
-                $"Resolved: {FormatBoardTileCatalogOption(entry)}");
+            status = WithBaseTileSuppression(
+                new BoardTilePresentationOverrideStatus(
+                    BoardTilePresentationOverrideStatusKind.Resolved,
+                    cell,
+                    key,
+                    entry,
+                    1,
+                    $"Resolved: {FormatBoardTileCatalogOption(entry)}"),
+                presentation,
+                authoring,
+                cell);
             return true;
+        }
+
+        public static bool TryResolveBaseTileSuppressionForCell(
+            StagePresentationDefinition presentation,
+            StageAuthoringDefinition authoring,
+            SurfaceCell cell,
+            out int tileId)
+        {
+            tileId = 0;
+            if (presentation == null || authoring == null)
+            {
+                return false;
+            }
+
+            var features = authoring.TileFeatures;
+            for (var i = 0; i < features.Count; i++)
+            {
+                var feature = features[i];
+                if (!feature.Cell.Equals(cell))
+                {
+                    continue;
+                }
+
+                if (ResolvesReplaceBaseTileWithVisual(presentation, feature))
+                {
+                    tileId = feature.TileId;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public static int CountReplaceBaseTileSuppressorsForCell(
+            StagePresentationDefinition presentation,
+            StageAuthoringDefinition authoring,
+            SurfaceCell cell)
+        {
+            if (presentation == null || authoring == null)
+            {
+                return 0;
+            }
+
+            var count = 0;
+            var features = authoring.TileFeatures;
+            for (var i = 0; i < features.Count; i++)
+            {
+                var feature = features[i];
+                if (feature.Cell.Equals(cell) &&
+                    ResolvesReplaceBaseTileWithVisual(presentation, feature))
+                {
+                    count++;
+                }
+            }
+
+            return count;
         }
 
         public static bool TrySetTileFeatureVisualBinding(
@@ -492,6 +582,120 @@ namespace Game.Feature.Stages.Editor
             }
 
             return false;
+        }
+
+        private static BoardTilePresentationOverrideStatus WithBaseTileSuppression(
+            BoardTilePresentationOverrideStatus status,
+            StagePresentationDefinition presentation,
+            StageAuthoringDefinition authoring,
+            SurfaceCell cell)
+        {
+            if (!TryResolveBaseTileSuppressionForCell(presentation, authoring, cell, out var tileId))
+            {
+                return status;
+            }
+
+            var message = $"{status.Message} Base tile suppressed by TileFeature: TileId {tileId}; board tile overrides will not be visible while suppressed.";
+            return new BoardTilePresentationOverrideStatus(
+                status.Kind,
+                status.Cell,
+                status.PresentationKey,
+                status.CatalogEntry,
+                status.OverrideCount,
+                message,
+                tileId);
+        }
+
+        private static bool ResolvesReplaceBaseTileWithVisual(
+            StagePresentationDefinition presentation,
+            StageTileFeatureDefinition feature)
+        {
+            if (feature.TileId <= 0)
+            {
+                return false;
+            }
+
+            var directBinding = FindDirectTileFeatureBinding(presentation, feature.TileId);
+            if (directBinding != null)
+            {
+                return directBinding.VisualPrefab != null &&
+                       TryResolveCatalogKeyPlacementMode(
+                           presentation,
+                           feature.PresentationKey,
+                           out var directPlacementMode) &&
+                       directPlacementMode == TileFeatureVisualPlacementMode.ReplaceBaseTile;
+            }
+
+            return TryResolveCatalogEntryForFeature(
+                       presentation,
+                       feature,
+                       out var entry) &&
+                   entry.PlacementMode == TileFeatureVisualPlacementMode.ReplaceBaseTile &&
+                   entry.VisualPrefab != null;
+        }
+
+        private static TileFeaturePresentationBinding FindDirectTileFeatureBinding(
+            StagePresentationDefinition presentation,
+            int tileId)
+        {
+            if (presentation == null)
+            {
+                return null;
+            }
+
+            var bindings = presentation.TileFeaturePresentationBindings;
+            for (var i = 0; i < bindings.Length; i++)
+            {
+                var binding = bindings[i];
+                if (binding != null &&
+                    binding.TileId == tileId)
+                {
+                    return binding;
+                }
+            }
+
+            return null;
+        }
+
+        private static bool TryResolveCatalogKeyPlacementMode(
+            StagePresentationDefinition presentation,
+            string presentationKey,
+            out TileFeatureVisualPlacementMode placementMode)
+        {
+            placementMode = TileFeatureVisualPlacementMode.Overlay;
+            var normalizedKey = TileFeaturePresentationCatalog.NormalizePresentationKey(presentationKey);
+            var catalog = presentation != null ? presentation.TileFeaturePresentationCatalog : null;
+            if (catalog == null ||
+                string.IsNullOrEmpty(normalizedKey) ||
+                !catalog.TryGetEntry(normalizedKey, out var entry))
+            {
+                return false;
+            }
+
+            placementMode = entry.PlacementMode;
+            return true;
+        }
+
+        private static bool TryResolveCatalogEntryForFeature(
+            StagePresentationDefinition presentation,
+            StageTileFeatureDefinition feature,
+            out TileFeaturePresentationCatalogEntry entry)
+        {
+            entry = null;
+            var catalog = presentation != null ? presentation.TileFeaturePresentationCatalog : null;
+            if (catalog == null)
+            {
+                return false;
+            }
+
+            var normalizedKey = TileFeaturePresentationCatalog.NormalizePresentationKey(feature.PresentationKey);
+            if (!string.IsNullOrEmpty(normalizedKey) &&
+                catalog.TryGetEntry(normalizedKey, out entry))
+            {
+                return true;
+            }
+
+            return catalog.TryGetDefaultEntry(feature.Kind, out entry);
         }
 
         private static bool ValidateBindingTarget(

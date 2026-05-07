@@ -39,7 +39,8 @@ namespace Game.Feature.Gameplay.Host
                 StaticEntityPresentationBinding[] staticEntityPresentationBindings,
                 BoardTilePresentationCatalog boardTilePresentationCatalog,
                 IReadOnlyList<TileFeaturePresentationResolvedBinding> tileFeaturePresentationBindings,
-                IReadOnlyList<BoardTilePresentationOverride> boardTilePresentationOverrides = null)
+                IReadOnlyList<BoardTilePresentationOverride> boardTilePresentationOverrides = null,
+                IReadOnlyList<SurfaceCell> suppressedBaseTileCells = null)
             {
                 BoardBounds = boardBounds;
                 InitialTopology = initialTopology;
@@ -63,6 +64,7 @@ namespace Game.Feature.Gameplay.Host
                     boardTilePresentationOverrides ?? Array.Empty<BoardTilePresentationOverride>();
                 TileFeaturePresentationBindings =
                     tileFeaturePresentationBindings ?? Array.Empty<TileFeaturePresentationResolvedBinding>();
+                SuppressedBaseTileCells = suppressedBaseTileCells ?? Array.Empty<SurfaceCell>();
             }
 
             public BoardBounds BoardBounds { get; }
@@ -104,6 +106,8 @@ namespace Game.Feature.Gameplay.Host
             public IReadOnlyList<BoardTilePresentationOverride> BoardTilePresentationOverrides { get; }
 
             public IReadOnlyList<TileFeaturePresentationResolvedBinding> TileFeaturePresentationBindings { get; }
+
+            public IReadOnlyList<SurfaceCell> SuppressedBaseTileCells { get; }
         }
 
         [Header("Bootstrap")]
@@ -321,6 +325,7 @@ namespace Game.Feature.Gameplay.Host
                 BoardTilePresentationCatalog = initialState.BoardTilePresentationCatalog,
                 BoardTilePresentationOverrides = initialState.BoardTilePresentationOverrides,
                 TileFeaturePresentationBindings = initialState.TileFeaturePresentationBindings,
+                SuppressedBaseTileCells = initialState.SuppressedBaseTileCells,
                 InitialBoardBounds = initialState.BoardBounds,
                 InitialEntities = initialState.InitialEntities,
                 InitialTerrain = initialState.InitialTerrain,

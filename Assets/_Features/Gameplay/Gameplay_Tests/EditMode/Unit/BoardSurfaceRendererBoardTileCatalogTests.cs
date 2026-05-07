@@ -424,6 +424,129 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        [Category("Full")]
+        public void BoardSurfaceRenderer_SuppressesSteadyBaseTileForReplaceTileFeature()
+        {
+            var rootObject = new GameObject("BoardSurfaceRenderer_SuppressesSteadyBaseTileForReplaceTileFeature");
+
+            try
+            {
+                var renderer = rootObject.AddComponent<GameplayBoardSurfaceRenderer>();
+
+                renderer.Initialize(
+                    new BoardBounds(Vector2Int.zero, Vector2Int.zero),
+                    1f,
+                    new CubeTopologyState(FaceId.Floor),
+                    suppressedBaseTileCells: new[]
+                    {
+                        new SurfaceCell(FaceId.Floor, 0, 0),
+                    });
+
+                Assert.That(renderer.VisibleTilePoolRoot.Find("ActiveBottom_Floor_0_0"), Is.Null);
+                Assert.That(renderer.VisibleTilePoolRoot.Find("ActiveFront_Front_0_0"), Is.Not.Null);
+                Assert.That(renderer.SteadyTileCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void BoardSurfaceRenderer_SuppressesTransitionBaseTileForReplaceTileFeature()
+        {
+            var rootObject = new GameObject("BoardSurfaceRenderer_SuppressesTransitionBaseTileForReplaceTileFeature");
+            var sourceTopology = new CubeTopologyState(FaceId.Floor);
+            var destinationTopology = new CubeTopologyState(FaceId.Front);
+
+            try
+            {
+                var renderer = rootObject.AddComponent<GameplayBoardSurfaceRenderer>();
+
+                renderer.Initialize(
+                    new BoardBounds(Vector2Int.zero, Vector2Int.zero),
+                    1f,
+                    sourceTopology,
+                    suppressedBaseTileCells: new[]
+                    {
+                        new SurfaceCell(FaceId.Front, 0, 0),
+                    });
+                renderer.BeginTopologyTransition(sourceTopology, destinationTopology);
+
+                Assert.That(renderer.TransitionTilePoolRoot.Find("ActiveBottom_Front_0_0"), Is.Null);
+                Assert.That(renderer.TransitionTilePoolRoot.Find("ActiveFront_Ceiling_0_0"), Is.Not.Null);
+                Assert.That(renderer.TransitionTileCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void BoardSurfaceRenderer_EmptySuppressSetKeepsExistingBoardTiles()
+        {
+            var rootObject = new GameObject("BoardSurfaceRenderer_EmptySuppressSetKeepsExistingBoardTiles");
+
+            try
+            {
+                var renderer = rootObject.AddComponent<GameplayBoardSurfaceRenderer>();
+
+                renderer.Initialize(
+                    new BoardBounds(Vector2Int.zero, Vector2Int.zero),
+                    1f,
+                    new CubeTopologyState(FaceId.Floor),
+                    suppressedBaseTileCells: Array.Empty<SurfaceCell>());
+
+                Assert.That(renderer.VisibleTilePoolRoot.Find("ActiveBottom_Floor_0_0"), Is.Not.Null);
+                Assert.That(renderer.VisibleTilePoolRoot.Find("ActiveFront_Front_0_0"), Is.Not.Null);
+                Assert.That(renderer.SteadyTileCount, Is.EqualTo(2));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void BoardSurfaceRenderer_SuppressedCellDoesNotAllocateDescriptorPool()
+        {
+            var rootObject = new GameObject("BoardSurfaceRenderer_SuppressedCellDoesNotAllocateDescriptorPool");
+            var bottomPrefab = CreatePrefab("SuppressedBottomPrefab");
+            var frontMaterial = CreateMaterial("SuppressedFrontMaterial");
+            var catalog = CreateCatalog(
+                Entry("bottom", BoardTileVisualRole.ActiveBottom, bottomPrefab, null, isDefault: true),
+                Entry("front", BoardTileVisualRole.ActiveFront, null, frontMaterial, isDefault: true));
+
+            try
+            {
+                var renderer = rootObject.AddComponent<GameplayBoardSurfaceRenderer>();
+
+                renderer.Initialize(
+                    new BoardBounds(Vector2Int.zero, Vector2Int.zero),
+                    1f,
+                    new CubeTopologyState(FaceId.Floor),
+                    boardTilePresentationCatalog: catalog,
+                    suppressedBaseTileCells: new[]
+                    {
+                        new SurfaceCell(FaceId.Floor, 0, 0),
+                    });
+
+                Assert.That(renderer.VisibleTilePoolRoot.Find("ActiveBottom_Floor_0_0"), Is.Null);
+                Assert.That(
+                    renderer.VisibleTilePoolRoot.GetComponentsInChildren<BoardTileCatalogTestMarker>(includeInactive: true),
+                    Is.Empty);
+            }
+            finally
+            {
+                DestroyObjects(rootObject, bottomPrefab, catalog, frontMaterial);
+            }
+        }
+
         private static GameObject FindTile(Transform root, string tileName)
         {
             Assert.That(root, Is.Not.Null);

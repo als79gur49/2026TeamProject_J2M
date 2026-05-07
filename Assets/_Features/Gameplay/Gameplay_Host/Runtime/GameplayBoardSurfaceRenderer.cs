@@ -28,6 +28,7 @@ namespace Game.Feature.Gameplay.Host
         private BoardTilePresentationOverride[] _boardTilePresentationOverrides =
             Array.Empty<BoardTilePresentationOverride>();
         private Dictionary<SurfaceCell, string> _boardTilePresentationOverrideLookup = new();
+        private HashSet<SurfaceCell> _suppressedBaseTileCells = new();
         private Material _activeBottomFaceMaterial;
         private Material _activeFrontFaceMaterial;
         private Material _decorativeBackFaceMaterial;
@@ -87,7 +88,8 @@ namespace Game.Feature.Gameplay.Host
             float faceSeamGap = -1f,
             Texture2D sharedTileTexture = null,
             BoardTilePresentationCatalog boardTilePresentationCatalog = null,
-            IReadOnlyList<BoardTilePresentationOverride> boardTilePresentationOverrides = null)
+            IReadOnlyList<BoardTilePresentationOverride> boardTilePresentationOverrides = null,
+            IReadOnlyList<SurfaceCell> suppressedBaseTileCells = null)
         {
             if (!boardBounds.IsBounded)
             {
@@ -116,6 +118,7 @@ namespace Game.Feature.Gameplay.Host
 
             _boardTilePresentationOverrideLookup =
                 BuildBoardTileOverrideLookup(_boardTilePresentationOverrides);
+            _suppressedBaseTileCells = BuildSuppressedBaseTileCellSet(suppressedBaseTileCells);
             var resolvedFaceSeamGap = faceSeamGap >= 0f ? faceSeamGap : cellSize;
             _projector = new GameplayCubeProjector(boardBounds, cellSize, resolvedFaceSeamGap);
             EnsureVisibleTilePoolRoot();
@@ -123,6 +126,24 @@ namespace Game.Feature.Gameplay.Host
             EnsureMaterials(sharedTileTexture);
             _isInitialized = true;
             RefreshTopology(topology);
+        }
+
+        public void ConfigureSuppressedBaseTileCells(IEnumerable<SurfaceCell> cells)
+        {
+            var next = BuildSuppressedBaseTileCellSet(cells);
+            if (SurfaceCellSetsEqual(_suppressedBaseTileCells, next))
+            {
+                return;
+            }
+
+            _suppressedBaseTileCells = next;
+            if (!_isInitialized)
+            {
+                return;
+            }
+
+            RefreshSteadyTopology(_steadyTopology);
+            ClearTopologyTransition();
         }
 
         public void RefreshTopology(CubeTopologyState topology)
@@ -478,6 +499,11 @@ namespace Game.Feature.Gameplay.Host
                 for (var x = _boardBounds.MinInclusive.x; x <= _boardBounds.MaxInclusive.x; x++)
                 {
                     var cell = new SurfaceCell(face, x, y);
+                    if (IsBaseTileSuppressed(cell))
+                    {
+                        continue;
+                    }
+
                     if (!_projector.TryProjectSurfaceCell(cell, topology, out var projectedPose))
                     {
                         throw new InvalidOperationException(
@@ -516,6 +542,11 @@ namespace Game.Feature.Gameplay.Host
                 for (var x = _boardBounds.MinInclusive.x; x <= _boardBounds.MaxInclusive.x; x++)
                 {
                     var cell = new SurfaceCell(face, x, y);
+                    if (IsBaseTileSuppressed(cell))
+                    {
+                        continue;
+                    }
+
                     if (!TryResolveTransitionTileLocalPose(
                             cell,
                             _steadyTopology,
@@ -738,6 +769,56 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return lookup;
+        }
+
+        private bool IsBaseTileSuppressed(SurfaceCell cell)
+        {
+            return _suppressedBaseTileCells != null &&
+                   _suppressedBaseTileCells.Contains(cell);
+        }
+
+        private static HashSet<SurfaceCell> BuildSuppressedBaseTileCellSet(
+            IEnumerable<SurfaceCell> source)
+        {
+            var set = new HashSet<SurfaceCell>();
+            if (source == null)
+            {
+                return set;
+            }
+
+            foreach (var cell in source)
+            {
+                if (Enum.IsDefined(typeof(FaceId), cell.face))
+                {
+                    set.Add(cell);
+                }
+            }
+
+            return set;
+        }
+
+        private static bool SurfaceCellSetsEqual(
+            HashSet<SurfaceCell> left,
+            HashSet<SurfaceCell> right)
+        {
+            if (ReferenceEquals(left, right))
+            {
+                return true;
+            }
+
+            var leftCount = left?.Count ?? 0;
+            var rightCount = right?.Count ?? 0;
+            if (leftCount != rightCount)
+            {
+                return false;
+            }
+
+            if (left == null || right == null)
+            {
+                return left == right;
+            }
+
+            return left.SetEquals(right);
         }
 
         private static BoardTileVisualRole ToBoardTileVisualRole(SurfaceTileRole tileRole)

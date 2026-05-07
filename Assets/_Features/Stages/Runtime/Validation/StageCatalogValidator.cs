@@ -1368,6 +1368,17 @@ namespace Game.Feature.Stages
                         options.Timing);
                 }
 
+                if (!Enum.IsDefined(typeof(TileFeatureVisualPlacementMode), catalogEntry.PlacementMode))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.catalog.placement-mode-invalid",
+                        $"TileFeaturePresentationCatalog '{catalog.name}' {fieldPrefix} has invalid TileFeatureVisualPlacementMode value {(int)catalogEntry.PlacementMode}.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                }
+
                 if (catalogEntry.IsDefaultForKind &&
                     !defaultKinds.Add(catalogEntry.Kind))
                 {
@@ -1405,6 +1416,7 @@ namespace Game.Feature.Stages
             }
 
             ValidateTileFeatureCatalogUsage(entry, options, report);
+            ValidateReplaceBaseTilePolicy(entry, options, report);
         }
 
         private static void ValidateTileFeatureCatalogUsage(
@@ -1540,6 +1552,158 @@ namespace Game.Feature.Stages
             }
 
             return tileIds;
+        }
+
+        private static void ValidateReplaceBaseTilePolicy(
+            StageContentEntry entry,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            if (entry.GameplayDefinition == null ||
+                entry.PresentationDefinition == null ||
+                entry.PresentationDefinition.TileFeaturePresentationCatalog == null)
+            {
+                return;
+            }
+
+            var presentation = entry.PresentationDefinition;
+            var presentationPath = GetAssetPath(presentation, options);
+            var directBindings = BuildDirectTileFeatureBindingsById(presentation);
+            var replaceTileIdsByCell = new Dictionary<SurfaceCell, List<int>>();
+            var tileFeatures = entry.GameplayDefinition.TileFeatures;
+            for (var i = 0; i < tileFeatures.Length; i++)
+            {
+                var tileFeature = tileFeatures[i];
+                if (tileFeature.TileId <= 0)
+                {
+                    continue;
+                }
+
+                if (!TryResolveEffectiveTileFeatureVisual(
+                        presentation.TileFeaturePresentationCatalog,
+                        directBindings,
+                        tileFeature,
+                        out var placementMode,
+                        out var visualPrefab))
+                {
+                    continue;
+                }
+
+                if (placementMode != TileFeatureVisualPlacementMode.ReplaceBaseTile)
+                {
+                    continue;
+                }
+
+                if (visualPrefab == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.replace-base-tile.visual-unresolved",
+                        $"TileFeature TileId {tileFeature.TileId} resolves to ReplaceBaseTile but has no resolved visual prefab.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                    continue;
+                }
+
+                if (!replaceTileIdsByCell.TryGetValue(tileFeature.Cell, out var tileIds))
+                {
+                    tileIds = new List<int>();
+                    replaceTileIdsByCell.Add(tileFeature.Cell, tileIds);
+                }
+
+                tileIds.Add(tileFeature.TileId);
+            }
+
+            foreach (var pair in replaceTileIdsByCell)
+            {
+                if (pair.Value.Count <= 1)
+                {
+                    continue;
+                }
+
+                report.Add(
+                    StageValidationSeverity.Error,
+                    "presentation.tile-feature.replace-base-tile.cell-duplicate",
+                    $"SurfaceCell {pair.Key} has multiple ReplaceBaseTile TileFeatures: {string.Join(", ", pair.Value)}.",
+                    presentation,
+                    presentationPath,
+                    options.Timing);
+            }
+        }
+
+        private static Dictionary<int, TileFeaturePresentationBinding> BuildDirectTileFeatureBindingsById(
+            StagePresentationDefinition presentation)
+        {
+            var bindingsById = new Dictionary<int, TileFeaturePresentationBinding>();
+            if (presentation == null)
+            {
+                return bindingsById;
+            }
+
+            var bindings = presentation.TileFeaturePresentationBindings;
+            for (var i = 0; i < bindings.Length; i++)
+            {
+                var binding = bindings[i];
+                if (binding == null ||
+                    binding.TileId <= 0 ||
+                    bindingsById.ContainsKey(binding.TileId))
+                {
+                    continue;
+                }
+
+                bindingsById.Add(binding.TileId, binding);
+            }
+
+            return bindingsById;
+        }
+
+        private static bool TryResolveEffectiveTileFeatureVisual(
+            TileFeaturePresentationCatalog catalog,
+            IReadOnlyDictionary<int, TileFeaturePresentationBinding> directBindings,
+            StageTileFeatureDefinition tileFeature,
+            out TileFeatureVisualPlacementMode placementMode,
+            out GameObject visualPrefab)
+        {
+            placementMode = TileFeatureVisualPlacementMode.Overlay;
+            visualPrefab = null;
+            if (directBindings != null &&
+                directBindings.TryGetValue(tileFeature.TileId, out var directBinding))
+            {
+                visualPrefab = directBinding.VisualPrefab;
+                var presentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(tileFeature.PresentationKey);
+                if (catalog != null &&
+                    !string.IsNullOrEmpty(presentationKey) &&
+                    catalog.TryGetEntry(presentationKey, out var keyedEntry))
+                {
+                    placementMode = keyedEntry.PlacementMode;
+                }
+
+                return true;
+            }
+
+            if (catalog == null)
+            {
+                return false;
+            }
+
+            var key = TileFeaturePresentationCatalog.NormalizePresentationKey(tileFeature.PresentationKey);
+            if (!string.IsNullOrEmpty(key) &&
+                catalog.TryGetEntry(key, out var keyedCatalogEntry))
+            {
+                placementMode = keyedCatalogEntry.PlacementMode;
+                visualPrefab = keyedCatalogEntry.VisualPrefab;
+                return true;
+            }
+
+            if (catalog.TryGetDefaultEntry(tileFeature.Kind, out var defaultEntry))
+            {
+                placementMode = defaultEntry.PlacementMode;
+                visualPrefab = defaultEntry.VisualPrefab;
+                return true;
+            }
+
+            return false;
         }
 
         private static bool TryGetBoardBounds(StageDefinition gameplayDefinition, out BoardBounds boardBounds)

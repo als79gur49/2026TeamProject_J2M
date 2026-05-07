@@ -208,11 +208,16 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void BoardTileOverride_DoesNotOpenBaseTileReplacement()
+        public void BoardTileOverride_DoesNotOwnBaseTileReplacement()
         {
-            var allSources = Directory.GetFiles("Assets", "*.cs", SearchOption.AllDirectories);
             var replaceBaseTile = "Replace" + "BaseTile";
-            foreach (var sourcePath in allSources)
+            var boardTileSources = new[]
+            {
+                "Assets/_Features/Stages/Runtime/Content/BoardTilePresentationCatalog.cs",
+                "Assets/_Features/Stages/Runtime/Content/StagePresentationDefinition.cs",
+            };
+
+            foreach (var sourcePath in boardTileSources)
             {
                 var source = File.ReadAllText(sourcePath);
                 Assert.That(source, Does.Not.Contain(replaceBaseTile), sourcePath);
@@ -245,9 +250,6 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(tileFeatureCatalogSource, Does.Not.Contain("BoardTilePresentationCatalog"));
 
             var allSources = Directory.GetFiles("Assets", "*.cs", SearchOption.AllDirectories);
-            var replaceBaseTile = "Replace" + "BaseTile";
-            var tfvMode = "TileFeature" + "Visual" + "PlacementMode";
-            var vPlacementMode = "Visual" + "PlacementMode";
             var entityTypeTileFeature = "EntityType." + "TileFeature";
             var terrainFlagTileFeature = "Terrain" + "Flags." + "TileFeature";
             var boardTileTerrainFlag = "BoardTile" + "Terrain" + "Flags";
@@ -255,13 +257,57 @@ namespace Game.Feature.Stages.Editor.Tests
             foreach (var sourcePath in allSources)
             {
                 var source = File.ReadAllText(sourcePath);
-                Assert.That(source, Does.Not.Contain(replaceBaseTile), sourcePath);
-                Assert.That(source, Does.Not.Contain(tfvMode), sourcePath);
-                Assert.That(source, Does.Not.Contain(vPlacementMode), sourcePath);
                 Assert.That(source, Does.Not.Contain(entityTypeTileFeature), sourcePath);
                 Assert.That(source, Does.Not.Contain(terrainFlagTileFeature), sourcePath);
                 Assert.That(source, Does.Not.Contain(boardTileTerrainFlag), sourcePath);
                 Assert.That(source, Does.Not.Contain(terrainFlagBoardTile), sourcePath);
+            }
+        }
+
+        [Test]
+        public void ReplaceBaseTile_DoesNotEnterStageDefinitionOrRuntimeBuildResult()
+        {
+            var forbiddenTokens = new[]
+            {
+                "Replace" + "BaseTile",
+                "TileFeature" + "Visual" + "PlacementMode",
+                "Placement" + "Mode",
+            };
+            var sourcePaths = new[]
+            {
+                "Assets/_Features/Stages/Runtime/StageDefinition.cs",
+                "Assets/_Features/Stages/Runtime/StageRuntimeBuildResult.cs",
+            };
+
+            foreach (var sourcePath in sourcePaths)
+            {
+                var source = File.ReadAllText(sourcePath);
+                foreach (var token in forbiddenTokens)
+                {
+                    Assert.That(source, Does.Not.Contain(token), sourcePath);
+                }
+            }
+        }
+
+        [Test]
+        public void ReplaceBaseTile_DoesNotEnterBoardStateOrGameplayLoop()
+        {
+            var forbiddenTokens = new[]
+            {
+                "Replace" + "BaseTile",
+                "TileFeature" + "Visual" + "PlacementMode",
+            };
+            var sourcePaths = Directory
+                .GetFiles("Assets/_Features/Gameplay/Gameplay_Loop", "*.cs", SearchOption.AllDirectories)
+                .Concat(Directory.GetFiles("Assets/_Features/Gameplay/Gameplay_BoardState", "*.cs", SearchOption.AllDirectories));
+
+            foreach (var sourcePath in sourcePaths)
+            {
+                var source = File.ReadAllText(sourcePath);
+                foreach (var token in forbiddenTokens)
+                {
+                    Assert.That(source, Does.Not.Contain(token), sourcePath);
+                }
             }
         }
 
