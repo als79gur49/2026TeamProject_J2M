@@ -1,6 +1,7 @@
 using System.Linq;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.Host;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -284,6 +285,115 @@ namespace Game.Feature.Stages.Editor.Tests
                 });
         }
 
+        [Test]
+        public void TileFeatureMode_SelectedTileFeatureShowsMissingBindingStatus()
+        {
+            WithTileFeatureWindow((window, authoring, presentation, prefab) =>
+            {
+                window.SelectTileFeatureByIdForTests(1);
+
+                var status = window.GetSelectedTileFeatureVisualBindingStatusForTests();
+
+                Assert.That(status.Kind, Is.EqualTo(TileFeatureVisualBindingStatusKind.MissingBinding));
+                Assert.That(status.VisualPrefab, Is.Null);
+                Assert.That(presentation.TileFeaturePresentationBindings, Is.Empty);
+            });
+        }
+
+        [Test]
+        public void TileFeatureMode_SelectedTileFeatureShowsBoundPrefabStatus()
+        {
+            WithTileFeatureWindow((window, authoring, presentation, prefab) =>
+            {
+                window.SelectTileFeatureByIdForTests(1);
+                Assert.That(window.SetSelectedTileFeatureVisualBindingForTests(out var error), Is.False, error);
+                window.SetSelectedTileFeatureVisualPrefabForTests(prefab);
+
+                Assert.That(window.SetSelectedTileFeatureVisualBindingForTests(out error), Is.True, error);
+                var status = window.GetSelectedTileFeatureVisualBindingStatusForTests();
+
+                Assert.That(status.Kind, Is.EqualTo(TileFeatureVisualBindingStatusKind.Bound));
+                Assert.That(status.VisualPrefab, Is.SameAs(prefab));
+            });
+        }
+
+        [Test]
+        public void TileFeatureMode_SetBindingButtonUpdatesStagePresentationDefinition()
+        {
+            WithTileFeatureWindow((window, authoring, presentation, prefab) =>
+            {
+                window.SelectTileFeatureByIdForTests(1);
+                window.SetSelectedTileFeatureVisualPrefabForTests(prefab);
+
+                var changed = window.SetSelectedTileFeatureVisualBindingForTests(out var error);
+
+                Assert.That(changed, Is.True, error);
+                Assert.That(presentation.TileFeaturePresentationBindings, Has.Length.EqualTo(1));
+                Assert.That(presentation.TileFeaturePresentationBindings[0].TileId, Is.EqualTo(1));
+                Assert.That(presentation.TileFeaturePresentationBindings[0].VisualPrefab, Is.SameAs(prefab));
+            });
+        }
+
+        [Test]
+        public void TileFeatureMode_RemoveBindingButtonRemovesBinding()
+        {
+            WithTileFeatureWindow((window, authoring, presentation, prefab) =>
+            {
+                window.SelectTileFeatureByIdForTests(1);
+                window.SetSelectedTileFeatureVisualPrefabForTests(prefab);
+                Assert.That(window.SetSelectedTileFeatureVisualBindingForTests(out _), Is.True);
+
+                var removed = window.RemoveSelectedTileFeatureVisualBindingForTests(out var error);
+
+                Assert.That(removed, Is.True, error);
+                Assert.That(presentation.TileFeaturePresentationBindings, Is.Empty);
+            });
+        }
+
+        [Test]
+        public void TileFeatureMode_NoPresentationDefinitionDisablesBindingEditorStatus()
+        {
+            WithWindow(
+                System.Array.Empty<StagePlacedEntityAuthoring>(),
+                (window, authoring) =>
+                {
+                    authoring.SetTileFeatures(new[] { TileFeature(1, FaceId.Floor, 0, 0) });
+                    window.SetEditModeForTests(StageAuthoringGridEditMode.TileFeaturePlacement);
+                    window.SelectTileFeatureByIdForTests(1);
+
+                    var status = window.GetSelectedTileFeatureVisualBindingStatusForTests();
+
+                    Assert.That(status.Kind, Is.EqualTo(TileFeatureVisualBindingStatusKind.NoPresentationDefinition));
+                    Assert.That(status.Message, Is.EqualTo("No StagePresentationDefinition assigned; visual binding editing disabled."));
+                });
+        }
+
+        [Test]
+        public void TileFeatureMode_GameplayTileFeatureEditKeepsVisualBindingIndependent()
+        {
+            WithTileFeatureWindow((window, authoring, presentation, prefab) =>
+            {
+                window.SelectTileFeatureByIdForTests(1);
+                window.SetSelectedTileFeatureVisualPrefabForTests(prefab);
+                Assert.That(window.SetSelectedTileFeatureVisualBindingForTests(out _), Is.True);
+                window.SetTileFeatureDraftForTests(
+                    TileFeatureKind.Button,
+                    TileFeatureActivationRule.BottomFaceOnly,
+                    Direction2D.None,
+                    TileFeatureBoxSelector.AnyPushableBox,
+                    0,
+                    "gameplay-key");
+
+                var selected = authoring.TileFeatures.Single(feature => feature.TileId == 1);
+                var updated = selected;
+                updated.PresentationKey = "gameplay-key";
+                Assert.That(StageAuthoringPlacementCommands.TryUpdateTileFeature(authoring, updated, out _), Is.True);
+
+                Assert.That(authoring.TileFeatures.Single(feature => feature.TileId == 1).PresentationKey, Is.EqualTo("gameplay-key"));
+                Assert.That(presentation.TileFeaturePresentationBindings.Single().VisualPrefab, Is.SameAs(prefab));
+            });
+        }
+
         private static void WithWindow(
             StagePlacedEntityAuthoring[] placements,
             System.Action<StageAuthoringGridWindow, StageAuthoringDefinition> action)
@@ -303,6 +413,31 @@ namespace Game.Feature.Stages.Editor.Tests
             }
         }
 
+        private static void WithTileFeatureWindow(
+            System.Action<StageAuthoringGridWindow, StageAuthoringDefinition, StagePresentationDefinition, GameObject> action)
+        {
+            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            var prefab = new GameObject("ButtonTileFeaturePrefab");
+            prefab.AddComponent<TileFeatureVisualTargetView>();
+            try
+            {
+                WithWindow(
+                    System.Array.Empty<StagePlacedEntityAuthoring>(),
+                    (window, authoring) =>
+                    {
+                        authoring.AssignGeneratedDefinitions(null, presentation);
+                        authoring.SetTileFeatures(new[] { TileFeature(1, FaceId.Floor, 0, 0) });
+                        window.SetEditModeForTests(StageAuthoringGridEditMode.TileFeaturePlacement);
+                        action(window, authoring, presentation, prefab);
+                    });
+            }
+            finally
+            {
+                Object.DestroyImmediate(prefab);
+                Object.DestroyImmediate(presentation);
+            }
+        }
+
         private static StagePlacedEntityAuthoring Placement(
             string stableGuid,
             FaceId face,
@@ -317,6 +452,23 @@ namespace Game.Feature.Stages.Editor.Tests
                 Cell = new SurfaceCell(face, x, y),
                 Facing = Direction.None,
                 Hp = 1,
+            };
+        }
+
+        private static StageTileFeatureDefinition TileFeature(
+            int tileId,
+            FaceId face,
+            int x,
+            int y)
+        {
+            return new StageTileFeatureDefinition
+            {
+                TileId = tileId,
+                Cell = new SurfaceCell(face, x, y),
+                Kind = TileFeatureKind.Button,
+                ActivationRule = TileFeatureActivationRule.BottomFaceOnly,
+                Direction = Direction2D.None,
+                BoxSelector = TileFeatureBoxSelector.AnyPushableBox,
             };
         }
     }

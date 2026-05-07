@@ -28,6 +28,7 @@ namespace Game.Feature.Stages.Editor
 
             EditorGUILayout.Space();
             DrawPlacementSummary(authoring);
+            DrawTileFeaturePresentationSummary(authoring);
             DrawToolbar(authoring);
             DrawReport(lastReport);
         }
@@ -63,6 +64,15 @@ namespace Game.Feature.Stages.Editor
                 if (GUILayout.Button("Open Grid / TileFeature Editor"))
                 {
                     StageAuthoringGridWindow.Open(authoring);
+                }
+            }
+
+            using (new EditorGUI.DisabledScope(authoring.GeneratedPresentationDefinition == null))
+            {
+                if (GUILayout.Button("Open Presentation Definition"))
+                {
+                    Selection.activeObject = authoring.GeneratedPresentationDefinition;
+                    EditorGUIUtility.PingObject(authoring.GeneratedPresentationDefinition);
                 }
             }
         }
@@ -101,6 +111,25 @@ namespace Game.Feature.Stages.Editor
             {
                 EditorGUILayout.HelpBox(
                     $"Duplicate/stale mapping warning: duplicate guid groups={duplicateGuidCount}, duplicate entity id groups={duplicateIdCount}.",
+                    MessageType.Warning);
+            }
+        }
+
+        private static void DrawTileFeaturePresentationSummary(StageAuthoringDefinition authoring)
+        {
+            var presentation = authoring.GeneratedPresentationDefinition;
+            EditorGUILayout.LabelField(
+                "Generated Presentation",
+                presentation != null ? presentation.name : "None");
+            EditorGUILayout.LabelField(
+                "TileFeature Visual Bindings",
+                presentation != null
+                    ? presentation.TileFeaturePresentationBindings.Length.ToString()
+                    : "0");
+            if (presentation == null)
+            {
+                EditorGUILayout.HelpBox(
+                    "No StagePresentationDefinition assigned; visual binding editing disabled.",
                     MessageType.Warning);
             }
         }

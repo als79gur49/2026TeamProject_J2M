@@ -115,11 +115,13 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             var stageDefinitionSource = File.ReadAllText("Assets/_Features/Stages/Runtime/StageDefinition.cs");
             var buildResultSource = File.ReadAllText("Assets/_Features/Stages/Runtime/StageRuntimeBuildResult.cs");
+            var authoringDefinitionSource = File.ReadAllText("Assets/_Features/Stages/Runtime/Authoring/StageAuthoringDefinition.cs");
 
             Assert.That(stageDefinitionSource, Does.Not.Contain("VisualPrefab"));
             Assert.That(stageDefinitionSource, Does.Not.Contain("TileFeaturePresentationBinding"));
             Assert.That(buildResultSource, Does.Not.Contain("VisualPrefab"));
             Assert.That(buildResultSource, Does.Not.Contain("TileFeaturePresentationBinding"));
+            Assert.That(authoringDefinitionSource, Does.Not.Contain("VisualPrefab"));
         }
 
         [Test]
@@ -131,6 +133,21 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(stagePresentationDefinitionSource, Does.Contain("TileFeaturePresentationBinding"));
             Assert.That(stagePresentationDefinitionSource, Does.Contain("VisualPrefab"));
             Assert.That(stagePresentationDefinitionSource, Does.Not.Contain("TileFeatureAudio"));
+        }
+
+        [Test]
+        public void TileFeatureVisualBindingEditor_DoesNotReferenceRuntimeGameplayMutationSurfaces()
+        {
+            var commandSource =
+                File.ReadAllText("Assets/_Features/Stages/Editor/Authoring/StageAuthoringPresentationBindingCommands.cs");
+
+            Assert.That(commandSource, Does.Contain("StagePresentationDefinition"));
+            Assert.That(commandSource, Does.Not.Contain("StageRuntimeBuildResult"));
+            Assert.That(commandSource, Does.Not.Contain("TickPipeline"));
+            Assert.That(commandSource, Does.Not.Contain("WorldState"));
+            Assert.That(commandSource, Does.Not.Contain("TileEffect"));
+            Assert.That(commandSource, Does.Not.Contain("TileFeatureAudio"));
+            Assert.That(commandSource, Does.Not.Contain("SetTileFeatures"));
         }
 
         private static bool RuntimeSourceContains(string text)

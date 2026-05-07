@@ -33,6 +33,7 @@ namespace Game.Feature.Stages.Editor
         private string tileFeatureFeedback = string.Empty;
         private MessageType tileFeatureFeedbackType = MessageType.Info;
         private int loadedTileFeatureId;
+        private GameObject selectedTileFeatureVisualPrefab;
 
         internal StageAuthoringGenerationReport LastReportForTests => lastReport;
 
@@ -78,6 +79,7 @@ namespace Game.Feature.Stages.Editor
             tileFeatureEraseMode = false;
             tileFeatureFeedback = string.Empty;
             loadedTileFeatureId = 0;
+            selectedTileFeatureVisualPrefab = null;
         }
 
         internal void BindForTests(StageAuthoringDefinition definition)
@@ -153,6 +155,41 @@ namespace Game.Feature.Stages.Editor
                 selection.TargetFace,
                 selection.TargetCell.x,
                 selection.TargetCell.y);
+        }
+
+        internal void SelectTileFeatureByIdForTests(int tileId)
+        {
+            selection.SelectTileFeatureById(tileId, authoring.TileFeatures);
+            var index = selection.ResolveSelectedTileFeatureIndex(authoring.TileFeatures);
+            if (index >= 0 && index < authoring.TileFeatures.Count)
+            {
+                LoadTileFeatureEditorState(authoring.TileFeatures[index]);
+            }
+        }
+
+        internal TileFeatureVisualBindingStatus GetSelectedTileFeatureVisualBindingStatusForTests()
+        {
+            StageAuthoringPresentationBindingCommands.TryGetTileFeatureVisualBindingStatus(
+                authoring != null ? authoring.GeneratedPresentationDefinition : null,
+                authoring,
+                selection.SelectedTileFeatureId,
+                out var status);
+            return status;
+        }
+
+        internal void SetSelectedTileFeatureVisualPrefabForTests(GameObject visualPrefab)
+        {
+            selectedTileFeatureVisualPrefab = visualPrefab;
+        }
+
+        internal bool SetSelectedTileFeatureVisualBindingForTests(out string error)
+        {
+            return SetSelectedTileFeatureVisualBinding(out error);
+        }
+
+        internal bool RemoveSelectedTileFeatureVisualBindingForTests(out string error)
+        {
+            return RemoveSelectedTileFeatureVisualBinding(out error);
         }
 
         internal void MoveSelectedPlacementToTargetCellForTests()
@@ -601,7 +638,7 @@ namespace Game.Feature.Stages.Editor
             EditorGUILayout.LabelField("Cell", feature.Cell.ToString());
 
             DrawTileFeatureDraftFields();
-            DrawTileFeatureBindingStatus(feature.TileId);
+            DrawTileFeatureVisualBindingSection(feature.TileId);
 
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -625,37 +662,80 @@ namespace Game.Feature.Stages.Editor
             }
         }
 
-        private void DrawTileFeatureBindingStatus(int tileId)
+        private void DrawTileFeatureVisualBindingSection(int tileId)
         {
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("TileFeature Visual Binding", EditorStyles.boldLabel);
             var presentation = authoring.GeneratedPresentationDefinition;
-            if (presentation == null)
-            {
-                EditorGUILayout.HelpBox("No presentation definition is assigned.", MessageType.Info);
-                return;
-            }
+            StageAuthoringPresentationBindingCommands.TryGetTileFeatureVisualBindingStatus(
+                presentation,
+                authoring,
+                tileId,
+                out var status);
+            DrawTileFeatureBindingStatus(status);
 
-            var count = 0;
-            var bindings = presentation.TileFeaturePresentationBindings;
-            for (var i = 0; i < bindings.Length; i++)
+            selectedTileFeatureVisualPrefab = (GameObject)EditorGUILayout.ObjectField(
+                "Visual Prefab",
+                selectedTileFeatureVisualPrefab,
+                typeof(GameObject),
+                allowSceneObjects: false);
+
+            var bindingEditorDisabled = status.Kind == TileFeatureVisualBindingStatusKind.NoPresentationDefinition ||
+                                        status.Kind == TileFeatureVisualBindingStatusKind.MissingTileFeature;
+            using (new EditorGUILayout.HorizontalScope())
             {
-                if (bindings[i] != null && bindings[i].TileId == tileId)
+                using (new EditorGUI.DisabledScope(bindingEditorDisabled || selectedTileFeatureVisualPrefab == null))
                 {
-                    count++;
+                    if (GUILayout.Button("Set / Replace Binding", GUILayout.Width(160)))
+                    {
+                        SetSelectedTileFeatureVisualBinding(out _);
+                    }
+                }
+
+                using (new EditorGUI.DisabledScope(
+                           bindingEditorDisabled ||
+                           status.Kind == TileFeatureVisualBindingStatusKind.MissingBinding))
+                {
+                    if (GUILayout.Button("Remove Binding", GUILayout.Width(128)))
+                    {
+                        RemoveSelectedTileFeatureVisualBinding(out _);
+                    }
                 }
             }
 
-            if (count == 0)
+            using (new EditorGUILayout.HorizontalScope())
             {
-                EditorGUILayout.HelpBox("TileFeature visual binding is missing.", MessageType.Warning);
+                using (new EditorGUI.DisabledScope(presentation == null))
+                {
+                    if (GUILayout.Button("Ping PresentationDefinition", GUILayout.Width(192)))
+                    {
+                        EditorGUIUtility.PingObject(presentation);
+                    }
+                }
+
+                using (new EditorGUI.DisabledScope(status.VisualPrefab == null))
+                {
+                    if (GUILayout.Button("Ping Bound Prefab", GUILayout.Width(144)))
+                    {
+                        EditorGUIUtility.PingObject(status.VisualPrefab);
+                    }
+                }
             }
-            else if (count == 1)
+        }
+
+        private static void DrawTileFeatureBindingStatus(TileFeatureVisualBindingStatus status)
+        {
+            var messageType = status.Kind switch
             {
-                EditorGUILayout.HelpBox("TileFeature visual binding exists.", MessageType.Info);
-            }
-            else
-            {
-                EditorGUILayout.HelpBox("TileFeature visual binding is duplicated.", MessageType.Warning);
-            }
+                TileFeatureVisualBindingStatusKind.NoPresentationDefinition => MessageType.Warning,
+                TileFeatureVisualBindingStatusKind.MissingTileFeature => MessageType.Warning,
+                TileFeatureVisualBindingStatusKind.MissingBinding => MessageType.Warning,
+                TileFeatureVisualBindingStatusKind.Bound => MessageType.Info,
+                TileFeatureVisualBindingStatusKind.DuplicateBinding => MessageType.Warning,
+                TileFeatureVisualBindingStatusKind.InvalidPrefab => MessageType.Error,
+                _ => MessageType.Info,
+            };
+            EditorGUILayout.HelpBox(status.Message, messageType);
         }
 
         private void AddTileFeatureAtTargetCell()
@@ -688,6 +768,7 @@ namespace Game.Feature.Stages.Editor
 
             selection.ClearSelectedTileFeature();
             loadedTileFeatureId = 0;
+            selectedTileFeatureVisualPrefab = null;
             serializedAuthoring.Update();
             SetTileFeatureFeedback($"Removed {removedCount} TileFeature(s).", MessageType.Info);
             Repaint();
@@ -703,6 +784,7 @@ namespace Game.Feature.Stages.Editor
 
             selection.ClearSelectedTileFeature();
             loadedTileFeatureId = 0;
+            selectedTileFeatureVisualPrefab = null;
             serializedAuthoring.Update();
             SetTileFeatureFeedback($"Removed TileFeature {tileId}.", MessageType.Info);
             Repaint();
@@ -775,6 +857,55 @@ namespace Game.Feature.Stages.Editor
             selectedBoxSelector = feature.BoxSelector;
             selectedBoundEntityId = feature.BoundEntityId;
             selectedPresentationKey = feature.PresentationKey ?? string.Empty;
+            selectedTileFeatureVisualPrefab = ResolveTileFeatureVisualPrefab(feature.TileId);
+        }
+
+        private bool SetSelectedTileFeatureVisualBinding(out string error)
+        {
+            var changed = StageAuthoringPresentationBindingCommands.TrySetTileFeatureVisualBinding(
+                authoring.GeneratedPresentationDefinition,
+                authoring,
+                selection.SelectedTileFeatureId,
+                selectedTileFeatureVisualPrefab,
+                out error);
+            if (!changed)
+            {
+                SetTileFeatureFeedback(error, MessageType.Error);
+                return false;
+            }
+
+            SetTileFeatureFeedback($"Updated TileFeature visual binding {selection.SelectedTileFeatureId}.", MessageType.Info);
+            Repaint();
+            return true;
+        }
+
+        private bool RemoveSelectedTileFeatureVisualBinding(out string error)
+        {
+            var changed = StageAuthoringPresentationBindingCommands.TryRemoveTileFeatureVisualBinding(
+                authoring.GeneratedPresentationDefinition,
+                authoring,
+                selection.SelectedTileFeatureId,
+                out error);
+            if (!changed)
+            {
+                SetTileFeatureFeedback(error, MessageType.Error);
+                return false;
+            }
+
+            selectedTileFeatureVisualPrefab = null;
+            SetTileFeatureFeedback($"Removed TileFeature visual binding {selection.SelectedTileFeatureId}.", MessageType.Info);
+            Repaint();
+            return true;
+        }
+
+        private GameObject ResolveTileFeatureVisualPrefab(int tileId)
+        {
+            StageAuthoringPresentationBindingCommands.TryGetTileFeatureVisualBindingStatus(
+                authoring != null ? authoring.GeneratedPresentationDefinition : null,
+                authoring,
+                tileId,
+                out var status);
+            return status.VisualPrefab;
         }
 
         private void SetTileFeatureFeedback(string message, MessageType messageType)

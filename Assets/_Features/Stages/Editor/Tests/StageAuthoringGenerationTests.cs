@@ -197,6 +197,52 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void GenerateGameplay_DoesNotMutateTileFeatureVisualBindings()
+        {
+            var fixture = CreateFixture(
+                new[] { "enemy-view" },
+                Array.Empty<string>(),
+                Placement("player", StageAuthoringEntityKind.Player, 0, 0),
+                Placement("enemy", StageAuthoringEntityKind.Enemy, 1, 0, presentationId: "enemy-view"));
+            var prefab = new GameObject("ButtonTileVisualPrefab");
+            prefab.AddComponent<TileFeatureVisualTargetView>();
+
+            try
+            {
+                SetTileFeaturePresentationBindings(
+                    fixture.Presentation,
+                    new[]
+                    {
+                        new TileFeaturePresentationBinding
+                        {
+                            TileId = 100,
+                            VisualPrefab = prefab,
+                        },
+                    });
+
+                var report = StageAuthoringGenerator.Generate(
+                    fixture.Authoring,
+                    new StageAuthoringGenerateOptions
+                    {
+                        DryRun = false,
+                        WriteGameplay = true,
+                        WritePresentationBindings = false,
+                        ValidateAfterGenerate = true,
+                    });
+                Assert.That(report.HasErrors, Is.False, FormatIssues(report));
+
+                Assert.That(fixture.Presentation.TileFeaturePresentationBindings, Has.Length.EqualTo(1));
+                Assert.That(fixture.Presentation.TileFeaturePresentationBindings[0].TileId, Is.EqualTo(100));
+                Assert.That(fixture.Presentation.TileFeaturePresentationBindings[0].VisualPrefab, Is.SameAs(prefab));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(prefab);
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
         public void GenerateDoesNotMutatePresentationMetadata()
         {
             var fixture = CreateFixture(
