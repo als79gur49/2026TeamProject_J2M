@@ -35,6 +35,7 @@ namespace Game.Feature.Stages.Editor
         private MessageType tileFeatureFeedbackType = MessageType.Info;
         private int loadedTileFeatureId;
         private GameObject selectedTileFeatureVisualPrefab;
+        private bool tileFeatureVisualBindingAdvancedFoldout;
 
         internal StageAuthoringGenerationReport LastReportForTests => lastReport;
 
@@ -81,6 +82,7 @@ namespace Game.Feature.Stages.Editor
             tileFeatureFeedback = string.Empty;
             loadedTileFeatureId = 0;
             selectedTileFeatureVisualPrefab = null;
+            tileFeatureVisualBindingAdvancedFoldout = false;
         }
 
         internal void BindForTests(StageAuthoringDefinition definition)
@@ -176,6 +178,43 @@ namespace Game.Feature.Stages.Editor
                 selection.SelectedTileFeatureId,
                 out var status);
             return status;
+        }
+
+        internal TileFeaturePresentationCatalogOption[] GetSelectedTileFeatureCatalogOptionsForTests()
+        {
+            var index = selection.ResolveSelectedTileFeatureIndex(authoring.TileFeatures);
+            return index >= 0 && index < authoring.TileFeatures.Count
+                ? StageAuthoringTileFeaturePresentationCatalogCommands.BuildOptions(
+                    authoring.GeneratedPresentationDefinition,
+                    authoring.TileFeatures[index].Kind)
+                : System.Array.Empty<TileFeaturePresentationCatalogOption>();
+        }
+
+        internal TileFeaturePresentationCatalogStatus GetSelectedTileFeatureCatalogStatusForTests()
+        {
+            var index = selection.ResolveSelectedTileFeatureIndex(authoring.TileFeatures);
+            if (index < 0 || index >= authoring.TileFeatures.Count)
+            {
+                return new TileFeaturePresentationCatalogStatus(
+                    TileFeaturePresentationCatalogStatusKind.EmptyKeyUnresolved,
+                    string.Empty,
+                    "No TileFeature selected.");
+            }
+
+            StageAuthoringPresentationBindingCommands.TryGetTileFeatureVisualBindingStatus(
+                authoring != null ? authoring.GeneratedPresentationDefinition : null,
+                authoring,
+                selection.SelectedTileFeatureId,
+                out var bindingStatus);
+            return StageAuthoringTileFeaturePresentationCatalogCommands.ResolveStatus(
+                authoring.GeneratedPresentationDefinition,
+                authoring.TileFeatures[index],
+                IsDirectOverrideActive(bindingStatus));
+        }
+
+        internal bool SetSelectedTileFeatureCatalogPresentationKeyForTests(string presentationKey)
+        {
+            return SetSelectedTileFeaturePresentationKey(presentationKey);
         }
 
         internal void SetSelectedTileFeatureVisualPrefabForTests(GameObject visualPrefab)
@@ -663,8 +702,16 @@ namespace Game.Feature.Stages.Editor
             EditorGUILayout.LabelField("Cell", feature.Cell.ToString());
 
             DrawTileFeatureDraftFields();
+            DrawTileFeatureCatalogSection(feature);
             DrawExitGoalZoneSection(feature);
-            DrawTileFeatureVisualBindingSection(feature.TileId);
+            tileFeatureVisualBindingAdvancedFoldout = EditorGUILayout.Foldout(
+                tileFeatureVisualBindingAdvancedFoldout,
+                "Advanced Direct Visual Override",
+                toggleOnLabelClick: true);
+            if (tileFeatureVisualBindingAdvancedFoldout)
+            {
+                DrawTileFeatureVisualBindingSection(feature.TileId);
+            }
 
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -747,6 +794,98 @@ namespace Game.Feature.Stages.Editor
                     }
                 }
             }
+        }
+
+        private void DrawTileFeatureCatalogSection(StageTileFeatureDefinition feature)
+        {
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("TileFeature Catalog Visual", EditorStyles.boldLabel);
+
+            var presentation = authoring.GeneratedPresentationDefinition;
+            StageAuthoringPresentationBindingCommands.TryGetTileFeatureVisualBindingStatus(
+                presentation,
+                authoring,
+                feature.TileId,
+                out var bindingStatus);
+            var directOverrideActive = IsDirectOverrideActive(bindingStatus);
+            var catalogStatus = StageAuthoringTileFeaturePresentationCatalogCommands.ResolveStatus(
+                presentation,
+                feature,
+                directOverrideActive);
+            DrawTileFeatureCatalogStatus(catalogStatus);
+
+            var options = StageAuthoringTileFeaturePresentationCatalogCommands.BuildOptions(
+                presentation,
+                feature.Kind);
+            var labels = options.Select(option => option.Label).ToArray();
+            var currentKey = TileFeaturePresentationCatalog.NormalizePresentationKey(feature.PresentationKey);
+            var selectedIndex = 0;
+            for (var i = 0; i < options.Length; i++)
+            {
+                if (string.Equals(options[i].PresentationKey, currentKey, System.StringComparison.Ordinal))
+                {
+                    selectedIndex = i;
+                    break;
+                }
+            }
+
+            var catalogMissing = presentation == null ||
+                                 presentation.TileFeaturePresentationCatalog == null;
+            using (new EditorGUI.DisabledScope(catalogMissing || options.Length <= 1))
+            {
+                var nextIndex = EditorGUILayout.Popup("Catalog Visual", selectedIndex, labels);
+                if (nextIndex != selectedIndex &&
+                    nextIndex >= 0 &&
+                    nextIndex < options.Length)
+                {
+                    SetSelectedTileFeaturePresentationKey(options[nextIndex].PresentationKey);
+                }
+            }
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                using (new EditorGUI.DisabledScope(presentation == null))
+                {
+                    if (GUILayout.Button("Ping PresentationDefinition", GUILayout.Width(192)))
+                    {
+                        EditorGUIUtility.PingObject(presentation);
+                    }
+                }
+
+                var catalog = presentation != null ? presentation.TileFeaturePresentationCatalog : null;
+                using (new EditorGUI.DisabledScope(catalog == null))
+                {
+                    if (GUILayout.Button("Ping TileFeature Catalog", GUILayout.Width(184)))
+                    {
+                        EditorGUIUtility.PingObject(catalog);
+                    }
+                }
+            }
+        }
+
+        private static void DrawTileFeatureCatalogStatus(TileFeaturePresentationCatalogStatus status)
+        {
+            var messageType = status.Kind switch
+            {
+                TileFeaturePresentationCatalogStatusKind.NoPresentationDefinition => MessageType.Warning,
+                TileFeaturePresentationCatalogStatusKind.CatalogMissing => MessageType.Warning,
+                TileFeaturePresentationCatalogStatusKind.EmptyKeyResolvedByDefault => MessageType.Info,
+                TileFeaturePresentationCatalogStatusKind.EmptyKeyUnresolved => MessageType.Warning,
+                TileFeaturePresentationCatalogStatusKind.KeyResolved => MessageType.Info,
+                TileFeaturePresentationCatalogStatusKind.KeyMissing => MessageType.Warning,
+                TileFeaturePresentationCatalogStatusKind.KindMismatch => MessageType.Warning,
+                TileFeaturePresentationCatalogStatusKind.DirectionHintMismatch => MessageType.Warning,
+                TileFeaturePresentationCatalogStatusKind.DirectOverrideActive => MessageType.Info,
+                _ => MessageType.Info,
+            };
+            EditorGUILayout.HelpBox(status.Message, messageType);
+        }
+
+        private static bool IsDirectOverrideActive(TileFeatureVisualBindingStatus status)
+        {
+            return status.Kind == TileFeatureVisualBindingStatusKind.Bound ||
+                   status.Kind == TileFeatureVisualBindingStatusKind.DuplicateBinding ||
+                   status.Kind == TileFeatureVisualBindingStatusKind.InvalidPrefab;
         }
 
         private static void DrawTileFeatureBindingStatus(TileFeatureVisualBindingStatus status)
@@ -1025,6 +1164,31 @@ namespace Game.Feature.Stages.Editor
 
             selectedTileFeatureVisualPrefab = null;
             SetTileFeatureFeedback($"Removed TileFeature visual binding {selection.SelectedTileFeatureId}.", MessageType.Info);
+            Repaint();
+            return true;
+        }
+
+        private bool SetSelectedTileFeaturePresentationKey(string presentationKey)
+        {
+            var selectedIndex = selection.ResolveSelectedTileFeatureIndex(authoring.TileFeatures);
+            if (selectedIndex < 0 || selectedIndex >= authoring.TileFeatures.Count)
+            {
+                SetTileFeatureFeedback("No TileFeature selected.", MessageType.Warning);
+                return false;
+            }
+
+            var next = authoring.TileFeatures.ToArray();
+            var updated = next[selectedIndex];
+            updated.PresentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(presentationKey);
+            next[selectedIndex] = updated;
+
+            Undo.RecordObject(authoring, "Set TileFeature Presentation Key");
+            authoring.SetTileFeatures(next);
+            EditorUtility.SetDirty(authoring);
+            serializedAuthoring.Update();
+            selectedPresentationKey = updated.PresentationKey;
+            selection.SelectTileFeatureById(updated.TileId, authoring.TileFeatures);
+            SetTileFeatureFeedback($"Updated TileFeature {updated.TileId} PresentationKey.", MessageType.Info);
             Repaint();
             return true;
         }

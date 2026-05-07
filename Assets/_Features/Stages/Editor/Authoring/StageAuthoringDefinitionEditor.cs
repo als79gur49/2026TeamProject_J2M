@@ -123,6 +123,11 @@ namespace Game.Feature.Stages.Editor
             EditorGUILayout.LabelField(
                 "Generated Presentation",
                 presentation != null ? presentation.name : "None");
+            var catalog = presentation != null ? presentation.TileFeaturePresentationCatalog : null;
+            EditorGUILayout.LabelField(
+                "TileFeature Catalog",
+                catalog != null ? catalog.name : "Missing");
+            EditorGUILayout.LabelField("TileFeature Count", authoring.TileFeatures.Count.ToString());
             EditorGUILayout.LabelField(
                 "TileFeature Visual Bindings",
                 presentation != null
@@ -134,6 +139,94 @@ namespace Game.Feature.Stages.Editor
                     "No StagePresentationDefinition assigned; visual binding editing disabled.",
                     MessageType.Warning);
             }
+
+            var directOverrideCount = presentation != null
+                ? presentation.TileFeaturePresentationBindings.Count(binding => binding != null)
+                : 0;
+            var missingKeyCount = authoring.TileFeatures.Count(feature =>
+                string.IsNullOrWhiteSpace(feature.PresentationKey));
+            var unresolvedKeyCount = CountUnresolvedTileFeaturePresentationKeys(authoring, catalog);
+            var invalidCatalogEntryCount = CountInvalidTileFeatureCatalogEntries(catalog);
+            EditorGUILayout.LabelField(
+                "TileFeature Presentation Summary",
+                $"missing keys={missingKeyCount}, unresolved keys={unresolvedKeyCount}, direct overrides={directOverrideCount}, invalid catalog entries={invalidCatalogEntryCount}");
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                using (new EditorGUI.DisabledScope(presentation == null))
+                {
+                    if (GUILayout.Button("Open Presentation Definition"))
+                    {
+                        Selection.activeObject = presentation;
+                        EditorGUIUtility.PingObject(presentation);
+                    }
+                }
+
+                using (new EditorGUI.DisabledScope(catalog == null))
+                {
+                    if (GUILayout.Button("Open TileFeature Catalog"))
+                    {
+                        Selection.activeObject = catalog;
+                        EditorGUIUtility.PingObject(catalog);
+                    }
+                }
+            }
+        }
+
+        private static int CountUnresolvedTileFeaturePresentationKeys(
+            StageAuthoringDefinition authoring,
+            TileFeaturePresentationCatalog catalog)
+        {
+            if (catalog == null)
+            {
+                return authoring.TileFeatures.Count(feature =>
+                    !string.IsNullOrWhiteSpace(feature.PresentationKey));
+            }
+
+            return authoring.TileFeatures.Count(feature =>
+            {
+                var presentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(feature.PresentationKey);
+                return !string.IsNullOrEmpty(presentationKey) &&
+                       !catalog.TryGetEntry(presentationKey, out _);
+            });
+        }
+
+        private static int CountInvalidTileFeatureCatalogEntries(TileFeaturePresentationCatalog catalog)
+        {
+            if (catalog == null)
+            {
+                return 0;
+            }
+
+            var invalidCount = 0;
+            var seenKeys = new System.Collections.Generic.HashSet<string>(System.StringComparer.Ordinal);
+            var defaultKinds = new System.Collections.Generic.HashSet<TileFeatureKind>();
+            var entries = catalog.Entries;
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                if (entry == null)
+                {
+                    invalidCount++;
+                    continue;
+                }
+
+                var presentationKey = entry.PresentationKey;
+                var invalid = string.IsNullOrEmpty(presentationKey) ||
+                              !seenKeys.Add(presentationKey) ||
+                              entry.VisualPrefab == null ||
+                              !StageAuthoringPresentationBindingCommands
+                                  .PrefabHasConfigurableTileFeatureVisualTarget(entry.VisualPrefab) ||
+                              entry.Kind == TileFeatureKind.Unknown ||
+                              !System.Enum.IsDefined(typeof(TileFeatureKind), entry.Kind) ||
+                              entry.IsDefaultForKind && !defaultKinds.Add(entry.Kind);
+                if (invalid)
+                {
+                    invalidCount++;
+                }
+            }
+
+            return invalidCount;
         }
 
         private static void DrawExitGoalSummary(StageAuthoringDefinition authoring)
