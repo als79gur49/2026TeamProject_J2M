@@ -134,11 +134,26 @@ namespace Game.Feature.Stages.Editor.Tests
             var buildResultSource = File.ReadAllText("Assets/_Features/Stages/Runtime/StageRuntimeBuildResult.cs");
 
             Assert.That(stageDefinitionSource, Does.Not.Contain("BoardTilePresentationCatalog"));
+            Assert.That(stageDefinitionSource, Does.Not.Contain("BoardTilePresentationOverride"));
             Assert.That(stageDefinitionSource, Does.Not.Contain("BoardTileVisualRole"));
             Assert.That(stageDefinitionSource, Does.Not.Contain("BoardTilePresentationCatalogEntry"));
             Assert.That(buildResultSource, Does.Not.Contain("BoardTilePresentationCatalog"));
+            Assert.That(buildResultSource, Does.Not.Contain("BoardTilePresentationOverride"));
             Assert.That(buildResultSource, Does.Not.Contain("BoardTileVisualRole"));
             Assert.That(buildResultSource, Does.Not.Contain("BoardTilePresentationCatalogEntry"));
+        }
+
+        [Test]
+        public void BoardTileOverride_RemainsPresentationOwned()
+        {
+            var stagePresentationDefinitionSource =
+                File.ReadAllText("Assets/_Features/Stages/Runtime/Content/StagePresentationDefinition.cs");
+            var tileFeatureCatalogSource =
+                File.ReadAllText("Assets/_Features/Stages/Runtime/Content/TileFeaturePresentationCatalog.cs");
+
+            Assert.That(stagePresentationDefinitionSource, Does.Contain("BoardTilePresentationOverride"));
+            Assert.That(stagePresentationDefinitionSource, Does.Contain("BoardTilePresentationCatalog"));
+            Assert.That(tileFeatureCatalogSource, Does.Not.Contain("BoardTilePresentationOverride"));
         }
 
         [Test]
@@ -188,6 +203,37 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 var source = File.ReadAllText(sourcePath);
                 Assert.That(source, Does.Not.Contain("BoardTilePresentationCatalog"), sourcePath);
+                Assert.That(source, Does.Not.Contain("BoardTilePresentationOverride"), sourcePath);
+            }
+        }
+
+        [Test]
+        public void BoardTileOverride_DoesNotOpenBaseTileReplacement()
+        {
+            var allSources = Directory.GetFiles("Assets", "*.cs", SearchOption.AllDirectories);
+            var replaceBaseTile = "Replace" + "BaseTile";
+            foreach (var sourcePath in allSources)
+            {
+                var source = File.ReadAllText(sourcePath);
+                Assert.That(source, Does.Not.Contain(replaceBaseTile), sourcePath);
+            }
+        }
+
+        [Test]
+        public void TerrainFlags_DoNotGainBoardVisualSemantics()
+        {
+            var allSources = Directory.GetFiles("Assets", "*.cs", SearchOption.AllDirectories);
+            var terrainFlags = "Terrain" + "Flags";
+            var boardTile = "Board" + "Tile";
+            foreach (var sourcePath in allSources)
+            {
+                var source = File.ReadAllText(sourcePath);
+                Assert.That(source, Does.Not.Contain(terrainFlags + ".Visual"), sourcePath);
+                Assert.That(source, Does.Not.Contain(terrainFlags + ".Board"), sourcePath);
+                Assert.That(source, Does.Not.Contain(terrainFlags + ".Tile"), sourcePath);
+                Assert.That(source, Does.Not.Contain(terrainFlags + ".Presentation"), sourcePath);
+                Assert.That(source, Does.Not.Contain(boardTile + terrainFlags), sourcePath);
+                Assert.That(source, Does.Not.Contain(terrainFlags + boardTile), sourcePath);
             }
         }
 

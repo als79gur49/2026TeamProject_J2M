@@ -1,10 +1,12 @@
 using System;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
@@ -70,6 +72,46 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
+        public void BoardSurfaceRenderer_CellOverrideBeatsRoleDefault()
+        {
+            var rootObject = new GameObject("BoardSurfaceRenderer_CellOverrideBeatsRoleDefault");
+            var overridePrefab = CreatePrefab("OverrideBoardTilePrefab");
+            var defaultMaterial = CreateMaterial("DefaultBottomMaterial");
+            var frontMaterial = CreateMaterial("DefaultFrontMaterial");
+            var catalog = CreateCatalog(
+                Entry("bottom-default", BoardTileVisualRole.ActiveBottom, null, defaultMaterial, isDefault: true),
+                Entry("front-default", BoardTileVisualRole.ActiveFront, null, frontMaterial, isDefault: true),
+                Entry("override-cell", BoardTileVisualRole.ActiveBottom, overridePrefab, null, isDefault: false));
+
+            try
+            {
+                var renderer = rootObject.AddComponent<GameplayBoardSurfaceRenderer>();
+
+                renderer.Initialize(
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
+                    1f,
+                    new CubeTopologyState(FaceId.Floor),
+                    boardTilePresentationCatalog: catalog,
+                    boardTilePresentationOverrides: new[]
+                    {
+                        Override(new SurfaceCell(FaceId.Floor, 1, 0), "override-cell"),
+                    });
+
+                var defaultTile = FindTile(renderer.VisibleTilePoolRoot, "ActiveBottom_Floor_0_0");
+                var overrideTile = FindTile(renderer.VisibleTilePoolRoot, "ActiveBottom_Floor_1_0");
+
+                Assert.That(defaultTile.GetComponent<BoardTileCatalogTestMarker>(), Is.Null);
+                Assert.That(defaultTile.GetComponent<MeshRenderer>().sharedMaterial, Is.SameAs(defaultMaterial));
+                Assert.That(overrideTile.GetComponent<BoardTileCatalogTestMarker>(), Is.Not.Null);
+            }
+            finally
+            {
+                DestroyObjects(rootObject, overridePrefab, catalog, defaultMaterial, frontMaterial);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
         public void BoardSurfaceRenderer_UsesMaterialFallbackWhenNoPrefab()
         {
             var rootObject = new GameObject("BoardSurfaceRenderer_UsesMaterialFallbackWhenNoPrefab");
@@ -98,6 +140,118 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 DestroyObjects(rootObject, catalog, bottomMaterial, frontMaterial);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void BoardSurfaceRenderer_CellOverrideUsesPrefabDescriptor()
+        {
+            var rootObject = new GameObject("BoardSurfaceRenderer_CellOverrideUsesPrefabDescriptor");
+            var overridePrefab = CreatePrefab("CellOverridePrefab");
+            var defaultMaterial = CreateMaterial("CellOverrideDefaultMaterial");
+            var frontMaterial = CreateMaterial("CellOverrideFrontMaterial");
+            var catalog = CreateCatalog(
+                Entry("bottom-default", BoardTileVisualRole.ActiveBottom, null, defaultMaterial, isDefault: true),
+                Entry("front-default", BoardTileVisualRole.ActiveFront, null, frontMaterial, isDefault: true),
+                Entry("prefab-override", BoardTileVisualRole.GenericDefault, overridePrefab, null, isDefault: false));
+
+            try
+            {
+                var renderer = rootObject.AddComponent<GameplayBoardSurfaceRenderer>();
+
+                renderer.Initialize(
+                    new BoardBounds(Vector2Int.zero, Vector2Int.zero),
+                    1f,
+                    new CubeTopologyState(FaceId.Floor),
+                    boardTilePresentationCatalog: catalog,
+                    boardTilePresentationOverrides: new[]
+                    {
+                        Override(new SurfaceCell(FaceId.Floor, 0, 0), "prefab-override"),
+                    });
+
+                var bottomTile = FindTile(renderer.VisibleTilePoolRoot, "ActiveBottom_Floor_0_0");
+
+                Assert.That(bottomTile.GetComponent<BoardTileCatalogTestMarker>(), Is.Not.Null);
+            }
+            finally
+            {
+                DestroyObjects(rootObject, overridePrefab, catalog, defaultMaterial, frontMaterial);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void BoardSurfaceRenderer_CellOverrideUsesMaterialFallbackDescriptor()
+        {
+            var rootObject = new GameObject("BoardSurfaceRenderer_CellOverrideUsesMaterialFallbackDescriptor");
+            var defaultMaterial = CreateMaterial("MaterialOverrideDefault");
+            var overrideMaterial = CreateMaterial("MaterialOverrideCell");
+            var frontMaterial = CreateMaterial("MaterialOverrideFront");
+            var catalog = CreateCatalog(
+                Entry("bottom-default", BoardTileVisualRole.ActiveBottom, null, defaultMaterial, isDefault: true),
+                Entry("front-default", BoardTileVisualRole.ActiveFront, null, frontMaterial, isDefault: true),
+                Entry("material-override", BoardTileVisualRole.ActiveBottom, null, overrideMaterial, isDefault: false));
+
+            try
+            {
+                var renderer = rootObject.AddComponent<GameplayBoardSurfaceRenderer>();
+
+                renderer.Initialize(
+                    new BoardBounds(Vector2Int.zero, Vector2Int.zero),
+                    1f,
+                    new CubeTopologyState(FaceId.Floor),
+                    boardTilePresentationCatalog: catalog,
+                    boardTilePresentationOverrides: new[]
+                    {
+                        Override(new SurfaceCell(FaceId.Floor, 0, 0), "material-override"),
+                    });
+
+                var bottomTile = FindTile(renderer.VisibleTilePoolRoot, "ActiveBottom_Floor_0_0");
+
+                Assert.That(bottomTile.GetComponent<MeshRenderer>().sharedMaterial, Is.SameAs(overrideMaterial));
+            }
+            finally
+            {
+                DestroyObjects(rootObject, catalog, defaultMaterial, overrideMaterial, frontMaterial);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void BoardSurfaceRenderer_MissingOverrideKeyFallsBackAtRuntime()
+        {
+            var rootObject = new GameObject("BoardSurfaceRenderer_MissingOverrideKeyFallsBackAtRuntime");
+            var defaultMaterial = CreateMaterial("MissingOverrideDefault");
+            var frontMaterial = CreateMaterial("MissingOverrideFront");
+            var catalog = CreateCatalog(
+                Entry("bottom-default", BoardTileVisualRole.ActiveBottom, null, defaultMaterial, isDefault: true),
+                Entry("front-default", BoardTileVisualRole.ActiveFront, null, frontMaterial, isDefault: true));
+
+            try
+            {
+                var renderer = rootObject.AddComponent<GameplayBoardSurfaceRenderer>();
+                LogAssert.Expect(
+                    LogType.Warning,
+                    new Regex("BoardTilePresentationOverride.*missing-key.*Falling back"));
+
+                renderer.Initialize(
+                    new BoardBounds(Vector2Int.zero, Vector2Int.zero),
+                    1f,
+                    new CubeTopologyState(FaceId.Floor),
+                    boardTilePresentationCatalog: catalog,
+                    boardTilePresentationOverrides: new[]
+                    {
+                        Override(new SurfaceCell(FaceId.Floor, 0, 0), "missing-key"),
+                    });
+
+                var bottomTile = FindTile(renderer.VisibleTilePoolRoot, "ActiveBottom_Floor_0_0");
+
+                Assert.That(bottomTile.GetComponent<MeshRenderer>().sharedMaterial, Is.SameAs(defaultMaterial));
+            }
+            finally
+            {
+                DestroyObjects(rootObject, catalog, defaultMaterial, frontMaterial);
             }
         }
 
@@ -163,6 +317,74 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 DestroyObjects(rootObject, bottomPrefab, catalog, frontMaterial);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void BoardSurfaceRenderer_TransitionPoolUsesCellOverride()
+        {
+            var rootObject = new GameObject("BoardSurfaceRenderer_TransitionPoolUsesCellOverride");
+            var overridePrefab = CreatePrefab("TransitionOverridePrefab");
+            var bottomMaterial = CreateMaterial("TransitionOverrideBottomDefault");
+            var frontMaterial = CreateMaterial("TransitionOverrideFrontDefault");
+            var catalog = CreateCatalog(
+                Entry("bottom-default", BoardTileVisualRole.ActiveBottom, null, bottomMaterial, isDefault: true),
+                Entry("front-default", BoardTileVisualRole.ActiveFront, null, frontMaterial, isDefault: true),
+                Entry("transition-override", BoardTileVisualRole.ActiveBottom, overridePrefab, null, isDefault: false));
+            var sourceTopology = new CubeTopologyState(FaceId.Floor);
+            var destinationTopology = new CubeTopologyState(FaceId.Front);
+
+            try
+            {
+                var renderer = rootObject.AddComponent<GameplayBoardSurfaceRenderer>();
+
+                renderer.Initialize(
+                    new BoardBounds(Vector2Int.zero, Vector2Int.zero),
+                    1f,
+                    sourceTopology,
+                    boardTilePresentationCatalog: catalog,
+                    boardTilePresentationOverrides: new[]
+                    {
+                        Override(new SurfaceCell(FaceId.Front, 0, 0), "transition-override"),
+                    });
+                renderer.BeginTopologyTransition(sourceTopology, destinationTopology);
+
+                var transitionTile = FindTile(renderer.TransitionTilePoolRoot, "ActiveBottom_Front_0_0");
+
+                Assert.That(transitionTile.GetComponent<BoardTileCatalogTestMarker>(), Is.Not.Null);
+            }
+            finally
+            {
+                DestroyObjects(rootObject, overridePrefab, catalog, bottomMaterial, frontMaterial);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void BoardSurfaceRenderer_CatalogNullStillLegacyFallback()
+        {
+            var rootObject = new GameObject("BoardSurfaceRenderer_CatalogNullStillLegacyFallback");
+
+            try
+            {
+                var renderer = rootObject.AddComponent<GameplayBoardSurfaceRenderer>();
+
+                renderer.Initialize(
+                    new BoardBounds(Vector2Int.zero, Vector2Int.zero),
+                    1f,
+                    new CubeTopologyState(FaceId.Floor),
+                    boardTilePresentationCatalog: null);
+
+                var tile = FindTile(renderer.VisibleTilePoolRoot, "ActiveBottom_Floor_0_0");
+
+                Assert.That(tile.GetComponent<MeshFilter>(), Is.Not.Null);
+                Assert.That(tile.GetComponent<MeshRenderer>(), Is.Not.Null);
+                Assert.That(tile.GetComponent<BoardTileCatalogTestMarker>(), Is.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
 
@@ -260,6 +482,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             catalog.name = "BoardSurfaceRendererBoardTileCatalogTests";
             SetPrivateField(catalog, "entries", entries ?? Array.Empty<BoardTilePresentationCatalogEntry>());
             return catalog;
+        }
+
+        private static BoardTilePresentationOverride Override(SurfaceCell cell, string presentationKey)
+        {
+            return new BoardTilePresentationOverride(cell, presentationKey);
         }
 
         private static void SetPrivateField(object target, string fieldName, object value)

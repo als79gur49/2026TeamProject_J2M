@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
@@ -394,6 +395,100 @@ namespace Game.Feature.Stages.Editor.Tests
             });
         }
 
+        [Test]
+        public void StageAuthoringGridWindow_BoardTileOverrideDropdown_WritesPresentationOverride()
+        {
+            WithBoardTileWindow((window, authoring, presentation, catalog, material) =>
+            {
+                window.SetEditModeForTests(StageAuthoringGridEditMode.BoardTilePresentation);
+                window.SetTargetCellForTests(FaceId.Floor, new Vector2Int(0, 0));
+                window.SetBoardTilePresentationKeyForTests("cell-key");
+
+                var changed = window.SetBoardTileOverrideForTests(out var error);
+
+                Assert.That(changed, Is.True, error);
+                Assert.That(presentation.BoardTilePresentationOverrides.Count, Is.EqualTo(1));
+                Assert.That(presentation.BoardTilePresentationOverrides[0].Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+                Assert.That(presentation.BoardTilePresentationOverrides[0].PresentationKey, Is.EqualTo("cell-key"));
+            });
+        }
+
+        [Test]
+        public void StageAuthoringGridWindow_BoardTileOverride_ClearRemovesOnlySelectedCell()
+        {
+            WithBoardTileWindow((window, authoring, presentation, catalog, material) =>
+            {
+                authoring.SetBoard(new StageBoardDefinition
+                {
+                    MinInclusive = Vector2Int.zero,
+                    MaxInclusive = new Vector2Int(1, 0),
+                    InitialBottomFace = FaceId.Floor,
+                });
+                window.SetEditModeForTests(StageAuthoringGridEditMode.BoardTilePresentation);
+                window.SetBoardTilePresentationKeyForTests("cell-key");
+                window.SetTargetCellForTests(FaceId.Floor, new Vector2Int(0, 0));
+                Assert.That(window.SetBoardTileOverrideForTests(out _), Is.True);
+                window.SetTargetCellForTests(FaceId.Floor, new Vector2Int(1, 0));
+                Assert.That(window.SetBoardTileOverrideForTests(out _), Is.True);
+
+                window.SetTargetCellForTests(FaceId.Floor, new Vector2Int(0, 0));
+                var cleared = window.ClearBoardTileOverrideForTests(out var error);
+
+                Assert.That(cleared, Is.True, error);
+                Assert.That(presentation.BoardTilePresentationOverrides.Count, Is.EqualTo(1));
+                Assert.That(presentation.BoardTilePresentationOverrides[0].Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            });
+        }
+
+        [Test]
+        public void StageAuthoringGridWindow_BoardTileOverride_AllowsEntityAndTileFeatureSameCell()
+        {
+            WithBoardTileWindow((window, authoring, presentation, catalog, material) =>
+            {
+                authoring.SetPlacements(new[] { Placement("occupied", FaceId.Floor, 0, 0) });
+                authoring.SetTileFeatures(new[] { TileFeature(1, FaceId.Floor, 0, 0) });
+                window.SetEditModeForTests(StageAuthoringGridEditMode.BoardTilePresentation);
+                window.SetTargetCellForTests(FaceId.Floor, new Vector2Int(0, 0));
+                window.SetBoardTilePresentationKeyForTests("cell-key");
+
+                var changed = window.SetBoardTileOverrideForTests(out var error);
+
+                Assert.That(changed, Is.True, error);
+                Assert.That(authoring.Placements, Has.Count.EqualTo(1));
+                Assert.That(authoring.TileFeatures, Has.Count.EqualTo(1));
+                Assert.That(presentation.BoardTilePresentationOverrides.Count, Is.EqualTo(1));
+            });
+        }
+
+        [Test]
+        public void StageAuthoringGridWindow_BoardTileOverride_DisabledWhenNoCatalog()
+        {
+            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            try
+            {
+                WithWindow(
+                    System.Array.Empty<StagePlacedEntityAuthoring>(),
+                    (window, authoring) =>
+                    {
+                        authoring.AssignGeneratedDefinitions(null, presentation);
+                        window.SetEditModeForTests(StageAuthoringGridEditMode.BoardTilePresentation);
+                        window.SetTargetCellForTests(FaceId.Floor, new Vector2Int(0, 0));
+                        window.SetBoardTilePresentationKeyForTests("cell-key");
+
+                        var status = window.GetBoardTileOverrideStatusForTests();
+                        var changed = window.SetBoardTileOverrideForTests(out _);
+
+                        Assert.That(status.Kind, Is.EqualTo(BoardTilePresentationOverrideStatusKind.CatalogMissing));
+                        Assert.That(changed, Is.False);
+                        Assert.That(presentation.BoardTilePresentationOverrides, Is.Empty);
+                    });
+            }
+            finally
+            {
+                Object.DestroyImmediate(presentation);
+            }
+        }
+
         private static void WithWindow(
             StagePlacedEntityAuthoring[] placements,
             System.Action<StageAuthoringGridWindow, StageAuthoringDefinition> action)
@@ -438,6 +533,31 @@ namespace Game.Feature.Stages.Editor.Tests
             }
         }
 
+        private static void WithBoardTileWindow(
+            System.Action<StageAuthoringGridWindow, StageAuthoringDefinition, StagePresentationDefinition, BoardTilePresentationCatalog, Material> action)
+        {
+            var material = CreateMaterial("BoardTileGridWindowMaterial");
+            var catalog = CreateBoardTileCatalog(Entry("cell-key", BoardTileVisualRole.ActiveBottom, null, material));
+            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            SetPrivateField(presentation, "boardTilePresentationCatalog", catalog);
+            try
+            {
+                WithWindow(
+                    System.Array.Empty<StagePlacedEntityAuthoring>(),
+                    (window, authoring) =>
+                    {
+                        authoring.AssignGeneratedDefinitions(null, presentation);
+                        action(window, authoring, presentation, catalog, material);
+                    });
+            }
+            finally
+            {
+                Object.DestroyImmediate(presentation);
+                Object.DestroyImmediate(catalog);
+                Object.DestroyImmediate(material);
+            }
+        }
+
         private static StagePlacedEntityAuthoring Placement(
             string stableGuid,
             FaceId face,
@@ -470,6 +590,49 @@ namespace Game.Feature.Stages.Editor.Tests
                 Direction = Direction2D.None,
                 BoxSelector = TileFeatureBoxSelector.AnyPushableBox,
             };
+        }
+
+        private static BoardTilePresentationCatalogEntry Entry(
+            string presentationKey,
+            BoardTileVisualRole role,
+            GameObject tilePrefab,
+            Material materialFallback)
+        {
+            var entry = new BoardTilePresentationCatalogEntry();
+            SetPrivateField(entry, "presentationKey", presentationKey);
+            SetPrivateField(entry, "displayName", presentationKey);
+            SetPrivateField(entry, "role", role);
+            SetPrivateField(entry, "tilePrefab", tilePrefab);
+            SetPrivateField(entry, "materialFallback", materialFallback);
+            return entry;
+        }
+
+        private static BoardTilePresentationCatalog CreateBoardTileCatalog(
+            params BoardTilePresentationCatalogEntry[] entries)
+        {
+            var catalog = ScriptableObject.CreateInstance<BoardTilePresentationCatalog>();
+            catalog.name = "StageAuthoringGridWindowTests_BoardTileCatalog";
+            SetPrivateField(catalog, "entries", entries ?? System.Array.Empty<BoardTilePresentationCatalogEntry>());
+            return catalog;
+        }
+
+        private static Material CreateMaterial(string materialName)
+        {
+            var shader = Shader.Find("Standard") ?? Shader.Find("Sprites/Default");
+            Assert.That(shader, Is.Not.Null, "Expected a test shader to be available.");
+            return new Material(shader)
+            {
+                name = materialName,
+            };
+        }
+
+        private static void SetPrivateField(object target, string fieldName, object value)
+        {
+            var field = target.GetType().GetField(
+                fieldName,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, $"Missing field '{fieldName}' on {target.GetType().Name}.");
+            field.SetValue(target, value);
         }
     }
 }
