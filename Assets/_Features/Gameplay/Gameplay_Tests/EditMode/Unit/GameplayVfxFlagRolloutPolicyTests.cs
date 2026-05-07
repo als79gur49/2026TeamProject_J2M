@@ -75,6 +75,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "Tier 1",
                 "targeted tests + density visual spot check"),
             new(
+                "EnableGameplayVfxImpactTransientBreakMigration",
+                "enableGameplayVfxImpactTransientBreakMigration",
+                "BoxVfxCue.ImpactTransientBreak",
+                "Migration / reserved parameterized clone motion",
+                "Tier 2",
+                "manual visual approval + targeted reserved-hook regression"),
+            new(
+                "EnableGameplayVfxOutOfBoundsExitMigration",
+                "enableGameplayVfxOutOfBoundsExitMigration",
+                "BoxVfxCue.OutOfBoundsExit / EnemyVfxCue.OutOfBoundsExit",
+                "Migration / reserved parameterized clone motion",
+                "Tier 2",
+                "manual visual approval + targeted reserved-hook regression"),
+            new(
                 "EnableEnemyJumpTargetVfx",
                 "enableEnemyJumpTargetVfx",
                 "EnemyVfxCue.JumperLandingTarget",

@@ -527,7 +527,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(slideAdapterSource, Does.Not.Contain("ActionPlanId"));
             Assert.That(tickPresentationDataSource, Does.Not.Contain("SlideDustTrail"));
             Assert.That(tickPresentationDataSource, Does.Not.Contain("BoxSlideTrail"));
-            Assert.That(Enum.GetNames(typeof(BoxVfxCue)), Has.Length.EqualTo(10));
+            Assert.That(Enum.GetNames(typeof(BoxVfxCue)), Has.Length.EqualTo(12));
             Assert.That(cueSource, Does.Not.Contain("ExactLinear"));
             Assert.That(runtimeSource, Does.Not.Contain("EnableGameplayVfxExactLinear"));
         }

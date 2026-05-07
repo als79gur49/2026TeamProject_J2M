@@ -144,9 +144,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("VfxPersistentKey"));
             Assert.That(document, Does.Contain("EnemyUtilityWindupTelegraphVfx.prefab"));
             Assert.That(document, Does.Contain("EnemyUtilityWindupTelegraph_Binding.asset"));
-            Assert.That(document, Does.Contain("OutOfBounds Exit Policy Gate"));
+            Assert.That(document, Does.Contain("OutOfBounds Exit VFX Migration"));
             Assert.That(document, Does.Contain("dormant/reserved"));
-            Assert.That(document, Does.Contain("no one-shot fallback"));
+            Assert.That(document, Does.Contain("missing binding no fallback"));
             Assert.That(document, Does.Contain("VFX Planner Dependency Rule"));
             Assert.That(document, Does.Contain("Gameplay VFX planners may read presentation carriers"));
             Assert.That(document, Does.Contain("Production Runtime Dependency Rule"));

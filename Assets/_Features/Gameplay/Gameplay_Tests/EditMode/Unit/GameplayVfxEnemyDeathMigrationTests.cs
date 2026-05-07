@@ -64,9 +64,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             AssertNoDeathRequests(CreateEnemyExitSignal(40, TickEntityExitCause.BoxDestroy));
             AssertNoDeathRequests(CreateEnemyExitSignal(40, TickEntityExitCause.ItemConsume));
-            AssertNoDeathRequests(CreateEnemyExitSignal(40, TickEntityExitCause.OutOfBounds));
             AssertNoDeathRequests(CreateEnemyExitSignal(40, TickEntityExitCause.Killed, entityType: EntityType.Box));
             AssertNoDeathRequests(CreateEnemyExitSignal(0, TickEntityExitCause.Killed));
+            var outOfBoundsPlan = PlanEnemyRequests(CreatePresentationData(
+                entityExitSignals: new[] { CreateEnemyExitSignal(40, TickEntityExitCause.OutOfBounds) }));
+            Assert.That(
+                outOfBoundsPlan.Requests,
+                Has.None.Matches<GameplayVfxRequest>(
+                    request => request.CueId == GameplayVfxCueId.From(EnemyVfxCue.Death)));
 
             var planner = new EnemyVfxRequestPlanner();
             var builder = new GameplayVfxRequestPlanBuilder();

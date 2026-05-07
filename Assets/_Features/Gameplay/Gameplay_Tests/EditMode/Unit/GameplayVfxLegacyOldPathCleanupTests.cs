@@ -89,38 +89,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("old fly-away disabled"));
             Assert.That(document, Does.Contain("old clone/fade disabled"));
             Assert.That(document, Does.Contain("Remaining old canonical presentation responsibilities"));
-            Assert.That(document, Does.Contain("OutOfBounds `GameplayExitPresentationController.PlayExitEffect`"));
-            Assert.That(document, Does.Contain("`GameplayExitPresentationController.PlayImpactBreakEffect`"));
+            Assert.That(document, Does.Contain("old impact break playback disabled"));
+            Assert.That(document, Does.Contain("old OutOfBounds fade disabled"));
             Assert.That(document, Does.Contain("`BoxFlipInteractionDriver` and `FlipImpactTrack` Stay branch"));
             Assert.That(document, Does.Not.Contain("windup warning path remains old canonical presentation"));
         }
 
         [Test]
         [Category("Extended")]
-        public void OutOfBounds_DormantReservedPolicyIsDocumented()
+        public void OutOfBounds_ReservedMigrationPolicyIsDocumented()
         {
             var document = ReadRepoFile(GovernancePath);
 
-            Assert.That(document, Does.Contain("## OutOfBounds Exit Policy Gate"));
+            Assert.That(document, Does.Contain("## OutOfBounds Exit VFX Migration"));
             Assert.That(document, Does.Contain("dormant/reserved entity exit cause"));
-            Assert.That(document, Does.Contain("no Gameplay VFX cue is added for OutOfBounds"));
             Assert.That(document, Does.Contain("no OutOfBounds gameplay producer is added"));
-            Assert.That(document, Does.Contain("not stale fallback for any migrated Gameplay VFX fact"));
-            Assert.That(document, Does.Contain("reserved old canonical exit presentation"));
+            Assert.That(document, Does.Contain("BoxVfxCue.OutOfBoundsExit"));
+            Assert.That(document, Does.Contain("EnemyVfxCue.OutOfBoundsExit"));
+            Assert.That(document, Does.Contain("old `GameplayExitPresentationController.PlayExitEffect` playback is disabled"));
         }
 
         [Test]
         [Category("Extended")]
-        public void OutOfBounds_NotConsumedByGameplayVfxPlanner()
+        public void OutOfBounds_IsConsumedByReservedGameplayVfxPlannerOnly()
         {
             var enums = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxEnums.cs");
             var planning = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxPlanning.cs");
             var boxShrinkBuilder = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/BoxDestroyShrinkVfxCommandBuilder.cs");
             var enemyDeathBuilder = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/EnemyDeathMotionVfxCommandBuilder.cs");
 
-            Assert.That(enums, Does.Not.Contain("OutOfBoundsExit"));
-            Assert.That(enums, Does.Not.Contain("OutOfBounds"));
-            Assert.That(planning, Does.Not.Contain("TickEntityExitCause.OutOfBounds"));
+            Assert.That(enums, Does.Contain("OutOfBoundsExit"));
+            Assert.That(planning, Does.Contain("TickEntityExitCause.OutOfBounds"));
             Assert.That(boxShrinkBuilder, Does.Not.Contain("TickEntityExitCause.OutOfBounds"));
             Assert.That(enemyDeathBuilder, Does.Not.Contain("TickEntityExitCause.OutOfBounds"));
         }

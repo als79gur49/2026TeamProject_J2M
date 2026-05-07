@@ -114,7 +114,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     topology),
                 builder);
 
-            Assert.That(builder.Build().Requests, Is.Empty);
+            var requests = builder.Build().Requests;
+            Assert.That(requests, Has.None.Matches<GameplayVfxRequest>(
+                request => request.CueId == GameplayVfxCueId.From(BoxVfxCue.DestroySmoke)));
         }
 
         [Test]
@@ -145,7 +147,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     topology),
                 builder);
 
-            Assert.That(builder.Build().Requests, Is.Empty);
+            var requests = builder.Build().Requests;
+            Assert.That(requests, Has.Count.EqualTo(1));
+            Assert.That(requests[0].CueId, Is.EqualTo(GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak)));
+            Assert.That(requests, Has.None.Matches<GameplayVfxRequest>(
+                request => request.CueId == GameplayVfxCueId.From(BoxVfxCue.DestroySmoke)));
         }
 
         [Test]

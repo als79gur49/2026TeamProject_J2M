@@ -14,6 +14,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/EnemyUtilityWindupTelegraphVfx.prefab";
         private const string FrontFaceShieldWindupPrefabPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/FrontFaceShieldWindupVfx.prefab";
+        private static readonly string[] ReservedHookPrefabPaths =
+        {
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/ImpactTransientBreakVfx.prefab",
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/BoxOutOfBoundsExitVfx.prefab",
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/EnemyOutOfBoundsExitVfx.prefab",
+        };
 
         [Test]
         [Category("Extended")]
@@ -63,6 +69,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(prefab.GetComponentsInChildren<AudioSource>(true), Is.Empty);
             Assert.That(prefab.GetComponentsInChildren<Rigidbody>(true), Is.Empty);
             Assert.That(prefab.GetComponentsInChildren<UnityEngine.AI.NavMeshAgent>(true), Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ReservedHookPrefabs_PassVfxPrefabValidation()
+        {
+            foreach (var path in ReservedHookPrefabPaths)
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+
+                Assert.That(prefab, Is.Not.Null, path);
+                var validation = VfxPrefabValidationDiagnostics.ValidatePrefab(prefab);
+
+                Assert.That(validation.HasErrors, Is.False, $"{path}\n{string.Join("\n", validation.Messages)}");
+                Assert.That(validation.HasWarnings, Is.False, $"{path}\n{string.Join("\n", validation.Messages)}");
+                Assert.That(prefab.GetComponentsInChildren<Collider>(true), Is.Empty, path);
+                Assert.That(prefab.GetComponentsInChildren<AudioSource>(true), Is.Empty, path);
+                Assert.That(prefab.GetComponentsInChildren<Rigidbody>(true), Is.Empty, path);
+                Assert.That(prefab.GetComponentsInChildren<UnityEngine.AI.NavMeshAgent>(true), Is.Empty, path);
+            }
         }
 
         [Test]
