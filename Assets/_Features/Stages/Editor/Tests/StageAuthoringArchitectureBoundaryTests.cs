@@ -118,10 +118,13 @@ namespace Game.Feature.Stages.Editor.Tests
             var authoringDefinitionSource = File.ReadAllText("Assets/_Features/Stages/Runtime/Authoring/StageAuthoringDefinition.cs");
 
             Assert.That(stageDefinitionSource, Does.Not.Contain("VisualPrefab"));
+            Assert.That(stageDefinitionSource, Does.Not.Contain("TileFeaturePresentationCatalog"));
             Assert.That(stageDefinitionSource, Does.Not.Contain("TileFeaturePresentationBinding"));
             Assert.That(buildResultSource, Does.Not.Contain("VisualPrefab"));
+            Assert.That(buildResultSource, Does.Not.Contain("TileFeaturePresentationCatalog"));
             Assert.That(buildResultSource, Does.Not.Contain("TileFeaturePresentationBinding"));
             Assert.That(authoringDefinitionSource, Does.Not.Contain("VisualPrefab"));
+            Assert.That(authoringDefinitionSource, Does.Not.Contain("TileFeaturePresentationCatalog"));
         }
 
         [Test]
@@ -131,8 +134,49 @@ namespace Game.Feature.Stages.Editor.Tests
                 File.ReadAllText("Assets/_Features/Stages/Runtime/Content/StagePresentationDefinition.cs");
 
             Assert.That(stagePresentationDefinitionSource, Does.Contain("TileFeaturePresentationBinding"));
+            Assert.That(stagePresentationDefinitionSource, Does.Contain("TileFeaturePresentationCatalog"));
             Assert.That(stagePresentationDefinitionSource, Does.Contain("VisualPrefab"));
             Assert.That(stagePresentationDefinitionSource, Does.Not.Contain("TileFeatureAudio"));
+        }
+
+        [Test]
+        public void TileFeatureCatalog_DoesNotEnterGameplayLoopOrBoardState()
+        {
+            var gameplayLoopSources = Directory.GetFiles(
+                "Assets/_Features/Gameplay/Gameplay_Loop",
+                "*.cs",
+                SearchOption.AllDirectories);
+            var boardStateSources = Directory.GetFiles(
+                "Assets/_Features/Gameplay/Gameplay_BoardState",
+                "*.cs",
+                SearchOption.AllDirectories);
+
+            foreach (var sourcePath in gameplayLoopSources.Concat(boardStateSources))
+            {
+                var source = File.ReadAllText(sourcePath);
+                Assert.That(source, Does.Not.Contain("TileFeaturePresentationCatalog"), sourcePath);
+            }
+        }
+
+        [Test]
+        public void TileFeatureCatalog_DoesNotOpenForbiddenRuntimeSurfaces()
+        {
+            var allSources = Directory.GetFiles("Assets", "*.cs", SearchOption.AllDirectories);
+            var vector2 = "Vector2" + "Int";
+            var tileFeaturePresentation = "TileFeature" + "Presentation";
+            var pKey = "Presentation" + "Key";
+            var entityType = "Entity" + "Type";
+            var terrainFlags = "Terrain" + "Flags";
+            var tileFeature = "Tile" + "Feature";
+            foreach (var sourcePath in allSources)
+            {
+                var source = File.ReadAllText(sourcePath);
+                Assert.That(source, Does.Not.Contain(vector2 + " " + tileFeaturePresentation), sourcePath);
+                Assert.That(source, Does.Not.Contain(vector2 + " " + pKey), sourcePath);
+                Assert.That(source, Does.Not.Contain(pKey + " " + vector2), sourcePath);
+                Assert.That(source, Does.Not.Contain(entityType + "." + tileFeature), sourcePath);
+                Assert.That(source, Does.Not.Contain(terrainFlags + "." + tileFeature), sourcePath);
+            }
         }
 
         [Test]
