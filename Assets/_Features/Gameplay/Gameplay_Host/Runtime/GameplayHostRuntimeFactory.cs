@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Feature.Gameplay.Audio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.GravityFieldAudio;
 using Game.Feature.Gameplay.Host.UIAccess;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
@@ -24,6 +25,8 @@ namespace Game.Feature.Gameplay.Host
             "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when GameplayAudioMap is assigned.";
         private const string MissingTileFeatureAudioRuntimeInstallerMessage =
             "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when TileFeatureAudioMap is assigned.";
+        private const string MissingGravityFieldAudioRuntimeInstallerMessage =
+            "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when GravityFieldAudioMap is assigned.";
 
         public static GameplayHostRuntimeContext Create(
             GameplaySceneHost host,
@@ -474,8 +477,10 @@ namespace Game.Feature.Gameplay.Host
         {
             var hasGameplayAudioMap = configuration?.GameplayAudioMap != null;
             var hasTileFeatureAudioMap = configuration?.TileFeatureAudioMap != null;
+            var hasGravityFieldAudioMap = configuration?.GravityFieldAudioMap != null;
             if (!hasGameplayAudioMap &&
-                !hasTileFeatureAudioMap)
+                !hasTileFeatureAudioMap &&
+                !hasGravityFieldAudioMap)
             {
                 return;
             }
@@ -483,19 +488,19 @@ namespace Game.Feature.Gameplay.Host
             var audioRuntimeInstaller = hostObject.GetComponent<AudioRuntimeInstaller>();
             if (audioRuntimeInstaller == null)
             {
-                throw new InvalidOperationException(
-                    hasGameplayAudioMap
-                        ? MissingGameplayAudioRuntimeInstallerMessage
-                        : MissingTileFeatureAudioRuntimeInstallerMessage);
+                throw new InvalidOperationException(ResolveMissingAudioRuntimeInstallerMessage(
+                    hasGameplayAudioMap,
+                    hasTileFeatureAudioMap,
+                    hasGravityFieldAudioMap));
             }
 
             audioRuntimeInstaller.Install();
             if (audioRuntimeInstaller.AudioService == null)
             {
-                throw new InvalidOperationException(
-                    hasGameplayAudioMap
-                        ? MissingGameplayAudioRuntimeInstallerMessage
-                        : MissingTileFeatureAudioRuntimeInstallerMessage);
+                throw new InvalidOperationException(ResolveMissingAudioRuntimeInstallerMessage(
+                    hasGameplayAudioMap,
+                    hasTileFeatureAudioMap,
+                    hasGravityFieldAudioMap));
             }
 
             var playbackPort = new GameplayAudioPlaybackPortAdapter(audioRuntimeInstaller.AudioService);
@@ -508,6 +513,31 @@ namespace Game.Feature.Gameplay.Host
             {
                 presenter.AttachTileFeatureAudioRuntime(playbackPort, configuration.TileFeatureAudioMap);
             }
+
+            if (hasGravityFieldAudioMap)
+            {
+                presenter.AttachGravityFieldAudioRuntime(playbackPort, configuration.GravityFieldAudioMap);
+            }
+        }
+
+        private static string ResolveMissingAudioRuntimeInstallerMessage(
+            bool hasGameplayAudioMap,
+            bool hasTileFeatureAudioMap,
+            bool hasGravityFieldAudioMap)
+        {
+            if (hasGameplayAudioMap)
+            {
+                return MissingGameplayAudioRuntimeInstallerMessage;
+            }
+
+            if (hasTileFeatureAudioMap)
+            {
+                return MissingTileFeatureAudioRuntimeInstallerMessage;
+            }
+
+            return hasGravityFieldAudioMap
+                ? MissingGravityFieldAudioRuntimeInstallerMessage
+                : MissingGameplayAudioRuntimeInstallerMessage;
         }
 
         private static GameplayEntityView ResolvePlayerViewPrefab(GameplaySceneHostConfiguration configuration)

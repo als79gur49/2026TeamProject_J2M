@@ -1,0 +1,8 @@
+{
+  "name": "Game.Feature.Gameplay.GravityFieldAudio",
+  "rootNamespace": "Game.Feature.Gameplay.GravityFieldAudio",
+  "references": [
+    "Game.Feature.Gameplay",
+    "Game.Shared.Audio"
+  ]
+}

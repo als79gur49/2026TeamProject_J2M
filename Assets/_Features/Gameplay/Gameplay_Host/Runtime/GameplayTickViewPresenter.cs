@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Game.Feature.Gameplay.Audio;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.GravityFieldAudio;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.TileFeatureAudio;
 using Unity.Cinemachine;
@@ -51,6 +52,9 @@ namespace Game.Feature.Gameplay.Host
 
         public IReadOnlyList<TilePresentationRequest> CurrentTilePresentationRequests =>
             _presentationCoordinator.CurrentTilePresentationRequests;
+
+        public IReadOnlyList<GravityFieldPresentationRequest> CurrentGravityFieldPresentationRequests =>
+            _presentationCoordinator.CurrentGravityFieldPresentationRequests;
 
         public void Initialize(
             GameplayEntityViewBinder viewBinder,
@@ -122,6 +126,13 @@ namespace Game.Feature.Gameplay.Host
             _presentationCoordinator.AttachTileFeatureAudioRuntime(playbackPort, tileFeatureAudioMap);
         }
 
+        internal void AttachGravityFieldAudioRuntime(
+            IGameplayAudioPlaybackPort playbackPort,
+            GravityFieldAudioMap gravityFieldAudioMap)
+        {
+            _presentationCoordinator.AttachGravityFieldAudioRuntime(playbackPort, gravityFieldAudioMap);
+        }
+
         public void AttachTileFeatureVisualRegistry(ITileFeatureVisualRegistry registry)
         {
             _presentationCoordinator.AttachTileFeatureVisualRegistry(registry);
@@ -150,6 +161,11 @@ namespace Game.Feature.Gameplay.Host
         internal void SetTileFeatureVisualDiagnosticSink(System.Action<string> diagnosticSink)
         {
             _presentationCoordinator.SetTileFeatureVisualDiagnosticSink(diagnosticSink);
+        }
+
+        internal void SetGravityFieldVisualDiagnosticSink(System.Action<string> diagnosticSink)
+        {
+            _presentationCoordinator.SetGravityFieldVisualDiagnosticSink(diagnosticSink);
         }
 
         internal int PendingGameplayAudioRequestCount => _presentationCoordinator.PendingGameplayAudioRequestCount;
@@ -211,6 +227,7 @@ namespace Game.Feature.Gameplay.Host
         private void OnDestroy()
         {
             _presentationCoordinator.HardCleanupPresentationExtensions();
+            _presentationCoordinator.DetachGravityFieldAudioRuntime();
             _presentationCoordinator.DetachTileFeatureAudioRuntime();
             _presentationCoordinator.DetachGameplayAudioRuntime();
         }
