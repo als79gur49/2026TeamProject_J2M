@@ -23,14 +23,8 @@ MonoBehaviour:
   enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
   enemyPresentationArchetypeCatalog: {fileID: 11400000, guid: dd4f6d4763f54f89830e7ab92c7d9953, type: 2}
   enemyPresentationBindings:
-  - EntityId: 54
-    PresentationId: Attacking_showcase
-  - EntityId: 55
-    PresentationId: nonAttacking_showcase
   - EntityId: 56
     PresentationId: wallFollower_sun
-  - EntityId: 57
-    PresentationId: jumpChaser_astra
   - EntityId: 58
     PresentationId: Charge_showcase
   - EntityId: 59
@@ -39,6 +33,22 @@ MonoBehaviour:
     PresentationId: Attacking_showcase
   staticEntityPresentationCatalog: {fileID: 11400000, guid: 28eb5cc07ccd15d4b9a99a3364f7fd07, type: 2}
   staticEntityPresentationBindings: []
+  boardTilePresentationCatalog: {fileID: 11400000, guid: c4f2b2fcde2012242a1f89c7615a23aa, type: 2}
+  boardTilePresentationOverrides:
+  - cell:
+      face: 0
+      x: 12
+      y: 1
+    presentationKey: board.decorative.top
+  - cell:
+      face: 3
+      x: 2
+      y: 6
+    presentationKey: board.decorative.back
+  tileFeaturePresentationCatalog: {fileID: 11400000, guid: 330cdf4f24595b940afbf3438be36226, type: 2}
+  tileFeaturePresentationBindings:
+  - TileId: 905
+    VisualPrefab: {fileID: 888868719586388028, guid: d1b8b4a4cba650349b2af0d5b19cb445, type: 3}
   resultTitle: Stage Cleared
   resultSummaryText: 
   resultDetailText: 
