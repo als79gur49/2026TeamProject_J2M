@@ -35,6 +35,8 @@ namespace Game.Feature.Gameplay.Vfx
         FlipDestroySelfMotion = 8,
         SlideDustTrail = 9,
         DestroyShrink = 10,
+        ImpactTransientBreak = 11,
+        OutOfBoundsExit = 12,
     }
 
     public enum EnemyVfxCue
@@ -55,6 +57,7 @@ namespace Game.Feature.Gameplay.Vfx
         FrontFaceShieldBlock = 14,
         DeathMotion = 15,
         FrontFaceShieldWindup = 16,
+        OutOfBoundsExit = 17,
     }
 
     public enum TileFeatureVfxCue

@@ -137,31 +137,12 @@ namespace Game.Feature.Gameplay.Host
                     ResolveEntityExitEffectDurationSeconds(signal.ExitCause));
             }
 
-            for (var i = 0; i < _pendingImpactTransientSignals.Count; i++)
-            {
-                var signal = _pendingImpactTransientSignals[i];
-                if (!_poseResolver.TryResolveImpactTransientSignalLocalPoses(
-                        _projector,
-                        signal,
-                        out var sourceLocalPose,
-                        out var impactLocalPose))
-                {
-                    continue;
-                }
-
-                _stateStore.ViewsByEntityId.TryGetValue(signal.EntityId, out var sourceView);
-                _transientEffectPresenter.PlayImpactBreakEffect(
-                    signal,
-                    sourceView,
-                    sourceLocalPose,
-                    impactLocalPose,
-                    ResolveImpactBreakEffectDurationSeconds());
-            }
         }
 
         private static bool ShouldPlayLegacyEntityExitEffect(TickEntityExitCause exitCause)
         {
-            return exitCause == TickEntityExitCause.OutOfBounds;
+            _ = exitCause;
+            return false;
         }
 
         public void ApplyEntityExitOwnership()

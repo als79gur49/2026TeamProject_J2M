@@ -132,6 +132,38 @@ namespace Game.Feature.Gameplay.Vfx
                 {
                     AddExitRequest(context, builder, signal, BoxVfxCue.ItemConsume);
                 }
+                else if (signal.ExitCause == TickEntityExitCause.OutOfBounds)
+                {
+                    AddExitRequest(context, builder, signal, BoxVfxCue.OutOfBoundsExit, VfxAnchorSlot.CellCenter);
+                }
+            }
+
+            var impactSignals = presentationData.ImpactTransientSignals;
+            for (var i = 0; i < impactSignals.Count; i++)
+            {
+                var signal = impactSignals[i];
+                if (signal.EntityType != EntityType.Box ||
+                    signal.EntityId <= 0)
+                {
+                    continue;
+                }
+
+                builder.Add(
+                    new GameplayVfxRequest(
+                        tickIndex: context.TickIndex,
+                        sequenceId: signal.EntityId,
+                        presentationSeed: signal.PresentationSeed != 0
+                            ? signal.PresentationSeed
+                            : ComputeImpactTransientSequenceId(context.TickIndex, signal),
+                        sourceEntityId: signal.EntityId,
+                        cueId: GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak),
+                        anchor: VfxAnchor.ForCell(
+                            signal.SourceCell,
+                            signal.Topology,
+                            VfxAnchorSlot.CellCenter),
+                        timing: VfxTimingKind.ImmediateOnTickPresentation,
+                        isPersistent: false,
+                        persistentKey: VfxPersistentKey.None));
             }
         }
 
@@ -139,7 +171,8 @@ namespace Game.Feature.Gameplay.Vfx
             GameplayVfxPlanningContext context,
             GameplayVfxRequestPlanBuilder builder,
             in TickEntityExitPresentationSignal signal,
-            BoxVfxCue cue)
+            BoxVfxCue cue,
+            VfxAnchorSlot anchorSlot = VfxAnchorSlot.CellFloor)
         {
             builder.Add(
                 new GameplayVfxRequest(
@@ -151,10 +184,27 @@ namespace Game.Feature.Gameplay.Vfx
                     anchor: VfxAnchor.ForCell(
                         signal.SourceCell,
                         signal.Topology,
-                        VfxAnchorSlot.CellFloor),
+                        anchorSlot),
                     timing: VfxTimingKind.ImmediateOnTickPresentation,
                     isPersistent: false,
                     persistentKey: VfxPersistentKey.None));
+        }
+
+        private static int ComputeImpactTransientSequenceId(
+            int tickIndex,
+            in TickImpactTransientPresentationSignal signal)
+        {
+            unchecked
+            {
+                var hash = 17;
+                hash = (hash * 31) + tickIndex;
+                hash = (hash * 31) + signal.EntityId;
+                hash = (hash * 31) + (int)BoxVfxCue.ImpactTransientBreak;
+                hash = (hash * 31) + signal.SourceCell.GetHashCode();
+                hash = (hash * 31) + signal.ImpactCell.GetHashCode();
+                hash = (hash * 31) + signal.Topology.GetHashCode();
+                return hash == 0 ? 1 : hash;
+            }
         }
 
     }
@@ -248,6 +298,26 @@ namespace Game.Feature.Gameplay.Vfx
                     signal.ExitedEntityId <= 0 ||
                     !IsEnemyDeathExitCause(signal.ExitCause))
                 {
+                    if (signal.EntityType == EntityType.Unit &&
+                        signal.ExitedEntityId > 0 &&
+                        signal.ExitCause == TickEntityExitCause.OutOfBounds)
+                    {
+                        builder.Add(
+                            new GameplayVfxRequest(
+                                tickIndex: context.TickIndex,
+                                sequenceId: signal.ExitedEntityId,
+                                presentationSeed: signal.PresentationSeed != 0 ? signal.PresentationSeed : signal.ExitedEntityId,
+                                sourceEntityId: signal.ExitedEntityId,
+                                cueId: GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit),
+                                anchor: VfxAnchor.ForCell(
+                                    signal.SourceCell,
+                                    signal.Topology,
+                                    VfxAnchorSlot.CellCenter),
+                                timing: VfxTimingKind.ImmediateOnTickPresentation,
+                                isPersistent: false,
+                                persistentKey: VfxPersistentKey.None));
+                    }
+
                     continue;
                 }
 

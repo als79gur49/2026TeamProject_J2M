@@ -22,6 +22,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
         [SerializeField] private bool enableGameplayVfxFlipImpactBurstMigration = true;
         [SerializeField] private bool enableGameplayVfxFlipDestroySelfMotionMigration = true;
         [SerializeField] private bool enableGameplayVfxBoxSlideTrail = true;
+        [SerializeField] private bool enableGameplayVfxImpactTransientBreakMigration = true;
+        [SerializeField] private bool enableGameplayVfxOutOfBoundsExitMigration = true;
         [SerializeField] private bool enableGameplayVfxUtilityWindupMigration = true;
         [SerializeField] private bool enableGameplayVfxFrontFaceShieldActiveMigration = true;
         [SerializeField] private bool enableGameplayVfxFrontFaceShieldBlockMigration = true;
@@ -35,6 +37,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private readonly GameplayVfxRequestPlanBuilder planBuilder = new();
         private readonly HashSet<FlipDestroySelfMotionInstanceKey> playedFlipDestroySelfMotionKeys = new();
         private readonly HashSet<BoxSlideTrailMotionInstanceKey> playedBoxSlideTrailMotionKeys = new();
+        private readonly HashSet<ImpactTransientBreakInstanceKey> playedImpactTransientBreakKeys = new();
+        private readonly HashSet<OutOfBoundsExitInstanceKey> playedOutOfBoundsExitKeys = new();
 
         private AuthoringPrefabProvider prefabProvider;
         private GameplayVfxGameObjectPool pool;
@@ -51,6 +55,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private int boxSlideTrailMissingBindingCount;
         private int boxDestroyShrinkMissingBindingCount;
         private int boxDestroyShrinkMissingAnchorCount;
+        private int impactTransientBreakMissingBindingCount;
+        private int impactTransientBreakMissingAnchorCount;
+        private int outOfBoundsExitMissingBindingCount;
+        private int outOfBoundsExitMissingAnchorCount;
         private int enemyDeathMotionMissingBindingCount;
         private int enemyDeathMotionMissingAnchorCount;
         private Camera outputCamera;
@@ -236,6 +244,36 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
+        public bool EnableGameplayVfxImpactTransientBreakMigration
+        {
+            get => enableGameplayVfxImpactTransientBreakMigration;
+            set
+            {
+                if (enableGameplayVfxImpactTransientBreakMigration == value)
+                {
+                    return;
+                }
+
+                enableGameplayVfxImpactTransientBreakMigration = value;
+                ResetIfNoGameplayVfxEnabled();
+            }
+        }
+
+        public bool EnableGameplayVfxOutOfBoundsExitMigration
+        {
+            get => enableGameplayVfxOutOfBoundsExitMigration;
+            set
+            {
+                if (enableGameplayVfxOutOfBoundsExitMigration == value)
+                {
+                    return;
+                }
+
+                enableGameplayVfxOutOfBoundsExitMigration = value;
+                ResetIfNoGameplayVfxEnabled();
+            }
+        }
+
         public bool EnableGameplayVfxUtilityWindupMigration
         {
             get => enableGameplayVfxUtilityWindupMigration;
@@ -305,11 +343,15 @@ namespace Game.Feature.Gameplay.Vfx.Host
             flipDestroySelfMotionMissingBindingCount +
             boxSlideTrailMissingBindingCount +
             boxDestroyShrinkMissingBindingCount +
+            impactTransientBreakMissingBindingCount +
+            outOfBoundsExitMissingBindingCount +
             enemyDeathMotionMissingBindingCount;
 
         public int MissingAnchorCount =>
             (controller?.MissingAnchorCount ?? 0) +
             boxDestroyShrinkMissingAnchorCount +
+            impactTransientBreakMissingAnchorCount +
+            outOfBoundsExitMissingAnchorCount +
             enemyDeathMotionMissingAnchorCount;
 
         public int MissingPrefabCount => pool?.MissingPrefabCount ?? 0;
@@ -342,10 +384,16 @@ namespace Game.Feature.Gameplay.Vfx.Host
             boxSlideTrailMissingBindingCount = 0;
             boxDestroyShrinkMissingBindingCount = 0;
             boxDestroyShrinkMissingAnchorCount = 0;
+            impactTransientBreakMissingBindingCount = 0;
+            impactTransientBreakMissingAnchorCount = 0;
+            outOfBoundsExitMissingBindingCount = 0;
+            outOfBoundsExitMissingAnchorCount = 0;
             enemyDeathMotionMissingBindingCount = 0;
             enemyDeathMotionMissingAnchorCount = 0;
             playedFlipDestroySelfMotionKeys.Clear();
             playedBoxSlideTrailMotionKeys.Clear();
+            playedImpactTransientBreakKeys.Clear();
+            playedOutOfBoundsExitKeys.Clear();
             controller?.HardCleanupAll();
             planBuilder.Clear();
         }
@@ -406,6 +454,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var shouldPlayBoxDestroyShrink =
                 enableGameplayVfxBoxDestroyShrinkMigration &&
                 HasBoxDestroyExitSignal(context.Result.PresentationData);
+            var shouldPlayImpactTransientBreak =
+                enableGameplayVfxImpactTransientBreakMigration &&
+                HasImpactTransientBreakSignal(context.Result.PresentationData);
+            var shouldPlayOutOfBoundsExit =
+                enableGameplayVfxOutOfBoundsExitMigration &&
+                HasOutOfBoundsExitSignal(context.Result.PresentationData);
             var shouldPlayEnemyDeathMotion =
                 enableGameplayVfxEnemyDeathMotionMigration &&
                 HasEnemyDeathExitSignal(context.Result.PresentationData);
@@ -413,6 +467,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 !shouldPlayFlipDestroySelfMotion &&
                 !shouldPlayBoxSlideTrail &&
                 !shouldPlayBoxDestroyShrink &&
+                !shouldPlayImpactTransientBreak &&
+                !shouldPlayOutOfBoundsExit &&
                 !shouldPlayEnemyDeathMotion)
             {
                 controller?.Refresh(GameplayVfxRequestPlan.Empty);
@@ -430,6 +486,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var boxDestroyShrinkCommandCount = shouldPlayBoxDestroyShrink
                 ? PlayBoxDestroyShrinkCommands(context)
                 : 0;
+            var impactTransientBreakCommandCount = shouldPlayImpactTransientBreak
+                ? PlayImpactTransientBreakCommands(context)
+                : 0;
+            var outOfBoundsExitCommandCount = shouldPlayOutOfBoundsExit
+                ? PlayOutOfBoundsExitCommands(context)
+                : 0;
             var enemyDeathMotionCommandCount = shouldPlayEnemyDeathMotion
                 ? PlayEnemyDeathMotionCommands(context)
                 : 0;
@@ -437,6 +499,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                                       flipDestroySelfMotionCommandCount +
                                       boxSlideTrailCommandCount +
                                       boxDestroyShrinkCommandCount +
+                                      impactTransientBreakCommandCount +
+                                      outOfBoundsExitCommandCount +
                                       enemyDeathMotionCommandCount;
         }
 
@@ -451,6 +515,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             LastPlannedRequestCount = 0;
             playedFlipDestroySelfMotionKeys.Clear();
             playedBoxSlideTrailMotionKeys.Clear();
+            playedImpactTransientBreakKeys.Clear();
+            playedOutOfBoundsExitKeys.Clear();
         }
 
         private void EnsureRuntime(in GameplayTickPresentationExtensionContext context)
@@ -556,6 +622,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             enableGameplayVfxFlipImpactBurstMigration ||
             enableGameplayVfxFlipDestroySelfMotionMigration ||
             enableGameplayVfxBoxSlideTrail ||
+            enableGameplayVfxImpactTransientBreakMigration ||
+            enableGameplayVfxOutOfBoundsExitMigration ||
             enableGameplayVfxUtilityWindupMigration ||
             enableGameplayVfxFrontFaceShieldActiveMigration ||
             enableGameplayVfxFrontFaceShieldBlockMigration ||
@@ -588,7 +656,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             for (var i = 0; i < plan.Requests.Count; i++)
             {
                 var request = plan.Requests[i];
-                if (IsCueEnabled(request.CueId))
+                if (IsCueEnabled(request.CueId) &&
+                    !IsParameterizedCommandOwnedCue(request.CueId))
                 {
                     filteredRequests.Add(request);
                 }
@@ -615,8 +684,200 @@ namespace Game.Feature.Gameplay.Vfx.Host
                    (enableGameplayVfxFlipImpactBurstMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.FlipImpactBurst)) ||
                    (enableGameplayVfxFlipDestroySelfMotionMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.FlipDestroySelfMotion)) ||
                    (enableGameplayVfxBoxSlideTrail && cueId == GameplayVfxCueId.From(BoxVfxCue.SlideDustTrail)) ||
+                   (enableGameplayVfxImpactTransientBreakMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak)) ||
+                   (enableGameplayVfxOutOfBoundsExitMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.OutOfBoundsExit)) ||
+                   (enableGameplayVfxOutOfBoundsExitMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit)) ||
                    (enableEnemyJumpTargetVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)) ||
                    (enableEnemyJumpLandingDustVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingDust));
+        }
+
+        private static bool IsParameterizedCommandOwnedCue(GameplayVfxCueId cueId)
+        {
+            return cueId == GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak) ||
+                   cueId == GameplayVfxCueId.From(BoxVfxCue.OutOfBoundsExit) ||
+                   cueId == GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit);
+        }
+
+        private int PlayImpactTransientBreakCommands(in GameplayTickPresentationExtensionContext context)
+        {
+            var presentationData = context.Result.PresentationData;
+            if (presentationData == null || pool == null || bindingResolver == null)
+            {
+                return 0;
+            }
+
+            var trackState = new GameplayPresentationTrackState();
+            var poseResolver = new GameplayPoseResolver(context.StateStore, trackState);
+            var plannedCommandCount = 0;
+            var signals = presentationData.ImpactTransientSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (!ImpactTransientBreakVfxCommandBuilder.IsImpactTransientBreakCandidate(signal))
+                {
+                    continue;
+                }
+
+                if (!ImpactTransientBreakVfxCommandBuilder.TryBuild(
+                        context.Result.TickIndex,
+                        signal,
+                        context.TimingProfile,
+                        poseResolver,
+                        context.Projector,
+                        out var command))
+                {
+                    impactTransientBreakMissingAnchorCount++;
+                    continue;
+                }
+
+                plannedCommandCount++;
+                var key = ImpactTransientBreakInstanceKey.Create(context.Result.TickIndex, command);
+                if (playedImpactTransientBreakKeys.Contains(key))
+                {
+                    continue;
+                }
+
+                if (TryPlayImpactTransientBreakCommand(context.Result.TickIndex, signal, command))
+                {
+                    playedImpactTransientBreakKeys.Add(key);
+                }
+            }
+
+            return plannedCommandCount;
+        }
+
+        private bool TryPlayImpactTransientBreakCommand(
+            int tickIndex,
+            in TickImpactTransientPresentationSignal signal,
+            in ParameterizedMotionVfxCommand command)
+        {
+            var cueId = GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak);
+            var request = new GameplayVfxRequest(
+                tickIndex: tickIndex,
+                sequenceId: command.SequenceId,
+                presentationSeed: command.PresentationSeed,
+                sourceEntityId: signal.EntityId,
+                cueId: cueId,
+                anchor: VfxAnchor.ForCell(
+                    signal.SourceCell,
+                    signal.Topology,
+                    VfxAnchorSlot.CellCenter),
+                timing: VfxTimingKind.ImmediateOnTickPresentation,
+                isPersistent: false,
+                persistentKey: VfxPersistentKey.None);
+
+            if (!bindingResolver.TryResolve(request, out var policy))
+            {
+                impactTransientBreakMissingBindingCount++;
+                return false;
+            }
+
+            policy.ValidateOrThrow();
+            if (policy.CueId != request.CueId)
+            {
+                throw new InvalidOperationException("Gameplay VFX binding cue does not match ImpactTransientBreak request cue.");
+            }
+
+            var anchor = VfxResolvedAnchor.ForCell(
+                signal.SourceCell,
+                signal.Topology,
+                VfxAnchorSlot.CellCenter,
+                command.SourceLocalPosition,
+                command.SourceLocalRotation);
+            var playbackCommand = new ResolvedVfxPlaybackCommand(request, policy, anchor);
+            return pool.PlayParameterizedMotion(playbackCommand, command) != null;
+        }
+
+        private int PlayOutOfBoundsExitCommands(in GameplayTickPresentationExtensionContext context)
+        {
+            var presentationData = context.Result.PresentationData;
+            if (presentationData == null || pool == null || bindingResolver == null)
+            {
+                return 0;
+            }
+
+            var trackState = new GameplayPresentationTrackState();
+            var poseResolver = new GameplayPoseResolver(context.StateStore, trackState);
+            var plannedCommandCount = 0;
+            var signals = presentationData.EntityExitSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (!OutOfBoundsExitVfxCommandBuilder.IsOutOfBoundsExitCandidate(signal) ||
+                    !OutOfBoundsExitVfxCommandBuilder.TryResolveCue(signal, out var cueId))
+                {
+                    continue;
+                }
+
+                if (!OutOfBoundsExitVfxCommandBuilder.TryBuild(
+                        context.Result.TickIndex,
+                        signal,
+                        cueId,
+                        context.TimingProfile,
+                        poseResolver,
+                        context.Projector,
+                        out var command))
+                {
+                    outOfBoundsExitMissingAnchorCount++;
+                    continue;
+                }
+
+                plannedCommandCount++;
+                var key = OutOfBoundsExitInstanceKey.Create(context.Result.TickIndex, command);
+                if (playedOutOfBoundsExitKeys.Contains(key))
+                {
+                    continue;
+                }
+
+                if (TryPlayOutOfBoundsExitCommand(context.Result.TickIndex, signal, cueId, command))
+                {
+                    playedOutOfBoundsExitKeys.Add(key);
+                }
+            }
+
+            return plannedCommandCount;
+        }
+
+        private bool TryPlayOutOfBoundsExitCommand(
+            int tickIndex,
+            in TickEntityExitPresentationSignal signal,
+            GameplayVfxCueId cueId,
+            in ParameterizedMotionVfxCommand command)
+        {
+            var request = new GameplayVfxRequest(
+                tickIndex: tickIndex,
+                sequenceId: command.SequenceId,
+                presentationSeed: command.PresentationSeed,
+                sourceEntityId: signal.ExitedEntityId,
+                cueId: cueId,
+                anchor: VfxAnchor.ForCell(
+                    signal.SourceCell,
+                    signal.Topology,
+                    VfxAnchorSlot.CellCenter),
+                timing: VfxTimingKind.ImmediateOnTickPresentation,
+                isPersistent: false,
+                persistentKey: VfxPersistentKey.None);
+
+            if (!bindingResolver.TryResolve(request, out var policy))
+            {
+                outOfBoundsExitMissingBindingCount++;
+                return false;
+            }
+
+            policy.ValidateOrThrow();
+            if (policy.CueId != request.CueId)
+            {
+                throw new InvalidOperationException("Gameplay VFX binding cue does not match OutOfBoundsExit request cue.");
+            }
+
+            var anchor = VfxResolvedAnchor.ForCell(
+                signal.SourceCell,
+                signal.Topology,
+                VfxAnchorSlot.CellCenter,
+                command.SourceLocalPosition,
+                command.SourceLocalRotation);
+            var playbackCommand = new ResolvedVfxPlaybackCommand(request, policy, anchor);
+            return pool.PlayParameterizedMotion(playbackCommand, command) != null;
         }
 
         private int PlayEnemyDeathMotionCommands(in GameplayTickPresentationExtensionContext context)
@@ -1024,6 +1285,44 @@ namespace Game.Feature.Gameplay.Vfx.Host
             return false;
         }
 
+        private static bool HasImpactTransientBreakSignal(TickPresentationData presentationData)
+        {
+            if (presentationData == null)
+            {
+                return false;
+            }
+
+            var signals = presentationData.ImpactTransientSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                if (ImpactTransientBreakVfxCommandBuilder.IsImpactTransientBreakCandidate(signals[i]))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool HasOutOfBoundsExitSignal(TickPresentationData presentationData)
+        {
+            if (presentationData == null)
+            {
+                return false;
+            }
+
+            var signals = presentationData.EntityExitSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                if (OutOfBoundsExitVfxCommandBuilder.IsOutOfBoundsExitCandidate(signals[i]))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private static bool HasEnemyDeathExitSignal(TickPresentationData presentationData)
         {
             if (presentationData == null)
@@ -1041,6 +1340,87 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             return false;
+        }
+
+        private readonly struct ImpactTransientBreakInstanceKey : IEquatable<ImpactTransientBreakInstanceKey>
+        {
+            private ImpactTransientBreakInstanceKey(int sequenceId, int sourceEntityId)
+            {
+                SequenceId = sequenceId;
+                SourceEntityId = sourceEntityId;
+            }
+
+            private int SequenceId { get; }
+
+            private int SourceEntityId { get; }
+
+            public bool Equals(ImpactTransientBreakInstanceKey other)
+            {
+                return SequenceId == other.SequenceId &&
+                       SourceEntityId == other.SourceEntityId;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is ImpactTransientBreakInstanceKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(SequenceId, SourceEntityId);
+            }
+
+            public static ImpactTransientBreakInstanceKey Create(
+                int tickIndexFallback,
+                in ParameterizedMotionVfxCommand command)
+            {
+                return command.PresentationSeed != 0
+                    ? new ImpactTransientBreakInstanceKey(command.PresentationSeed, command.SourceEntityId)
+                    : new ImpactTransientBreakInstanceKey(tickIndexFallback, command.SourceEntityId);
+            }
+        }
+
+        private readonly struct OutOfBoundsExitInstanceKey : IEquatable<OutOfBoundsExitInstanceKey>
+        {
+            private OutOfBoundsExitInstanceKey(int sequenceId, int sourceEntityId, GameplayVfxCueId cueId)
+            {
+                SequenceId = sequenceId;
+                SourceEntityId = sourceEntityId;
+                CueId = cueId;
+            }
+
+            private int SequenceId { get; }
+
+            private int SourceEntityId { get; }
+
+            private GameplayVfxCueId CueId { get; }
+
+            public bool Equals(OutOfBoundsExitInstanceKey other)
+            {
+                return SequenceId == other.SequenceId &&
+                       SourceEntityId == other.SourceEntityId &&
+                       CueId.Equals(other.CueId);
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is OutOfBoundsExitInstanceKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(SequenceId, SourceEntityId, CueId);
+            }
+
+            public static OutOfBoundsExitInstanceKey Create(
+                int tickIndexFallback,
+                in ParameterizedMotionVfxCommand command)
+            {
+                var sequence = command.PresentationSeed != 0
+                    ? command.PresentationSeed
+                    : tickIndexFallback;
+                return new OutOfBoundsExitInstanceKey(sequence, command.SourceEntityId, command.CueId);
+            }
         }
 
         private readonly struct FlipDestroySelfMotionInstanceKey : IEquatable<FlipDestroySelfMotionInstanceKey>
