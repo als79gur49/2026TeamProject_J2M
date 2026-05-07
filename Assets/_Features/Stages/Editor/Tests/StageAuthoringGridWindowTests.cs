@@ -219,6 +219,71 @@ namespace Game.Feature.Stages.Editor.Tests
                 });
         }
 
+        [Test]
+        public void TileFeatureMode_AddsTileFeatureIntoEntityOccupiedTarget()
+        {
+            WithWindow(
+                new[] { Placement("a", FaceId.Floor, 0, 0) },
+                (window, authoring) =>
+                {
+                    window.SetEditModeForTests(StageAuthoringGridEditMode.TileFeaturePlacement);
+                    window.SetTargetCellForTests(FaceId.Floor, new Vector2Int(0, 0));
+                    window.SetTileFeatureDraftForTests(
+                        TileFeatureKind.Button,
+                        TileFeatureActivationRule.BottomFaceOnly,
+                        Direction2D.None,
+                        TileFeatureBoxSelector.AnyPushableBox,
+                        0);
+
+                    window.AddTileFeatureAtTargetCellForTests();
+
+                    Assert.That(authoring.Placements, Has.Count.EqualTo(1));
+                    Assert.That(authoring.TileFeatures, Has.Count.EqualTo(1));
+                    Assert.That(authoring.TileFeatures[0].Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+                    Assert.That(window.SelectedTileFeatureIdForTests, Is.EqualTo(authoring.TileFeatures[0].TileId));
+                });
+        }
+
+        [Test]
+        public void TileFeatureMode_SelectedCellListUsesCurrentFaceOnly()
+        {
+            WithWindow(
+                new[] { Placement("a", FaceId.Floor, 0, 0) },
+                (window, authoring) =>
+                {
+                    authoring.SetTileFeatures(new[]
+                    {
+                        new StageTileFeatureDefinition
+                        {
+                            TileId = 1,
+                            Cell = new SurfaceCell(FaceId.Floor, 0, 0),
+                            Kind = TileFeatureKind.Button,
+                            ActivationRule = TileFeatureActivationRule.BottomFaceOnly,
+                            Direction = Direction2D.None,
+                            BoxSelector = TileFeatureBoxSelector.AnyPushableBox,
+                        },
+                        new StageTileFeatureDefinition
+                        {
+                            TileId = 2,
+                            Cell = new SurfaceCell(FaceId.Front, 0, 0),
+                            Kind = TileFeatureKind.Button,
+                            ActivationRule = TileFeatureActivationRule.BottomFaceOnly,
+                            Direction = Direction2D.None,
+                            BoxSelector = TileFeatureBoxSelector.AnyPushableBox,
+                        },
+                    });
+
+                    window.SetEditModeForTests(StageAuthoringGridEditMode.TileFeaturePlacement);
+                    window.SetTargetCellForTests(FaceId.Floor, new Vector2Int(0, 0));
+
+                    Assert.That(window.CountTileFeaturesAtTargetForTests(), Is.EqualTo(1));
+
+                    window.SetTargetCellForTests(FaceId.Front, new Vector2Int(0, 0));
+
+                    Assert.That(window.CountTileFeaturesAtTargetForTests(), Is.EqualTo(1));
+                });
+        }
+
         private static void WithWindow(
             StagePlacedEntityAuthoring[] placements,
             System.Action<StageAuthoringGridWindow, StageAuthoringDefinition> action)

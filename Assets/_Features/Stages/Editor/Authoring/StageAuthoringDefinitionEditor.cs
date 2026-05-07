@@ -20,6 +20,7 @@ namespace Game.Feature.Stages.Editor
             EditorGUILayout.Space();
             EditorGUILayout.PropertyField(serializedObject.FindProperty("board"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("placements"), includeChildren: true);
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("tileFeatures"), includeChildren: true);
             EditorGUILayout.PropertyField(serializedObject.FindProperty("zones"), includeChildren: true);
             EditorGUILayout.PropertyField(serializedObject.FindProperty("objective"), includeChildren: true);
             EditorGUILayout.PropertyField(serializedObject.FindProperty("entityIdMappings"), includeChildren: true);
@@ -59,7 +60,7 @@ namespace Game.Feature.Stages.Editor
                         StageAuthoringGenerateOptions.WriteAll);
                 }
 
-                if (GUILayout.Button("Open Grid Editor"))
+                if (GUILayout.Button("Open Grid / TileFeature Editor"))
                 {
                     StageAuthoringGridWindow.Open(authoring);
                 }

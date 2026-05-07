@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Linq;
+using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using NUnit.Framework;
 
 namespace Game.Feature.Stages.Editor.Tests
@@ -89,6 +91,46 @@ namespace Game.Feature.Stages.Editor.Tests
             var resolver = File.ReadAllText("Assets/_Features/Stages/Runtime/Load/StageRuntimeContentResolver.cs");
             Assert.That(builder.Contains("AuthoringDefinition", StringComparison.Ordinal), Is.False);
             Assert.That(resolver.Contains("AuthoringDefinition", StringComparison.Ordinal), Is.False);
+        }
+
+        [Test]
+        public void OverlayFeature_NotModeledAsEntityKind()
+        {
+            const string forbiddenName = "Tile" + "Feature";
+            Assert.That(Enum.GetNames(typeof(StageAuthoringEntityKind)), Does.Not.Contain(forbiddenName));
+            Assert.That(Enum.GetNames(typeof(EntityType)), Does.Not.Contain(forbiddenName));
+        }
+
+        [Test]
+        public void OverlayFeature_CellFieldUsesSurfaceCell()
+        {
+            var field = typeof(StageTileFeatureDefinition).GetField(nameof(StageTileFeatureDefinition.Cell));
+
+            Assert.That(field, Is.Not.Null);
+            Assert.That(field.FieldType, Is.EqualTo(typeof(SurfaceCell)));
+        }
+
+        [Test]
+        public void StageDefinitionAndRuntimeBuildResult_DoNotContainTileFeatureVisualPrefab()
+        {
+            var stageDefinitionSource = File.ReadAllText("Assets/_Features/Stages/Runtime/StageDefinition.cs");
+            var buildResultSource = File.ReadAllText("Assets/_Features/Stages/Runtime/StageRuntimeBuildResult.cs");
+
+            Assert.That(stageDefinitionSource, Does.Not.Contain("VisualPrefab"));
+            Assert.That(stageDefinitionSource, Does.Not.Contain("TileFeaturePresentationBinding"));
+            Assert.That(buildResultSource, Does.Not.Contain("VisualPrefab"));
+            Assert.That(buildResultSource, Does.Not.Contain("TileFeaturePresentationBinding"));
+        }
+
+        [Test]
+        public void TileFeatureVisualBinding_RemainsStagePresentationDefinitionOwned()
+        {
+            var stagePresentationDefinitionSource =
+                File.ReadAllText("Assets/_Features/Stages/Runtime/Content/StagePresentationDefinition.cs");
+
+            Assert.That(stagePresentationDefinitionSource, Does.Contain("TileFeaturePresentationBinding"));
+            Assert.That(stagePresentationDefinitionSource, Does.Contain("VisualPrefab"));
+            Assert.That(stagePresentationDefinitionSource, Does.Not.Contain("TileFeatureAudio"));
         }
 
         private static bool RuntimeSourceContains(string text)

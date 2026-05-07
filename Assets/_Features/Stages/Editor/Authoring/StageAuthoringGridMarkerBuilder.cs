@@ -1,3 +1,5 @@
+using Game.Feature.Gameplay.BoardState;
+
 namespace Game.Feature.Stages.Editor
 {
     internal static class StageAuthoringGridMarkerBuilder
@@ -24,6 +26,25 @@ namespace Game.Feature.Stages.Editor
                 ? marker
                 : "?";
             return kindMarker + StageAuthoringFacingDisplayUtility.ToFacingArrow(placement.Facing);
+        }
+
+        public static string BuildTileFeatureBadge(StageTileFeatureDefinition feature)
+        {
+            return BuildTileFeatureKindMarker(feature.Kind) + feature.TileId;
+        }
+
+        private static string BuildTileFeatureKindMarker(TileFeatureKind kind)
+        {
+            return kind switch
+            {
+                TileFeatureKind.Button => "B",
+                TileFeatureKind.Destroy => "D",
+                TileFeatureKind.Slide => "S",
+                TileFeatureKind.Barricade => "X",
+                TileFeatureKind.Exit => "E",
+                TileFeatureKind.MoonBlockGenerator => "G",
+                _ => "?",
+            };
         }
     }
 }

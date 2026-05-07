@@ -9,7 +9,8 @@ namespace Game.Feature.Stages.Editor
         public static StageAuthoringEntityKind? DrawGrid(
             StageAuthoringDefinition authoring,
             StageAuthoringGridSelectionState selection,
-            StageAuthoringEntityKind? focusedGridKind)
+            StageAuthoringEntityKind? focusedGridKind,
+            bool tileFeaturePlacementMode)
         {
             var board = authoring.Board;
             EditorGUILayout.LabelField(
@@ -39,6 +40,30 @@ namespace Game.Feature.Stages.Editor
                             marker = StageAuthoringGridMarkerBuilder.Build(placement, duplicateCell: true);
                         }
 
+                        var tileFeatureCount = selection.CountTileFeaturesAt(
+                            authoring.TileFeatures,
+                            selection.TargetFace,
+                            x,
+                            y);
+                        if (tileFeatureCount > 0)
+                        {
+                            var tileFeatureIndex = selection.FindTileFeatureAt(
+                                authoring.TileFeatures,
+                                selection.TargetFace,
+                                x,
+                                y);
+                            var tileFeatureMarker = StageAuthoringGridMarkerBuilder.BuildTileFeatureBadge(
+                                authoring.TileFeatures[tileFeatureIndex]);
+                            if (tileFeatureCount > 1)
+                            {
+                                tileFeatureMarker += $"+{tileFeatureCount - 1}";
+                            }
+
+                            marker = marker == "."
+                                ? tileFeatureMarker
+                                : $"{marker}/{tileFeatureMarker}";
+                        }
+
                         if (selection.TargetCell.x == x && selection.TargetCell.y == y)
                         {
                             marker = $"[{marker}]";
@@ -46,7 +71,17 @@ namespace Game.Feature.Stages.Editor
 
                         if (DrawGridCellButton(marker, placement, nextFocusedGridKind))
                         {
-                            selection.SelectCell(selection.TargetFace, new Vector2Int(x, y), authoring.Placements);
+                            if (tileFeaturePlacementMode)
+                            {
+                                selection.SelectTileFeatureCell(
+                                    selection.TargetFace,
+                                    new Vector2Int(x, y),
+                                    authoring.TileFeatures);
+                            }
+                            else
+                            {
+                                selection.SelectCell(selection.TargetFace, new Vector2Int(x, y), authoring.Placements);
+                            }
                         }
                     }
                 }
@@ -78,7 +113,7 @@ namespace Game.Feature.Stages.Editor
 
             try
             {
-                return GUILayout.Button(marker, GUILayout.Width(36), GUILayout.Height(28));
+                return GUILayout.Button(marker, GUILayout.Width(72), GUILayout.Height(28));
             }
             finally
             {

@@ -14,6 +14,10 @@ namespace Game.Feature.Stages.Editor
 
         public int SelectedIndexHint { get; private set; } = -1;
 
+        public int SelectedTileFeatureId { get; private set; }
+
+        public int SelectedTileFeatureIndexHint { get; private set; } = -1;
+
         public void SetTargetFace(FaceId face)
         {
             TargetFace = face;
@@ -38,6 +42,19 @@ namespace Game.Feature.Stages.Editor
             }
         }
 
+        public void SelectTileFeatureCell(
+            FaceId face,
+            Vector2Int cell,
+            IReadOnlyList<StageTileFeatureDefinition> tileFeatures)
+        {
+            SetTargetCell(face, cell);
+            var index = FindTileFeatureAt(tileFeatures, face, cell.x, cell.y);
+            if (index >= 0)
+            {
+                SelectTileFeature(index, tileFeatures);
+            }
+        }
+
         public void SelectPlacement(
             int index,
             IReadOnlyList<StagePlacedEntityAuthoring> placements)
@@ -56,6 +73,48 @@ namespace Game.Feature.Stages.Editor
         {
             SelectedStableGuid = string.Empty;
             SelectedIndexHint = -1;
+        }
+
+        public void SelectTileFeature(
+            int index,
+            IReadOnlyList<StageTileFeatureDefinition> tileFeatures)
+        {
+            if (tileFeatures == null || index < 0 || index >= tileFeatures.Count)
+            {
+                ClearSelectedTileFeature();
+                return;
+            }
+
+            SelectedTileFeatureIndexHint = index;
+            SelectedTileFeatureId = tileFeatures[index].TileId;
+        }
+
+        public void SelectTileFeatureById(
+            int tileId,
+            IReadOnlyList<StageTileFeatureDefinition> tileFeatures)
+        {
+            if (tileFeatures == null || tileId <= 0)
+            {
+                ClearSelectedTileFeature();
+                return;
+            }
+
+            for (var i = 0; i < tileFeatures.Count; i++)
+            {
+                if (tileFeatures[i].TileId == tileId)
+                {
+                    SelectTileFeature(i, tileFeatures);
+                    return;
+                }
+            }
+
+            ClearSelectedTileFeature();
+        }
+
+        public void ClearSelectedTileFeature()
+        {
+            SelectedTileFeatureId = 0;
+            SelectedTileFeatureIndexHint = -1;
         }
 
         public int ResolveSelectedPlacementIndex(IReadOnlyList<StagePlacedEntityAuthoring> placements)
@@ -83,6 +142,36 @@ namespace Game.Feature.Stages.Editor
             }
 
             ClearSelectedPlacement();
+            return -1;
+        }
+
+        public int ResolveSelectedTileFeatureIndex(IReadOnlyList<StageTileFeatureDefinition> tileFeatures)
+        {
+            if (tileFeatures == null || tileFeatures.Count == 0)
+            {
+                ClearSelectedTileFeature();
+                return -1;
+            }
+
+            if (SelectedTileFeatureId > 0)
+            {
+                for (var i = 0; i < tileFeatures.Count; i++)
+                {
+                    if (tileFeatures[i].TileId == SelectedTileFeatureId)
+                    {
+                        SelectedTileFeatureIndexHint = i;
+                        return i;
+                    }
+                }
+            }
+
+            if (SelectedTileFeatureIndexHint >= 0 && SelectedTileFeatureIndexHint < tileFeatures.Count)
+            {
+                SelectedTileFeatureId = tileFeatures[SelectedTileFeatureIndexHint].TileId;
+                return SelectedTileFeatureIndexHint;
+            }
+
+            ClearSelectedTileFeature();
             return -1;
         }
 
@@ -141,6 +230,83 @@ namespace Game.Feature.Stages.Editor
             }
 
             return count;
+        }
+
+        public int FindTileFeatureAt(
+            IReadOnlyList<StageTileFeatureDefinition> tileFeatures,
+            FaceId face,
+            int x,
+            int y)
+        {
+            if (tileFeatures == null)
+            {
+                return -1;
+            }
+
+            for (var i = 0; i < tileFeatures.Count; i++)
+            {
+                var feature = tileFeatures[i];
+                if (feature.Cell.face == face &&
+                    feature.Cell.x == x &&
+                    feature.Cell.y == y)
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        public int CountTileFeaturesAt(
+            IReadOnlyList<StageTileFeatureDefinition> tileFeatures,
+            FaceId face,
+            int x,
+            int y)
+        {
+            if (tileFeatures == null)
+            {
+                return 0;
+            }
+
+            var count = 0;
+            for (var i = 0; i < tileFeatures.Count; i++)
+            {
+                var feature = tileFeatures[i];
+                if (feature.Cell.face == face &&
+                    feature.Cell.x == x &&
+                    feature.Cell.y == y)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        public int[] FindTileFeatureIndicesAt(
+            IReadOnlyList<StageTileFeatureDefinition> tileFeatures,
+            FaceId face,
+            int x,
+            int y)
+        {
+            if (tileFeatures == null)
+            {
+                return System.Array.Empty<int>();
+            }
+
+            var indices = new List<int>();
+            for (var i = 0; i < tileFeatures.Count; i++)
+            {
+                var feature = tileFeatures[i];
+                if (feature.Cell.face == face &&
+                    feature.Cell.x == x &&
+                    feature.Cell.y == y)
+                {
+                    indices.Add(i);
+                }
+            }
+
+            return indices.ToArray();
         }
 
         public bool IsSelectedPlacementAtTarget(
