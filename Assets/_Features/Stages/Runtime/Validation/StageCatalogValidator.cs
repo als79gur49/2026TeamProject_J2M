@@ -1045,8 +1045,135 @@ namespace Game.Feature.Stages
             if (entry.PresentationDefinition != null)
             {
                 ValidateBgmReference(entry.PresentationDefinition.BgmReference, entry.PresentationDefinition, options, report);
+                ValidateBoardTilePresentationCatalog(entry, options, report);
                 ValidateTileFeaturePresentationCatalog(entry, options, report);
                 ValidateTileFeaturePresentationBindings(entry, options, report);
+            }
+        }
+
+        private static void ValidateBoardTilePresentationCatalog(
+            StageContentEntry entry,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            var presentation = entry.PresentationDefinition;
+            var catalog = presentation != null ? presentation.BoardTilePresentationCatalog : null;
+            if (catalog == null)
+            {
+                return;
+            }
+
+            var catalogPath = GetAssetPath(catalog, options);
+            var entries = catalog.Entries;
+            var seenKeys = new HashSet<string>(StringComparer.Ordinal);
+            var defaultRoles = new HashSet<BoardTileVisualRole>();
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var catalogEntry = entries[i];
+                var fieldPrefix = $"BoardTilePresentationCatalog.Entries[{i}]";
+                if (catalogEntry == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile.catalog.entry-null",
+                        $"BoardTilePresentationCatalog '{catalog.name}' entry[{i}] is null.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                    continue;
+                }
+
+                var presentationKey = catalogEntry.PresentationKey;
+                if (string.IsNullOrEmpty(presentationKey))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile.catalog.key-empty",
+                        $"BoardTilePresentationCatalog '{catalog.name}' {fieldPrefix} must declare a non-empty PresentationKey.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                }
+                else if (!seenKeys.Add(presentationKey))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile.catalog.key-duplicate",
+                        $"BoardTilePresentationCatalog '{catalog.name}' contains duplicate PresentationKey '{presentationKey}'.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                }
+
+                if (!Enum.IsDefined(typeof(BoardTileVisualRole), catalogEntry.Role))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile.catalog.role-invalid",
+                        $"BoardTilePresentationCatalog '{catalog.name}' {fieldPrefix} has invalid BoardTileVisualRole value {(int)catalogEntry.Role}.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                }
+
+                if (catalogEntry.IsDefaultForRole &&
+                    !defaultRoles.Add(catalogEntry.Role))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile.catalog.default-duplicate",
+                        $"BoardTilePresentationCatalog '{catalog.name}' has multiple default entries for {catalogEntry.Role}.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                }
+
+                if (catalogEntry.TilePrefab == null &&
+                    catalogEntry.MaterialFallback == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile.catalog.visual-missing",
+                        $"BoardTilePresentationCatalog '{catalog.name}' {fieldPrefix} must assign a tile prefab or material fallback.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                    continue;
+                }
+
+                if (catalogEntry.TilePrefab != null &&
+                    catalogEntry.TilePrefab.GetComponentInChildren<Renderer>(includeInactive: true) == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Warning,
+                        "presentation.board-tile.catalog.prefab-renderer-missing",
+                        $"BoardTilePresentationCatalog '{catalog.name}' {fieldPrefix} prefab '{catalogEntry.TilePrefab.name}' has no Renderer in self or children.",
+                        catalogEntry.TilePrefab,
+                        GetAssetPath(catalogEntry.TilePrefab, options),
+                        options.Timing);
+                }
+            }
+
+            if (!catalog.TryGetDefaultEntry(BoardTileVisualRole.ActiveBottom, out _))
+            {
+                report.Add(
+                    StageValidationSeverity.Warning,
+                    "presentation.board-tile.catalog.default-active-bottom-missing",
+                    $"BoardTilePresentationCatalog '{catalog.name}' has no default entry for {BoardTileVisualRole.ActiveBottom}.",
+                    catalog,
+                    catalogPath,
+                    options.Timing);
+            }
+
+            if (!catalog.TryGetDefaultEntry(BoardTileVisualRole.ActiveFront, out _))
+            {
+                report.Add(
+                    StageValidationSeverity.Warning,
+                    "presentation.board-tile.catalog.default-active-front-missing",
+                    $"BoardTilePresentationCatalog '{catalog.name}' has no default entry for {BoardTileVisualRole.ActiveFront}.",
+                    catalog,
+                    catalogPath,
+                    options.Timing);
             }
         }
 

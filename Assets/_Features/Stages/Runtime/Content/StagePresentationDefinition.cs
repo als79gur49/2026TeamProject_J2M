@@ -25,6 +25,7 @@ namespace Game.Feature.Stages
         [SerializeField] private EnemyPresentationBinding[] enemyPresentationBindings = Array.Empty<EnemyPresentationBinding>();
         [SerializeField] private StaticEntityPresentationCatalog staticEntityPresentationCatalog;
         [SerializeField] private StaticEntityPresentationBinding[] staticEntityPresentationBindings = Array.Empty<StaticEntityPresentationBinding>();
+        [SerializeField] private BoardTilePresentationCatalog boardTilePresentationCatalog;
         [SerializeField] private TileFeaturePresentationCatalog tileFeaturePresentationCatalog;
         [SerializeField] private TileFeaturePresentationBinding[] tileFeaturePresentationBindings = Array.Empty<TileFeaturePresentationBinding>();
         [SerializeField] private string resultTitle = "Stage Cleared";
@@ -53,6 +54,8 @@ namespace Game.Feature.Stages
         public StaticEntityPresentationBinding[] StaticEntityPresentationBindings =>
             staticEntityPresentationBindings ?? Array.Empty<StaticEntityPresentationBinding>();
 
+        public BoardTilePresentationCatalog BoardTilePresentationCatalog => boardTilePresentationCatalog;
+
         public TileFeaturePresentationCatalog TileFeaturePresentationCatalog => tileFeaturePresentationCatalog;
 
         public TileFeaturePresentationBinding[] TileFeaturePresentationBindings =>
@@ -80,6 +83,7 @@ namespace Game.Feature.Stages
             staticEntityPresentationCatalog = resolvedData.StaticEntityPresentationCatalog;
             staticEntityPresentationBindings =
                 resolvedData.StaticEntityPresentationBindings ?? Array.Empty<StaticEntityPresentationBinding>();
+            boardTilePresentationCatalog = resolvedData.BoardTilePresentationCatalog;
             tileFeaturePresentationCatalog = resolvedData.TileFeaturePresentationCatalog;
             tileFeaturePresentationBindings =
                 StagePresentationAssembler.ToAuthoringBindings(resolvedData.TileFeatureBindings);

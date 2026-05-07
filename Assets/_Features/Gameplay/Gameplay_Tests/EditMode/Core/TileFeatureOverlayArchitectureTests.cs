@@ -705,6 +705,33 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
+        public void BoardTileCatalog_DoesNotEnterGameplayLoopOrBoardState()
+        {
+            var boardTileCatalog = "BoardTile" + "PresentationCatalog";
+            var gameplayLoopSources = Directory.GetFiles(
+                GetAbsolutePath(GameplayLoopRuntimePath),
+                "*.cs",
+                SearchOption.AllDirectories);
+            var boardStateSources = Directory.GetFiles(
+                GetAbsolutePath(GameplayBoardStateRuntimePath),
+                "*.cs",
+                SearchOption.AllDirectories);
+
+            foreach (var sourcePath in gameplayLoopSources)
+            {
+                var source = File.ReadAllText(sourcePath);
+                Assert.That(source, Does.Not.Contain(boardTileCatalog), sourcePath);
+            }
+
+            foreach (var sourcePath in boardStateSources)
+            {
+                var source = File.ReadAllText(sourcePath);
+                Assert.That(source, Does.Not.Contain(boardTileCatalog), sourcePath);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void StageTileFeatureVisualInstantiation_DoesNotReferenceAuthorityOrMutationTypes()
         {
             var source = File.ReadAllText(GetAbsolutePath(GameplayHostRuntimeFactoryPath));
@@ -743,8 +770,8 @@ namespace Game.Feature.Gameplay.Tests.Core
                 "TileEffect",
                 "StageRuntimeBuildResult",
                 "StageDefinition",
-                "BoardTilePresentationCatalog",
-                "ReplaceBaseTile",
+                "BoardTile" + "PresentationCatalog",
+                "Replace" + "BaseTile",
                 "Play3D",
                 "Spatial",
                 "spatial",

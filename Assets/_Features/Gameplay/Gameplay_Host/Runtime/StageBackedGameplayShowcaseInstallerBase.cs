@@ -64,6 +64,7 @@ namespace Game.Feature.Gameplay.Host
                 compositionData.PresentationData.EnemyPresentationBindings,
                 compositionData.PresentationData.StaticEntityPresentationCatalog,
                 compositionData.PresentationData.StaticEntityPresentationBindings,
+                compositionData.PresentationData.BoardTilePresentationCatalog,
                 compositionData.PresentationData.TileFeatureBindings);
         }
 

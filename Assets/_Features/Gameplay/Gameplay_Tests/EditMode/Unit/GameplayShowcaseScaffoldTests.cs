@@ -1070,6 +1070,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Array.Empty<EnemyPresentationBinding>(),
                     InitialStaticEntityPresentationCatalogOverride,
                     Array.Empty<StaticEntityPresentationBinding>(),
+                    null,
                     Array.Empty<TileFeaturePresentationResolvedBinding>());
             }
 

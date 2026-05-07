@@ -1,0 +1,289 @@
+using System;
+using System.Reflection;
+using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Host;
+using Game.Feature.Stages;
+using NUnit.Framework;
+using UnityEngine;
+
+namespace Game.Feature.Gameplay.Tests.Unit
+{
+    public sealed class BoardSurfaceRendererBoardTileCatalogTests
+    {
+        [Test]
+        [Category("Full")]
+        public void BoardSurfaceRenderer_CatalogNull_UsesExistingCubeMaterialPath()
+        {
+            var rootObject = new GameObject("BoardSurfaceRenderer_CatalogNull_UsesExistingCubeMaterialPath");
+
+            try
+            {
+                var renderer = rootObject.AddComponent<GameplayBoardSurfaceRenderer>();
+
+                renderer.Initialize(
+                    new BoardBounds(Vector2Int.zero, Vector2Int.zero),
+                    1f,
+                    new CubeTopologyState(FaceId.Floor));
+
+                var tile = FindTile(renderer.VisibleTilePoolRoot, "ActiveBottom_Floor_0_0");
+
+                Assert.That(tile.GetComponent<MeshFilter>(), Is.Not.Null);
+                Assert.That(tile.GetComponent<MeshRenderer>(), Is.Not.Null);
+                Assert.That(tile.GetComponent<BoardTileCatalogTestMarker>(), Is.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void BoardSurfaceRenderer_UsesCatalogPrefabForActiveBottom()
+        {
+            var rootObject = new GameObject("BoardSurfaceRenderer_UsesCatalogPrefabForActiveBottom");
+            var prefab = CreatePrefab("ActiveBottomBoardTilePrefab");
+            var material = CreateMaterial("ActiveFrontFallback");
+            var catalog = CreateCatalog(
+                Entry("bottom", BoardTileVisualRole.ActiveBottom, prefab, null, isDefault: true),
+                Entry("front", BoardTileVisualRole.ActiveFront, null, material, isDefault: true));
+
+            try
+            {
+                var renderer = rootObject.AddComponent<GameplayBoardSurfaceRenderer>();
+
+                renderer.Initialize(
+                    new BoardBounds(Vector2Int.zero, Vector2Int.zero),
+                    1f,
+                    new CubeTopologyState(FaceId.Floor),
+                    boardTilePresentationCatalog: catalog);
+
+                var bottomTile = FindTile(renderer.VisibleTilePoolRoot, "ActiveBottom_Floor_0_0");
+
+                Assert.That(bottomTile.GetComponent<BoardTileCatalogTestMarker>(), Is.Not.Null);
+            }
+            finally
+            {
+                DestroyObjects(rootObject, prefab, catalog, material);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void BoardSurfaceRenderer_UsesMaterialFallbackWhenNoPrefab()
+        {
+            var rootObject = new GameObject("BoardSurfaceRenderer_UsesMaterialFallbackWhenNoPrefab");
+            var bottomMaterial = CreateMaterial("ActiveBottomMaterialFallback");
+            var frontMaterial = CreateMaterial("ActiveFrontMaterialFallback");
+            var catalog = CreateCatalog(
+                Entry("bottom", BoardTileVisualRole.ActiveBottom, null, bottomMaterial, isDefault: true),
+                Entry("front", BoardTileVisualRole.ActiveFront, null, frontMaterial, isDefault: true));
+
+            try
+            {
+                var renderer = rootObject.AddComponent<GameplayBoardSurfaceRenderer>();
+
+                renderer.Initialize(
+                    new BoardBounds(Vector2Int.zero, Vector2Int.zero),
+                    1f,
+                    new CubeTopologyState(FaceId.Floor),
+                    boardTilePresentationCatalog: catalog);
+
+                var bottomTile = FindTile(renderer.VisibleTilePoolRoot, "ActiveBottom_Floor_0_0");
+                var bottomRenderer = bottomTile.GetComponent<MeshRenderer>();
+
+                Assert.That(bottomRenderer, Is.Not.Null);
+                Assert.That(bottomRenderer.sharedMaterial, Is.SameAs(bottomMaterial));
+            }
+            finally
+            {
+                DestroyObjects(rootObject, catalog, bottomMaterial, frontMaterial);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void BoardSurfaceRenderer_UsesGenericDefaultWhenRoleDefaultMissing()
+        {
+            var rootObject = new GameObject("BoardSurfaceRenderer_UsesGenericDefaultWhenRoleDefaultMissing");
+            var prefab = CreatePrefab("GenericBoardTilePrefab");
+            var catalog = CreateCatalog(
+                Entry("generic", BoardTileVisualRole.GenericDefault, prefab, null, isDefault: true));
+
+            try
+            {
+                var renderer = rootObject.AddComponent<GameplayBoardSurfaceRenderer>();
+
+                renderer.Initialize(
+                    new BoardBounds(Vector2Int.zero, Vector2Int.zero),
+                    1f,
+                    new CubeTopologyState(FaceId.Floor),
+                    boardTilePresentationCatalog: catalog);
+
+                var bottomTile = FindTile(renderer.VisibleTilePoolRoot, "ActiveBottom_Floor_0_0");
+                var frontTile = FindTile(renderer.VisibleTilePoolRoot, "ActiveFront_Front_0_0");
+
+                Assert.That(bottomTile.GetComponent<BoardTileCatalogTestMarker>(), Is.Not.Null);
+                Assert.That(frontTile.GetComponent<BoardTileCatalogTestMarker>(), Is.Not.Null);
+            }
+            finally
+            {
+                DestroyObjects(rootObject, prefab, catalog);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void BoardSurfaceRenderer_TransitionPool_UsesCatalogDescriptor()
+        {
+            var rootObject = new GameObject("BoardSurfaceRenderer_TransitionPool_UsesCatalogDescriptor");
+            var bottomPrefab = CreatePrefab("TransitionBottomPrefab");
+            var frontMaterial = CreateMaterial("TransitionFrontMaterial");
+            var catalog = CreateCatalog(
+                Entry("bottom", BoardTileVisualRole.ActiveBottom, bottomPrefab, null, isDefault: true),
+                Entry("front", BoardTileVisualRole.ActiveFront, null, frontMaterial, isDefault: true));
+            var sourceTopology = new CubeTopologyState(FaceId.Floor);
+            var destinationTopology = new CubeTopologyState(FaceId.Front);
+
+            try
+            {
+                var renderer = rootObject.AddComponent<GameplayBoardSurfaceRenderer>();
+
+                renderer.Initialize(
+                    new BoardBounds(Vector2Int.zero, Vector2Int.zero),
+                    1f,
+                    sourceTopology,
+                    boardTilePresentationCatalog: catalog);
+                renderer.BeginTopologyTransition(sourceTopology, destinationTopology);
+
+                var transitionTile = FindTile(renderer.TransitionTilePoolRoot, "ActiveBottom_Front_0_0");
+
+                Assert.That(transitionTile.GetComponent<BoardTileCatalogTestMarker>(), Is.Not.Null);
+            }
+            finally
+            {
+                DestroyObjects(rootObject, bottomPrefab, catalog, frontMaterial);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void BoardSurfaceRenderer_Rebuild_DoesNotLeakOldPrefabTiles()
+        {
+            var rootObject = new GameObject("BoardSurfaceRenderer_Rebuild_DoesNotLeakOldPrefabTiles");
+            var oldPrefab = CreatePrefab("OldBoardTilePrefab");
+            var newMaterial = CreateMaterial("NewBoardTileMaterial");
+            var oldCatalog = CreateCatalog(
+                Entry("old-bottom", BoardTileVisualRole.ActiveBottom, oldPrefab, null, isDefault: true),
+                Entry("old-front", BoardTileVisualRole.ActiveFront, oldPrefab, null, isDefault: true));
+            var newCatalog = CreateCatalog(
+                Entry("new-bottom", BoardTileVisualRole.ActiveBottom, null, newMaterial, isDefault: true),
+                Entry("new-front", BoardTileVisualRole.ActiveFront, null, newMaterial, isDefault: true));
+
+            try
+            {
+                var renderer = rootObject.AddComponent<GameplayBoardSurfaceRenderer>();
+                var boardBounds = new BoardBounds(Vector2Int.zero, Vector2Int.zero);
+                var topology = new CubeTopologyState(FaceId.Floor);
+
+                renderer.Initialize(boardBounds, 1f, topology, boardTilePresentationCatalog: oldCatalog);
+                var oldTile = FindTile(renderer.VisibleTilePoolRoot, "ActiveBottom_Floor_0_0");
+
+                renderer.Initialize(boardBounds, 1f, topology, boardTilePresentationCatalog: newCatalog);
+                var newTile = FindTile(renderer.VisibleTilePoolRoot, "ActiveBottom_Floor_0_0");
+
+                Assert.That(oldTile == null, Is.True);
+                Assert.That(newTile.GetComponent<BoardTileCatalogTestMarker>(), Is.Null);
+                Assert.That(newTile.GetComponent<MeshRenderer>().sharedMaterial, Is.SameAs(newMaterial));
+            }
+            finally
+            {
+                DestroyObjects(rootObject, oldPrefab, oldCatalog, newCatalog, newMaterial);
+            }
+        }
+
+        private static GameObject FindTile(Transform root, string tileName)
+        {
+            Assert.That(root, Is.Not.Null);
+            var tile = root.Find(tileName);
+            Assert.That(tile, Is.Not.Null, $"Expected tile '{tileName}' under '{root.name}'.");
+            return tile.gameObject;
+        }
+
+        private static GameObject CreatePrefab(string name)
+        {
+            var prefab = new GameObject(name);
+            prefab.AddComponent<BoardTileCatalogTestMarker>();
+            var child = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            child.name = "Renderer";
+            child.transform.SetParent(prefab.transform, worldPositionStays: false);
+            var collider = child.GetComponent<Collider>();
+            if (collider != null)
+            {
+                UnityEngine.Object.DestroyImmediate(collider);
+            }
+
+            return prefab;
+        }
+
+        private static Material CreateMaterial(string materialName)
+        {
+            var shader = Shader.Find("Standard") ?? Shader.Find("Sprites/Default");
+            Assert.That(shader, Is.Not.Null, "Expected a test shader to be available.");
+            return new Material(shader)
+            {
+                name = materialName,
+            };
+        }
+
+        private static BoardTilePresentationCatalogEntry Entry(
+            string presentationKey,
+            BoardTileVisualRole role,
+            GameObject tilePrefab,
+            Material materialFallback,
+            bool isDefault)
+        {
+            var entry = new BoardTilePresentationCatalogEntry();
+            SetPrivateField(entry, "presentationKey", presentationKey);
+            SetPrivateField(entry, "displayName", presentationKey);
+            SetPrivateField(entry, "role", role);
+            SetPrivateField(entry, "tilePrefab", tilePrefab);
+            SetPrivateField(entry, "materialFallback", materialFallback);
+            SetPrivateField(entry, "isDefaultForRole", isDefault);
+            return entry;
+        }
+
+        private static BoardTilePresentationCatalog CreateCatalog(
+            params BoardTilePresentationCatalogEntry[] entries)
+        {
+            var catalog = ScriptableObject.CreateInstance<BoardTilePresentationCatalog>();
+            catalog.name = "BoardSurfaceRendererBoardTileCatalogTests";
+            SetPrivateField(catalog, "entries", entries ?? Array.Empty<BoardTilePresentationCatalogEntry>());
+            return catalog;
+        }
+
+        private static void SetPrivateField(object target, string fieldName, object value)
+        {
+            var field = target.GetType().GetField(
+                fieldName,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, $"Missing field '{fieldName}' on {target.GetType().Name}.");
+            field.SetValue(target, value);
+        }
+
+        private static void DestroyObjects(params UnityEngine.Object[] objects)
+        {
+            for (var i = 0; i < objects.Length; i++)
+            {
+                if (objects[i] != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(objects[i]);
+                }
+            }
+        }
+
+        private sealed class BoardTileCatalogTestMarker : MonoBehaviour
+        {
+        }
+    }
+}

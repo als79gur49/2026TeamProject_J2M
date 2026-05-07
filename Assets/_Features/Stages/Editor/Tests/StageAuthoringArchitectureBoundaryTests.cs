@@ -128,6 +128,20 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void BoardTileCatalog_DoesNotEnterGameplayDefinitions()
+        {
+            var stageDefinitionSource = File.ReadAllText("Assets/_Features/Stages/Runtime/StageDefinition.cs");
+            var buildResultSource = File.ReadAllText("Assets/_Features/Stages/Runtime/StageRuntimeBuildResult.cs");
+
+            Assert.That(stageDefinitionSource, Does.Not.Contain("BoardTilePresentationCatalog"));
+            Assert.That(stageDefinitionSource, Does.Not.Contain("BoardTileVisualRole"));
+            Assert.That(stageDefinitionSource, Does.Not.Contain("BoardTilePresentationCatalogEntry"));
+            Assert.That(buildResultSource, Does.Not.Contain("BoardTilePresentationCatalog"));
+            Assert.That(buildResultSource, Does.Not.Contain("BoardTileVisualRole"));
+            Assert.That(buildResultSource, Does.Not.Contain("BoardTilePresentationCatalogEntry"));
+        }
+
+        [Test]
         public void TileFeatureVisualBinding_RemainsStagePresentationDefinitionOwned()
         {
             var stagePresentationDefinitionSource =
@@ -155,6 +169,53 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 var source = File.ReadAllText(sourcePath);
                 Assert.That(source, Does.Not.Contain("TileFeaturePresentationCatalog"), sourcePath);
+            }
+        }
+
+        [Test]
+        public void BoardTileCatalog_DoesNotEnterGameplayLoopOrBoardState()
+        {
+            var gameplayLoopSources = Directory.GetFiles(
+                "Assets/_Features/Gameplay/Gameplay_Loop",
+                "*.cs",
+                SearchOption.AllDirectories);
+            var boardStateSources = Directory.GetFiles(
+                "Assets/_Features/Gameplay/Gameplay_BoardState",
+                "*.cs",
+                SearchOption.AllDirectories);
+
+            foreach (var sourcePath in gameplayLoopSources.Concat(boardStateSources))
+            {
+                var source = File.ReadAllText(sourcePath);
+                Assert.That(source, Does.Not.Contain("BoardTilePresentationCatalog"), sourcePath);
+            }
+        }
+
+        [Test]
+        public void BoardTileCatalog_DoesNotOpenForbiddenTileFeatureOrTerrainPolicy()
+        {
+            var tileFeatureCatalogSource =
+                File.ReadAllText("Assets/_Features/Stages/Runtime/Content/TileFeaturePresentationCatalog.cs");
+            Assert.That(tileFeatureCatalogSource, Does.Not.Contain("BoardTilePresentationCatalog"));
+
+            var allSources = Directory.GetFiles("Assets", "*.cs", SearchOption.AllDirectories);
+            var replaceBaseTile = "Replace" + "BaseTile";
+            var tfvMode = "TileFeature" + "Visual" + "PlacementMode";
+            var vPlacementMode = "Visual" + "PlacementMode";
+            var entityTypeTileFeature = "EntityType." + "TileFeature";
+            var terrainFlagTileFeature = "Terrain" + "Flags." + "TileFeature";
+            var boardTileTerrainFlag = "BoardTile" + "Terrain" + "Flags";
+            var terrainFlagBoardTile = "Terrain" + "Flags" + "BoardTile";
+            foreach (var sourcePath in allSources)
+            {
+                var source = File.ReadAllText(sourcePath);
+                Assert.That(source, Does.Not.Contain(replaceBaseTile), sourcePath);
+                Assert.That(source, Does.Not.Contain(tfvMode), sourcePath);
+                Assert.That(source, Does.Not.Contain(vPlacementMode), sourcePath);
+                Assert.That(source, Does.Not.Contain(entityTypeTileFeature), sourcePath);
+                Assert.That(source, Does.Not.Contain(terrainFlagTileFeature), sourcePath);
+                Assert.That(source, Does.Not.Contain(boardTileTerrainFlag), sourcePath);
+                Assert.That(source, Does.Not.Contain(terrainFlagBoardTile), sourcePath);
             }
         }
 

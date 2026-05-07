@@ -33,6 +33,7 @@ namespace Game.Feature.Stages
             EnemyPresentationBinding[] enemyPresentationBindings,
             StaticEntityPresentationCatalog staticEntityPresentationCatalog,
             StaticEntityPresentationBinding[] staticEntityPresentationBindings,
+            BoardTilePresentationCatalog boardTilePresentationCatalog,
             TileFeaturePresentationCatalog tileFeaturePresentationCatalog,
             IReadOnlyList<TileFeaturePresentationResolvedBinding> tileFeatureBindings,
             string resultTitle,
@@ -50,6 +51,7 @@ namespace Game.Feature.Stages
             EnemyPresentationBindings = enemyPresentationBindings ?? Array.Empty<EnemyPresentationBinding>();
             StaticEntityPresentationCatalog = staticEntityPresentationCatalog;
             StaticEntityPresentationBindings = staticEntityPresentationBindings ?? Array.Empty<StaticEntityPresentationBinding>();
+            BoardTilePresentationCatalog = boardTilePresentationCatalog;
             TileFeaturePresentationCatalog = tileFeaturePresentationCatalog;
             TileFeatureBindings = CloneReadOnlyBindings(tileFeatureBindings);
             ResultTitle = resultTitle ?? string.Empty;
@@ -77,6 +79,8 @@ namespace Game.Feature.Stages
         public StaticEntityPresentationCatalog StaticEntityPresentationCatalog { get; }
 
         public StaticEntityPresentationBinding[] StaticEntityPresentationBindings { get; }
+
+        public BoardTilePresentationCatalog BoardTilePresentationCatalog { get; }
 
         public TileFeaturePresentationCatalog TileFeaturePresentationCatalog { get; }
 
@@ -142,6 +146,7 @@ namespace Game.Feature.Stages
             null,
             Array.Empty<StaticEntityPresentationBinding>(),
             null,
+            null,
             Array.Empty<TileFeaturePresentationResolvedBinding>(),
             string.Empty,
             string.Empty,
@@ -166,6 +171,7 @@ namespace Game.Feature.Stages
                 CloneBindings(definition.EnemyPresentationBindings),
                 definition.StaticEntityPresentationCatalog,
                 CloneBindings(definition.StaticEntityPresentationBindings),
+                definition.BoardTilePresentationCatalog,
                 definition.TileFeaturePresentationCatalog,
                 ResolveTileFeatureBindings(definition.TileFeaturePresentationBindings),
                 definition.ResultTitle,
@@ -194,6 +200,7 @@ namespace Game.Feature.Stages
                 CloneBindings(definition.EnemyPresentationBindings),
                 definition.StaticEntityPresentationCatalog,
                 CloneBindings(definition.StaticEntityPresentationBindings),
+                definition.BoardTilePresentationCatalog,
                 definition.TileFeaturePresentationCatalog,
                 ResolveTileFeatureBindings(
                     gameplayDefinition,

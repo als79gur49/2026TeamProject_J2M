@@ -124,6 +124,7 @@ namespace Game.Feature.Stages.Editor
                 "Generated Presentation",
                 presentation != null ? presentation.name : "None");
             var catalog = presentation != null ? presentation.TileFeaturePresentationCatalog : null;
+            DrawBoardTilePresentationSummary(presentation);
             EditorGUILayout.LabelField(
                 "TileFeature Catalog",
                 catalog != null ? catalog.name : "Missing");
@@ -171,6 +172,77 @@ namespace Game.Feature.Stages.Editor
                     }
                 }
             }
+        }
+
+        private static void DrawBoardTilePresentationSummary(StagePresentationDefinition presentation)
+        {
+            var catalog = presentation != null ? presentation.BoardTilePresentationCatalog : null;
+            var entryCount = catalog != null ? catalog.Entries.Count : 0;
+            var invalidEntryCount = CountInvalidBoardTileCatalogEntries(catalog);
+            var missingRoleDefaultCount = CountMissingBoardTileRoleDefaults(catalog);
+
+            EditorGUILayout.LabelField(
+                "BoardTile Catalog",
+                catalog != null ? catalog.name : "Missing");
+            EditorGUILayout.LabelField(
+                "BoardTile Catalog Summary",
+                $"entries={entryCount}, invalid entries={invalidEntryCount}, missing role defaults={missingRoleDefaultCount}");
+        }
+
+        private static int CountInvalidBoardTileCatalogEntries(BoardTilePresentationCatalog catalog)
+        {
+            if (catalog == null)
+            {
+                return 0;
+            }
+
+            var invalidCount = 0;
+            var seenKeys = new System.Collections.Generic.HashSet<string>(System.StringComparer.Ordinal);
+            var defaultRoles = new System.Collections.Generic.HashSet<BoardTileVisualRole>();
+            var entries = catalog.Entries;
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                if (entry == null)
+                {
+                    invalidCount++;
+                    continue;
+                }
+
+                var presentationKey = entry.PresentationKey;
+                var invalid = string.IsNullOrEmpty(presentationKey) ||
+                              !seenKeys.Add(presentationKey) ||
+                              !System.Enum.IsDefined(typeof(BoardTileVisualRole), entry.Role) ||
+                              entry.IsDefaultForRole && !defaultRoles.Add(entry.Role) ||
+                              entry.TilePrefab == null && entry.MaterialFallback == null;
+                if (invalid)
+                {
+                    invalidCount++;
+                }
+            }
+
+            return invalidCount;
+        }
+
+        private static int CountMissingBoardTileRoleDefaults(BoardTilePresentationCatalog catalog)
+        {
+            if (catalog == null)
+            {
+                return 0;
+            }
+
+            var missingCount = 0;
+            if (!catalog.TryGetDefaultEntry(BoardTileVisualRole.ActiveBottom, out _))
+            {
+                missingCount++;
+            }
+
+            if (!catalog.TryGetDefaultEntry(BoardTileVisualRole.ActiveFront, out _))
+            {
+                missingCount++;
+            }
+
+            return missingCount;
         }
 
         private static int CountUnresolvedTileFeaturePresentationKeys(
