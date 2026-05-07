@@ -104,8 +104,8 @@ Relation to `BoxVfxCue.DestroySmoke`:
 
 Future:
 
-- generic `PresentationMotionTrack`
-- multi-phase motion runtime
+- extending generic `PresentationMotionTrack` beyond FlipImpact Stay
+- additional multi-phase motion migrations
 - MotionTrack anchor/follow VFX support
 - full `VfxAnchorKind.MotionTrack` anchor playback remains future work.
 
@@ -116,7 +116,7 @@ Future:
 Ownership:
 
 - `FlipImpactStayMotionCommand` preserves source/impact cells, topology, facing, local source/impact poses, duration, contact timing, post-contact hold, squash timing, return arc multiplier, arc height, and presentation seed.
-- `FlipImpactTrack` still executes sampling in this slice: source -> impact -> contact hold/squash -> return arc -> exact source reset.
+- `FlipImpactTrack` remains as the Stay compatibility adapter, while generic original-view presentation motion sampling executes source -> impact -> contact hold/squash -> return arc -> exact source reset.
 - `GameplayEntityPresentationApplier` applies the sampled pose to the original entity view and performs completion cleanup.
 - `BoxFlipInteractionDriver` remains the grip point and visualRoot overlay/reset coupling for player hand and box interaction. It is not a VFX spawner.
 

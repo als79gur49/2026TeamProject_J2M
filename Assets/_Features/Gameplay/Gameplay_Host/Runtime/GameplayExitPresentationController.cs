@@ -83,7 +83,7 @@ namespace Game.Feature.Gameplay.Host
 
                 _trackState.JumpTracks.Remove(entityId);
                 _trackState.LocalMotionTracks.Remove(entityId);
-                _trackState.StayFlipImpactTracks.Remove(entityId);
+                _trackState.OriginalViewMotionTracks.Remove(entityId);
                 _trackState.VisibilityTracks.Remove(entityId);
                 _stateStore.CommittedLocalTargetPoses.Remove(entityId);
                 _stateStore.CommittedFacesByEntityId.Remove(entityId);

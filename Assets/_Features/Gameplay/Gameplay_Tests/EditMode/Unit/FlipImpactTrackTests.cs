@@ -116,6 +116,93 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void FlipImpactStayMotionCommandAdapter_BuildsGenericPresentationMotionCommand()
+        {
+            var command = CreateCommand(sourceActionPlanId: 0, presentationSeed: 99);
+
+            var presentationCommand =
+                FlipImpactStayPresentationMotionCommandAdapter.ToPresentationMotionCommand(command);
+
+            Assert.That(presentationCommand.EntityId, Is.EqualTo(command.BoxEntityId));
+            Assert.That(presentationCommand.Kind, Is.EqualTo(PresentationMotionKind.FlipImpactStay));
+            Assert.That(
+                presentationCommand.InstanceKey,
+                Is.EqualTo(new PresentationMotionInstanceKey(
+                    PresentationMotionKind.FlipImpactStay,
+                    99,
+                    command.BoxEntityId,
+                    usesTickFallback: true)));
+            Assert.That(presentationCommand.Phases.Count, Is.EqualTo(3));
+            Assert.That(presentationCommand.Phases.Phase0.Kind, Is.EqualTo(PresentationMotionPhaseKind.Arc));
+            Assert.That(presentationCommand.Phases.Phase1.Kind, Is.EqualTo(PresentationMotionPhaseKind.Hold));
+            Assert.That(presentationCommand.Phases.Phase2.Kind, Is.EqualTo(PresentationMotionPhaseKind.Arc));
+            Assert.That(presentationCommand.ScalePolicy, Is.EqualTo(PresentationMotionScalePolicy.FlipImpactStay));
+            Assert.That(
+                presentationCommand.InteractionPolicy,
+                Is.EqualTo(PresentationMotionInteractionPolicy.SuppressBoxInteractionOverlay));
+            Assert.That(presentationCommand.HasRequiredFinalCell, Is.True);
+            Assert.That(presentationCommand.RequiredFinalCell, Is.EqualTo(command.SourceCell));
+            Assert.That(Vector3.Distance(presentationCommand.CompletionPose.Position, command.SourceLocalPosition), Is.LessThanOrEqualTo(0.0001f));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PresentationMotionTrack_FlipImpactStay_MatchesLegacyTrackSamples()
+        {
+            var command = CreateCommand();
+            var legacyTrack = FlipImpactTrack.CreateStay(command);
+            var genericTrack = PresentationMotionTrack.CreateFlipImpactStay(command);
+
+            AdvanceAndAssertSampleMatches(
+                legacyTrack,
+                genericTrack,
+                command.DurationSeconds * command.ContactNormalizedTime * 0.5f);
+            AdvanceAndAssertSampleMatches(
+                legacyTrack,
+                genericTrack,
+                command.DurationSeconds * command.PostContactHoldNormalizedDuration * 0.5f);
+            AdvanceAndAssertSampleMatches(
+                legacyTrack,
+                genericTrack,
+                command.DurationSeconds * (1f - command.ContactNormalizedTime));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PresentationMotionTrack_FlipImpactStay_ReturnArcMultiplierZero_ReturnsWithoutArcLift()
+        {
+            var command = CreateCommand(returnArcMultiplier: 0f);
+            var track = PresentationMotionTrack.CreateFlipImpactStay(command);
+            var holdEndTime = command.ContactNormalizedTime + command.PostContactHoldNormalizedDuration;
+            var returnMidpointTime = holdEndTime + ((1f - holdEndTime) * 0.5f);
+
+            track.Advance(command.DurationSeconds * returnMidpointTime);
+            var sample = track.Sample();
+
+            Assert.That(sample.LocalPose.Position.x, Is.GreaterThan(command.SourceLocalPosition.x));
+            Assert.That(sample.LocalPose.Position.x, Is.LessThan(command.ImpactLocalPosition.x));
+            Assert.That(Mathf.Abs(sample.LocalPose.Position.z), Is.LessThanOrEqualTo(0.0001f));
+            Assert.That(sample.SuppressBoxInteractionOverlay, Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PresentationMotionTrack_FlipImpactStay_CompletesAtExactSourcePose()
+        {
+            var command = CreateCommand();
+            var track = PresentationMotionTrack.CreateFlipImpactStay(command);
+
+            track.Advance(command.DurationSeconds);
+            var sample = track.Sample();
+
+            Assert.That(track.IsComplete, Is.True);
+            Assert.That(Vector3.Distance(sample.LocalPose.Position, command.SourceLocalPosition), Is.LessThanOrEqualTo(0.0001f));
+            Assert.That(Quaternion.Angle(sample.LocalPose.Rotation, command.SourceLocalRotation), Is.LessThanOrEqualTo(0.001f));
+            Assert.That(Vector3.Distance(sample.CompletionPose.Position, command.SourceLocalPosition), Is.LessThanOrEqualTo(0.0001f));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void FlipImpactStayMotionCommandBuilder_BuildsFromStaySignal()
         {
             var fixture = CreateBuilderFixture();
@@ -288,6 +375,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static FlipImpactTrack CreateTrack(in FlipImpactStayMotionCommand command)
         {
             return FlipImpactTrack.CreateStay(command);
+        }
+
+        private static void AdvanceAndAssertSampleMatches(
+            FlipImpactTrack legacyTrack,
+            PresentationMotionTrack genericTrack,
+            float deltaSeconds)
+        {
+            legacyTrack.Advance(deltaSeconds);
+            genericTrack.Advance(deltaSeconds);
+
+            var legacyPose = legacyTrack.Sample();
+            var genericSample = genericTrack.Sample();
+            var legacyScale = legacyTrack.SampleVisualScaleMultiplier();
+
+            Assert.That(Vector3.Distance(genericSample.LocalPose.Position, legacyPose.Position), Is.LessThanOrEqualTo(0.0001f));
+            Assert.That(Quaternion.Angle(genericSample.LocalPose.Rotation, legacyPose.Rotation), Is.LessThanOrEqualTo(0.001f));
+            Assert.That(Vector3.Distance(genericSample.VisualScaleMultiplier, legacyScale), Is.LessThanOrEqualTo(0.0001f));
         }
 
         private static FlipImpactStayMotionCommand CreateCommand(

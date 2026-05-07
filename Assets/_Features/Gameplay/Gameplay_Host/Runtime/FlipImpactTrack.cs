@@ -49,31 +49,20 @@ namespace Game.Feature.Gameplay.Host
 
     internal sealed class FlipImpactTrack
     {
-        private readonly GameplayEntityPose _impactPose;
-        private readonly GameplayEntityPose _sourcePose;
-        private readonly float _arcHeightWorld;
+        private readonly PresentationMotionTrack _track;
         private readonly FlipImpactPresentationDisposition _disposition;
-        private readonly FlipImpactTimingSettings _timingSettings;
-        private float _elapsedSeconds;
+        private readonly float _contactNormalizedTime;
 
         private FlipImpactTrack(
-            FlipImpactInstanceKey key,
+            PresentationMotionTrack track,
             FlipImpactPresentationSignal signal,
-            GameplayEntityPose sourcePose,
-            GameplayEntityPose impactPose,
-            float durationSeconds,
-            float arcHeightWorld,
-            FlipImpactTimingSettings timingSettings)
+            FlipImpactPresentationDisposition disposition,
+            float contactNormalizedTime)
         {
-            InstanceKey = key;
+            _track = track ?? throw new ArgumentNullException(nameof(track));
             Signal = signal;
-            _sourcePose = sourcePose;
-            _impactPose = impactPose;
-            DurationSeconds = Mathf.Max(0.0001f, durationSeconds);
-            _arcHeightWorld = Mathf.Max(0f, arcHeightWorld);
-            _timingSettings = timingSettings;
-            _disposition = signal.Disposition;
-            _elapsedSeconds = 0f;
+            _disposition = disposition;
+            _contactNormalizedTime = Mathf.Clamp01(contactNormalizedTime);
         }
 
         public static FlipImpactTrack CreateStay(in FlipImpactStayMotionCommand command)
@@ -90,155 +79,57 @@ namespace Game.Feature.Gameplay.Host
                 command.ImpactFacing,
                 FlipImpactPresentationDisposition.Stay,
                 hasLandingCell: false);
-            var timingSettings = new FlipImpactTimingSettings(
-                command.ContactNormalizedTime,
-                command.ReturnArcMultiplier,
-                0f,
-                command.PostContactHoldNormalizedDuration);
-
             return new FlipImpactTrack(
-                FlipImpactInstanceKey.Create(signal, command.PresentationSeed),
+                PresentationMotionTrack.CreateFlipImpactStay(command),
                 signal,
-                command.SourcePose,
-                command.ImpactPose,
-                command.DurationSeconds,
-                command.ArcHeightWorld,
-                timingSettings);
+                FlipImpactPresentationDisposition.Stay,
+                command.ContactNormalizedTime);
         }
 
-        public FlipImpactInstanceKey InstanceKey { get; }
+        public FlipImpactInstanceKey InstanceKey => _track.InstanceKey.ToFlipImpactInstanceKey();
 
         public FlipImpactPresentationSignal Signal { get; }
 
-        public float DurationSeconds { get; }
+        public float DurationSeconds => _track.DurationSeconds;
 
-        public float ElapsedSeconds => _elapsedSeconds;
+        public float ElapsedSeconds => _track.ElapsedSeconds;
 
-        public float NormalizedTime => Mathf.Clamp01(_elapsedSeconds / DurationSeconds);
+        public float NormalizedTime => _track.NormalizedTime;
 
-        public bool IsComplete { get; private set; }
+        public bool IsComplete => _track.IsComplete;
 
-        public GameplayEntityPose SourcePose => _sourcePose;
+        public GameplayEntityPose SourcePose => _track.SourcePose;
 
-        public GameplayEntityPose ImpactPose => _impactPose;
+        public GameplayEntityPose ImpactPose => _track.ContactPose;
 
         public FlipImpactPresentationDisposition Disposition => _disposition;
 
-        public float ContactNormalizedTime => _timingSettings.ContactNormalizedTime;
+        public float ContactNormalizedTime => _contactNormalizedTime;
 
         public float DestroyBreakNormalizedTime
         {
             get
             {
-                var denominator = Mathf.Max(0.0001f, _timingSettings.DestroyBreakNormalizedDuration);
+                var denominator = 0.0001f;
                 return Mathf.Clamp01((NormalizedTime - ContactNormalizedTime) / denominator);
             }
         }
 
-        public GameplayEntityPose ContactPose => _impactPose;
+        public GameplayEntityPose ContactPose => _track.ContactPose;
 
         public void Advance(float deltaTime)
         {
-            if (IsComplete || deltaTime <= 0f)
-            {
-                return;
-            }
-
-            _elapsedSeconds = Mathf.Min(DurationSeconds, _elapsedSeconds + deltaTime);
-            if (_elapsedSeconds >= DurationSeconds - 0.0001f)
-            {
-                IsComplete = true;
-            }
+            _track.Advance(deltaTime);
         }
 
         public GameplayEntityPose Sample()
         {
-            var normalizedTime = NormalizedTime;
-            if (_disposition == FlipImpactPresentationDisposition.Stay)
-            {
-                return SampleStay(normalizedTime);
-            }
-
-            if (normalizedTime <= ContactNormalizedTime)
-            {
-                return SamplePreContact(normalizedTime);
-            }
-
-            return _impactPose;
+            return _track.Sample().LocalPose;
         }
 
         public Vector3 SampleVisualScaleMultiplier()
         {
-            var normalizedTime = NormalizedTime;
-            if (_disposition == FlipImpactPresentationDisposition.Stay)
-            {
-                return SampleStayVisualScale(normalizedTime);
-            }
-
-            if (normalizedTime <= ContactNormalizedTime)
-            {
-                return SamplePreContactVisualScale(normalizedTime);
-            }
-
-            return BoxMotionVisualScaleSampler.SampleFlipSettle(DestroyBreakNormalizedTime);
-        }
-
-        private GameplayEntityPose SampleStay(float normalizedTime)
-        {
-            if (normalizedTime <= ContactNormalizedTime)
-            {
-                return SamplePreContact(normalizedTime);
-            }
-
-            var holdEndNormalizedTime = Mathf.Min(
-                1f,
-                ContactNormalizedTime + _timingSettings.StayPostContactHoldNormalizedDuration);
-            if (normalizedTime <= holdEndNormalizedTime)
-            {
-                return _impactPose;
-            }
-
-            var returnDenominator = Mathf.Max(0.0001f, 1f - holdEndNormalizedTime);
-            var returnTime = Mathf.Clamp01((normalizedTime - holdEndNormalizedTime) / returnDenominator);
-            return FlipArcSampler.Sample(
-                _impactPose,
-                _sourcePose,
-                returnTime,
-                _arcHeightWorld * _timingSettings.StayReturnArcHeightMultiplier);
-        }
-
-        private GameplayEntityPose SamplePreContact(float normalizedTime)
-        {
-            var preContactDenominator = Mathf.Max(0.0001f, ContactNormalizedTime);
-            var contactTime = Mathf.Clamp01(normalizedTime / preContactDenominator);
-            return FlipArcSampler.Sample(_sourcePose, _impactPose, contactTime, _arcHeightWorld);
-        }
-
-        private Vector3 SampleStayVisualScale(float normalizedTime)
-        {
-            if (normalizedTime <= ContactNormalizedTime)
-            {
-                return SamplePreContactVisualScale(normalizedTime);
-            }
-
-            var holdEndNormalizedTime = Mathf.Min(
-                1f,
-                ContactNormalizedTime + _timingSettings.StayPostContactHoldNormalizedDuration);
-            if (normalizedTime <= holdEndNormalizedTime)
-            {
-                var holdDenominator = Mathf.Max(0.0001f, holdEndNormalizedTime - ContactNormalizedTime);
-                return BoxMotionVisualScaleSampler.SampleFlipSettle(
-                    Mathf.Clamp01((normalizedTime - ContactNormalizedTime) / holdDenominator));
-            }
-
-            return Vector3.one;
-        }
-
-        private Vector3 SamplePreContactVisualScale(float normalizedTime)
-        {
-            var preContactDenominator = Mathf.Max(0.0001f, ContactNormalizedTime);
-            return BoxMotionVisualScaleSampler.SampleFlipFlight(
-                Mathf.Clamp01(normalizedTime / preContactDenominator));
+            return _track.Sample().VisualScaleMultiplier;
         }
     }
 }

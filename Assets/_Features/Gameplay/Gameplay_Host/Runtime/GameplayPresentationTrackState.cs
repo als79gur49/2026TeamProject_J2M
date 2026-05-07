@@ -36,10 +36,10 @@ namespace Game.Feature.Gameplay.Host
         private readonly List<int> _completedMotionTrackIds = new();
         private readonly List<int> _completedMotionVisualScaleEntityIds = new();
         private readonly List<int> _completedPlayerDeathDisplacementTrackIds = new();
-        private readonly List<int> _completedStayFlipImpactTrackIds = new();
+        private readonly List<int> _completedOriginalViewMotionTrackIds = new();
         private readonly List<FlipInteractionResetRequest> _flipInteractionResetRequests = new();
         private readonly Dictionary<int, FlipInteractionTrack> _flipInteractionTracks = new();
-        private readonly HashSet<FlipImpactInstanceKey> _completedFlipImpactKeys = new();
+        private readonly HashSet<PresentationMotionInstanceKey> _completedPresentationMotionKeys = new();
         private readonly List<int> _completedTransitionVisibilityStateIds = new();
         private readonly List<int> _completedVisibilityTrackIds = new();
         private readonly Dictionary<int, JumpTrack> _jumpTracks = new();
@@ -50,7 +50,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, GameplayEntityPose> _playerDeathHoldPoses = new();
         private readonly HashSet<int> _playerDeathHoldSignalEntityIds = new();
         private readonly Dictionary<int, PlayerDeathDisplacementTrack> _playerDeathDisplacementTracks = new();
-        private readonly Dictionary<int, FlipImpactTrack> _stayFlipImpactTracks = new();
+        private readonly Dictionary<int, PresentationMotionTrack> _originalViewMotionTracks = new();
         private readonly Dictionary<int, TickPlayerLocomotionPresentationSignal> _playerLocomotionSignalsByEntityId = new();
         private readonly HashSet<int> _visibleEntityIds = new();
         private readonly Dictionary<int, VisibilityTrack> _visibilityTracks = new();
@@ -65,7 +65,7 @@ namespace Game.Feature.Gameplay.Host
 
         public List<int> CompletedPlayerDeathDisplacementTrackIds => _completedPlayerDeathDisplacementTrackIds;
 
-        public List<int> CompletedStayFlipImpactTrackIds => _completedStayFlipImpactTrackIds;
+        public List<int> CompletedOriginalViewMotionTrackIds => _completedOriginalViewMotionTrackIds;
 
         public List<int> CompletedTransitionVisibilityStateIds => _completedTransitionVisibilityStateIds;
 
@@ -75,7 +75,7 @@ namespace Game.Feature.Gameplay.Host
 
         public Dictionary<int, FlipInteractionTrack> FlipInteractionTracks => _flipInteractionTracks;
 
-        public HashSet<FlipImpactInstanceKey> CompletedFlipImpactKeys => _completedFlipImpactKeys;
+        public HashSet<PresentationMotionInstanceKey> CompletedPresentationMotionKeys => _completedPresentationMotionKeys;
 
         public Dictionary<int, JumpTrack> JumpTracks => _jumpTracks;
 
@@ -93,7 +93,7 @@ namespace Game.Feature.Gameplay.Host
 
         public Dictionary<int, PlayerDeathDisplacementTrack> PlayerDeathDisplacementTracks => _playerDeathDisplacementTracks;
 
-        public Dictionary<int, FlipImpactTrack> StayFlipImpactTracks => _stayFlipImpactTracks;
+        public Dictionary<int, PresentationMotionTrack> OriginalViewMotionTracks => _originalViewMotionTracks;
 
         public Dictionary<int, TickPlayerLocomotionPresentationSignal> PlayerLocomotionSignalsByEntityId =>
             _playerLocomotionSignalsByEntityId;
@@ -105,12 +105,12 @@ namespace Game.Feature.Gameplay.Host
         public void ResetSession()
         {
             _completedFlipInteractionTrackIds.Clear();
-            _completedFlipImpactKeys.Clear();
+            _completedPresentationMotionKeys.Clear();
             _completedJumpTrackIds.Clear();
             _completedMotionTrackIds.Clear();
             _completedMotionVisualScaleEntityIds.Clear();
             _completedPlayerDeathDisplacementTrackIds.Clear();
-            _completedStayFlipImpactTrackIds.Clear();
+            _completedOriginalViewMotionTrackIds.Clear();
             _flipInteractionResetRequests.Clear();
             _flipInteractionTracks.Clear();
             _completedTransitionVisibilityStateIds.Clear();
@@ -123,7 +123,7 @@ namespace Game.Feature.Gameplay.Host
             _playerDeathHoldPoses.Clear();
             _playerDeathHoldSignalEntityIds.Clear();
             _playerDeathDisplacementTracks.Clear();
-            _stayFlipImpactTracks.Clear();
+            _originalViewMotionTracks.Clear();
             _playerLocomotionSignalsByEntityId.Clear();
             _visibleEntityIds.Clear();
             _visibilityTracks.Clear();

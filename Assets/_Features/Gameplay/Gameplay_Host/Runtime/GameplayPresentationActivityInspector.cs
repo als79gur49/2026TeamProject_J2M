@@ -46,7 +46,7 @@ namespace Game.Feature.Gameplay.Host
                 }
             }
 
-            foreach (var pair in _trackState.StayFlipImpactTracks)
+            foreach (var pair in _trackState.OriginalViewMotionTracks)
             {
                 if (pair.Value != null && !pair.Value.IsComplete)
                 {

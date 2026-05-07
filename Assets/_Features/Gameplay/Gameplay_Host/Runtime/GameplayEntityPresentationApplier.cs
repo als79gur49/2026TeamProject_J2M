@@ -108,17 +108,18 @@ namespace Game.Feature.Gameplay.Host
                 {
                     localPose = playerDeathHoldPose;
                 }
-                else if (_trackState.StayFlipImpactTracks.TryGetValue(entityId, out var stayFlipImpactTrack))
+                else if (_trackState.OriginalViewMotionTracks.TryGetValue(entityId, out var originalViewMotionTrack))
                 {
-                    localPose = stayFlipImpactTrack.Sample();
-                    motionVisualScaleMultiplier = stayFlipImpactTrack.SampleVisualScaleMultiplier();
-                    stayFlipImpactTrack.Advance(deltaTime);
-                    if (stayFlipImpactTrack.IsComplete)
+                    var sample = originalViewMotionTrack.Sample();
+                    localPose = sample.LocalPose;
+                    motionVisualScaleMultiplier = sample.VisualScaleMultiplier;
+                    originalViewMotionTrack.Advance(deltaTime);
+                    if (originalViewMotionTrack.IsComplete)
                     {
-                        localPose = stayFlipImpactTrack.SourcePose;
+                        localPose = sample.CompletionPose;
                         motionVisualScaleMultiplier = Vector3.one;
-                        _trackState.CompletedStayFlipImpactTrackIds.Add(entityId);
-                        _trackState.CompletedFlipImpactKeys.Add(stayFlipImpactTrack.InstanceKey);
+                        _trackState.CompletedOriginalViewMotionTrackIds.Add(entityId);
+                        _trackState.CompletedPresentationMotionKeys.Add(originalViewMotionTrack.InstanceKey);
                     }
                 }
                 else if (_trackState.LocalMotionTracks.TryGetValue(entityId, out var motionTrack))
@@ -208,7 +209,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             CleanupCompletedMotionTracks();
-            CleanupCompletedStayFlipImpactTracks();
+            CleanupCompletedOriginalViewMotionTracks();
             CleanupCompletedJumpTracks();
             CleanupCompletedVisibilityTracks();
             ApplyPendingFlipInteractionResets();
@@ -316,11 +317,11 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private void CleanupCompletedStayFlipImpactTracks()
+        private void CleanupCompletedOriginalViewMotionTracks()
         {
-            for (var i = 0; i < _trackState.CompletedStayFlipImpactTrackIds.Count; i++)
+            for (var i = 0; i < _trackState.CompletedOriginalViewMotionTrackIds.Count; i++)
             {
-                _trackState.StayFlipImpactTracks.Remove(_trackState.CompletedStayFlipImpactTrackIds[i]);
+                _trackState.OriginalViewMotionTracks.Remove(_trackState.CompletedOriginalViewMotionTrackIds[i]);
             }
         }
 
@@ -560,7 +561,7 @@ namespace Game.Feature.Gameplay.Host
                     ? boxDriver.GetGripWorldPose()
                     : ResolveFallbackGripPose(boxView);
                 var sample = track.Sample(handRestWorldPose, boxGripWorldPose);
-                var suppressBoxOverlay = _trackState.StayFlipImpactTracks.ContainsKey(track.BoxEntityId);
+                var suppressBoxOverlay = HasSuppressingOriginalViewMotion(track.BoxEntityId);
 
                 if (boxDriver != null && !suppressBoxOverlay)
                 {
@@ -621,6 +622,14 @@ namespace Game.Feature.Gameplay.Host
             {
                 boxDriver.ResetInteraction();
             }
+        }
+
+        private bool HasSuppressingOriginalViewMotion(int entityId)
+        {
+            return _trackState.OriginalViewMotionTracks.TryGetValue(entityId, out var track) &&
+                   track != null &&
+                   !track.IsComplete &&
+                   track.InteractionPolicy == PresentationMotionInteractionPolicy.SuppressBoxInteractionOverlay;
         }
 
         private static Pose ResolveFallbackGripPose(GameplayEntityView boxView)

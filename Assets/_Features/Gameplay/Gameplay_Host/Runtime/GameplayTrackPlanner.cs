@@ -95,7 +95,7 @@ namespace Game.Feature.Gameplay.Host
                 projector,
                 timingProfile,
                 kinematicEntityIds);
-            RefreshStayFlipImpactTracks(
+            RefreshOriginalViewMotionTracks(
                 result,
                 projector,
                 timingProfile);
@@ -856,7 +856,7 @@ namespace Game.Feature.Gameplay.Host
                    topologyMotion.Value.RotationKind != CubeRotationKind.None;
         }
 
-        private void RefreshStayFlipImpactTracks(
+        private void RefreshOriginalViewMotionTracks(
             TickResult result,
             GameplayCubeProjector projector,
             GameplayTimingProfile timingProfile)
@@ -873,8 +873,8 @@ namespace Game.Feature.Gameplay.Host
                 motionEntityIds.Add(motions[i].EntityId);
             }
 
-            _trackState.CompletedStayFlipImpactTrackIds.Clear();
-            foreach (var pair in _trackState.StayFlipImpactTracks)
+            _trackState.CompletedOriginalViewMotionTrackIds.Clear();
+            foreach (var pair in _trackState.OriginalViewMotionTracks)
             {
                 var entityId = pair.Key;
                 var track = pair.Value;
@@ -883,19 +883,20 @@ namespace Game.Feature.Gameplay.Host
                     motionEntityIds.Contains(entityId) ||
                     !TryGetFinalEntity(result.FinalEntities, entityId, out var entity) ||
                     entity.boardPresence != EntityBoardPresence.Occupying ||
-                    entity.position != track.Signal.SourceCell)
+                    !track.HasRequiredFinalCell ||
+                    entity.position != track.RequiredFinalCell)
                 {
-                    _trackState.CompletedStayFlipImpactTrackIds.Add(entityId);
+                    _trackState.CompletedOriginalViewMotionTrackIds.Add(entityId);
                     if (track != null)
                     {
-                        _trackState.CompletedFlipImpactKeys.Add(track.InstanceKey);
+                        _trackState.CompletedPresentationMotionKeys.Add(track.InstanceKey);
                     }
                 }
             }
 
-            for (var i = 0; i < _trackState.CompletedStayFlipImpactTrackIds.Count; i++)
+            for (var i = 0; i < _trackState.CompletedOriginalViewMotionTrackIds.Count; i++)
             {
-                _trackState.StayFlipImpactTracks.Remove(_trackState.CompletedStayFlipImpactTrackIds[i]);
+                _trackState.OriginalViewMotionTracks.Remove(_trackState.CompletedOriginalViewMotionTrackIds[i]);
             }
 
             var flipImpactSignals = result.PresentationData.FlipImpactSignals;
@@ -907,20 +908,20 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                var key = FlipImpactInstanceKey.Create(signal, result.TickIndex);
-                if (_trackState.CompletedFlipImpactKeys.Contains(key))
+                var key = PresentationMotionInstanceKey.CreateFlipImpactStay(signal, result.TickIndex);
+                if (_trackState.CompletedPresentationMotionKeys.Contains(key))
                 {
                     continue;
                 }
 
-                if (_trackState.StayFlipImpactTracks.TryGetValue(signal.BoxEntityId, out var existingTrack))
+                if (_trackState.OriginalViewMotionTracks.TryGetValue(signal.BoxEntityId, out var existingTrack))
                 {
                     if (existingTrack.InstanceKey.Equals(key))
                     {
                         continue;
                     }
 
-                    _trackState.StayFlipImpactTracks.Remove(signal.BoxEntityId);
+                    _trackState.OriginalViewMotionTracks.Remove(signal.BoxEntityId);
                 }
 
                 if (!TryGetFinalEntity(result.FinalEntities, signal.BoxEntityId, out var finalEntity) ||
@@ -943,7 +944,8 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                _trackState.StayFlipImpactTracks[signal.BoxEntityId] = FlipImpactTrack.CreateStay(command);
+                _trackState.OriginalViewMotionTracks[signal.BoxEntityId] =
+                    PresentationMotionTrack.CreateFlipImpactStay(command);
             }
         }
 
