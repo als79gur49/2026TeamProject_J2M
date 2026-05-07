@@ -551,7 +551,7 @@ namespace Game.Feature.UI.Tests
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_displayStatusLabel", displayView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_previewCountdownRoot", displayView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_previewCountdownLabel", displayView.transform);
-            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_previewCountdownFill", displayView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_previewCountdownSlider", displayView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_applyButton", displayView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_applyButtonLabel", displayView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_revertButton", displayView.transform);
@@ -564,13 +564,18 @@ namespace Game.Feature.UI.Tests
             var currentDisplayLabel = (TMP_Text)serializedDisplay.FindProperty("_currentDisplayLabel").objectReferenceValue;
             var resolutionLabel = (TMP_Text)serializedDisplay.FindProperty("_resolutionLabel").objectReferenceValue;
             var fullscreenLabel = (TMP_Text)serializedDisplay.FindProperty("_fullscreenLabel").objectReferenceValue;
+            var applyButton = (Button)serializedDisplay.FindProperty("_applyButton").objectReferenceValue;
             var applyButtonLabel = (TMP_Text)serializedDisplay.FindProperty("_applyButtonLabel").objectReferenceValue;
+            var revertButton = (Button)serializedDisplay.FindProperty("_revertButton").objectReferenceValue;
             var revertButtonLabel = (TMP_Text)serializedDisplay.FindProperty("_revertButtonLabel").objectReferenceValue;
             var hoverCanvasGroup = hoverHintRoot.GetComponent<CanvasGroup>();
             var hoverImage = hoverHintRoot.GetComponent<Image>();
             var countdownRoot = (RectTransform)serializedDisplay.FindProperty("_previewCountdownRoot").objectReferenceValue;
             var countdownLabel = (TMP_Text)serializedDisplay.FindProperty("_previewCountdownLabel").objectReferenceValue;
-            var countdownFill = (Image)serializedDisplay.FindProperty("_previewCountdownFill").objectReferenceValue;
+            var countdownSlider = (Slider)serializedDisplay.FindProperty("_previewCountdownSlider").objectReferenceValue;
+            var countdownFill = countdownSlider.fillRect != null
+                ? countdownSlider.fillRect.GetComponent<Image>()
+                : null;
 
             Assert.That(hoverHintRoot.gameObject.activeSelf, Is.False);
             Assert.That(sectionTitle.text, Is.EqualTo("Display"));
@@ -578,8 +583,14 @@ namespace Game.Feature.UI.Tests
             Assert.That(resolutionLabel.text, Is.EqualTo("Resolution"));
             Assert.That(hoverHintLabel.text, Is.EqualTo("Only automatically detected resolutions are shown."));
             Assert.That(fullscreenLabel.text, Is.EqualTo("Fullscreen Window"));
+            Assert.That(applyButton.name, Is.EqualTo("DisplayApplyButton_New"));
+            Assert.That(applyButton.gameObject.activeSelf, Is.True);
             Assert.That(applyButtonLabel.text, Is.EqualTo("Apply"));
+            Assert.That(revertButton.name, Is.EqualTo("DisplayReveryButton_New"));
+            Assert.That(revertButton.gameObject.activeSelf, Is.True);
             Assert.That(revertButtonLabel.text, Is.EqualTo("Revert"));
+            Assert.That(displayView.GetComponentsInChildren<Button>(true).Single(button => button.name == "DisplayApplyButton").gameObject.activeSelf, Is.False);
+            Assert.That(displayView.GetComponentsInChildren<Button>(true).Single(button => button.name == "DisplayRevertButton").gameObject.activeSelf, Is.False);
             Assert.That(hoverRelay.transform, Is.EqualTo(serializedDisplay.FindProperty("_resolutionInfoHotspot").objectReferenceValue));
             Assert.That(hoverCanvasGroup, Is.Not.Null);
             Assert.That(hoverCanvasGroup.blocksRaycasts, Is.False);
@@ -589,8 +600,16 @@ namespace Game.Feature.UI.Tests
             Assert.That(hoverHintLabel.raycastTarget, Is.False);
             Assert.That(countdownRoot.gameObject.activeSelf, Is.False);
             Assert.That(countdownLabel.raycastTarget, Is.False);
+            Assert.That(countdownSlider.interactable, Is.False);
+            Assert.That(countdownSlider.minValue, Is.EqualTo(0f));
+            Assert.That(countdownSlider.maxValue, Is.EqualTo(1f));
+            Assert.That(countdownSlider.wholeNumbers, Is.False);
+            Assert.That(countdownSlider.direction, Is.EqualTo(Slider.Direction.LeftToRight));
+            Assert.That(countdownSlider.fillRect, Is.Not.Null);
+            Assert.That(countdownSlider.fillRect.IsChildOf(countdownRoot), Is.True);
+            Assert.That(countdownSlider.handleRect, Is.Null);
+            Assert.That(countdownFill, Is.Not.Null);
             Assert.That(countdownFill.raycastTarget, Is.False);
-            Assert.That(countdownFill.type, Is.EqualTo(Image.Type.Simple));
 
             var serializedInput = new SerializedObject(inputView);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedInput, "_pushKeyDisplayLabel", inputView.transform);

@@ -25,7 +25,7 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private TMP_Text _displayStatusLabel;
         [SerializeField] private RectTransform _previewCountdownRoot;
         [SerializeField] private TMP_Text _previewCountdownLabel;
-        [SerializeField] private Image _previewCountdownFill;
+        [SerializeField] private Slider _previewCountdownSlider;
         [SerializeField] private Button _applyButton;
         [SerializeField] private TMP_Text _applyButtonLabel;
         [SerializeField] private Button _revertButton;
@@ -98,7 +98,7 @@ namespace Game.Feature.UI.Screens
             ValidateControl(_displayStatusLabel, nameof(_displayStatusLabel), issues);
             ValidateControl(_previewCountdownRoot, nameof(_previewCountdownRoot), issues);
             ValidateControl(_previewCountdownLabel, nameof(_previewCountdownLabel), issues);
-            ValidateControl(_previewCountdownFill, nameof(_previewCountdownFill), issues);
+            ValidateControl(_previewCountdownSlider, nameof(_previewCountdownSlider), issues);
             ValidateControl(_applyButton, nameof(_applyButton), issues);
             ValidateControl(_applyButtonLabel, nameof(_applyButtonLabel), issues);
             ValidateControl(_revertButton, nameof(_revertButton), issues);
@@ -191,7 +191,7 @@ namespace Game.Feature.UI.Screens
             ValidateSerializedReference(_displayStatusLabel, nameof(_displayStatusLabel));
             ValidateSerializedReference(_previewCountdownRoot, nameof(_previewCountdownRoot));
             ValidateSerializedReference(_previewCountdownLabel, nameof(_previewCountdownLabel));
-            ValidateSerializedReference(_previewCountdownFill, nameof(_previewCountdownFill));
+            ValidateSerializedReference(_previewCountdownSlider, nameof(_previewCountdownSlider));
             ValidateSerializedReference(_applyButton, nameof(_applyButton));
             ValidateSerializedReference(_applyButtonLabel, nameof(_applyButtonLabel));
             ValidateSerializedReference(_revertButton, nameof(_revertButton));
@@ -298,10 +298,9 @@ namespace Game.Feature.UI.Screens
                     _previewCountdownLabel.text = string.Empty;
                 }
 
-                if (_previewCountdownFill != null)
+                if (_previewCountdownSlider != null)
                 {
-                    _previewCountdownFill.fillAmount = 0f;
-                    ApplyPreviewCountdownFillWidth(0f);
+                    ApplyPreviewCountdownSlider(0f);
                 }
 
                 return;
@@ -325,12 +324,10 @@ namespace Game.Feature.UI.Screens
                     _previewCountdownLabel.text = _viewModel.PreviewCountdownText;
                 }
 
-                if (_previewCountdownFill != null)
+                if (_previewCountdownSlider != null)
                 {
                     var normalized = Mathf.Clamp01(_viewModel.PreviewCountdownNormalized);
-                    _previewCountdownFill.type = Image.Type.Simple;
-                    _previewCountdownFill.fillAmount = normalized;
-                    ApplyPreviewCountdownFillWidth(normalized);
+                    ApplyPreviewCountdownSlider(normalized);
                 }
 
                 if (_applyButton != null)
@@ -462,23 +459,18 @@ namespace Game.Feature.UI.Screens
             _previewCountdownRoot.gameObject.SetActive(shouldShow);
         }
 
-        private void ApplyPreviewCountdownFillWidth(float normalized)
+        private void ApplyPreviewCountdownSlider(float normalized)
         {
-            if (_previewCountdownFill == null)
+            if (_previewCountdownSlider == null)
             {
                 return;
             }
 
-            var fillRect = _previewCountdownFill.rectTransform;
-            var rootWidth = _previewCountdownRoot != null && _previewCountdownRoot.rect.width > 0f
-                ? _previewCountdownRoot.rect.width
-                : fillRect.sizeDelta.x;
-
-            fillRect.anchorMin = new Vector2(0f, 0f);
-            fillRect.anchorMax = new Vector2(0f, 1f);
-            fillRect.pivot = new Vector2(0f, 0.5f);
-            fillRect.anchoredPosition = Vector2.zero;
-            fillRect.sizeDelta = new Vector2(rootWidth * Mathf.Clamp01(normalized), 0f);
+            _previewCountdownSlider.minValue = 0f;
+            _previewCountdownSlider.maxValue = 1f;
+            _previewCountdownSlider.wholeNumbers = false;
+            _previewCountdownSlider.interactable = false;
+            _previewCountdownSlider.SetValueWithoutNotify(Mathf.Clamp01(normalized));
         }
 
         private void ValidateControl(Component component, string fieldName, List<string> issues)
