@@ -207,6 +207,16 @@ namespace Game.Feature.Stages.Editor
             return SyncSelectedExitGoalZone(out error);
         }
 
+        internal bool EnableSelectedExitObjectiveForTests(out string error)
+        {
+            return EnableSelectedExitObjective(out error);
+        }
+
+        internal bool CreateSelectedExitPrimaryGoalConditionForTests(out string error)
+        {
+            return CreateSelectedExitPrimaryGoalCondition(out error);
+        }
+
         internal void MoveSelectedPlacementToTargetCellForTests()
         {
             ExecuteCommandResult(StageAuthoringPlacementCommands.MoveSelectedHere(
@@ -792,6 +802,25 @@ namespace Game.Feature.Stages.Editor
 
             using (new EditorGUILayout.HorizontalScope())
             {
+                using (new EditorGUI.DisabledScope(status.Kind != ExitGoalZoneStatusKind.ObjectiveDisabled || hasMultipleExits))
+                {
+                    if (GUILayout.Button("Enable Objective", GUILayout.Width(128)))
+                    {
+                        EnableSelectedExitObjective(out _);
+                    }
+                }
+
+                using (new EditorGUI.DisabledScope(status.Kind != ExitGoalZoneStatusKind.MissingPrimaryGoal || hasMultipleExits))
+                {
+                    if (GUILayout.Button("Create PrimaryGoal PlayerAtAnyZone Condition", GUILayout.Width(304)))
+                    {
+                        CreateSelectedExitPrimaryGoalCondition(out _);
+                    }
+                }
+            }
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
                 using (new EditorGUI.DisabledScope(!status.CanSync || hasMultipleExits))
                 {
                     if (GUILayout.Button("Sync Primary Goal Zone To Exit", GUILayout.Width(224)))
@@ -996,6 +1025,43 @@ namespace Game.Feature.Stages.Editor
 
             selectedTileFeatureVisualPrefab = null;
             SetTileFeatureFeedback($"Removed TileFeature visual binding {selection.SelectedTileFeatureId}.", MessageType.Info);
+            Repaint();
+            return true;
+        }
+
+        private bool EnableSelectedExitObjective(out string error)
+        {
+            var changed = StageAuthoringExitGoalHelperCommands.TryEnableExitObjective(
+                authoring,
+                selection.SelectedTileFeatureId,
+                out error);
+            if (!changed)
+            {
+                SetTileFeatureFeedback(error, MessageType.Error);
+                return false;
+            }
+
+            serializedAuthoring.Update();
+            SetTileFeatureFeedback($"Enabled objective for Exit TileFeature {selection.SelectedTileFeatureId}.", MessageType.Info);
+            Repaint();
+            return true;
+        }
+
+        private bool CreateSelectedExitPrimaryGoalCondition(out string error)
+        {
+            var changed = StageAuthoringExitGoalHelperCommands.TryCreatePrimaryGoalPlayerAtAnyZoneCondition(
+                authoring,
+                selection.SelectedTileFeatureId,
+                out _,
+                out error);
+            if (!changed)
+            {
+                SetTileFeatureFeedback(error, MessageType.Error);
+                return false;
+            }
+
+            serializedAuthoring.Update();
+            SetTileFeatureFeedback($"Created Exit PrimaryGoal condition for TileFeature {selection.SelectedTileFeatureId}.", MessageType.Info);
             Repaint();
             return true;
         }

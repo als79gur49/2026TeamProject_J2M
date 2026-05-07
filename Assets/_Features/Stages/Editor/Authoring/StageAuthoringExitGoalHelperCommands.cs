@@ -76,6 +76,13 @@ namespace Game.Feature.Stages.Editor
 
     internal static class StageAuthoringExitGoalHelperCommands
     {
+        private const string CanonicalContentRoot = "Assets/_Features/Stages/Content";
+        private const string ConditionsFolderName = "Conditions";
+        private const string PrimaryGoalConditionAssetName = "PrimaryGoal_PlayerAtAnyZone";
+        private const string PrimaryGoalConditionFileName = PrimaryGoalConditionAssetName + ".asset";
+        private const string PrimaryGoalStableConditionId = "primary-goal";
+        private const string DefaultPrimaryGoalZoneId = "exit";
+
         public static bool TryGetExitGoalZoneStatus(
             StageAuthoringDefinition authoring,
             int exitTileId,
@@ -112,6 +119,119 @@ namespace Game.Feature.Stages.Editor
             }
 
             return TryGetExitGoalZoneStatus(authoring, exitFeature, out status);
+        }
+
+        public static bool TryEnableExitObjective(
+            StageAuthoringDefinition authoring,
+            int exitTileId,
+            out string error)
+        {
+            error = string.Empty;
+            if (!TryValidateSelectedSingleExit(authoring, exitTileId, out _, out error))
+            {
+                return false;
+            }
+
+            var objective = authoring.Objective;
+            if (objective.CompletionPolicy == StageCompletionPolicy.RequireAllConditions)
+            {
+                return true;
+            }
+
+            if (objective.CompletionPolicy != StageCompletionPolicy.Disabled)
+            {
+                error = $"Exit objective requires {StageCompletionPolicy.RequireAllConditions}.";
+                return false;
+            }
+
+            objective.CompletionPolicy = StageCompletionPolicy.RequireAllConditions;
+            Undo.RecordObject(authoring, "Enable Exit Objective");
+            authoring.SetObjective(objective);
+            EditorUtility.SetDirty(authoring);
+            return true;
+        }
+
+        public static bool TryCreatePrimaryGoalPlayerAtAnyZoneCondition(
+            StageAuthoringDefinition authoring,
+            int exitTileId,
+            out PlayerAtAnyZoneConditionAsset condition,
+            out string error)
+        {
+            condition = null;
+            error = string.Empty;
+            if (!TryValidateSelectedSingleExit(authoring, exitTileId, out _, out error))
+            {
+                return false;
+            }
+
+            var objective = authoring.Objective;
+            if (objective.CompletionPolicy == StageCompletionPolicy.Disabled)
+            {
+                error = "Objective is disabled. Enable objective authoring before creating the Exit PrimaryGoal condition.";
+                return false;
+            }
+
+            if (objective.CompletionPolicy != StageCompletionPolicy.RequireAllConditions)
+            {
+                error = $"Exit objective requires {StageCompletionPolicy.RequireAllConditions}.";
+                return false;
+            }
+
+            var entries = objective.GetConditionEntriesOrEmpty();
+            for (var i = 0; i < entries.Length; i++)
+            {
+                if (entries[i].Role == StageObjectiveConditionRole.PrimaryGoal)
+                {
+                    error = "Exit objective already has a PrimaryGoal condition.";
+                    return false;
+                }
+
+                if (string.Equals(
+                        entries[i].StableConditionId?.Trim(),
+                        PrimaryGoalStableConditionId,
+                        StringComparison.Ordinal))
+                {
+                    error = $"Objective already contains stable condition id '{PrimaryGoalStableConditionId}'.";
+                    return false;
+                }
+            }
+
+            if (!TryResolvePrimaryGoalConditionAsset(
+                    authoring,
+                    entries,
+                    out condition,
+                    out var zoneId,
+                    out error))
+            {
+                condition = null;
+                return false;
+            }
+
+            if (IsZoneReferencedByOtherCondition(entries, -1, zoneId))
+            {
+                error = $"Goal zone '{zoneId}' is referenced by another objective condition and cannot be assigned safely.";
+                condition = null;
+                return false;
+            }
+
+            var nextEntries = new List<StageObjectiveConditionEntry>(entries)
+            {
+                new()
+                {
+                    Condition = condition,
+                    Required = true,
+                    Role = StageObjectiveConditionRole.PrimaryGoal,
+                    StableConditionId = PrimaryGoalStableConditionId,
+                    DisplayText = string.Empty,
+                    SortOrder = 0,
+                }
+            };
+
+            objective.ConditionEntries = nextEntries.ToArray();
+            Undo.RecordObject(authoring, "Create Exit Primary Goal Condition");
+            authoring.SetObjective(objective);
+            EditorUtility.SetDirty(authoring);
+            return true;
         }
 
         public static bool TryEnsureExitPrimaryGoalZone(
@@ -176,6 +296,52 @@ namespace Game.Feature.Stages.Editor
             Undo.RecordObject(authoring, "Sync Exit Primary Goal Zone");
             authoring.SetZones(nextZones);
             EditorUtility.SetDirty(authoring);
+            return true;
+        }
+
+        private static bool TryValidateSelectedSingleExit(
+            StageAuthoringDefinition authoring,
+            int exitTileId,
+            out StageTileFeatureDefinition exitFeature,
+            out string error)
+        {
+            exitFeature = default;
+            error = string.Empty;
+            if (authoring == null)
+            {
+                error = "StageAuthoringDefinition is missing.";
+                return false;
+            }
+
+            if (exitTileId <= 0)
+            {
+                error = "Select an Exit TileFeature first.";
+                return false;
+            }
+
+            if (!TryFindTileFeature(authoring, exitTileId, out exitFeature) ||
+                exitFeature.Kind != TileFeatureKind.Exit)
+            {
+                error = $"TileFeature TileId {exitTileId} is not an Exit.";
+                return false;
+            }
+
+            var exitCount = 0;
+            var tileFeatures = authoring.TileFeatures;
+            for (var i = 0; i < tileFeatures.Count; i++)
+            {
+                if (tileFeatures[i].Kind == TileFeatureKind.Exit)
+                {
+                    exitCount++;
+                }
+            }
+
+            if (exitCount != 1)
+            {
+                error = $"Stage must contain exactly one Exit TileFeature before editing the Exit objective contract. Current count: {exitCount}.";
+                return false;
+            }
+
             return true;
         }
 
@@ -356,6 +522,195 @@ namespace Game.Feature.Stages.Editor
                 currentZoneCell: zoneCell,
                 primaryGoalCondition: primaryGoalEntry.Condition);
             return true;
+        }
+
+        private static bool TryResolvePrimaryGoalConditionAsset(
+            StageAuthoringDefinition authoring,
+            IReadOnlyList<StageObjectiveConditionEntry> entries,
+            out PlayerAtAnyZoneConditionAsset condition,
+            out string zoneId,
+            out string error)
+        {
+            condition = null;
+            zoneId = DefaultPrimaryGoalZoneId;
+            error = string.Empty;
+
+            if (!TryGetExpectedPrimaryGoalConditionPath(authoring, out var conditionPath, out error))
+            {
+                return false;
+            }
+
+            var existingAsset = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(conditionPath);
+            if (existingAsset != null &&
+                existingAsset is not PlayerAtAnyZoneConditionAsset)
+            {
+                error = $"Cannot create Exit PrimaryGoal condition because '{conditionPath}' already contains '{existingAsset.GetType().Name}'.";
+                return false;
+            }
+
+            var existingCondition = existingAsset as PlayerAtAnyZoneConditionAsset;
+            if (existingCondition != null)
+            {
+                if (IsConditionReferencedByOtherStage(existingCondition, authoring.OwnerEntry))
+                {
+                    error = $"Condition asset '{conditionPath}' is referenced by another StageContentEntry and cannot be reused safely.";
+                    return false;
+                }
+
+                var existingZoneIds = existingCondition.ZoneIds
+                    .Select(value => value?.Trim() ?? string.Empty)
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .ToArray();
+                if (existingZoneIds.Length > 1)
+                {
+                    error = $"Condition asset '{conditionPath}' references multiple zone ids and cannot be reused for an Exit PrimaryGoal.";
+                    return false;
+                }
+
+                zoneId = existingZoneIds.Length == 1 ? existingZoneIds[0] : DefaultPrimaryGoalZoneId;
+                if (IsZoneReferencedByOtherCondition(entries, -1, zoneId))
+                {
+                    error = $"Goal zone '{zoneId}' is referenced by another objective condition and cannot be assigned safely.";
+                    return false;
+                }
+
+                if (existingZoneIds.Length == 0)
+                {
+                    SetPlayerAtAnyZoneConditionZoneId(existingCondition, zoneId, recordUndo: true);
+                }
+
+                condition = existingCondition;
+                return true;
+            }
+
+            if (IsZoneReferencedByOtherCondition(entries, -1, zoneId))
+            {
+                error = $"Goal zone '{zoneId}' is referenced by another objective condition and cannot be assigned safely.";
+                return false;
+            }
+
+            EnsureFolder($"{CanonicalContentRoot}/{authoring.OwnerEntry.StageId.Value}");
+            EnsureFolder($"{CanonicalContentRoot}/{authoring.OwnerEntry.StageId.Value}/{ConditionsFolderName}");
+
+            condition = ScriptableObject.CreateInstance<PlayerAtAnyZoneConditionAsset>();
+            condition.name = PrimaryGoalConditionAssetName;
+            SetPlayerAtAnyZoneConditionZoneId(condition, zoneId, recordUndo: false);
+            AssetDatabase.CreateAsset(condition, conditionPath);
+            Undo.RegisterCreatedObjectUndo(condition, "Create Exit Primary Goal Condition Asset");
+            EditorUtility.SetDirty(condition);
+            return true;
+        }
+
+        private static bool TryGetExpectedPrimaryGoalConditionPath(
+            StageAuthoringDefinition authoring,
+            out string conditionPath,
+            out string error)
+        {
+            conditionPath = string.Empty;
+            error = string.Empty;
+            var ownerEntry = authoring != null ? authoring.OwnerEntry : null;
+            if (ownerEntry == null || !ownerEntry.StageId.IsValid)
+            {
+                error = "Exit PrimaryGoal condition auto-creation requires a StageContentEntry owner with a valid StageId.";
+                return false;
+            }
+
+            var entryPath = AssetDatabase.GetAssetPath(ownerEntry);
+            if (string.IsNullOrEmpty(entryPath))
+            {
+                error = "Exit PrimaryGoal condition auto-creation requires the owner StageContentEntry to be saved as an asset.";
+                return false;
+            }
+
+            var expectedStageFolder = $"{CanonicalContentRoot}/{ownerEntry.StageId.Value}";
+            if (!entryPath.StartsWith(expectedStageFolder, StringComparison.Ordinal))
+            {
+                error = $"Owner StageContentEntry must live under '{expectedStageFolder}' before creating Exit objective assets.";
+                return false;
+            }
+
+            conditionPath = $"{expectedStageFolder}/{ConditionsFolderName}/{PrimaryGoalConditionFileName}";
+            return true;
+        }
+
+        private static bool IsConditionReferencedByOtherStage(
+            StageConditionAsset condition,
+            StageContentEntry ownerEntry)
+        {
+            if (condition == null || ownerEntry == null)
+            {
+                return false;
+            }
+
+            var entryGuids = AssetDatabase.FindAssets("t:StageContentEntry", new[] { CanonicalContentRoot });
+            for (var i = 0; i < entryGuids.Length; i++)
+            {
+                var entryPath = AssetDatabase.GUIDToAssetPath(entryGuids[i]);
+                var entry = AssetDatabase.LoadAssetAtPath<StageContentEntry>(entryPath);
+                if (entry == null || entry == ownerEntry)
+                {
+                    continue;
+                }
+
+                if (ObjectiveReferencesCondition(entry.AuthoringDefinition != null ? entry.AuthoringDefinition.Objective : default, condition) ||
+                    ObjectiveReferencesCondition(entry.GameplayDefinition != null ? entry.GameplayDefinition.Objective : default, condition))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool ObjectiveReferencesCondition(
+            StageObjectiveAuthoring objective,
+            StageConditionAsset condition)
+        {
+            var entries = objective.GetConditionEntriesOrEmpty();
+            for (var i = 0; i < entries.Length; i++)
+            {
+                if (entries[i].Condition == condition)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static void SetPlayerAtAnyZoneConditionZoneId(
+            PlayerAtAnyZoneConditionAsset condition,
+            string zoneId,
+            bool recordUndo)
+        {
+            if (recordUndo)
+            {
+                Undo.RecordObject(condition, "Configure Exit Primary Goal Condition");
+            }
+
+            var serializedObject = new SerializedObject(condition);
+            var zoneIdsProperty = serializedObject.FindProperty("zoneIds");
+            zoneIdsProperty.arraySize = 1;
+            zoneIdsProperty.GetArrayElementAtIndex(0).stringValue = zoneId;
+            serializedObject.FindProperty("requireAlive").boolValue = true;
+            serializedObject.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(condition);
+        }
+
+        private static void EnsureFolder(string assetFolder)
+        {
+            if (AssetDatabase.IsValidFolder(assetFolder))
+            {
+                return;
+            }
+
+            var parent = System.IO.Path.GetDirectoryName(assetFolder)?.Replace('\\', '/');
+            if (!string.IsNullOrEmpty(parent) && !AssetDatabase.IsValidFolder(parent))
+            {
+                EnsureFolder(parent);
+            }
+
+            AssetDatabase.CreateFolder(parent, System.IO.Path.GetFileName(assetFolder));
         }
 
         private static bool TryFindTileFeature(
