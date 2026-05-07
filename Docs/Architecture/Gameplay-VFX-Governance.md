@@ -970,22 +970,77 @@ Host default map owner is future gameplay host presentation config. Player, Box,
 
 This stage only proves conversion and resolver composition. It does not expose host default maps in scene inspectors, add `GameplaySceneHostConfiguration` fields, add `StagePresentationDefinition` fields, or attach VFX profiles to entity prefabs.
 
-## OutOfBounds Exit Policy Gate
+## ImpactTransient Break VFX Migration
 
-`TickEntityExitCause.OutOfBounds` is a dormant/reserved entity exit cause in the current runtime. Current normal gameplay pipeline code does not produce an OutOfBounds exit signal, but synthetic tests, tools, or future custom code can still inject `TickEntityExitPresentationSignal` with `OutOfBounds`.
+ImpactTransient Break migrates a dormant/reserved source-to-impact break/fade hook from old transient presenter playback to the Gameplay VFX lane.
 
-Policy for this slice:
+Source fact:
 
-- no Gameplay VFX cue is added for OutOfBounds.
-- no OutOfBounds gameplay producer is added.
-- the enum and old `GameplayExitPresentationController.PlayExitEffect` transient path remain reserved.
-- the old OutOfBounds path is not stale fallback for any migrated Gameplay VFX fact.
-- BoxDestroy, ItemConsume, and EnemyDeath migrated VFX must not route through OutOfBounds.
+- `TickPresentationData.ImpactTransientSignals`
+- signal fields are `EntityId`, `EntityType`, `SourceCell`, `ImpactCell`, `Topology`, `Facing`, and `PresentationSeed`
+- normal `TickResultBuilder.BuildImpactTransientPresentation` still clears the list; no gameplay producer is added
 
-Future decision:
+Cue and playback:
 
-- if pit, void, or out-of-board removal becomes supported gameplay, migrate OutOfBounds exit visuals to a dedicated Gameplay VFX cue in a separate slice.
-- if the reserved cause is not needed, deprecate the enum, presenter mapping, and audio mapping in a separate cleanup.
+- cue: `BoxVfxCue.ImpactTransientBreak`
+- trigger: valid `TickImpactTransientPresentationSignal` with `EntityType.Box`
+- lifecycle: transient one-shot, no persistent key
+- command: `ParameterizedMotionVfxCommand`
+- playback: source-view clone with prefab fallback
+- motion: source pose to impact pose using `ParameterizedMotionVfxSamplerMode.FlipArc`
+- fade: `ScaleAndAlpha`, break start at normalized `0.62`, duration `max(BoxDestroyEffectDurationSeconds, FlipMotionDurationSeconds)`
+
+Duplicate relationship:
+
+- existing `BoxVfxExitSignalGuards` still treats ImpactTransient as the owner of same-entity box destroy visuals.
+- a same-entity BoxDestroy exit does not also emit duplicate BoxDestroy smoke/shrink when an ImpactTransient signal owns the break/fade.
+
+Flag and fallback:
+
+- flag: `EnableGameplayVfxImpactTransientBreakMigration`
+- default true
+- flag off means no ImpactTransient break VFX and no old presenter fallback
+- old `GameplayTransientEffectPresenter.PlayImpactBreakEffect` playback is disabled
+- missing binding, prefab, anchor, source pose, or impact pose is diagnostic/no-op
+- missing binding no fallback applies to this reserved hook
+
+## OutOfBounds Exit VFX Migration
+
+`TickEntityExitCause.OutOfBounds` remains a dormant/reserved entity exit cause. Current normal gameplay pipeline code does not produce an OutOfBounds exit signal, but synthetic tests, tools, or future custom code can still inject `TickEntityExitPresentationSignal` with `OutOfBounds`.
+
+Source fact:
+
+- `TickPresentationData.EntityExitSignals`
+- trigger: `TickEntityExitCause.OutOfBounds`
+- signal fields include `ExitedEntityId`, `EntityType`, `SourceCell`, `Topology`, `Facing`, `SourceActorEntityId`, optional `AnchorEntityId`, `PresentationSeed`, and `ExitCause`
+- no OutOfBounds gameplay producer is added
+- `TickEntityExitCause.OutOfBounds` is not deleted or deprecated in this slice
+
+Cue mapping:
+
+- `EntityType.Box` -> `BoxVfxCue.OutOfBoundsExit`
+- `EntityType.Unit` -> `EnemyVfxCue.OutOfBoundsExit`
+- no `PlayerVfxCue.OutOfBoundsExit` is added because the carrier has no player-vs-enemy unit role field
+- unsupported entity types are diagnostic/no-op
+
+Playback:
+
+- lifecycle: transient one-shot, no persistent key
+- command: `ParameterizedMotionVfxCommand`
+- playback: source-view clone with prefab fallback
+- motion: source pose to source pose using `ParameterizedMotionVfxSamplerMode.Linear`
+- fade: `DestroyShrinkEase` over `ItemConsumeEffectDurationSeconds`
+- anchor: source cell center
+
+Flag and fallback:
+
+- flag: `EnableGameplayVfxOutOfBoundsExitMigration`
+- default true
+- flag off means no OutOfBounds VFX and no old presenter fallback
+- old `GameplayExitPresentationController.PlayExitEffect` playback is disabled for OutOfBounds
+- missing binding, prefab, anchor, or source pose is diagnostic/no-op
+- missing binding no fallback applies to this reserved hook
+- if no normal producer exists, tests use synthetic presentation facts
 
 ## Gameplay VFX Legacy Old Path Cleanup
 
@@ -1004,13 +1059,13 @@ Cleaned legacy direct playback:
 | `GameplayFrontFaceShieldVfxPresenter.RefreshWindupWarnings` | `EnemyVfxCue.FrontFaceShieldWindup` | old telegraph spawn disabled; cleanup-only empty refresh retained | no FrontFace shield windup VFX | `telegraphPrefab` and old telegraph assets retained for deferred cleanup |
 | enemy killed `GameplayExitPresentationController.PlayExitEffect` | `EnemyVfxCue.DeathMotion` + `EnemyVfxCue.Death` | old fly-away disabled; `ApplyEntityExitOwnership()` retained | no death motion VFX when motion flag is off; no burst VFX when burst flag is off | death flags control new VFX playback only |
 | `GameplayTransientEffectPresenter.PlayFlipImpactDestroyEffect` | `BoxVfxCue.FlipDestroySelfMotion` | old clone/fade disabled; DestroySelf key bookkeeping retained | no flip destroy-self motion VFX | `FlipImpactTrack` Stay branch remains unchanged |
+| `GameplayTransientEffectPresenter.PlayImpactBreakEffect` | `BoxVfxCue.ImpactTransientBreak` | old impact break playback disabled; duplicate ownership retained | no ImpactTransient break VFX | no normal producer added |
+| OutOfBounds `GameplayExitPresentationController.PlayExitEffect` | `BoxVfxCue.OutOfBoundsExit` / `EnemyVfxCue.OutOfBoundsExit` | old OutOfBounds fade disabled; `ApplyEntityExitOwnership()` retained | no OutOfBounds VFX | dormant/reserved hook only; no producer added |
 
 Remaining old canonical presentation responsibilities:
 
 | Old path | New VFX | Cleanup status | Flag-off semantics | Notes |
 |---|---|---|---|---|
-| OutOfBounds `GameplayExitPresentationController.PlayExitEffect` | none in this slice | retained dormant/reserved | not controlled by current Gameplay VFX flags | reserved old canonical exit presentation, not stale fallback for migrated facts |
-| `GameplayExitPresentationController.PlayImpactBreakEffect` | none in this slice | retained | legacy path remains | source-to-impact break/fade ownership not cleaned in this slice |
 | `BoxFlipInteractionDriver` and `FlipImpactTrack` Stay branch | none | retained | not a VFX fallback | transform/grip/reset and motion sampling ownership remain |
 
 Legacy Surface Simplification removed the suppress compatibility gates and the `IGameplayPresentationMigrationGate` interface. Cleaned and high-risk old presenter fallbacks remain absent; no compatibility alias now defines rollback to an old presenter path. In this document, old fallback = none for all current migrated Gameplay VFX cues.
@@ -1064,6 +1119,8 @@ Box destroy suppress ownership is cleaned up. Old BoxDestroy shrink/fade playbac
 | `EnableGameplayVfxItemConsumeBurstMigration` | `BoxVfxCue.ItemConsume` | Migration | True | Tier 1 | Yes | targeted tests + visual spot check |
 | `EnableEnemyJumpLandingDustVfx` | `EnemyVfxCue.JumperLandingDust` | Augmentation | True | Tier 1 | Yes | targeted tests + visual spot check |
 | `EnableGameplayVfxBoxSlideTrail` | `BoxVfxCue.SlideDustTrail` | Augmentation / parameterized motion | True | Tier 1 | Yes | targeted tests + density visual spot check |
+| `EnableGameplayVfxImpactTransientBreakMigration` | `BoxVfxCue.ImpactTransientBreak` | Migration / reserved parameterized clone motion | True | Tier 2 | Yes | manual visual approval + targeted reserved-hook regression |
+| `EnableGameplayVfxOutOfBoundsExitMigration` | `BoxVfxCue.OutOfBoundsExit / EnemyVfxCue.OutOfBoundsExit` | Migration / reserved parameterized clone motion | True | Tier 2 | Yes | manual visual approval + targeted reserved-hook regression |
 | `EnableEnemyJumpTargetVfx` | `EnemyVfxCue.JumperLandingTarget` | Augmentation | True | Tier 2 | Yes | manual visual approval + targeted regression |
 | `EnableGameplayVfxUtilityWindupMigration` | `EnemyVfxCue.UtilityWindup` | Migration | True | Tier 2 | Yes | manual visual approval + targeted regression |
 | `EnableGameplayVfxFrontFaceShieldActiveMigration` | `EnemyVfxCue.FrontFaceShieldActive` | Migration | True | Tier 2 | Yes | manual visual approval + targeted regression |
