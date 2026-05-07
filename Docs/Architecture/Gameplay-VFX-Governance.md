@@ -234,29 +234,40 @@ Visual and boundaries:
 
 ## FrontFace Shield VFX Migration
 
-FrontFace shield VFX migration moves only active shield loop and block burst playback ownership into the Gameplay VFX lane. The source facts are `TickPresentationData.FrontFaceShieldSources` and `TickPresentationData.FrontFaceShieldBlocks`. The migration does not read `WorldState`, `WorldSnapshot`, `TickPipeline`, or authority snapshots, and it does not change shield gameplay rules, box slide blocking, FrontFace support legality, or `TickPresentationData` shape.
+FrontFace shield VFX migration moves active shield loop, block burst, and windup warning playback ownership into the Gameplay VFX lane. The source facts are `TickPresentationData.FrontFaceShieldSources`, `TickPresentationData.FrontFaceShieldBlocks`, and `TickPresentationData.FrontFaceShieldWindupWarnings`. The migration does not read `WorldState`, `WorldSnapshot`, `TickPipeline`, or authority snapshots, and it does not change shield gameplay rules, box slide blocking, FrontFace support legality, or `TickPresentationData` shape.
 
 Cues and lifecycle:
 
 - `EnemyVfxCue.FrontFaceShieldActive`: persistent desired-state active shield loop keyed by source entity id.
 - `EnemyVfxCue.FrontFaceShieldBlock`: transient one-shot shield contact burst anchored at the blocked cell.
-- FrontFace shield windup remains on `GameplayFrontFaceShieldVfxPresenter` in this slice because it uses `TickPresentationData.FrontFaceShieldWindupWarnings`, while existing `EnemyVfxCue.UtilityWindup` uses `TickPresentationData.SummonWindupWarnings`.
+- `EnemyVfxCue.FrontFaceShieldWindup`: persistent desired-state windup warning telegraph keyed by source entity id, effect index, and activation sequence.
+- `EnemyVfxCue.UtilityWindup` remains separate and consumes `TickPresentationData.SummonWindupWarnings`; it must not consume FrontFace shield windup warning facts.
 
 Feature flags:
 
 - `EnableGameplayVfxFrontFaceShieldActiveMigration`
 - `EnableGameplayVfxFrontFaceShieldBlockMigration`
-- both default true after the Tier 1/2 rollout batch and filter their cues independently.
+- `EnableGameplayVfxFrontFaceShieldWindupMigration`
+- all default true after the Tier 1/2 rollout batch and filter their cues independently.
 
 Old presenter bypass:
 
 - after legacy old path cleanup, old active loop creation/update is always skipped.
 - after legacy old path cleanup, old block burst playback is always skipped.
+- after FrontFace shield windup migration, old telegraph creation/update is always skipped.
 - suppress compatibility gates were removed in Legacy Surface Simplification.
-- `GameplayFrontFaceShieldVfxPresenter` is not removed. The coordinator must still call a cleanup-only empty refresh so legacy active loops cannot linger.
+- `GameplayFrontFaceShieldVfxPresenter` is not removed. The coordinator must still call cleanup-only empty refreshes so legacy active loops and windup telegraphs cannot linger.
 - Missing Gameplay VFX binding is diagnostic/no-op with no old fallback whenever the corresponding migration flag is on.
+- If `EnableGameplayVfxFrontFaceShieldWindupMigration` is false, no windup warning VFX plays and no old telegraph fallback is restored.
 
-Binding precedence remains source presentation-local profile, then family profile, then host default map. The host default bindings are `FrontFaceShieldActive_Binding.asset` and `FrontFaceShieldBlock_Binding.asset`.
+Binding precedence remains source presentation-local profile, then family profile, then host default map. The host default bindings are `FrontFaceShieldActive_Binding.asset`, `FrontFaceShieldBlock_Binding.asset`, and `FrontFaceShieldWindup_Binding.asset`.
+
+Windup visual assets:
+
+- prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/FrontFaceShieldWindupVfx.prefab`
+- material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_FrontFaceShieldWindup_Telegraph.mat`
+- binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/FrontFaceShieldWindup_Binding.asset`
+- `telegraphPrefab`, `VFX_FrontFaceShield_Telegraph`, and `M_FrontFaceShield_Telegraph.mat` are retained for deferred serialized reference and asset cleanup, not as fallback playback.
 
 ## FlipDestroySelf Source-View Clone Parity
 
@@ -959,6 +970,23 @@ Host default map owner is future gameplay host presentation config. Player, Box,
 
 This stage only proves conversion and resolver composition. It does not expose host default maps in scene inspectors, add `GameplaySceneHostConfiguration` fields, add `StagePresentationDefinition` fields, or attach VFX profiles to entity prefabs.
 
+## OutOfBounds Exit Policy Gate
+
+`TickEntityExitCause.OutOfBounds` is a dormant/reserved entity exit cause in the current runtime. Current normal gameplay pipeline code does not produce an OutOfBounds exit signal, but synthetic tests, tools, or future custom code can still inject `TickEntityExitPresentationSignal` with `OutOfBounds`.
+
+Policy for this slice:
+
+- no Gameplay VFX cue is added for OutOfBounds.
+- no OutOfBounds gameplay producer is added.
+- the enum and old `GameplayExitPresentationController.PlayExitEffect` transient path remain reserved.
+- the old OutOfBounds path is not stale fallback for any migrated Gameplay VFX fact.
+- BoxDestroy, ItemConsume, and EnemyDeath migrated VFX must not route through OutOfBounds.
+
+Future decision:
+
+- if pit, void, or out-of-board removal becomes supported gameplay, migrate OutOfBounds exit visuals to a dedicated Gameplay VFX cue in a separate slice.
+- if the reserved cause is not needed, deprecate the enum, presenter mapping, and audio mapping in a separate cleanup.
+
 ## Gameplay VFX Legacy Old Path Cleanup
 
 After runtime default-on and legacy finalization, all current Gameplay VFX migration cues use the Gameplay VFX lane as the canonical playback path. For all current migrated cues, flag off means that VFX is off; it does not mean old presenter fallback. Cleanup, visibility, transform reset, and motion ownership responsibilities remain in their existing presentation owners.
@@ -971,8 +999,9 @@ Cleaned legacy direct playback:
 | BoxDestroy `GameplayExitPresentationController.PlayExitEffect` | `BoxVfxCue.DestroyShrink` + `BoxVfxCue.DestroySmoke` | old shrink/fade disabled; `ApplyEntityExitOwnership()` retained | shrink flag off disables shrink; smoke flag off disables smoke | smoke does not own shrink suppression |
 | ItemConsume `GameplayExitPresentationController.PlayExitEffect` | `BoxVfxCue.ItemConsume` | old consume fade disabled; `ApplyEntityExitOwnership()` retained | no item consume VFX | cleanup remains exit ownership |
 | `GameplayUtilityWindupVfxPresenter.RefreshSummonWarnings` | `EnemyVfxCue.UtilityWindup` | old spawn disabled; cleanup-only empty refresh retained | no utility windup VFX | presenter kept for legacy instance disposal |
-| `GameplayFrontFaceShieldVfxPresenter.RefreshActiveSources` | `EnemyVfxCue.FrontFaceShieldActive` | old active-loop spawn disabled; cleanup-only empty refresh retained | no active shield VFX | windup warning path is unchanged |
+| `GameplayFrontFaceShieldVfxPresenter.RefreshActiveSources` | `EnemyVfxCue.FrontFaceShieldActive` | old active-loop spawn disabled; cleanup-only empty refresh retained | no active shield VFX | active loop old fallback removed |
 | `GameplayFrontFaceShieldVfxPresenter.PlayBlockBursts` | `EnemyVfxCue.FrontFaceShieldBlock` | old block burst disabled | no block burst VFX | one-shot old fallback removed |
+| `GameplayFrontFaceShieldVfxPresenter.RefreshWindupWarnings` | `EnemyVfxCue.FrontFaceShieldWindup` | old telegraph spawn disabled; cleanup-only empty refresh retained | no FrontFace shield windup VFX | `telegraphPrefab` and old telegraph assets retained for deferred cleanup |
 | enemy killed `GameplayExitPresentationController.PlayExitEffect` | `EnemyVfxCue.DeathMotion` + `EnemyVfxCue.Death` | old fly-away disabled; `ApplyEntityExitOwnership()` retained | no death motion VFX when motion flag is off; no burst VFX when burst flag is off | death flags control new VFX playback only |
 | `GameplayTransientEffectPresenter.PlayFlipImpactDestroyEffect` | `BoxVfxCue.FlipDestroySelfMotion` | old clone/fade disabled; DestroySelf key bookkeeping retained | no flip destroy-self motion VFX | `FlipImpactTrack` Stay branch remains unchanged |
 
@@ -980,9 +1009,8 @@ Remaining old canonical presentation responsibilities:
 
 | Old path | New VFX | Cleanup status | Flag-off semantics | Notes |
 |---|---|---|---|---|
-| OutOfBounds `GameplayExitPresentationController.PlayExitEffect` | none in this slice | retained | not controlled by current Gameplay VFX flags | non-migrated old canonical exit presentation |
+| OutOfBounds `GameplayExitPresentationController.PlayExitEffect` | none in this slice | retained dormant/reserved | not controlled by current Gameplay VFX flags | reserved old canonical exit presentation, not stale fallback for migrated facts |
 | `GameplayExitPresentationController.PlayImpactBreakEffect` | none in this slice | retained | legacy path remains | source-to-impact break/fade ownership not cleaned in this slice |
-| `GameplayFrontFaceShieldVfxPresenter.RefreshWindupWarnings` | none in this slice | retained | not controlled by shield active/block flags | windup warning path remains old canonical presentation; `VFX_FrontFaceShield_Telegraph` is retained |
 | `BoxFlipInteractionDriver` and `FlipImpactTrack` Stay branch | none | retained | not a VFX fallback | transform/grip/reset and motion sampling ownership remain |
 
 Legacy Surface Simplification removed the suppress compatibility gates and the `IGameplayPresentationMigrationGate` interface. Cleaned and high-risk old presenter fallbacks remain absent; no compatibility alias now defines rollback to an old presenter path. In this document, old fallback = none for all current migrated Gameplay VFX cues.
@@ -993,7 +1021,7 @@ Serialized reference cleanup status:
 - retained fields: `telegraphPrefab`, `deathViewTailSeconds`, timing overrides, ownership mode, and death anchor.
 - removed-field YAML residue is cleaned for the active/block FrontFaceShield prefab references and stale null hit/death prefab keys.
 - old FrontFaceShield active/block prefab and material assets were removed after GUID reference scans confirmed zero external references. The active/block replacements are `FrontFaceShieldActiveVfx` and `FrontFaceShieldBlockVfx` in the current Gameplay VFX lane.
-- `VFX_FrontFaceShield_Telegraph` and `M_FrontFaceShield_Telegraph.mat` are retained because FrontFaceShield windup warning remains canonical old presentation.
+- `VFX_FrontFaceShield_Telegraph` and `M_FrontFaceShield_Telegraph.mat` are retained for a deferred FrontFaceShield windup serialized reference cleanup and old telegraph asset removal slice after GUID reference scans confirm zero required references.
 
 Authority and carrier boundaries remain unchanged: no `TickPipeline`, `WorldState`, `WorldSnapshot`, `ProjectedWorld`, `FinalizationBatch`, `DeterminismHashBuilder`, `TickPresentationData`, `TickEntityExitPresentationSignal`, `TickEntityMotion`, or `TickResultBuilder` changes are part of legacy old path cleanup.
 
@@ -1040,6 +1068,7 @@ Box destroy suppress ownership is cleaned up. Old BoxDestroy shrink/fade playbac
 | `EnableGameplayVfxUtilityWindupMigration` | `EnemyVfxCue.UtilityWindup` | Migration | True | Tier 2 | Yes | manual visual approval + targeted regression |
 | `EnableGameplayVfxFrontFaceShieldActiveMigration` | `EnemyVfxCue.FrontFaceShieldActive` | Migration | True | Tier 2 | Yes | manual visual approval + targeted regression |
 | `EnableGameplayVfxFrontFaceShieldBlockMigration` | `EnemyVfxCue.FrontFaceShieldBlock` | Migration | True | Tier 2 | Yes | manual visual approval + targeted regression |
+| `EnableGameplayVfxFrontFaceShieldWindupMigration` | `EnemyVfxCue.FrontFaceShieldWindup` | Migration | True | Tier 2 | Yes | manual visual approval + targeted regression |
 | `EnableGameplayVfxFlipImpactBurstMigration` | `BoxVfxCue.FlipImpactBurst` | Migration | True | Tier 2 | Yes | manual visual approval + targeted regression |
 | `EnableGameplayVfxEnemyDeathBurstMigration` | `EnemyVfxCue.Death` | Migration burst | True | Tier 3 | Yes | approved in Tier 3 rollout batch; requires post-rollout visual monitoring + rollback review |
 | `EnableGameplayVfxEnemyDeathMotionMigration` | `EnemyVfxCue.DeathMotion` | Migration / parameterized motion | True | Tier 3 | Yes | approved in Tier 3 rollout batch; requires post-rollout visual monitoring + rollback review |
