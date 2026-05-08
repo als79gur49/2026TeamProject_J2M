@@ -7,7 +7,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             in ResolvedVfxPlaybackCommand command,
             GameplayVfxPooledInstance instance,
             float startedAtSeconds,
-            IGameplayVfxTimeProvider timeProvider)
+            IGameplayVfxTimeProvider timeProvider,
+            bool isLifetimeControllerManaged = false)
         {
             HandleId = handleId;
             CueId = command.CueId;
@@ -17,6 +18,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             Instance = instance;
             StartedAtSeconds = startedAtSeconds;
             this.timeProvider = timeProvider;
+            IsLifetimeControllerManaged = isLifetimeControllerManaged;
         }
 
         private readonly IGameplayVfxTimeProvider timeProvider;
@@ -40,6 +42,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
         internal float TailStartedAtSeconds { get; private set; }
 
         internal bool HasTailStarted { get; private set; }
+
+        internal bool IsLifetimeControllerManaged { get; }
 
         internal bool IsTerminal =>
             State == VfxLifetimeState.ReleasedToPool ||

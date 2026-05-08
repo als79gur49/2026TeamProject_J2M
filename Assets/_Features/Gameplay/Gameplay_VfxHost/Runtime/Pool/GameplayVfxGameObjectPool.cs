@@ -45,9 +45,13 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public IVfxPlaybackHandle PlayAttachedTransient(
             in ResolvedVfxPlaybackCommand command,
-            Transform parent)
+            Transform parent,
+            bool controllerManagedLifetime = false)
         {
-            return Play(command, parent != null ? parent : root.OneShotRoot);
+            return Play(
+                command,
+                parent != null ? parent : root.OneShotRoot,
+                controllerManagedLifetime);
         }
 
         public IVfxPlaybackHandle PlayFlipDestroySelfMotion(
@@ -143,7 +147,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
-        private GameplayVfxPlaybackHandle Play(in ResolvedVfxPlaybackCommand command, Transform parent)
+        private GameplayVfxPlaybackHandle Play(
+            in ResolvedVfxPlaybackCommand command,
+            Transform parent,
+            bool controllerManagedLifetime = false)
         {
             command.Policy.ValidateOrThrow();
             if (!prefabProvider.TryResolvePrefab(command, out var prefab) || prefab == null)
@@ -161,7 +168,13 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var prefabInstanceId = prefab.GetInstanceID();
             var instance = Lease(prefab, prefabInstanceId);
             var now = timeProvider.TimeSeconds;
-            var handle = new GameplayVfxPlaybackHandle(++nextHandleId, command, instance, now, timeProvider);
+            var handle = new GameplayVfxPlaybackHandle(
+                ++nextHandleId,
+                command,
+                instance,
+                now,
+                timeProvider,
+                controllerManagedLifetime);
             instance.Activate(prefabInstanceId, handle, parent, command.Anchor);
             handle.MarkSpawned();
             handle.MarkActive();
@@ -237,6 +250,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private void AdvanceActiveHandle(GameplayVfxPlaybackHandle handle, float now)
         {
             if (handle.IsPersistent)
+            {
+                return;
+            }
+
+            if (handle.IsLifetimeControllerManaged)
             {
                 return;
             }

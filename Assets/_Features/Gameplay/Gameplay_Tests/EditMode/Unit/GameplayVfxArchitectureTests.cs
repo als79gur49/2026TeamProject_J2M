@@ -34,6 +34,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string ExitControllerPath = "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayExitPresentationController.cs";
         private const string VfxProductionRuntimePath =
             "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/GameplayVfxProductionRuntime.cs";
+        private const string PresentationMotionFollowingVfxControllerPath =
+            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/PresentationMotionFollowingVfxController.cs";
+        private const string GameplayVfxGameObjectPoolPath =
+            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Pool/GameplayVfxGameObjectPool.cs";
+        private const string GameplayVfxPlaybackHandlePath =
+            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Pool/GameplayVfxPlaybackHandle.cs";
         private const string ParameterizedMotionVfxCommandPath =
             "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/ParameterizedMotion/ParameterizedMotionVfxCommand.cs";
         private const string FlipImpactBurstVfxRequestPlannerPath =
@@ -47,6 +53,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_EntityView/Runtime/EnemyUtilityWindupPresentationAuthoring.cs";
         private const string FrontFaceShieldAuthoringPath =
             "Assets/_Features/Gameplay/Gameplay_EntityView/Runtime/EnemyFrontFaceShieldPresentationAuthoring.cs";
+        private const string FlipImpactStayTrailBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/FlipImpactStayTrail_Binding.asset";
+        private const string GlideWindTrailBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/GlideWindTrail_Binding.asset";
+        private const string ChargeBoosterTrailBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/ChargeBoosterTrail_Binding.asset";
 
         [Test]
         [Category("Extended")]
@@ -83,6 +95,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("FlipImpactTrack adapter was removed"));
             Assert.That(document, Does.Contain("PresentationMotionTrack Multi-User Expansion"));
             Assert.That(document, Does.Contain("MotionTrack-Following VFX Support"));
+            Assert.That(document, Does.Contain("Attached Follower Lifetime Policy"));
+            Assert.That(document, Does.Contain("controller-managed active lifetime"));
+            Assert.That(document, Does.Contain("does not mean immediate stop"));
             Assert.That(document, Does.Contain("successful flip motion"));
             Assert.That(document, Does.Contain("box slide presentation"));
             Assert.That(document, Does.Contain("unit kinematic locomotion"));
@@ -227,6 +242,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(vfxPlanning, Does.Not.Contain("FlipImpactStayMotion"));
             Assert.That(productionRuntime, Does.Not.Contain("FlipImpactStayMotion"));
             Assert.That(productionRuntime, Does.Contain("PresentationMotionFollowingVfxController"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void AttachedFollowers_UseControllerManagedPoolLifetime()
+        {
+            var controller = ReadRepoFile(PresentationMotionFollowingVfxControllerPath);
+            var pool = ReadRepoFile(GameplayVfxGameObjectPoolPath);
+            var handle = ReadRepoFile(GameplayVfxPlaybackHandlePath);
+
+            Assert.That(controller, Does.Contain("controllerManagedLifetime: true"));
+            Assert.That(pool, Does.Contain("bool controllerManagedLifetime = false"));
+            Assert.That(pool, Does.Contain("handle.IsLifetimeControllerManaged"));
+            Assert.That(handle, Does.Contain("IsLifetimeControllerManaged"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void AttachedFollowerBindings_DoNotUseHugeLifetimeWorkaround()
+        {
+            var bindingPaths = new[]
+            {
+                FlipImpactStayTrailBindingPath,
+                GlideWindTrailBindingPath,
+                ChargeBoosterTrailBindingPath,
+            };
+
+            foreach (var bindingPath in bindingPaths)
+            {
+                var binding = ReadRepoFile(bindingPath);
+
+                Assert.That(binding, Does.Contain("defaultLifetimeSeconds: 0"), bindingPath);
+                Assert.That(binding, Does.Not.Contain("defaultLifetimeSeconds: 999"), bindingPath);
+                Assert.That(binding, Does.Not.Contain("defaultLifetimeSeconds: 9999"), bindingPath);
+            }
         }
 
         [Test]

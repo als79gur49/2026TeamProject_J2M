@@ -140,6 +140,79 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void ChargeBoosterTrail_RemainsAttachedAcrossPoolAdvanceWhileActive()
+        {
+            var fixture = CreateFixture();
+            try
+            {
+                fixture.RefreshAttached(DesiredCharge());
+                var instance = fixture.View.ModelRoot.GetChild(0);
+
+                fixture.TimeProvider.TimeSeconds = 1f;
+                fixture.Pool.Advance(1f);
+
+                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.EqualTo(1));
+                Assert.That(fixture.Pool.ActiveCount, Is.EqualTo(1));
+                Assert.That(instance.parent, Is.EqualTo(fixture.View.ModelRoot));
+                Assert.That(fixture.Root.TailRoot.childCount, Is.Zero);
+                Assert.That(fixture.Root.PoolRoot.childCount, Is.Zero);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GlideWindTrail_RemainsAttachedAcrossPoolAdvanceWhileActive()
+        {
+            var fixture = CreateFixture();
+            try
+            {
+                fixture.RefreshAttached(DesiredGlide());
+                var instance = fixture.View.ModelRoot.GetChild(0);
+
+                fixture.TimeProvider.TimeSeconds = 1f;
+                fixture.Pool.Advance(1f);
+
+                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.EqualTo(1));
+                Assert.That(fixture.Pool.ActiveCount, Is.EqualTo(1));
+                Assert.That(instance.parent, Is.EqualTo(fixture.View.ModelRoot));
+                Assert.That(fixture.Root.TailRoot.childCount, Is.Zero);
+                Assert.That(fixture.Root.PoolRoot.childCount, Is.Zero);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Follower_DefaultLifetimeZero_DoesNotImmediateStopWhenControllerManaged()
+        {
+            var fixture = CreateFixture();
+            try
+            {
+                fixture.RefreshAttached(DesiredCharge());
+
+                fixture.TimeProvider.TimeSeconds = 0.01f;
+                fixture.Pool.Advance(0.01f);
+
+                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.EqualTo(1));
+                Assert.That(fixture.Pool.ActiveCount, Is.EqualTo(1));
+                Assert.That(fixture.View.ModelRoot.childCount, Is.EqualTo(1));
+                Assert.That(fixture.Root.TailRoot.childCount, Is.Zero);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Follower_DetachesAndTailsOnStateEnd()
         {
             var fixture = CreateFixture(tailSeconds: 0.25f);
@@ -213,6 +286,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(fixture.Controller.AttachedMissingOwnerViewCount, Is.EqualTo(1));
                 Assert.That(fixture.Pool.ActiveCount, Is.Zero);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MissingOwner_DetachesExistingFollower()
+        {
+            var fixture = CreateFixture(tailSeconds: 0.25f);
+            try
+            {
+                fixture.RefreshAttached(DesiredCharge());
+
+                fixture.StateStore.ViewsByEntityId.Remove(40);
+                fixture.RefreshAttached(DesiredCharge());
+
+                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.Zero);
+                Assert.That(fixture.View.ModelRoot.childCount, Is.Zero);
+                Assert.That(fixture.Root.TailRoot.childCount, Is.EqualTo(1));
+                Assert.That(fixture.Pool.ActiveCount, Is.EqualTo(1));
             }
             finally
             {

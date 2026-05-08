@@ -151,6 +151,85 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void AuthoredDurationOneShot_DefaultLifetimeZero_BehaviorUnchanged()
+        {
+            var handle = pool.PlayTransient(CreateCommand(
+                VfxPlaybackMode.OneShot,
+                VfxStopPolicy.AuthoredDuration,
+                defaultLifetimeSeconds: 0f,
+                tailSeconds: 0f));
+
+            pool.Advance(0f);
+
+            Assert.That(handle.State, Is.EqualTo(VfxLifetimeState.TailPlaying));
+            Assert.That(pool.ActiveCount, Is.EqualTo(1));
+
+            pool.Advance(0f);
+
+            Assert.That(handle.State, Is.EqualTo(VfxLifetimeState.ReleasedToPool));
+            Assert.That(pool.ActiveCount, Is.Zero);
+            Assert.That(pool.PooledCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void AttachedTransient_ControllerManagedDefaultLifetimeZero_RemainsAttachedAcrossAdvance()
+        {
+            var attachParent = new GameObject("AttachedFollowerParent").transform;
+            attachParent.SetParent(owner.transform, worldPositionStays: false);
+            var handle = pool.PlayAttachedTransient(
+                CreateCommand(
+                    VfxPlaybackMode.Follow,
+                    VfxStopPolicy.DetachThenStopEmittingThenRelease,
+                    defaultLifetimeSeconds: 0f,
+                    tailSeconds: 0.25f),
+                attachParent,
+                controllerManagedLifetime: true);
+            var instance = attachParent.GetChild(0);
+
+            timeProvider.TimeSeconds = 1f;
+            pool.Advance(1f);
+
+            Assert.That(handle.State, Is.EqualTo(VfxLifetimeState.Active));
+            Assert.That(instance.parent, Is.EqualTo(attachParent));
+            Assert.That(root.TailRoot.childCount, Is.Zero);
+            Assert.That(pool.ActiveCount, Is.EqualTo(1));
+            Assert.That(pool.PooledCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ControllerManagedTail_ReleasesAfterControllerDetach()
+        {
+            var attachParent = new GameObject("AttachedFollowerParent").transform;
+            attachParent.SetParent(owner.transform, worldPositionStays: false);
+            var handle = pool.PlayAttachedTransient(
+                CreateCommand(
+                    VfxPlaybackMode.Follow,
+                    VfxStopPolicy.DetachThenStopEmittingThenRelease,
+                    defaultLifetimeSeconds: 0f,
+                    tailSeconds: 0.25f),
+                attachParent,
+                controllerManagedLifetime: true);
+            var instance = attachParent.GetChild(0);
+
+            handle.Detach();
+            handle.StopEmitting();
+            handle.MarkTailPlaying();
+
+            Assert.That(instance.parent, Is.EqualTo(root.TailRoot));
+            Assert.That(handle.State, Is.EqualTo(VfxLifetimeState.TailPlaying));
+
+            timeProvider.TimeSeconds = 0.30f;
+            pool.Advance(0.30f);
+
+            Assert.That(handle.State, Is.EqualTo(VfxLifetimeState.ReleasedToPool));
+            Assert.That(instance.parent, Is.EqualTo(root.PoolRoot));
+            Assert.That(pool.ActiveCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void DetachThenStopEmitting_MovesInstanceToTailRootUntilTailCompletes()
         {
             var command = CreateCommand(

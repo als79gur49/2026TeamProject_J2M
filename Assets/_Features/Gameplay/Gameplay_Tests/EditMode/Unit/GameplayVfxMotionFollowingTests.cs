@@ -66,6 +66,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void FlipImpactStayTrail_RemainsAttachedAcrossPoolAdvanceWhileDesired()
+        {
+            var fixture = CreateFixture();
+            try
+            {
+                fixture.TrackState.OriginalViewMotionTracks[30] = CreateTrack(entityId: 30);
+                fixture.Controller.Refresh(
+                    10,
+                    fixture.TrackState,
+                    fixture.StateStore,
+                    fixture.Pool,
+                    fixture.BindingResolver,
+                    enabled: true);
+                var instance = fixture.View.ModelRoot.GetChild(0);
+
+                fixture.TimeProvider.TimeSeconds = 1f;
+                fixture.Pool.Advance(1f);
+
+                Assert.That(fixture.Controller.ActiveHandleCount, Is.EqualTo(1));
+                Assert.That(fixture.Pool.ActiveCount, Is.EqualTo(1));
+                Assert.That(instance.parent, Is.EqualTo(fixture.View.ModelRoot));
+                Assert.That(fixture.Root.TailRoot.childCount, Is.Zero);
+                Assert.That(fixture.Root.PoolRoot.childCount, Is.Zero);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void FlipImpactStayTrail_DoesNotSpawnWithoutStayMotion()
         {
             var fixture = CreateFixture();
@@ -144,6 +176,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void FlagOff_DetachesControllerManagedAttachedFollower()
+        {
+            var fixture = CreateFixture(tailSeconds: 0.25f);
+            try
+            {
+                fixture.TrackState.OriginalViewMotionTracks[30] = CreateTrack(entityId: 30);
+                fixture.Controller.Refresh(
+                    10,
+                    fixture.TrackState,
+                    fixture.StateStore,
+                    fixture.Pool,
+                    fixture.BindingResolver,
+                    enabled: true);
+
+                fixture.Controller.Refresh(
+                    11,
+                    fixture.TrackState,
+                    fixture.StateStore,
+                    fixture.Pool,
+                    fixture.BindingResolver,
+                    enabled: false);
+
+                Assert.That(fixture.Controller.ActiveHandleCount, Is.Zero);
+                Assert.That(fixture.View.ModelRoot.childCount, Is.Zero);
+                Assert.That(fixture.Root.TailRoot.childCount, Is.EqualTo(1));
+                Assert.That(fixture.Pool.ActiveCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void FlipImpactStayTrail_MissingBinding_DiagnosticNoMotionSuppression()
         {
             var fixture = CreateFixture(resolveBinding: false);
@@ -195,6 +262,42 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(fixture.Controller.MissingOwnerViewCount, Is.EqualTo(1));
                 Assert.That(fixture.Pool.ActiveCount, Is.Zero);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MissingOwner_DetachesExistingFollower()
+        {
+            var fixture = CreateFixture(tailSeconds: 0.25f);
+            try
+            {
+                fixture.TrackState.OriginalViewMotionTracks[30] = CreateTrack(entityId: 30);
+                fixture.Controller.Refresh(
+                    10,
+                    fixture.TrackState,
+                    fixture.StateStore,
+                    fixture.Pool,
+                    fixture.BindingResolver,
+                    enabled: true);
+
+                fixture.StateStore.ViewsByEntityId.Remove(30);
+                fixture.Controller.Refresh(
+                    11,
+                    fixture.TrackState,
+                    fixture.StateStore,
+                    fixture.Pool,
+                    fixture.BindingResolver,
+                    enabled: true);
+
+                Assert.That(fixture.Controller.ActiveHandleCount, Is.Zero);
+                Assert.That(fixture.View.ModelRoot.childCount, Is.Zero);
+                Assert.That(fixture.Root.TailRoot.childCount, Is.EqualTo(1));
+                Assert.That(fixture.Pool.ActiveCount, Is.EqualTo(1));
             }
             finally
             {

@@ -234,7 +234,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 fallbackCell: default,
                 fallbackTopology: default);
             var command = new ResolvedVfxPlaybackCommand(request, policy, anchor);
-            handle = pool.PlayAttachedTransient(command, parent);
+            handle = pool.PlayAttachedTransient(
+                command,
+                parent,
+                controllerManagedLifetime: true);
             return handle != null;
         }
 
@@ -352,7 +355,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 fallbackCell: default,
                 fallbackTopology: default);
             var command = new ResolvedVfxPlaybackCommand(request, policy, anchor);
-            handle = pool.PlayAttachedTransient(command, parent);
+            handle = pool.PlayAttachedTransient(
+                command,
+                parent,
+                controllerManagedLifetime: true);
             return handle != null;
         }
 

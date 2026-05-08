@@ -170,7 +170,7 @@ First concrete user:
 - flag: `EnableGameplayVfxFlipImpactStayTrail`
 - source motion: `PresentationMotionKind.FlipImpactStay`
 - attach point: source box `GameplayEntityView.ModelRoot`, falling back to the view transform
-- lifecycle: attach on active track, detach on complete/cancel/missing owner/flag off, then `StopEmittingThenRelease` through the pool tail
+- lifecycle: attach on active track, detach on complete/cancel/missing owner/flag off, then stop emitting and release through the pool tail
 
 Ownership:
 
@@ -210,6 +210,21 @@ Relationship to existing VFX:
 - this differs from `BoxVfxCue.SlideDustTrail`, which uses `ParameterizedMotionVfxCommand` to compute source-to-target VFX motion.
 - it shares the parent attachment and detach/tail lifecycle family with `BoxVfxCue.FlipImpactStayTrail`.
 - production `VfxAnchorKind.MotionTrack` sample-follow resolving remains future work.
+
+## Attached Follower Lifetime Policy
+
+Attached follower VFX started by `PresentationMotionFollowingVfxController` have controller-managed active lifetime. The pool owns prefab leasing and tail release, but it must not decide that an active attached follower's desired state has ended from authored lifetime alone.
+
+The controller-managed policy applies to handles created with `PlayAttachedTransient(..., controllerManagedLifetime: true)`. It is not a global `VfxPlaybackMode.Follow` special case. Authored-duration one-shot transients still use `DefaultLifetimeSeconds` as their active duration.
+
+For controller-managed attached followers:
+
+- `defaultLifetimeSeconds = 0` on the binding does not mean immediate stop.
+- the VFX remains parented under `GameplayEntityView.ModelRoot`, falling back to the view transform, while the desired motion/state remains active.
+- stop triggers are desired state absent, motion complete/cancel/absent, active glide/charge state end, owner view missing, flag off, replacement key, session reset, and hard cleanup.
+- normal stop detaches the pooled instance to `TailRoot`, stops new emission, enters `TailPlaying`, and releases after `TailSeconds`.
+- hard cleanup destroys or releases active follower instances without waiting for tail.
+- Gameplay VFX follows only by transform parenting and must not move, reset, scale, or otherwise own the original entity view transform.
 
 Future inventory:
 
@@ -1051,6 +1066,8 @@ The host runtime does not reference VFX authoring assets. Prefab access is isola
 ## Pooling Policy
 
 One-shot transient effects lease prefab instances under `OneShotRoot` and return them to `PoolRoot` after authored lifetime plus tail. Persistent loop/follow effects lease under `PersistentRoot`; desired-state dedupe by `VfxPersistentKey` remains owned by the persistent handle registry before the pool.
+
+Controller-managed attached transient followers lease under the owner view/model root and remain active until their controller stops them. Once detached and marked tail-playing, they follow the same `TailSeconds` release path as authored-duration transients.
 
 StopEmitting and Detach do not immediately destroy the GameObject. `StopEmittingThenRelease` stops new emission, enters `TailPlaying`, and releases after `TailSeconds`. `DetachThenStopEmittingThenRelease` first moves the instance to `TailRoot`, then stops new emission, preserves the tail, and releases after `TailSeconds`.
 
