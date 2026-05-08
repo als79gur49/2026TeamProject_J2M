@@ -26,6 +26,7 @@ MonoBehaviour:
     Facing: 2
     Hp: 1
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
@@ -41,6 +42,7 @@ MonoBehaviour:
     Facing: 2
     Hp: 1
     BoxCapabilities: 1
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
@@ -55,6 +57,7 @@ MonoBehaviour:
     Facing: 2
     Hp: 1
     BoxCapabilities: 4
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
@@ -69,6 +72,7 @@ MonoBehaviour:
     Facing: 2
     Hp: 1
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
@@ -83,6 +87,7 @@ MonoBehaviour:
     Facing: 4
     Hp: 1
     BoxCapabilities: 2
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
@@ -97,6 +102,7 @@ MonoBehaviour:
     Facing: 2
     Hp: 1
     BoxCapabilities: 3
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
@@ -111,6 +117,7 @@ MonoBehaviour:
     Facing: 4
     Hp: 1
     BoxCapabilities: 6
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
@@ -125,6 +132,7 @@ MonoBehaviour:
     Facing: 2
     Hp: 1
     BoxCapabilities: 11
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
@@ -139,6 +147,7 @@ MonoBehaviour:
     Facing: 2
     Hp: 1
     BoxCapabilities: 7
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
@@ -153,6 +162,7 @@ MonoBehaviour:
     Facing: 1
     Hp: 1
     BoxCapabilities: 1
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
@@ -167,6 +177,7 @@ MonoBehaviour:
     Facing: 2
     Hp: 1
     BoxCapabilities: 5
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
@@ -181,6 +192,7 @@ MonoBehaviour:
     Facing: 4
     Hp: 1
     BoxCapabilities: 3
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
@@ -195,6 +207,7 @@ MonoBehaviour:
     Facing: 2
     Hp: 1
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
@@ -209,6 +222,7 @@ MonoBehaviour:
     Facing: 2
     Hp: 1
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
@@ -223,6 +237,7 @@ MonoBehaviour:
     Facing: 2
     Hp: 1
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
@@ -237,6 +252,7 @@ MonoBehaviour:
     Facing: 2
     Hp: 1
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
@@ -252,6 +268,7 @@ MonoBehaviour:
     Facing: 1
     Hp: 3
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 8d6b1bc1c4aa4d57b9c6d8df30d7e6a2, type: 2}
@@ -266,6 +283,7 @@ MonoBehaviour:
     Facing: 4
     Hp: 3
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 3d157a22696a4ee29ac2852d6486cd31, type: 2}
@@ -280,6 +298,7 @@ MonoBehaviour:
     Facing: 4
     Hp: 3
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 8fdb5400ceb74592aa5dea3cbb2cf2a8, type: 2}
@@ -294,6 +313,7 @@ MonoBehaviour:
     Facing: 2
     Hp: 3
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 19783ce834b246d5b32ce6df8e595444, type: 2}
@@ -308,6 +328,7 @@ MonoBehaviour:
     Facing: 2
     Hp: 3
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: de83e764216982c1751b31cd7cc75d22, type: 2}
@@ -322,6 +343,7 @@ MonoBehaviour:
     Facing: 2
     Hp: 3
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: ee4160b1ea994e21b5b93ee5e5b66c8d, type: 2}
@@ -337,6 +359,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
@@ -351,6 +374,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
@@ -365,6 +389,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
@@ -379,6 +404,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
@@ -393,6 +419,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
@@ -404,6 +431,7 @@ MonoBehaviour:
     Regions:
     - MinInclusive: {x: 0, y: 0}
       MaxInclusive: {x: 1, y: 2}
+  tileFeatures: []
   objective:
     CompletionPolicy: 2
     ObjectiveTitle: Reach the Exit
