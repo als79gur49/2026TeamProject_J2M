@@ -67,10 +67,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     baselineSecondTick.EventLog.ToArray(),
                     presentedSecondTick.EventLog.ToArray());
 
+                var baselineSnapshotAfter = baselineWorld.CreateSnapshot();
                 var presentedSnapshotAfter = presentedWorld.CreateSnapshot();
+                Assert.That(baselineSnapshotAfter.TryGetEntity(40, out var baselineEnemy), Is.True);
                 Assert.That(presentedSnapshotAfter.TryGetEntity(40, out var presentedEnemy), Is.True);
-                Assert.That(presentedEnemy.aiMode, Is.EqualTo(EnemyAiMode.Recover));
-                Assert.That(presentedEnemy.aiStateTimer, Is.EqualTo(1));
+                Assert.That(presentedEnemy.position, Is.EqualTo(baselineEnemy.position));
+                Assert.That(presentedEnemy.aiMode, Is.EqualTo(baselineEnemy.aiMode));
+                Assert.That(presentedEnemy.aiStateTimer, Is.EqualTo(baselineEnemy.aiStateTimer));
                 Assert.That(registry.TryGetView(40, out var enemyView), Is.True);
                 Assert.That(enemyView.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
             }
@@ -211,10 +214,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     baselineSecondTick.EventLog.ToArray(),
                     presentedSecondTick.EventLog.ToArray());
 
+                var baselineSnapshotAfter = baselineWorld.CreateSnapshot();
                 var presentedSnapshotAfter = presentedWorld.CreateSnapshot();
+                Assert.That(baselineSnapshotAfter.TryGetEntity(40, out var baselineEnemy), Is.True);
                 Assert.That(presentedSnapshotAfter.TryGetEntity(40, out var presentedEnemy), Is.True);
-                Assert.That(presentedEnemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
-                Assert.That(presentedEnemy.enemyLocomotionCooldownTicks, Is.EqualTo(1));
+                Assert.That(presentedEnemy.position, Is.EqualTo(baselineEnemy.position));
+                Assert.That(
+                    presentedEnemy.enemyLocomotionCooldownTicks,
+                    Is.EqualTo(baselineEnemy.enemyLocomotionCooldownTicks));
                 Assert.That(registry.TryGetView(40, out var enemyView), Is.True);
                 Assert.That(enemyView.GetComponent<UnitLocomotionPresentationAuthoring>(), Is.Not.Null);
             }
@@ -308,11 +315,19 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     baselineThirdTick.EventLog.ToArray(),
                     presentedThirdTick.EventLog.ToArray());
 
+                var baselineSnapshotAfter = baselineWorld.CreateSnapshot();
                 var presentedSnapshotAfter = presentedWorld.CreateSnapshot();
+                Assert.That(
+                    baselineSnapshotAfter.TryGetEnemyDefinitionBindingState(41, out var baselineBindingState),
+                    Is.True);
                 Assert.That(presentedSnapshotAfter.TryGetEnemyDefinitionBindingState(41, out var bindingState), Is.True);
+                Assert.That(bindingState.ArchetypeId, Is.EqualTo(baselineBindingState.ArchetypeId));
                 Assert.That(bindingState.ArchetypeId, Is.EqualTo(new EnemyUnitArchetypeId("BasicMinion")));
+                Assert.That(baselineSnapshotAfter.TryGetEntity(41, out var baselineChild), Is.True);
                 Assert.That(presentedSnapshotAfter.TryGetEntity(41, out var child), Is.True);
-                Assert.That(child.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
+                Assert.That(child.position, Is.EqualTo(baselineChild.position));
+                Assert.That(child.aiMode, Is.EqualTo(baselineChild.aiMode));
+                Assert.That(child.enemyLocomotionCooldownTicks, Is.EqualTo(baselineChild.enemyLocomotionCooldownTicks));
             }
             finally
             {
