@@ -22,7 +22,7 @@ Material:
   stringTagMap:
     RenderType: Opaque
   disabledShaderPasses: []
-  m_LockedProperties:
+  m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
@@ -121,7 +121,7 @@ Material:
     - _ZWrite: 1
     m_Colors:
     - _BaseColor: {r: 0.58, g: 0.53, b: 0.47, a: 1}
-    - _Color: {r: 0.58, g: 0.53, b: 0.47, a: 1}
+    - _Color: {r: 0.58, g: 0.53, b: 0.4699999, a: 1}
     - _EmissionColor: {r: 0.055, g: 0.045, b: 0.035, a: 1}
     - _InactiveTint: {r: 0.72, g: 0.64, b: 0.52, a: 1}
     - _SpecColor: {r: 0.06, g: 0.055, b: 0.05, a: 1}
