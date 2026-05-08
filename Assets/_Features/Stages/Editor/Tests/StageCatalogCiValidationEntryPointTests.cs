@@ -9,7 +9,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void Run_WritesGovernanceAndAliasUsageValidationSections()
         {
             var result = StageCatalogCiValidationEntryPoint.Run();
-            var reportPath = Path.Combine("Temp", "StageCatalogValidation", "stage-catalog-validation.md");
+            var reportPath = StageCatalogCiValidationEntryPoint.ReportPath;
 
             Assert.That(result, Is.EqualTo(0));
             Assert.That(File.Exists(reportPath), Is.True);

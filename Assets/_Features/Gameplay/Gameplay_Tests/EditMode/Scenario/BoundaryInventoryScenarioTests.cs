@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.Attack;
+using Game.Feature.Stages;
 using Game.Feature.Gameplay.Attack.Commit;
 using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
@@ -26,7 +27,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
     public sealed class BoundaryInventoryScenarioTests
     {
         private const string GlideChaserProfileAssetPath =
-            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_GlideChaser/EnemyAi_GlideChaser.asset";
+            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_GlideChaser/EnemyAi_GlideChaser.asset";
 
         [Test]
         [Category("Core")]

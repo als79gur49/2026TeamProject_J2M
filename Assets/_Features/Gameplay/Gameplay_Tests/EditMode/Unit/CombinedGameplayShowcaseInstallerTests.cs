@@ -20,11 +20,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class CombinedGameplayShowcaseInstallerTests
     {
         private const string CombinedStageAssetPath =
-            "Assets/_Features/Stages/Content/combined-gameplay-showcase/combined-gameplay-showcase.asset";
+            StageContentPaths.CampaignLevel01StagesRoot + "/combined-gameplay-showcase/combined-gameplay-showcase.asset";
         private const string CombinedPresentationAssetPath =
-            "Assets/_Features/Stages/Content/combined-gameplay-showcase/combined-gameplay-showcase_Presentation.asset";
+            StageContentPaths.CampaignLevel01StagesRoot + "/combined-gameplay-showcase/combined-gameplay-showcase_Presentation.asset";
         private const string StageCatalogProviderAssetPath =
-            "Assets/_Features/Stages/Content/StageCatalogProvider.asset";
+            StageContentPaths.StageCatalogProviderAssetPath;
         private const string DefaultSimulationTimingPresetAssetPath =
             "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplaySimulationTimingPreset_DefaultShowcase.asset";
         private const string DefaultPresentationTimingPresetAssetPath =

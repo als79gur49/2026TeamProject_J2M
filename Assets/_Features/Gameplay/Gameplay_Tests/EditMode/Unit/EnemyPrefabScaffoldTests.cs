@@ -1,4 +1,5 @@
 using System.IO;
+using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -24,7 +25,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Full")]
         public void CombinedGameplayShowcaseEnemyPrefab_UsesMoveOnlyLocomotionAuthoringAlongsideEnemyAnimationTiming()
         {
-            var prefabText = ReadNormalizedText("Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Prefabs/EnemyView_WindupMelee.prefab");
+            var prefabText = ReadNormalizedText(StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_WindupMelee.prefab");
 
             StringAssert.Contains("UnitLocomotionPresentationAuthoring", prefabText);
             StringAssert.Contains("moveMotionDurationSeconds: -1", prefabText);
@@ -53,7 +54,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Full")]
         public void EnemyViewChargePrefab_BindsGenericMoveAuthoringWithoutChargeMoveRuntimeField()
         {
-            var prefabText = ReadNormalizedText("Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyView_Charge.prefab");
+            var prefabText = ReadNormalizedText(StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_Charge.prefab");
 
             StringAssert.Contains("UnitLocomotionPresentationAuthoring", prefabText);
             StringAssert.Contains("moveMotionDurationSeconds: 1", prefabText);
@@ -64,7 +65,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Full")]
         public void EnemyViewWallFollowerSunPrefab_BindsSunModelAndAnimationController()
         {
-            var prefabText = ReadNormalizedText("Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyView_WallFollowerSun.prefab");
+            var prefabText = ReadNormalizedText(StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_WallFollowerSun.prefab");
 
             StringAssert.Contains("EnemyView_WallFollowerSun", prefabText);
             StringAssert.Contains("guid: bbf461ea260c63b4785c6c2c72a480bf", prefabText);
@@ -78,7 +79,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Full")]
         public void EnemyViewJumpChaserAstraPrefab_BindsAstraModelAndJumpTimingClips()
         {
-            var prefabText = ReadNormalizedText("Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyView_JumpChaserAstra.prefab");
+            var prefabText = ReadNormalizedText(StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_JumpChaserAstra.prefab");
 
             StringAssert.Contains("EnemyView_JumpChaserAstra", prefabText);
             StringAssert.Contains("guid: 9870afb7c6d615c458c88e0e341207e3", prefabText);

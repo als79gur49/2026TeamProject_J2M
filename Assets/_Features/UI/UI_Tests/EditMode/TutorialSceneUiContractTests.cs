@@ -23,7 +23,7 @@ namespace Game.Feature.UI.Tests
         private const string GameplayAudioMapAssetPath =
             "Assets/_Features/Gameplay/Gameplay_Audio/Maps/GameplayAudioMap_UI-Audio_Test.asset";
         private const string StageCatalogProviderAssetPath =
-            "Assets/_Features/Stages/Content/StageCatalogProvider.asset";
+            StageContentPaths.StageCatalogProviderAssetPath;
         private const string CombinedScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
         private const string TutorialScenePath = "Assets/Scenes/TutorialScene.unity";
         private const string UiAudioScenePath = "Assets/Scenes/UIAudioScene.unity";

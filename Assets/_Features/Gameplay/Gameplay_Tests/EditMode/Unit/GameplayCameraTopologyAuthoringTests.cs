@@ -897,9 +897,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string AuthoringEditorRelativePath =
             "Assets/_Features/Gameplay/Gameplay_Host/Editor/GameplayCameraTopologyAuthoringEditor.cs";
         private const string CombinedGameplayShowcasePresetAssetPath =
-            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Camera/Presets/GameplayCameraTopologyPreset_CombinedGameplayShowcase.asset";
+            StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_CombinedGameplayShowcase.asset";
         private const string TutorialScenePresetAssetPath =
-            "Assets/_Features/Stages/Stage_TutorialScene/Camera/Presets/GameplayCameraTopologyPreset_TutorialScene.asset";
+            StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_TutorialScene.asset";
         private const string CombinedGameplayShowcaseInstallerMarker =
             "m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.CombinedGameplayShowcaseInstaller";
         private const string GameplayCameraTopologyAuthoringMarker =

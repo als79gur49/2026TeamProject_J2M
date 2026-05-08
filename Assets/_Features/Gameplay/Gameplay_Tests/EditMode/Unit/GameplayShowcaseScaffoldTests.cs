@@ -1100,7 +1100,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string CombinedSceneInstallerIdentifier =
             "Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.CombinedGameplayShowcaseInstaller";
         private const string StageCatalogProviderAssetPath =
-            "Assets/_Features/Stages/Content/StageCatalogProvider.asset";
+            StageContentPaths.StageCatalogProviderAssetPath;
         private const string DefaultSimulationTimingPresetAssetPath =
             "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplaySimulationTimingPreset_DefaultShowcase.asset";
         private const string DefaultPresentationTimingPresetAssetPath =

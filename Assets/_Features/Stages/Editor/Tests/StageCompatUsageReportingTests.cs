@@ -8,7 +8,7 @@ namespace Game.Feature.Stages.Editor.Tests
 {
     public sealed class StageCompatUsageReportingTests
     {
-        private const string CatalogAssetPath = "Assets/_Features/Stages/Content/StageCatalog.asset";
+        private const string CatalogAssetPath = StageContentPaths.StageCatalogAssetPath;
         private const string KnownWarningLedgerAssetPath =
             "Assets/_Features/Stages/Editor/Validation/StageCatalogKnownWarningLedger.asset";
         private const string AliasGovernanceLedgerAssetPath =
@@ -117,7 +117,7 @@ namespace Game.Feature.Stages.Editor.Tests
         [Test]
         public void AliasGovernanceLedger_MatchesAliasTableExactSet()
         {
-            var aliasTable = AssetDatabase.LoadAssetAtPath<StageIdAliasTable>("Assets/_Features/Stages/Content/StageIdAliasTable.asset");
+            var aliasTable = AssetDatabase.LoadAssetAtPath<StageIdAliasTable>(StageContentPaths.StageIdAliasTableAssetPath);
             var ledger = AssetDatabase.LoadAssetAtPath<StageAliasGovernanceLedger>(AliasGovernanceLedgerAssetPath);
 
             var governanceReport = new StageAliasGovernanceValidator().Validate(aliasTable, ledger);

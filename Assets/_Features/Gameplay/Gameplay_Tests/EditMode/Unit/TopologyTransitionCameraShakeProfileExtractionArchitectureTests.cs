@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -43,8 +44,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/Scenes/CombinedGameplayShowcase.unity",
             "Assets/Scenes/TutorialScene.unity",
             "Assets/Scenes/UIAudioScene.unity",
-            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Camera/Presets/GameplayCameraTopologyPreset_CombinedGameplayShowcase.asset",
-            "Assets/_Features/Stages/Stage_TutorialScene/Camera/Presets/GameplayCameraTopologyPreset_TutorialScene.asset",
+            StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_CombinedGameplayShowcase.asset",
+            StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_TutorialScene.asset",
         };
 
         private static readonly string[] ExpectedFieldNames =
@@ -311,8 +312,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static string ResolveExpectedPresetAssetPath(string scenePath)
         {
             return scenePath == "Assets/Scenes/CombinedGameplayShowcase.unity"
-                ? "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Camera/Presets/GameplayCameraTopologyPreset_CombinedGameplayShowcase.asset"
-                : "Assets/_Features/Stages/Stage_TutorialScene/Camera/Presets/GameplayCameraTopologyPreset_TutorialScene.asset";
+                ? StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_CombinedGameplayShowcase.asset"
+                : StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_TutorialScene.asset";
         }
 
         private static bool ContainsCameraShakeProfileHolder(string relativePath)

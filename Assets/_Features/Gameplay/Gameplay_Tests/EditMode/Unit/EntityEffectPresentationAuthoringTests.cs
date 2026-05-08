@@ -4,6 +4,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -13,8 +14,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class EntityEffectPresentationAuthoringTests
     {
         private const string PlayerPrefabPath = "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/Player_S1.prefab";
-        private const string StartisPrefabPath = "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyView_Startis.prefab";
-        private const string BlackEyePrefabPath = "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyView_BlackEye.prefab";
+        private const string StartisPrefabPath = StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_Startis.prefab";
+        private const string BlackEyePrefabPath = StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_BlackEye.prefab";
 
         [Test]
         [Category("Full")]

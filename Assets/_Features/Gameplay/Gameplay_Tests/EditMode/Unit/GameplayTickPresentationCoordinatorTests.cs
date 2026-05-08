@@ -12,6 +12,7 @@ using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -4911,7 +4912,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var startisPrefab = AssetDatabase.LoadAssetAtPath<GameplayEntityView>(
-                    "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyView_Startis.prefab");
+                    StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_Startis.prefab");
                 Assert.That(startisPrefab, Is.Not.Null);
 
                 var factory = new DefaultGameplayEntityViewFactory(

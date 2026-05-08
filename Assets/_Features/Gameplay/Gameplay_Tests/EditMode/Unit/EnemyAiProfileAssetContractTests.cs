@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -38,23 +39,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static readonly string[] RequiredCanonicalAssetPaths =
         {
-            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee.asset",
-            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee_RandomWalkPilot.asset",
-            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_NonAttacking/EnemyAi_NonAttacking.asset",
-            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_WallFollower/EnemyAi_WallFollower.asset",
-            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_JumpChaser/EnemyAi_JumpChaser.asset",
-            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_Charge/EnemyAi_Charge.asset",
+            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee.asset",
+            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee_RandomWalkPilot.asset",
+            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_NonAttacking/EnemyAi_NonAttacking.asset",
+            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_WallFollower/EnemyAi_WallFollower.asset",
+            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_JumpChaser/EnemyAi_JumpChaser.asset",
+            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_Charge/EnemyAi_Charge.asset",
         };
 
         private static readonly (string AssetPath, PatrolStrategyKind PatrolKind)[] ExpectedPilotPatrolKinds =
         {
-            ("Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_Common/EnemyAi_TutorialPassiveContact.asset", PatrolStrategyKind.Stationary),
-            ("Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_NonAttacking/EnemyAi_NonAttacking.asset", PatrolStrategyKind.RandomWalk),
-            ("Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee.asset", PatrolStrategyKind.Forward),
-            ("Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee_RandomWalkPilot.asset", PatrolStrategyKind.RandomWalk),
-            ("Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_WallFollower/EnemyAi_WallFollower.asset", PatrolStrategyKind.WallFollow),
-            ("Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_JumpChaser/EnemyAi_JumpChaser.asset", PatrolStrategyKind.Forward),
-            ("Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_Charge/EnemyAi_Charge.asset", PatrolStrategyKind.Forward),
+            (StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_Common/EnemyAi_TutorialPassiveContact.asset", PatrolStrategyKind.Stationary),
+            (StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_NonAttacking/EnemyAi_NonAttacking.asset", PatrolStrategyKind.RandomWalk),
+            (StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee.asset", PatrolStrategyKind.Forward),
+            (StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee_RandomWalkPilot.asset", PatrolStrategyKind.RandomWalk),
+            (StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_WallFollower/EnemyAi_WallFollower.asset", PatrolStrategyKind.WallFollow),
+            (StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_JumpChaser/EnemyAi_JumpChaser.asset", PatrolStrategyKind.Forward),
+            (StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_Charge/EnemyAi_Charge.asset", PatrolStrategyKind.Forward),
         };
 
         [Test]
@@ -172,8 +173,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void EnemyAiProfileAssets_WindupBaseline_RemainsForward_AndPilotVariant_IsRandomWalk()
         {
-            const string baselinePath = "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee.asset";
-            const string pilotPath = "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee_RandomWalkPilot.asset";
+            const string baselinePath = StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee.asset";
+            const string pilotPath = StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee_RandomWalkPilot.asset";
 
             var baseline = AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(baselinePath);
             var pilot = AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(pilotPath);
@@ -190,7 +191,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void EnemyPatrolAssets_ForwardAsset_StillResolvesForwardKind_AndSettingsContract()
         {
-            const string forwardAssetPath = "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_Common/EnemyPatrol_Forward.asset";
+            const string forwardAssetPath = StageContentPaths.SharedEnemyAiRoot + "/Brain/Enemy_Common/EnemyPatrol_Forward.asset";
             var asset = AssetDatabase.LoadAssetAtPath<ForwardPatrolAsset>(forwardAssetPath);
 
             Assert.That(asset, Is.Not.Null, $"Missing forward patrol asset at '{forwardAssetPath}'.");
@@ -202,7 +203,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void EnemyPatrolAssets_WallFollowAsset_StillResolvesWallFollowKind_AndSettingsContract()
         {
-            const string wallFollowAssetPath = "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_WallFollower/EnemyPatrol_WallFollow_Left.asset";
+            const string wallFollowAssetPath = StageContentPaths.SharedEnemyAiRoot + "/Brain/Enemy_WallFollower/EnemyPatrol_WallFollow_Left.asset";
             var asset = AssetDatabase.LoadAssetAtPath<WallFollowPatrolAsset>(wallFollowAssetPath);
 
             Assert.That(asset, Is.Not.Null, $"Missing wall-follow patrol asset at '{wallFollowAssetPath}'.");
@@ -217,7 +218,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void EnemyPatrolAssets_WindupRandomWalkPilotAsset_UsesLockedMeleePreset()
         {
-            const string windupRandomWalkPilotAssetPath = "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_WindupMelee/EnemyPatrol_RandomWalk_WindupMelee.asset";
+            const string windupRandomWalkPilotAssetPath = StageContentPaths.SharedEnemyAiRoot + "/Brain/Enemy_WindupMelee/EnemyPatrol_RandomWalk_WindupMelee.asset";
             var asset = AssetDatabase.LoadAssetAtPath<RandomWalkPatrolAsset>(windupRandomWalkPilotAssetPath);
 
             Assert.That(asset, Is.Not.Null, $"Missing random-walk patrol asset at '{windupRandomWalkPilotAssetPath}'.");

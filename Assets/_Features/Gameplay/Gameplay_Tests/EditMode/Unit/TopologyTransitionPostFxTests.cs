@@ -24,9 +24,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string CombinedScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
         private const string TutorialScenePath = "Assets/Scenes/TutorialScene.unity";
         private const string CombinedPresetAssetPath =
-            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Camera/Presets/GameplayCameraTopologyPreset_CombinedGameplayShowcase.asset";
+            StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_CombinedGameplayShowcase.asset";
         private const string TutorialPresetAssetPath =
-            "Assets/_Features/Stages/Stage_TutorialScene/Camera/Presets/GameplayCameraTopologyPreset_TutorialScene.asset";
+            StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_TutorialScene.asset";
         private const string AuthoritativeVolumeProfileAssetPath = "Assets/DefaultVolumeProfile.asset";
         private const string DeprecatedVolumeProfileGuid = "eda47df5b85f4f249abf7abd73db2cb2";
 
@@ -367,7 +367,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void ShowcaseScenes_HostStartup_EnablesPostProcessingOnOutputCamera()
         {
             AssertSceneHostStartupEnablesOutputCameraPostProcessing(CombinedScenePath, "stage-1-1");
-            AssertSceneHostStartupEnablesOutputCameraPostProcessing(TutorialScenePath, "stage-0-1");
+            AssertSceneHostStartupEnablesOutputCameraPostProcessing(TutorialScenePath, "tutorial-scene");
         }
 
         private static void AssertSceneHostStartupEnablesOutputCameraPostProcessing(string scenePath, string stageIdValue)
@@ -424,7 +424,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(createConfiguration, Is.Not.Null);
 
             StageLaunchContextStore.Clear();
-            StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow(stageIdValue));
+            EditorDirectPlayContextStore.Clear();
+            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            var stageId = StageId.CreateOrThrow(stageIdValue);
+            StageLaunchContextStore.SetCurrent(stageId);
+            EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(stageId));
 
             try
             {
@@ -436,6 +440,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 StageLaunchContextStore.Clear();
+                EditorDirectPlayContextStore.Clear();
+                EditorDirectPlayContextStore.ClearTempDirectPlaySave();
             }
         }
 

@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Stages;
 using Game.Feature.Gameplay.Vfx.Host;
 using NUnit.Framework;
 
@@ -36,7 +37,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string FrontFaceShieldPresenterPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayFrontFaceShieldVfxPresenter.cs";
         private const string FrontFaceShieldPrefabPath =
-            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Prefabs/EnemyView_FrontFaceShield.prefab";
+            StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_FrontFaceShield.prefab";
         private const string CurrentFrontFaceShieldActivePrefabPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/FrontFaceShieldActiveVfx.prefab";
         private const string CurrentFrontFaceShieldBlockPrefabPath =
@@ -60,9 +61,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string LegacyFrontFaceShieldBlockMaterialPath =
             "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/VFX/FrontFaceShield/M_FrontFaceShield_BlockBurst.mat";
         private const string LegacyFrontFaceShieldTelegraphPrefabPath =
-            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/VFX/FrontFaceShield/VFX_FrontFaceShield_Telegraph.prefab";
+            StageContentPaths.SharedVfxPresentationRoot + "/FrontFaceShield/VFX_FrontFaceShield_Telegraph.prefab";
         private const string LegacyFrontFaceShieldTelegraphMaterialPath =
-            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/VFX/FrontFaceShield/M_FrontFaceShield_Telegraph.mat";
+            StageContentPaths.SharedVfxPresentationRoot + "/FrontFaceShield/M_FrontFaceShield_Telegraph.mat";
 
         [Test]
         [Category("Extended")]
