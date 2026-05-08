@@ -67,10 +67,9 @@ namespace Game.Feature.UI.HUD
                 _canvasGroup = GetComponent<CanvasGroup>() ?? gameObject.AddComponent<CanvasGroup>();
             }
 
+            _glow = _glow != null ? _glow : CreateImage("Glow", GlowColor);
             _emptyIcon = _emptyIcon != null ? _emptyIcon : CreateImage("EmptyIcon", EmptyColor);
             _filledIcon = _filledIcon != null ? _filledIcon : CreateImage("FilledIcon", FilledColor);
-            _glow = _glow != null ? _glow : CreateImage("Glow", GlowColor);
-            _glow.transform.SetAsFirstSibling();
         }
 
         private Image CreateImage(string childName, Color color)

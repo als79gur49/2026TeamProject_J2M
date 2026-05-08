@@ -71,7 +71,6 @@ namespace Game.Feature.UI.HUD
             _background = _background != null ? _background : CreateImage("Background", InactiveColor);
             _activeGlow = _activeGlow != null ? _activeGlow : CreateImage("ActiveGlow", Color.clear);
             _faceNameText = _faceNameText != null ? _faceNameText : CreateText("FaceNameText");
-            _background.transform.SetAsFirstSibling();
         }
 
         private Image CreateImage(string childName, Color color)
