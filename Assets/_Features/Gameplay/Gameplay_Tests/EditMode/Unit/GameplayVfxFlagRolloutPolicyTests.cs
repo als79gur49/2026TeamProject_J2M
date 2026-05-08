@@ -158,6 +158,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "Augmentation / MotionTrack-attached VFX",
                 "Tier 1",
                 "targeted MotionTrack-following tests + visual spot check"),
+            new(
+                "EnableGameplayVfxGlideWindTrail",
+                "enableGameplayVfxGlideWindTrail",
+                "EnemyVfxCue.GlideWindTrail",
+                "Augmentation / enemy attached follower",
+                "Tier 2",
+                "manual visual approval + targeted motion-attached follower regression"),
+            new(
+                "EnableGameplayVfxChargeBoosterTrail",
+                "enableGameplayVfxChargeBoosterTrail",
+                "EnemyVfxCue.ChargeBoosterTrail",
+                "Augmentation / enemy attached follower",
+                "Tier 2",
+                "manual visual approval + targeted motion-attached follower regression"),
         };
 
         private static readonly string[] HighRiskDefaultTrueCandidateFlags =
