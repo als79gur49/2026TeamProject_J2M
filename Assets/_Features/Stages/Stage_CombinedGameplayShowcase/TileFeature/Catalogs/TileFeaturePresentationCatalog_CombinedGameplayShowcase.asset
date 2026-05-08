@@ -17,7 +17,7 @@ MonoBehaviour:
     displayName: Button Default
     kind: 4
     visualPrefab: {fileID: 3177974194902382058, guid: 41113be6d25bc00458e4dbe6c4bac8e6, type: 3}
-    placementMode: 0
+    placementMode: 1
     icon: {fileID: 0}
     isDefaultForKind: 1
     directionHint: 0
@@ -25,7 +25,7 @@ MonoBehaviour:
     displayName: Moon Button
     kind: 4
     visualPrefab: {fileID: 3575170892940413393, guid: 8c57c88bfd13b5149a307600186bc22e, type: 3}
-    placementMode: 0
+    placementMode: 1
     icon: {fileID: 0}
     isDefaultForKind: 0
     directionHint: 0

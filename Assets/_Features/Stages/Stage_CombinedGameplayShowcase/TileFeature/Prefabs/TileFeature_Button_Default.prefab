@@ -104,7 +104,7 @@ GameObject:
   - component: {fileID: 5873084149599016873}
   - component: {fileID: 2798392738746009997}
   m_Layer: 0
-  m_Name: ButtonPlate
+  m_Name: ReplacePlate
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -119,8 +119,8 @@ Transform:
   m_GameObject: {fileID: 3417531834864045127}
   serializedVersion: 2
   m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 0, y: 0, z: 0.04}
-  m_LocalScale: {x: 0.62, y: 0.035, z: 0.62}
+  m_LocalPosition: {x: 0, y: 0, z: -0.02}
+  m_LocalScale: {x: 0.92, y: 0.04, z: 0.92}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 7299894394788688018}
@@ -209,7 +209,7 @@ Transform:
   m_GameObject: {fileID: 6066837476084488058}
   serializedVersion: 2
   m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 0, y: 0, z: 0.1}
+  m_LocalPosition: {x: 0, y: 0, z: -0.1}
   m_LocalScale: {x: 0.38, y: 0.03, z: 0.38}
   m_ConstrainProportionsScale: 0
   m_Children: []

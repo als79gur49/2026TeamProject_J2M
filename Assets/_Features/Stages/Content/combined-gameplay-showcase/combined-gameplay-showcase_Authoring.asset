@@ -401,7 +401,7 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 3
     BoundEntityId: 0
-    PresentationKey: 
+    PresentationKey:
   - TileId: 902
     Cell:
       face: 0
@@ -482,14 +482,36 @@ MonoBehaviour:
   - TileId: 910
     Cell:
       face: 0
-      x: 10
-      y: 1
+      x: 11
+      y: 5
     Kind: 4
     ActivationRule: 1
     Direction: 0
     BoxSelector: 3
     BoundEntityId: 0
     PresentationKey: button.default
+  - TileId: 911
+    Cell:
+      face: 0
+      x: 1
+      y: 7
+    Kind: 4
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 3
+    BoundEntityId: 0
+    PresentationKey: button.moon-only
+  - TileId: 912
+    Cell:
+      face: 0
+      x: 1
+      y: 4
+    Kind: 4
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 3
+    BoundEntityId: 0
+    PresentationKey:
   zones:
   - ZoneId: 1
     FaceId: 3

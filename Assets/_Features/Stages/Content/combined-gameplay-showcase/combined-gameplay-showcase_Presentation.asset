@@ -73,6 +73,16 @@ MonoBehaviour:
   boardTilePresentationOverrides:
   - cell:
       face: 0
+      x: 1
+      y: 4
+    presentationKey: board.active.bottom
+  - cell:
+      face: 0
+      x: 1
+      y: 5
+    presentationKey: board.generic.default
+  - cell:
+      face: 0
       x: 12
       y: 1
     presentationKey: board.decorative.top
