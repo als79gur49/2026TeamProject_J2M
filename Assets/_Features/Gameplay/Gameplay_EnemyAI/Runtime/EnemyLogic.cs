@@ -1445,8 +1445,14 @@ namespace Game.Feature.Gameplay.Entities
                         input.TickIndex,
                         out nextState))
                 {
+                    var jumpFacing = EnemyJumpQueries.ResolveJumpBasisFacing(
+                        nextState.sourceCell,
+                        nextState.lockedTargetCell,
+                        source.facing,
+                        _chaseSettings.AxisPriority);
+                    stateWriteContext.SetFacing(_entityId, jumpFacing);
                     suppressMovementThisTick = true;
-                    AppendJumpUpdate(updates, _entityId, "Start", nextState);
+                    AppendJumpUpdate(updates, _entityId, "Start", nextState, $"Facing={jumpFacing}");
                 }
             }
 

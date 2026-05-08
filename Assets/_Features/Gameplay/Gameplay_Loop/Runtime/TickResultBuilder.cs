@@ -2591,6 +2591,9 @@ namespace Game.Feature.Gameplay.Loop
                 var remainingAirborneTicks = resolvedState.phase == EnemyJumpPhase.Airborne
                     ? Math.Max(0, resolvedState.landingTick - context.CurrentTickIndex)
                     : 0;
+                var windupTicks = resolvedState.phase == EnemyJumpPhase.Windup
+                    ? Math.Max(0, resolvedState.windupEndTick - context.CurrentTickIndex)
+                    : 0;
 
                 enemyJumpSignals.Add(
                     new TickEnemyJumpPresentationSignal(
@@ -2605,6 +2608,7 @@ namespace Game.Feature.Gameplay.Loop
                         lockedTargetCell: resolvedState.lockedTargetCell,
                         presentationTargetCell: presentationTargetCell,
                         facing: facing,
+                        windupTicks: windupTicks,
                         landingTick: resolvedState.landingTick,
                         remainingAirborneTicks: remainingAirborneTicks,
                         retryCount: resolvedState.retryCount,

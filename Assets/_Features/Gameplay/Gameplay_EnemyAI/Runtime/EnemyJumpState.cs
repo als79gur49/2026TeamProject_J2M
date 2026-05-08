@@ -146,7 +146,11 @@ namespace Game.Feature.Gameplay.Entities
                 return true;
             }
 
-            var basisFacing = ResolveJumpBasisFacing(jumpState.sourceCell, jumpState.lockedTargetCell, source.facing);
+            var basisFacing = ResolveJumpBasisFacing(
+                jumpState.sourceCell,
+                jumpState.lockedTargetCell,
+                source.facing,
+                ChaseAxisPriorityMode.GreatestDistanceThenFacingTieBreak);
             var orderedOffsets = BuildOrderedJumpFallbackOffsets(basisFacing);
 
             if (TryFindLandingInFallbackOffsets(
@@ -245,30 +249,52 @@ namespace Game.Feature.Gameplay.Entities
             };
         }
 
-        private static Direction ResolveJumpBasisFacing(
+        public static Direction ResolveJumpBasisFacing(
             SurfaceCell sourceCell,
             SurfaceCell targetCell,
-            Direction fallbackFacing)
+            Direction fallbackFacing,
+            ChaseAxisPriorityMode axisPriority)
         {
             var planarDelta = targetCell.PlanarPosition - sourceCell.PlanarPosition;
             var absX = Mathf.Abs(planarDelta.x);
             var absY = Mathf.Abs(planarDelta.y);
 
-            if (absX > absY && planarDelta.x != 0)
+            if (planarDelta.x == 0 && planarDelta.y == 0)
             {
-                return planarDelta.x > 0
-                    ? Direction.Right
-                    : Direction.Left;
+                return fallbackFacing;
             }
 
-            if (absY > absX && planarDelta.y != 0)
+            if (planarDelta.x == 0)
             {
                 return planarDelta.y > 0
                     ? Direction.Up
                     : Direction.Down;
             }
 
-            return fallbackFacing;
+            if (planarDelta.y == 0)
+            {
+                return planarDelta.x > 0
+                    ? Direction.Right
+                    : Direction.Left;
+            }
+
+            var useHorizontal = axisPriority switch
+            {
+                ChaseAxisPriorityMode.HorizontalFirst => true,
+                ChaseAxisPriorityMode.VerticalFirst => false,
+                _ => absX >= absY,
+            };
+
+            if (useHorizontal)
+            {
+                return planarDelta.x > 0
+                    ? Direction.Right
+                    : Direction.Left;
+            }
+
+            return planarDelta.y > 0
+                ? Direction.Up
+                : Direction.Down;
         }
 
         private static Vector2Int ResolveJumpDelta(Direction direction)

@@ -1093,6 +1093,7 @@ namespace Game.Feature.Gameplay.Loop
             SurfaceCell lockedTargetCell = default,
             SurfaceCell presentationTargetCell = default,
             Direction facing = Direction.None,
+            int windupTicks = 0,
             int landingTick = 0,
             int remainingAirborneTicks = 0,
             int retryCount = 0,
@@ -1112,6 +1113,7 @@ namespace Game.Feature.Gameplay.Loop
             LockedTargetCell = lockedTargetCell;
             PresentationTargetCell = presentationTargetCell;
             Facing = facing;
+            WindupTicks = Math.Max(0, windupTicks);
             LandingTick = landingTick;
             RemainingAirborneTicks = remainingAirborneTicks;
             RetryCount = retryCount;
@@ -1139,6 +1141,8 @@ namespace Game.Feature.Gameplay.Loop
         public SurfaceCell PresentationTargetCell { get; }
 
         public Direction Facing { get; }
+
+        public int WindupTicks { get; }
 
         public int LandingTick { get; }
 
