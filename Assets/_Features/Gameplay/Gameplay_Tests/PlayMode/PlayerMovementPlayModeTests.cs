@@ -15,6 +15,7 @@ using NUnit.Framework;
 using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.TestTools;
@@ -533,6 +534,16 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             Release(_keyboard.dKey);
             yield return DestroyHost(host, actions);
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator PlayerMove_PlayMode_KeyboardPerpendicularPress_UsesNewestAxisDirection()
+        {
+            yield return AssertKeyboardTurnDestination(_keyboard.wKey, _keyboard.dKey, "(1,0)");
+            yield return AssertKeyboardTurnDestination(_keyboard.wKey, _keyboard.aKey, "(-1,0)");
+            yield return AssertKeyboardTurnDestination(_keyboard.dKey, _keyboard.wKey, "(0,1)");
+            yield return AssertKeyboardTurnDestination(_keyboard.aKey, _keyboard.sKey, "(0,-1)");
         }
 
         [UnityTest]
@@ -1194,7 +1205,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             float flipPresentationDurationSeconds = -1f,
             PlayerControlTimingSettings playerControlTiming = null,
             TopologyTransitionPostFxProfile topologyTransitionPostFxProfile = null,
-            Camera viewCamera = null)
+            Camera viewCamera = null,
+            GameplayRuntimeFeatureFlags? runtimeFeatureFlags = null)
         {
             var hostObject = new GameObject("PlayModeGameplaySceneHost");
             var host = hostObject.AddComponent<GameplaySceneHost>();
@@ -1215,36 +1227,41 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 SetSerializedField(playerTimingAuthoring, "legacyFlipAnimatorDurationSeconds", flipPresentationDurationSeconds);
             }
 
-            host.Initialize(
-                new GameplaySceneHostConfiguration
-                {
-                    Actions = actions,
-                    AutoAdvanceTicks = false,
-                    AutoCreateViews = true,
-                    BoxSlideStepIntervalSeconds = 0.2f,
-                    CellSize = 1f,
-                    DirectionChangeConsumesDelay = directionChangeConsumesDelay,
-                    FlipArcHeightInCells = 0.65f,
-                    FlipMotionDurationSeconds = 0.2f,
-                    InitialBoardBounds = new BoardBounds(new Vector2Int(-8, -8), new Vector2Int(8, 8)),
-                    InitialMoveDelaySeconds = initialMoveDelaySeconds,
-                    InitialEntities = initialEntities,
-                    MaxTicksPerFrame = 8,
-                    MoveDeadzone = 0.5f,
-                    MoveMotionDurationSeconds = moveMotionDurationSeconds,
-                    ItemConsumeEffectDurationSeconds = itemConsumeEffectDurationSeconds,
-                    BoxDestroyEffectDurationSeconds = boxDestroyEffectDurationSeconds,
-                    PlayerEntityId = 10,
-                    PlayerControlTiming = playerControlTiming ?? new PlayerControlTimingSettings(),
-                    PlayerViewPrefab = playerViewPrefab,
-                    PushMotionDurationSeconds = 0.2f,
-                    RepeatedMoveIntervalSeconds = repeatedMoveIntervalSeconds,
-                    SimulationTicksPerSecond = 60,
-                    StaticEntityLogics = staticEntityLogics ?? System.Array.Empty<IEntityLogic>(),
-                    SnapViewCameraToTarget = viewCamera != null,
-                    TopologyTransitionPostFxProfile = topologyTransitionPostFxProfile ?? TopologyTransitionPostFxProfile.CreateDefault(),
-                    ViewCamera = viewCamera,
-                });
+            var configuration = new GameplaySceneHostConfiguration
+            {
+                Actions = actions,
+                AutoAdvanceTicks = false,
+                AutoCreateViews = true,
+                BoxSlideStepIntervalSeconds = 0.2f,
+                CellSize = 1f,
+                DirectionChangeConsumesDelay = directionChangeConsumesDelay,
+                FlipArcHeightInCells = 0.65f,
+                FlipMotionDurationSeconds = 0.2f,
+                InitialBoardBounds = new BoardBounds(new Vector2Int(-8, -8), new Vector2Int(8, 8)),
+                InitialMoveDelaySeconds = initialMoveDelaySeconds,
+                InitialEntities = initialEntities,
+                MaxTicksPerFrame = 8,
+                MoveDeadzone = 0.5f,
+                MoveMotionDurationSeconds = moveMotionDurationSeconds,
+                ItemConsumeEffectDurationSeconds = itemConsumeEffectDurationSeconds,
+                BoxDestroyEffectDurationSeconds = boxDestroyEffectDurationSeconds,
+                PlayerEntityId = 10,
+                PlayerControlTiming = playerControlTiming ?? new PlayerControlTimingSettings(),
+                PlayerViewPrefab = playerViewPrefab,
+                PushMotionDurationSeconds = 0.2f,
+                RepeatedMoveIntervalSeconds = repeatedMoveIntervalSeconds,
+                SimulationTicksPerSecond = 60,
+                StaticEntityLogics = staticEntityLogics ?? System.Array.Empty<IEntityLogic>(),
+                SnapViewCameraToTarget = viewCamera != null,
+                TopologyTransitionPostFxProfile = topologyTransitionPostFxProfile ?? TopologyTransitionPostFxProfile.CreateDefault(),
+                ViewCamera = viewCamera,
+            };
+            if (runtimeFeatureFlags.HasValue)
+            {
+                configuration.ApplyRuntimeFeatureFlags(runtimeFeatureFlags.Value);
+            }
+
+            host.Initialize(configuration);
 
             return host;
         }
@@ -1323,6 +1340,33 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             }
 
             yield return null;
+        }
+
+        private IEnumerator AssertKeyboardTurnDestination(KeyControl heldKey, KeyControl newKey, string expectedDestination)
+        {
+            var actions = CreateKeyboardMoveActions();
+            var host = CreateHost(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                },
+                actions: actions,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+
+            Press(heldKey);
+            yield return null;
+            Press(newKey);
+            yield return null;
+
+            var firstTick = host.InputHost.RunSingleTick();
+
+            Assert.That(firstTick, Is.Not.Null);
+            Assert.That(firstTick.Trace.Text, Does.Contain("Movement.RawIntents"));
+            Assert.That(firstTick.Trace.Text, Does.Contain($"Destination={expectedDestination}|Command=Move"));
+
+            Release(newKey);
+            Release(heldKey);
+            yield return DestroyHost(host, actions);
         }
 
         private static void SetSerializedField(object target, string fieldName, object value)

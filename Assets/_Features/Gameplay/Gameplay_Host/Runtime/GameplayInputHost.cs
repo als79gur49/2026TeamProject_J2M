@@ -27,6 +27,7 @@ namespace Game.Feature.Gameplay.Host
         private InputAction _flipAction;
         private int _maxTicksPerFrame;
         private InputAction _moveAction;
+        private KeyboardMoveOrderTracker _keyboardMoveOrderTracker;
         private InputAction _pushAction;
         private PlayerMoveIntentBuffer _moveIntentBuffer;
         private float _moveDeadzone;
@@ -240,9 +241,10 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
+            var previousMoveInput = _sampledMoveInput;
             _sampledMoveInput = rawMoveInput;
             var now = ResolveCurrentInputTime();
-            var sampledDirection = GridMoveInputQuantizer.Quantize(rawMoveInput, _moveDeadzone);
+            var sampledDirection = ResolveRawMoveDirection(rawMoveInput, previousMoveInput);
             _moveIntentBuffer?.UpdateSampledDirection(sampledDirection, now);
         }
 
@@ -349,7 +351,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var now = ResolveCurrentInputTime();
-            var sampledDirection = GridMoveInputQuantizer.Quantize(_sampledMoveInput, _moveDeadzone);
+            var sampledDirection = ResolveSampledMoveDirection();
             _moveIntentBuffer.UpdateSampledDirection(sampledDirection, now);
 
             if (_uiHeldMoveDirection != Direction.None)
@@ -417,6 +419,8 @@ namespace Game.Feature.Gameplay.Host
             _pushAction.started += OnPushStarted;
             _flipAction.started += OnFlipStarted;
             _flipAction.performed += OnFlipPerformed;
+            _keyboardMoveOrderTracker = KeyboardMoveOrderTracker.Create(_moveAction, _moveDeadzone);
+            _keyboardMoveOrderTracker.Enable();
 
             _areActionsBound = true;
             SetRawMoveInput(_moveAction.ReadValue<Vector2>());
@@ -464,6 +468,9 @@ namespace Game.Feature.Gameplay.Host
                 _moveAction = null;
             }
 
+            _keyboardMoveOrderTracker?.Dispose();
+            _keyboardMoveOrderTracker = null;
+
             if (_flipAction != null)
             {
                 _flipAction.started -= OnFlipStarted;
@@ -491,6 +498,7 @@ namespace Game.Feature.Gameplay.Host
             _uiBufferedPushDirection = Direction.None;
             _uiHeldMoveDirection = Direction.None;
             _sampledMoveInput = Vector2.zero;
+            _keyboardMoveOrderTracker?.Reset();
             _moveIntentBuffer?.Reset();
         }
 
@@ -499,6 +507,7 @@ namespace Game.Feature.Gameplay.Host
             _sampledMoveInput = Vector2.zero;
             _hasBufferedFlip = false;
             _hasBufferedPush = false;
+            _keyboardMoveOrderTracker?.Reset();
             _moveIntentBuffer?.Reset();
         }
 
@@ -527,8 +536,10 @@ namespace Game.Feature.Gameplay.Host
                 return PlayerTickCommand.None;
             }
 
+            RefreshMoveInputFromAction();
+
             var now = ResolveCurrentInputTime();
-            var sampledDirection = GridMoveInputQuantizer.Quantize(_sampledMoveInput, _moveDeadzone);
+            var sampledDirection = ResolveSampledMoveDirection();
             _moveIntentBuffer.UpdateSampledDirection(sampledDirection, now);
 
             var resolvedDirection = Direction.None;
@@ -636,6 +647,16 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        private void RefreshMoveInputFromAction()
+        {
+            if (_moveAction == null)
+            {
+                return;
+            }
+
+            SetRawMoveInput(_moveAction.ReadValue<Vector2>());
+        }
+
         private void RefreshPlayerRespawnDelayInputBlock(TickResult result)
         {
             if (result == null)
@@ -669,12 +690,324 @@ namespace Game.Feature.Gameplay.Host
             return Time.unscaledTime;
         }
 
+        private Direction ResolveSampledMoveDirection()
+        {
+            if (_keyboardMoveOrderTracker != null &&
+                _keyboardMoveOrderTracker.TryResolveHeldDirection(_sampledMoveInput, out var keyboardDirection))
+            {
+                return keyboardDirection;
+            }
+
+            var sampledDirection = GridMoveInputQuantizer.Quantize(_sampledMoveInput, _moveDeadzone);
+            if (sampledDirection != Direction.None ||
+                _sampledMoveInput.sqrMagnitude <= _moveDeadzone * _moveDeadzone)
+            {
+                return sampledDirection;
+            }
+
+            if (_moveIntentBuffer != null &&
+                _moveIntentBuffer.HeldDirection != Direction.None)
+            {
+                return _moveIntentBuffer.HeldDirection;
+            }
+
+            return Direction.None;
+        }
+
+        private Direction ResolveRawMoveDirection(Vector2 rawInput, Vector2 previousRawInput)
+        {
+            if (_keyboardMoveOrderTracker != null &&
+                _keyboardMoveOrderTracker.TryResolveHeldDirection(rawInput, out var keyboardDirection))
+            {
+                return keyboardDirection;
+            }
+
+            var sampledDirection = GridMoveInputQuantizer.Quantize(rawInput, _moveDeadzone);
+            if (sampledDirection != Direction.None ||
+                rawInput.sqrMagnitude <= _moveDeadzone * _moveDeadzone)
+            {
+                return sampledDirection;
+            }
+
+            var xBecameActive = Mathf.Abs(previousRawInput.x) <= _moveDeadzone &&
+                                Mathf.Abs(rawInput.x) > _moveDeadzone;
+            var yBecameActive = Mathf.Abs(previousRawInput.y) <= _moveDeadzone &&
+                                Mathf.Abs(rawInput.y) > _moveDeadzone;
+
+            if (xBecameActive != yBecameActive)
+            {
+                return xBecameActive
+                    ? (rawInput.x > 0f ? Direction.Right : Direction.Left)
+                    : (rawInput.y > 0f ? Direction.Up : Direction.Down);
+            }
+
+            var xDelta = Mathf.Abs(rawInput.x - previousRawInput.x);
+            var yDelta = Mathf.Abs(rawInput.y - previousRawInput.y);
+            if (xDelta > yDelta && Mathf.Abs(rawInput.x) > _moveDeadzone)
+            {
+                return rawInput.x > 0f ? Direction.Right : Direction.Left;
+            }
+
+            if (yDelta > xDelta && Mathf.Abs(rawInput.y) > _moveDeadzone)
+            {
+                return rawInput.y > 0f ? Direction.Up : Direction.Down;
+            }
+
+            return Direction.None;
+        }
+
         private static bool IsOrthogonalDirection(Direction direction)
         {
             return direction == Direction.Up ||
                    direction == Direction.Right ||
                    direction == Direction.Down ||
                    direction == Direction.Left;
+        }
+    }
+
+    internal sealed class KeyboardMoveOrderTracker : IDisposable
+    {
+        private readonly InputAction[] _actions;
+        private readonly Direction[] _directions;
+        private readonly bool[] _heldActions;
+        private readonly int[] _heldDirectionCounts = new int[4];
+        private readonly int[] _pressSequences = new int[4];
+        private readonly float _deadzone;
+        private int _nextPressSequence;
+
+        private KeyboardMoveOrderTracker(InputAction[] actions, Direction[] directions, float deadzone)
+        {
+            _actions = actions;
+            _directions = directions;
+            _deadzone = deadzone;
+            _heldActions = new bool[actions.Length];
+        }
+
+        public static KeyboardMoveOrderTracker Create(InputAction moveAction, float deadzone)
+        {
+            if (moveAction == null)
+            {
+                throw new ArgumentNullException(nameof(moveAction));
+            }
+
+            var actions = new System.Collections.Generic.List<InputAction>();
+            var directions = new System.Collections.Generic.List<Direction>();
+            foreach (var binding in moveAction.bindings)
+            {
+                if (!binding.isPartOfComposite ||
+                    !TryResolveCompositeDirection(binding.name, out var direction) ||
+                    !TryResolveKeyboardPath(binding.effectivePath, out var keyboardPath))
+                {
+                    continue;
+                }
+
+                var action = new InputAction(
+                    name: $"KeyboardMoveOrder_{direction}_{actions.Count}",
+                    type: InputActionType.Button,
+                    binding: keyboardPath);
+                actions.Add(action);
+                directions.Add(direction);
+            }
+
+            return new KeyboardMoveOrderTracker(actions.ToArray(), directions.ToArray(), deadzone);
+        }
+
+        public void Enable()
+        {
+            for (var i = 0; i < _actions.Length; i++)
+            {
+                var action = _actions[i];
+                var actionIndex = i;
+                action.started += context => MarkPressed(actionIndex);
+                action.canceled += context => MarkReleased(actionIndex);
+                action.Enable();
+                if (action.IsPressed())
+                {
+                    MarkPressed(actionIndex);
+                }
+            }
+        }
+
+        public void Reset()
+        {
+            for (var i = 0; i < _heldActions.Length; i++)
+            {
+                _heldActions[i] = false;
+            }
+
+            for (var i = 0; i < _heldDirectionCounts.Length; i++)
+            {
+                _heldDirectionCounts[i] = 0;
+                _pressSequences[i] = 0;
+            }
+
+            _nextPressSequence = 0;
+        }
+
+        public bool TryResolveHeldDirection(Vector2 rawInput, out Direction direction)
+        {
+            var bestDirection = Direction.None;
+            var bestSequence = 0;
+            for (var i = 0; i < _heldDirectionCounts.Length; i++)
+            {
+                if (_heldDirectionCounts[i] <= 0 || _pressSequences[i] <= bestSequence)
+                {
+                    continue;
+                }
+
+                var candidate = FromIndex(i);
+                if (!IsRawDirectionActive(rawInput, candidate, _deadzone))
+                {
+                    continue;
+                }
+
+                bestDirection = candidate;
+                bestSequence = _pressSequences[i];
+            }
+
+            direction = bestDirection;
+            return direction != Direction.None;
+        }
+
+        public void Dispose()
+        {
+            for (var i = 0; i < _actions.Length; i++)
+            {
+                _actions[i].Dispose();
+            }
+
+            Reset();
+        }
+
+        private void MarkPressed(int actionIndex)
+        {
+            if (actionIndex < 0 ||
+                actionIndex >= _actions.Length ||
+                _heldActions[actionIndex])
+            {
+                return;
+            }
+
+            var direction = _directions[actionIndex];
+            var index = ToIndex(direction);
+            if (index < 0)
+            {
+                return;
+            }
+
+            _heldActions[actionIndex] = true;
+            _heldDirectionCounts[index]++;
+            _pressSequences[index] = ++_nextPressSequence;
+        }
+
+        private void MarkReleased(int actionIndex)
+        {
+            if (actionIndex < 0 ||
+                actionIndex >= _actions.Length ||
+                !_heldActions[actionIndex])
+            {
+                return;
+            }
+
+            var direction = _directions[actionIndex];
+            var index = ToIndex(direction);
+            if (index < 0)
+            {
+                return;
+            }
+
+            _heldActions[actionIndex] = false;
+            _heldDirectionCounts[index] = Mathf.Max(0, _heldDirectionCounts[index] - 1);
+            if (_heldDirectionCounts[index] == 0)
+            {
+                _pressSequences[index] = 0;
+            }
+        }
+
+        private static bool TryResolveCompositeDirection(string bindingName, out Direction direction)
+        {
+            switch (bindingName?.ToLowerInvariant())
+            {
+                case "up":
+                    direction = Direction.Up;
+                    return true;
+                case "right":
+                    direction = Direction.Right;
+                    return true;
+                case "down":
+                    direction = Direction.Down;
+                    return true;
+                case "left":
+                    direction = Direction.Left;
+                    return true;
+                default:
+                    direction = Direction.None;
+                    return false;
+            }
+        }
+
+        private static bool TryResolveKeyboardPath(string effectivePath, out string keyboardPath)
+        {
+            if (!string.IsNullOrWhiteSpace(effectivePath) &&
+                effectivePath.StartsWith("<Keyboard>/", StringComparison.OrdinalIgnoreCase))
+            {
+                keyboardPath = effectivePath;
+                return true;
+            }
+
+            keyboardPath = null;
+            return false;
+        }
+
+        private static bool IsRawDirectionActive(Vector2 rawInput, Direction direction, float deadzone)
+        {
+            switch (direction)
+            {
+                case Direction.Up:
+                    return rawInput.y > deadzone;
+                case Direction.Right:
+                    return rawInput.x > deadzone;
+                case Direction.Down:
+                    return rawInput.y < -deadzone;
+                case Direction.Left:
+                    return rawInput.x < -deadzone;
+                default:
+                    return false;
+            }
+        }
+
+        private static Direction FromIndex(int index)
+        {
+            switch (index)
+            {
+                case 0:
+                    return Direction.Up;
+                case 1:
+                    return Direction.Right;
+                case 2:
+                    return Direction.Down;
+                case 3:
+                    return Direction.Left;
+                default:
+                    return Direction.None;
+            }
+        }
+
+        private static int ToIndex(Direction direction)
+        {
+            switch (direction)
+            {
+                case Direction.Up:
+                    return 0;
+                case Direction.Right:
+                    return 1;
+                case Direction.Down:
+                    return 2;
+                case Direction.Left:
+                    return 3;
+                default:
+                    return -1;
+            }
         }
     }
 
@@ -755,4 +1088,5 @@ namespace Game.Feature.Gameplay.Host
             }
         }
     }
+
 }
