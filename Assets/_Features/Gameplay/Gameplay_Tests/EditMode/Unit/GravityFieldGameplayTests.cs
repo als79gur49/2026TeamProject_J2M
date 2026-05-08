@@ -111,6 +111,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 result.PresentationData.GravityFieldVisualStates[0].LockedTargetEntityIds.ToArray(),
                 Is.EqualTo(new[] { 20, 30 }));
+            Assert.That(result.PresentationData.GravityFieldEvents, Is.Empty);
+
+            var presentationRequests = new GravityFieldPresentationRequestPlanner().BuildRequests(result.PresentationData);
+            Assert.That(presentationRequests, Is.Empty);
+            Assert.That(new GravityFieldAudioRequestPlanner().BuildRequests(presentationRequests), Is.Empty);
         }
 
         [Test]

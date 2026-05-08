@@ -49,6 +49,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void GravityFieldPresentationRequestPlanner_ReadModelOnlyLockedTargets_ProducesNoRequests()
+        {
+            var planner = new GravityFieldPresentationRequestPlanner();
+            var presentationData = CreatePresentationData(new[]
+            {
+                new GravityFieldVisualState(
+                    30,
+                    new SurfaceCell(FaceId.Floor, 0, 0),
+                    GravityFieldPhase.Active,
+                    timerTicks: 2,
+                    durationTicks: 180,
+                    progress01: 0.5f,
+                    areaFootprint: GravityFieldAreaFootprint.Empty,
+                    lockedTargetEntityIds: new[] { 20, 30 }),
+            });
+
+            var requests = planner.BuildRequests(presentationData);
+
+            Assert.That(requests, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
         public void TilePresentationRequestPlanner_IgnoresGravityFieldEvents()
         {
             var planner = new TilePresentationRequestPlanner();
@@ -62,6 +85,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         private static TickPresentationData CreatePresentationData(
+            GravityFieldVisualState[] gravityFieldVisualStates)
+        {
+            return CreatePresentationData(
+                gravityFieldVisualStates,
+                Array.Empty<GravityFieldPresentationEvent>());
+        }
+
+        private static TickPresentationData CreatePresentationData(
+            params GravityFieldPresentationEvent[] gravityFieldEvents)
+        {
+            return CreatePresentationData(
+                Array.Empty<GravityFieldVisualState>(),
+                gravityFieldEvents);
+        }
+
+        private static TickPresentationData CreatePresentationData(
+            GravityFieldVisualState[] gravityFieldVisualStates,
             params GravityFieldPresentationEvent[] gravityFieldEvents)
         {
             return new TickPresentationData(
@@ -80,7 +120,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<TickEntityExitPresentationSignal>(),
                 Array.Empty<TickImpactTransientPresentationSignal>(),
                 Array.Empty<FlipImpactPresentationSignal>(),
-                gravityFieldEvents: gravityFieldEvents);
+                gravityFieldEvents: gravityFieldEvents,
+                gravityFieldVisualStates: gravityFieldVisualStates);
         }
     }
 }

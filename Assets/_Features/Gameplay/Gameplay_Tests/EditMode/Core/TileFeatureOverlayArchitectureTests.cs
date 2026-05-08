@@ -41,6 +41,8 @@ namespace Game.Feature.Gameplay.Tests.Core
             "Assets/_Features/Gameplay/Gameplay_Loop/Runtime/GravityFieldPresentationRequestPlanner.cs";
         private const string GravityFieldVisualControllerPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GravityFieldVisualPresentationController.cs";
+        private const string GravityFieldAudioControllerPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GravityFieldAudioPresentationController.cs";
         private const string GravityFieldAudioRuntimePath =
             "Assets/_Features/Gameplay/Gameplay_GravityFieldAudio/Runtime";
         private const string WorldStatePath =
@@ -112,10 +114,19 @@ namespace Game.Feature.Gameplay.Tests.Core
             var requiredSnippets = new[]
             {
                 "GravityField is `EntityType.Box + BoxArchetype.GravityField`, not a TileFeature.",
-                "`GravityFieldVisualState.LockedTargetEntityIds` is the current presentation read model",
+                "`GravityFieldVisualState.LockedTargetEntityIds` is the continuous presentation read model",
+                "Target dimming consumes the previous/current `LockedTargetEntityIds` read model diff",
                 "`GravityFieldPresentationEventKind.LockedBox`, `GravityFieldPresentationRequestKind.LockedBox`, and `GravityFieldAudioCue.LockedBox` are intentionally not implemented",
+                "LockedBox event/audio remains closed unless one-shot feedback is explicitly required.",
+                "`MaterialPropertyBlock`-based actual dimming remains a future presentation-only step.",
                 "The read model must not be inferred from a final snapshot diff.",
-                "Future one-shot `LockedBox` event/audio, if opened, must debounce by emitter-target pair within a single active window.",
+                "Before opening one-shot `LockedBox` event/audio, answer these reevaluation questions:",
+                "Is target dimming alone sufficient UX?",
+                "Future one-shot `LockedBox` event/audio, if opened, must debounce by `EmitterEntityId + TargetEntityId + ActiveWindow`.",
+                "`Charging -> Active` starts a new active window.",
+                "`Active -> Charging`, ineligible reset, and emitter destroyed/detached clear active-window memory.",
+                "The same emitter-target pair emits at most once per active window.",
+                "Future `LockedBox` audio is optional Sfx one-shot only",
                 "The current MVP uses only a continuous read model, so there is no repeated event/audio spam path.",
                 "Locked target presentation data is presentation-only and does not enter the canonical determinism hash.",
                 "`TickPipeline` transports facts but must not execute prefab, audio, UI, or material work.",
@@ -490,6 +501,41 @@ namespace Game.Feature.Gameplay.Tests.Core
                         Does.Not.Contain(forbiddenTokens[tokenIndex]),
                         $"{sources[sourceIndex]} must not open GravityFieldAudio token '{forbiddenTokens[tokenIndex]}'.");
                 }
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GravityFieldLockedBox_SurfaceAndConsumerBranchesRemainClosed()
+        {
+            var sourcePaths = new[]
+            {
+                "Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPresentationData.cs",
+                GravityFieldPresentationRequestPlannerPath,
+                GravityFieldVisualControllerPath,
+                GravityFieldAudioControllerPath,
+                "Assets/_Features/Gameplay/Gameplay_GravityFieldAudio/Runtime/GravityFieldAudioTypes.cs",
+                "Assets/_Features/Gameplay/Gameplay_GravityFieldAudio/Runtime/GravityFieldAudioRequestPlanner.cs",
+            };
+
+            for (var i = 0; i < sourcePaths.Length; i++)
+            {
+                var source = File.ReadAllText(GetAbsolutePath(sourcePaths[i]));
+                Assert.That(
+                    source,
+                    Does.Not.Contain("LockedBox"),
+                    $"{sourcePaths[i]} must not open a LockedBox event/request/audio branch.");
+            }
+
+            var uiRoot = GetAbsolutePath(UiRuntimePath);
+            var uiSources = Directory.GetFiles(uiRoot, "*.cs", SearchOption.AllDirectories);
+            for (var i = 0; i < uiSources.Length; i++)
+            {
+                var source = File.ReadAllText(uiSources[i]);
+                Assert.That(
+                    source,
+                    Does.Not.Contain("LockedBox"),
+                    $"{uiSources[i]} must not open a LockedBox UI/HUD notification.");
             }
         }
 

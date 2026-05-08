@@ -39,6 +39,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void GravityFieldAudioRequestPlanner_EmptyPresentationRequests_ProducesNoAudio()
+        {
+            var planner = new GravityFieldAudioRequestPlanner();
+
+            var requests = planner.BuildRequests(Array.Empty<GravityFieldPresentationRequest>());
+
+            Assert.That(requests, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
         public void GravityFieldAudioPresentationController_NoRuntimeOrMissingOptionalBinding_NoOps()
         {
             using var scope = new TestAssetScope();

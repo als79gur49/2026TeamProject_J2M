@@ -4,9 +4,12 @@ GravityField is `EntityType.Box + BoxArchetype.GravityField`, not a TileFeature.
 
 ## MVP Surface
 
-- `GravityFieldVisualState.LockedTargetEntityIds` is the current presentation read model for boxes selected by an active GravityField lock operation.
+- `GravityFieldVisualState.LockedTargetEntityIds` is the continuous presentation read model for boxes selected by an active GravityField lock operation.
+- Target dimming consumes the previous/current `LockedTargetEntityIds` read model diff and does not require a one-shot event.
 - `GravityFieldPresentationEventKind.LockedBox`, `GravityFieldPresentationRequestKind.LockedBox`, and `GravityFieldAudioCue.LockedBox` are intentionally not implemented in this MVP.
-- Target dimming, target material mutation, UI/HUD, spatial audio, `Play3D`, and environmental destroy immunity are intentionally not implemented in this MVP.
+- LockedBox event/audio remains closed unless one-shot feedback is explicitly required.
+- `MaterialPropertyBlock`-based actual dimming remains a future presentation-only step.
+- UI/HUD, spatial audio, `Play3D`, and environmental destroy immunity are intentionally not implemented in this MVP.
 
 ## Source Fact Policy
 
@@ -17,9 +20,23 @@ GravityField is `EntityType.Box + BoxArchetype.GravityField`, not a TileFeature.
 
 ## Debounce Policy
 
-- Future one-shot `LockedBox` event/audio, if opened, must debounce by emitter-target pair within a single active window.
+- Before opening one-shot `LockedBox` event/audio, answer these reevaluation questions:
+  - Is target dimming alone sufficient UX?
+  - Is a separate sound required when a lock first applies?
+  - How many sounds should play when multiple targets lock simultaneously?
+  - Is one sound per active window sufficient?
+  - Should leaving and re-entering during the same active window replay?
+  - Should overlapping emitters play separately per emitter-target pair?
+  - Should multiple target locks use per-target audio or emitter-level audio?
+- Future one-shot `LockedBox` event/audio, if opened, must debounce by `EmitterEntityId + TargetEntityId + ActiveWindow`.
+- `Charging -> Active` starts a new active window.
+- `Active -> Charging`, ineligible reset, and emitter destroyed/detached clear active-window memory.
+- The same emitter-target pair emits at most once per active window.
 - A target leaving and re-entering range during the same active window must not re-emit the one-shot.
 - A later active window may emit again for the same emitter-target pair.
+- Multiple target ids must emit in deterministic order.
+- Multiple emitters use independent emitter-target pairs.
+- Future `LockedBox` audio is optional Sfx one-shot only: missing binding is a no-op; no loop/hum; no spatial audio; no `Play3D`.
 - The current MVP uses only a continuous read model, so there is no repeated event/audio spam path.
 
 ## State And Architecture
