@@ -246,6 +246,74 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        [Category("Extended")]
+        public void GameplayTrackPlanner_JumpWindupSignal_CreatesRotationTrackBetweenCurrentAndTargetFacing()
+        {
+            var rootObject = new GameObject("GameplayTrackPlanner_JumpWindupSignal_CreatesRotationTrack");
+            try
+            {
+                var (planner, stateStore, trackState, projector, timingProfile) = CreatePlannerHarness(rootObject);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 1, 1);
+                var topology = new CubeTopologyState(FaceId.Floor);
+                Assert.That(
+                    projector.TryResolveEntityRotation(sourceCell, topology, Direction.Up, out var startRotation),
+                    Is.True);
+                Assert.That(
+                    projector.TryResolveEntityRotation(sourceCell, topology, Direction.Right, out var endRotation),
+                    Is.True);
+                stateStore.CommittedLocalTargetPoses[40] = new GameplayEntityPose(Vector3.zero, startRotation);
+
+                var presentationData = new TickPresentationData(
+                    Array.Empty<TickEntityMotion>(),
+                    topologyMotion: null,
+                    Array.Empty<TickVisibilityChange>(),
+                    Array.Empty<TickTransitionVisibilityChange>(),
+                    Array.Empty<TickPlayerActionPresentationSignal>(),
+                    Array.Empty<TickEnemyActionPresentationSignal>(),
+                    new[]
+                    {
+                        new TickEnemyJumpPresentationSignal(
+                            40,
+                            sequence: 1,
+                            phase: EnemyJumpPhase.Windup,
+                            startedWindupThisTick: true,
+                            startedAirborneThisTick: false,
+                            landedThisTick: false,
+                            retryThisTick: false,
+                            sourceCell: sourceCell,
+                            lockedTargetCell: new SurfaceCell(FaceId.Floor, 2, 1),
+                            presentationTargetCell: new SurfaceCell(FaceId.Floor, 2, 1),
+                            facing: Direction.Right,
+                            windupTicks: 2),
+                    },
+                    Array.Empty<TickEntityExitPresentationSignal>());
+
+                planner.RefreshTracks(
+                    CreateTickResult(presentationData),
+                    stateStore.CommittedLocalTargetPoses,
+                    stateStore.CommittedTopology,
+                    projector,
+                    timingProfile);
+
+                Assert.That(trackState.JumpWindupRotationTracks.TryGetValue(40, out var track), Is.True);
+                Assert.That(track.HasClips, Is.True);
+
+                var totalAngle = Quaternion.Angle(startRotation, endRotation);
+                var sampledRotation = track.SampleAndAdvance(
+                    1f / timingProfile.SimulationTicksPerSecond,
+                    startRotation);
+
+                Assert.That(Quaternion.Angle(startRotation, sampledRotation), Is.GreaterThan(0.01f));
+                Assert.That(Quaternion.Angle(startRotation, sampledRotation), Is.LessThan(totalAngle));
+                Assert.That(Quaternion.Angle(sampledRotation, endRotation), Is.LessThan(totalAngle));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
         private static (GameplayTrackPlanner Planner, GameplayPresentationStateStore StateStore, GameplayPresentationTrackState TrackState, GameplayCubeProjector Projector, GameplayTimingProfile TimingProfile)
             CreatePlannerHarness(GameObject rootObject)
         {

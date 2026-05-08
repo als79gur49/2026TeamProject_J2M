@@ -167,11 +167,13 @@ namespace Game.Feature.Gameplay.Tests
         public static EnemyAiProfile CreateJumpChaser(
             EnemyJumpTimingSettings jumpTimingSettings,
             int moveCooldownTicks = 0,
-            bool includePassiveContact = false)
+            bool includePassiveContact = false,
+            ChaseSettings? chaseSettings = null)
         {
             return Create(new EnemyAiTestProfileSpec
             {
                 LocomotionTimingSettings = ToAuthoring(new EnemyLocomotionTimingSettings(moveCooldownTicks)),
+                ChaseSettings = chaseSettings ?? ChaseSettings.CreateDefault(),
                 AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
                 MovementSkillStrategyKind = MovementSkillStrategyKind.JumpToLockedTarget,
                 JumpTimingSettings = ToAuthoring(jumpTimingSettings),

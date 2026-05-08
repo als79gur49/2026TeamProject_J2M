@@ -1615,6 +1615,123 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void EnemyAi_JumpStart_FacesLockedTargetAndSignalUsesFacing()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 1), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(3, 1), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1);
+            var pipeline = CreateEnemyPipeline(worldState, profile);
+            PrimePlayerControlState(worldState, 10);
+
+            try
+            {
+                var firstTick = pipeline.RunTick(new TickInput(1));
+                var enemy = GetEntity(worldState, 40);
+                var jumpSignal = firstTick.PresentationData.EnemyJumpSignals.Single();
+
+                Assert.That(enemy.facing, Is.EqualTo(Direction.Left));
+                Assert.That(GetEnemyJumpState(worldState, 40).phase, Is.EqualTo(EnemyJumpPhase.Windup));
+                Assert.That(jumpSignal.StartedWindupThisTick, Is.True);
+                Assert.That(jumpSignal.Facing, Is.EqualTo(Direction.Left));
+                Assert.That(jumpSignal.WindupTicks, Is.EqualTo(1));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_JumpStart_DiagonalTarget_DefaultTieBreakFacesHorizontal()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(2, 2), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Up),
+            });
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1);
+            var pipeline = CreateEnemyPipeline(worldState, profile);
+            PrimePlayerControlState(worldState, 10);
+
+            try
+            {
+                pipeline.RunTick(new TickInput(1));
+
+                Assert.That(GetEntity(worldState, 40).facing, Is.EqualTo(Direction.Right));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_JumpStart_DiagonalTarget_VerticalFirstFacesVertical()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(2, 2), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var profile = CreateJumpChaserProfile(
+                windupTicks: 1,
+                airborneTicks: 1,
+                cooldownTicks: 1,
+                chaseSettings: new ChaseSettings(
+                    ChaseAxisPriorityMode.VerticalFirst,
+                    trySecondaryAxisWhenBlocked: true));
+            var pipeline = CreateEnemyPipeline(worldState, profile);
+            PrimePlayerControlState(worldState, 10);
+
+            try
+            {
+                pipeline.RunTick(new TickInput(1));
+
+                Assert.That(GetEntity(worldState, 40).facing, Is.EqualTo(Direction.Up));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_JumpStart_ZeroWindup_FacesTargetBeforeAirborne()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 1), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(3, 1), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var profile = CreateJumpChaserProfile(windupTicks: 0, airborneTicks: 1, cooldownTicks: 1);
+            var pipeline = CreateEnemyPipeline(worldState, profile);
+            PrimePlayerControlState(worldState, 10);
+
+            try
+            {
+                var firstTick = pipeline.RunTick(new TickInput(1));
+                var jumpState = GetEnemyJumpState(worldState, 40);
+                var jumpSignal = firstTick.PresentationData.EnemyJumpSignals.Single();
+
+                Assert.That(GetEntity(worldState, 40).facing, Is.EqualTo(Direction.Left));
+                Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Airborne));
+                Assert.That(jumpSignal.Facing, Is.EqualTo(Direction.Left));
+                Assert.That(jumpSignal.WindupTicks, Is.Zero);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyAi_JumpStart_SameFaceFarPlayer_StartsWindup()
         {
             var worldState = CreateWorldState(new[]
@@ -6274,11 +6391,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             int windupTicks,
             int airborneTicks,
             int cooldownTicks,
-            bool includePassiveContact = false)
+            bool includePassiveContact = false,
+            ChaseSettings? chaseSettings = null)
         {
             return EnemyAiProfileTestFactory.CreateJumpChaser(
                 new EnemyJumpTimingSettings(windupTicks, airborneTicks, cooldownTicks),
-                includePassiveContact: includePassiveContact);
+                includePassiveContact: includePassiveContact,
+                chaseSettings: chaseSettings);
         }
 
         private static EnemyAiProfile CreateJumpPatrolProfile(
