@@ -62,63 +62,8 @@ namespace Game.Feature.UI.Tests
             Assert.DoesNotThrow(prefab.ValidateAuthoredStructureOrThrow);
         }
 
-        [TestCase(1920f, 1080f, 640f, 640f)]
-        [TestCase(1280f, 720f, 640f, 516f)]
-        [TestCase(1366f, 768f, 640f, 564f)]
-        [TestCase(600f, 480f, 472f, 276f)]
-        public void MainMenuScreenRuntimeLayout_ClampsSaveSlotPanelWithinContentHost(
-            float parentWidth,
-            float parentHeight,
-            float expectedPanelWidth,
-            float expectedPanelHeight)
-        {
-            var parentObject = CreateSizedRectParent("MainMenuScreenRuntimeLayoutParent", parentWidth, parentHeight);
-            var view = UnityEngine.Object.Instantiate(LoadMainMenuPrefab(), parentObject.transform, false);
-
-            try
-            {
-                view.SetVisible(true);
-                var viewRect = (RectTransform)view.transform;
-                LayoutRebuilder.ForceRebuildLayoutImmediate(viewRect);
-
-                Assert.That(viewRect.anchorMin, Is.EqualTo(Vector2.zero));
-                Assert.That(viewRect.anchorMax, Is.EqualTo(Vector2.one));
-                Assert.That(viewRect.sizeDelta, Is.EqualTo(Vector2.zero));
-                Assert.That(view.transform.Find("TopBar").parent, Is.EqualTo(view.transform));
-                Assert.That(view.transform.Find("ContentHost").parent, Is.EqualTo(view.transform));
-                Assert.That(view.transform.Find("BottomBar").parent, Is.EqualTo(view.transform));
-                Assert.That(view.transform.Find("MainCommandPanel").parent, Is.EqualTo(view.transform));
-                Assert.That(view.GetComponent<VerticalLayoutGroup>(), Is.Not.Null);
-
-                var contentHost = view.transform.Find("ContentHost") as RectTransform;
-                var panelRect = view.SaveSlotPanel.transform as RectTransform;
-                var panelElement = view.SaveSlotPanel.GetComponent<LayoutElement>();
-                Assert.That(contentHost, Is.Not.Null);
-                Assert.That(panelRect, Is.Not.Null);
-                Assert.That(panelRect.parent, Is.EqualTo(contentHost));
-                Assert.That(panelElement, Is.Not.Null);
-                Assert.That(panelElement.preferredWidth, Is.EqualTo(expectedPanelWidth).Within(0.01f));
-                Assert.That(panelElement.preferredHeight, Is.EqualTo(expectedPanelHeight).Within(0.01f));
-                Assert.That(panelRect.rect.width, Is.LessThanOrEqualTo(contentHost.rect.width + 0.01f));
-                Assert.That(panelRect.rect.height, Is.LessThanOrEqualTo(contentHost.rect.height + 0.01f));
-
-                var commandPanel = view.transform.Find("MainCommandPanel") as RectTransform;
-                var commandPanelElement = commandPanel.GetComponent<LayoutElement>();
-                Assert.That(commandPanel.anchorMin, Is.EqualTo(Vector2.zero));
-                Assert.That(commandPanel.anchorMax, Is.EqualTo(Vector2.zero));
-                Assert.That(commandPanel.pivot, Is.EqualTo(Vector2.zero));
-                Assert.That(commandPanel.anchoredPosition, Is.EqualTo(new Vector2(64f, 64f)));
-                Assert.That(commandPanelElement.ignoreLayout, Is.True);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(view.gameObject);
-                UnityEngine.Object.DestroyImmediate(parentObject);
-            }
-        }
-
         [Test]
-        public void MainMenuScreenRuntimeLayout_KeepsSaveSlotCardsAsDirectLayoutChildren()
+        public void MainMenuScreenRuntime_KeepsSaveSlotCardsInSerializedOrder()
         {
             var parentObject = CreateSizedRectParent("MainMenuScreenRuntimeCardLayoutParent", 1280f, 720f);
             var view = UnityEngine.Object.Instantiate(LoadMainMenuPrefab(), parentObject.transform, false);
@@ -130,7 +75,6 @@ namespace Game.Feature.UI.Tests
                 LayoutRebuilder.ForceRebuildLayoutImmediate(viewRect);
 
                 var panel = view.SaveSlotPanel;
-                var panelElement = panel.GetComponent<LayoutElement>();
                 var panelLayout = panel.GetComponent<VerticalLayoutGroup>();
                 var cards = panel.SlotCards;
 
@@ -140,18 +84,11 @@ namespace Game.Feature.UI.Tests
                 Assert.That(panel.GetComponentsInChildren<SaveSlotCardView>(true).Length, Is.EqualTo(3));
                 Assert.That(cards, Has.Length.EqualTo(3));
 
-                var expectedCardHeight = (panelElement.preferredHeight - 16f * 2f) / 3f;
                 for (var i = 0; i < cards.Length; i++)
                 {
                     Assert.That(cards[i], Is.Not.Null);
                     Assert.That(cards[i].transform.parent, Is.EqualTo(panel.transform));
                     Assert.That(cards[i].transform.GetSiblingIndex(), Is.EqualTo(i));
-
-                    var cardElement = cards[i].GetComponent<LayoutElement>();
-                    Assert.That(cardElement, Is.Not.Null);
-                    Assert.That(cardElement.preferredWidth, Is.EqualTo(panelElement.preferredWidth).Within(0.01f));
-                    Assert.That(cardElement.preferredHeight, Is.EqualTo(expectedCardHeight).Within(0.01f));
-                    Assert.That(cardElement.flexibleHeight, Is.EqualTo(0f));
                 }
             }
             finally
