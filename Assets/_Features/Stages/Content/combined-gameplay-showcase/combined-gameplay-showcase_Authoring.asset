@@ -529,6 +529,12 @@ MonoBehaviour:
       StableConditionId: primary-goal
       DisplayText: 
       SortOrder: 0
+    - Condition: {fileID: 11400000, guid: 3c6df7d7b4614cb3a9715a470126fc74, type: 2}
+      Required: 1
+      Role: 2
+      StableConditionId: button-901
+      DisplayText: Activate QA button
+      SortOrder: 10
   entityIdMappings:
   - StableGuid: combined-gameplay-showcase:Player:10
     EntityId: 10
