@@ -22,6 +22,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
         [SerializeField] private bool enableGameplayVfxFlipImpactBurstMigration = true;
         [SerializeField] private bool enableGameplayVfxFlipDestroySelfMotionMigration = true;
         [SerializeField] private bool enableGameplayVfxFlipImpactStayTrail = true;
+        [SerializeField] private bool enableGameplayVfxGlideWindTrail = true;
+        [SerializeField] private bool enableGameplayVfxChargeBoosterTrail = true;
         [SerializeField] private bool enableGameplayVfxBoxSlideTrail = true;
         [SerializeField] private bool enableGameplayVfxImpactTransientBreakMigration = true;
         [SerializeField] private bool enableGameplayVfxOutOfBoundsExitMigration = true;
@@ -40,6 +42,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private readonly HashSet<BoxSlideTrailMotionInstanceKey> playedBoxSlideTrailMotionKeys = new();
         private readonly HashSet<ImpactTransientBreakInstanceKey> playedImpactTransientBreakKeys = new();
         private readonly HashSet<OutOfBoundsExitInstanceKey> playedOutOfBoundsExitKeys = new();
+        private readonly EnemyMotionAttachedVfxFollowerPlanner enemyMotionAttachedFollowerPlanner = new();
         private readonly PresentationMotionFollowingVfxController motionFollowingVfxController = new();
 
         private AuthoringPrefabProvider prefabProvider;
@@ -56,6 +59,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private int flipDestroySelfMotionMissingBindingCount;
         private int flipImpactStayTrailMissingBindingCount;
         private int flipImpactStayTrailMissingOwnerViewCount;
+        private int enemyMotionAttachedMissingBindingCount;
+        private int enemyMotionAttachedMissingOwnerViewCount;
         private int boxSlideTrailMissingBindingCount;
         private int boxDestroyShrinkMissingBindingCount;
         private int boxDestroyShrinkMissingAnchorCount;
@@ -259,6 +264,50 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
+        public bool EnableGameplayVfxGlideWindTrail
+        {
+            get => enableGameplayVfxGlideWindTrail;
+            set
+            {
+                if (enableGameplayVfxGlideWindTrail == value)
+                {
+                    return;
+                }
+
+                enableGameplayVfxGlideWindTrail = value;
+                if (!value)
+                {
+                    var cueId = GameplayVfxCueId.From(EnemyVfxCue.GlideWindTrail);
+                    enemyMotionAttachedFollowerPlanner.RemoveCue(cueId);
+                    motionFollowingVfxController.StopAttachedFollowersForCue(cueId, tail: true);
+                }
+
+                ResetIfNoGameplayVfxEnabled();
+            }
+        }
+
+        public bool EnableGameplayVfxChargeBoosterTrail
+        {
+            get => enableGameplayVfxChargeBoosterTrail;
+            set
+            {
+                if (enableGameplayVfxChargeBoosterTrail == value)
+                {
+                    return;
+                }
+
+                enableGameplayVfxChargeBoosterTrail = value;
+                if (!value)
+                {
+                    var cueId = GameplayVfxCueId.From(EnemyVfxCue.ChargeBoosterTrail);
+                    enemyMotionAttachedFollowerPlanner.RemoveCue(cueId);
+                    motionFollowingVfxController.StopAttachedFollowersForCue(cueId, tail: true);
+                }
+
+                ResetIfNoGameplayVfxEnabled();
+            }
+        }
+
         public bool EnableGameplayVfxBoxSlideTrail
         {
             get => enableGameplayVfxBoxSlideTrail;
@@ -372,6 +421,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             (controller?.MissingBindingCount ?? 0) +
             flipDestroySelfMotionMissingBindingCount +
             flipImpactStayTrailMissingBindingCount +
+            enemyMotionAttachedMissingBindingCount +
             boxSlideTrailMissingBindingCount +
             boxDestroyShrinkMissingBindingCount +
             impactTransientBreakMissingBindingCount +
@@ -381,6 +431,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public int MissingAnchorCount =>
             (controller?.MissingAnchorCount ?? 0) +
             flipImpactStayTrailMissingOwnerViewCount +
+            enemyMotionAttachedMissingOwnerViewCount +
             boxDestroyShrinkMissingAnchorCount +
             impactTransientBreakMissingAnchorCount +
             outOfBoundsExitMissingAnchorCount +
@@ -415,6 +466,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             flipDestroySelfMotionMissingBindingCount = 0;
             flipImpactStayTrailMissingBindingCount = 0;
             flipImpactStayTrailMissingOwnerViewCount = 0;
+            enemyMotionAttachedMissingBindingCount = 0;
+            enemyMotionAttachedMissingOwnerViewCount = 0;
             boxSlideTrailMissingBindingCount = 0;
             boxDestroyShrinkMissingBindingCount = 0;
             boxDestroyShrinkMissingAnchorCount = 0;
@@ -428,6 +481,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             playedBoxSlideTrailMotionKeys.Clear();
             playedImpactTransientBreakKeys.Clear();
             playedOutOfBoundsExitKeys.Clear();
+            enemyMotionAttachedFollowerPlanner.Clear();
             motionFollowingVfxController.ResetSession();
             controller?.HardCleanupAll();
             planBuilder.Clear();
@@ -444,12 +498,17 @@ namespace Game.Feature.Gameplay.Vfx.Host
             LastPlannedRequestCount = 0;
             if (!AnyGameplayVfxEnabled)
             {
+                enemyMotionAttachedFollowerPlanner.Clear();
                 return;
             }
 
             ConfigureEnemyPresentationProfiles(
                 context.EnemyPresentationCatalog,
                 context.EnemyPresentationBindings);
+            enemyMotionAttachedFollowerPlanner.Build(
+                context.Result.PresentationData,
+                enableGameplayVfxGlideWindTrail,
+                enableGameplayVfxChargeBoosterTrail);
             planBuilder.Clear();
             playerPlanner.Plan(
                 new GameplayVfxPlanningContext(
@@ -546,20 +605,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public void RefreshPresentationMotionVfx(in GameplayPresentationMotionVfxContext context)
         {
-            if (!enableGameplayVfxFlipImpactStayTrail)
-            {
-                motionFollowingVfxController.Refresh(
-                    context.TickIndex,
-                    context.TrackState as GameplayPresentationTrackState,
-                    context.StateStore,
-                    pool,
-                    bindingResolver,
-                    enabled: false);
-                return;
-            }
-
             if (!AnyGameplayVfxEnabled)
             {
+                enemyMotionAttachedFollowerPlanner.Clear();
                 return;
             }
 
@@ -572,9 +620,13 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 context.StateStore,
                 pool,
                 bindingResolver,
-                enabled: true);
-            flipImpactStayTrailMissingBindingCount = motionFollowingVfxController.MissingBindingCount;
-            flipImpactStayTrailMissingOwnerViewCount = motionFollowingVfxController.MissingOwnerViewCount;
+                enabled: enableGameplayVfxFlipImpactStayTrail,
+                enemyMotionAttachedFollowerPlanner.DesiredFollowers,
+                attachedFollowersEnabled: enableGameplayVfxGlideWindTrail || enableGameplayVfxChargeBoosterTrail);
+            flipImpactStayTrailMissingBindingCount = motionFollowingVfxController.MotionMissingBindingCount;
+            flipImpactStayTrailMissingOwnerViewCount = motionFollowingVfxController.MotionMissingOwnerViewCount;
+            enemyMotionAttachedMissingBindingCount = motionFollowingVfxController.AttachedMissingBindingCount;
+            enemyMotionAttachedMissingOwnerViewCount = motionFollowingVfxController.AttachedMissingOwnerViewCount;
         }
 
         public void HardCleanup()
@@ -586,6 +638,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             playedBoxSlideTrailMotionKeys.Clear();
             playedImpactTransientBreakKeys.Clear();
             playedOutOfBoundsExitKeys.Clear();
+            enemyMotionAttachedFollowerPlanner.Clear();
         }
 
         private void EnsureRuntime(in GameplayTickPresentationExtensionContext context)
@@ -681,6 +734,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private void ResetRuntimeComposition()
         {
             motionFollowingVfxController.HardCleanup();
+            enemyMotionAttachedFollowerPlanner.Clear();
             controller?.HardCleanupAll();
             controller = null;
             pool = null;
@@ -700,6 +754,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             enableGameplayVfxFlipImpactBurstMigration ||
             enableGameplayVfxFlipDestroySelfMotionMigration ||
             enableGameplayVfxFlipImpactStayTrail ||
+            enableGameplayVfxGlideWindTrail ||
+            enableGameplayVfxChargeBoosterTrail ||
             enableGameplayVfxBoxSlideTrail ||
             enableGameplayVfxImpactTransientBreakMigration ||
             enableGameplayVfxOutOfBoundsExitMigration ||
@@ -763,6 +819,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                    (enableGameplayVfxFlipImpactBurstMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.FlipImpactBurst)) ||
                    (enableGameplayVfxFlipDestroySelfMotionMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.FlipDestroySelfMotion)) ||
                    (enableGameplayVfxFlipImpactStayTrail && cueId == GameplayVfxCueId.From(BoxVfxCue.FlipImpactStayTrail)) ||
+                   (enableGameplayVfxGlideWindTrail && cueId == GameplayVfxCueId.From(EnemyVfxCue.GlideWindTrail)) ||
+                   (enableGameplayVfxChargeBoosterTrail && cueId == GameplayVfxCueId.From(EnemyVfxCue.ChargeBoosterTrail)) ||
                    (enableGameplayVfxBoxSlideTrail && cueId == GameplayVfxCueId.From(BoxVfxCue.SlideDustTrail)) ||
                    (enableGameplayVfxImpactTransientBreakMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak)) ||
                    (enableGameplayVfxOutOfBoundsExitMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.OutOfBoundsExit)) ||

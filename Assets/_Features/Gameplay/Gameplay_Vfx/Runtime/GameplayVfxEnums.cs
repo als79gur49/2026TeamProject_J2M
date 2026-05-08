@@ -59,6 +59,8 @@ namespace Game.Feature.Gameplay.Vfx
         DeathMotion = 15,
         FrontFaceShieldWindup = 16,
         OutOfBoundsExit = 17,
+        GlideWindTrail = 18,
+        ChargeBoosterTrail = 19,
     }
 
     public enum TileFeatureVfxCue
