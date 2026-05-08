@@ -18,7 +18,6 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private TMP_Text _lastPlayedLabel;
         [SerializeField] private Button _primaryButton;
         [SerializeField] private TMP_Text _primaryButtonLabel;
-        [SerializeField] private Button _restartButton;
         [SerializeField] private Button _deleteButton;
 
         private SaveSlotCardViewModel _viewModel;
@@ -42,7 +41,6 @@ namespace Game.Feature.UI.Screens
                 _lastPlayedLabel == null ||
                 _primaryButton == null ||
                 _primaryButtonLabel == null ||
-                _restartButton == null ||
                 _deleteButton == null)
             {
                 throw new InvalidOperationException(MissingAuthoredStructureMessage);
@@ -56,7 +54,6 @@ namespace Game.Feature.UI.Screens
                 !IsOwnedByCard(_lastPlayedLabel.transform) ||
                 !IsOwnedByCard(_primaryButton.transform) ||
                 !IsOwnedByCard(_primaryButtonLabel.transform) ||
-                !IsOwnedByCard(_restartButton.transform) ||
                 !IsOwnedByCard(_deleteButton.transform))
             {
                 throw new InvalidOperationException(MissingAuthoredStructureMessage);
@@ -67,14 +64,12 @@ namespace Game.Feature.UI.Screens
         {
             ValidateAuthoredStructureOrThrow();
             Rebind(_primaryButton, HandlePrimaryClicked);
-            Rebind(_restartButton, HandleRestartClicked);
             Rebind(_deleteButton, HandleDeleteClicked);
         }
 
         private void OnDisable()
         {
             Unbind(_primaryButton, HandlePrimaryClicked);
-            Unbind(_restartButton, HandleRestartClicked);
             Unbind(_deleteButton, HandleDeleteClicked);
         }
 
@@ -86,16 +81,6 @@ namespace Game.Feature.UI.Screens
             }
 
             IntentRequested?.Invoke(new SaveSlotIntent(_viewModel.SlotNumber, _viewModel.PrimaryIntentKind));
-        }
-
-        private void HandleRestartClicked()
-        {
-            if (_viewModel == null)
-            {
-                return;
-            }
-
-            IntentRequested?.Invoke(new SaveSlotIntent(_viewModel.SlotNumber, SaveSlotIntentKind.Restart));
         }
 
         private void HandleDeleteClicked()
@@ -120,12 +105,10 @@ namespace Game.Feature.UI.Screens
                 _statusLabel.text = _viewModel?.StatusText ?? string.Empty;
             }
 
-            var hasStage = SetOptionalLabel(_stageLabel, _viewModel?.StageText);
-            var hasChances = SetOptionalLabel(_chancesLabel, _viewModel?.ChancesText);
-            var hasDeaths = SetOptionalLabel(_deathsLabel, _viewModel?.DeathsText);
-            var hasLastPlayed = SetOptionalLabel(_lastPlayedLabel, _viewModel?.LastPlayedText);
-            SetRowActive(_stageLabel ?? _chancesLabel, hasStage || hasChances);
-            SetRowActive(_deathsLabel ?? _lastPlayedLabel, hasDeaths || hasLastPlayed);
+            SetOptionalLabel(_stageLabel, _viewModel?.StageText);
+            SetOptionalLabel(_chancesLabel, _viewModel?.ChancesText);
+            SetOptionalLabel(_deathsLabel, _viewModel?.DeathsText);
+            SetOptionalLabel(_lastPlayedLabel, _viewModel?.LastPlayedText);
 
             if (_primaryButtonLabel != null)
             {
@@ -135,50 +118,26 @@ namespace Game.Feature.UI.Screens
             if (_primaryButton != null)
             {
                 var hasPrimaryIntent = _viewModel != null && _viewModel.PrimaryIntentKind != SaveSlotIntentKind.None;
-                _primaryButton.gameObject.SetActive(hasPrimaryIntent);
+                _primaryButton.gameObject.SetActive(true);
                 _primaryButton.interactable = hasPrimaryIntent;
-            }
-
-            if (_restartButton != null)
-            {
-                var showRestart = _viewModel != null &&
-                                  _viewModel.ShowRestart &&
-                                  _viewModel.PrimaryIntentKind != SaveSlotIntentKind.Restart;
-                _restartButton.gameObject.SetActive(showRestart);
             }
 
             if (_deleteButton != null)
             {
-                _deleteButton.gameObject.SetActive(_viewModel != null && _viewModel.ShowDelete);
+                _deleteButton.gameObject.SetActive(true);
+                _deleteButton.interactable = _viewModel != null && _viewModel.ShowDelete;
             }
         }
 
-        private static bool SetOptionalLabel(TMP_Text label, string text)
+        private static void SetOptionalLabel(TMP_Text label, string text)
         {
             if (label == null)
-            {
-                return false;
-            }
-
-            text ??= string.Empty;
-            var hasText = !string.IsNullOrWhiteSpace(text);
-            label.text = text;
-            label.gameObject.SetActive(hasText);
-            return hasText;
-        }
-
-        private static void SetRowActive(TMP_Text rowChild, bool active)
-        {
-            if (rowChild == null || rowChild.transform.parent == null)
             {
                 return;
             }
 
-            var row = rowChild.transform.parent;
-            if (row.GetComponent<SaveSlotCardView>() == null)
-            {
-                row.gameObject.SetActive(active);
-            }
+            label.text = text ?? string.Empty;
+            label.gameObject.SetActive(true);
         }
 
         private bool IsOwnedByCard(Transform child)

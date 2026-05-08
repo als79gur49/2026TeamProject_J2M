@@ -165,7 +165,6 @@ namespace Game.Feature.UI.Tests
                 AssertSerializedReference(serializedCard, "_lastPlayedLabel", typeof(TMP_Text));
                 AssertSerializedReference(serializedCard, "_primaryButton", typeof(Button));
                 AssertSerializedReference(serializedCard, "_primaryButtonLabel", typeof(TMP_Text));
-                AssertSerializedReference(serializedCard, "_restartButton", typeof(Button));
                 AssertSerializedReference(serializedCard, "_deleteButton", typeof(Button));
             }
         }

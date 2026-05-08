@@ -177,9 +177,9 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SaveSlotCardView_PrimaryRestart_HidesDuplicateRestartButton()
+        public void SaveSlotCardView_EmptySlot_KeepsDetailAndActionRowsInLayout()
         {
-            var root = new GameObject(nameof(SaveSlotCardView_PrimaryRestart_HidesDuplicateRestartButton), typeof(RectTransform));
+            var root = new GameObject(nameof(SaveSlotCardView_EmptySlot_KeepsDetailAndActionRowsInLayout), typeof(RectTransform));
             root.SetActive(false);
             try
             {
@@ -188,11 +188,19 @@ namespace Game.Feature.UI.Tests
                 root.SetActive(true);
                 InvokePrivate(card, "OnEnable");
 
-                card.Bind(CreateCardViewModel(1, SaveSlotIntentKind.Restart));
+                card.Bind(CreateEmptyCardViewModel(1));
 
+                Assert.That(card.transform.Find("DetailRow").gameObject.activeSelf, Is.True);
+                Assert.That(card.transform.Find("MetaRow").gameObject.activeSelf, Is.True);
+                Assert.That(card.transform.Find("ActionRow").gameObject.activeSelf, Is.True);
+                Assert.That(GetPrivateField<TMP_Text>(card, "_stageLabel").gameObject.activeSelf, Is.True);
+                Assert.That(GetPrivateField<TMP_Text>(card, "_chancesLabel").gameObject.activeSelf, Is.True);
+                Assert.That(GetPrivateField<TMP_Text>(card, "_deathsLabel").gameObject.activeSelf, Is.True);
+                Assert.That(GetPrivateField<TMP_Text>(card, "_lastPlayedLabel").gameObject.activeSelf, Is.True);
                 Assert.That(GetPrivateField<Button>(card, "_primaryButton").gameObject.activeSelf, Is.True);
-                Assert.That(GetPrivateField<Button>(card, "_restartButton").gameObject.activeSelf, Is.False);
+                Assert.That(GetPrivateField<Button>(card, "_primaryButton").interactable, Is.True);
                 Assert.That(GetPrivateField<Button>(card, "_deleteButton").gameObject.activeSelf, Is.True);
+                Assert.That(GetPrivateField<Button>(card, "_deleteButton").interactable, Is.False);
             }
             finally
             {
@@ -493,8 +501,23 @@ namespace Game.Feature.UI.Tests
                 string.Empty,
                 primaryIntentKind.ToString(),
                 primaryIntentKind,
-                showRestart: true,
                 showDelete: true);
+        }
+
+        private static SaveSlotCardViewModel CreateEmptyCardViewModel(int slotNumber)
+        {
+            return new SaveSlotCardViewModel(
+                slotNumber,
+                SaveSlotCardState.Empty,
+                $"Slot {slotNumber}",
+                "Empty",
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                "New Game",
+                SaveSlotIntentKind.NewGame,
+                showDelete: false);
         }
 
         private static ShellHarness CreateShellHarness(bool withPanel)
@@ -580,7 +603,6 @@ namespace Game.Feature.UI.Tests
             var primaryButton = CreateActionButton("PrimaryButton", actionRow, out var primaryButtonLabel);
             SetPrivateField(card, "_primaryButton", primaryButton);
             SetPrivateField(card, "_primaryButtonLabel", primaryButtonLabel);
-            SetPrivateField(card, "_restartButton", CreateActionButton("RestartButton", actionRow, out _));
             SetPrivateField(card, "_deleteButton", CreateActionButton("DeleteButton", actionRow, out _));
         }
 
