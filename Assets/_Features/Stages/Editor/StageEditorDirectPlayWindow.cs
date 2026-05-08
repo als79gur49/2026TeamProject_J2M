@@ -84,7 +84,7 @@ namespace Game.Feature.Stages.Editor
             _stageIds.Clear();
             _stageLabels.Clear();
             var provider = AssetDatabase.LoadAssetAtPath<ScriptableObjectStageCatalogProvider>(
-                "Assets/_Features/Stages/Content/StageCatalogProvider.asset");
+                StageContentPaths.StageCatalogProviderAssetPath);
             if (provider == null)
             {
                 return;

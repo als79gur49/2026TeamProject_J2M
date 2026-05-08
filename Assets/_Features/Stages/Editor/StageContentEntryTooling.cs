@@ -10,7 +10,7 @@ namespace Game.Feature.Stages.Editor
 {
     public static class StageContentEntryCreationTool
     {
-        private const string CanonicalContentRoot = "Assets/_Features/Stages/Content";
+        private const string CanonicalContentRoot = StageContentPaths.CampaignLevel01StagesRoot;
 
         [MenuItem("Assets/Create/Gameplay/Stages/Create Stage Content Entry From Selected StageDefinition", priority = 401)]
         private static void CreateFromSelectedStageDefinition()
@@ -156,7 +156,7 @@ namespace Game.Feature.Stages.Editor
 
     public static class StageIdRenameTool
     {
-        private const string CanonicalContentRoot = "Assets/_Features/Stages/Content";
+        private const string CanonicalContentRoot = StageContentPaths.CampaignLevel01StagesRoot;
 
         public static void Rename(StageContentEntry entry, string rawStageId, StageIdAliasTable aliasTable = null)
         {
@@ -292,17 +292,15 @@ namespace Game.Feature.Stages.Editor
 
     public sealed class StageCatalogBuildValidationHook : IPreprocessBuildWithReport
     {
-        private const string CanonicalStageCatalogAssetPath = "Assets/_Features/Stages/Content/StageCatalog.asset";
-
         public int callbackOrder => 0;
 
         public void OnPreprocessBuild(BuildReport report)
         {
-            var catalog = AssetDatabase.LoadAssetAtPath<StageCatalog>(CanonicalStageCatalogAssetPath);
+            var catalog = AssetDatabase.LoadAssetAtPath<StageCatalog>(StageContentPaths.StageCatalogAssetPath);
             if (catalog == null)
             {
                 throw new BuildFailedException(
-                    $"Missing canonical StageCatalog asset at '{CanonicalStageCatalogAssetPath}'.");
+                    $"Missing canonical StageCatalog asset at '{StageContentPaths.StageCatalogAssetPath}'.");
             }
 
             var validator = new StageCatalogValidator();
@@ -317,9 +315,12 @@ namespace Game.Feature.Stages.Editor
             };
 
             var validationReport = validator.Validate(catalog, options);
+            validationReport.AddRange(new StageCampaignContentGovernanceValidator()
+                .Validate(StageValidationTiming.PreBuild)
+                .Issues);
             if (validationReport.HasErrors)
             {
-                throw new BuildFailedException(BuildFailureMessage(CanonicalStageCatalogAssetPath, validationReport));
+                throw new BuildFailedException(BuildFailureMessage(StageContentPaths.StageCatalogAssetPath, validationReport));
             }
 
             var sceneReport = new StageSceneBootstrapValidator().ValidateEnabledBuildScenes(options);

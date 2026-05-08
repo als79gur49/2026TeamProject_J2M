@@ -333,7 +333,7 @@ namespace Game.Feature.Stages.Editor
         private static ScriptableObjectStageCatalogProvider LoadStageCatalogProviderOrThrow()
         {
             var provider = AssetDatabase.LoadAssetAtPath<ScriptableObjectStageCatalogProvider>(
-                "Assets/_Features/Stages/Content/StageCatalogProvider.asset");
+                StageContentPaths.StageCatalogProviderAssetPath);
             if (provider == null)
             {
                 throw new InvalidOperationException("Direct Play requires the stage catalog provider asset.");
@@ -345,7 +345,7 @@ namespace Game.Feature.Stages.Editor
         private static CampaignStageSequenceDefinition LoadCampaignSequenceDefinition()
         {
             var definition = AssetDatabase.LoadAssetAtPath<CampaignStageSequenceDefinition>(
-                "Assets/_Features/Stages/Content/CampaignStageSequence.asset");
+                StageContentPaths.CampaignStageSequenceAssetPath);
             return definition != null
                 ? definition
                 : CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance();

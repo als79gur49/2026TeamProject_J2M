@@ -8,12 +8,19 @@ namespace Game.Feature.Stages.Editor
 {
     public static class StageCatalogCiValidationEntryPoint
     {
-        private const string CanonicalStageCatalogAssetPath = "Assets/_Features/Stages/Content/StageCatalog.asset";
         private const string KnownWarningLedgerAssetPath =
             "Assets/_Features/Stages/Editor/Validation/StageCatalogKnownWarningLedger.asset";
         private const string AliasGovernanceLedgerAssetPath =
             StageAliasGovernanceUpdater.DefaultAliasGovernanceLedgerAssetPath;
         private const string ReportDirectory = "Temp/StageCatalogValidation";
+
+        public static string ReportPath =>
+            Path.Combine(GetProjectRoot(), ReportDirectory, "stage-catalog-validation.md");
+
+        public static void RunFromCommandLine()
+        {
+            EditorApplication.Exit(Run());
+        }
 
         public static int Run()
         {
@@ -29,8 +36,8 @@ namespace Game.Feature.Stages.Editor
             };
 
             var auditor = new StageCompatUsageAuditor();
-            var auditReport = auditor.Audit(CanonicalStageCatalogAssetPath);
-            var catalog = AssetDatabase.LoadAssetAtPath<StageCatalog>(CanonicalStageCatalogAssetPath);
+            var auditReport = auditor.Audit(StageContentPaths.StageCatalogAssetPath);
+            var catalog = AssetDatabase.LoadAssetAtPath<StageCatalog>(StageContentPaths.StageCatalogAssetPath);
             var validator = new StageCatalogValidator();
             var catalogReport = validator.Validate(catalog, options);
             var knownWarningLedger = AssetDatabase.LoadAssetAtPath<StageCatalogKnownWarningLedger>(KnownWarningLedgerAssetPath);
@@ -42,16 +49,19 @@ namespace Game.Feature.Stages.Editor
             var aliasUsageReport = new StageAliasUsageScanner().ValidateNoHits(StageAliasUsageScanner.P3HistoricalAliasIds);
             var sceneValidator = new StageSceneBootstrapValidator();
             var sceneReport = sceneValidator.ValidateEnabledBuildScenes(options);
+            var campaignContentReport = new StageCampaignContentGovernanceValidator().Validate(options.Timing);
             var summary = sceneValidator.SummarizeEnabledBuildSceneModes();
 
-            Directory.CreateDirectory(ReportDirectory);
-            WriteAuditReport(Path.Combine(ReportDirectory, "stage-compat-audit.md"), auditReport);
+            var reportDirectory = Path.Combine(GetProjectRoot(), ReportDirectory);
+            Directory.CreateDirectory(reportDirectory);
+            WriteAuditReport(Path.Combine(reportDirectory, "stage-compat-audit.md"), auditReport);
             WriteReport(
-                Path.Combine(ReportDirectory, "stage-catalog-validation.md"),
+                ReportPath,
                 catalogReport,
                 knownWarningReport,
                 aliasGovernanceReport,
                 aliasUsageReport,
+                campaignContentReport,
                 sceneReport,
                 summary);
 
@@ -59,9 +69,16 @@ namespace Game.Feature.Stages.Editor
                 knownWarningReport.HasErrors ||
                 aliasGovernanceReport.HasErrors ||
                 aliasUsageReport.HasErrors ||
+                campaignContentReport.HasErrors ||
                 sceneReport.HasErrors)
             {
-                Debug.LogError("Stage catalog CI validation failed. See Temp/StageCatalogValidation/stage-catalog-validation.md");
+                LogIssues("Catalog", catalogReport);
+                LogIssues("Known Warning Governance", knownWarningReport);
+                LogIssues("Alias Governance", aliasGovernanceReport);
+                LogIssues("Alias Usage", aliasUsageReport);
+                LogIssues("Campaign Content Governance", campaignContentReport);
+                LogIssues("Scene", sceneReport);
+                Debug.LogError($"Stage catalog CI validation failed. See {ReportPath}");
                 return 1;
             }
 
@@ -75,6 +92,7 @@ namespace Game.Feature.Stages.Editor
             StageValidationReport knownWarningReport,
             StageValidationReport aliasGovernanceReport,
             StageValidationReport aliasUsageReport,
+            StageValidationReport campaignContentReport,
             StageValidationReport sceneReport,
             StageSceneBootstrapUsageSummary summary)
         {
@@ -97,7 +115,28 @@ namespace Game.Feature.Stages.Editor
             WriteIssues(writer, "Known Warning Governance Issues", knownWarningReport);
             WriteIssues(writer, "Alias Governance Issues", aliasGovernanceReport);
             WriteIssues(writer, "Alias Usage Issues", aliasUsageReport);
+            WriteIssues(writer, "Campaign Content Governance Issues", campaignContentReport);
             WriteIssues(writer, "Scene Issues", sceneReport);
+        }
+
+        private static string GetProjectRoot()
+        {
+            return Directory.GetParent(Application.dataPath)?.FullName ?? Directory.GetCurrentDirectory();
+        }
+
+        private static void LogIssues(string title, StageValidationReport report)
+        {
+            if (report == null || report.Issues.Count == 0)
+            {
+                return;
+            }
+
+            for (var i = 0; i < report.Issues.Count; i++)
+            {
+                var issue = report.Issues[i];
+                Debug.LogError(
+                    $"{title}: [{issue.Severity}] {issue.Code}: {issue.Message} ({issue.AssetPath})");
+            }
         }
 
         private static void WriteFullEditModeKnownFailureBaseline(StreamWriter writer)

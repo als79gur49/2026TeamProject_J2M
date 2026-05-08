@@ -76,8 +76,7 @@ namespace Game.Feature.Stages.Editor
 
     internal static class StageAuthoringExitGoalHelperCommands
     {
-        private const string CanonicalContentRoot = "Assets/_Features/Stages/Content";
-        private const string ConditionsFolderName = "Conditions";
+        private const string CanonicalContentRoot = StageContentPaths.CampaignLevel01StagesRoot;
         private const string PrimaryGoalConditionAssetName = "PrimaryGoal_PlayerAtAnyZone";
         private const string PrimaryGoalConditionFileName = PrimaryGoalConditionAssetName + ".asset";
         private const string PrimaryGoalStableConditionId = "primary-goal";
@@ -589,8 +588,7 @@ namespace Game.Feature.Stages.Editor
                 return false;
             }
 
-            EnsureFolder($"{CanonicalContentRoot}/{authoring.OwnerEntry.StageId.Value}");
-            EnsureFolder($"{CanonicalContentRoot}/{authoring.OwnerEntry.StageId.Value}/{ConditionsFolderName}");
+            EnsureFolder(StageContentPaths.SharedConditionsRoot);
 
             condition = ScriptableObject.CreateInstance<PlayerAtAnyZoneConditionAsset>();
             condition.name = PrimaryGoalConditionAssetName;
@@ -629,8 +627,17 @@ namespace Game.Feature.Stages.Editor
                 return false;
             }
 
-            conditionPath = $"{expectedStageFolder}/{ConditionsFolderName}/{PrimaryGoalConditionFileName}";
+            conditionPath =
+                $"{StageContentPaths.SharedConditionsRoot}/CampaignMain_{SanitizeName(ownerEntry.StageId.Value)}_{PrimaryGoalConditionFileName}";
             return true;
+        }
+
+        private static string SanitizeName(string value)
+        {
+            return string.IsNullOrWhiteSpace(value)
+                ? "Unnamed"
+                : string.Concat(value.Split('-', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(part => char.ToUpperInvariant(part[0]) + part[1..]));
         }
 
         private static bool IsConditionReferencedByOtherStage(

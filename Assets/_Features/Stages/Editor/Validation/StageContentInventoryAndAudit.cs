@@ -120,7 +120,7 @@ namespace Game.Feature.Stages.Editor
 
     public sealed class StageContentInventoryQuery
     {
-        private const string DefaultCatalogAssetPath = "Assets/_Features/Stages/Content/StageCatalog.asset";
+        private const string DefaultCatalogAssetPath = StageContentPaths.StageCatalogAssetPath;
         private const string StagesRoot = "Assets/_Features/Stages";
         private static readonly Regex TrailingCopyNumberRegex = new(@"\s+\d+$", RegexOptions.Compiled);
 
@@ -365,7 +365,7 @@ namespace Game.Feature.Stages.Editor
             this.aliasUsageScanner = aliasUsageScanner ?? new StageAliasUsageScanner();
         }
 
-        public StageCompatAuditReport Audit(string catalogAssetPath = "Assets/_Features/Stages/Content/StageCatalog.asset")
+        public StageCompatAuditReport Audit(string catalogAssetPath = StageContentPaths.StageCatalogAssetPath)
         {
             return Audit(inventoryQuery.Capture(catalogAssetPath));
         }

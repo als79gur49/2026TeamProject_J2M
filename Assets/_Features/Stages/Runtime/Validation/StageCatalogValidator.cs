@@ -8,7 +8,7 @@ namespace Game.Feature.Stages
 {
     public sealed class StageCatalogValidator
     {
-        private const string CanonicalContentRoot = "Assets/_Features/Stages/Content";
+        private const string CanonicalContentRoot = StageContentPaths.CampaignLevel01StagesRoot;
         private static IStageValidationAssetMetadataProvider defaultMetadataProvider;
         private static readonly IStageValidationAssetMetadataProvider NoOpMetadataProvider =
             new NoOpAssetMetadataProvider();
