@@ -73,7 +73,7 @@ MonoBehaviour:
     displayName: Barricade Default
     kind: 3
     visualPrefab: {fileID: 2954340495404665059, guid: f3a8614e31fc604428a03a4e26853030, type: 3}
-    placementMode: 0
+    placementMode: 1
     icon: {fileID: 0}
     isDefaultForKind: 1
     directionHint: 0
