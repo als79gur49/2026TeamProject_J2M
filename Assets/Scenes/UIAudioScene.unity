@@ -1464,6 +1464,8 @@ MonoBehaviour:
   enableGameplayVfxFlipImpactBurstMigration: 1
   enableGameplayVfxFlipDestroySelfMotionMigration: 1
   enableGameplayVfxFlipImpactStayTrail: 1
+  enableGameplayVfxGlideWindTrail: 1
+  enableGameplayVfxChargeBoosterTrail: 1
   enableGameplayVfxBoxSlideTrail: 1
   enableGameplayVfxImpactTransientBreakMigration: 1
   enableGameplayVfxOutOfBoundsExitMigration: 1
