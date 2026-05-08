@@ -1204,7 +1204,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Assert.That(configureMainCameraProperty, Is.Not.Null);
                     serializedObject.Update();
                     Assert.That(configureMainCameraProperty.boolValue, Is.False);
-                    Assert.That(BuildConfiguration(installer).SnapViewCameraToTarget, Is.False);
+                    Assert.That(BuildConfiguration(installer, scenePath).SnapViewCameraToTarget, Is.False);
                     Assert.That(installer.GetComponents<GameplayCameraTopologyAuthoring>().Length, Is.EqualTo(1));
                 }
                 finally
@@ -1242,7 +1242,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     serializedObject.Update();
                     Assert.That(mappingProperty.enumValueIndex, Is.EqualTo((int)TopologyRotationVisualMapping.ForwardUsesPositiveX));
                     Assert.That(
-                        BuildConfiguration(installer).TopologyRotationVisualMapping,
+                        BuildConfiguration(installer, scenePath).TopologyRotationVisualMapping,
                         Is.EqualTo(TopologyRotationVisualMapping.ForwardUsesPositiveX));
                 }
                 finally
@@ -1280,7 +1280,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Assert.That(easeProperty, Is.Not.Null);
                     serializedObject.Update();
                     Assert.That(easeProperty.enumValueIndex, Is.EqualTo((int)TopologyRotationTweenEase.InOutCubic));
-                    Assert.That(BuildConfiguration(installer).TopologyRotationTween.Ease, Is.EqualTo(TopologyRotationTweenEase.InOutCubic));
+                    Assert.That(
+                        BuildConfiguration(installer, scenePath).TopologyRotationTween.Ease,
+                        Is.EqualTo(TopologyRotationTweenEase.InOutCubic));
                 }
                 finally
                 {
@@ -1289,7 +1291,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        private static GameplaySceneHostConfiguration BuildConfiguration(CombinedGameplayShowcaseInstaller installer)
+        private static GameplaySceneHostConfiguration BuildConfiguration(
+            CombinedGameplayShowcaseInstaller installer,
+            string scenePath)
         {
             var buildInitialGameplayState = typeof(GameplayShowcaseSceneInstallerBase).GetMethod(
                 "BuildInitialGameplayState",
@@ -1304,8 +1308,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(buildInitialGameplayState, Is.Not.Null);
             Assert.That(createConfiguration, Is.Not.Null);
 
-            StageLaunchContextStore.Clear();
-            StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow("stage-1-1"));
+            var launchStageId = ResolveLaunchStageIdForScene(scenePath);
+            PrimeCampaignLaunchContext(launchStageId);
 
             try
             {
@@ -1316,8 +1320,54 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                StageLaunchContextStore.Clear();
+                ClearCampaignLaunchContext();
             }
+        }
+
+        private static StageId ResolveLaunchStageIdForScene(string scenePath)
+        {
+            return scenePath switch
+            {
+                "Assets/Scenes/CombinedGameplayShowcase.unity" => StageId.CreateOrThrow("combined-gameplay-showcase"),
+                "Assets/Scenes/TutorialScene.unity" => StageId.CreateOrThrow("tutorial-scene"),
+                "Assets/Scenes/UIAudioScene.unity" => StageId.CreateOrThrow("tutorial-scene"),
+                _ => StageId.None,
+            };
+        }
+
+        private static void PrimeCampaignLaunchContext(StageId launchStageId)
+        {
+            Assert.That(launchStageId.IsValid, Is.True);
+            StageLaunchContextStore.Clear();
+            EditorDirectPlayContextStore.Clear();
+            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+
+            var saveStore = new SaveSlotStore(EditorDirectPlayContextStore.TempSaveSlotStoreKey);
+            var activeSlotProvider = new ActiveSlotProvider(EditorDirectPlayContextStore.TempActiveSlotProviderKey);
+            saveStore.ClearAll();
+            activeSlotProvider.ClearActiveSlot();
+            saveStore.SaveSlot(new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = launchStageId,
+                CurrentLevelGroupId = "level-01",
+                RemainingChances = SaveSlotStore.DefaultRemainingChances,
+                LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
+            });
+            activeSlotProvider.SetActiveSlot(1);
+
+            EditorDirectPlayContextStore.SetCurrent(
+                EditorDirectPlayContext.CreateCampaignTempSlot(
+                    launchStageId,
+                    SaveSlotStore.DefaultRemainingChances));
+            StageLaunchContextStore.SetCurrent(launchStageId);
+        }
+
+        private static void ClearCampaignLaunchContext()
+        {
+            StageLaunchContextStore.Clear();
+            EditorDirectPlayContextStore.Clear();
+            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
         }
 
         private static string ReadSceneComponentBlock(string sceneText, string marker)

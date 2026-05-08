@@ -376,7 +376,9 @@ namespace Game.Feature.Stages.Editor.Tests
 
             Assert.That(AssetDatabase.GetAssetPath(condition), Is.EqualTo(fixture.ExpectedConditionPath));
             Assert.That(AssetDatabase.LoadAssetAtPath<PlayerAtAnyZoneConditionAsset>(fixture.ExpectedConditionPath), Is.SameAs(condition));
-            Assert.That(condition.name, Is.EqualTo("PrimaryGoal_PlayerAtAnyZone"));
+            Assert.That(
+                condition.name,
+                Is.EqualTo(System.IO.Path.GetFileNameWithoutExtension(fixture.ExpectedConditionPath)));
         }
 
         [Test]
@@ -452,6 +454,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 StageCompletionPolicy.RequireAllConditions,
                 PrimaryGoal(sharedCondition)));
             EditorUtility.SetDirty(first.Authoring);
+            AssetDatabase.SaveAssets();
 
             Assert.That(StageAuthoringExitGoalHelperCommands.TryEnableExitObjective(second.Authoring, 1, out var enableError), Is.True, enableError);
             var changed = StageAuthoringExitGoalHelperCommands.TryCreatePrimaryGoalPlayerAtAnyZoneCondition(
@@ -899,7 +902,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
         private sealed class TempStageContentFixture : IDisposable
         {
-            private const string CanonicalContentRoot = "Assets/_Features/Stages/Content";
+            private const string CanonicalContentRoot = StageContentPaths.CampaignLevel01StagesRoot;
 
             private TempStageContentFixture(
                 string stageFolder,
@@ -913,7 +916,8 @@ namespace Game.Feature.Stages.Editor.Tests
                 Authoring = authoring;
                 Gameplay = gameplay;
                 Presentation = presentation;
-                ExpectedConditionPath = $"{stageFolder}/Conditions/PrimaryGoal_PlayerAtAnyZone.asset";
+                ExpectedConditionPath =
+                    $"{StageContentPaths.SharedConditionsRoot}/CampaignMain_{SanitizeName(entry.StageId.Value)}_PrimaryGoal_PlayerAtAnyZone.asset";
             }
 
             public string StageFolder { get; }
@@ -1020,7 +1024,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
             public void EnsureConditionsFolder()
             {
-                EnsureFolder($"{StageFolder}/Conditions");
+                EnsureFolder(StageContentPaths.SharedConditionsRoot);
             }
 
             public GameObject CreateTileFeatureVisualPrefab()
@@ -1034,8 +1038,17 @@ namespace Game.Feature.Stages.Editor.Tests
 
             public void Dispose()
             {
+                AssetDatabase.DeleteAsset(ExpectedConditionPath);
                 AssetDatabase.DeleteAsset(StageFolder);
                 AssetDatabase.SaveAssets();
+            }
+
+            private static string SanitizeName(string value)
+            {
+                return string.IsNullOrWhiteSpace(value)
+                    ? "Unnamed"
+                    : string.Concat(value.Split('-', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(part => char.ToUpperInvariant(part[0]) + part[1..]));
             }
 
             private static void EnsureFolder(string assetFolder)

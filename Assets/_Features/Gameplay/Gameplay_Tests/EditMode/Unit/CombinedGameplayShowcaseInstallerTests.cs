@@ -25,6 +25,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             StageContentPaths.CampaignLevel01StagesRoot + "/combined-gameplay-showcase/combined-gameplay-showcase_Presentation.asset";
         private const string StageCatalogProviderAssetPath =
             StageContentPaths.StageCatalogProviderAssetPath;
+        private const string CombinedLaunchStageId = "combined-gameplay-showcase";
         private const string DefaultSimulationTimingPresetAssetPath =
             "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplaySimulationTimingPreset_DefaultShowcase.asset";
         private const string DefaultPresentationTimingPresetAssetPath =
@@ -931,8 +932,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(providerField, Is.Not.Null);
             providerField.SetValue(installer, provider);
 
-            StageLaunchContextStore.Clear();
-            StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow("stage-1-1"));
+            PrimeCampaignLaunchContext(StageId.CreateOrThrow(CombinedLaunchStageId));
         }
 
         private static void AssignTimingPresets(CombinedGameplayShowcaseInstaller installer)
@@ -990,6 +990,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static void DestroyAssignedStageContent(GameObject installerObject)
         {
+            ClearCampaignLaunchContext();
+
             if (installerObject == null)
             {
                 return;
@@ -1015,6 +1017,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             Object.DestroyImmediate(entry);
+        }
+
+        private static void PrimeCampaignLaunchContext(StageId launchStageId)
+        {
+            StageLaunchContextStore.Clear();
+            EditorDirectPlayContextStore.Clear();
+            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+
+            var saveStore = new SaveSlotStore(EditorDirectPlayContextStore.TempSaveSlotStoreKey);
+            var activeSlotProvider = new ActiveSlotProvider(EditorDirectPlayContextStore.TempActiveSlotProviderKey);
+            saveStore.ClearAll();
+            activeSlotProvider.ClearActiveSlot();
+            saveStore.SaveSlot(new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = launchStageId,
+                CurrentLevelGroupId = "level-01",
+                RemainingChances = SaveSlotStore.DefaultRemainingChances,
+                LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
+            });
+            activeSlotProvider.SetActiveSlot(1);
+
+            EditorDirectPlayContextStore.SetCurrent(
+                EditorDirectPlayContext.CreateCampaignTempSlot(
+                    launchStageId,
+                    SaveSlotStore.DefaultRemainingChances));
+            StageLaunchContextStore.SetCurrent(launchStageId);
+        }
+
+        private static void ClearCampaignLaunchContext()
+        {
+            StageLaunchContextStore.Clear();
+            EditorDirectPlayContextStore.Clear();
+            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
         }
 
         private static object BuildInitialGameplayState(CombinedGameplayShowcaseInstaller installer)

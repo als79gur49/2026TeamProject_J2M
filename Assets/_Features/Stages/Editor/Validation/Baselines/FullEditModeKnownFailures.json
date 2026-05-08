@@ -1,9 +1,9 @@
 {
-  "capturedAt": "2026-04-29",
-  "sourceXml": "Temp/StageHardeningFullEditMode.after-provider.xml",
+  "capturedAt": "2026-05-09",
+  "sourceXml": "TestResults/campaign-phase-1-1/full-editmode-final.xml",
   "summary": {
-    "total": 1906,
-    "passed": 1810,
+    "total": 3606,
+    "passed": 3510,
     "failed": 95,
     "skipped": 1
   },
@@ -14,26 +14,26 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "8660a4b171c1715450913430d75fe84ca486cfe768475b128f11b94d3f46f5ab",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayShowcaseInstaller_Configuration_UsesStageDefinitionEnemyUnitArchetypeCatalog",
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.CampaignStageFlowTests.RespawnProcessor_PlayerRespawnGateSuppressesSpawnBeforeWrite",
       "assembly": "Game.Feature.Gameplay.Tests.dll",
       "domain": "Gameplay",
       "authoringRelated": false,
-      "failureMessageHash": "2eef221918626c32e989a973e5c60bf5ed96e1f816bf597a8fdbed8c76972f13",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "failureMessageHash": "24862e992d69e010a3591c452bbf3c02e10a5304b8608ed517ea13455536b7e1",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayShowcaseInstaller_Configuration_UsesStagePresentationDefinitionEnemyPresentationArchetypeCatalog",
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayShowcaseInstaller_Configuration_CarriesStageTileFeatureVisualBindings",
       "assembly": "Game.Feature.Gameplay.Tests.dll",
       "domain": "Gameplay",
       "authoringRelated": false,
-      "failureMessageHash": "2eef221918626c32e989a973e5c60bf5ed96e1f816bf597a8fdbed8c76972f13",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "failureMessageHash": "fe367b9a7527b89dcf944b71210537a512ba02a7d00819118b937cb6965a453f",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayShowcaseInstaller_ConfiguredShowcaseEnemy_TimingAuthoringFeedsPresenterDriver",
@@ -41,8 +41,8 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayShowcaseInstaller_ViewFactory_AttachesTimingAuthoringToConfiguredShowcaseEnemy",
@@ -50,26 +50,26 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayStage_BuildsEnemyPresentationBindingForConfiguredShowcaseEnemy",
       "assembly": "Game.Feature.Gameplay.Tests.dll",
       "domain": "Gameplay",
       "authoringRelated": false,
-      "failureMessageHash": "637fa62e4c18cc748262ba6361cf37bad14831a0f29ca9298c1bae89285bf38b",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "failureMessageHash": "e81544b535796f1bb3b1ea4f5ad92cbbb5c28e72dd705c24f7ed616d5ff0a243",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayStage_BuildsEnemyProfileOverrideForConfiguredShowcaseEnemy",
       "assembly": "Game.Feature.Gameplay.Tests.dll",
       "domain": "Gameplay",
       "authoringRelated": false,
-      "failureMessageHash": "b3eef31cc241c7377d9289b8b6f47253a42981cc4a0a427198a0b12594ef3f6e",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "failureMessageHash": "e81544b535796f1bb3b1ea4f5ad92cbbb5c28e72dd705c24f7ed616d5ff0a243",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayStage_BuildsJumpShowcaseProfileOverride",
@@ -77,8 +77,8 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayStage_BuildsRandomWalkPilotProfileOverrideForNonAttackingEnemy",
@@ -86,8 +86,8 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayStage_BuildsRandomWalkPilotProfileOverrideForWindupMeleeEnemy",
@@ -95,8 +95,8 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayStage_PlacesConfiguredShowcaseEnemy",
@@ -104,8 +104,8 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "6d755c8c2d51a4aabb6b9df81ce20c3ee7a2b79a2749352832aaa0543491ed35",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayStage_PlacesJumpShowcaseEnemyOnFarFloorLane",
@@ -113,44 +113,44 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiRuntimeDefinition_NegativeDesiredChaseDistance_ThrowsArgumentException",
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.EnemyAiProfileAssetContractTests.EnemyAiProfileAssets_ForwardArchetypes_RetainForwardPatrolKind",
       "assembly": "Game.Feature.Gameplay.Tests.dll",
       "domain": "Gameplay",
       "authoringRelated": false,
-      "failureMessageHash": "e3cb75368ff03a5765f7c1bcc4e2d925f0cb8a9b486a7eac9b337c86a82873d3",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "failureMessageHash": "bfa7767a23150146edf128087c89d8a63b95a44e9f18e26a9aec2ad16b8d4204",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiRuntimeDefinition_NegativeMoveCooldownTicks_ThrowsArgumentException",
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.EnemyAiProfileAssetContractTests.EnemyAiProfileAssets_PatrolPilotRollout_MatchesExpectedPatrolKinds",
       "assembly": "Game.Feature.Gameplay.Tests.dll",
       "domain": "Gameplay",
       "authoringRelated": false,
-      "failureMessageHash": "5928268be9d4a3b02e30248ea89669cc998a6db727622289af37e08fb3799187",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "failureMessageHash": "e057bee35c88c257bb272a13960c19e526a053f981a442e2e019fbdc8b24bef9",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiRuntimeDefinition_NegativeWindupTicks_ThrowsArgumentException",
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyLogic_RandomWalkPatrolState_CommitsOnlyOnKinematicMovementCommit",
       "assembly": "Game.Feature.Gameplay.Tests.dll",
       "domain": "Gameplay",
       "authoringRelated": false,
-      "failureMessageHash": "ffe644b7dfd276e3471b1d3848aba68e475a28080b05b6c6a4b8a8283079aa7e",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.EnemyPatrolPhase3DocumentationTests.EnemyPatrolSourceGovernance_EnemyLogic_DoesNotDirectlyBranchOnForwardOrRandomWalkOutsideProposalSeam",
       "assembly": "Game.Feature.Gameplay.Tests.dll",
       "domain": "Gameplay",
       "authoringRelated": false,
-      "failureMessageHash": "a6672457242f5612459de9f8bc809004370e0225a5f072cec5696c65a8a71fbd",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "failureMessageHash": "180dcac8f122c30421a70f798f3af8f37b4a86b7521213b2d1848527b22f0414",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.EnemyPrefabScaffoldTests.EnemyViewNonAttackingPrefab_UsesMoveOnlyLocomotionAuthoringAlongsideEnemyAnimationTiming",
@@ -158,80 +158,44 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "9f30ad93db001ecf2494ac961ffb1d4bf66b7086eed57219e9c1723f7eeff5d7",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.EntityEffectPresentationAuthoringTests.GameplayPrefabs_EntityEffectPresentationAuthoring_CreateSnapshot_UsesRolloutDefaults(\"Assets/_Features/Gameplay/Gameplay_Entities/Runtime/Player_S1.prefab\")",
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.FinalizeNoRecheckArchitectureTests.RespawnProcessor_Process_UsesCanonicalAuthoritativePlacementLegality",
       "assembly": "Game.Feature.Gameplay.Tests.dll",
       "domain": "Gameplay",
       "authoringRelated": false,
-      "failureMessageHash": "1f76aa42f5f3ac54ccec32fa7f081ef1db977f6e052107ef098d6b1b7919d898",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "failureMessageHash": "9cf8be654998fef3a7af87f37fdc29f6d29922b85cd7ab353fc3439be9483da4",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.EntityEffectPresentationAuthoringTests.GameplayPrefabs_EntityEffectPresentationAuthoring_PassesPrefabValidationWithCloneSourceViewDefaults(\"Assets/_Features/Gameplay/Gameplay_Entities/Runtime/Player_S1.prefab\")",
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.FinalizeNoRecheckArchitectureTests.TickPipeline_RunFinalizePhase_And_FinalizationBatchApplyTo_DoNotReevaluateLegality",
       "assembly": "Game.Feature.Gameplay.Tests.dll",
       "domain": "Gameplay",
       "authoringRelated": false,
-      "failureMessageHash": "1f76aa42f5f3ac54ccec32fa7f081ef1db977f6e052107ef098d6b1b7919d898",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "failureMessageHash": "434da2fed12313fa488d7e2c620abd238e35e4683109ffbe81bed29873c69ac0",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.EntityEffectPresentationAuthoringTests.GameplayPrefabs_HaveEntityEffectPresentationAuthoringOnRoot(\"Assets/_Features/Gameplay/Gameplay_Entities/Runtime/Player_S1.prefab\")",
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayHostCommandAdmissionPolicyTests.AdmissionPolicy_CommittedControllableActorAccessor_ReusesSameWindowFact_AndRefreshesOnTickCompleted",
       "assembly": "Game.Feature.Gameplay.Tests.dll",
       "domain": "Gameplay",
       "authoringRelated": false,
-      "failureMessageHash": "1f76aa42f5f3ac54ccec32fa7f081ef1db977f6e052107ef098d6b1b7919d898",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "failureMessageHash": "647d97b8dad8aba88e1cc1d56b4bb0a05b96b33b7f7f869fa9484a64f147fde0",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayAudioHostOrchestrationTests.GameplayTickViewPresenter_Present_ExecutesGameplayAudioPlayback_BetweenVfxAndExitOwnershipApplication",
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayHostCommandAdmissionPolicyTests.AdmissionPolicy_Dispose_StopsTickCompletedRefresh_AndLeavesCachedReferenceUnchanged_WithoutFreshnessAssertions",
       "assembly": "Game.Feature.Gameplay.Tests.dll",
       "domain": "Gameplay",
       "authoringRelated": false,
-      "failureMessageHash": "3dc48bb95fa4ff14ffb04b997a1cbeb21f62044fa45453697a03ef845c05b8de",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
-    },
-    {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayAudioHostOrchestrationTests.GameplayTickViewPresenter_Present_UsesCanonicalGameplayAudioOrdering",
-      "assembly": "Game.Feature.Gameplay.Tests.dll",
-      "domain": "Gameplay",
-      "authoringRelated": false,
-      "failureMessageHash": "3c1268ab09b5a8f05564af8f20da0b0ca0abb6e0ccae4552c167faa34f5d0f09",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
-    },
-    {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayCameraTopologyAuthoringExtractionArchitectureTests.ShowcaseScenes_PreserveSerializedConfigureMainCameraMeaning",
-      "assembly": "Game.Feature.Gameplay.Tests.dll",
-      "domain": "Gameplay",
-      "authoringRelated": false,
-      "failureMessageHash": "2eef221918626c32e989a973e5c60bf5ed96e1f816bf597a8fdbed8c76972f13",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
-    },
-    {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayCameraTopologyAuthoringExtractionArchitectureTests.ShowcaseScenes_PreserveSerializedTopologyRotationTweenEaseMeaning",
-      "assembly": "Game.Feature.Gameplay.Tests.dll",
-      "domain": "Gameplay",
-      "authoringRelated": false,
-      "failureMessageHash": "2eef221918626c32e989a973e5c60bf5ed96e1f816bf597a8fdbed8c76972f13",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
-    },
-    {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayCameraTopologyAuthoringExtractionArchitectureTests.ShowcaseScenes_PreserveSerializedTopologyRotationVisualMappingMeaning",
-      "assembly": "Game.Feature.Gameplay.Tests.dll",
-      "domain": "Gameplay",
-      "authoringRelated": false,
-      "failureMessageHash": "2eef221918626c32e989a973e5c60bf5ed96e1f816bf597a8fdbed8c76972f13",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "failureMessageHash": "d046551e10ecc7b503b52b10df1571c5da909aa7a06fae42fde5daf6e62a5ee3",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.EnemyPupilVisualController_WindupAttackRecover_AnimatesBorderSequence",
@@ -239,17 +203,8 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "b83fb9126e13d81897c756acf12fe30cd521f4ec8a01dd9663152ea64b6ed2ae",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
-    },
-    {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.GameplayTickPresentationCoordinator_PlayerDeathTick_SuppressesHitVfx",
-      "assembly": "Game.Feature.Gameplay.Tests.dll",
-      "domain": "Gameplay",
-      "authoringRelated": false,
-      "failureMessageHash": "5cfc0b41aab35f4eec61eea3063795fb571cab8f72bb9c29f9eb5cfa2788ab59",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.GameplayTickViewPresenter_PlayerRespawnBeforeDeathHide_Completes_ClearsDeathAnimationState",
@@ -257,8 +212,8 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayTimingOwnershipTests.PlayerAnimatorDriver_WithAnimatorOverride_PrefersAnimatorDurationOverResolvedMotionDuration",
@@ -266,17 +221,8 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "825503147d19f32bb0e44616f12c6aafa05845092bb5a81f16394d83cffcdbbd",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
-    },
-    {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayUiAccessArchitectureTests.GameplayUiAccess_QueryFacade_OnlyExposesBoundedReaderProperties",
-      "assembly": "Game.Feature.Gameplay.Tests.dll",
-      "domain": "Gameplay",
-      "authoringRelated": false,
-      "failureMessageHash": "d46a81615ea26ac7ccaaf4bdb6362d7d2b2490b5163f9cbeb6419679a3bad21d",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayUiAccessRuntimeTests.GameplayUiAccess_PlayerHud_ExposesRecoveryCooldown_AsRecoveryOnlySemantic",
@@ -284,8 +230,8 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "5d0508a6198220c41e4306851a4eb0eace886015854c81a6058b4d80d870f0fc",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayUiAccessRuntimeTests.GameplayUiAccess_PlayerHud_PushReadiness_ActionLock_DisablesPush",
@@ -293,8 +239,35 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "19964f41f687b8d1a52c089932449c54954bb4bd304b0b61c71b3023214ffaf2",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayUiAccessRuntimeTests.GameplayUiAccess_PreRefreshTransientQueries_ReadPreviousCommittedHudState_BeforeTickCompletedRefresh",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "3067fa67cbb1754f44aac245462c9c06caa35cf116a149ef58ca611a9beabd66",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayUiAccessRuntimeTests.GameplayUiAccess_PresentationFeed_MapsPlayerSlice_ForHeldMove",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxTileFeatureGravityFieldMigrationTests.Coordinator_DoesNotReferencePr28VisualControllersOrVfxController",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "f66286ba006bd6c3af8675b20938e80a6e1d6b473fc53c85f1e49e409ecfa30f",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayViewProjectionTests.EnemyAnimatorDriver_InspectorSurface_IsLimitedToCoreAuthoringFields",
@@ -302,8 +275,8 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "4ff2a6152a97abe25d9cc3551d34b05bfd79a32ecfdd19ea337618d06b2796ff",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayViewProjectionTests.GameplayBoardSurfaceRenderer_TopologyTransition_StartWorldPosesMatchDestinationVisibleSurfacePoses",
@@ -311,8 +284,8 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "91d4e62f9909b195376bee45347fc71a4989f77244844f48b40ef9baadd079f7",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayViewProjectionTests.GameplayBoardSurfaceRenderer_TopologyTransition_UsesDestinationVisibleFacesAtStart",
@@ -320,8 +293,8 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "e7cf358caaad03811e1136b76c9c61a94723b1931c983e9788e3f2f924de7a27",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayViewProjectionTests.GameplayCubeProjector_ProjectsBottomFaceToHorizontalPlane",
@@ -329,8 +302,8 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "74de7f5417d3bda7636c1f3800502f30d8ee5c8e2d2496b2ad07cc851be1ec61",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayViewProjectionTests.GameplayCubeProjector_ProjectsFrontFaceToVerticalPlane",
@@ -338,8 +311,8 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "0a7b3b089dbaab0b7a8187ec8a7947592b202e332f77659918ae865e5232fbb6",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayViewProjectionTests.GameplaySceneHost_CameraTarget_StaysOnCubeCenterDuringTopologyTransition",
@@ -347,8 +320,17 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "45129d6261f0009e6c77c2c795453d424829a43959e95b5a33344ce1f67e9406",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayViewProjectionTests.GameplaySceneHost_MoveMotion_KeepsWorldQueriesOnCommittedDestinationWhileViewInterpolates",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "48d654a55cc2d811eaa74fcf02e5b73854b7a876ddb054f802cf80ff19f44ee2",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayViewProjectionTests.GameplaySceneHost_PushMotion_KeepsProjectileLayerQueriesOnCommittedDestinationWhileViewInterpolates",
@@ -356,8 +338,8 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayViewProjectionTests.GameplaySceneHost_PushMotion_KeepsWorldQueriesOnCommittedDestinationWhileViewInterpolates",
@@ -365,8 +347,8 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayViewProjectionTests.GameplaySceneHost_TopologyTransition_CameraOrbitPreservesScreenContinuityAtStart",
@@ -374,8 +356,8 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "f0fef5b3bfb57bd6b8045f575b41424e7ddb33756d46b101c522120b97d85ebb",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayViewProjectionTests.GameplayTickViewPresenter_Present_MapsEnemyAttackHitAndMoveSignalsToAnimatorDrivers",
@@ -383,8 +365,8 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "7d295a673c4aa2f7d585dda7c9d8be3bda2b043955e9c3b24ea05fd8112ead1c",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayViewProjectionTests.GameplayTickViewPresenter_Present_PlayerActionSignals_HoldPushAndFlipUntilPresentationDurationExpires",
@@ -392,8 +374,8 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "0259d3d13a58a6f78d67715ee2655ba7181adaa1df01481e2c5439dec262cd46",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayViewProjectionTests.GameplayTickViewPresenter_TopologyMotion_MaintainsBoardRootIdentity",
@@ -401,8 +383,17 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "5853c08f7346b407797c0bce865ea95634e878cfaa90976a03522c02ea76a407",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.ImpactDispositionArchitectureTests.ImpactDispositionSymbols_StayWithinNarrowPushFlipRuntimeHostAndTestBoundary",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "3cd8e1de23f9ee86c1e9563d4b3d991dab5bf8f4723309b15d8859d83aefc19b",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.LegalityContextGovernanceTests.LegalityActorRef_CarriesResolvedSpatialState_NotRawSpatialSources",
@@ -410,8 +401,8 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "b2cc33f555de911e65d69b8854ef6884c313e02b952f66263ecdd865fecf6851",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.RuntimeBoardBoundsGuardTests.GameplaySceneHost_AutoCreateViewsFalse_UsesConfiguredPlayerControlTiming",
@@ -419,8 +410,8 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.RuntimeBoardBoundsGuardTests.GameplaySceneHost_Initialize_UsesConfiguredPlayerControlTiming_WhenPlayerPrefabHasAnimationTimingAuthoringOnly",
@@ -428,17 +419,17 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.SpatialStateResolverTruthTableTests.PhasedWritePath_And_FactoryReferences_AreConstrainedToAllowlistedFiles",
       "assembly": "Game.Feature.Gameplay.Tests.dll",
       "domain": "Gameplay",
       "authoringRelated": false,
-      "failureMessageHash": "aa5a2667ed7725c5bf63848ece8c85ba2ba49053b90f6cf2656116ded067747b",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "failureMessageHash": "78904f79b24ef87bb3b18b9175bcf9c1586b344767b514548d37165a9ffe066a",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.SpatialStateResolverTruthTableTests.ReservedSpatialStates_AreConstrainedToAllowlistedFiles_AndKeepAttachedProducerClosed",
@@ -446,8 +437,8 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "c7bffaa6d48efb1a55798c810f6a280d779ed271b9690fabf8a3953d156d994c",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.StageObjectiveSystemTests.Conditions_ClearWithinTimeLimit_UsesCeilDeadlineFromTiming(0.25f,10.0f,40,41)",
@@ -455,8 +446,8 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "5a6928adb317de246a2adc5f21ad09cac7552088c7b517be5343d7d196a9ccce",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.StageObjectiveSystemTests.Conditions_ClearWithinTimeLimit_UsesCeilDeadlineFromTiming(0.3f,10.0f,34,35)",
@@ -464,8 +455,8 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "5a6928adb317de246a2adc5f21ad09cac7552088c7b517be5343d7d196a9ccce",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.StageObjectiveSystemTests.Conditions_ClearWithinTimeLimit_UsesCeilDeadlineFromTiming(0.5f,10.0f,20,21)",
@@ -473,26 +464,17 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "5a6928adb317de246a2adc5f21ad09cac7552088c7b517be5343d7d196a9ccce",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.StageRuntimeBuilderTests.StageRuntimeBuilder_CombinedShowcaseStageBuild_ReflectsCurrentConfiguredContract",
       "assembly": "Game.Feature.Gameplay.Tests.dll",
       "domain": "Gameplay",
       "authoringRelated": false,
-      "failureMessageHash": "b3eef31cc241c7377d9289b8b6f47253a42981cc4a0a427198a0b12594ef3f6e",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
-    },
-    {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.TopologyTransitionPostFxTests.ShowcaseScenes_HostStartup_EnablesPostProcessingOnOutputCamera",
-      "assembly": "Game.Feature.Gameplay.Tests.dll",
-      "domain": "Gameplay",
-      "authoringRelated": false,
-      "failureMessageHash": "2eef221918626c32e989a973e5c60bf5ed96e1f816bf597a8fdbed8c76972f13",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "failureMessageHash": "109b4ac3980f1fa49ab06b66aa1ba779eec5fe23e94f585e10c65eda5b82aafd",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_BuildsEnemyJumpSignal_ForAirborneStartAndRetry",
@@ -500,8 +482,8 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_BuildsEnemyJumpSignal_ForWindupStart",
@@ -509,26 +491,8 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
-    },
-    {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_BuildsMoveMotionForUnitMove",
-      "assembly": "Game.Feature.Gameplay.Tests.dll",
-      "domain": "Gameplay",
-      "authoringRelated": false,
-      "failureMessageHash": "b960f725d36250a477e9831ca3764fc926fd19c613d4429df783516a31ec8f06",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
-    },
-    {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_BuildsProjectileMoveMotionForProjectileMove",
-      "assembly": "Game.Feature.Gameplay.Tests.dll",
-      "domain": "Gameplay",
-      "authoringRelated": false,
-      "failureMessageHash": "b1f3eaa67366dbd90ad96560e46c4be8f9118beae3f458b0faab224d5f49b104",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_FlipDestroySelf_SeparatesLogicalNoMoveFromFlipImpactSignal",
@@ -536,8 +500,26 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "7d295a673c4aa2f7d585dda7c9d8be3bda2b043955e9c3b24ea05fd8112ead1c",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_GravityFieldVisualStates_ActiveIncludesDeterministicThreeByThreeArea",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "fc24cf5aca7f0fcf352fd58e63528aff8526cd8b817e9fe8b082417cb1c31b52",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_GravityFieldVisualStates_BoundedEdgeExcludesOutOfBoundsArea",
+      "assembly": "Game.Feature.Gameplay.Tests.dll",
+      "domain": "Gameplay",
+      "authoringRelated": false,
+      "failureMessageHash": "34eacd71c9919879313e1d776365c092821ee44d8e1a44390f1c22ec5ec89c09",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_UsesPostMovementSnapshotForFollowThroughMotion_AndPostAttackSnapshotForEnemyDeath",
@@ -545,8 +527,8 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "4ba76585cc693f069fc024903a8cb0fb8baa6df5b69c4ea172f7c1a9e7c7d503",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.WorldStatePlacementInvariantTests.CreateSnapshot_DetachedBoxSharingUnitCell_RemainsMaterializableAndDoesNotBlockOccupancy",
@@ -554,17 +536,62 @@
       "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "d7215f004ce5cf9411ff0e05def06b2c8def499bcba911d700a470ad4414ffc5",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.DeterminismHash_EnemyActionState_IsIncludedInCanonicalState",
+      "testFullName": "Game.Feature.UI.Tests.DisplayArchitectureBoundaryTests.SettingsChildView_Sources_DoNotRebuildAuthoredControlsAtRuntime",
+      "assembly": "Game.Feature.UI.Tests.dll",
+      "domain": "UI",
+      "authoringRelated": false,
+      "failureMessageHash": "feb5cf250f1f77498b96101129bd3cbac11d9a70b01fafcc722aefbdcef7813f",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
+    },
+    {
+      "testFullName": "Game.Feature.UI.Tests.GameplayUiPrefabMigrationTests.PopupPrefabs_AuthorStaticLayoutContainers_BeforeRuntimeLayoutRemoval",
+      "assembly": "Game.Feature.UI.Tests.dll",
+      "domain": "UI",
+      "authoringRelated": false,
+      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
+    },
+    {
+      "testFullName": "Game.Feature.UI.Tests.GameplayUiPrefabMigrationTests.ScreenPrefabs_AuthorStaticLayoutContainers_BeforeRuntimeLayoutRemoval",
+      "assembly": "Game.Feature.UI.Tests.dll",
+      "domain": "UI",
+      "authoringRelated": false,
+      "failureMessageHash": "9bc415176a593167c00c18b54bbf7c416bc839e54c30ca73083c611b4848dfc2",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
+    },
+    {
+      "testFullName": "Game.Feature.UI.Tests.GameplayUiPrefabMigrationTests.SettingsScreenPrefabAsset_AuthorsRequiredChildSections_AndSerializedChildRefs",
+      "assembly": "Game.Feature.UI.Tests.dll",
+      "domain": "UI",
+      "authoringRelated": false,
+      "failureMessageHash": "19964f41f687b8d1a52c089932449c54954bb4bd304b0b61c71b3023214ffaf2",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
+    },
+    {
+      "testFullName": "Game.Feature.UI.Tests.MainMenuHubTests.MainMenuScreenRuntime_KeepsSaveSlotCardsInSerializedOrder",
+      "assembly": "Game.Feature.UI.Tests.dll",
+      "domain": "UI",
+      "authoringRelated": false,
+      "failureMessageHash": "b72f2772225b0db6ba076b9a226d09b7c8279c5c94d7fa3693adbcc270b053ef",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.DeterminismHash_BoxInteractionLockState_IsIncludedInCanonicalState",
       "assembly": "Game.Integration.Replay.Tests.dll",
       "domain": "Replay",
       "authoringRelated": false,
-      "failureMessageHash": "a51cb30c286a1adf52b9caca978118656fcefef5a066cdff842b4561fd6b0100",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "failureMessageHash": "c09df676c73ed6cf08a6f60930f186875b4c176712727217eaf6192c801e2c59",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.DeterminismHash_EnemyJumpState_IsIncludedInCanonicalState",
@@ -572,26 +599,17 @@
       "domain": "Replay",
       "authoringRelated": false,
       "failureMessageHash": "4d77c5ce3e32ac336b823281d047bc06930745ba33ca8f8b1b27f08b8039e055",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_CompositeItemAttackScenario_ProducesSameHashTraceAndEventLog",
+      "testFullName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_EnemyUtilityLockScenario_ProducesStablePerTickHashTraceAndBlockedPush",
       "assembly": "Game.Integration.Replay.Tests.dll",
       "domain": "Replay",
       "authoringRelated": false,
-      "failureMessageHash": "7cd468bb7fca989e571e7bc94354ba0d8dff198b807405ea1fcdff0dacf15b31",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
-    },
-    {
-      "testFullName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_ItemScenario_ProducesSameHashTraceAndEventLog",
-      "assembly": "Game.Integration.Replay.Tests.dll",
-      "domain": "Replay",
-      "authoringRelated": false,
-      "failureMessageHash": "2341c74dd00dc35489875353517e7c71597c71bf267eebe60e59ce999b314db8",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "failureMessageHash": "057f51d60c0af1e75285688a789b630fb1560dad4e23b3f968f9b704619e26d0",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PassiveContactScenario_ProducesStableHashTraceAndPlayerDamage",
@@ -599,44 +617,53 @@
       "domain": "Replay",
       "authoringRelated": false,
       "failureMessageHash": "73cfb0d503d818809e1889e8cdde0f4c1bfc789b888ac8052a599c6a76f8db9a",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PlayerMoveIntoUnitStackedScenario_ProducesSameHashTraceAndEventLog",
+      "assembly": "Game.Integration.Replay.Tests.dll",
+      "domain": "Replay",
+      "authoringRelated": false,
+      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PushBoxBoardEdgeScenario_ProducesSameHashTraceAndEventLog",
       "assembly": "Game.Integration.Replay.Tests.dll",
       "domain": "Replay",
       "authoringRelated": false,
-      "failureMessageHash": "ef09e657c4971030a126d5d4105a07b512943ad3fc7a09eea780fe213eed693c",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "failureMessageHash": "92fcd9ab0972ef71302198f8b333e2895c8adadf5d3388ff32fc7c35870a6b9c",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PushBoxEntityStopperScenario_ProducesSameHashTraceAndEventLog",
       "assembly": "Game.Integration.Replay.Tests.dll",
       "domain": "Replay",
       "authoringRelated": false,
-      "failureMessageHash": "0066a56c11990c6d156b9f5e74df1af4b7625edbdb9fdd9c8cc4ba451161d26d",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "failureMessageHash": "71e602433e09d9fdd387876e109989d3270696cfb3a98aebf66295a16f111e43",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PushBoxTerrainStopperScenario_ProducesSameHashTraceAndEventLog",
       "assembly": "Game.Integration.Replay.Tests.dll",
       "domain": "Replay",
       "authoringRelated": false,
-      "failureMessageHash": "ef09e657c4971030a126d5d4105a07b512943ad3fc7a09eea780fe213eed693c",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "failureMessageHash": "92fcd9ab0972ef71302198f8b333e2895c8adadf5d3388ff32fc7c35870a6b9c",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_FireProjectileIntent_SpawnsProjectileDuringCommit",
       "assembly": "Game.Integration.Simulation.Tests.dll",
       "domain": "Simulation",
       "authoringRelated": false,
-      "failureMessageHash": "ebe72d1c520f598a4ae606c7d4504dcb553464ebf3e2cde80269305fbf3daf59",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "failureMessageHash": "5256bcf55d9f550026db82b1f7d242d9f40ae1aadb5097a9ba786e30a4851e6c",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_OnHit_DoesNotCreateSameTickNewIntent",
@@ -644,8 +671,8 @@
       "domain": "Simulation",
       "authoringRelated": false,
       "failureMessageHash": "0eccbe0f9f39960a58961e2ae6e3bdc92593f39617c22573626e45c7d49c1c04",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_OnHit_DoesNotReenterMovementPhase",
@@ -653,143 +680,62 @@
       "domain": "Simulation",
       "authoringRelated": false,
       "failureMessageHash": "0eccbe0f9f39960a58961e2ae6e3bdc92593f39617c22573626e45c7d49c1c04",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Flip_LandingHasHostileUnit_NonLethalImpact_DestroysSelfWithoutCommittedMove",
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.EnemyViewIsolationTests.GameplayTickViewPresenter_PresentingEnemyFrames_DoesNotChangeLaterTickAuthoritativeResults",
       "assembly": "Game.Integration.Simulation.Tests.dll",
       "domain": "Simulation",
       "authoringRelated": false,
-      "failureMessageHash": "3664c54677d06f65550f0c4cc7bb1e1cc0ee418580b5d908a584555018691fc8",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "failureMessageHash": "24ed7ef48f97e5a3f25a4e880acc47babbc2d52306956a4fce325c47f2f7bbeb",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Flip_LandingHasWallOrBox_IsBlockedWithoutImpact",
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.EnemyViewIsolationTests.GameplayTickViewPresenter_PresentingEnemyMotionAuthoring_DoesNotChangeLocomotionCooldownAuthority",
       "assembly": "Game.Integration.Simulation.Tests.dll",
       "domain": "Simulation",
       "authoringRelated": false,
-      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "failureMessageHash": "e9c2aa5d64dd87f683a6b30915580d6f1fc3b1777c4c3dfd48615a67645e03d3",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_FlipInputOnItemFlipDestroyBox_UsesFlipBranch_WithoutConsumeOrDestroy",
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.EnemyViewIsolationTests.GameplayTickViewPresenter_PresentingSummonedEnemyArchetypeViews_DoesNotChangeLaterTickAuthoritativeResults",
       "assembly": "Game.Integration.Simulation.Tests.dll",
       "domain": "Simulation",
       "authoringRelated": false,
-      "failureMessageHash": "713a9d53940714b1fb61dbe4ce3243658e2136e781324ba34108a78d8fc70c15",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
-    },
-    {
-      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_Flip_SucceedsWhenOppositeCellIsFree",
-      "assembly": "Game.Integration.Simulation.Tests.dll",
-      "domain": "Simulation",
-      "authoringRelated": false,
-      "failureMessageHash": "1e58ec2145adba4fa288392c38fdb850e983024b7c575bbe1be6913b7be50e01",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
-    },
-    {
-      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_MoveAcrossBottomTopEdge_FailsWhenRotatedDestinationHasWallBlocker",
-      "assembly": "Game.Integration.Simulation.Tests.dll",
-      "domain": "Simulation",
-      "authoringRelated": false,
-      "failureMessageHash": "fd2b6083eb01d8e71682accb790a413852a5bd9ffdb21002d0b682390d18fcee",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
-    },
-    {
-      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_MoveAcrossBottomTopEdge_FailsWhenRotatedDestinationTerrainBlocked",
-      "assembly": "Game.Integration.Simulation.Tests.dll",
-      "domain": "Simulation",
-      "authoringRelated": false,
-      "failureMessageHash": "d8983284aeb6917d60b329bc0a3736bba358839727d8a7855ff9570e86545834",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "failureMessageHash": "9d6232cfe5c037f8b83b250c976213217d7a1e67b36f7573e37b895e6cac5326",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_MoveFromFrontBottomEdge_FailsWithoutRotation",
       "assembly": "Game.Integration.Simulation.Tests.dll",
       "domain": "Simulation",
       "authoringRelated": false,
-      "failureMessageHash": "0bcd28f3c809603b3cf98f7fa7ee326e2a736b16f6dae36b44c4ae34281d9415",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_MoveIntoPushBox_IsNoOpWithoutExplicitPush",
-      "assembly": "Game.Integration.Simulation.Tests.dll",
-      "domain": "Simulation",
-      "authoringRelated": false,
-      "failureMessageHash": "003e08fe5ae4263f78498ae608d9aa1c5cdaafdb69256f92760e4b698bf96465",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
-    },
-    {
-      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_PushInputOnItemPushFlipBox_ResolvesAsItemBeforePushOrFlip",
-      "assembly": "Game.Integration.Simulation.Tests.dll",
-      "domain": "Simulation",
-      "authoringRelated": false,
-      "failureMessageHash": "c3b8831c4fb6f2c3c36376b410b84bc44b2a5c2c0196318a98fd2506035b9923",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
-    },
-    {
-      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_PushInputOnItemPushFlipDestroyBox_ResolvesAsItemBeforePushFlipOrDestroy_AndPresentationUsesEntityExitOwnership",
-      "assembly": "Game.Integration.Simulation.Tests.dll",
-      "domain": "Simulation",
-      "authoringRelated": false,
-      "failureMessageHash": "ce62d252cedd2597c4b19e11ddc83491910221fe0142e795534b74e057b62a1d",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
-    },
-    {
-      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_PushInputPushBox_ContinuesAcrossBottomFrontSharedEdge",
-      "assembly": "Game.Integration.Simulation.Tests.dll",
-      "domain": "Simulation",
-      "authoringRelated": false,
-      "failureMessageHash": "a30a120f4c2fd97d6e548f30d09554f2ed146a74a883ac2466bea32142c469a2",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
-    },
-    {
-      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_PushInputPushBox_ContinuesAcrossFrontBottomSharedEdgeBackToBottom",
-      "assembly": "Game.Integration.Simulation.Tests.dll",
-      "domain": "Simulation",
-      "authoringRelated": false,
-      "failureMessageHash": "5f65c2100531f6f07f190c04f80f23430eed540d8f98944efdd429447b6358d9",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
-    },
-    {
-      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_PushInputPushBox_StopsBeforeEntityBlocker_AndEntityTypeNoneWallRemainsValid",
-      "assembly": "Game.Integration.Simulation.Tests.dll",
-      "domain": "Simulation",
-      "authoringRelated": false,
-      "failureMessageHash": "366ff5d2e3688b46d7569dc3c9767a6c17c720d94cbb29a22516aaf3ba6acb38",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
-    },
-    {
-      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_SameDestination_OnlyHigherPriorityWins",
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_BlockedMove_UpdatesFacingWithoutMoving",
       "assembly": "Game.Integration.Simulation.Tests.dll",
       "domain": "Simulation",
       "authoringRelated": false,
       "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_ExplicitPushAgainstBlockedPushBox_EmitsPreMovementRejection",
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_CustomPushInputLock_IgnoresNewInputsUntilActionCompletes",
       "assembly": "Game.Integration.Simulation.Tests.dll",
       "domain": "Simulation",
       "authoringRelated": false,
-      "failureMessageHash": "003e08fe5ae4263f78498ae608d9aa1c5cdaafdb69256f92760e4b698bf96465",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "failureMessageHash": "5751379ed76899a1610cfa941418f65ab427838346c5683ae5038c78774e5b07",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_ExplicitPushWithoutAdjacentPushTarget_RemainsNoOp",
@@ -797,53 +743,125 @@
       "domain": "Simulation",
       "authoringRelated": false,
       "failureMessageHash": "003e08fe5ae4263f78498ae608d9aa1c5cdaafdb69256f92760e4b698bf96465",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_LocomotionPresentationSignal_InputReleaseDuringCooldown_DropsWalkLoop",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_LocomotionPresentationSignal_StaysTrueDuringCooldownGapAndDropsWhenBlocked",
       "assembly": "Game.Integration.Simulation.Tests.dll",
       "domain": "Simulation",
       "authoringRelated": false,
-      "failureMessageHash": "19964f41f687b8d1a52c089932449c54954bb4bd304b0b61c71b3023214ffaf2",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_MoveCooldown_CannotBeBypassedByTapSpam",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_MoveCooldown_OneTick_BlocksImmediateNextTick",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_MoveOccupancy_BlocksFlipStartUntilFirstUnlockedTick",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.PlayerKinematicLocomotionScenarioTests.FlagOff_BaselineContactTiming",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "3ea61fcd7faa33deed1e844dcdb53ebd56dce38ca4cb9f9f94745fe927802691",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.PlayerKinematicLocomotionScenarioTests.PlayerSameFaceContinuousLocomotion_FlagOff_UsesLegacyDiscreteMove",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "890dd567f3fc67ac08095274b972845708ae2b01ab7ecfe9d708cb3909194a6f",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.PlayerKinematicLocomotionScenarioTests.PlayerSameFaceContinuousLocomotion_FlagOn_BoxBlocksOrdinaryMove",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
+    },
+    {
+      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.RuntimeBoardBoundsGuardScenarioTests.GameplaySceneHost_Initialize_WithoutPlayerPrefabAuthoritativeSource_UsesDefaultPlayerControlTiming",
+      "assembly": "Game.Integration.Simulation.Tests.dll",
+      "domain": "Simulation",
+      "authoringRelated": false,
+      "failureMessageHash": "a69765132b1ca2cc8a81b8c8952eeb26e6f47ff5e164ee18dcba067c8b181ab6",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Core.TickPipelineStructureCoreTests.GameplayCompositionRoot_AndBootstrapper_ExposeExplicitGeneralAndPlayerTimingOverloads",
       "assembly": "Game.TestInfrastructure.dll",
-      "domain": "TestInfrastructure",
+      "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "8ebb239c30024128fd3515a853218187f80ebb849f687fd963d9376a22873cd7",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Core.TickPipelineStructureCoreTests.MovementCommitter_ConsumesCanonicalPlayerControlTimingSnapshot",
       "assembly": "Game.TestInfrastructure.dll",
-      "domain": "TestInfrastructure",
+      "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Core.TickPipelineStructureCoreTests.TickPipeline_CanBeExtendedWithInjectedEntityLogicProvider",
       "assembly": "Game.TestInfrastructure.dll",
-      "domain": "TestInfrastructure",
+      "domain": "Gameplay",
       "authoringRelated": false,
       "failureMessageHash": "8ebb239c30024128fd3515a853218187f80ebb849f687fd963d9376a22873cd7",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
       "testFullName": "Game.Feature.Gameplay.Tests.Core.TickPipelineStructureCoreTests.TickPipeline_DoesNotExposeDefaultCompositionConstructors",
       "assembly": "Game.TestInfrastructure.dll",
-      "domain": "TestInfrastructure",
+      "domain": "Gameplay",
       "authoringRelated": false,
-      "failureMessageHash": "fdc9816f053295f9fd3f48e3bae44ff5a255c3a0663f45430bcda49cc4959bc2",
-      "firstObserved": "2026-04-29",
-      "notes": "Existing non-stage-authoring Full EditMode failure"
+      "failureMessageHash": "39e9e4641abd587bb47a3acc61d874a7ab77405dcc8b4544142083880c7ba1c9",
+      "firstObserved": "2026-05-09",
+      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     }
   ]
 }
