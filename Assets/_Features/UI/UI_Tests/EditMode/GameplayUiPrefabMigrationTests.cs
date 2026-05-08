@@ -383,6 +383,16 @@ namespace Game.Feature.UI.Tests
             AssertPopupPrefabContract<RewardPopupView>(UiTestPrefabAssetUtility.RewardPopupPrefabPath);
         }
 
+        [Test]
+        public void PopupPrefabs_AuthorStaticLayoutContainers_BeforeRuntimeLayoutRemoval()
+        {
+            AssertPausePopupLayout();
+            AssertObjectiveInfoPopupLayout();
+            AssertConfirmPopupLayout();
+            AssertTooltipPopupLayout();
+            AssertRewardPopupLayout();
+        }
+
         [TestCase(ScreenId.ObjectiveStatus)]
         [TestCase(ScreenId.Settings)]
         [TestCase(ScreenId.StageResult)]
@@ -1230,6 +1240,84 @@ namespace Game.Feature.UI.Tests
             AssertPrefabHasNoCrossLayerOwners(popupPrefab.gameObject);
         }
 
+        private static void AssertPausePopupLayout()
+        {
+            var root = UiTestPrefabAssetUtility
+                .LoadPopupPrefab<PausePopupView>(UiTestPrefabAssetUtility.PausePopupPrefabPath)
+                .transform;
+
+            AssertVerticalLayout(root, 16, 16, 20, 20, 10f);
+            AssertLayoutElement(root, 280f, 228f);
+            AssertLayoutElement(FindRequired(root, "Title"), -1f, 24f);
+            AssertLayoutElement(FindRequired(root, "Description"), -1f, 40f);
+            AssertLayoutElement(FindRequired(root, "ResumeButton"), 98f, 28f);
+            AssertLayoutElement(FindRequired(root, "ObjectiveButton"), 98f, 28f);
+            AssertLayoutElement(FindRequired(root, "SettingsButton"), 98f, 28f);
+        }
+
+        private static void AssertObjectiveInfoPopupLayout()
+        {
+            var root = UiTestPrefabAssetUtility
+                .LoadPopupPrefab<ObjectiveInfoPopupView>(UiTestPrefabAssetUtility.ObjectiveInfoPopupPrefabPath)
+                .transform;
+
+            AssertVerticalLayout(root, 16, 16, 20, 20, 10f);
+            AssertLayoutElement(root, 340f, 200f);
+            AssertLayoutElement(FindRequired(root, "Title"), -1f, 24f);
+            AssertLayoutElement(FindRequired(root, "Body"), -1f, 88f);
+            AssertLayoutElement(FindRequired(root, "CloseButton"), 98f, 28f);
+        }
+
+        private static void AssertConfirmPopupLayout()
+        {
+            var root = UiTestPrefabAssetUtility
+                .LoadPopupPrefab<ConfirmPopupView>(UiTestPrefabAssetUtility.ConfirmPopupPrefabPath)
+                .transform;
+            var buttons = FindRequired(root, "Buttons");
+
+            AssertVerticalLayout(root, 16, 16, 20, 20, 10f);
+            AssertLayoutElement(root, 360f, 190f);
+            Assert.That(RequireComponent<LayoutElement>(FindRequired(root, "SPR_Background")).ignoreLayout, Is.True);
+            AssertLayoutElement(FindRequired(root, "Title"), -1f, 24f);
+            AssertLayoutElement(FindRequired(root, "Body"), -1f, 76f);
+            AssertLayoutElement(buttons, -1f, 30f);
+
+            var buttonRowLayout = RequireComponent<HorizontalLayoutGroup>(buttons);
+            Assert.That(buttonRowLayout.spacing, Is.EqualTo(32f));
+            Assert.That(buttonRowLayout.childAlignment, Is.EqualTo(TextAnchor.MiddleCenter));
+            AssertLayoutElement(FindRequired(buttons, "CancelButton"), 100f, 30f);
+            AssertLayoutElement(FindRequired(buttons, "ConfirmButton"), 100f, 30f);
+        }
+
+        private static void AssertTooltipPopupLayout()
+        {
+            var root = UiTestPrefabAssetUtility
+                .LoadPopupPrefab<TooltipPopupView>(UiTestPrefabAssetUtility.TooltipPopupPrefabPath)
+                .transform;
+
+            AssertVerticalLayout(root, 14, 14, 14, 14, 6f);
+            AssertLayoutElement(root, 260f, 132f);
+            AssertLayoutElement(FindRequired(root, "Title"), -1f, 20f);
+            AssertLayoutElement(FindRequired(root, "Body"), -1f, 70f);
+            AssertLayoutElement(FindRequired(root, "DismissButton"), 24f, 24f, ignoreLayout: true);
+        }
+
+        private static void AssertRewardPopupLayout()
+        {
+            var root = UiTestPrefabAssetUtility
+                .LoadPopupPrefab<RewardPopupView>(UiTestPrefabAssetUtility.RewardPopupPrefabPath)
+                .transform;
+
+            AssertVerticalLayout(root, 16, 16, 20, 16, 10f);
+            AssertLayoutElement(root, 380f, 240f);
+            AssertLayoutElement(FindRequired(root, "Title"), -1f, 24f);
+            AssertLayoutElement(FindRequired(root, "FirstReward"), -1f, 22f);
+            AssertLayoutElement(FindRequired(root, "SecondReward"), -1f, 22f);
+            AssertLayoutElement(FindRequired(root, "ThirdReward"), -1f, 22f);
+            AssertLayoutElement(FindRequired(root, "Summary"), -1f, 34f);
+            AssertLayoutElement(FindRequired(root, "CollectButton"), 100f, 30f);
+        }
+
         private static void AssertSettingsSectionLayout(Transform sectionRoot)
         {
             RequireComponent<VerticalLayoutGroup>(sectionRoot);
@@ -1243,12 +1331,44 @@ namespace Game.Feature.UI.Tests
                 .transform;
 
             RequireComponent<VerticalLayoutGroup>(objectiveRoot);
-            RequireComponent<LayoutElement>(objectiveRoot);
+            AssertLayoutElement(objectiveRoot, 520f, 360f);
             RequireComponent<HorizontalLayoutGroup>(FindRequired(objectiveRoot, "ObjectiveHeader"));
             RequireComponent<LayoutElement>(FindRequired(objectiveRoot, "ObjectiveSummary"));
             RequireComponent<LayoutElement>(FindRequired(objectiveRoot, "ObjectiveDetail"));
             RequireComponent<LayoutElement>(FindRequired(objectiveRoot, "ObjectiveSecondary"));
             RequireComponent<HorizontalLayoutGroup>(FindRequired(objectiveRoot, "ObjectiveFooter"));
+        }
+
+        private static void AssertVerticalLayout(
+            Transform root,
+            int paddingLeft,
+            int paddingRight,
+            int paddingTop,
+            int paddingBottom,
+            float spacing)
+        {
+            var layout = RequireComponent<VerticalLayoutGroup>(root);
+            Assert.That(layout.padding.left, Is.EqualTo(paddingLeft));
+            Assert.That(layout.padding.right, Is.EqualTo(paddingRight));
+            Assert.That(layout.padding.top, Is.EqualTo(paddingTop));
+            Assert.That(layout.padding.bottom, Is.EqualTo(paddingBottom));
+            Assert.That(layout.spacing, Is.EqualTo(spacing));
+            Assert.That(layout.childControlWidth, Is.True);
+            Assert.That(layout.childControlHeight, Is.True);
+            Assert.That(layout.childForceExpandWidth, Is.True);
+            Assert.That(layout.childForceExpandHeight, Is.False);
+        }
+
+        private static void AssertLayoutElement(
+            Transform transform,
+            float preferredWidth,
+            float preferredHeight,
+            bool ignoreLayout = false)
+        {
+            var layoutElement = RequireComponent<LayoutElement>(transform);
+            Assert.That(layoutElement.ignoreLayout, Is.EqualTo(ignoreLayout));
+            Assert.That(layoutElement.preferredWidth, Is.EqualTo(preferredWidth));
+            Assert.That(layoutElement.preferredHeight, Is.EqualTo(preferredHeight));
         }
 
         private static Transform FindRequired(Transform root, string path)
