@@ -117,7 +117,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: box_showcase
   - StableGuid: combined-gameplay-showcase:Box:31
     DisplayName: Box 31
     Kind: 2
@@ -133,7 +133,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: box_showcase
   - StableGuid: combined-gameplay-showcase:Box:36
     DisplayName: Box 36
     Kind: 2
@@ -149,7 +149,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: box_showcase
   - StableGuid: combined-gameplay-showcase:Box:32
     DisplayName: Box 32
     Kind: 2
@@ -165,7 +165,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: box_showcase
   - StableGuid: combined-gameplay-showcase:Box:33
     DisplayName: Box 33
     Kind: 2
@@ -181,7 +181,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: box_showcase
   - StableGuid: combined-gameplay-showcase:Box:34
     DisplayName: Box 34
     Kind: 2
@@ -197,7 +197,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: box_showcase
   - StableGuid: combined-gameplay-showcase:Box:37
     DisplayName: Box 37
     Kind: 2
@@ -213,7 +213,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: box_showcase
   - StableGuid: combined-gameplay-showcase:Box:35
     DisplayName: Box 35
     Kind: 2
@@ -229,7 +229,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: box_showcase
   - StableGuid: combined-gameplay-showcase:Box:40
     DisplayName: Box 40
     Kind: 2
@@ -245,7 +245,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: box_showcase
   - StableGuid: combined-gameplay-showcase:Box:41
     DisplayName: Box 41
     Kind: 2
@@ -261,7 +261,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: box_showcase
   - StableGuid: combined-gameplay-showcase:Box:42
     DisplayName: Box 42
     Kind: 2
@@ -277,7 +277,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: box_showcase
   - StableGuid: combined-gameplay-showcase:Box:43
     DisplayName: Box 43
     Kind: 2
@@ -293,7 +293,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: box_showcase
   - StableGuid: combined-gameplay-showcase:Wall:196
     DisplayName: Wall 196
     Kind: 3
@@ -309,7 +309,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: wall_showcase
   - StableGuid: combined-gameplay-showcase:Wall:197
     DisplayName: Wall 197
     Kind: 3
@@ -325,7 +325,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: wall_showcase
   - StableGuid: combined-gameplay-showcase:Wall:198
     DisplayName: Wall 198
     Kind: 3
@@ -341,7 +341,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: wall_showcase
   - StableGuid: combined-gameplay-showcase:Wall:199
     DisplayName: Wall 199
     Kind: 3
@@ -357,7 +357,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: wall_showcase
   - StableGuid: combined-gameplay-showcase:Wall:200
     DisplayName: Wall 200
     Kind: 3
@@ -373,7 +373,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: wall_showcase
   - StableGuid: combined-gameplay-showcase:Box:201
     DisplayName: Moon QA Box 201
     Kind: 2
@@ -389,7 +389,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: moon_box_showcase
   tileFeatures:
   - TileId: 901
     Cell:
