@@ -12,4 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 44d7d8cbbd6d9e64f86fa0dfb85c7bd2, type: 3}
   m_Name: StaticPresentationCatalog_CombinedGameplayShowcase
   m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Host.StaticEntityPresentationCatalog
-  entries: []
+  entries:
+  - PresentationId: box_showcase
+    ViewPrefab: {fileID: 1140000000000000010, guid: 75ef86a06281419fa7a82b6e4ffbba18, type: 3}
+  - PresentationId: moon_box_showcase
+    ViewPrefab: {fileID: 1140000000000000010, guid: 4d56a7e70a1049dc879abc115bcaec46, type: 3}
+  - PresentationId: wall_showcase
+    ViewPrefab: {fileID: 1140000000000000010, guid: 65742ac1c7aa4882bb70e0fa80f568b5, type: 3}

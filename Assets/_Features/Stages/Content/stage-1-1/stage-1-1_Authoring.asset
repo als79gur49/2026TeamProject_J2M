@@ -33,6 +33,7 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -48,6 +49,7 @@ MonoBehaviour:
     Hp: 3
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 8d6b1bc1c4aa4d57b9c6d8df30d7e6a2, type: 2}
@@ -63,6 +65,7 @@ MonoBehaviour:
     Hp: 3
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 3d157a22696a4ee29ac2852d6486cd31, type: 2}
@@ -78,6 +81,7 @@ MonoBehaviour:
     Hp: 3
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 8fdb5400ceb74592aa5dea3cbb2cf2a8, type: 2}
@@ -93,6 +97,7 @@ MonoBehaviour:
     Hp: 3
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 19783ce834b246d5b32ce6df8e595444, type: 2}
@@ -108,6 +113,7 @@ MonoBehaviour:
     Hp: 3
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: de83e764216982c1751b31cd7cc75d22, type: 2}
@@ -123,6 +129,7 @@ MonoBehaviour:
     Hp: 3
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: ee4160b1ea994e21b5b93ee5e5b66c8d, type: 2}
@@ -138,6 +145,7 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 1
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -153,6 +161,7 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 4
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -168,6 +177,7 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -183,6 +193,7 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 18
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -198,6 +209,7 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 3
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -213,6 +225,7 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 6
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -228,6 +241,7 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 11
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -243,6 +257,7 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 7
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -258,6 +273,7 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 1
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -273,6 +289,7 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 5
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -288,6 +305,7 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 3
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -303,6 +321,7 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -318,6 +337,7 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -333,6 +353,7 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -348,6 +369,7 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -363,6 +385,7 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -378,6 +401,7 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -393,6 +417,7 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -408,6 +433,7 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -423,6 +449,7 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -438,6 +465,7 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 2
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: ee4160b1ea994e21b5b93ee5e5b66c8d, type: 2}
@@ -453,6 +481,7 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 47dcd8d154bb4222829ef11b18507f76, type: 2}
@@ -468,6 +497,7 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 44ea1e7dcc774075b55e3dcb29906bab, type: 2}
@@ -483,10 +513,23 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
     PresentationId: 
+  tileFeatures:
+  - TileId: 1
+    Cell:
+      face: 0
+      x: 1
+      y: 4
+    Kind: 4
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 3
+    BoundEntityId: 0
+    PresentationKey:
   zones:
   - ZoneId: 1
     FaceId: 3

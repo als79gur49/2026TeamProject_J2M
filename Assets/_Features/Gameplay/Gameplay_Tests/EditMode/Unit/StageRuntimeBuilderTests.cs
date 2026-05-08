@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEditor;
@@ -48,6 +50,1188 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateSpawn(10, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 1, 2), hp: 1));
 
             AssertBuildThrows(stage, "duplicate entity id 10");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_InitialTileFeatures_DefaultsToEmpty()
+        {
+            var stage = CreateStage(
+                "InitialTileFeaturesEmpty",
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 1, 1), hp: 3, facing: Direction.Up));
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(buildResult.InitialTileFeatures, Is.Empty);
+                Assert.That(buildResult.TileFeatureDefinitions, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_DefaultBoxArchetype_IsNormal()
+        {
+            var stage = CreateStage(
+                "DefaultBoxArchetype",
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 1, 1), hp: 3, facing: Direction.Up),
+                CreateSpawn(20, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 1, 2), hp: 1));
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(TryGetEntity(buildResult.InitialEntities, 20, out var box), Is.True);
+                Assert.That(box.boxArchetype, Is.EqualTo(BoxArchetype.Normal));
+                Assert.That(box.gravityFieldPhase, Is.EqualTo(GravityFieldPhase.None));
+                Assert.That(box.gravityFieldTimerTicks, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_GravityFieldBoxArchetype_MaterializesChargingRuntime()
+        {
+            var stage = CreateStage(
+                "GravityFieldBoxArchetype",
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 1, 1), hp: 3, facing: Direction.Up),
+                CreateSpawn(
+                    20,
+                    StageSpawnKind.Box,
+                    new SurfaceCell(FaceId.Floor, 1, 2),
+                    hp: 1,
+                    boxArchetype: BoxArchetype.GravityField));
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(TryGetEntity(buildResult.InitialEntities, 20, out var box), Is.True);
+                Assert.That(box.boxArchetype, Is.EqualTo(BoxArchetype.GravityField));
+                Assert.That(box.gravityFieldPhase, Is.EqualTo(GravityFieldPhase.Charging));
+                Assert.That(box.gravityFieldTimerTicks, Is.EqualTo(8 * GameplayTimingProfile.DefaultSimulationTicksPerSecond));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_MoonBoxArchetype_Materializes()
+        {
+            var stage = CreateStage(
+                "MoonBoxArchetype",
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 1, 1), hp: 3, facing: Direction.Up),
+                CreateSpawn(
+                    20,
+                    StageSpawnKind.Box,
+                    new SurfaceCell(FaceId.Floor, 1, 2),
+                    hp: 1,
+                    boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy,
+                    boxArchetype: BoxArchetype.Moon));
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(TryGetEntity(buildResult.InitialEntities, 20, out var box), Is.True);
+                Assert.That(box.boxArchetype, Is.EqualTo(BoxArchetype.Moon));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_MoonBlockGenerator_BuildsRespawnDefinition()
+        {
+            var moonSpawn = CreateSpawn(
+                20,
+                StageSpawnKind.Box,
+                new SurfaceCell(FaceId.Floor, 2, 1),
+                hp: 2,
+                facing: Direction.Left,
+                boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy,
+                boxArchetype: BoxArchetype.Moon);
+            var generator = CreateTileFeature(
+                100,
+                new SurfaceCell(FaceId.Floor, 1, 1),
+                TileFeatureKind.MoonBlockGenerator,
+                TileFeatureActivationRule.BottomFaceOnly,
+                Direction2D.None,
+                TileFeatureBoxSelector.None,
+                boundEntityId: 20);
+            var stage = CreateStage(
+                "MoonBlockGeneratorBuildsRespawnDefinition",
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
+                moonSpawn);
+            SetPrivateField(stage, "tileFeatures", new[] { generator });
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(buildResult.MoonBlockRespawnDefinitions.Length, Is.EqualTo(1));
+                var definition = buildResult.MoonBlockRespawnDefinitions[0];
+                Assert.That(definition.GeneratorTileId, Is.EqualTo(100));
+                Assert.That(definition.MoonBlockEntityId, Is.EqualTo(20));
+                Assert.That(definition.SpawnCell, Is.EqualTo(generator.Cell));
+                Assert.That(definition.Template.entityId, Is.EqualTo(20));
+                Assert.That(definition.Template.type, Is.EqualTo(EntityType.Box));
+                Assert.That(definition.Template.boxArchetype, Is.EqualTo(BoxArchetype.Moon));
+                Assert.That(definition.Template.boxCapabilities, Is.EqualTo(moonSpawn.BoxCapabilities));
+                Assert.That(definition.Template.facing, Is.EqualTo(Direction.Left));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_TileFeatureAuthoring_MaterializesStateAndStaticDefinitions()
+        {
+            var tileFeature = CreateTileFeature(
+                100,
+                new SurfaceCell(FaceId.Floor, 1, 2),
+                TileFeatureKind.Button,
+                TileFeatureActivationRule.ActiveFaceOnly,
+                Direction2D.Right,
+                TileFeatureBoxSelector.BoundEntity,
+                boundEntityId: 30,
+                presentationKey: "slide-east");
+            var stage = CreateStage(
+                "TileFeatureAuthoring",
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 1, 1), hp: 3, facing: Direction.Up));
+            SetPrivateField(stage, "tileFeatures", new[] { tileFeature });
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(buildResult.InitialTileFeatures.Length, Is.EqualTo(1));
+                Assert.That(buildResult.InitialTileFeatures[0].TileId, Is.EqualTo(tileFeature.TileId));
+                Assert.That(buildResult.InitialTileFeatures[0].Cell, Is.EqualTo(tileFeature.Cell));
+                Assert.That(buildResult.InitialTileFeatures[0].Kind, Is.EqualTo(tileFeature.Kind));
+                Assert.That(buildResult.InitialTileFeatures[0].Flags, Is.EqualTo(TileFeatureFlags.None));
+                Assert.That(buildResult.InitialTileFeatures[0].Charges, Is.EqualTo(0));
+
+                Assert.That(buildResult.TileFeatureDefinitions.Length, Is.EqualTo(1));
+                Assert.That(buildResult.TileFeatureDefinitions[0].TileId, Is.EqualTo(tileFeature.TileId));
+                Assert.That(buildResult.TileFeatureDefinitions[0].ActivationRule, Is.EqualTo(tileFeature.ActivationRule));
+                Assert.That(buildResult.TileFeatureDefinitions[0].Direction, Is.EqualTo(tileFeature.Direction));
+                Assert.That(buildResult.TileFeatureDefinitions[0].BoxSelector, Is.EqualTo(tileFeature.BoxSelector));
+                Assert.That(buildResult.TileFeatureDefinitions[0].BoundEntityId, Is.EqualTo(tileFeature.BoundEntityId));
+                Assert.That(buildResult.TileFeatureDefinitions[0].PresentationKey, Is.EqualTo(tileFeature.PresentationKey));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageRuntimeBuilder_DuplicateTileIdRejects()
+        {
+            var stage = CreateStageWithTileFeatures(
+                "DuplicateTileId",
+                new[]
+                {
+                    CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Button),
+                    CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 2), TileFeatureKind.Destroy),
+                });
+
+            AssertBuildThrows(stage, "duplicate tile feature id 100");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageRuntimeBuilder_NonPositiveTileIdRejects()
+        {
+            var stage = CreateStageWithTileFeatures(
+                "NonPositiveTileId",
+                new[] { CreateTileFeature(0, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Button) });
+
+            AssertBuildThrows(stage, "must use a positive tile id");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageRuntimeBuilder_OutOfBoundsTileFeatureRejects()
+        {
+            var stage = CreateStageWithTileFeatures(
+                "OutOfBoundsTileFeature",
+                new[] { CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 5, 1), TileFeatureKind.Button) });
+
+            AssertBuildThrows(stage, "outside the configured board bounds");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageRuntimeBuilder_UnknownTileFeatureKindRejects()
+        {
+            var stage = CreateStageWithTileFeatures(
+                "UnknownTileFeatureKind",
+                new[] { CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Unknown) });
+
+            AssertBuildThrows(stage, "must use a known TileFeatureKind");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_DestroyTile_BottomFaceOnlyAccepted()
+        {
+            var stage = CreateStageWithTileFeatures(
+                "DestroyTileBottomFaceOnly",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Destroy,
+                        TileFeatureActivationRule.BottomFaceOnly),
+                });
+
+            var buildResult = StageRuntimeBuilder.Build(stage);
+
+            Assert.That(buildResult.TileFeatureDefinitions[0].ActivationRule, Is.EqualTo(TileFeatureActivationRule.BottomFaceOnly));
+            Assert.That(buildResult.InitialTileFeatures[0].Kind, Is.EqualTo(TileFeatureKind.Destroy));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_DestroyTile_UnsupportedActivationRejects()
+        {
+            var stage = CreateStageWithTileFeatures(
+                "DestroyTileUnsupportedActivation",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Destroy,
+                        TileFeatureActivationRule.Always),
+                });
+
+            AssertBuildThrows(stage, "DestroyTile must use BottomFaceOnly activation");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_SlideTile_FrontFaceCardinalDirectionAndNoSelectorAccepted()
+        {
+            var stage = CreateStageWithTileFeatures(
+                "SlideTileValid",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Slide,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        Direction2D.Right,
+                        TileFeatureBoxSelector.None),
+                });
+
+            var buildResult = StageRuntimeBuilder.Build(stage);
+
+            Assert.That(buildResult.TileFeatureDefinitions[0].ActivationRule, Is.EqualTo(TileFeatureActivationRule.FrontFaceOnly));
+            Assert.That(buildResult.TileFeatureDefinitions[0].Direction, Is.EqualTo(Direction2D.Right));
+            Assert.That(buildResult.TileFeatureDefinitions[0].BoxSelector, Is.EqualTo(TileFeatureBoxSelector.None));
+            Assert.That(buildResult.InitialTileFeatures[0].Kind, Is.EqualTo(TileFeatureKind.Slide));
+            UnityEngine.Object.DestroyImmediate(stage);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_SlideTile_UnsupportedActivationRejects()
+        {
+            var unsupportedRules = new[]
+            {
+                TileFeatureActivationRule.BottomFaceOnly,
+                TileFeatureActivationRule.Always,
+                TileFeatureActivationRule.ActiveFaceOnly,
+                TileFeatureActivationRule.InactiveFaceOnly,
+            };
+
+            for (var i = 0; i < unsupportedRules.Length; i++)
+            {
+                var stage = CreateStageWithTileFeatures(
+                    $"SlideTileUnsupportedActivation{i}",
+                    new[]
+                    {
+                        CreateTileFeature(
+                            100,
+                            new SurfaceCell(FaceId.Floor, 1, 1),
+                            TileFeatureKind.Slide,
+                            unsupportedRules[i],
+                            Direction2D.Right,
+                            TileFeatureBoxSelector.None),
+                    });
+
+                AssertBuildThrows(stage, "SlideTile must use FrontFaceOnly activation");
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_SlideTile_InvalidDirectionRejects()
+        {
+            var noneDirectionStage = CreateStageWithTileFeatures(
+                "SlideTileNoneDirection",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Slide,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        Direction2D.None,
+                        TileFeatureBoxSelector.None),
+                });
+            AssertBuildThrows(noneDirectionStage, "SlideTile must use a cardinal Direction2D");
+
+            var invalidEnumStage = CreateStageWithTileFeatures(
+                "SlideTileInvalidDirection",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Slide,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        (Direction2D)99,
+                        TileFeatureBoxSelector.None),
+                });
+            AssertBuildThrows(invalidEnumStage, "invalid Direction2D value 99");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_SlideTile_UnsupportedBoxSelectorRejects()
+        {
+            var stage = CreateStageWithTileFeatures(
+                "SlideTileUnsupportedSelector",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Slide,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        Direction2D.Right,
+                        TileFeatureBoxSelector.AnyPushableBox),
+                });
+
+            AssertBuildThrows(stage, "SlideTile must use TileFeatureBoxSelector.None");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_SlideTile_DuplicateSameCellRejects()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var stage = CreateStageWithTileFeatures(
+                "SlideTileDuplicateCell",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        cell,
+                        TileFeatureKind.Slide,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        Direction2D.Right,
+                        TileFeatureBoxSelector.None),
+                    CreateTileFeature(
+                        101,
+                        cell,
+                        TileFeatureKind.Slide,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        Direction2D.Up,
+                        TileFeatureBoxSelector.None),
+                });
+
+            AssertBuildThrows(stage, "duplicate SlideTile");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_Barricade_FrontFaceNoDirectionAndNoSelectorAccepted()
+        {
+            var stage = CreateStageWithTileFeatures(
+                "BarricadeValid",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Barricade,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        Direction2D.None,
+                        TileFeatureBoxSelector.None),
+                });
+
+            var buildResult = StageRuntimeBuilder.Build(stage);
+
+            Assert.That(buildResult.TileFeatureDefinitions[0].ActivationRule, Is.EqualTo(TileFeatureActivationRule.FrontFaceOnly));
+            Assert.That(buildResult.TileFeatureDefinitions[0].Direction, Is.EqualTo(Direction2D.None));
+            Assert.That(buildResult.TileFeatureDefinitions[0].BoxSelector, Is.EqualTo(TileFeatureBoxSelector.None));
+            Assert.That(buildResult.InitialTileFeatures[0].Kind, Is.EqualTo(TileFeatureKind.Barricade));
+            UnityEngine.Object.DestroyImmediate(stage);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_Barricade_UnsupportedActivationRejects()
+        {
+            var unsupportedRules = new[]
+            {
+                TileFeatureActivationRule.BottomFaceOnly,
+                TileFeatureActivationRule.Always,
+                TileFeatureActivationRule.ActiveFaceOnly,
+                TileFeatureActivationRule.InactiveFaceOnly,
+            };
+
+            for (var i = 0; i < unsupportedRules.Length; i++)
+            {
+                var stage = CreateStageWithTileFeatures(
+                    $"BarricadeUnsupportedActivation{i}",
+                    new[]
+                    {
+                        CreateTileFeature(
+                            100,
+                            new SurfaceCell(FaceId.Floor, 1, 1),
+                            TileFeatureKind.Barricade,
+                            unsupportedRules[i],
+                            Direction2D.None,
+                            TileFeatureBoxSelector.None),
+                    });
+
+                AssertBuildThrows(stage, "Barricade must use FrontFaceOnly activation");
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_Barricade_InvalidDirectionRejects()
+        {
+            var nonNoneDirectionStage = CreateStageWithTileFeatures(
+                "BarricadeNonNoneDirection",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Barricade,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        Direction2D.Right,
+                        TileFeatureBoxSelector.None),
+                });
+            AssertBuildThrows(nonNoneDirectionStage, "Barricade must use Direction2D.None");
+
+            var invalidEnumStage = CreateStageWithTileFeatures(
+                "BarricadeInvalidDirection",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Barricade,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        (Direction2D)99,
+                        TileFeatureBoxSelector.None),
+                });
+            AssertBuildThrows(invalidEnumStage, "invalid Direction2D value 99");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_Barricade_UnsupportedBoxSelectorRejects()
+        {
+            var unsupportedSelectorStage = CreateStageWithTileFeatures(
+                "BarricadeUnsupportedSelector",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Barricade,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        Direction2D.None,
+                        TileFeatureBoxSelector.AnyPushableBox),
+                });
+            AssertBuildThrows(unsupportedSelectorStage, "Barricade must use TileFeatureBoxSelector.None");
+
+            var invalidEnumStage = CreateStageWithTileFeatures(
+                "BarricadeInvalidSelector",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Barricade,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        Direction2D.None,
+                        (TileFeatureBoxSelector)99),
+                });
+            AssertBuildThrows(invalidEnumStage, "invalid TileFeatureBoxSelector value 99");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_Barricade_DuplicateSameCellRejects()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var stage = CreateStageWithTileFeatures(
+                "BarricadeDuplicateCell",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        cell,
+                        TileFeatureKind.Barricade,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        Direction2D.None,
+                        TileFeatureBoxSelector.None),
+                    CreateTileFeature(
+                        101,
+                        cell,
+                        TileFeatureKind.Barricade,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        Direction2D.None,
+                        TileFeatureBoxSelector.None),
+                });
+
+            AssertBuildThrows(stage, "duplicate Barricade");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_Exit_BottomFaceNoDirectionAndNoSelectorAccepted()
+        {
+            var exitCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var condition = CreatePlayerAtAnyZoneCondition("goal");
+            var stage = CreateStageWithExitObjective(
+                "ExitValid",
+                exitCell,
+                CreateRegion(1, 1, 1, 1),
+                condition);
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(buildResult.TileFeatureDefinitions[0].ActivationRule, Is.EqualTo(TileFeatureActivationRule.BottomFaceOnly));
+                Assert.That(buildResult.TileFeatureDefinitions[0].Direction, Is.EqualTo(Direction2D.None));
+                Assert.That(buildResult.TileFeatureDefinitions[0].BoxSelector, Is.EqualTo(TileFeatureBoxSelector.None));
+                Assert.That(buildResult.InitialTileFeatures[0].Kind, Is.EqualTo(TileFeatureKind.Exit));
+                Assert.That(
+                    buildResult.ObjectiveRuntimeDefinition.ConditionEntries[0].Condition.CreateRuntime().CreateStatus().ConditionType,
+                    Is.EqualTo(PlayerAtActiveExitConditionRuntimeDefinition.RuntimeConditionType));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+                UnityEngine.Object.DestroyImmediate(condition);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_Exit_UnsupportedActivationRejects()
+        {
+            var condition = CreatePlayerAtAnyZoneCondition("goal");
+            var stage = CreateStageWithExitObjective(
+                "ExitUnsupportedActivation",
+                new SurfaceCell(FaceId.Floor, 1, 1),
+                CreateRegion(1, 1, 1, 1),
+                condition,
+                activationRule: TileFeatureActivationRule.Always);
+
+            AssertBuildThrows(stage, "Exit must use BottomFaceOnly activation", condition);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_Exit_InvalidDirectionRejects()
+        {
+            var nonNoneCondition = CreatePlayerAtAnyZoneCondition("goal");
+            var nonNoneDirectionStage = CreateStageWithExitObjective(
+                "ExitNonNoneDirection",
+                new SurfaceCell(FaceId.Floor, 1, 1),
+                CreateRegion(1, 1, 1, 1),
+                nonNoneCondition,
+                direction: Direction2D.Right);
+            AssertBuildThrows(nonNoneDirectionStage, "Exit must use Direction2D.None", nonNoneCondition);
+
+            var invalidCondition = CreatePlayerAtAnyZoneCondition("goal");
+            var invalidEnumStage = CreateStageWithExitObjective(
+                "ExitInvalidDirection",
+                new SurfaceCell(FaceId.Floor, 1, 1),
+                CreateRegion(1, 1, 1, 1),
+                invalidCondition,
+                direction: (Direction2D)99);
+            AssertBuildThrows(invalidEnumStage, "invalid Direction2D value 99", invalidCondition);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_Exit_UnsupportedBoxSelectorRejects()
+        {
+            var unsupportedCondition = CreatePlayerAtAnyZoneCondition("goal");
+            var unsupportedSelectorStage = CreateStageWithExitObjective(
+                "ExitUnsupportedSelector",
+                new SurfaceCell(FaceId.Floor, 1, 1),
+                CreateRegion(1, 1, 1, 1),
+                unsupportedCondition,
+                boxSelector: TileFeatureBoxSelector.AnyPushableBox);
+            AssertBuildThrows(unsupportedSelectorStage, "Exit must use TileFeatureBoxSelector.None", unsupportedCondition);
+
+            var invalidCondition = CreatePlayerAtAnyZoneCondition("goal");
+            var invalidEnumStage = CreateStageWithExitObjective(
+                "ExitInvalidSelector",
+                new SurfaceCell(FaceId.Floor, 1, 1),
+                CreateRegion(1, 1, 1, 1),
+                invalidCondition,
+                boxSelector: (TileFeatureBoxSelector)99);
+            AssertBuildThrows(invalidEnumStage, "invalid TileFeatureBoxSelector value 99", invalidCondition);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_Exit_DuplicateRejects()
+        {
+            var condition = CreatePlayerAtAnyZoneCondition("goal");
+            var exitCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var stage = CreateStageWithExitObjective(
+                "ExitDuplicate",
+                exitCell,
+                CreateRegion(1, 1, 1, 1),
+                condition,
+                extraTileFeatures: new[]
+                {
+                    CreateTileFeature(
+                        101,
+                        new SurfaceCell(FaceId.Floor, 2, 1),
+                        TileFeatureKind.Exit,
+                        TileFeatureActivationRule.BottomFaceOnly,
+                        Direction2D.None,
+                        TileFeatureBoxSelector.None),
+                });
+
+            AssertBuildThrows(stage, "more than one Exit TileFeature", condition);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_Exit_MissingPrimaryGoalRejects()
+        {
+            var stage = CreateStageWithTileFeatures(
+                "ExitMissingPrimaryGoal",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Exit,
+                        TileFeatureActivationRule.BottomFaceOnly,
+                        Direction2D.None,
+                        TileFeatureBoxSelector.None),
+                });
+
+            AssertBuildThrows(stage, "must use objective policy RequireAllConditions");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_Exit_GoalZoneMustBeExactlyExitCenter()
+        {
+            var multiCellCondition = CreatePlayerAtAnyZoneCondition("goal");
+            var multiCellStage = CreateStageWithExitObjective(
+                "ExitMultiCellGoal",
+                new SurfaceCell(FaceId.Floor, 1, 1),
+                CreateRegion(0, 0, 2, 2),
+                multiCellCondition);
+            AssertBuildThrows(multiCellStage, "must be exactly one center cell", multiCellCondition);
+
+            var mismatchedCondition = CreatePlayerAtAnyZoneCondition("goal");
+            var mismatchedStage = CreateStageWithExitObjective(
+                "ExitMismatchedGoal",
+                new SurfaceCell(FaceId.Floor, 1, 1),
+                CreateRegion(2, 1, 2, 1),
+                mismatchedCondition);
+            AssertBuildThrows(mismatchedStage, "must match goal zone", mismatchedCondition);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageRuntimeBuilder_TileFeatureWallLikeSolidOverlap_RejectsUntilPolicyExists()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 2);
+            var stage = CreateStage(
+                "TileFeatureWallOverlap",
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 1, 1), hp: 3, facing: Direction.Up),
+                CreateSpawn(20, StageSpawnKind.Wall, cell, hp: 1));
+            SetPrivateField(stage, "tileFeatures", new[]
+            {
+                CreateTileFeature(
+                    100,
+                    cell,
+                    TileFeatureKind.Barricade,
+                    TileFeatureActivationRule.FrontFaceOnly,
+                    Direction2D.None,
+                    TileFeatureBoxSelector.None),
+            });
+
+            AssertBuildThrows(stage, "overlaps a wall-like solid occupant");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_SameCellMultipleTileFeatures_StorageSupportOnly_MaterializesBoth()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 2);
+            var stage = CreateStageWithTileFeatures(
+                "SameCellTileFeatureStorage",
+                new[]
+                {
+                    CreateTileFeature(100, cell, TileFeatureKind.Button),
+                    CreateTileFeature(
+                        101,
+                        cell,
+                        TileFeatureKind.Destroy,
+                        TileFeatureActivationRule.BottomFaceOnly),
+                });
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                CollectionAssert.AreEqual(
+                    new[] { 100, 101 },
+                    Array.ConvertAll(buildResult.InitialTileFeatures, feature => feature.TileId));
+                Assert.That(buildResult.InitialTileFeatures[0].Cell, Is.EqualTo(cell));
+                Assert.That(buildResult.InitialTileFeatures[1].Cell, Is.EqualTo(cell));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_ButtonActivatedCondition_CompilesRuntimeCondition()
+        {
+            var condition = CreateButtonActivatedCondition(100);
+            var stage = CreateStageWithButtonObjective(
+                "ButtonActivatedCondition",
+                condition,
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Button,
+                        boxSelector: TileFeatureBoxSelector.AnyPushableBox),
+                });
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(buildResult.ObjectiveRuntimeDefinition.ConditionEntries.Count, Is.EqualTo(1));
+                var runtime = buildResult.ObjectiveRuntimeDefinition.ConditionEntries[0].Condition.CreateRuntime();
+                Assert.That(runtime.CreateStatus().ConditionType, Is.EqualTo(nameof(ButtonActivatedConditionAsset)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+                UnityEngine.Object.DestroyImmediate(condition);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageRuntimeBuilder_ButtonActivatedCondition_NonPositiveTileIdRejects()
+        {
+            var condition = CreateButtonActivatedCondition(0);
+            var stage = CreateStageWithButtonObjective(
+                "ButtonActivatedConditionNonPositive",
+                condition,
+                new[]
+                {
+                    CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Button),
+                });
+
+            AssertBuildThrows(stage, "requires a positive tile id", condition);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageRuntimeBuilder_ButtonActivatedCondition_MissingTileIdRejects()
+        {
+            var condition = CreateButtonActivatedCondition(200);
+            var stage = CreateStageWithButtonObjective(
+                "ButtonActivatedConditionMissing",
+                condition,
+                new[]
+                {
+                    CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Button),
+                });
+
+            AssertBuildThrows(stage, "references unknown button TileId 200", condition);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageRuntimeBuilder_ButtonActivatedCondition_NonButtonTileRejects()
+        {
+            var condition = CreateButtonActivatedCondition(100);
+            var stage = CreateStageWithButtonObjective(
+                "ButtonActivatedConditionNonButton",
+                condition,
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Exit,
+                        TileFeatureActivationRule.BottomFaceOnly,
+                        Direction2D.None,
+                        TileFeatureBoxSelector.None),
+                });
+
+            AssertBuildThrows(stage, "instead of Button", condition);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageRuntimeBuilder_ButtonActivatedCondition_DuplicateTileIdRejects()
+        {
+            var first = CreateButtonActivatedCondition(100);
+            var second = CreateButtonActivatedCondition(100);
+            var stage = CreateStageWithObjective(
+                "ButtonActivatedConditionDuplicate",
+                new[]
+                {
+                    CreateConditionEntry(first, "button-1"),
+                    CreateConditionEntry(second, "button-2"),
+                },
+                new[]
+                {
+                    CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Button),
+                });
+
+            AssertBuildThrows(stage, "duplicate ButtonActivatedCondition for TileId 100", first, second);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageRuntimeBuilder_ButtonActivatedCondition_MoonBlockOnlyRejectsWithoutMoonBlockSpawn()
+        {
+            var condition = CreateButtonActivatedCondition(100);
+            var stage = CreateStageWithButtonObjective(
+                "ButtonActivatedConditionMoonBlockOnlyNoMoon",
+                condition,
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Button,
+                        boxSelector: TileFeatureBoxSelector.MoonBlockOnly),
+                });
+
+            AssertBuildThrows(stage, "stage has no MoonBlock source", condition);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_ButtonActivatedCondition_MoonBlockOnly_AllowsMoonBlockSpawn()
+        {
+            var condition = CreateButtonActivatedCondition(100);
+            var stage = CreateStageWithObjective(
+                "ButtonActivatedConditionMoonBlockOnlyWithMoon",
+                new[] { CreateConditionEntry(condition, "button-activated") },
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Button,
+                        boxSelector: TileFeatureBoxSelector.MoonBlockOnly),
+                },
+                CreateSpawn(
+                    20,
+                    StageSpawnKind.Box,
+                    new SurfaceCell(FaceId.Floor, 2, 1),
+                    hp: 1,
+                    boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy,
+                    boxArchetype: BoxArchetype.Moon));
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(buildResult.ObjectiveRuntimeDefinition.ConditionEntries.Count, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+                UnityEngine.Object.DestroyImmediate(condition);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_MoonBoxValidation_RejectsInvalidShape()
+        {
+            AssertBuildThrows(
+                CreateStage(
+                    "InvalidBoxArchetype",
+                    CreateBoard(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                    CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
+                    CreateSpawn(20, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 1, 0), hp: 1, boxArchetype: (BoxArchetype)999)),
+                "invalid BoxArchetype value 999");
+
+            AssertBuildThrows(
+                CreateStage(
+                    "NonBoxMoonArchetype",
+                    CreateBoard(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                    CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, boxArchetype: BoxArchetype.Moon)),
+                "box archetypes are only valid on Box spawns");
+
+            AssertBuildThrows(
+                CreateStage(
+                    "NonBoxGravityFieldArchetype",
+                    CreateBoard(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                    CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, boxArchetype: BoxArchetype.GravityField)),
+                "box archetypes are only valid on Box spawns");
+
+            AssertBuildThrows(
+                CreateStage(
+                    "DuplicateMoonBoxes",
+                    CreateBoard(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                    CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
+                    CreateSpawn(20, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 1, 0), hp: 1, boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy, boxArchetype: BoxArchetype.Moon),
+                    CreateSpawn(21, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 2, 0), hp: 1, boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy, boxArchetype: BoxArchetype.Moon)),
+                "more than one Moon box spawn");
+
+            AssertBuildThrows(
+                CreateStage(
+                    "MoonMissingCapabilities",
+                    CreateBoard(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                    CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
+                    CreateSpawn(20, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 1, 0), hp: 1, boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip, boxArchetype: BoxArchetype.Moon)),
+                "Moon boxes require BoxCapabilities");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_MoonBlockGeneratorValidation_RejectsInvalidShape()
+        {
+            var moonSpawn = CreateSpawn(
+                20,
+                StageSpawnKind.Box,
+                new SurfaceCell(FaceId.Floor, 2, 1),
+                hp: 1,
+                boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy,
+                boxArchetype: BoxArchetype.Moon);
+
+            AssertBuildThrows(
+                CreateMoonBlockGeneratorStage(
+                    "MoonGeneratorInvalidActivation",
+                    new[]
+                    {
+                        CreateTileFeature(
+                            100,
+                            new SurfaceCell(FaceId.Floor, 1, 1),
+                            TileFeatureKind.MoonBlockGenerator,
+                            TileFeatureActivationRule.Always,
+                            boundEntityId: 20),
+                    },
+                    moonSpawn),
+                "MoonBlockGenerator must use BottomFaceOnly activation");
+
+            AssertBuildThrows(
+                CreateMoonBlockGeneratorStage(
+                    "MoonGeneratorInvalidDirection",
+                    new[]
+                    {
+                        CreateTileFeature(
+                            100,
+                            new SurfaceCell(FaceId.Floor, 1, 1),
+                            TileFeatureKind.MoonBlockGenerator,
+                            TileFeatureActivationRule.BottomFaceOnly,
+                            Direction2D.Right,
+                            boundEntityId: 20),
+                    },
+                    moonSpawn),
+                "MoonBlockGenerator must use Direction2D.None");
+
+            AssertBuildThrows(
+                CreateMoonBlockGeneratorStage(
+                    "MoonGeneratorInvalidSelector",
+                    new[]
+                    {
+                        CreateTileFeature(
+                            100,
+                            new SurfaceCell(FaceId.Floor, 1, 1),
+                            TileFeatureKind.MoonBlockGenerator,
+                            TileFeatureActivationRule.BottomFaceOnly,
+                            Direction2D.None,
+                            TileFeatureBoxSelector.BoundEntity,
+                            boundEntityId: 20),
+                    },
+                    moonSpawn),
+                "MoonBlockGenerator must use TileFeatureBoxSelector.None");
+
+            AssertBuildThrows(
+                CreateMoonBlockGeneratorStage(
+                    "MoonGeneratorDuplicateSameCell",
+                    new[]
+                    {
+                        CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.MoonBlockGenerator, TileFeatureActivationRule.BottomFaceOnly, boundEntityId: 20),
+                        CreateTileFeature(101, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.MoonBlockGenerator, TileFeatureActivationRule.BottomFaceOnly, boundEntityId: 20),
+                    },
+                    moonSpawn),
+                "duplicate MoonBlockGenerator");
+
+            AssertBuildThrows(
+                CreateMoonBlockGeneratorStage(
+                    "MoonGeneratorMoreThanOne",
+                    new[]
+                    {
+                        CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.MoonBlockGenerator, TileFeatureActivationRule.BottomFaceOnly, boundEntityId: 20),
+                        CreateTileFeature(101, new SurfaceCell(FaceId.Floor, 1, 2), TileFeatureKind.MoonBlockGenerator, TileFeatureActivationRule.BottomFaceOnly, boundEntityId: 20),
+                    },
+                    moonSpawn),
+                "more than one MoonBlockGenerator");
+
+            AssertBuildThrows(
+                CreateMoonBlockGeneratorStage(
+                    "MoonGeneratorBoundIdNonPositive",
+                    new[]
+                    {
+                        CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.MoonBlockGenerator, TileFeatureActivationRule.BottomFaceOnly),
+                    },
+                    moonSpawn),
+                "must bind a positive BoundEntityId");
+
+            AssertBuildThrows(
+                CreateMoonBlockGeneratorStage(
+                    "MoonGeneratorBoundIdMissing",
+                    new[]
+                    {
+                        CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.MoonBlockGenerator, TileFeatureActivationRule.BottomFaceOnly, boundEntityId: 99),
+                    },
+                    moonSpawn),
+                "must reference an existing StageSpawnDefinition");
+
+            AssertBuildThrows(
+                CreateMoonBlockGeneratorStage(
+                    "MoonGeneratorBoundIdNonBox",
+                    new[]
+                    {
+                        CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.MoonBlockGenerator, TileFeatureActivationRule.BottomFaceOnly, boundEntityId: 10),
+                    },
+                    moonSpawn),
+                "must reference a Box spawn");
+
+            AssertBuildThrows(
+                CreateMoonBlockGeneratorStage(
+                    "MoonGeneratorBoundIdNormalBox",
+                    new[]
+                    {
+                        CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.MoonBlockGenerator, TileFeatureActivationRule.BottomFaceOnly, boundEntityId: 21),
+                    },
+                    moonSpawn,
+                    CreateSpawn(21, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 2, 2), hp: 1)),
+                "must reference a Moon box spawn");
+
+            AssertBuildThrows(
+                CreateMoonBlockGeneratorStage(
+                    "MoonGeneratorBoundMoonMissingCapabilities",
+                    new[]
+                    {
+                        CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.MoonBlockGenerator, TileFeatureActivationRule.BottomFaceOnly, boundEntityId: 20),
+                    },
+                    CreateSpawn(20, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 2, 1), hp: 1, boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip, boxArchetype: BoxArchetype.Moon)),
+                "Moon boxes require BoxCapabilities");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_ExistingObjectiveConditionAssets_StillCompile()
+        {
+            var condition = ScriptableObject.CreateInstance<AllEnemiesDefeatedConditionAsset>();
+            var stage = CreateStageWithObjective(
+                "ExistingConditionStillCompiles",
+                new[] { CreateConditionEntry(condition, "all-enemies") },
+                Array.Empty<StageTileFeatureDefinition>());
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(buildResult.ObjectiveRuntimeDefinition.ConditionEntries.Count, Is.EqualTo(1));
+                Assert.That(
+                    buildResult.ObjectiveRuntimeDefinition.ConditionEntries[0].Condition.CreateRuntime().CreateStatus().ConditionType,
+                    Is.EqualTo(nameof(AllEnemiesDefeatedConditionAsset)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+                UnityEngine.Object.DestroyImmediate(condition);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_AuthoredButtonInitialFlags_RemainNone()
+        {
+            var stage = CreateStageWithTileFeatures(
+                "AuthoredButtonInitialFlags",
+                new[]
+                {
+                    CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Button),
+                });
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(buildResult.InitialTileFeatures.Length, Is.EqualTo(1));
+                Assert.That(buildResult.InitialTileFeatures[0].Kind, Is.EqualTo(TileFeatureKind.Button));
+                Assert.That(buildResult.InitialTileFeatures[0].Flags, Is.EqualTo(TileFeatureFlags.None));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
         }
 
         [Test]
@@ -208,6 +1392,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(buildResult.InitialTopology.BottomFace, Is.EqualTo(FaceId.Floor));
             Assert.That(buildResult.PlayerEntityId, Is.EqualTo(10));
             Assert.That(buildResult.InitialTerrain, Is.SameAs(Game.Feature.Gameplay.BoardState.TerrainData.Empty));
+            Assert.That(buildResult.InitialTileFeatures, Is.Empty);
+            Assert.That(buildResult.TileFeatureDefinitions, Is.Empty);
             Assert.That(
                 buildResult.InitialEntities.Length,
                 Is.EqualTo(stage.PlayerSpawns.Length + stage.BoxSpawns.Length + stage.EnemySpawns.Length + stage.WallSpawns.Length));
@@ -384,6 +1570,102 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(tutorialOverride, Is.SameAs(tutorialEnemyProfile));
         }
 
+        [Test]
+        [Category("Extended")]
+        public void StagePresentationDefinition_DefaultsTileFeaturePresentationBindingsToEmpty()
+        {
+            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+
+            try
+            {
+                Assert.That(presentation.TileFeaturePresentationBindings, Is.Not.Null);
+                Assert.That(presentation.TileFeaturePresentationBindings, Is.Empty);
+
+                var resolved = StagePresentationAssembler.Resolve(presentation);
+                Assert.That(resolved.TileFeatureBindings, Is.Not.Null);
+                Assert.That(resolved.TileFeatureBindings, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(presentation);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StagePresentationAssembler_ResolvesTileFeaturePresentationBindingsAsReadOnlyData()
+        {
+            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            var prefab = new GameObject("ButtonTileVisualPrefab");
+
+            try
+            {
+                SetPrivateField(
+                    presentation,
+                    "tileFeaturePresentationBindings",
+                    new[]
+                    {
+                        new TileFeaturePresentationBinding
+                        {
+                            TileId = 100,
+                            VisualPrefab = prefab,
+                        },
+                    });
+
+                var resolved = StagePresentationAssembler.Resolve(presentation);
+
+                Assert.That(resolved.TileFeatureBindings, Is.InstanceOf<ReadOnlyCollection<TileFeaturePresentationResolvedBinding>>());
+                Assert.That(resolved.TileFeatureBindings, Has.Count.EqualTo(1));
+                Assert.That(resolved.TileFeatureBindings[0].TileId, Is.EqualTo(100));
+                Assert.That(resolved.TileFeatureBindings[0].VisualPrefab, Is.SameAs(prefab));
+                Assert.Throws<NotSupportedException>(() =>
+                    ((IList<TileFeaturePresentationResolvedBinding>)resolved.TileFeatureBindings).Add(
+                        new TileFeaturePresentationResolvedBinding(200, prefab)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(prefab);
+                UnityEngine.Object.DestroyImmediate(presentation);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StagePresentationDefinition_ApplyResolvedData_PreservesTileFeaturePresentationBindings()
+        {
+            var source = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            var copy = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            var prefab = new GameObject("ButtonTileVisualPrefab");
+
+            try
+            {
+                SetPrivateField(
+                    source,
+                    "tileFeaturePresentationBindings",
+                    new[]
+                    {
+                        new TileFeaturePresentationBinding
+                        {
+                            TileId = 100,
+                            VisualPrefab = prefab,
+                        },
+                    });
+
+                copy.ApplyResolvedData(StagePresentationAssembler.Resolve(source));
+                var roundTrip = StagePresentationAssembler.Resolve(copy);
+
+                Assert.That(roundTrip.TileFeatureBindings, Has.Count.EqualTo(1));
+                Assert.That(roundTrip.TileFeatureBindings[0].TileId, Is.EqualTo(100));
+                Assert.That(roundTrip.TileFeatureBindings[0].VisualPrefab, Is.SameAs(prefab));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(prefab);
+                UnityEngine.Object.DestroyImmediate(copy);
+                UnityEngine.Object.DestroyImmediate(source);
+            }
+        }
+
         private static StageDefinition CreateStage(
             string stageName,
             StageBoardDefinition board,
@@ -397,6 +1679,182 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetPrivateField(stage, "enemySpawns", FilterSpawnsByKind(spawns, StageSpawnKind.Enemy));
             SetPrivateField(stage, "wallSpawns", FilterSpawnsByKind(spawns, StageSpawnKind.Wall));
             return stage;
+        }
+
+        private static StageDefinition CreateStageWithTileFeatures(
+            string stageName,
+            StageTileFeatureDefinition[] tileFeatures)
+        {
+            var stage = CreateStage(
+                stageName,
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 1, 1), hp: 3, facing: Direction.Up));
+            SetPrivateField(stage, "tileFeatures", tileFeatures);
+            return stage;
+        }
+
+        private static StageDefinition CreateMoonBlockGeneratorStage(
+            string stageName,
+            StageTileFeatureDefinition[] tileFeatures,
+            params StageSpawnDefinition[] additionalSpawns)
+        {
+            var spawns = new List<StageSpawnDefinition>
+            {
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
+            };
+            if (additionalSpawns != null)
+            {
+                spawns.AddRange(additionalSpawns);
+            }
+
+            var stage = CreateStage(
+                stageName,
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                spawns.ToArray());
+            SetPrivateField(stage, "tileFeatures", tileFeatures);
+            return stage;
+        }
+
+        private static StageDefinition CreateStageWithButtonObjective(
+            string stageName,
+            ButtonActivatedConditionAsset condition,
+            StageTileFeatureDefinition[] tileFeatures)
+        {
+            return CreateStageWithObjective(
+                stageName,
+                new[] { CreateConditionEntry(condition, "button-activated") },
+                tileFeatures);
+        }
+
+        private static StageDefinition CreateStageWithObjective(
+            string stageName,
+            StageObjectiveConditionEntry[] conditionEntries,
+            StageTileFeatureDefinition[] tileFeatures,
+            params StageSpawnDefinition[] additionalSpawns)
+        {
+            var spawns = new List<StageSpawnDefinition>
+            {
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 1, 1), hp: 3, facing: Direction.Up),
+            };
+            if (additionalSpawns != null)
+            {
+                spawns.AddRange(additionalSpawns);
+            }
+
+            var stage = CreateStage(stageName, CreateBoard(new Vector2Int(0, 0), new Vector2Int(3, 3)), spawns.ToArray());
+            SetPrivateField(stage, "tileFeatures", tileFeatures);
+            SetPrivateField(stage, "objective", new StageObjectiveAuthoring
+            {
+                CompletionPolicy = StageCompletionPolicy.RequireAllConditions,
+                ObjectiveTitle = string.Empty,
+                ObjectiveSummary = string.Empty,
+                ConditionEntries = conditionEntries ?? Array.Empty<StageObjectiveConditionEntry>(),
+            });
+            return stage;
+        }
+
+        private static StageDefinition CreateStageWithExitObjective(
+            string stageName,
+            SurfaceCell exitCell,
+            StageZoneRegionDefinition goalRegion,
+            PlayerAtAnyZoneConditionAsset primaryGoalCondition,
+            TileFeatureActivationRule activationRule = TileFeatureActivationRule.BottomFaceOnly,
+            Direction2D direction = Direction2D.None,
+            TileFeatureBoxSelector boxSelector = TileFeatureBoxSelector.None,
+            StageTileFeatureDefinition[] extraTileFeatures = null)
+        {
+            var tileFeatures = new List<StageTileFeatureDefinition>
+            {
+                CreateTileFeature(
+                    100,
+                    exitCell,
+                    TileFeatureKind.Exit,
+                    activationRule,
+                    direction,
+                    boxSelector),
+            };
+            if (extraTileFeatures != null)
+            {
+                tileFeatures.AddRange(extraTileFeatures);
+            }
+
+            var stage = CreateStageWithObjective(
+                stageName,
+                new[]
+                {
+                    CreateConditionEntry(
+                        primaryGoalCondition,
+                        required: true,
+                        StageObjectiveConditionRole.PrimaryGoal,
+                        "primary-goal"),
+                },
+                tileFeatures.ToArray());
+            SetPrivateField(stage, "zones", new[]
+            {
+                new StageZoneDefinition
+                {
+                    ZoneId = "goal",
+                    FaceId = exitCell.face,
+                    Regions = new[] { goalRegion },
+                },
+            });
+            return stage;
+        }
+
+        private static StageObjectiveConditionEntry CreateConditionEntry(
+            StageConditionAsset condition,
+            string stableConditionId)
+        {
+            return new StageObjectiveConditionEntry
+            {
+                Condition = condition,
+                Required = true,
+                Role = StageObjectiveConditionRole.None,
+                StableConditionId = stableConditionId,
+                DisplayText = string.Empty,
+                SortOrder = 0,
+            };
+        }
+
+        private static StageObjectiveConditionEntry CreateConditionEntry(
+            StageConditionAsset condition,
+            bool required,
+            StageObjectiveConditionRole role,
+            string stableConditionId)
+        {
+            return new StageObjectiveConditionEntry
+            {
+                Condition = condition,
+                Required = required,
+                Role = role,
+                StableConditionId = stableConditionId,
+                DisplayText = string.Empty,
+                SortOrder = 0,
+            };
+        }
+
+        private static PlayerAtAnyZoneConditionAsset CreatePlayerAtAnyZoneCondition(string zoneId)
+        {
+            var condition = ScriptableObject.CreateInstance<PlayerAtAnyZoneConditionAsset>();
+            SetPrivateField(condition, "zoneIds", new[] { zoneId });
+            SetPrivateField(condition, "requireAlive", true);
+            return condition;
+        }
+
+        private static StageZoneRegionDefinition CreateRegion(int minX, int minY, int maxX, int maxY)
+        {
+            return new StageZoneRegionDefinition
+            {
+                MinInclusive = new Vector2Int(minX, minY),
+                MaxInclusive = new Vector2Int(maxX, maxY),
+            };
+        }
+
+        private static ButtonActivatedConditionAsset CreateButtonActivatedCondition(int tileId)
+        {
+            var condition = ScriptableObject.CreateInstance<ButtonActivatedConditionAsset>();
+            SetPrivateField(condition, "tileId", tileId);
+            return condition;
         }
 
         private static StageBoardDefinition CreateBoard(
@@ -419,6 +1877,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int hp,
             Direction facing = Direction.Right,
             BoxCapabilities boxCapabilities = BoxCapabilities.None,
+            BoxArchetype boxArchetype = BoxArchetype.Normal,
             EnemyAiMode enemyAiMode = EnemyAiMode.None,
             int enemyAiStateTimer = 0,
             EnemyAiProfile enemyAiProfile = null,
@@ -433,11 +1892,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Facing = facing,
                 Hp = hp,
                 BoxCapabilities = boxCapabilities,
+                BoxArchetype = boxArchetype,
                 EnemyAiMode = enemyAiMode,
                 EnemyAiStateTimer = enemyAiStateTimer,
                 EnemyAiProfile = enemyAiProfile,
                 PresentationId = presentationId,
                 UnitStackGroup = unitStackGroup,
+            };
+        }
+
+        private static StageTileFeatureDefinition CreateTileFeature(
+            int tileId,
+            SurfaceCell cell,
+            TileFeatureKind kind,
+            TileFeatureActivationRule activationRule = TileFeatureActivationRule.Always,
+            Direction2D direction = Direction2D.None,
+            TileFeatureBoxSelector boxSelector = TileFeatureBoxSelector.None,
+            int boundEntityId = 0,
+            string presentationKey = null)
+        {
+            return new StageTileFeatureDefinition
+            {
+                TileId = tileId,
+                Cell = cell,
+                Kind = kind,
+                ActivationRule = activationRule,
+                Direction = direction,
+                BoxSelector = boxSelector,
+                BoundEntityId = boundEntityId,
+                PresentationKey = presentationKey,
             };
         }
 
@@ -479,6 +1962,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        private static void AssertBuildThrows(
+            StageDefinition stage,
+            string expectedMessage,
+            params UnityEngine.Object[] additionalObjectsToDestroy)
+        {
+            try
+            {
+                var exception = Assert.Throws<InvalidOperationException>(() => StageRuntimeBuilder.Build(stage));
+                StringAssert.Contains(expectedMessage, exception.Message);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+                if (additionalObjectsToDestroy != null)
+                {
+                    for (var i = 0; i < additionalObjectsToDestroy.Length; i++)
+                    {
+                        UnityEngine.Object.DestroyImmediate(additionalObjectsToDestroy[i]);
+                    }
+                }
             }
         }
 

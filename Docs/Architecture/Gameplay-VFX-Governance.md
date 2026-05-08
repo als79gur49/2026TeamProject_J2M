@@ -39,6 +39,7 @@ The family planners preserve domain-specific presentation facts and translate th
 - No production playback connection.
 - No existing presenter migration.
 - No TileEffect seam implementation.
+- No `TickPresentationData.TileEvents` VFX consumption implementation.
 - No `StagePresentationDefinition` VFX binding implementation.
 
 ## Existing Presenter Coexistence

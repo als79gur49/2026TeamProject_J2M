@@ -90,6 +90,29 @@ namespace Game.Feature.Gameplay.Loop
         public int PresentationSeed { get; }
     }
 
+    internal readonly struct BarricadeBlockFact
+    {
+        public BarricadeBlockFact(
+            int tileId,
+            SurfaceCell cell,
+            int boxEntityId,
+            Direction attemptedDirection)
+        {
+            TileId = tileId;
+            Cell = cell;
+            BoxEntityId = boxEntityId;
+            AttemptedDirection = attemptedDirection;
+        }
+
+        public int TileId { get; }
+
+        public SurfaceCell Cell { get; }
+
+        public int BoxEntityId { get; }
+
+        public Direction AttemptedDirection { get; }
+    }
+
     internal sealed class MovementPhaseResult
     {
         public static readonly MovementPhaseResult Empty = new(
@@ -101,8 +124,10 @@ namespace Game.Feature.Gameplay.Loop
             Array.Empty<string>(),
             Array.Empty<string>(),
             Array.Empty<FrontFaceShieldSourcePresentationExport>(),
-            Array.Empty<FrontFaceShieldBlockPresentationExport>());
+            Array.Empty<FrontFaceShieldBlockPresentationExport>(),
+            Array.Empty<BarricadeBlockFact>());
 
+        private readonly ReadOnlyCollection<BarricadeBlockFact> _barricadeBlockFacts;
         private readonly ReadOnlyCollection<string> _commitEvents;
         private readonly ReadOnlyCollection<FrontFaceShieldBlockPresentationExport> _frontFaceShieldBlockExports;
         private readonly ReadOnlyCollection<FrontFaceShieldSourcePresentationExport> _frontFaceShieldSourceExports;
@@ -122,7 +147,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<string> commitEvents,
             IEnumerable<string> rejectedReasons,
             IEnumerable<FrontFaceShieldSourcePresentationExport> frontFaceShieldSourceExports = null,
-            IEnumerable<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports = null)
+            IEnumerable<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports = null,
+            IEnumerable<BarricadeBlockFact> barricadeBlockFacts = null)
         {
             if (rawIntents == null)
             {
@@ -173,6 +199,9 @@ namespace Game.Feature.Gameplay.Loop
             _frontFaceShieldBlockExports = new ReadOnlyCollection<FrontFaceShieldBlockPresentationExport>(
                 new List<FrontFaceShieldBlockPresentationExport>(
                     frontFaceShieldBlockExports ?? Array.Empty<FrontFaceShieldBlockPresentationExport>()));
+            _barricadeBlockFacts = new ReadOnlyCollection<BarricadeBlockFact>(
+                new List<BarricadeBlockFact>(
+                    barricadeBlockFacts ?? Array.Empty<BarricadeBlockFact>()));
         }
 
         public IReadOnlyList<RawMovementIntent> RawIntents => _rawIntents;
@@ -196,5 +225,7 @@ namespace Game.Feature.Gameplay.Loop
 
         internal IReadOnlyList<FrontFaceShieldBlockPresentationExport> FrontFaceShieldBlockExports =>
             _frontFaceShieldBlockExports;
+
+        internal IReadOnlyList<BarricadeBlockFact> BarricadeBlockFacts => _barricadeBlockFacts;
     }
 }

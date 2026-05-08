@@ -11,6 +11,8 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly Dictionary<int, EntityState> _entitiesById = new();
         private readonly Dictionary<SurfaceCell, int> _projectileOccupancy = new();
         private readonly Dictionary<SurfaceCell, int> _solidOccupancy = new();
+        private readonly Dictionary<int, TileFeatureState> _tileFeaturesById = new();
+        private readonly Dictionary<SurfaceCell, SortedSet<int>> _tileFeatureIdsByCell = new();
         private readonly BoardBounds _boardBounds;
         private readonly Dictionary<int, EnemyActionRuntimeState> _enemyActionStatesByEntityId = new();
         private readonly Dictionary<int, EnemyPatrolRuntimeState> _enemyPatrolStatesByEntityId = new();
@@ -55,7 +57,7 @@ namespace Game.Feature.Gameplay.BoardState
             BoardBounds boardBounds,
             TerrainData terrainData,
             CubeTopologyState topology)
-            : this(initialEntities, boardBounds, terrainData, topology, initialEnemyGlideStatesByEntityId: null)
+            : this(initialEntities, boardBounds, terrainData, topology, initialTileFeatures: null, initialEnemyGlideStatesByEntityId: null)
         {
         }
 
@@ -64,6 +66,27 @@ namespace Game.Feature.Gameplay.BoardState
             BoardBounds boardBounds,
             TerrainData terrainData,
             CubeTopologyState topology,
+            IEnumerable<TileFeatureState> initialTileFeatures)
+            : this(initialEntities, boardBounds, terrainData, topology, initialTileFeatures, initialEnemyGlideStatesByEntityId: null)
+        {
+        }
+
+        internal WorldState(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            TerrainData terrainData,
+            CubeTopologyState topology,
+            IReadOnlyDictionary<int, EnemyGlideRuntimeState> initialEnemyGlideStatesByEntityId)
+            : this(initialEntities, boardBounds, terrainData, topology, initialTileFeatures: null, initialEnemyGlideStatesByEntityId: initialEnemyGlideStatesByEntityId)
+        {
+        }
+
+        internal WorldState(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            TerrainData terrainData,
+            CubeTopologyState topology,
+            IEnumerable<TileFeatureState> initialTileFeatures,
             IReadOnlyDictionary<int, EnemyGlideRuntimeState> initialEnemyGlideStatesByEntityId)
         {
             if (initialEntities == null)
@@ -75,6 +98,7 @@ namespace Game.Feature.Gameplay.BoardState
             _terrainData = terrainData ?? throw new ArgumentNullException(nameof(terrainData));
             _topology = topology;
             ValidateTerrainBounds();
+            AddInitialTileFeatures(initialTileFeatures);
 
             if (initialEnemyGlideStatesByEntityId != null)
             {
@@ -101,6 +125,8 @@ namespace Game.Feature.Gameplay.BoardState
                 CloneStackedUnitsByCell(),
                 new Dictionary<SurfaceCell, int>(_solidOccupancy),
                 new Dictionary<SurfaceCell, int>(_projectileOccupancy),
+                new Dictionary<int, TileFeatureState>(_tileFeaturesById),
+                CloneTileFeatureIdsByCell(),
                 new Dictionary<int, EnemyActionRuntimeState>(_enemyActionStatesByEntityId),
                 new Dictionary<int, EnemyPatrolRuntimeState>(_enemyPatrolStatesByEntityId),
                 new Dictionary<int, EnemyChargeRuntimeState>(_enemyChargeStatesByEntityId),
@@ -479,6 +505,19 @@ namespace Game.Feature.Gameplay.BoardState
             _boxInteractionLockStatesByEntityId[entityId] = state;
         }
 
+        internal void SetGravityFieldState(int entityId, GravityFieldPhase phase, int timerTicks)
+        {
+            if (!_entitiesById.TryGetValue(entityId, out var entity) ||
+                entity.type != EntityType.Box)
+            {
+                return;
+            }
+
+            entity.gravityFieldPhase = phase;
+            entity.gravityFieldTimerTicks = timerTicks;
+            _entitiesById[entityId] = entity;
+        }
+
         internal void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state)
         {
             if (!_entitiesById.TryGetValue(entityId, out var entity))
@@ -702,6 +741,109 @@ namespace Game.Feature.Gameplay.BoardState
             }
         }
 
+        private void AddInitialTileFeatures(IEnumerable<TileFeatureState> initialTileFeatures)
+        {
+            if (initialTileFeatures == null)
+            {
+                return;
+            }
+
+            foreach (var tileFeature in initialTileFeatures)
+            {
+                AddTileFeature(tileFeature);
+            }
+        }
+
+        private void AddTileFeature(TileFeatureState state)
+        {
+            ValidateTileFeatureState(state);
+
+            if (_tileFeaturesById.ContainsKey(state.TileId))
+            {
+                throw new InvalidOperationException(
+                    $"Duplicate TileFeature id {state.TileId} detected while adding tile feature.");
+            }
+
+            _tileFeaturesById.Add(state.TileId, state);
+            AddTileFeatureCellIndex(state.TileId, state.Cell);
+        }
+
+        private void UpdateTileFeature(TileFeatureState state)
+        {
+            ValidateTileFeatureState(state);
+
+            if (!_tileFeaturesById.TryGetValue(state.TileId, out var previous))
+            {
+                throw new InvalidOperationException(
+                    $"Cannot update missing TileFeature id {state.TileId}.");
+            }
+
+            _tileFeaturesById[state.TileId] = state;
+            if (!previous.Cell.Equals(state.Cell))
+            {
+                RemoveTileFeatureCellIndex(state.TileId, previous.Cell);
+                AddTileFeatureCellIndex(state.TileId, state.Cell);
+            }
+        }
+
+        private void RemoveTileFeature(int tileId)
+        {
+            if (tileId <= 0)
+            {
+                throw new InvalidOperationException(
+                    $"TileFeature id {tileId} must be positive.");
+            }
+
+            if (!_tileFeaturesById.TryGetValue(tileId, out var previous))
+            {
+                throw new InvalidOperationException(
+                    $"Cannot remove missing TileFeature id {tileId}.");
+            }
+
+            _tileFeaturesById.Remove(tileId);
+            RemoveTileFeatureCellIndex(tileId, previous.Cell);
+        }
+
+        private void ValidateTileFeatureState(TileFeatureState state)
+        {
+            if (state.TileId <= 0)
+            {
+                throw new InvalidOperationException(
+                    $"TileFeature id {state.TileId} must be positive.");
+            }
+
+            if (_boardBounds.IsBounded && !_boardBounds.Contains(state.Cell.PlanarPosition))
+            {
+                throw new InvalidOperationException(
+                    $"TileFeature {state.TileId} at {state.Cell} is outside the configured board bounds.");
+            }
+        }
+
+        private void AddTileFeatureCellIndex(int tileId, SurfaceCell cell)
+        {
+            if (!_tileFeatureIdsByCell.TryGetValue(cell, out var tileIds))
+            {
+                tileIds = new SortedSet<int>();
+                _tileFeatureIdsByCell.Add(cell, tileIds);
+            }
+
+            tileIds.Add(tileId);
+        }
+
+        private void RemoveTileFeatureCellIndex(int tileId, SurfaceCell cell)
+        {
+            if (!_tileFeatureIdsByCell.TryGetValue(cell, out var tileIds))
+            {
+                return;
+            }
+
+            tileIds.Remove(tileId);
+            if (tileIds.Count == 0)
+            {
+                _tileFeatureIdsByCell.Remove(cell);
+            }
+        }
+
         private void UpdateStoredEntity(EntityState entity)
         {
             _entitiesById[entity.entityId] = entity;
@@ -886,6 +1028,18 @@ namespace Game.Feature.Gameplay.BoardState
             return clone;
         }
 
+        private Dictionary<SurfaceCell, SortedSet<int>> CloneTileFeatureIdsByCell()
+        {
+            var clone = new Dictionary<SurfaceCell, SortedSet<int>>(_tileFeatureIdsByCell.Count);
+
+            foreach (var pair in _tileFeatureIdsByCell)
+            {
+                clone.Add(pair.Key, new SortedSet<int>(pair.Value));
+            }
+
+            return clone;
+        }
+
         private void ClearStackedUnitOccupancy(SurfaceCell position, int entityId)
         {
             if (!_stackedUnitsByCell.TryGetValue(position, out var entityIds))
@@ -1062,6 +1216,11 @@ namespace Game.Feature.Gameplay.BoardState
             SetBoxInteractionLockState(entityId, state);
         }
 
+        void IWorldStateMutationPort.SetGravityFieldState(int entityId, GravityFieldPhase phase, int timerTicks)
+        {
+            SetGravityFieldState(entityId, phase, timerTicks);
+        }
+
         void IWorldStateMutationPort.SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state)
         {
             SetUnitKinematicState(entityId, state);
@@ -1120,6 +1279,21 @@ namespace Game.Feature.Gameplay.BoardState
         void IWorldStateMutationPort.SetTopology(CubeTopologyState topology)
         {
             SetTopology(topology);
+        }
+
+        void IWorldStateMutationPort.AddTileFeature(TileFeatureState state)
+        {
+            AddTileFeature(state);
+        }
+
+        void IWorldStateMutationPort.UpdateTileFeature(TileFeatureState state)
+        {
+            UpdateTileFeature(state);
+        }
+
+        void IWorldStateMutationPort.RemoveTileFeature(int tileId)
+        {
+            RemoveTileFeature(tileId);
         }
     }
 }

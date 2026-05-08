@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 03dfd81cdd8249149e57a7627f0bad42, type: 3}
+  m_Name: BoardTilePresentationCatalog_CombinedGameplayShowcase
+  m_EditorClassIdentifier: Game.Feature.Stages::Game.Feature.Stages.BoardTilePresentationCatalog
+  entries:
+  - presentationKey: board.generic.default
+    displayName: Generic Default
+    role: 0
+    tilePrefab: {fileID: 4188089644569138481, guid: aa2bfd496bea9ba4da1ab6f1b9e0f31f, type: 3}
+    materialFallback: {fileID: 2100000, guid: e06aeb8279e8c2d449f70c2184168f25, type: 2}
+    isDefaultForRole: 1
+  - presentationKey: board.active.bottom
+    displayName: Active Bottom
+    role: 1
+    tilePrefab: {fileID: 4483286260842146095, guid: 80ad8bd596477764398e7080760f2985, type: 3}
+    materialFallback: {fileID: 2100000, guid: d084d50e479159746bc61b3e0a702427, type: 2}
+    isDefaultForRole: 1
+  - presentationKey: board.active.front
+    displayName: Active Front
+    role: 2
+    tilePrefab: {fileID: 4478131471899269754, guid: 3df767f4d6a0aa147ae2add609071447, type: 3}
+    materialFallback: {fileID: 2100000, guid: 952cb4ddde823b94f85baa29617a9f97, type: 2}
+    isDefaultForRole: 1
+  - presentationKey: board.decorative.top
+    displayName: Decorative Top
+    role: 3
+    tilePrefab: {fileID: 3739424671191582724, guid: ec7583f9900aafd41a44bf243d5dcb1e, type: 3}
+    materialFallback: {fileID: 2100000, guid: e5f2027c77cc00843b95b4535746e65c, type: 2}
+    isDefaultForRole: 1
+  - presentationKey: board.decorative.back
+    displayName: Decorative Back
+    role: 4
+    tilePrefab: {fileID: 7627689607955575676, guid: 62a52d1ebe5c47d448ca3da8b1dd052d, type: 3}
+    materialFallback: {fileID: 2100000, guid: 2d3d0377c4ab35f42a253b2ef9fcfd43, type: 2}
+    isDefaultForRole: 1

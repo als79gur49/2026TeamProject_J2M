@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
@@ -18,6 +20,1077 @@ namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class GameplayTickPresentationCoordinatorTests
     {
+        [Test]
+        [Category("Extended")]
+        public void CurrentTilePresentationRequests_DefaultsEmpty()
+        {
+            var coordinator = new GameplayTickPresentationCoordinator();
+
+            Assert.That(coordinator.CurrentTilePresentationRequests, Is.Not.Null);
+            Assert.That(coordinator.CurrentTilePresentationRequests, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CurrentGravityFieldPresentationRequests_DefaultsEmpty()
+        {
+            var coordinator = new GameplayTickPresentationCoordinator();
+
+            Assert.That(coordinator.CurrentGravityFieldPresentationRequests, Is.Not.Null);
+            Assert.That(coordinator.CurrentGravityFieldPresentationRequests, Is.Empty);
+            Assert.That(coordinator.CurrentGravityFieldVisualStates, Is.Not.Null);
+            Assert.That(coordinator.CurrentGravityFieldVisualStates, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTickViewPresenter_CurrentTilePresentationRequests_NoTileEvents_StaysEmpty()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_CurrentTilePresentationRequests_NoTileEvents_StaysEmpty));
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+
+                presenter.Present(CreateTickResult(1, Array.Empty<EntityState>(), topology, TickPresentationData.Empty));
+
+                Assert.That(presenter.CurrentTilePresentationRequests, Is.Not.Null);
+                Assert.That(presenter.CurrentTilePresentationRequests, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_CurrentTilePresentationRequests_ButtonActivated_ExposesRequest()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_CurrentTilePresentationRequests_ButtonActivated_ExposesRequest));
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    Array.Empty<EntityState>(),
+                    topology,
+                    CreateTilePresentationData(CreateButtonActivatedTileEvent(100, cell))));
+
+                Assert.That(presenter.CurrentTilePresentationRequests, Has.Count.EqualTo(1));
+                var request = presenter.CurrentTilePresentationRequests[0];
+                Assert.That(request.RequestKind, Is.EqualTo(TilePresentationRequestKind.ButtonActivated));
+                Assert.That(request.TileId, Is.EqualTo(100));
+                Assert.That(request.Cell, Is.EqualTo(cell));
+                Assert.That(request.TileFeatureKind, Is.EqualTo(TileFeatureKind.Button));
+                Assert.That(request.SourceEntityId, Is.EqualTo(101));
+                Assert.That(request.OwnerEntityId, Is.EqualTo(102));
+                Assert.That(request.TeamId, Is.EqualTo(103));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_CurrentTilePresentationRequests_PreservesOrderAndDuplicates()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_CurrentTilePresentationRequests_PreservesOrderAndDuplicates));
+            var firstCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var secondCell = new SurfaceCell(FaceId.Floor, 1, 0);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                var duplicate = CreateButtonActivatedTileEvent(30, firstCell);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    Array.Empty<EntityState>(),
+                    topology,
+                    CreateTilePresentationData(
+                        duplicate,
+                        CreateButtonActivatedTileEvent(10, secondCell),
+                        duplicate)));
+
+                Assert.That(
+                    presenter.CurrentTilePresentationRequests.Select(request => request.TileId).ToArray(),
+                    Is.EqualTo(new[] { 30, 10, 30 }));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_CurrentTilePresentationRequests_ReplacesAndClearsPerTick()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_CurrentTilePresentationRequests_ReplacesAndClearsPerTick));
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    Array.Empty<EntityState>(),
+                    topology,
+                    CreateTilePresentationData(
+                        CreateButtonActivatedTileEvent(100, new SurfaceCell(FaceId.Floor, 0, 0)),
+                        CreateButtonActivatedTileEvent(200, new SurfaceCell(FaceId.Floor, 1, 0)))));
+                Assert.That(presenter.CurrentTilePresentationRequests, Has.Count.EqualTo(2));
+
+                presenter.Present(CreateTickResult(
+                    2,
+                    Array.Empty<EntityState>(),
+                    topology,
+                    CreateTilePresentationData(CreateButtonActivatedTileEvent(300, new SurfaceCell(FaceId.Floor, 2, 0)))));
+
+                Assert.That(
+                    presenter.CurrentTilePresentationRequests.Select(request => request.TileId).ToArray(),
+                    Is.EqualTo(new[] { 300 }));
+
+                presenter.Present(CreateTickResult(3, Array.Empty<EntityState>(), topology, TickPresentationData.Empty));
+
+                Assert.That(presenter.CurrentTilePresentationRequests, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_CurrentGravityFieldPresentationRequests_ReplacesAndClearsPerTick()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_CurrentGravityFieldPresentationRequests_ReplacesAndClearsPerTick));
+            var firstCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var secondCell = new SurfaceCell(FaceId.Floor, 1, 0);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    Array.Empty<EntityState>(),
+                    topology,
+                    CreateGravityFieldPresentationData(
+                        new GravityFieldPresentationEvent(GravityFieldPresentationEventKind.Activated, 30, firstCell),
+                        new GravityFieldPresentationEvent(GravityFieldPresentationEventKind.Expired, 31, secondCell))));
+
+                Assert.That(presenter.CurrentGravityFieldPresentationRequests, Has.Count.EqualTo(2));
+                Assert.That(
+                    presenter.CurrentGravityFieldPresentationRequests.Select(request => request.EmitterEntityId).ToArray(),
+                    Is.EqualTo(new[] { 30, 31 }));
+
+                presenter.Present(CreateTickResult(2, Array.Empty<EntityState>(), topology, TickPresentationData.Empty));
+
+                Assert.That(presenter.CurrentGravityFieldPresentationRequests, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_CurrentGravityFieldPresentationRequests_IsReadOnlyDefensiveCopy()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_CurrentGravityFieldPresentationRequests_IsReadOnlyDefensiveCopy));
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    Array.Empty<EntityState>(),
+                    topology,
+                    CreateGravityFieldPresentationData(new GravityFieldPresentationEvent(
+                        GravityFieldPresentationEventKind.Activated,
+                        30,
+                        new SurfaceCell(FaceId.Floor, 0, 0)))));
+
+                Assert.That(presenter.CurrentGravityFieldPresentationRequests, Is.InstanceOf<ReadOnlyCollection<GravityFieldPresentationRequest>>());
+                var list = (IList<GravityFieldPresentationRequest>)presenter.CurrentGravityFieldPresentationRequests;
+                Assert.That(list.IsReadOnly, Is.True);
+                Assert.Throws<NotSupportedException>(() => list.Add(default));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_CurrentGravityFieldVisualStates_ReplacesClearsAndIsReadOnly()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_CurrentGravityFieldVisualStates_ReplacesClearsAndIsReadOnly));
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                var visualState = CreateGravityFieldVisualState(
+                    30,
+                    cell,
+                    GravityFieldPhase.Active,
+                    timerTicks: 2,
+                    durationTicks: 5,
+                    new[]
+                    {
+                        cell,
+                    },
+                    slotVisibilityMask: 1 << 4);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    Array.Empty<EntityState>(),
+                    topology,
+                    CreateGravityFieldVisualPresentationData(visualState)));
+
+                Assert.That(presenter.CurrentGravityFieldVisualStates, Is.InstanceOf<ReadOnlyCollection<GravityFieldVisualState>>());
+                Assert.That(presenter.CurrentGravityFieldVisualStates, Has.Count.EqualTo(1));
+                Assert.That(presenter.CurrentGravityFieldVisualStates[0].EmitterEntityId, Is.EqualTo(30));
+                Assert.That(presenter.CurrentGravityFieldVisualStates[0].AreaCells.ToArray(), Is.EqualTo(new[] { cell }));
+                Assert.That(presenter.CurrentGravityFieldVisualStates[0].AreaFootprint.IsSlotVisible(4), Is.True);
+                var list = (IList<GravityFieldVisualState>)presenter.CurrentGravityFieldVisualStates;
+                Assert.That(list.IsReadOnly, Is.True);
+                Assert.Throws<NotSupportedException>(() => list.Add(default));
+
+                presenter.Present(CreateTickResult(2, Array.Empty<EntityState>(), topology, TickPresentationData.Empty));
+
+                Assert.That(presenter.CurrentGravityFieldVisualStates, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_GravityFieldVisualStates_DoNotReplaceRequestCache()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_GravityFieldVisualStates_DoNotReplaceRequestCache));
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    Array.Empty<EntityState>(),
+                    topology,
+                    CreateGravityFieldPresentationData(
+                        new[] { CreateGravityFieldVisualState(30, cell, GravityFieldPhase.Charging, timerTicks: 3, durationTicks: 10) },
+                        new GravityFieldPresentationEvent(GravityFieldPresentationEventKind.Activated, 30, cell))));
+
+                Assert.That(presenter.CurrentGravityFieldPresentationRequests, Has.Count.EqualTo(1));
+                Assert.That(presenter.CurrentGravityFieldVisualStates, Has.Count.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_GravityFieldRequests_InvokeEntityVisualTargets()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_GravityFieldRequests_InvokeEntityVisualTargets));
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var emitter = CreateBox(30, cell);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                presenter.PresentInitial(new[] { emitter }, topology);
+                var registry = rootObject.GetComponent<GameplayEntityViewRegistry>();
+                Assert.That(registry.TryGetView(30, out var view), Is.True);
+                var target = view.gameObject.AddComponent<RecordingGravityFieldVisualTarget>();
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    new[] { emitter },
+                    topology,
+                    CreateGravityFieldPresentationData(
+                        new GravityFieldPresentationEvent(GravityFieldPresentationEventKind.Activated, 30, cell),
+                        new GravityFieldPresentationEvent(GravityFieldPresentationEventKind.Expired, 30, cell))));
+
+                Assert.That(target.ActivatedCount, Is.EqualTo(1));
+                Assert.That(target.ExpiredCount, Is.EqualTo(1));
+                Assert.That(presenter.CurrentGravityFieldPresentationRequests, Has.Count.EqualTo(2));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_GravityFieldVisualStates_InvokeAndClearContinuousTargets()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_GravityFieldVisualStates_InvokeAndClearContinuousTargets));
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var emitter = CreateBox(30, cell);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                presenter.PresentInitial(new[] { emitter }, topology);
+                var registry = rootObject.GetComponent<GameplayEntityViewRegistry>();
+                Assert.That(registry.TryGetView(30, out var view), Is.True);
+                var target = view.gameObject.AddComponent<RecordingGravityFieldVisualTarget>();
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    new[] { emitter },
+                    topology,
+                    CreateGravityFieldVisualPresentationData(
+                        CreateGravityFieldVisualState(30, cell, GravityFieldPhase.Active, timerTicks: 2, durationTicks: 5))));
+
+                Assert.That(target.ApplyContinuousCount, Is.EqualTo(1));
+                Assert.That(target.ClearContinuousCount, Is.Zero);
+                Assert.That(target.LastContinuousState.EmitterEntityId, Is.EqualTo(30));
+                Assert.That(target.LastContinuousState.Phase, Is.EqualTo(GravityFieldPhase.Active));
+
+                presenter.Present(CreateTickResult(2, new[] { emitter }, topology, TickPresentationData.Empty));
+
+                Assert.That(target.ClearContinuousCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_GravityFieldVisualStates_StateDisappearanceClearsAreaSlots()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_GravityFieldVisualStates_StateDisappearanceClearsAreaSlots));
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var emitter = CreateBox(30, cell);
+            var slots = CreateAreaSlots(rootObject.transform, slotCount: 9);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                presenter.PresentInitial(new[] { emitter }, topology);
+                var registry = rootObject.GetComponent<GameplayEntityViewRegistry>();
+                Assert.That(registry.TryGetView(30, out var view), Is.True);
+                var target = view.gameObject.AddComponent<GravityFieldVisualTargetView>();
+                PlayerViewPrefabTestUtility.SetSerializedField(target, "areaCellSlots", slots);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    new[] { emitter },
+                    topology,
+                    CreateGravityFieldVisualPresentationData(
+                        CreateGravityFieldVisualState(
+                            30,
+                            cell,
+                            GravityFieldPhase.Active,
+                            timerTicks: 2,
+                            durationTicks: 5,
+                            new[] { cell },
+                            slotVisibilityMask: 1 << 4))));
+
+                Assert.That(slots[4].activeSelf, Is.True);
+
+                presenter.Present(CreateTickResult(2, new[] { emitter }, topology, TickPresentationData.Empty));
+
+                Assert.That(slots.All(slot => !slot.activeSelf), Is.True);
+                Assert.That(target.DebugClearContinuousStateCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GravityFieldVisualTargetView_AppliesAndClearsAuthoredAreaSlots()
+        {
+            var rootObject = new GameObject(nameof(GravityFieldVisualTargetView_AppliesAndClearsAuthoredAreaSlots));
+            var slots = CreateAreaSlots(rootObject.transform, slotCount: 10);
+            var cell = new SurfaceCell(FaceId.Floor, 0, 0);
+
+            try
+            {
+                var target = rootObject.AddComponent<GravityFieldVisualTargetView>();
+                PlayerViewPrefabTestUtility.SetSerializedField(target, "areaCellSlots", slots);
+
+                target.ApplyGravityFieldVisualState(CreateGravityFieldVisualState(
+                    30,
+                    cell,
+                    GravityFieldPhase.Active,
+                    timerTicks: 2,
+                    durationTicks: 5,
+                    new[] { cell },
+                    slotVisibilityMask: (1 << 4) | (1 << 5) | (1 << 7) | (1 << 8)));
+
+                Assert.That(slots[4].activeSelf, Is.True);
+                Assert.That(slots[5].activeSelf, Is.True);
+                Assert.That(slots[7].activeSelf, Is.True);
+                Assert.That(slots[8].activeSelf, Is.True);
+                Assert.That(slots[0].activeSelf, Is.False);
+                Assert.That(slots[9].activeSelf, Is.False);
+                Assert.That(target.DebugLastAreaCellCount, Is.EqualTo(1));
+                Assert.That(target.DebugVisibleAreaSlotCount, Is.EqualTo(4));
+
+                target.ApplyGravityFieldVisualState(CreateGravityFieldVisualState(
+                    30,
+                    cell,
+                    GravityFieldPhase.Charging,
+                    timerTicks: 3,
+                    durationTicks: 10,
+                    new[] { cell },
+                    slotVisibilityMask: 1 << 4));
+
+                Assert.That(slots.All(slot => !slot.activeSelf), Is.True);
+                Assert.That(target.DebugVisibleAreaSlotCount, Is.Zero);
+
+                target.ApplyGravityFieldVisualState(CreateGravityFieldVisualState(
+                    30,
+                    cell,
+                    GravityFieldPhase.Active,
+                    timerTicks: 2,
+                    durationTicks: 5,
+                    new[] { cell },
+                    slotVisibilityMask: 1 << 4));
+                target.ClearGravityFieldVisualState();
+
+                Assert.That(slots.All(slot => !slot.activeSelf), Is.True);
+                Assert.That(target.DebugLastAreaCellCount, Is.Zero);
+                Assert.That(target.DebugVisibleAreaSlotCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GravityFieldVisualTargetView_MissingAreaSlotsNoOps()
+        {
+            var rootObject = new GameObject(nameof(GravityFieldVisualTargetView_MissingAreaSlotsNoOps));
+
+            try
+            {
+                var target = rootObject.AddComponent<GravityFieldVisualTargetView>();
+
+                Assert.DoesNotThrow(() => target.ApplyGravityFieldVisualState(CreateGravityFieldVisualState(
+                    30,
+                    new SurfaceCell(FaceId.Floor, 1, 1),
+                    GravityFieldPhase.Active,
+                    timerTicks: 2,
+                    durationTicks: 5,
+                    new[] { new SurfaceCell(FaceId.Floor, 1, 1) },
+                    slotVisibilityMask: 1 << 4)));
+                Assert.DoesNotThrow(target.ClearGravityFieldVisualState);
+                Assert.That(target.DebugVisibleAreaSlotCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GravityFieldLockedTargetVisualTargetView_TracksSourcesAndClearsOnDisable()
+        {
+            var rootObject = new GameObject(nameof(GravityFieldLockedTargetVisualTargetView_TracksSourcesAndClearsOnDisable));
+            var lockedRoot = new GameObject("LockedRoot");
+            lockedRoot.SetActive(false);
+            lockedRoot.transform.SetParent(rootObject.transform, worldPositionStays: false);
+
+            try
+            {
+                var target = rootObject.AddComponent<GravityFieldLockedTargetVisualTargetView>();
+                PlayerViewPrefabTestUtility.SetSerializedField(target, "lockedVisualRoot", lockedRoot);
+
+                target.ApplyGravityFieldLockedTarget(30);
+                Assert.That(target.DebugActiveEmitterCount, Is.EqualTo(1));
+                Assert.That(lockedRoot.activeSelf, Is.True);
+
+                target.ApplyGravityFieldLockedTarget(30);
+                Assert.That(target.DebugActiveEmitterCount, Is.EqualTo(1));
+                Assert.That(lockedRoot.activeSelf, Is.True);
+
+                target.ApplyGravityFieldLockedTarget(31);
+                Assert.That(target.DebugActiveEmitterCount, Is.EqualTo(2));
+
+                target.ClearGravityFieldLockedTarget(999);
+                Assert.That(target.DebugActiveEmitterCount, Is.EqualTo(2));
+                Assert.That(lockedRoot.activeSelf, Is.True);
+
+                target.ClearGravityFieldLockedTarget(30);
+                Assert.That(target.DebugActiveEmitterCount, Is.EqualTo(1));
+                Assert.That(lockedRoot.activeSelf, Is.True);
+
+                target.ClearGravityFieldLockedTarget(31);
+                Assert.That(target.DebugActiveEmitterCount, Is.Zero);
+                Assert.That(lockedRoot.activeSelf, Is.False);
+
+                target.ApplyGravityFieldLockedTarget(30);
+                Assert.That(target.DebugActiveEmitterCount, Is.EqualTo(1));
+                typeof(GravityFieldLockedTargetVisualTargetView)
+                    .GetMethod("OnDisable", BindingFlags.Instance | BindingFlags.NonPublic)
+                    ?.Invoke(target, Array.Empty<object>());
+                Assert.That(target.DebugActiveEmitterCount, Is.Zero);
+                Assert.That(lockedRoot.activeSelf, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_GravityFieldVisualStates_MissingUnsupportedAndDuplicate_NoOpsWithDiagnostic()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_GravityFieldVisualStates_MissingUnsupportedAndDuplicate_NoOpsWithDiagnostic));
+            var diagnostics = new List<string>();
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var emitter = CreateBox(30, cell);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                presenter.SetGravityFieldVisualDiagnosticSink(diagnostics.Add);
+                presenter.PresentInitial(new[] { emitter }, topology);
+                presenter.SetGravityFieldVisualDiagnosticSink(diagnostics.Add);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    new[] { emitter },
+                    topology,
+                    CreateGravityFieldVisualPresentationData(
+                        CreateGravityFieldVisualState(999, cell, GravityFieldPhase.Active, timerTicks: 2, durationTicks: 5),
+                        CreateGravityFieldVisualState(30, cell, GravityFieldPhase.Active, timerTicks: 2, durationTicks: 5))));
+
+                Assert.That(diagnostics.Any(message => message.Contains("missing continuous visual target")), Is.True);
+                Assert.That(diagnostics.Any(message => message.Contains("unsupported continuous visual target")), Is.True);
+
+                var registry = rootObject.GetComponent<GameplayEntityViewRegistry>();
+                Assert.That(registry.TryGetView(30, out var view), Is.True);
+                var target = view.gameObject.AddComponent<RecordingGravityFieldVisualTarget>();
+
+                presenter.Present(CreateTickResult(
+                    2,
+                    new[] { emitter },
+                    topology,
+                    CreateGravityFieldVisualPresentationData(
+                        CreateGravityFieldVisualState(30, cell, GravityFieldPhase.Active, timerTicks: 4, durationTicks: 5),
+                        CreateGravityFieldVisualState(30, cell, GravityFieldPhase.Charging, timerTicks: 9, durationTicks: 10))));
+
+                Assert.That(target.ApplyContinuousCount, Is.EqualTo(1));
+                Assert.That(target.LastContinuousState.Phase, Is.EqualTo(GravityFieldPhase.Active));
+                Assert.That(target.LastContinuousState.TimerTicks, Is.EqualTo(4));
+                Assert.That(diagnostics.Any(message => message.Contains("duplicate continuous visual state")), Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_GravityFieldLockedTargets_ApplyRetainLateAttachAndClear()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_GravityFieldLockedTargets_ApplyRetainLateAttachAndClear));
+            var diagnostics = new List<string>();
+            var emitterCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var emitter = CreateBox(30, emitterCell);
+            var targetBox = CreateBox(20, targetCell);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                presenter.SetGravityFieldVisualDiagnosticSink(diagnostics.Add);
+                presenter.PresentInitial(new[] { emitter, targetBox }, topology);
+                var registry = rootObject.GetComponent<GameplayEntityViewRegistry>();
+                Assert.That(registry.TryGetView(20, out var targetView), Is.True);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    new[] { emitter, targetBox },
+                    topology,
+                    CreateGravityFieldVisualPresentationData(
+                        CreateGravityFieldVisualState(
+                            30,
+                            emitterCell,
+                            GravityFieldPhase.Active,
+                            timerTicks: 2,
+                            durationTicks: 5,
+                            lockedTargetEntityIds: new[] { 20 }))));
+
+                Assert.That(diagnostics.Any(message => message.Contains("unsupported locked target visual target")), Is.True);
+
+                var target = targetView.gameObject.AddComponent<RecordingGravityFieldVisualTarget>();
+
+                presenter.Present(CreateTickResult(
+                    2,
+                    new[] { emitter, targetBox },
+                    topology,
+                    CreateGravityFieldVisualPresentationData(
+                        CreateGravityFieldVisualState(
+                            30,
+                            emitterCell,
+                            GravityFieldPhase.Active,
+                            timerTicks: 1,
+                            durationTicks: 5,
+                            lockedTargetEntityIds: new[] { 20 }))));
+
+                Assert.That(target.ApplyLockedTargetCount, Is.EqualTo(1));
+                Assert.That(target.ClearLockedTargetCount, Is.Zero);
+                Assert.That(target.LastLockedTargetEmitterEntityId, Is.EqualTo(30));
+
+                presenter.Present(CreateTickResult(
+                    3,
+                    new[] { emitter, targetBox },
+                    topology,
+                    CreateGravityFieldVisualPresentationData(
+                        CreateGravityFieldVisualState(
+                            30,
+                            emitterCell,
+                            GravityFieldPhase.Active,
+                            timerTicks: 1,
+                            durationTicks: 5,
+                            lockedTargetEntityIds: new[] { 20 }))));
+
+                Assert.That(target.ApplyLockedTargetCount, Is.EqualTo(2));
+
+                presenter.Present(CreateTickResult(4, new[] { emitter, targetBox }, topology, TickPresentationData.Empty));
+
+                Assert.That(target.ClearLockedTargetCount, Is.EqualTo(1));
+                Assert.That(target.LastLockedTargetEmitterEntityId, Is.EqualTo(30));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_GravityFieldLockedTargets_MissingAndUnsupported_NoOpsWithDiagnostic()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_GravityFieldLockedTargets_MissingAndUnsupported_NoOpsWithDiagnostic));
+            var diagnostics = new List<string>();
+            var emitterCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var emitter = CreateBox(30, emitterCell);
+            var targetBox = CreateBox(20, targetCell);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                presenter.SetGravityFieldVisualDiagnosticSink(diagnostics.Add);
+                presenter.PresentInitial(new[] { emitter, targetBox }, topology);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    new[] { emitter, targetBox },
+                    topology,
+                    CreateGravityFieldVisualPresentationData(
+                        CreateGravityFieldVisualState(
+                            30,
+                            emitterCell,
+                            GravityFieldPhase.Active,
+                            timerTicks: 2,
+                            durationTicks: 5,
+                            lockedTargetEntityIds: new[] { 20, 999 }))));
+
+                Assert.That(diagnostics.Any(message => message.Contains("missing locked target visual target")), Is.True);
+                Assert.That(diagnostics.Any(message => message.Contains("unsupported locked target visual target")), Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_GravityFieldLockedTargets_MultipleEmittersMaintainSourceSet()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_GravityFieldLockedTargets_MultipleEmittersMaintainSourceSet));
+            var firstEmitterCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var secondEmitterCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var firstEmitter = CreateBox(30, firstEmitterCell);
+            var secondEmitter = CreateBox(31, secondEmitterCell);
+            var targetBox = CreateBox(20, targetCell);
+            var lockedRoot = new GameObject("LockedRoot");
+            lockedRoot.SetActive(false);
+            lockedRoot.transform.SetParent(rootObject.transform, worldPositionStays: false);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                presenter.PresentInitial(new[] { firstEmitter, secondEmitter, targetBox }, topology);
+                var registry = rootObject.GetComponent<GameplayEntityViewRegistry>();
+                Assert.That(registry.TryGetView(20, out var targetView), Is.True);
+                var target = targetView.gameObject.AddComponent<GravityFieldLockedTargetVisualTargetView>();
+                PlayerViewPrefabTestUtility.SetSerializedField(target, "lockedVisualRoot", lockedRoot);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    new[] { firstEmitter, secondEmitter, targetBox },
+                    topology,
+                    CreateGravityFieldVisualPresentationData(
+                        CreateGravityFieldVisualState(
+                            30,
+                            firstEmitterCell,
+                            GravityFieldPhase.Active,
+                            timerTicks: 2,
+                            durationTicks: 5,
+                            lockedTargetEntityIds: new[] { 20 }),
+                        CreateGravityFieldVisualState(
+                            31,
+                            secondEmitterCell,
+                            GravityFieldPhase.Active,
+                            timerTicks: 2,
+                            durationTicks: 5,
+                            lockedTargetEntityIds: new[] { 20 }))));
+
+                Assert.That(target.DebugActiveEmitterCount, Is.EqualTo(2));
+                Assert.That(lockedRoot.activeSelf, Is.True);
+
+                presenter.Present(CreateTickResult(
+                    2,
+                    new[] { firstEmitter, secondEmitter, targetBox },
+                    topology,
+                    CreateGravityFieldVisualPresentationData(
+                        CreateGravityFieldVisualState(
+                            31,
+                            secondEmitterCell,
+                            GravityFieldPhase.Active,
+                            timerTicks: 1,
+                            durationTicks: 5,
+                            lockedTargetEntityIds: new[] { 20 }))));
+
+                Assert.That(target.DebugActiveEmitterCount, Is.EqualTo(1));
+                Assert.That(lockedRoot.activeSelf, Is.True);
+
+                presenter.Present(CreateTickResult(3, new[] { firstEmitter, secondEmitter, targetBox }, topology, TickPresentationData.Empty));
+
+                Assert.That(target.DebugActiveEmitterCount, Is.Zero);
+                Assert.That(lockedRoot.activeSelf, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_GravityFieldLockedTargets_DuplicateTargetIdsApplyOnce()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_GravityFieldLockedTargets_DuplicateTargetIdsApplyOnce));
+            var emitterCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var emitter = CreateBox(30, emitterCell);
+            var targetBox = CreateBox(20, targetCell);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                presenter.PresentInitial(new[] { emitter, targetBox }, topology);
+                var registry = rootObject.GetComponent<GameplayEntityViewRegistry>();
+                Assert.That(registry.TryGetView(20, out var targetView), Is.True);
+                var target = targetView.gameObject.AddComponent<RecordingGravityFieldVisualTarget>();
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    new[] { emitter, targetBox },
+                    topology,
+                    CreateGravityFieldVisualPresentationData(
+                        CreateGravityFieldVisualState(
+                            30,
+                            emitterCell,
+                            GravityFieldPhase.Active,
+                            timerTicks: 2,
+                            durationTicks: 5,
+                            lockedTargetEntityIds: new[] { 20, 20 }))));
+
+                Assert.That(target.ApplyLockedTargetCount, Is.EqualTo(1));
+                Assert.That(target.ClearLockedTargetCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_GravityFieldLockedTargets_DoesNotCreateSnapshots()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_GravityFieldLockedTargets_DoesNotCreateSnapshots));
+            var emitterCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var emitter = CreateBox(30, emitterCell);
+            var targetBox = CreateBox(20, targetCell);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                presenter.PresentInitial(new[] { emitter, targetBox }, topology);
+                var registry = rootObject.GetComponent<GameplayEntityViewRegistry>();
+                Assert.That(registry.TryGetView(20, out var targetView), Is.True);
+                targetView.gameObject.AddComponent<RecordingGravityFieldVisualTarget>();
+
+                using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+                {
+                    presenter.Present(CreateTickResult(
+                        1,
+                        new[] { emitter, targetBox },
+                        topology,
+                        CreateGravityFieldVisualPresentationData(
+                            CreateGravityFieldVisualState(
+                                30,
+                                emitterCell,
+                                GravityFieldPhase.Active,
+                                timerTicks: 2,
+                                durationTicks: 5,
+                                lockedTargetEntityIds: new[] { 20 }))));
+
+                    Assert.That(capture.Counts.WorldStateCreateSnapshotCount, Is.Zero);
+                    Assert.That(capture.Counts.ProjectedWorldMaterializedSnapshotCount, Is.Zero);
+                }
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_GravityFieldLockedTargets_MissingOnClearNoOpsWithDiagnostic()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_GravityFieldLockedTargets_MissingOnClearNoOpsWithDiagnostic));
+            var diagnostics = new List<string>();
+            var emitterCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var emitter = CreateBox(30, emitterCell);
+            var targetBox = CreateBox(20, targetCell);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                presenter.SetGravityFieldVisualDiagnosticSink(diagnostics.Add);
+                presenter.PresentInitial(new[] { emitter, targetBox }, topology);
+                var registry = rootObject.GetComponent<GameplayEntityViewRegistry>();
+                Assert.That(registry.TryGetView(20, out var targetView), Is.True);
+                targetView.gameObject.AddComponent<RecordingGravityFieldVisualTarget>();
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    new[] { emitter, targetBox },
+                    topology,
+                    CreateGravityFieldVisualPresentationData(
+                        CreateGravityFieldVisualState(
+                            30,
+                            emitterCell,
+                            GravityFieldPhase.Active,
+                            timerTicks: 2,
+                            durationTicks: 5,
+                            lockedTargetEntityIds: new[] { 20 }))));
+
+                UnityEngine.Object.DestroyImmediate(targetView.gameObject);
+                registry.Unregister(20);
+
+                Assert.DoesNotThrow(() => presenter.Present(
+                    CreateTickResult(2, new[] { emitter }, topology, TickPresentationData.Empty)));
+                Assert.That(diagnostics.Any(message => message.Contains("missing locked target clear visual target")), Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_GravityFieldVisualMissingOrUnsupported_NoOpsWithDiagnostic()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_GravityFieldVisualMissingOrUnsupported_NoOpsWithDiagnostic));
+            var diagnostics = new List<string>();
+            var emitter = CreateBox(30, new SurfaceCell(FaceId.Floor, 1, 1));
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                presenter.SetGravityFieldVisualDiagnosticSink(diagnostics.Add);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    Array.Empty<EntityState>(),
+                    topology,
+                    CreateGravityFieldPresentationData(new GravityFieldPresentationEvent(
+                        GravityFieldPresentationEventKind.Activated,
+                        999,
+                        new SurfaceCell(FaceId.Floor, 0, 0)))));
+
+                presenter.PresentInitial(new[] { emitter }, topology);
+                presenter.SetGravityFieldVisualDiagnosticSink(diagnostics.Add);
+                presenter.Present(CreateTickResult(
+                    2,
+                    new[] { emitter },
+                    topology,
+                    CreateGravityFieldPresentationData(new GravityFieldPresentationEvent(
+                        GravityFieldPresentationEventKind.Expired,
+                        30,
+                        emitter.position))));
+
+                Assert.That(diagnostics.Any(message => message.Contains("missing Activated visual target")), Is.True);
+                Assert.That(diagnostics.Any(message => message.Contains("unsupported Expired visual target")), Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_CurrentTilePresentationRequests_IsReadOnlyDefensiveCopy()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_CurrentTilePresentationRequests_IsReadOnlyDefensiveCopy));
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    Array.Empty<EntityState>(),
+                    topology,
+                    CreateTilePresentationData(CreateButtonActivatedTileEvent(100, new SurfaceCell(FaceId.Floor, 0, 0)))));
+
+                Assert.That(presenter.CurrentTilePresentationRequests, Is.InstanceOf<ReadOnlyCollection<TilePresentationRequest>>());
+                var list = (IList<TilePresentationRequest>)presenter.CurrentTilePresentationRequests;
+                Assert.That(list.IsReadOnly, Is.True);
+                Assert.Throws<NotSupportedException>(() => list.Add(default));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_ButtonActivatedRequest_InvokesAttachedTileVisualTargetAndKeepsRequestCache()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_ButtonActivatedRequest_InvokesAttachedTileVisualTargetAndKeepsRequestCache));
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                var target = AttachTileVisualTarget(rootObject, presenter, 100, cell);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    Array.Empty<EntityState>(),
+                    topology,
+                    CreateTilePresentationData(CreateButtonActivatedTileEvent(100, cell))));
+
+                Assert.That(target.DebugPlayButtonActivatedCount, Is.EqualTo(1));
+                Assert.That(presenter.CurrentTilePresentationRequests, Has.Count.EqualTo(1));
+                Assert.That(presenter.CurrentTilePresentationRequests[0].TileId, Is.EqualTo(100));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_DestroyTileRequest_InvokesAttachedTileVisualTargetAndKeepsRequestCache()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_DestroyTileRequest_InvokesAttachedTileVisualTargetAndKeepsRequestCache));
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                var target = AttachTileVisualTarget(rootObject, presenter, 100, cell);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    Array.Empty<EntityState>(),
+                    topology,
+                    CreateTilePresentationData(CreateDestroyTileTriggeredTileEvent(100, cell, targetEntityId: 20))));
+
+                Assert.That(target.DebugPlayDestroyTileTriggeredCount, Is.EqualTo(1));
+                Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
+                Assert.That(presenter.CurrentTilePresentationRequests, Has.Count.EqualTo(1));
+                Assert.That(presenter.CurrentTilePresentationRequests[0].RequestKind, Is.EqualTo(TilePresentationRequestKind.DestroyTileTriggered));
+                Assert.That(presenter.CurrentTilePresentationRequests[0].TargetEntityId, Is.EqualTo(20));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_ButtonActivatedRequest_NextTickWithoutRequest_DoesNotInvokeAgain()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_ButtonActivatedRequest_NextTickWithoutRequest_DoesNotInvokeAgain));
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                var target = AttachTileVisualTarget(rootObject, presenter, 100, cell);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    Array.Empty<EntityState>(),
+                    topology,
+                    CreateTilePresentationData(CreateButtonActivatedTileEvent(100, cell))));
+                presenter.Present(CreateTickResult(2, Array.Empty<EntityState>(), topology, TickPresentationData.Empty));
+
+                Assert.That(target.DebugPlayButtonActivatedCount, Is.EqualTo(1));
+                Assert.That(presenter.CurrentTilePresentationRequests, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
         [Test]
         [Category("Extended")]
         public void GameplayTickViewPresenter_MoveMotionWithoutEntityOverride_UsesGlobalDuration()
@@ -2254,6 +3327,61 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void GameplayTickPresentationCoordinator_GravityFieldContinuousVisualState_RespectsArchitectureBoundaries()
+        {
+            var hostRuntimeDirectory = Path.Combine(Application.dataPath, "_Features/Gameplay/Gameplay_Host/Runtime");
+            var loopRuntimeDirectory = Path.Combine(Application.dataPath, "_Features/Gameplay/Gameplay_Loop/Runtime");
+            var gravityFieldVisualConsumers = new[]
+            {
+                Path.Combine(hostRuntimeDirectory, "GravityFieldVisualPresentationController.cs"),
+                Path.Combine(hostRuntimeDirectory, "IGravityFieldVisualTarget.cs"),
+                Path.Combine(hostRuntimeDirectory, "GravityFieldVisualTargetView.cs"),
+                Path.Combine(hostRuntimeDirectory, "GravityFieldLockedTargetVisualTargetView.cs"),
+            };
+
+            foreach (var path in gravityFieldVisualConsumers)
+            {
+                var source = File.ReadAllText(path);
+
+                Assert.That(source, Does.Not.Contain("CreateSnapshot"), path);
+                Assert.That(source, Does.Not.Contain("WorldState"), path);
+                Assert.That(source, Does.Not.Contain("Play3D"), path);
+                Assert.That(source, Does.Not.Contain("StagePresentationDefinition"), path);
+            }
+
+            var gravityFieldVisualController = File.ReadAllText(
+                Path.Combine(hostRuntimeDirectory, "GravityFieldVisualPresentationController.cs"));
+            var gravityFieldTargetView = File.ReadAllText(
+                Path.Combine(hostRuntimeDirectory, "GravityFieldVisualTargetView.cs"));
+            var gravityFieldLockedTargetView = File.ReadAllText(
+                Path.Combine(hostRuntimeDirectory, "GravityFieldLockedTargetVisualTargetView.cs"));
+            Assert.That(gravityFieldVisualController, Does.Not.Contain("TileFeatureVisualRegistry"));
+            Assert.That(gravityFieldTargetView, Does.Not.Contain("TileFeatureVisualRegistry"));
+            Assert.That(gravityFieldLockedTargetView, Does.Not.Contain("TileFeatureVisualRegistry"));
+            Assert.That(gravityFieldTargetView, Does.Not.Contain("GameplayCubeProjector"));
+            Assert.That(gravityFieldLockedTargetView, Does.Not.Contain("GameplayCubeProjector"));
+            Assert.That(gravityFieldTargetView, Does.Not.Contain("TryProject"));
+            Assert.That(gravityFieldLockedTargetView, Does.Not.Contain("TryProject"));
+            Assert.That(gravityFieldTargetView, Does.Not.Contain(".material"));
+            Assert.That(gravityFieldLockedTargetView, Does.Not.Contain(".material"));
+            Assert.That(gravityFieldTargetView, Does.Not.Contain("sharedMaterial"));
+            Assert.That(gravityFieldLockedTargetView, Does.Not.Contain("sharedMaterial"));
+
+            var coordinatorSource = File.ReadAllText(Path.Combine(hostRuntimeDirectory, "GameplayTickPresentationCoordinator.cs"));
+            var presenterSource = File.ReadAllText(Path.Combine(hostRuntimeDirectory, "GameplayTickViewPresenter.cs"));
+            Assert.That(coordinatorSource, Does.Not.Contain("WorldState.CreateSnapshot"));
+            Assert.That(presenterSource, Does.Not.Contain("WorldState.CreateSnapshot"));
+
+            var tickPipelineSource = File.ReadAllText(Path.Combine(loopRuntimeDirectory, "TickPipeline.cs"));
+            Assert.That(tickPipelineSource, Does.Not.Contain("GravityFieldVisualTargetView"));
+            Assert.That(tickPipelineSource, Does.Not.Contain("GravityFieldLockedTargetVisualTargetView"));
+            Assert.That(tickPipelineSource, Does.Not.Contain("IGravityFieldContinuousVisualTarget"));
+            Assert.That(tickPipelineSource, Does.Not.Contain("IGravityFieldLockedTargetVisualTarget"));
+            Assert.That(tickPipelineSource, Does.Not.Contain("Play3D"));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayTickPresentationCoordinator_PlayerDeathTick_SuppressesHitVfx()
         {
             var rootObject = new GameObject("GameplayTickPresentationCoordinator_PlayerDeathTick_SuppressesHitVfx");
@@ -4110,6 +5238,157 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new TickPresentationData(motions));
         }
 
+        private static GameplayTickViewPresenter CreateInitializedPresenter(
+            GameObject rootObject,
+            out CubeTopologyState topology)
+        {
+            var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+            var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+            var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+            topology = new CubeTopologyState(FaceId.Floor);
+
+            presenter.Initialize(
+                binder,
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                topology,
+                1f,
+                CreateTimingProfile());
+            presenter.PresentInitial(Array.Empty<EntityState>(), topology);
+            return presenter;
+        }
+
+        private static TileFeatureVisualTargetView AttachTileVisualTarget(
+            GameObject rootObject,
+            GameplayTickViewPresenter presenter,
+            int tileId,
+            SurfaceCell cell)
+        {
+            var registry = rootObject.GetComponent<TileFeatureVisualRegistry>() ??
+                rootObject.AddComponent<TileFeatureVisualRegistry>();
+            var targetObject = new GameObject($"TileFeatureVisualTarget_{tileId}");
+            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+            target.Configure(tileId, cell);
+            registry.ConfigureSearchRoot(rootObject.transform);
+            presenter.AttachTileFeatureVisualRegistry(registry);
+            return target;
+        }
+
+        private static TickPresentationData CreateTilePresentationData(params TilePresentationEvent[] tileEvents)
+        {
+            return new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                Array.Empty<TickPlayerDeathPresentationSignal>(),
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                Array.Empty<TickEnemyChargePresentationSignal>(),
+                Array.Empty<TickEntityExitPresentationSignal>(),
+                Array.Empty<TickImpactTransientPresentationSignal>(),
+                Array.Empty<FlipImpactPresentationSignal>(),
+                tileEvents: tileEvents);
+        }
+
+        private static TickPresentationData CreateGravityFieldPresentationData(
+            params GravityFieldPresentationEvent[] gravityFieldEvents)
+        {
+            return CreateGravityFieldPresentationData(
+                Array.Empty<GravityFieldVisualState>(),
+                gravityFieldEvents);
+        }
+
+        private static TickPresentationData CreateGravityFieldPresentationData(
+            IReadOnlyList<GravityFieldVisualState> gravityFieldVisualStates,
+            params GravityFieldPresentationEvent[] gravityFieldEvents)
+        {
+            return new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                Array.Empty<TickPlayerDeathPresentationSignal>(),
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                Array.Empty<TickEnemyChargePresentationSignal>(),
+                Array.Empty<TickEntityExitPresentationSignal>(),
+                Array.Empty<TickImpactTransientPresentationSignal>(),
+                Array.Empty<FlipImpactPresentationSignal>(),
+                gravityFieldEvents: gravityFieldEvents,
+                gravityFieldVisualStates: gravityFieldVisualStates);
+        }
+
+        private static TickPresentationData CreateGravityFieldVisualPresentationData(
+            params GravityFieldVisualState[] gravityFieldVisualStates)
+        {
+            return CreateGravityFieldPresentationData(
+                gravityFieldVisualStates,
+                Array.Empty<GravityFieldPresentationEvent>());
+        }
+
+        private static GravityFieldVisualState CreateGravityFieldVisualState(
+            int emitterEntityId,
+            SurfaceCell cell,
+            GravityFieldPhase phase,
+            int timerTicks,
+            int durationTicks,
+            IReadOnlyList<SurfaceCell> areaCells = null,
+            int slotVisibilityMask = 0,
+            IReadOnlyList<int> lockedTargetEntityIds = null)
+        {
+            var progress = durationTicks <= 0
+                ? 0f
+                : (durationTicks - Math.Max(0, timerTicks)) / (float)durationTicks;
+            return new GravityFieldVisualState(
+                emitterEntityId,
+                cell,
+                phase,
+                Math.Max(0, timerTicks),
+                durationTicks,
+                progress,
+                areaCells == null && slotVisibilityMask == 0
+                    ? GravityFieldAreaFootprint.Empty
+                    : new GravityFieldAreaFootprint(areaCells ?? Array.Empty<SurfaceCell>(), slotVisibilityMask),
+                lockedTargetEntityIds ?? Array.Empty<int>());
+        }
+
+        private static TilePresentationEvent CreateButtonActivatedTileEvent(int tileId, SurfaceCell cell)
+        {
+            return new TilePresentationEvent(
+                TilePresentationEventKind.ButtonActivated,
+                tileId,
+                cell,
+                TileFeatureKind.Button,
+                sourceEntityId: tileId + 1,
+                ownerEntityId: tileId + 2,
+                teamId: tileId + 3);
+        }
+
+        private static TilePresentationEvent CreateDestroyTileTriggeredTileEvent(
+            int tileId,
+            SurfaceCell cell,
+            int targetEntityId)
+        {
+            return new TilePresentationEvent(
+                TilePresentationEventKind.DestroyTileTriggered,
+                tileId,
+                cell,
+                TileFeatureKind.Destroy,
+                sourceEntityId: tileId + 1,
+                ownerEntityId: tileId + 2,
+                teamId: tileId + 3,
+                targetEntityId: targetEntityId);
+        }
+
         private static TickPresentationData CreateKinematicPresentationData(
             IReadOnlyList<TickEntityMotion> entityMotions,
             IReadOnlyList<TickKinematicMotionTrack> kinematicMotionTracks,
@@ -4559,6 +5838,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 tickIndex * 31 + sourceEntityId);
         }
 
+        private static GameObject[] CreateAreaSlots(Transform parent, int slotCount)
+        {
+            var slots = new GameObject[slotCount];
+            for (var i = 0; i < slots.Length; i++)
+            {
+                var slot = new GameObject($"AreaSlot_{i}");
+                slot.transform.SetParent(parent, worldPositionStays: false);
+                slots[i] = slot;
+            }
+
+            return slots;
+        }
+
         private static int CountDescendantsByNamePrefix(Transform root, string prefix)
         {
             var count = 0;
@@ -4618,6 +5910,64 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 entityMoveDurationSeconds);
 
             return view;
+        }
+
+        private sealed class RecordingGravityFieldVisualTarget :
+            MonoBehaviour,
+            IGravityFieldActivatedVisualTarget,
+            IGravityFieldExpiredVisualTarget,
+            IGravityFieldContinuousVisualTarget,
+            IGravityFieldLockedTargetVisualTarget
+        {
+            public int ActivatedCount { get; private set; }
+
+            public int ExpiredCount { get; private set; }
+
+            public int ApplyContinuousCount { get; private set; }
+
+            public int ClearContinuousCount { get; private set; }
+
+            public int ApplyLockedTargetCount { get; private set; }
+
+            public int ClearLockedTargetCount { get; private set; }
+
+            public GravityFieldVisualState LastContinuousState { get; private set; }
+
+            public int LastLockedTargetEmitterEntityId { get; private set; }
+
+            public void PlayGravityFieldActivated()
+            {
+                ActivatedCount++;
+            }
+
+            public void PlayGravityFieldExpired()
+            {
+                ExpiredCount++;
+            }
+
+            public void ApplyGravityFieldVisualState(GravityFieldVisualState state)
+            {
+                ApplyContinuousCount++;
+                LastContinuousState = state;
+            }
+
+            public void ClearGravityFieldVisualState()
+            {
+                ClearContinuousCount++;
+                LastContinuousState = default;
+            }
+
+            public void ApplyGravityFieldLockedTarget(int emitterEntityId)
+            {
+                ApplyLockedTargetCount++;
+                LastLockedTargetEmitterEntityId = emitterEntityId;
+            }
+
+            public void ClearGravityFieldLockedTarget(int emitterEntityId)
+            {
+                ClearLockedTargetCount++;
+                LastLockedTargetEmitterEntityId = emitterEntityId;
+            }
         }
 
         private sealed class MotionOverrideViewFactory : IGameplayEntityViewFactory

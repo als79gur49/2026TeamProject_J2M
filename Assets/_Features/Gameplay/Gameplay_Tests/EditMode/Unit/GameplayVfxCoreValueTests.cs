@@ -180,11 +180,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var events = new[]
             {
                 new TilePresentationEvent(TilePresentationEventKind.ButtonActivated, 1, cell, TileFeatureKind.Button, 10, 0, 1),
-                new TilePresentationEvent(TilePresentationEventKind.DestroyTileTriggered, 2, cell, TileFeatureKind.DestroyTile, 10, 0, 1),
-                new TilePresentationEvent(TilePresentationEventKind.SlideTileRedirected, 3, cell, TileFeatureKind.SlideTile, 10, 0, 1, direction: Direction.Up),
-                new TilePresentationEvent(TilePresentationEventKind.SlideTileRedirected, 4, cell, TileFeatureKind.SlideTile, 10, 0, 1, direction: Direction.Right),
-                new TilePresentationEvent(TilePresentationEventKind.SlideTileRedirected, 5, cell, TileFeatureKind.SlideTile, 10, 0, 1, direction: Direction.Down),
-                new TilePresentationEvent(TilePresentationEventKind.SlideTileRedirected, 6, cell, TileFeatureKind.SlideTile, 10, 0, 1, direction: Direction.Left),
+                new TilePresentationEvent(TilePresentationEventKind.DestroyTileTriggered, 2, cell, TileFeatureKind.Destroy, 10, 0, 1),
+                new TilePresentationEvent(TilePresentationEventKind.SlideTileRedirected, 3, cell, TileFeatureKind.Slide, 10, 0, 1, direction: Direction.Up),
+                new TilePresentationEvent(TilePresentationEventKind.SlideTileRedirected, 4, cell, TileFeatureKind.Slide, 10, 0, 1, direction: Direction.Right),
+                new TilePresentationEvent(TilePresentationEventKind.SlideTileRedirected, 5, cell, TileFeatureKind.Slide, 10, 0, 1, direction: Direction.Down),
+                new TilePresentationEvent(TilePresentationEventKind.SlideTileRedirected, 6, cell, TileFeatureKind.Slide, 10, 0, 1, direction: Direction.Left),
                 new TilePresentationEvent(TilePresentationEventKind.BarricadeBlocked, 7, cell, TileFeatureKind.Barricade, 10, 0, 1, direction: Direction.Up),
                 new TilePresentationEvent(TilePresentationEventKind.BarricadeBlocked, 8, cell, TileFeatureKind.Barricade, 10, 0, 1, direction: Direction.Right),
                 new TilePresentationEvent(TilePresentationEventKind.BarricadeBlocked, 9, cell, TileFeatureKind.Barricade, 10, 0, 1, direction: Direction.Down),
@@ -229,7 +229,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var plan = PlanTileFeature(
                 topology,
-                new TilePresentationEvent(TilePresentationEventKind.SlideTileRedirected, 1, cell, TileFeatureKind.SlideTile, 10, 0, 1),
+                new TilePresentationEvent(TilePresentationEventKind.SlideTileRedirected, 1, cell, TileFeatureKind.Slide, 10, 0, 1),
                 new TilePresentationEvent(TilePresentationEventKind.BarricadeBlocked, 2, cell, TileFeatureKind.Barricade, 10, 0, 1));
 
             Assert.That(plan.Requests, Is.Empty);

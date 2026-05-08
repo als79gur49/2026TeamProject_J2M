@@ -6,6 +6,8 @@
     "Game.Feature.Gameplay.EnemyPresentation",
     "Game.Feature.Gameplay.ActionAudio",
     "Game.Feature.Gameplay.Audio",
+    "Game.Feature.Gameplay.TileFeatureAudio",
+    "Game.Feature.Gameplay.GravityFieldAudio",
     "Game.Feature.Gameplay.UIAccess",
     "Game.Feature.Flow.Audio",
     "Game.Shared.Audio",

@@ -2,12 +2,12 @@ namespace Game.Feature.Gameplay.BoardState
 {
     public enum TileFeatureKind
     {
-        None = 0,
-        Button = 1,
-        DestroyTile = 2,
-        SlideTile = 3,
-        Barricade = 4,
-        Exit = 5,
-        MoonBlockGenerator = 6,
+        Unknown = 0,
+        Slide = 1,
+        Destroy = 2,
+        Barricade = 3,
+        Button = 4,
+        MoonBlockGenerator = 5,
+        Exit = 6,
     }
 }

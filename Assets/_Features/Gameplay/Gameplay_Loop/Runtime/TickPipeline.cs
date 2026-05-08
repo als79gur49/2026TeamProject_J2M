@@ -40,6 +40,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly AttackExpander _attackExpander;
         private readonly CleanupProcessor _cleanupProcessor = new();
         private readonly RespawnProcessor _respawnProcessor = new();
+        private readonly MoonBlockGeneratorRespawnProcessor _moonBlockGeneratorRespawnProcessor = new();
         private readonly TickResultBuilder _tickResultBuilder = new();
         private readonly DeterminismHashBuilder _determinismHashBuilder = new();
         private readonly TickTraceBuilder _tickTraceBuilder = new();
@@ -50,11 +51,16 @@ namespace Game.Feature.Gameplay.Loop
         private readonly int _playerMoveCooldownTicks;
         private readonly int _playerDamageCooldownTicks;
         private readonly int _playerRespawnDelayTicks;
+        private readonly int _gravityFieldChargeTicks;
+        private readonly int _gravityFieldActiveTicks;
         private readonly PlayerKinematicLocomotionTimingSnapshot _playerKinematicLocomotionTiming;
         private readonly PlayerContinuousLocomotionSnapshot _playerContinuousLocomotion;
         private readonly bool _allowPlayerRespawn;
         private readonly GameplayRuntimeFeatureFlags _runtimeFeatureFlags;
         private readonly int _slidingStateTimerTicks;
+        private readonly IReadOnlyList<TileFeatureRuntimeDefinition> _tileFeatureDefinitions;
+        private readonly IReadOnlyList<MoonBlockRespawnDefinition> _moonBlockRespawnDefinitions;
+        private readonly ITileEffectResolver _tileEffectResolver;
         private readonly WorldState _worldState;
 
         private enum EnemyGlideKinematicKind
@@ -77,6 +83,40 @@ namespace Game.Feature.Gameplay.Loop
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
             PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming = default,
             PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default)
+            : this(
+                worldState,
+                entityLogics,
+                entityLogicProvider,
+                generalTimingProfile,
+                playerControlTiming,
+                playerRespawnDelayTicks,
+                objectiveDefinition,
+                enemySpawnDefaultsByArchetypeId,
+                allowPlayerRespawn,
+                runtimeFeatureFlags,
+                playerKinematicLocomotionTiming,
+                playerContinuousLocomotion,
+                tileFeatureDefinitions: null,
+                tileEffectResolver: null)
+        {
+        }
+
+        internal TickPipeline(
+            WorldState worldState,
+            IEnumerable<IEntityLogic> entityLogics,
+            ISnapshotEntityLogicProvider entityLogicProvider,
+            GameplayTimingProfile generalTimingProfile,
+            PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
+            int playerRespawnDelayTicks,
+            StageObjectiveRuntimeDefinition objectiveDefinition,
+            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> enemySpawnDefaultsByArchetypeId,
+            bool allowPlayerRespawn,
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags,
+            PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming,
+            PlayerContinuousLocomotionSnapshot playerContinuousLocomotion,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            IReadOnlyList<MoonBlockRespawnDefinition> moonBlockRespawnDefinitions = null,
+            ITileEffectResolver tileEffectResolver = null)
         {
             _worldState = worldState ?? throw new ArgumentNullException(nameof(worldState));
 
@@ -104,6 +144,12 @@ namespace Game.Feature.Gameplay.Loop
             _playerMoveCooldownTicks = Math.Max(0, playerControlTiming.MoveCooldownTicks);
             _playerDamageCooldownTicks = Math.Max(0, playerControlTiming.DamageCooldownTicks);
             _playerRespawnDelayTicks = playerRespawnDelayTicks;
+            _gravityFieldChargeTicks = GameplayTimingProfile.SecondsToCeilTicks(
+                GravityFieldRuntimePolicy.ChargeDurationSeconds,
+                resolvedGeneralTimingProfile.SimulationTicksPerSecond);
+            _gravityFieldActiveTicks = GameplayTimingProfile.SecondsToCeilTicks(
+                GravityFieldRuntimePolicy.ActiveDurationSeconds,
+                resolvedGeneralTimingProfile.SimulationTicksPerSecond);
             _playerKinematicLocomotionTiming = playerKinematicLocomotionTiming.IsConfigured
                 ? playerKinematicLocomotionTiming
                 : PlayerKinematicLocomotionTimingSettings.CreateDefault()
@@ -112,6 +158,13 @@ namespace Game.Feature.Gameplay.Loop
                 ? playerContinuousLocomotion
                 : PlayerContinuousLocomotionSettings.CreateDefault()
                     .CreateAuthoritativeSnapshot(resolvedGeneralTimingProfile.SimulationTicksPerSecond);
+            _tileFeatureDefinitions = tileFeatureDefinitions == null
+                ? Array.Empty<TileFeatureRuntimeDefinition>()
+                : new List<TileFeatureRuntimeDefinition>(tileFeatureDefinitions).AsReadOnly();
+            _moonBlockRespawnDefinitions = moonBlockRespawnDefinitions == null
+                ? Array.Empty<MoonBlockRespawnDefinition>()
+                : new List<MoonBlockRespawnDefinition>(moonBlockRespawnDefinitions).AsReadOnly();
+            _tileEffectResolver = tileEffectResolver ?? TileFeatureEffectResolver.Instance;
             _allowPlayerRespawn = allowPlayerRespawn;
             _runtimeFeatureFlags = runtimeFeatureFlags;
             _moveOccupancyTicks = resolvedGeneralTimingProfile.MoveOccupancyTicks;
@@ -219,7 +272,15 @@ namespace Game.Feature.Gameplay.Loop
                 snapshotAfterEnemyAi,
                 input.PlayerCommand,
                 resolvePhaseResult.ResolutionRecords,
-                _enemyGlidePresentationSettingsResolver);
+                _enemyGlidePresentationSettingsResolver,
+                resolvePhaseResult.TilePresentationEvents,
+                objectiveResult,
+                _objectiveTracker.ObjectiveDefinition,
+                _tileFeatureDefinitions,
+                resolvePhaseResult.GravityFieldPresentationEvents,
+                _gravityFieldChargeTicks,
+                _gravityFieldActiveTicks,
+                resolvePhaseResult.GravityFieldLockedTargetFacts);
             var pendingDelayedAttackEffects = _delayedAttackEffectQueue.Snapshot();
             var tickResultData = _tickResultBuilder.Build(
                 finalAuthoritativeSnapshot,
@@ -484,6 +545,20 @@ namespace Game.Feature.Gameplay.Loop
                 snapshotAfterEnemyAi = projectedWorld.CreateSnapshot();
             }
 
+            var gravityFieldResult = GravityFieldRuntimeResolver.ResolvePreMovement(
+                snapshotAfterEnemyAi,
+                input.TickIndex,
+                _gravityFieldChargeTicks,
+                _gravityFieldActiveTicks);
+            var gravityFieldBatch = gravityFieldResult.Batch;
+            var gravityFieldEvents = gravityFieldResult.EventLogEntries;
+            if (gravityFieldBatch.Operations.Count > 0)
+            {
+                planFinalizationBatch.MergeFrom(gravityFieldBatch);
+                projectedWorld.ApplyBatch(gravityFieldBatch);
+                snapshotAfterEnemyAi = projectedWorld.CreateSnapshot();
+            }
+
             var preMovementBatch = new FinalizationBatch();
             var utilityTriggerIntents = new List<EnemyUtilityTriggerIntent>();
             var preMovementContext = new RecordingFinalizationContext(
@@ -499,6 +574,10 @@ namespace Game.Feature.Gameplay.Loop
             if (kinematicClosureEvents.Count > 0)
             {
                 preMovementStateResult.EventLogEntries.InsertRange(0, kinematicClosureEvents);
+            }
+            if (gravityFieldEvents.Count > 0)
+            {
+                preMovementStateResult.EventLogEntries.InsertRange(0, gravityFieldEvents);
             }
             utilityTriggerIntents.Sort(EnemyUtilityTriggerIntentComparer.Instance);
             preMovementStateResult.UtilityTriggerIntents.AddRange(utilityTriggerIntents);
@@ -597,6 +676,7 @@ namespace Game.Feature.Gameplay.Loop
                 planSnapshot.Topology,
                 input.TickIndex);
             var frontFaceShieldBlockExports = new List<FrontFaceShieldBlockPresentationExport>();
+            var barricadeBlockFacts = new List<BarricadeBlockFact>();
             var expandedCandidates = new List<ActionGroup>();
             var preExpansionRejectedReasons = new List<string>(rejectedReasons);
             var legacyExpansionIntents = ValidateLegacyExpansionIntents(
@@ -615,7 +695,9 @@ namespace Game.Feature.Gameplay.Loop
                 expandedCandidates,
                 rejectedReasons,
                 frontFaceShieldBlockExports,
-                forbiddenLegacyUnitOrdinaryIntentIds);
+                barricadeBlockFacts,
+                forbiddenLegacyUnitOrdinaryIntentIds,
+                _tileFeatureDefinitions);
             if (preExpansionRejectedReasons.Count > 0)
             {
                 rejectedReasons.InsertRange(0, preExpansionRejectedReasons);
@@ -661,12 +743,15 @@ namespace Game.Feature.Gameplay.Loop
                 orderedPhaseRelocationActionPlanIds,
                 frontFaceShieldSourceExports,
                 frontFaceShieldBlockExports,
+                barricadeBlockFacts,
                 nextContestId,
                 aiPhaseResult,
                 preMovementStateResult,
                 snapshotAfterEnemyAi,
                 planSnapshot,
-                planFinalizationBatch);
+                planFinalizationBatch,
+                gravityFieldResult.PresentationEvents,
+                gravityFieldResult.LockedTargetFacts);
         }
 
         private ResolvePhaseResult RunResolvePhase(
@@ -958,7 +1043,39 @@ namespace Game.Feature.Gameplay.Loop
                     planPhaseResult.MovementActionPlanPayloads,
                     movementResolutionRecords));
             var frozenMovementReservationExport = movementReservationBook.Freeze(finalImpactReservations);
-            attackSnapshot = projectedWorld.CreateSnapshot();
+            var attackReadSnapshot = projectedWorld.CreateSnapshot();
+            var tileEffectBoxContacts = BuildTileEffectBoxContacts(
+                attackReadSnapshot,
+                movementStageBatch,
+                jumpLandingResolveBatch,
+                phaseRelocationResolveBatch);
+            IReadOnlyList<TilePresentationEvent> tilePresentationEvents = Array.Empty<TilePresentationEvent>();
+            var tileEffectResult = _tileEffectResolver.Resolve(
+                new TileEffectResolutionContext(
+                    tickIndex,
+                    attackReadSnapshot,
+                    _tileFeatureDefinitions,
+                    tileEffectBoxContacts,
+                    planSnapshot));
+            tilePresentationEvents = tileEffectResult.TileEvents;
+            if (!tileEffectResult.IsEmpty)
+            {
+                if (!tileEffectResult.Operations.IsEmpty)
+                {
+                    finalizationBatch.ApplyTileFeatureOperations(tileEffectResult.Operations);
+                    projectedWorld.ApplyTileFeatureOperations(tileEffectResult.Operations);
+                }
+
+                if (tileEffectResult.EntityOperations.Operations.Count > 0)
+                {
+                    finalizationBatch.MergeFrom(tileEffectResult.EntityOperations);
+                    projectedWorld.ApplyBatch(tileEffectResult.EntityOperations);
+                }
+
+                attackReadSnapshot = projectedWorld.CreateSnapshot();
+            }
+
+            attackSnapshot = attackReadSnapshot;
             attackPlanResult = BuildAttackPlan(
                 attackSnapshot,
                 in input,
@@ -1111,7 +1228,8 @@ namespace Game.Feature.Gameplay.Loop
                 movementCommitEvents,
                 movementRejectedReasons,
                 planPhaseResult.FrontFaceShieldSourceExports,
-                planPhaseResult.FrontFaceShieldBlockExports);
+                planPhaseResult.FrontFaceShieldBlockExports,
+                planPhaseResult.BarricadeBlockFacts);
 
             AddRange(attackCommitEvents, utilityResolveResult.EventLogEntries);
             var attackResolvedOperations = new List<FinalizationOperation>(attackStageBatch.Operations.Count + utilityResolveResult.Batch.Operations.Count);
@@ -1145,7 +1263,10 @@ namespace Game.Feature.Gameplay.Loop
                 postMovementSnapshot,
                 postAttackSnapshot,
                 contests,
-                resolutionRecords);
+                resolutionRecords,
+                tilePresentationEvents,
+                planPhaseResult.GravityFieldPresentationEvents,
+                planPhaseResult.GravityFieldLockedTargetFacts);
         }
 
         private void RunFinalizePhase(
@@ -1316,6 +1437,36 @@ namespace Game.Feature.Gameplay.Loop
                 _playerRespawnDelayTicks,
                 _allowPlayerRespawn,
                 writeContext);
+            var moonBlockGeneratorResult = _moonBlockGeneratorRespawnProcessor.Process(
+                postCleanupSnapshot,
+                () => SnapshotBuilder.Create(_worldState),
+                respawnPhaseResult.RespawnedEntities.Count > 0 ||
+                respawnPhaseResult.TopologyResetRequest.HasValue,
+                _moonBlockRespawnDefinitions,
+                _tileFeatureDefinitions,
+                tickIndex,
+                writeContext);
+            if (moonBlockGeneratorResult.EventLogEntries.Count > 0 ||
+                moonBlockGeneratorResult.RespawnFacts.Count > 0)
+            {
+                var eventLogEntries = new List<string>(
+                    respawnPhaseResult.EventLogEntries.Count + moonBlockGeneratorResult.EventLogEntries.Count);
+                AddRange(eventLogEntries, respawnPhaseResult.EventLogEntries);
+                AddRange(eventLogEntries, moonBlockGeneratorResult.EventLogEntries);
+                var respawnFacts = new List<MoonBlockGeneratorRespawnFact>(
+                    respawnPhaseResult.MoonBlockGeneratorRespawnFacts.Count +
+                    moonBlockGeneratorResult.RespawnFacts.Count);
+                AddRange(respawnFacts, respawnPhaseResult.MoonBlockGeneratorRespawnFacts);
+                AddRange(respawnFacts, moonBlockGeneratorResult.RespawnFacts);
+                respawnPhaseResult = new RespawnPhaseResult(
+                    respawnPhaseResult.RespawnedEntities,
+                    eventLogEntries,
+                    respawnPhaseResult.PlayerRespawnDelayRecords,
+                    respawnPhaseResult.RespawnPlacementRecords,
+                    respawnPhaseResult.TopologyResetRequest,
+                    respawnFacts);
+            }
+
             phaseTrace.Add("Respawn:Exit");
             completedPhases.Add(TickPhase.Respawn);
             return respawnPhaseResult;
@@ -6351,6 +6502,107 @@ namespace Game.Feature.Gameplay.Loop
                     destination.Add(source[i]);
                 }
             }
+        }
+
+        internal static List<TileEffectBoxContact> BuildTileEffectBoxContacts(
+            WorldSnapshot snapshot,
+            params FinalizationBatch[] batches)
+        {
+            var contacts = new List<TileEffectBoxContact>();
+            if (snapshot == null || batches == null)
+            {
+                return contacts;
+            }
+
+            for (var batchIndex = 0; batchIndex < batches.Length; batchIndex++)
+            {
+                var batch = batches[batchIndex];
+                if (batch == null)
+                {
+                    continue;
+                }
+
+                var operations = batch.Operations;
+                for (var operationIndex = 0; operationIndex < operations.Count; operationIndex++)
+                {
+                    var operation = operations[operationIndex];
+                    if (operation.Kind != FinalizationOperationKind.MoveEntity ||
+                        !TryResolveTileEffectBoxContactKind(operation.Metadata, out var kind) ||
+                        !snapshot.TryGetEntity(operation.EntityId, out var entity) ||
+                        entity.type != EntityType.Box ||
+                        entity.position != operation.Destination ||
+                        entity.boardPresence != EntityBoardPresence.Occupying ||
+                        entity.hp <= 0 ||
+                        entity.markedForDeath)
+                    {
+                        continue;
+                    }
+
+                    contacts.Add(new TileEffectBoxContact(operation.EntityId, operation.Destination, kind));
+                }
+            }
+
+            contacts.Sort(CompareTileEffectBoxContacts);
+            return contacts;
+        }
+
+        private static bool TryResolveTileEffectBoxContactKind(
+            FinalizationOperationMetadata metadata,
+            out TileEffectBoxContactKind kind)
+        {
+            if (metadata.LocalActionIndex == 1 &&
+                (metadata.MovementSemanticKind == MovementSemanticKind.Push ||
+                 metadata.MovementSemanticKind == MovementSemanticKind.Slide ||
+                 metadata.MovementSemanticKind == MovementSemanticKind.Flip))
+            {
+                kind = TileEffectBoxContactKind.ImpactFollowThrough;
+                return true;
+            }
+
+            switch (metadata.MovementSemanticKind)
+            {
+                case MovementSemanticKind.Slide:
+                    kind = TileEffectBoxContactKind.SlideEnter;
+                    return true;
+                case MovementSemanticKind.Push:
+                    kind = TileEffectBoxContactKind.PushEnter;
+                    return true;
+                case MovementSemanticKind.Flip:
+                    kind = TileEffectBoxContactKind.FlipLanding;
+                    return true;
+                default:
+                    kind = default;
+                    return false;
+            }
+        }
+
+        private static int CompareTileEffectBoxContacts(TileEffectBoxContact left, TileEffectBoxContact right)
+        {
+            var cellCompare = CompareSurfaceCells(left.Cell, right.Cell);
+            if (cellCompare != 0)
+            {
+                return cellCompare;
+            }
+
+            var boxCompare = left.BoxEntityId.CompareTo(right.BoxEntityId);
+            if (boxCompare != 0)
+            {
+                return boxCompare;
+            }
+
+            return left.Kind.CompareTo(right.Kind);
+        }
+
+        private static int CompareSurfaceCells(SurfaceCell left, SurfaceCell right)
+        {
+            var faceCompare = left.face.CompareTo(right.face);
+            if (faceCompare != 0)
+            {
+                return faceCompare;
+            }
+
+            var xCompare = left.x.CompareTo(right.x);
+            return xCompare != 0 ? xCompare : left.y.CompareTo(right.y);
         }
 
         private FinalizationBatch MaterializeMovementOperations(

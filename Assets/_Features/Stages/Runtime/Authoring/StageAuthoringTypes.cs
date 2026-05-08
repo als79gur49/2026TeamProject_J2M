@@ -24,6 +24,7 @@ namespace Game.Feature.Stages
         public int Hp = 1;
         public string UnitStackGroup = string.Empty;
         public BoxCapabilities BoxCapabilities = BoxCapabilities.None;
+        public BoxArchetype BoxArchetype = BoxArchetype.Normal;
         public EnemyAiMode EnemyAiMode = EnemyAiMode.None;
         public int EnemyAiStateTimer;
         public EnemyAiProfile EnemyAiProfileOverride;
@@ -41,6 +42,7 @@ namespace Game.Feature.Stages
                 Hp = Hp,
                 UnitStackGroup = UnitStackGroup ?? string.Empty,
                 BoxCapabilities = BoxCapabilities,
+                BoxArchetype = BoxArchetype,
                 EnemyAiMode = EnemyAiMode,
                 EnemyAiStateTimer = EnemyAiStateTimer,
                 EnemyAiProfileOverride = EnemyAiProfileOverride,

@@ -3,11 +3,14 @@ using System.Collections.Generic;
 using Game.Feature.Gameplay.Audio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.GravityFieldAudio;
 using Game.Feature.Gameplay.Host.UIAccess;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.TileFeatureAudio;
 using Game.Feature.Gameplay.UIAccess.Queries;
+using Game.Feature.Stages;
 using Game.Shared.Audio;
 using Game.Shared.Input;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
@@ -20,6 +23,10 @@ namespace Game.Feature.Gameplay.Host
         private const string BoardRootObjectName = "GameplayBoardRoot";
         private const string MissingGameplayAudioRuntimeInstallerMessage =
             "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when GameplayAudioMap is assigned.";
+        private const string MissingTileFeatureAudioRuntimeInstallerMessage =
+            "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when TileFeatureAudioMap is assigned.";
+        private const string MissingGravityFieldAudioRuntimeInstallerMessage =
+            "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when GravityFieldAudioMap is assigned.";
 
         public static GameplayHostRuntimeContext Create(
             GameplaySceneHost host,
@@ -51,9 +58,15 @@ namespace Game.Feature.Gameplay.Host
             var inputHost = hostObject.GetComponent<GameplayInputHost>() ?? hostObject.AddComponent<GameplayInputHost>();
             var presenter = hostObject.GetComponent<GameplayTickViewPresenter>() ?? hostObject.AddComponent<GameplayTickViewPresenter>();
             var viewRegistry = hostObject.GetComponent<GameplayEntityViewRegistry>() ?? hostObject.AddComponent<GameplayEntityViewRegistry>();
+            var tileFeatureVisualRegistry =
+                hostObject.GetComponent<TileFeatureVisualRegistry>() ?? hostObject.AddComponent<TileFeatureVisualRegistry>();
 
             var initialEntities = configuration.InitialEntities ?? Array.Empty<EntityState>();
             var initialTerrain = configuration.InitialTerrain ?? GameplayTerrainData.Empty;
+            var initialTileFeatures = configuration.InitialTileFeatures ?? Array.Empty<TileFeatureState>();
+            var tileFeatureDefinitions = configuration.TileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
+            var moonBlockRespawnDefinitions =
+                configuration.MoonBlockRespawnDefinitions ?? Array.Empty<MoonBlockRespawnDefinition>();
             var generalTimingProfile = configuration.CreateTimingProfile();
             var playerControlTiming = configuration.CreatePlayerControlTimingSnapshot();
             var playerKinematicLocomotionTiming = configuration.CreatePlayerKinematicLocomotionTimingSnapshot();
@@ -73,7 +86,8 @@ namespace Game.Feature.Gameplay.Host
                 normalizedInitialEntities,
                 configuration.InitialBoardBounds,
                 initialTerrain,
-                configuration.InitialTopology);
+                configuration.InitialTopology,
+                initialTileFeatures);
             var initialSnapshot = GameplayCompositionRoot.CreateSnapshot(worldState);
             var presentedInitialEntities = new List<EntityState>();
             initialSnapshot.EnumerateEntitiesOrdered(presentedInitialEntities);
@@ -97,11 +111,14 @@ namespace Game.Feature.Gameplay.Host
                 allowPlayerRespawn: !configuration.DisablePlayerRespawn,
                 runtimeFeatureFlags: configuration.CreateRuntimeFeatureFlags(),
                 playerKinematicLocomotionTiming: playerKinematicLocomotionTiming,
-                playerContinuousLocomotion: playerContinuousLocomotion);
+                playerContinuousLocomotion: playerContinuousLocomotion,
+                tileFeatureDefinitions: tileFeatureDefinitions,
+                moonBlockRespawnDefinitions: moonBlockRespawnDefinitions);
 
             var boardRoot = EnsureBoardRootHierarchy(hostTransform);
             var boardSurfaceRenderer = boardRoot.EnsureBoardSurfaceRenderer();
             viewRegistry.ConfigureSearchRoot(boardRoot.EntityRoot);
+            tileFeatureVisualRegistry.ConfigureSearchRoot(boardRoot.transform);
 
             var viewFactory = configuration.ViewFactory ??
                 (configuration.AutoCreateViews
@@ -114,6 +131,17 @@ namespace Game.Feature.Gameplay.Host
                         BuildStaticViewPrefabs(configuration))
                     : null);
             var viewBinder = new GameplayEntityViewBinder(viewRegistry, viewFactory);
+            var tileFeaturePoseResolver = new BoardSurfaceCellPresentationPoseResolver(
+                configuration.InitialBoardBounds,
+                configuration.CellSize,
+                configuration.InitialTopology,
+                faceSeamGap);
+            InstantiateStageTileFeatureVisuals(
+                configuration.TileFeaturePresentationBindings,
+                initialTileFeatures,
+                boardRoot.transform,
+                tileFeatureVisualRegistry,
+                tileFeaturePoseResolver);
 
             presenter.Initialize(
                 viewBinder,
@@ -129,15 +157,19 @@ namespace Game.Feature.Gameplay.Host
                 enemyPresentationArchetypeRegistry,
                 configuration.EnemyPresentationCatalog,
                 configuration.EnemyPresentationBindings);
+            presenter.AttachTileFeatureVisualRegistry(tileFeatureVisualRegistry);
             AttachPresentationExtensions(hostObject, presenter);
-            AttachGameplayAudioRuntimeIfConfigured(hostObject, presenter, configuration);
+            AttachAudioRuntimesIfConfigured(hostObject, presenter, configuration);
 
             boardSurfaceRenderer.Initialize(
                 configuration.InitialBoardBounds,
                 configuration.CellSize,
                 configuration.InitialTopology,
                 faceSeamGap,
-                configuration.BoardSurfaceTexture);
+                configuration.BoardSurfaceTexture,
+                configuration.BoardTilePresentationCatalog,
+                configuration.BoardTilePresentationOverrides,
+                configuration.SuppressedBaseTileCells);
 
             var viewCameraTarget = boardRoot.CameraTargetRoot;
             var startupPlan = GameplayCameraStartupPlanComposer.Compose(
@@ -195,6 +227,7 @@ namespace Game.Feature.Gameplay.Host
                 generalTimingProfile,
                 tickRunner,
                 viewRegistry,
+                tileFeatureVisualRegistry,
                 viewCameraTarget,
                 worldState,
                 configuration.ObjectiveRuntimeDefinition,
@@ -237,6 +270,127 @@ namespace Game.Feature.Gameplay.Host
                 configuration?.StaticEntityPresentationCatalog,
                 configuration?.StaticEntityPresentationBindings,
                 nameof(GameplaySceneHostConfiguration));
+        }
+
+        private static void InstantiateStageTileFeatureVisuals(
+            IReadOnlyList<TileFeaturePresentationResolvedBinding> bindings,
+            IReadOnlyList<TileFeatureState> initialTileFeatures,
+            Transform parent,
+            TileFeatureVisualRegistry registry,
+            ISurfaceCellPresentationPoseResolver poseResolver = null)
+        {
+            if (bindings == null || bindings.Count == 0)
+            {
+                return;
+            }
+
+            for (var i = 0; i < bindings.Count; i++)
+            {
+                var binding = bindings[i];
+                if (binding.TileId <= 0 ||
+                    binding.VisualPrefab == null)
+                {
+                    UnityEngine.Debug.LogWarning($"Skipping invalid stage TileFeature visual binding at index {i}.");
+                    continue;
+                }
+
+                if (!TryGetTileFeatureCell(initialTileFeatures, binding.TileId, out var cell))
+                {
+                    UnityEngine.Debug.LogWarning($"Skipping stage TileFeature visual binding for missing TileId {binding.TileId}.");
+                    continue;
+                }
+
+                var hasResolvedPose = false;
+                var resolvedPose = default(SurfaceCellPresentationPose);
+                if (poseResolver != null)
+                {
+                    if (!poseResolver.TryResolvePose(cell, out resolvedPose))
+                    {
+                        UnityEngine.Debug.LogWarning(
+                            $"Skipping stage TileFeature visual binding for TileId {binding.TileId}; cell '{cell}' could not resolve a presentation pose.");
+                        continue;
+                    }
+
+                    hasResolvedPose = true;
+                }
+
+                var instance = UnityEngine.Object.Instantiate(binding.VisualPrefab, parent, worldPositionStays: false);
+                instance.name = binding.VisualPrefab.name;
+                if (hasResolvedPose)
+                {
+                    instance.transform.localPosition = resolvedPose.LocalPosition;
+                    instance.transform.localRotation = resolvedPose.LocalRotation;
+                    instance.transform.localScale = resolvedPose.LocalScale;
+                }
+
+                if (!TryGetConfigurableTileFeatureVisualTarget(
+                        instance,
+                        out var target,
+                        out var configurator))
+                {
+                    UnityEngine.Debug.LogWarning(
+                        $"Skipping stage TileFeature visual binding for TileId {binding.TileId}; prefab '{binding.VisualPrefab.name}' has no configurable tile visual target.");
+                    UnityEngine.Object.Destroy(instance);
+                    continue;
+                }
+
+                configurator.ConfigureTileFeature(binding.TileId, cell);
+                registry.Register(target);
+            }
+
+            registry.Rebuild();
+        }
+
+        private static bool TryGetTileFeatureCell(
+            IReadOnlyList<TileFeatureState> initialTileFeatures,
+            int tileId,
+            out SurfaceCell cell)
+        {
+            if (initialTileFeatures != null)
+            {
+                for (var i = 0; i < initialTileFeatures.Count; i++)
+                {
+                    var tileFeature = initialTileFeatures[i];
+                    if (tileFeature.TileId == tileId)
+                    {
+                        cell = tileFeature.Cell;
+                        return true;
+                    }
+                }
+            }
+
+            cell = default;
+            return false;
+        }
+
+        private static bool TryGetConfigurableTileFeatureVisualTarget(
+            GameObject instance,
+            out ITileFeatureVisualTarget target,
+            out ITileFeatureVisualTargetConfigurator configurator)
+        {
+            var targetView = instance.GetComponentInChildren<TileFeatureVisualTargetView>(includeInactive: true);
+            if (targetView != null)
+            {
+                target = targetView;
+                configurator = targetView;
+                return true;
+            }
+
+            var behaviours = instance.GetComponentsInChildren<MonoBehaviour>(includeInactive: true);
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                if (behaviours[i] is ITileFeatureVisualTarget candidateTarget &&
+                    behaviours[i] is ITileFeatureVisualTargetConfigurator candidateConfigurator)
+                {
+                    target = candidateTarget;
+                    configurator = candidateConfigurator;
+                    return true;
+                }
+            }
+
+            target = null;
+            configurator = null;
+            return false;
         }
 
         private static List<EntityState> NormalizeInitialEntitiesForRuntime(
@@ -347,12 +501,17 @@ namespace Game.Feature.Gameplay.Host
             return null;
         }
 
-        private static void AttachGameplayAudioRuntimeIfConfigured(
+        private static void AttachAudioRuntimesIfConfigured(
             GameObject hostObject,
             GameplayTickViewPresenter presenter,
             GameplaySceneHostConfiguration configuration)
         {
-            if (configuration?.GameplayAudioMap == null)
+            var hasGameplayAudioMap = configuration?.GameplayAudioMap != null;
+            var hasTileFeatureAudioMap = configuration?.TileFeatureAudioMap != null;
+            var hasGravityFieldAudioMap = configuration?.GravityFieldAudioMap != null;
+            if (!hasGameplayAudioMap &&
+                !hasTileFeatureAudioMap &&
+                !hasGravityFieldAudioMap)
             {
                 return;
             }
@@ -360,18 +519,56 @@ namespace Game.Feature.Gameplay.Host
             var audioRuntimeInstaller = hostObject.GetComponent<AudioRuntimeInstaller>();
             if (audioRuntimeInstaller == null)
             {
-                throw new InvalidOperationException(MissingGameplayAudioRuntimeInstallerMessage);
+                throw new InvalidOperationException(ResolveMissingAudioRuntimeInstallerMessage(
+                    hasGameplayAudioMap,
+                    hasTileFeatureAudioMap,
+                    hasGravityFieldAudioMap));
             }
 
             audioRuntimeInstaller.Install();
             if (audioRuntimeInstaller.AudioService == null)
             {
-                throw new InvalidOperationException(MissingGameplayAudioRuntimeInstallerMessage);
+                throw new InvalidOperationException(ResolveMissingAudioRuntimeInstallerMessage(
+                    hasGameplayAudioMap,
+                    hasTileFeatureAudioMap,
+                    hasGravityFieldAudioMap));
             }
 
-            presenter.AttachGameplayAudioRuntime(
-                new GameplayAudioPlaybackPortAdapter(audioRuntimeInstaller.AudioService),
-                configuration.GameplayAudioMap);
+            var playbackPort = new GameplayAudioPlaybackPortAdapter(audioRuntimeInstaller.AudioService);
+            if (hasGameplayAudioMap)
+            {
+                presenter.AttachGameplayAudioRuntime(playbackPort, configuration.GameplayAudioMap);
+            }
+
+            if (hasTileFeatureAudioMap)
+            {
+                presenter.AttachTileFeatureAudioRuntime(playbackPort, configuration.TileFeatureAudioMap);
+            }
+
+            if (hasGravityFieldAudioMap)
+            {
+                presenter.AttachGravityFieldAudioRuntime(playbackPort, configuration.GravityFieldAudioMap);
+            }
+        }
+
+        private static string ResolveMissingAudioRuntimeInstallerMessage(
+            bool hasGameplayAudioMap,
+            bool hasTileFeatureAudioMap,
+            bool hasGravityFieldAudioMap)
+        {
+            if (hasGameplayAudioMap)
+            {
+                return MissingGameplayAudioRuntimeInstallerMessage;
+            }
+
+            if (hasTileFeatureAudioMap)
+            {
+                return MissingTileFeatureAudioRuntimeInstallerMessage;
+            }
+
+            return hasGravityFieldAudioMap
+                ? MissingGravityFieldAudioRuntimeInstallerMessage
+                : MissingGameplayAudioRuntimeInstallerMessage;
         }
 
         private static GameplayEntityView ResolvePlayerViewPrefab(GameplaySceneHostConfiguration configuration)

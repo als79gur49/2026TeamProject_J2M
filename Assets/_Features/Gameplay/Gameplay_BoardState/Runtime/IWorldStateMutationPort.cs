@@ -23,6 +23,7 @@ namespace Game.Feature.Gameplay.BoardState
         void SetSummonedEntityState(int entityId, SummonedEntityState state);
         void SetEnemyDefinitionBindingState(int entityId, EnemyDefinitionBindingState state);
         void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state);
+        void SetGravityFieldState(int entityId, GravityFieldPhase phase, int timerTicks);
         void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state);
         void SetUnitContinuousLocomotionState(int entityId, UnitContinuousLocomotionState state);
         void RemoveBoxInteractionLockState(int entityId);
@@ -35,5 +36,8 @@ namespace Game.Feature.Gameplay.BoardState
         void SetPlayerControlState(int entityId, PlayerControlState state);
         void SetPlayerDamageState(int entityId, PlayerDamageState state);
         void SetTopology(CubeTopologyState topology);
+        void AddTileFeature(TileFeatureState state);
+        void UpdateTileFeature(TileFeatureState state);
+        void RemoveTileFeature(int tileId);
     }
 }

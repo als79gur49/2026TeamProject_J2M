@@ -1057,6 +1057,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new CubeTopologyState(FaceId.Floor),
                     Array.Empty<EntityState>(),
                     Game.Feature.Gameplay.BoardState.TerrainData.Empty,
+                    Array.Empty<TileFeatureState>(),
+                    Array.Empty<TileFeatureRuntimeDefinition>(),
+                    Array.Empty<MoonBlockRespawnDefinition>(),
                     playerEntityId: 10,
                     StageObjectiveRuntimeDefinition.Disabled,
                     Array.Empty<EnemyAiProfileOverride>(),
@@ -1066,7 +1069,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     InitialEnemyPresentationArchetypeCatalogOverride,
                     Array.Empty<EnemyPresentationBinding>(),
                     InitialStaticEntityPresentationCatalogOverride,
-                    Array.Empty<StaticEntityPresentationBinding>());
+                    Array.Empty<StaticEntityPresentationBinding>(),
+                    null,
+                    Array.Empty<TileFeaturePresentationResolvedBinding>());
             }
 
         }

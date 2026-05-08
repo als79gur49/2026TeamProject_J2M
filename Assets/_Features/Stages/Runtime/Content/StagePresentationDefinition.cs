@@ -1,10 +1,40 @@
 using System;
+using System.Collections.Generic;
+using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
 using Game.Shared.AudioContracts;
 using UnityEngine;
 
 namespace Game.Feature.Stages
 {
+    [Serializable]
+    public sealed class TileFeaturePresentationBinding
+    {
+        public int TileId;
+        public GameObject VisualPrefab;
+    }
+
+    [Serializable]
+    public sealed class BoardTilePresentationOverride
+    {
+        [SerializeField] private SurfaceCell cell;
+        [SerializeField] private string presentationKey = string.Empty;
+
+        public BoardTilePresentationOverride()
+        {
+        }
+
+        public BoardTilePresentationOverride(SurfaceCell cell, string presentationKey)
+        {
+            this.cell = cell;
+            this.presentationKey = presentationKey ?? string.Empty;
+        }
+
+        public SurfaceCell Cell => cell;
+
+        public string PresentationKey => BoardTilePresentationCatalog.NormalizePresentationKey(presentationKey);
+    }
+
     [CreateAssetMenu(menuName = "Gameplay/Stages/Stage Presentation Definition", fileName = "stage-presentation")]
     public sealed class StagePresentationDefinition : StageCompanionDefinitionBase
     {
@@ -18,6 +48,11 @@ namespace Game.Feature.Stages
         [SerializeField] private EnemyPresentationBinding[] enemyPresentationBindings = Array.Empty<EnemyPresentationBinding>();
         [SerializeField] private StaticEntityPresentationCatalog staticEntityPresentationCatalog;
         [SerializeField] private StaticEntityPresentationBinding[] staticEntityPresentationBindings = Array.Empty<StaticEntityPresentationBinding>();
+        [SerializeField] private BoardTilePresentationCatalog boardTilePresentationCatalog;
+        [SerializeField] private BoardTilePresentationOverride[] boardTilePresentationOverrides =
+            Array.Empty<BoardTilePresentationOverride>();
+        [SerializeField] private TileFeaturePresentationCatalog tileFeaturePresentationCatalog;
+        [SerializeField] private TileFeaturePresentationBinding[] tileFeaturePresentationBindings = Array.Empty<TileFeaturePresentationBinding>();
         [SerializeField] private string resultTitle = "Stage Cleared";
         [SerializeField] private string resultSummaryText = string.Empty;
         [SerializeField] private string resultDetailText = string.Empty;
@@ -44,6 +79,16 @@ namespace Game.Feature.Stages
         public StaticEntityPresentationBinding[] StaticEntityPresentationBindings =>
             staticEntityPresentationBindings ?? Array.Empty<StaticEntityPresentationBinding>();
 
+        public BoardTilePresentationCatalog BoardTilePresentationCatalog => boardTilePresentationCatalog;
+
+        public IReadOnlyList<BoardTilePresentationOverride> BoardTilePresentationOverrides =>
+            boardTilePresentationOverrides ?? Array.Empty<BoardTilePresentationOverride>();
+
+        public TileFeaturePresentationCatalog TileFeaturePresentationCatalog => tileFeaturePresentationCatalog;
+
+        public TileFeaturePresentationBinding[] TileFeaturePresentationBindings =>
+            tileFeaturePresentationBindings ?? Array.Empty<TileFeaturePresentationBinding>();
+
         public string ResultTitle => resultTitle ?? string.Empty;
 
         public string ResultSummaryText => resultSummaryText ?? string.Empty;
@@ -66,6 +111,13 @@ namespace Game.Feature.Stages
             staticEntityPresentationCatalog = resolvedData.StaticEntityPresentationCatalog;
             staticEntityPresentationBindings =
                 resolvedData.StaticEntityPresentationBindings ?? Array.Empty<StaticEntityPresentationBinding>();
+            boardTilePresentationCatalog = resolvedData.BoardTilePresentationCatalog;
+            boardTilePresentationOverrides =
+                StagePresentationAssembler.ToAuthoringBoardTilePresentationOverrides(
+                    resolvedData.BoardTilePresentationOverrides);
+            tileFeaturePresentationCatalog = resolvedData.TileFeaturePresentationCatalog;
+            tileFeaturePresentationBindings =
+                StagePresentationAssembler.ToAuthoringBindings(resolvedData.TileFeatureBindings);
             resultTitle = resolvedData.ResultTitle;
             resultSummaryText = resolvedData.ResultSummaryText;
             resultDetailText = resolvedData.ResultDetailText;

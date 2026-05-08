@@ -32,6 +32,7 @@ namespace Game.Feature.Stages
         public Direction Facing;
         public int Hp;
         public BoxCapabilities BoxCapabilities;
+        public BoxArchetype BoxArchetype;
         public EnemyAiMode EnemyAiMode;
         public int EnemyAiStateTimer;
         public EnemyAiProfile EnemyAiProfile;
@@ -39,6 +40,19 @@ namespace Game.Feature.Stages
         [FormerlySerializedAs("EnemyPresentationId")]
         public string PresentationId;
         public string UnitStackGroup;
+    }
+
+    [Serializable]
+    public struct StageTileFeatureDefinition
+    {
+        public int TileId;
+        public SurfaceCell Cell;
+        public TileFeatureKind Kind;
+        public TileFeatureActivationRule ActivationRule;
+        public Direction2D Direction;
+        public TileFeatureBoxSelector BoxSelector;
+        public int BoundEntityId;
+        public string PresentationKey;
     }
 
     [CreateAssetMenu(menuName = "Gameplay/Stages/Stage Definition", fileName = "StageDefinition")]
@@ -64,6 +78,9 @@ namespace Game.Feature.Stages
         [Header("Zones")]
         [SerializeField] private StageZoneDefinition[] zones = Array.Empty<StageZoneDefinition>();
 
+        [Header("Tile Features")]
+        [SerializeField] private StageTileFeatureDefinition[] tileFeatures = Array.Empty<StageTileFeatureDefinition>();
+
         [Header("Objective")]
         [SerializeField] private StageObjectiveAuthoring objective = StageObjectiveAuthoring.CreateDefault();
 
@@ -81,6 +98,8 @@ namespace Game.Feature.Stages
         public StageSpawnDefinition[] WallSpawns => wallSpawns ?? Array.Empty<StageSpawnDefinition>();
 
         public StageZoneDefinition[] Zones => zones ?? Array.Empty<StageZoneDefinition>();
+
+        public StageTileFeatureDefinition[] TileFeatures => tileFeatures ?? Array.Empty<StageTileFeatureDefinition>();
 
         public StageObjectiveAuthoring Objective => NormalizeObjective(objective);
 

@@ -12,6 +12,9 @@ namespace Game.Feature.Stages
             CubeTopologyState initialTopology,
             EntityState[] initialEntities,
             TerrainData initialTerrain,
+            TileFeatureState[] initialTileFeatures,
+            TileFeatureRuntimeDefinition[] tileFeatureDefinitions,
+            MoonBlockRespawnDefinition[] moonBlockRespawnDefinitions,
             int playerEntityId,
             StageObjectiveRuntimeDefinition objectiveRuntimeDefinition,
             EnemyAiProfileOverride[] enemyAiProfileOverrides)
@@ -20,6 +23,9 @@ namespace Game.Feature.Stages
             InitialTopology = initialTopology;
             InitialEntities = initialEntities ?? Array.Empty<EntityState>();
             InitialTerrain = initialTerrain ?? TerrainData.Empty;
+            InitialTileFeatures = initialTileFeatures ?? Array.Empty<TileFeatureState>();
+            TileFeatureDefinitions = tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
+            MoonBlockRespawnDefinitions = moonBlockRespawnDefinitions ?? Array.Empty<MoonBlockRespawnDefinition>();
             PlayerEntityId = playerEntityId;
             ObjectiveRuntimeDefinition = objectiveRuntimeDefinition ?? StageObjectiveRuntimeDefinition.Disabled;
             EnemyAiProfileOverrides = enemyAiProfileOverrides ?? Array.Empty<EnemyAiProfileOverride>();
@@ -32,6 +38,12 @@ namespace Game.Feature.Stages
         public EntityState[] InitialEntities { get; }
 
         public TerrainData InitialTerrain { get; }
+
+        public TileFeatureState[] InitialTileFeatures { get; }
+
+        public TileFeatureRuntimeDefinition[] TileFeatureDefinitions { get; }
+
+        public MoonBlockRespawnDefinition[] MoonBlockRespawnDefinitions { get; }
 
         public int PlayerEntityId { get; }
 

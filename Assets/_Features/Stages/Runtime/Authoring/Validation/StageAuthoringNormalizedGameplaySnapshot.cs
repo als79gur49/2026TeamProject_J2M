@@ -10,11 +10,13 @@ namespace Game.Feature.Stages
         public StageAuthoringNormalizedGameplaySnapshot(
             StageBoardDefinition board,
             StageAuthoringNormalizedSpawn[] spawns,
+            StageAuthoringNormalizedTileFeature[] tileFeatures,
             StageAuthoringNormalizedZone[] zones,
             StageAuthoringNormalizedObjective objective)
         {
             Board = board;
             Spawns = spawns ?? Array.Empty<StageAuthoringNormalizedSpawn>();
+            TileFeatures = tileFeatures ?? Array.Empty<StageAuthoringNormalizedTileFeature>();
             Zones = zones ?? Array.Empty<StageAuthoringNormalizedZone>();
             Objective = objective ?? StageAuthoringNormalizedObjective.Empty;
         }
@@ -23,9 +25,50 @@ namespace Game.Feature.Stages
 
         public StageAuthoringNormalizedSpawn[] Spawns { get; }
 
+        public StageAuthoringNormalizedTileFeature[] TileFeatures { get; }
+
         public StageAuthoringNormalizedZone[] Zones { get; }
 
         public StageAuthoringNormalizedObjective Objective { get; }
+    }
+
+    public readonly struct StageAuthoringNormalizedTileFeature
+    {
+        public StageAuthoringNormalizedTileFeature(
+            int tileId,
+            SurfaceCell cell,
+            TileFeatureKind kind,
+            TileFeatureActivationRule activationRule,
+            Direction2D direction,
+            TileFeatureBoxSelector boxSelector,
+            int boundEntityId,
+            string presentationKey)
+        {
+            TileId = tileId;
+            Cell = cell;
+            Kind = kind;
+            ActivationRule = activationRule;
+            Direction = direction;
+            BoxSelector = boxSelector;
+            BoundEntityId = boundEntityId;
+            PresentationKey = presentationKey ?? string.Empty;
+        }
+
+        public int TileId { get; }
+
+        public SurfaceCell Cell { get; }
+
+        public TileFeatureKind Kind { get; }
+
+        public TileFeatureActivationRule ActivationRule { get; }
+
+        public Direction2D Direction { get; }
+
+        public TileFeatureBoxSelector BoxSelector { get; }
+
+        public int BoundEntityId { get; }
+
+        public string PresentationKey { get; }
     }
 
     public readonly struct StageAuthoringNormalizedZone

@@ -40,7 +40,9 @@ namespace Game.Feature.Gameplay.Host
         {
             var resolved = RuntimeContentResolver.Resolve(CreateStageLoadRequest());
             var buildResult = StageRuntimeBuilder.Build(resolved.Entry.GameplayDefinition);
-            var resolvedPresentation = StagePresentationAssembler.Resolve(resolved.Entry.PresentationDefinition);
+            var resolvedPresentation = StagePresentationAssembler.Resolve(
+                resolved.Entry.GameplayDefinition,
+                resolved.Entry.PresentationDefinition);
             _resolvedPresentationDefinition = resolved.Entry.PresentationDefinition;
             var compositionData = StageSceneCompositionAssembler.Compose(buildResult, resolvedPresentation);
 
@@ -49,6 +51,9 @@ namespace Game.Feature.Gameplay.Host
                 compositionData.GameplayBuildResult.InitialTopology,
                 compositionData.GameplayBuildResult.InitialEntities,
                 compositionData.GameplayBuildResult.InitialTerrain,
+                compositionData.GameplayBuildResult.InitialTileFeatures,
+                compositionData.GameplayBuildResult.TileFeatureDefinitions,
+                compositionData.GameplayBuildResult.MoonBlockRespawnDefinitions,
                 compositionData.GameplayBuildResult.PlayerEntityId,
                 compositionData.GameplayBuildResult.ObjectiveRuntimeDefinition,
                 compositionData.GameplayBuildResult.EnemyAiProfileOverrides,
@@ -58,7 +63,11 @@ namespace Game.Feature.Gameplay.Host
                 compositionData.PresentationData.EnemyPresentationArchetypeCatalog,
                 compositionData.PresentationData.EnemyPresentationBindings,
                 compositionData.PresentationData.StaticEntityPresentationCatalog,
-                compositionData.PresentationData.StaticEntityPresentationBindings);
+                compositionData.PresentationData.StaticEntityPresentationBindings,
+                compositionData.PresentationData.BoardTilePresentationCatalog,
+                compositionData.PresentationData.TileFeatureBindings,
+                compositionData.PresentationData.BoardTilePresentationOverrides,
+                compositionData.PresentationData.SuppressedBaseTileCells);
         }
 
         protected override void ConfigureRuntimeConfiguration(

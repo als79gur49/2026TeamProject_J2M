@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.BoardState;
 using Game.Shared.AudioContracts;
 using UnityEngine;
 
@@ -237,13 +238,14 @@ namespace Game.Feature.Stages
             var stableGuids = new HashSet<string>(StringComparer.Ordinal);
             var mappingsByGuid = new HashSet<string>(StringComparer.Ordinal);
             var mappingEntityIds = new HashSet<int>();
+            var wallCells = new HashSet<SurfaceCell>();
             var boardBoundsValid = authoring.Board.MaxInclusive.x >= authoring.Board.MinInclusive.x &&
                                    authoring.Board.MaxInclusive.y >= authoring.Board.MinInclusive.y;
             var boardBounds = boardBoundsValid
-                ? new Game.Feature.Gameplay.BoardState.BoardBounds(
+                ? new BoardBounds(
                     authoring.Board.MinInclusive,
                     authoring.Board.MaxInclusive)
-                : Game.Feature.Gameplay.BoardState.BoardBounds.Unbounded;
+                : BoardBounds.Unbounded;
 
             if (!boardBoundsValid)
             {
@@ -304,7 +306,14 @@ namespace Game.Feature.Stages
                         authoringPath,
                         options.Timing);
                 }
+
+                if (placement.Kind == StageAuthoringEntityKind.Wall)
+                {
+                    wallCells.Add(placement.Cell);
+                }
             }
+
+            ValidateAuthoringTileFeatures(authoring, authoringPath, options, severity, boardBoundsValid, boardBounds, wallCells, report);
 
             var mappings = authoring.EntityIdMappings;
             for (var i = 0; i < mappings.Count; i++)
@@ -353,6 +362,348 @@ namespace Game.Feature.Stages
                         options.Timing);
                 }
             }
+        }
+
+        private static void ValidateAuthoringTileFeatures(
+            StageAuthoringDefinition authoring,
+            string authoringPath,
+            StageCatalogValidationOptions options,
+            StageValidationSeverity severity,
+            bool boardBoundsValid,
+            BoardBounds boardBounds,
+            HashSet<SurfaceCell> wallCells,
+            StageValidationReport report)
+        {
+            var tileIds = new HashSet<int>();
+            var slideCells = new HashSet<SurfaceCell>();
+            var barricadeCells = new HashSet<SurfaceCell>();
+            var moonBlockGeneratorCells = new HashSet<SurfaceCell>();
+            var exitCount = 0;
+            var moonBlockGeneratorCount = 0;
+            var tileFeatures = authoring.TileFeatures;
+            for (var i = 0; i < tileFeatures.Count; i++)
+            {
+                var tileFeature = tileFeatures[i];
+                if (tileFeature.TileId <= 0)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.id-non-positive",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] must use a positive TileId.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+                else if (!tileIds.Add(tileFeature.TileId))
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.id-duplicate",
+                        $"StageAuthoringDefinition '{authoring.name}' contains duplicate TileFeature TileId {tileFeature.TileId}.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
+                if (boardBoundsValid && !boardBounds.Contains(tileFeature.Cell.PlanarPosition))
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.surface-cell.invalid",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] is outside board bounds at {tileFeature.Cell}.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.Unknown ||
+                    !Enum.IsDefined(typeof(TileFeatureKind), tileFeature.Kind))
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.kind-invalid",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] must use a known TileFeatureKind.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
+                if (!Enum.IsDefined(typeof(TileFeatureActivationRule), tileFeature.ActivationRule))
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.activation-invalid",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] has invalid activation rule value {(int)tileFeature.ActivationRule}.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.Destroy &&
+                    tileFeature.ActivationRule != TileFeatureActivationRule.BottomFaceOnly)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.destroy-activation-unsupported",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] DestroyTile must use BottomFaceOnly activation.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.Slide &&
+                    tileFeature.ActivationRule != TileFeatureActivationRule.FrontFaceOnly)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.slide-activation-unsupported",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] SlideTile must use FrontFaceOnly activation.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.Barricade &&
+                    tileFeature.ActivationRule != TileFeatureActivationRule.FrontFaceOnly)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.barricade-activation-unsupported",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] Barricade must use FrontFaceOnly activation.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.Exit &&
+                    tileFeature.ActivationRule != TileFeatureActivationRule.BottomFaceOnly)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.exit-activation-unsupported",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] Exit must use BottomFaceOnly activation.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.MoonBlockGenerator &&
+                    tileFeature.ActivationRule != TileFeatureActivationRule.BottomFaceOnly)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.moon-block-generator-activation-unsupported",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] MoonBlockGenerator must use BottomFaceOnly activation.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
+                if (!Enum.IsDefined(typeof(Direction2D), tileFeature.Direction))
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.direction-invalid",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] has invalid Direction2D value {(int)tileFeature.Direction}.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+                else if (tileFeature.Kind == TileFeatureKind.Barricade &&
+                         tileFeature.Direction != Direction2D.None)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.barricade-direction-unsupported",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] Barricade must use Direction2D.None.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+                else if (tileFeature.Kind == TileFeatureKind.Slide &&
+                         !IsCardinalDirection(tileFeature.Direction))
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.slide-direction-unsupported",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] SlideTile must use a cardinal Direction2D.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+                else if (tileFeature.Kind == TileFeatureKind.Exit &&
+                         tileFeature.Direction != Direction2D.None)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.exit-direction-unsupported",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] Exit must use Direction2D.None.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+                else if (tileFeature.Kind == TileFeatureKind.MoonBlockGenerator &&
+                         tileFeature.Direction != Direction2D.None)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.moon-block-generator-direction-unsupported",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] MoonBlockGenerator must use Direction2D.None.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
+                if (!Enum.IsDefined(typeof(TileFeatureBoxSelector), tileFeature.BoxSelector))
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.box-selector-invalid",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] has invalid TileFeatureBoxSelector value {(int)tileFeature.BoxSelector}.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+                else if (tileFeature.Kind == TileFeatureKind.Barricade &&
+                         tileFeature.BoxSelector != TileFeatureBoxSelector.None)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.barricade-box-selector-unsupported",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] Barricade must use TileFeatureBoxSelector.None.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+                else if (tileFeature.Kind == TileFeatureKind.Slide &&
+                         tileFeature.BoxSelector != TileFeatureBoxSelector.None)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.slide-box-selector-unsupported",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] SlideTile must use TileFeatureBoxSelector.None.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+                else if (tileFeature.Kind == TileFeatureKind.Exit &&
+                         tileFeature.BoxSelector != TileFeatureBoxSelector.None)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.exit-box-selector-unsupported",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] Exit must use TileFeatureBoxSelector.None.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+                else if (tileFeature.Kind == TileFeatureKind.MoonBlockGenerator &&
+                         tileFeature.BoxSelector != TileFeatureBoxSelector.None)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.moon-block-generator-box-selector-unsupported",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] MoonBlockGenerator must use TileFeatureBoxSelector.None.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.Slide &&
+                    !slideCells.Add(tileFeature.Cell))
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.slide-cell-duplicate",
+                        $"StageAuthoringDefinition '{authoring.name}' contains duplicate SlideTile at {tileFeature.Cell}.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.Barricade &&
+                    !barricadeCells.Add(tileFeature.Cell))
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.barricade-cell-duplicate",
+                        $"StageAuthoringDefinition '{authoring.name}' contains duplicate Barricade at {tileFeature.Cell}.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.Exit)
+                {
+                    exitCount++;
+                    if (exitCount > 1)
+                    {
+                        report.Add(
+                            severity,
+                            "authoring.tile-feature.exit-duplicate",
+                            $"StageAuthoringDefinition '{authoring.name}' contains more than one Exit TileFeature.",
+                            authoring,
+                            authoringPath,
+                            options.Timing);
+                    }
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.MoonBlockGenerator)
+                {
+                    if (!moonBlockGeneratorCells.Add(tileFeature.Cell))
+                    {
+                        report.Add(
+                            severity,
+                            "authoring.tile-feature.moon-block-generator-cell-duplicate",
+                            $"StageAuthoringDefinition '{authoring.name}' contains duplicate MoonBlockGenerator at {tileFeature.Cell}.",
+                            authoring,
+                            authoringPath,
+                            options.Timing);
+                    }
+
+                    moonBlockGeneratorCount++;
+                    if (moonBlockGeneratorCount > 1)
+                    {
+                        report.Add(
+                            severity,
+                            "authoring.tile-feature.moon-block-generator-duplicate",
+                            $"StageAuthoringDefinition '{authoring.name}' contains more than one MoonBlockGenerator TileFeature.",
+                            authoring,
+                            authoringPath,
+                            options.Timing);
+                    }
+
+                    if (tileFeature.BoundEntityId <= 0)
+                    {
+                        report.Add(
+                            severity,
+                            "authoring.tile-feature.moon-block-generator-bound-id-non-positive",
+                            $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] MoonBlockGenerator must bind a positive BoundEntityId.",
+                            authoring,
+                            authoringPath,
+                            options.Timing);
+                    }
+                }
+
+                if (wallCells.Contains(tileFeature.Cell))
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.wall-overlap",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] overlaps a wall-like solid occupant.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+            }
+        }
+
+        private static bool IsCardinalDirection(Direction2D direction)
+        {
+            return direction == Direction2D.Up ||
+                   direction == Direction2D.Right ||
+                   direction == Direction2D.Down ||
+                   direction == Direction2D.Left;
         }
 
         private static void ValidateAuthoringGeneratedSync(
@@ -694,7 +1045,842 @@ namespace Game.Feature.Stages
             if (entry.PresentationDefinition != null)
             {
                 ValidateBgmReference(entry.PresentationDefinition.BgmReference, entry.PresentationDefinition, options, report);
+                ValidateBoardTilePresentationCatalog(entry, options, report);
+                ValidateBoardTilePresentationOverrides(entry, options, report);
+                ValidateTileFeaturePresentationCatalog(entry, options, report);
+                ValidateTileFeaturePresentationBindings(entry, options, report);
             }
+        }
+
+        private static void ValidateBoardTilePresentationCatalog(
+            StageContentEntry entry,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            var presentation = entry.PresentationDefinition;
+            var catalog = presentation != null ? presentation.BoardTilePresentationCatalog : null;
+            if (catalog == null)
+            {
+                return;
+            }
+
+            var catalogPath = GetAssetPath(catalog, options);
+            var entries = catalog.Entries;
+            var seenKeys = new HashSet<string>(StringComparer.Ordinal);
+            var defaultRoles = new HashSet<BoardTileVisualRole>();
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var catalogEntry = entries[i];
+                var fieldPrefix = $"BoardTilePresentationCatalog.Entries[{i}]";
+                if (catalogEntry == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile.catalog.entry-null",
+                        $"BoardTilePresentationCatalog '{catalog.name}' entry[{i}] is null.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                    continue;
+                }
+
+                var presentationKey = catalogEntry.PresentationKey;
+                if (string.IsNullOrEmpty(presentationKey))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile.catalog.key-empty",
+                        $"BoardTilePresentationCatalog '{catalog.name}' {fieldPrefix} must declare a non-empty PresentationKey.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                }
+                else if (!seenKeys.Add(presentationKey))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile.catalog.key-duplicate",
+                        $"BoardTilePresentationCatalog '{catalog.name}' contains duplicate PresentationKey '{presentationKey}'.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                }
+
+                if (!Enum.IsDefined(typeof(BoardTileVisualRole), catalogEntry.Role))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile.catalog.role-invalid",
+                        $"BoardTilePresentationCatalog '{catalog.name}' {fieldPrefix} has invalid BoardTileVisualRole value {(int)catalogEntry.Role}.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                }
+
+                if (catalogEntry.IsDefaultForRole &&
+                    !defaultRoles.Add(catalogEntry.Role))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile.catalog.default-duplicate",
+                        $"BoardTilePresentationCatalog '{catalog.name}' has multiple default entries for {catalogEntry.Role}.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                }
+
+                if (catalogEntry.TilePrefab == null &&
+                    catalogEntry.MaterialFallback == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile.catalog.visual-missing",
+                        $"BoardTilePresentationCatalog '{catalog.name}' {fieldPrefix} must assign a tile prefab or material fallback.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                    continue;
+                }
+
+                if (catalogEntry.TilePrefab != null &&
+                    catalogEntry.TilePrefab.GetComponentInChildren<Renderer>(includeInactive: true) == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Warning,
+                        "presentation.board-tile.catalog.prefab-renderer-missing",
+                        $"BoardTilePresentationCatalog '{catalog.name}' {fieldPrefix} prefab '{catalogEntry.TilePrefab.name}' has no Renderer in self or children.",
+                        catalogEntry.TilePrefab,
+                        GetAssetPath(catalogEntry.TilePrefab, options),
+                        options.Timing);
+                }
+            }
+
+            if (!catalog.TryGetDefaultEntry(BoardTileVisualRole.ActiveBottom, out _))
+            {
+                report.Add(
+                    StageValidationSeverity.Warning,
+                    "presentation.board-tile.catalog.default-active-bottom-missing",
+                    $"BoardTilePresentationCatalog '{catalog.name}' has no default entry for {BoardTileVisualRole.ActiveBottom}.",
+                    catalog,
+                    catalogPath,
+                    options.Timing);
+            }
+
+            if (!catalog.TryGetDefaultEntry(BoardTileVisualRole.ActiveFront, out _))
+            {
+                report.Add(
+                    StageValidationSeverity.Warning,
+                    "presentation.board-tile.catalog.default-active-front-missing",
+                    $"BoardTilePresentationCatalog '{catalog.name}' has no default entry for {BoardTileVisualRole.ActiveFront}.",
+                    catalog,
+                    catalogPath,
+                    options.Timing);
+            }
+        }
+
+        private static void ValidateBoardTilePresentationOverrides(
+            StageContentEntry entry,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            var presentation = entry.PresentationDefinition;
+            if (presentation == null)
+            {
+                return;
+            }
+
+            var overrides = presentation.BoardTilePresentationOverrides;
+            if (overrides.Count == 0)
+            {
+                return;
+            }
+
+            var catalog = presentation.BoardTilePresentationCatalog;
+            var presentationPath = GetAssetPath(presentation, options);
+            var boardBoundsValid = TryGetBoardBounds(entry.GameplayDefinition, out var boardBounds);
+            var cells = new HashSet<SurfaceCell>();
+            for (var i = 0; i < overrides.Count; i++)
+            {
+                var boardOverride = overrides[i];
+                var fieldPrefix = $"BoardTilePresentationOverrides[{i}]";
+                if (boardOverride == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile.override-null",
+                        $"StagePresentationDefinition '{presentation.name}' board tile presentation override[{i}] is null.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                    continue;
+                }
+
+                var cell = boardOverride.Cell;
+                if (!Enum.IsDefined(typeof(FaceId), cell.face))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile.override-cell-face-invalid",
+                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} has invalid SurfaceCell face value {(int)cell.face}.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                }
+
+                if (boardBoundsValid && !boardBounds.Contains(cell.PlanarPosition))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile.override-cell-outside-bounds",
+                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} cell {cell} is outside board bounds.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                }
+
+                if (!cells.Add(cell))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile.override-cell-duplicate",
+                        $"StagePresentationDefinition '{presentation.name}' contains duplicate board tile presentation override for cell {cell}.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                }
+
+                var presentationKey = boardOverride.PresentationKey;
+                if (string.IsNullOrEmpty(presentationKey))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile.override-key-empty",
+                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} must declare a non-empty PresentationKey.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                    continue;
+                }
+
+                if (catalog == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile.override-catalog-missing",
+                        $"StagePresentationDefinition '{presentation.name}' has board tile override key '{presentationKey}' but no BoardTilePresentationCatalog.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                    continue;
+                }
+
+                if (!catalog.TryGetEntry(presentationKey, out var catalogEntry))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile.override-key-missing",
+                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} PresentationKey '{presentationKey}' is missing from BoardTilePresentationCatalog '{catalog.name}'.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                    continue;
+                }
+
+                if (catalogEntry.TilePrefab == null &&
+                    catalogEntry.MaterialFallback != null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Warning,
+                        "presentation.board-tile.override-material-only",
+                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} PresentationKey '{presentationKey}' resolves to a material-only board tile entry.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                }
+            }
+        }
+
+        private static void ValidateTileFeaturePresentationCatalog(
+            StageContentEntry entry,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            var presentation = entry.PresentationDefinition;
+            var catalog = presentation != null ? presentation.TileFeaturePresentationCatalog : null;
+            if (presentation == null ||
+                catalog == null)
+            {
+                ValidateTileFeatureCatalogUsage(entry, options, report);
+                return;
+            }
+
+            var catalogPath = GetAssetPath(catalog, options);
+            var entries = catalog.Entries;
+            var seenKeys = new HashSet<string>(StringComparer.Ordinal);
+            var defaultKinds = new HashSet<TileFeatureKind>();
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var catalogEntry = entries[i];
+                var fieldPrefix = $"TileFeaturePresentationCatalog.Entries[{i}]";
+                if (catalogEntry == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.catalog.entry-null",
+                        $"TileFeaturePresentationCatalog '{catalog.name}' entry[{i}] is null.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                    continue;
+                }
+
+                var presentationKey = catalogEntry.PresentationKey;
+                if (string.IsNullOrEmpty(presentationKey))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.catalog.key-empty",
+                        $"TileFeaturePresentationCatalog '{catalog.name}' {fieldPrefix} must declare a non-empty PresentationKey.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                }
+                else if (!seenKeys.Add(presentationKey))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.catalog.key-duplicate",
+                        $"TileFeaturePresentationCatalog '{catalog.name}' contains duplicate PresentationKey '{presentationKey}'.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                }
+
+                if (catalogEntry.Kind == TileFeatureKind.Unknown ||
+                    !Enum.IsDefined(typeof(TileFeatureKind), catalogEntry.Kind))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.catalog.kind-invalid",
+                        $"TileFeaturePresentationCatalog '{catalog.name}' {fieldPrefix} must use a known TileFeatureKind.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                }
+
+                if (!Enum.IsDefined(typeof(TileFeatureVisualPlacementMode), catalogEntry.PlacementMode))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.catalog.placement-mode-invalid",
+                        $"TileFeaturePresentationCatalog '{catalog.name}' {fieldPrefix} has invalid TileFeatureVisualPlacementMode value {(int)catalogEntry.PlacementMode}.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                }
+
+                if (catalogEntry.IsDefaultForKind &&
+                    !defaultKinds.Add(catalogEntry.Kind))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.catalog.default-duplicate",
+                        $"TileFeaturePresentationCatalog '{catalog.name}' has multiple default entries for {catalogEntry.Kind}.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                }
+
+                if (catalogEntry.VisualPrefab == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.catalog.prefab-null",
+                        $"TileFeaturePresentationCatalog '{catalog.name}' {fieldPrefix} must assign a visual prefab.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                    continue;
+                }
+
+                if (!PrefabHasConfigurableTileFeatureVisualTarget(catalogEntry.VisualPrefab))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.catalog.prefab-target-missing",
+                        $"TileFeaturePresentationCatalog '{catalog.name}' {fieldPrefix} prefab '{catalogEntry.VisualPrefab.name}' must provide a configurable TileFeature visual target.",
+                        catalogEntry.VisualPrefab,
+                        GetAssetPath(catalogEntry.VisualPrefab, options),
+                        options.Timing);
+                }
+            }
+
+            ValidateTileFeatureCatalogUsage(entry, options, report);
+            ValidateReplaceBaseTilePolicy(entry, options, report);
+        }
+
+        private static void ValidateTileFeatureCatalogUsage(
+            StageContentEntry entry,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            if (entry.GameplayDefinition == null ||
+                entry.PresentationDefinition == null)
+            {
+                return;
+            }
+
+            var presentation = entry.PresentationDefinition;
+            var catalog = presentation.TileFeaturePresentationCatalog;
+            var presentationPath = GetAssetPath(presentation, options);
+            var directTileIds = BuildDirectTileFeatureBindingIds(presentation);
+            var tileFeatures = entry.GameplayDefinition.TileFeatures;
+            for (var i = 0; i < tileFeatures.Length; i++)
+            {
+                var tileFeature = tileFeatures[i];
+                if (tileFeature.TileId <= 0)
+                {
+                    continue;
+                }
+
+                var hasDirectOverride = directTileIds.Contains(tileFeature.TileId);
+                var presentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(tileFeature.PresentationKey);
+                if (catalog == null)
+                {
+                    if (!hasDirectOverride)
+                    {
+                        report.Add(
+                            StageValidationSeverity.Warning,
+                            "presentation.tile-feature.catalog.missing",
+                            $"StagePresentationDefinition '{presentation.name}' has no TileFeaturePresentationCatalog for TileId {tileFeature.TileId}; visual will be skipped unless a direct override is added.",
+                            presentation,
+                            presentationPath,
+                            options.Timing);
+                    }
+
+                    continue;
+                }
+
+                if (string.IsNullOrEmpty(presentationKey))
+                {
+                    if (!hasDirectOverride &&
+                        !catalog.TryGetDefaultEntry(tileFeature.Kind, out _))
+                    {
+                        report.Add(
+                            StageValidationSeverity.Warning,
+                            "presentation.tile-feature.key-empty-no-default",
+                            $"TileFeature TileId {tileFeature.TileId} has no PresentationKey and no default catalog entry for {tileFeature.Kind}.",
+                            presentation,
+                            presentationPath,
+                            options.Timing);
+                    }
+
+                    continue;
+                }
+
+                var hasCatalogEntry = catalog.TryGetEntry(presentationKey, out var catalogEntry);
+                if (!hasCatalogEntry)
+                {
+                    if (!hasDirectOverride)
+                    {
+                        report.Add(
+                            StageValidationSeverity.Warning,
+                            "presentation.tile-feature.key-missing",
+                            $"TileFeature TileId {tileFeature.TileId} PresentationKey '{presentationKey}' is missing from TileFeaturePresentationCatalog '{catalog.name}'.",
+                            presentation,
+                            presentationPath,
+                            options.Timing);
+                    }
+
+                    continue;
+                }
+
+                if (hasDirectOverride)
+                {
+                    report.Add(
+                        StageValidationSeverity.Info,
+                        "presentation.tile-feature.direct-override-active",
+                        $"TileFeature TileId {tileFeature.TileId} has a direct visual override; catalog PresentationKey '{presentationKey}' is bypassed at runtime.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                }
+
+                if (catalogEntry.Kind != tileFeature.Kind)
+                {
+                    report.Add(
+                        StageValidationSeverity.Warning,
+                        "presentation.tile-feature.catalog-kind-mismatch",
+                        $"TileFeature TileId {tileFeature.TileId} kind {tileFeature.Kind} does not match catalog PresentationKey '{presentationKey}' kind {catalogEntry.Kind}.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                }
+
+                if (catalogEntry.DirectionHint != Direction2D.None &&
+                    tileFeature.Kind == TileFeatureKind.Slide &&
+                    catalogEntry.DirectionHint != tileFeature.Direction)
+                {
+                    report.Add(
+                        StageValidationSeverity.Warning,
+                        "presentation.tile-feature.catalog-direction-mismatch",
+                        $"TileFeature TileId {tileFeature.TileId} Slide direction {tileFeature.Direction} does not match catalog PresentationKey '{presentationKey}' hint {catalogEntry.DirectionHint}.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                }
+            }
+        }
+
+        private static HashSet<int> BuildDirectTileFeatureBindingIds(StagePresentationDefinition presentation)
+        {
+            var tileIds = new HashSet<int>();
+            if (presentation == null)
+            {
+                return tileIds;
+            }
+
+            var bindings = presentation.TileFeaturePresentationBindings;
+            for (var i = 0; i < bindings.Length; i++)
+            {
+                var binding = bindings[i];
+                if (binding != null &&
+                    binding.TileId > 0)
+                {
+                    tileIds.Add(binding.TileId);
+                }
+            }
+
+            return tileIds;
+        }
+
+        private static void ValidateReplaceBaseTilePolicy(
+            StageContentEntry entry,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            if (entry.GameplayDefinition == null ||
+                entry.PresentationDefinition == null ||
+                entry.PresentationDefinition.TileFeaturePresentationCatalog == null)
+            {
+                return;
+            }
+
+            var presentation = entry.PresentationDefinition;
+            var presentationPath = GetAssetPath(presentation, options);
+            var directBindings = BuildDirectTileFeatureBindingsById(presentation);
+            var replaceTileIdsByCell = new Dictionary<SurfaceCell, List<int>>();
+            var tileFeatures = entry.GameplayDefinition.TileFeatures;
+            for (var i = 0; i < tileFeatures.Length; i++)
+            {
+                var tileFeature = tileFeatures[i];
+                if (tileFeature.TileId <= 0)
+                {
+                    continue;
+                }
+
+                if (!TryResolveEffectiveTileFeatureVisual(
+                        presentation.TileFeaturePresentationCatalog,
+                        directBindings,
+                        tileFeature,
+                        out var placementMode,
+                        out var visualPrefab))
+                {
+                    continue;
+                }
+
+                if (placementMode != TileFeatureVisualPlacementMode.ReplaceBaseTile)
+                {
+                    continue;
+                }
+
+                if (visualPrefab == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.replace-base-tile.visual-unresolved",
+                        $"TileFeature TileId {tileFeature.TileId} resolves to ReplaceBaseTile but has no resolved visual prefab.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                    continue;
+                }
+
+                if (!replaceTileIdsByCell.TryGetValue(tileFeature.Cell, out var tileIds))
+                {
+                    tileIds = new List<int>();
+                    replaceTileIdsByCell.Add(tileFeature.Cell, tileIds);
+                }
+
+                tileIds.Add(tileFeature.TileId);
+            }
+
+            foreach (var pair in replaceTileIdsByCell)
+            {
+                if (pair.Value.Count <= 1)
+                {
+                    continue;
+                }
+
+                report.Add(
+                    StageValidationSeverity.Error,
+                    "presentation.tile-feature.replace-base-tile.cell-duplicate",
+                    $"SurfaceCell {pair.Key} has multiple ReplaceBaseTile TileFeatures: {string.Join(", ", pair.Value)}.",
+                    presentation,
+                    presentationPath,
+                    options.Timing);
+            }
+        }
+
+        private static Dictionary<int, TileFeaturePresentationBinding> BuildDirectTileFeatureBindingsById(
+            StagePresentationDefinition presentation)
+        {
+            var bindingsById = new Dictionary<int, TileFeaturePresentationBinding>();
+            if (presentation == null)
+            {
+                return bindingsById;
+            }
+
+            var bindings = presentation.TileFeaturePresentationBindings;
+            for (var i = 0; i < bindings.Length; i++)
+            {
+                var binding = bindings[i];
+                if (binding == null ||
+                    binding.TileId <= 0 ||
+                    bindingsById.ContainsKey(binding.TileId))
+                {
+                    continue;
+                }
+
+                bindingsById.Add(binding.TileId, binding);
+            }
+
+            return bindingsById;
+        }
+
+        private static bool TryResolveEffectiveTileFeatureVisual(
+            TileFeaturePresentationCatalog catalog,
+            IReadOnlyDictionary<int, TileFeaturePresentationBinding> directBindings,
+            StageTileFeatureDefinition tileFeature,
+            out TileFeatureVisualPlacementMode placementMode,
+            out GameObject visualPrefab)
+        {
+            placementMode = TileFeatureVisualPlacementMode.Overlay;
+            visualPrefab = null;
+            if (directBindings != null &&
+                directBindings.TryGetValue(tileFeature.TileId, out var directBinding))
+            {
+                visualPrefab = directBinding.VisualPrefab;
+                var presentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(tileFeature.PresentationKey);
+                if (catalog != null &&
+                    !string.IsNullOrEmpty(presentationKey) &&
+                    catalog.TryGetEntry(presentationKey, out var keyedEntry))
+                {
+                    placementMode = keyedEntry.PlacementMode;
+                }
+
+                return true;
+            }
+
+            if (catalog == null)
+            {
+                return false;
+            }
+
+            var key = TileFeaturePresentationCatalog.NormalizePresentationKey(tileFeature.PresentationKey);
+            if (!string.IsNullOrEmpty(key) &&
+                catalog.TryGetEntry(key, out var keyedCatalogEntry))
+            {
+                placementMode = keyedCatalogEntry.PlacementMode;
+                visualPrefab = keyedCatalogEntry.VisualPrefab;
+                return true;
+            }
+
+            if (catalog.TryGetDefaultEntry(tileFeature.Kind, out var defaultEntry))
+            {
+                placementMode = defaultEntry.PlacementMode;
+                visualPrefab = defaultEntry.VisualPrefab;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryGetBoardBounds(StageDefinition gameplayDefinition, out BoardBounds boardBounds)
+        {
+            if (gameplayDefinition == null)
+            {
+                boardBounds = default;
+                return false;
+            }
+
+            var board = gameplayDefinition.Board;
+            if (board.MaxInclusive.x < board.MinInclusive.x ||
+                board.MaxInclusive.y < board.MinInclusive.y)
+            {
+                boardBounds = default;
+                return false;
+            }
+
+            boardBounds = new BoardBounds(board.MinInclusive, board.MaxInclusive);
+            return true;
+        }
+
+        private static void ValidateTileFeaturePresentationBindings(
+            StageContentEntry entry,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            var presentation = entry.PresentationDefinition;
+            if (presentation == null)
+            {
+                return;
+            }
+
+            var presentationPath = GetAssetPath(presentation, options);
+            var bindings = presentation.TileFeaturePresentationBindings;
+            if (bindings.Length == 0)
+            {
+                return;
+            }
+
+            var gameplayTileFeatureIds = BuildGameplayTileFeatureIds(entry.GameplayDefinition);
+            var boundTileIds = new HashSet<int>();
+            for (var i = 0; i < bindings.Length; i++)
+            {
+                var binding = bindings[i];
+                var fieldPrefix = $"TileFeaturePresentationBindings[{i}]";
+                if (binding == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.binding-null",
+                        $"StagePresentationDefinition '{presentation.name}' tile feature visual binding[{i}] is null.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                    continue;
+                }
+
+                if (binding.TileId <= 0)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.tile-id-non-positive",
+                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} must use a positive TileId.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                }
+                else
+                {
+                    if (!boundTileIds.Add(binding.TileId))
+                    {
+                        report.Add(
+                            StageValidationSeverity.Error,
+                            "presentation.tile-feature.tile-id-duplicate",
+                            $"StagePresentationDefinition '{presentation.name}' contains duplicate TileFeature visual binding for TileId {binding.TileId}.",
+                            presentation,
+                            presentationPath,
+                            options.Timing);
+                    }
+
+                    if (!gameplayTileFeatureIds.Contains(binding.TileId))
+                    {
+                        report.Add(
+                            StageValidationSeverity.Error,
+                            "presentation.tile-feature.tile-id-missing",
+                            $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} references missing StageDefinition TileFeature TileId {binding.TileId}.",
+                            presentation,
+                            presentationPath,
+                            options.Timing);
+                    }
+                }
+
+                if (binding.VisualPrefab == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.prefab-null",
+                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} must assign a visual prefab.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                    continue;
+                }
+
+                if (!PrefabHasConfigurableTileFeatureVisualTarget(binding.VisualPrefab))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.prefab-target-missing",
+                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} prefab '{binding.VisualPrefab.name}' must provide a configurable TileFeature visual target.",
+                        binding.VisualPrefab,
+                        GetAssetPath(binding.VisualPrefab, options),
+                        options.Timing);
+                }
+            }
+        }
+
+        private static HashSet<int> BuildGameplayTileFeatureIds(StageDefinition gameplayDefinition)
+        {
+            var tileIds = new HashSet<int>();
+            if (gameplayDefinition == null)
+            {
+                return tileIds;
+            }
+
+            var tileFeatures = gameplayDefinition.TileFeatures;
+            for (var i = 0; i < tileFeatures.Length; i++)
+            {
+                if (tileFeatures[i].TileId > 0)
+                {
+                    tileIds.Add(tileFeatures[i].TileId);
+                }
+            }
+
+            return tileIds;
+        }
+
+        private static bool PrefabHasConfigurableTileFeatureVisualTarget(GameObject prefab)
+        {
+            if (prefab == null)
+            {
+                return false;
+            }
+
+            var behaviours = prefab.GetComponentsInChildren<MonoBehaviour>(includeInactive: true);
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                if (behaviours[i] == null)
+                {
+                    continue;
+                }
+
+                var behaviourType = behaviours[i].GetType();
+                if (behaviourType.FullName == "Game.Feature.Gameplay.Host.TileFeatureVisualTargetView" ||
+                    TypeImplements(behaviourType, "Game.Feature.Gameplay.Host.ITileFeatureVisualTarget") &&
+                    TypeImplements(behaviourType, "Game.Feature.Gameplay.Host.ITileFeatureVisualTargetConfigurator"))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TypeImplements(Type type, string interfaceFullName)
+        {
+            var interfaces = type.GetInterfaces();
+            for (var i = 0; i < interfaces.Length; i++)
+            {
+                if (interfaces[i].FullName == interfaceFullName)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static void ValidateLegacyPresentationIds(

@@ -34,7 +34,69 @@ MonoBehaviour:
   - EntityId: 201
     PresentationId: jumpChaser_astra
   staticEntityPresentationCatalog: {fileID: 11400000, guid: 28eb5cc07ccd15d4b9a99a3364f7fd07, type: 2}
-  staticEntityPresentationBindings: []
+  staticEntityPresentationBindings:
+  - EntityId: 30
+    PresentationId: box_showcase
+  - EntityId: 31
+    PresentationId: box_showcase
+  - EntityId: 32
+    PresentationId: box_showcase
+  - EntityId: 33
+    PresentationId: box_showcase
+  - EntityId: 34
+    PresentationId: box_showcase
+  - EntityId: 35
+    PresentationId: box_showcase
+  - EntityId: 36
+    PresentationId: box_showcase
+  - EntityId: 37
+    PresentationId: box_showcase
+  - EntityId: 40
+    PresentationId: box_showcase
+  - EntityId: 41
+    PresentationId: box_showcase
+  - EntityId: 42
+    PresentationId: box_showcase
+  - EntityId: 43
+    PresentationId: box_showcase
+  - EntityId: 196
+    PresentationId: wall_showcase
+  - EntityId: 197
+    PresentationId: wall_showcase
+  - EntityId: 198
+    PresentationId: wall_showcase
+  - EntityId: 199
+    PresentationId: wall_showcase
+  - EntityId: 200
+    PresentationId: wall_showcase
+  - EntityId: 201
+    PresentationId: moon_box_showcase
+  boardTilePresentationCatalog: {fileID: 11400000, guid: c4f2b2fcde2012242a1f89c7615a23aa, type: 2}
+  boardTilePresentationOverrides:
+  - cell:
+      face: 0
+      x: 1
+      y: 4
+    presentationKey: board.active.bottom
+  - cell:
+      face: 0
+      x: 1
+      y: 5
+    presentationKey: board.generic.default
+  - cell:
+      face: 0
+      x: 12
+      y: 1
+    presentationKey: board.decorative.top
+  - cell:
+      face: 3
+      x: 2
+      y: 6
+    presentationKey: board.decorative.back
+  tileFeaturePresentationCatalog: {fileID: 11400000, guid: 330cdf4f24595b940afbf3438be36226, type: 2}
+  tileFeaturePresentationBindings:
+  - TileId: 905
+    VisualPrefab: {fileID: 888868719586388028, guid: d1b8b4a4cba650349b2af0d5b19cb445, type: 3}
   resultTitle: Stage Cleared
   resultSummaryText: 
   resultDetailText: 

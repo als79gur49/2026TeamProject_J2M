@@ -117,12 +117,15 @@ namespace Game.Feature.Gameplay.Loop
             List<int> orderedPhaseRelocationActionPlanIds,
             List<FrontFaceShieldSourcePresentationExport> frontFaceShieldSourceExports,
             List<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports,
+            List<BarricadeBlockFact> barricadeBlockFacts,
             int nextContestId,
             EnemyAiPhaseResult enemyAiPhaseResult,
             PreMovementStatePhaseResult preMovementStatePhaseResult,
             WorldSnapshot postEnemyAiSnapshot,
             WorldSnapshot planSnapshot,
-            FinalizationBatch planFinalizationBatch)
+            FinalizationBatch planFinalizationBatch,
+            IReadOnlyList<GravityFieldPresentationEvent> gravityFieldPresentationEvents = null,
+            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null)
         {
             RawIntents = rawIntents ?? throw new ArgumentNullException(nameof(rawIntents));
             SortedIntents = sortedIntents ?? throw new ArgumentNullException(nameof(sortedIntents));
@@ -142,12 +145,15 @@ namespace Game.Feature.Gameplay.Loop
             OrderedPhaseRelocationActionPlanIds = orderedPhaseRelocationActionPlanIds ?? throw new ArgumentNullException(nameof(orderedPhaseRelocationActionPlanIds));
             FrontFaceShieldSourceExports = frontFaceShieldSourceExports ?? throw new ArgumentNullException(nameof(frontFaceShieldSourceExports));
             FrontFaceShieldBlockExports = frontFaceShieldBlockExports ?? throw new ArgumentNullException(nameof(frontFaceShieldBlockExports));
+            BarricadeBlockFacts = barricadeBlockFacts ?? throw new ArgumentNullException(nameof(barricadeBlockFacts));
             NextContestId = nextContestId;
             EnemyAiPhaseResult = enemyAiPhaseResult ?? throw new ArgumentNullException(nameof(enemyAiPhaseResult));
             PreMovementStatePhaseResult = preMovementStatePhaseResult ?? throw new ArgumentNullException(nameof(preMovementStatePhaseResult));
             PostEnemyAiSnapshot = postEnemyAiSnapshot ?? throw new ArgumentNullException(nameof(postEnemyAiSnapshot));
             PlanSnapshot = planSnapshot ?? throw new ArgumentNullException(nameof(planSnapshot));
             PlanFinalizationBatch = planFinalizationBatch ?? throw new ArgumentNullException(nameof(planFinalizationBatch));
+            GravityFieldPresentationEvents = gravityFieldPresentationEvents ?? Array.Empty<GravityFieldPresentationEvent>();
+            GravityFieldLockedTargetFacts = gravityFieldLockedTargetFacts ?? Array.Empty<GravityFieldLockedTargetFact>();
         }
 
         public List<RawMovementIntent> RawIntents { get; }
@@ -186,6 +192,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public List<FrontFaceShieldBlockPresentationExport> FrontFaceShieldBlockExports { get; }
 
+        public List<BarricadeBlockFact> BarricadeBlockFacts { get; }
+
         public int NextContestId { get; }
 
         public EnemyAiPhaseResult EnemyAiPhaseResult { get; }
@@ -197,6 +205,10 @@ namespace Game.Feature.Gameplay.Loop
         public WorldSnapshot PlanSnapshot { get; }
 
         public FinalizationBatch PlanFinalizationBatch { get; }
+
+        public IReadOnlyList<GravityFieldPresentationEvent> GravityFieldPresentationEvents { get; }
+
+        public IReadOnlyList<GravityFieldLockedTargetFact> GravityFieldLockedTargetFacts { get; }
     }
 
     internal sealed class ResolvePhaseResult
@@ -209,7 +221,10 @@ namespace Game.Feature.Gameplay.Loop
             WorldSnapshot postMovementSnapshot,
             WorldSnapshot postAttackSnapshot,
             List<Contest> contests,
-            List<ResolutionRecord> resolutionRecords)
+            List<ResolutionRecord> resolutionRecords,
+            IReadOnlyList<TilePresentationEvent> tilePresentationEvents = null,
+            IReadOnlyList<GravityFieldPresentationEvent> gravityFieldPresentationEvents = null,
+            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null)
         {
             MovementPhaseResult = movementPhaseResult ?? throw new ArgumentNullException(nameof(movementPhaseResult));
             AttackPhaseResult = attackPhaseResult ?? throw new ArgumentNullException(nameof(attackPhaseResult));
@@ -219,6 +234,9 @@ namespace Game.Feature.Gameplay.Loop
             PostAttackSnapshot = postAttackSnapshot ?? throw new ArgumentNullException(nameof(postAttackSnapshot));
             Contests = contests ?? throw new ArgumentNullException(nameof(contests));
             ResolutionRecords = resolutionRecords ?? throw new ArgumentNullException(nameof(resolutionRecords));
+            TilePresentationEvents = tilePresentationEvents ?? Array.Empty<TilePresentationEvent>();
+            GravityFieldPresentationEvents = gravityFieldPresentationEvents ?? Array.Empty<GravityFieldPresentationEvent>();
+            GravityFieldLockedTargetFacts = gravityFieldLockedTargetFacts ?? Array.Empty<GravityFieldLockedTargetFact>();
         }
 
         public MovementPhaseResult MovementPhaseResult { get; }
@@ -236,6 +254,12 @@ namespace Game.Feature.Gameplay.Loop
         public List<Contest> Contests { get; }
 
         public List<ResolutionRecord> ResolutionRecords { get; }
+
+        public IReadOnlyList<TilePresentationEvent> TilePresentationEvents { get; }
+
+        public IReadOnlyList<GravityFieldPresentationEvent> GravityFieldPresentationEvents { get; }
+
+        public IReadOnlyList<GravityFieldLockedTargetFact> GravityFieldLockedTargetFacts { get; }
     }
 
     internal sealed class AttackPlanBuildResult
@@ -376,7 +400,7 @@ namespace Game.Feature.Gameplay.Loop
                 var boxEntityId = orderedBoxEntityIds[boxIndex];
                 var mergedState = plannedStatesByBoxEntityId[boxEntityId];
                 if (projectedSnapshot.TryGetActiveBoxInteractionLockState(boxEntityId, tickIndex, out var existingState) &&
-                    AreBoxInteractionLockStatesEqual(existingState, mergedState))
+                    BoxInteractionLockMerge.AreEqual(existingState, mergedState))
                 {
                     continue;
                 }
@@ -392,7 +416,7 @@ namespace Game.Feature.Gameplay.Loop
                 if (projectedSnapshot.TryGetEntity(boxEntityId, out var box))
                 {
                     eventLogEntries.Add(
-                        $"BoxInteractionLockApplied|Source={mergedState.SourceEntityId}|Effect={mergedState.SourceEffectIndex}|Box={boxEntityId}|Cell={box.position}|Expires={mergedState.ExpiresTickExclusive}|BlocksPush={(mergedState.BlocksPush ? 1 : 0)}|BlocksFlip={(mergedState.BlocksFlip ? 1 : 0)}");
+                        $"BoxInteractionLockApplied|Source={mergedState.SourceEntityId}|Effect={mergedState.SourceEffectIndex}|Reason={mergedState.SourceReason}|Box={boxEntityId}|Cell={box.position}|Expires={mergedState.ExpiresTickExclusive}|BlocksPush={(mergedState.BlocksPush ? 1 : 0)}|BlocksFlip={(mergedState.BlocksFlip ? 1 : 0)}|BlocksDestroy={(mergedState.BlocksDestroy ? 1 : 0)}");
                 }
             }
 
@@ -791,31 +815,14 @@ namespace Game.Feature.Gameplay.Loop
             in BoxInteractionLockState existingState,
             in BoxInteractionLockState newState)
         {
-            var mergedExpires = Math.Max(existingState.ExpiresTickExclusive, newState.ExpiresTickExclusive);
-            var useNewSource =
-                newState.ExpiresTickExclusive > existingState.ExpiresTickExclusive ||
-                (newState.ExpiresTickExclusive == existingState.ExpiresTickExclusive &&
-                 (newState.SourceEntityId < existingState.SourceEntityId ||
-                  (newState.SourceEntityId == existingState.SourceEntityId &&
-                   newState.SourceEffectIndex < existingState.SourceEffectIndex)));
-
-            return new BoxInteractionLockState(
-                useNewSource ? newState.SourceEntityId : existingState.SourceEntityId,
-                useNewSource ? newState.SourceEffectIndex : existingState.SourceEffectIndex,
-                mergedExpires,
-                existingState.BlocksPush || newState.BlocksPush,
-                existingState.BlocksFlip || newState.BlocksFlip);
+            return BoxInteractionLockMerge.Merge(existingState, newState);
         }
 
         private static bool AreBoxInteractionLockStatesEqual(
             in BoxInteractionLockState left,
             in BoxInteractionLockState right)
         {
-            return left.SourceEntityId == right.SourceEntityId &&
-                   left.SourceEffectIndex == right.SourceEffectIndex &&
-                   left.ExpiresTickExclusive == right.ExpiresTickExclusive &&
-                   left.BlocksPush == right.BlocksPush &&
-                   left.BlocksFlip == right.BlocksFlip;
+            return BoxInteractionLockMerge.AreEqual(left, right);
         }
 
         private static Direction TurnRight(Direction direction)

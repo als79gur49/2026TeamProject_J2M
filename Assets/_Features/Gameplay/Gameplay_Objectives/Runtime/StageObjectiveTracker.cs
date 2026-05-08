@@ -8,7 +8,9 @@ namespace Game.Feature.Gameplay.Objectives
     {
         private readonly StageObjectiveConditionRuntimeEntry[] _conditionEntries;
         private readonly StageObjectiveRuntimeDefinition _objectiveDefinition;
+        private bool _hasEvaluatedObjectiveTick;
         private bool _isCleared;
+        private bool _previousRequiredNonPrimaryConditionsSatisfied;
         private StageObjectiveTickResult _currentResult;
 
         public StageObjectiveTracker(StageObjectiveRuntimeDefinition objectiveDefinition)
@@ -24,7 +26,9 @@ namespace Game.Feature.Gameplay.Objectives
 
         public void Reset()
         {
+            _hasEvaluatedObjectiveTick = false;
             _isCleared = false;
+            _previousRequiredNonPrimaryConditionsSatisfied = false;
 
             for (var i = 0; i < _conditionEntries.Length; i++)
             {
@@ -56,6 +60,13 @@ namespace Game.Feature.Gameplay.Objectives
 
             var allConditionsSatisfied = AreAllRequiredEntriesSatisfied();
             var goalReached = IsPrimaryGoalSatisfied();
+            var hasRequiredNonPrimaryConditions = HasRequiredNonPrimaryConditions();
+            var requiredNonPrimaryConditionsSatisfied = AreRequiredNonPrimaryConditionsSatisfied();
+            var requiredNonPrimaryConditionsSatisfiedThisTick =
+                hasRequiredNonPrimaryConditions &&
+                _hasEvaluatedObjectiveTick &&
+                !_previousRequiredNonPrimaryConditionsSatisfied &&
+                requiredNonPrimaryConditionsSatisfied;
             var shouldClear = ShouldClear(allConditionsSatisfied);
             var clearedThisTick = !_isCleared && shouldClear;
             if (clearedThisTick)
@@ -63,7 +74,14 @@ namespace Game.Feature.Gameplay.Objectives
                 _isCleared = true;
             }
 
-            _currentResult = CreateResult(goalReached, clearedThisTick);
+            _currentResult = CreateResult(
+                goalReached,
+                clearedThisTick,
+                hasRequiredNonPrimaryConditions,
+                requiredNonPrimaryConditionsSatisfied,
+                requiredNonPrimaryConditionsSatisfiedThisTick);
+            _previousRequiredNonPrimaryConditionsSatisfied = requiredNonPrimaryConditionsSatisfied;
+            _hasEvaluatedObjectiveTick = true;
             return _currentResult;
         }
 
@@ -99,6 +117,35 @@ namespace Game.Feature.Gameplay.Objectives
             return false;
         }
 
+        private bool HasRequiredNonPrimaryConditions()
+        {
+            for (var i = 0; i < _conditionEntries.Length; i++)
+            {
+                if (_conditionEntries[i].Required &&
+                    _conditionEntries[i].Role != StageObjectiveConditionRole.PrimaryGoal)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool AreRequiredNonPrimaryConditionsSatisfied()
+        {
+            for (var i = 0; i < _conditionEntries.Length; i++)
+            {
+                if (_conditionEntries[i].Required &&
+                    _conditionEntries[i].Role != StageObjectiveConditionRole.PrimaryGoal &&
+                    !_conditionEntries[i].Runtime.IsSatisfied)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         private bool ShouldClear(bool allConditionsSatisfied)
         {
             switch (_objectiveDefinition.CompletionPolicy)
@@ -112,7 +159,12 @@ namespace Game.Feature.Gameplay.Objectives
             }
         }
 
-        private StageObjectiveTickResult CreateResult(bool goalReached, bool clearedThisTick)
+        private StageObjectiveTickResult CreateResult(
+            bool goalReached,
+            bool clearedThisTick,
+            bool hasRequiredNonPrimaryConditions = false,
+            bool requiredNonPrimaryConditionsSatisfied = true,
+            bool requiredNonPrimaryConditionsSatisfiedThisTick = false)
         {
             return new StageObjectiveTickResult(
                 hasObjective: true,
@@ -120,6 +172,9 @@ namespace Game.Feature.Gameplay.Objectives
                 allConditionsSatisfied: AreAllRequiredEntriesSatisfied(),
                 clearedThisTick,
                 isCleared: _isCleared,
+                hasRequiredNonPrimaryConditions,
+                requiredNonPrimaryConditionsSatisfied,
+                requiredNonPrimaryConditionsSatisfiedThisTick,
                 conditionStatuses: BuildConditionStatuses());
         }
 

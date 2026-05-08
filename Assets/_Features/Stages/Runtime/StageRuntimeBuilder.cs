@@ -17,31 +17,153 @@ namespace Game.Feature.Stages
         public static StageRuntimeBuildResult Build(StageDefinition stage, StageSimulationTiming timing)
         {
             var validated = StageDefinitionValidator.ValidateAndNormalize(stage);
-            var initialEntities = BuildInitialEntities(validated);
+            var initialEntities = BuildInitialEntities(validated, timing);
+            var initialTileFeatures = BuildInitialTileFeatures(validated.TileFeatures);
+            var tileFeatureDefinitions = BuildTileFeatureRuntimeDefinitions(validated.TileFeatures);
+            var moonBlockRespawnDefinitions = BuildMoonBlockRespawnDefinitions(validated.TileFeatures, initialEntities);
             var enemyAiProfileOverrides = BuildEnemyAiProfileOverrides(validated.Spawns);
-            var objectiveRuntimeDefinition = BuildObjectiveRuntimeDefinition(validated, timing);
+            var objectiveRuntimeDefinition = BuildObjectiveRuntimeDefinition(validated, timing, tileFeatureDefinitions);
 
             return new StageRuntimeBuildResult(
                 validated.BoardBounds,
                 validated.InitialTopology,
                 initialEntities,
                 TerrainData.Empty,
+                initialTileFeatures,
+                tileFeatureDefinitions,
+                moonBlockRespawnDefinitions,
                 validated.PlayerEntityId,
                 objectiveRuntimeDefinition,
                 enemyAiProfileOverrides);
         }
 
-        private static EntityState[] BuildInitialEntities(StageDefinitionValidator.ValidatedStageData validated)
+        private static EntityState[] BuildInitialEntities(
+            StageDefinitionValidator.ValidatedStageData validated,
+            StageSimulationTiming timing)
         {
             var entities = new List<EntityState>(validated.Spawns.Length);
 
             for (var i = 0; i < validated.Spawns.Length; i++)
             {
-                entities.Add(CreateSpawnEntity(validated.Spawns[i]));
+                entities.Add(CreateSpawnEntity(validated.Spawns[i], timing));
             }
 
             entities.Sort(EntityStateEntityIdComparer.Instance);
             return entities.ToArray();
+        }
+
+        private static TileFeatureState[] BuildInitialTileFeatures(
+            IReadOnlyList<StageTileFeatureDefinition> tileFeatures)
+        {
+            if (tileFeatures == null || tileFeatures.Count == 0)
+            {
+                return Array.Empty<TileFeatureState>();
+            }
+
+            var initialTileFeatures = new TileFeatureState[tileFeatures.Count];
+            for (var i = 0; i < tileFeatures.Count; i++)
+            {
+                var tileFeature = tileFeatures[i];
+                initialTileFeatures[i] = new TileFeatureState(
+                    tileFeature.TileId,
+                    tileFeature.Cell,
+                    tileFeature.Kind,
+                    TileFeatureFlags.None,
+                    sourceEntityId: 0,
+                    ownerEntityId: 0,
+                    teamId: 0,
+                    lifetimeTicks: 0,
+                    charges: 0);
+            }
+
+            Array.Sort(initialTileFeatures, (left, right) => left.TileId.CompareTo(right.TileId));
+            return initialTileFeatures;
+        }
+
+        private static TileFeatureRuntimeDefinition[] BuildTileFeatureRuntimeDefinitions(
+            IReadOnlyList<StageTileFeatureDefinition> tileFeatures)
+        {
+            if (tileFeatures == null || tileFeatures.Count == 0)
+            {
+                return Array.Empty<TileFeatureRuntimeDefinition>();
+            }
+
+            var definitions = new TileFeatureRuntimeDefinition[tileFeatures.Count];
+            for (var i = 0; i < tileFeatures.Count; i++)
+            {
+                var tileFeature = tileFeatures[i];
+                definitions[i] = new TileFeatureRuntimeDefinition(
+                    tileFeature.TileId,
+                    tileFeature.ActivationRule,
+                    tileFeature.Direction,
+                    tileFeature.BoxSelector,
+                    tileFeature.BoundEntityId,
+                    tileFeature.PresentationKey);
+            }
+
+            Array.Sort(definitions, (left, right) => left.TileId.CompareTo(right.TileId));
+            return definitions;
+        }
+
+        private static MoonBlockRespawnDefinition[] BuildMoonBlockRespawnDefinitions(
+            IReadOnlyList<StageTileFeatureDefinition> tileFeatures,
+            IReadOnlyList<EntityState> initialEntities)
+        {
+            if (tileFeatures == null || tileFeatures.Count == 0)
+            {
+                return Array.Empty<MoonBlockRespawnDefinition>();
+            }
+
+            var definitions = new List<MoonBlockRespawnDefinition>();
+            for (var i = 0; i < tileFeatures.Count; i++)
+            {
+                var tileFeature = tileFeatures[i];
+                if (tileFeature.Kind != TileFeatureKind.MoonBlockGenerator)
+                {
+                    continue;
+                }
+
+                if (!TryFindEntity(initialEntities, tileFeature.BoundEntityId, out var template))
+                {
+                    throw new InvalidOperationException(
+                        $"MoonBlockGenerator TileId {tileFeature.TileId} references missing MoonBlock entity {tileFeature.BoundEntityId}.");
+                }
+
+                definitions.Add(new MoonBlockRespawnDefinition(
+                    tileFeature.TileId,
+                    tileFeature.BoundEntityId,
+                    tileFeature.Cell,
+                    template));
+            }
+
+            if (definitions.Count == 0)
+            {
+                return Array.Empty<MoonBlockRespawnDefinition>();
+            }
+
+            definitions.Sort((left, right) => left.GeneratorTileId.CompareTo(right.GeneratorTileId));
+            return definitions.ToArray();
+        }
+
+        private static bool TryFindEntity(
+            IReadOnlyList<EntityState> entities,
+            int entityId,
+            out EntityState entity)
+        {
+            if (entities != null)
+            {
+                for (var i = 0; i < entities.Count; i++)
+                {
+                    if (entities[i].entityId == entityId)
+                    {
+                        entity = entities[i];
+                        return true;
+                    }
+                }
+            }
+
+            entity = default;
+            return false;
         }
 
         private static EnemyAiProfileOverride[] BuildEnemyAiProfileOverrides(IReadOnlyList<StageSpawnDefinition> spawns)
@@ -69,7 +191,7 @@ namespace Game.Feature.Stages
             return overrides.ToArray();
         }
 
-        private static EntityState CreateSpawnEntity(StageSpawnDefinition spawn)
+        private static EntityState CreateSpawnEntity(StageSpawnDefinition spawn, StageSimulationTiming timing)
         {
             switch (spawn.Kind)
             {
@@ -104,6 +226,12 @@ namespace Game.Feature.Stages
                     };
 
                 case StageSpawnKind.Box:
+                    var gravityFieldPhase = spawn.BoxArchetype == BoxArchetype.GravityField
+                        ? GravityFieldPhase.Charging
+                        : GravityFieldPhase.None;
+                    var gravityFieldTimerTicks = spawn.BoxArchetype == BoxArchetype.GravityField
+                        ? timing.SecondsToTicksCeil(Game.Feature.Gameplay.Loop.GravityFieldRuntimePolicy.ChargeDurationSeconds)
+                        : 0;
                     return new EntityState
                     {
                         entityId = spawn.EntityId,
@@ -116,6 +244,9 @@ namespace Game.Feature.Stages
                         state = EntityPhaseState.Idle,
                         facing = ResolveFacing(spawn.Facing, Direction.Right),
                         boxCapabilities = spawn.BoxCapabilities,
+                        boxArchetype = spawn.BoxArchetype,
+                        gravityFieldPhase = gravityFieldPhase,
+                        gravityFieldTimerTicks = gravityFieldTimerTicks,
                     };
 
                 case StageSpawnKind.Wall:
@@ -135,7 +266,8 @@ namespace Game.Feature.Stages
 
         private static StageObjectiveRuntimeDefinition BuildObjectiveRuntimeDefinition(
             StageDefinitionValidator.ValidatedStageData validated,
-            StageSimulationTiming timing)
+            StageSimulationTiming timing,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
             if (validated == null)
             {
@@ -144,6 +276,7 @@ namespace Game.Feature.Stages
 
             var zoneDefinitions = BuildZoneRuntimeDefinitions(validated.Zones);
             var zonesById = BuildZoneLookup(zoneDefinitions);
+            var tileFeatureRuntimeDefinitionsById = BuildTileFeatureRuntimeDefinitionLookup(tileFeatureDefinitions);
             if (validated.Objective.CompletionPolicy == StageCompletionPolicy.Disabled)
             {
                 return new StageObjectiveRuntimeDefinition(
@@ -157,6 +290,7 @@ namespace Game.Feature.Stages
             var conditionEntries = BuildConditionRuntimeEntries(
                 validated,
                 zonesById,
+                tileFeatureRuntimeDefinitionsById,
                 timing,
                 out var conditionDisplayMetadata);
 
@@ -213,9 +347,27 @@ namespace Game.Feature.Stages
             return zonesById;
         }
 
+        private static Dictionary<int, TileFeatureRuntimeDefinition> BuildTileFeatureRuntimeDefinitionLookup(
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
+        {
+            var definitionsById = new Dictionary<int, TileFeatureRuntimeDefinition>();
+            if (tileFeatureDefinitions == null)
+            {
+                return definitionsById;
+            }
+
+            for (var i = 0; i < tileFeatureDefinitions.Count; i++)
+            {
+                definitionsById[tileFeatureDefinitions[i].TileId] = tileFeatureDefinitions[i];
+            }
+
+            return definitionsById;
+        }
+
         private static StageObjectiveConditionRuntimeDefinitionEntry[] BuildConditionRuntimeEntries(
             StageDefinitionValidator.ValidatedStageData validated,
             IReadOnlyDictionary<string, StageZoneRuntimeDefinition> zonesById,
+            IReadOnlyDictionary<int, TileFeatureRuntimeDefinition> tileFeatureRuntimeDefinitionsById,
             StageSimulationTiming timing,
             out StageObjectiveConditionDisplayMetadata[] conditionDisplayMetadata)
         {
@@ -225,14 +377,27 @@ namespace Game.Feature.Stages
                 validated.StageName,
                 validated.PlayerEntityId,
                 zonesById,
-                timing);
+                timing,
+                tileFeatureRuntimeDefinitionsById);
             var runtimeEntries = new List<StageObjectiveConditionRuntimeDefinitionEntry>();
             var displayEntries = new List<StageObjectiveConditionDisplayMetadata>();
+            var hasExit = TryGetSingleExit(validated.TileFeatures, out var exitTileFeature);
 
             for (var i = 0; i < conditionEntries.Length; i++)
             {
                 var authoringEntry = conditionEntries[i];
                 var runtimeDefinition = authoringEntry.Condition.Compile(in compilationContext);
+                if (hasExit && authoringEntry.Role == StageObjectiveConditionRole.PrimaryGoal)
+                {
+                    runtimeDefinition = CreateExitPrimaryGoalRuntimeDefinition(
+                        validated,
+                        zonesById,
+                        tileFeatureRuntimeDefinitionsById,
+                        exitTileFeature,
+                        authoringEntry,
+                        runtimeDefinition);
+                }
+
                 var stableConditionId = ResolveStableConditionId(authoringEntry.StableConditionId, i, runtimeDefinition);
 
                 runtimeEntries.Add(new StageObjectiveConditionRuntimeDefinitionEntry(
@@ -255,6 +420,65 @@ namespace Game.Feature.Stages
             return runtimeEntries.Count == 0
                 ? Array.Empty<StageObjectiveConditionRuntimeDefinitionEntry>()
                 : runtimeEntries.ToArray();
+        }
+
+        private static StageConditionRuntimeDefinition CreateExitPrimaryGoalRuntimeDefinition(
+            StageDefinitionValidator.ValidatedStageData validated,
+            IReadOnlyDictionary<string, StageZoneRuntimeDefinition> zonesById,
+            IReadOnlyDictionary<int, TileFeatureRuntimeDefinition> tileFeatureRuntimeDefinitionsById,
+            StageTileFeatureDefinition exitTileFeature,
+            StageObjectiveConditionEntry authoringEntry,
+            StageConditionRuntimeDefinition baseRuntimeDefinition)
+        {
+            if (authoringEntry.Condition is not PlayerAtAnyZoneConditionAsset playerAtZoneCondition)
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{validated.StageName}' Exit PrimaryGoal must compile from PlayerAtAnyZoneConditionAsset.");
+            }
+
+            var zoneIds = playerAtZoneCondition.ZoneIds;
+            var zoneId = zoneIds.Length == 1 ? zoneIds[0]?.Trim() ?? string.Empty : string.Empty;
+            if (zoneIds.Length != 1 ||
+                !zonesById.TryGetValue(zoneId, out var targetZone))
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{validated.StageName}' Exit PrimaryGoal must reference exactly one known goal zone.");
+            }
+
+            if (!tileFeatureRuntimeDefinitionsById.TryGetValue(exitTileFeature.TileId, out var exitRuntimeDefinition))
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{validated.StageName}' Exit TileId {exitTileFeature.TileId} did not produce a TileFeatureRuntimeDefinition.");
+            }
+
+            return new PlayerAtActiveExitConditionRuntimeDefinition(
+                baseRuntimeDefinition.ConditionId,
+                baseRuntimeDefinition.DisplayName,
+                validated.PlayerEntityId,
+                exitTileFeature.TileId,
+                exitRuntimeDefinition,
+                targetZone,
+                playerAtZoneCondition.RequireAlive);
+        }
+
+        private static bool TryGetSingleExit(
+            IReadOnlyList<StageTileFeatureDefinition> tileFeatures,
+            out StageTileFeatureDefinition exitTileFeature)
+        {
+            if (tileFeatures != null)
+            {
+                for (var i = 0; i < tileFeatures.Count; i++)
+                {
+                    if (tileFeatures[i].Kind == TileFeatureKind.Exit)
+                    {
+                        exitTileFeature = tileFeatures[i];
+                        return true;
+                    }
+                }
+            }
+
+            exitTileFeature = default;
+            return false;
         }
 
         private static string ResolveStableConditionId(

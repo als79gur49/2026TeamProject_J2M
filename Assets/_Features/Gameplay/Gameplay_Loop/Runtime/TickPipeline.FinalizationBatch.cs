@@ -63,6 +63,7 @@ namespace Game.Feature.Gameplay.Loop
         SetEnemyFrontFaceSupportState = 24,
         SetUnitKinematicState = 25,
         SetUnitContinuousLocomotionState = 26,
+        SetGravityFieldState = 27,
     }
 
     internal enum ResolvedActionSemanticKind
@@ -218,6 +219,8 @@ namespace Game.Feature.Gameplay.Loop
             EnemyUtilityRuntimeState enemyUtilityState = null,
             EnemyFrontFaceSupportRuntimeState enemyFrontFaceSupportState = null,
             BoxInteractionLockState boxInteractionLockState = default,
+            GravityFieldPhase gravityFieldPhase = default,
+            int gravityFieldTimerTicks = 0,
             UnitKinematicRuntimeState unitKinematicState = default,
             UnitContinuousLocomotionState unitContinuousLocomotionState = default,
             PhasedRuntimeState phasedState = default,
@@ -256,6 +259,8 @@ namespace Game.Feature.Gameplay.Loop
             EnemyUtilityState = enemyUtilityState;
             EnemyFrontFaceSupportState = enemyFrontFaceSupportState;
             BoxInteractionLockState = boxInteractionLockState;
+            GravityFieldPhase = gravityFieldPhase;
+            GravityFieldTimerTicks = gravityFieldTimerTicks;
             UnitKinematicState = unitKinematicState;
             UnitContinuousLocomotionState = unitContinuousLocomotionState;
             PhasedState = phasedState;
@@ -323,6 +328,10 @@ namespace Game.Feature.Gameplay.Loop
 
         public BoxInteractionLockState BoxInteractionLockState { get; }
 
+        public GravityFieldPhase GravityFieldPhase { get; }
+
+        public int GravityFieldTimerTicks { get; }
+
         public UnitKinematicRuntimeState UnitKinematicState { get; }
 
         public UnitContinuousLocomotionState UnitContinuousLocomotionState { get; }
@@ -372,6 +381,8 @@ namespace Game.Feature.Gameplay.Loop
                 EnemyUtilityState,
                 EnemyFrontFaceSupportState,
                 BoxInteractionLockState,
+                GravityFieldPhase,
+                GravityFieldTimerTicks,
                 UnitKinematicState,
                 UnitContinuousLocomotionState,
                 PhasedState,
@@ -602,6 +613,23 @@ namespace Game.Feature.Gameplay.Loop
                 entityId: entityId);
         }
 
+        public static FinalizationOperation SetGravityFieldState(
+            long sequence,
+            int entityId,
+            GravityFieldPhase phase,
+            int timerTicks,
+            FinalizationOperationMetadata metadata = default)
+        {
+            return new FinalizationOperation(
+                sequence,
+                FinalizationOperationBucket.NonHpState,
+                FinalizationOperationKind.SetGravityFieldState,
+                metadata,
+                entityId: entityId,
+                gravityFieldPhase: phase,
+                gravityFieldTimerTicks: timerTicks);
+        }
+
         public static FinalizationOperation SetUnitKinematicState(
             long sequence,
             int entityId,
@@ -702,9 +730,12 @@ namespace Game.Feature.Gameplay.Loop
     internal sealed class FinalizationBatch
     {
         private readonly List<FinalizationOperation> _operations = new();
+        private readonly List<TileFeatureOperation> _tileFeatureOperations = new();
         private long _nextSequence = 1;
 
         public IReadOnlyList<FinalizationOperation> Operations => _operations;
+
+        public IReadOnlyList<TileFeatureOperation> TileFeatureOperations => _tileFeatureOperations;
 
         public void MoveEntity(int entityId, SurfaceCell destination, FinalizationOperationMetadata metadata = default)
         {
@@ -806,6 +837,11 @@ namespace Game.Feature.Gameplay.Loop
             _operations.Add(FinalizationOperation.RemoveBoxInteractionLockState(_nextSequence++, entityId, metadata));
         }
 
+        public void SetGravityFieldState(int entityId, GravityFieldPhase phase, int timerTicks, FinalizationOperationMetadata metadata = default)
+        {
+            _operations.Add(FinalizationOperation.SetGravityFieldState(_nextSequence++, entityId, phase, timerTicks, metadata));
+        }
+
         public void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state, FinalizationOperationMetadata metadata = default)
         {
             _operations.Add(FinalizationOperation.SetUnitKinematicState(_nextSequence++, entityId, state, metadata));
@@ -857,7 +893,22 @@ namespace Game.Feature.Gameplay.Loop
             _operations.Add(FinalizationOperation.EnqueueDelayedAttackEffect(_nextSequence++, effectRecord, metadata));
         }
 
-        public void MergeFrom(FinalizationBatch batch)
+        public void ApplyTileFeatureOperations(TileFeatureOperationBatch batch)
+        {
+            var resolvedBatch = batch ?? throw new ArgumentNullException(nameof(batch));
+            if (resolvedBatch.IsEmpty)
+            {
+                return;
+            }
+
+            var operations = resolvedBatch.Operations;
+            for (var i = 0; i < operations.Count; i++)
+            {
+                _tileFeatureOperations.Add(operations[i]);
+            }
+        }
+
+        public void MergeFrom(FinalizationBatch batch, bool includeTileFeatureOperations = true)
         {
             if (batch == null)
             {
@@ -867,6 +918,16 @@ namespace Game.Feature.Gameplay.Loop
             for (var i = 0; i < batch._operations.Count; i++)
             {
                 _operations.Add(batch._operations[i].WithSequence(_nextSequence++));
+            }
+
+            if (!includeTileFeatureOperations)
+            {
+                return;
+            }
+
+            for (var i = 0; i < batch._tileFeatureOperations.Count; i++)
+            {
+                _tileFeatureOperations.Add(batch._tileFeatureOperations[i]);
             }
         }
 
@@ -878,10 +939,36 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             ApplyBucket(writeContext, FinalizationOperationBucket.NonHpState);
+            ApplyTileFeatureOperations(writeContext);
             ApplyBucket(writeContext, FinalizationOperationBucket.DamageState);
             ApplyBucket(writeContext, FinalizationOperationBucket.Spawn);
             ApplyBucket(writeContext, FinalizationOperationBucket.Destroy);
             ApplyBucket(writeContext, FinalizationOperationBucket.DelayedEnqueue, delayedAttackEffectSink);
+        }
+
+        private void ApplyTileFeatureOperations(IWorldWriteContext writeContext)
+        {
+            for (var i = 0; i < _tileFeatureOperations.Count; i++)
+            {
+                var operation = _tileFeatureOperations[i];
+                switch (operation.Kind)
+                {
+                    case TileFeatureOperationKind.Add:
+                        writeContext.AddTileFeature(operation.State);
+                        break;
+
+                    case TileFeatureOperationKind.Update:
+                        writeContext.UpdateTileFeature(operation.State);
+                        break;
+
+                    case TileFeatureOperationKind.Remove:
+                        writeContext.RemoveTileFeature(operation.TileId);
+                        break;
+
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            }
         }
 
         private void ApplyBucket(
@@ -980,6 +1067,13 @@ namespace Game.Feature.Gameplay.Loop
 
                     case FinalizationOperationKind.RemoveBoxInteractionLockState:
                         writeContext.RemoveBoxInteractionLockState(operation.EntityId);
+                        break;
+
+                    case FinalizationOperationKind.SetGravityFieldState:
+                        ((IPreMovementStateCommitContext)writeContext).SetGravityFieldState(
+                            operation.EntityId,
+                            operation.GravityFieldPhase,
+                            operation.GravityFieldTimerTicks);
                         break;
 
                     case FinalizationOperationKind.SetUnitKinematicState:
@@ -1109,6 +1203,11 @@ namespace Game.Feature.Gameplay.Loop
             _batch.SetBoxInteractionLockState(entityId, state);
         }
 
+        public void SetGravityFieldState(int entityId, GravityFieldPhase phase, int timerTicks)
+        {
+            _batch.SetGravityFieldState(entityId, phase, timerTicks);
+        }
+
         public void SetEnemyChargeState(int entityId, EnemyChargeRuntimeState state)
         {
             _batch.SetEnemyChargeState(entityId, state);
@@ -1200,6 +1299,21 @@ namespace Game.Feature.Gameplay.Loop
         public void SetTopology(CubeTopologyState topology)
         {
             _batch.SetTopology(topology);
+        }
+
+        public void AddTileFeature(TileFeatureState state)
+        {
+            _batch.ApplyTileFeatureOperations(new TileFeatureOperationBatch(new[] { TileFeatureOperation.Add(state) }));
+        }
+
+        public void UpdateTileFeature(TileFeatureState state)
+        {
+            _batch.ApplyTileFeatureOperations(new TileFeatureOperationBatch(new[] { TileFeatureOperation.Update(state) }));
+        }
+
+        public void RemoveTileFeature(int tileId)
+        {
+            _batch.ApplyTileFeatureOperations(new TileFeatureOperationBatch(new[] { TileFeatureOperation.Remove(tileId) }));
         }
 
         public void EmitEnemyUtilityTriggerIntent(EnemyUtilityTriggerIntent intent)

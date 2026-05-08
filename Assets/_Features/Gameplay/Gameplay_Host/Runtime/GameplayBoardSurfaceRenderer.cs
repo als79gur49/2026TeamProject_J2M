@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Stages;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -15,12 +16,19 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private Transform transitionTilePoolRoot;
 
         private readonly List<Material> _ownedMaterials = new();
-        private readonly List<SurfaceTileView> _steadyTilePool = new();
+        private readonly List<SurfaceTileView> _steadyActiveTiles = new();
         private readonly List<SurfaceTransitionTileState> _transitionTileStates = new();
-        private readonly List<SurfaceTileView> _transitionTilePool = new();
+        private readonly List<SurfaceTileView> _transitionActiveTiles = new();
+        private readonly Dictionary<BoardTilePoolKey, List<SurfaceTileView>> _steadyTilePools = new();
+        private readonly Dictionary<BoardTilePoolKey, List<SurfaceTileView>> _transitionTilePools = new();
 
         private BoardBounds _boardBounds;
         private float _cellSize;
+        private BoardTilePresentationCatalog _boardTilePresentationCatalog;
+        private BoardTilePresentationOverride[] _boardTilePresentationOverrides =
+            Array.Empty<BoardTilePresentationOverride>();
+        private Dictionary<SurfaceCell, string> _boardTilePresentationOverrideLookup = new();
+        private HashSet<SurfaceCell> _suppressedBaseTileCells = new();
         private Material _activeBottomFaceMaterial;
         private Material _activeFrontFaceMaterial;
         private Material _decorativeBackFaceMaterial;
@@ -78,7 +86,10 @@ namespace Game.Feature.Gameplay.Host
             float cellSize,
             CubeTopologyState topology,
             float faceSeamGap = -1f,
-            Texture2D sharedTileTexture = null)
+            Texture2D sharedTileTexture = null,
+            BoardTilePresentationCatalog boardTilePresentationCatalog = null,
+            IReadOnlyList<BoardTilePresentationOverride> boardTilePresentationOverrides = null,
+            IReadOnlyList<SurfaceCell> suppressedBaseTileCells = null)
         {
             if (!boardBounds.IsBounded)
             {
@@ -92,15 +103,47 @@ namespace Game.Feature.Gameplay.Host
 
             _boardBounds = boardBounds;
             _cellSize = cellSize;
+            var overridesChanged = !BoardTileOverridesEqual(
+                _boardTilePresentationOverrides,
+                boardTilePresentationOverrides);
+            if (_boardTilePresentationCatalog != boardTilePresentationCatalog || overridesChanged)
+            {
+                DestroyAllTilePools();
+                _boardTilePresentationCatalog = boardTilePresentationCatalog;
+                if (overridesChanged)
+                {
+                    _boardTilePresentationOverrides = CloneBoardTileOverrides(boardTilePresentationOverrides);
+                }
+            }
+
+            _boardTilePresentationOverrideLookup =
+                BuildBoardTileOverrideLookup(_boardTilePresentationOverrides);
+            _suppressedBaseTileCells = BuildSuppressedBaseTileCellSet(suppressedBaseTileCells);
             var resolvedFaceSeamGap = faceSeamGap >= 0f ? faceSeamGap : cellSize;
             _projector = new GameplayCubeProjector(boardBounds, cellSize, resolvedFaceSeamGap);
             EnsureVisibleTilePoolRoot();
             EnsureTransitionTilePoolRoot();
             EnsureMaterials(sharedTileTexture);
-            EnsureTilePool(_steadyTilePool, VisibleTilePoolRoot, GetRequiredTileCount());
-            EnsureTilePool(_transitionTilePool, TransitionTilePoolRoot, GetRequiredTransitionTileCount());
             _isInitialized = true;
             RefreshTopology(topology);
+        }
+
+        public void ConfigureSuppressedBaseTileCells(IEnumerable<SurfaceCell> cells)
+        {
+            var next = BuildSuppressedBaseTileCellSet(cells);
+            if (SurfaceCellSetsEqual(_suppressedBaseTileCells, next))
+            {
+                return;
+            }
+
+            _suppressedBaseTileCells = next;
+            if (!_isInitialized)
+            {
+                return;
+            }
+
+            RefreshSteadyTopology(_steadyTopology);
+            ClearTopologyTransition();
         }
 
         public void RefreshTopology(CubeTopologyState topology)
@@ -123,7 +166,8 @@ namespace Game.Feature.Gameplay.Host
             }
 
             SetSteadyTilesActive(isActive: false);
-            EnsureTilePool(_transitionTilePool, TransitionTilePoolRoot, GetRequiredTransitionTileCount());
+            DeactivateAllTileViews(_transitionTilePools);
+            _transitionActiveTiles.Clear();
 
             var tileScale = ResolveTileScale();
             var tileIndex = 0;
@@ -150,10 +194,6 @@ namespace Game.Feature.Gameplay.Host
                 tileIndex);
 
             TransitionTileCount = tileIndex;
-            for (var i = tileIndex; i < _transitionTilePool.Count; i++)
-            {
-                _transitionTilePool[i].SetActive(false);
-            }
         }
 
         public void UpdateTopologyTransition(float progress)
@@ -173,7 +213,7 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < TransitionTileCount; i++)
             {
                 var tileState = _transitionTileStates[i];
-                ApplyTilePose(_transitionTilePool[i], tileState.TileRole, tileState.Cell, tileState.LocalPose, tileScale);
+                ApplyTilePose(_transitionActiveTiles[i], tileState.TileRole, tileState.Cell, tileState.LocalPose, tileScale);
             }
         }
 
@@ -189,15 +229,15 @@ namespace Game.Feature.Gameplay.Host
             TransitionTileCount = 0;
             _transitionTileStates.Clear();
             SetSteadyTilesActive(isActive: true);
-            for (var i = 0; i < _transitionTilePool.Count; i++)
-            {
-                _transitionTilePool[i].SetActive(false);
-            }
+            DeactivateAllTileViews(_transitionTilePools);
+            _transitionActiveTiles.Clear();
         }
 
         private void RefreshSteadyTopology(CubeTopologyState topology)
         {
             _steadyTopology = topology;
+            DeactivateAllTileViews(_steadyTilePools);
+            _steadyActiveTiles.Clear();
             var tileScale = ResolveTileScale();
             var tileIndex = 0;
 
@@ -207,14 +247,18 @@ namespace Game.Feature.Gameplay.Host
                 SurfaceTileRole.ActiveBottom,
                 tileScale,
                 tileIndex,
-                _steadyTilePool);
+                _steadyTilePools,
+                _steadyActiveTiles,
+                VisibleTilePoolRoot);
             tileIndex = PopulateFaceTiles(
                 topology.FrontFace,
                 topology,
                 SurfaceTileRole.ActiveFront,
                 tileScale,
                 tileIndex,
-                _steadyTilePool);
+                _steadyTilePools,
+                _steadyActiveTiles,
+                VisibleTilePoolRoot);
 
             if (renderDecorativeFaces)
             {
@@ -224,22 +268,22 @@ namespace Game.Feature.Gameplay.Host
                     SurfaceTileRole.DecorativeTop,
                     tileScale,
                     tileIndex,
-                    _steadyTilePool);
+                    _steadyTilePools,
+                    _steadyActiveTiles,
+                    VisibleTilePoolRoot);
                 tileIndex = PopulateFaceTiles(
                     FaceIdUtility.GetPrevious(topology.BottomFace),
                     topology,
                     SurfaceTileRole.DecorativeBack,
                     tileScale,
                     tileIndex,
-                    _steadyTilePool);
+                    _steadyTilePools,
+                    _steadyActiveTiles,
+                    VisibleTilePoolRoot);
             }
 
             SteadyTileCount = tileIndex;
             _areSteadyTilesVisible = true;
-            for (var i = tileIndex; i < _steadyTilePool.Count; i++)
-            {
-                _steadyTilePool[i].SetActive(false);
-            }
         }
 
         private Transform EnsureVisibleTilePoolRoot()
@@ -375,38 +419,69 @@ namespace Game.Feature.Gameplay.Host
             return material;
         }
 
-        private void EnsureTilePool(List<SurfaceTileView> tilePool, Transform tilePoolRoot, int requiredTileCount)
+        private SurfaceTileView RentTileView(
+            Dictionary<BoardTilePoolKey, List<SurfaceTileView>> tilePools,
+            List<SurfaceTileView> activeTiles,
+            Transform tilePoolRoot,
+            BoardTileVisualDescriptor descriptor)
         {
-            while (tilePool.Count < requiredTileCount)
+            if (!tilePools.TryGetValue(descriptor.PoolKey, out var tilePool))
             {
-                tilePool.Add(CreateTileView(tilePool.Count, tilePoolRoot));
+                tilePool = new List<SurfaceTileView>();
+                tilePools.Add(descriptor.PoolKey, tilePool);
             }
+
+            for (var i = 0; i < tilePool.Count; i++)
+            {
+                var candidate = tilePool[i];
+                if (candidate != null &&
+                    !candidate.GameObject.activeSelf &&
+                    !activeTiles.Contains(candidate))
+                {
+                    activeTiles.Add(candidate);
+                    return candidate;
+                }
+            }
+
+            var tileView = CreateTileView(tilePool.Count, tilePoolRoot, descriptor);
+            tilePool.Add(tileView);
+            activeTiles.Add(tileView);
+            return tileView;
         }
 
-        private SurfaceTileView CreateTileView(int index, Transform parent)
+        private SurfaceTileView CreateTileView(
+            int index,
+            Transform parent,
+            BoardTileVisualDescriptor descriptor)
         {
-            var tileObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var tileObject = descriptor.UsesPrefab
+                ? Instantiate(descriptor.Prefab, parent)
+                : GameObject.CreatePrimitive(PrimitiveType.Cube);
             tileObject.name = $"SurfaceTile_{index}";
             tileObject.transform.SetParent(parent, worldPositionStays: false);
             tileObject.transform.localPosition = Vector3.zero;
             tileObject.transform.localRotation = Quaternion.identity;
             tileObject.transform.localScale = Vector3.one;
 
-            var collider = tileObject.GetComponent<Collider>();
-            if (collider != null)
+            if (!descriptor.UsesPrefab)
             {
-                if (Application.isPlaying)
+                var collider = tileObject.GetComponent<Collider>();
+                if (collider != null)
                 {
-                    Destroy(collider);
-                }
-                else
-                {
-                    DestroyImmediate(collider);
+                    if (Application.isPlaying)
+                    {
+                        Destroy(collider);
+                    }
+                    else
+                    {
+                        DestroyImmediate(collider);
+                    }
                 }
             }
 
             var renderer = tileObject.GetComponent<MeshRenderer>();
-            return new SurfaceTileView(tileObject, tileObject.transform, renderer);
+            tileObject.SetActive(false);
+            return new SurfaceTileView(tileObject, tileObject.transform, renderer, descriptor);
         }
 
         private int PopulateFaceTiles(
@@ -415,20 +490,29 @@ namespace Game.Feature.Gameplay.Host
             SurfaceTileRole tileRole,
             Vector3 tileScale,
             int tileIndex,
-            List<SurfaceTileView> tilePool)
+            Dictionary<BoardTilePoolKey, List<SurfaceTileView>> tilePools,
+            List<SurfaceTileView> activeTiles,
+            Transform tilePoolRoot)
         {
             for (var y = _boardBounds.MinInclusive.y; y <= _boardBounds.MaxInclusive.y; y++)
             {
                 for (var x = _boardBounds.MinInclusive.x; x <= _boardBounds.MaxInclusive.x; x++)
                 {
                     var cell = new SurfaceCell(face, x, y);
+                    if (IsBaseTileSuppressed(cell))
+                    {
+                        continue;
+                    }
+
                     if (!_projector.TryProjectSurfaceCell(cell, topology, out var projectedPose))
                     {
                         throw new InvalidOperationException(
                             $"Failed to project visible board surface cell '{cell}' for topology '{topology}'.");
                     }
 
-                    var tileView = tilePool[tileIndex++];
+                    var descriptor = ResolveBoardTileVisualDescriptor(cell, tileRole);
+                    var tileView = RentTileView(tilePools, activeTiles, tilePoolRoot, descriptor);
+                    tileIndex++;
                     ApplyTilePose(tileView, tileRole, cell, projectedPose, tileScale);
                 }
             }
@@ -458,6 +542,11 @@ namespace Game.Feature.Gameplay.Host
                 for (var x = _boardBounds.MinInclusive.x; x <= _boardBounds.MaxInclusive.x; x++)
                 {
                     var cell = new SurfaceCell(face, x, y);
+                    if (IsBaseTileSuppressed(cell))
+                    {
+                        continue;
+                    }
+
                     if (!TryResolveTransitionTileLocalPose(
                             cell,
                             _steadyTopology,
@@ -468,7 +557,13 @@ namespace Game.Feature.Gameplay.Host
                             $"Failed to project board surface transition cell '{cell}' from '{_steadyTopology}' to '{destinationTopology}'.");
                     }
 
-                    var tileView = _transitionTilePool[tileIndex++];
+                    var descriptor = ResolveBoardTileVisualDescriptor(cell, tileRole);
+                    var tileView = RentTileView(
+                        _transitionTilePools,
+                        _transitionActiveTiles,
+                        TransitionTilePoolRoot,
+                        descriptor);
+                    tileIndex++;
                     if (_transitionTileStates.Count < tileIndex)
                     {
                         _transitionTileStates.Add(new SurfaceTransitionTileState(cell, tileRole, localPose));
@@ -511,7 +606,11 @@ namespace Game.Feature.Gameplay.Host
             tileView.Transform.localPosition = localPose.Position;
             tileView.Transform.localRotation = localPose.Rotation;
             tileView.Transform.localScale = tileScale;
-            tileView.Renderer.sharedMaterial = ResolveMaterial(tileRole);
+            if (!tileView.Descriptor.UsesPrefab && tileView.Renderer != null)
+            {
+                tileView.Renderer.sharedMaterial = tileView.Descriptor.MaterialFallback ?? ResolveMaterial(tileRole);
+            }
+
             tileView.SetActive(true);
         }
 
@@ -546,6 +645,190 @@ namespace Game.Feature.Gameplay.Host
                 SurfaceTileRole.ActiveFront => _activeFrontFaceMaterial,
                 SurfaceTileRole.DecorativeTop => _decorativeTopFaceMaterial,
                 _ => _decorativeBackFaceMaterial,
+            };
+        }
+
+        private BoardTileVisualDescriptor ResolveBoardTileVisualDescriptor(
+            SurfaceCell cell,
+            SurfaceTileRole tileRole)
+        {
+            var visualRole = ToBoardTileVisualRole(tileRole);
+            if (_boardTilePresentationCatalog != null)
+            {
+                if (_boardTilePresentationOverrideLookup != null &&
+                    _boardTilePresentationOverrideLookup.TryGetValue(cell, out var overrideKey))
+                {
+                    if (_boardTilePresentationCatalog.TryGetEntry(overrideKey, out var overrideEntry))
+                    {
+                        return BoardTileVisualDescriptor.FromEntry(
+                            visualRole,
+                            overrideEntry,
+                            ResolveMaterial(tileRole));
+                    }
+
+                    UnityEngine.Debug.LogWarning(
+                        $"BoardTilePresentationOverride for cell '{cell}' could not resolve PresentationKey '{overrideKey}' in BoardTilePresentationCatalog '{_boardTilePresentationCatalog.name}'. Falling back to role defaults.");
+                }
+
+                if (_boardTilePresentationCatalog.TryGetDefaultEntry(visualRole, out var roleEntry))
+                {
+                    return BoardTileVisualDescriptor.FromEntry(visualRole, roleEntry, ResolveMaterial(tileRole));
+                }
+
+                if (_boardTilePresentationCatalog.TryGetDefaultEntry(
+                        BoardTileVisualRole.GenericDefault,
+                        out var genericEntry))
+                {
+                    return BoardTileVisualDescriptor.FromEntry(visualRole, genericEntry, ResolveMaterial(tileRole));
+                }
+            }
+            else if (_boardTilePresentationOverrideLookup != null &&
+                     _boardTilePresentationOverrideLookup.TryGetValue(cell, out var overrideKey))
+            {
+                UnityEngine.Debug.LogWarning(
+                    $"BoardTilePresentationOverride for cell '{cell}' declares PresentationKey '{overrideKey}' but no BoardTilePresentationCatalog is assigned. Falling back to legacy board tile material.");
+            }
+
+            return BoardTileVisualDescriptor.MaterialOnly(visualRole, ResolveMaterial(tileRole));
+        }
+
+        private static bool BoardTileOverridesEqual(
+            IReadOnlyList<BoardTilePresentationOverride> left,
+            IReadOnlyList<BoardTilePresentationOverride> right)
+        {
+            var leftCount = left?.Count ?? 0;
+            var rightCount = right?.Count ?? 0;
+            if (leftCount != rightCount)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < leftCount; i++)
+            {
+                var leftEntry = left[i];
+                var rightEntry = right[i];
+                if (leftEntry == null || rightEntry == null)
+                {
+                    if (leftEntry != rightEntry)
+                    {
+                        return false;
+                    }
+
+                    continue;
+                }
+
+                if (!leftEntry.Cell.Equals(rightEntry.Cell) ||
+                    !string.Equals(leftEntry.PresentationKey, rightEntry.PresentationKey, StringComparison.Ordinal))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static BoardTilePresentationOverride[] CloneBoardTileOverrides(
+            IReadOnlyList<BoardTilePresentationOverride> source)
+        {
+            if (source == null || source.Count == 0)
+            {
+                return Array.Empty<BoardTilePresentationOverride>();
+            }
+
+            var overrides = new BoardTilePresentationOverride[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                var entry = source[i];
+                overrides[i] = entry == null
+                    ? null
+                    : new BoardTilePresentationOverride(entry.Cell, entry.PresentationKey);
+            }
+
+            return overrides;
+        }
+
+        private static Dictionary<SurfaceCell, string> BuildBoardTileOverrideLookup(
+            IReadOnlyList<BoardTilePresentationOverride> source)
+        {
+            var lookup = new Dictionary<SurfaceCell, string>();
+            if (source == null)
+            {
+                return lookup;
+            }
+
+            for (var i = 0; i < source.Count; i++)
+            {
+                var entry = source[i];
+                if (entry == null ||
+                    lookup.ContainsKey(entry.Cell))
+                {
+                    continue;
+                }
+
+                lookup.Add(entry.Cell, entry.PresentationKey);
+            }
+
+            return lookup;
+        }
+
+        private bool IsBaseTileSuppressed(SurfaceCell cell)
+        {
+            return _suppressedBaseTileCells != null &&
+                   _suppressedBaseTileCells.Contains(cell);
+        }
+
+        private static HashSet<SurfaceCell> BuildSuppressedBaseTileCellSet(
+            IEnumerable<SurfaceCell> source)
+        {
+            var set = new HashSet<SurfaceCell>();
+            if (source == null)
+            {
+                return set;
+            }
+
+            foreach (var cell in source)
+            {
+                if (Enum.IsDefined(typeof(FaceId), cell.face))
+                {
+                    set.Add(cell);
+                }
+            }
+
+            return set;
+        }
+
+        private static bool SurfaceCellSetsEqual(
+            HashSet<SurfaceCell> left,
+            HashSet<SurfaceCell> right)
+        {
+            if (ReferenceEquals(left, right))
+            {
+                return true;
+            }
+
+            var leftCount = left?.Count ?? 0;
+            var rightCount = right?.Count ?? 0;
+            if (leftCount != rightCount)
+            {
+                return false;
+            }
+
+            if (left == null || right == null)
+            {
+                return left == right;
+            }
+
+            return left.SetEquals(right);
+        }
+
+        private static BoardTileVisualRole ToBoardTileVisualRole(SurfaceTileRole tileRole)
+        {
+            return tileRole switch
+            {
+                SurfaceTileRole.ActiveBottom => BoardTileVisualRole.ActiveBottom,
+                SurfaceTileRole.ActiveFront => BoardTileVisualRole.ActiveFront,
+                SurfaceTileRole.DecorativeTop => BoardTileVisualRole.DecorativeTop,
+                _ => BoardTileVisualRole.DecorativeBack,
             };
         }
 
@@ -599,9 +882,59 @@ namespace Game.Feature.Gameplay.Host
         private void SetSteadyTilesActive(bool isActive)
         {
             _areSteadyTilesVisible = isActive;
-            for (var i = 0; i < SteadyTileCount && i < _steadyTilePool.Count; i++)
+            for (var i = 0; i < SteadyTileCount && i < _steadyActiveTiles.Count; i++)
             {
-                _steadyTilePool[i].SetActive(isActive);
+                _steadyActiveTiles[i].SetActive(isActive);
+            }
+        }
+
+        private void DestroyAllTilePools()
+        {
+            DestroyTilePools(_steadyTilePools);
+            DestroyTilePools(_transitionTilePools);
+            _steadyActiveTiles.Clear();
+            _transitionActiveTiles.Clear();
+            _transitionTileStates.Clear();
+            SteadyTileCount = 0;
+            TransitionTileCount = 0;
+        }
+
+        private void DestroyTilePools(Dictionary<BoardTilePoolKey, List<SurfaceTileView>> tilePools)
+        {
+            foreach (var pair in tilePools)
+            {
+                var tilePool = pair.Value;
+                for (var i = 0; i < tilePool.Count; i++)
+                {
+                    var tileView = tilePool[i];
+                    if (tileView == null || tileView.GameObject == null)
+                    {
+                        continue;
+                    }
+
+                    if (Application.isPlaying)
+                    {
+                        Destroy(tileView.GameObject);
+                    }
+                    else
+                    {
+                        DestroyImmediate(tileView.GameObject);
+                    }
+                }
+            }
+
+            tilePools.Clear();
+        }
+
+        private static void DeactivateAllTileViews(Dictionary<BoardTilePoolKey, List<SurfaceTileView>> tilePools)
+        {
+            foreach (var pair in tilePools)
+            {
+                var tilePool = pair.Value;
+                for (var i = 0; i < tilePool.Count; i++)
+                {
+                    tilePool[i]?.SetActive(false);
+                }
             }
         }
 
@@ -633,6 +966,108 @@ namespace Game.Feature.Gameplay.Host
             return true;
         }
 
+        private readonly struct BoardTileVisualDescriptor
+        {
+            private BoardTileVisualDescriptor(
+                BoardTileVisualRole role,
+                GameObject prefab,
+                Material materialFallback,
+                bool usesPrefab)
+            {
+                Role = role;
+                Prefab = prefab;
+                MaterialFallback = materialFallback;
+                UsesPrefab = usesPrefab;
+                PoolKey = new BoardTilePoolKey(role, prefab, materialFallback, usesPrefab);
+            }
+
+            public BoardTileVisualRole Role { get; }
+
+            public GameObject Prefab { get; }
+
+            public Material MaterialFallback { get; }
+
+            public bool UsesPrefab { get; }
+
+            public BoardTilePoolKey PoolKey { get; }
+
+            public static BoardTileVisualDescriptor FromEntry(
+                BoardTileVisualRole role,
+                BoardTilePresentationCatalogEntry entry,
+                Material legacyMaterial)
+            {
+                if (entry != null && entry.TilePrefab != null)
+                {
+                    return new BoardTileVisualDescriptor(
+                        role,
+                        entry.TilePrefab,
+                        entry.MaterialFallback,
+                        usesPrefab: true);
+                }
+
+                return MaterialOnly(role, entry?.MaterialFallback ?? legacyMaterial);
+            }
+
+            public static BoardTileVisualDescriptor MaterialOnly(
+                BoardTileVisualRole role,
+                Material materialFallback)
+            {
+                return new BoardTileVisualDescriptor(
+                    role,
+                    null,
+                    materialFallback,
+                    usesPrefab: false);
+            }
+        }
+
+        private readonly struct BoardTilePoolKey : IEquatable<BoardTilePoolKey>
+        {
+            public BoardTilePoolKey(
+                BoardTileVisualRole role,
+                GameObject prefab,
+                Material materialFallback,
+                bool usesPrefab)
+            {
+                Role = role;
+                PrefabInstanceId = prefab != null ? prefab.GetInstanceID() : 0;
+                MaterialFallbackInstanceId = materialFallback != null ? materialFallback.GetInstanceID() : 0;
+                UsesPrefab = usesPrefab;
+            }
+
+            public BoardTileVisualRole Role { get; }
+
+            public int PrefabInstanceId { get; }
+
+            public int MaterialFallbackInstanceId { get; }
+
+            public bool UsesPrefab { get; }
+
+            public bool Equals(BoardTilePoolKey other)
+            {
+                return Role == other.Role &&
+                       PrefabInstanceId == other.PrefabInstanceId &&
+                       MaterialFallbackInstanceId == other.MaterialFallbackInstanceId &&
+                       UsesPrefab == other.UsesPrefab;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is BoardTilePoolKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    var hashCode = (int)Role;
+                    hashCode = (hashCode * 397) ^ PrefabInstanceId;
+                    hashCode = (hashCode * 397) ^ MaterialFallbackInstanceId;
+                    hashCode = (hashCode * 397) ^ UsesPrefab.GetHashCode();
+                    return hashCode;
+                }
+            }
+        }
+
         private enum SurfaceTileRole
         {
             ActiveBottom = 0,
@@ -662,14 +1097,21 @@ namespace Game.Feature.Gameplay.Host
 
         private sealed class SurfaceTileView
         {
-            public SurfaceTileView(GameObject gameObject, Transform transform, MeshRenderer renderer)
+            public SurfaceTileView(
+                GameObject gameObject,
+                Transform transform,
+                MeshRenderer renderer,
+                BoardTileVisualDescriptor descriptor)
             {
                 GameObject = gameObject;
                 Transform = transform;
                 Renderer = renderer;
+                Descriptor = descriptor;
             }
 
             public GameObject GameObject { get; }
+
+            public BoardTileVisualDescriptor Descriptor { get; }
 
             public MeshRenderer Renderer { get; }
 

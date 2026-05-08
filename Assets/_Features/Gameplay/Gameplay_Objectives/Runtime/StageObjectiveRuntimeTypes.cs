@@ -402,6 +402,137 @@ namespace Game.Feature.Gameplay.Objectives
         }
     }
 
+    public sealed class PlayerAtActiveExitConditionRuntimeDefinition : StageConditionRuntimeDefinition
+    {
+        public const string RuntimeConditionType = "PlayerAtActiveExitCondition";
+
+        private readonly int _playerEntityId;
+        private readonly int _exitTileId;
+        private readonly TileFeatureRuntimeDefinition _exitDefinition;
+        private readonly StageZoneRuntimeDefinition _targetZone;
+        private readonly bool _requireAlive;
+
+        public PlayerAtActiveExitConditionRuntimeDefinition(
+            string conditionId,
+            string displayName,
+            int playerEntityId,
+            int exitTileId,
+            TileFeatureRuntimeDefinition exitDefinition,
+            StageZoneRuntimeDefinition targetZone,
+            bool requireAlive)
+            : base(conditionId, displayName)
+        {
+            _playerEntityId = playerEntityId;
+            _exitTileId = exitTileId;
+            _exitDefinition = exitDefinition;
+            _targetZone = targetZone;
+            _requireAlive = requireAlive;
+        }
+
+        public override IStageConditionRuntime CreateRuntime()
+        {
+            return new PlayerAtActiveExitConditionRuntime(
+                ConditionId,
+                DisplayName,
+                _playerEntityId,
+                _exitTileId,
+                _exitDefinition,
+                _targetZone,
+                _requireAlive);
+        }
+
+        private sealed class PlayerAtActiveExitConditionRuntime : IStageConditionRuntime
+        {
+            private readonly string _conditionId;
+            private readonly string _displayName;
+            private readonly int _playerEntityId;
+            private readonly int _exitTileId;
+            private readonly TileFeatureRuntimeDefinition _exitDefinition;
+            private readonly StageZoneRuntimeDefinition _targetZone;
+            private readonly bool _requireAlive;
+            private bool _isSatisfied;
+            private bool _exitActive;
+            private bool _playerInZone;
+
+            public PlayerAtActiveExitConditionRuntime(
+                string conditionId,
+                string displayName,
+                int playerEntityId,
+                int exitTileId,
+                TileFeatureRuntimeDefinition exitDefinition,
+                StageZoneRuntimeDefinition targetZone,
+                bool requireAlive)
+            {
+                _conditionId = conditionId ?? string.Empty;
+                _displayName = displayName ?? string.Empty;
+                _playerEntityId = playerEntityId;
+                _exitTileId = exitTileId;
+                _exitDefinition = exitDefinition;
+                _targetZone = targetZone;
+                _requireAlive = requireAlive;
+            }
+
+            public bool IsSatisfied => _isSatisfied;
+
+            public void Reset()
+            {
+                _isSatisfied = false;
+                _exitActive = false;
+                _playerInZone = false;
+            }
+
+            public void Advance(WorldSnapshot finalSnapshot, in StageObjectiveTickFacts tickFacts)
+            {
+                if (finalSnapshot == null)
+                {
+                    throw new ArgumentNullException(nameof(finalSnapshot));
+                }
+
+                _isSatisfied = false;
+                _exitActive = false;
+                _playerInZone = false;
+
+                if (_playerEntityId <= 0 ||
+                    _exitTileId <= 0 ||
+                    !finalSnapshot.TryGetTileFeature(_exitTileId, out var exitTileFeature) ||
+                    exitTileFeature.Kind != TileFeatureKind.Exit)
+                {
+                    return;
+                }
+
+                _exitActive = TileFeatureActivationQueries.IsActive(
+                    exitTileFeature,
+                    _exitDefinition,
+                    finalSnapshot.Topology);
+                if (!_exitActive ||
+                    !_targetZone.Contains(exitTileFeature.Cell) ||
+                    !finalSnapshot.TryGetEntity(_playerEntityId, out var player) ||
+                    player.boardPresence != EntityBoardPresence.Occupying)
+                {
+                    return;
+                }
+
+                if (_requireAlive && (player.hp <= 0 || player.markedForDeath))
+                {
+                    return;
+                }
+
+                _playerInZone = _targetZone.Contains(player.position);
+                _isSatisfied = _playerInZone;
+            }
+
+            public StageConditionStatus CreateStatus()
+            {
+                return new StageConditionStatus(
+                    _conditionId,
+                    _displayName,
+                    RuntimeConditionType,
+                    _isSatisfied,
+                    $"PlayerEntityId={_playerEntityId}|ExitTileId={_exitTileId}|ZoneId={_targetZone.ZoneId}|RequireAlive={(_requireAlive ? 1 : 0)}|ExitActive={(_exitActive ? 1 : 0)}|PlayerInZone={(_playerInZone ? 1 : 0)}");
+            }
+        }
+    }
+
     public sealed class StageObjectiveConditionRuntimeDefinitionEntry
     {
         public StageObjectiveConditionRuntimeDefinitionEntry(
@@ -620,7 +751,10 @@ namespace Game.Feature.Gameplay.Objectives
             allConditionsSatisfied: false,
             clearedThisTick: false,
             isCleared: false,
-            Array.Empty<StageConditionStatus>());
+            hasRequiredNonPrimaryConditions: false,
+            requiredNonPrimaryConditionsSatisfied: true,
+            requiredNonPrimaryConditionsSatisfiedThisTick: false,
+            conditionStatuses: Array.Empty<StageConditionStatus>());
 
         public StageObjectiveTickResult(
             bool hasObjective,
@@ -629,12 +763,38 @@ namespace Game.Feature.Gameplay.Objectives
             bool clearedThisTick,
             bool isCleared,
             IReadOnlyList<StageConditionStatus> conditionStatuses)
+            : this(
+                hasObjective,
+                goalReached,
+                allConditionsSatisfied,
+                clearedThisTick,
+                isCleared,
+                hasRequiredNonPrimaryConditions: false,
+                requiredNonPrimaryConditionsSatisfied: true,
+                requiredNonPrimaryConditionsSatisfiedThisTick: false,
+                conditionStatuses)
+        {
+        }
+
+        public StageObjectiveTickResult(
+            bool hasObjective,
+            bool goalReached,
+            bool allConditionsSatisfied,
+            bool clearedThisTick,
+            bool isCleared,
+            bool hasRequiredNonPrimaryConditions,
+            bool requiredNonPrimaryConditionsSatisfied,
+            bool requiredNonPrimaryConditionsSatisfiedThisTick,
+            IReadOnlyList<StageConditionStatus> conditionStatuses)
         {
             HasObjective = hasObjective;
             GoalReached = goalReached;
             AllConditionsSatisfied = allConditionsSatisfied;
             ClearedThisTick = clearedThisTick;
             IsCleared = isCleared;
+            HasRequiredNonPrimaryConditions = hasRequiredNonPrimaryConditions;
+            RequiredNonPrimaryConditionsSatisfied = requiredNonPrimaryConditionsSatisfied;
+            RequiredNonPrimaryConditionsSatisfiedThisTick = requiredNonPrimaryConditionsSatisfiedThisTick;
             ConditionStatuses = conditionStatuses ?? Array.Empty<StageConditionStatus>();
         }
 
@@ -647,6 +807,12 @@ namespace Game.Feature.Gameplay.Objectives
         public bool ClearedThisTick { get; }
 
         public bool IsCleared { get; }
+
+        public bool HasRequiredNonPrimaryConditions { get; }
+
+        public bool RequiredNonPrimaryConditionsSatisfied { get; }
+
+        public bool RequiredNonPrimaryConditionsSatisfiedThisTick { get; }
 
         public IReadOnlyList<StageConditionStatus> ConditionStatuses { get; }
     }

@@ -298,6 +298,44 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void TileFeatureVisualBindingPrefabWithoutConfigurableTarget_ReportsIssue()
+        {
+            using var fixture = PresentationCatalogFixture.CreateBindingOnly(
+                enemyCatalogIds: Array.Empty<string>(),
+                staticCatalogIds: new[] { "box-view" });
+            var invalidPrefab = new GameObject("InvalidTileFeatureVisualPrefab");
+            try
+            {
+                fixture.SetGameplayTileFeatures(new[]
+                {
+                    new StageTileFeatureDefinition
+                    {
+                        TileId = 1,
+                        Cell = new SurfaceCell(FaceId.Floor, 0, 0),
+                        Kind = TileFeatureKind.Button,
+                        ActivationRule = TileFeatureActivationRule.BottomFaceOnly,
+                        Direction = Direction2D.None,
+                        BoxSelector = TileFeatureBoxSelector.AnyPushableBox,
+                    },
+                });
+                fixture.SetTileFeatureBindings(new[]
+                {
+                    new TileFeaturePresentationBinding
+                    {
+                        TileId = 1,
+                        VisualPrefab = invalidPrefab,
+                    },
+                });
+
+                AssertHasCode(fixture.Validate(), "presentation.tile-feature.prefab-target-missing");
+            }
+            finally
+            {
+                Destroy(invalidPrefab);
+            }
+        }
+
+        [Test]
         public void PresentationCatalogIssue_EnforceGeneratedSyncFalse_IsWarning()
         {
             using var fixture = PresentationCatalogFixture.CreateAuthoringPlacement(
@@ -589,6 +627,45 @@ namespace Game.Feature.Stages.Editor.Tests
                     var element = property.GetArrayElementAtIndex(i);
                     element.FindPropertyRelative("EntityId").intValue = bindings[i].EntityId;
                     element.FindPropertyRelative("PresentationId").stringValue = bindings[i].PresentationId;
+                }
+
+                serializedObject.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            public void SetTileFeatureBindings(TileFeaturePresentationBinding[] bindings)
+            {
+                var serializedObject = new SerializedObject(Presentation);
+                var property = serializedObject.FindProperty("tileFeaturePresentationBindings");
+                property.arraySize = bindings.Length;
+                for (var i = 0; i < bindings.Length; i++)
+                {
+                    var element = property.GetArrayElementAtIndex(i);
+                    element.FindPropertyRelative("TileId").intValue = bindings[i].TileId;
+                    element.FindPropertyRelative("VisualPrefab").objectReferenceValue = bindings[i].VisualPrefab;
+                }
+
+                serializedObject.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            public void SetGameplayTileFeatures(StageTileFeatureDefinition[] tileFeatures)
+            {
+                var serializedObject = new SerializedObject(Gameplay);
+                var property = serializedObject.FindProperty("tileFeatures");
+                property.arraySize = tileFeatures.Length;
+                for (var i = 0; i < tileFeatures.Length; i++)
+                {
+                    var element = property.GetArrayElementAtIndex(i);
+                    element.FindPropertyRelative("TileId").intValue = tileFeatures[i].TileId;
+                    var cell = element.FindPropertyRelative("Cell");
+                    cell.FindPropertyRelative("face").intValue = (int)tileFeatures[i].Cell.face;
+                    cell.FindPropertyRelative("x").intValue = tileFeatures[i].Cell.x;
+                    cell.FindPropertyRelative("y").intValue = tileFeatures[i].Cell.y;
+                    element.FindPropertyRelative("Kind").intValue = (int)tileFeatures[i].Kind;
+                    element.FindPropertyRelative("ActivationRule").intValue = (int)tileFeatures[i].ActivationRule;
+                    element.FindPropertyRelative("Direction").intValue = (int)tileFeatures[i].Direction;
+                    element.FindPropertyRelative("BoxSelector").intValue = (int)tileFeatures[i].BoxSelector;
+                    element.FindPropertyRelative("BoundEntityId").intValue = tileFeatures[i].BoundEntityId;
+                    element.FindPropertyRelative("PresentationKey").stringValue = tileFeatures[i].PresentationKey ?? string.Empty;
                 }
 
                 serializedObject.ApplyModifiedPropertiesWithoutUndo();

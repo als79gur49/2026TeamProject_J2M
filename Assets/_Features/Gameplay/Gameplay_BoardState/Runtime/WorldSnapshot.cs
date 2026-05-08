@@ -7,6 +7,13 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.BoardState
 {
+    public enum BoxInteractionLockSourceReason
+    {
+        Unspecified = 0,
+        EnemyUtility = 1,
+        GravityField = 2,
+    }
+
     public readonly struct BoxInteractionLockState
     {
         public BoxInteractionLockState(
@@ -15,12 +22,33 @@ namespace Game.Feature.Gameplay.BoardState
             int expiresTickExclusive,
             bool blocksPush,
             bool blocksFlip)
+            : this(
+                sourceEntityId,
+                sourceEffectIndex,
+                expiresTickExclusive,
+                blocksPush,
+                blocksFlip,
+                blocksDestroy: false,
+                BoxInteractionLockSourceReason.EnemyUtility)
+        {
+        }
+
+        public BoxInteractionLockState(
+            int sourceEntityId,
+            int sourceEffectIndex,
+            int expiresTickExclusive,
+            bool blocksPush,
+            bool blocksFlip,
+            bool blocksDestroy,
+            BoxInteractionLockSourceReason sourceReason)
         {
             SourceEntityId = sourceEntityId;
             SourceEffectIndex = sourceEffectIndex;
             ExpiresTickExclusive = expiresTickExclusive;
             BlocksPush = blocksPush;
             BlocksFlip = blocksFlip;
+            BlocksDestroy = blocksDestroy;
+            SourceReason = sourceReason;
         }
 
         public int SourceEntityId { get; }
@@ -32,6 +60,10 @@ namespace Game.Feature.Gameplay.BoardState
         public bool BlocksPush { get; }
 
         public bool BlocksFlip { get; }
+
+        public bool BlocksDestroy { get; }
+
+        public BoxInteractionLockSourceReason SourceReason { get; }
     }
 
     internal readonly struct BoxInteractionLockSnapshotEntry
@@ -79,6 +111,8 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly IReadOnlyDictionary<SurfaceCell, int> _projectileOccupancy;
         private readonly IReadOnlyDictionary<SurfaceCell, int> _solidOccupancy;
         private readonly IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> _stackedUnitsByCell;
+        private readonly IReadOnlyDictionary<int, TileFeatureState> _tileFeaturesById;
+        private readonly IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> _tileFeatureIdsByCell;
         private readonly TerrainData _terrainData;
         private readonly CubeTopologyState _topology;
 
@@ -87,6 +121,8 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<SurfaceCell, SortedSet<int>> stackedUnitsByCell,
             Dictionary<SurfaceCell, int> solidOccupancy,
             Dictionary<SurfaceCell, int> projectileOccupancy,
+            Dictionary<int, TileFeatureState> tileFeaturesById,
+            Dictionary<SurfaceCell, SortedSet<int>> tileFeatureIdsByCell,
             Dictionary<int, EnemyActionRuntimeState> enemyActionStatesByEntityId,
             Dictionary<int, EnemyPatrolRuntimeState> enemyPatrolStatesByEntityId,
             Dictionary<int, EnemyChargeRuntimeState> enemyChargeStatesByEntityId,
@@ -111,6 +147,8 @@ namespace Game.Feature.Gameplay.BoardState
             _stackedUnitsByCell = CreateReadonlyStackedUnitsByCell(stackedUnitsByCell ?? throw new ArgumentNullException(nameof(stackedUnitsByCell)));
             _solidOccupancy = new ReadOnlyDictionary<SurfaceCell, int>(solidOccupancy ?? throw new ArgumentNullException(nameof(solidOccupancy)));
             _projectileOccupancy = new ReadOnlyDictionary<SurfaceCell, int>(projectileOccupancy ?? throw new ArgumentNullException(nameof(projectileOccupancy)));
+            _tileFeaturesById = new ReadOnlyDictionary<int, TileFeatureState>(tileFeaturesById ?? throw new ArgumentNullException(nameof(tileFeaturesById)));
+            _tileFeatureIdsByCell = CreateReadonlyTileFeatureIdsByCell(tileFeatureIdsByCell ?? throw new ArgumentNullException(nameof(tileFeatureIdsByCell)));
             _enemyActionStatesByEntityId = new ReadOnlyDictionary<int, EnemyActionRuntimeState>(enemyActionStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyActionStatesByEntityId)));
             _enemyPatrolStatesByEntityId = new ReadOnlyDictionary<int, EnemyPatrolRuntimeState>(enemyPatrolStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyPatrolStatesByEntityId)));
             _enemyChargeStatesByEntityId = new ReadOnlyDictionary<int, EnemyChargeRuntimeState>(enemyChargeStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyChargeStatesByEntityId)));
@@ -378,6 +416,16 @@ namespace Game.Feature.Gameplay.BoardState
             return TryGetBoxAt(CreateDefaultQueryCell(cell), out entity);
         }
 
+        public bool TryGetBoxArchetypeAt(SurfaceCell cell, out BoxArchetype boxArchetype)
+        {
+            return TryGetBoxArchetypeAt(_topology, cell, out boxArchetype);
+        }
+
+        public bool TryGetBoxArchetypeAt(Vector2Int cell, out BoxArchetype boxArchetype)
+        {
+            return TryGetBoxArchetypeAt(CreateDefaultQueryCell(cell), out boxArchetype);
+        }
+
         public bool TryGetSolidSemanticAt(SurfaceCell cell, out SolidSemantic semantic)
         {
             return TryGetSolidSemanticAt(_topology, cell, out semantic);
@@ -481,6 +529,49 @@ namespace Game.Feature.Gameplay.BoardState
         public bool TryGetTerrain(Vector2Int cell, out TerrainCellState terrainCell)
         {
             return TryGetTerrain(CreateDefaultQueryCell(cell), out terrainCell);
+        }
+
+        public bool TryGetTileFeature(int tileId, out TileFeatureState tileFeature)
+        {
+            return _tileFeaturesById.TryGetValue(tileId, out tileFeature);
+        }
+
+        public void EnumerateTileFeaturesAt(SurfaceCell cell, List<TileFeatureState> buffer)
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+            if (!_tileFeatureIdsByCell.TryGetValue(cell, out var tileIds))
+            {
+                return;
+            }
+
+            foreach (var tileId in tileIds)
+            {
+                if (_tileFeaturesById.TryGetValue(tileId, out var tileFeature))
+                {
+                    buffer.Add(tileFeature);
+                }
+            }
+        }
+
+        public void EnumerateTileFeaturesOrdered(List<TileFeatureState> buffer)
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+            foreach (var tileFeature in _tileFeaturesById.Values)
+            {
+                buffer.Add(tileFeature);
+            }
+
+            buffer.Sort(CompareTileFeatureByCellThenId);
         }
 
         public bool TryGetUnitTraversalBlocker(SurfaceCell cell, out SlideStopper blocker)
@@ -1049,6 +1140,19 @@ namespace Game.Feature.Gameplay.BoardState
             return SnapshotReadQueries.TryGetBoxAt(_entitiesById, _solidOccupancy, topology, cell, out entity);
         }
 
+        internal bool TryGetBoxArchetypeAt(CubeTopologyState topology, SurfaceCell cell, out BoxArchetype boxArchetype)
+        {
+            if (TryGetSolidSemanticAt(topology, cell, out var semantic) &&
+                semantic.Kind == SolidKind.Box)
+            {
+                boxArchetype = semantic.Entity.boxArchetype;
+                return true;
+            }
+
+            boxArchetype = BoxArchetype.Normal;
+            return false;
+        }
+
         internal bool TryGetSolidSemanticAt(CubeTopologyState topology, SurfaceCell cell, out SolidSemantic semantic)
         {
             return SnapshotReadQueries.TryGetSolidSemanticAt(_entitiesById, _solidOccupancy, topology, cell, out semantic);
@@ -1144,6 +1248,53 @@ namespace Game.Feature.Gameplay.BoardState
         private SurfaceCell CreateDefaultQueryCell(Vector2Int cell)
         {
             return SurfaceCell.FromPlanar(cell, _topology.BottomFace);
+        }
+
+        private static int CompareTileFeatureByCellThenId(TileFeatureState left, TileFeatureState right)
+        {
+            var faceComparison = ((int)left.Cell.face).CompareTo((int)right.Cell.face);
+            if (faceComparison != 0)
+            {
+                return faceComparison;
+            }
+
+            var xComparison = left.Cell.x.CompareTo(right.Cell.x);
+            if (xComparison != 0)
+            {
+                return xComparison;
+            }
+
+            var yComparison = left.Cell.y.CompareTo(right.Cell.y);
+            if (yComparison != 0)
+            {
+                return yComparison;
+            }
+
+            return left.TileId.CompareTo(right.TileId);
+        }
+
+        private static ReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> CreateReadonlyTileFeatureIdsByCell(
+            Dictionary<SurfaceCell, SortedSet<int>> tileFeatureIdsByCell)
+        {
+            var buffer = new Dictionary<SurfaceCell, IReadOnlyCollection<int>>(tileFeatureIdsByCell.Count);
+
+            foreach (var pair in tileFeatureIdsByCell)
+            {
+                if (pair.Value == null)
+                {
+                    throw new ArgumentNullException(nameof(tileFeatureIdsByCell));
+                }
+
+                var orderedTileIds = new List<int>(pair.Value.Count);
+                foreach (var tileId in pair.Value)
+                {
+                    orderedTileIds.Add(tileId);
+                }
+
+                buffer.Add(pair.Key, orderedTileIds.AsReadOnly());
+            }
+
+            return new ReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>>(buffer);
         }
 
         private static ReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> CreateReadonlyStackedUnitsByCell(

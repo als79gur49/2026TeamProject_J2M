@@ -108,6 +108,7 @@ namespace Game.Feature.Stages.Editor
 
             authoring.SetBoard(gameplay.Board);
             authoring.SetPlacements(placements);
+            authoring.SetTileFeatures(gameplay.TileFeatures);
             authoring.SetZones(gameplay.Zones);
             authoring.SetObjective(gameplay.Objective);
             authoring.SetEntityIdMappings(mappings);
@@ -179,6 +180,7 @@ namespace Game.Feature.Stages.Editor
                     Hp = spawn.Hp,
                     UnitStackGroup = spawn.UnitStackGroup,
                     BoxCapabilities = spawn.BoxCapabilities,
+                    BoxArchetype = spawn.BoxArchetype,
                     EnemyAiMode = spawn.EnemyAiMode,
                     EnemyAiStateTimer = spawn.EnemyAiStateTimer,
                     EnemyAiProfileOverride = spawn.EnemyAiProfile,

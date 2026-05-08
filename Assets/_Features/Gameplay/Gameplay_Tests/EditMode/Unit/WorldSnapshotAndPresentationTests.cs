@@ -35,6 +35,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(TickPresentationData.Empty.FrontFaceShieldBlocks, Is.Empty);
             Assert.That(TickPresentationData.Empty.SummonWindupWarnings, Is.Empty);
             Assert.That(TickPresentationData.Empty.FrontFaceShieldWindupWarnings, Is.Empty);
+            Assert.That(TickPresentationData.Empty.TileEvents, Is.Empty);
+            Assert.That(TickPresentationData.Empty.GravityFieldVisualStates, Is.Empty);
 
             var presentationData = new TickPresentationData(Array.Empty<TickEntityMotion>());
 
@@ -42,6 +44,318 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(presentationData.FrontFaceShieldBlocks, Is.Empty);
             Assert.That(presentationData.SummonWindupWarnings, Is.Empty);
             Assert.That(presentationData.FrontFaceShieldWindupWarnings, Is.Empty);
+            Assert.That(presentationData.TileEvents, Is.Empty);
+            Assert.That(presentationData.GravityFieldVisualStates, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TickPresentationDataBuilder_GravityFieldVisualStates_UsesFinalAuthoritativeEmitterState()
+        {
+            var chargingCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var activeCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateGravityFieldBox(40, activeCell, GravityFieldPhase.Charging, timerTicks: 10),
+                CreateEntity(20, EntityType.Box, new SurfaceCell(FaceId.Floor, 2, 0), Direction.None),
+                CreateGravityFieldBox(30, chargingCell, GravityFieldPhase.Charging, timerTicks: 10),
+            });
+            var writeContext = CreateWriteContext(worldState);
+            writeContext.SetGravityFieldState(30, GravityFieldPhase.Charging, timerTicks: 6);
+            writeContext.SetGravityFieldState(40, GravityFieldPhase.Active, timerTicks: 2);
+            var finalSnapshot = CreateSnapshot(worldState);
+
+            var presentationData = BuildPresentationDataForFinalSnapshot(
+                finalSnapshot,
+                gravityFieldChargeDurationTicks: 10,
+                gravityFieldActiveDurationTicks: 5);
+
+            Assert.That(
+                presentationData.GravityFieldVisualStates.Select(state => state.EmitterEntityId).ToArray(),
+                Is.EqualTo(new[] { 30, 40 }));
+
+            var charging = presentationData.GravityFieldVisualStates[0];
+            Assert.That(charging.Cell, Is.EqualTo(chargingCell));
+            Assert.That(charging.Phase, Is.EqualTo(GravityFieldPhase.Charging));
+            Assert.That(charging.TimerTicks, Is.EqualTo(6));
+            Assert.That(charging.DurationTicks, Is.EqualTo(10));
+            Assert.That(charging.Progress01, Is.EqualTo(0.4f).Within(0.0001f));
+
+            var active = presentationData.GravityFieldVisualStates[1];
+            Assert.That(active.Cell, Is.EqualTo(activeCell));
+            Assert.That(active.Phase, Is.EqualTo(GravityFieldPhase.Active));
+            Assert.That(active.TimerTicks, Is.EqualTo(2));
+            Assert.That(active.DurationTicks, Is.EqualTo(5));
+            Assert.That(active.Progress01, Is.EqualTo(0.6f).Within(0.0001f));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TickPresentationDataBuilder_GravityFieldVisualStates_ExcludesIneligibleEmitters()
+        {
+            var dead = CreateGravityFieldBox(30, new SurfaceCell(FaceId.Floor, 0, 0), GravityFieldPhase.Active, timerTicks: 1);
+            dead.hp = 0;
+            var detached = CreateGravityFieldBox(31, new SurfaceCell(FaceId.Floor, 1, 0), GravityFieldPhase.Active, timerTicks: 1);
+            detached.boardPresence = EntityBoardPresence.Detached;
+            var marked = CreateGravityFieldBox(32, new SurfaceCell(FaceId.Floor, 2, 0), GravityFieldPhase.Active, timerTicks: 1);
+            marked.markedForDeath = true;
+            var finalSnapshot = CreateSnapshot(CreateWorldState(new[]
+            {
+                dead,
+                detached,
+                marked,
+                CreateEntity(33, EntityType.Box, new SurfaceCell(FaceId.Floor, 3, 0), Direction.None),
+            }));
+
+            var presentationData = BuildPresentationDataForFinalSnapshot(finalSnapshot);
+
+            Assert.That(presentationData.GravityFieldVisualStates, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TickPresentationDataBuilder_GravityFieldVisualStates_ClampsNegativeTimerProgress()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateGravityFieldBox(30, new SurfaceCell(FaceId.Floor, 0, 0), GravityFieldPhase.Charging, timerTicks: 10),
+            });
+            CreateWriteContext(worldState).SetGravityFieldState(30, GravityFieldPhase.Active, timerTicks: -2);
+            var finalSnapshot = CreateSnapshot(worldState);
+
+            var presentationData = BuildPresentationDataForFinalSnapshot(
+                finalSnapshot,
+                gravityFieldChargeDurationTicks: 10,
+                gravityFieldActiveDurationTicks: 5);
+
+            Assert.That(presentationData.GravityFieldVisualStates, Has.Count.EqualTo(1));
+            Assert.That(presentationData.GravityFieldVisualStates[0].DurationTicks, Is.EqualTo(5));
+            Assert.That(presentationData.GravityFieldVisualStates[0].TimerTicks, Is.Zero);
+            Assert.That(presentationData.GravityFieldVisualStates[0].Progress01, Is.EqualTo(1f));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TickPresentationDataBuilder_GravityFieldVisualStates_ActiveIncludesDeterministicThreeByThreeArea()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateGravityFieldBox(30, new SurfaceCell(FaceId.Floor, 1, 1), GravityFieldPhase.Active, timerTicks: 2),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
+                GameplayTerrainData.Empty);
+            var presentationData = BuildPresentationDataForFinalSnapshot(CreateSnapshot(worldState));
+
+            Assert.That(presentationData.GravityFieldVisualStates, Has.Count.EqualTo(1));
+            var state = presentationData.GravityFieldVisualStates[0];
+            Assert.That(
+                state.AreaCells.ToArray(),
+                Is.EqualTo(new[]
+                {
+                    new SurfaceCell(FaceId.Floor, 0, 0),
+                    new SurfaceCell(FaceId.Floor, 1, 0),
+                    new SurfaceCell(FaceId.Floor, 2, 0),
+                    new SurfaceCell(FaceId.Floor, 0, 1),
+                    new SurfaceCell(FaceId.Floor, 1, 1),
+                    new SurfaceCell(FaceId.Floor, 2, 1),
+                    new SurfaceCell(FaceId.Floor, 0, 2),
+                    new SurfaceCell(FaceId.Floor, 1, 2),
+                    new SurfaceCell(FaceId.Floor, 2, 2),
+                }));
+            Assert.That(state.AreaFootprint.SlotVisibilityMask, Is.EqualTo(0x1FF));
+            Assert.That(state.AreaFootprint.IsSlotVisible(4), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TickPresentationDataBuilder_GravityFieldVisualStates_BoundedEdgeExcludesOutOfBoundsArea()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateGravityFieldBox(30, new SurfaceCell(FaceId.Floor, 0, 0), GravityFieldPhase.Active, timerTicks: 2),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty);
+            var presentationData = BuildPresentationDataForFinalSnapshot(CreateSnapshot(worldState));
+
+            var state = presentationData.GravityFieldVisualStates.Single();
+            Assert.That(
+                state.AreaCells.ToArray(),
+                Is.EqualTo(new[]
+                {
+                    new SurfaceCell(FaceId.Floor, 0, 0),
+                    new SurfaceCell(FaceId.Floor, 1, 0),
+                    new SurfaceCell(FaceId.Floor, 0, 1),
+                    new SurfaceCell(FaceId.Floor, 1, 1),
+                }));
+            Assert.That(state.AreaFootprint.IsSlotVisible(4), Is.True);
+            Assert.That(state.AreaFootprint.IsSlotVisible(5), Is.True);
+            Assert.That(state.AreaFootprint.IsSlotVisible(7), Is.True);
+            Assert.That(state.AreaFootprint.IsSlotVisible(8), Is.True);
+            Assert.That(state.AreaFootprint.IsSlotVisible(0), Is.False);
+            Assert.That(state.AreaFootprint.IsSlotVisible(3), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TickPresentationDataBuilder_GravityFieldVisualStates_ChargingHasEmptyArea()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateGravityFieldBox(30, new SurfaceCell(FaceId.Floor, 1, 1), GravityFieldPhase.Charging, timerTicks: 2),
+            });
+            var presentationData = BuildPresentationDataForFinalSnapshot(CreateSnapshot(worldState));
+
+            var state = presentationData.GravityFieldVisualStates.Single();
+            Assert.That(state.AreaCells, Is.Empty);
+            Assert.That(state.AreaFootprint.SlotVisibilityMask, Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GravityFieldAreaFootprint_DefensivelyCopiesAreaCells()
+        {
+            var cells = new List<SurfaceCell>
+            {
+                new SurfaceCell(FaceId.Floor, 1, 1),
+            };
+            var footprint = new GravityFieldAreaFootprint(cells, slotVisibilityMask: 1 << 4);
+            cells.Add(new SurfaceCell(FaceId.Floor, 2, 2));
+
+            Assert.That(footprint.AreaCells, Has.Count.EqualTo(1));
+            Assert.That(footprint.AreaCells[0], Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 1)));
+            var list = (IList<SurfaceCell>)footprint.AreaCells;
+            Assert.That(list.IsReadOnly, Is.True);
+            Assert.Throws<NotSupportedException>(() => list.Add(new SurfaceCell(FaceId.Floor, 3, 3)));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TickPresentationDataBuilder_ButtonActivatedTileEvent_UsesFinalAuthoritativeTileFact()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var preButton = CreateTileFeature(
+                tileId: 100,
+                cell,
+                TileFeatureKind.Button,
+                TileFeatureFlags.None,
+                sourceEntityId: 30,
+                ownerEntityId: 40,
+                teamId: 2);
+            var finalButton = CreateTileFeature(
+                tileId: 100,
+                cell,
+                TileFeatureKind.Button,
+                TileFeatureFlags.Activated,
+                sourceEntityId: 31,
+                ownerEntityId: 41,
+                teamId: 3);
+            var preSnapshot = CreateTileFeatureSnapshot(preButton);
+            var finalSnapshot = CreateTileFeatureSnapshot(finalButton);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None()));
+
+            Assert.That(presentationData.TileEvents.Count, Is.EqualTo(1));
+            var tileEvent = presentationData.TileEvents[0];
+            Assert.That(tileEvent.EventKind, Is.EqualTo(TilePresentationEventKind.ButtonActivated));
+            Assert.That(tileEvent.TileId, Is.EqualTo(100));
+            Assert.That(tileEvent.Cell, Is.EqualTo(cell));
+            Assert.That(tileEvent.TileFeatureKind, Is.EqualTo(TileFeatureKind.Button));
+            Assert.That(tileEvent.SourceEntityId, Is.EqualTo(31));
+            Assert.That(tileEvent.OwnerEntityId, Is.EqualTo(41));
+            Assert.That(tileEvent.TeamId, Is.EqualTo(3));
+            Assert.That(tileEvent.TargetEntityId, Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TickPresentationDataBuilder_TileEvents_MergesAndSortsResolverAndButtonEvents()
+        {
+            var buttonCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var destroyCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var preButton = CreateTileFeature(100, buttonCell, TileFeatureKind.Button, TileFeatureFlags.None);
+            var finalButton = CreateTileFeature(100, buttonCell, TileFeatureKind.Button, TileFeatureFlags.Activated);
+            var preSnapshot = CreateTileFeatureSnapshot(preButton);
+            var finalSnapshot = CreateTileFeatureSnapshot(finalButton);
+            var destroyEvent = new TilePresentationEvent(
+                TilePresentationEventKind.DestroyTileTriggered,
+                200,
+                destroyCell,
+                TileFeatureKind.Destroy,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0,
+                targetEntityId: 30);
+            var slideEvent = new TilePresentationEvent(
+                TilePresentationEventKind.SlideTileRedirected,
+                300,
+                destroyCell,
+                TileFeatureKind.Slide,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0,
+                targetEntityId: 40,
+                direction: Direction.Up);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileEvents: new[] { slideEvent, destroyEvent }));
+
+            Assert.That(presentationData.TileEvents, Has.Count.EqualTo(3));
+            Assert.That(
+                presentationData.TileEvents.Select(tileEvent => tileEvent.EventKind).ToArray(),
+                Is.EqualTo(new[]
+                {
+                    TilePresentationEventKind.DestroyTileTriggered,
+                    TilePresentationEventKind.SlideTileRedirected,
+                    TilePresentationEventKind.ButtonActivated,
+                }));
+            Assert.That(presentationData.TileEvents[0].TargetEntityId, Is.EqualTo(30));
+            Assert.That(presentationData.TileEvents[1].TargetEntityId, Is.EqualTo(40));
+            Assert.That(presentationData.TileEvents[1].Direction, Is.EqualTo(Direction.Up));
+            Assert.That(presentationData.TileEvents[2].TargetEntityId, Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TickPresentationDataBuilder_ButtonActivatedTileEvent_DoesNotRepeatForAlreadyActivatedButton()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var button = CreateTileFeature(
+                tileId: 100,
+                cell,
+                TileFeatureKind.Button,
+                TileFeatureFlags.Activated);
+            var snapshot = CreateTileFeatureSnapshot(button);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None()));
+
+            Assert.That(presentationData.TileEvents, Is.Empty);
         }
 
         [Test]
@@ -2627,6 +2941,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return (WorldSnapshot)createSnapshotMethod.Invoke(worldState, null);
         }
 
+        private static WorldSnapshot CreateTileFeatureSnapshot(params TileFeatureState[] tileFeatures)
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                Array.Empty<EntityState>(),
+                new BoardBounds(Vector2Int.zero, new Vector2Int(3, 3)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                GameplayTimingProfile.CreateDefault(),
+                tileFeatures);
+
+            return CreateSnapshot(worldState);
+        }
+
+        private static TileFeatureState CreateTileFeature(
+            int tileId,
+            SurfaceCell cell,
+            TileFeatureKind kind,
+            TileFeatureFlags flags,
+            int sourceEntityId = 0,
+            int ownerEntityId = 0,
+            int teamId = 0)
+        {
+            return new TileFeatureState(
+                tileId,
+                cell,
+                kind,
+                flags,
+                sourceEntityId,
+                ownerEntityId,
+                teamId,
+                lifetimeTicks: 0,
+                charges: 0);
+        }
+
         private static IWorldWriteContext CreateWriteContext(WorldState worldState)
         {
             var createWriteContextMethod = typeof(WorldState).GetMethod(
@@ -2731,6 +3079,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CleanupFixtureFactory.None(),
                     currentTickIndex: currentTickIndex,
                     enemyGlidePresentationSettingsResolver: settingsResolver)).EnemyGlideSignals.Single();
+        }
+
+        private static TickPresentationData BuildPresentationDataForFinalSnapshot(
+            WorldSnapshot finalSnapshot,
+            int gravityFieldChargeDurationTicks = 10,
+            int gravityFieldActiveDurationTicks = 5)
+        {
+            return new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    finalSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    CreateMovementPhaseResult(),
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    gravityFieldChargeDurationTicks: gravityFieldChargeDurationTicks,
+                    gravityFieldActiveDurationTicks: gravityFieldActiveDurationTicks));
         }
 
         private static ActionGroup CreateActionGroup(int intentId, int sourceId, int priority, int groupId)
@@ -2973,6 +3339,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 boardPresence = boardPresence,
                 markedForDeath = markedForDeath,
             };
+        }
+
+        private static EntityState CreateGravityFieldBox(
+            int entityId,
+            SurfaceCell position,
+            GravityFieldPhase phase,
+            int timerTicks)
+        {
+            var entity = CreateEntity(entityId, EntityType.Box, position, Direction.None);
+            entity.boxArchetype = BoxArchetype.GravityField;
+            entity.gravityFieldPhase = phase;
+            entity.gravityFieldTimerTicks = timerTicks;
+            return entity;
         }
 
         private static int BuildExpectedPresentationSeed(

@@ -195,11 +195,13 @@ namespace Game.Feature.Gameplay.Loop
         public static readonly RespawnPhaseResult Empty = new(
             Array.Empty<EntityState>(),
             Array.Empty<string>(),
-            respawnPlacementRecords: Array.Empty<RespawnPlacementRecord>());
+            respawnPlacementRecords: Array.Empty<RespawnPlacementRecord>(),
+            moonBlockGeneratorRespawnFacts: Array.Empty<MoonBlockGeneratorRespawnFact>());
 
         private readonly ReadOnlyCollection<string> _eventLogEntries;
         private readonly ReadOnlyCollection<PlayerRespawnDelayRecord> _playerRespawnDelayRecords;
         private readonly ReadOnlyCollection<RespawnPlacementRecord> _respawnPlacementRecords;
+        private readonly ReadOnlyCollection<MoonBlockGeneratorRespawnFact> _moonBlockGeneratorRespawnFacts;
         private readonly ReadOnlyCollection<EntityState> _respawnedEntities;
 
         public RespawnPhaseResult(
@@ -211,7 +213,8 @@ namespace Game.Feature.Gameplay.Loop
                 eventLogEntries,
                 playerRespawnDelayRecords: null,
                 respawnPlacementRecords: null,
-                topologyResetRequest: topologyResetRequest)
+                topologyResetRequest: topologyResetRequest,
+                moonBlockGeneratorRespawnFacts: null)
         {
         }
 
@@ -220,7 +223,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<string> eventLogEntries,
             IEnumerable<PlayerRespawnDelayRecord> playerRespawnDelayRecords = null,
             IEnumerable<RespawnPlacementRecord> respawnPlacementRecords = null,
-            RespawnTopologyResetRequest? topologyResetRequest = null)
+            RespawnTopologyResetRequest? topologyResetRequest = null,
+            IEnumerable<MoonBlockGeneratorRespawnFact> moonBlockGeneratorRespawnFacts = null)
         {
             if (respawnedEntities == null)
             {
@@ -240,6 +244,9 @@ namespace Game.Feature.Gameplay.Loop
             _respawnPlacementRecords = new ReadOnlyCollection<RespawnPlacementRecord>(
                 new List<RespawnPlacementRecord>(
                     respawnPlacementRecords ?? Array.Empty<RespawnPlacementRecord>()));
+            _moonBlockGeneratorRespawnFacts = new ReadOnlyCollection<MoonBlockGeneratorRespawnFact>(
+                new List<MoonBlockGeneratorRespawnFact>(
+                    moonBlockGeneratorRespawnFacts ?? Array.Empty<MoonBlockGeneratorRespawnFact>()));
             TopologyResetRequest = topologyResetRequest;
         }
 
@@ -251,7 +258,40 @@ namespace Game.Feature.Gameplay.Loop
 
         public IReadOnlyList<RespawnPlacementRecord> RespawnPlacementRecords => _respawnPlacementRecords;
 
+        public IReadOnlyList<MoonBlockGeneratorRespawnFact> MoonBlockGeneratorRespawnFacts => _moonBlockGeneratorRespawnFacts;
+
         public RespawnTopologyResetRequest? TopologyResetRequest { get; }
+    }
+
+    internal readonly struct MoonBlockGeneratorRespawnFact
+    {
+        public MoonBlockGeneratorRespawnFact(
+            int generatorTileId,
+            SurfaceCell cell,
+            int moonBlockEntityId,
+            int sourceEntityId,
+            int ownerEntityId,
+            int teamId)
+        {
+            GeneratorTileId = generatorTileId;
+            Cell = cell;
+            MoonBlockEntityId = moonBlockEntityId;
+            SourceEntityId = sourceEntityId;
+            OwnerEntityId = ownerEntityId;
+            TeamId = teamId;
+        }
+
+        public int GeneratorTileId { get; }
+
+        public SurfaceCell Cell { get; }
+
+        public int MoonBlockEntityId { get; }
+
+        public int SourceEntityId { get; }
+
+        public int OwnerEntityId { get; }
+
+        public int TeamId { get; }
     }
 
     internal readonly struct RespawnPlacementRecord
@@ -330,7 +370,15 @@ namespace Game.Feature.Gameplay.Loop
             WorldSnapshot jumpBaselineSnapshot = null,
             PlayerTickCommand playerCommand = default,
             IReadOnlyList<ResolutionRecord> resolutionRecords = null,
-            IEnemyGlidePresentationSettingsResolver enemyGlidePresentationSettingsResolver = null)
+            IEnemyGlidePresentationSettingsResolver enemyGlidePresentationSettingsResolver = null,
+            IReadOnlyList<TilePresentationEvent> tileEvents = null,
+            StageObjectiveTickResult objectiveResult = null,
+            StageObjectiveRuntimeDefinition objectiveDefinition = null,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
+            IReadOnlyList<GravityFieldPresentationEvent> gravityFieldEvents = null,
+            int gravityFieldChargeDurationTicks = 0,
+            int gravityFieldActiveDurationTicks = 0,
+            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -344,7 +392,15 @@ namespace Game.Feature.Gameplay.Loop
                 jumpBaselineSnapshot,
                 playerCommand,
                 resolutionRecords,
-                enemyGlidePresentationSettingsResolver)
+                enemyGlidePresentationSettingsResolver,
+                tileEvents,
+                objectiveResult,
+                objectiveDefinition,
+                tileFeatureDefinitions,
+                gravityFieldEvents,
+                gravityFieldChargeDurationTicks,
+                gravityFieldActiveDurationTicks,
+                gravityFieldLockedTargetFacts)
         {
         }
 
@@ -361,7 +417,15 @@ namespace Game.Feature.Gameplay.Loop
             WorldSnapshot jumpBaselineSnapshot = null,
             PlayerTickCommand playerCommand = default,
             IReadOnlyList<ResolutionRecord> resolutionRecords = null,
-            IEnemyGlidePresentationSettingsResolver enemyGlidePresentationSettingsResolver = null)
+            IEnemyGlidePresentationSettingsResolver enemyGlidePresentationSettingsResolver = null,
+            IReadOnlyList<TilePresentationEvent> tileEvents = null,
+            StageObjectiveTickResult objectiveResult = null,
+            StageObjectiveRuntimeDefinition objectiveDefinition = null,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
+            IReadOnlyList<GravityFieldPresentationEvent> gravityFieldEvents = null,
+            int gravityFieldChargeDurationTicks = 0,
+            int gravityFieldActiveDurationTicks = 0,
+            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -376,7 +440,15 @@ namespace Game.Feature.Gameplay.Loop
                 jumpBaselineSnapshot,
                 playerCommand,
                 resolutionRecords,
-                enemyGlidePresentationSettingsResolver)
+                enemyGlidePresentationSettingsResolver,
+                tileEvents,
+                objectiveResult,
+                objectiveDefinition,
+                tileFeatureDefinitions,
+                gravityFieldEvents,
+                gravityFieldChargeDurationTicks,
+                gravityFieldActiveDurationTicks,
+                gravityFieldLockedTargetFacts)
         {
         }
 
@@ -393,7 +465,15 @@ namespace Game.Feature.Gameplay.Loop
             WorldSnapshot jumpBaselineSnapshot = null,
             PlayerTickCommand playerCommand = default,
             IReadOnlyList<ResolutionRecord> resolutionRecords = null,
-            IEnemyGlidePresentationSettingsResolver enemyGlidePresentationSettingsResolver = null)
+            IEnemyGlidePresentationSettingsResolver enemyGlidePresentationSettingsResolver = null,
+            IReadOnlyList<TilePresentationEvent> tileEvents = null,
+            StageObjectiveTickResult objectiveResult = null,
+            StageObjectiveRuntimeDefinition objectiveDefinition = null,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
+            IReadOnlyList<GravityFieldPresentationEvent> gravityFieldEvents = null,
+            int gravityFieldChargeDurationTicks = 0,
+            int gravityFieldActiveDurationTicks = 0,
+            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -408,7 +488,15 @@ namespace Game.Feature.Gameplay.Loop
                 jumpBaselineSnapshot,
                 playerCommand,
                 resolutionRecords,
-                enemyGlidePresentationSettingsResolver)
+                enemyGlidePresentationSettingsResolver,
+                tileEvents,
+                objectiveResult,
+                objectiveDefinition,
+                tileFeatureDefinitions,
+                gravityFieldEvents,
+                gravityFieldChargeDurationTicks,
+                gravityFieldActiveDurationTicks,
+                gravityFieldLockedTargetFacts)
         {
         }
 
@@ -426,7 +514,15 @@ namespace Game.Feature.Gameplay.Loop
             WorldSnapshot jumpBaselineSnapshot = null,
             PlayerTickCommand playerCommand = default,
             IReadOnlyList<ResolutionRecord> resolutionRecords = null,
-            IEnemyGlidePresentationSettingsResolver enemyGlidePresentationSettingsResolver = null)
+            IEnemyGlidePresentationSettingsResolver enemyGlidePresentationSettingsResolver = null,
+            IReadOnlyList<TilePresentationEvent> tileEvents = null,
+            StageObjectiveTickResult objectiveResult = null,
+            StageObjectiveRuntimeDefinition objectiveDefinition = null,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
+            IReadOnlyList<GravityFieldPresentationEvent> gravityFieldEvents = null,
+            int gravityFieldChargeDurationTicks = 0,
+            int gravityFieldActiveDurationTicks = 0,
+            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null)
         {
             PreMovementSnapshot = preMovementSnapshot ?? throw new ArgumentNullException(nameof(preMovementSnapshot));
             PostMovementSnapshot = postMovementSnapshot ?? throw new ArgumentNullException(nameof(postMovementSnapshot));
@@ -442,6 +538,22 @@ namespace Game.Feature.Gameplay.Loop
             PlayerCommand = playerCommand;
             ResolutionRecords = resolutionRecords ?? Array.Empty<ResolutionRecord>();
             EnemyGlidePresentationSettingsResolver = enemyGlidePresentationSettingsResolver;
+            TileEvents = tileEvents ?? Array.Empty<TilePresentationEvent>();
+            ObjectiveResult = objectiveResult ?? StageObjectiveTickResult.NoObjective;
+            ObjectiveDefinition = objectiveDefinition ?? StageObjectiveRuntimeDefinition.Disabled;
+            TileFeatureDefinitions = tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
+            GravityFieldEvents = gravityFieldEvents ?? Array.Empty<GravityFieldPresentationEvent>();
+            GravityFieldLockedTargetFacts = gravityFieldLockedTargetFacts ?? Array.Empty<GravityFieldLockedTargetFact>();
+            GravityFieldChargeDurationTicks = gravityFieldChargeDurationTicks > 0
+                ? gravityFieldChargeDurationTicks
+                : GameplayTimingProfile.SecondsToCeilTicks(
+                    GravityFieldRuntimePolicy.ChargeDurationSeconds,
+                    GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+            GravityFieldActiveDurationTicks = gravityFieldActiveDurationTicks > 0
+                ? gravityFieldActiveDurationTicks
+                : GameplayTimingProfile.SecondsToCeilTicks(
+                    GravityFieldRuntimePolicy.ActiveDurationSeconds,
+                    GameplayTimingProfile.DefaultSimulationTicksPerSecond);
         }
 
         public WorldSnapshot PreMovementSnapshot { get; }
@@ -473,6 +585,22 @@ namespace Game.Feature.Gameplay.Loop
 
         public IReadOnlyList<ResolutionRecord> ResolutionRecords { get; }
 
+        public IReadOnlyList<TilePresentationEvent> TileEvents { get; }
+
+        public IReadOnlyList<GravityFieldPresentationEvent> GravityFieldEvents { get; }
+
+        public IReadOnlyList<GravityFieldLockedTargetFact> GravityFieldLockedTargetFacts { get; }
+
+        public int GravityFieldChargeDurationTicks { get; }
+
+        public int GravityFieldActiveDurationTicks { get; }
+
+        public StageObjectiveTickResult ObjectiveResult { get; }
+
+        public StageObjectiveRuntimeDefinition ObjectiveDefinition { get; }
+
+        public IReadOnlyList<TileFeatureRuntimeDefinition> TileFeatureDefinitions { get; }
+
         internal IEnemyGlidePresentationSettingsResolver EnemyGlidePresentationSettingsResolver { get; }
     }
 
@@ -503,8 +631,14 @@ namespace Game.Feature.Gameplay.Loop
             var transitionVisibilityChanges = new List<TickTransitionVisibilityChange>();
             var kinematicMotionTracks = new List<TickKinematicMotionTrack>();
             var continuousLocomotionTracks = new List<TickContinuousLocomotionTrack>();
+            var tileEvents = new List<TilePresentationEvent>();
+            var gravityFieldEvents = new List<GravityFieldPresentationEvent>();
+            var gravityFieldVisualStates = new List<GravityFieldVisualState>();
             var exitOwnedEntityIds = new HashSet<int>();
 
+            BuildTilePresentationEvents(context, tileEvents);
+            BuildGravityFieldPresentationEvents(context, gravityFieldEvents);
+            BuildGravityFieldVisualStates(context, gravityFieldVisualStates);
             BuildEntityExitPresentation(context, entityExitSignals, exitOwnedEntityIds);
             BuildFlipImpactPresentation(context, flipImpactSignals);
             BuildImpactTransientPresentation(context, impactTransientSignals);
@@ -554,6 +688,9 @@ namespace Game.Feature.Gameplay.Loop
                    transitionVisibilityChanges.Count == 0 &&
                    kinematicMotionTracks.Count == 0 &&
                    continuousLocomotionTracks.Count == 0 &&
+                   tileEvents.Count == 0 &&
+                   gravityFieldEvents.Count == 0 &&
+                   gravityFieldVisualStates.Count == 0 &&
                    !topologyMotion.HasValue
                 ? TickPresentationData.Empty
                 : new TickPresentationData(
@@ -580,7 +717,380 @@ namespace Game.Feature.Gameplay.Loop
                     kinematicMotionTracks,
                     playerDeathHoldSignals,
                     continuousLocomotionTracks,
-                    enemyGlideSignals);
+                    enemyGlideSignals,
+                    tileEvents,
+                    gravityFieldEvents,
+                    gravityFieldVisualStates);
+        }
+
+        private static void BuildGravityFieldVisualStates(
+            in TickPresentationBuildContext context,
+            List<GravityFieldVisualState> gravityFieldVisualStates)
+        {
+            var finalEntities = new List<EntityState>();
+            var emittedEntityIds = new HashSet<int>();
+            var lockedTargetIdsByEmitterId = BuildGravityFieldLockedTargetIdsByEmitterId(
+                context.GravityFieldLockedTargetFacts);
+            context.FinalAuthoritativeSnapshot.EnumerateEntitiesOrdered(finalEntities);
+            for (var i = 0; i < finalEntities.Count; i++)
+            {
+                var entity = finalEntities[i];
+                if (entity.type != EntityType.Box ||
+                    entity.boxArchetype != BoxArchetype.GravityField ||
+                    entity.boardPresence != EntityBoardPresence.Occupying ||
+                    entity.hp <= 0 ||
+                    entity.markedForDeath ||
+                    !emittedEntityIds.Add(entity.entityId))
+                {
+                    continue;
+                }
+
+                var durationTicks = ResolveGravityFieldVisualDurationTicks(context, entity.gravityFieldPhase);
+                var areaFootprint = entity.gravityFieldPhase == GravityFieldPhase.Active
+                    ? GravityFieldAreaPolicy.BuildFootprint(context.FinalAuthoritativeSnapshot, entity.position)
+                    : GravityFieldAreaFootprint.Empty;
+                IEnumerable<int> lockedTargetEntityIds = entity.gravityFieldPhase == GravityFieldPhase.Active &&
+                                                         lockedTargetIdsByEmitterId.TryGetValue(entity.entityId, out var targetIds)
+                    ? targetIds
+                    : Array.Empty<int>();
+                gravityFieldVisualStates.Add(
+                    new GravityFieldVisualState(
+                        entity.entityId,
+                        entity.position,
+                        entity.gravityFieldPhase,
+                        Math.Max(0, entity.gravityFieldTimerTicks),
+                        durationTicks,
+                        CalculateProgress01(entity.gravityFieldTimerTicks, durationTicks),
+                        areaFootprint,
+                        lockedTargetEntityIds));
+            }
+        }
+
+        private static Dictionary<int, List<int>> BuildGravityFieldLockedTargetIdsByEmitterId(
+            IReadOnlyList<GravityFieldLockedTargetFact> facts)
+        {
+            var targetIdsByEmitterId = new Dictionary<int, List<int>>();
+            for (var i = 0; i < facts.Count; i++)
+            {
+                var fact = facts[i];
+                if (fact.EmitterEntityId <= 0 ||
+                    fact.TargetEntityId <= 0)
+                {
+                    continue;
+                }
+
+                if (!targetIdsByEmitterId.TryGetValue(fact.EmitterEntityId, out var targetIds))
+                {
+                    targetIds = new List<int>();
+                    targetIdsByEmitterId.Add(fact.EmitterEntityId, targetIds);
+                }
+
+                if (!targetIds.Contains(fact.TargetEntityId))
+                {
+                    targetIds.Add(fact.TargetEntityId);
+                }
+            }
+
+            foreach (var pair in targetIdsByEmitterId)
+            {
+                pair.Value.Sort();
+            }
+
+            return targetIdsByEmitterId;
+        }
+
+        private static int ResolveGravityFieldVisualDurationTicks(
+            in TickPresentationBuildContext context,
+            GravityFieldPhase phase)
+        {
+            switch (phase)
+            {
+                case GravityFieldPhase.Charging:
+                    return context.GravityFieldChargeDurationTicks;
+                case GravityFieldPhase.Active:
+                    return context.GravityFieldActiveDurationTicks;
+                default:
+                    return 0;
+            }
+        }
+
+        private static float CalculateProgress01(int timerTicks, int durationTicks)
+        {
+            if (durationTicks <= 0)
+            {
+                return 0f;
+            }
+
+            var progress = (durationTicks - Math.Max(0, timerTicks)) / (float)durationTicks;
+            if (progress <= 0f)
+            {
+                return 0f;
+            }
+
+            return progress >= 1f ? 1f : progress;
+        }
+
+        private static void BuildGravityFieldPresentationEvents(
+            in TickPresentationBuildContext context,
+            List<GravityFieldPresentationEvent> gravityFieldEvents)
+        {
+            for (var i = 0; i < context.GravityFieldEvents.Count; i++)
+            {
+                gravityFieldEvents.Add(context.GravityFieldEvents[i]);
+            }
+        }
+
+        private static void BuildTilePresentationEvents(
+            in TickPresentationBuildContext context,
+            List<TilePresentationEvent> tileEvents)
+        {
+            for (var i = 0; i < context.TileEvents.Count; i++)
+            {
+                tileEvents.Add(context.TileEvents[i]);
+            }
+
+            var moonBlockGeneratorRespawnFacts = context.RespawnPhaseResult.MoonBlockGeneratorRespawnFacts;
+            for (var i = 0; i < moonBlockGeneratorRespawnFacts.Count; i++)
+            {
+                var fact = moonBlockGeneratorRespawnFacts[i];
+                tileEvents.Add(
+                    new TilePresentationEvent(
+                        TilePresentationEventKind.MoonBlockGenerated,
+                        fact.GeneratorTileId,
+                        fact.Cell,
+                        TileFeatureKind.MoonBlockGenerator,
+                        fact.SourceEntityId,
+                        fact.OwnerEntityId,
+                        fact.TeamId,
+                        targetEntityId: fact.MoonBlockEntityId,
+                        direction: Direction.None));
+            }
+
+            var barricadeBlockFacts = context.MovementPhaseResult.BarricadeBlockFacts;
+            for (var i = 0; i < barricadeBlockFacts.Count; i++)
+            {
+                var fact = barricadeBlockFacts[i];
+                var sourceEntityId = 0;
+                var ownerEntityId = 0;
+                var teamId = 0;
+                if (context.FinalAuthoritativeSnapshot.TryGetTileFeature(fact.TileId, out var barricade))
+                {
+                    sourceEntityId = barricade.SourceEntityId;
+                    ownerEntityId = barricade.OwnerEntityId;
+                    teamId = barricade.TeamId;
+                }
+
+                tileEvents.Add(
+                    new TilePresentationEvent(
+                        TilePresentationEventKind.BarricadeBlocked,
+                        fact.TileId,
+                        fact.Cell,
+                        TileFeatureKind.Barricade,
+                        sourceEntityId,
+                        ownerEntityId,
+                        teamId,
+                        targetEntityId: fact.BoxEntityId,
+                        direction: fact.AttemptedDirection));
+            }
+
+            var finalTileFeatures = new List<TileFeatureState>();
+            context.FinalAuthoritativeSnapshot.EnumerateTileFeaturesOrdered(finalTileFeatures);
+
+            for (var i = 0; i < finalTileFeatures.Count; i++)
+            {
+                var finalTileFeature = finalTileFeatures[i];
+                if (finalTileFeature.Kind != TileFeatureKind.Button ||
+                    (finalTileFeature.Flags & TileFeatureFlags.Activated) == 0)
+                {
+                    continue;
+                }
+
+                if (!context.PreMovementSnapshot.TryGetTileFeature(finalTileFeature.TileId, out var preTileFeature) ||
+                    preTileFeature.Kind != TileFeatureKind.Button ||
+                    (preTileFeature.Flags & TileFeatureFlags.Activated) != 0)
+                {
+                    continue;
+                }
+
+                tileEvents.Add(
+                    new TilePresentationEvent(
+                        TilePresentationEventKind.ButtonActivated,
+                        finalTileFeature.TileId,
+                        finalTileFeature.Cell,
+                        finalTileFeature.Kind,
+                        finalTileFeature.SourceEntityId,
+                        finalTileFeature.OwnerEntityId,
+                        finalTileFeature.TeamId));
+            }
+
+            AddExitOpenedEvents(context, finalTileFeatures, tileEvents);
+            AddExitEnteredEvents(context, finalTileFeatures, tileEvents);
+
+            tileEvents.Sort(CompareTilePresentationEvents);
+        }
+
+        private static void AddExitOpenedEvents(
+            in TickPresentationBuildContext context,
+            IReadOnlyList<TileFeatureState> finalTileFeatures,
+            List<TilePresentationEvent> tileEvents)
+        {
+            if (!context.ObjectiveResult.HasObjective ||
+                !context.ObjectiveResult.RequiredNonPrimaryConditionsSatisfiedThisTick)
+            {
+                return;
+            }
+
+            for (var i = 0; i < finalTileFeatures.Count; i++)
+            {
+                var exit = finalTileFeatures[i];
+                if (!IsActiveExit(context, exit))
+                {
+                    continue;
+                }
+
+                tileEvents.Add(CreateExitTilePresentationEvent(
+                    TilePresentationEventKind.ExitOpened,
+                    exit,
+                    targetEntityId: 0));
+            }
+        }
+
+        private static void AddExitEnteredEvents(
+            in TickPresentationBuildContext context,
+            IReadOnlyList<TileFeatureState> finalTileFeatures,
+            List<TilePresentationEvent> tileEvents)
+        {
+            var playerEntityId = context.ObjectiveDefinition.PlayerEntityId;
+            if (!context.ObjectiveResult.HasObjective ||
+                !context.ObjectiveResult.ClearedThisTick ||
+                !context.ObjectiveResult.RequiredNonPrimaryConditionsSatisfied ||
+                playerEntityId <= 0 ||
+                !context.FinalAuthoritativeSnapshot.TryGetEntity(playerEntityId, out var player) ||
+                player.boardPresence != EntityBoardPresence.Occupying)
+            {
+                return;
+            }
+
+            for (var i = 0; i < finalTileFeatures.Count; i++)
+            {
+                var exit = finalTileFeatures[i];
+                if (!IsActiveExit(context, exit) ||
+                    !exit.Cell.Equals(player.position))
+                {
+                    continue;
+                }
+
+                tileEvents.Add(CreateExitTilePresentationEvent(
+                    TilePresentationEventKind.ExitEntered,
+                    exit,
+                    playerEntityId));
+            }
+        }
+
+        private static TilePresentationEvent CreateExitTilePresentationEvent(
+            TilePresentationEventKind eventKind,
+            TileFeatureState exit,
+            int targetEntityId)
+        {
+            return new TilePresentationEvent(
+                eventKind,
+                exit.TileId,
+                exit.Cell,
+                TileFeatureKind.Exit,
+                exit.SourceEntityId,
+                exit.OwnerEntityId,
+                exit.TeamId,
+                targetEntityId,
+                Direction.None);
+        }
+
+        private static bool IsActiveExit(
+            in TickPresentationBuildContext context,
+            TileFeatureState tileFeature)
+        {
+            return tileFeature.Kind == TileFeatureKind.Exit &&
+                   TryGetTileFeatureDefinition(
+                       context.TileFeatureDefinitions,
+                       tileFeature.TileId,
+                       out var definition) &&
+                   TileFeatureActivationQueries.IsActive(
+                       tileFeature,
+                       definition,
+                       context.FinalAuthoritativeSnapshot.Topology);
+        }
+
+        private static bool TryGetTileFeatureDefinition(
+            IReadOnlyList<TileFeatureRuntimeDefinition> definitions,
+            int tileId,
+            out TileFeatureRuntimeDefinition definition)
+        {
+            for (var i = 0; i < definitions.Count; i++)
+            {
+                if (definitions[i].TileId != tileId)
+                {
+                    continue;
+                }
+
+                definition = definitions[i];
+                return true;
+            }
+
+            definition = default;
+            return false;
+        }
+
+        private static int CompareTilePresentationEvents(TilePresentationEvent left, TilePresentationEvent right)
+        {
+            var cellCompare = CompareSurfaceCells(left.Cell, right.Cell);
+            if (cellCompare != 0)
+            {
+                return cellCompare;
+            }
+
+            var tileCompare = left.TileId.CompareTo(right.TileId);
+            if (tileCompare != 0)
+            {
+                return tileCompare;
+            }
+
+            var kindCompare = left.EventKind.CompareTo(right.EventKind);
+            if (kindCompare != 0)
+            {
+                return kindCompare;
+            }
+
+            var targetCompare = left.TargetEntityId.CompareTo(right.TargetEntityId);
+            if (targetCompare != 0)
+            {
+                return targetCompare;
+            }
+
+            var sourceCompare = left.SourceEntityId.CompareTo(right.SourceEntityId);
+            if (sourceCompare != 0)
+            {
+                return sourceCompare;
+            }
+
+            var ownerCompare = left.OwnerEntityId.CompareTo(right.OwnerEntityId);
+            if (ownerCompare != 0)
+            {
+                return ownerCompare;
+            }
+
+            var teamCompare = left.TeamId.CompareTo(right.TeamId);
+            return teamCompare != 0 ? teamCompare : left.Direction.CompareTo(right.Direction);
+        }
+
+        private static int CompareSurfaceCells(SurfaceCell left, SurfaceCell right)
+        {
+            var faceCompare = left.face.CompareTo(right.face);
+            if (faceCompare != 0)
+            {
+                return faceCompare;
+            }
+
+            var xCompare = left.x.CompareTo(right.x);
+            return xCompare != 0 ? xCompare : left.y.CompareTo(right.y);
         }
 
         private static void BuildPlayerDeathHoldPresentation(

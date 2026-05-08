@@ -79,7 +79,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
             Assert.That(catalogAsset, Is.Not.Null);
             Assert.That(catalogAsset.TryResolveScenePath("Assets/Scenes/CombinedGameplayShowcase.unity", out var combinedStageId), Is.True);
-            Assert.That(combinedStageId.Value, Is.EqualTo("stage-1-1"));
+            Assert.That(combinedStageId.Value, Is.EqualTo("combined-gameplay-showcase"));
             Assert.That(catalogAsset.TryResolveScenePath("Assets/Scenes/UIAudioScene.unity", out var uiAudioStageId), Is.True);
             Assert.That(uiAudioStageId.Value, Is.EqualTo("stage-0-1"));
         }

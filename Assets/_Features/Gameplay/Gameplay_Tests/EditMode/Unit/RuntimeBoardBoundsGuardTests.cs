@@ -1314,6 +1314,122 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
+        public void BoardSurfaceCellPresentationPoseResolver_ValidBottomFaceCell_ReturnsPose()
+        {
+            var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2));
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var resolver = new BoardSurfaceCellPresentationPoseResolver(boardBounds, 1f, topology, 1f);
+            var projector = new GameplayCubeProjector(boardBounds, 1f, 1f);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 2);
+
+            Assert.That(resolver.TryResolvePose(cell, out var pose), Is.True);
+            Assert.That(projector.TryProjectSurfaceCell(cell, topology, out var projectedPose), Is.True);
+            AssertVectorApproximately(pose.LocalPosition, projectedPose.LocalPosition);
+            Assert.That(Quaternion.Angle(pose.LocalRotation, projectedPose.LocalRotation), Is.LessThan(0.001f));
+            Assert.That(pose.LocalScale, Is.EqualTo(Vector3.one));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void BoardSurfaceCellPresentationPoseResolver_ValidFrontFaceCell_ReturnsPose()
+        {
+            var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2));
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var resolver = new BoardSurfaceCellPresentationPoseResolver(boardBounds, 1f, topology, 1f);
+            var projector = new GameplayCubeProjector(boardBounds, 1f, 1f);
+            var cell = new SurfaceCell(FaceId.Front, 1, 0);
+
+            Assert.That(resolver.TryResolvePose(cell, out var pose), Is.True);
+            Assert.That(projector.TryProjectSurfaceCell(cell, topology, out var projectedPose), Is.True);
+            AssertVectorApproximately(pose.LocalPosition, projectedPose.LocalPosition);
+            Assert.That(Quaternion.Angle(pose.LocalRotation, projectedPose.LocalRotation), Is.LessThan(0.001f));
+            Assert.That(pose.LocalScale, Is.EqualTo(Vector3.one));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void BoardSurfaceCellPresentationPoseResolver_DifferentFacesSameCoordinates_ProduceDifferentPose()
+        {
+            var resolver = new BoardSurfaceCellPresentationPoseResolver(
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                1f,
+                new CubeTopologyState(FaceId.Floor),
+                1f);
+
+            Assert.That(resolver.TryResolvePose(new SurfaceCell(FaceId.Floor, 1, 1), out var bottomPose), Is.True);
+            Assert.That(resolver.TryResolvePose(new SurfaceCell(FaceId.Front, 1, 1), out var frontPose), Is.True);
+
+            var positionDiffers = Vector3.Distance(bottomPose.LocalPosition, frontPose.LocalPosition) > 0.001f;
+            var rotationDiffers = Quaternion.Angle(bottomPose.LocalRotation, frontPose.LocalRotation) > 0.001f;
+            Assert.That(positionDiffers || rotationDiffers, Is.True);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void BoardSurfaceCellPresentationPoseResolver_OutOfBounds_ReturnsFalse()
+        {
+            var resolver = new BoardSurfaceCellPresentationPoseResolver(
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                1f,
+                new CubeTopologyState(FaceId.Floor),
+                1f);
+
+            Assert.That(
+                resolver.TryResolvePose(new SurfaceCell(FaceId.Floor, 2, 1), out _),
+                Is.False);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void BoardSurfaceCellPresentationPoseResolver_InactiveFace_ReturnsFalse()
+        {
+            var resolver = new BoardSurfaceCellPresentationPoseResolver(
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                1f,
+                new CubeTopologyState(FaceId.Floor),
+                1f);
+
+            Assert.That(
+                resolver.TryResolvePose(new SurfaceCell(FaceId.Ceiling, 0, 0), out _),
+                Is.False);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void BoardSurfaceCellPresentationPoseResolver_InvalidFace_ReturnsFalse()
+        {
+            var resolver = new BoardSurfaceCellPresentationPoseResolver(
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                1f,
+                new CubeTopologyState(FaceId.Floor),
+                1f);
+
+            Assert.That(
+                resolver.TryResolvePose(new SurfaceCell((FaceId)999, 0, 0), out _),
+                Is.False);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void BoardSurfaceCellPresentationPoseResolver_RepeatedResolve_IsDeterministic()
+        {
+            var resolver = new BoardSurfaceCellPresentationPoseResolver(
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                1f,
+                new CubeTopologyState(FaceId.Floor),
+                1f);
+            var cell = new SurfaceCell(FaceId.Front, 2, 1);
+
+            Assert.That(resolver.TryResolvePose(cell, out var first), Is.True);
+            Assert.That(resolver.TryResolvePose(cell, out var second), Is.True);
+
+            AssertVectorApproximately(second.LocalPosition, first.LocalPosition);
+            Assert.That(Quaternion.Angle(second.LocalRotation, first.LocalRotation), Is.LessThan(0.001f));
+            Assert.That(second.LocalScale, Is.EqualTo(first.LocalScale));
+        }
+
+        [Test]
+        [Category("Full")]
         public void GameplayCubeProjector_TransitionProjection_UsesSourceAndDestinationVisibleFaceUnion()
         {
             var projector = new GameplayCubeProjector(

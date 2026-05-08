@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using Game.Feature.Gameplay.Audio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.GravityFieldAudio;
 using Game.Feature.Gameplay.Objectives;
+using Game.Feature.Gameplay.TileFeatureAudio;
 using Game.Feature.Gameplay.Timing;
 using Game.Feature.Stages;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
@@ -22,6 +24,9 @@ namespace Game.Feature.Gameplay.Host
                 CubeTopologyState initialTopology,
                 EntityState[] initialEntities,
                 GameplayTerrainData initialTerrain,
+                TileFeatureState[] initialTileFeatures,
+                TileFeatureRuntimeDefinition[] tileFeatureDefinitions,
+                MoonBlockRespawnDefinition[] moonBlockRespawnDefinitions,
                 int playerEntityId,
                 StageObjectiveRuntimeDefinition objectiveRuntimeDefinition,
                 EnemyAiProfileOverride[] enemyAiProfileOverrides,
@@ -31,12 +36,19 @@ namespace Game.Feature.Gameplay.Host
                 EnemyPresentationArchetypeCatalog enemyPresentationArchetypeCatalog,
                 EnemyPresentationBinding[] enemyPresentationBindings,
                 StaticEntityPresentationCatalog staticEntityPresentationCatalog,
-                StaticEntityPresentationBinding[] staticEntityPresentationBindings)
+                StaticEntityPresentationBinding[] staticEntityPresentationBindings,
+                BoardTilePresentationCatalog boardTilePresentationCatalog,
+                IReadOnlyList<TileFeaturePresentationResolvedBinding> tileFeaturePresentationBindings,
+                IReadOnlyList<BoardTilePresentationOverride> boardTilePresentationOverrides = null,
+                IReadOnlyList<SurfaceCell> suppressedBaseTileCells = null)
             {
                 BoardBounds = boardBounds;
                 InitialTopology = initialTopology;
                 InitialEntities = initialEntities ?? Array.Empty<EntityState>();
                 InitialTerrain = initialTerrain ?? GameplayTerrainData.Empty;
+                InitialTileFeatures = initialTileFeatures ?? Array.Empty<TileFeatureState>();
+                TileFeatureDefinitions = tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
+                MoonBlockRespawnDefinitions = moonBlockRespawnDefinitions ?? Array.Empty<MoonBlockRespawnDefinition>();
                 PlayerEntityId = playerEntityId;
                 ObjectiveRuntimeDefinition = objectiveRuntimeDefinition ?? StageObjectiveRuntimeDefinition.Disabled;
                 EnemyAiProfileOverrides = enemyAiProfileOverrides ?? Array.Empty<EnemyAiProfileOverride>();
@@ -47,6 +59,12 @@ namespace Game.Feature.Gameplay.Host
                 EnemyPresentationBindings = enemyPresentationBindings ?? Array.Empty<EnemyPresentationBinding>();
                 StaticEntityPresentationCatalog = staticEntityPresentationCatalog;
                 StaticEntityPresentationBindings = staticEntityPresentationBindings ?? Array.Empty<StaticEntityPresentationBinding>();
+                BoardTilePresentationCatalog = boardTilePresentationCatalog;
+                BoardTilePresentationOverrides =
+                    boardTilePresentationOverrides ?? Array.Empty<BoardTilePresentationOverride>();
+                TileFeaturePresentationBindings =
+                    tileFeaturePresentationBindings ?? Array.Empty<TileFeaturePresentationResolvedBinding>();
+                SuppressedBaseTileCells = suppressedBaseTileCells ?? Array.Empty<SurfaceCell>();
             }
 
             public BoardBounds BoardBounds { get; }
@@ -56,6 +74,12 @@ namespace Game.Feature.Gameplay.Host
             public EntityState[] InitialEntities { get; }
 
             public GameplayTerrainData InitialTerrain { get; }
+
+            public TileFeatureState[] InitialTileFeatures { get; }
+
+            public TileFeatureRuntimeDefinition[] TileFeatureDefinitions { get; }
+
+            public MoonBlockRespawnDefinition[] MoonBlockRespawnDefinitions { get; }
 
             public int PlayerEntityId { get; }
 
@@ -76,6 +100,14 @@ namespace Game.Feature.Gameplay.Host
             public StaticEntityPresentationCatalog StaticEntityPresentationCatalog { get; }
 
             public StaticEntityPresentationBinding[] StaticEntityPresentationBindings { get; }
+
+            public BoardTilePresentationCatalog BoardTilePresentationCatalog { get; }
+
+            public IReadOnlyList<BoardTilePresentationOverride> BoardTilePresentationOverrides { get; }
+
+            public IReadOnlyList<TileFeaturePresentationResolvedBinding> TileFeaturePresentationBindings { get; }
+
+            public IReadOnlyList<SurfaceCell> SuppressedBaseTileCells { get; }
         }
 
         [Header("Bootstrap")]
@@ -93,6 +125,8 @@ namespace Game.Feature.Gameplay.Host
         [Header("Presentation")]
         [SerializeField] private Texture2D boardSurfaceTexture;
         [SerializeField] private GameplayAudioMap gameplayAudioMap;
+        [SerializeField] private TileFeatureAudioMap tileFeatureAudioMap;
+        [SerializeField] private GravityFieldAudioMap gravityFieldAudioMap;
         [SerializeField] private float faceSeamGap = -1f;
 
         protected bool AutoCreateViews => autoCreateViews;
@@ -191,6 +225,16 @@ namespace Game.Feature.Gameplay.Host
             return gameplayAudioMap;
         }
 
+        protected virtual TileFeatureAudioMap ResolveTileFeatureAudioMap()
+        {
+            return tileFeatureAudioMap;
+        }
+
+        protected virtual GravityFieldAudioMap ResolveGravityFieldAudioMap()
+        {
+            return gravityFieldAudioMap;
+        }
+
         protected abstract InitialGameplayState BuildInitialGameplayState();
 
         protected virtual void ConfigureRuntimeConfiguration(
@@ -278,15 +322,24 @@ namespace Game.Feature.Gameplay.Host
                 EnemyPresentationCatalog = ResolveConfiguredEnemyPresentationCatalog(initialState),
                 StaticEntityPresentationBindings = initialState.StaticEntityPresentationBindings,
                 StaticEntityPresentationCatalog = ResolveConfiguredStaticEntityPresentationCatalog(initialState),
+                BoardTilePresentationCatalog = initialState.BoardTilePresentationCatalog,
+                BoardTilePresentationOverrides = initialState.BoardTilePresentationOverrides,
+                TileFeaturePresentationBindings = initialState.TileFeaturePresentationBindings,
+                SuppressedBaseTileCells = initialState.SuppressedBaseTileCells,
                 InitialBoardBounds = initialState.BoardBounds,
                 InitialEntities = initialState.InitialEntities,
                 InitialTerrain = initialState.InitialTerrain,
+                InitialTileFeatures = initialState.InitialTileFeatures,
+                TileFeatureDefinitions = initialState.TileFeatureDefinitions,
+                MoonBlockRespawnDefinitions = initialState.MoonBlockRespawnDefinitions,
                 InitialTopology = initialState.InitialTopology,
                 MoveDeadzone = moveDeadzone,
                 ObjectiveRuntimeDefinition = initialState.ObjectiveRuntimeDefinition,
                 PlayerEntityId = initialState.PlayerEntityId,
                 PlayerViewPrefab = viewFactory == null ? ResolvePlayerViewPrefab() : null,
                 GameplayAudioMap = ResolveGameplayAudioMap(),
+                TileFeatureAudioMap = ResolveTileFeatureAudioMap(),
+                GravityFieldAudioMap = ResolveGravityFieldAudioMap(),
                 ViewFactory = viewFactory,
             };
 

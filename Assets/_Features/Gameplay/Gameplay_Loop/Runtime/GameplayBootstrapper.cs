@@ -57,7 +57,9 @@ namespace Game.Feature.Gameplay.Loop
             bool allowPlayerRespawn = true,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
             PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming = default,
-            PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default)
+            PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
+            IReadOnlyList<MoonBlockRespawnDefinition> moonBlockRespawnDefinitions = null)
         {
             return new TickPipeline(
                 worldState,
@@ -71,7 +73,10 @@ namespace Game.Feature.Gameplay.Loop
                 allowPlayerRespawn,
                 runtimeFeatureFlags,
                 playerKinematicLocomotionTiming,
-                playerContinuousLocomotion);
+                playerContinuousLocomotion,
+                tileFeatureDefinitions,
+                moonBlockRespawnDefinitions,
+                tileEffectResolver: null);
         }
 
         public TickRunner CreateTickRunner(
@@ -115,7 +120,9 @@ namespace Game.Feature.Gameplay.Loop
             bool allowPlayerRespawn = true,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
             PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming = default,
-            PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default)
+            PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
+            IReadOnlyList<MoonBlockRespawnDefinition> moonBlockRespawnDefinitions = null)
         {
             if (inputBuffer == null)
             {
@@ -133,7 +140,9 @@ namespace Game.Feature.Gameplay.Loop
                     allowPlayerRespawn,
                     runtimeFeatureFlags,
                     playerKinematicLocomotionTiming,
-                    playerContinuousLocomotion),
+                    playerContinuousLocomotion,
+                    tileFeatureDefinitions,
+                    moonBlockRespawnDefinitions),
                 inputBuffer,
                 startTickIndex);
         }

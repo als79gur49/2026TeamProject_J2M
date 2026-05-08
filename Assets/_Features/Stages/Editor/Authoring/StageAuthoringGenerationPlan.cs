@@ -29,6 +29,8 @@ namespace Game.Feature.Stages.Editor
         public List<StageSpawnDefinition> BoxSpawns { get; } = new();
 
         public List<StageSpawnDefinition> WallSpawns { get; } = new();
+
+        public List<StageTileFeatureDefinition> TileFeatures { get; } = new();
     }
 
     internal sealed class StageAuthoringPresentationBindingWritePayload
@@ -74,6 +76,8 @@ namespace Game.Feature.Stages.Editor
         public List<StageSpawnDefinition> BoxSpawns => GameplayPayload.BoxSpawns;
 
         public List<StageSpawnDefinition> WallSpawns => GameplayPayload.WallSpawns;
+
+        public List<StageTileFeatureDefinition> TileFeatures => GameplayPayload.TileFeatures;
 
         public List<EnemyPresentationBinding> EnemyPresentationBindings =>
             PresentationBindingPayload.EnemyPresentationBindings;

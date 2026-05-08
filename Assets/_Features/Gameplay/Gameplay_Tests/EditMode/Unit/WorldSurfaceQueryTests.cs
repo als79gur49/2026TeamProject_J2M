@@ -72,11 +72,44 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(solidOccupant.entityId, Is.EqualTo(40));
             Assert.That(snapshot.TryGetBoxAt(boxCell, out var box), Is.True);
             Assert.That(box.entityId, Is.EqualTo(40));
+            Assert.That(snapshot.TryGetBoxArchetypeAt(boxCell, out var boxArchetype), Is.True);
+            Assert.That(boxArchetype, Is.EqualTo(BoxArchetype.Normal));
             Assert.That(snapshot.TryGetSolidSemanticAt(boxCell, out var solidSemantic), Is.True);
             Assert.That(solidSemantic.Kind, Is.EqualTo(SolidKind.Box));
             Assert.That(snapshot.IsBoxAt(boxCell), Is.True);
             Assert.That(snapshot.IsWallAt(boxCell), Is.False);
             Assert.That(snapshot.TryGetPrimaryUnitAt(boxCell, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void WorldSnapshot_TryGetBoxArchetypeAt_ExposesOnlyBoxIdentity()
+        {
+            var normalBoxCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var moonBoxCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var unitCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var projectileCell = new SurfaceCell(FaceId.Floor, 3, 0);
+            var wallCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateBox(20, normalBoxCell),
+                    CreateBox(21, moonBoxCell, BoxArchetype.Moon),
+                    CreateUnit(30, unitCell),
+                    CreateProjectile(40, projectileCell),
+                    CreateWall(50, wallCell),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 1)),
+                GameplayTerrainData.Empty);
+            var snapshot = CreateSnapshot(worldState);
+
+            Assert.That(snapshot.TryGetBoxArchetypeAt(normalBoxCell, out var normalArchetype), Is.True);
+            Assert.That(normalArchetype, Is.EqualTo(BoxArchetype.Normal));
+            Assert.That(snapshot.TryGetBoxArchetypeAt(moonBoxCell, out var moonArchetype), Is.True);
+            Assert.That(moonArchetype, Is.EqualTo(BoxArchetype.Moon));
+            Assert.That(snapshot.TryGetBoxArchetypeAt(unitCell, out _), Is.False);
+            Assert.That(snapshot.TryGetBoxArchetypeAt(projectileCell, out _), Is.False);
+            Assert.That(snapshot.TryGetBoxArchetypeAt(wallCell, out _), Is.False);
         }
 
         [Test]
@@ -995,7 +1028,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             };
         }
 
-        private static EntityState CreateBox(int entityId, SurfaceCell position)
+        private static EntityState CreateBox(
+            int entityId,
+            SurfaceCell position,
+            BoxArchetype boxArchetype = BoxArchetype.Normal)
         {
             return new EntityState
             {
@@ -1012,6 +1048,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 markedForDeath = false,
                 spawnTick = 0,
                 boxCapabilities = BoxCapabilities.None,
+                boxArchetype = boxArchetype,
+            };
+        }
+
+        private static EntityState CreateProjectile(int entityId, SurfaceCell position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 1,
+                type = EntityType.Projectile,
+                state = EntityPhaseState.Idle,
+                stateTimer = 0,
+                facing = Direction.Right,
+                boardPresence = EntityBoardPresence.Occupying,
+                markedForDeath = false,
+                spawnTick = 0,
             };
         }
 

@@ -1,11 +1,37 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
 using Game.Shared.AudioContracts;
 using UnityEngine;
 
 namespace Game.Feature.Stages
 {
+    public readonly struct TileFeaturePresentationResolvedBinding
+    {
+        public TileFeaturePresentationResolvedBinding(int tileId, GameObject visualPrefab)
+            : this(tileId, visualPrefab, TileFeatureVisualPlacementMode.Overlay)
+        {
+        }
+
+        public TileFeaturePresentationResolvedBinding(
+            int tileId,
+            GameObject visualPrefab,
+            TileFeatureVisualPlacementMode placementMode)
+        {
+            TileId = tileId;
+            VisualPrefab = visualPrefab;
+            PlacementMode = placementMode;
+        }
+
+        public int TileId { get; }
+
+        public GameObject VisualPrefab { get; }
+
+        public TileFeatureVisualPlacementMode PlacementMode { get; }
+    }
+
     public sealed class StagePresentationResolvedData
     {
         public StagePresentationResolvedData(
@@ -19,10 +45,15 @@ namespace Game.Feature.Stages
             EnemyPresentationBinding[] enemyPresentationBindings,
             StaticEntityPresentationCatalog staticEntityPresentationCatalog,
             StaticEntityPresentationBinding[] staticEntityPresentationBindings,
+            BoardTilePresentationCatalog boardTilePresentationCatalog,
+            IReadOnlyList<BoardTilePresentationOverride> boardTilePresentationOverrides,
+            TileFeaturePresentationCatalog tileFeaturePresentationCatalog,
+            IReadOnlyList<TileFeaturePresentationResolvedBinding> tileFeatureBindings,
             string resultTitle,
             string resultSummaryText,
             string resultDetailText,
-            string resultContinueLabel)
+            string resultContinueLabel,
+            IReadOnlyList<SurfaceCell> suppressedBaseTileCells = null)
         {
             DisplayName = displayName ?? string.Empty;
             SummaryText = summaryText ?? string.Empty;
@@ -34,6 +65,11 @@ namespace Game.Feature.Stages
             EnemyPresentationBindings = enemyPresentationBindings ?? Array.Empty<EnemyPresentationBinding>();
             StaticEntityPresentationCatalog = staticEntityPresentationCatalog;
             StaticEntityPresentationBindings = staticEntityPresentationBindings ?? Array.Empty<StaticEntityPresentationBinding>();
+            BoardTilePresentationCatalog = boardTilePresentationCatalog;
+            BoardTilePresentationOverrides = CloneReadOnlyBoardTileOverrides(boardTilePresentationOverrides);
+            TileFeaturePresentationCatalog = tileFeaturePresentationCatalog;
+            TileFeatureBindings = CloneReadOnlyBindings(tileFeatureBindings);
+            SuppressedBaseTileCells = CloneReadOnlySurfaceCells(suppressedBaseTileCells);
             ResultTitle = resultTitle ?? string.Empty;
             ResultSummaryText = resultSummaryText ?? string.Empty;
             ResultDetailText = resultDetailText ?? string.Empty;
@@ -60,6 +96,16 @@ namespace Game.Feature.Stages
 
         public StaticEntityPresentationBinding[] StaticEntityPresentationBindings { get; }
 
+        public BoardTilePresentationCatalog BoardTilePresentationCatalog { get; }
+
+        public IReadOnlyList<BoardTilePresentationOverride> BoardTilePresentationOverrides { get; }
+
+        public TileFeaturePresentationCatalog TileFeaturePresentationCatalog { get; }
+
+        public IReadOnlyList<TileFeaturePresentationResolvedBinding> TileFeatureBindings { get; }
+
+        public IReadOnlyList<SurfaceCell> SuppressedBaseTileCells { get; }
+
         public string ResultTitle { get; }
 
         public string ResultSummaryText { get; }
@@ -67,6 +113,60 @@ namespace Game.Feature.Stages
         public string ResultDetailText { get; }
 
         public string ResultContinueLabel { get; }
+
+        private static IReadOnlyList<TileFeaturePresentationResolvedBinding> CloneReadOnlyBindings(
+            IReadOnlyList<TileFeaturePresentationResolvedBinding> source)
+        {
+            if (source == null || source.Count == 0)
+            {
+                return Array.Empty<TileFeaturePresentationResolvedBinding>();
+            }
+
+            var bindings = new TileFeaturePresentationResolvedBinding[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                bindings[i] = source[i];
+            }
+
+            return new ReadOnlyCollection<TileFeaturePresentationResolvedBinding>(bindings);
+        }
+
+        private static IReadOnlyList<BoardTilePresentationOverride> CloneReadOnlyBoardTileOverrides(
+            IReadOnlyList<BoardTilePresentationOverride> source)
+        {
+            if (source == null || source.Count == 0)
+            {
+                return Array.Empty<BoardTilePresentationOverride>();
+            }
+
+            var overrides = new BoardTilePresentationOverride[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                var entry = source[i];
+                overrides[i] = entry == null
+                    ? null
+                    : new BoardTilePresentationOverride(entry.Cell, entry.PresentationKey);
+            }
+
+            return new ReadOnlyCollection<BoardTilePresentationOverride>(overrides);
+        }
+
+        private static IReadOnlyList<SurfaceCell> CloneReadOnlySurfaceCells(
+            IReadOnlyList<SurfaceCell> source)
+        {
+            if (source == null || source.Count == 0)
+            {
+                return Array.Empty<SurfaceCell>();
+            }
+
+            var cells = new SurfaceCell[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                cells[i] = source[i];
+            }
+
+            return new ReadOnlyCollection<SurfaceCell>(cells);
+        }
     }
 
     public sealed class StageSceneCompositionData
@@ -102,6 +202,10 @@ namespace Game.Feature.Stages
             Array.Empty<EnemyPresentationBinding>(),
             null,
             Array.Empty<StaticEntityPresentationBinding>(),
+            null,
+            Array.Empty<BoardTilePresentationOverride>(),
+            null,
+            Array.Empty<TileFeaturePresentationResolvedBinding>(),
             string.Empty,
             string.Empty,
             string.Empty,
@@ -125,10 +229,91 @@ namespace Game.Feature.Stages
                 CloneBindings(definition.EnemyPresentationBindings),
                 definition.StaticEntityPresentationCatalog,
                 CloneBindings(definition.StaticEntityPresentationBindings),
+                definition.BoardTilePresentationCatalog,
+                definition.BoardTilePresentationOverrides,
+                definition.TileFeaturePresentationCatalog,
+                ResolveTileFeatureBindings(definition.TileFeaturePresentationBindings),
                 definition.ResultTitle,
                 definition.ResultSummaryText,
                 definition.ResultDetailText,
                 definition.ResultContinueLabel);
+        }
+
+        public static StagePresentationResolvedData Resolve(
+            StageDefinition gameplayDefinition,
+            StagePresentationDefinition definition)
+        {
+            if (definition == null)
+            {
+                return EmptyResolvedData;
+            }
+
+            var tileFeatureBindings = ResolveTileFeatureBindings(
+                gameplayDefinition,
+                definition.TileFeaturePresentationBindings,
+                definition.TileFeaturePresentationCatalog);
+
+            return new StagePresentationResolvedData(
+                definition.DisplayName,
+                definition.SummaryText,
+                definition.PreviewSprite,
+                definition.BackgroundPrefab,
+                definition.BgmReference,
+                definition.EnemyPresentationCatalog,
+                definition.EnemyPresentationArchetypeCatalog,
+                CloneBindings(definition.EnemyPresentationBindings),
+                definition.StaticEntityPresentationCatalog,
+                CloneBindings(definition.StaticEntityPresentationBindings),
+                definition.BoardTilePresentationCatalog,
+                definition.BoardTilePresentationOverrides,
+                definition.TileFeaturePresentationCatalog,
+                tileFeatureBindings,
+                definition.ResultTitle,
+                definition.ResultSummaryText,
+                definition.ResultDetailText,
+                definition.ResultContinueLabel,
+                BuildSuppressedBaseTileCells(gameplayDefinition, tileFeatureBindings));
+        }
+
+        public static TileFeaturePresentationBinding[] ToAuthoringBindings(
+            IReadOnlyList<TileFeaturePresentationResolvedBinding> source)
+        {
+            if (source == null || source.Count == 0)
+            {
+                return Array.Empty<TileFeaturePresentationBinding>();
+            }
+
+            var bindings = new TileFeaturePresentationBinding[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                bindings[i] = new TileFeaturePresentationBinding
+                {
+                    TileId = source[i].TileId,
+                    VisualPrefab = source[i].VisualPrefab,
+                };
+            }
+
+            return bindings;
+        }
+
+        public static BoardTilePresentationOverride[] ToAuthoringBoardTilePresentationOverrides(
+            IReadOnlyList<BoardTilePresentationOverride> source)
+        {
+            if (source == null || source.Count == 0)
+            {
+                return Array.Empty<BoardTilePresentationOverride>();
+            }
+
+            var overrides = new BoardTilePresentationOverride[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                var entry = source[i];
+                overrides[i] = entry == null
+                    ? null
+                    : new BoardTilePresentationOverride(entry.Cell, entry.PresentationKey);
+            }
+
+            return overrides;
         }
 
         internal static EnemyPresentationBinding[] BuildEnemyBindings(IReadOnlyList<StageSpawnDefinition> spawns)
@@ -202,6 +387,233 @@ namespace Game.Feature.Stages
             return source == null || source.Length == 0
                 ? Array.Empty<StaticEntityPresentationBinding>()
                 : (StaticEntityPresentationBinding[])source.Clone();
+        }
+
+        private static IReadOnlyList<TileFeaturePresentationResolvedBinding> ResolveTileFeatureBindings(
+            IReadOnlyList<TileFeaturePresentationBinding> source)
+        {
+            if (source == null || source.Count == 0)
+            {
+                return Array.Empty<TileFeaturePresentationResolvedBinding>();
+            }
+
+            var bindings = new TileFeaturePresentationResolvedBinding[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                var binding = source[i];
+                bindings[i] = binding == null
+                    ? default
+                    : new TileFeaturePresentationResolvedBinding(binding.TileId, binding.VisualPrefab);
+            }
+
+            return new ReadOnlyCollection<TileFeaturePresentationResolvedBinding>(bindings);
+        }
+
+        private static IReadOnlyList<TileFeaturePresentationResolvedBinding> ResolveTileFeatureBindings(
+            StageDefinition gameplayDefinition,
+            IReadOnlyList<TileFeaturePresentationBinding> directBindings,
+            TileFeaturePresentationCatalog catalog)
+        {
+            if (gameplayDefinition == null)
+            {
+                return ResolveTileFeatureBindings(directBindings);
+            }
+
+            var directByTileId = BuildDirectBindingsByTileId(directBindings);
+            var tileFeatures = gameplayDefinition.TileFeatures;
+            if ((tileFeatures == null || tileFeatures.Length == 0) &&
+                directByTileId.Count == 0)
+            {
+                return Array.Empty<TileFeaturePresentationResolvedBinding>();
+            }
+
+            var resolved = new List<TileFeaturePresentationResolvedBinding>();
+            if (tileFeatures != null)
+            {
+                for (var i = 0; i < tileFeatures.Length; i++)
+                {
+                    var tileFeature = tileFeatures[i];
+                    if (tileFeature.TileId <= 0)
+                    {
+                        continue;
+                    }
+
+                    if (directByTileId.TryGetValue(tileFeature.TileId, out var directBinding))
+                    {
+                        var directPlacementMode = ResolveCatalogKeyPlacementMode(
+                            catalog,
+                            tileFeature);
+                        resolved.Add(new TileFeaturePresentationResolvedBinding(
+                            directBinding.TileId,
+                            directBinding.VisualPrefab,
+                            directPlacementMode));
+                        continue;
+                    }
+
+                    if (TryResolveCatalogEntry(
+                            catalog,
+                            tileFeature,
+                            out var catalogEntry))
+                    {
+                        resolved.Add(new TileFeaturePresentationResolvedBinding(
+                            tileFeature.TileId,
+                            catalogEntry.VisualPrefab,
+                            catalogEntry.PlacementMode));
+                    }
+                }
+            }
+
+            if (resolved.Count == 0)
+            {
+                return Array.Empty<TileFeaturePresentationResolvedBinding>();
+            }
+
+            resolved.Sort((left, right) => left.TileId.CompareTo(right.TileId));
+            return new ReadOnlyCollection<TileFeaturePresentationResolvedBinding>(resolved);
+        }
+
+        private static Dictionary<int, TileFeaturePresentationBinding> BuildDirectBindingsByTileId(
+            IReadOnlyList<TileFeaturePresentationBinding> directBindings)
+        {
+            var directByTileId = new Dictionary<int, TileFeaturePresentationBinding>();
+            if (directBindings == null)
+            {
+                return directByTileId;
+            }
+
+            for (var i = 0; i < directBindings.Count; i++)
+            {
+                var binding = directBindings[i];
+                if (binding == null ||
+                    binding.TileId <= 0 ||
+                    directByTileId.ContainsKey(binding.TileId))
+                {
+                    continue;
+                }
+
+                directByTileId.Add(binding.TileId, binding);
+            }
+
+            return directByTileId;
+        }
+
+        private static bool TryResolveCatalogEntry(
+            TileFeaturePresentationCatalog catalog,
+            StageTileFeatureDefinition tileFeature,
+            out TileFeaturePresentationCatalogEntry entry)
+        {
+            entry = null;
+            if (catalog == null)
+            {
+                return false;
+            }
+
+            var presentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(tileFeature.PresentationKey);
+            if (!string.IsNullOrEmpty(presentationKey))
+            {
+                if (catalog.TryGetEntry(presentationKey, out var keyedEntry) &&
+                    keyedEntry.VisualPrefab != null)
+                {
+                    entry = keyedEntry;
+                    return true;
+                }
+
+                UnityEngine.Debug.LogWarning(
+                    $"TileFeature TileId {tileFeature.TileId} could not resolve PresentationKey '{presentationKey}' in TileFeaturePresentationCatalog '{catalog.name}'.");
+            }
+
+            if (catalog.TryGetDefaultEntry(tileFeature.Kind, out var defaultEntry) &&
+                defaultEntry.VisualPrefab != null)
+            {
+                entry = defaultEntry;
+                return true;
+            }
+
+            UnityEngine.Debug.LogWarning(
+                $"TileFeature TileId {tileFeature.TileId} has no resolved visual prefab for kind '{tileFeature.Kind}'.");
+            return false;
+        }
+
+        private static TileFeatureVisualPlacementMode ResolveCatalogKeyPlacementMode(
+            TileFeaturePresentationCatalog catalog,
+            StageTileFeatureDefinition tileFeature)
+        {
+            if (catalog == null)
+            {
+                return TileFeatureVisualPlacementMode.Overlay;
+            }
+
+            var presentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(tileFeature.PresentationKey);
+            if (string.IsNullOrEmpty(presentationKey))
+            {
+                return TileFeatureVisualPlacementMode.Overlay;
+            }
+
+            return catalog.TryGetEntry(presentationKey, out var entry)
+                ? entry.PlacementMode
+                : TileFeatureVisualPlacementMode.Overlay;
+        }
+
+        private static IReadOnlyList<SurfaceCell> BuildSuppressedBaseTileCells(
+            StageDefinition gameplayDefinition,
+            IReadOnlyList<TileFeaturePresentationResolvedBinding> bindings)
+        {
+            if (gameplayDefinition == null ||
+                bindings == null ||
+                bindings.Count == 0)
+            {
+                return Array.Empty<SurfaceCell>();
+            }
+
+            var replaceTileIds = new HashSet<int>();
+            for (var i = 0; i < bindings.Count; i++)
+            {
+                var binding = bindings[i];
+                if (binding.TileId > 0 &&
+                    binding.VisualPrefab != null &&
+                    binding.PlacementMode == TileFeatureVisualPlacementMode.ReplaceBaseTile)
+                {
+                    replaceTileIds.Add(binding.TileId);
+                }
+            }
+
+            if (replaceTileIds.Count == 0)
+            {
+                return Array.Empty<SurfaceCell>();
+            }
+
+            var cells = new List<SurfaceCell>();
+            var seenCells = new HashSet<SurfaceCell>();
+            var tileFeatures = gameplayDefinition.TileFeatures;
+            for (var i = 0; i < tileFeatures.Length; i++)
+            {
+                var tileFeature = tileFeatures[i];
+                if (replaceTileIds.Contains(tileFeature.TileId) &&
+                    seenCells.Add(tileFeature.Cell))
+                {
+                    cells.Add(tileFeature.Cell);
+                }
+            }
+
+            if (cells.Count == 0)
+            {
+                return Array.Empty<SurfaceCell>();
+            }
+
+            cells.Sort(CompareSurfaceCells);
+            return new ReadOnlyCollection<SurfaceCell>(cells);
+        }
+
+        private static int CompareSurfaceCells(SurfaceCell left, SurfaceCell right)
+        {
+            var faceComparison = ((int)left.face).CompareTo((int)right.face);
+            if (faceComparison != 0)
+            {
+                return faceComparison;
+            }
+
+            var xComparison = left.x.CompareTo(right.x);
+            return xComparison != 0 ? xComparison : left.y.CompareTo(right.y);
         }
 
         private static string NormalizePresentationId(string presentationId)

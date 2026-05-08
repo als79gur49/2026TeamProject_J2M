@@ -48,7 +48,7 @@ namespace Game.Feature.Gameplay.Loop
     public readonly struct TilePresentationEvent
     {
         public TilePresentationEvent(
-            TilePresentationEventKind kind,
+            TilePresentationEventKind eventKind,
             int tileId,
             SurfaceCell cell,
             TileFeatureKind tileFeatureKind,
@@ -58,7 +58,7 @@ namespace Game.Feature.Gameplay.Loop
             int targetEntityId = 0,
             Direction direction = Direction.None)
         {
-            Kind = kind;
+            EventKind = eventKind;
             TileId = tileId;
             Cell = cell;
             TileFeatureKind = tileFeatureKind;
@@ -69,7 +69,7 @@ namespace Game.Feature.Gameplay.Loop
             Direction = direction;
         }
 
-        public TilePresentationEventKind Kind { get; }
+        public TilePresentationEventKind EventKind { get; }
 
         public int TileId { get; }
 
@@ -98,18 +98,18 @@ namespace Game.Feature.Gameplay.Loop
     public readonly struct GravityFieldPresentationEvent
     {
         public GravityFieldPresentationEvent(
-            GravityFieldPresentationEventKind kind,
+            GravityFieldPresentationEventKind eventKind,
             int emitterEntityId,
             SurfaceCell cell,
             int targetEntityId = 0)
         {
-            Kind = kind;
+            EventKind = eventKind;
             EmitterEntityId = emitterEntityId;
             Cell = cell;
             TargetEntityId = targetEntityId;
         }
 
-        public GravityFieldPresentationEventKind Kind { get; }
+        public GravityFieldPresentationEventKind EventKind { get; }
 
         public int EmitterEntityId { get; }
 
@@ -118,40 +118,66 @@ namespace Game.Feature.Gameplay.Loop
         public int TargetEntityId { get; }
     }
 
-    public enum GravityFieldPhase
-    {
-        None = 0,
-        Charging = 1,
-        Active = 2,
-        Expired = 3,
-    }
-
     public readonly struct GravityFieldAreaFootprint
     {
-        public GravityFieldAreaFootprint(IEnumerable<SurfaceCell> areaCells)
-            : this(areaCells, slotVisibilityMask: -1)
-        {
-        }
+        public const int SlotCount = 9;
 
-        public GravityFieldAreaFootprint(IEnumerable<SurfaceCell> areaCells, int slotVisibilityMask)
+        public static readonly GravityFieldAreaFootprint Empty = new(
+            Array.Empty<SurfaceCell>(),
+            slotVisibilityMask: 0);
+
+        private static readonly IReadOnlyList<SurfaceCell> EmptyAreaCells =
+            new ReadOnlyCollection<SurfaceCell>(new List<SurfaceCell>());
+
+        private readonly IReadOnlyList<SurfaceCell> _areaCells;
+
+        public GravityFieldAreaFootprint(
+            IEnumerable<SurfaceCell> areaCells,
+            int slotVisibilityMask)
         {
-            AreaCells = new ReadOnlyCollection<SurfaceCell>(
+            _areaCells = new ReadOnlyCollection<SurfaceCell>(
                 new List<SurfaceCell>(areaCells ?? Array.Empty<SurfaceCell>()));
-            SlotVisibilityMask = slotVisibilityMask;
+            SlotVisibilityMask = slotVisibilityMask & 0x1FF;
         }
 
-        public IReadOnlyList<SurfaceCell> AreaCells { get; }
+        public IReadOnlyList<SurfaceCell> AreaCells => _areaCells ?? EmptyAreaCells;
 
         public int SlotVisibilityMask { get; }
 
         public bool IsSlotVisible(int slotIndex)
         {
-            return slotIndex >= 0 && (SlotVisibilityMask < 0 || (SlotVisibilityMask & (1 << slotIndex)) != 0);
+            return slotIndex >= 0 &&
+                   slotIndex < SlotCount &&
+                   (SlotVisibilityMask & (1 << slotIndex)) != 0;
         }
     }
 
     public readonly struct GravityFieldVisualState
     {
+        private static readonly IReadOnlyList<int> EmptyLockedTargetEntityIds =
+            new ReadOnlyCollection<int>(new List<int>());
+
+        private readonly IReadOnlyList<int> _lockedTargetEntityIds;
+
+        public GravityFieldVisualState(
+            int emitterEntityId,
+            SurfaceCell cell,
+            GravityFieldPhase phase,
+            int timerTicks,
+            int durationTicks,
+            float progress01)
+            : this(
+                emitterEntityId,
+                cell,
+                phase,
+                timerTicks,
+                durationTicks,
+                progress01,
+                GravityFieldAreaFootprint.Empty,
+                Array.Empty<int>())
+        {
+        }
+
         public GravityFieldVisualState(
             int emitterEntityId,
             SurfaceCell cell,
@@ -159,18 +185,57 @@ namespace Game.Feature.Gameplay.Loop
             int timerTicks,
             int durationTicks,
             float progress01,
-            GravityFieldAreaFootprint areaFootprint = default,
-            IEnumerable<int> lockedTargetEntityIds = null)
+            IEnumerable<int> lockedTargetEntityIds)
+            : this(
+                emitterEntityId,
+                cell,
+                phase,
+                timerTicks,
+                durationTicks,
+                progress01,
+                GravityFieldAreaFootprint.Empty,
+                lockedTargetEntityIds)
+        {
+        }
+
+        public GravityFieldVisualState(
+            int emitterEntityId,
+            SurfaceCell cell,
+            GravityFieldPhase phase,
+            int timerTicks,
+            int durationTicks,
+            float progress01,
+            GravityFieldAreaFootprint areaFootprint)
+            : this(
+                emitterEntityId,
+                cell,
+                phase,
+                timerTicks,
+                durationTicks,
+                progress01,
+                areaFootprint,
+                Array.Empty<int>())
+        {
+        }
+
+        public GravityFieldVisualState(
+            int emitterEntityId,
+            SurfaceCell cell,
+            GravityFieldPhase phase,
+            int timerTicks,
+            int durationTicks,
+            float progress01,
+            GravityFieldAreaFootprint areaFootprint,
+            IEnumerable<int> lockedTargetEntityIds)
         {
             EmitterEntityId = emitterEntityId;
             Cell = cell;
             Phase = phase;
             TimerTicks = timerTicks;
             DurationTicks = durationTicks;
-            Progress01 = progress01;
+            Progress01 = Clamp01(progress01);
             AreaFootprint = areaFootprint;
-            LockedTargetEntityIds = new ReadOnlyCollection<int>(
-                new List<int>(lockedTargetEntityIds ?? Array.Empty<int>()));
+            _lockedTargetEntityIds = BuildLockedTargetEntityIds(phase, lockedTargetEntityIds);
         }
 
         public int EmitterEntityId { get; }
@@ -187,7 +252,46 @@ namespace Game.Feature.Gameplay.Loop
 
         public GravityFieldAreaFootprint AreaFootprint { get; }
 
-        public IReadOnlyList<int> LockedTargetEntityIds { get; }
+        public IReadOnlyList<SurfaceCell> AreaCells => AreaFootprint.AreaCells;
+
+        public IReadOnlyList<int> LockedTargetEntityIds => _lockedTargetEntityIds ?? EmptyLockedTargetEntityIds;
+
+        private static float Clamp01(float value)
+        {
+            if (value <= 0f)
+            {
+                return 0f;
+            }
+
+            return value >= 1f ? 1f : value;
+        }
+
+        private static IReadOnlyList<int> BuildLockedTargetEntityIds(
+            GravityFieldPhase phase,
+            IEnumerable<int> lockedTargetEntityIds)
+        {
+            if (phase != GravityFieldPhase.Active)
+            {
+                return EmptyLockedTargetEntityIds;
+            }
+
+            var ids = new List<int>();
+            foreach (var targetEntityId in lockedTargetEntityIds ?? Array.Empty<int>())
+            {
+                if (targetEntityId > 0 && !ids.Contains(targetEntityId))
+                {
+                    ids.Add(targetEntityId);
+                }
+            }
+
+            if (ids.Count == 0)
+            {
+                return EmptyLockedTargetEntityIds;
+            }
+
+            ids.Sort();
+            return new ReadOnlyCollection<int>(ids);
+        }
     }
 
     public readonly struct TickEntityMotion
@@ -1349,6 +1453,9 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<TickEntityMotion> _entityMotions;
         private readonly ReadOnlyCollection<TickKinematicMotionTrack> _kinematicMotionTracks;
         private readonly ReadOnlyCollection<TickContinuousLocomotionTrack> _continuousLocomotionTracks;
+        private readonly ReadOnlyCollection<TilePresentationEvent> _tileEvents;
+        private readonly ReadOnlyCollection<GravityFieldPresentationEvent> _gravityFieldEvents;
+        private readonly ReadOnlyCollection<GravityFieldVisualState> _gravityFieldVisualStates;
         private ReadOnlyCollection<TickFrontFaceShieldBlockSignal> _frontFaceShieldBlocks;
         private ReadOnlyCollection<TickFrontFaceShieldSourceSignal> _frontFaceShieldSources;
         private ReadOnlyCollection<TickFrontFaceShieldWindupWarningSignal> _frontFaceShieldWindupWarnings;
@@ -1362,9 +1469,6 @@ namespace Game.Feature.Gameplay.Loop
         private readonly TickTopologyMotion? _topologyMotion;
         private readonly ReadOnlyCollection<TickTransitionVisibilityChange> _transitionVisibilityChanges;
         private readonly ReadOnlyCollection<TickVisibilityChange> _visibilityChanges;
-        private readonly ReadOnlyCollection<TilePresentationEvent> _tileEvents;
-        private readonly ReadOnlyCollection<GravityFieldPresentationEvent> _gravityFieldEvents;
-        private readonly ReadOnlyCollection<GravityFieldVisualState> _gravityFieldVisualStates;
 
         // Presentation data is render-only metadata layered on top of authoritative gameplay state.
         public TickPresentationData(IEnumerable<TickEntityMotion> entityMotions)
@@ -1771,6 +1875,15 @@ namespace Game.Feature.Gameplay.Loop
             _continuousLocomotionTracks = new ReadOnlyCollection<TickContinuousLocomotionTrack>(
                 new List<TickContinuousLocomotionTrack>(
                     continuousLocomotionTracks ?? Array.Empty<TickContinuousLocomotionTrack>()));
+            _tileEvents = new ReadOnlyCollection<TilePresentationEvent>(
+                new List<TilePresentationEvent>(
+                    tileEvents ?? Array.Empty<TilePresentationEvent>()));
+            _gravityFieldEvents = new ReadOnlyCollection<GravityFieldPresentationEvent>(
+                new List<GravityFieldPresentationEvent>(
+                    gravityFieldEvents ?? Array.Empty<GravityFieldPresentationEvent>()));
+            _gravityFieldVisualStates = new ReadOnlyCollection<GravityFieldVisualState>(
+                new List<GravityFieldVisualState>(
+                    gravityFieldVisualStates ?? Array.Empty<GravityFieldVisualState>()));
             _topologyMotion = topologyMotion;
             _visibilityChanges = new ReadOnlyCollection<TickVisibilityChange>(new List<TickVisibilityChange>(visibilityChanges));
             _transitionVisibilityChanges = new ReadOnlyCollection<TickTransitionVisibilityChange>(
@@ -1817,14 +1930,6 @@ namespace Game.Feature.Gameplay.Loop
             _frontFaceShieldWindupWarnings = new ReadOnlyCollection<TickFrontFaceShieldWindupWarningSignal>(
                 new List<TickFrontFaceShieldWindupWarningSignal>(
                     frontFaceShieldWindupWarnings ?? Array.Empty<TickFrontFaceShieldWindupWarningSignal>()));
-            _tileEvents = new ReadOnlyCollection<TilePresentationEvent>(
-                new List<TilePresentationEvent>(tileEvents ?? Array.Empty<TilePresentationEvent>()));
-            _gravityFieldEvents = new ReadOnlyCollection<GravityFieldPresentationEvent>(
-                new List<GravityFieldPresentationEvent>(
-                    gravityFieldEvents ?? Array.Empty<GravityFieldPresentationEvent>()));
-            _gravityFieldVisualStates = new ReadOnlyCollection<GravityFieldVisualState>(
-                new List<GravityFieldVisualState>(
-                    gravityFieldVisualStates ?? Array.Empty<GravityFieldVisualState>()));
         }
 
         public TickPresentationData(
@@ -2033,6 +2138,12 @@ namespace Game.Feature.Gameplay.Loop
 
         public IReadOnlyList<TickContinuousLocomotionTrack> ContinuousLocomotionTracks => _continuousLocomotionTracks;
 
+        public IReadOnlyList<TilePresentationEvent> TileEvents => _tileEvents;
+
+        public IReadOnlyList<GravityFieldPresentationEvent> GravityFieldEvents => _gravityFieldEvents;
+
+        public IReadOnlyList<GravityFieldVisualState> GravityFieldVisualStates => _gravityFieldVisualStates;
+
         public TickTopologyMotion? TopologyMotion => _topologyMotion;
 
         public IReadOnlyList<TickVisibilityChange> VisibilityChanges => _visibilityChanges;
@@ -2076,11 +2187,5 @@ namespace Game.Feature.Gameplay.Loop
 
         public IReadOnlyList<TickFrontFaceShieldWindupWarningSignal> FrontFaceShieldWindupWarnings =>
             _frontFaceShieldWindupWarnings;
-
-        public IReadOnlyList<TilePresentationEvent> TileEvents => _tileEvents;
-
-        public IReadOnlyList<GravityFieldPresentationEvent> GravityFieldEvents => _gravityFieldEvents;
-
-        public IReadOnlyList<GravityFieldVisualState> GravityFieldVisualStates => _gravityFieldVisualStates;
     }
 }

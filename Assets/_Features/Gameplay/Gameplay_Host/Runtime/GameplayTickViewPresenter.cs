@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using Game.Feature.Gameplay.Audio;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.GravityFieldAudio;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.TileFeatureAudio;
 using Unity.Cinemachine;
 using UnityEngine;
 
@@ -45,6 +47,15 @@ namespace Game.Feature.Gameplay.Host
         public Vector3 CubeCenter => _presentationCoordinator.CubeCenter;
 
         public Bounds VisibleCubeBounds => _presentationCoordinator.VisibleCubeBounds;
+
+        public IReadOnlyList<TilePresentationRequest> CurrentTilePresentationRequests =>
+            _presentationCoordinator.CurrentTilePresentationRequests;
+
+        public IReadOnlyList<GravityFieldPresentationRequest> CurrentGravityFieldPresentationRequests =>
+            _presentationCoordinator.CurrentGravityFieldPresentationRequests;
+
+        public IReadOnlyList<GravityFieldVisualState> CurrentGravityFieldVisualStates =>
+            _presentationCoordinator.CurrentGravityFieldVisualStates;
 
         public void Initialize(
             GameplayEntityViewBinder viewBinder,
@@ -109,6 +120,25 @@ namespace Game.Feature.Gameplay.Host
             _presentationCoordinator.AttachGameplayAudioRuntime(playbackPort, gameplayAudioMap);
         }
 
+        internal void AttachTileFeatureAudioRuntime(
+            IGameplayAudioPlaybackPort playbackPort,
+            TileFeatureAudioMap tileFeatureAudioMap)
+        {
+            _presentationCoordinator.AttachTileFeatureAudioRuntime(playbackPort, tileFeatureAudioMap);
+        }
+
+        internal void AttachGravityFieldAudioRuntime(
+            IGameplayAudioPlaybackPort playbackPort,
+            GravityFieldAudioMap gravityFieldAudioMap)
+        {
+            _presentationCoordinator.AttachGravityFieldAudioRuntime(playbackPort, gravityFieldAudioMap);
+        }
+
+        public void AttachTileFeatureVisualRegistry(ITileFeatureVisualRegistry registry)
+        {
+            _presentationCoordinator.AttachTileFeatureVisualRegistry(registry);
+        }
+
         public void AttachPresentationExtension(IGameplayTickPresentationExtension extension)
         {
             _presentationCoordinator.AttachPresentationExtension(extension);
@@ -127,6 +157,16 @@ namespace Game.Feature.Gameplay.Host
         internal void SetPresentationTraceSink(System.Action<string> traceSink)
         {
             _presentationCoordinator.SetTraceSink(traceSink);
+        }
+
+        internal void SetTileFeatureVisualDiagnosticSink(System.Action<string> diagnosticSink)
+        {
+            _presentationCoordinator.SetTileFeatureVisualDiagnosticSink(diagnosticSink);
+        }
+
+        internal void SetGravityFieldVisualDiagnosticSink(System.Action<string> diagnosticSink)
+        {
+            _presentationCoordinator.SetGravityFieldVisualDiagnosticSink(diagnosticSink);
         }
 
         internal int PendingGameplayAudioRequestCount => _presentationCoordinator.PendingGameplayAudioRequestCount;
@@ -188,6 +228,8 @@ namespace Game.Feature.Gameplay.Host
         private void OnDestroy()
         {
             _presentationCoordinator.HardCleanupPresentationExtensions();
+            _presentationCoordinator.DetachGravityFieldAudioRuntime();
+            _presentationCoordinator.DetachTileFeatureAudioRuntime();
             _presentationCoordinator.DetachGameplayAudioRuntime();
         }
 

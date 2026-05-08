@@ -608,7 +608,7 @@ namespace Game.Feature.Gameplay.Vfx
             in TilePresentationEvent tileEvent,
             out TileFeatureVfxCue cue)
         {
-            switch (tileEvent.Kind)
+            switch (tileEvent.EventKind)
             {
                 case TilePresentationEventKind.ButtonActivated:
                     cue = TileFeatureVfxCue.ButtonActivated;
@@ -691,7 +691,7 @@ namespace Game.Feature.Gameplay.Vfx
             {
                 var hash = tickIndex;
                 hash = (hash * 397) ^ eventIndex;
-                hash = (hash * 397) ^ (int)tileEvent.Kind;
+                hash = (hash * 397) ^ (int)tileEvent.EventKind;
                 hash = (hash * 397) ^ tileEvent.TileId;
                 hash = (hash * 397) ^ tileEvent.Cell.GetHashCode();
                 hash = (hash * 397) ^ (int)tileEvent.Direction;
@@ -736,7 +736,7 @@ namespace Game.Feature.Gameplay.Vfx
             for (var i = 0; i < events.Count; i++)
             {
                 var fieldEvent = events[i];
-                if (!TryResolveCue(fieldEvent.Kind, out var cue))
+                if (!TryResolveCue(fieldEvent.EventKind, out var cue))
                 {
                     continue;
                 }
@@ -905,7 +905,7 @@ namespace Game.Feature.Gameplay.Vfx
             {
                 var hash = tickIndex;
                 hash = (hash * 397) ^ eventIndex;
-                hash = (hash * 397) ^ (int)fieldEvent.Kind;
+                hash = (hash * 397) ^ (int)fieldEvent.EventKind;
                 hash = (hash * 397) ^ fieldEvent.EmitterEntityId;
                 hash = (hash * 397) ^ fieldEvent.Cell.GetHashCode();
                 hash = (hash * 397) ^ fieldEvent.TargetEntityId;

@@ -259,6 +259,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         null,
                         null,
                         null,
+                        null,
                         null));
 
                 var controller = new CampaignGameplayFlowController(
@@ -1225,6 +1226,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     inputHost,
                     null,
                     GameplayTimingProfile.CreateDefault(),
+                    null,
                     null,
                     null,
                     null,

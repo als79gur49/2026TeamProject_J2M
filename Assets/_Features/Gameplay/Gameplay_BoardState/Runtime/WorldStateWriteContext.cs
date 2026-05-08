@@ -78,6 +78,11 @@ namespace Game.Feature.Gameplay.BoardState
             _port.SetBoxInteractionLockState(entityId, state);
         }
 
+        public void SetGravityFieldState(int entityId, GravityFieldPhase phase, int timerTicks)
+        {
+            _port.SetGravityFieldState(entityId, phase, timerTicks);
+        }
+
         public void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state)
         {
             _port.SetUnitKinematicState(entityId, state);
@@ -166,6 +171,21 @@ namespace Game.Feature.Gameplay.BoardState
         public void SetTopology(CubeTopologyState topology)
         {
             _port.SetTopology(topology);
+        }
+
+        public void AddTileFeature(TileFeatureState state)
+        {
+            _port.AddTileFeature(state);
+        }
+
+        public void UpdateTileFeature(TileFeatureState state)
+        {
+            _port.UpdateTileFeature(state);
+        }
+
+        public void RemoveTileFeature(int tileId)
+        {
+            _port.RemoveTileFeature(tileId);
         }
 
         public void EmitEnemyUtilityTriggerIntent(EnemyUtilityTriggerIntent intent)

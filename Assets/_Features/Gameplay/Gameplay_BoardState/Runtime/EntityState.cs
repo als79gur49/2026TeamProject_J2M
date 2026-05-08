@@ -14,6 +14,20 @@ namespace Game.Feature.Gameplay.BoardState
         JumpCrushable = 1 << 4,
     }
 
+    public enum BoxArchetype
+    {
+        Normal = 0,
+        Moon = 1,
+        GravityField = 2,
+    }
+
+    public enum GravityFieldPhase
+    {
+        None = 0,
+        Charging = 1,
+        Active = 2,
+    }
+
     public struct EntityState
     {
         public int entityId;
@@ -30,6 +44,9 @@ namespace Game.Feature.Gameplay.BoardState
         public bool markedForDeath;
         public int spawnTick;
         public BoxCapabilities boxCapabilities;
+        public BoxArchetype boxArchetype;
+        public GravityFieldPhase gravityFieldPhase;
+        public int gravityFieldTimerTicks;
         public int kineticInstigatorEntityId;
         public int kineticInstigatorTeamId;
         public EnemyAiMode aiMode;

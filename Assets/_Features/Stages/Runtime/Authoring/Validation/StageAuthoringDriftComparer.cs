@@ -19,6 +19,7 @@ namespace Game.Feature.Stages
 
             CompareBoard(expected.Board, actual.Board, context, issues);
             CompareSpawns(expected.Spawns, actual.Spawns, context, issues);
+            CompareTileFeatures(expected.TileFeatures, actual.TileFeatures, context, issues);
             CompareZones(expected.Zones, actual.Zones, context, issues);
             CompareObjective(expected.Objective, actual.Objective, context, issues);
             return issues.ToArray();
@@ -141,6 +142,7 @@ namespace Game.Feature.Stages
             if (expected.Kind == StageSpawnKind.Box)
             {
                 AddIfDifferent(issues, context, "GameplayDrift.SpawnFieldMismatch", "BoxCapabilities", expected.BoxCapabilities, actual.BoxCapabilities, expected.EntityId, expected.StableGuid);
+                AddIfDifferent(issues, context, "GameplayDrift.SpawnFieldMismatch", "BoxArchetype", expected.BoxArchetype, actual.BoxArchetype, expected.EntityId, expected.StableGuid);
             }
         }
 
@@ -186,6 +188,75 @@ namespace Game.Feature.Stages
                         actualZone.Regions[regionIndex].MaxInclusive);
                 }
             }
+        }
+
+        private static void CompareTileFeatures(
+            IReadOnlyList<StageAuthoringNormalizedTileFeature> expected,
+            IReadOnlyList<StageAuthoringNormalizedTileFeature> actual,
+            StageAuthoringDriftContext context,
+            ICollection<StageValidationIssue> issues)
+        {
+            var actualByTileId = new Dictionary<int, StageAuthoringNormalizedTileFeature>();
+            for (var i = 0; i < actual.Count; i++)
+            {
+                actualByTileId[actual[i].TileId] = actual[i];
+            }
+
+            var expectedTileIds = new HashSet<int>();
+            for (var i = 0; i < expected.Count; i++)
+            {
+                var expectedTileFeature = expected[i];
+                expectedTileIds.Add(expectedTileFeature.TileId);
+                if (!actualByTileId.TryGetValue(expectedTileFeature.TileId, out var actualTileFeature))
+                {
+                    issues.Add(CreateIssue(
+                        context,
+                        "GameplayDrift.TileFeatureMissing",
+                        $"Expected TileFeature TileId={expectedTileFeature.TileId} is missing.",
+                        "TileFeatures",
+                        FormatTileFeature(expectedTileFeature),
+                        string.Empty,
+                        expectedTileFeature.TileId,
+                        string.Empty));
+                    continue;
+                }
+
+                CompareTileFeatureFields(expectedTileFeature, actualTileFeature, context, issues);
+            }
+
+            for (var i = 0; i < actual.Count; i++)
+            {
+                var actualTileFeature = actual[i];
+                if (expectedTileIds.Contains(actualTileFeature.TileId))
+                {
+                    continue;
+                }
+
+                issues.Add(CreateIssue(
+                    context,
+                    "GameplayDrift.TileFeatureUnexpected",
+                    $"Unexpected TileFeature TileId={actualTileFeature.TileId} exists.",
+                    "TileFeatures",
+                    string.Empty,
+                    FormatTileFeature(actualTileFeature),
+                    actualTileFeature.TileId,
+                    string.Empty));
+            }
+        }
+
+        private static void CompareTileFeatureFields(
+            StageAuthoringNormalizedTileFeature expected,
+            StageAuthoringNormalizedTileFeature actual,
+            StageAuthoringDriftContext context,
+            ICollection<StageValidationIssue> issues)
+        {
+            AddIfDifferent(issues, context, "GameplayDrift.TileFeatureFieldMismatch", $"TileFeatures[{expected.TileId}].Cell", expected.Cell, actual.Cell, expected.TileId);
+            AddIfDifferent(issues, context, "GameplayDrift.TileFeatureFieldMismatch", $"TileFeatures[{expected.TileId}].Kind", expected.Kind, actual.Kind, expected.TileId);
+            AddIfDifferent(issues, context, "GameplayDrift.TileFeatureFieldMismatch", $"TileFeatures[{expected.TileId}].ActivationRule", expected.ActivationRule, actual.ActivationRule, expected.TileId);
+            AddIfDifferent(issues, context, "GameplayDrift.TileFeatureFieldMismatch", $"TileFeatures[{expected.TileId}].Direction", expected.Direction, actual.Direction, expected.TileId);
+            AddIfDifferent(issues, context, "GameplayDrift.TileFeatureFieldMismatch", $"TileFeatures[{expected.TileId}].BoxSelector", expected.BoxSelector, actual.BoxSelector, expected.TileId);
+            AddIfDifferent(issues, context, "GameplayDrift.TileFeatureFieldMismatch", $"TileFeatures[{expected.TileId}].BoundEntityId", expected.BoundEntityId, actual.BoundEntityId, expected.TileId);
+            AddIfDifferent(issues, context, "GameplayDrift.TileFeatureFieldMismatch", $"TileFeatures[{expected.TileId}].PresentationKey", expected.PresentationKey, actual.PresentationKey, expected.TileId);
         }
 
         private static void CompareObjective(
@@ -353,6 +424,11 @@ namespace Game.Feature.Stages
         private static string FormatSpawn(StageAuthoringNormalizedSpawn spawn)
         {
             return $"{spawn.Kind} EntityId={spawn.EntityId} Cell={spawn.Cell} Hp={spawn.Hp}";
+        }
+
+        private static string FormatTileFeature(StageAuthoringNormalizedTileFeature tileFeature)
+        {
+            return $"TileId={tileFeature.TileId} Cell={tileFeature.Cell} Kind={tileFeature.Kind} ActivationRule={tileFeature.ActivationRule}";
         }
 
         private static string FormatValue<T>(T value)

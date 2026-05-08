@@ -15,7 +15,7 @@ MonoBehaviour:
   entries:
   - ScenePath: Assets/Scenes/CombinedGameplayShowcase.unity
     StageId:
-      value: stage-1-1
+      value: combined-gameplay-showcase
   - ScenePath: Assets/Scenes/TutorialScene.unity
     StageId:
       value: stage-0-1

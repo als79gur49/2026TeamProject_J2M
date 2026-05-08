@@ -22,4 +22,5 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 11affcb9dad0844b53320cf3fe9880fb, type: 2}
   - {fileID: 11400000, guid: 5beccaff3bbffec65f12586ee511ce33, type: 2}
   - {fileID: 11400000, guid: df156370538abbdf66d15215fb0d804e, type: 2}
+  - {fileID: 11400000, guid: 6d3b6a4bfe3e41caa96088a8d011beef, type: 2}
   stageIdAliasTable: {fileID: 11400000, guid: 8eaef66b2d2a4d30a2f23995df8333c2, type: 2}

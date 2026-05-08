@@ -86,6 +86,17 @@ namespace Game.Feature.Stages.Editor
                     continue;
                 }
 
+                if (!Enum.IsDefined(typeof(BoxArchetype), placement.BoxArchetype))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "authoring.box-archetype.invalid",
+                        $"Placement '{normalizedGuid}' has invalid BoxArchetype value {(int)placement.BoxArchetype}.",
+                        source,
+                        string.Empty);
+                    continue;
+                }
+
                 if (placement.Hp <= 0)
                 {
                     report.Add(
@@ -128,6 +139,7 @@ namespace Game.Feature.Stages.Editor
                     Facing = placement.Facing,
                     Hp = placement.Hp,
                     BoxCapabilities = placement.BoxCapabilities,
+                    BoxArchetype = placement.BoxArchetype,
                     EnemyAiMode = placement.EnemyAiMode,
                     EnemyAiStateTimer = placement.EnemyAiStateTimer,
                     EnemyAiProfile = placement.EnemyAiProfileOverride,
@@ -158,6 +170,7 @@ namespace Game.Feature.Stages.Editor
             SortByEntityId(buildData.EnemySpawns);
             SortByEntityId(buildData.BoxSpawns);
             SortByEntityId(buildData.WallSpawns);
+            AddTileFeatures(source.TileFeatures, buildData.TileFeatures);
             return buildData;
         }
 
@@ -194,6 +207,26 @@ namespace Game.Feature.Stages.Editor
         private static void SortByEntityId(List<StageSpawnDefinition> spawns)
         {
             spawns.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+        }
+
+        private static void AddTileFeatures(
+            IReadOnlyList<StageTileFeatureDefinition> source,
+            List<StageTileFeatureDefinition> target)
+        {
+            target.Clear();
+            if (source == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < source.Count; i++)
+            {
+                var tileFeature = source[i];
+                tileFeature.PresentationKey = Normalize(tileFeature.PresentationKey);
+                target.Add(tileFeature);
+            }
+
+            target.Sort((left, right) => left.TileId.CompareTo(right.TileId));
         }
 
         private static string Normalize(string value)
