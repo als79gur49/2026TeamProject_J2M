@@ -352,6 +352,21 @@ MonoBehaviour:
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
     PresentationId: 
+  - StableGuid: 95b57e884ed04b2cb81992829372f8c4
+    DisplayName: Placement
+    Kind: 1
+    Cell:
+      face: 0
+      x: 12
+      y: 3
+    Facing: 0
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 47dcd8d154bb4222829ef11b18507f76, type: 2}
+    PresentationId: jumpChaser_astra
   zones:
   - ZoneId: 1
     FaceId: 3
@@ -360,32 +375,20 @@ MonoBehaviour:
       MaxInclusive: {x: 0, y: 7}
   objective:
     CompletionPolicy: 2
+    ObjectiveTitle: 
+    ObjectiveSummary: 
     ConditionEntries:
     - Condition: {fileID: 11400000, guid: 0a5ed70e5ae1212d3c1dee3e4107b5b2, type: 2}
       Required: 1
       Role: 1
       StableConditionId: primary-goal
+      DisplayText: 
+      SortOrder: 0
   entityIdMappings:
   - StableGuid: combined-gameplay-showcase:Player:10
     EntityId: 10
     Retired: 0
     LastKnownDisplayName: Player 10
-  - StableGuid: combined-gameplay-showcase:Enemy:56
-    EntityId: 56
-    Retired: 0
-    LastKnownDisplayName: Enemy 56
-  - StableGuid: combined-gameplay-showcase:Enemy:58
-    EntityId: 58
-    Retired: 0
-    LastKnownDisplayName: Enemy 58
-  - StableGuid: combined-gameplay-showcase:Enemy:59
-    EntityId: 59
-    Retired: 0
-    LastKnownDisplayName: Enemy 59
-  - StableGuid: combined-gameplay-showcase:Enemy:60
-    EntityId: 60
-    Retired: 0
-    LastKnownDisplayName: Enemy 60
   - StableGuid: combined-gameplay-showcase:Box:30
     EntityId: 30
     Retired: 0
@@ -394,10 +397,6 @@ MonoBehaviour:
     EntityId: 31
     Retired: 0
     LastKnownDisplayName: Box 31
-  - StableGuid: combined-gameplay-showcase:Box:36
-    EntityId: 36
-    Retired: 0
-    LastKnownDisplayName: Box 36
   - StableGuid: combined-gameplay-showcase:Box:32
     EntityId: 32
     Retired: 0
@@ -410,14 +409,18 @@ MonoBehaviour:
     EntityId: 34
     Retired: 0
     LastKnownDisplayName: Box 34
-  - StableGuid: combined-gameplay-showcase:Box:37
-    EntityId: 37
-    Retired: 0
-    LastKnownDisplayName: Box 37
   - StableGuid: combined-gameplay-showcase:Box:35
     EntityId: 35
     Retired: 0
     LastKnownDisplayName: Box 35
+  - StableGuid: combined-gameplay-showcase:Box:36
+    EntityId: 36
+    Retired: 0
+    LastKnownDisplayName: Box 36
+  - StableGuid: combined-gameplay-showcase:Box:37
+    EntityId: 37
+    Retired: 0
+    LastKnownDisplayName: Box 37
   - StableGuid: combined-gameplay-showcase:Box:40
     EntityId: 40
     Retired: 0
@@ -434,6 +437,22 @@ MonoBehaviour:
     EntityId: 43
     Retired: 0
     LastKnownDisplayName: Box 43
+  - StableGuid: combined-gameplay-showcase:Enemy:56
+    EntityId: 56
+    Retired: 0
+    LastKnownDisplayName: Enemy 56
+  - StableGuid: combined-gameplay-showcase:Enemy:58
+    EntityId: 58
+    Retired: 0
+    LastKnownDisplayName: Enemy 58
+  - StableGuid: combined-gameplay-showcase:Enemy:59
+    EntityId: 59
+    Retired: 0
+    LastKnownDisplayName: Enemy 59
+  - StableGuid: combined-gameplay-showcase:Enemy:60
+    EntityId: 60
+    Retired: 0
+    LastKnownDisplayName: Enemy 60
   - StableGuid: combined-gameplay-showcase:Wall:196
     EntityId: 196
     Retired: 0
@@ -454,4 +473,8 @@ MonoBehaviour:
     EntityId: 200
     Retired: 0
     LastKnownDisplayName: Wall 200
+  - StableGuid: 95b57e884ed04b2cb81992829372f8c4
+    EntityId: 201
+    Retired: 0
+    LastKnownDisplayName: Placement
   enforceGeneratedSync: 0

@@ -60,20 +60,6 @@ MonoBehaviour:
     EnemyAiProfile: {fileID: 0}
     PresentationId: 
     UnitStackGroup: 
-  - EntityId: 36
-    Kind: 2
-    Cell:
-      face: 0
-      x: 5
-      y: 3
-    Facing: 2
-    Hp: 1
-    BoxCapabilities: 9
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfile: {fileID: 0}
-    PresentationId: 
-    UnitStackGroup: 
   - EntityId: 32
     Kind: 2
     Cell:
@@ -116,20 +102,6 @@ MonoBehaviour:
     EnemyAiProfile: {fileID: 0}
     PresentationId: 
     UnitStackGroup: 
-  - EntityId: 37
-    Kind: 2
-    Cell:
-      face: 0
-      x: 8
-      y: 3
-    Facing: 2
-    Hp: 1
-    BoxCapabilities: 11
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfile: {fileID: 0}
-    PresentationId: 
-    UnitStackGroup: 
   - EntityId: 35
     Kind: 2
     Cell:
@@ -139,6 +111,34 @@ MonoBehaviour:
     Facing: 2
     Hp: 1
     BoxCapabilities: 7
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 36
+    Kind: 2
+    Cell:
+      face: 0
+      x: 5
+      y: 3
+    Facing: 2
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 37
+    Kind: 2
+    Cell:
+      face: 0
+      x: 8
+      y: 3
+    Facing: 2
+    Hp: 1
+    BoxCapabilities: 11
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
@@ -257,6 +257,20 @@ MonoBehaviour:
     EnemyAiProfile: {fileID: 11400000, guid: ee4160b1ea994e21b5b93ee5e5b66c8d, type: 2}
     PresentationId: 
     UnitStackGroup: 
+  - EntityId: 201
+    Kind: 1
+    Cell:
+      face: 0
+      x: 12
+      y: 3
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 11400000, guid: 47dcd8d154bb4222829ef11b18507f76, type: 2}
+    PresentationId: 
+    UnitStackGroup: 
   wallSpawns:
   - EntityId: 196
     Kind: 3
@@ -336,9 +350,13 @@ MonoBehaviour:
       MaxInclusive: {x: 0, y: 7}
   objective:
     CompletionPolicy: 2
+    ObjectiveTitle: 
+    ObjectiveSummary: 
     ConditionEntries:
     - Condition: {fileID: 11400000, guid: 0a5ed70e5ae1212d3c1dee3e4107b5b2, type: 2}
       Required: 1
       Role: 1
       StableConditionId: primary-goal
+      DisplayText: 
+      SortOrder: 0
   enemyUnitArchetypeCatalog: {fileID: 11400000, guid: 5c5a7223f24e45109bfa8c1c539cb6db, type: 2}

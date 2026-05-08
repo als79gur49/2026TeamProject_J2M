@@ -35,6 +35,12 @@ MonoBehaviour:
     PresentationId: LockNearybyBoxes_prefab
   - EntityId: 63
     PresentationId: LockNearybyBoxes_prefab
+  - EntityId: 201
+    PresentationId: nonAttacking_showcase
+  - EntityId: 202
+    PresentationId: jumpChaser_astra
+  - EntityId: 204
+    PresentationId: Attacking_showcase
   staticEntityPresentationCatalog: {fileID: 11400000, guid: 28eb5cc07ccd15d4b9a99a3364f7fd07, type: 2}
   staticEntityPresentationBindings: []
   resultTitle: Stage Cleared

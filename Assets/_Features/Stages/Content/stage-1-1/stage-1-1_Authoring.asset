@@ -182,7 +182,7 @@ MonoBehaviour:
     Facing: 4
     Hp: 1
     UnitStackGroup: 
-    BoxCapabilities: 2
+    BoxCapabilities: 18
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -427,6 +427,66 @@ MonoBehaviour:
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
     PresentationId: 
+  - StableGuid: cf1d9c324ecb41f79069c546a55a59eb
+    DisplayName: Enemy 663
+    Kind: 1
+    Cell:
+      face: 0
+      x: 1
+      y: 4
+    Facing: 0
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    EnemyAiMode: 2
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: ee4160b1ea994e21b5b93ee5e5b66c8d, type: 2}
+    PresentationId: nonAttacking_showcase
+  - StableGuid: bf479fa16bc64edba55023ad0c2a67fa
+    DisplayName: Placement
+    Kind: 1
+    Cell:
+      face: 0
+      x: 12
+      y: 2
+    Facing: 0
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 47dcd8d154bb4222829ef11b18507f76, type: 2}
+    PresentationId: jumpChaser_astra
+  - StableGuid: 6cdf1ac9a2824370b0146dc4ad0107c5
+    DisplayName: Placement
+    Kind: 1
+    Cell:
+      face: 0
+      x: 12
+      y: 4
+    Facing: 0
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 44ea1e7dcc774075b55e3dcb29906bab, type: 2}
+    PresentationId: Attacking_showcase
+  - StableGuid: b9655199b2a7454eac709c9880039849
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 11
+      y: 4
+    Facing: 0
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: 
   zones:
   - ZoneId: 1
     FaceId: 3
@@ -435,44 +495,20 @@ MonoBehaviour:
       MaxInclusive: {x: 1, y: 2}
   objective:
     CompletionPolicy: 2
-    ObjectiveTitle: ""
-    ObjectiveSummary: ""
+    ObjectiveTitle: 
+    ObjectiveSummary: 
     ConditionEntries:
     - Condition: {fileID: 11400000, guid: 65ef359c1009e38034d32c314bdff82e, type: 2}
       Required: 1
       Role: 1
       StableConditionId: primary-goal
-      DisplayText: ""
+      DisplayText: 
       SortOrder: 0
   entityIdMappings:
   - StableGuid: stage-1-1:Player:10
     EntityId: 10
     Retired: 0
     LastKnownDisplayName: Player 10
-  - StableGuid: stage-1-1:Enemy:56
-    EntityId: 56
-    Retired: 0
-    LastKnownDisplayName: Enemy 56
-  - StableGuid: stage-1-1:Enemy:58
-    EntityId: 58
-    Retired: 0
-    LastKnownDisplayName: Enemy 58
-  - StableGuid: stage-1-1:Enemy:59
-    EntityId: 59
-    Retired: 0
-    LastKnownDisplayName: Enemy 59
-  - StableGuid: stage-1-1:Enemy:61
-    EntityId: 61
-    Retired: 0
-    LastKnownDisplayName: Enemy 61
-  - StableGuid: stage-1-1:Enemy:62
-    EntityId: 62
-    Retired: 0
-    LastKnownDisplayName: Enemy 62
-  - StableGuid: stage-1-1:Enemy:63
-    EntityId: 63
-    Retired: 0
-    LastKnownDisplayName: Enemy 63
   - StableGuid: stage-1-1:Box:30
     EntityId: 30
     Retired: 0
@@ -481,10 +517,6 @@ MonoBehaviour:
     EntityId: 31
     Retired: 0
     LastKnownDisplayName: Box 31
-  - StableGuid: stage-1-1:Box:36
-    EntityId: 36
-    Retired: 0
-    LastKnownDisplayName: Box 36
   - StableGuid: stage-1-1:Box:32
     EntityId: 32
     Retired: 0
@@ -497,14 +529,18 @@ MonoBehaviour:
     EntityId: 34
     Retired: 0
     LastKnownDisplayName: Box 34
-  - StableGuid: stage-1-1:Box:37
-    EntityId: 37
-    Retired: 0
-    LastKnownDisplayName: Box 37
   - StableGuid: stage-1-1:Box:35
     EntityId: 35
     Retired: 0
     LastKnownDisplayName: Box 35
+  - StableGuid: stage-1-1:Box:36
+    EntityId: 36
+    Retired: 0
+    LastKnownDisplayName: Box 36
+  - StableGuid: stage-1-1:Box:37
+    EntityId: 37
+    Retired: 0
+    LastKnownDisplayName: Box 37
   - StableGuid: stage-1-1:Box:40
     EntityId: 40
     Retired: 0
@@ -533,6 +569,30 @@ MonoBehaviour:
     EntityId: 46
     Retired: 0
     LastKnownDisplayName: Box 46
+  - StableGuid: stage-1-1:Enemy:56
+    EntityId: 56
+    Retired: 0
+    LastKnownDisplayName: Enemy 56
+  - StableGuid: stage-1-1:Enemy:58
+    EntityId: 58
+    Retired: 0
+    LastKnownDisplayName: Enemy 58
+  - StableGuid: stage-1-1:Enemy:59
+    EntityId: 59
+    Retired: 0
+    LastKnownDisplayName: Enemy 59
+  - StableGuid: stage-1-1:Enemy:61
+    EntityId: 61
+    Retired: 0
+    LastKnownDisplayName: Enemy 61
+  - StableGuid: stage-1-1:Enemy:62
+    EntityId: 62
+    Retired: 0
+    LastKnownDisplayName: Enemy 62
+  - StableGuid: stage-1-1:Enemy:63
+    EntityId: 63
+    Retired: 0
+    LastKnownDisplayName: Enemy 63
   - StableGuid: stage-1-1:Wall:196
     EntityId: 196
     Retired: 0
@@ -553,4 +613,24 @@ MonoBehaviour:
     EntityId: 200
     Retired: 0
     LastKnownDisplayName: Wall 200
+  - StableGuid: cf1d9c324ecb41f79069c546a55a59eb
+    EntityId: 201
+    Retired: 0
+    LastKnownDisplayName: Enemy 663
+  - StableGuid: bf479fa16bc64edba55023ad0c2a67fa
+    EntityId: 202
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 9b5dcdba08d546bb8cc885b8b38d5a3b
+    EntityId: 203
+    Retired: 1
+    LastKnownDisplayName: Placement
+  - StableGuid: 6cdf1ac9a2824370b0146dc4ad0107c5
+    EntityId: 204
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: b9655199b2a7454eac709c9880039849
+    EntityId: 205
+    Retired: 0
+    LastKnownDisplayName: Placement
   enforceGeneratedSync: 0
