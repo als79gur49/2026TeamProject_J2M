@@ -484,17 +484,18 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void Replay_JumpLandingExactShrinkScenario_ProducesDeterministicRetryThenLanding()
+        public void Replay_JumpLandingExactShrinkScenario_ProducesDeterministicLandingWithStackedUnits()
         {
             var firstReplay = RunJumpLandingExactShrinkReplaySequence();
             var secondReplay = RunJumpLandingExactShrinkReplaySequence();
 
             AssertEquivalentReplayOutputs(firstReplay, secondReplay);
-            Assert.That(firstReplay[0].Trace, Does.Contain("Label=Retry"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("Label=Landing"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("Rule=TargetExact"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("Target=0"));
             Assert.That(firstReplay[0].OccupancyDump, Does.Contain("Layer=Unit|Cell=(3,1)|E=10|Face=Floor"));
             Assert.That(firstReplay[0].OccupancyDump, Does.Contain("Layer=Unit|Cell=(3,1)|E=60|Face=Floor"));
-            Assert.That(firstReplay[0].OccupancyDump, Does.Not.Contain("Layer=Unit|Cell=(3,1)|E=40|Face=Floor"));
-            Assert.That(firstReplay[1].Trace, Does.Contain("Label=Landing"));
+            Assert.That(firstReplay[0].OccupancyDump, Does.Contain("Layer=Unit|Cell=(3,1)|E=40|Face=Floor"));
             Assert.That(firstReplay[1].OccupancyDump, Does.Contain("Layer=Unit|Cell=(3,1)|E=10|Face=Floor"));
             Assert.That(firstReplay[1].OccupancyDump, Does.Contain("Layer=Unit|Cell=(3,1)|E=40|Face=Floor"));
         }

@@ -13,7 +13,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "TryGetAuthoritativePlacementBlocker(",
             "EnumerateUnitsAt(",
             "TryResolveContestedJumpLandingTarget(",
-            "IsExclusiveLockedPlayerStack(",
             "EnemyJumpPhase.Airborne",
         };
 

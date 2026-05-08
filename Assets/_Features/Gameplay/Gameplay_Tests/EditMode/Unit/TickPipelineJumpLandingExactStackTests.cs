@@ -25,18 +25,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void IsExclusiveLockedPlayerStack_PlayerOnly_ReturnsTrue()
+        public void EvaluateJumpLandingCell_LockedTargetWithUnitStack_Allows()
         {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(10, targetCell, teamId: 1),
+                CreateUnit(20, targetCell, teamId: 2),
+                CreateUnit(40, sourceCell, teamId: 2, boardPresence: EntityBoardPresence.Detached),
             });
-            PrimePlayerControlState(worldState, 10);
+            var snapshot = worldState.CreateSnapshot();
 
-            Assert.That(
-                TickPipeline.IsExclusiveLockedPlayerStack(worldState.CreateSnapshot(), targetCell, sourceEntityId: 40),
-                Is.True);
+            var result = RuntimeSettlementLegalityPolicy.EvaluateJumpLandingCell(
+                new SettlementContext(
+                    snapshot,
+                    StateQuery.BuildActorRef(snapshot, 40, EntityType.Unit),
+                    targetCell,
+                    snapshot.Topology,
+                    SpatialState.Anchored),
+                new JumpLandingEvidence(snapshot, targetCell));
+
+            Assert.That(result.Verdict, Is.EqualTo(LegalityVerdict.Allowed));
         }
 
         [Test]
@@ -203,115 +213,58 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void IsExclusiveLockedPlayerStack_PlayerPlusHostile_ReturnsFalse()
+        public void EvaluateJumpLandingCell_NonLockedTargetWithUnitStack_Blocks()
         {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var lockedTargetCell = new SurfaceCell(FaceId.Floor, 2, 0);
             var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(10, targetCell, teamId: 1),
-                CreateUnit(20, targetCell, teamId: 2),
+                CreateUnit(40, sourceCell, teamId: 2, boardPresence: EntityBoardPresence.Detached),
             });
-            PrimePlayerControlState(worldState, 10);
+            var snapshot = worldState.CreateSnapshot();
 
-            Assert.That(
-                TickPipeline.IsExclusiveLockedPlayerStack(worldState.CreateSnapshot(), targetCell, sourceEntityId: 40),
-                Is.False);
+            var result = RuntimeSettlementLegalityPolicy.EvaluateJumpLandingCell(
+                new SettlementContext(
+                    snapshot,
+                    StateQuery.BuildActorRef(snapshot, 40, EntityType.Unit),
+                    targetCell,
+                    snapshot.Topology,
+                    SpatialState.Anchored),
+                new JumpLandingEvidence(snapshot, lockedTargetCell));
+
+            Assert.That(result.Verdict, Is.EqualTo(LegalityVerdict.Blocked));
         }
 
         [Test]
         [Category("Extended")]
-        public void IsExclusiveLockedPlayerStack_PlayerPlusFriendly_ReturnsFalse()
+        public void EvaluateJumpLandingCell_LockedTargetWithoutPlayerControl_Allows()
         {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(10, targetCell, teamId: 1),
-                CreateUnit(20, targetCell, teamId: 1),
+                CreateUnit(40, sourceCell, teamId: 2, boardPresence: EntityBoardPresence.Detached),
             });
-            PrimePlayerControlState(worldState, 10);
+            var snapshot = worldState.CreateSnapshot();
 
-            Assert.That(
-                TickPipeline.IsExclusiveLockedPlayerStack(worldState.CreateSnapshot(), targetCell, sourceEntityId: 40),
-                Is.False);
-        }
+            var result = RuntimeSettlementLegalityPolicy.EvaluateJumpLandingCell(
+                new SettlementContext(
+                    snapshot,
+                    StateQuery.BuildActorRef(snapshot, 40, EntityType.Unit),
+                    targetCell,
+                    snapshot.Topology,
+                    SpatialState.Anchored),
+                new JumpLandingEvidence(snapshot, targetCell));
 
-        [Test]
-        [Category("Extended")]
-        public void IsExclusiveLockedPlayerStack_PlayerUnitWithoutPlayerControlState_ReturnsFalse()
-        {
-            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(10, targetCell, teamId: 1),
-            });
-
-            Assert.That(
-                TickPipeline.IsExclusiveLockedPlayerStack(worldState.CreateSnapshot(), targetCell, sourceEntityId: 40),
-                Is.False);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void IsExclusiveLockedPlayerStack_MarkedForDeathPlayer_ReturnsFalse()
-        {
-            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(10, targetCell, teamId: 1, hp: 0, markedForDeath: true),
-            });
-            PrimePlayerControlState(worldState, 10);
-
-            Assert.That(
-                TickPipeline.IsExclusiveLockedPlayerStack(worldState.CreateSnapshot(), targetCell, sourceEntityId: 40),
-                Is.False);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void IsExclusiveLockedPlayerStack_DetachedExtraOccupant_IsIgnored()
-        {
-            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(10, targetCell, teamId: 1),
-                CreateUnit(20, targetCell, teamId: 2, boardPresence: EntityBoardPresence.Detached),
-            });
-            PrimePlayerControlState(worldState, 10);
-
-            Assert.That(
-                TickPipeline.IsExclusiveLockedPlayerStack(worldState.CreateSnapshot(), targetCell, sourceEntityId: 40),
-                Is.True);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void IsExclusiveLockedPlayerStack_MultipleControlledPlayers_ReturnsFalse()
-        {
-            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(10, targetCell, teamId: 1),
-                CreateUnit(11, targetCell, teamId: 1),
-            });
-            PrimePlayerControlState(worldState, 10, 11);
-
-            Assert.That(
-                TickPipeline.IsExclusiveLockedPlayerStack(worldState.CreateSnapshot(), targetCell, sourceEntityId: 40),
-                Is.False);
+            Assert.That(result.Verdict, Is.EqualTo(LegalityVerdict.Allowed));
         }
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
-        }
-
-        private static void PrimePlayerControlState(WorldState worldState, params int[] entityIds)
-        {
-            var writeContext = worldState.CreateWriteContext();
-            for (var i = 0; i < entityIds.Length; i++)
-            {
-                writeContext.SetPlayerControlState(entityIds[i], default);
-            }
         }
 
         private static FinalizationBatch ResolveJumpLandingSpaceContestsCanonical(

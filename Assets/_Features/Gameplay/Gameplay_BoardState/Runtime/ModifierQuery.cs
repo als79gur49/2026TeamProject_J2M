@@ -66,7 +66,7 @@ namespace Game.Feature.Gameplay.BoardState
             JumpLandingEvidence evidence)
         {
             return context.TerminalCell == evidence.LockedTargetCell
-                ? LegalityModifierSet.None.With(LegalityModifierId.ExclusiveLockedPlayerExactStackAllowance)
+                ? LegalityModifierSet.None.With(LegalityModifierId.LockedTargetUnitStackAllowance)
                 : LegalityModifierSet.None;
         }
 

@@ -5902,10 +5902,9 @@ namespace Game.Feature.Gameplay.Loop
 
                 var occupants = new List<EntityState>();
                 snapshot.EnumerateUnitsAt(landingCell, occupants);
-                var isExactLockedPlayerStack = landingCell == jumpState.lockedTargetCell &&
-                                               IsExclusiveLockedPlayerStack(snapshot, landingCell, jumpEntry.EntityId);
+                var isLockedTargetLanding = landingCell == jumpState.lockedTargetCell;
                 if (TryResolveContestedJumpLandingTarget(occupants, jumpEntry.EntityId, out var impactTargetId) &&
-                    !isExactLockedPlayerStack)
+                    !isLockedTargetLanding)
                 {
                     var actionPlanId = _idAllocator.AllocateGroupId();
                     var contestId = nextContestId++;
@@ -5951,7 +5950,7 @@ namespace Game.Feature.Gameplay.Loop
                         landingRule,
                         landedState,
                         EnemyJumpQueries.ScheduleRetry(jumpState, tickIndex + 1),
-                        isExactLockedPlayerStack ? JumpLandingKind.ExactStack : JumpLandingKind.Contested));
+                        isLockedTargetLanding ? JumpLandingKind.ExactStack : JumpLandingKind.Contested));
                 jumpLandingSpaceContests.Add(
                     new Contest(
                         openLandingContestId,
@@ -5959,7 +5958,7 @@ namespace Game.Feature.Gameplay.Loop
                         openLandingActionPlanId,
                         jumpEntry.EntityId,
                         priority: 0,
-                        affectedEntityId: isExactLockedPlayerStack ? jumpEntry.EntityId : 0,
+                        affectedEntityId: isLockedTargetLanding ? jumpEntry.EntityId : 0,
                         affectedCell: landingCell,
                         hasAffectedCell: true,
                         localActionIndex: 0));
@@ -5983,40 +5982,6 @@ namespace Game.Feature.Gameplay.Loop
 
             cooldownTicks = 0;
             return false;
-        }
-
-        internal static bool IsExclusiveLockedPlayerStack(
-            WorldSnapshot snapshot,
-            SurfaceCell cell,
-            int sourceEntityId)
-        {
-            // Exact stack is a gameplay-visible, live, exclusive player stack on the locked cell.
-            var occupants = new List<EntityState>();
-            snapshot.EnumerateUnitsAt(cell, occupants);
-            var sawLockedPlayer = false;
-
-            for (var i = 0; i < occupants.Count; i++)
-            {
-                var occupant = occupants[i];
-                if (!ShouldCountJumpLandingOccupant(occupant, sourceEntityId))
-                {
-                    continue;
-                }
-
-                if (!snapshot.TryGetPlayerControlState(occupant.entityId, out _))
-                {
-                    return false;
-                }
-
-                if (sawLockedPlayer)
-                {
-                    return false;
-                }
-
-                sawLockedPlayer = true;
-            }
-
-            return sawLockedPlayer;
         }
 
         private static bool ShouldCountJumpLandingOccupant(

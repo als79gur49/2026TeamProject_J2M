@@ -7,7 +7,7 @@ namespace Game.Feature.Gameplay.BoardState
     {
         None = 0,
         AcceptedDestroyVacatesTarget = 1 << 0,
-        ExclusiveLockedPlayerExactStackAllowance = 1 << 1,
+        LockedTargetUnitStackAllowance = 1 << 1,
         SuppressTargetabilityParticipation = 1 << 2,
     }
 

@@ -120,19 +120,6 @@ namespace Game.Feature.Gameplay.BoardState
                     context.ReservationStatus);
             }
 
-            if (modifiers.Has(LegalityModifierId.ExclusiveLockedPlayerExactStackAllowance) &&
-                IsExclusiveLockedPlayerStack(
-                    context.OccupancySnapshot,
-                    context.TerminalCell,
-                    context.Actor.EntityId))
-            {
-                return LegalityResult.Allowed(
-                    LegalityDomain.Settlement,
-                    context.TerminalCell,
-                    context.TerminalTopology,
-                    context.ReservationStatus);
-            }
-
             if (context.OccupancySnapshot.TryGetAuthoritativePlacementBlocker(
                     context.Actor.EntityType,
                     context.TerminalCell,
@@ -147,13 +134,14 @@ namespace Game.Feature.Gameplay.BoardState
                     context.ReservationStatus);
             }
 
-            if (TryGetSettlementBlockingOccupant(
-                    context,
-                    shouldIgnoreOccupant: null,
-                    shouldTreatAsBlockingOccupant: occupant => IsImpactTargetSurviving(
-                        evidence.DamageProjectionSnapshot,
-                        occupant.entityId),
-                    out var blockingOccupant))
+            if (!modifiers.Has(LegalityModifierId.LockedTargetUnitStackAllowance) &&
+                TryGetSettlementBlockingOccupant(
+                        context,
+                        shouldIgnoreOccupant: null,
+                        shouldTreatAsBlockingOccupant: occupant => IsImpactTargetSurviving(
+                            evidence.DamageProjectionSnapshot,
+                            occupant.entityId),
+                        out var blockingOccupant))
             {
                 return LegalityResult.Blocked(
                     LegalityDomain.Settlement,
@@ -219,28 +207,14 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             var modifiers = ModifierQuery.GetJumpLandingModifiers(context, evidence);
-            if (modifiers.Has(LegalityModifierId.ExclusiveLockedPlayerExactStackAllowance) &&
-                IsExclusiveLockedPlayerStack(
-                    context.OccupancySnapshot,
-                    context.TerminalCell,
-                    context.Actor.EntityId))
-            {
-                return new JumpCrushLandingEvaluation(
-                    LegalityResult.Allowed(
-                        LegalityDomain.Settlement,
-                        context.TerminalCell,
-                        context.TerminalTopology,
-                        context.ReservationStatus),
-                    box.entityId);
-            }
-
-            if (TryGetSettlementBlockingOccupant(
-                    context,
-                    shouldIgnoreOccupant: null,
-                    shouldTreatAsBlockingOccupant: occupant => IsImpactTargetSurviving(
-                        evidence.DamageProjectionSnapshot,
-                        occupant.entityId),
-                    out var blockingOccupant))
+            if (!modifiers.Has(LegalityModifierId.LockedTargetUnitStackAllowance) &&
+                TryGetSettlementBlockingOccupant(
+                        context,
+                        shouldIgnoreOccupant: null,
+                        shouldTreatAsBlockingOccupant: occupant => IsImpactTargetSurviving(
+                            evidence.DamageProjectionSnapshot,
+                            occupant.entityId),
+                        out var blockingOccupant))
             {
                 return new JumpCrushLandingEvaluation(
                     LegalityResult.Blocked(
@@ -432,42 +406,6 @@ namespace Game.Feature.Gameplay.BoardState
             return false;
         }
 
-        private static bool IsExclusiveLockedPlayerStack(
-            WorldSnapshot snapshot,
-            SurfaceCell cell,
-            int sourceEntityId)
-        {
-            var occupants = new List<EntityState>();
-            snapshot.EnumerateUnitsAt(cell, occupants);
-            var sawLockedPlayer = false;
-
-            for (var i = 0; i < occupants.Count; i++)
-            {
-                var occupant = occupants[i];
-                if (occupant.entityId == sourceEntityId ||
-                    occupant.hp <= 0 ||
-                    occupant.markedForDeath ||
-                    !snapshot.TryGetResolvedSpatialState(occupant.entityId, out var spatialState) ||
-                    !ModifierQuery.ShouldParticipateInSettlementBlocking(spatialState))
-                {
-                    continue;
-                }
-
-                if (!snapshot.TryGetPlayerControlState(occupant.entityId, out _))
-                {
-                    return false;
-                }
-
-                if (sawLockedPlayer)
-                {
-                    return false;
-                }
-
-                sawLockedPlayer = true;
-            }
-
-            return sawLockedPlayer;
-        }
 
         private static LegalityActorRef BuildActorRef(
             WorldSnapshot snapshot,

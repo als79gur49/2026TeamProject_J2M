@@ -1915,7 +1915,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void EnemyAi_JumpLanding_OnLockedPlayerCell_WithHostileExtraOccupant_Retries()
+        public void EnemyAi_JumpLanding_OnLockedPlayerCell_WithHostileExtraOccupant_Lands()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
             var targetCell = new SurfaceCell(FaceId.Floor, 3, 1);
@@ -1940,14 +1940,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
                 worldState.CreateSnapshot().EnumerateUnitsAt(targetCell, stackedUnits);
 
-                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(sourceCell));
-                Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
-                CollectionAssert.AreEqual(new[] { 10, 60 }, stackedUnits.Select(entity => entity.entityId).ToArray());
-                Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Airborne));
-                Assert.That(jumpState.retryCount, Is.EqualTo(1));
-                Assert.That(jumpState.landingTick, Is.EqualTo(4));
+                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(targetCell));
+                Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+                CollectionAssert.AreEqual(new[] { 10, 40, 60 }, stackedUnits.Select(entity => entity.entityId).ToArray());
+                Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Cooldown));
+                Assert.That(jumpState.retryCount, Is.EqualTo(0));
                 Assert.That(landingTick.AttackPhaseResult.RawIntents, Is.Empty);
-                Assert.That(landingTick.Trace.Text, Does.Contain("Label=Retry"));
+                Assert.That(landingTick.Trace.Text, Does.Contain("Label=Landing"));
+                Assert.That(landingTick.Trace.Text, Does.Contain("Rule=TargetExact"));
+                Assert.That(landingTick.Trace.Text, Does.Contain("Target=0"));
             }
             finally
             {
@@ -1957,7 +1958,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_JumpLanding_OnLockedPlayerCell_WithFriendlyExtraOccupant_Retries()
+        public void EnemyAi_JumpLanding_OnLockedPlayerCell_WithFriendlyExtraOccupant_Lands()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
             var targetCell = new SurfaceCell(FaceId.Floor, 3, 1);
@@ -1982,14 +1983,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
                 worldState.CreateSnapshot().EnumerateUnitsAt(targetCell, stackedUnits);
 
-                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(sourceCell));
-                Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
-                CollectionAssert.AreEqual(new[] { 10, 20 }, stackedUnits.Select(entity => entity.entityId).ToArray());
-                Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Airborne));
-                Assert.That(jumpState.retryCount, Is.EqualTo(1));
-                Assert.That(jumpState.landingTick, Is.EqualTo(4));
+                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(targetCell));
+                Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+                CollectionAssert.AreEqual(new[] { 10, 20, 40 }, stackedUnits.Select(entity => entity.entityId).ToArray());
+                Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Cooldown));
+                Assert.That(jumpState.retryCount, Is.EqualTo(0));
                 Assert.That(landingTick.AttackPhaseResult.RawIntents, Is.Empty);
-                Assert.That(landingTick.Trace.Text, Does.Contain("Label=Retry"));
+                Assert.That(landingTick.Trace.Text, Does.Contain("Label=Landing"));
+                Assert.That(landingTick.Trace.Text, Does.Contain("Rule=TargetExact"));
+                Assert.That(landingTick.Trace.Text, Does.Contain("Target=0"));
             }
             finally
             {
@@ -1999,7 +2001,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_JumpLanding_RechecksResolveSnapshot_WhenExtraOccupantArrivesAfterPlan()
+        public void EnemyAi_JumpLanding_SameTickReservedTarget_Retries()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
             var targetCell = new SurfaceCell(FaceId.Floor, 3, 1);
@@ -2040,6 +2042,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(jumpState.retryCount, Is.EqualTo(1));
                 Assert.That(landingTick.AttackPhaseResult.RawIntents, Is.Empty);
                 Assert.That(landingTick.Trace.Text, Does.Contain("Label=Retry"));
+                Assert.That(landingTick.Trace.Text, Does.Contain("Rule=TargetExact"));
+                Assert.That(landingTick.Trace.Text, Does.Contain("Reason=ResolveRejected"));
             }
             finally
             {
@@ -2097,11 +2101,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_JumpLanding_ExactReject_LandsOnRetryAfterExtraOccupantLeaves()
+        public void EnemyAi_JumpLanding_ExtraOccupantDoesNotRequireRetry()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
             var targetCell = new SurfaceCell(FaceId.Floor, 3, 1);
-            var retreatCell = new SurfaceCell(FaceId.Floor, 4, 1);
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, teamId: 1, position: targetCell, hp: 3),
@@ -2117,22 +2120,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 pipeline.RunTick(new TickInput(1));
                 pipeline.RunTick(new TickInput(2));
-                var retryTick = pipeline.RunTick(new TickInput(3));
-                worldState.CreateWriteContext().MoveEntity(60, retreatCell);
-
-                var landingTick = pipeline.RunTick(new TickInput(4));
+                var landingTick = pipeline.RunTick(new TickInput(3));
                 var jumpState = GetEnemyJumpState(worldState, 40);
                 var stackedUnits = new List<EntityState>();
 
                 worldState.CreateSnapshot().EnumerateUnitsAt(targetCell, stackedUnits);
 
-                Assert.That(retryTick.AttackPhaseResult.RawIntents, Is.Empty);
-                Assert.That(GetEntity(worldState, 60).position, Is.EqualTo(retreatCell));
                 Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(targetCell));
-                CollectionAssert.AreEqual(new[] { 10, 40 }, stackedUnits.Select(entity => entity.entityId).ToArray());
+                CollectionAssert.AreEqual(new[] { 10, 40, 60 }, stackedUnits.Select(entity => entity.entityId).ToArray());
                 Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Cooldown));
                 Assert.That(jumpState.retryCount, Is.EqualTo(0));
+                Assert.That(landingTick.AttackPhaseResult.RawIntents, Is.Empty);
                 Assert.That(landingTick.Trace.Text, Does.Contain("Label=Landing"));
+                Assert.That(landingTick.Trace.Text, Does.Contain("Rule=TargetExact"));
+                Assert.That(landingTick.Trace.Text, Does.Contain("Target=0"));
             }
             finally
             {
@@ -2142,7 +2143,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_JumpLanding_ExactReject_WithPersistentExtraOccupant_RetriesMonotonically()
+        public void EnemyAi_JumpLanding_PersistentExtraOccupant_LandsImmediately()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
             var targetCell = new SurfaceCell(FaceId.Floor, 3, 1);
@@ -2161,17 +2162,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 pipeline.RunTick(new TickInput(1));
                 pipeline.RunTick(new TickInput(2));
-                var firstRetryTick = pipeline.RunTick(new TickInput(3));
-                var secondRetryTick = pipeline.RunTick(new TickInput(4));
+                var landingTick = pipeline.RunTick(new TickInput(3));
                 var jumpState = GetEnemyJumpState(worldState, 40);
+                var stackedUnits = new List<EntityState>();
 
-                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(sourceCell));
-                Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
-                Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Airborne));
-                Assert.That(jumpState.retryCount, Is.EqualTo(2));
-                Assert.That(jumpState.landingTick, Is.EqualTo(5));
-                Assert.That(firstRetryTick.Trace.Text, Does.Contain("Label=Retry"));
-                Assert.That(secondRetryTick.Trace.Text, Does.Contain("Label=Retry"));
+                worldState.CreateSnapshot().EnumerateUnitsAt(targetCell, stackedUnits);
+
+                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(targetCell));
+                Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+                CollectionAssert.AreEqual(new[] { 10, 40, 60 }, stackedUnits.Select(entity => entity.entityId).ToArray());
+                Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Cooldown));
+                Assert.That(jumpState.retryCount, Is.EqualTo(0));
+                Assert.That(landingTick.AttackPhaseResult.RawIntents, Is.Empty);
+                Assert.That(landingTick.Trace.Text, Does.Contain("Label=Landing"));
+                Assert.That(landingTick.Trace.Text, Does.Contain("Rule=TargetExact"));
+                Assert.That(landingTick.Trace.Text, Does.Contain("Target=0"));
             }
             finally
             {
