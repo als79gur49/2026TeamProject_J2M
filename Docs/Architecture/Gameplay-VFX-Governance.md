@@ -188,6 +188,29 @@ Boundaries:
 - `FlipDestroySelfMotion` remains DestroySelf clone/fade and must not consume Stay.
 - Box destroy, shrink, and reserved impact break duplicate guards remain unchanged.
 
+## Enemy Motion-Attached VFX Followers
+
+Enemy motion-attached followers are Gameplay VFX lane instances parented under the existing enemy view/model root. They follow by transform attachment only; enemy movement, charge/glide state, facing, timing, and authoritative transforms remain owned by enemy gameplay and host presentation.
+
+First users:
+
+- `EnemyVfxCue.GlideWindTrail` follows `TickEnemyGlidePresentationSignal` while `EnemyGlidePhase.Active`.
+- `EnemyVfxCue.ChargeBoosterTrail` follows `TickEnemyChargePresentationSignal` while `EnemyChargePhase.Active`.
+- `EnemyGlidePhase.Windup`, `LandingPending`, `Recovery`, `Cooldown`, ordinary jump airborne, charge windup, and charge recover are excluded unless a future visual policy changes that.
+
+Ownership and lifecycle:
+
+- source facts come from existing `TickPresentationData.EnemyGlideSignals`, `EnemyChargeSignals`, `EntityExitSignals`, and visibility removals; the shape of `TickPresentationData` does not change.
+- attach point is `GameplayEntityView.ModelRoot`, falling back to the view transform.
+- `GameplayVfxProductionRuntime` caches desired follower state, `PresentationMotionFollowingVfxController` owns attach/detach, and `GameplayVfxGameObjectPool` owns pooled instances and tail release.
+- missing binding, missing prefab, missing owner view, entity exit/removal, flag off, and hard cleanup are diagnostic/no-op or cleanup paths; they do not suppress or replace enemy motion.
+
+Relationship to existing VFX:
+
+- this differs from `BoxVfxCue.SlideDustTrail`, which uses `ParameterizedMotionVfxCommand` to compute source-to-target VFX motion.
+- it shares the parent attachment and detach/tail lifecycle family with `BoxVfxCue.FlipImpactStayTrail`.
+- production `VfxAnchorKind.MotionTrack` sample-follow resolving remains future work.
+
 Future inventory:
 
 | Motion type | Current owner | Can use PresentationMotionTrack later? | Risk | Include now? |
@@ -1246,6 +1269,8 @@ Box destroy suppress ownership is cleaned up. Old BoxDestroy shrink/fade playbac
 | `EnableGameplayVfxEnemyDeathMotionMigration` | `EnemyVfxCue.DeathMotion` | Migration / parameterized motion | True | Tier 3 | Yes | approved in Tier 3 rollout batch; requires post-rollout visual monitoring + rollback review |
 | `EnableGameplayVfxFlipDestroySelfMotionMigration` | `BoxVfxCue.FlipDestroySelfMotion` | Migration / parameterized clone motion | True | Tier 3 | Yes | approved in Tier 3 rollout batch; requires post-rollout visual monitoring + rollback review |
 | `EnableGameplayVfxFlipImpactStayTrail` | `BoxVfxCue.FlipImpactStayTrail` | Augmentation / MotionTrack-attached VFX | True | Tier 1 | Yes | targeted MotionTrack-following tests + visual spot check |
+| `EnableGameplayVfxGlideWindTrail` | `EnemyVfxCue.GlideWindTrail` | Augmentation / enemy attached follower | True | Tier 2 | Yes | manual visual approval + targeted motion-attached follower regression |
+| `EnableGameplayVfxChargeBoosterTrail` | `EnemyVfxCue.ChargeBoosterTrail` | Augmentation / enemy attached follower | True | Tier 2 | Yes | manual visual approval + targeted motion-attached follower regression |
 
 ## Binding Asset Ownership
 
