@@ -153,34 +153,6 @@ MonoBehaviour:
     EnemyAiProfile: {fileID: 0}
     PresentationId:
     UnitStackGroup:
-  - EntityId: 36
-    Kind: 2
-    Cell:
-      face: 0
-      x: 5
-      y: 3
-    Facing: 2
-    Hp: 1
-    BoxCapabilities: 9
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfile: {fileID: 0}
-    PresentationId:
-    UnitStackGroup:
-  - EntityId: 37
-    Kind: 2
-    Cell:
-      face: 0
-      x: 8
-      y: 3
-    Facing: 2
-    Hp: 1
-    BoxCapabilities: 11
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfile: {fileID: 0}
-    PresentationId:
-    UnitStackGroup:
   - EntityId: 40
     Kind: 2
     Cell:
@@ -515,7 +487,18 @@ MonoBehaviour:
     Regions:
     - MinInclusive: {x: 0, y: 0}
       MaxInclusive: {x: 1, y: 2}
-  tileFeatures: []
+  tileFeatures:
+  - TileId: 1
+    Cell:
+      face: 0
+      x: 1
+      y: 4
+    Kind: 4
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 3
+    BoundEntityId: 0
+    PresentationKey:
   objective:
     CompletionPolicy: 2
     ObjectiveTitle: Reach the Exit

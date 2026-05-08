@@ -43,6 +43,10 @@ MonoBehaviour:
     PresentationId: Attacking_showcase
   staticEntityPresentationCatalog: {fileID: 11400000, guid: 28eb5cc07ccd15d4b9a99a3364f7fd07, type: 2}
   staticEntityPresentationBindings: []
+  boardTilePresentationCatalog: {fileID: 0}
+  boardTilePresentationOverrides: []
+  tileFeaturePresentationCatalog: {fileID: 11400000, guid: 330cdf4f24595b940afbf3438be36226, type: 2}
+  tileFeaturePresentationBindings: []
   resultTitle: Stage Cleared
   resultSummaryText: 
   resultDetailText: 
