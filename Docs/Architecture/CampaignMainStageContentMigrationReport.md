@@ -91,7 +91,14 @@ Generated: 2026-05-09
 - `StageCampaignMainMigrationRunner.ExecuteFromCommandLine`: passed.
 - `StageCampaignMainContentSmokeCheck.RunFromCommandLine`: passed.
 - `StageCatalogCiValidationEntryPoint.RunFromCommandLine`: passed.
-- Full EditMode via `TestRunnerCliBootstrap.RunEditMode -codexSelection full`: executed 3606 tests, 3493 passed, 112 failed, 1 skipped. The remaining failures are existing gameplay/replay/authoring baseline failures outside the campaign path governance pass.
+- Phase 1.1 `StageCampaignMainContentSmokeCheck.RunFromCommandLine`: passed, log `TestResults/campaign-phase-1-1/campaign-main-smoke.log`.
+- Phase 1.1 `StageCatalogCiValidationEntryPoint.RunFromCommandLine`: passed, log `TestResults/campaign-phase-1-1/stage-catalog-ci-after-ledger.log`.
+- Phase 1.1 target class EditMode reruns:
+  - `StageAuthoringExitGoalHelperCommandTests`: 33 total, 33 passed, 0 failed, 0 skipped.
+  - `FullEditModeKnownFailureBaselineTests`: 8 total, 8 passed, 0 failed, 0 skipped.
+  - `CombinedGameplayShowcaseInstallerTests`: 26 total, 16 passed, 10 failed, 0 skipped; campaign active-slot mismatch failures are resolved.
+  - `GameplayCameraTopologyAuthoringExtractionArchitectureTests`: 17 total, 17 passed, 0 failed, 0 skipped.
+- Phase 1.1 Full EditMode via `TestRunnerCliBootstrap.RunEditMode -codexSelection full`: executed 3606 tests, 3510 passed, 95 failed, 1 skipped. The remaining failures are existing gameplay/replay/UI/simulation baseline failures outside Campaign path governance repair.
 - Requested classes passing in the full run:
   - `StageContentAndClearFlowTests`
   - `StageDefaultStageIdPolicyTests`
@@ -110,8 +117,213 @@ Generated: 2026-05-09
   - `EnemyViewIsolationTests`: 3 failures.
   - `TickReplayDeterminismTests`: 8 failures.
 
+## Phase 1.1 Follow-up
+- Fixture changes:
+  - `StageAuthoringExitGoalHelperCommandTests` now creates its test `StageContentEntry` under `StageContentPaths.CampaignLevel01StagesRoot` and cleans up only the generated per-test stage folder plus generated condition asset.
+  - The shared-condition rejection test now uses a valid Campaign owner path before validating shared-condition ownership.
+  - `CombinedGameplayShowcaseInstallerTests` now launches `combined-gameplay-showcase`, matching `StageEditorDirectPlayCatalog`, and seeds deterministic Campaign temp slot/direct-play launch state.
+  - `GameplayCameraTopologyAuthoringExtractionArchitectureTests` now maps scene paths to direct-play stage ids before building configuration: `CombinedGameplayShowcase.unity` -> `combined-gameplay-showcase`, `TutorialScene.unity` -> `tutorial-scene`, and `UIAudioScene.unity` -> `tutorial-scene`.
+- Production code changes: none. Campaign owner-path validation, direct-play mapping, active-slot validation, `StageDefinition` bootstrap policy, and `defaultStageId` removal remain unchanged.
+- Asset/reference changes: no runtime stage, gameplay, Campaign structure, or scene asset references were changed. Only the Full EditMode known-failure baseline JSON was rebuilt.
+- Newly passing target classes:
+  - `StageAuthoringExitGoalHelperCommandTests`
+  - `FullEditModeKnownFailureBaselineTests`
+  - `GameplayCameraTopologyAuthoringExtractionArchitectureTests`
+- Remaining target-class baseline group:
+  - `CombinedGameplayShowcaseInstallerTests`: 10 showcase asset/expectation failures remain; the previous campaign active-slot mismatch group is no longer present.
+- Full EditMode known-failure ledger:
+  - Baseline file: `Assets/_Features/Stages/Editor/Validation/Baselines/FullEditModeKnownFailures.json`.
+  - Source XML: `TestResults/campaign-phase-1-1/full-editmode-final.xml`.
+  - Summary: 3606 total, 3510 passed, 95 failed, 1 skipped.
+  - Known failures by assembly: `Game.Feature.Gameplay.Tests.dll` 59, `Game.Integration.Simulation.Tests.dll` 19, `Game.Integration.Replay.Tests.dll` 8, `Game.Feature.UI.Tests.dll` 5, `Game.TestInfrastructure.dll` 4.
+  - `Game.Feature.Stages.Editor.Tests.dll` entries: 0.
+- Campaign governance checks:
+  - `StageCampaignMainContentSmokeCheck.RunFromCommandLine`: passed.
+  - `StageCatalogCiValidationEntryPoint.RunFromCommandLine`: passed.
+  - Forbidden roots remain absent: old `Assets/_Features/Stages/Stage_*` support tree, loose `Assets/_Features/Stages/Content/<stage-id>` roots, Level `_Shared`, Stage `_Shared`, and Stage `_Overrides`.
+
+## Phase 1 Pre-Follow-up Target Failure Triage
+- Final baseline file: `TestResults/stage-migration-full-editmode-final2.xml`.
+- Final baseline count: 3606 total, 3493 passed, 112 failed, 1 skipped.
+- Target rerun file: `TestResults/stage-migration-triage/target-classes.xml`.
+- Target rerun count: 123 total, 109 passed, 14 failed, 0 skipped.
+- No target failure was confirmed as a Campaign migration path/reference/value side-effect.
+- No code, test assertion, runtime asset, replay baseline, `StageDefinition`, `EnemyAiProfile`, patrol, or brain asset repair was made in this follow-up.
+- `StageRuntimeBuilderTests.StageRuntimeBuilder_CombinedShowcaseStageBuild_ReflectsCurrentConfiguredContract`: classified `C` existing baseline. The test already loads via `StageContentPaths`; the failure is current showcase asset contract drift (`BoxSpawns.Length` expected 12, actual 13, including current extra box `EntityId 201`), not old path/reference breakage.
+- `EnemyAiProfileAssetContractTests.EnemyAiProfileAssets_PatrolPilotRollout_MatchesExpectedPatrolKinds`: classified `C` existing baseline. `EnemyBrain_JumpChaser.asset` currently points at the non-attacking random-walk patrol asset; the same JumpChaser random-walk drift appears in older pre-Campaign results under `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/...`.
+- `EnemyAiProfileAssetContractTests.EnemyAiProfileAssets_ForwardArchetypes_RetainForwardPatrolKind`: classified `C` existing baseline for the same JumpChaser patrol-kind drift.
+- `EnemyViewIsolationTests.GameplayTickViewPresenter_PresentingEnemyFrames_DoesNotChangeLaterTickAuthoritativeResults`: classified `C` existing gameplay/presentation baseline. The test uses generated in-memory test profiles and views, not Campaign presentation assets or moved prefab paths.
+- `EnemyViewIsolationTests.GameplayTickViewPresenter_PresentingEnemyMotionAuthoring_DoesNotChangeLocomotionCooldownAuthority`: classified `C` existing gameplay/presentation baseline. The test uses generated in-memory test profiles and views, not Campaign presentation assets or moved prefab paths.
+- `EnemyViewIsolationTests.GameplayTickViewPresenter_PresentingSummonedEnemyArchetypeViews_DoesNotChangeLaterTickAuthoritativeResults`: classified `C` existing gameplay/presentation baseline. The test uses generated in-memory archetype/profile/prefab objects, not Campaign presentation catalogs or moved prefab paths.
+- `TickReplayDeterminismTests.DeterminismHash_BoxInteractionLockState_IsIncludedInCanonicalState`: classified `C` existing replay baseline. The failure is canonical trace content for box interaction locks and does not load Campaign assets.
+- `TickReplayDeterminismTests.DeterminismHash_EnemyJumpState_IsIncludedInCanonicalState`: classified `C` existing gameplay/replay baseline. The failure is an invalid spatial-state source combination, not an asset path or catalog reference.
+- `TickReplayDeterminismTests.Replay_EnemyUtilityLockScenario_ProducesStablePerTickHashTraceAndBlockedPush`: classified `C` existing replay baseline. The failure is lock trace/event expectation drift and does not load Campaign assets.
+- `TickReplayDeterminismTests.Replay_PassiveContactScenario_ProducesStableHashTraceAndPlayerDamage`: classified `C` existing replay baseline. The failure is passive-contact damage trace state and does not load Campaign assets.
+- `TickReplayDeterminismTests.Replay_PlayerMoveIntoUnitStackedScenario_ProducesSameHashTraceAndEventLog`: classified `C` existing replay baseline. The failure is event-log expectation drift and does not load Campaign assets.
+- `TickReplayDeterminismTests.Replay_PushBoxBoardEdgeScenario_ProducesSameHashTraceAndEventLog`: classified `C` existing replay baseline. The failure is push movement/final entity expectation drift and does not load Campaign assets.
+- `TickReplayDeterminismTests.Replay_PushBoxEntityStopperScenario_ProducesSameHashTraceAndEventLog`: classified `C` existing replay baseline. The failure is player push control/action trace expectation drift and does not load Campaign assets.
+- `TickReplayDeterminismTests.Replay_PushBoxTerrainStopperScenario_ProducesSameHashTraceAndEventLog`: classified `C` existing replay baseline. The failure is push movement/final entity expectation drift and does not load Campaign assets.
+
+## Changed Assets/References
+- Phase 1.1 rebuilt `Assets/_Features/Stages/Editor/Validation/Baselines/FullEditModeKnownFailures.json` from `TestResults/campaign-phase-1-1/full-editmode-final.xml`.
+- Phase 1.1 changed test fixtures only; no runtime Campaign/stage/gameplay assets or scene references were changed.
+- No Campaign Phase 1 structure was reverted.
+- No Level `_Shared`, Stage `_Shared`, Stage `_Overrides`, old `Assets/_Features/Stages/Stage_*` support tree, or loose `Assets/_Features/Stages/Content/<stage-id>` root was created.
+- No `StageDefinition` direct-reference bootstrap, `defaultStageId` fallback, Campaign-owned UI runtime, Campaign-owned audio runtime, or Campaign-content gameplay runtime ownership change was introduced.
+
+## Phase 1 Pre-Follow-up Baseline Failure Inventory
+The historical inventory below was captured before Phase 1.1 fixture stabilization and is retained as triage context. The current strict ledger is `Assets/_Features/Stages/Editor/Validation/Baselines/FullEditModeKnownFailures.json`.
+- `AttackInputNormalizationTests` (1):
+  - `ImpactReservationComparer_PreservesFaceBeforePlanarOrder`: Expected and actual are both `SurfaceCell[3]`; first value expected `Floor(0,1)` but was `Front(0,0)`.
+- `AttackPhaseScenarioTests` (3):
+  - `Attack_FireProjectileIntent_SpawnsProjectileDuringCommit`: projectile spawn trace expectation mismatch.
+  - `Attack_OnHit_DoesNotCreateSameTickNewIntent`: expected 1, actual 2.
+  - `Attack_OnHit_DoesNotReenterMovementPhase`: expected 1, actual 2.
+- `CampaignStageFlowTests` (1):
+  - `RespawnProcessor_PlayerRespawnGateSuppressesSpawnBeforeWrite`: expected non-negative index, actual -1.
+- `CombinedGameplayShowcaseInstallerTests` (13):
+  - `CombinedGameplayShowcaseInstaller_Configuration_CarriesStageTileFeatureVisualBindings`: expected empty int array, actual one extra value.
+  - `CombinedGameplayShowcaseInstaller_Configuration_UsesStageDefinitionEnemyUnitArchetypeCatalog`: campaign active slot stage mismatch for launch stage `stage-1-1`.
+  - `CombinedGameplayShowcaseInstaller_Configuration_UsesStagePresentationDefinitionEnemyPresentationArchetypeCatalog`: campaign active slot stage mismatch for launch stage `stage-1-1`.
+  - `CombinedGameplayShowcaseInstaller_ConfiguredShowcaseEnemy_TimingAuthoringFeedsPresenterDriver`: expected true, actual false.
+  - `CombinedGameplayShowcaseInstaller_DefaultBundle_IncludesGlideKinematic`: campaign active slot stage mismatch for launch stage `stage-1-1`.
+  - `CombinedGameplayShowcaseInstaller_ViewFactory_AttachesTimingAuthoringToConfiguredShowcaseEnemy`: expected true, actual false.
+  - `CombinedGameplayStage_BuildsEnemyPresentationBindingForConfiguredShowcaseEnemy`: expected 6, actual 5.
+  - `CombinedGameplayStage_BuildsEnemyProfileOverrideForConfiguredShowcaseEnemy`: expected 6, actual 5.
+  - `CombinedGameplayStage_BuildsJumpShowcaseProfileOverride`: expected true, actual false.
+  - `CombinedGameplayStage_BuildsRandomWalkPilotProfileOverrideForNonAttackingEnemy`: expected true, actual false.
+  - `CombinedGameplayStage_BuildsRandomWalkPilotProfileOverrideForWindupMeleeEnemy`: expected true, actual false.
+  - `CombinedGameplayStage_PlacesConfiguredShowcaseEnemy`: expected configured enemy on floor face, actual false.
+  - `CombinedGameplayStage_PlacesJumpShowcaseEnemyOnFarFloorLane`: expected true, actual false.
+- `DisplayArchitectureBoundaryTests` (1):
+  - `SettingsChildView_Sources_DoNotRebuildAuthoredControlsAtRuntime`: forbidden source token `ResolutionHoverHintText` remains present.
+- `EnemyAiProfileAssetContractTests` (2):
+  - `EnemyAiProfileAssets_ForwardArchetypes_RetainForwardPatrolKind`: expected `Forward`, actual `RandomWalk`.
+  - `EnemyAiProfileAssets_PatrolPilotRollout_MatchesExpectedPatrolKinds`: JumpChaser Campaign profile patrol kind expected `Forward`, actual `RandomWalk`.
+- `EnemyLogicTests` (1):
+  - `EnemyLogic_RandomWalkPatrolState_CommitsOnlyOnKinematicMovementCommit`: expected true, actual false.
+- `EnemyPatrolPhase3DocumentationTests` (1):
+  - `EnemyPatrolSourceGovernance_EnemyLogic_DoesNotDirectlyBranchOnForwardOrRandomWalkOutsideProposalSeam`: forbidden `PatrolStrategyKind.RandomWalk` token found in `EnemyLogic`.
+- `EnemyPrefabScaffoldTests` (1):
+  - `EnemyViewNonAttackingPrefab_UsesMoveOnlyLocomotionAuthoringAlongsideEnemyAnimationTiming`: prefab YAML expected `moveMotionDurationSeconds: 1`, actual value differs.
+- `EnemyViewIsolationTests` (3):
+  - `GameplayTickViewPresenter_PresentingEnemyFrames_DoesNotChangeLaterTickAuthoritativeResults`: expected `Recover`, actual `Chase`.
+  - `GameplayTickViewPresenter_PresentingEnemyMotionAuthoring_DoesNotChangeLocomotionCooldownAuthority`: expected `(1, 0)`, actual `(0, 0)`.
+  - `GameplayTickViewPresenter_PresentingSummonedEnemyArchetypeViews_DoesNotChangeLaterTickAuthoritativeResults`: expected `Floor(2,0)`, actual `Floor(1,0)`.
+- `FinalizeNoRecheckArchitectureTests` (2):
+  - `RespawnProcessor_Process_UsesCanonicalAuthoritativePlacementLegality`: expected method signature was not found.
+  - `TickPipeline_RunFinalizePhase_And_FinalizationBatchApplyTo_DoNotReevaluateLegality`: expected method signature was not found.
+- `FullEditModeKnownFailureBaselineTests` (1):
+  - `FullEditModeBaseline_DefaultBaselineContainsExtractedFailureList`: expected 95, actual 93.
+- `GameplayCameraTopologyAuthoringExtractionArchitectureTests` (3):
+  - `ShowcaseScenes_PreserveSerializedConfigureMainCameraMeaning`: campaign active slot stage mismatch for launch stage `stage-1-1`.
+  - `ShowcaseScenes_PreserveSerializedTopologyRotationTweenEaseMeaning`: campaign active slot stage mismatch for launch stage `stage-1-1`.
+  - `ShowcaseScenes_PreserveSerializedTopologyRotationVisualMappingMeaning`: campaign active slot stage mismatch for launch stage `stage-1-1`.
+- `GameplayHostCommandAdmissionPolicyTests` (2):
+  - `AdmissionPolicy_CommittedControllableActorAccessor_ReusesSameWindowFact_AndRefreshesOnTickCompleted`: expected cached actor state to change, actual remained `Floor(0,0)`.
+  - `AdmissionPolicy_Dispose_StopsTickCompletedRefresh_AndLeavesCachedReferenceUnchanged_WithoutFreshnessAssertions`: expected state string to differ, actual matched unchanged state.
+- `GameplayTickPresentationCoordinatorTests` (2):
+  - `EnemyPupilVisualController_WindupAttackRecover_AnimatesBorderSequence`: expected greater than `0.219999999f`, actual equal.
+  - `GameplayTickViewPresenter_PlayerRespawnBeforeDeathHide_Completes_ClearsDeathAnimationState`: expected true, actual false.
+- `GameplayTimingOwnershipTests` (1):
+  - `PlayerAnimatorDriver_WithAnimatorOverride_PrefersAnimatorDurationOverResolvedMotionDuration`: expected `0.400000006f`, actual `0.25f`.
+- `GameplayUiAccessRuntimeTests` (4):
+  - `GameplayUiAccess_PlayerHud_ExposesRecoveryCooldown_AsRecoveryOnlySemantic`: expected `Push`, actual `None`.
+  - `GameplayUiAccess_PlayerHud_PushReadiness_ActionLock_DisablesPush`: expected false, actual true.
+  - `GameplayUiAccess_PreRefreshTransientQueries_ReadPreviousCommittedHudState_BeforeTickCompletedRefresh`: expected at least 1, actual 0.
+  - `GameplayUiAccess_PresentationFeed_MapsPlayerSlice_ForHeldMove`: expected true, actual false.
+- `GameplayUiPrefabMigrationTests` (3):
+  - `PopupPrefabs_AuthorStaticLayoutContainers_BeforeRuntimeLayoutRemoval`: expected true, actual false.
+  - `ScreenPrefabs_AuthorStaticLayoutContainers_BeforeRuntimeLayoutRemoval`: expected 20, actual 28.
+  - `SettingsScreenPrefabAsset_AuthorsRequiredChildSections_AndSerializedChildRefs`: expected false, actual true.
+- `GameplayVfxTileFeatureGravityFieldMigrationTests` (1):
+  - `Coordinator_DoesNotReferencePr28VisualControllersOrVfxController`: forbidden `TileFeatureVisualPresentationController` reference remains present.
+- `GameplayViewProjectionTests` (13):
+  - `EnemyAnimatorDriver_InspectorSurface_IsLimitedToCoreAuthoringFields`: inspector field set mismatch.
+  - `GameplayBoardSurfaceRenderer_TopologyTransition_StartWorldPosesMatchDestinationVisibleSurfacePoses`: expected `1.71500003f`, actual `1.75f`.
+  - `GameplayBoardSurfaceRenderer_TopologyTransition_UsesDestinationVisibleFacesAtStart`: expected `0.980000019f`, actual `1.0f`.
+  - `GameplayCubeProjector_ProjectsBottomFaceToHorizontalPlane`: expected `-1.91999996f`, actual `-1.63f`.
+  - `GameplayCubeProjector_ProjectsFrontFaceToVerticalPlane`: expected `1.91999996f`, actual `1.62999976f`.
+  - `GameplaySceneHost_CameraTarget_StaysOnCubeCenterDuringTopologyTransition`: expected `(-0.50, -0.50, 1.13)`, actual `(-0.50, -0.82, 0.81)`.
+  - `GameplaySceneHost_MoveMotion_KeepsWorldQueriesOnCommittedDestinationWhileViewInterpolates`: expected entity query result for `10`, actual empty.
+  - `GameplaySceneHost_PushMotion_KeepsProjectileLayerQueriesOnCommittedDestinationWhileViewInterpolates`: expected true, actual false.
+  - `GameplaySceneHost_PushMotion_KeepsWorldQueriesOnCommittedDestinationWhileViewInterpolates`: expected true, actual false.
+  - `GameplaySceneHost_TopologyTransition_CameraOrbitPreservesScreenContinuityAtStart`: expected `(-0.50, -0.50, 1.13)`, actual `(-0.50, -1.13, 0.50)`.
+  - `GameplayTickViewPresenter_Present_MapsEnemyAttackHitAndMoveSignalsToAnimatorDrivers`: expected 1, actual 0.
+  - `GameplayTickViewPresenter_Present_PlayerActionSignals_HoldPushAndFlipUntilPresentationDurationExpires`: expected `Push`, actual `Idle`.
+  - `GameplayTickViewPresenter_TopologyMotion_MaintainsBoardRootIdentity`: expected greater than `0.5f`, actual `0.499999911f`.
+- `ImpactDispositionArchitectureTests` (1):
+  - `ImpactDispositionSymbols_StayWithinNarrowPushFlipRuntimeHostAndTestBoundary`: `ImpactDisposition` use-site found outside the narrow runtime/host/test boundary.
+- `LegalityContextGovernanceTests` (1):
+  - `LegalityActorRef_CarriesResolvedSpatialState_NotRawSpatialSources`: unexpected `GlideState` field present.
+- `MainMenuHubTests` (1):
+  - `MainMenuScreenRuntime_KeepsSaveSlotCardsInSerializedOrder`: expected `16.0f`, actual `50.0f`.
+- `MovementPhaseScenarioTests` (1):
+  - `Movement_MoveFromFrontBottomEdge_FailsWithoutRotation`: expected true, actual false.
+- `PlayerControlScenarioTests` (8):
+  - `PlayerControl_BlockedMove_UpdatesFacingWithoutMoving`: expected true, actual false.
+  - `PlayerControl_CustomPushInputLock_IgnoresNewInputsUntilActionCompletes`: sequence contained no elements.
+  - `PlayerControl_ExplicitPushWithoutAdjacentPushTarget_RemainsNoOp`: expected empty intents, actual move intent present.
+  - `PlayerControl_LocomotionPresentationSignal_InputReleaseDuringCooldown_DropsWalkLoop`: expected true, actual false.
+  - `PlayerControl_LocomotionPresentationSignal_StaysTrueDuringCooldownGapAndDropsWhenBlocked`: expected true, actual false.
+  - `PlayerControl_MoveCooldown_CannotBeBypassedByTapSpam`: expected true, actual false.
+  - `PlayerControl_MoveCooldown_OneTick_BlocksImmediateNextTick`: expected true, actual false.
+  - `PlayerControl_MoveOccupancy_BlocksFlipStartUntilFirstUnlockedTick`: expected true, actual false.
+- `PlayerKinematicLocomotionScenarioTests` (3):
+  - `FlagOff_BaselineContactTiming`: contact timing debug expectation mismatch.
+  - `PlayerSameFaceContinuousLocomotion_FlagOff_UsesLegacyDiscreteMove`: expected `Floor(1,0)`, actual `Floor(0,0)`.
+  - `PlayerSameFaceContinuousLocomotion_FlagOn_BoxBlocksOrdinaryMove`: expected true, actual false.
+- `RuntimeBoardBoundsGuardScenarioTests` (1):
+  - `GameplaySceneHost_Initialize_WithoutPlayerPrefabAuthoritativeSource_UsesDefaultPlayerControlTiming`: expected one `MoveCommitted` event, actual empty collection.
+- `RuntimeBoardBoundsGuardTests` (2):
+  - `GameplaySceneHost_AutoCreateViewsFalse_UsesConfiguredPlayerControlTiming`: expected true, actual false.
+  - `GameplaySceneHost_Initialize_UsesConfiguredPlayerControlTiming_WhenPlayerPrefabHasAnimationTimingAuthoringOnly`: expected true, actual false.
+- `SpatialStateResolverTruthTableTests` (2):
+  - `PhasedWritePath_And_FactoryReferences_AreConstrainedToAllowlistedFiles`: allowlisted file set mismatch.
+  - `ReservedSpatialStates_AreConstrainedToAllowlistedFiles_AndKeepAttachedProducerClosed`: reserved-state read allowlist mismatch.
+- `StageAuthoringExitGoalHelperCommandTests` (10):
+  - `ObjectiveHelper_CreatePrimaryGoal_CreatesConditionAssetAtExpectedPath`: owner `StageContentEntry` must live under the Campaign level stage root before creating Exit objective assets.
+  - `ObjectiveHelper_CreatePrimaryGoal_DoesNotOverwriteExistingAsset`: expected existing-asset message, actual Campaign owner path validation message.
+  - `ObjectiveHelper_CreatePrimaryGoal_ReusesExpectedPathAsset`: owner `StageContentEntry` must live under the Campaign level stage root before creating Exit objective assets.
+  - `ObjectiveHelper_CreatePrimaryGoal_SetsZoneId`: owner `StageContentEntry` must live under the Campaign level stage root before creating Exit objective assets.
+  - `ObjectiveHelper_CreatePrimaryGoal_UsesPlayerAtAnyZone`: owner `StageContentEntry` must live under the Campaign level stage root before creating Exit objective assets.
+  - `ObjectiveHelper_DoesNotTouchStagePresentationDefinition`: owner `StageContentEntry` must live under the Campaign level stage root before creating Exit objective assets.
+  - `ObjectiveHelper_GridWindowCreateFlow_IsAvailableForTests`: owner `StageContentEntry` must live under the Campaign level stage root before creating Exit objective assets.
+  - `ObjectiveHelper_PreservesTileFeatureVisualBindings`: owner `StageContentEntry` must live under the Campaign level stage root before creating Exit objective assets.
+  - `ObjectiveHelper_RejectsSharedConditionAsset`: expected shared-condition rejection, actual Campaign owner path validation message.
+  - `ObjectiveHelper_RepairExitContract_GeneratedStageDefinitionValidates`: owner `StageContentEntry` must live under the Campaign level stage root before creating Exit objective assets.
+- `StageObjectiveSystemTests` (3):
+  - `Conditions_ClearWithinTimeLimit_UsesCeilDeadlineFromTiming(0.5f,10.0f,20,21)`: time-limit-only objective policy rejected.
+  - `Conditions_ClearWithinTimeLimit_UsesCeilDeadlineFromTiming(0.25f,10.0f,40,41)`: time-limit-only objective policy rejected.
+  - `Conditions_ClearWithinTimeLimit_UsesCeilDeadlineFromTiming(0.3f,10.0f,34,35)`: time-limit-only objective policy rejected.
+- `StageRuntimeBuilderTests` (1):
+  - `StageRuntimeBuilder_CombinedShowcaseStageBuild_ReflectsCurrentConfiguredContract`: expected 12 box spawns, actual 13.
+- `TickPipelineStructureCoreTests` (4):
+  - `GameplayCompositionRoot_AndBootstrapper_ExposeExplicitGeneralAndPlayerTimingOverloads`: expected non-null method, actual null.
+  - `MovementCommitter_ConsumesCanonicalPlayerControlTimingSnapshot`: expected true, actual false.
+  - `TickPipeline_CanBeExtendedWithInjectedEntityLogicProvider`: expected non-null method, actual null.
+  - `TickPipeline_DoesNotExposeDefaultCompositionConstructors`: constructor type set mismatch.
+- `TickReplayDeterminismTests` (8):
+  - `DeterminismHash_BoxInteractionLockState_IsIncludedInCanonicalState`: expected box interaction lock trace, actual trace omitted expected lock entry.
+  - `DeterminismHash_EnemyJumpState_IsIncludedInCanonicalState`: invalid spatial state source combination for airborne occupying entity.
+  - `Replay_EnemyUtilityLockScenario_ProducesStablePerTickHashTraceAndBlockedPush`: expected box interaction lock trace, actual trace omitted expected lock entry.
+  - `Replay_PassiveContactScenario_ProducesStableHashTraceAndPlayerDamage`: expected player damage dump, actual empty.
+  - `Replay_PlayerMoveIntoUnitStackedScenario_ProducesSameHashTraceAndEventLog`: expected semantic move event, actual false.
+  - `Replay_PushBoxBoardEdgeScenario_ProducesSameHashTraceAndEventLog`: expected pushed box at `(2,0)`, actual remained at `(1,0)`.
+  - `Replay_PushBoxEntityStopperScenario_ProducesSameHashTraceAndEventLog`: expected push action control dump, actual action `None`.
+  - `Replay_PushBoxTerrainStopperScenario_ProducesSameHashTraceAndEventLog`: expected pushed box at `(2,0)`, actual remained at `(1,0)`.
+- `WorldSnapshotAndPresentationTests` (6):
+  - `TickPresentationDataBuilder_BuildsEnemyJumpSignal_ForAirborneStartAndRetry`: expected true, actual false.
+  - `TickPresentationDataBuilder_BuildsEnemyJumpSignal_ForWindupStart`: expected true, actual false.
+  - `TickPresentationDataBuilder_FlipDestroySelf_SeparatesLogicalNoMoveFromFlipImpactSignal`: expected 1, actual 0.
+  - `TickPresentationDataBuilder_GravityFieldVisualStates_ActiveIncludesDeterministicThreeByThreeArea`: expected 9 cells, actual empty.
+  - `TickPresentationDataBuilder_GravityFieldVisualStates_BoundedEdgeExcludesOutOfBoundsArea`: expected 4 cells, actual empty.
+  - `TickPresentationDataBuilder_UsesPostMovementSnapshotForFollowThroughMotion_AndPostAttackSnapshotForEnemyDeath`: debug spawn entity 40 not representable at `Floor(2,0)`.
+- `WorldStatePlacementInvariantTests` (1):
+  - `CreateSnapshot_DetachedBoxSharingUnitCell_RemainsMaterializableAndDoesNotBlockOccupancy`: debug spawn box entity 20 not representable at unit-occupied `Floor(0,0)`.
+
 ## Remaining Issues
 - No campaign governance errors remain.
 - No old stage support/content root assets remain.
 - No Level `_Shared`, Stage `_Shared`, or Stage `_Overrides` folders remain.
-- Full EditMode still has unrelated gameplay/replay baseline failures listed in `TestResults/stage-migration-full-editmode-final2.xml`.
+- Full EditMode still has 95 unrelated known baseline failures listed in `TestResults/campaign-phase-1-1/full-editmode-final.xml` and mirrored by `Assets/_Features/Stages/Editor/Validation/Baselines/FullEditModeKnownFailures.json`.
