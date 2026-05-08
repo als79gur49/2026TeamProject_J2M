@@ -2441,7 +2441,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GlidePresentation_Windup_RisesAlongFaceNormal()
+        public void GlidePresentation_Windup_EmitsPositiveLiftHeight()
         {
             const int enemyId = 40;
             var enemyCell = new SurfaceCell(FaceId.Front, 1, 1);

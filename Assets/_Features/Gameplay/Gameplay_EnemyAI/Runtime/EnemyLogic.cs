@@ -330,6 +330,21 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
+            if (HasGlideMovementSkill() &&
+                snapshot.TryGetEnemyGlideState(_entityId, out var movementGlideState) &&
+                movementGlideState.Phase == EnemyGlidePhase.LandingPending)
+            {
+                if (TryResolveLandingPendingEgressLocomotion(snapshot, source, out var egressLocomotion))
+                {
+                    buffer.Add(ApplyMovementTiming(
+                        egressLocomotion.Intent,
+                        egressLocomotion.CooldownTicks,
+                        egressLocomotion.OrdinaryKinematicMoveTicks));
+                }
+
+                return;
+            }
+
             if (ShouldSuppressMovementForJump(snapshot, input.TickIndex) ||
                 ShouldSuppressMovementForGlide(snapshot) ||
                 ShouldSuppressMovementForEnemyPhase(snapshot))
@@ -633,9 +648,24 @@ namespace Game.Feature.Gameplay.Entities
                             return changed;
                         }
 
-                        nextState = snapshot.TryGetSolidSemanticAt(source.position, out _)
-                            ? EnemyGlideQueries.EndActiveToLandingPending(nextState, input.TickIndex, source.position)
-                            : EnemyGlideQueries.BeginRecovery(nextState, input.TickIndex);
+                        var sourcePositionIsSolid = snapshot.TryGetSolidSemanticAt(source.position, out _);
+                        var hasSolidBoundTerminal = TryResolveSolidBoundGlideKinematicTerminal(
+                            snapshot,
+                            source.entityId,
+                            nextState,
+                            out var pendingCell);
+                        if (sourcePositionIsSolid || hasSolidBoundTerminal)
+                        {
+                            nextState = EnemyGlideQueries.EndActiveToLandingPending(
+                                nextState,
+                                input.TickIndex,
+                                sourcePositionIsSolid ? source.position : pendingCell);
+                        }
+                        else
+                        {
+                            nextState = EnemyGlideQueries.BeginRecovery(nextState, input.TickIndex);
+                        }
+
                         hasPreviousState = true;
                         changed = true;
                         AppendGlideUpdate(
@@ -646,8 +676,8 @@ namespace Game.Feature.Gameplay.Entities
                         continue;
 
                     case EnemyGlidePhase.LandingPending:
-                        if (source.position == nextState.LandingPendingCell &&
-                            snapshot.TryGetSolidSemanticAt(source.position, out _))
+                        if (snapshot.TryGetSolidSemanticAt(source.position, out _) ||
+                            HasUnsettledVoluntaryKinematicPose(snapshot, source.entityId))
                         {
                             return changed;
                         }
@@ -785,8 +815,215 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return glideState.Phase == EnemyGlidePhase.Windup ||
-                   glideState.Phase == EnemyGlidePhase.LandingPending ||
                    glideState.Phase == EnemyGlidePhase.Recovery;
+        }
+
+        private bool TryResolveLandingPendingEgressLocomotion(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            out GroundLocomotionResolution locomotion)
+        {
+            locomotion = default;
+            if (!HasGlideMovementSkill() ||
+                source.aiMode != EnemyAiMode.Chase ||
+                !snapshot.TryGetEnemyGlideState(_entityId, out var glideState) ||
+                glideState.Phase != EnemyGlidePhase.LandingPending)
+            {
+                return false;
+            }
+
+            var sourceIsSolid = snapshot.TryGetSolidSemanticAt(source.position, out _);
+            var pendingCellIsSolid = snapshot.TryGetSolidSemanticAt(glideState.LandingPendingCell, out _);
+            if (!sourceIsSolid && !pendingCellIsSolid)
+            {
+                return false;
+            }
+
+            if (!_detectionStrategy.TryFindTarget(snapshot, source, _detectionSettings, out var chaseTarget))
+            {
+                return false;
+            }
+
+            if (!_chaseStrategy.TryBuildMovementIntent(
+                    snapshot,
+                    source,
+                    chaseTarget,
+                    _commonSettings,
+                    _chaseSettings,
+                    out var egressIntent) &&
+                !TryBuildLandingPendingEgressIntent(snapshot, source, chaseTarget, out egressIntent))
+            {
+                return false;
+            }
+
+            var destination = new SurfaceCell(source.position.face, egressIntent.Destination.x, egressIntent.Destination.y);
+            if (snapshot.TryGetSolidSemanticAt(destination, out _))
+            {
+                return false;
+            }
+
+            locomotion = new GroundLocomotionResolution(
+                hasIntent: true,
+                egressIntent,
+                _locomotionTimingSettings.MoveCooldownTicks,
+                _locomotionTimingSettings.OrdinaryKinematicMoveTicks);
+            return true;
+        }
+
+        private bool TryBuildLandingPendingEgressIntent(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EntityState target,
+            out RawMovementIntent intent)
+        {
+            intent = default;
+            if (source.position.face != target.position.face)
+            {
+                return false;
+            }
+
+            var planarDelta = target.position - source.position;
+            var horizontalStep = planarDelta.x == 0
+                ? (Vector2Int?)null
+                : new Vector2Int(Math.Sign(planarDelta.x), 0);
+            var verticalStep = planarDelta.y == 0
+                ? (Vector2Int?)null
+                : new Vector2Int(0, Math.Sign(planarDelta.y));
+            var tryHorizontalFirst = Math.Abs(planarDelta.x) >= Math.Abs(planarDelta.y);
+
+            if (tryHorizontalFirst)
+            {
+                return TryBuildLandingPendingEgressIntentForStep(snapshot, source, horizontalStep, out intent) ||
+                       TryBuildLandingPendingEgressIntentForStep(snapshot, source, verticalStep, out intent);
+            }
+
+            return TryBuildLandingPendingEgressIntentForStep(snapshot, source, verticalStep, out intent) ||
+                   TryBuildLandingPendingEgressIntentForStep(snapshot, source, horizontalStep, out intent);
+        }
+
+        private bool TryBuildLandingPendingEgressIntentForStep(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            Vector2Int? step,
+            out RawMovementIntent intent)
+        {
+            intent = default;
+            if (!step.HasValue ||
+                !snapshot.TryResolveUnitStep(
+                    source.position,
+                    step.Value,
+                    out var destination,
+                    out var rotationKind,
+                    out _) ||
+                rotationKind != CubeRotationKind.None ||
+                destination.face != source.position.face ||
+                snapshot.TryGetSolidSemanticAt(destination, out _) ||
+                !IsLandingPendingEgressUnitDestinationAllowed(snapshot, source, destination))
+            {
+                return false;
+            }
+
+            intent = new RawMovementIntent(
+                source.entityId,
+                _commonSettings.MovementPriority,
+                destination.PlanarPosition);
+            return true;
+        }
+
+        private static bool IsLandingPendingEgressUnitDestinationAllowed(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            SurfaceCell destination)
+        {
+            var occupants = new List<EntityState>();
+            snapshot.EnumerateUnitsAt(destination, occupants);
+            for (var i = 0; i < occupants.Count; i++)
+            {
+                var occupant = occupants[i];
+                if (occupant.entityId == source.entityId ||
+                    occupant.boardPresence != EntityBoardPresence.Occupying ||
+                    occupant.hp <= 0 ||
+                    occupant.markedForDeath)
+                {
+                    continue;
+                }
+
+                if (occupant.teamId == source.teamId ||
+                    !EntityRolePolicy.IsPlayerUnit(occupant))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool TryResolveSolidBoundGlideKinematicTerminal(
+            WorldSnapshot snapshot,
+            int entityId,
+            in EnemyGlideRuntimeState glideState,
+            out SurfaceCell terminalCell)
+        {
+            if (!TryResolveUnsettledGlideKinematicTerminal(snapshot, entityId, glideState, out terminalCell))
+            {
+                return false;
+            }
+
+            return snapshot.TryGetSolidSemanticAt(terminalCell, out _);
+        }
+
+        private static bool TryResolveUnsettledGlideKinematicTerminal(
+            WorldSnapshot snapshot,
+            int entityId,
+            in EnemyGlideRuntimeState glideState,
+            out SurfaceCell terminalCell)
+        {
+            terminalCell = default;
+            if (!snapshot.TryGetUnitKinematicPose(entityId, out var pose) ||
+                !pose.HasAuthoritativeState ||
+                pose.IsSettledAtAnchor ||
+                pose.Mode != MotionMode.Voluntary ||
+                !TryResolveGlideStepDirection(pose.State, out var stepDirection) ||
+                !IsGlideKinematicStartedDuringActiveWindow(pose.State, glideState))
+            {
+                return false;
+            }
+
+            terminalCell = pose.State.commitTick > 0 && pose.State.elapsedTicks >= pose.State.commitTick
+                ? pose.AnchorCell
+                : pose.AnchorCell + stepDirection;
+            return true;
+        }
+
+        private static bool HasUnsettledVoluntaryKinematicPose(WorldSnapshot snapshot, int entityId)
+        {
+            return snapshot.TryGetUnitKinematicPose(entityId, out var pose) &&
+                   pose.HasAuthoritativeState &&
+                   !pose.IsSettledAtAnchor &&
+                   pose.Mode == MotionMode.Voluntary;
+        }
+
+        private static bool IsGlideKinematicStartedDuringActiveWindow(
+            in UnitKinematicRuntimeState state,
+            in EnemyGlideRuntimeState glideState)
+        {
+            if (glideState.ActiveUntilTickExclusive <= 0 ||
+                glideState.DurationTicks <= 0)
+            {
+                return false;
+            }
+
+            var activeStartTick = glideState.ActiveUntilTickExclusive - glideState.DurationTicks;
+            return state.startedTick >= activeStartTick &&
+                   state.startedTick < glideState.ActiveUntilTickExclusive;
+        }
+
+        private static bool TryResolveGlideStepDirection(
+            in UnitKinematicRuntimeState state,
+            out Vector2Int stepDirection)
+        {
+            stepDirection = new Vector2Int(state.stepDirectionX, state.stepDirectionY);
+            return Math.Abs(stepDirection.x) + Math.Abs(stepDirection.y) == 1;
         }
 
         private bool ShouldSuppressAttackForEnemyPhase(WorldSnapshot snapshot, int tickIndex)

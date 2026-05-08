@@ -17,6 +17,7 @@ using Game.Feature.Gameplay.Movement.Intents;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
@@ -24,6 +25,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 {
     public sealed class BoundaryInventoryScenarioTests
     {
+        private const string GlideChaserProfileAssetPath =
+            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_GlideChaser/EnemyAi_GlideChaser.asset";
+
         [Test]
         [Category("Core")]
         public void BoundaryInventory_DefaultGameplayLocomotion_NoLegacyOrdinaryUnitMovement()
@@ -2470,6 +2474,95 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
+        public void BoundaryInventory_GlideChaserAsset_DefaultGameplay_ActiveGlideKinematicMovesOverSolid()
+        {
+            var profile = AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(GlideChaserProfileAssetPath);
+            Assert.That(profile, Is.Not.Null, $"Missing GlideChaser profile asset at '{GlideChaserProfileAssetPath}'.");
+
+            var runtimeDefinition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+            Assert.That(runtimeDefinition.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.GlideOverSolid));
+            Assert.That(runtimeDefinition.GlideTimingSettings.WindupTicks, Is.EqualTo(15));
+            Assert.That(runtimeDefinition.GlideTimingSettings.DurationTicks, Is.EqualTo(180));
+            Assert.That(runtimeDefinition.GlideTimingSettings.RecoveryTicks, Is.EqualTo(15));
+            Assert.That(runtimeDefinition.GlideTimingSettings.CooldownTicks, Is.EqualTo(240));
+            Assert.That(runtimeDefinition.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(48));
+            Assert.That(runtimeDefinition.LocomotionTimingSettings.OrdinaryKinematicMoveTicks, Is.EqualTo(48));
+
+            var wallCells = new[]
+            {
+                new SurfaceCell(FaceId.Floor, 1, 0),
+                new SurfaceCell(FaceId.Floor, 2, 0),
+                new SurfaceCell(FaceId.Floor, 3, 0),
+                new SurfaceCell(FaceId.Floor, 4, 0),
+            };
+            var worldState = CreateWorldState(new[]
+            {
+                CreatePlayer(10, new SurfaceCell(FaceId.Floor, 5, 0)),
+                CreateWall(31, wallCells[0]),
+                CreateWall(32, wallCells[1]),
+                CreateWall(33, wallCells[2]),
+                CreateWall(34, wallCells[3]),
+                CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase),
+            });
+            var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile)
+                .CreateTickPipeline(
+                    worldState,
+                    Array.Empty<IEntityLogic>(),
+                    GameplayTimingProfile.CreateDefault(),
+                    CreatePlayerTiming(),
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                    playerKinematicLocomotionTiming: CreateTwoTickKinematicTiming());
+
+            TickResult activeStartTick = null;
+            TickResult lastCommitTick = null;
+            var commitTicks = new List<int>();
+            var committedCells = new List<SurfaceCell>();
+            var activeStartTickIndex = 0;
+            var kinematicTrackTicks = new List<int>();
+            for (var tickIndex = 1; tickIndex <= 205; tickIndex++)
+            {
+                var tick = pipeline.RunTick(new TickInput(tickIndex));
+                LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(tick, 40);
+
+                var hasKinematicTrack = tick.PresentationData.KinematicMotionTracks.Any(track =>
+                        track.EntityId == 40 &&
+                        track.MotionMode == MotionMode.Voluntary);
+                if (hasKinematicTrack)
+                {
+                    kinematicTrackTicks.Add(tickIndex);
+                }
+
+                if (activeStartTick == null && hasKinematicTrack)
+                {
+                    activeStartTick = tick;
+                    activeStartTickIndex = tickIndex;
+                }
+
+                if (HasGlideActiveKinematicAnchorCommit(tick, 40))
+                {
+                    lastCommitTick = tick;
+                    commitTicks.Add(tickIndex);
+                    Assert.That(worldState.CreateSnapshot().TryGetEntity(40, out var committedEnemy), Is.True);
+                    committedCells.Add(committedEnemy.position);
+                }
+            }
+
+            Assert.That(activeStartTick, Is.Not.Null, "Current GlideChaser asset should start active glide kinematic motion under default gameplay.");
+            Assert.That(commitTicks, Has.Count.EqualTo(4), "Current GlideChaser asset should chain multiple active glide kinematic moves during the active duration.");
+            Assert.That(committedCells, Is.EqualTo(wallCells));
+            TestContext.WriteLine(
+                $"GlideChaserAssetDefaultKinematic|ActiveStartTick={activeStartTickIndex}|TrackTicks={string.Join(",", kinematicTrackTicks)}|CommitTicks={string.Join(",", commitTicks)}|CommittedCells={string.Join(",", committedCells)}");
+            LegacyMovementBoundaryAssert.HasMoveEntityBoundaryReason(
+                lastCommitTick,
+                40,
+                MovementExecutionBoundaryKind.LocomotionAnchorCommit,
+                "GlideActiveKinematicAnchorCommit");
+            Assert.That(worldState.CreateSnapshot().TryGetEntity(40, out var enemy), Is.True);
+            Assert.That(enemy.position, Is.EqualTo(wallCells[^1]));
+        }
+
+        [Test]
+        [Category("Core")]
         public void DeprecationPhase1_DefaultGameplayLocomotion_GlideActiveKinematic()
         {
             BoundaryInventory_DefaultGameplayLocomotion_GlideActiveKinematic();
@@ -3134,6 +3227,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 facing = Direction.Right,
                 boardPresence = EntityBoardPresence.Occupying,
                 boxCapabilities = capabilities,
+            };
+        }
+
+        private static EntityState CreateWall(int entityId, SurfaceCell position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                type = EntityType.None,
+                state = EntityPhaseState.Idle,
+                facing = Direction.None,
+                boardPresence = EntityBoardPresence.Occupying,
             };
         }
 

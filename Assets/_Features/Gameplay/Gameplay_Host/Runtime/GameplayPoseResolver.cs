@@ -186,7 +186,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var heightWorld = signal.CurrentHeightUnits * projector.CellSize / KinematicFixed.UnitsPerCell;
-            offset = normal * heightWorld;
+            offset = -normal * heightWorld;
             return true;
         }
 
