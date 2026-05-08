@@ -38,6 +38,14 @@ namespace Game.Feature.Gameplay.Host
                 }
             }
 
+            foreach (var pair in _trackState.JumpWindupRotationTracks)
+            {
+                if (pair.Value.HasClips)
+                {
+                    return true;
+                }
+            }
+
             foreach (var pair in _trackState.FlipInteractionTracks)
             {
                 if (!pair.Value.IsComplete)

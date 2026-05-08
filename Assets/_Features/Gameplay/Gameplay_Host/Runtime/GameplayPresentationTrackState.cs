@@ -33,6 +33,7 @@ namespace Game.Feature.Gameplay.Host
     {
         private readonly List<int> _completedFlipInteractionTrackIds = new();
         private readonly List<int> _completedJumpTrackIds = new();
+        private readonly List<int> _completedJumpWindupRotationTrackIds = new();
         private readonly List<int> _completedMotionTrackIds = new();
         private readonly List<int> _completedMotionVisualScaleEntityIds = new();
         private readonly List<int> _completedPlayerDeathDisplacementTrackIds = new();
@@ -43,6 +44,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly List<int> _completedTransitionVisibilityStateIds = new();
         private readonly List<int> _completedVisibilityTrackIds = new();
         private readonly Dictionary<int, JumpTrack> _jumpTracks = new();
+        private readonly Dictionary<int, RotationTrack> _jumpWindupRotationTracks = new();
         private readonly Dictionary<int, KinematicPresentationPose> _kinematicPoseOverrides = new();
         private readonly Dictionary<int, Vector3> _glidePresentationOffsetsByEntityId = new();
         private readonly Dictionary<int, MotionTrack> _localMotionTracks = new();
@@ -58,6 +60,8 @@ namespace Game.Feature.Gameplay.Host
         public List<int> CompletedFlipInteractionTrackIds => _completedFlipInteractionTrackIds;
 
         public List<int> CompletedJumpTrackIds => _completedJumpTrackIds;
+
+        public List<int> CompletedJumpWindupRotationTrackIds => _completedJumpWindupRotationTrackIds;
 
         public List<int> CompletedMotionTrackIds => _completedMotionTrackIds;
 
@@ -78,6 +82,8 @@ namespace Game.Feature.Gameplay.Host
         public HashSet<PresentationMotionInstanceKey> CompletedPresentationMotionKeys => _completedPresentationMotionKeys;
 
         public Dictionary<int, JumpTrack> JumpTracks => _jumpTracks;
+
+        public Dictionary<int, RotationTrack> JumpWindupRotationTracks => _jumpWindupRotationTracks;
 
         public Dictionary<int, KinematicPresentationPose> KinematicPoseOverrides => _kinematicPoseOverrides;
 
@@ -107,6 +113,7 @@ namespace Game.Feature.Gameplay.Host
             _completedFlipInteractionTrackIds.Clear();
             _completedPresentationMotionKeys.Clear();
             _completedJumpTrackIds.Clear();
+            _completedJumpWindupRotationTrackIds.Clear();
             _completedMotionTrackIds.Clear();
             _completedMotionVisualScaleEntityIds.Clear();
             _completedPlayerDeathDisplacementTrackIds.Clear();
@@ -116,6 +123,7 @@ namespace Game.Feature.Gameplay.Host
             _completedTransitionVisibilityStateIds.Clear();
             _completedVisibilityTrackIds.Clear();
             _jumpTracks.Clear();
+            _jumpWindupRotationTracks.Clear();
             _kinematicPoseOverrides.Clear();
             _glidePresentationOffsetsByEntityId.Clear();
             _localMotionTracks.Clear();

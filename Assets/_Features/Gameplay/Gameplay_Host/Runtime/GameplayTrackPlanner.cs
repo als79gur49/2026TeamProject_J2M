@@ -99,6 +99,12 @@ namespace Game.Feature.Gameplay.Host
                 result,
                 projector,
                 timingProfile);
+            RefreshJumpWindupRotationTracks(
+                result,
+                previousCommittedLocalTargetPoses,
+                previousCommittedTopology,
+                projector,
+                timingProfile);
             RefreshJumpDetachedVisibilityState(
                 result,
                 previousCommittedLocalTargetPoses,
@@ -148,6 +154,121 @@ namespace Game.Feature.Gameplay.Host
                     _trackState.GlidePresentationOffsetsByEntityId[signal.EntityId] = offset;
                 }
             }
+        }
+
+        private void RefreshJumpWindupRotationTracks(
+            TickResult result,
+            IReadOnlyDictionary<int, GameplayEntityPose> previousCommittedLocalTargetPoses,
+            CubeTopologyState previousCommittedTopology,
+            GameplayCubeProjector projector,
+            GameplayTimingProfile timingProfile)
+        {
+            var jumpSignals = result.PresentationData.EnemyJumpSignals;
+            for (var i = 0; i < jumpSignals.Count; i++)
+            {
+                var signal = jumpSignals[i];
+                if (signal.StartedAirborneThisTick ||
+                    signal.LandedThisTick ||
+                    signal.RetryThisTick)
+                {
+                    _trackState.JumpWindupRotationTracks.Remove(signal.EntityId);
+                    continue;
+                }
+
+                if (!signal.StartedWindupThisTick)
+                {
+                    continue;
+                }
+
+                var durationSeconds = ResolveJumpWindupRotationDurationSeconds(signal, timingProfile);
+                if (durationSeconds <= 0f ||
+                    !TryResolveJumpWindupRotationEndpoints(
+                        signal,
+                        previousCommittedLocalTargetPoses,
+                        previousCommittedTopology,
+                        result.FinalTopology,
+                        projector,
+                        out var startRotation,
+                        out var endRotation))
+                {
+                    _trackState.JumpWindupRotationTracks.Remove(signal.EntityId);
+                    continue;
+                }
+
+                if (Quaternion.Angle(startRotation, endRotation) <= 0.01f)
+                {
+                    _trackState.JumpWindupRotationTracks.Remove(signal.EntityId);
+                    continue;
+                }
+
+                var track = new RotationTrack();
+                track.Append(RotationClip.Create(startRotation, endRotation, durationSeconds));
+                _trackState.JumpWindupRotationTracks[signal.EntityId] = track;
+            }
+        }
+
+        private static float ResolveJumpWindupRotationDurationSeconds(
+            TickEnemyJumpPresentationSignal signal,
+            GameplayTimingProfile timingProfile)
+        {
+            if (timingProfile == null ||
+                timingProfile.SimulationTicksPerSecond <= 0 ||
+                signal.WindupTicks <= 0)
+            {
+                return 0f;
+            }
+
+            return signal.WindupTicks / (float)timingProfile.SimulationTicksPerSecond;
+        }
+
+        private bool TryResolveJumpWindupRotationEndpoints(
+            TickEnemyJumpPresentationSignal signal,
+            IReadOnlyDictionary<int, GameplayEntityPose> previousCommittedLocalTargetPoses,
+            CubeTopologyState previousCommittedTopology,
+            CubeTopologyState finalTopology,
+            GameplayCubeProjector projector,
+            out Quaternion startRotation,
+            out Quaternion endRotation)
+        {
+            if (previousCommittedLocalTargetPoses != null &&
+                previousCommittedLocalTargetPoses.TryGetValue(signal.EntityId, out var previousPose))
+            {
+                startRotation = previousPose.Rotation;
+            }
+            else if (_poseResolver.TryResolveLocalPose(
+                         projector,
+                         signal.EntityId,
+                         signal.SourceCell,
+                         previousCommittedTopology,
+                         Direction.Up,
+                         out var fallbackStartPose))
+            {
+                startRotation = fallbackStartPose.Rotation;
+            }
+            else
+            {
+                startRotation = default;
+                endRotation = default;
+                return false;
+            }
+
+            var facing = signal.Facing == Direction.None
+                ? Direction.Up
+                : signal.Facing;
+            if (!_poseResolver.TryResolveLocalPose(
+                    projector,
+                    signal.EntityId,
+                    signal.SourceCell,
+                    finalTopology,
+                    facing,
+                    out var endPose))
+            {
+                endRotation = default;
+                return false;
+            }
+
+            endRotation = endPose.Rotation;
+            return true;
         }
 
         private HashSet<int> CollectKinematicEntityIds(TickPresentationData presentationData)
