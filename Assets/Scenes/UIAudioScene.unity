@@ -1264,6 +1264,8 @@ MonoBehaviour:
   presentationTimingPreset: {fileID: 11400000, guid: e74a2114beb347ca87939f8446ed7f5c, type: 2}
   boardSurfaceTexture: {fileID: 2800000, guid: bbcd0420d9696f54da16e6124742b53c, type: 3}
   gameplayAudioMap: {fileID: 11400000, guid: 2e17653afa1ba264a950b76bcd5ccc56, type: 2}
+  tileFeatureAudioMap: {fileID: 0}
+  gravityFieldAudioMap: {fileID: 0}
   faceSeamGap: 3.5
   stageCatalogProvider: {fileID: 11400000, guid: acd8229e8e9e4f1da31d8206dfa8188e, type: 2}
   campaignStageSequenceDefinition: {fileID: 11400000, guid: bdeaa9a608b8dde4b6d0192853f857b0, type: 2}
