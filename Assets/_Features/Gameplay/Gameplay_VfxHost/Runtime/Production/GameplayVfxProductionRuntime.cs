@@ -31,12 +31,18 @@ namespace Game.Feature.Gameplay.Vfx.Host
         [SerializeField] private bool enableGameplayVfxFrontFaceShieldActiveMigration = true;
         [SerializeField] private bool enableGameplayVfxFrontFaceShieldBlockMigration = true;
         [SerializeField] private bool enableGameplayVfxFrontFaceShieldWindupMigration = true;
+        [SerializeField] private bool enableGameplayVfxTileFeatureLane = true;
+        [SerializeField] private bool enableGameplayVfxGravityFieldEvents = true;
+        [SerializeField] private bool enableGameplayVfxGravityFieldContinuous = true;
+        [SerializeField] private bool enableGameplayVfxGravityFieldLockedTarget = true;
         [SerializeField] private VfxProfileAsset[] familyProfiles = Array.Empty<VfxProfileAsset>();
 
         private readonly PlayerVfxRequestPlanner playerPlanner = new();
         private readonly BoxVfxRequestPlanner boxPlanner = new();
         private readonly FlipImpactBurstVfxRequestPlanner flipImpactBurstPlanner = new();
         private readonly EnemyVfxRequestPlanner enemyPlanner = new();
+        private readonly TileFeatureVfxRequestPlanner tileFeaturePlanner = new();
+        private readonly GravityFieldVfxRequestPlanner gravityFieldPlanner = new();
         private readonly GameplayVfxRequestPlanBuilder planBuilder = new();
         private readonly HashSet<FlipDestroySelfMotionInstanceKey> playedFlipDestroySelfMotionKeys = new();
         private readonly HashSet<BoxSlideTrailMotionInstanceKey> playedBoxSlideTrailMotionKeys = new();
@@ -323,6 +329,66 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
+        public bool EnableGameplayVfxTileFeatureLane
+        {
+            get => enableGameplayVfxTileFeatureLane;
+            set
+            {
+                if (enableGameplayVfxTileFeatureLane == value)
+                {
+                    return;
+                }
+
+                enableGameplayVfxTileFeatureLane = value;
+                ResetIfNoGameplayVfxEnabled();
+            }
+        }
+
+        public bool EnableGameplayVfxGravityFieldEvents
+        {
+            get => enableGameplayVfxGravityFieldEvents;
+            set
+            {
+                if (enableGameplayVfxGravityFieldEvents == value)
+                {
+                    return;
+                }
+
+                enableGameplayVfxGravityFieldEvents = value;
+                ResetIfNoGameplayVfxEnabled();
+            }
+        }
+
+        public bool EnableGameplayVfxGravityFieldContinuous
+        {
+            get => enableGameplayVfxGravityFieldContinuous;
+            set
+            {
+                if (enableGameplayVfxGravityFieldContinuous == value)
+                {
+                    return;
+                }
+
+                enableGameplayVfxGravityFieldContinuous = value;
+                ResetIfNoGameplayVfxEnabled();
+            }
+        }
+
+        public bool EnableGameplayVfxGravityFieldLockedTarget
+        {
+            get => enableGameplayVfxGravityFieldLockedTarget;
+            set
+            {
+                if (enableGameplayVfxGravityFieldLockedTarget == value)
+                {
+                    return;
+                }
+
+                enableGameplayVfxGravityFieldLockedTarget = value;
+                ResetIfNoGameplayVfxEnabled();
+            }
+        }
+
         public bool EnableGameplayVfxImpactTransientBreakMigration
         {
             get => enableGameplayVfxImpactTransientBreakMigration;
@@ -510,34 +576,27 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 enableGameplayVfxGlideWindTrail,
                 enableGameplayVfxChargeBoosterTrail);
             planBuilder.Clear();
-            playerPlanner.Plan(
-                new GameplayVfxPlanningContext(
-                    context.Result.TickIndex,
-                    context.Result.PresentationData,
-                    context.Topology,
-                    context.TimingProfile),
-                planBuilder);
-            boxPlanner.Plan(
-                new GameplayVfxPlanningContext(
-                    context.Result.TickIndex,
-                    context.Result.PresentationData,
-                    context.Topology,
-                    context.TimingProfile),
-                planBuilder);
-            flipImpactBurstPlanner.Plan(
-                new GameplayVfxPlanningContext(
-                    context.Result.TickIndex,
-                    context.Result.PresentationData,
-                    context.Topology,
-                    context.TimingProfile),
-                planBuilder);
-            enemyPlanner.Plan(
-                new GameplayVfxPlanningContext(
-                    context.Result.TickIndex,
-                    context.Result.PresentationData,
-                    context.Topology,
-                    context.TimingProfile),
-                planBuilder);
+            var planningContext = new GameplayVfxPlanningContext(
+                context.Result.TickIndex,
+                context.Result.PresentationData,
+                context.Topology,
+                context.TimingProfile);
+            playerPlanner.Plan(planningContext, planBuilder);
+            boxPlanner.Plan(planningContext, planBuilder);
+            flipImpactBurstPlanner.Plan(planningContext, planBuilder);
+            enemyPlanner.Plan(planningContext, planBuilder);
+            if (enableGameplayVfxTileFeatureLane)
+            {
+                tileFeaturePlanner.Plan(planningContext, planBuilder);
+            }
+
+            if (enableGameplayVfxGravityFieldEvents ||
+                enableGameplayVfxGravityFieldContinuous ||
+                enableGameplayVfxGravityFieldLockedTarget)
+            {
+                gravityFieldPlanner.Plan(planningContext, planBuilder);
+            }
+
             var plan = FilterByEnabledCues(planBuilder.Build());
             var shouldPlayFlipDestroySelfMotion =
                 enableGameplayVfxFlipDestroySelfMotionMigration &&
@@ -762,7 +821,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
             enableGameplayVfxUtilityWindupMigration ||
             enableGameplayVfxFrontFaceShieldActiveMigration ||
             enableGameplayVfxFrontFaceShieldBlockMigration ||
-            enableGameplayVfxFrontFaceShieldWindupMigration;
+            enableGameplayVfxFrontFaceShieldWindupMigration ||
+            enableGameplayVfxTileFeatureLane ||
+            enableGameplayVfxGravityFieldEvents ||
+            enableGameplayVfxGravityFieldContinuous ||
+            enableGameplayVfxGravityFieldLockedTarget;
 
         private void ResetIfNoEnemyJumpVfxEnabled()
         {
@@ -825,8 +888,35 @@ namespace Game.Feature.Gameplay.Vfx.Host
                    (enableGameplayVfxImpactTransientBreakMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak)) ||
                    (enableGameplayVfxOutOfBoundsExitMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.OutOfBoundsExit)) ||
                    (enableGameplayVfxOutOfBoundsExitMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit)) ||
+                   (enableGameplayVfxTileFeatureLane && cueId.Family == GameplayVfxFamily.TileFeature) ||
+                   IsGravityFieldCueEnabled(cueId) ||
                    (enableEnemyJumpTargetVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)) ||
                    (enableEnemyJumpLandingDustVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingDust));
+        }
+
+        private bool IsGravityFieldCueEnabled(GameplayVfxCueId cueId)
+        {
+            if (cueId.Family != GameplayVfxFamily.GravityField)
+            {
+                return false;
+            }
+
+            if (enableGameplayVfxGravityFieldEvents &&
+                (cueId == GameplayVfxCueId.From(GravityFieldVfxCue.Activated) ||
+                 cueId == GameplayVfxCueId.From(GravityFieldVfxCue.Expired)))
+            {
+                return true;
+            }
+
+            if (enableGameplayVfxGravityFieldContinuous &&
+                (cueId == GameplayVfxCueId.From(GravityFieldVfxCue.ChargingArea) ||
+                 cueId == GameplayVfxCueId.From(GravityFieldVfxCue.ActiveArea)))
+            {
+                return true;
+            }
+
+            return enableGameplayVfxGravityFieldLockedTarget &&
+                   cueId == GameplayVfxCueId.From(GravityFieldVfxCue.LockedTarget);
         }
 
         private static bool IsParameterizedCommandOwnedCue(GameplayVfxCueId cueId)

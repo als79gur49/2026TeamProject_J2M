@@ -38,6 +38,11 @@ namespace Game.Feature.Gameplay.Vfx
             return new GameplayVfxCueId(GameplayVfxFamily.TileFeature, (int)cue);
         }
 
+        public static GameplayVfxCueId From(GravityFieldVfxCue cue)
+        {
+            return new GameplayVfxCueId(GameplayVfxFamily.GravityField, (int)cue);
+        }
+
         public static GameplayVfxCueId From(TerrainVfxCue cue)
         {
             return new GameplayVfxCueId(GameplayVfxFamily.Terrain, (int)cue);

@@ -1412,6 +1412,10 @@ MonoBehaviour:
   enableGameplayVfxFrontFaceShieldActiveMigration: 0
   enableGameplayVfxFrontFaceShieldBlockMigration: 0
   enableGameplayVfxFrontFaceShieldWindupMigration: 0
+  enableGameplayVfxTileFeatureLane: 0
+  enableGameplayVfxGravityFieldEvents: 0
+  enableGameplayVfxGravityFieldContinuous: 0
+  enableGameplayVfxGravityFieldLockedTarget: 0
   hostDefaultCueMap: {fileID: 11400000, guid: 3ed23d03c1c440cb9a1441a4b18c46e5, type: 2}
   familyProfiles: []
 --- !u!1 &1255821668

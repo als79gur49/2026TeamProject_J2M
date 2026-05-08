@@ -1473,6 +1473,10 @@ MonoBehaviour:
   enableGameplayVfxFrontFaceShieldActiveMigration: 1
   enableGameplayVfxFrontFaceShieldBlockMigration: 1
   enableGameplayVfxFrontFaceShieldWindupMigration: 1
+  enableGameplayVfxTileFeatureLane: 1
+  enableGameplayVfxGravityFieldEvents: 1
+  enableGameplayVfxGravityFieldContinuous: 1
+  enableGameplayVfxGravityFieldLockedTarget: 1
   familyProfiles: []
 --- !u!1 &1255821668
 GameObject:

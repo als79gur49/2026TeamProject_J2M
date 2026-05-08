@@ -172,6 +172,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "Augmentation / enemy attached follower",
                 "Tier 2",
                 "manual visual approval + targeted motion-attached follower regression"),
+            new(
+                "EnableGameplayVfxTileFeatureLane",
+                "enableGameplayVfxTileFeatureLane",
+                "TileFeatureVfxCue.*",
+                "Migration / VFX request lane",
+                "Tier 2",
+                "targeted planner/runtime regression + visual spot check"),
+            new(
+                "EnableGameplayVfxGravityFieldEvents",
+                "enableGameplayVfxGravityFieldEvents",
+                "GravityFieldVfxCue.Activated / GravityFieldVfxCue.Expired",
+                "Migration / VFX request lane",
+                "Tier 2",
+                "targeted planner/runtime regression + visual spot check"),
+            new(
+                "EnableGameplayVfxGravityFieldContinuous",
+                "enableGameplayVfxGravityFieldContinuous",
+                "GravityFieldVfxCue.ChargingArea / GravityFieldVfxCue.ActiveArea",
+                "Migration / persistent state adapter",
+                "Tier 2",
+                "targeted planner/runtime regression + manual state visual spot check"),
+            new(
+                "EnableGameplayVfxGravityFieldLockedTarget",
+                "enableGameplayVfxGravityFieldLockedTarget",
+                "GravityFieldVfxCue.LockedTarget",
+                "Migration / persistent target adapter",
+                "Tier 2",
+                "targeted planner/runtime regression + manual target visual spot check"),
         };
 
         private static readonly string[] HighRiskDefaultTrueCandidateFlags =

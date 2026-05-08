@@ -568,6 +568,382 @@ namespace Game.Feature.Gameplay.Vfx
 
         public void Plan(GameplayVfxPlanningContext context, GameplayVfxRequestPlanBuilder builder)
         {
+            if (builder == null)
+            {
+                throw new ArgumentNullException(nameof(builder));
+            }
+
+            var presentationData = context.PresentationData;
+            if (presentationData == null)
+            {
+                return;
+            }
+
+            var events = presentationData.TileEvents;
+            for (var i = 0; i < events.Count; i++)
+            {
+                var tileEvent = events[i];
+                if (!TryResolveCue(tileEvent, out var cue))
+                {
+                    continue;
+                }
+
+                var sequenceId = ResolveSequenceId(context.TickIndex, i, tileEvent);
+                builder.Add(
+                    new GameplayVfxRequest(
+                        tickIndex: context.TickIndex,
+                        sequenceId: sequenceId,
+                        presentationSeed: sequenceId,
+                        sourceEntityId: tileEvent.SourceEntityId,
+                        cueId: GameplayVfxCueId.From(cue),
+                        anchor: VfxAnchor.ForCell(
+                            tileEvent.Cell,
+                            context.Topology,
+                            VfxAnchorSlot.CellCenter),
+                        timing: VfxTimingKind.ImmediateOnTickPresentation));
+            }
+        }
+
+        private static bool TryResolveCue(
+            in TilePresentationEvent tileEvent,
+            out TileFeatureVfxCue cue)
+        {
+            switch (tileEvent.Kind)
+            {
+                case TilePresentationEventKind.ButtonActivated:
+                    cue = TileFeatureVfxCue.ButtonActivated;
+                    return true;
+                case TilePresentationEventKind.DestroyTileTriggered:
+                    cue = TileFeatureVfxCue.DestroyTileTriggered;
+                    return true;
+                case TilePresentationEventKind.SlideTileRedirected:
+                    return TryResolveSlideCue(tileEvent.Direction, out cue);
+                case TilePresentationEventKind.BarricadeBlocked:
+                    return TryResolveBarricadeBlockedCue(tileEvent.Direction, out cue);
+                case TilePresentationEventKind.BarricadeCrushed:
+                    cue = TileFeatureVfxCue.BarricadeCrushed;
+                    return true;
+                case TilePresentationEventKind.ExitOpened:
+                    cue = TileFeatureVfxCue.ExitOpened;
+                    return true;
+                case TilePresentationEventKind.ExitEntered:
+                    cue = TileFeatureVfxCue.ExitEntered;
+                    return true;
+                case TilePresentationEventKind.MoonBlockGenerated:
+                    cue = TileFeatureVfxCue.MoonBlockGenerated;
+                    return true;
+                default:
+                    cue = default;
+                    return false;
+            }
+        }
+
+        private static bool TryResolveSlideCue(Direction direction, out TileFeatureVfxCue cue)
+        {
+            switch (direction)
+            {
+                case Direction.Up:
+                    cue = TileFeatureVfxCue.SlideTileRedirectedUp;
+                    return true;
+                case Direction.Right:
+                    cue = TileFeatureVfxCue.SlideTileRedirectedRight;
+                    return true;
+                case Direction.Down:
+                    cue = TileFeatureVfxCue.SlideTileRedirectedDown;
+                    return true;
+                case Direction.Left:
+                    cue = TileFeatureVfxCue.SlideTileRedirectedLeft;
+                    return true;
+                default:
+                    cue = default;
+                    return false;
+            }
+        }
+
+        private static bool TryResolveBarricadeBlockedCue(Direction direction, out TileFeatureVfxCue cue)
+        {
+            switch (direction)
+            {
+                case Direction.Up:
+                    cue = TileFeatureVfxCue.BarricadeBlockedUp;
+                    return true;
+                case Direction.Right:
+                    cue = TileFeatureVfxCue.BarricadeBlockedRight;
+                    return true;
+                case Direction.Down:
+                    cue = TileFeatureVfxCue.BarricadeBlockedDown;
+                    return true;
+                case Direction.Left:
+                    cue = TileFeatureVfxCue.BarricadeBlockedLeft;
+                    return true;
+                default:
+                    cue = default;
+                    return false;
+            }
+        }
+
+        private static int ResolveSequenceId(
+            int tickIndex,
+            int eventIndex,
+            in TilePresentationEvent tileEvent)
+        {
+            unchecked
+            {
+                var hash = tickIndex;
+                hash = (hash * 397) ^ eventIndex;
+                hash = (hash * 397) ^ (int)tileEvent.Kind;
+                hash = (hash * 397) ^ tileEvent.TileId;
+                hash = (hash * 397) ^ tileEvent.Cell.GetHashCode();
+                hash = (hash * 397) ^ (int)tileEvent.Direction;
+                hash = (hash * 397) ^ tileEvent.SourceEntityId;
+                hash = (hash * 397) ^ tileEvent.OwnerEntityId;
+                hash = (hash * 397) ^ tileEvent.TargetEntityId;
+                return hash != 0 ? hash : eventIndex + 1;
+            }
+        }
+    }
+
+    public sealed class GravityFieldVfxRequestPlanner : IGameplayVfxFamilyRequestPlanner
+    {
+        private const int ChargingAreaEffectIndex = 1;
+        private const int ActiveAreaEffectIndex = 2;
+
+        public GameplayVfxFamily Family => GameplayVfxFamily.GravityField;
+
+        public void Plan(GameplayVfxPlanningContext context, GameplayVfxRequestPlanBuilder builder)
+        {
+            if (builder == null)
+            {
+                throw new ArgumentNullException(nameof(builder));
+            }
+
+            var presentationData = context.PresentationData;
+            if (presentationData == null)
+            {
+                return;
+            }
+
+            PlanEvents(context, builder, presentationData);
+            PlanVisualStates(context, builder, presentationData);
+        }
+
+        private static void PlanEvents(
+            GameplayVfxPlanningContext context,
+            GameplayVfxRequestPlanBuilder builder,
+            TickPresentationData presentationData)
+        {
+            var events = presentationData.GravityFieldEvents;
+            for (var i = 0; i < events.Count; i++)
+            {
+                var fieldEvent = events[i];
+                if (!TryResolveCue(fieldEvent.Kind, out var cue))
+                {
+                    continue;
+                }
+
+                var sequenceId = ResolveEventSequenceId(context.TickIndex, i, fieldEvent);
+                builder.Add(
+                    new GameplayVfxRequest(
+                        tickIndex: context.TickIndex,
+                        sequenceId: sequenceId,
+                        presentationSeed: sequenceId,
+                        sourceEntityId: fieldEvent.EmitterEntityId,
+                        cueId: GameplayVfxCueId.From(cue),
+                        anchor: VfxAnchor.ForCell(
+                            fieldEvent.Cell,
+                            context.Topology,
+                            VfxAnchorSlot.CellCenter),
+                        timing: VfxTimingKind.ImmediateOnTickPresentation));
+            }
+        }
+
+        private static void PlanVisualStates(
+            GameplayVfxPlanningContext context,
+            GameplayVfxRequestPlanBuilder builder,
+            TickPresentationData presentationData)
+        {
+            var states = presentationData.GravityFieldVisualStates;
+            for (var i = 0; i < states.Count; i++)
+            {
+                var state = states[i];
+                if (state.EmitterEntityId <= 0)
+                {
+                    continue;
+                }
+
+                if (TryResolveAreaCue(state.Phase, out var areaCue, out var effectIndex))
+                {
+                    AddAreaRequest(context, builder, state, areaCue, effectIndex);
+                }
+
+                var lockedTargets = state.LockedTargetEntityIds ?? Array.Empty<int>();
+                for (var targetIndex = 0; targetIndex < lockedTargets.Count; targetIndex++)
+                {
+                    var targetEntityId = lockedTargets[targetIndex];
+                    if (targetEntityId <= 0)
+                    {
+                        continue;
+                    }
+
+                    AddLockedTargetRequest(context, builder, state, targetEntityId, targetIndex);
+                }
+            }
+        }
+
+        private static void AddAreaRequest(
+            GameplayVfxPlanningContext context,
+            GameplayVfxRequestPlanBuilder builder,
+            in GravityFieldVisualState state,
+            GravityFieldVfxCue cue,
+            int effectIndex)
+        {
+            var cueId = GameplayVfxCueId.From(cue);
+            var key = new VfxPersistentKey(
+                cueId,
+                VfxAnchorKind.Cell,
+                entityId: state.EmitterEntityId,
+                cell: state.Cell,
+                hasCell: true,
+                effectIndex: effectIndex);
+            var sequenceId = ResolveStateSequenceId(context.TickIndex, state, effectIndex);
+            builder.Add(
+                new GameplayVfxRequest(
+                    tickIndex: context.TickIndex,
+                    sequenceId: sequenceId,
+                    presentationSeed: sequenceId,
+                    sourceEntityId: state.EmitterEntityId,
+                    cueId: cueId,
+                    anchor: VfxAnchor.ForCell(
+                        state.Cell,
+                        context.Topology,
+                        VfxAnchorSlot.CellCenter),
+                    timing: VfxTimingKind.ImmediateOnTickPresentation,
+                    isPersistent: true,
+                    persistentKey: key));
+        }
+
+        private static void AddLockedTargetRequest(
+            GameplayVfxPlanningContext context,
+            GameplayVfxRequestPlanBuilder builder,
+            in GravityFieldVisualState state,
+            int targetEntityId,
+            int targetIndex)
+        {
+            var cueId = GameplayVfxCueId.From(GravityFieldVfxCue.LockedTarget);
+            var key = new VfxPersistentKey(
+                cueId,
+                VfxAnchorKind.Entity,
+                entityId: targetEntityId,
+                cell: state.Cell,
+                hasCell: true,
+                effectIndex: state.EmitterEntityId);
+            var sequenceId = ResolveLockedTargetSequenceId(context.TickIndex, state, targetEntityId, targetIndex);
+            builder.Add(
+                new GameplayVfxRequest(
+                    tickIndex: context.TickIndex,
+                    sequenceId: sequenceId,
+                    presentationSeed: sequenceId,
+                    sourceEntityId: state.EmitterEntityId,
+                    cueId: cueId,
+                    anchor: VfxAnchor.ForEntity(
+                        targetEntityId,
+                        VfxAnchorSlot.EntityCenter,
+                        state.Cell,
+                        context.Topology,
+                        hasFallbackCell: true),
+                    timing: VfxTimingKind.ImmediateOnTickPresentation,
+                    isPersistent: true,
+                    persistentKey: key));
+        }
+
+        private static bool TryResolveCue(
+            GravityFieldPresentationEventKind kind,
+            out GravityFieldVfxCue cue)
+        {
+            switch (kind)
+            {
+                case GravityFieldPresentationEventKind.Activated:
+                    cue = GravityFieldVfxCue.Activated;
+                    return true;
+                case GravityFieldPresentationEventKind.Expired:
+                    cue = GravityFieldVfxCue.Expired;
+                    return true;
+                default:
+                    cue = default;
+                    return false;
+            }
+        }
+
+        private static bool TryResolveAreaCue(
+            GravityFieldPhase phase,
+            out GravityFieldVfxCue cue,
+            out int effectIndex)
+        {
+            switch (phase)
+            {
+                case GravityFieldPhase.Charging:
+                    cue = GravityFieldVfxCue.ChargingArea;
+                    effectIndex = ChargingAreaEffectIndex;
+                    return true;
+                case GravityFieldPhase.Active:
+                    cue = GravityFieldVfxCue.ActiveArea;
+                    effectIndex = ActiveAreaEffectIndex;
+                    return true;
+                default:
+                    cue = default;
+                    effectIndex = 0;
+                    return false;
+            }
+        }
+
+        private static int ResolveEventSequenceId(
+            int tickIndex,
+            int eventIndex,
+            in GravityFieldPresentationEvent fieldEvent)
+        {
+            unchecked
+            {
+                var hash = tickIndex;
+                hash = (hash * 397) ^ eventIndex;
+                hash = (hash * 397) ^ (int)fieldEvent.Kind;
+                hash = (hash * 397) ^ fieldEvent.EmitterEntityId;
+                hash = (hash * 397) ^ fieldEvent.Cell.GetHashCode();
+                hash = (hash * 397) ^ fieldEvent.TargetEntityId;
+                return hash != 0 ? hash : eventIndex + 1;
+            }
+        }
+
+        private static int ResolveStateSequenceId(
+            int tickIndex,
+            in GravityFieldVisualState state,
+            int effectIndex)
+        {
+            unchecked
+            {
+                var hash = tickIndex;
+                hash = (hash * 397) ^ state.EmitterEntityId;
+                hash = (hash * 397) ^ (int)state.Phase;
+                hash = (hash * 397) ^ state.Cell.GetHashCode();
+                hash = (hash * 397) ^ effectIndex;
+                return hash != 0 ? hash : effectIndex;
+            }
+        }
+
+        private static int ResolveLockedTargetSequenceId(
+            int tickIndex,
+            in GravityFieldVisualState state,
+            int targetEntityId,
+            int targetIndex)
+        {
+            unchecked
+            {
+                var hash = tickIndex;
+                hash = (hash * 397) ^ state.EmitterEntityId;
+                hash = (hash * 397) ^ targetEntityId;
+                hash = (hash * 397) ^ targetIndex;
+                hash = (hash * 397) ^ state.Cell.GetHashCode();
+                return hash != 0 ? hash : targetIndex + 1;
+            }
         }
     }
 

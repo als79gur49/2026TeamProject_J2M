@@ -2,7 +2,7 @@
 
 ## Decision
 
-Gameplay VFX is a presentation-only lane. It is not tile-only, and it serves Player, Box, Enemy, TileFeature, Terrain, Projectile, and Objective/Stage domains.
+Gameplay VFX is a presentation-only lane. It is not tile-only, and it serves Player, Box, Enemy, TileFeature, Terrain, Projectile, Objective/Stage, and GravityField domains.
 
 Gameplay VFX consumes `TickResult.PresentationData`-derived presentation facts. Gameplay VFX must not read WorldState, WorldSnapshot, or TickPipeline, and must not call WorldState.CreateSnapshot. TickPipeline must not execute prefabs or visual effects.
 
@@ -30,6 +30,7 @@ Family-specific planners are:
 - `TerrainVfxRequestPlanner`
 - `ProjectileVfxRequestPlanner`
 - `ObjectiveStageVfxRequestPlanner`
+- `GravityFieldVfxRequestPlanner`
 
 The family planners preserve domain-specific presentation facts and translate them into common request values. They must not collapse gameplay domains into a generic string dispatcher.
 
@@ -37,9 +38,7 @@ The family planners preserve domain-specific presentation facts and translate th
 
 - No production playback connection.
 - No existing presenter migration.
-- No TileFeature runtime implementation.
 - No TileEffect seam implementation.
-- No `TickPresentationData.TileEvents` implementation.
 - No `StagePresentationDefinition` VFX binding implementation.
 
 ## Existing Presenter Coexistence
@@ -1265,6 +1264,10 @@ FlipDestroySelf legacy fallback is finalized. Suppress compatibility gates were 
 
 Box destroy suppress ownership is cleaned up. Old BoxDestroy shrink/fade playback is disabled independently of `EnableGameplayVfxBoxDestroyShrinkMigration`. `EnableGameplayVfxBoxDestroySmokeMigration` gates smoke only and does not own shrink playback. The shrink flag is runtime default-on as a Tier 2 candidate; setting it false now means no shrink VFX.
 
+TileFeature and GravityField visual migration is VFX-lane only. `GameplayTickPresentationCoordinator` must not own `TileFeatureVisualPresentationController`, `GravityFieldVisualPresentationController`, visual registries, or direct VFX controller references for these lanes. TileFeature visuals are planned from `TickPresentationData.TileEvents` by `TileFeatureVfxRequestPlanner`; direction-bearing slide and barricade events encode direction in cue identity, and unsupported directions produce no request. GravityField one-shot activation/expiry events are request-planned by `GravityFieldVfxRequestPlanner`. GravityField continuous area and locked-target visuals are persistent VFX requests reconciled inside `GameplayVfxProductionRuntime`, so missing state in the next presentation tick clears the previous persistent desire through the VFX controller. There is no coordinator fallback for TileFeature or GravityField visual lanes. Turning off `EnableGameplayVfxTileFeatureLane`, `EnableGameplayVfxGravityFieldEvents`, `EnableGameplayVfxGravityFieldContinuous`, or `EnableGameplayVfxGravityFieldLockedTarget` disables only that new VFX lane and does not restore PR #28 direct visual controllers.
+
+TileFeatureAudio and GravityFieldAudio are not VFX. If those lanes are needed, they must remain in an audio-specific path and must not be merged into Gameplay VFX planner/runtime ownership.
+
 | Flag | Cue | Type | Actual Default | Tier | Candidate | Approval Gate |
 |---|---|---|---|---|---|---|
 | `EnableGameplayVfxDamageBurstMigration` | `PlayerVfxCue.Damage` | Migration | True | Tier 1 | Yes | targeted tests + visual spot check |
@@ -1288,6 +1291,10 @@ Box destroy suppress ownership is cleaned up. Old BoxDestroy shrink/fade playbac
 | `EnableGameplayVfxFlipImpactStayTrail` | `BoxVfxCue.FlipImpactStayTrail` | Augmentation / MotionTrack-attached VFX | True | Tier 1 | Yes | targeted MotionTrack-following tests + visual spot check |
 | `EnableGameplayVfxGlideWindTrail` | `EnemyVfxCue.GlideWindTrail` | Augmentation / enemy attached follower | True | Tier 2 | Yes | manual visual approval + targeted motion-attached follower regression |
 | `EnableGameplayVfxChargeBoosterTrail` | `EnemyVfxCue.ChargeBoosterTrail` | Augmentation / enemy attached follower | True | Tier 2 | Yes | manual visual approval + targeted motion-attached follower regression |
+| `EnableGameplayVfxTileFeatureLane` | `TileFeatureVfxCue.*` | Migration / VFX request lane | True | Tier 2 | Yes | targeted planner/runtime regression + visual spot check |
+| `EnableGameplayVfxGravityFieldEvents` | `GravityFieldVfxCue.Activated / GravityFieldVfxCue.Expired` | Migration / VFX request lane | True | Tier 2 | Yes | targeted planner/runtime regression + visual spot check |
+| `EnableGameplayVfxGravityFieldContinuous` | `GravityFieldVfxCue.ChargingArea / GravityFieldVfxCue.ActiveArea` | Migration / persistent state adapter | True | Tier 2 | Yes | targeted planner/runtime regression + manual state visual spot check |
+| `EnableGameplayVfxGravityFieldLockedTarget` | `GravityFieldVfxCue.LockedTarget` | Migration / persistent target adapter | True | Tier 2 | Yes | targeted planner/runtime regression + manual target visual spot check |
 
 ## Binding Asset Ownership
 

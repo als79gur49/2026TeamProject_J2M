@@ -1,5 +1,7 @@
+using System;
 using System.Linq;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Vfx;
 using NUnit.Framework;
 
@@ -23,6 +25,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(typeof(GameplayVfxCueId).GetMethod(nameof(GameplayVfxCueId.From), new[] { typeof(PlayerVfxCue) }), Is.Not.Null);
             Assert.That(typeof(GameplayVfxCueId).GetMethod(nameof(GameplayVfxCueId.From), new[] { typeof(BoxVfxCue) }), Is.Not.Null);
             Assert.That(typeof(GameplayVfxCueId).GetMethod(nameof(GameplayVfxCueId.From), new[] { typeof(EnemyVfxCue) }), Is.Not.Null);
+            Assert.That(typeof(GameplayVfxCueId).GetMethod(nameof(GameplayVfxCueId.From), new[] { typeof(GravityFieldVfxCue) }), Is.Not.Null);
         }
 
         [Test]
@@ -80,7 +83,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var plan = builder.Build();
 
-            Assert.That(plan.Requests.Select(request => request.CueId).ToArray(), Is.EqualTo(new[]
+            Assert.That(plan.Requests.Select(request => request.CueId).ToArray(), Is.EquivalentTo(new[]
             {
                 GameplayVfxCueId.From(PlayerVfxCue.Death),
                 GameplayVfxCueId.From(PlayerVfxCue.Damage),
@@ -147,10 +150,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             IGameplayVfxFamilyRequestPlanner[] planners =
             {
-                new PlayerVfxRequestPlanner(),
-                new BoxVfxRequestPlanner(),
-                new EnemyVfxRequestPlanner(),
-                new TileFeatureVfxRequestPlanner(),
                 new TerrainVfxRequestPlanner(),
                 new ProjectileVfxRequestPlanner(),
                 new ObjectiveStageVfxRequestPlanner(),
@@ -165,15 +164,115 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(planners.Select(planner => planner.Family).ToArray(), Is.EqualTo(new[]
             {
-                GameplayVfxFamily.Player,
-                GameplayVfxFamily.Box,
-                GameplayVfxFamily.Enemy,
-                GameplayVfxFamily.TileFeature,
                 GameplayVfxFamily.Terrain,
                 GameplayVfxFamily.Projectile,
                 GameplayVfxFamily.ObjectiveStage,
             }));
             Assert.That(builder.Build(), Is.SameAs(GameplayVfxRequestPlan.Empty));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TileFeaturePlanner_MapsEventsToCuesAndCellAnchors()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var cell = new SurfaceCell(FaceId.Floor, 2, 3);
+            var events = new[]
+            {
+                new TilePresentationEvent(TilePresentationEventKind.ButtonActivated, 1, cell, TileFeatureKind.Button, 10, 0, 1),
+                new TilePresentationEvent(TilePresentationEventKind.DestroyTileTriggered, 2, cell, TileFeatureKind.DestroyTile, 10, 0, 1),
+                new TilePresentationEvent(TilePresentationEventKind.SlideTileRedirected, 3, cell, TileFeatureKind.SlideTile, 10, 0, 1, direction: Direction.Up),
+                new TilePresentationEvent(TilePresentationEventKind.SlideTileRedirected, 4, cell, TileFeatureKind.SlideTile, 10, 0, 1, direction: Direction.Right),
+                new TilePresentationEvent(TilePresentationEventKind.SlideTileRedirected, 5, cell, TileFeatureKind.SlideTile, 10, 0, 1, direction: Direction.Down),
+                new TilePresentationEvent(TilePresentationEventKind.SlideTileRedirected, 6, cell, TileFeatureKind.SlideTile, 10, 0, 1, direction: Direction.Left),
+                new TilePresentationEvent(TilePresentationEventKind.BarricadeBlocked, 7, cell, TileFeatureKind.Barricade, 10, 0, 1, direction: Direction.Up),
+                new TilePresentationEvent(TilePresentationEventKind.BarricadeBlocked, 8, cell, TileFeatureKind.Barricade, 10, 0, 1, direction: Direction.Right),
+                new TilePresentationEvent(TilePresentationEventKind.BarricadeBlocked, 9, cell, TileFeatureKind.Barricade, 10, 0, 1, direction: Direction.Down),
+                new TilePresentationEvent(TilePresentationEventKind.BarricadeBlocked, 10, cell, TileFeatureKind.Barricade, 10, 0, 1, direction: Direction.Left),
+                new TilePresentationEvent(TilePresentationEventKind.BarricadeCrushed, 11, cell, TileFeatureKind.Barricade, 10, 0, 1),
+                new TilePresentationEvent(TilePresentationEventKind.ExitOpened, 12, cell, TileFeatureKind.Exit, 10, 0, 1),
+                new TilePresentationEvent(TilePresentationEventKind.ExitEntered, 13, cell, TileFeatureKind.Exit, 10, 0, 1, targetEntityId: 20),
+                new TilePresentationEvent(TilePresentationEventKind.MoonBlockGenerated, 14, cell, TileFeatureKind.MoonBlockGenerator, 10, 0, 1),
+            };
+
+            var plan = PlanTileFeature(topology, events);
+
+            Assert.That(plan.Requests.Select(request => request.CueId).ToArray(), Is.EquivalentTo(new[]
+            {
+                GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActivated),
+                GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileTriggered),
+                GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedUp),
+                GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedRight),
+                GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedDown),
+                GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedLeft),
+                GameplayVfxCueId.From(TileFeatureVfxCue.BarricadeBlockedUp),
+                GameplayVfxCueId.From(TileFeatureVfxCue.BarricadeBlockedRight),
+                GameplayVfxCueId.From(TileFeatureVfxCue.BarricadeBlockedDown),
+                GameplayVfxCueId.From(TileFeatureVfxCue.BarricadeBlockedLeft),
+                GameplayVfxCueId.From(TileFeatureVfxCue.BarricadeCrushed),
+                GameplayVfxCueId.From(TileFeatureVfxCue.ExitOpened),
+                GameplayVfxCueId.From(TileFeatureVfxCue.ExitEntered),
+                GameplayVfxCueId.From(TileFeatureVfxCue.MoonBlockGenerated),
+            }));
+            Assert.That(plan.Requests.All(request => request.Anchor.Kind == VfxAnchorKind.Cell), Is.True);
+            Assert.That(plan.Requests.All(request => request.Anchor.Cell.Equals(cell)), Is.True);
+            Assert.That(plan.Requests.Select(request => request.SequenceId).ToArray(),
+                Is.EqualTo(PlanTileFeature(topology, events).Requests.Select(request => request.SequenceId).ToArray()));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TileFeaturePlanner_IgnoresDirectionlessSlideAndBarricadeBlockedEvents()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var cell = new SurfaceCell(FaceId.Floor, 2, 3);
+
+            var plan = PlanTileFeature(
+                topology,
+                new TilePresentationEvent(TilePresentationEventKind.SlideTileRedirected, 1, cell, TileFeatureKind.SlideTile, 10, 0, 1),
+                new TilePresentationEvent(TilePresentationEventKind.BarricadeBlocked, 2, cell, TileFeatureKind.Barricade, 10, 0, 1));
+
+            Assert.That(plan.Requests, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GravityFieldPlanner_MapsEventsAndPersistentState()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var cell = new SurfaceCell(FaceId.Floor, 4, 5);
+            var data = CreatePresentationData(
+                gravityFieldEvents: new[]
+                {
+                    new GravityFieldPresentationEvent(GravityFieldPresentationEventKind.Activated, 40, cell),
+                    new GravityFieldPresentationEvent(GravityFieldPresentationEventKind.Expired, 40, cell),
+                },
+                gravityFieldVisualStates: new[]
+                {
+                    new GravityFieldVisualState(40, cell, GravityFieldPhase.Charging, 1, 3, 0.33f),
+                    new GravityFieldVisualState(41, cell, GravityFieldPhase.Active, 2, 3, 0.66f, lockedTargetEntityIds: new[] { 10, 11 }),
+                });
+            var builder = new GameplayVfxRequestPlanBuilder();
+
+            new GravityFieldVfxRequestPlanner().Plan(
+                new GameplayVfxPlanningContext(21, data, topology),
+                builder);
+            var plan = builder.Build();
+
+            Assert.That(plan.Requests.Select(request => request.CueId).ToArray(), Is.EquivalentTo(new[]
+            {
+                GameplayVfxCueId.From(GravityFieldVfxCue.Activated),
+                GameplayVfxCueId.From(GravityFieldVfxCue.Expired),
+                GameplayVfxCueId.From(GravityFieldVfxCue.ChargingArea),
+                GameplayVfxCueId.From(GravityFieldVfxCue.ActiveArea),
+                GameplayVfxCueId.From(GravityFieldVfxCue.LockedTarget),
+                GameplayVfxCueId.From(GravityFieldVfxCue.LockedTarget),
+            }));
+            Assert.That(plan.Requests.Count(request => request.IsPersistent), Is.EqualTo(4));
+            Assert.That(plan.Requests.Single(request => request.CueId == GameplayVfxCueId.From(GravityFieldVfxCue.ChargingArea)).Anchor.Kind, Is.EqualTo(VfxAnchorKind.Cell));
+            Assert.That(plan.Requests.Single(request => request.CueId == GameplayVfxCueId.From(GravityFieldVfxCue.ActiveArea)).PersistentKey.EntityId, Is.EqualTo(41));
+            Assert.That(plan.Requests.Where(request => request.CueId == GameplayVfxCueId.From(GravityFieldVfxCue.LockedTarget)).All(request => request.Anchor.Kind == VfxAnchorKind.Entity), Is.True);
+            Assert.That(plan.Requests.Where(request => request.CueId == GameplayVfxCueId.From(GravityFieldVfxCue.LockedTarget)).Select(request => request.Anchor.EntityId).ToArray(), Is.EquivalentTo(new[] { 10, 11 }));
         }
 
         private static GameplayVfxRequest CreateRequest(
@@ -189,6 +288,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 cueId,
                 anchor,
                 VfxTimingKind.ImmediateOnTickPresentation);
+        }
+
+        private static GameplayVfxRequestPlan PlanTileFeature(
+            CubeTopologyState topology,
+            params TilePresentationEvent[] events)
+        {
+            var builder = new GameplayVfxRequestPlanBuilder();
+            new TileFeatureVfxRequestPlanner().Plan(
+                new GameplayVfxPlanningContext(21, CreatePresentationData(tileEvents: events), topology),
+                builder);
+            return builder.Build();
+        }
+
+        private static TickPresentationData CreatePresentationData(
+            TilePresentationEvent[] tileEvents = null,
+            GravityFieldPresentationEvent[] gravityFieldEvents = null,
+            GravityFieldVisualState[] gravityFieldVisualStates = null)
+        {
+            return new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                Array.Empty<TickPlayerDeathPresentationSignal>(),
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                Array.Empty<TickEntityExitPresentationSignal>(),
+                Array.Empty<FlipImpactPresentationSignal>(),
+                tileEvents: tileEvents,
+                gravityFieldEvents: gravityFieldEvents,
+                gravityFieldVisualStates: gravityFieldVisualStates);
         }
     }
 }

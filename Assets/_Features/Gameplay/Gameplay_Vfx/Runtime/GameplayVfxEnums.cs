@@ -10,6 +10,7 @@ namespace Game.Feature.Gameplay.Vfx
         Terrain = 5,
         Projectile = 6,
         ObjectiveStage = 7,
+        GravityField = 8,
     }
 
     public enum PlayerVfxCue
@@ -71,6 +72,29 @@ namespace Game.Feature.Gameplay.Vfx
         HazardPulse = 4,
         BuffApplied = 5,
         TileExpired = 6,
+        ButtonActivated = 7,
+        DestroyTileTriggered = 8,
+        SlideTileRedirectedUp = 9,
+        SlideTileRedirectedRight = 10,
+        SlideTileRedirectedDown = 11,
+        SlideTileRedirectedLeft = 12,
+        BarricadeBlockedUp = 13,
+        BarricadeBlockedRight = 14,
+        BarricadeBlockedDown = 15,
+        BarricadeBlockedLeft = 16,
+        BarricadeCrushed = 17,
+        ExitOpened = 18,
+        ExitEntered = 19,
+        MoonBlockGenerated = 20,
+    }
+
+    public enum GravityFieldVfxCue
+    {
+        Activated = 1,
+        Expired = 2,
+        ChargingArea = 3,
+        ActiveArea = 4,
+        LockedTarget = 5,
     }
 
     public enum TerrainVfxCue
