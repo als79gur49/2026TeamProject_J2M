@@ -29,9 +29,9 @@ namespace Game.Feature.UI.Tests
                 });
 
                 viewModel.SetContent(
-                    CreateRow("Main", 0.8f, false),
-                    CreateRow("BGM", 0.6f, false),
-                    CreateRow("SFX", 0.4f, false));
+                    CreateRow(0.8f, false),
+                    CreateRow(0.6f, false),
+                    CreateRow(0.4f, false));
                 audioView.SetVolume(AudioSettingsChannel.Main, 0.25f);
 
                 Assert.That(externalCallCount, Is.EqualTo(1));
@@ -99,13 +99,13 @@ namespace Game.Feature.UI.Tests
                 };
 
                 viewModel.SetContent(
-                    CreateRow("Main", 0.9f, false),
-                    CreateRow("BGM", 0.7f, false),
-                    CreateRow("SFX", 0.5f, false));
+                    CreateRow(0.9f, false),
+                    CreateRow(0.7f, false),
+                    CreateRow(0.5f, false));
                 viewModel.SetContent(
-                    CreateRow("Main", 0.85f, false),
-                    CreateRow("BGM", 0.65f, false),
-                    CreateRow("SFX", 0.45f, false));
+                    CreateRow(0.85f, false),
+                    CreateRow(0.65f, false),
+                    CreateRow(0.45f, false));
                 audioView.SetVolume(AudioSettingsChannel.Main, 0.33f);
 
                 Assert.That(volumeChangedCallCount, Is.EqualTo(1));
@@ -135,19 +135,19 @@ namespace Game.Feature.UI.Tests
         {
             var viewModel = new SettingsAudioViewModel();
             viewModel.SetContent(
-                CreateRow("Main", mainVolume, mainMuted),
-                CreateRow("BGM", bgmVolume, bgmMuted),
-                CreateRow("SFX", sfxVolume, sfxMuted));
+                CreateRow(mainVolume, mainMuted),
+                CreateRow(bgmVolume, bgmMuted),
+                CreateRow(sfxVolume, sfxMuted));
             return viewModel;
         }
 
-        private static AudioSettingsRowViewModel CreateRow(string label, float normalizedValue, bool isMuted)
+        private static AudioSettingsRowViewModel CreateRow(float normalizedValue, bool isMuted)
         {
             var percent = Mathf.RoundToInt(Mathf.Clamp01(normalizedValue) * 100f);
             var valueText = isMuted
                 ? $"{percent}% (Muted)"
                 : $"{percent}%";
-            return new AudioSettingsRowViewModel(label, valueText, normalizedValue, isMuted);
+            return new AudioSettingsRowViewModel(valueText, normalizedValue, isMuted);
         }
 
         private static Slider FindRowSlider(SettingsAudioView audioView, string rowName)

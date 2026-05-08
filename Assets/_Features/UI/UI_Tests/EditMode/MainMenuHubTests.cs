@@ -7,6 +7,7 @@ using Game.Feature.UI.Composition;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 using NUnit.Framework;
+using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
@@ -32,6 +33,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(prefab.transform.Find("MainCommandPanel/StartButton").GetSiblingIndex(), Is.EqualTo(0));
             Assert.That(prefab.transform.Find("MainCommandPanel/SettingsButton").GetSiblingIndex(), Is.EqualTo(1));
             Assert.That(prefab.transform.Find("MainCommandPanel/QuitButton").GetSiblingIndex(), Is.EqualTo(2));
+            AssertCommandButtonHoverScaleEffect(prefab.transform, "MainCommandPanel/StartButton");
+            AssertCommandButtonHoverScaleEffect(prefab.transform, "MainCommandPanel/SettingsButton");
+            AssertCommandButtonHoverScaleEffect(prefab.transform, "MainCommandPanel/QuitButton");
         }
 
         [Test]
@@ -58,63 +62,8 @@ namespace Game.Feature.UI.Tests
             Assert.DoesNotThrow(prefab.ValidateAuthoredStructureOrThrow);
         }
 
-        [TestCase(1920f, 1080f, 640f, 640f)]
-        [TestCase(1280f, 720f, 640f, 516f)]
-        [TestCase(1366f, 768f, 640f, 564f)]
-        [TestCase(600f, 480f, 472f, 276f)]
-        public void MainMenuScreenRuntimeLayout_ClampsSaveSlotPanelWithinContentHost(
-            float parentWidth,
-            float parentHeight,
-            float expectedPanelWidth,
-            float expectedPanelHeight)
-        {
-            var parentObject = CreateSizedRectParent("MainMenuScreenRuntimeLayoutParent", parentWidth, parentHeight);
-            var view = UnityEngine.Object.Instantiate(LoadMainMenuPrefab(), parentObject.transform, false);
-
-            try
-            {
-                view.SetVisible(true);
-                var viewRect = (RectTransform)view.transform;
-                LayoutRebuilder.ForceRebuildLayoutImmediate(viewRect);
-
-                Assert.That(viewRect.anchorMin, Is.EqualTo(Vector2.zero));
-                Assert.That(viewRect.anchorMax, Is.EqualTo(Vector2.one));
-                Assert.That(viewRect.sizeDelta, Is.EqualTo(Vector2.zero));
-                Assert.That(view.transform.Find("TopBar").parent, Is.EqualTo(view.transform));
-                Assert.That(view.transform.Find("ContentHost").parent, Is.EqualTo(view.transform));
-                Assert.That(view.transform.Find("BottomBar").parent, Is.EqualTo(view.transform));
-                Assert.That(view.transform.Find("MainCommandPanel").parent, Is.EqualTo(view.transform));
-                Assert.That(view.GetComponent<VerticalLayoutGroup>(), Is.Not.Null);
-
-                var contentHost = view.transform.Find("ContentHost") as RectTransform;
-                var panelRect = view.SaveSlotPanel.transform as RectTransform;
-                var panelElement = view.SaveSlotPanel.GetComponent<LayoutElement>();
-                Assert.That(contentHost, Is.Not.Null);
-                Assert.That(panelRect, Is.Not.Null);
-                Assert.That(panelRect.parent, Is.EqualTo(contentHost));
-                Assert.That(panelElement, Is.Not.Null);
-                Assert.That(panelElement.preferredWidth, Is.EqualTo(expectedPanelWidth).Within(0.01f));
-                Assert.That(panelElement.preferredHeight, Is.EqualTo(expectedPanelHeight).Within(0.01f));
-                Assert.That(panelRect.rect.width, Is.LessThanOrEqualTo(contentHost.rect.width + 0.01f));
-                Assert.That(panelRect.rect.height, Is.LessThanOrEqualTo(contentHost.rect.height + 0.01f));
-
-                var commandPanel = view.transform.Find("MainCommandPanel") as RectTransform;
-                var commandPanelElement = commandPanel.GetComponent<LayoutElement>();
-                Assert.That(commandPanel.anchorMin, Is.EqualTo(Vector2.zero));
-                Assert.That(commandPanel.anchorMax, Is.EqualTo(Vector2.zero));
-                Assert.That(commandPanel.pivot, Is.EqualTo(Vector2.zero));
-                Assert.That(commandPanel.anchoredPosition, Is.EqualTo(new Vector2(64f, 64f)));
-                Assert.That(commandPanelElement.ignoreLayout, Is.True);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(view.gameObject);
-                UnityEngine.Object.DestroyImmediate(parentObject);
-            }
-        }
-
         [Test]
-        public void MainMenuScreenRuntimeLayout_KeepsSaveSlotCardsAsDirectLayoutChildren()
+        public void MainMenuScreenRuntime_KeepsSaveSlotCardsInSerializedOrder()
         {
             var parentObject = CreateSizedRectParent("MainMenuScreenRuntimeCardLayoutParent", 1280f, 720f);
             var view = UnityEngine.Object.Instantiate(LoadMainMenuPrefab(), parentObject.transform, false);
@@ -126,7 +75,6 @@ namespace Game.Feature.UI.Tests
                 LayoutRebuilder.ForceRebuildLayoutImmediate(viewRect);
 
                 var panel = view.SaveSlotPanel;
-                var panelElement = panel.GetComponent<LayoutElement>();
                 var panelLayout = panel.GetComponent<VerticalLayoutGroup>();
                 var cards = panel.SlotCards;
 
@@ -136,18 +84,11 @@ namespace Game.Feature.UI.Tests
                 Assert.That(panel.GetComponentsInChildren<SaveSlotCardView>(true).Length, Is.EqualTo(3));
                 Assert.That(cards, Has.Length.EqualTo(3));
 
-                var expectedCardHeight = (panelElement.preferredHeight - 16f * 2f) / 3f;
                 for (var i = 0; i < cards.Length; i++)
                 {
                     Assert.That(cards[i], Is.Not.Null);
                     Assert.That(cards[i].transform.parent, Is.EqualTo(panel.transform));
                     Assert.That(cards[i].transform.GetSiblingIndex(), Is.EqualTo(i));
-
-                    var cardElement = cards[i].GetComponent<LayoutElement>();
-                    Assert.That(cardElement, Is.Not.Null);
-                    Assert.That(cardElement.preferredWidth, Is.EqualTo(panelElement.preferredWidth).Within(0.01f));
-                    Assert.That(cardElement.preferredHeight, Is.EqualTo(expectedCardHeight).Within(0.01f));
-                    Assert.That(cardElement.flexibleHeight, Is.EqualTo(0f));
                 }
             }
             finally
@@ -168,9 +109,7 @@ namespace Game.Feature.UI.Tests
                 var cards = new SaveSlotCardView[SaveSlotPanelView.RequiredSlotCardCount];
                 for (var i = 0; i < cards.Length; i++)
                 {
-                    var cardObject = new GameObject($"SaveSlotCard{i + 1}", typeof(RectTransform));
-                    cardObject.transform.SetParent(root.transform, false);
-                    cards[i] = cardObject.AddComponent<SaveSlotCardView>();
+                    cards[i] = CreateAuthoredSaveSlotCard($"SaveSlotCard{i + 1}", root.transform);
                 }
 
                 SetPrivateField(panel, "_slotCards", cards);
@@ -211,9 +150,7 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var panel = root.AddComponent<SaveSlotPanelView>();
-                var cardObject = new GameObject("SaveSlotCard1", typeof(RectTransform));
-                cardObject.transform.SetParent(root.transform, false);
-                var card = cardObject.AddComponent<SaveSlotCardView>();
+                var card = CreateAuthoredSaveSlotCard("SaveSlotCard1", root.transform);
                 SetPrivateField(panel, "_slotCards", new[] { card, null, null });
 
                 root.SetActive(true);
@@ -240,21 +177,30 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SaveSlotCardView_PrimaryRestart_HidesDuplicateRestartButton()
+        public void SaveSlotCardView_EmptySlot_KeepsDetailAndActionRowsInLayout()
         {
-            var root = new GameObject(nameof(SaveSlotCardView_PrimaryRestart_HidesDuplicateRestartButton), typeof(RectTransform));
+            var root = new GameObject(nameof(SaveSlotCardView_EmptySlot_KeepsDetailAndActionRowsInLayout), typeof(RectTransform));
             root.SetActive(false);
             try
             {
                 var card = root.AddComponent<SaveSlotCardView>();
+                AuthorSaveSlotCard(card);
                 root.SetActive(true);
                 InvokePrivate(card, "OnEnable");
 
-                card.Bind(CreateCardViewModel(1, SaveSlotIntentKind.Restart));
+                card.Bind(CreateEmptyCardViewModel(1));
 
+                Assert.That(card.transform.Find("DetailRow").gameObject.activeSelf, Is.True);
+                Assert.That(card.transform.Find("MetaRow").gameObject.activeSelf, Is.True);
+                Assert.That(card.transform.Find("ActionRow").gameObject.activeSelf, Is.True);
+                Assert.That(GetPrivateField<TMP_Text>(card, "_stageLabel").gameObject.activeSelf, Is.True);
+                Assert.That(GetPrivateField<TMP_Text>(card, "_chancesLabel").gameObject.activeSelf, Is.True);
+                Assert.That(GetPrivateField<TMP_Text>(card, "_deathsLabel").gameObject.activeSelf, Is.True);
+                Assert.That(GetPrivateField<TMP_Text>(card, "_lastPlayedLabel").gameObject.activeSelf, Is.True);
                 Assert.That(GetPrivateField<Button>(card, "_primaryButton").gameObject.activeSelf, Is.True);
-                Assert.That(GetPrivateField<Button>(card, "_restartButton").gameObject.activeSelf, Is.False);
+                Assert.That(GetPrivateField<Button>(card, "_primaryButton").interactable, Is.True);
                 Assert.That(GetPrivateField<Button>(card, "_deleteButton").gameObject.activeSelf, Is.True);
+                Assert.That(GetPrivateField<Button>(card, "_deleteButton").interactable, Is.False);
             }
             finally
             {
@@ -555,8 +501,23 @@ namespace Game.Feature.UI.Tests
                 string.Empty,
                 primaryIntentKind.ToString(),
                 primaryIntentKind,
-                showRestart: true,
                 showDelete: true);
+        }
+
+        private static SaveSlotCardViewModel CreateEmptyCardViewModel(int slotNumber)
+        {
+            return new SaveSlotCardViewModel(
+                slotNumber,
+                SaveSlotCardState.Empty,
+                $"Slot {slotNumber}",
+                "Empty",
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                "New Game",
+                SaveSlotIntentKind.NewGame,
+                showDelete: false);
         }
 
         private static ShellHarness CreateShellHarness(bool withPanel)
@@ -614,6 +575,75 @@ namespace Game.Feature.UI.Tests
             var buttonObject = new GameObject(name, typeof(RectTransform));
             buttonObject.transform.SetParent(parent, false);
             return buttonObject.AddComponent<Button>();
+        }
+
+        private static SaveSlotCardView CreateAuthoredSaveSlotCard(string name, Transform parent)
+        {
+            var cardObject = new GameObject(name, typeof(RectTransform));
+            cardObject.transform.SetParent(parent, false);
+            var card = cardObject.AddComponent<SaveSlotCardView>();
+            AuthorSaveSlotCard(card);
+            return card;
+        }
+
+        private static void AuthorSaveSlotCard(SaveSlotCardView card)
+        {
+            var headerRow = CreateRow("HeaderRow", card.transform);
+            var detailRow = CreateRow("DetailRow", card.transform);
+            var metaRow = CreateRow("MetaRow", card.transform);
+            var actionRow = CreateRow("ActionRow", card.transform);
+
+            SetPrivateField(card, "_titleLabel", CreateLabel("Title", headerRow));
+            SetPrivateField(card, "_statusLabel", CreateLabel("Status", headerRow));
+            SetPrivateField(card, "_stageLabel", CreateLabel("Stage", detailRow));
+            SetPrivateField(card, "_chancesLabel", CreateLabel("Chances", detailRow));
+            SetPrivateField(card, "_deathsLabel", CreateLabel("Deaths", metaRow));
+            SetPrivateField(card, "_lastPlayedLabel", CreateLabel("LastPlayed", metaRow));
+
+            var primaryButton = CreateActionButton("PrimaryButton", actionRow, out var primaryButtonLabel);
+            SetPrivateField(card, "_primaryButton", primaryButton);
+            SetPrivateField(card, "_primaryButtonLabel", primaryButtonLabel);
+            SetPrivateField(card, "_deleteButton", CreateActionButton("DeleteButton", actionRow, out _));
+        }
+
+        private static Transform CreateRow(string name, Transform parent)
+        {
+            var rowObject = new GameObject(name, typeof(RectTransform));
+            rowObject.transform.SetParent(parent, false);
+            return rowObject.transform;
+        }
+
+        private static TMP_Text CreateLabel(string name, Transform parent)
+        {
+            var labelObject = new GameObject(name, typeof(RectTransform));
+            labelObject.transform.SetParent(parent, false);
+            return labelObject.AddComponent<TextMeshProUGUI>();
+        }
+
+        private static Button CreateActionButton(string name, Transform parent, out TMP_Text label)
+        {
+            var buttonObject = new GameObject(name, typeof(RectTransform));
+            buttonObject.transform.SetParent(parent, false);
+            var button = buttonObject.AddComponent<Button>();
+            label = CreateLabel("Label", buttonObject.transform);
+            return button;
+        }
+
+        private static void AssertCommandButtonHoverScaleEffect(Transform root, string path)
+        {
+            var button = root.Find(path) as RectTransform;
+            Assert.That(button, Is.Not.Null, path);
+
+            var effect = button.GetComponent<UiHoverScaleEffect>();
+            Assert.That(effect, Is.Not.Null, path);
+
+            var serialized = new SerializedObject(effect);
+            Assert.That(serialized.FindProperty("_target").objectReferenceValue, Is.EqualTo(button), path);
+            Assert.That(serialized.FindProperty("_hoverScale").floatValue, Is.EqualTo(1.10f).Within(0.001f), path);
+            Assert.That(serialized.FindProperty("_pressedScale").floatValue, Is.EqualTo(1.04f).Within(0.001f), path);
+            Assert.That(serialized.FindProperty("_durationSeconds").floatValue, Is.EqualTo(0.12f).Within(0.001f), path);
+            Assert.That(serialized.FindProperty("_useUnscaledTime").boolValue, Is.True, path);
+            Assert.That(serialized.FindProperty("_restoreOnDisable").boolValue, Is.True, path);
         }
 
         private static string ReadRepoFile(string relativePath)

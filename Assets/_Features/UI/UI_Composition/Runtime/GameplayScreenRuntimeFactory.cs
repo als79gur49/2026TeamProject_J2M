@@ -395,9 +395,6 @@ namespace Game.Feature.UI.Composition
                 _inputView.FlipRebindRequested += HandleInputFlipRebindRequested;
                 _inputView.ResetRequested += HandleInputResetRequested;
                 view.SectionSelected += HandleSectionSelected;
-                view.TooltipInfoRequested += HandleTooltipInfoRequested;
-                view.TooltipToggleRequested += HandleTooltipToggleRequested;
-                view.LargeTextToggleRequested += HandleLargeTextToggleRequested;
                 view.BackRequested += HandleBackRequested;
                 _displaySettingsLifecycleRelay.ResyncRequested += HandleDisplayResyncRequested;
                 _displayPreviewSessionHost.CountdownChanged += HandleDisplayPreviewCountdownChanged;
@@ -426,9 +423,6 @@ namespace Game.Feature.UI.Composition
                 _inputView.FlipRebindRequested -= HandleInputFlipRebindRequested;
                 _inputView.ResetRequested -= HandleInputResetRequested;
                 View.SectionSelected -= HandleSectionSelected;
-                View.TooltipInfoRequested -= HandleTooltipInfoRequested;
-                View.TooltipToggleRequested -= HandleTooltipToggleRequested;
-                View.LargeTextToggleRequested -= HandleLargeTextToggleRequested;
                 View.BackRequested -= HandleBackRequested;
                 _displaySettingsLifecycleRelay.ResyncRequested -= HandleDisplayResyncRequested;
                 _displayPreviewSessionHost.CountdownChanged -= HandleDisplayPreviewCountdownChanged;
@@ -456,11 +450,6 @@ namespace Game.Feature.UI.Composition
                 {
                     _presenter.DisplayPresenter.ResyncState(_displayPreviewSessionHost.PreviewTimeoutSeconds);
                 }
-            }
-
-            private void HandleTooltipInfoRequested()
-            {
-                RaiseAction(ScreenAction.Popup(new PopupRequest(PopupId.Tooltip, _presenter.BuildTooltipInfoPayload())));
             }
 
             private void HandleSectionSelected(SettingsSectionId sectionId)
@@ -510,12 +499,6 @@ namespace Game.Feature.UI.Composition
                     })));
             }
 
-            private void HandleTooltipToggleRequested()
-            {
-                _presenter.ToggleTooltips();
-                PlayLocalCue(UiAudioCueId.Toggle);
-            }
-
             private void HandleAudioVolumeChanged(AudioSettingsChannel channel, float value)
             {
                 _presenter.AudioPresenter.SetVolume(channel, value);
@@ -531,12 +514,6 @@ namespace Game.Feature.UI.Composition
             {
                 _presenter.AudioPresenter.Flush();
                 PlayLocalCue(UiAudioCueId.AdjustValueCommit);
-            }
-
-            private void HandleLargeTextToggleRequested()
-            {
-                _presenter.ToggleLargeText();
-                PlayLocalCue(UiAudioCueId.Toggle);
             }
 
             private void HandleDisplayResolutionChanged(int modeIndex)

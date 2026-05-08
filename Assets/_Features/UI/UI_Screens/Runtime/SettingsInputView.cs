@@ -19,10 +19,12 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private TMP_Text _movementCurrentText;
         [SerializeField] private TMP_Text _pushLabel;
         [SerializeField] private TMP_Text _pushCurrentText;
+        [SerializeField] private TMP_Text _pushKeyDisplayLabel;
         [SerializeField] private Button _pushChangeButton;
         [SerializeField] private TMP_Text _pushChangeButtonLabel;
         [SerializeField] private TMP_Text _flipLabel;
         [SerializeField] private TMP_Text _flipCurrentText;
+        [SerializeField] private TMP_Text _flipKeyDisplayLabel;
         [SerializeField] private Button _flipChangeButton;
         [SerializeField] private TMP_Text _flipChangeButtonLabel;
         [SerializeField] private TMP_Text _statusText;
@@ -32,10 +34,6 @@ namespace Game.Feature.UI.Screens
         private bool _isRefreshingControls;
         private bool _isVisible;
         private SettingsInputViewModel _viewModel;
-        private RectTransform _movementRowRoot;
-        private RectTransform _pushRowRoot;
-        private RectTransform _flipRowRoot;
-        private RectTransform _resetRowRoot;
 
         public event Action<bool> MovementSchemeToggleRequested;
 
@@ -81,10 +79,12 @@ namespace Game.Feature.UI.Screens
             ValidateControl(_movementCurrentText, nameof(_movementCurrentText), issues);
             ValidateControl(_pushLabel, nameof(_pushLabel), issues);
             ValidateControl(_pushCurrentText, nameof(_pushCurrentText), issues);
+            ValidateControl(_pushKeyDisplayLabel, nameof(_pushKeyDisplayLabel), issues);
             ValidateControl(_pushChangeButton, nameof(_pushChangeButton), issues);
             ValidateControl(_pushChangeButtonLabel, nameof(_pushChangeButtonLabel), issues);
             ValidateControl(_flipLabel, nameof(_flipLabel), issues);
             ValidateControl(_flipCurrentText, nameof(_flipCurrentText), issues);
+            ValidateControl(_flipKeyDisplayLabel, nameof(_flipKeyDisplayLabel), issues);
             ValidateControl(_flipChangeButton, nameof(_flipChangeButton), issues);
             ValidateControl(_flipChangeButtonLabel, nameof(_flipChangeButtonLabel), issues);
             ValidateControl(_statusText, nameof(_statusText), issues);
@@ -115,7 +115,7 @@ namespace Game.Feature.UI.Screens
 
         public void ClickPushChange()
         {
-            if (!_isVisible)
+            if (!_isVisible || IsRebinding)
             {
                 return;
             }
@@ -125,7 +125,7 @@ namespace Game.Feature.UI.Screens
 
         public void ClickFlipChange()
         {
-            if (!_isVisible)
+            if (!_isVisible || IsRebinding)
             {
                 return;
             }
@@ -135,7 +135,7 @@ namespace Game.Feature.UI.Screens
 
         public void ClickReset()
         {
-            if (!_isVisible)
+            if (!_isVisible || IsRebinding)
             {
                 return;
             }
@@ -164,10 +164,12 @@ namespace Game.Feature.UI.Screens
             ValidateSerializedReference(_movementCurrentText, nameof(_movementCurrentText));
             ValidateSerializedReference(_pushLabel, nameof(_pushLabel));
             ValidateSerializedReference(_pushCurrentText, nameof(_pushCurrentText));
+            ValidateSerializedReference(_pushKeyDisplayLabel, nameof(_pushKeyDisplayLabel));
             ValidateSerializedReference(_pushChangeButton, nameof(_pushChangeButton));
             ValidateSerializedReference(_pushChangeButtonLabel, nameof(_pushChangeButtonLabel));
             ValidateSerializedReference(_flipLabel, nameof(_flipLabel));
             ValidateSerializedReference(_flipCurrentText, nameof(_flipCurrentText));
+            ValidateSerializedReference(_flipKeyDisplayLabel, nameof(_flipKeyDisplayLabel));
             ValidateSerializedReference(_flipChangeButton, nameof(_flipChangeButton));
             ValidateSerializedReference(_flipChangeButtonLabel, nameof(_flipChangeButtonLabel));
             ValidateSerializedReference(_statusText, nameof(_statusText));
@@ -201,100 +203,6 @@ namespace Game.Feature.UI.Screens
             RefreshView();
         }
 
-        private void LayoutControls()
-        {
-            SettingsLayoutUtility.EnsureVerticalLayout(
-                gameObject,
-                new RectOffset(0, 0, 0, 0),
-                14f,
-                TextAnchor.UpperLeft);
-
-            _movementRowRoot = SettingsLayoutUtility.EnsureChildRect(transform, "MovementInputRow");
-            _pushRowRoot = SettingsLayoutUtility.EnsureChildRect(transform, "PushInputRow");
-            _flipRowRoot = SettingsLayoutUtility.EnsureChildRect(transform, "FlipInputRow");
-            _resetRowRoot = SettingsLayoutUtility.EnsureChildRect(transform, "InputResetRow");
-
-            LayoutSectionTitle();
-            LayoutMovementRow();
-            LayoutBindingRow(_pushRowRoot, _pushLabel, _pushCurrentText, _pushChangeButton);
-            LayoutBindingRow(_flipRowRoot, _flipLabel, _flipCurrentText, _flipChangeButton);
-            LayoutStatusAndReset();
-            ApplyLayoutOrder();
-        }
-
-        private void LayoutSectionTitle()
-        {
-            SettingsLayoutUtility.MoveToParent(_sectionTitle != null ? _sectionTitle.rectTransform : null, transform as RectTransform);
-            SettingsLayoutUtility.EnsureLayoutElement(_sectionTitle, preferredHeight: 24f, flexibleWidth: 1f);
-        }
-
-        private void LayoutMovementRow()
-        {
-            ConfigureRow(_movementRowRoot, 32f);
-            SettingsLayoutUtility.MoveToParent(_movementLabel != null ? _movementLabel.rectTransform : null, _movementRowRoot);
-            SettingsLayoutUtility.MoveToParent(_movementToggle, _movementRowRoot);
-            SettingsLayoutUtility.MoveToParent(_movementCurrentText != null ? _movementCurrentText.rectTransform : null, _movementRowRoot);
-            SettingsLayoutUtility.EnsureLayoutElement(_movementLabel, preferredWidth: 132f, preferredHeight: 24f);
-            SettingsLayoutUtility.EnsureLayoutElement(_movementToggle, preferredWidth: 150f, preferredHeight: 28f);
-            SettingsLayoutUtility.EnsureLayoutElement(_movementCurrentText, preferredHeight: 24f, flexibleWidth: 1f);
-        }
-
-        private void LayoutBindingRow(RectTransform rowRoot, TMP_Text label, TMP_Text currentText, Button changeButton)
-        {
-            ConfigureRow(rowRoot, 32f);
-            SettingsLayoutUtility.MoveToParent(label != null ? label.rectTransform : null, rowRoot);
-            SettingsLayoutUtility.MoveToParent(currentText != null ? currentText.rectTransform : null, rowRoot);
-            SettingsLayoutUtility.MoveToParent(changeButton, rowRoot);
-            SettingsLayoutUtility.EnsureLayoutElement(label, preferredWidth: 132f, preferredHeight: 24f);
-            SettingsLayoutUtility.EnsureLayoutElement(currentText, preferredHeight: 24f, flexibleWidth: 1f);
-            SettingsLayoutUtility.EnsureLayoutElement(changeButton, preferredWidth: 116f, preferredHeight: 30f);
-        }
-
-        private void LayoutStatusAndReset()
-        {
-            SettingsLayoutUtility.MoveToParent(_statusText != null ? _statusText.rectTransform : null, transform as RectTransform);
-            SettingsLayoutUtility.EnsureLayoutElement(_statusText, preferredHeight: 28f, flexibleWidth: 1f);
-
-            SettingsLayoutUtility.EnsureHorizontalLayout(
-                _resetRowRoot.gameObject,
-                new RectOffset(0, 0, 0, 0),
-                0f,
-                TextAnchor.MiddleCenter);
-            SettingsLayoutUtility.EnsureLayoutElement(_resetRowRoot, preferredHeight: 34f, flexibleWidth: 1f);
-            SettingsLayoutUtility.FillLayoutChild(_resetRowRoot);
-            SettingsLayoutUtility.MoveToParent(_resetButton, _resetRowRoot);
-            SettingsLayoutUtility.EnsureLayoutElement(_resetButton, preferredWidth: 156f, preferredHeight: 32f);
-        }
-
-        private static void ConfigureRow(RectTransform rowRoot, float preferredHeight)
-        {
-            SettingsLayoutUtility.EnsureHorizontalLayout(
-                rowRoot.gameObject,
-                new RectOffset(0, 0, 0, 0),
-                10f,
-                TextAnchor.MiddleLeft);
-            SettingsLayoutUtility.EnsureLayoutElement(rowRoot, preferredHeight: preferredHeight, flexibleWidth: 1f);
-            SettingsLayoutUtility.FillLayoutChild(rowRoot);
-        }
-
-        private void ApplyLayoutOrder()
-        {
-            if (_sectionTitle != null)
-            {
-                _sectionTitle.transform.SetSiblingIndex(0);
-            }
-
-            _movementRowRoot.SetSiblingIndex(1);
-            _pushRowRoot.SetSiblingIndex(2);
-            _flipRowRoot.SetSiblingIndex(3);
-            if (_statusText != null)
-            {
-                _statusText.transform.SetSiblingIndex(4);
-            }
-
-            _resetRowRoot.SetSiblingIndex(5);
-        }
-
         private void RefreshControls()
         {
             if (_viewModel == null)
@@ -311,9 +219,11 @@ namespace Game.Feature.UI.Screens
                 SetText(_movementCurrentText, _viewModel.MovementCurrentText);
                 SetText(_pushLabel, _viewModel.PushLabel);
                 SetText(_pushCurrentText, _viewModel.PushCurrentText);
+                SetKeyDisplayText(_pushKeyDisplayLabel, _viewModel.PushCurrentText);
                 SetText(_pushChangeButtonLabel, _viewModel.PushChangeLabel);
                 SetText(_flipLabel, _viewModel.FlipLabel);
                 SetText(_flipCurrentText, _viewModel.FlipCurrentText);
+                SetKeyDisplayText(_flipKeyDisplayLabel, _viewModel.FlipCurrentText);
                 SetText(_flipChangeButtonLabel, _viewModel.FlipChangeLabel);
                 SetText(_statusText, _viewModel.StatusText);
                 SetText(_resetButtonLabel, _viewModel.ResetLabel);
@@ -324,20 +234,15 @@ namespace Game.Feature.UI.Screens
                     _movementToggle.interactable = _viewModel.AreControlsInteractable;
                 }
 
-                if (_pushChangeButton != null)
-                {
-                    _pushChangeButton.interactable = _viewModel.AreControlsInteractable;
-                }
-
-                if (_flipChangeButton != null)
-                {
-                    _flipChangeButton.interactable = _viewModel.AreControlsInteractable;
-                }
-
-                if (_resetButton != null)
-                {
-                    _resetButton.interactable = _viewModel.AreControlsInteractable;
-                }
+                ApplyRebindButtonState(
+                    _pushChangeButton,
+                    _viewModel.AreControlsInteractable,
+                    _viewModel.IsRebinding && _viewModel.RebindingAction == KeyboardBindableAction.Push);
+                ApplyRebindButtonState(
+                    _flipChangeButton,
+                    _viewModel.AreControlsInteractable,
+                    _viewModel.IsRebinding && _viewModel.RebindingAction == KeyboardBindableAction.Flip);
+                ApplyRebindButtonState(_resetButton, _viewModel.AreControlsInteractable, isHighlighted: false);
             }
             finally
             {
@@ -345,10 +250,11 @@ namespace Game.Feature.UI.Screens
             }
         }
 
+        private bool IsRebinding => _viewModel != null && _viewModel.IsRebinding;
+
         private void RefreshView()
         {
             RebindControls();
-            LayoutControls();
             RefreshControls();
         }
 
@@ -382,6 +288,70 @@ namespace Game.Feature.UI.Screens
             if (label != null)
             {
                 label.text = text ?? string.Empty;
+            }
+        }
+
+        private static void SetKeyDisplayText(TMP_Text label, string text)
+        {
+            if (label == null)
+            {
+                return;
+            }
+
+            label.enableAutoSizing = true;
+            label.fontSizeMin = 9f;
+            label.fontSizeMax = Mathf.Max(label.fontSizeMax, label.fontSize);
+            label.text = text ?? string.Empty;
+        }
+
+        private static void ApplyRebindButtonState(Button button, bool areControlsInteractable, bool isHighlighted)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            if (isHighlighted)
+            {
+                button.interactable = true;
+                PlayButtonAnimation(button, button.animationTriggers.highlightedTrigger);
+                return;
+            }
+
+            button.interactable = areControlsInteractable;
+            PlayButtonAnimation(
+                button,
+                areControlsInteractable
+                    ? button.animationTriggers.normalTrigger
+                    : button.animationTriggers.disabledTrigger);
+        }
+
+        private static void PlayButtonAnimation(Button button, string triggerName)
+        {
+            if (button == null || string.IsNullOrEmpty(triggerName))
+            {
+                return;
+            }
+
+            var animator = button.GetComponent<Animator>();
+            if (animator == null || !animator.isActiveAndEnabled || animator.runtimeAnimatorController == null)
+            {
+                return;
+            }
+
+            ResetTrigger(animator, button.animationTriggers.normalTrigger);
+            ResetTrigger(animator, button.animationTriggers.highlightedTrigger);
+            ResetTrigger(animator, button.animationTriggers.pressedTrigger);
+            ResetTrigger(animator, button.animationTriggers.selectedTrigger);
+            ResetTrigger(animator, button.animationTriggers.disabledTrigger);
+            animator.SetTrigger(triggerName);
+        }
+
+        private static void ResetTrigger(Animator animator, string triggerName)
+        {
+            if (animator != null && !string.IsNullOrEmpty(triggerName))
+            {
+                animator.ResetTrigger(triggerName);
             }
         }
 

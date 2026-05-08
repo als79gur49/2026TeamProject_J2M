@@ -37,16 +37,6 @@ namespace Game.Feature.UI.Screens
             "Audio",
             "Display",
             "Input",
-            "Main",
-            "Background Music",
-            "Effects",
-            "Display",
-            "Current Display",
-            "Resolution",
-            "Only automatically detected resolutions are shown.",
-            "Fullscreen Window",
-            "Apply",
-            "Revert",
             "Input",
             "Movement Keys",
             "Use Arrow Keys",
@@ -54,40 +44,16 @@ namespace Game.Feature.UI.Screens
             "Flip",
             "Change",
             "Reset Input",
-            "Toggle Tooltips",
-            "Toggle Large Text",
             "Back");
 
         public SettingsScreenPayload(
             string titleText,
-            string mainAudioLabel,
-            string bgmAudioLabel,
-            string sfxAudioLabel,
-            string displaySectionTitle,
-            string currentDisplayLabel,
-            string resolutionLabel,
-            string resolutionHoverHintText,
-            string fullscreenLabel,
-            string displayApplyLabel,
-            string displayRevertLabel,
-            string tooltipToggleLabel,
-            string largeTextToggleLabel,
             string backLabel)
             : this(
                 titleText,
                 "Audio",
                 "Display",
                 "Input",
-                mainAudioLabel,
-                bgmAudioLabel,
-                sfxAudioLabel,
-                displaySectionTitle,
-                currentDisplayLabel,
-                resolutionLabel,
-                resolutionHoverHintText,
-                fullscreenLabel,
-                displayApplyLabel,
-                displayRevertLabel,
                 "Input",
                 "Movement Keys",
                 "Use Arrow Keys",
@@ -95,8 +61,6 @@ namespace Game.Feature.UI.Screens
                 "Flip",
                 "Change",
                 "Reset Input",
-                tooltipToggleLabel,
-                largeTextToggleLabel,
                 backLabel)
         {
         }
@@ -106,16 +70,6 @@ namespace Game.Feature.UI.Screens
             string audioTabLabel,
             string displayTabLabel,
             string inputTabLabel,
-            string mainAudioLabel,
-            string bgmAudioLabel,
-            string sfxAudioLabel,
-            string displaySectionTitle,
-            string currentDisplayLabel,
-            string resolutionLabel,
-            string resolutionHoverHintText,
-            string fullscreenLabel,
-            string displayApplyLabel,
-            string displayRevertLabel,
             string inputSectionTitle,
             string movementLabel,
             string useArrowKeysLabel,
@@ -123,24 +77,12 @@ namespace Game.Feature.UI.Screens
             string flipLabel,
             string inputChangeLabel,
             string resetInputLabel,
-            string tooltipToggleLabel,
-            string largeTextToggleLabel,
             string backLabel)
         {
             TitleText = titleText ?? string.Empty;
             AudioTabLabel = audioTabLabel ?? string.Empty;
             DisplayTabLabel = displayTabLabel ?? string.Empty;
             InputTabLabel = inputTabLabel ?? string.Empty;
-            MainAudioLabel = mainAudioLabel ?? string.Empty;
-            BgmAudioLabel = bgmAudioLabel ?? string.Empty;
-            SfxAudioLabel = sfxAudioLabel ?? string.Empty;
-            DisplaySectionTitle = displaySectionTitle ?? string.Empty;
-            CurrentDisplayLabel = currentDisplayLabel ?? string.Empty;
-            ResolutionLabel = resolutionLabel ?? string.Empty;
-            ResolutionHoverHintText = resolutionHoverHintText ?? string.Empty;
-            FullscreenLabel = fullscreenLabel ?? string.Empty;
-            DisplayApplyLabel = displayApplyLabel ?? string.Empty;
-            DisplayRevertLabel = displayRevertLabel ?? string.Empty;
             InputSectionTitle = inputSectionTitle ?? string.Empty;
             MovementLabel = movementLabel ?? string.Empty;
             UseArrowKeysLabel = useArrowKeysLabel ?? string.Empty;
@@ -148,8 +90,6 @@ namespace Game.Feature.UI.Screens
             FlipLabel = flipLabel ?? string.Empty;
             InputChangeLabel = inputChangeLabel ?? string.Empty;
             ResetInputLabel = resetInputLabel ?? string.Empty;
-            TooltipToggleLabel = tooltipToggleLabel ?? string.Empty;
-            LargeTextToggleLabel = largeTextToggleLabel ?? string.Empty;
             BackLabel = backLabel ?? string.Empty;
         }
 
@@ -160,26 +100,6 @@ namespace Game.Feature.UI.Screens
         public string DisplayTabLabel { get; }
 
         public string InputTabLabel { get; }
-
-        public string MainAudioLabel { get; }
-
-        public string BgmAudioLabel { get; }
-
-        public string SfxAudioLabel { get; }
-
-        public string DisplaySectionTitle { get; }
-
-        public string CurrentDisplayLabel { get; }
-
-        public string ResolutionLabel { get; }
-
-        public string ResolutionHoverHintText { get; }
-
-        public string FullscreenLabel { get; }
-
-        public string DisplayApplyLabel { get; }
-
-        public string DisplayRevertLabel { get; }
 
         public string InputSectionTitle { get; }
 
@@ -195,10 +115,6 @@ namespace Game.Feature.UI.Screens
 
         public string ResetInputLabel { get; }
 
-        public string TooltipToggleLabel { get; }
-
-        public string LargeTextToggleLabel { get; }
-
         public string BackLabel { get; }
     }
 
@@ -212,18 +128,14 @@ namespace Game.Feature.UI.Screens
     public readonly struct AudioSettingsRowViewModel
     {
         public AudioSettingsRowViewModel(
-            string labelText,
             string valueText,
             float normalizedValue,
             bool isMuted)
         {
-            LabelText = labelText ?? string.Empty;
             ValueText = valueText ?? string.Empty;
             NormalizedValue = normalizedValue;
             IsMuted = isMuted;
         }
-
-        public string LabelText { get; }
 
         public string ValueText { get; }
 
@@ -366,31 +278,17 @@ namespace Game.Feature.UI.Screens
     {
         public event Action Changed;
 
-        public string DisplaySectionTitle { get; private set; } = string.Empty;
-
-        public string CurrentDisplayLabel { get; private set; } = string.Empty;
-
         public string CurrentDisplayValueText { get; private set; } = string.Empty;
-
-        public string ResolutionLabel { get; private set; } = string.Empty;
-
-        public string ResolutionHoverHintText { get; private set; } = string.Empty;
 
         public IReadOnlyList<string> ResolutionOptionTexts { get; private set; } = Array.Empty<string>();
 
         public int SelectedResolutionIndex { get; private set; }
 
-        public string FullscreenLabel { get; private set; } = string.Empty;
-
         public bool IsFullscreenEnabled { get; private set; }
 
         public string DisplayStatusText { get; private set; } = string.Empty;
 
-        public string DisplayApplyLabel { get; private set; } = string.Empty;
-
         public bool IsDisplayApplyInteractable { get; private set; }
-
-        public string DisplayRevertLabel { get; private set; } = string.Empty;
 
         public bool IsDisplayRevertInteractable { get; private set; }
 
@@ -403,38 +301,24 @@ namespace Game.Feature.UI.Screens
         public bool IsPreviewCountdownVisible { get; private set; }
 
         public void SetContent(
-            string displaySectionTitle,
-            string currentDisplayLabel,
             string currentDisplayValueText,
-            string resolutionLabel,
-            string resolutionHoverHintText,
             IReadOnlyList<string> resolutionOptionTexts,
             int selectedResolutionIndex,
-            string fullscreenLabel,
             bool isFullscreenEnabled,
             string displayStatusText,
-            string displayApplyLabel,
             bool isDisplayApplyInteractable,
-            string displayRevertLabel,
             bool isDisplayRevertInteractable,
             bool isDisplayPreviewActive,
             string previewCountdownText,
             float previewCountdownNormalized,
             bool isPreviewCountdownVisible)
         {
-            DisplaySectionTitle = displaySectionTitle ?? string.Empty;
-            CurrentDisplayLabel = currentDisplayLabel ?? string.Empty;
             CurrentDisplayValueText = currentDisplayValueText ?? string.Empty;
-            ResolutionLabel = resolutionLabel ?? string.Empty;
-            ResolutionHoverHintText = resolutionHoverHintText ?? string.Empty;
             ResolutionOptionTexts = resolutionOptionTexts ?? Array.Empty<string>();
             SelectedResolutionIndex = selectedResolutionIndex;
-            FullscreenLabel = fullscreenLabel ?? string.Empty;
             IsFullscreenEnabled = isFullscreenEnabled;
             DisplayStatusText = displayStatusText ?? string.Empty;
-            DisplayApplyLabel = displayApplyLabel ?? string.Empty;
             IsDisplayApplyInteractable = isDisplayApplyInteractable;
-            DisplayRevertLabel = displayRevertLabel ?? string.Empty;
             IsDisplayRevertInteractable = isDisplayRevertInteractable;
             IsDisplayPreviewActive = isDisplayPreviewActive;
             PreviewCountdownText = previewCountdownText ?? string.Empty;
@@ -476,6 +360,8 @@ namespace Game.Feature.UI.Screens
 
         public bool IsRebinding { get; private set; }
 
+        public KeyboardBindableAction? RebindingAction { get; private set; }
+
         public bool AreControlsInteractable { get; private set; } = true;
 
         public void SetContent(
@@ -493,6 +379,7 @@ namespace Game.Feature.UI.Screens
             string resetLabel,
             string statusText,
             bool isRebinding,
+            KeyboardBindableAction? rebindingAction,
             bool areControlsInteractable)
         {
             SectionTitle = sectionTitle ?? string.Empty;
@@ -509,6 +396,7 @@ namespace Game.Feature.UI.Screens
             ResetLabel = resetLabel ?? string.Empty;
             StatusText = statusText ?? string.Empty;
             IsRebinding = isRebinding;
+            RebindingAction = rebindingAction;
             AreControlsInteractable = areControlsInteractable;
             Changed?.Invoke();
         }
@@ -519,14 +407,6 @@ namespace Game.Feature.UI.Screens
         public event Action Changed;
 
         public string TitleText { get; private set; } = string.Empty;
-
-        public string TooltipStatusText { get; private set; } = string.Empty;
-
-        public string LargeTextStatusText { get; private set; } = string.Empty;
-
-        public string TooltipToggleLabel { get; private set; } = string.Empty;
-
-        public string LargeTextToggleLabel { get; private set; } = string.Empty;
 
         public string BackLabel { get; private set; } = string.Empty;
 
@@ -540,10 +420,6 @@ namespace Game.Feature.UI.Screens
 
         public void SetContent(
             string titleText,
-            string tooltipStatusText,
-            string largeTextStatusText,
-            string tooltipToggleLabel,
-            string largeTextToggleLabel,
             string backLabel,
             string audioTabLabel = "Audio",
             string displayTabLabel = "Display",
@@ -551,10 +427,6 @@ namespace Game.Feature.UI.Screens
             SettingsSectionId selectedSection = SettingsSectionId.Audio)
         {
             TitleText = titleText ?? string.Empty;
-            TooltipStatusText = tooltipStatusText ?? string.Empty;
-            LargeTextStatusText = largeTextStatusText ?? string.Empty;
-            TooltipToggleLabel = tooltipToggleLabel ?? string.Empty;
-            LargeTextToggleLabel = largeTextToggleLabel ?? string.Empty;
             BackLabel = backLabel ?? string.Empty;
             AudioTabLabel = audioTabLabel ?? string.Empty;
             DisplayTabLabel = displayTabLabel ?? string.Empty;

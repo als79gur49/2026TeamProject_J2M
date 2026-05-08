@@ -44,6 +44,8 @@ namespace Game.Feature.UI.Screens
                 {
                     throw new InvalidOperationException(MissingAuthoredStructureMessage);
                 }
+
+                card.ValidateAuthoredStructureOrThrow();
             }
         }
 

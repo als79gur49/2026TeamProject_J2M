@@ -77,7 +77,7 @@ namespace Game.Feature.UI.Tests
                 var displayView = view.DisplayView;
                 var countdownRoot = GetDisplayPrivateField<RectTransform>(displayView, "_previewCountdownRoot");
                 var countdownLabel = GetDisplayPrivateField<TMP_Text>(displayView, "_previewCountdownLabel");
-                var countdownFill = GetDisplayPrivateField<Image>(displayView, "_previewCountdownFill");
+                var countdownSlider = GetDisplayPrivateField<Slider>(displayView, "_previewCountdownSlider");
 
                 Assert.That(countdownRoot.gameObject.activeSelf, Is.False);
 
@@ -87,18 +87,18 @@ namespace Game.Feature.UI.Tests
 
                 Assert.That(countdownRoot.gameObject.activeSelf, Is.True);
                 Assert.That(countdownLabel.text, Is.EqualTo("Reverting in 15s"));
-                Assert.That(countdownFill.fillAmount, Is.EqualTo(1f).Within(0.0001f));
-                var initialWidth = countdownFill.rectTransform.sizeDelta.x;
-                Assert.That(initialWidth, Is.GreaterThan(0f));
+                Assert.That(countdownSlider.interactable, Is.False);
+                Assert.That(countdownSlider.minValue, Is.EqualTo(0f));
+                Assert.That(countdownSlider.maxValue, Is.EqualTo(1f));
+                Assert.That(countdownSlider.wholeNumbers, Is.False);
+                Assert.That(countdownSlider.value, Is.EqualTo(1f).Within(0.0001f));
 
                 now = 1.1d;
                 InvokePrivateMethod(runtimeContext.TimeoutRelay, "Update");
 
                 Assert.That(countdownRoot.gameObject.activeSelf, Is.True);
                 Assert.That(countdownLabel.text, Is.EqualTo("Reverting in 14s"));
-                Assert.That(countdownFill.fillAmount, Is.EqualTo(14f / 15f).Within(0.0001f));
-                Assert.That(countdownFill.rectTransform.sizeDelta.x, Is.LessThan(initialWidth));
-                Assert.That(countdownFill.rectTransform.sizeDelta.x, Is.EqualTo(initialWidth * (14f / 15f)).Within(0.01f));
+                Assert.That(countdownSlider.value, Is.EqualTo(14f / 15f).Within(0.0001f));
             }
             finally
             {
@@ -196,7 +196,7 @@ namespace Game.Feature.UI.Tests
                 var displayView = view.DisplayView;
                 var countdownRoot = GetDisplayPrivateField<RectTransform>(displayView, "_previewCountdownRoot");
                 var countdownLabel = GetDisplayPrivateField<TMP_Text>(displayView, "_previewCountdownLabel");
-                var countdownFill = GetDisplayPrivateField<Image>(displayView, "_previewCountdownFill");
+                var countdownSlider = GetDisplayPrivateField<Slider>(displayView, "_previewCountdownSlider");
 
                 displayView.SelectResolution(2);
                 displayView.ClickApply();
@@ -208,14 +208,14 @@ namespace Game.Feature.UI.Tests
                 Assert.That(displayPort.RevertPreviewCallCount, Is.EqualTo(1));
                 Assert.That(countdownRoot.gameObject.activeSelf, Is.False);
                 Assert.That(countdownLabel.text, Is.EqualTo(string.Empty));
-                Assert.That(countdownFill.fillAmount, Is.Zero);
+                Assert.That(countdownSlider.value, Is.Zero);
 
                 result.Runtime.SetIsCurrent(false);
                 result.Runtime.SetIsCurrent(true);
 
                 Assert.That(countdownRoot.gameObject.activeSelf, Is.False);
                 Assert.That(countdownLabel.text, Is.EqualTo(string.Empty));
-                Assert.That(countdownFill.fillAmount, Is.Zero);
+                Assert.That(countdownSlider.value, Is.Zero);
             }
             finally
             {

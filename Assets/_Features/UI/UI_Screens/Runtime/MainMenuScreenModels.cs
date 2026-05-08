@@ -87,7 +87,6 @@ namespace Game.Feature.UI.Screens
             string lastPlayedText,
             string primaryActionText,
             SaveSlotIntentKind primaryIntentKind,
-            bool showRestart,
             bool showDelete)
         {
             SlotNumber = slotNumber;
@@ -100,7 +99,6 @@ namespace Game.Feature.UI.Screens
             LastPlayedText = lastPlayedText ?? string.Empty;
             PrimaryActionText = primaryActionText ?? string.Empty;
             PrimaryIntentKind = primaryIntentKind;
-            ShowRestart = showRestart;
             ShowDelete = showDelete;
         }
 
@@ -123,8 +121,6 @@ namespace Game.Feature.UI.Screens
         public string PrimaryActionText { get; }
 
         public SaveSlotIntentKind PrimaryIntentKind { get; }
-
-        public bool ShowRestart { get; }
 
         public bool ShowDelete { get; }
     }
@@ -202,7 +198,6 @@ namespace Game.Feature.UI.Screens
                     string.Empty,
                     "New Game",
                     SaveSlotIntentKind.NewGame,
-                    showRestart: false,
                     showDelete: false);
             }
 
@@ -232,7 +227,6 @@ namespace Game.Feature.UI.Screens
                     FormatLastPlayedText(slot.LastPlayedAt),
                     "Restart",
                     SaveSlotIntentKind.Restart,
-                    showRestart: true,
                     showDelete: true);
             }
 
@@ -250,7 +244,6 @@ namespace Game.Feature.UI.Screens
                     FormatLastPlayedText(slot.LastPlayedAt),
                     "Restart",
                     SaveSlotIntentKind.Restart,
-                    showRestart: true,
                     showDelete: true);
             }
 
@@ -265,7 +258,6 @@ namespace Game.Feature.UI.Screens
                 FormatLastPlayedText(slot.LastPlayedAt),
                 "Continue",
                 SaveSlotIntentKind.Continue,
-                showRestart: false,
                 showDelete: true);
         }
 

@@ -92,7 +92,7 @@ namespace Game.Feature.UI.Tests
     public sealed class SettingsScreenPresenterTests
     {
         [Test]
-        public void SettingsScreenPresenter_BuildTooltipInfoPayload_RemainsBoundedAndStateAware()
+        public void SettingsScreenPresenter_RootState_RemainsBoundedToShellOnly()
         {
             var presenter = new SettingsScreenPresenter(
                 new AccessibilitySettingsStore(),
@@ -100,45 +100,14 @@ namespace Game.Feature.UI.Tests
                 new FakeDisplaySettingsPort());
 
             presenter.Apply(SettingsScreenPayload.Default, 15d);
-
-            var enabledPayload = presenter.BuildTooltipInfoPayload();
-            Assert.That(enabledPayload.TitleText, Is.EqualTo("Tooltips"));
-            Assert.That(enabledPayload.BodyText, Does.Contain("short contextual hints"));
-            Assert.That(enabledPayload.BodyText, Does.Contain("Enabled"));
-            Assert.That(enabledPayload.BodyText, Does.Contain(SettingsScreenPayload.Default.TooltipToggleLabel));
-            Assert.That(enabledPayload.BodyText, Does.Not.Contain("\n"));
-            Assert.That(
-                enabledPayload.BodyText.Split('.').Count(segment => !string.IsNullOrWhiteSpace(segment)),
-                Is.LessThanOrEqualTo(2));
-            Assert.That(enabledPayload.AnchorPreset, Is.EqualTo(TooltipPopupAnchorPreset.Center));
-
-            presenter.ToggleTooltips();
-
-            var disabledPayload = presenter.BuildTooltipInfoPayload();
-            Assert.That(disabledPayload.BodyText, Does.Contain("Disabled"));
-            Assert.That(disabledPayload.AnchorPreset, Is.EqualTo(TooltipPopupAnchorPreset.Center));
-        }
-
-        [Test]
-        public void SettingsScreenPresenter_RootState_RemainsBoundedToShellAndAccessibilityOnly()
-        {
-            var presenter = new SettingsScreenPresenter(
-                new AccessibilitySettingsStore(),
-                new FakeAudioSettingsPort(),
-                new FakeDisplaySettingsPort());
-
-            presenter.Apply(SettingsScreenPayload.Default, 15d);
-            presenter.ToggleLargeText();
 
             Assert.That(presenter.ViewModel.TitleText, Is.EqualTo(SettingsScreenPayload.Default.TitleText));
-            Assert.That(presenter.ViewModel.TooltipStatusText, Is.EqualTo("Enabled"));
-            Assert.That(presenter.ViewModel.LargeTextStatusText, Is.EqualTo("Enabled"));
-            Assert.That(presenter.AudioPresenter.ViewModel.BgmAudio.LabelText, Is.EqualTo(SettingsScreenPayload.Default.BgmAudioLabel));
-            Assert.That(presenter.DisplayPresenter.ViewModel.DisplaySectionTitle, Is.EqualTo(SettingsScreenPayload.Default.DisplaySectionTitle));
+            Assert.That(presenter.AudioPresenter.ViewModel.BgmAudio.ValueText, Is.Not.Empty);
+            Assert.That(presenter.DisplayPresenter.ViewModel.CurrentDisplayValueText, Is.EqualTo("1920 x 1080"));
         }
 
         [Test]
-        public void SettingsScreenPresenter_ResolutionHoverHint_RemainsIndependentFromTooltipAccessibilityToggle()
+        public void SettingsScreenPresenter_StaticAudioAndDisplayCopy_RemainsPrefabAuthored()
         {
             var presenter = new SettingsScreenPresenter(
                 new AccessibilitySettingsStore(),
@@ -146,14 +115,9 @@ namespace Game.Feature.UI.Tests
                 new FakeDisplaySettingsPort());
 
             presenter.Apply(SettingsScreenPayload.Default, 15d);
-            var beforeToggle = presenter.DisplayPresenter.ViewModel.ResolutionHoverHintText;
 
-            presenter.ToggleTooltips();
-
-            Assert.That(beforeToggle, Is.EqualTo("Only automatically detected resolutions are shown."));
-            Assert.That(
-                presenter.DisplayPresenter.ViewModel.ResolutionHoverHintText,
-                Is.EqualTo(beforeToggle));
+            Assert.That(typeof(AudioSettingsRowViewModel).GetProperty("LabelText"), Is.Null);
+            Assert.That(typeof(SettingsDisplayViewModel).GetProperty("ResolutionHoverHintText"), Is.Null);
         }
     }
 
@@ -165,10 +129,7 @@ namespace Game.Feature.UI.Tests
             var audioPort = new FakeAudioSettingsPort();
             var presenter = new SettingsAudioPresenter(audioPort);
 
-            presenter.Apply(new SettingsAudioPresenterInput(
-                SettingsScreenPayload.Default.MainAudioLabel,
-                SettingsScreenPayload.Default.BgmAudioLabel,
-                SettingsScreenPayload.Default.SfxAudioLabel));
+            presenter.Apply(default);
             presenter.SetVolume(AudioSettingsChannel.Bgm, 0.42f);
             presenter.SetMuted(AudioSettingsChannel.Sfx, true);
             presenter.Flush();
@@ -187,15 +148,7 @@ namespace Game.Feature.UI.Tests
             var displayPort = new FakeDisplaySettingsPort();
             var presenter = new SettingsDisplayPresenter(displayPort);
 
-            presenter.Apply(new SettingsDisplayPresenterInput(
-                SettingsScreenPayload.Default.DisplaySectionTitle,
-                SettingsScreenPayload.Default.CurrentDisplayLabel,
-                SettingsScreenPayload.Default.ResolutionLabel,
-                SettingsScreenPayload.Default.ResolutionHoverHintText,
-                SettingsScreenPayload.Default.FullscreenLabel,
-                SettingsScreenPayload.Default.DisplayApplyLabel,
-                SettingsScreenPayload.Default.DisplayRevertLabel),
-                15d);
+            presenter.Apply(default, 15d);
             presenter.StageResolution(2);
             presenter.StageWindowMode(DisplayWindowMode.FullScreenWindow);
 
@@ -229,15 +182,7 @@ namespace Game.Feature.UI.Tests
             var displayPort = new FakeDisplaySettingsPort();
             var presenter = new SettingsDisplayPresenter(displayPort);
 
-            presenter.Apply(new SettingsDisplayPresenterInput(
-                SettingsScreenPayload.Default.DisplaySectionTitle,
-                SettingsScreenPayload.Default.CurrentDisplayLabel,
-                SettingsScreenPayload.Default.ResolutionLabel,
-                SettingsScreenPayload.Default.ResolutionHoverHintText,
-                SettingsScreenPayload.Default.FullscreenLabel,
-                SettingsScreenPayload.Default.DisplayApplyLabel,
-                SettingsScreenPayload.Default.DisplayRevertLabel),
-                15d);
+            presenter.Apply(default, 15d);
             presenter.StageResolution(1);
             presenter.StageWindowMode(DisplayWindowMode.FullScreenWindow);
             presenter.ApplyStagedSettings(15d);
@@ -258,15 +203,7 @@ namespace Game.Feature.UI.Tests
             var displayPort = new FakeDisplaySettingsPort();
             var presenter = new SettingsDisplayPresenter(displayPort);
 
-            presenter.Apply(new SettingsDisplayPresenterInput(
-                SettingsScreenPayload.Default.DisplaySectionTitle,
-                SettingsScreenPayload.Default.CurrentDisplayLabel,
-                SettingsScreenPayload.Default.ResolutionLabel,
-                SettingsScreenPayload.Default.ResolutionHoverHintText,
-                SettingsScreenPayload.Default.FullscreenLabel,
-                SettingsScreenPayload.Default.DisplayApplyLabel,
-                SettingsScreenPayload.Default.DisplayRevertLabel),
-                15d);
+            presenter.Apply(default, 15d);
             displayPort.SetRuntimeDrift(1, DisplayWindowMode.FullScreenWindow);
             presenter.ResyncState(15d);
 
@@ -279,7 +216,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SettingsDisplayPresenterInput_AndViewModel_DoNotExposeTooltipGateOrHoverStateFlags()
+        public void SettingsDisplayPresenterInput_AndViewModel_DoNotExposeStaticPrefabCopyOrHoverStateFlags()
         {
             var inputPropertyNames = typeof(SettingsDisplayPresenterInput)
                 .GetProperties()
@@ -290,8 +227,14 @@ namespace Game.Feature.UI.Tests
                 .Select(property => property.Name)
                 .ToArray();
 
-            Assert.That(inputPropertyNames, Does.Contain(nameof(SettingsDisplayPresenterInput.ResolutionHoverHintText)));
-            Assert.That(viewModelPropertyNames, Does.Contain(nameof(SettingsDisplayViewModel.ResolutionHoverHintText)));
+            Assert.That(inputPropertyNames, Is.Empty);
+            Assert.That(viewModelPropertyNames, Has.No.Member("ResolutionHoverHintText"));
+            Assert.That(viewModelPropertyNames, Has.No.Member("DisplaySectionTitle"));
+            Assert.That(viewModelPropertyNames, Has.No.Member("CurrentDisplayLabel"));
+            Assert.That(viewModelPropertyNames, Has.No.Member("ResolutionLabel"));
+            Assert.That(viewModelPropertyNames, Has.No.Member("FullscreenLabel"));
+            Assert.That(viewModelPropertyNames, Has.No.Member("DisplayApplyLabel"));
+            Assert.That(viewModelPropertyNames, Has.No.Member("DisplayRevertLabel"));
             Assert.That(inputPropertyNames, Has.No.Member("AreTooltipsEnabled"));
             Assert.That(viewModelPropertyNames, Has.No.Member("AreTooltipsEnabled"));
             Assert.That(inputPropertyNames, Has.No.Member("IsResolutionHoverHintVisible"));
@@ -302,15 +245,7 @@ namespace Game.Feature.UI.Tests
         public void SettingsDisplayPresenter_PreviewCountdown_ShapesWholeSecondTextAndBarFromSnapshotOnly()
         {
             var presenter = new SettingsDisplayPresenter(new FakeDisplaySettingsPort());
-            presenter.Apply(new SettingsDisplayPresenterInput(
-                    SettingsScreenPayload.Default.DisplaySectionTitle,
-                    SettingsScreenPayload.Default.CurrentDisplayLabel,
-                    SettingsScreenPayload.Default.ResolutionLabel,
-                    SettingsScreenPayload.Default.ResolutionHoverHintText,
-                    SettingsScreenPayload.Default.FullscreenLabel,
-                    SettingsScreenPayload.Default.DisplayApplyLabel,
-                    SettingsScreenPayload.Default.DisplayRevertLabel),
-                15d);
+            presenter.Apply(default, 15d);
             presenter.StageResolution(2);
             Assert.That(presenter.ApplyStagedSettings(15d), Is.True);
 
@@ -345,15 +280,7 @@ namespace Game.Feature.UI.Tests
         public void SettingsDisplayPresenter_UsesSuppliedTimeoutCopy_WithoutPresenterOrRuntimeHardcoded15Seconds()
         {
             var presenter = new SettingsDisplayPresenter(new FakeDisplaySettingsPort());
-            presenter.Apply(new SettingsDisplayPresenterInput(
-                    SettingsScreenPayload.Default.DisplaySectionTitle,
-                    SettingsScreenPayload.Default.CurrentDisplayLabel,
-                    SettingsScreenPayload.Default.ResolutionLabel,
-                    SettingsScreenPayload.Default.ResolutionHoverHintText,
-                    SettingsScreenPayload.Default.FullscreenLabel,
-                    SettingsScreenPayload.Default.DisplayApplyLabel,
-                    SettingsScreenPayload.Default.DisplayRevertLabel),
-                21d);
+            presenter.Apply(default, 21d);
             presenter.StageResolution(2);
 
             Assert.That(presenter.ApplyStagedSettings(21d), Is.True);

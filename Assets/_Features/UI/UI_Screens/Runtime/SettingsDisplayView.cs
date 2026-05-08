@@ -25,7 +25,7 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private TMP_Text _displayStatusLabel;
         [SerializeField] private RectTransform _previewCountdownRoot;
         [SerializeField] private TMP_Text _previewCountdownLabel;
-        [SerializeField] private Image _previewCountdownFill;
+        [SerializeField] private Slider _previewCountdownSlider;
         [SerializeField] private Button _applyButton;
         [SerializeField] private TMP_Text _applyButtonLabel;
         [SerializeField] private Button _revertButton;
@@ -35,10 +35,6 @@ namespace Game.Feature.UI.Screens
         private bool _isResolutionHoverHintVisible;
         private bool _isVisible;
         private SettingsDisplayViewModel _viewModel;
-        private RectTransform _currentDisplayRowRoot;
-        private RectTransform _resolutionRowRoot;
-        private RectTransform _fullscreenRowRoot;
-        private RectTransform _actionRowRoot;
 
         public event Action<int> ResolutionChanged;
 
@@ -102,7 +98,7 @@ namespace Game.Feature.UI.Screens
             ValidateControl(_displayStatusLabel, nameof(_displayStatusLabel), issues);
             ValidateControl(_previewCountdownRoot, nameof(_previewCountdownRoot), issues);
             ValidateControl(_previewCountdownLabel, nameof(_previewCountdownLabel), issues);
-            ValidateControl(_previewCountdownFill, nameof(_previewCountdownFill), issues);
+            ValidateControl(_previewCountdownSlider, nameof(_previewCountdownSlider), issues);
             ValidateControl(_applyButton, nameof(_applyButton), issues);
             ValidateControl(_applyButtonLabel, nameof(_applyButtonLabel), issues);
             ValidateControl(_revertButton, nameof(_revertButton), issues);
@@ -195,7 +191,7 @@ namespace Game.Feature.UI.Screens
             ValidateSerializedReference(_displayStatusLabel, nameof(_displayStatusLabel));
             ValidateSerializedReference(_previewCountdownRoot, nameof(_previewCountdownRoot));
             ValidateSerializedReference(_previewCountdownLabel, nameof(_previewCountdownLabel));
-            ValidateSerializedReference(_previewCountdownFill, nameof(_previewCountdownFill));
+            ValidateSerializedReference(_previewCountdownSlider, nameof(_previewCountdownSlider));
             ValidateSerializedReference(_applyButton, nameof(_applyButton));
             ValidateSerializedReference(_applyButtonLabel, nameof(_applyButtonLabel));
             ValidateSerializedReference(_revertButton, nameof(_revertButton));
@@ -251,133 +247,6 @@ namespace Game.Feature.UI.Screens
             HideResolutionHoverHint();
         }
 
-        private void LayoutControls()
-        {
-            SettingsLayoutUtility.EnsureVerticalLayout(
-                gameObject,
-                new RectOffset(0, 0, 0, 0),
-                12f,
-                TextAnchor.UpperLeft);
-
-            _currentDisplayRowRoot = SettingsLayoutUtility.EnsureChildRect(transform, "CurrentDisplayRow");
-            _resolutionRowRoot = SettingsLayoutUtility.EnsureChildRect(transform, "ResolutionRow");
-            _fullscreenRowRoot = SettingsLayoutUtility.EnsureChildRect(transform, "FullscreenRow");
-            _actionRowRoot = SettingsLayoutUtility.EnsureChildRect(transform, "DisplayActionRow");
-
-            LayoutSectionTitle();
-            LayoutCurrentDisplayRow();
-            LayoutResolutionRow();
-            LayoutFullscreenRow();
-            LayoutStatusAndPreview();
-            LayoutActionRow();
-            LayoutResolutionHoverHint();
-            ApplyLayoutOrder();
-        }
-
-        private void LayoutSectionTitle()
-        {
-            SettingsLayoutUtility.MoveToParent(_sectionTitle != null ? _sectionTitle.rectTransform : null, transform as RectTransform);
-            SettingsLayoutUtility.EnsureLayoutElement(_sectionTitle, preferredHeight: 24f, flexibleWidth: 1f);
-        }
-
-        private void LayoutCurrentDisplayRow()
-        {
-            ConfigureRow(_currentDisplayRowRoot, 28f);
-            SettingsLayoutUtility.MoveToParent(_currentDisplayLabel != null ? _currentDisplayLabel.rectTransform : null, _currentDisplayRowRoot);
-            SettingsLayoutUtility.MoveToParent(_currentDisplayValue != null ? _currentDisplayValue.rectTransform : null, _currentDisplayRowRoot);
-            SettingsLayoutUtility.EnsureLayoutElement(_currentDisplayLabel, preferredWidth: 140f, preferredHeight: 24f);
-            SettingsLayoutUtility.EnsureLayoutElement(_currentDisplayValue, preferredHeight: 24f, flexibleWidth: 1f);
-        }
-
-        private void LayoutResolutionRow()
-        {
-            ConfigureRow(_resolutionRowRoot, 32f);
-            SettingsLayoutUtility.MoveToParent(_resolutionLabel != null ? _resolutionLabel.rectTransform : null, _resolutionRowRoot);
-            SettingsLayoutUtility.MoveToParent(_resolutionDropdown, _resolutionRowRoot);
-            SettingsLayoutUtility.MoveToParent(_resolutionInfoHotspot, _resolutionRowRoot);
-            SettingsLayoutUtility.EnsureLayoutElement(_resolutionLabel, preferredWidth: 140f, preferredHeight: 24f);
-            SettingsLayoutUtility.EnsureLayoutElement(_resolutionDropdown, preferredWidth: 220f, preferredHeight: 30f, flexibleWidth: 1f);
-            SettingsLayoutUtility.EnsureLayoutElement(_resolutionInfoHotspot, preferredWidth: 28f, preferredHeight: 30f);
-        }
-
-        private void LayoutFullscreenRow()
-        {
-            ConfigureRow(_fullscreenRowRoot, 32f);
-            SettingsLayoutUtility.MoveToParent(_fullscreenLabel != null ? _fullscreenLabel.rectTransform : null, _fullscreenRowRoot);
-            SettingsLayoutUtility.MoveToParent(_fullscreenToggle, _fullscreenRowRoot);
-            SettingsLayoutUtility.EnsureLayoutElement(_fullscreenLabel, preferredHeight: 24f, flexibleWidth: 1f);
-            SettingsLayoutUtility.EnsureLayoutElement(_fullscreenToggle, preferredWidth: 150f, preferredHeight: 28f);
-        }
-
-        private void LayoutStatusAndPreview()
-        {
-            SettingsLayoutUtility.MoveToParent(_displayStatusLabel != null ? _displayStatusLabel.rectTransform : null, transform as RectTransform);
-            SettingsLayoutUtility.MoveToParent(_previewCountdownRoot, transform as RectTransform);
-            SettingsLayoutUtility.EnsureLayoutElement(_displayStatusLabel, preferredHeight: 28f, flexibleWidth: 1f);
-            SettingsLayoutUtility.EnsureLayoutElement(_previewCountdownRoot, preferredHeight: 16f, flexibleWidth: 1f);
-        }
-
-        private void LayoutActionRow()
-        {
-            SettingsLayoutUtility.EnsureHorizontalLayout(
-                _actionRowRoot.gameObject,
-                new RectOffset(0, 0, 0, 0),
-                16f,
-                TextAnchor.MiddleCenter);
-            SettingsLayoutUtility.EnsureLayoutElement(_actionRowRoot, preferredHeight: 34f, flexibleWidth: 1f);
-            SettingsLayoutUtility.FillLayoutChild(_actionRowRoot);
-            SettingsLayoutUtility.MoveToParent(_applyButton, _actionRowRoot);
-            SettingsLayoutUtility.MoveToParent(_revertButton, _actionRowRoot);
-            SettingsLayoutUtility.EnsureLayoutElement(_applyButton, preferredWidth: 112f, preferredHeight: 32f);
-            SettingsLayoutUtility.EnsureLayoutElement(_revertButton, preferredWidth: 112f, preferredHeight: 32f);
-        }
-
-        private void LayoutResolutionHoverHint()
-        {
-            SettingsLayoutUtility.MoveToParent(_resolutionHoverHintRoot, transform as RectTransform);
-            SettingsLayoutUtility.EnsureLayoutElement(_resolutionHoverHintRoot, ignoreLayout: true);
-            SettingsLayoutUtility.ConfigureOverlay(
-                _resolutionHoverHintRoot,
-                new Vector2(1f, 1f),
-                new Vector2(1f, 1f),
-                new Vector2(0f, -34f),
-                new Vector2(248f, 48f));
-        }
-
-        private void ApplyLayoutOrder()
-        {
-            if (_sectionTitle != null)
-            {
-                _sectionTitle.transform.SetSiblingIndex(0);
-            }
-
-            _currentDisplayRowRoot.SetSiblingIndex(1);
-            _resolutionRowRoot.SetSiblingIndex(2);
-            _fullscreenRowRoot.SetSiblingIndex(3);
-            if (_displayStatusLabel != null)
-            {
-                _displayStatusLabel.transform.SetSiblingIndex(4);
-            }
-
-            if (_previewCountdownRoot != null)
-            {
-                _previewCountdownRoot.SetSiblingIndex(5);
-            }
-
-            _actionRowRoot.SetSiblingIndex(6);
-        }
-
-        private static void ConfigureRow(RectTransform rowRoot, float preferredHeight)
-        {
-            SettingsLayoutUtility.EnsureHorizontalLayout(
-                rowRoot.gameObject,
-                new RectOffset(0, 0, 0, 0),
-                10f,
-                TextAnchor.MiddleLeft);
-            SettingsLayoutUtility.EnsureLayoutElement(rowRoot, preferredHeight: preferredHeight, flexibleWidth: 1f);
-            SettingsLayoutUtility.FillLayoutChild(rowRoot);
-        }
-
         private static void RebindButton(Button button, UnityEngine.Events.UnityAction action)
         {
             if (button == null)
@@ -424,20 +293,14 @@ namespace Game.Feature.UI.Screens
         {
             if (_viewModel == null)
             {
-                if (_resolutionHoverHintLabel != null)
-                {
-                    _resolutionHoverHintLabel.text = string.Empty;
-                }
-
                 if (_previewCountdownLabel != null)
                 {
                     _previewCountdownLabel.text = string.Empty;
                 }
 
-                if (_previewCountdownFill != null)
+                if (_previewCountdownSlider != null)
                 {
-                    _previewCountdownFill.fillAmount = 0f;
-                    ApplyPreviewCountdownFillWidth(0f);
+                    ApplyPreviewCountdownSlider(0f);
                 }
 
                 return;
@@ -446,34 +309,9 @@ namespace Game.Feature.UI.Screens
             _isRefreshingDisplayControls = true;
             try
             {
-                if (_sectionTitle != null)
-                {
-                    _sectionTitle.text = _viewModel.DisplaySectionTitle;
-                }
-
-                if (_currentDisplayLabel != null)
-                {
-                    _currentDisplayLabel.text = _viewModel.CurrentDisplayLabel;
-                }
-
                 if (_currentDisplayValue != null)
                 {
                     _currentDisplayValue.text = _viewModel.CurrentDisplayValueText;
-                }
-
-                if (_resolutionLabel != null)
-                {
-                    _resolutionLabel.text = _viewModel.ResolutionLabel;
-                }
-
-                if (_resolutionHoverHintLabel != null)
-                {
-                    _resolutionHoverHintLabel.text = _viewModel.ResolutionHoverHintText;
-                }
-
-                if (_fullscreenLabel != null)
-                {
-                    _fullscreenLabel.text = _viewModel.FullscreenLabel;
                 }
 
                 if (_displayStatusLabel != null)
@@ -486,12 +324,10 @@ namespace Game.Feature.UI.Screens
                     _previewCountdownLabel.text = _viewModel.PreviewCountdownText;
                 }
 
-                if (_previewCountdownFill != null)
+                if (_previewCountdownSlider != null)
                 {
                     var normalized = Mathf.Clamp01(_viewModel.PreviewCountdownNormalized);
-                    _previewCountdownFill.type = Image.Type.Simple;
-                    _previewCountdownFill.fillAmount = normalized;
-                    ApplyPreviewCountdownFillWidth(normalized);
+                    ApplyPreviewCountdownSlider(normalized);
                 }
 
                 if (_applyButton != null)
@@ -502,16 +338,6 @@ namespace Game.Feature.UI.Screens
                 if (_revertButton != null)
                 {
                     _revertButton.interactable = _viewModel.IsDisplayRevertInteractable;
-                }
-
-                if (_applyButtonLabel != null)
-                {
-                    _applyButtonLabel.text = _viewModel.DisplayApplyLabel;
-                }
-
-                if (_revertButtonLabel != null)
-                {
-                    _revertButtonLabel.text = _viewModel.DisplayRevertLabel;
                 }
 
                 if (_resolutionDropdown != null)
@@ -539,7 +365,6 @@ namespace Game.Feature.UI.Screens
         {
             HideResolutionHoverHint();
             RebindDisplayControls();
-            LayoutControls();
             RefreshControls();
             ApplyResolutionHoverHintVisibility();
             ApplyPreviewCountdownVisibility();
@@ -584,7 +409,7 @@ namespace Game.Feature.UI.Screens
 
         private void ShowResolutionHoverHint()
         {
-            if (!_isVisible || _viewModel == null || string.IsNullOrEmpty(_viewModel.ResolutionHoverHintText))
+            if (!_isVisible || _viewModel == null || !HasResolutionHoverHintText())
             {
                 HideResolutionHoverHint();
                 return;
@@ -610,8 +435,14 @@ namespace Game.Feature.UI.Screens
             var shouldShow = _isVisible &&
                              _isResolutionHoverHintVisible &&
                              _viewModel != null &&
-                             !string.IsNullOrEmpty(_viewModel.ResolutionHoverHintText);
+                             HasResolutionHoverHintText();
             _resolutionHoverHintRoot.gameObject.SetActive(shouldShow);
+        }
+
+        private bool HasResolutionHoverHintText()
+        {
+            return _resolutionHoverHintLabel != null &&
+                   !string.IsNullOrEmpty(_resolutionHoverHintLabel.text);
         }
 
         private void ApplyPreviewCountdownVisibility()
@@ -628,23 +459,18 @@ namespace Game.Feature.UI.Screens
             _previewCountdownRoot.gameObject.SetActive(shouldShow);
         }
 
-        private void ApplyPreviewCountdownFillWidth(float normalized)
+        private void ApplyPreviewCountdownSlider(float normalized)
         {
-            if (_previewCountdownFill == null)
+            if (_previewCountdownSlider == null)
             {
                 return;
             }
 
-            var fillRect = _previewCountdownFill.rectTransform;
-            var rootWidth = _previewCountdownRoot != null && _previewCountdownRoot.rect.width > 0f
-                ? _previewCountdownRoot.rect.width
-                : fillRect.sizeDelta.x;
-
-            fillRect.anchorMin = new Vector2(0f, 0f);
-            fillRect.anchorMax = new Vector2(0f, 1f);
-            fillRect.pivot = new Vector2(0f, 0.5f);
-            fillRect.anchoredPosition = Vector2.zero;
-            fillRect.sizeDelta = new Vector2(rootWidth * Mathf.Clamp01(normalized), 0f);
+            _previewCountdownSlider.minValue = 0f;
+            _previewCountdownSlider.maxValue = 1f;
+            _previewCountdownSlider.wholeNumbers = false;
+            _previewCountdownSlider.interactable = false;
+            _previewCountdownSlider.SetValueWithoutNotify(Mathf.Clamp01(normalized));
         }
 
         private void ValidateControl(Component component, string fieldName, List<string> issues)

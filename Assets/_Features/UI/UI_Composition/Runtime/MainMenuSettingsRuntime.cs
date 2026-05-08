@@ -20,8 +20,6 @@ namespace Game.Feature.UI.Composition
         private readonly double previewTimeoutSeconds;
         private readonly SettingsScreenView settingsScreenPrefab;
         private readonly RectTransform settingsContentRoot;
-        private PopupInstanceId activeTooltipPopupId;
-        private bool hasActiveTooltipPopup;
         private bool isDisposed;
         private SettingsAudioView audioView;
         private SettingsDisplayView displayView;
@@ -152,7 +150,6 @@ namespace Game.Feature.UI.Composition
             }
 
             isDisposed = true;
-            CloseOwnedTooltipPopup();
             CancelDisplayPreviewOnClose();
             presenter?.InputPresenter.CancelRebind();
 
@@ -207,9 +204,6 @@ namespace Game.Feature.UI.Composition
             inputView.FlipRebindRequested += HandleInputFlipRebindRequested;
             inputView.ResetRequested += HandleInputResetRequested;
             view.SectionSelected += HandleSectionSelected;
-            view.TooltipInfoRequested += HandleTooltipInfoRequested;
-            view.TooltipToggleRequested += HandleTooltipToggleRequested;
-            view.LargeTextToggleRequested += HandleLargeTextToggleRequested;
             view.BackRequested += HandleBackRequested;
             displaySettingsLifecycleRelay.ResyncRequested += HandleDisplayResyncRequested;
             displayPreviewSessionHost.CountdownChanged += HandleDisplayPreviewCountdownChanged;
@@ -243,9 +237,6 @@ namespace Game.Feature.UI.Composition
             if (view != null)
             {
                 view.SectionSelected -= HandleSectionSelected;
-                view.TooltipInfoRequested -= HandleTooltipInfoRequested;
-                view.TooltipToggleRequested -= HandleTooltipToggleRequested;
-                view.LargeTextToggleRequested -= HandleLargeTextToggleRequested;
                 view.BackRequested -= HandleBackRequested;
             }
 
@@ -269,19 +260,6 @@ namespace Game.Feature.UI.Composition
             {
                 presenter.DisplayPresenter.CancelPreview();
             }
-        }
-
-        private void CloseOwnedTooltipPopup()
-        {
-            if (!hasActiveTooltipPopup)
-            {
-                return;
-            }
-
-            var popupId = activeTooltipPopupId;
-            hasActiveTooltipPopup = false;
-            activeTooltipPopupId = default;
-            popupController.Close(popupId, PopupCloseReason.ScreenTransition);
         }
 
         private void HandleSectionSelected(SettingsSectionId sectionId)
@@ -328,38 +306,6 @@ namespace Game.Feature.UI.Composition
                         }
                     }),
                 out _);
-        }
-
-        private void HandleTooltipInfoRequested()
-        {
-            CloseOwnedTooltipPopup();
-            if (popupController.Push(
-                    new PopupRequest(PopupId.Tooltip, presenter.BuildTooltipInfoPayload(), HandleTooltipPopupCompletion),
-                    out activeTooltipPopupId))
-            {
-                hasActiveTooltipPopup = true;
-            }
-        }
-
-        private void HandleTooltipPopupCompletion(PopupCompletion completion)
-        {
-            if (!hasActiveTooltipPopup || !completion.InstanceId.Equals(activeTooltipPopupId))
-            {
-                return;
-            }
-
-            hasActiveTooltipPopup = false;
-            activeTooltipPopupId = default;
-        }
-
-        private void HandleTooltipToggleRequested()
-        {
-            presenter.ToggleTooltips();
-        }
-
-        private void HandleLargeTextToggleRequested()
-        {
-            presenter.ToggleLargeText();
         }
 
         private void HandleAudioVolumeChanged(AudioSettingsChannel channel, float value)

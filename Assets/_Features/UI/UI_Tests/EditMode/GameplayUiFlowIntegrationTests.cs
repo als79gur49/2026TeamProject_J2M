@@ -185,53 +185,6 @@ namespace Game.Feature.UI.Tests
 
         [Test]
         [Category("Extended")]
-        public void GameplayUiFlowInstaller_SettingsTooltipAffordance_UsesCanonicalTooltipPopupPath()
-        {
-            var hostObject = new GameObject("GameplayUiFlowInstaller_SettingsTooltipAffordance_UsesCanonicalTooltipPopupPath");
-
-            try
-            {
-                var host = hostObject.AddComponent<GameplaySceneHost>();
-                host.Initialize(CreateConfiguration(new[]
-                {
-                    CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 1), Direction.Up),
-                }));
-
-                var installer = hostObject.AddComponent<GameplayUiFlowInstaller>();
-                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
-                installer.Install(host);
-
-                Assert.That(installer.Coordinator.OpenSettingsScreen(), Is.True);
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
-
-                installer.SettingsScreenView.ClickTooltipInfo();
-                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(1));
-                Assert.That(installer.PopupController.TopPopup.HasValue, Is.True);
-                Assert.That(installer.PopupController.TopPopup.Value.PopupId, Is.EqualTo(PopupId.Tooltip));
-                Assert.That(installer.TooltipPopupView, Is.Not.Null);
-                Assert.That(installer.TooltipPopupView.transform.parent, Is.EqualTo(installer.PopupLayerView.ContentRoot));
-                Assert.That(installer.TooltipPopupView.TitleText, Is.EqualTo("Tooltips"));
-                Assert.That(installer.TooltipPopupView.BodyText, Does.Contain("short contextual hints"));
-                Assert.That(installer.TooltipPopupView.BodyText, Does.Contain("Enabled"));
-                Assert.That(installer.TooltipPopupView.AnchorPreset, Is.EqualTo(TooltipPopupAnchorPreset.Center));
-                Assert.That(installer.PopupLayerView.IsDimVisible, Is.False);
-                Assert.That(installer.Coordinator.CurrentBlockSnapshot.BlocksScreenInteraction, Is.False);
-
-                Assert.That(installer.Coordinator.HandleBackRequested(), Is.True);
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
-                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
-
-                Assert.That(installer.Coordinator.HandleBackRequested(), Is.True);
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
-            }
-            finally
-            {
-                DestroySupportObjects(hostObject);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
         public void GameplayUiFlowInstaller_RunSingleTick_TransitionsStageClearIntoCanonicalStageResultScreen()
         {
             var hostObject = new GameObject("GameplayUiFlowInstaller_RunSingleTick_TransitionsStageClearIntoCanonicalStageResultScreen");

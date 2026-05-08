@@ -128,19 +128,12 @@ namespace Game.Feature.UI.Tests
                 Assert.That(hintRoot.gameObject.activeSelf, Is.True);
 
                 viewModel.SetContent(
-                    "Display",
-                    "Current Display",
                     "1920 x 1080",
-                    "Resolution",
-                    "Updated hover hint.",
                     new[] { "1920 x 1080", "1600 x 900" },
                     0,
-                    "Fullscreen Window",
                     false,
                     string.Empty,
-                    "Apply",
                     false,
-                    "Revert",
                     false,
                     false,
                     string.Empty,
@@ -148,7 +141,7 @@ namespace Game.Feature.UI.Tests
                     false);
 
                 Assert.That(hintRoot.gameObject.activeSelf, Is.False);
-                Assert.That(hintLabel.text, Is.EqualTo("Updated hover hint."));
+                Assert.That(hintLabel.text, Is.EqualTo("Only automatically detected resolutions are shown."));
 
                 relay.OnPointerEnter(null);
                 Assert.That(hintRoot.gameObject.activeSelf, Is.True);
@@ -168,19 +161,12 @@ namespace Game.Feature.UI.Tests
         {
             var viewModel = new SettingsDisplayViewModel();
             viewModel.SetContent(
-                "Display",
-                "Current Display",
                 "1920 x 1080",
-                "Resolution",
-                "Only automatically detected resolutions are shown.",
                 new[] { "1920 x 1080", "1600 x 900" },
                 0,
-                "Fullscreen Window",
                 false,
                 string.Empty,
-                "Apply",
                 false,
-                "Revert",
                 false,
                 false,
                 string.Empty,

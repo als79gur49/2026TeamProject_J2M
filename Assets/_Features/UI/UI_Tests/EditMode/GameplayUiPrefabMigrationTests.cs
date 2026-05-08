@@ -13,6 +13,7 @@ using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.TestTools;
 using UnityEngine.UI;
 
 namespace Game.Feature.UI.Tests
@@ -117,10 +118,39 @@ namespace Game.Feature.UI.Tests
             var hudLayer = rootShellPrefab.transform.Find("HudLayer");
             Assert.That(hudLayer, Is.Not.Null);
             Assert.That(hudLayer.childCount, Is.Zero);
-            Assert.That(rootShellPrefab.GetComponentsInChildren<Button>(true), Is.Empty);
             Assert.That(rootShellPrefab.GetComponentsInChildren<Text>(true), Is.Empty);
-            Assert.That(rootShellPrefab.GetComponentsInChildren<TMP_Text>(true), Is.Empty);
-            Assert.That(rootShellPrefab.GetComponentsInChildren<CanvasGroup>(true), Is.Empty);
+            Assert.That(hudLayer.GetComponentsInChildren<Button>(true), Is.Empty);
+            Assert.That(hudLayer.GetComponentsInChildren<TMP_Text>(true), Is.Empty);
+            Assert.That(hudLayer.GetComponentsInChildren<CanvasGroup>(true), Is.Empty);
+        }
+
+        [Test]
+        public void CanonicalRootShellPrefab_AuthorsScreenPopupAndDiagnosticsInfrastructure()
+        {
+            var rootShellPrefab = Resources.Load<GameObject>(RootShellResourcePath);
+            Assert.That(rootShellPrefab, Is.Not.Null);
+
+            var screenLayerRoot = FindRequired(rootShellPrefab.transform, "ScreenLayer/ScreenLayerRoot");
+            var screenContentRoot = FindRequired(screenLayerRoot, "ScreenContentRoot");
+            var screenLayerView = RequireComponent<ScreenLayerView>(screenLayerRoot);
+            Assert.That(screenLayerView.ContentRoot, Is.EqualTo(screenContentRoot));
+
+            var popupLayerRoot = FindRequired(rootShellPrefab.transform, "PopupLayer/PopupLayerRoot");
+            var backdrop = FindRequired(popupLayerRoot, "Backdrop");
+            var popupContentRoot = FindRequired(popupLayerRoot, "PopupContentRoot");
+            var popupLayerView = RequireComponent<PopupLayerView>(popupLayerRoot);
+            Assert.That(popupLayerView.ContentRoot, Is.EqualTo(popupContentRoot));
+            RequireComponent<Image>(backdrop);
+            RequireComponent<Button>(backdrop);
+            RequireComponent<CanvasGroup>(backdrop);
+
+            var diagnosticsOverlay = FindRequired(rootShellPrefab.transform, "DiagnosticsLayer/UiDiagnosticsOverlay");
+            RequireComponent<UiArchitectureDiagnosticsOverlayView>(diagnosticsOverlay);
+            RequireComponent<CanvasGroup>(diagnosticsOverlay);
+            RequireComponent<TMP_Text>(FindRequired(diagnosticsOverlay, "Title"));
+            RequireComponent<TMP_Text>(FindRequired(diagnosticsOverlay, "Summary"));
+            RequireComponent<Image>(FindRequired(diagnosticsOverlay, "DetailPanel"));
+            RequireComponent<TMP_Text>(FindRequired(diagnosticsOverlay, "DetailPanel/Detail"));
         }
 
         [Test]
@@ -136,6 +166,30 @@ namespace Game.Feature.UI.Tests
             Assert.That(hudPrefab.GetComponentsInChildren<ScreenLayerView>(true), Is.Empty);
             Assert.That(hudPrefab.GetComponentsInChildren<PopupLayerView>(true), Is.Empty);
             Assert.That(hudPrefab.GetComponentsInChildren<PausePopupView>(true), Is.Empty);
+        }
+
+        [Test]
+        public void HudPrefabAsset_AuthorsPersistentStackLayout_BeforeRuntimeLayoutRemoval()
+        {
+            var hudPrefab = UiTestPrefabAssetUtility.LoadHudPrefab();
+
+            var topLeftStack = FindRequired(hudPrefab.transform, "HudTopLeftStack");
+            var topRightStack = FindRequired(hudPrefab.transform, "HudTopRightStack");
+            var bottomRightStack = FindRequired(hudPrefab.transform, "HudBottomRightStack");
+
+            RequireComponent<VerticalLayoutGroup>(topLeftStack);
+            RequireComponent<VerticalLayoutGroup>(topRightStack);
+            RequireComponent<VerticalLayoutGroup>(bottomRightStack);
+            Assert.That(hudPrefab.ObjectiveHudView.transform.parent, Is.EqualTo(topLeftStack));
+            Assert.That(hudPrefab.NotificationView.transform.parent, Is.EqualTo(bottomRightStack));
+            var chancePanelView = hudPrefab.GetComponentsInChildren<ChancePanelView>(true).Single();
+            var topologyBeltView = hudPrefab.GetComponentsInChildren<TopologyBeltView>(true).Single();
+            Assert.That(chancePanelView.transform.parent, Is.EqualTo(bottomRightStack));
+            Assert.That(topologyBeltView.transform.parent, Is.EqualTo(topRightStack));
+            Assert.That(hudPrefab.ObjectiveHudView.GetComponent<LayoutElement>(), Is.Not.Null);
+            Assert.That(hudPrefab.NotificationView.GetComponent<LayoutElement>(), Is.Not.Null);
+            Assert.That(chancePanelView.GetComponent<LayoutElement>(), Is.Not.Null);
+            Assert.That(topologyBeltView.GetComponent<LayoutElement>(), Is.Not.Null);
         }
 
         [Test]
@@ -329,6 +383,16 @@ namespace Game.Feature.UI.Tests
             AssertPopupPrefabContract<RewardPopupView>(UiTestPrefabAssetUtility.RewardPopupPrefabPath);
         }
 
+        [Test]
+        public void PopupPrefabs_AuthorStaticLayoutContainers_BeforeRuntimeLayoutRemoval()
+        {
+            AssertPausePopupLayout();
+            AssertObjectiveInfoPopupLayout();
+            AssertConfirmPopupLayout();
+            AssertTooltipPopupLayout();
+            AssertRewardPopupLayout();
+        }
+
         [TestCase(ScreenId.ObjectiveStatus)]
         [TestCase(ScreenId.Settings)]
         [TestCase(ScreenId.StageResult)]
@@ -369,15 +433,63 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SettingsScreenPrefabAsset_AuthorsTooltipInfoAffordance_AsBoundedLocalIntent()
+        public void ScreenPrefabs_AuthorStaticLayoutContainers_BeforeRuntimeLayoutRemoval()
         {
-            var settingsPrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
-            var serializedView = new SerializedObject(settingsPrefab);
-            var tooltipInfoButton = serializedView.FindProperty("_tooltipInfoButton");
+            var mainMenuPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab");
+            Assert.That(mainMenuPrefab, Is.Not.Null);
+            var mainMenuRoot = mainMenuPrefab.transform;
+            RequireComponent<VerticalLayoutGroup>(mainMenuRoot);
+            RequireComponent<LayoutElement>(FindRequired(mainMenuRoot, "TopBar"));
+            RequireComponent<LayoutElement>(FindRequired(mainMenuRoot, "ContentHost"));
+            RequireComponent<LayoutElement>(FindRequired(mainMenuRoot, "BottomBar"));
+            RequireComponent<VerticalLayoutGroup>(FindRequired(mainMenuRoot, "MainCommandPanel"));
+            RequireComponent<LayoutElement>(FindRequired(mainMenuRoot, "ContentHost/SaveSlotPanelView"));
 
-            Assert.That(tooltipInfoButton, Is.Not.Null);
-            Assert.That(tooltipInfoButton.objectReferenceValue, Is.Not.Null);
-            Assert.That(((Button)tooltipInfoButton.objectReferenceValue).transform.parent, Is.EqualTo(settingsPrefab.transform));
+            var settingsRoot = UiTestPrefabAssetUtility
+                .LoadScreenPrefab<SettingsScreenView>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath)
+                .transform;
+            var settingsRootLayout = RequireComponent<VerticalLayoutGroup>(settingsRoot);
+            Assert.That(settingsRoot.GetChild(0).name, Is.EqualTo("Background"));
+            Assert.That(settingsRootLayout.padding.top, Is.EqualTo(20));
+            Assert.That(settingsRootLayout.padding.bottom, Is.EqualTo(20));
+            RequireComponent<HorizontalLayoutGroup>(FindRequired(settingsRoot, "SettingsHeader"));
+            RequireComponent<HorizontalLayoutGroup>(FindRequired(settingsRoot, "SettingsTabRow"));
+            var sectionHost = FindRequired(settingsRoot, "SettingsSectionHost");
+            RequireComponent<VerticalLayoutGroup>(sectionHost);
+            var sectionHostLayout = RequireComponent<LayoutElement>(sectionHost);
+            Assert.That(sectionHostLayout.minHeight, Is.EqualTo(320f));
+            Assert.That(sectionHostLayout.preferredHeight, Is.EqualTo(432f));
+            AssertSettingsSectionLayout(FindRequired(sectionHost, SettingsScreenView.AudioSectionName));
+            AssertSettingsSectionLayout(FindRequired(sectionHost, SettingsScreenView.DisplaySectionName));
+            AssertSettingsSectionLayout(FindRequired(sectionHost, SettingsScreenView.InputSectionName));
+            var accessibilityRows = FindRequired(settingsRoot, "SettingsAccessibilityRows");
+            Assert.That(accessibilityRows.gameObject.activeSelf, Is.False);
+            Assert.That(RequireComponent<LayoutElement>(accessibilityRows).ignoreLayout, Is.True);
+            RequireComponent<HorizontalLayoutGroup>(FindRequired(settingsRoot, "SettingsFooter"));
+            RequireComponent<HorizontalLayoutGroup>(FindRequired(sectionHost, "SettingsDisplaySection/CurrentDisplayRow"));
+            RequireComponent<HorizontalLayoutGroup>(FindRequired(sectionHost, "SettingsDisplaySection/ResolutionRow"));
+            RequireComponent<HorizontalLayoutGroup>(FindRequired(sectionHost, "SettingsDisplaySection/FullscreenRow"));
+            RequireComponent<HorizontalLayoutGroup>(FindRequired(sectionHost, "SettingsDisplaySection/DisplayActionRow"));
+            RequireComponent<CanvasGroup>(FindRequired(sectionHost, "SettingsDisplaySection/ResolutionHoverHint"));
+            RequireComponent<LayoutElement>(FindRequired(sectionHost, "SettingsDisplaySection/DisplayPreviewCountdown"));
+            RequireComponent<HorizontalLayoutGroup>(FindRequired(sectionHost, "SettingsInputSection/MovementInputRow"));
+            var pushInputRow = FindRequired(sectionHost, "SettingsInputSection/PushInputRow");
+            var flipInputRow = FindRequired(sectionHost, "SettingsInputSection/FlipInputRow");
+            var inputResetRow = FindRequired(sectionHost, "SettingsInputSection/InputResetRow");
+            RequireComponent<HorizontalLayoutGroup>(pushInputRow);
+            RequireComponent<HorizontalLayoutGroup>(flipInputRow);
+            RequireComponent<HorizontalLayoutGroup>(inputResetRow);
+            Assert.That(RequireComponent<LayoutElement>(pushInputRow).preferredHeight, Is.EqualTo(40f));
+            Assert.That(RequireComponent<LayoutElement>(flipInputRow).preferredHeight, Is.EqualTo(40f));
+            Assert.That(RequireComponent<LayoutElement>(inputResetRow).preferredHeight, Is.EqualTo(40f));
+
+            AssertObjectiveAssetLayout();
+            AssertTerminalResultLayout(
+                UiTestPrefabAssetUtility.LoadScreenPrefab<StageResultScreenView>(UiTestPrefabAssetUtility.StageResultScreenPrefabPath).transform,
+                "ResultSummary");
+            AssertTerminalResultLayout(
+                UiTestPrefabAssetUtility.LoadScreenPrefab<LevelFailedScreenView>(UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath).transform);
         }
 
         [Test]
@@ -387,22 +499,29 @@ namespace Game.Feature.UI.Tests
             var serializedRoot = new SerializedObject(settingsPrefab);
             var audioViewProperty = serializedRoot.FindProperty("_audioView");
             var displayViewProperty = serializedRoot.FindProperty("_displayView");
+            var inputViewProperty = serializedRoot.FindProperty("_inputView");
 
             Assert.That(audioViewProperty, Is.Not.Null);
             Assert.That(displayViewProperty, Is.Not.Null);
+            Assert.That(inputViewProperty, Is.Not.Null);
             Assert.That(audioViewProperty.objectReferenceValue, Is.Not.Null);
             Assert.That(displayViewProperty.objectReferenceValue, Is.Not.Null);
+            Assert.That(inputViewProperty.objectReferenceValue, Is.Not.Null);
             Assert.That(serializedRoot.FindProperty("_mainRow"), Is.Null);
             Assert.That(serializedRoot.FindProperty("_resolutionDropdown"), Is.Null);
             Assert.That(serializedRoot.FindProperty("_applyButton"), Is.Null);
 
             var audioView = (SettingsAudioView)audioViewProperty.objectReferenceValue;
             var displayView = (SettingsDisplayView)displayViewProperty.objectReferenceValue;
+            var inputView = (SettingsInputView)inputViewProperty.objectReferenceValue;
+            var sectionHost = settingsPrefab.transform.Find("SettingsSectionHost");
 
             Assert.That(audioView.name, Is.EqualTo(SettingsScreenView.AudioSectionName));
             Assert.That(displayView.name, Is.EqualTo(SettingsScreenView.DisplaySectionName));
-            Assert.That(audioView.transform.parent, Is.EqualTo(settingsPrefab.transform));
-            Assert.That(displayView.transform.parent, Is.EqualTo(settingsPrefab.transform));
+            Assert.That(inputView.name, Is.EqualTo(SettingsScreenView.InputSectionName));
+            Assert.That(audioView.transform.parent, Is.EqualTo(sectionHost));
+            Assert.That(displayView.transform.parent, Is.EqualTo(sectionHost));
+            Assert.That(inputView.transform.parent, Is.EqualTo(sectionHost));
 
             var serializedAudio = new SerializedObject(audioView);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedAudio, "_mainRow._rowRoot", audioView.transform);
@@ -423,6 +542,9 @@ namespace Game.Feature.UI.Tests
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedAudio, "_sfxRow._slider", audioView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedAudio, "_sfxRow._toggle", audioView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedAudio, "_sfxRow._interactionRelay", audioView.transform);
+            Assert.That(((TMP_Text)serializedAudio.FindProperty("_mainRow._label").objectReferenceValue).text, Is.EqualTo("Main"));
+            Assert.That(((TMP_Text)serializedAudio.FindProperty("_bgmRow._label").objectReferenceValue).text, Is.EqualTo("Background Music"));
+            Assert.That(((TMP_Text)serializedAudio.FindProperty("_sfxRow._label").objectReferenceValue).text, Is.EqualTo("Effects"));
 
             var serializedDisplay = new SerializedObject(displayView);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_sectionTitle", displayView.transform);
@@ -439,7 +561,7 @@ namespace Game.Feature.UI.Tests
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_displayStatusLabel", displayView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_previewCountdownRoot", displayView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_previewCountdownLabel", displayView.transform);
-            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_previewCountdownFill", displayView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_previewCountdownSlider", displayView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_applyButton", displayView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_applyButtonLabel", displayView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_revertButton", displayView.transform);
@@ -448,13 +570,37 @@ namespace Game.Feature.UI.Tests
             var hoverHintRoot = (RectTransform)serializedDisplay.FindProperty("_resolutionHoverHintRoot").objectReferenceValue;
             var hoverHintLabel = (TMP_Text)serializedDisplay.FindProperty("_resolutionHoverHintLabel").objectReferenceValue;
             var hoverRelay = (SettingsHoverRelay)serializedDisplay.FindProperty("_resolutionHoverRelay").objectReferenceValue;
+            var sectionTitle = (TMP_Text)serializedDisplay.FindProperty("_sectionTitle").objectReferenceValue;
+            var currentDisplayLabel = (TMP_Text)serializedDisplay.FindProperty("_currentDisplayLabel").objectReferenceValue;
+            var resolutionLabel = (TMP_Text)serializedDisplay.FindProperty("_resolutionLabel").objectReferenceValue;
+            var fullscreenLabel = (TMP_Text)serializedDisplay.FindProperty("_fullscreenLabel").objectReferenceValue;
+            var applyButton = (Button)serializedDisplay.FindProperty("_applyButton").objectReferenceValue;
+            var applyButtonLabel = (TMP_Text)serializedDisplay.FindProperty("_applyButtonLabel").objectReferenceValue;
+            var revertButton = (Button)serializedDisplay.FindProperty("_revertButton").objectReferenceValue;
+            var revertButtonLabel = (TMP_Text)serializedDisplay.FindProperty("_revertButtonLabel").objectReferenceValue;
             var hoverCanvasGroup = hoverHintRoot.GetComponent<CanvasGroup>();
             var hoverImage = hoverHintRoot.GetComponent<Image>();
             var countdownRoot = (RectTransform)serializedDisplay.FindProperty("_previewCountdownRoot").objectReferenceValue;
             var countdownLabel = (TMP_Text)serializedDisplay.FindProperty("_previewCountdownLabel").objectReferenceValue;
-            var countdownFill = (Image)serializedDisplay.FindProperty("_previewCountdownFill").objectReferenceValue;
+            var countdownSlider = (Slider)serializedDisplay.FindProperty("_previewCountdownSlider").objectReferenceValue;
+            var countdownFill = countdownSlider.fillRect != null
+                ? countdownSlider.fillRect.GetComponent<Image>()
+                : null;
 
             Assert.That(hoverHintRoot.gameObject.activeSelf, Is.False);
+            Assert.That(sectionTitle.text, Is.EqualTo("Display"));
+            Assert.That(currentDisplayLabel.text, Is.EqualTo("Current Display"));
+            Assert.That(resolutionLabel.text, Is.EqualTo("Resolution"));
+            Assert.That(hoverHintLabel.text, Is.EqualTo("Only automatically detected resolutions are shown."));
+            Assert.That(fullscreenLabel.text, Is.EqualTo("Fullscreen Window"));
+            Assert.That(applyButton.name, Is.EqualTo("DisplayApplyButton_New"));
+            Assert.That(applyButton.gameObject.activeSelf, Is.True);
+            Assert.That(applyButtonLabel.text, Is.EqualTo("Apply"));
+            Assert.That(revertButton.name, Is.EqualTo("DisplayReveryButton_New"));
+            Assert.That(revertButton.gameObject.activeSelf, Is.True);
+            Assert.That(revertButtonLabel.text, Is.EqualTo("Revert"));
+            Assert.That(displayView.GetComponentsInChildren<Button>(true).Single(button => button.name == "DisplayApplyButton").gameObject.activeSelf, Is.False);
+            Assert.That(displayView.GetComponentsInChildren<Button>(true).Single(button => button.name == "DisplayRevertButton").gameObject.activeSelf, Is.False);
             Assert.That(hoverRelay.transform, Is.EqualTo(serializedDisplay.FindProperty("_resolutionInfoHotspot").objectReferenceValue));
             Assert.That(hoverCanvasGroup, Is.Not.Null);
             Assert.That(hoverCanvasGroup.blocksRaycasts, Is.False);
@@ -464,8 +610,207 @@ namespace Game.Feature.UI.Tests
             Assert.That(hoverHintLabel.raycastTarget, Is.False);
             Assert.That(countdownRoot.gameObject.activeSelf, Is.False);
             Assert.That(countdownLabel.raycastTarget, Is.False);
+            Assert.That(countdownSlider.interactable, Is.False);
+            Assert.That(countdownSlider.minValue, Is.EqualTo(0f));
+            Assert.That(countdownSlider.maxValue, Is.EqualTo(1f));
+            Assert.That(countdownSlider.wholeNumbers, Is.False);
+            Assert.That(countdownSlider.direction, Is.EqualTo(Slider.Direction.LeftToRight));
+            Assert.That(countdownSlider.fillRect, Is.Not.Null);
+            Assert.That(countdownSlider.fillRect.IsChildOf(countdownRoot), Is.True);
+            Assert.That(countdownSlider.handleRect, Is.Null);
+            Assert.That(countdownFill, Is.Not.Null);
             Assert.That(countdownFill.raycastTarget, Is.False);
-            Assert.That(countdownFill.type, Is.EqualTo(Image.Type.Simple));
+
+            var serializedInput = new SerializedObject(inputView);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedInput, "_pushKeyDisplayLabel", inputView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedInput, "_flipKeyDisplayLabel", inputView.transform);
+
+            var pushChangeButton = (Button)serializedInput.FindProperty("_pushChangeButton").objectReferenceValue;
+            var pushChangeLabel = (TMP_Text)serializedInput.FindProperty("_pushChangeButtonLabel").objectReferenceValue;
+            var flipChangeButton = (Button)serializedInput.FindProperty("_flipChangeButton").objectReferenceValue;
+            var flipChangeLabel = (TMP_Text)serializedInput.FindProperty("_flipChangeButtonLabel").objectReferenceValue;
+            var resetButton = (Button)serializedInput.FindProperty("_resetButton").objectReferenceValue;
+            var resetButtonLabel = (TMP_Text)serializedInput.FindProperty("_resetButtonLabel").objectReferenceValue;
+            Assert.That(pushChangeButton.name, Is.EqualTo("PushChange"));
+            Assert.That(pushChangeButton.transition, Is.EqualTo(Selectable.Transition.Animation));
+            Assert.That(pushChangeButton.animationTriggers.disabledTrigger, Is.EqualTo("Disabled"));
+            Assert.That(pushChangeButton.animationTriggers.disabledTrigger, Is.Not.EqualTo(pushChangeButton.animationTriggers.pressedTrigger));
+            Assert.That(pushChangeButton.GetComponent<Animator>(), Is.Not.Null);
+            Assert.That(pushChangeLabel.name, Is.EqualTo("PushChangeLabel"));
+            Assert.That(pushChangeButton.GetComponent<LayoutElement>().preferredWidth, Is.EqualTo(116f));
+            Assert.That(pushChangeButton.GetComponent<LayoutElement>().preferredHeight, Is.EqualTo(34f));
+            Assert.That(flipChangeButton.name, Is.EqualTo("FlipChange_New"));
+            Assert.That(flipChangeButton.transition, Is.EqualTo(Selectable.Transition.Animation));
+            Assert.That(flipChangeButton.animationTriggers.disabledTrigger, Is.EqualTo("Disabled"));
+            Assert.That(flipChangeButton.animationTriggers.disabledTrigger, Is.Not.EqualTo(flipChangeButton.animationTriggers.pressedTrigger));
+            Assert.That(flipChangeButton.GetComponent<Animator>(), Is.Not.Null);
+            Assert.That(flipChangeLabel.name, Is.EqualTo("FlipChangeLabel"));
+            Assert.That(flipChangeButton.GetComponent<LayoutElement>().preferredWidth, Is.EqualTo(116f));
+            Assert.That(flipChangeButton.GetComponent<LayoutElement>().preferredHeight, Is.EqualTo(34f));
+            Assert.That(resetButton.name, Is.EqualTo("ResetInput_New"));
+            Assert.That(resetButton.transition, Is.EqualTo(Selectable.Transition.Animation));
+            Assert.That(resetButton.animationTriggers.disabledTrigger, Is.EqualTo("Disabled"));
+            Assert.That(resetButton.animationTriggers.disabledTrigger, Is.Not.EqualTo(resetButton.animationTriggers.pressedTrigger));
+            Assert.That(resetButton.GetComponent<Animator>(), Is.Not.Null);
+            Assert.That(resetButtonLabel.name, Is.EqualTo("ResetInputLabel"));
+            Assert.That(resetButton.GetComponent<LayoutElement>().preferredWidth, Is.EqualTo(180f));
+            Assert.That(resetButton.GetComponent<LayoutElement>().preferredHeight, Is.EqualTo(40f));
+            Assert.That(inputView.transform.Find("FlipInputRow/FlipChange_Legacy").gameObject.activeSelf, Is.False);
+            Assert.That(inputView.transform.Find("InputResetRow/ResetInput_Legacy").gameObject.activeSelf, Is.False);
+        }
+
+        [Test]
+        public void SettingsInputViewRuntimeBind_UpdatesVisiblePushAndFlipKeyDisplays()
+        {
+            var parentObject = new GameObject("SettingsInputKeyDisplayRuntimeParent", typeof(RectTransform));
+            var parentRect = (RectTransform)parentObject.transform;
+            var settingsPrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
+            var settingsView = UnityEngine.Object.Instantiate(settingsPrefab, parentRect, false);
+
+            try
+            {
+                var inputView = settingsView.InputView;
+                var serializedInput = new SerializedObject(inputView);
+                var pushKeyDisplayLabel = (TMP_Text)serializedInput.FindProperty("_pushKeyDisplayLabel").objectReferenceValue;
+                var flipKeyDisplayLabel = (TMP_Text)serializedInput.FindProperty("_flipKeyDisplayLabel").objectReferenceValue;
+                var viewModel = new SettingsInputViewModel();
+
+                inputView.Bind(viewModel);
+                viewModel.SetContent(
+                    "Input",
+                    "Movement Keys",
+                    "Use Arrow Keys",
+                    false,
+                    "WASD",
+                    "Push",
+                    "R",
+                    "Change",
+                    "Flip",
+                    "T",
+                    "Change",
+                    "Reset Input",
+                    string.Empty,
+                    false,
+                    null,
+                    true);
+
+                Assert.That(pushKeyDisplayLabel.text, Is.EqualTo("R"));
+                Assert.That(flipKeyDisplayLabel.text, Is.EqualTo("T"));
+
+                viewModel.SetContent(
+                    "Input",
+                    "Movement Keys",
+                    "Use Arrow Keys",
+                    false,
+                    "WASD",
+                    "Push",
+                    "E",
+                    "Change",
+                    "Flip",
+                    "Q",
+                    "Change",
+                    "Reset Input",
+                    string.Empty,
+                    false,
+                    null,
+                    true);
+
+                Assert.That(pushKeyDisplayLabel.text, Is.EqualTo("E"));
+                Assert.That(flipKeyDisplayLabel.text, Is.EqualTo("Q"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(settingsView.gameObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [Test]
+        public void SettingsInputViewRuntimeBind_HighlightsOnlyActiveRebindButton()
+        {
+            var parentObject = new GameObject("SettingsInputRebindVisualRuntimeParent", typeof(RectTransform));
+            var parentRect = (RectTransform)parentObject.transform;
+            var settingsPrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
+            var settingsView = UnityEngine.Object.Instantiate(settingsPrefab, parentRect, false);
+
+            try
+            {
+                var inputView = settingsView.InputView;
+                var viewModel = new SettingsInputViewModel();
+
+                inputView.Bind(viewModel);
+                SetInputContent(viewModel, true, KeyboardBindableAction.Push, "Press a key for Push...");
+                Assert.That(inputView.IsPushChangeInteractable, Is.True);
+                Assert.That(inputView.IsFlipChangeInteractable, Is.False);
+                Assert.That(inputView.IsResetInteractable, Is.False);
+
+                SetInputContent(viewModel, true, KeyboardBindableAction.Flip, "Press a key for Flip...");
+                Assert.That(inputView.IsPushChangeInteractable, Is.False);
+                Assert.That(inputView.IsFlipChangeInteractable, Is.True);
+                Assert.That(inputView.IsResetInteractable, Is.False);
+
+                SetInputContent(viewModel, false, null, string.Empty);
+                Assert.That(inputView.IsPushChangeInteractable, Is.True);
+                Assert.That(inputView.IsFlipChangeInteractable, Is.True);
+                Assert.That(inputView.IsResetInteractable, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(settingsView.gameObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+
+            static void SetInputContent(
+                SettingsInputViewModel viewModel,
+                bool isRebinding,
+                KeyboardBindableAction? rebindingAction,
+                string statusText)
+            {
+                viewModel.SetContent(
+                    "Input",
+                    "Movement Keys",
+                    "Use Arrow Keys",
+                    false,
+                    "WASD",
+                    "Push",
+                    "R",
+                    "Change",
+                    "Flip",
+                    "T",
+                    "Change",
+                    "Reset Input",
+                    statusText,
+                    isRebinding,
+                    rebindingAction,
+                    !isRebinding);
+            }
+        }
+
+        [Test]
+        public void SettingsInputView_PlayButtonAnimation_IgnoresAnimatorWithoutController()
+        {
+            var buttonObject = new GameObject(
+                "SettingsInputAnimationGuardButton",
+                typeof(RectTransform),
+                typeof(Button),
+                typeof(Animator));
+
+            try
+            {
+                var button = buttonObject.GetComponent<Button>();
+                var method = typeof(SettingsInputView).GetMethod(
+                    "PlayButtonAnimation",
+                    BindingFlags.Static | BindingFlags.NonPublic);
+
+                Assert.That(method, Is.Not.Null);
+                method.Invoke(null, new object[] { button, button.animationTriggers.highlightedTrigger });
+
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(buttonObject);
+            }
         }
 
         [TestCase(1920f, 1080f, 560f, 640f)]
@@ -548,52 +893,38 @@ namespace Game.Feature.UI.Tests
             }
         }
 
-        [TestCase(1920f, 1080f, 520f, 360f)]
-        [TestCase(1280f, 720f, 520f, 360f)]
-        [TestCase(1366f, 768f, 520f, 360f)]
-        [TestCase(500f, 360f, 372f, 232f)]
-        public void ObjectiveStatusScreenRuntimeLayout_ClampsTopCenterPanelWithinParent(
-            float parentWidth,
-            float parentHeight,
-            float expectedWidth,
-            float expectedHeight)
+        [Test]
+        public void SettingsScreenRuntimeLayout_KeepsAuthoredBackgroundBehindContent()
         {
-            var parentObject = new GameObject("ObjectiveStatusScreenRuntimeLayoutParent", typeof(RectTransform));
+            var parentObject = new GameObject("SettingsScreenRuntimeLayoutBackgroundParent", typeof(RectTransform));
             var parentRect = (RectTransform)parentObject.transform;
-            parentRect.anchorMin = Vector2.zero;
-            parentRect.anchorMax = Vector2.zero;
-            parentRect.pivot = Vector2.zero;
-            parentRect.sizeDelta = new Vector2(parentWidth, parentHeight);
-            var objectivePrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<ObjectiveStatusScreenView>(UiTestPrefabAssetUtility.ObjectiveStatusScreenPrefabPath);
-            var objectiveView = UnityEngine.Object.Instantiate(objectivePrefab, parentRect, false);
+            var settingsPrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
+            var settingsView = UnityEngine.Object.Instantiate(settingsPrefab, parentRect, false);
 
             try
             {
-                objectiveView.Bind(new ObjectiveStatusScreenViewModel());
-                objectiveView.SetIsCurrent(true);
-                var objectiveRect = (RectTransform)objectiveView.transform;
-                LayoutRebuilder.ForceRebuildLayoutImmediate(objectiveRect);
+                parentRect.sizeDelta = new Vector2(1920f, 1080f);
+                settingsView.SetIsCurrent(true);
 
-                Assert.That(objectiveRect.anchorMin, Is.EqualTo(new Vector2(0.5f, 1f)));
-                Assert.That(objectiveRect.anchorMax, Is.EqualTo(new Vector2(0.5f, 1f)));
-                Assert.That(objectiveRect.pivot, Is.EqualTo(new Vector2(0.5f, 1f)));
-                Assert.That(objectiveRect.anchoredPosition, Is.EqualTo(new Vector2(0f, -20f)));
-                Assert.That(objectiveRect.sizeDelta.x, Is.EqualTo(expectedWidth).Within(0.01f));
-                Assert.That(objectiveRect.sizeDelta.y, Is.EqualTo(expectedHeight).Within(0.01f));
-                Assert.That(objectiveRect.sizeDelta.x, Is.LessThanOrEqualTo(Mathf.Max(1f, parentWidth - 128f)));
-                Assert.That(objectiveRect.sizeDelta.y, Is.LessThanOrEqualTo(Mathf.Max(1f, parentHeight - 128f)));
+                var root = settingsView.transform;
+                Assert.That(root.GetChild(0).name, Is.EqualTo("Background"));
+                Assert.That(root.Find("SettingsHeader").GetSiblingIndex(), Is.EqualTo(1));
+                Assert.That(root.Find("SettingsTabRow").GetSiblingIndex(), Is.EqualTo(2));
+                Assert.That(root.Find("SettingsSectionHost").GetSiblingIndex(), Is.EqualTo(3));
+                Assert.That(root.Find("SettingsFooter").GetSiblingIndex(), Is.EqualTo(4));
+                Assert.That(root.Find("SettingsAccessibilityRows").gameObject.activeSelf, Is.False);
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(objectiveView.gameObject);
+                UnityEngine.Object.DestroyImmediate(settingsView.gameObject);
                 UnityEngine.Object.DestroyImmediate(parentObject);
             }
         }
 
         [Test]
-        public void ObjectiveStatusScreenRuntimeLayout_UsesLayoutContainersAndFlexibleDetail()
+        public void ObjectiveStatusScreenRuntimeLayout_KeepsAuthoredBackgroundBehindContent()
         {
-            var parentObject = new GameObject("ObjectiveStatusScreenRuntimeLayoutContainerParent", typeof(RectTransform));
+            var parentObject = new GameObject("ObjectiveStatusScreenRuntimeLayoutBackgroundParent", typeof(RectTransform));
             var parentRect = (RectTransform)parentObject.transform;
             parentRect.sizeDelta = new Vector2(1920f, 1080f);
             var objectivePrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<ObjectiveStatusScreenView>(UiTestPrefabAssetUtility.ObjectiveStatusScreenPrefabPath);
@@ -603,186 +934,20 @@ namespace Game.Feature.UI.Tests
             {
                 objectiveView.Bind(new ObjectiveStatusScreenViewModel());
                 objectiveView.SetIsCurrent(true);
-                var objectiveRect = (RectTransform)objectiveView.transform;
-                LayoutRebuilder.ForceRebuildLayoutImmediate(objectiveRect);
 
-                Assert.That(objectiveView.GetComponent<VerticalLayoutGroup>(), Is.Not.Null);
-                Assert.That(objectiveView.GetComponent<LayoutElement>(), Is.Not.Null);
-
-                var header = objectiveView.transform.Find("ObjectiveHeader") as RectTransform;
-                var summary = objectiveView.transform.Find("ObjectiveSummary") as RectTransform;
-                var detail = objectiveView.transform.Find("ObjectiveDetail") as RectTransform;
-                var secondary = objectiveView.transform.Find("ObjectiveSecondary") as RectTransform;
-                var footer = objectiveView.transform.Find("ObjectiveFooter") as RectTransform;
-
-                Assert.That(header, Is.Not.Null);
-                Assert.That(summary, Is.Not.Null);
-                Assert.That(detail, Is.Not.Null);
-                Assert.That(secondary, Is.Not.Null);
-                Assert.That(footer, Is.Not.Null);
-                Assert.That(header.GetComponent<HorizontalLayoutGroup>(), Is.Not.Null);
-                Assert.That(footer.GetComponent<HorizontalLayoutGroup>(), Is.Not.Null);
-                Assert.That(detail.GetComponent<LayoutElement>().flexibleHeight, Is.EqualTo(1f));
-                Assert.That(objectiveView.transform.Find("ObjectiveHeader/Title"), Is.Not.Null);
-                Assert.That(objectiveView.transform.Find("ObjectiveHeader/Badge"), Is.Not.Null);
-                Assert.That(objectiveView.transform.Find("ObjectiveSummary/Summary"), Is.Not.Null);
-                Assert.That(objectiveView.transform.Find("ObjectiveDetail/Detail"), Is.Not.Null);
-                Assert.That(objectiveView.transform.Find("ObjectiveSecondary/Secondary"), Is.Not.Null);
-                Assert.That(objectiveView.transform.Find("ObjectiveFooter/InfoButton"), Is.Not.Null);
-                Assert.That(objectiveView.transform.Find("ObjectiveFooter/BackButton"), Is.Not.Null);
-                Assert.That(objectiveView.transform.Find("ObjectiveSummary/Summary").GetComponent<TMP_Text>().textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
-                Assert.That(objectiveView.transform.Find("ObjectiveDetail/Detail").GetComponent<TMP_Text>().textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
-                Assert.That(objectiveView.transform.Find("ObjectiveSecondary/Secondary").GetComponent<TMP_Text>().textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
+                var root = objectiveView.transform;
+                var background = root.Find("SPR_Background");
+                Assert.That(background, Is.Not.Null);
+                Assert.That(background.GetSiblingIndex(), Is.EqualTo(0));
+                Assert.That(root.Find("ObjectiveHeader").GetSiblingIndex(), Is.GreaterThan(background.GetSiblingIndex()));
+                Assert.That(root.Find("ObjectiveSummary").GetSiblingIndex(), Is.GreaterThan(background.GetSiblingIndex()));
+                Assert.That(root.Find("ObjectiveDetail").GetSiblingIndex(), Is.GreaterThan(background.GetSiblingIndex()));
+                Assert.That(root.Find("ObjectiveSecondary").GetSiblingIndex(), Is.GreaterThan(background.GetSiblingIndex()));
+                Assert.That(root.Find("ObjectiveFooter").GetSiblingIndex(), Is.GreaterThan(background.GetSiblingIndex()));
             }
             finally
             {
                 UnityEngine.Object.DestroyImmediate(objectiveView.gameObject);
-                UnityEngine.Object.DestroyImmediate(parentObject);
-            }
-        }
-
-        [TestCase(1920f, 1080f, 460f, 220f)]
-        [TestCase(1280f, 720f, 460f, 220f)]
-        [TestCase(1366f, 768f, 460f, 220f)]
-        [TestCase(420f, 260f, 292f, 132f)]
-        public void StageResultScreenRuntimeLayout_ClampsCenteredPanelWithinParent(
-            float parentWidth,
-            float parentHeight,
-            float expectedWidth,
-            float expectedHeight)
-        {
-            var parentObject = CreateSizedRectParent("StageResultScreenRuntimeLayoutParent", parentWidth, parentHeight);
-            var stagePrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<StageResultScreenView>(UiTestPrefabAssetUtility.StageResultScreenPrefabPath);
-            var stageView = UnityEngine.Object.Instantiate(stagePrefab, parentObject.transform, false);
-
-            try
-            {
-                stageView.Bind(new StageResultScreenViewModel());
-                stageView.SetIsCurrent(true);
-                var stageRect = (RectTransform)stageView.transform;
-                LayoutRebuilder.ForceRebuildLayoutImmediate(stageRect);
-
-                AssertCenteredTerminalPanel(stageRect, parentWidth, parentHeight, expectedWidth, expectedHeight);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(stageView.gameObject);
-                UnityEngine.Object.DestroyImmediate(parentObject);
-            }
-        }
-
-        [Test]
-        public void StageResultScreenRuntimeLayout_UsesLayoutContainersAndFlexibleDetail()
-        {
-            var parentObject = CreateSizedRectParent("StageResultScreenRuntimeLayoutContainerParent", 1920f, 1080f);
-            var stagePrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<StageResultScreenView>(UiTestPrefabAssetUtility.StageResultScreenPrefabPath);
-            var stageView = UnityEngine.Object.Instantiate(stagePrefab, parentObject.transform, false);
-
-            try
-            {
-                stageView.Bind(new StageResultScreenViewModel());
-                stageView.SetIsCurrent(true);
-                var stageRect = (RectTransform)stageView.transform;
-                LayoutRebuilder.ForceRebuildLayoutImmediate(stageRect);
-
-                AssertTerminalResultLayout(stageView.transform, "ResultSummary");
-                Assert.That(stageView.transform.Find("ResultHeader/Title"), Is.Not.Null);
-                Assert.That(stageView.transform.Find("ResultSummary/Summary"), Is.Not.Null);
-                Assert.That(stageView.transform.Find("ResultDetail/Detail"), Is.Not.Null);
-                Assert.That(stageView.transform.Find("ResultFooter/ContinueButton"), Is.Not.Null);
-                Assert.That(stageView.transform.Find("ResultSummary/Summary").GetComponent<TMP_Text>().textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
-                Assert.That(stageView.transform.Find("ResultDetail/Detail").GetComponent<TMP_Text>().textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(stageView.gameObject);
-                UnityEngine.Object.DestroyImmediate(parentObject);
-            }
-        }
-
-        [TestCase(1920f, 1080f, 460f, 230f)]
-        [TestCase(1280f, 720f, 460f, 230f)]
-        [TestCase(1366f, 768f, 460f, 230f)]
-        [TestCase(420f, 260f, 292f, 132f)]
-        public void LevelFailedScreenRuntimeLayout_ClampsCenteredPanelWithinParent(
-            float parentWidth,
-            float parentHeight,
-            float expectedWidth,
-            float expectedHeight)
-        {
-            var parentObject = CreateSizedRectParent("LevelFailedScreenRuntimeLayoutParent", parentWidth, parentHeight);
-            var levelFailedPrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<LevelFailedScreenView>(UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath);
-            var levelFailedView = UnityEngine.Object.Instantiate(levelFailedPrefab, parentObject.transform, false);
-
-            try
-            {
-                levelFailedView.Bind(new LevelFailedScreenViewModel());
-                levelFailedView.SetIsCurrent(true);
-                var levelFailedRect = (RectTransform)levelFailedView.transform;
-                LayoutRebuilder.ForceRebuildLayoutImmediate(levelFailedRect);
-
-                AssertCenteredTerminalPanel(levelFailedRect, parentWidth, parentHeight, expectedWidth, expectedHeight);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(levelFailedView.gameObject);
-                UnityEngine.Object.DestroyImmediate(parentObject);
-            }
-        }
-
-        [Test]
-        public void LevelFailedScreenRuntimeLayout_UsesLayoutContainersAndFlexibleDetail()
-        {
-            var parentObject = CreateSizedRectParent("LevelFailedScreenRuntimeLayoutContainerParent", 1920f, 1080f);
-            var levelFailedPrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<LevelFailedScreenView>(UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath);
-            var levelFailedView = UnityEngine.Object.Instantiate(levelFailedPrefab, parentObject.transform, false);
-
-            try
-            {
-                levelFailedView.Bind(new LevelFailedScreenViewModel());
-                levelFailedView.SetIsCurrent(true);
-                var levelFailedRect = (RectTransform)levelFailedView.transform;
-                LayoutRebuilder.ForceRebuildLayoutImmediate(levelFailedRect);
-
-                AssertTerminalResultLayout(levelFailedView.transform);
-                Assert.That(levelFailedView.transform.Find("ResultHeader/Title"), Is.Not.Null);
-                Assert.That(levelFailedView.transform.Find("ResultDetail/Detail"), Is.Not.Null);
-                Assert.That(levelFailedView.transform.Find("ResultFooter/RestartLevelButton"), Is.Not.Null);
-                Assert.That(levelFailedView.transform.Find("ResultFooter/MainButton"), Is.Not.Null);
-                Assert.That(levelFailedView.transform.Find("ResultDetail/Detail").GetComponent<TMP_Text>().textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(levelFailedView.gameObject);
-                UnityEngine.Object.DestroyImmediate(parentObject);
-            }
-        }
-
-        [Test]
-        public void LevelFailedScreenRuntimeFallback_UsesLayoutContainersAndButtonRows()
-        {
-            var parentObject = CreateSizedRectParent("LevelFailedScreenRuntimeFallbackParent", 1920f, 1080f);
-            var viewObject = new GameObject("LevelFailedScreenRuntimeFallback", typeof(RectTransform));
-            viewObject.transform.SetParent(parentObject.transform, false);
-            var levelFailedView = viewObject.AddComponent<LevelFailedScreenView>();
-
-            try
-            {
-                levelFailedView.Bind(new LevelFailedScreenViewModel());
-                levelFailedView.SetIsCurrent(true);
-                var levelFailedRect = (RectTransform)levelFailedView.transform;
-                LayoutRebuilder.ForceRebuildLayoutImmediate(levelFailedRect);
-
-                AssertCenteredTerminalPanel(levelFailedRect, 1920f, 1080f, 460f, 230f);
-                AssertTerminalResultLayout(levelFailedView.transform);
-                Assert.That(levelFailedView.transform.Find("ResultHeader/Title"), Is.Not.Null);
-                Assert.That(levelFailedView.transform.Find("ResultDetail/Detail"), Is.Not.Null);
-                Assert.That(levelFailedView.transform.Find("ResultFooter/RestartLevelButton"), Is.Not.Null);
-                Assert.That(levelFailedView.transform.Find("ResultFooter/MainButton"), Is.Not.Null);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(viewObject);
                 UnityEngine.Object.DestroyImmediate(parentObject);
             }
         }
@@ -1075,6 +1240,154 @@ namespace Game.Feature.UI.Tests
             AssertPrefabHasNoCrossLayerOwners(popupPrefab.gameObject);
         }
 
+        private static void AssertPausePopupLayout()
+        {
+            var root = UiTestPrefabAssetUtility
+                .LoadPopupPrefab<PausePopupView>(UiTestPrefabAssetUtility.PausePopupPrefabPath)
+                .transform;
+
+            AssertVerticalLayout(root, 16, 16, 20, 20, 10f);
+            AssertLayoutElement(root, 280f, 228f);
+            AssertLayoutElement(FindRequired(root, "Title"), -1f, 24f);
+            AssertLayoutElement(FindRequired(root, "Description"), -1f, 40f);
+            AssertLayoutElement(FindRequired(root, "ResumeButton"), 98f, 28f);
+            AssertLayoutElement(FindRequired(root, "ObjectiveButton"), 98f, 28f);
+            AssertLayoutElement(FindRequired(root, "SettingsButton"), 98f, 28f);
+        }
+
+        private static void AssertObjectiveInfoPopupLayout()
+        {
+            var root = UiTestPrefabAssetUtility
+                .LoadPopupPrefab<ObjectiveInfoPopupView>(UiTestPrefabAssetUtility.ObjectiveInfoPopupPrefabPath)
+                .transform;
+
+            AssertVerticalLayout(root, 16, 16, 20, 20, 10f);
+            AssertLayoutElement(root, 340f, 200f);
+            AssertLayoutElement(FindRequired(root, "Title"), -1f, 24f);
+            AssertLayoutElement(FindRequired(root, "Body"), -1f, 88f);
+            AssertLayoutElement(FindRequired(root, "CloseButton"), 98f, 28f);
+        }
+
+        private static void AssertConfirmPopupLayout()
+        {
+            var root = UiTestPrefabAssetUtility
+                .LoadPopupPrefab<ConfirmPopupView>(UiTestPrefabAssetUtility.ConfirmPopupPrefabPath)
+                .transform;
+            var buttons = FindRequired(root, "Buttons");
+
+            AssertVerticalLayout(root, 16, 16, 20, 20, 10f);
+            AssertLayoutElement(root, 360f, 190f);
+            Assert.That(RequireComponent<LayoutElement>(FindRequired(root, "SPR_Background")).ignoreLayout, Is.True);
+            AssertLayoutElement(FindRequired(root, "Title"), -1f, 24f);
+            AssertLayoutElement(FindRequired(root, "Body"), -1f, 76f);
+            AssertLayoutElement(buttons, -1f, 30f);
+
+            var buttonRowLayout = RequireComponent<HorizontalLayoutGroup>(buttons);
+            Assert.That(buttonRowLayout.spacing, Is.EqualTo(32f));
+            Assert.That(buttonRowLayout.childAlignment, Is.EqualTo(TextAnchor.MiddleCenter));
+            AssertLayoutElement(FindRequired(buttons, "CancelButton"), 100f, 30f);
+            AssertLayoutElement(FindRequired(buttons, "ConfirmButton"), 100f, 30f);
+        }
+
+        private static void AssertTooltipPopupLayout()
+        {
+            var root = UiTestPrefabAssetUtility
+                .LoadPopupPrefab<TooltipPopupView>(UiTestPrefabAssetUtility.TooltipPopupPrefabPath)
+                .transform;
+
+            AssertVerticalLayout(root, 14, 14, 14, 14, 6f);
+            AssertLayoutElement(root, 260f, 132f);
+            AssertLayoutElement(FindRequired(root, "Title"), -1f, 20f);
+            AssertLayoutElement(FindRequired(root, "Body"), -1f, 70f);
+            AssertLayoutElement(FindRequired(root, "DismissButton"), 24f, 24f, ignoreLayout: true);
+        }
+
+        private static void AssertRewardPopupLayout()
+        {
+            var root = UiTestPrefabAssetUtility
+                .LoadPopupPrefab<RewardPopupView>(UiTestPrefabAssetUtility.RewardPopupPrefabPath)
+                .transform;
+
+            AssertVerticalLayout(root, 16, 16, 20, 16, 10f);
+            AssertLayoutElement(root, 380f, 240f);
+            AssertLayoutElement(FindRequired(root, "Title"), -1f, 24f);
+            AssertLayoutElement(FindRequired(root, "FirstReward"), -1f, 22f);
+            AssertLayoutElement(FindRequired(root, "SecondReward"), -1f, 22f);
+            AssertLayoutElement(FindRequired(root, "ThirdReward"), -1f, 22f);
+            AssertLayoutElement(FindRequired(root, "Summary"), -1f, 34f);
+            AssertLayoutElement(FindRequired(root, "CollectButton"), 100f, 30f);
+        }
+
+        private static void AssertSettingsSectionLayout(Transform sectionRoot)
+        {
+            RequireComponent<VerticalLayoutGroup>(sectionRoot);
+            RequireComponent<LayoutElement>(sectionRoot);
+        }
+
+        private static void AssertObjectiveAssetLayout()
+        {
+            var objectiveRoot = UiTestPrefabAssetUtility
+                .LoadScreenPrefab<ObjectiveStatusScreenView>(UiTestPrefabAssetUtility.ObjectiveStatusScreenPrefabPath)
+                .transform;
+
+            RequireComponent<VerticalLayoutGroup>(objectiveRoot);
+            AssertLayoutElement(objectiveRoot, 520f, 360f);
+            RequireComponent<HorizontalLayoutGroup>(FindRequired(objectiveRoot, "ObjectiveHeader"));
+            RequireComponent<LayoutElement>(FindRequired(objectiveRoot, "ObjectiveSummary"));
+            RequireComponent<LayoutElement>(FindRequired(objectiveRoot, "ObjectiveDetail"));
+            RequireComponent<LayoutElement>(FindRequired(objectiveRoot, "ObjectiveSecondary"));
+            RequireComponent<HorizontalLayoutGroup>(FindRequired(objectiveRoot, "ObjectiveFooter"));
+        }
+
+        private static void AssertVerticalLayout(
+            Transform root,
+            int paddingLeft,
+            int paddingRight,
+            int paddingTop,
+            int paddingBottom,
+            float spacing)
+        {
+            var layout = RequireComponent<VerticalLayoutGroup>(root);
+            Assert.That(layout.padding.left, Is.EqualTo(paddingLeft));
+            Assert.That(layout.padding.right, Is.EqualTo(paddingRight));
+            Assert.That(layout.padding.top, Is.EqualTo(paddingTop));
+            Assert.That(layout.padding.bottom, Is.EqualTo(paddingBottom));
+            Assert.That(layout.spacing, Is.EqualTo(spacing));
+            Assert.That(layout.childControlWidth, Is.True);
+            Assert.That(layout.childControlHeight, Is.True);
+            Assert.That(layout.childForceExpandWidth, Is.True);
+            Assert.That(layout.childForceExpandHeight, Is.False);
+        }
+
+        private static void AssertLayoutElement(
+            Transform transform,
+            float preferredWidth,
+            float preferredHeight,
+            bool ignoreLayout = false)
+        {
+            var layoutElement = RequireComponent<LayoutElement>(transform);
+            Assert.That(layoutElement.ignoreLayout, Is.EqualTo(ignoreLayout));
+            Assert.That(layoutElement.preferredWidth, Is.EqualTo(preferredWidth));
+            Assert.That(layoutElement.preferredHeight, Is.EqualTo(preferredHeight));
+        }
+
+        private static Transform FindRequired(Transform root, string path)
+        {
+            Assert.That(root, Is.Not.Null, path);
+            var child = root.Find(path);
+            Assert.That(child, Is.Not.Null, $"{root.name}/{path}");
+            return child;
+        }
+
+        private static T RequireComponent<T>(Transform transform)
+            where T : Component
+        {
+            Assert.That(transform, Is.Not.Null, typeof(T).Name);
+            var component = transform.GetComponent<T>();
+            Assert.That(component, Is.Not.Null, $"{typeof(T).Name} missing on {transform.name}");
+            return component;
+        }
+
         private static Component OpenMountedScreen(GameplayUiFlowInstaller installer, ScreenId screenId)
         {
             switch (screenId)
@@ -1111,8 +1424,7 @@ namespace Game.Feature.UI.Tests
                     return installer.ConfirmPopupView;
 
                 case PopupId.Tooltip:
-                    installer.Coordinator.OpenSettingsScreen();
-                    installer.SettingsScreenView.ClickTooltipInfo();
+                    installer.Coordinator.RequestTooltipPopup(new TooltipPopupPayload("Tip", "Tooltip body"));
                     return installer.TooltipPopupView;
 
                 case PopupId.Reward:
@@ -1279,34 +1591,6 @@ namespace Game.Feature.UI.Tests
         {
             var absolutePath = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, "..", relativePath));
             return File.ReadAllText(absolutePath);
-        }
-
-        private static GameObject CreateSizedRectParent(string objectName, float width, float height)
-        {
-            var parentObject = new GameObject(objectName, typeof(RectTransform));
-            var parentRect = (RectTransform)parentObject.transform;
-            parentRect.anchorMin = Vector2.zero;
-            parentRect.anchorMax = Vector2.zero;
-            parentRect.pivot = Vector2.zero;
-            parentRect.sizeDelta = new Vector2(width, height);
-            return parentObject;
-        }
-
-        private static void AssertCenteredTerminalPanel(
-            RectTransform rectTransform,
-            float parentWidth,
-            float parentHeight,
-            float expectedWidth,
-            float expectedHeight)
-        {
-            Assert.That(rectTransform.anchorMin, Is.EqualTo(new Vector2(0.5f, 0.5f)));
-            Assert.That(rectTransform.anchorMax, Is.EqualTo(new Vector2(0.5f, 0.5f)));
-            Assert.That(rectTransform.pivot, Is.EqualTo(new Vector2(0.5f, 0.5f)));
-            Assert.That(rectTransform.anchoredPosition, Is.EqualTo(Vector2.zero));
-            Assert.That(rectTransform.sizeDelta.x, Is.EqualTo(expectedWidth).Within(0.01f));
-            Assert.That(rectTransform.sizeDelta.y, Is.EqualTo(expectedHeight).Within(0.01f));
-            Assert.That(rectTransform.sizeDelta.x, Is.LessThanOrEqualTo(Mathf.Max(1f, parentWidth - 128f)));
-            Assert.That(rectTransform.sizeDelta.y, Is.LessThanOrEqualTo(Mathf.Max(1f, parentHeight - 128f)));
         }
 
         private static void AssertTerminalResultLayout(Transform root, string optionalMiddleContainerName = null)
