@@ -712,6 +712,41 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void StageAuthoringGridWindow_TileFeatureVisualDropdown_UsesSelectedDraftKind()
+        {
+            var buttonPrefab = CreateValidPrefab("ButtonDraftOptionPrefab");
+            var slidePrefab = CreateValidPrefab("SlideDraftOptionPrefab");
+            var catalog = CreateCatalog(
+                Entry("button", TileFeatureKind.Button, buttonPrefab),
+                Entry("slide", TileFeatureKind.Slide, slidePrefab));
+            var authoring = CreateAuthoring(
+                CreatePresentation(catalog),
+                CreateTileFeature(100, TileFeatureKind.Button, string.Empty));
+            var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
+
+            try
+            {
+                window.BindForTests(authoring);
+                window.SelectTileFeatureByIdForTests(100);
+                window.SetTileFeatureDraftForTests(
+                    TileFeatureKind.Slide,
+                    TileFeatureActivationRule.FrontFaceOnly,
+                    Direction2D.Right,
+                    TileFeatureBoxSelector.None,
+                    boundEntityId: 0);
+
+                var options = window.GetSelectedTileFeatureCatalogOptionsForTests();
+
+                Assert.That(options.Select(option => option.PresentationKey), Does.Contain("slide"));
+                Assert.That(options.Select(option => option.PresentationKey), Does.Not.Contain("button"));
+            }
+            finally
+            {
+                DestroyObjects(window, authoring.GeneratedPresentationDefinition, authoring, catalog, buttonPrefab, slidePrefab);
+            }
+        }
+
+        [Test]
         public void StageAuthoringGridWindow_TileFeatureVisualDropdown_WritesPresentationKey()
         {
             var prefab = CreateValidPrefab("WritesPresentationKeyPrefab");
