@@ -1324,6 +1324,75 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void TickPresentationDataBuilder_DestroyTileFinalization_EmitsAfterMotionBoxDestroyExitWithoutCleanupRemove()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var contactCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            const int boxId = 30;
+
+            var preMovementBox = CreateEntity(boxId, EntityType.Box, sourceCell, Direction.Down);
+            preMovementBox.boxCapabilities = BoxCapabilities.Push;
+            var postMovementBox = CreateEntity(boxId, EntityType.Box, contactCell, Direction.Down);
+            postMovementBox.boxCapabilities = BoxCapabilities.Push;
+            var postAttackBox = postMovementBox;
+            postAttackBox.boardPresence = EntityBoardPresence.Detached;
+            postAttackBox.markedForDeath = true;
+
+            var preMovementSnapshot = CreateWorldState(new[] { preMovementBox }).CreateSnapshot();
+            var postMovementSnapshot = CreateWorldState(new[] { postMovementBox }).CreateSnapshot();
+            var postAttackSnapshot = CreateWorldState(new[] { postAttackBox }).CreateSnapshot();
+            var finalSnapshot = CreateWorldState(Array.Empty<EntityState>()).CreateSnapshot();
+            var moveMetadata = new FinalizationOperationMetadata(
+                TickPhase.Resolve,
+                ResolvedActionSemanticKind.Push,
+                sourceActorEntityId: 10,
+                actionPlanId: 1,
+                movementSemanticKind: MovementSemanticKind.Push);
+            var destroyMetadata = new FinalizationOperationMetadata(
+                TickPhase.Resolve,
+                ResolvedActionSemanticKind.None,
+                sourceActorEntityId: boxId,
+                actionPlanId: 1,
+                exitCauseHint: TickEntityExitCause.BoxDestroy,
+                damageSourceType: DamageSourceType.Environmental,
+                presentationTargetCell: contactCell,
+                movementExecutionBoundaryKind: MovementExecutionBoundaryKind.ScriptedRelocation,
+                boundaryReason: "DestroyTile",
+                exitPresentationTiming: EntityExitPresentationTiming.AfterEntityMotion,
+                hasPresentationTargetCell: true);
+            var finalizationBatch = new FinalizationBatch();
+            finalizationBatch.MoveEntity(boxId, contactCell, moveMetadata);
+            finalizationBatch.SetBoardPresence(boxId, EntityBoardPresence.Detached, destroyMetadata);
+            finalizationBatch.MarkDestroy(boxId, destroyMetadata);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    postMovementSnapshot,
+                    postAttackSnapshot,
+                    finalSnapshot,
+                    CreateMovementPhaseResultWithOperations(
+                        FinalizationOperation.MoveEntity(1, boxId, contactCell, moveMetadata)),
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.RemovedEntities(boxId),
+                    finalizationBatch: finalizationBatch));
+
+            Assert.That(presentationData.EntityMotions.Select(motion => motion.EntityId), Does.Contain(boxId));
+            Assert.That(
+                presentationData.VisibilityChanges.Any(
+                    change => change.EntityId == boxId &&
+                              change.ChangeKind == TickVisibilityChangeKind.Remove),
+                Is.False);
+            var exitSignal = presentationData.EntityExitSignals.Single();
+            Assert.That(exitSignal.ExitedEntityId, Is.EqualTo(boxId));
+            Assert.That(exitSignal.ExitCause, Is.EqualTo(TickEntityExitCause.BoxDestroy));
+            Assert.That(exitSignal.SourceCell, Is.EqualTo(contactCell));
+            Assert.That(exitSignal.Timing, Is.EqualTo(EntityExitPresentationTiming.AfterEntityMotion));
+            Assert.That(exitSignal.EntityType, Is.EqualTo(EntityType.Box));
+        }
+
+        [Test]
+        [Category("Core")]
         public void TickResultBuilder_LocomotionAnchorCommit_SuppressesLegacyMotion()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
@@ -2612,6 +2681,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(exitSignal.ExitCause, Is.EqualTo(TickEntityExitCause.BoxDestroy));
             Assert.That(exitSignal.SourceActorEntityId, Is.EqualTo(enemyId));
             Assert.That(exitSignal.SourceCell, Is.EqualTo(targetCell));
+            Assert.That(exitSignal.Timing, Is.EqualTo(EntityExitPresentationTiming.Immediate));
             Assert.That(exitSignal.EntityType, Is.EqualTo(EntityType.Box));
         }
 

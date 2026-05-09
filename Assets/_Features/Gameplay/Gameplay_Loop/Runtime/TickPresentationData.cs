@@ -1280,6 +1280,61 @@ namespace Game.Feature.Gameplay.Loop
         Killed = EnemyDeath,
     }
 
+    public enum EntityExitPresentationTiming
+    {
+        Immediate = 0,
+        AfterEntityMotion = 1,
+        AtContactTime = 2,
+        AfterAnimationTail = 3,
+    }
+
+    internal readonly struct EntityExitPresentationFact
+    {
+        public EntityExitPresentationFact(
+            int entityId,
+            TickEntityExitCause exitCause,
+            EntityType entityType,
+            SurfaceCell anchorCell,
+            CubeTopologyState topology,
+            Direction facing,
+            int sourceActorEntityId,
+            EntityExitPresentationTiming timing,
+            string boundaryReason,
+            bool hasExplicitAnchor)
+        {
+            EntityId = entityId;
+            ExitCause = exitCause;
+            EntityType = entityType;
+            AnchorCell = anchorCell;
+            Topology = topology;
+            Facing = facing;
+            SourceActorEntityId = sourceActorEntityId;
+            Timing = timing;
+            BoundaryReason = boundaryReason ?? string.Empty;
+            HasExplicitAnchor = hasExplicitAnchor;
+        }
+
+        public int EntityId { get; }
+
+        public TickEntityExitCause ExitCause { get; }
+
+        public EntityType EntityType { get; }
+
+        public SurfaceCell AnchorCell { get; }
+
+        public CubeTopologyState Topology { get; }
+
+        public Direction Facing { get; }
+
+        public int SourceActorEntityId { get; }
+
+        public EntityExitPresentationTiming Timing { get; }
+
+        public string BoundaryReason { get; }
+
+        public bool HasExplicitAnchor { get; }
+    }
+
     // Exit signals transfer visual ownership away from the authoritative entity view.
     // Once an exit is committed, the original entity view must not remain visible in
     // the scene just to support a lingering effect; any echo is transient-only.
@@ -1294,7 +1349,8 @@ namespace Game.Feature.Gameplay.Loop
             EntityType entityType,
             int? sourceActorEntityId = null,
             int? anchorEntityId = null,
-            int presentationSeed = 0)
+            int presentationSeed = 0,
+            EntityExitPresentationTiming timing = EntityExitPresentationTiming.Immediate)
         {
             ExitedEntityId = exitedEntityId;
             ExitCause = exitCause;
@@ -1305,6 +1361,7 @@ namespace Game.Feature.Gameplay.Loop
             SourceActorEntityId = sourceActorEntityId;
             AnchorEntityId = anchorEntityId;
             PresentationSeed = presentationSeed;
+            Timing = timing;
         }
 
         public int ExitedEntityId { get; }
@@ -1324,6 +1381,8 @@ namespace Game.Feature.Gameplay.Loop
         public int? AnchorEntityId { get; }
 
         public int PresentationSeed { get; }
+
+        public EntityExitPresentationTiming Timing { get; }
     }
 
     // Presentation-only transient for current Flip nonlethal destroy-self impact.

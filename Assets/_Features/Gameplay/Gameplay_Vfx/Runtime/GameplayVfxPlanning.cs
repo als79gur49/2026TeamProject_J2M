@@ -126,6 +126,11 @@ namespace Game.Feature.Gameplay.Vfx
 
                 if (signal.ExitCause == TickEntityExitCause.BoxDestroy)
                 {
+                    if (signal.Timing == EntityExitPresentationTiming.AfterEntityMotion)
+                    {
+                        continue;
+                    }
+
                     AddExitRequest(context, builder, signal, BoxVfxCue.DestroySmoke);
                 }
                 else if (signal.ExitCause == TickEntityExitCause.ItemConsume)

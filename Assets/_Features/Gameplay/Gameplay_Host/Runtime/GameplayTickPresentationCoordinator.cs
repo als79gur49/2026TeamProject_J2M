@@ -392,6 +392,7 @@ namespace Game.Feature.Gameplay.Host
                 _topologyTransitionController.HasActiveBoardRotationTween,
                 _viewBinder,
                 _timingProfile);
+            _exitPresentationController.CompleteDeferredEntityExits();
             RefreshPresentationMotionVfx(_lastPresentedTickIndex);
         }
 

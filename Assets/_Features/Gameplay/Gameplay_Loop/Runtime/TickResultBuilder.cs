@@ -378,7 +378,8 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<GravityFieldPresentationEvent> gravityFieldEvents = null,
             int gravityFieldChargeDurationTicks = 0,
             int gravityFieldActiveDurationTicks = 0,
-            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null)
+            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null,
+            FinalizationBatch finalizationBatch = null)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -400,7 +401,8 @@ namespace Game.Feature.Gameplay.Loop
                 gravityFieldEvents,
                 gravityFieldChargeDurationTicks,
                 gravityFieldActiveDurationTicks,
-                gravityFieldLockedTargetFacts)
+                gravityFieldLockedTargetFacts,
+                finalizationBatch)
         {
         }
 
@@ -425,7 +427,8 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<GravityFieldPresentationEvent> gravityFieldEvents = null,
             int gravityFieldChargeDurationTicks = 0,
             int gravityFieldActiveDurationTicks = 0,
-            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null)
+            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null,
+            FinalizationBatch finalizationBatch = null)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -448,7 +451,8 @@ namespace Game.Feature.Gameplay.Loop
                 gravityFieldEvents,
                 gravityFieldChargeDurationTicks,
                 gravityFieldActiveDurationTicks,
-                gravityFieldLockedTargetFacts)
+                gravityFieldLockedTargetFacts,
+                finalizationBatch)
         {
         }
 
@@ -473,7 +477,8 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<GravityFieldPresentationEvent> gravityFieldEvents = null,
             int gravityFieldChargeDurationTicks = 0,
             int gravityFieldActiveDurationTicks = 0,
-            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null)
+            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null,
+            FinalizationBatch finalizationBatch = null)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -496,7 +501,8 @@ namespace Game.Feature.Gameplay.Loop
                 gravityFieldEvents,
                 gravityFieldChargeDurationTicks,
                 gravityFieldActiveDurationTicks,
-                gravityFieldLockedTargetFacts)
+                gravityFieldLockedTargetFacts,
+                finalizationBatch)
         {
         }
 
@@ -522,7 +528,8 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<GravityFieldPresentationEvent> gravityFieldEvents = null,
             int gravityFieldChargeDurationTicks = 0,
             int gravityFieldActiveDurationTicks = 0,
-            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null)
+            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null,
+            FinalizationBatch finalizationBatch = null)
         {
             PreMovementSnapshot = preMovementSnapshot ?? throw new ArgumentNullException(nameof(preMovementSnapshot));
             PostMovementSnapshot = postMovementSnapshot ?? throw new ArgumentNullException(nameof(postMovementSnapshot));
@@ -533,6 +540,7 @@ namespace Game.Feature.Gameplay.Loop
             AttackPhaseResult = attackPhaseResult ?? throw new ArgumentNullException(nameof(attackPhaseResult));
             CleanupPhaseResult = cleanupPhaseResult ?? throw new ArgumentNullException(nameof(cleanupPhaseResult));
             RespawnPhaseResult = respawnPhaseResult ?? throw new ArgumentNullException(nameof(respawnPhaseResult));
+            FinalizationBatch = finalizationBatch ?? new FinalizationBatch();
             CurrentTickIndex = currentTickIndex;
             JumpBaselineSnapshot = jumpBaselineSnapshot ?? PreMovementSnapshot;
             PlayerCommand = playerCommand;
@@ -576,6 +584,8 @@ namespace Game.Feature.Gameplay.Loop
         public CleanupPhaseResult CleanupPhaseResult { get; }
 
         public RespawnPhaseResult RespawnPhaseResult { get; }
+
+        public FinalizationBatch FinalizationBatch { get; }
 
         public int CurrentTickIndex { get; }
 
@@ -1763,105 +1773,203 @@ namespace Game.Feature.Gameplay.Loop
             List<TickEntityExitPresentationSignal> entityExitSignals,
             ISet<int> exitOwnedEntityIds)
         {
-            // Exit-owned removals bypass generic detach/remove visibility tracks. The
-            // authoritative entity view disappears immediately; only transient echoes linger.
-            var signaledEntityIds = new HashSet<int>();
-            BuildMovementOwnedExitPresentation(
-                context,
-                entityExitSignals,
-                exitOwnedEntityIds,
-                signaledEntityIds);
-            BuildAttackOwnedExitPresentation(
-                context,
-                entityExitSignals,
-                exitOwnedEntityIds,
-                signaledEntityIds);
+            var facts = BuildEntityExitPresentationFacts(context);
+            for (var i = 0; i < facts.Count; i++)
+            {
+                var fact = facts[i];
+                entityExitSignals.Add(
+                    new TickEntityExitPresentationSignal(
+                        fact.EntityId,
+                        fact.ExitCause,
+                        fact.AnchorCell,
+                        fact.Topology,
+                        fact.Facing,
+                        fact.EntityType,
+                        sourceActorEntityId: fact.SourceActorEntityId,
+                        presentationSeed: BuildStablePresentationSeed(
+                            context.CurrentTickIndex,
+                            fact.EntityId,
+                            fact.SourceActorEntityId,
+                            fact.ExitCause),
+                        timing: fact.Timing));
+                exitOwnedEntityIds.Add(fact.EntityId);
+            }
         }
 
-        private static void BuildMovementOwnedExitPresentation(
-            in TickPresentationBuildContext context,
-            List<TickEntityExitPresentationSignal> entityExitSignals,
-            ISet<int> exitOwnedEntityIds,
-            ISet<int> signaledEntityIds)
+        private static IReadOnlyList<EntityExitPresentationFact> BuildEntityExitPresentationFacts(
+            in TickPresentationBuildContext context)
         {
             var removedEntityIds = new HashSet<int>(context.CleanupPhaseResult.RemovedEntityIds);
-            var operations = context.MovementPhaseResult.ResolvedOperations;
+            if (removedEntityIds.Count == 0)
+            {
+                return Array.Empty<EntityExitPresentationFact>();
+            }
 
+            var factsByEntityId = new Dictionary<int, EntityExitPresentationFact>();
+            var operations = BuildEntityExitCandidateOperations(context);
             for (var i = 0; i < operations.Count; i++)
             {
                 var operation = operations[i];
                 if (operation.Metadata.ExitCauseHint == TickEntityExitCause.None ||
                     !removedEntityIds.Contains(operation.EntityId) ||
-                    !signaledEntityIds.Add(operation.EntityId) ||
-                    !context.PreMovementSnapshot.TryGetEntity(operation.EntityId, out var sourceEntity))
+                    !IsExitRelevantOperation(operation) ||
+                    !TryResolveEntityExitState(context, operation.EntityId, out var sourceEntity, out var topology) ||
+                    !IsExitPresentationSupportedEntity(sourceEntity))
                 {
                     continue;
                 }
 
-                var isExitSignal =
-                    (operation.Kind == FinalizationOperationKind.SetBoardPresence &&
-                     operation.BoardPresence == EntityBoardPresence.Detached) ||
-                    operation.Kind == FinalizationOperationKind.MarkDestroy;
-                if (!isExitSignal)
-                {
-                    signaledEntityIds.Remove(operation.EntityId);
-                    continue;
-                }
+                var fact = new EntityExitPresentationFact(
+                    operation.EntityId,
+                    operation.Metadata.ExitCauseHint,
+                    sourceEntity.type,
+                    ResolveExitAnchorCell(context, operation, sourceEntity.position),
+                    topology,
+                    sourceEntity.facing,
+                    operation.Metadata.SourceActorEntityId,
+                    operation.Metadata.ExitPresentationTiming,
+                    operation.Metadata.BoundaryReason,
+                    operation.Metadata.HasPresentationTargetCell);
+                MergePreferMoreSpecificFact(factsByEntityId, fact);
+            }
 
-                var exitCause = operation.Metadata.ExitCauseHint;
-                entityExitSignals.Add(
-                    new TickEntityExitPresentationSignal(
-                        operation.EntityId,
-                        exitCause,
-                        sourceEntity.position,
-                        context.PreMovementSnapshot.Topology,
-                        sourceEntity.facing,
-                        sourceEntity.type,
-                        sourceActorEntityId: operation.Metadata.SourceActorEntityId,
-                        presentationSeed: BuildStablePresentationSeed(
-                            context.CurrentTickIndex,
-                            operation.EntityId,
-                            operation.Metadata.SourceActorEntityId,
-                            exitCause)));
-                exitOwnedEntityIds.Add(operation.EntityId);
+            if (factsByEntityId.Count == 0)
+            {
+                return Array.Empty<EntityExitPresentationFact>();
+            }
+
+            var facts = new List<EntityExitPresentationFact>(factsByEntityId.Values);
+            facts.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+            return facts;
+        }
+
+        private static IReadOnlyList<FinalizationOperation> BuildEntityExitCandidateOperations(
+            in TickPresentationBuildContext context)
+        {
+            if (context.FinalizationBatch.Operations.Count > 0)
+            {
+                return context.FinalizationBatch.Operations;
+            }
+
+            var operations = new List<FinalizationOperation>(
+                context.MovementPhaseResult.ResolvedOperations.Count +
+                context.AttackPhaseResult.ResolvedOperations.Count);
+            AppendOperations(operations, context.MovementPhaseResult.ResolvedOperations);
+            AppendOperations(operations, context.AttackPhaseResult.ResolvedOperations);
+            return operations;
+        }
+
+        private static void AppendOperations(
+            List<FinalizationOperation> destination,
+            IReadOnlyList<FinalizationOperation> source)
+        {
+            for (var i = 0; i < source.Count; i++)
+            {
+                destination.Add(source[i]);
             }
         }
 
-        private static void BuildAttackOwnedExitPresentation(
-            in TickPresentationBuildContext context,
-            List<TickEntityExitPresentationSignal> entityExitSignals,
-            ISet<int> exitOwnedEntityIds,
-            ISet<int> signaledEntityIds)
+        private static bool IsExitRelevantOperation(FinalizationOperation operation)
         {
-            var removedEntityIds = context.CleanupPhaseResult.RemovedEntityIds;
-            for (var i = 0; i < removedEntityIds.Count; i++)
-            {
-                var entityId = removedEntityIds[i];
-                if (exitOwnedEntityIds.Contains(entityId) ||
-                    !signaledEntityIds.Add(entityId) ||
-                    !context.PostAttackSnapshot.TryGetEntity(entityId, out var removedEntity) ||
-                    !IsEnemyUnit(context.PostAttackSnapshot, entityId) ||
-                    !TryFindAttackDestroyOperation(context.AttackPhaseResult.ResolvedOperations, entityId, out var destroyOperation))
-                {
-                    continue;
-                }
+            return (operation.Kind == FinalizationOperationKind.SetBoardPresence &&
+                    operation.BoardPresence == EntityBoardPresence.Detached) ||
+                   operation.Kind == FinalizationOperationKind.MarkDestroy;
+        }
 
-                entityExitSignals.Add(
-                    new TickEntityExitPresentationSignal(
-                        entityId,
-                        destroyOperation.Metadata.ExitCauseHint,
-                        removedEntity.position,
-                        context.PostAttackSnapshot.Topology,
-                        removedEntity.facing,
-                        removedEntity.type,
-                        sourceActorEntityId: destroyOperation.Metadata.SourceActorEntityId,
-                        presentationSeed: BuildStablePresentationSeed(
-                            context.CurrentTickIndex,
-                            entityId,
-                            destroyOperation.Metadata.SourceActorEntityId,
-                            destroyOperation.Metadata.ExitCauseHint)));
-                exitOwnedEntityIds.Add(entityId);
+        private static bool IsExitPresentationSupportedEntity(EntityState entity)
+        {
+            return entity.type == EntityType.Box ||
+                   (entity.type == EntityType.Unit && entity.aiMode != EnemyAiMode.None);
+        }
+
+        private static SurfaceCell ResolveExitAnchorCell(
+            in TickPresentationBuildContext context,
+            FinalizationOperation operation,
+            SurfaceCell fallbackCell)
+        {
+            if (operation.Metadata.HasPresentationTargetCell)
+            {
+                return operation.Metadata.PresentationTargetCell;
             }
+
+            if (operation.Kind == FinalizationOperationKind.MoveEntity)
+            {
+                return operation.Destination;
+            }
+
+            if (context.PostAttackSnapshot.TryGetEntity(operation.EntityId, out var postAttackEntity))
+            {
+                return postAttackEntity.position;
+            }
+
+            if (context.PostMovementSnapshot.TryGetEntity(operation.EntityId, out var postMovementEntity))
+            {
+                return postMovementEntity.position;
+            }
+
+            return context.PreMovementSnapshot.TryGetEntity(operation.EntityId, out var preMovementEntity)
+                ? preMovementEntity.position
+                : fallbackCell;
+        }
+
+        private static bool TryResolveEntityExitState(
+            in TickPresentationBuildContext context,
+            int entityId,
+            out EntityState entity,
+            out CubeTopologyState topology)
+        {
+            if (context.PostAttackSnapshot.TryGetEntity(entityId, out entity))
+            {
+                topology = context.PostAttackSnapshot.Topology;
+                return true;
+            }
+
+            if (context.PostMovementSnapshot.TryGetEntity(entityId, out entity))
+            {
+                topology = context.PostMovementSnapshot.Topology;
+                return true;
+            }
+
+            if (context.PreMovementSnapshot.TryGetEntity(entityId, out entity))
+            {
+                topology = context.PreMovementSnapshot.Topology;
+                return true;
+            }
+
+            topology = default;
+            return false;
+        }
+
+        private static void MergePreferMoreSpecificFact(
+            IDictionary<int, EntityExitPresentationFact> factsByEntityId,
+            in EntityExitPresentationFact candidate)
+        {
+            if (!factsByEntityId.TryGetValue(candidate.EntityId, out var existing) ||
+                GetEntityExitFactSpecificity(candidate) > GetEntityExitFactSpecificity(existing))
+            {
+                factsByEntityId[candidate.EntityId] = candidate;
+            }
+        }
+
+        private static int GetEntityExitFactSpecificity(in EntityExitPresentationFact fact)
+        {
+            var score = 0;
+            if (fact.HasExplicitAnchor)
+            {
+                score += 4;
+            }
+
+            if (fact.Timing != EntityExitPresentationTiming.Immediate)
+            {
+                score += 2;
+            }
+
+            if (!string.IsNullOrEmpty(fact.BoundaryReason))
+            {
+                score += 1;
+            }
+
+            return score;
         }
 
         private static void BuildCleanupPresentation(
