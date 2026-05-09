@@ -1,3 +1,4 @@
+using Game.Feature.Gameplay.BoardState;
 using UnityEditor;
 using UnityEngine;
 
@@ -9,6 +10,14 @@ namespace Game.Feature.Stages.Editor
         Generate,
         Validate,
         AddPlacement,
+        MoveSelectedHere,
+        DeleteSelected,
+    }
+
+    internal enum StageAuthoringTileFeatureCellAction
+    {
+        None,
+        AddTileFeature,
         MoveSelectedHere,
         DeleteSelected,
     }
@@ -120,6 +129,64 @@ namespace Game.Feature.Stages.Editor
             }
 
             return StageAuthoringGridToolbarAction.None;
+        }
+
+        public static StageAuthoringTileFeatureCellAction DrawTileFeatureCellTools(
+            StageAuthoringDefinition authoring,
+            StageAuthoringGridSelectionState selection,
+            int selectedTileFeatureIndex)
+        {
+            var targetCell = new SurfaceCell(
+                selection.TargetFace,
+                selection.TargetCell.x,
+                selection.TargetCell.y);
+            var targetTileFeatureCount = selection.CountTileFeaturesAt(
+                authoring.TileFeatures,
+                targetCell.face,
+                targetCell.x,
+                targetCell.y);
+            var selectedAtTarget =
+                selectedTileFeatureIndex >= 0 &&
+                selectedTileFeatureIndex < authoring.TileFeatures.Count &&
+                authoring.TileFeatures[selectedTileFeatureIndex].Cell == targetCell;
+
+            EditorGUILayout.LabelField("Target Cell", targetCell.ToString());
+            if (selectedAtTarget)
+            {
+                EditorGUILayout.HelpBox("Selected TileFeature is already at the target cell.", MessageType.Info);
+            }
+            else if (targetTileFeatureCount > 0)
+            {
+                EditorGUILayout.HelpBox(
+                    $"Target cell contains {targetTileFeatureCount} TileFeature(s).",
+                    MessageType.Info);
+            }
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button("Add TileFeature"))
+                {
+                    return StageAuthoringTileFeatureCellAction.AddTileFeature;
+                }
+
+                using (new EditorGUI.DisabledScope(selectedTileFeatureIndex < 0 || selectedAtTarget))
+                {
+                    if (GUILayout.Button("Move Selected Here"))
+                    {
+                        return StageAuthoringTileFeatureCellAction.MoveSelectedHere;
+                    }
+                }
+
+                using (new EditorGUI.DisabledScope(selectedTileFeatureIndex < 0))
+                {
+                    if (GUILayout.Button("Delete Selected"))
+                    {
+                        return StageAuthoringTileFeatureCellAction.DeleteSelected;
+                    }
+                }
+            }
+
+            return StageAuthoringTileFeatureCellAction.None;
         }
 
         public static void DrawReport(StageAuthoringGenerationReport report)
