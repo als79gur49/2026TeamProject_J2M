@@ -120,6 +120,9 @@ namespace Game.Feature.Gameplay.Host
 
         public bool IsTopologyTransitionActive => CurrentPresentationPhase == GameplayPresentationPhase.TopologyTransition;
 
+        public bool IsPlayerActionAttemptPlaybackActive(int entityId) =>
+            _animationSync.IsPlayerActionAttemptHoldActive(entityId);
+
         public TopologyTransitionVisualState CurrentTopologyTransitionVisualState =>
             _topologyTransitionController.CurrentVisualState;
 

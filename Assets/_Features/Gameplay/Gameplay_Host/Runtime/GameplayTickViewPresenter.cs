@@ -39,6 +39,9 @@ namespace Game.Feature.Gameplay.Host
 
         public bool IsTopologyTransitionActive => _presentationCoordinator.IsTopologyTransitionActive;
 
+        public bool IsPlayerActionAttemptPlaybackActive(int entityId) =>
+            _presentationCoordinator.IsPlayerActionAttemptPlaybackActive(entityId);
+
         public TopologyTransitionVisualState CurrentTopologyTransitionVisualState =>
             _presentationCoordinator.CurrentTopologyTransitionVisualState;
 

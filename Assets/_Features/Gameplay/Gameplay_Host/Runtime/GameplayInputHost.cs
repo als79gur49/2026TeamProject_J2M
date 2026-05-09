@@ -536,6 +536,14 @@ namespace Game.Feature.Gameplay.Host
                 return PlayerTickCommand.None;
             }
 
+            if (IsPlayerActionAttemptPlaybackActive())
+            {
+                _moveIntentBuffer?.ClearBufferedDirection();
+                ClearPendingPlayerActionInput();
+                ClearPendingUiActionInput();
+                return PlayerTickCommand.None;
+            }
+
             RefreshMoveInputFromAction();
 
             var now = ResolveCurrentInputTime();
@@ -636,6 +644,16 @@ namespace Game.Feature.Gameplay.Host
                 }
             }
 
+            var playerActionAttemptSignals = result.PresentationData.PlayerActionAttemptSignals;
+            for (var i = 0; i < playerActionAttemptSignals.Count; i++)
+            {
+                if (playerActionAttemptSignals[i].EntityId == _playerEntityId)
+                {
+                    _moveIntentBuffer?.ClearBufferedDirection();
+                    return;
+                }
+            }
+
             var entityMotions = result.PresentationData.EntityMotions;
             for (var i = 0; i < entityMotions.Count; i++)
             {
@@ -645,6 +663,25 @@ namespace Game.Feature.Gameplay.Host
                     return;
                 }
             }
+        }
+
+        private bool IsPlayerActionAttemptPlaybackActive()
+        {
+            return _presenter != null && _presenter.IsPlayerActionAttemptPlaybackActive(_playerEntityId);
+        }
+
+        private void ClearPendingPlayerActionInput()
+        {
+            _hasBufferedFlip = false;
+            _hasBufferedPush = false;
+        }
+
+        private void ClearPendingUiActionInput()
+        {
+            _uiBufferedFlipDirection = Direction.None;
+            _uiBufferedPushDirection = Direction.None;
+            _hasBufferedUiFlip = false;
+            _hasBufferedUiPush = false;
         }
 
         private void RefreshMoveInputFromAction()
