@@ -50,6 +50,61 @@ namespace Game.Feature.Gameplay.Entities
             public int OrdinaryKinematicMoveTicks { get; }
         }
 
+        private enum EnemyGlideAdvanceVerdict
+        {
+            CanAdvance,
+            WaitUnitBlocked,
+            BlockedBoundary,
+            BlockedTopology,
+            BlockedTraversal,
+            MissingLockedStep,
+        }
+
+        private readonly struct EnemyGlideAdvanceResolution
+        {
+            public EnemyGlideAdvanceResolution(
+                EnemyGlideAdvanceVerdict verdict,
+                SurfaceCell destination,
+                RawMovementIntent intent)
+            {
+                Verdict = verdict;
+                Destination = destination;
+                Intent = intent;
+            }
+
+            public EnemyGlideAdvanceVerdict Verdict { get; }
+
+            public SurfaceCell Destination { get; }
+
+            public RawMovementIntent Intent { get; }
+
+            public bool IsTerminal =>
+                Verdict == EnemyGlideAdvanceVerdict.BlockedBoundary ||
+                Verdict == EnemyGlideAdvanceVerdict.BlockedTopology ||
+                Verdict == EnemyGlideAdvanceVerdict.BlockedTraversal ||
+                Verdict == EnemyGlideAdvanceVerdict.MissingLockedStep;
+
+            public string DebugReason => Verdict switch
+            {
+                EnemyGlideAdvanceVerdict.CanAdvance => "IntentCreated",
+                EnemyGlideAdvanceVerdict.WaitUnitBlocked => "GlideAdvanceWaitUnitBlocked",
+                EnemyGlideAdvanceVerdict.BlockedBoundary => "GlideAdvanceBlockedBoundary",
+                EnemyGlideAdvanceVerdict.BlockedTopology => "GlideAdvanceBlockedTopology",
+                EnemyGlideAdvanceVerdict.BlockedTraversal => "GlideAdvanceBlockedTraversal",
+                EnemyGlideAdvanceVerdict.MissingLockedStep => "NoLockedStep",
+                _ => "GlideAdvanceBlockedTraversal",
+            };
+
+            public string RecoveryLabel => Verdict switch
+            {
+                EnemyGlideAdvanceVerdict.BlockedBoundary => "EnterRecoveryBlockedBoundary",
+                EnemyGlideAdvanceVerdict.BlockedTopology => "EnterRecoveryBlockedTopology",
+                EnemyGlideAdvanceVerdict.BlockedTraversal => "EnterRecoveryBlockedTraversal",
+                EnemyGlideAdvanceVerdict.MissingLockedStep => "EnterRecoveryMissingLockedStep",
+                _ => "EnterRecoveryBlockedTraversal",
+            };
+        }
+
         private readonly int _entityId;
         private readonly EnemyAiCommonSettings _commonSettings;
         private readonly PatrolSettings _patrolSettings;
@@ -727,6 +782,17 @@ namespace Game.Feature.Gameplay.Entities
                         continue;
 
                     case EnemyGlidePhase.Active:
+                        if (input.TickIndex < nextState.ActiveUntilTickExclusive &&
+                            TryResolveActiveGlideTerminalBlock(snapshot, source, nextState, out var terminalResolution))
+                        {
+                            nextState = EnemyGlideQueries.BeginRecovery(nextState, input.TickIndex);
+                            hasPreviousState = true;
+                            changed = true;
+                            AppendGlideUpdate(updates, _entityId, terminalResolution.RecoveryLabel, nextState);
+                            AppendGlideStateDebug(updates, snapshot, input.TickIndex, source, terminalResolution.RecoveryLabel, nextState);
+                            continue;
+                        }
+
                         if (input.TickIndex < nextState.ActiveUntilTickExclusive)
                         {
                             return changed;
@@ -986,24 +1052,151 @@ namespace Game.Feature.Gameplay.Entities
             out GroundLocomotionResolution locomotion)
         {
             locomotion = default;
-            if (!TryGetLockedGlideStep(glideState, out var lockedStep) ||
-                source.enemyLocomotionCooldownTicks > 0 ||
-                !EnemyMovementStrategyShared.TryBuildMoveIntent(
-                    snapshot,
-                    source,
-                    _commonSettings,
-                    lockedStep,
-                    out var intent))
+            if (source.enemyLocomotionCooldownTicks > 0 ||
+                !TryResolveActiveGlideAdvance(snapshot, source, glideState, out var advance) ||
+                advance.Verdict != EnemyGlideAdvanceVerdict.CanAdvance)
             {
                 return false;
             }
 
             locomotion = new GroundLocomotionResolution(
                 hasIntent: true,
-                intent,
+                advance.Intent,
                 _locomotionTimingSettings.MoveCooldownTicks,
                 _locomotionTimingSettings.OrdinaryKinematicMoveTicks);
             return true;
+        }
+
+        private bool TryResolveActiveGlideTerminalBlock(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EnemyGlideRuntimeState glideState,
+            out EnemyGlideAdvanceResolution terminalResolution)
+        {
+            terminalResolution = default;
+            if (source.enemyLocomotionCooldownTicks > 0 ||
+                HasUnsettledVoluntaryKinematicPose(snapshot, source.entityId) ||
+                !TryResolveActiveGlideAdvance(snapshot, source, glideState, out var advance) ||
+                !advance.IsTerminal)
+            {
+                return false;
+            }
+
+            terminalResolution = advance;
+            return true;
+        }
+
+        private bool TryResolveActiveGlideAdvance(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EnemyGlideRuntimeState glideState,
+            out EnemyGlideAdvanceResolution resolution)
+        {
+            resolution = default;
+            if (!TryGetLockedGlideStep(glideState, out var lockedStep))
+            {
+                resolution = new EnemyGlideAdvanceResolution(
+                    EnemyGlideAdvanceVerdict.MissingLockedStep,
+                    default,
+                    default);
+                return true;
+            }
+
+            var expectedDestination = source.position.PlanarPosition + lockedStep;
+            if (!snapshot.TryResolveUnitStep(
+                    source.position,
+                    lockedStep,
+                    out var destination,
+                    out var rotationKind,
+                    out _))
+            {
+                resolution = new EnemyGlideAdvanceResolution(
+                    EnemyGlideAdvanceVerdict.BlockedBoundary,
+                    default,
+                    default);
+                return true;
+            }
+
+            if (rotationKind != CubeRotationKind.None ||
+                destination.face != source.position.face ||
+                destination.PlanarPosition != expectedDestination)
+            {
+                resolution = new EnemyGlideAdvanceResolution(
+                    EnemyGlideAdvanceVerdict.BlockedTopology,
+                    destination,
+                    default);
+                return true;
+            }
+
+            if (HasNonTraversableUnitOccupant(snapshot, source, destination))
+            {
+                resolution = new EnemyGlideAdvanceResolution(
+                    EnemyGlideAdvanceVerdict.WaitUnitBlocked,
+                    destination,
+                    default);
+                return true;
+            }
+
+            if (!EnemyMovementStrategyShared.TryBuildMoveIntent(
+                    snapshot,
+                    source,
+                    _commonSettings,
+                    lockedStep,
+                    out var intent))
+            {
+                if (snapshot.TryGetSolidSemanticAt(destination, out _))
+                {
+                    resolution = new EnemyGlideAdvanceResolution(
+                        EnemyGlideAdvanceVerdict.CanAdvance,
+                        destination,
+                        new RawMovementIntent(
+                            source.entityId,
+                            _commonSettings.MovementPriority,
+                            expectedDestination));
+                    return true;
+                }
+
+                resolution = new EnemyGlideAdvanceResolution(
+                    EnemyGlideAdvanceVerdict.BlockedTraversal,
+                    destination,
+                    default);
+                return true;
+            }
+
+            resolution = new EnemyGlideAdvanceResolution(
+                EnemyGlideAdvanceVerdict.CanAdvance,
+                destination,
+                intent);
+            return true;
+        }
+
+        private bool HasNonTraversableUnitOccupant(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            SurfaceCell destination)
+        {
+            _sharedCellUnits.Clear();
+            snapshot.EnumerateUnitsAt(destination, _sharedCellUnits);
+
+            for (var i = 0; i < _sharedCellUnits.Count; i++)
+            {
+                var occupant = _sharedCellUnits[i];
+                if (occupant.entityId == source.entityId ||
+                    occupant.boardPresence != EntityBoardPresence.Occupying ||
+                    occupant.hp <= 0 ||
+                    occupant.markedForDeath)
+                {
+                    continue;
+                }
+
+                if (occupant.teamId == source.teamId ||
+                    !EntityRolePolicy.IsPlayerUnit(occupant))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private bool TryBuildLandingPendingEgressIntent(
@@ -2029,19 +2222,14 @@ namespace Game.Feature.Gameplay.Entities
                 return "CooldownBlocked";
             }
 
-            if (!TryGetLockedGlideStep(state, out var lockedStep))
+            if (!TryResolveActiveGlideAdvance(snapshot, source, state, out var advance))
             {
-                return "NoLockedStep";
+                return "GlideAdvanceBlockedTraversal";
             }
 
-            if (!EnemyMovementStrategyShared.TryBuildMoveIntent(
-                    snapshot,
-                    source,
-                    _commonSettings,
-                    lockedStep,
-                    out _))
+            if (advance.Verdict != EnemyGlideAdvanceVerdict.CanAdvance)
             {
-                return "GlideIntentFailed";
+                return advance.DebugReason;
             }
 
             return TryFindMoveIntent(rawIntents, source.entityId, out _)
