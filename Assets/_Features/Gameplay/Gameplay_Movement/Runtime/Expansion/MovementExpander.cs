@@ -160,7 +160,15 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                         break;
 
                     case MovementCommandKind.Flip:
-                        ExpandFlip(snapshot, entity, intent, tickIndex, buffer, rejectedReasons);
+                        ExpandFlip(
+                            snapshot,
+                            entity,
+                            intent,
+                            tickIndex,
+                            tileFeatureDefinitions,
+                            buffer,
+                            rejectedReasons,
+                            barricadeBlockFacts);
                         break;
 
                     default:
@@ -359,8 +367,10 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             EntityState source,
             MoveIntent intent,
             int tickIndex,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             List<ActionGroup> buffer,
-            List<string> rejectedReasons)
+            List<string> rejectedReasons,
+            List<BarricadeBlockFact> barricadeBlockFacts)
         {
             var delta = ResolveIntentDelta(source.position, intent.Destination);
             var interactionFacing = ResolveCardinalFacing(
@@ -389,6 +399,24 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             {
                 rejectedReasons.Add(
                     $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=FlipTargetLocked|Cell={FormatCell(target.position)}|Target={target.entityId}|Expires={flipLockState.ExpiresTickExclusive}");
+                return;
+            }
+
+            if (target.position != landingCell &&
+                TileFeatureBoxBlockerQuery.TryGetActiveBarricadeBlocker(
+                    snapshot,
+                    tileFeatureDefinitions,
+                    landingCell,
+                    out var barricade) &&
+                targetCell != barricade.Cell)
+            {
+                AddBarricadeBlockFact(
+                    barricadeBlockFacts,
+                    barricade,
+                    target.entityId,
+                    ResolvePlanarDirectionOrNone(target.position, landingCell));
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=FlipLandingBlockedByBarricade|Box={target.entityId}|From={FormatCell(target.position)}|Cell={FormatCell(landingCell)}");
                 return;
             }
 
@@ -1272,6 +1300,37 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             }
 
             throw new InvalidOperationException(errorMessage);
+        }
+
+        private static Direction ResolvePlanarDirectionOrNone(SurfaceCell source, SurfaceCell destination)
+        {
+            if (source.face != destination.face)
+            {
+                return Direction.None;
+            }
+
+            var delta = destination.PlanarPosition - source.PlanarPosition;
+            if (delta.x == 0 && delta.y > 0)
+            {
+                return Direction.Up;
+            }
+
+            if (delta.x > 0 && delta.y == 0)
+            {
+                return Direction.Right;
+            }
+
+            if (delta.x == 0 && delta.y < 0)
+            {
+                return Direction.Down;
+            }
+
+            if (delta.x < 0 && delta.y == 0)
+            {
+                return Direction.Left;
+            }
+
+            return Direction.None;
         }
 
         private static void ValidateSingleStepMove(Vector2Int source, Vector2Int destination, int sourceId)
