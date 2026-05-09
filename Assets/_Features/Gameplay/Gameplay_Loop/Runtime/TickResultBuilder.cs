@@ -657,6 +657,40 @@ namespace Game.Feature.Gameplay.Loop
 
     internal sealed class TickPresentationDataBuilder
     {
+        private enum TickTopologyTransitionSource
+        {
+            None = 0,
+            SnapshotDiff = 1,
+            Free2DNative = 2,
+        }
+
+        private readonly struct TickTopologyTransitionFact
+        {
+            public TickTopologyTransitionFact(
+                bool hasTransition,
+                CubeTopologyState sourceTopology,
+                CubeTopologyState destinationTopology,
+                CubeRotationKind rotationKind,
+                TickTopologyTransitionSource source)
+            {
+                HasTransition = hasTransition;
+                SourceTopology = sourceTopology;
+                DestinationTopology = destinationTopology;
+                RotationKind = rotationKind;
+                Source = source;
+            }
+
+            public bool HasTransition { get; }
+
+            public CubeTopologyState SourceTopology { get; }
+
+            public CubeTopologyState DestinationTopology { get; }
+
+            public CubeRotationKind RotationKind { get; }
+
+            public TickTopologyTransitionSource Source { get; }
+        }
+
         public TickPresentationData Build(in TickPresentationBuildContext context)
         {
             var entityMotions = new List<TickEntityMotion>();
@@ -686,6 +720,7 @@ namespace Game.Feature.Gameplay.Loop
             var gravityFieldEvents = new List<GravityFieldPresentationEvent>();
             var gravityFieldVisualStates = new List<GravityFieldVisualState>();
             var exitOwnedEntityIds = new HashSet<int>();
+            var topologyFact = ResolveTopologyTransitionFact(context);
 
             BuildTilePresentationEvents(context, tileEvents);
             BuildGravityFieldPresentationEvents(context, gravityFieldEvents);
@@ -713,7 +748,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildEnemyUtilityWindupPresentation(context, summonWindupWarnings, frontFaceShieldWindupWarnings);
             BuildSummonedEnemyPresentationBindings(context, summonedEnemyPresentationBindings);
 
-            var topologyMotion = BuildTopologyMotion(context);
+            var topologyMotion = BuildTopologyMotion(context, topologyFact);
             BuildTransitionVisibilityPresentation(context, visibilityChanges, entityExitSignals, transitionVisibilityChanges);
 
             return entityMotions.Count == 0 &&
@@ -3306,56 +3341,60 @@ namespace Game.Feature.Gameplay.Loop
                    entity.aiMode != EnemyAiMode.None;
         }
 
-        private static TickTopologyMotion? BuildTopologyMotion(in TickPresentationBuildContext context)
+        private static TickTopologyTransitionFact ResolveTopologyTransitionFact(
+            in TickPresentationBuildContext context)
         {
             var sourceTopology = context.PreMovementSnapshot.Topology;
             var destinationTopology = context.PostMovementSnapshot.Topology;
-            if (sourceTopology.Equals(destinationTopology))
+            if (!sourceTopology.Equals(destinationTopology))
             {
-                if (TryBuildFree2DTopologyTransitionMotion(context, out var topologyMotion))
-                {
-                    return topologyMotion;
-                }
-
-                return BuildRespawnTopologyMotion(context);
+                return new TickTopologyTransitionFact(
+                    hasTransition: true,
+                    sourceTopology,
+                    destinationTopology,
+                    ResolveRotationKind(
+                        context.MovementPhaseResult.ResolvedOperations,
+                        sourceTopology,
+                        destinationTopology),
+                    TickTopologyTransitionSource.SnapshotDiff);
             }
 
-            return new TickTopologyMotion(
-                sourceTopology,
-                destinationTopology,
-                ResolveRotationKind(
-                    context.MovementPhaseResult.ResolvedOperations,
-                    sourceTopology,
-                    destinationTopology));
-        }
-
-        private static bool TryBuildFree2DTopologyTransitionMotion(
-            in TickPresentationBuildContext context,
-            out TickTopologyMotion topologyMotion)
-        {
             if (!TryResolveFree2DTopologyTransitionMetadata(
                     context.MovementPhaseResult,
                     out var metadata))
             {
-                topologyMotion = default;
-                return false;
+                return default;
             }
 
-            var destinationTopology = context.PostMovementSnapshot.Topology;
-            var sourceTopology = ResolveFree2DTopologyTransitionSourceTopology(
+            sourceTopology = ResolveFree2DTopologyTransitionSourceTopology(
                 destinationTopology,
                 metadata.RotationKind);
             if (sourceTopology.Equals(destinationTopology))
             {
-                topologyMotion = default;
-                return false;
+                return default;
             }
 
-            topologyMotion = new TickTopologyMotion(
+            return new TickTopologyTransitionFact(
+                hasTransition: true,
                 sourceTopology,
                 destinationTopology,
-                metadata.RotationKind);
-            return true;
+                metadata.RotationKind,
+                TickTopologyTransitionSource.Free2DNative);
+        }
+
+        private static TickTopologyMotion? BuildTopologyMotion(
+            in TickPresentationBuildContext context,
+            in TickTopologyTransitionFact topologyFact)
+        {
+            if (!topologyFact.HasTransition)
+            {
+                return BuildRespawnTopologyMotion(context);
+            }
+
+            return new TickTopologyMotion(
+                topologyFact.SourceTopology,
+                topologyFact.DestinationTopology,
+                topologyFact.RotationKind);
         }
 
         private static bool TryResolveFree2DTopologyTransitionMetadata(
