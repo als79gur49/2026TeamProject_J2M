@@ -84,11 +84,13 @@ namespace Game.Feature.Gameplay.Loop
         public GravityFieldLockedTargetFact(
             int emitterEntityId,
             int targetEntityId,
-            SurfaceCell emitterCell)
+            SurfaceCell emitterCell,
+            SurfaceCell targetCell = default)
         {
             EmitterEntityId = emitterEntityId;
             TargetEntityId = targetEntityId;
             EmitterCell = emitterCell;
+            TargetCell = targetCell;
         }
 
         public int EmitterEntityId { get; }
@@ -96,6 +98,80 @@ namespace Game.Feature.Gameplay.Loop
         public int TargetEntityId { get; }
 
         public SurfaceCell EmitterCell { get; }
+
+        public SurfaceCell TargetCell { get; }
+    }
+
+    internal sealed class GravityFieldLockedBoxOneShotState
+    {
+        private readonly Dictionary<int, HashSet<int>> _emittedTargetIdsByEmitterId = new();
+        private readonly List<int> _removeBuffer = new();
+
+        public void BeginActiveWindow(int emitterEntityId)
+        {
+            if (emitterEntityId <= 0)
+            {
+                return;
+            }
+
+            _emittedTargetIdsByEmitterId[emitterEntityId] = new HashSet<int>();
+        }
+
+        public void EnsureActiveWindow(int emitterEntityId)
+        {
+            if (emitterEntityId <= 0 ||
+                _emittedTargetIdsByEmitterId.ContainsKey(emitterEntityId))
+            {
+                return;
+            }
+
+            _emittedTargetIdsByEmitterId.Add(emitterEntityId, new HashSet<int>());
+        }
+
+        public void EndActiveWindow(int emitterEntityId)
+        {
+            if (emitterEntityId > 0)
+            {
+                _emittedTargetIdsByEmitterId.Remove(emitterEntityId);
+            }
+        }
+
+        public bool TryMarkLockedBoxEmitted(int emitterEntityId, int targetEntityId)
+        {
+            if (emitterEntityId <= 0 ||
+                targetEntityId <= 0)
+            {
+                return false;
+            }
+
+            EnsureActiveWindow(emitterEntityId);
+            return _emittedTargetIdsByEmitterId[emitterEntityId].Add(targetEntityId);
+        }
+
+        public void PruneMissingEmitters(ISet<int> observedGravityFieldEmitterIds)
+        {
+            if (observedGravityFieldEmitterIds == null ||
+                _emittedTargetIdsByEmitterId.Count == 0)
+            {
+                return;
+            }
+
+            _removeBuffer.Clear();
+            foreach (var pair in _emittedTargetIdsByEmitterId)
+            {
+                if (!observedGravityFieldEmitterIds.Contains(pair.Key))
+                {
+                    _removeBuffer.Add(pair.Key);
+                }
+            }
+
+            for (var i = 0; i < _removeBuffer.Count; i++)
+            {
+                _emittedTargetIdsByEmitterId.Remove(_removeBuffer[i]);
+            }
+
+            _removeBuffer.Clear();
+        }
     }
 
     internal static class GravityFieldRuntimeResolver
@@ -104,7 +180,8 @@ namespace Game.Feature.Gameplay.Loop
             WorldSnapshot snapshot,
             int tickIndex,
             int chargeTicks,
-            int activeTicks)
+            int activeTicks,
+            GravityFieldLockedBoxOneShotState lockedBoxOneShotState = null)
         {
             if (snapshot == null)
             {
@@ -117,6 +194,9 @@ namespace Game.Feature.Gameplay.Loop
             var lockedTargetFacts = new List<GravityFieldLockedTargetFact>();
             var entities = new List<EntityState>();
             snapshot.EnumerateEntitiesOrdered(entities);
+            var observedGravityFieldEmitterIds = lockedBoxOneShotState != null
+                ? new HashSet<int>()
+                : null;
             var plannedLocksByBoxEntityId = new Dictionary<int, BoxInteractionLockState>();
             for (var i = 0; i < entities.Count; i++)
             {
@@ -127,6 +207,7 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
+                observedGravityFieldEmitterIds?.Add(emitter.entityId);
                 ResolveEmitter(
                     snapshot,
                     emitter,
@@ -137,9 +218,11 @@ namespace Game.Feature.Gameplay.Loop
                     eventLogEntries,
                     presentationEvents,
                     lockedTargetFacts,
-                    plannedLocksByBoxEntityId);
+                    plannedLocksByBoxEntityId,
+                    lockedBoxOneShotState);
             }
 
+            lockedBoxOneShotState?.PruneMissingEmitters(observedGravityFieldEmitterIds);
             if (plannedLocksByBoxEntityId.Count == 0)
             {
                 return new GravityFieldRuntimeResolverResult(batch, eventLogEntries, presentationEvents, lockedTargetFacts);
@@ -182,10 +265,12 @@ namespace Game.Feature.Gameplay.Loop
             List<string> eventLogEntries,
             List<GravityFieldPresentationEvent> presentationEvents,
             List<GravityFieldLockedTargetFact> lockedTargetFacts,
-            IDictionary<int, BoxInteractionLockState> plannedLocksByBoxEntityId)
+            IDictionary<int, BoxInteractionLockState> plannedLocksByBoxEntityId,
+            GravityFieldLockedBoxOneShotState lockedBoxOneShotState)
         {
             if (!IsEligibleEmitter(snapshot, emitter))
             {
+                lockedBoxOneShotState?.EndActiveWindow(emitter.entityId);
                 SetEmitterStateIfChanged(batch, eventLogEntries, emitter, GravityFieldPhase.Charging, chargeTicks);
                 return;
             }
@@ -203,6 +288,7 @@ namespace Game.Feature.Gameplay.Loop
                         nextTimer = activeTicks;
                         applyActiveField = true;
                         presentationEventKind = GravityFieldPresentationEventKind.Activated;
+                        lockedBoxOneShotState?.BeginActiveWindow(emitter.entityId);
                     }
                     else
                     {
@@ -217,11 +303,13 @@ namespace Game.Feature.Gameplay.Loop
                         nextPhase = GravityFieldPhase.Charging;
                         nextTimer = chargeTicks;
                         presentationEventKind = GravityFieldPresentationEventKind.Expired;
+                        lockedBoxOneShotState?.EndActiveWindow(emitter.entityId);
                     }
                     else
                     {
                         nextTimer--;
                         applyActiveField = true;
+                        lockedBoxOneShotState?.EnsureActiveWindow(emitter.entityId);
                     }
 
                     break;
@@ -229,6 +317,7 @@ namespace Game.Feature.Gameplay.Loop
                 default:
                     nextPhase = GravityFieldPhase.Charging;
                     nextTimer = chargeTicks;
+                    lockedBoxOneShotState?.EndActiveWindow(emitter.entityId);
                     break;
             }
 
@@ -244,7 +333,14 @@ namespace Game.Feature.Gameplay.Loop
 
             if (applyActiveField)
             {
-                ApplyActiveField(snapshot, emitter, tickIndex, lockedTargetFacts, plannedLocksByBoxEntityId);
+                ApplyActiveField(
+                    snapshot,
+                    emitter,
+                    tickIndex,
+                    lockedTargetFacts,
+                    plannedLocksByBoxEntityId,
+                    presentationEvents,
+                    lockedBoxOneShotState);
             }
         }
 
@@ -265,9 +361,12 @@ namespace Game.Feature.Gameplay.Loop
             in EntityState emitter,
             int tickIndex,
             List<GravityFieldLockedTargetFact> lockedTargetFacts,
-            IDictionary<int, BoxInteractionLockState> plannedLocksByBoxEntityId)
+            IDictionary<int, BoxInteractionLockState> plannedLocksByBoxEntityId,
+            List<GravityFieldPresentationEvent> presentationEvents,
+            GravityFieldLockedBoxOneShotState lockedBoxOneShotState)
         {
             var targetEntityIds = new HashSet<int>();
+            var targetCellsByEntityId = new Dictionary<int, SurfaceCell>();
             var footprint = GravityFieldAreaPolicy.BuildFootprint(snapshot, emitter.position);
             for (var i = 0; i < footprint.AreaCells.Count; i++)
             {
@@ -279,7 +378,10 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
-                targetEntityIds.Add(semantic.Entity.entityId);
+                if (targetEntityIds.Add(semantic.Entity.entityId))
+                {
+                    targetCellsByEntityId.Add(semantic.Entity.entityId, semantic.Entity.position);
+                }
             }
 
             var newState = new BoxInteractionLockState(
@@ -296,10 +398,30 @@ namespace Game.Feature.Gameplay.Loop
             for (var i = 0; i < orderedTargetIds.Count; i++)
             {
                 var targetId = orderedTargetIds[i];
+                var targetCell = targetCellsByEntityId.TryGetValue(targetId, out var resolvedTargetCell)
+                    ? resolvedTargetCell
+                    : default;
                 lockedTargetFacts.Add(new GravityFieldLockedTargetFact(
                     emitter.entityId,
                     targetId,
-                    emitter.position));
+                    emitter.position,
+                    targetCell));
+                if (lockedBoxOneShotState != null &&
+                    lockedBoxOneShotState.TryMarkLockedBoxEmitted(emitter.entityId, targetId))
+                {
+                    var payload = new GravityFieldLockedBoxPayload(
+                        emitter.entityId,
+                        targetId,
+                        emitter.position,
+                        targetCell);
+                    presentationEvents.Add(new GravityFieldPresentationEvent(
+                        GravityFieldPresentationEventKind.LockedBox,
+                        emitter.entityId,
+                        emitter.position,
+                        targetId,
+                        payload));
+                }
+
                 var hasPlanned = plannedLocksByBoxEntityId.TryGetValue(targetId, out var planned);
                 var hasExisting = snapshot.TryGetActiveBoxInteractionLockState(targetId, tickIndex, out var existing);
                 var merged = !hasPlanned && !hasExisting
