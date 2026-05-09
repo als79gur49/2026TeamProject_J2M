@@ -4,6 +4,8 @@ using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
 using NUnit.Framework;
+using UnityEditor;
+using UnityEditor.Animations;
 using UnityEngine;
 using UnityEngine.TestTools;
 
@@ -506,6 +508,36 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 DestroyObjects(stage, presentation, catalog, prefab, parent, registryObject);
             }
+        }
+
+        [Test]
+        public void TileFeatureBarricadeDefaultPrefab_ConfiguresActiveStateAnimator()
+        {
+            const string prefabPath =
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Barricade_Default.prefab";
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+
+            Assert.That(prefab, Is.Not.Null);
+            var targetView = prefab.GetComponent<TileFeatureVisualTargetView>();
+            var animator = prefab.GetComponent<Animator>();
+            Assert.That(targetView, Is.Not.Null);
+            Assert.That(animator, Is.Not.Null);
+            Assert.That(targetView.DebugAnimator, Is.SameAs(animator));
+
+            var controller = animator.runtimeAnimatorController as AnimatorController;
+            Assert.That(controller, Is.Not.Null);
+            AssertAnimatorParameter(controller, "BarricadeActive", AnimatorControllerParameterType.Bool);
+            AssertAnimatorParameter(controller, "BarricadeActivated", AnimatorControllerParameterType.Trigger);
+            AssertAnimatorParameter(controller, "BarricadeDeactivated", AnimatorControllerParameterType.Trigger);
+            AssertAnimatorParameter(controller, "BarricadeBlocked", AnimatorControllerParameterType.Trigger);
+            AssertAnimatorParameter(controller, "BarricadeCrushed", AnimatorControllerParameterType.Trigger);
+
+            var stateNames = controller.layers[0].stateMachine.states
+                .Select(childState => childState.state.name)
+                .ToArray();
+            Assert.That(
+                stateNames,
+                Is.SupersetOf(new[] { "LoweredIdle", "Raise", "RaisedIdle", "Lower", "BlockedPulse", "CrushImpact" }));
         }
 
         [Test]
@@ -1086,6 +1118,19 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(report.Issues.Any(issue => issue.Code == code), Is.False, $"Unexpected issue code '{code}'.");
         }
 
+        private static void AssertAnimatorParameter(
+            AnimatorController controller,
+            string parameterName,
+            AnimatorControllerParameterType parameterType)
+        {
+            Assert.That(
+                controller.parameters.Any(parameter =>
+                    parameter.name == parameterName &&
+                    parameter.type == parameterType),
+                Is.True,
+                $"Missing Animator parameter '{parameterName}' ({parameterType}).");
+        }
+
         private static void InvokeStageTileFeatureVisualInstantiation(
             System.Collections.Generic.IReadOnlyList<TileFeaturePresentationResolvedBinding> bindings,
             System.Collections.Generic.IReadOnlyList<TileFeatureState> initialTileFeatures,
@@ -1102,6 +1147,8 @@ namespace Game.Feature.Stages.Editor.Tests
                 {
                     bindings,
                     initialTileFeatures,
+                    Array.Empty<TileFeatureRuntimeDefinition>(),
+                    new CubeTopologyState(FaceId.Floor),
                     parent,
                     registry,
                     null,
