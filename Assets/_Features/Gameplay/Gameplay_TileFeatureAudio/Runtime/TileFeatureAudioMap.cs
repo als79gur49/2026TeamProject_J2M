@@ -1,10 +1,22 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.Loop;
 using Game.Shared.Audio;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.TileFeatureAudio
 {
+    [Serializable]
+    public sealed class MoonBlockGeneratorBlockedAudioBinding
+    {
+        [SerializeField] private MoonBlockGeneratorBlockedReason reason;
+        [SerializeField] private AudioBinding binding;
+
+        public MoonBlockGeneratorBlockedReason Reason => reason;
+
+        public AudioBinding Binding => binding;
+    }
+
     [CreateAssetMenu(menuName = "Game/Audio/Tile Feature Audio Map")]
     public sealed class TileFeatureAudioMap : ScriptableObject
     {
@@ -18,6 +30,8 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
         }
 
         [SerializeField] private Entry[] entries = Array.Empty<Entry>();
+        [SerializeField] private MoonBlockGeneratorBlockedAudioBinding[] moonBlockGeneratorBlockedReasonBindings =
+            Array.Empty<MoonBlockGeneratorBlockedAudioBinding>();
 
         private void OnValidate()
         {
@@ -109,6 +123,19 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
             return true;
         }
 
+        public bool TryResolveMoonBlockGeneratorBlocked(
+            in MoonBlockGeneratorBlockedPayload payload,
+            out AudioBinding binding)
+        {
+            if (payload.Reason != MoonBlockGeneratorBlockedReason.None &&
+                TryResolveMoonBlockGeneratorBlockedReason(payload.Reason, out binding))
+            {
+                return true;
+            }
+
+            return TryResolveOptional(TileFeatureAudioCue.MoonBlockGeneratorBlocked, out binding);
+        }
+
         public void ValidateOrThrow()
         {
             var validationErrors = CollectValidationErrors();
@@ -187,7 +214,71 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
                     CreateValidationOptions());
             }
 
+            var seenBlockedReasons = new HashSet<MoonBlockGeneratorBlockedReason>();
+            for (var i = 0; i < moonBlockGeneratorBlockedReasonBindings.Length; i++)
+            {
+                var entry = moonBlockGeneratorBlockedReasonBindings[i];
+                var reason = entry?.Reason ?? MoonBlockGeneratorBlockedReason.None;
+                var reasonLabel = reason == MoonBlockGeneratorBlockedReason.None
+                    ? "<empty>"
+                    : reason.ToString();
+                if (reason == MoonBlockGeneratorBlockedReason.None)
+                {
+                    validationErrors.Add($"{name} contains an empty MoonBlockGeneratorBlocked reason audio binding.");
+                }
+                else if (!seenBlockedReasons.Add(reason))
+                {
+                    validationErrors.Add(
+                        $"{name} contains duplicate MoonBlockGeneratorBlocked reason audio binding '{reasonLabel}'.");
+                }
+
+                AudioBindingDiagnostics.AppendValidationErrors(
+                    entry?.Binding,
+                    name,
+                    $"MoonBlockGeneratorBlocked reason '{reasonLabel}'",
+                    validationErrors,
+                    CreateValidationOptions());
+            }
+
             return validationErrors;
+        }
+
+        private bool TryResolveMoonBlockGeneratorBlockedReason(
+            MoonBlockGeneratorBlockedReason reason,
+            out AudioBinding binding)
+        {
+            var found = false;
+            binding = null;
+            for (var i = 0; i < moonBlockGeneratorBlockedReasonBindings.Length; i++)
+            {
+                var entry = moonBlockGeneratorBlockedReasonBindings[i];
+                if (entry == null ||
+                    entry.Reason != reason)
+                {
+                    continue;
+                }
+
+                if (found)
+                {
+                    throw new InvalidOperationException(
+                        $"{name} contains duplicate MoonBlockGeneratorBlocked reason audio binding '{reason}'.");
+                }
+
+                found = true;
+                binding = entry.Binding;
+            }
+
+            if (!found)
+            {
+                return false;
+            }
+
+            AudioBindingDiagnostics.ValidateOrThrow(
+                binding,
+                name,
+                $"MoonBlockGeneratorBlocked reason '{reason}'",
+                CreateValidationOptions());
+            return true;
         }
 
         private bool ContainsCue(TileFeatureAudioCue cue)

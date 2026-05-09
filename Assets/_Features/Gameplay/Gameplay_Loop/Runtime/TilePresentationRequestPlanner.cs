@@ -30,7 +30,8 @@ namespace Game.Feature.Gameplay.Loop
             int ownerEntityId,
             int teamId,
             int targetEntityId = 0,
-            Direction direction = Direction.None)
+            Direction direction = Direction.None,
+            MoonBlockGeneratorBlockedPayload moonBlockGeneratorBlockedPayload = default)
         {
             RequestKind = requestKind;
             TileId = tileId;
@@ -41,6 +42,7 @@ namespace Game.Feature.Gameplay.Loop
             TeamId = teamId;
             TargetEntityId = targetEntityId;
             Direction = direction;
+            MoonBlockGeneratorBlockedPayload = moonBlockGeneratorBlockedPayload;
         }
 
         public TilePresentationRequestKind RequestKind { get; }
@@ -60,6 +62,8 @@ namespace Game.Feature.Gameplay.Loop
         public int TargetEntityId { get; }
 
         public Direction Direction { get; }
+
+        public MoonBlockGeneratorBlockedPayload MoonBlockGeneratorBlockedPayload { get; }
     }
 
     public sealed class TilePresentationRequestPlanner
@@ -95,7 +99,8 @@ namespace Game.Feature.Gameplay.Loop
                     tileEvent.OwnerEntityId,
                     tileEvent.TeamId,
                     tileEvent.TargetEntityId,
-                    tileEvent.Direction));
+                    tileEvent.Direction,
+                    tileEvent.MoonBlockGeneratorBlockedPayload));
             }
 
             return requests.Count == 0 ? Array.Empty<TilePresentationRequest>() : requests;

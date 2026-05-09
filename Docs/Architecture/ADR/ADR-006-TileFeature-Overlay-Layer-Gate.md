@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-04-30
-- Last updated: 2026-05-09
+- Last updated: 2026-05-10
 
 ## Decision
 
@@ -225,9 +225,15 @@ Exit presentation is presentation-only.
 
 - `MoonBlockGeneratorBlocked` does not alter respawn gameplay policy.
 - `TilePresentationEventKind.MoonBlockGeneratorBlocked`, `TilePresentationRequestKind.MoonBlockGeneratorBlocked`, `TileFeatureAudioCue.MoonBlockGeneratorBlocked`, and optional `IMoonBlockGeneratorBlockedVisualTarget` are open.
+- The event kind remains `MoonBlockGeneratorBlocked`; reason-specific event kinds are not introduced.
+- `MoonBlockGeneratorBlocked` carries a presentation-only `MoonBlockGeneratorBlockedPayload`.
+- Payload fields are `Reason`, `BlockingEntityId`, and `BlockedCell`.
+- Reason values are `UnitOccupant`, `WallLikeSolid`, and `PlacementBlocked`.
+- `MoonBlockGeneratorBlockedPayload` is transported through event, request, visual, and audio surfaces only.
+- Reason-specific visual and audio feedback is payload-driven and falls back to generic blocked feedback when no reason-specific binding is configured.
 - Unit/player/enemy conflict defer emits blocked feedback.
 - Wall-like/non-box solid defer emits blocked feedback.
-- Placement-blocked defer emits generic blocked feedback.
+- Placement-blocked defer emits blocked feedback with `BlockingEntityId` `0`.
 - Inactive generator emits no blocked event.
 - Live MoonBlock no-op emits no blocked event.
 - Live MoonBlock no-op and inactive generator do not emit `MoonBlockGeneratorBlocked`.
@@ -237,7 +243,8 @@ Exit presentation is presentation-only.
 - The same key does not emit repeatedly while maintained; key change may emit.
 - Generator inactive, blocker cleared, live MoonBlock exists, and MoonBlockGenerated success clear debounce memory.
 - Debounce memory is transient processor state, not `WorldState`, `StageRuntimeBuildResult`, snapshot, or determinism hash input.
-- Public event payload is generic and does not expose the internal reason.
+- Public event/request payload exposes only MoonBlockGenerator-specific presentation facts and is not authoritative gameplay state.
+- Audio remains optional Sfx one-shot; reason-specific binding entries are owned by `TileFeatureAudioMap`.
 - No UI/HUD notification, spatial audio/Play3D, Unit kill/eject, Projectile destroy, or wall-like solid destroy is introduced.
 
 ## Presentation Rule

@@ -158,6 +158,11 @@ namespace Game.Feature.Gameplay.Tests.Core
                 "Event source is MoonBlockGenerator respawn processor success fact.",
                 "`MoonBlockGeneratorBlocked` is debounced presentation-only feedback for generator defer cases.",
                 "`MoonBlockGeneratorBlocked` does not alter respawn gameplay policy.",
+                "The event kind remains `MoonBlockGeneratorBlocked`; reason-specific event kinds are not introduced.",
+                "`MoonBlockGeneratorBlocked` carries a presentation-only `MoonBlockGeneratorBlockedPayload`.",
+                "Payload fields are `Reason`, `BlockingEntityId`, and `BlockedCell`.",
+                "Reason values are `UnitOccupant`, `WallLikeSolid`, and `PlacementBlocked`.",
+                "Reason-specific visual and audio feedback is payload-driven and falls back to generic blocked feedback",
                 "`TargetEntityId` is the respawned MoonBlock entity id.",
                 "Final snapshot diffing must not create the event.",
                 "MoonBlockGenerator activation rule is `BottomFaceOnly`.",
@@ -382,12 +387,21 @@ namespace Game.Feature.Gameplay.Tests.Core
         {
             Assert.That(Enum.GetNames(typeof(TilePresentationEventKind)), Does.Contain("MoonBlockGenerated"));
             Assert.That(Enum.GetNames(typeof(TilePresentationEventKind)), Does.Contain("MoonBlockGeneratorBlocked"));
+            Assert.That(Enum.GetNames(typeof(TilePresentationEventKind)), Has.None.Contains("MoonBlockGeneratorUnitBlocked"));
+            Assert.That(Enum.GetNames(typeof(TilePresentationEventKind)), Has.None.Contains("MoonBlockGeneratorWallLikeSolidBlocked"));
+            Assert.That(Enum.GetNames(typeof(TilePresentationEventKind)), Has.None.Contains("MoonBlockGeneratorPlacementBlocked"));
             Assert.That(Enum.GetNames(typeof(TilePresentationRequestKind)), Does.Contain("MoonBlockGenerated"));
             Assert.That(Enum.GetNames(typeof(TilePresentationRequestKind)), Does.Contain("MoonBlockGeneratorBlocked"));
+            Assert.That(Enum.GetNames(typeof(TilePresentationRequestKind)), Has.None.Contains("MoonBlockGeneratorUnitBlocked"));
+            Assert.That(Enum.GetNames(typeof(TilePresentationRequestKind)), Has.None.Contains("MoonBlockGeneratorWallLikeSolidBlocked"));
+            Assert.That(Enum.GetNames(typeof(TilePresentationRequestKind)), Has.None.Contains("MoonBlockGeneratorPlacementBlocked"));
 
             var audioTypesSource = File.ReadAllText(GetAbsolutePath(TileFeatureAudioTypesPath));
             Assert.That(audioTypesSource, Does.Contain("MoonBlockGenerated"));
             Assert.That(audioTypesSource, Does.Contain("MoonBlockGeneratorBlocked"));
+            Assert.That(audioTypesSource, Does.Not.Contain("MoonBlockGeneratorBlockedUnitOccupant"));
+            Assert.That(audioTypesSource, Does.Not.Contain("MoonBlockGeneratorBlockedWallLikeSolid"));
+            Assert.That(audioTypesSource, Does.Not.Contain("MoonBlockGeneratorBlockedPlacementBlocked"));
 
             var visualRegistrySource = File.ReadAllText(GetAbsolutePath(
                 "Assets/_Features/Gameplay/Gameplay_Host/Runtime/ITileFeatureVisualRegistry.cs"));
@@ -397,6 +411,45 @@ namespace Game.Feature.Gameplay.Tests.Core
             var requestPlannerSource = File.ReadAllText(GetAbsolutePath(TilePresentationRequestPlannerPath));
             Assert.That(requestPlannerSource, Does.Contain("MoonBlockGenerated"));
             Assert.That(requestPlannerSource, Does.Contain("MoonBlockGeneratorBlocked"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void MoonBlockGeneratorBlockedPayload_DoesNotEnterAuthoritativeStateOrStageBuildSurfaces()
+        {
+            var forbiddenTokens = new[]
+            {
+                "MoonBlockGeneratorBlockedPayload",
+                "MoonBlockGeneratorBlockedReason",
+            };
+            var sourcePaths = new List<string>
+            {
+                WorldStatePath,
+                StageDefinitionPath,
+                StageRuntimeBuildResultPath,
+            };
+            sourcePaths.AddRange(Directory.GetFiles(
+                GetAbsolutePath(GameplayBoardStateRuntimePath),
+                "*.cs",
+                SearchOption.AllDirectories));
+
+            for (var sourceIndex = 0; sourceIndex < sourcePaths.Count; sourceIndex++)
+            {
+                var sourcePath = GetAbsolutePath(sourcePaths[sourceIndex]);
+                if (!File.Exists(sourcePath))
+                {
+                    sourcePath = sourcePaths[sourceIndex];
+                }
+
+                var source = File.ReadAllText(sourcePath);
+                for (var tokenIndex = 0; tokenIndex < forbiddenTokens.Length; tokenIndex++)
+                {
+                    Assert.That(
+                        source,
+                        Does.Not.Contain(forbiddenTokens[tokenIndex]),
+                        $"{forbiddenTokens[tokenIndex]} must not enter {sourcePath}.");
+                }
+            }
         }
 
         [Test]

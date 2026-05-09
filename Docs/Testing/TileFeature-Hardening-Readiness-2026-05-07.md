@@ -12,7 +12,7 @@
 - ADR-006 was updated from the original gate/future-surface shape to the current implemented TileFeature pipeline.
 - Architecture guards now keep prohibited EntityType, BoxCapabilities, TerrainFlags, UI, TickPipeline direct presentation execution, StageDefinition/StageRuntimeBuildResult presentation data, spatial audio, and forbidden TileFeature gameplay surfaces closed.
 - `MoonBlockGeneratorBlocked` is open only on the approved debounced presentation-only event/request/audio/optional visual surfaces.
-- MoonBlockGenerator defer paths for Unit/player/enemy, wall-like/non-box solid, and placement-blocked cases can produce debounced blocked presentation facts without changing respawn gameplay policy.
+- MoonBlockGenerator defer paths for Unit/player/enemy, wall-like/non-box solid, and placement-blocked cases produce debounced blocked presentation facts with `MoonBlockGeneratorBlockedPayload` without changing respawn gameplay policy.
 
 ## C. ADR-006 Update
 
@@ -34,11 +34,14 @@ ADR-006 now records TileFeature as a `SurfaceCell` overlay layer, not occupancy,
 
 - Unit/player/enemy conflict defer emits blocked feedback once per debounce key.
 - Wall-like/non-box solid defer emits blocked feedback once per debounce key.
-- Placement-blocked defer emits generic blocked feedback when no blocking entity id is available.
+- Placement-blocked defer emits blocked feedback with `BlockingEntityId` `0` when no blocking entity id is available.
+- `MoonBlockGeneratorBlockedPayload` carries `Reason`, `BlockingEntityId`, and `BlockedCell`.
+- Reason values are `UnitOccupant`, `WallLikeSolid`, and `PlacementBlocked`.
+- Reason-specific visual and audio feedback is payload-driven and falls back to generic blocked feedback.
 - Inactive generator, live MoonBlock no-op, and repeated same-key defer emit no blocked event/request/audio/visual.
 - Normal/non-Moon Box conflict destroy plus spawn success and projectile coexist spawn success emit `MoonBlockGenerated`, not blocked.
 - Debounce memory is transient processor state only; it is not `WorldState`, snapshot, `StageRuntimeBuildResult`, or determinism hash input.
-- Public presentation payload is generic and does not expose the internal blocked reason.
+- Payload is presentation-only and is not gameplay authority or determinism hash input.
 - No UI/HUD notification, spatial audio/Play3D, Unit kill/eject, Projectile destroy, or wall-like solid destroy is introduced.
 
 ## F. Added Architecture Guards
@@ -47,7 +50,7 @@ ADR-006 now records TileFeature as a `SurfaceCell` overlay layer, not occupancy,
 - Forbidden TerrainFlags effect tokens include MoonBlockGenerator, Barricade, and Exit.
 - UI source must not call `WorldState.CreateSnapshot` or consume Tile presentation facts as objective evidence.
 - Host and TileFeatureAudio must not infer TileFeature state through `WorldState.CreateSnapshot`.
-- `MoonBlockGeneratorBlocked` may exist only in `TickPresentationData`, `TilePresentationRequestPlanner`, `TileFeatureAudio`, optional TileFeature visual target/controller surfaces, tests, and docs.
+- `MoonBlockGeneratorBlockedPayload` and `MoonBlockGeneratorBlockedReason` may exist only in presentation, processor, request, audio, visual, tests, and docs surfaces.
 - TileFeatureAudio must not add Play3D/spatial or `StagePresentationDefinition` binding references.
 - TickPipeline must not reference request planner/request, TileFeatureAudio, TileFeatureVisual, audio playback, prefabs, GameObjects, UI, Animator, ParticleSystem, or UnityEvent.
 
@@ -85,6 +88,19 @@ Post-change validation:
 - Targeted Unity EditMode `TileFeatureOverlayArchitectureTests;MoonBlockGeneratorRespawnTests`: pass, `33/0`.
 - `PROJECT_PATH_WIN="$(wslpath -w "$PWD")" ./run_tests.sh core`: pass, EditMode `35/0`, PlayMode `2/0`.
 - Direct full EditMode: `2997 total`, `97 failed`, `1 skipped`.
+
+Current MoonBlockGeneratorBlocked payload pass:
+
+- `Game.Feature.Gameplay.Tests.csproj`: build pass.
+- `Game.Feature.Stages.Editor.Tests.csproj`: build pass.
+- Targeted Unity EditMode:
+  - `MoonBlockGeneratorRespawnTests`: pass, `16/0`.
+  - `TilePresentationRequestPlannerTests`: pass, `14/0`.
+  - `TileFeatureVisualPresentationControllerTests`: pass, `34/0`.
+  - `TileFeatureAudioRuntimeTests`: pass, `38/0`.
+  - `TileFeatureOverlayArchitectureTests`: pass, `35/0`.
+- `PROJECT_PATH_WIN="$(wslpath -w "$PWD")" ./run_tests.sh core`: pass, EditMode `48/0`, PlayMode `2/0`.
+- `git diff --check`: fails only on pre-existing dirty combined-gameplay-showcase asset whitespace; touched source/docs scoped diff check passes.
 
 ## I. Remaining Known Red / Baseline Debt
 

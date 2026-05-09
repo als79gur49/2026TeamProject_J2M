@@ -4,14 +4,6 @@ using Game.Feature.Gameplay.BoardState;
 
 namespace Game.Feature.Gameplay.Loop
 {
-    internal enum MoonBlockGeneratorBlockedReason
-    {
-        None = 0,
-        UnitOccupant = 1,
-        WallLikeSolid = 2,
-        PlacementBlocked = 3,
-    }
-
     internal readonly struct MoonBlockGeneratorBlockedKey : IEquatable<MoonBlockGeneratorBlockedKey>
     {
         public MoonBlockGeneratorBlockedKey(
@@ -251,11 +243,15 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             _lastBlockedKeyByGeneratorTileId[definition.GeneratorTileId] = key;
+            var payload = new MoonBlockGeneratorBlockedPayload(
+                reason,
+                blockingEntityId,
+                spawnCell);
             blockedFacts.Add(
                 new MoonBlockGeneratorBlockedFact(
                     definition.GeneratorTileId,
                     spawnCell,
-                    blockingEntityId,
+                    payload,
                     generator.SourceEntityId,
                     generator.OwnerEntityId,
                     generator.TeamId));
