@@ -28,6 +28,19 @@ namespace Game.Feature.Gameplay.ActionAudio
                 AppendRequestsForSignal(signal, action, requests);
             }
 
+            var attemptSignals = result.PresentationData.PlayerActionAttemptSignals;
+            for (var i = 0; i < attemptSignals.Count; i++)
+            {
+                var signal = attemptSignals[i];
+                if (!TryResolveActionKind(signal.ActionKind, out var action) ||
+                    !TryResolveAttemptMoment(signal.FeedbackKind, out var moment))
+                {
+                    continue;
+                }
+
+                AppendIf(signal.EntityId, action, moment, shouldEmit: true, requests);
+            }
+
             return requests;
         }
 
@@ -107,6 +120,30 @@ namespace Game.Feature.Gameplay.ActionAudio
 
                 default:
                     resolved = default;
+                    return false;
+            }
+        }
+
+        private static bool TryResolveAttemptMoment(
+            PlayerActionAttemptFeedbackKind feedbackKind,
+            out GameplayActionAudioMoment moment)
+        {
+            switch (feedbackKind)
+            {
+                case PlayerActionAttemptFeedbackKind.AssistOutOfRange:
+                    moment = GameplayActionAudioMoment.AssistOutOfRange;
+                    return true;
+
+                case PlayerActionAttemptFeedbackKind.NoTarget:
+                    moment = GameplayActionAudioMoment.NoTarget;
+                    return true;
+
+                case PlayerActionAttemptFeedbackKind.Invalid:
+                    moment = GameplayActionAudioMoment.Invalid;
+                    return true;
+
+                default:
+                    moment = default;
                     return false;
             }
         }

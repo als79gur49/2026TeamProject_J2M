@@ -16,6 +16,9 @@ namespace Game.Feature.Gameplay.ActionAudio
         ImpactEnemy = 3,
         Blocked = 4,
         Recovery = 5,
+        AssistOutOfRange = 6,
+        NoTarget = 7,
+        Invalid = 8,
     }
 
     public readonly struct GameplayActionAudioRequest
@@ -51,6 +54,9 @@ namespace Game.Feature.Gameplay.ActionAudio
             GameplayActionAudioMoment.ImpactEnemy,
             GameplayActionAudioMoment.Blocked,
             GameplayActionAudioMoment.Recovery,
+            GameplayActionAudioMoment.AssistOutOfRange,
+            GameplayActionAudioMoment.NoTarget,
+            GameplayActionAudioMoment.Invalid,
         };
     }
 
