@@ -722,7 +722,7 @@ namespace Game.Feature.Gameplay.Loop
             var exitOwnedEntityIds = new HashSet<int>();
             var topologyFact = ResolveTopologyTransitionFact(context);
 
-            BuildTilePresentationEvents(context, tileEvents);
+            BuildTilePresentationEvents(context, topologyFact, tileEvents);
             BuildGravityFieldPresentationEvents(context, gravityFieldEvents);
             BuildGravityFieldVisualStates(context, gravityFieldVisualStates);
             BuildEntityExitPresentation(context, entityExitSignals, exitOwnedEntityIds);
@@ -928,6 +928,7 @@ namespace Game.Feature.Gameplay.Loop
 
         private static void BuildTilePresentationEvents(
             in TickPresentationBuildContext context,
+            in TickTopologyTransitionFact topologyFact,
             List<TilePresentationEvent> tileEvents)
         {
             for (var i = 0; i < context.TileEvents.Count; i++)
@@ -999,7 +1000,7 @@ namespace Game.Feature.Gameplay.Loop
 
             var finalTileFeatures = new List<TileFeatureState>();
             context.FinalAuthoritativeSnapshot.EnumerateTileFeaturesOrdered(finalTileFeatures);
-            AddBarricadeActiveStateTransitionEvents(context, finalTileFeatures, tileEvents);
+            AddBarricadeActiveStateTransitionEvents(context, topologyFact, finalTileFeatures, tileEvents);
 
             for (var i = 0; i < finalTileFeatures.Count; i++)
             {
@@ -1036,9 +1037,17 @@ namespace Game.Feature.Gameplay.Loop
 
         private static void AddBarricadeActiveStateTransitionEvents(
             in TickPresentationBuildContext context,
+            in TickTopologyTransitionFact topologyFact,
             IReadOnlyList<TileFeatureState> finalTileFeatures,
             List<TilePresentationEvent> tileEvents)
         {
+            var previousTopology = topologyFact.HasTransition
+                ? topologyFact.SourceTopology
+                : context.PreMovementSnapshot.Topology;
+            var finalTopology = topologyFact.HasTransition
+                ? topologyFact.DestinationTopology
+                : context.FinalAuthoritativeSnapshot.Topology;
+
             for (var i = 0; i < finalTileFeatures.Count; i++)
             {
                 var finalTileFeature = finalTileFeatures[i];
@@ -1054,14 +1063,14 @@ namespace Game.Feature.Gameplay.Loop
                 var finalActive = TileFeatureActivationQueries.IsActive(
                     finalTileFeature,
                     definition,
-                    context.FinalAuthoritativeSnapshot.Topology);
+                    finalTopology);
                 var previousActive =
                     context.PreMovementSnapshot.TryGetTileFeature(finalTileFeature.TileId, out var previousTileFeature) &&
                     previousTileFeature.Kind == TileFeatureKind.Barricade &&
                     TileFeatureActivationQueries.IsActive(
                         previousTileFeature,
                         definition,
-                        context.PreMovementSnapshot.Topology);
+                        previousTopology);
 
                 if (previousActive == finalActive)
                 {

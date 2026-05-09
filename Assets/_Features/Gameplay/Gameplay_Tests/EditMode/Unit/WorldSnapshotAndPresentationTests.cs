@@ -1632,6 +1632,158 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void TickResultBuilder_Free2DTopologyTransition_BarricadeFrontFace_DeactivatedWhenSnapshotsAlreadyMatch()
+        {
+            var destinationTopology = new CubeTopologyState(FaceId.Front);
+            var expectedSourceTopology = destinationTopology.Rotate(CubeRotationKind.Backward);
+            var barricadeCell = new SurfaceCell(FaceId.Front, 1, 1);
+            var destinationCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var barricade = CreateTileFeature(
+                100,
+                barricadeCell,
+                TileFeatureKind.Barricade,
+                TileFeatureFlags.None);
+            var snapshot = CreateTileFeatureSnapshot(destinationTopology, barricade);
+            var metadata = new FinalizationOperationMetadata(
+                TickPhase.Plan,
+                ResolvedActionSemanticKind.Move,
+                sourceActorEntityId: 10,
+                actionPlanId: 0,
+                intentId: 1,
+                rotationKind: CubeRotationKind.Forward,
+                movementSemanticKind: MovementSemanticKind.Move,
+                movementExecutionBoundaryKind: MovementExecutionBoundaryKind.Free2DTopologyTransition,
+                boundaryReason: "Free2DTopologyNativeTransition");
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    CreateMovementPhaseResultWithOperations(
+                        FinalizationOperation.MoveEntity(1, 10, destinationCell, metadata)),
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                    }));
+
+            Assert.That(presentationData.TopologyMotion.HasValue, Is.True);
+            Assert.That(presentationData.TopologyMotion.Value.SourceTopology, Is.EqualTo(expectedSourceTopology));
+            Assert.That(presentationData.TopologyMotion.Value.DestinationTopology, Is.EqualTo(destinationTopology));
+            Assert.That(presentationData.TopologyMotion.Value.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
+            var tileEvent = presentationData.TileEvents.Single();
+            Assert.That(tileEvent.EventKind, Is.EqualTo(TilePresentationEventKind.BarricadeDeactivated));
+            Assert.That(tileEvent.TileId, Is.EqualTo(100));
+            Assert.That(tileEvent.Cell, Is.EqualTo(barricadeCell));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickResultBuilder_Free2DTopologyTransition_BarricadeFrontFace_ActivatedWhenSnapshotsAlreadyMatch()
+        {
+            var destinationTopology = new CubeTopologyState(FaceId.Front);
+            var expectedSourceTopology = destinationTopology.Rotate(CubeRotationKind.Backward);
+            var barricadeCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var destinationCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var barricade = CreateTileFeature(
+                100,
+                barricadeCell,
+                TileFeatureKind.Barricade,
+                TileFeatureFlags.None);
+            var snapshot = CreateTileFeatureSnapshot(destinationTopology, barricade);
+            var metadata = new FinalizationOperationMetadata(
+                TickPhase.Plan,
+                ResolvedActionSemanticKind.Move,
+                sourceActorEntityId: 10,
+                actionPlanId: 0,
+                intentId: 1,
+                rotationKind: CubeRotationKind.Forward,
+                movementSemanticKind: MovementSemanticKind.Move,
+                movementExecutionBoundaryKind: MovementExecutionBoundaryKind.Free2DTopologyTransition,
+                boundaryReason: "Free2DTopologyNativeTransition");
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    CreateMovementPhaseResultWithOperations(
+                        FinalizationOperation.MoveEntity(1, 10, destinationCell, metadata)),
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                    }));
+
+            Assert.That(presentationData.TopologyMotion.HasValue, Is.True);
+            Assert.That(presentationData.TopologyMotion.Value.SourceTopology, Is.EqualTo(expectedSourceTopology));
+            Assert.That(presentationData.TopologyMotion.Value.DestinationTopology, Is.EqualTo(destinationTopology));
+            Assert.That(presentationData.TopologyMotion.Value.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
+            var tileEvent = presentationData.TileEvents.Single();
+            Assert.That(tileEvent.EventKind, Is.EqualTo(TilePresentationEventKind.BarricadeActivated));
+            Assert.That(tileEvent.TileId, Is.EqualTo(100));
+            Assert.That(tileEvent.Cell, Is.EqualTo(barricadeCell));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickResultBuilder_TopologyTransitionFact_SnapshotDiffWinsOverFree2DMetadata()
+        {
+            var sourceTopology = new CubeTopologyState(FaceId.Floor);
+            var destinationTopology = new CubeTopologyState(FaceId.Front);
+            var free2DSyntheticSourceTopology = destinationTopology.Rotate(CubeRotationKind.Forward);
+            var barricadeCell = new SurfaceCell(FaceId.Front, 1, 1);
+            var destinationCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var barricade = CreateTileFeature(
+                100,
+                barricadeCell,
+                TileFeatureKind.Barricade,
+                TileFeatureFlags.None);
+            var preMovementSnapshot = CreateTileFeatureSnapshot(sourceTopology, barricade);
+            var postMovementSnapshot = CreateTileFeatureSnapshot(destinationTopology, barricade);
+            var metadata = new FinalizationOperationMetadata(
+                TickPhase.Plan,
+                ResolvedActionSemanticKind.Move,
+                sourceActorEntityId: 10,
+                actionPlanId: 0,
+                intentId: 1,
+                rotationKind: CubeRotationKind.Backward,
+                movementSemanticKind: MovementSemanticKind.Move,
+                movementExecutionBoundaryKind: MovementExecutionBoundaryKind.Free2DTopologyTransition,
+                boundaryReason: "Free2DTopologyNativeTransition");
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    postMovementSnapshot,
+                    postMovementSnapshot,
+                    postMovementSnapshot,
+                    CreateMovementPhaseResultWithOperations(
+                        FinalizationOperation.MoveEntity(1, 10, destinationCell, metadata)),
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                    }));
+
+            Assert.That(presentationData.TopologyMotion.HasValue, Is.True);
+            Assert.That(presentationData.TopologyMotion.Value.SourceTopology, Is.EqualTo(sourceTopology));
+            Assert.That(presentationData.TopologyMotion.Value.SourceTopology, Is.Not.EqualTo(free2DSyntheticSourceTopology));
+            Assert.That(presentationData.TopologyMotion.Value.DestinationTopology, Is.EqualTo(destinationTopology));
+            Assert.That(presentationData.TopologyMotion.Value.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
+            Assert.That(presentationData.TileEvents.Count, Is.EqualTo(1));
+            Assert.That(presentationData.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.BarricadeDeactivated));
+            Assert.That(presentationData.TileEvents[0].TileId, Is.EqualTo(100));
+        }
+
+        [Test]
         [Category("Extended")]
         public void MoveOwnership_SuppressionBoundary_IsCurrent()
         {
