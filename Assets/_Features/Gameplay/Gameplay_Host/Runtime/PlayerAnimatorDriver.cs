@@ -85,6 +85,12 @@ namespace Game.Feature.Gameplay.Host
                 _pendingRestart = true;
             }
 
+            if (state.HasActionAttempt)
+            {
+                ActionStartSignalCount++;
+                _pendingRestart = true;
+            }
+
             if (state.ExecutedThisTick)
             {
                 ActionExecuteSignalCount++;

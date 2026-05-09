@@ -38,7 +38,11 @@ namespace Game.Feature.Gameplay.Host
             bool resolvedDamageSourceAvailable = false,
             int damageAmountAtFatalHit = 0,
             DeathDirectionHintKind deathDirectionHintKind = DeathDirectionHintKind.Unknown,
-            Direction deathFallbackFacing = Direction.None)
+            Direction deathFallbackFacing = Direction.None,
+            bool hasActionAttempt = false,
+            PlayerActionKind actionAttemptKind = PlayerActionKind.None,
+            Direction actionAttemptDirection = Direction.None,
+            PlayerActionAttemptFeedbackKind actionAttemptFeedbackKind = PlayerActionAttemptFeedbackKind.None)
             : this(
                 entityId,
                 tickIndex,
@@ -61,7 +65,11 @@ namespace Game.Feature.Gameplay.Host
                 resolvedDamageSourceAvailable: resolvedDamageSourceAvailable,
                 damageAmountAtFatalHit: damageAmountAtFatalHit,
                 deathDirectionHintKind: deathDirectionHintKind,
-                deathFallbackFacing: deathFallbackFacing)
+                deathFallbackFacing: deathFallbackFacing,
+                hasActionAttempt: hasActionAttempt,
+                actionAttemptKind: actionAttemptKind,
+                actionAttemptDirection: actionAttemptDirection,
+                actionAttemptFeedbackKind: actionAttemptFeedbackKind)
         {
         }
 
@@ -87,7 +95,11 @@ namespace Game.Feature.Gameplay.Host
             bool resolvedDamageSourceAvailable = false,
             int damageAmountAtFatalHit = 0,
             DeathDirectionHintKind deathDirectionHintKind = DeathDirectionHintKind.Unknown,
-            Direction deathFallbackFacing = Direction.None)
+            Direction deathFallbackFacing = Direction.None,
+            bool hasActionAttempt = false,
+            PlayerActionKind actionAttemptKind = PlayerActionKind.None,
+            Direction actionAttemptDirection = Direction.None,
+            PlayerActionAttemptFeedbackKind actionAttemptFeedbackKind = PlayerActionAttemptFeedbackKind.None)
         {
             EntityId = entityId;
             TickIndex = tickIndex;
@@ -111,6 +123,10 @@ namespace Game.Feature.Gameplay.Host
             DamageAmountAtFatalHit = damageAmountAtFatalHit;
             DeathDirectionHintKind = deathDirectionHintKind;
             DeathFallbackFacing = deathFallbackFacing;
+            HasActionAttempt = hasActionAttempt;
+            ActionAttemptKind = actionAttemptKind;
+            ActionAttemptDirection = actionAttemptDirection;
+            ActionAttemptFeedbackKind = actionAttemptFeedbackKind;
         }
 
         public int EntityId { get; }
@@ -156,6 +172,14 @@ namespace Game.Feature.Gameplay.Host
         public DeathDirectionHintKind DeathDirectionHintKind { get; }
 
         public Direction DeathFallbackFacing { get; }
+
+        public bool HasActionAttempt { get; }
+
+        public PlayerActionKind ActionAttemptKind { get; }
+
+        public Direction ActionAttemptDirection { get; }
+
+        public PlayerActionAttemptFeedbackKind ActionAttemptFeedbackKind { get; }
     }
 
     public sealed class PlayerViewPresentationMapper
@@ -168,6 +192,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, TickPlayerDeathPresentationSignal> _deathSignalsByEntityId = new();
         private readonly Dictionary<int, FlipImpactPresentationSignal> _flipImpactSignalsByActionPlanId = new();
         private readonly Dictionary<int, TickPlayerLocomotionPresentationSignal> _locomotionSignalsByEntityId = new();
+        private readonly Dictionary<int, TickPlayerActionAttemptPresentationSignal> _attemptSignalsByEntityId = new();
 
         public void Build(
             TickResult result,
@@ -198,6 +223,7 @@ namespace Game.Feature.Gameplay.Host
             _deathSignalsByEntityId.Clear();
             _flipImpactSignalsByActionPlanId.Clear();
             _locomotionSignalsByEntityId.Clear();
+            _attemptSignalsByEntityId.Clear();
 
             CacheFinalEntities(result.FinalEntities);
             CollectRemovalSignals(result.PresentationData);
@@ -225,6 +251,14 @@ namespace Game.Feature.Gameplay.Host
                 var signal = playerLocomotionSignals[i];
                 _candidateEntityIds.Add(signal.EntityId);
                 _locomotionSignalsByEntityId[signal.EntityId] = signal;
+            }
+
+            var playerActionAttemptSignals = result.PresentationData.PlayerActionAttemptSignals;
+            for (var i = 0; i < playerActionAttemptSignals.Count; i++)
+            {
+                var signal = playerActionAttemptSignals[i];
+                _candidateEntityIds.Add(signal.EntityId);
+                _attemptSignalsByEntityId[signal.EntityId] = signal;
             }
 
             var playerDamageSignals = result.PresentationData.PlayerDamageSignals;
@@ -278,6 +312,7 @@ namespace Game.Feature.Gameplay.Host
                 var tookDamageThisTick = !didDie &&
                                          _damageSignalsByEntityId.TryGetValue(entityId, out var damageSignal) &&
                                          damageSignal.TookDamageThisTick;
+                var hasActionAttempt = _attemptSignalsByEntityId.TryGetValue(entityId, out var attemptSignal);
                 var flipOutcome = signal.FlipOutcome;
                 var hasFlipImpactContactTiming = signal.HasFlipImpactContactTiming;
                 var flipTargetBoxEntityId = signal.FlipTargetBoxEntityId;
@@ -316,7 +351,11 @@ namespace Game.Feature.Gameplay.Host
                     deathSignal.ResolvedDamageSourceAvailable,
                     deathSignal.DamageAmountAtFatalHit,
                     deathSignal.DeathDirectionHintKind,
-                    deathSignal.FallbackFacing);
+                    deathSignal.FallbackFacing,
+                    hasActionAttempt,
+                    hasActionAttempt ? attemptSignal.ActionKind : PlayerActionKind.None,
+                    hasActionAttempt ? attemptSignal.Direction : Direction.None,
+                    hasActionAttempt ? attemptSignal.FeedbackKind : PlayerActionAttemptFeedbackKind.None);
             }
         }
 
@@ -344,7 +383,11 @@ namespace Game.Feature.Gameplay.Host
                 resolvedDamageSourceAvailable: false,
                 damageAmountAtFatalHit: 0,
                 deathDirectionHintKind: DeathDirectionHintKind.Unknown,
-                deathFallbackFacing: Direction.None);
+                deathFallbackFacing: Direction.None,
+                hasActionAttempt: false,
+                actionAttemptKind: PlayerActionKind.None,
+                actionAttemptDirection: Direction.None,
+                actionAttemptFeedbackKind: PlayerActionAttemptFeedbackKind.None);
         }
 
         private void CacheFinalEntities(IReadOnlyList<EntityState> finalEntities)

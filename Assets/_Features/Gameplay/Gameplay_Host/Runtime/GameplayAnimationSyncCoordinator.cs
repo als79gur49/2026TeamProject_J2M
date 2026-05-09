@@ -305,6 +305,14 @@ namespace Game.Feature.Gameplay.Host
                 return authoritativeState;
             }
 
+            if (_playerViewPresentationStates.TryGetValue(entityId, out state) &&
+                state.HasActionAttempt &&
+                TryResolveActionAnimationState(state.ActionAttemptKind, out var attemptState))
+            {
+                _playerVisualHoldStates.Remove(entityId);
+                return attemptState;
+            }
+
             if ((_playerViewPresentationStates.TryGetValue(entityId, out state) && state.ShouldPlayWalkLoop) ||
                 shouldPlayWalkLoop)
             {
