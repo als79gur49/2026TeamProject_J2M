@@ -66,6 +66,11 @@ namespace Game.Feature.Gameplay.Host
         void PlayMoonBlockGenerated(int moonBlockEntityId);
     }
 
+    public interface IMoonBlockGeneratorBlockedVisualTarget
+    {
+        void PlayMoonBlockGeneratorBlocked(int blockerEntityId);
+    }
+
     public interface ITileFeatureVisualTargetConfigurator
     {
         void ConfigureTileFeature(int tileId, SurfaceCell cell);

@@ -45,6 +45,7 @@ namespace Game.Feature.Gameplay.Loop
         MoonBlockGenerated = 8,
         BarricadeActivated = 9,
         BarricadeDeactivated = 10,
+        MoonBlockGeneratorBlocked = 11,
     }
 
     public readonly struct TilePresentationEvent

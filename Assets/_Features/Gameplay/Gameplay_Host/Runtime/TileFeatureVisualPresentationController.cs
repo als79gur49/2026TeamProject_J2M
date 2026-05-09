@@ -172,6 +172,18 @@ namespace Game.Feature.Gameplay.Host
                     }
 
                     return;
+                case TilePresentationRequestKind.MoonBlockGeneratorBlocked:
+                    if (target is IMoonBlockGeneratorBlockedVisualTarget moonBlockGeneratorBlockedTarget)
+                    {
+                        moonBlockGeneratorBlockedTarget.PlayMoonBlockGeneratorBlocked(request.TargetEntityId);
+                    }
+                    else
+                    {
+                        _diagnosticSink?.Invoke(
+                            $"{nameof(TileFeatureVisualPresentationController)} unsupported MoonBlockGeneratorBlocked visual target for tile {request.TileId}.");
+                    }
+
+                    return;
             }
         }
 
@@ -186,7 +198,8 @@ namespace Game.Feature.Gameplay.Host
                    requestKind == TilePresentationRequestKind.BarricadeDeactivated ||
                    requestKind == TilePresentationRequestKind.ExitOpened ||
                    requestKind == TilePresentationRequestKind.ExitEntered ||
-                   requestKind == TilePresentationRequestKind.MoonBlockGenerated;
+                   requestKind == TilePresentationRequestKind.MoonBlockGenerated ||
+                   requestKind == TilePresentationRequestKind.MoonBlockGeneratorBlocked;
         }
     }
 }

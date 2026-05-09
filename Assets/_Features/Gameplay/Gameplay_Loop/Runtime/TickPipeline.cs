@@ -1487,7 +1487,8 @@ namespace Game.Feature.Gameplay.Loop
                 tickIndex,
                 writeContext);
             if (moonBlockGeneratorResult.EventLogEntries.Count > 0 ||
-                moonBlockGeneratorResult.RespawnFacts.Count > 0)
+                moonBlockGeneratorResult.RespawnFacts.Count > 0 ||
+                moonBlockGeneratorResult.BlockedFacts.Count > 0)
             {
                 var eventLogEntries = new List<string>(
                     respawnPhaseResult.EventLogEntries.Count + moonBlockGeneratorResult.EventLogEntries.Count);
@@ -1498,13 +1499,19 @@ namespace Game.Feature.Gameplay.Loop
                     moonBlockGeneratorResult.RespawnFacts.Count);
                 AddRange(respawnFacts, respawnPhaseResult.MoonBlockGeneratorRespawnFacts);
                 AddRange(respawnFacts, moonBlockGeneratorResult.RespawnFacts);
+                var blockedFacts = new List<MoonBlockGeneratorBlockedFact>(
+                    respawnPhaseResult.MoonBlockGeneratorBlockedFacts.Count +
+                    moonBlockGeneratorResult.BlockedFacts.Count);
+                AddRange(blockedFacts, respawnPhaseResult.MoonBlockGeneratorBlockedFacts);
+                AddRange(blockedFacts, moonBlockGeneratorResult.BlockedFacts);
                 respawnPhaseResult = new RespawnPhaseResult(
                     respawnPhaseResult.RespawnedEntities,
                     eventLogEntries,
                     respawnPhaseResult.PlayerRespawnDelayRecords,
                     respawnPhaseResult.RespawnPlacementRecords,
                     respawnPhaseResult.TopologyResetRequest,
-                    respawnFacts);
+                    respawnFacts,
+                    blockedFacts);
             }
 
             phaseTrace.Add("Respawn:Exit");
