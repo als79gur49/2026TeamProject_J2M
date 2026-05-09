@@ -89,25 +89,29 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
+            var attachedEntityId = request.Cue == GravityFieldAudioCue.LockedBox &&
+                                   request.TargetEntityId > 0
+                ? request.TargetEntityId
+                : request.EmitterEntityId;
             if (binding.HasAttachmentSlot &&
-                request.EmitterEntityId > 0 &&
-                TryResolveEmitter(request.EmitterEntityId, out var emitter))
+                attachedEntityId > 0 &&
+                TryResolveEntityView(attachedEntityId, out var owner))
             {
-                _playbackPort.PlayAttached(binding.Definition, emitter, binding.AttachmentSlot, request.Context);
+                _playbackPort.PlayAttached(binding.Definition, owner, binding.AttachmentSlot, request.Context);
                 return;
             }
 
             _playbackPort.Play2D(binding.Definition, request.Context);
         }
 
-        private bool TryResolveEmitter(int emitterEntityId, out GameplayEntityView emitter)
+        private bool TryResolveEntityView(int entityId, out GameplayEntityView view)
         {
-            emitter = null;
-            if (!_stateStore.ViewsByEntityId.TryGetValue(emitterEntityId, out emitter) ||
-                emitter == null ||
-                !emitter.gameObject.activeInHierarchy)
+            view = null;
+            if (!_stateStore.ViewsByEntityId.TryGetValue(entityId, out view) ||
+                view == null ||
+                !view.gameObject.activeInHierarchy)
             {
-                emitter = null;
+                view = null;
                 return false;
             }
 

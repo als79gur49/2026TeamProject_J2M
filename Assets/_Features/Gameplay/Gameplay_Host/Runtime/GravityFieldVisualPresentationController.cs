@@ -131,19 +131,15 @@ namespace Game.Feature.Gameplay.Host
 
         private void PlayRequest(GravityFieldPresentationRequest request)
         {
-            if (!_stateStore.ViewsByEntityId.TryGetValue(request.EmitterEntityId, out var view) ||
-                view == null ||
-                !view.gameObject.activeInHierarchy)
-            {
-                _diagnosticSink?.Invoke(
-                    $"{nameof(GravityFieldVisualPresentationController)} missing {request.RequestKind} visual target for entity {request.EmitterEntityId}.");
-                return;
-            }
-
             switch (request.RequestKind)
             {
                 case GravityFieldPresentationRequestKind.Activated:
-                    var activatedTarget = view.GetComponent<IGravityFieldActivatedVisualTarget>();
+                    if (!TryGetActiveView(request.EmitterEntityId, request.RequestKind.ToString(), out var activatedView))
+                    {
+                        return;
+                    }
+
+                    var activatedTarget = activatedView.GetComponent<IGravityFieldActivatedVisualTarget>();
                     if (activatedTarget != null)
                     {
                         activatedTarget.PlayGravityFieldActivated();
@@ -156,7 +152,12 @@ namespace Game.Feature.Gameplay.Host
 
                     return;
                 case GravityFieldPresentationRequestKind.Expired:
-                    var expiredTarget = view.GetComponent<IGravityFieldExpiredVisualTarget>();
+                    if (!TryGetActiveView(request.EmitterEntityId, request.RequestKind.ToString(), out var expiredView))
+                    {
+                        return;
+                    }
+
+                    var expiredTarget = expiredView.GetComponent<IGravityFieldExpiredVisualTarget>();
                     if (expiredTarget != null)
                     {
                         expiredTarget.PlayGravityFieldExpired();
@@ -168,7 +169,37 @@ namespace Game.Feature.Gameplay.Host
                     }
 
                     return;
+                case GravityFieldPresentationRequestKind.LockedBox:
+                    PlayLockedBox(request);
+                    return;
             }
+        }
+
+        private void PlayLockedBox(GravityFieldPresentationRequest request)
+        {
+            var payload = request.LockedBoxPayload;
+            if (!payload.IsValid)
+            {
+                _diagnosticSink?.Invoke(
+                    $"{nameof(GravityFieldVisualPresentationController)} invalid LockedBox visual payload for emitter {request.EmitterEntityId} target {request.TargetEntityId}.");
+                return;
+            }
+
+            var pair = new LockedTargetPair(payload.EmitterEntityId, payload.TargetEntityId);
+            if (!TryGetActiveTargetView(pair, "locked box one-shot", out var view))
+            {
+                return;
+            }
+
+            var target = view.GetComponent<IGravityFieldLockedBoxOneShotVisualTarget>();
+            if (target != null)
+            {
+                target.PlayGravityFieldLockedBox(payload);
+                return;
+            }
+
+            _diagnosticSink?.Invoke(
+                $"{nameof(GravityFieldVisualPresentationController)} unsupported locked box one-shot visual target for target entity {payload.TargetEntityId} from emitter {payload.EmitterEntityId}.");
         }
 
         private void ApplyContinuousState(GravityFieldVisualState state)

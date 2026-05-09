@@ -126,11 +126,39 @@ namespace Game.Feature.Gameplay.Loop
         public MoonBlockGeneratorBlockedPayload MoonBlockGeneratorBlockedPayload { get; }
     }
 
+    public readonly struct GravityFieldLockedBoxPayload
+    {
+        public GravityFieldLockedBoxPayload(
+            int emitterEntityId,
+            int targetEntityId,
+            SurfaceCell emitterCell,
+            SurfaceCell targetCell)
+        {
+            EmitterEntityId = emitterEntityId;
+            TargetEntityId = targetEntityId;
+            EmitterCell = emitterCell;
+            TargetCell = targetCell;
+        }
+
+        public static GravityFieldLockedBoxPayload None => default;
+
+        public int EmitterEntityId { get; }
+
+        public int TargetEntityId { get; }
+
+        public SurfaceCell EmitterCell { get; }
+
+        public SurfaceCell TargetCell { get; }
+
+        public bool IsValid => EmitterEntityId > 0 && TargetEntityId > 0;
+    }
+
     public enum GravityFieldPresentationEventKind
     {
         None = 0,
         Activated = 1,
         Expired = 2,
+        LockedBox = 3,
     }
 
     public readonly struct GravityFieldPresentationEvent
@@ -139,12 +167,16 @@ namespace Game.Feature.Gameplay.Loop
             GravityFieldPresentationEventKind eventKind,
             int emitterEntityId,
             SurfaceCell cell,
-            int targetEntityId = 0)
+            int targetEntityId = 0,
+            GravityFieldLockedBoxPayload lockedBoxPayload = default)
         {
             EventKind = eventKind;
             EmitterEntityId = emitterEntityId;
             Cell = cell;
-            TargetEntityId = targetEntityId;
+            LockedBoxPayload = lockedBoxPayload;
+            TargetEntityId = targetEntityId > 0
+                ? targetEntityId
+                : lockedBoxPayload.TargetEntityId;
         }
 
         public GravityFieldPresentationEventKind EventKind { get; }
@@ -154,6 +186,8 @@ namespace Game.Feature.Gameplay.Loop
         public SurfaceCell Cell { get; }
 
         public int TargetEntityId { get; }
+
+        public GravityFieldLockedBoxPayload LockedBoxPayload { get; }
     }
 
     public readonly struct GravityFieldAreaFootprint

@@ -45,6 +45,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly DeterminismHashBuilder _determinismHashBuilder = new();
         private readonly TickTraceBuilder _tickTraceBuilder = new();
         private readonly DelayedAttackEffectQueue _delayedAttackEffectQueue = new();
+        private readonly GravityFieldLockedBoxOneShotState _gravityFieldLockedBoxOneShotState = new();
         private readonly List<EntityState> _playerRespawnTemplates;
         private readonly StageObjectiveTracker _objectiveTracker;
         private readonly int _moveOccupancyTicks;
@@ -550,7 +551,8 @@ namespace Game.Feature.Gameplay.Loop
                 snapshotAfterEnemyAi,
                 input.TickIndex,
                 _gravityFieldChargeTicks,
-                _gravityFieldActiveTicks);
+                _gravityFieldActiveTicks,
+                _gravityFieldLockedBoxOneShotState);
             var gravityFieldBatch = gravityFieldResult.Batch;
             var gravityFieldEvents = gravityFieldResult.EventLogEntries;
             if (gravityFieldBatch.Operations.Count > 0)
