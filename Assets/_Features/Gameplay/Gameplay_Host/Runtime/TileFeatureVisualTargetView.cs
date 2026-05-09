@@ -12,6 +12,9 @@ namespace Game.Feature.Gameplay.Host
         ISlideTileVisualTarget,
         IBarricadeBlockedVisualTarget,
         IBarricadeCrushedVisualTarget,
+        IBarricadeActivatedVisualTarget,
+        IBarricadeDeactivatedVisualTarget,
+        IBarricadeActiveStateVisualTarget,
         IExitOpenedVisualTarget,
         IExitEnteredVisualTarget,
         IMoonBlockGeneratedVisualTarget,
@@ -25,6 +28,11 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private string slideTileRedirectedTriggerName = "SlideTileRedirected";
         [SerializeField] private string barricadeBlockedTriggerName = "BarricadeBlocked";
         [SerializeField] private string barricadeCrushedTriggerName = "BarricadeCrushed";
+        [SerializeField] private string barricadeActivatedTriggerName = "BarricadeActivated";
+        [SerializeField] private string barricadeDeactivatedTriggerName = "BarricadeDeactivated";
+        [SerializeField] private string barricadeActiveBoolName = "BarricadeActive";
+        [SerializeField] private string barricadeRaisedStateName = "RaisedIdle";
+        [SerializeField] private string barricadeLoweredStateName = "LoweredIdle";
         [SerializeField] private string exitOpenedTriggerName = "ExitOpened";
         [SerializeField] private string exitEnteredTriggerName = "ExitEntered";
         [SerializeField] private string moonBlockGeneratedTriggerName = "MoonBlockGenerated";
@@ -41,6 +49,8 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private UnityEvent slideTileRedirectedPlayed;
         [SerializeField] private UnityEvent barricadeBlockedPlayed;
         [SerializeField] private UnityEvent barricadeCrushedPlayed;
+        [SerializeField] private UnityEvent barricadeActivatedPlayed;
+        [SerializeField] private UnityEvent barricadeDeactivatedPlayed;
         [SerializeField] private UnityEvent exitOpenedPlayed;
         [SerializeField] private UnityEvent exitEnteredPlayed;
         [SerializeField] private UnityEvent moonBlockGeneratedPlayed;
@@ -50,6 +60,8 @@ namespace Game.Feature.Gameplay.Host
         private int _debugPlaySlideTileRedirectedCount;
         private int _debugPlayBarricadeBlockedCount;
         private int _debugPlayBarricadeCrushedCount;
+        private int _debugPlayBarricadeActivatedCount;
+        private int _debugPlayBarricadeDeactivatedCount;
         private int _debugPlayExitOpenedCount;
         private int _debugPlayExitEnteredCount;
         private int _debugPlayMoonBlockGeneratedCount;
@@ -75,7 +87,13 @@ namespace Game.Feature.Gameplay.Host
 
         public int DebugPlayBarricadeCrushedCount => _debugPlayBarricadeCrushedCount;
 
+        public int DebugPlayBarricadeActivatedCount => _debugPlayBarricadeActivatedCount;
+
+        public int DebugPlayBarricadeDeactivatedCount => _debugPlayBarricadeDeactivatedCount;
+
         public int DebugPlayExitOpenedCount => _debugPlayExitOpenedCount;
+
+        public Animator DebugAnimator => animator;
 
         public int DebugPlayExitEnteredCount => _debugPlayExitEnteredCount;
 
@@ -206,6 +224,28 @@ namespace Game.Feature.Gameplay.Host
             barricadeCrushedPlayed?.Invoke();
         }
 
+        public void PlayBarricadeActivated()
+        {
+            _debugPlayBarricadeActivatedCount++;
+            SetAnimatorBool(barricadeActiveBoolName, true);
+            SetAnimatorTrigger(barricadeActivatedTriggerName);
+            barricadeActivatedPlayed?.Invoke();
+        }
+
+        public void PlayBarricadeDeactivated()
+        {
+            _debugPlayBarricadeDeactivatedCount++;
+            SetAnimatorBool(barricadeActiveBoolName, false);
+            SetAnimatorTrigger(barricadeDeactivatedTriggerName);
+            barricadeDeactivatedPlayed?.Invoke();
+        }
+
+        public void SetBarricadeActiveImmediate(bool active)
+        {
+            SetAnimatorBool(barricadeActiveBoolName, active);
+            PlayAnimatorStateIfPresent(active ? barricadeRaisedStateName : barricadeLoweredStateName);
+        }
+
         public void PlayExitOpened()
         {
             _debugPlayExitOpenedCount++;
@@ -263,6 +303,66 @@ namespace Game.Feature.Gameplay.Host
             }
 
             moonBlockGeneratedPlayed?.Invoke();
+        }
+
+        private void SetAnimatorTrigger(string triggerName)
+        {
+            if (HasAnimatorParameter(triggerName, AnimatorControllerParameterType.Trigger, out var hash))
+            {
+                animator.SetTrigger(hash);
+            }
+        }
+
+        private void SetAnimatorBool(string boolName, bool value)
+        {
+            if (HasAnimatorParameter(boolName, AnimatorControllerParameterType.Bool, out var hash))
+            {
+                animator.SetBool(hash, value);
+            }
+        }
+
+        private void PlayAnimatorStateIfPresent(string stateName)
+        {
+            if (animator == null ||
+                animator.runtimeAnimatorController == null ||
+                string.IsNullOrWhiteSpace(stateName))
+            {
+                return;
+            }
+
+            var hash = Animator.StringToHash(stateName);
+            if (animator.HasState(0, hash))
+            {
+                animator.Play(hash, 0, 1f);
+                animator.Update(0f);
+            }
+        }
+
+        private bool HasAnimatorParameter(
+            string parameterName,
+            AnimatorControllerParameterType parameterType,
+            out int hash)
+        {
+            hash = 0;
+            if (animator == null ||
+                animator.runtimeAnimatorController == null ||
+                string.IsNullOrWhiteSpace(parameterName))
+            {
+                return false;
+            }
+
+            hash = Animator.StringToHash(parameterName);
+            var parameters = animator.parameters;
+            for (var i = 0; i < parameters.Length; i++)
+            {
+                if (parameters[i].nameHash == hash &&
+                    parameters[i].type == parameterType)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

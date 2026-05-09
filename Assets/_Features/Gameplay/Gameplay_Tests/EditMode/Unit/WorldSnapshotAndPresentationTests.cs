@@ -1397,6 +1397,155 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void TickPresentationDataBuilder_BarricadeFrontFaceTransition_EmitsActivatedAtPresentationStart()
+        {
+            var cell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var barricade = CreateTileFeature(
+                100,
+                cell,
+                TileFeatureKind.Barricade,
+                TileFeatureFlags.None);
+            var preMovementSnapshot = CreateTileFeatureSnapshot(new CubeTopologyState(FaceId.Floor), barricade);
+            var finalSnapshot = CreateTileFeatureSnapshot(new CubeTopologyState(FaceId.Front), barricade);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                    }));
+
+            var tileEvent = presentationData.TileEvents.Single();
+            Assert.That(tileEvent.EventKind, Is.EqualTo(TilePresentationEventKind.BarricadeActivated));
+            Assert.That(tileEvent.TileId, Is.EqualTo(100));
+            Assert.That(tileEvent.Cell, Is.EqualTo(cell));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickPresentationDataBuilder_BarricadeFrontFaceTransition_EmitsDeactivatedAtPresentationStart()
+        {
+            var cell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var barricade = CreateTileFeature(
+                100,
+                cell,
+                TileFeatureKind.Barricade,
+                TileFeatureFlags.None);
+            var preMovementSnapshot = CreateTileFeatureSnapshot(new CubeTopologyState(FaceId.Front), barricade);
+            var finalSnapshot = CreateTileFeatureSnapshot(new CubeTopologyState(FaceId.Floor), barricade);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                    }));
+
+            var tileEvent = presentationData.TileEvents.Single();
+            Assert.That(tileEvent.EventKind, Is.EqualTo(TilePresentationEventKind.BarricadeDeactivated));
+            Assert.That(tileEvent.TileId, Is.EqualTo(100));
+            Assert.That(tileEvent.Cell, Is.EqualTo(cell));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickPresentationDataBuilder_BarricadeFrontFaceStableState_DoesNotEmitActiveStateEvents()
+        {
+            var activeCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var inactiveCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var activeBarricade = CreateTileFeature(
+                100,
+                activeCell,
+                TileFeatureKind.Barricade,
+                TileFeatureFlags.None);
+            var inactiveBarricade = CreateTileFeature(
+                101,
+                inactiveCell,
+                TileFeatureKind.Barricade,
+                TileFeatureFlags.None);
+            var topology = new CubeTopologyState(FaceId.Front);
+            var snapshot = CreateTileFeatureSnapshot(topology, activeBarricade, inactiveBarricade);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                        CreateTileFeatureDefinition(101, TileFeatureActivationRule.FrontFaceOnly),
+                    }));
+
+            Assert.That(presentationData.TileEvents, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickPresentationDataBuilder_BarricadeActivated_SortsBeforeCrushedOnSameTick()
+        {
+            var cell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var barricade = CreateTileFeature(
+                100,
+                cell,
+                TileFeatureKind.Barricade,
+                TileFeatureFlags.None);
+            var preMovementSnapshot = CreateTileFeatureSnapshot(new CubeTopologyState(FaceId.Floor), barricade);
+            var finalSnapshot = CreateTileFeatureSnapshot(new CubeTopologyState(FaceId.Front), barricade);
+            var crushedEvent = new TilePresentationEvent(
+                TilePresentationEventKind.BarricadeCrushed,
+                100,
+                cell,
+                TileFeatureKind.Barricade,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0,
+                targetEntityId: 30);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileEvents: new[] { crushedEvent },
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                    }));
+
+            Assert.That(
+                presentationData.TileEvents.Select(tileEvent => tileEvent.EventKind).ToArray(),
+                Is.EqualTo(new[]
+                {
+                    TilePresentationEventKind.BarricadeActivated,
+                    TilePresentationEventKind.BarricadeCrushed,
+                }));
+        }
+
+        [Test]
+        [Category("Core")]
         public void TickResultBuilder_LocomotionAnchorCommit_SuppressesLegacyMotion()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
@@ -3031,11 +3180,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static WorldSnapshot CreateTileFeatureSnapshot(params TileFeatureState[] tileFeatures)
         {
+            return CreateTileFeatureSnapshot(new CubeTopologyState(FaceId.Floor), tileFeatures);
+        }
+
+        private static WorldSnapshot CreateTileFeatureSnapshot(
+            CubeTopologyState topology,
+            params TileFeatureState[] tileFeatures)
+        {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 Array.Empty<EntityState>(),
                 new BoardBounds(Vector2Int.zero, new Vector2Int(3, 3)),
                 GameplayTerrainData.Empty,
-                new CubeTopologyState(FaceId.Floor),
+                topology,
                 GameplayTimingProfile.CreateDefault(),
                 tileFeatures);
 
@@ -3061,6 +3217,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 teamId,
                 lifetimeTicks: 0,
                 charges: 0);
+        }
+
+        private static TileFeatureRuntimeDefinition CreateTileFeatureDefinition(
+            int tileId,
+            TileFeatureActivationRule activationRule = TileFeatureActivationRule.Always)
+        {
+            return new TileFeatureRuntimeDefinition(
+                tileId,
+                activationRule,
+                Direction2D.None,
+                TileFeatureBoxSelector.None,
+                boundEntityId: 0,
+                presentationKey: string.Empty);
         }
 
         private static IWorldWriteContext CreateWriteContext(WorldState worldState)

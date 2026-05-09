@@ -166,6 +166,51 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void BuildRequests_BarricadeActiveStateEvents_PreservePresentationFacts()
+        {
+            var cell = new SurfaceCell(FaceId.Front, 2, 3);
+            var planner = new TilePresentationRequestPlanner();
+            var presentationData = CreatePresentationData(
+                new TilePresentationEvent(
+                    TilePresentationEventKind.BarricadeActivated,
+                    100,
+                    cell,
+                    TileFeatureKind.Barricade,
+                    30,
+                    40,
+                    2),
+                new TilePresentationEvent(
+                    TilePresentationEventKind.BarricadeDeactivated,
+                    101,
+                    cell,
+                    TileFeatureKind.Barricade,
+                    31,
+                    41,
+                    3));
+
+            var requests = planner.BuildRequests(presentationData);
+
+            Assert.That(requests, Has.Count.EqualTo(2));
+            Assert.That(requests[0].RequestKind, Is.EqualTo(TilePresentationRequestKind.BarricadeActivated));
+            Assert.That(requests[0].TileId, Is.EqualTo(100));
+            Assert.That(requests[0].Cell, Is.EqualTo(cell));
+            Assert.That(requests[0].TileFeatureKind, Is.EqualTo(TileFeatureKind.Barricade));
+            Assert.That(requests[0].SourceEntityId, Is.EqualTo(30));
+            Assert.That(requests[0].OwnerEntityId, Is.EqualTo(40));
+            Assert.That(requests[0].TeamId, Is.EqualTo(2));
+            Assert.That(requests[0].TargetEntityId, Is.Zero);
+            Assert.That(requests[0].Direction, Is.EqualTo(Direction.None));
+            Assert.That(requests[1].RequestKind, Is.EqualTo(TilePresentationRequestKind.BarricadeDeactivated));
+            Assert.That(requests[1].TileId, Is.EqualTo(101));
+            Assert.That(requests[1].SourceEntityId, Is.EqualTo(31));
+            Assert.That(requests[1].OwnerEntityId, Is.EqualTo(41));
+            Assert.That(requests[1].TeamId, Is.EqualTo(3));
+            Assert.That(requests[1].TargetEntityId, Is.Zero);
+            Assert.That(requests[1].Direction, Is.EqualTo(Direction.None));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void BuildRequests_ExitEvents_PreservePresentationFacts()
         {
             var cell = new SurfaceCell(FaceId.Floor, 2, 3);

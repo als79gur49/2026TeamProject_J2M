@@ -965,6 +965,7 @@ namespace Game.Feature.Gameplay.Loop
 
             var finalTileFeatures = new List<TileFeatureState>();
             context.FinalAuthoritativeSnapshot.EnumerateTileFeaturesOrdered(finalTileFeatures);
+            AddBarricadeActiveStateTransitionEvents(context, finalTileFeatures, tileEvents);
 
             for (var i = 0; i < finalTileFeatures.Count; i++)
             {
@@ -997,6 +998,53 @@ namespace Game.Feature.Gameplay.Loop
             AddExitEnteredEvents(context, finalTileFeatures, tileEvents);
 
             tileEvents.Sort(CompareTilePresentationEvents);
+        }
+
+        private static void AddBarricadeActiveStateTransitionEvents(
+            in TickPresentationBuildContext context,
+            IReadOnlyList<TileFeatureState> finalTileFeatures,
+            List<TilePresentationEvent> tileEvents)
+        {
+            for (var i = 0; i < finalTileFeatures.Count; i++)
+            {
+                var finalTileFeature = finalTileFeatures[i];
+                if (finalTileFeature.Kind != TileFeatureKind.Barricade ||
+                    !TryGetTileFeatureDefinition(
+                        context.TileFeatureDefinitions,
+                        finalTileFeature.TileId,
+                        out var definition))
+                {
+                    continue;
+                }
+
+                var finalActive = TileFeatureActivationQueries.IsActive(
+                    finalTileFeature,
+                    definition,
+                    context.FinalAuthoritativeSnapshot.Topology);
+                var previousActive =
+                    context.PreMovementSnapshot.TryGetTileFeature(finalTileFeature.TileId, out var previousTileFeature) &&
+                    previousTileFeature.Kind == TileFeatureKind.Barricade &&
+                    TileFeatureActivationQueries.IsActive(
+                        previousTileFeature,
+                        definition,
+                        context.PreMovementSnapshot.Topology);
+
+                if (previousActive == finalActive)
+                {
+                    continue;
+                }
+
+                tileEvents.Add(new TilePresentationEvent(
+                    finalActive
+                        ? TilePresentationEventKind.BarricadeActivated
+                        : TilePresentationEventKind.BarricadeDeactivated,
+                    finalTileFeature.TileId,
+                    finalTileFeature.Cell,
+                    finalTileFeature.Kind,
+                    finalTileFeature.SourceEntityId,
+                    finalTileFeature.OwnerEntityId,
+                    finalTileFeature.TeamId));
+            }
         }
 
         private static void AddExitOpenedEvents(
@@ -1123,7 +1171,8 @@ namespace Game.Feature.Gameplay.Loop
                 return tileCompare;
             }
 
-            var kindCompare = left.EventKind.CompareTo(right.EventKind);
+            var kindCompare = ResolveTilePresentationEventSortPriority(left.EventKind)
+                .CompareTo(ResolveTilePresentationEventSortPriority(right.EventKind));
             if (kindCompare != 0)
             {
                 return kindCompare;
@@ -1149,6 +1198,23 @@ namespace Game.Feature.Gameplay.Loop
 
             var teamCompare = left.TeamId.CompareTo(right.TeamId);
             return teamCompare != 0 ? teamCompare : left.Direction.CompareTo(right.Direction);
+        }
+
+        private static int ResolveTilePresentationEventSortPriority(TilePresentationEventKind eventKind)
+        {
+            switch (eventKind)
+            {
+                case TilePresentationEventKind.BarricadeActivated:
+                    return 35;
+                case TilePresentationEventKind.BarricadeBlocked:
+                    return 40;
+                case TilePresentationEventKind.BarricadeCrushed:
+                    return 50;
+                case TilePresentationEventKind.BarricadeDeactivated:
+                    return 55;
+                default:
+                    return (int)eventKind * 10;
+            }
         }
 
         private static int CompareSurfaceCells(SurfaceCell left, SurfaceCell right)
