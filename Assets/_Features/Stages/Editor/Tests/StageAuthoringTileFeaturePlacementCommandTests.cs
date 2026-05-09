@@ -51,6 +51,16 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void StageAuthoringDefinition_CustomInspector_OpenGeneratedAssetButtons_AreNotDuplicated()
+        {
+            var source = File.ReadAllText("Assets/_Features/Stages/Editor/Authoring/StageAuthoringDefinitionEditor.cs");
+
+            Assert.That(CountOccurrences(source, "Open Presentation Definition"), Is.EqualTo(1));
+            Assert.That(CountOccurrences(source, "Open BoardTile Catalog"), Is.EqualTo(1));
+            Assert.That(CountOccurrences(source, "Open TileFeature Catalog"), Is.EqualTo(1));
+        }
+
+        [Test]
         public void AddTileFeature_AllocatesPositiveUniqueTileId()
         {
             WithAuthoring(authoring =>
@@ -322,6 +332,11 @@ namespace Game.Feature.Stages.Editor.Tests
                     0,
                     string.Empty),
                 out _);
+        }
+
+        private static int CountOccurrences(string source, string value)
+        {
+            return source.Split(new[] { value }, System.StringSplitOptions.None).Length - 1;
         }
 
         private static StageTileFeatureDefinition CreateFeature(
