@@ -343,6 +343,23 @@ namespace Game.Feature.Gameplay.PlayerControl
             PlayerQueuedFree2DActionKind actionKind,
             Direction actionDirection)
         {
+            return TryResolveFree2DActionAssistCandidate(
+                snapshot,
+                player,
+                currentAnchor,
+                actionKind,
+                actionDirection,
+                out _);
+        }
+
+        public static bool TryResolveFree2DActionAssistCandidate(
+            WorldSnapshot snapshot,
+            in EntityState player,
+            SurfaceCell currentAnchor,
+            PlayerQueuedFree2DActionKind actionKind,
+            Direction actionDirection,
+            out PlayerActionTarget target)
+        {
             if (snapshot == null)
             {
                 throw new ArgumentNullException(nameof(snapshot));
@@ -350,6 +367,7 @@ namespace Game.Feature.Gameplay.PlayerControl
 
             if (!TryResolveDelta(actionDirection, out var delta))
             {
+                target = default;
                 return false;
             }
 
@@ -364,7 +382,7 @@ namespace Game.Feature.Gameplay.PlayerControl
                         delta,
                         tickIndex: 0,
                         checkLocks: false,
-                        out _);
+                        out target);
 
                 case PlayerQueuedFree2DActionKind.Flip:
                     return TryResolveFlipTargetAtAnchor(
@@ -375,9 +393,10 @@ namespace Game.Feature.Gameplay.PlayerControl
                         delta,
                         tickIndex: 0,
                         checkLocks: false,
-                        out _);
+                        out target);
 
                 default:
+                    target = default;
                     return false;
             }
         }

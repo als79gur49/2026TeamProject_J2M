@@ -280,7 +280,8 @@ namespace Game.Feature.Gameplay.Loop
                 resolvePhaseResult.GravityFieldPresentationEvents,
                 _gravityFieldChargeTicks,
                 _gravityFieldActiveTicks,
-                resolvePhaseResult.GravityFieldLockedTargetFacts);
+                resolvePhaseResult.GravityFieldLockedTargetFacts,
+                planPhaseResult.PlayerActionAttemptResolutions);
             var pendingDelayedAttackEffects = _delayedAttackEffectQueue.Snapshot();
             var tickResultData = _tickResultBuilder.Build(
                 finalAuthoritativeSnapshot,
@@ -622,6 +623,7 @@ namespace Game.Feature.Gameplay.Loop
             var sortedIntents = BuildMovementIntents(executableMovementIntents);
             var expansionIntents = sortedIntents;
             var kinematicMovementActionPlanPayloads = new Dictionary<int, MovementActionPlanPayload>();
+            var playerActionAttemptResolutions = new List<PlayerActionAttemptResolution>();
             if (_runtimeFeatureFlags.EnablePlayerFree2DLocalLocomotion)
             {
                 var free2DBatch = new FinalizationBatch();
@@ -631,7 +633,8 @@ namespace Game.Feature.Gameplay.Loop
                     input.PlayerCommand,
                     input.TickIndex,
                     rejectedReasons,
-                    free2DBatch);
+                    free2DBatch,
+                    playerActionAttemptResolutions);
                 planFinalizationBatch.MergeFrom(free2DBatch);
                 projectedWorld.ApplyBatch(free2DBatch);
                 planSnapshot = projectedWorld.CreateSnapshot();
@@ -646,6 +649,10 @@ namespace Game.Feature.Gameplay.Loop
                     rejectedReasons,
                     kinematicMovementActionPlanPayloads);
             }
+            CollectUnhandledPlayerActionAttemptResolutions(
+                planSnapshot,
+                input.PlayerCommand,
+                playerActionAttemptResolutions);
             if (_runtimeFeatureFlags.EnableEnemySameFaceContinuousLocomotion ||
                 _runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion)
             {
@@ -751,7 +758,8 @@ namespace Game.Feature.Gameplay.Loop
                 planSnapshot,
                 planFinalizationBatch,
                 gravityFieldResult.PresentationEvents,
-                gravityFieldResult.LockedTargetFacts);
+                gravityFieldResult.LockedTargetFacts,
+                playerActionAttemptResolutions);
         }
 
         private ResolvePhaseResult RunResolvePhase(
@@ -1856,7 +1864,8 @@ namespace Game.Feature.Gameplay.Loop
             PlayerTickCommand playerCommand,
             int tickIndex,
             List<string> rejectedReasons,
-            FinalizationBatch batch)
+            FinalizationBatch batch,
+            List<PlayerActionAttemptResolution> playerActionAttemptResolutions)
         {
             var legacyIntents = new List<MoveIntent>(sortedIntents.Count);
             var consumedFree2DIntentIds = new HashSet<int>();
@@ -1960,6 +1969,7 @@ namespace Game.Feature.Gameplay.Loop
                     tickIndex,
                     rejectedReasons,
                     skipTopologyApproachSettleFallbackPlayerIds.Contains(entity.entityId),
+                    playerActionAttemptResolutions,
                     batch);
             }
 
@@ -2358,6 +2368,7 @@ namespace Game.Feature.Gameplay.Loop
             int tickIndex,
             List<string> rejectedReasons,
             bool skipTopologyApproachSettleFallback,
+            List<PlayerActionAttemptResolution> playerActionAttemptResolutions,
             FinalizationBatch batch)
         {
             if (!snapshot.TryGetUnitContinuousLocomotionPose(entity.entityId, out var pose))
@@ -2379,6 +2390,21 @@ namespace Game.Feature.Gameplay.Loop
                     out var queuedPlayerControlState))
             {
                 effectivePlayerControlState = queuedPlayerControlState;
+            }
+
+            if (TryCreatePlayerActionAttemptResolution(
+                    snapshot,
+                    entity,
+                    effectivePlayerControlState,
+                    playerCommand,
+                    pose,
+                    out var attemptResolution))
+            {
+                AddPlayerActionAttemptResolution(playerActionAttemptResolutions, attemptResolution);
+                if (attemptResolution.ConsumesMovement)
+                {
+                    return;
+                }
             }
 
             if (_runtimeFeatureFlags.EnablePlayerFree2DActionAssist &&
@@ -2504,6 +2530,264 @@ namespace Game.Feature.Gameplay.Loop
                 rejectedReasons.Add(
                     $"MovementRejected|Stage=Plan|Source={entity.entityId}|Reason=Free2DContinuousBlocked|RejectedBy={sweep.RejectedBy}|Anchor={FormatCell(entity.position)}");
             }
+        }
+
+        private static void CollectUnhandledPlayerActionAttemptResolutions(
+            WorldSnapshot snapshot,
+            PlayerTickCommand playerCommand,
+            List<PlayerActionAttemptResolution> playerActionAttemptResolutions)
+        {
+            if (!TryResolveAttemptActionKind(playerCommand, out _))
+            {
+                return;
+            }
+
+            var entities = new List<EntityState>();
+            snapshot.EnumerateEntitiesOrdered(entities);
+            for (var i = 0; i < entities.Count; i++)
+            {
+                var entity = entities[i];
+                if (!snapshot.TryGetPlayerControlState(entity.entityId, out var playerControlState) ||
+                    entity.type != EntityType.Unit ||
+                    entity.hp <= 0 ||
+                    entity.markedForDeath ||
+                    HasPlayerActionAttemptResolution(playerActionAttemptResolutions, entity.entityId))
+                {
+                    continue;
+                }
+
+                if (!TryCreatePlayerActionAttemptResolution(
+                        snapshot,
+                        entity,
+                        playerControlState,
+                        playerCommand,
+                        free2DPose: null,
+                        out var attemptResolution))
+                {
+                    continue;
+                }
+
+                AddPlayerActionAttemptResolution(playerActionAttemptResolutions, attemptResolution);
+            }
+        }
+
+        private static bool TryCreatePlayerActionAttemptResolution(
+            WorldSnapshot snapshot,
+            in EntityState entity,
+            in PlayerControlState playerControlState,
+            PlayerTickCommand playerCommand,
+            UnitContinuousLocomotionPose? free2DPose,
+            out PlayerActionAttemptResolution resolution)
+        {
+            resolution = default;
+            if (!TryResolveAttemptActionKind(playerCommand, out var actionKind) ||
+                playerControlState.activeAction.IsActive ||
+                PlayerControlQueries.HasQueuedFree2DAction(playerControlState))
+            {
+                return false;
+            }
+
+            var direction = ResolvePlayerActionAttemptFeedbackDirection(playerCommand, entity);
+            var queuedActionKind = PlayerControlQueries.ToQueuedFree2DActionKind(actionKind);
+            var feedbackKind = PlayerActionAttemptFeedbackKind.NoTarget;
+            var targetEntityId = 0;
+            var hasTarget = false;
+
+            if (queuedActionKind == PlayerQueuedFree2DActionKind.None ||
+                direction == Direction.None)
+            {
+                feedbackKind = PlayerActionAttemptFeedbackKind.Invalid;
+            }
+            else
+            {
+                var anchor = free2DPose.HasValue
+                    ? free2DPose.Value.AnchorCell
+                    : entity.position;
+                if (PlayerControlQueries.TryResolveFree2DActionAssistCandidate(
+                        snapshot,
+                        entity,
+                        anchor,
+                        queuedActionKind,
+                        direction,
+                        out var target))
+                {
+                    targetEntityId = target.TargetEntityId;
+                    hasTarget = true;
+                    feedbackKind = free2DPose.HasValue &&
+                                   !free2DPose.Value.State.localOffset.IsZero &&
+                                   !IsWithinFree2DActionAssistSettleWindow(
+                                       free2DPose.Value.State.localOffset,
+                                       PlayerContinuousLocomotionSettings.CreateDefault()
+                                           .CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond)
+                                           .ActionAssistSettleWindowUnits)
+                        ? PlayerActionAttemptFeedbackKind.AssistOutOfRange
+                        : PlayerActionAttemptFeedbackKind.Invalid;
+                }
+                else if (actionKind == PlayerActionKind.Push &&
+                         PlayerControlQueries.TryResolveAdjacentPushTarget(
+                             snapshot,
+                             entity,
+                             direction,
+                             out var adjacentTarget))
+                {
+                    targetEntityId = adjacentTarget.TargetEntityId;
+                    hasTarget = true;
+                    feedbackKind = PlayerActionAttemptFeedbackKind.Invalid;
+                }
+            }
+
+            resolution = new PlayerActionAttemptResolution(
+                entity.entityId,
+                actionKind,
+                direction,
+                feedbackKind,
+                consumesMovement: true,
+                emitsFakePresentation: true,
+                targetEntityId,
+                hasTarget);
+            return true;
+        }
+
+        private static bool IsWithinFree2DActionAssistSettleWindow(
+            KinematicOffset2 localOffset,
+            int actionAssistSettleWindowUnits)
+        {
+            var windowUnits = Math.Max(0, actionAssistSettleWindowUnits);
+            return Math.Abs(localOffset.X.RawValue) <= windowUnits &&
+                Math.Abs(localOffset.Y.RawValue) <= windowUnits;
+        }
+
+        private bool TryCreatePlayerActionAttemptResolution(
+            WorldSnapshot snapshot,
+            in EntityState entity,
+            in PlayerControlState playerControlState,
+            PlayerTickCommand playerCommand,
+            UnitContinuousLocomotionPose free2DPose,
+            out PlayerActionAttemptResolution resolution)
+        {
+            resolution = default;
+            if (!TryResolveAttemptActionKind(playerCommand, out var actionKind) ||
+                playerControlState.activeAction.IsActive ||
+                PlayerControlQueries.HasQueuedFree2DAction(playerControlState))
+            {
+                return false;
+            }
+
+            var direction = ResolvePlayerActionAttemptFeedbackDirection(playerCommand, entity);
+            var queuedActionKind = PlayerControlQueries.ToQueuedFree2DActionKind(actionKind);
+            var feedbackKind = PlayerActionAttemptFeedbackKind.NoTarget;
+            var targetEntityId = 0;
+            var hasTarget = false;
+
+            if (queuedActionKind == PlayerQueuedFree2DActionKind.None ||
+                direction == Direction.None)
+            {
+                feedbackKind = PlayerActionAttemptFeedbackKind.Invalid;
+            }
+            else if (PlayerControlQueries.TryResolveFree2DActionAssistCandidate(
+                         snapshot,
+                         entity,
+                         free2DPose.AnchorCell,
+                         queuedActionKind,
+                         direction,
+                         out var target))
+            {
+                targetEntityId = target.TargetEntityId;
+                hasTarget = true;
+                feedbackKind = !free2DPose.State.localOffset.IsZero &&
+                               !IsWithinFree2DActionAssistSettleWindow(free2DPose.State.localOffset)
+                    ? PlayerActionAttemptFeedbackKind.AssistOutOfRange
+                    : PlayerActionAttemptFeedbackKind.Invalid;
+            }
+            else if (actionKind == PlayerActionKind.Push &&
+                     PlayerControlQueries.TryResolveAdjacentPushTarget(
+                         snapshot,
+                         entity,
+                         direction,
+                         out var adjacentTarget))
+            {
+                targetEntityId = adjacentTarget.TargetEntityId;
+                hasTarget = true;
+                feedbackKind = PlayerActionAttemptFeedbackKind.Invalid;
+            }
+
+            resolution = new PlayerActionAttemptResolution(
+                entity.entityId,
+                actionKind,
+                direction,
+                feedbackKind,
+                consumesMovement: true,
+                emitsFakePresentation: true,
+                targetEntityId,
+                hasTarget);
+            return true;
+        }
+
+        private static bool TryResolveAttemptActionKind(
+            PlayerTickCommand playerCommand,
+            out PlayerActionKind actionKind)
+        {
+            if (playerCommand.PushPressed)
+            {
+                actionKind = PlayerActionKind.Push;
+                return true;
+            }
+
+            if (playerCommand.FlipPressed)
+            {
+                actionKind = PlayerActionKind.Flip;
+                return true;
+            }
+
+            actionKind = PlayerActionKind.None;
+            return false;
+        }
+
+        private static Direction ResolvePlayerActionAttemptFeedbackDirection(
+            PlayerTickCommand playerCommand,
+            in EntityState entity)
+        {
+            if (TryResolveDirectionDelta(playerCommand.MoveDirection, out _))
+            {
+                return playerCommand.MoveDirection;
+            }
+
+            if (TryResolveDirectionDelta(playerCommand.HeldMoveDirection, out _))
+            {
+                return playerCommand.HeldMoveDirection;
+            }
+
+            return TryResolveDirectionDelta(entity.facing, out _)
+                ? entity.facing
+                : Direction.Up;
+        }
+
+        private static void AddPlayerActionAttemptResolution(
+            List<PlayerActionAttemptResolution> playerActionAttemptResolutions,
+            in PlayerActionAttemptResolution resolution)
+        {
+            if (!resolution.HasAttempt ||
+                HasPlayerActionAttemptResolution(playerActionAttemptResolutions, resolution.EntityId))
+            {
+                return;
+            }
+
+            playerActionAttemptResolutions.Add(resolution);
+        }
+
+        private static bool HasPlayerActionAttemptResolution(
+            IReadOnlyList<PlayerActionAttemptResolution> playerActionAttemptResolutions,
+            int entityId)
+        {
+            for (var i = 0; i < playerActionAttemptResolutions.Count; i++)
+            {
+                if (playerActionAttemptResolutions[i].EntityId == entityId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private bool TryQueueFree2DActionAssist(

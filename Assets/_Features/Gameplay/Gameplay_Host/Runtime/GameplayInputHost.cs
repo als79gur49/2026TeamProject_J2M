@@ -558,7 +558,7 @@ namespace Game.Feature.Gameplay.Host
                 ? _uiHeldMoveDirection
                 : _moveIntentBuffer.HeldDirection;
 
-            var flipPressed = _hasBufferedFlip || (_flipAction != null && _flipAction.IsPressed());
+            var flipPressed = _hasBufferedFlip || _hasBufferedUiFlip;
             var pushPressed = _hasBufferedPush || _hasBufferedUiPush;
             var bufferedUiPushDirection = _uiBufferedPushDirection;
             var bufferedUiFlipDirection = _uiBufferedFlipDirection;

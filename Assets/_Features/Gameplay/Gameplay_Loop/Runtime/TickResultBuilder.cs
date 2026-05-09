@@ -522,7 +522,8 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<GravityFieldPresentationEvent> gravityFieldEvents = null,
             int gravityFieldChargeDurationTicks = 0,
             int gravityFieldActiveDurationTicks = 0,
-            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null)
+            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null,
+            IReadOnlyList<PlayerActionAttemptResolution> playerActionAttemptResolutions = null)
         {
             PreMovementSnapshot = preMovementSnapshot ?? throw new ArgumentNullException(nameof(preMovementSnapshot));
             PostMovementSnapshot = postMovementSnapshot ?? throw new ArgumentNullException(nameof(postMovementSnapshot));
@@ -544,6 +545,7 @@ namespace Game.Feature.Gameplay.Loop
             TileFeatureDefinitions = tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
             GravityFieldEvents = gravityFieldEvents ?? Array.Empty<GravityFieldPresentationEvent>();
             GravityFieldLockedTargetFacts = gravityFieldLockedTargetFacts ?? Array.Empty<GravityFieldLockedTargetFact>();
+            PlayerActionAttemptResolutions = playerActionAttemptResolutions ?? Array.Empty<PlayerActionAttemptResolution>();
             GravityFieldChargeDurationTicks = gravityFieldChargeDurationTicks > 0
                 ? gravityFieldChargeDurationTicks
                 : GameplayTimingProfile.SecondsToCeilTicks(
@@ -591,6 +593,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public IReadOnlyList<GravityFieldLockedTargetFact> GravityFieldLockedTargetFacts { get; }
 
+        public IReadOnlyList<PlayerActionAttemptResolution> PlayerActionAttemptResolutions { get; }
+
         public int GravityFieldChargeDurationTicks { get; }
 
         public int GravityFieldActiveDurationTicks { get; }
@@ -622,6 +626,7 @@ namespace Game.Feature.Gameplay.Loop
             var summonWindupWarnings = new List<TickSummonWindupWarningSignal>();
             var frontFaceShieldWindupWarnings = new List<TickFrontFaceShieldWindupWarningSignal>();
             var playerActionSignals = new List<TickPlayerActionPresentationSignal>();
+            var playerActionAttemptSignals = new List<TickPlayerActionAttemptPresentationSignal>();
             var playerDamageSignals = new List<TickPlayerDamagePresentationSignal>();
             var playerDeathHoldSignals = new List<TickPlayerDeathHoldPresentationSignal>();
             var playerDeathSignals = new List<TickPlayerDeathPresentationSignal>();
@@ -649,6 +654,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildCleanupPresentation(context, visibilityChanges, exitOwnedEntityIds);
             BuildRespawnPresentation(context, visibilityChanges);
             BuildPlayerPresentation(context, playerActionSignals);
+            BuildPlayerActionAttemptPresentation(context, playerActionAttemptSignals);
             BuildPlayerDamagePresentation(context, playerDamageSignals);
             BuildPlayerDeathPresentation(context, playerDeathSignals);
             BuildPlayerDeathHoldPresentation(context, playerDeathHoldSignals);
@@ -679,6 +685,7 @@ namespace Game.Feature.Gameplay.Loop
                    impactTransientSignals.Count == 0 &&
                    flipImpactSignals.Count == 0 &&
                    playerActionSignals.Count == 0 &&
+                   playerActionAttemptSignals.Count == 0 &&
                    playerDamageSignals.Count == 0 &&
                    playerDeathHoldSignals.Count == 0 &&
                    playerDeathSignals.Count == 0 &&
@@ -720,7 +727,31 @@ namespace Game.Feature.Gameplay.Loop
                     enemyGlideSignals,
                     tileEvents,
                     gravityFieldEvents,
-                    gravityFieldVisualStates);
+                    gravityFieldVisualStates,
+                    playerActionAttemptSignals);
+        }
+
+        private static void BuildPlayerActionAttemptPresentation(
+            in TickPresentationBuildContext context,
+            List<TickPlayerActionAttemptPresentationSignal> playerActionAttemptSignals)
+        {
+            for (var i = 0; i < context.PlayerActionAttemptResolutions.Count; i++)
+            {
+                var resolution = context.PlayerActionAttemptResolutions[i];
+                if (!resolution.HasAttempt || !resolution.EmitsFakePresentation)
+                {
+                    continue;
+                }
+
+                playerActionAttemptSignals.Add(
+                    new TickPlayerActionAttemptPresentationSignal(
+                        resolution.EntityId,
+                        resolution.ActionKind,
+                        resolution.Direction,
+                        resolution.FeedbackKind,
+                        resolution.TargetEntityId,
+                        resolution.HasTarget));
+            }
         }
 
         private static void BuildGravityFieldVisualStates(
@@ -1966,6 +1997,15 @@ namespace Game.Feature.Gameplay.Loop
             for (var i = 0; i < actionTransitions.Count; i++)
             {
                 var transition = actionTransitions[i];
+                if (!transition.StartedThisTick &&
+                    !transition.CompletedThisTick &&
+                    !transition.CanceledThisTick &&
+                    transition.PreviousKind == PlayerActionKind.None &&
+                    transition.CurrentKind == PlayerActionKind.None)
+                {
+                    continue;
+                }
+
                 transitionsByEntityId[transition.EntityId] = transition;
                 if (seenEntityIds.Add(transition.EntityId))
                 {
@@ -2076,6 +2116,7 @@ namespace Game.Feature.Gameplay.Loop
                 var waitingForNextMoveCadence = ShouldWaitForNextMoveCadence(context, entry.State);
                 var shouldPlayWalkLoop =
                     !entry.State.activeAction.IsActive &&
+                    !context.PlayerCommand.PushPressed &&
                     !context.PlayerCommand.FlipPressed &&
                     (moveMotionGeneratedThisTick || waitingForNextMoveCadence);
 
@@ -3293,6 +3334,7 @@ namespace Game.Feature.Gameplay.Loop
             in PlayerControlState controlState)
         {
             return context.PlayerCommand.MoveDirection != Direction.None &&
+                   !context.PlayerCommand.PushPressed &&
                    !context.PlayerCommand.FlipPressed &&
                    !context.PlayerCommand.IsMoveBuffered &&
                    !controlState.activeAction.IsActive &&

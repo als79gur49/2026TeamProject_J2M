@@ -96,6 +96,47 @@ namespace Game.Feature.Gameplay.Loop
         public List<string> EventLogEntries { get; }
     }
 
+    internal readonly struct PlayerActionAttemptResolution
+    {
+        public PlayerActionAttemptResolution(
+            int entityId,
+            PlayerActionKind actionKind,
+            Direction direction,
+            PlayerActionAttemptFeedbackKind feedbackKind,
+            bool consumesMovement,
+            bool emitsFakePresentation,
+            int targetEntityId = 0,
+            bool hasTarget = false)
+        {
+            EntityId = entityId;
+            ActionKind = actionKind;
+            Direction = direction;
+            FeedbackKind = feedbackKind;
+            ConsumesMovement = consumesMovement;
+            EmitsFakePresentation = emitsFakePresentation;
+            TargetEntityId = targetEntityId;
+            HasTarget = hasTarget && targetEntityId > 0;
+        }
+
+        public int EntityId { get; }
+
+        public bool HasAttempt => ActionKind == PlayerActionKind.Push || ActionKind == PlayerActionKind.Flip;
+
+        public PlayerActionKind ActionKind { get; }
+
+        public Direction Direction { get; }
+
+        public PlayerActionAttemptFeedbackKind FeedbackKind { get; }
+
+        public int TargetEntityId { get; }
+
+        public bool HasTarget { get; }
+
+        public bool ConsumesMovement { get; }
+
+        public bool EmitsFakePresentation { get; }
+    }
+
     internal sealed class PlanPhaseResult
     {
         public PlanPhaseResult(
@@ -125,7 +166,8 @@ namespace Game.Feature.Gameplay.Loop
             WorldSnapshot planSnapshot,
             FinalizationBatch planFinalizationBatch,
             IReadOnlyList<GravityFieldPresentationEvent> gravityFieldPresentationEvents = null,
-            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null)
+            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null,
+            IReadOnlyList<PlayerActionAttemptResolution> playerActionAttemptResolutions = null)
         {
             RawIntents = rawIntents ?? throw new ArgumentNullException(nameof(rawIntents));
             SortedIntents = sortedIntents ?? throw new ArgumentNullException(nameof(sortedIntents));
@@ -154,6 +196,7 @@ namespace Game.Feature.Gameplay.Loop
             PlanFinalizationBatch = planFinalizationBatch ?? throw new ArgumentNullException(nameof(planFinalizationBatch));
             GravityFieldPresentationEvents = gravityFieldPresentationEvents ?? Array.Empty<GravityFieldPresentationEvent>();
             GravityFieldLockedTargetFacts = gravityFieldLockedTargetFacts ?? Array.Empty<GravityFieldLockedTargetFact>();
+            PlayerActionAttemptResolutions = playerActionAttemptResolutions ?? Array.Empty<PlayerActionAttemptResolution>();
         }
 
         public List<RawMovementIntent> RawIntents { get; }
@@ -209,6 +252,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<GravityFieldPresentationEvent> GravityFieldPresentationEvents { get; }
 
         public IReadOnlyList<GravityFieldLockedTargetFact> GravityFieldLockedTargetFacts { get; }
+
+        public IReadOnlyList<PlayerActionAttemptResolution> PlayerActionAttemptResolutions { get; }
     }
 
     internal sealed class ResolvePhaseResult
