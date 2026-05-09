@@ -31,6 +31,7 @@ namespace Game.Feature.Stages.Editor
             DrawPlacementSummary(authoring);
             DrawExitGoalSummary(authoring);
             DrawTileFeaturePresentationSummary(authoring);
+            DrawGeneratedAssetLinks(authoring);
             DrawToolbar(authoring);
             DrawReport(lastReport);
         }
@@ -68,13 +69,38 @@ namespace Game.Feature.Stages.Editor
                     StageAuthoringGridWindow.Open(authoring);
                 }
             }
+        }
 
-            using (new EditorGUI.DisabledScope(authoring.GeneratedPresentationDefinition == null))
+        private static void DrawGeneratedAssetLinks(StageAuthoringDefinition authoring)
+        {
+            var presentation = authoring.GeneratedPresentationDefinition;
+            var boardTileCatalog = presentation != null ? presentation.BoardTilePresentationCatalog : null;
+            var tileFeatureCatalog = presentation != null ? presentation.TileFeaturePresentationCatalog : null;
+
+            using (new EditorGUILayout.HorizontalScope())
             {
-                if (GUILayout.Button("Open Presentation Definition"))
+                using (new EditorGUI.DisabledScope(presentation == null))
                 {
-                    Selection.activeObject = authoring.GeneratedPresentationDefinition;
-                    EditorGUIUtility.PingObject(authoring.GeneratedPresentationDefinition);
+                    if (GUILayout.Button("Open Presentation Definition"))
+                    {
+                        SelectAndPing(presentation);
+                    }
+                }
+
+                using (new EditorGUI.DisabledScope(boardTileCatalog == null))
+                {
+                    if (GUILayout.Button("Open BoardTile Catalog"))
+                    {
+                        SelectAndPing(boardTileCatalog);
+                    }
+                }
+
+                using (new EditorGUI.DisabledScope(tileFeatureCatalog == null))
+                {
+                    if (GUILayout.Button("Open TileFeature Catalog"))
+                    {
+                        SelectAndPing(tileFeatureCatalog);
+                    }
                 }
             }
         }
@@ -152,26 +178,6 @@ namespace Game.Feature.Stages.Editor
                 "TileFeature Presentation Summary",
                 $"missing keys={missingKeyCount}, unresolved keys={unresolvedKeyCount}, direct overrides={directOverrideCount}, invalid catalog entries={invalidCatalogEntryCount}");
 
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                using (new EditorGUI.DisabledScope(presentation == null))
-                {
-                    if (GUILayout.Button("Open Presentation Definition"))
-                    {
-                        Selection.activeObject = presentation;
-                        EditorGUIUtility.PingObject(presentation);
-                    }
-                }
-
-                using (new EditorGUI.DisabledScope(catalog == null))
-                {
-                    if (GUILayout.Button("Open TileFeature Catalog"))
-                    {
-                        Selection.activeObject = catalog;
-                        EditorGUIUtility.PingObject(catalog);
-                    }
-                }
-            }
         }
 
         private static void DrawBoardTilePresentationSummary(StagePresentationDefinition presentation)
@@ -200,26 +206,12 @@ namespace Game.Feature.Stages.Editor
                 "BoardTile Override Summary",
                 $"overrides={overrideCount}, duplicate cells={duplicateOverrideCellCount}, unresolved keys={unresolvedOverrideKeyCount}");
 
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                using (new EditorGUI.DisabledScope(presentation == null))
-                {
-                    if (GUILayout.Button("Open Presentation Definition"))
-                    {
-                        Selection.activeObject = presentation;
-                        EditorGUIUtility.PingObject(presentation);
-                    }
-                }
+        }
 
-                using (new EditorGUI.DisabledScope(catalog == null))
-                {
-                    if (GUILayout.Button("Open BoardTile Catalog"))
-                    {
-                        Selection.activeObject = catalog;
-                        EditorGUIUtility.PingObject(catalog);
-                    }
-                }
-            }
+        private static void SelectAndPing(Object unityObject)
+        {
+            Selection.activeObject = unityObject;
+            EditorGUIUtility.PingObject(unityObject);
         }
 
         private static int CountInvalidBoardTileCatalogEntries(BoardTilePresentationCatalog catalog)
