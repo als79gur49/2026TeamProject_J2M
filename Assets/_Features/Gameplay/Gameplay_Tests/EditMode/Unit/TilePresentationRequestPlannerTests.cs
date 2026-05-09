@@ -287,6 +287,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void BuildRequests_MoonBlockGeneratorBlocked_PreservesPresentationFacts()
         {
             var cell = new SurfaceCell(FaceId.Floor, 2, 3);
+            var payload = new MoonBlockGeneratorBlockedPayload(
+                MoonBlockGeneratorBlockedReason.WallLikeSolid,
+                blockingEntityId: 50,
+                blockedCell: cell);
             var tileEvent = new TilePresentationEvent(
                 TilePresentationEventKind.MoonBlockGeneratorBlocked,
                 100,
@@ -295,7 +299,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 30,
                 40,
                 2,
-                targetEntityId: 50);
+                targetEntityId: 50,
+                moonBlockGeneratorBlockedPayload: payload);
             var planner = new TilePresentationRequestPlanner();
 
             var requests = planner.BuildRequests(CreatePresentationData(tileEvent));
@@ -311,6 +316,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(request.TeamId, Is.EqualTo(2));
             Assert.That(request.TargetEntityId, Is.EqualTo(50));
             Assert.That(request.Direction, Is.EqualTo(Direction.None));
+            Assert.That(request.MoonBlockGeneratorBlockedPayload.Reason, Is.EqualTo(MoonBlockGeneratorBlockedReason.WallLikeSolid));
+            Assert.That(request.MoonBlockGeneratorBlockedPayload.BlockingEntityId, Is.EqualTo(50));
+            Assert.That(request.MoonBlockGeneratorBlockedPayload.BlockedCell, Is.EqualTo(cell));
         }
 
         [Test]

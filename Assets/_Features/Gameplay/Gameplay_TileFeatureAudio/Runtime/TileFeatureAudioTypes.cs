@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Loop;
 using Game.Shared.Audio;
 
 namespace Game.Feature.Gameplay.TileFeatureAudio
@@ -28,7 +29,8 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
             int ownerEntityId,
             int teamId,
             in AudioPlaybackContext context,
-            int targetEntityId = 0)
+            int targetEntityId = 0,
+            MoonBlockGeneratorBlockedPayload moonBlockGeneratorBlockedPayload = default)
         {
             Cue = cue;
             TileId = tileId;
@@ -38,6 +40,7 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
             TeamId = teamId;
             Context = context;
             TargetEntityId = targetEntityId;
+            MoonBlockGeneratorBlockedPayload = moonBlockGeneratorBlockedPayload;
         }
 
         public TileFeatureAudioCue Cue { get; }
@@ -55,6 +58,8 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
         public AudioPlaybackContext Context { get; }
 
         public int TargetEntityId { get; }
+
+        public MoonBlockGeneratorBlockedPayload MoonBlockGeneratorBlockedPayload { get; }
     }
 
     public static class TileFeatureAudioCueCatalog

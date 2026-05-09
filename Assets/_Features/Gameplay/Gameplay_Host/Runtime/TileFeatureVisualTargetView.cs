@@ -1,4 +1,5 @@
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Loop;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -38,6 +39,9 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private string exitEnteredTriggerName = "ExitEntered";
         [SerializeField] private string moonBlockGeneratedTriggerName = "MoonBlockGenerated";
         [SerializeField] private string moonBlockGeneratorBlockedTriggerName = "MoonBlockGeneratorBlocked";
+        [SerializeField] private string moonBlockGeneratorBlockedUnitTriggerName;
+        [SerializeField] private string moonBlockGeneratorBlockedWallLikeSolidTriggerName;
+        [SerializeField] private string moonBlockGeneratorBlockedPlacementTriggerName;
         [SerializeField] private ParticleSystem buttonActivatedParticles;
         [SerializeField] private ParticleSystem destroyTileTriggeredParticles;
         [SerializeField] private ParticleSystem slideTileRedirectedParticles;
@@ -47,6 +51,9 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private ParticleSystem exitEnteredParticles;
         [SerializeField] private ParticleSystem moonBlockGeneratedParticles;
         [SerializeField] private ParticleSystem moonBlockGeneratorBlockedParticles;
+        [SerializeField] private ParticleSystem moonBlockGeneratorBlockedUnitParticles;
+        [SerializeField] private ParticleSystem moonBlockGeneratorBlockedWallLikeSolidParticles;
+        [SerializeField] private ParticleSystem moonBlockGeneratorBlockedPlacementParticles;
         [SerializeField] private UnityEvent buttonActivatedPlayed;
         [SerializeField] private UnityEvent destroyTileTriggeredPlayed;
         [SerializeField] private UnityEvent slideTileRedirectedPlayed;
@@ -58,6 +65,9 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private UnityEvent exitEnteredPlayed;
         [SerializeField] private UnityEvent moonBlockGeneratedPlayed;
         [SerializeField] private UnityEvent moonBlockGeneratorBlockedPlayed;
+        [SerializeField] private UnityEvent moonBlockGeneratorBlockedUnitPlayed;
+        [SerializeField] private UnityEvent moonBlockGeneratorBlockedWallLikeSolidPlayed;
+        [SerializeField] private UnityEvent moonBlockGeneratorBlockedPlacementPlayed;
 
         private int _debugPlayButtonActivatedCount;
         private int _debugPlayDestroyTileTriggeredCount;
@@ -70,6 +80,9 @@ namespace Game.Feature.Gameplay.Host
         private int _debugPlayExitEnteredCount;
         private int _debugPlayMoonBlockGeneratedCount;
         private int _debugPlayMoonBlockGeneratorBlockedCount;
+        private int _debugMoonBlockGeneratorBlockedUnitCount;
+        private int _debugMoonBlockGeneratorBlockedWallLikeSolidCount;
+        private int _debugMoonBlockGeneratorBlockedPlacementCount;
         private Direction _debugLastSlideTileDirection = Direction.None;
         private Direction _debugLastBarricadeBlockedDirection = Direction.None;
         private int _debugLastSlideTileTargetEntityId;
@@ -77,7 +90,7 @@ namespace Game.Feature.Gameplay.Host
         private int _debugLastBarricadeCrushedTargetEntityId;
         private int _debugLastExitEnteredPlayerEntityId;
         private int _debugLastMoonBlockGeneratedEntityId;
-        private int _debugLastMoonBlockGeneratorBlockedEntityId;
+        private MoonBlockGeneratorBlockedPayload _debugLastMoonBlockGeneratorBlockedPayload;
 
         public int TileId => tileId;
 
@@ -107,6 +120,12 @@ namespace Game.Feature.Gameplay.Host
 
         public int DebugPlayMoonBlockGeneratorBlockedCount => _debugPlayMoonBlockGeneratorBlockedCount;
 
+        public int DebugMoonBlockGeneratorBlockedUnitCount => _debugMoonBlockGeneratorBlockedUnitCount;
+
+        public int DebugMoonBlockGeneratorBlockedWallLikeSolidCount => _debugMoonBlockGeneratorBlockedWallLikeSolidCount;
+
+        public int DebugMoonBlockGeneratorBlockedPlacementCount => _debugMoonBlockGeneratorBlockedPlacementCount;
+
         public Direction DebugLastSlideTileDirection => _debugLastSlideTileDirection;
 
         public Direction DebugLastBarricadeBlockedDirection => _debugLastBarricadeBlockedDirection;
@@ -121,7 +140,14 @@ namespace Game.Feature.Gameplay.Host
 
         public int DebugLastMoonBlockGeneratedEntityId => _debugLastMoonBlockGeneratedEntityId;
 
-        public int DebugLastMoonBlockGeneratorBlockedEntityId => _debugLastMoonBlockGeneratorBlockedEntityId;
+        public MoonBlockGeneratorBlockedPayload DebugLastMoonBlockGeneratorBlockedPayload =>
+            _debugLastMoonBlockGeneratorBlockedPayload;
+
+        public MoonBlockGeneratorBlockedReason DebugLastMoonBlockGeneratorBlockedReason =>
+            _debugLastMoonBlockGeneratorBlockedPayload.Reason;
+
+        public int DebugLastMoonBlockGeneratorBlockedEntityId =>
+            _debugLastMoonBlockGeneratorBlockedPayload.BlockingEntityId;
 
         public void Configure(int newTileId, SurfaceCell newCell)
         {
@@ -315,10 +341,10 @@ namespace Game.Feature.Gameplay.Host
             moonBlockGeneratedPlayed?.Invoke();
         }
 
-        public void PlayMoonBlockGeneratorBlocked(int blockerEntityId)
+        public void PlayMoonBlockGeneratorBlocked(MoonBlockGeneratorBlockedPayload payload)
         {
             _debugPlayMoonBlockGeneratorBlockedCount++;
-            _debugLastMoonBlockGeneratorBlockedEntityId = blockerEntityId;
+            _debugLastMoonBlockGeneratorBlockedPayload = payload;
 
             if (animator != null &&
                 animator.runtimeAnimatorController != null &&
@@ -333,6 +359,55 @@ namespace Game.Feature.Gameplay.Host
             }
 
             moonBlockGeneratorBlockedPlayed?.Invoke();
+            PlayReasonSpecificMoonBlockGeneratorBlocked(payload.Reason);
+        }
+
+        private void PlayReasonSpecificMoonBlockGeneratorBlocked(MoonBlockGeneratorBlockedReason reason)
+        {
+            switch (reason)
+            {
+                case MoonBlockGeneratorBlockedReason.UnitOccupant:
+                    _debugMoonBlockGeneratorBlockedUnitCount++;
+                    PlayOptionalFeedback(
+                        moonBlockGeneratorBlockedUnitTriggerName,
+                        moonBlockGeneratorBlockedUnitParticles,
+                        moonBlockGeneratorBlockedUnitPlayed);
+                    return;
+                case MoonBlockGeneratorBlockedReason.WallLikeSolid:
+                    _debugMoonBlockGeneratorBlockedWallLikeSolidCount++;
+                    PlayOptionalFeedback(
+                        moonBlockGeneratorBlockedWallLikeSolidTriggerName,
+                        moonBlockGeneratorBlockedWallLikeSolidParticles,
+                        moonBlockGeneratorBlockedWallLikeSolidPlayed);
+                    return;
+                case MoonBlockGeneratorBlockedReason.PlacementBlocked:
+                    _debugMoonBlockGeneratorBlockedPlacementCount++;
+                    PlayOptionalFeedback(
+                        moonBlockGeneratorBlockedPlacementTriggerName,
+                        moonBlockGeneratorBlockedPlacementParticles,
+                        moonBlockGeneratorBlockedPlacementPlayed);
+                    return;
+            }
+        }
+
+        private void PlayOptionalFeedback(
+            string triggerName,
+            ParticleSystem particles,
+            UnityEvent played)
+        {
+            if (animator != null &&
+                animator.runtimeAnimatorController != null &&
+                !string.IsNullOrWhiteSpace(triggerName))
+            {
+                animator.SetTrigger(Animator.StringToHash(triggerName));
+            }
+
+            if (particles != null)
+            {
+                particles.Play(withChildren: true);
+            }
+
+            played?.Invoke();
         }
 
         private void SetAnimatorTrigger(string triggerName)

@@ -307,14 +307,14 @@ namespace Game.Feature.Gameplay.Loop
         public MoonBlockGeneratorBlockedFact(
             int generatorTileId,
             SurfaceCell cell,
-            int blockingEntityId,
+            MoonBlockGeneratorBlockedPayload payload,
             int sourceEntityId,
             int ownerEntityId,
             int teamId)
         {
             GeneratorTileId = generatorTileId;
             Cell = cell;
-            BlockingEntityId = blockingEntityId;
+            Payload = payload;
             SourceEntityId = sourceEntityId;
             OwnerEntityId = ownerEntityId;
             TeamId = teamId;
@@ -324,7 +324,9 @@ namespace Game.Feature.Gameplay.Loop
 
         public SurfaceCell Cell { get; }
 
-        public int BlockingEntityId { get; }
+        public int BlockingEntityId => Payload.BlockingEntityId;
+
+        public MoonBlockGeneratorBlockedPayload Payload { get; }
 
         public int SourceEntityId { get; }
 
@@ -929,7 +931,8 @@ namespace Game.Feature.Gameplay.Loop
                         fact.OwnerEntityId,
                         fact.TeamId,
                         targetEntityId: fact.BlockingEntityId,
-                        direction: Direction.None));
+                        direction: Direction.None,
+                        moonBlockGeneratorBlockedPayload: fact.Payload));
             }
 
             var barricadeBlockFacts = context.MovementPhaseResult.BarricadeBlockFacts;
@@ -1193,7 +1196,27 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             var teamCompare = left.TeamId.CompareTo(right.TeamId);
-            return teamCompare != 0 ? teamCompare : left.Direction.CompareTo(right.Direction);
+            if (teamCompare != 0)
+            {
+                return teamCompare;
+            }
+
+            var directionCompare = left.Direction.CompareTo(right.Direction);
+            if (directionCompare != 0)
+            {
+                return directionCompare;
+            }
+
+            var reasonCompare = left.MoonBlockGeneratorBlockedPayload.Reason
+                .CompareTo(right.MoonBlockGeneratorBlockedPayload.Reason);
+            if (reasonCompare != 0)
+            {
+                return reasonCompare;
+            }
+
+            return CompareSurfaceCells(
+                left.MoonBlockGeneratorBlockedPayload.BlockedCell,
+                right.MoonBlockGeneratorBlockedPayload.BlockedCell);
         }
 
         private static int ResolveTilePresentationEventSortPriority(TilePresentationEventKind eventKind)

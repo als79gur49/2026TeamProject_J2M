@@ -1,4 +1,5 @@
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Loop;
 
 namespace Game.Feature.Gameplay.Host
 {
@@ -68,7 +69,7 @@ namespace Game.Feature.Gameplay.Host
 
     public interface IMoonBlockGeneratorBlockedVisualTarget
     {
-        void PlayMoonBlockGeneratorBlocked(int blockerEntityId);
+        void PlayMoonBlockGeneratorBlocked(MoonBlockGeneratorBlockedPayload payload);
     }
 
     public interface ITileFeatureVisualTargetConfigurator

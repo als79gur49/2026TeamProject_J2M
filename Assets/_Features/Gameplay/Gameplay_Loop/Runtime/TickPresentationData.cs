@@ -48,6 +48,37 @@ namespace Game.Feature.Gameplay.Loop
         MoonBlockGeneratorBlocked = 11,
     }
 
+    public enum MoonBlockGeneratorBlockedReason
+    {
+        None = 0,
+        UnitOccupant = 1,
+        WallLikeSolid = 2,
+        PlacementBlocked = 3,
+    }
+
+    public readonly struct MoonBlockGeneratorBlockedPayload
+    {
+        public MoonBlockGeneratorBlockedPayload(
+            MoonBlockGeneratorBlockedReason reason,
+            int blockingEntityId,
+            SurfaceCell blockedCell)
+        {
+            Reason = reason;
+            BlockingEntityId = blockingEntityId;
+            BlockedCell = blockedCell;
+        }
+
+        public static MoonBlockGeneratorBlockedPayload None => default;
+
+        public MoonBlockGeneratorBlockedReason Reason { get; }
+
+        public int BlockingEntityId { get; }
+
+        public SurfaceCell BlockedCell { get; }
+
+        public bool IsValid => Reason != MoonBlockGeneratorBlockedReason.None;
+    }
+
     public readonly struct TilePresentationEvent
     {
         public TilePresentationEvent(
@@ -59,7 +90,8 @@ namespace Game.Feature.Gameplay.Loop
             int ownerEntityId,
             int teamId,
             int targetEntityId = 0,
-            Direction direction = Direction.None)
+            Direction direction = Direction.None,
+            MoonBlockGeneratorBlockedPayload moonBlockGeneratorBlockedPayload = default)
         {
             EventKind = eventKind;
             TileId = tileId;
@@ -70,6 +102,7 @@ namespace Game.Feature.Gameplay.Loop
             TeamId = teamId;
             TargetEntityId = targetEntityId;
             Direction = direction;
+            MoonBlockGeneratorBlockedPayload = moonBlockGeneratorBlockedPayload;
         }
 
         public TilePresentationEventKind EventKind { get; }
@@ -89,6 +122,8 @@ namespace Game.Feature.Gameplay.Loop
         public int TargetEntityId { get; }
 
         public Direction Direction { get; }
+
+        public MoonBlockGeneratorBlockedPayload MoonBlockGeneratorBlockedPayload { get; }
     }
 
     public enum GravityFieldPresentationEventKind

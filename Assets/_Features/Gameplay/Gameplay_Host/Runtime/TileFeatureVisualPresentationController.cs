@@ -175,7 +175,8 @@ namespace Game.Feature.Gameplay.Host
                 case TilePresentationRequestKind.MoonBlockGeneratorBlocked:
                     if (target is IMoonBlockGeneratorBlockedVisualTarget moonBlockGeneratorBlockedTarget)
                     {
-                        moonBlockGeneratorBlockedTarget.PlayMoonBlockGeneratorBlocked(request.TargetEntityId);
+                        moonBlockGeneratorBlockedTarget.PlayMoonBlockGeneratorBlocked(
+                            request.MoonBlockGeneratorBlockedPayload);
                     }
                     else
                     {
