@@ -276,6 +276,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(result.EntityOperations.Operations[0].Kind, Is.EqualTo(FinalizationOperationKind.SetBoardPresence));
             Assert.That(result.EntityOperations.Operations[1].Kind, Is.EqualTo(FinalizationOperationKind.MarkDestroy));
             Assert.That(result.EntityOperations.Operations[1].EntityId, Is.EqualTo(20));
+            Assert.That(result.EntityOperations.Operations[0].Metadata.ExitPresentationTiming, Is.EqualTo(EntityExitPresentationTiming.AfterEntityMotion));
+            Assert.That(result.EntityOperations.Operations[1].Metadata.ExitPresentationTiming, Is.EqualTo(EntityExitPresentationTiming.AfterEntityMotion));
+            Assert.That(result.EntityOperations.Operations[0].Metadata.HasPresentationTargetCell, Is.True);
             Assert.That(result.TileEvents, Has.Count.EqualTo(1));
             var tileEvent = result.TileEvents[0];
             Assert.That(tileEvent.EventKind, Is.EqualTo(TilePresentationEventKind.DestroyTileTriggered));
@@ -1158,6 +1161,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(result.EntityOperations.Operations[0].Metadata.BoundaryReason, Is.EqualTo("BarricadeCrush"));
             Assert.That(result.EntityOperations.Operations[1].Kind, Is.EqualTo(FinalizationOperationKind.MarkDestroy));
             Assert.That(result.EntityOperations.Operations[1].Metadata.ExitCauseHint, Is.EqualTo(TickEntityExitCause.BoxDestroy));
+            Assert.That(result.EntityOperations.Operations[1].Metadata.ExitPresentationTiming, Is.EqualTo(EntityExitPresentationTiming.Immediate));
         }
 
         [Test]
@@ -1297,6 +1301,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(result.EntityOperations.Operations, Has.Count.EqualTo(2));
             Assert.That(result.EntityOperations.Operations[0].Metadata.BoundaryReason, Is.EqualTo("DestroyTile"));
             Assert.That(result.EntityOperations.Operations[1].Metadata.BoundaryReason, Is.EqualTo("DestroyTile"));
+            Assert.That(result.EntityOperations.Operations[0].Metadata.ExitPresentationTiming, Is.EqualTo(EntityExitPresentationTiming.AfterEntityMotion));
+            Assert.That(result.EntityOperations.Operations[1].Metadata.ExitPresentationTiming, Is.EqualTo(EntityExitPresentationTiming.AfterEntityMotion));
             Assert.That(result.TileEvents, Has.Count.EqualTo(1));
             Assert.That(result.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.DestroyTileTriggered));
         }

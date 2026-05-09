@@ -281,6 +281,7 @@ namespace Game.Feature.Gameplay.Loop
                 _gravityFieldChargeTicks,
                 _gravityFieldActiveTicks,
                 resolvePhaseResult.GravityFieldLockedTargetFacts,
+                resolvePhaseResult.FinalizationBatch,
                 planPhaseResult.PlayerActionAttemptResolutions);
             var pendingDelayedAttackEffects = _delayedAttackEffectQueue.Snapshot();
             var tickResultData = _tickResultBuilder.Build(

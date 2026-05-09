@@ -463,7 +463,9 @@ namespace Game.Feature.Gameplay.Loop
                 damageSourceType: DamageSourceType.Environmental,
                 presentationTargetCell: contactCell,
                 movementExecutionBoundaryKind: MovementExecutionBoundaryKind.ScriptedRelocation,
-                boundaryReason: "DestroyTile");
+                boundaryReason: "DestroyTile",
+                exitPresentationTiming: EntityExitPresentationTiming.AfterEntityMotion,
+                hasPresentationTargetCell: true);
         }
 
         private static FinalizationOperationMetadata CreateBarricadeCrushMetadata(
@@ -480,7 +482,8 @@ namespace Game.Feature.Gameplay.Loop
                 damageSourceType: DamageSourceType.Environmental,
                 presentationTargetCell: contactCell,
                 movementExecutionBoundaryKind: MovementExecutionBoundaryKind.ScriptedRelocation,
-                boundaryReason: "BarricadeCrush");
+                boundaryReason: "BarricadeCrush",
+                hasPresentationTargetCell: true);
         }
 
         private static FinalizationOperationMetadata CreateSlideTileRedirectMetadata(
@@ -496,7 +499,8 @@ namespace Game.Feature.Gameplay.Loop
                 movementSemanticKind: MovementSemanticKind.Slide,
                 presentationTargetCell: contactCell,
                 movementExecutionBoundaryKind: MovementExecutionBoundaryKind.ScriptedRelocation,
-                boundaryReason: "SlideTileRedirect");
+                boundaryReason: "SlideTileRedirect",
+                hasPresentationTargetCell: true);
         }
 
         private static bool TryFindDefinition(
