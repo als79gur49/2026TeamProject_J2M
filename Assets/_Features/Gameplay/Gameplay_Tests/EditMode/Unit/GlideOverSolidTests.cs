@@ -166,6 +166,72 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void EnemyLogic_GlideStartWaitsForUnsettledVoluntaryKinematicPose()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(windupTicks: 1, durationTicks: 2, recoveryTicks: 1, cooldownTicks: 0));
+            var enemyCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(10, teamId: 1, new SurfaceCell(FaceId.Floor, 3, 0), EnemyAiMode.None),
+                CreateUnit(40, teamId: 2, enemyCell, EnemyAiMode.Chase),
+            });
+            var logic = new EnemyLogic(40, profile);
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetEnemyGlideState(
+                40,
+                CreateGlideState(
+                    EnemyGlidePhase.Cooldown,
+                    sequence: 1,
+                    cooldownUntilTickExclusive: 10,
+                    windupTicks: 1,
+                    durationTicks: 2,
+                    recoveryTicks: 1,
+                    cooldownTicks: 0,
+                    lastExitedTick: 9));
+            writeContext.SetUnitKinematicState(
+                40,
+                CreateVoluntaryStepState(
+                    enemyCell,
+                    elapsedTicks: 1,
+                    totalTicks: 4,
+                    startedTick: 6,
+                    stepDirectionX: 1,
+                    stepDirectionY: 0));
+
+            try
+            {
+                var blockedUpdates = CommitPreMovementAndGetUpdates(logic, worldState, tickIndex: 10);
+
+                Assert.That(
+                    blockedUpdates,
+                    Has.Some.Contains("EnemyGlideStateDebug|Tick=10|E=40|Label=StartBlockedPoseUnsettled"));
+                Assert.That(blockedUpdates, Has.None.Contains("|Label=Start|"));
+                Assert.That(blockedUpdates, Has.None.Contains("|Label=EnterActive|"));
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyGlideState(40, out var blockedGlide), Is.True);
+                Assert.That(blockedGlide.Phase, Is.Not.EqualTo(EnemyGlidePhase.Windup));
+                Assert.That(blockedGlide.Phase, Is.Not.EqualTo(EnemyGlidePhase.Active));
+                Assert.That(worldState.CreateSnapshot().TryGetUnitKinematicState(40, out _), Is.True);
+
+                worldState.CreateWriteContext().SetUnitKinematicState(40, UnitKinematicRuntimeState.SettledZero);
+                var startedUpdates = CommitPreMovementAndGetUpdates(logic, worldState, tickIndex: 11);
+
+                Assert.That(
+                    startedUpdates,
+                    Has.Some.Contains("EnemyGlideStateDebug|Tick=11|E=40|Label=Start"));
+                Assert.That(startedUpdates, Has.None.Contains("StartBlockedPoseUnsettled"));
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyGlideState(40, out var windup), Is.True);
+                Assert.That(windup.Phase, Is.EqualTo(EnemyGlidePhase.Windup));
+                Assert.That(windup.WindupUntilTickExclusive, Is.EqualTo(12));
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyLogic_LandingPendingPreservesCurrentOverlapAndCooldownStartsAfterRecoveryClear()
         {
             var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
@@ -966,12 +1032,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static void CommitPreMovement(EnemyLogic logic, WorldState worldState, int tickIndex)
         {
+            _ = CommitPreMovementAndGetUpdates(logic, worldState, tickIndex);
+        }
+
+        private static List<string> CommitPreMovementAndGetUpdates(EnemyLogic logic, WorldState worldState, int tickIndex)
+        {
+            var updates = new List<string>();
             ((IPreMovementStateLogic)logic).CommitPreMovementState(
                 worldState.CreateSnapshot(),
                 new TickInput(tickIndex),
                 worldState.CreateWriteContext(),
-                new List<string>(),
+                updates,
                 new List<PlayerActionTransition>());
+            return updates;
         }
 
         private static PlayerControlTimingAuthoritativeSnapshot CreatePlayerTiming()

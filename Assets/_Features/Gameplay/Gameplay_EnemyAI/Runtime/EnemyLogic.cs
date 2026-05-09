@@ -641,8 +641,14 @@ namespace Game.Feature.Gameplay.Entities
                 ref nextState,
                 updates);
 
-            if (source.aiMode == EnemyAiMode.Chase &&
-                EnemyGlideQueries.CanStart(hasPreviousState, nextState, input.TickIndex))
+            var canStartGlide = source.aiMode == EnemyAiMode.Chase &&
+                                EnemyGlideQueries.CanStart(hasPreviousState, nextState, input.TickIndex);
+            if (canStartGlide &&
+                HasUnsettledVoluntaryKinematicPose(snapshot, source.entityId))
+            {
+                AppendGlideStateDebug(updates, snapshot, input.TickIndex, source, "StartBlockedPoseUnsettled", nextState);
+            }
+            else if (canStartGlide)
             {
                 nextState = EnemyGlideQueries.Start(
                     nextState,
@@ -651,6 +657,7 @@ namespace Game.Feature.Gameplay.Entities
                 hasPreviousState = true;
                 changed = true;
                 AppendGlideUpdate(updates, _entityId, "Start", nextState);
+                AppendGlideStateDebug(updates, snapshot, input.TickIndex, source, "Start", nextState);
                 changed |= TryAdvanceGlideLifecycle(
                     snapshot,
                     in input,
