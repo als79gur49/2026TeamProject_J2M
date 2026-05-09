@@ -4,8 +4,61 @@ using Game.Feature.Gameplay.BoardState;
 
 namespace Game.Feature.Gameplay.Loop
 {
+    internal enum MoonBlockGeneratorBlockedReason
+    {
+        None = 0,
+        UnitOccupant = 1,
+        WallLikeSolid = 2,
+        PlacementBlocked = 3,
+    }
+
+    internal readonly struct MoonBlockGeneratorBlockedKey : IEquatable<MoonBlockGeneratorBlockedKey>
+    {
+        public MoonBlockGeneratorBlockedKey(
+            int generatorTileId,
+            MoonBlockGeneratorBlockedReason reason,
+            int blockingEntityId)
+        {
+            GeneratorTileId = generatorTileId;
+            Reason = reason;
+            BlockingEntityId = blockingEntityId;
+        }
+
+        public int GeneratorTileId { get; }
+
+        public MoonBlockGeneratorBlockedReason Reason { get; }
+
+        public int BlockingEntityId { get; }
+
+        public bool Equals(MoonBlockGeneratorBlockedKey other)
+        {
+            return GeneratorTileId == other.GeneratorTileId &&
+                   Reason == other.Reason &&
+                   BlockingEntityId == other.BlockingEntityId;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is MoonBlockGeneratorBlockedKey other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hash = GeneratorTileId;
+                hash = (hash * 397) ^ (int)Reason;
+                hash = (hash * 397) ^ BlockingEntityId;
+                return hash;
+            }
+        }
+    }
+
     internal sealed class MoonBlockGeneratorRespawnProcessor
     {
+        private readonly Dictionary<int, MoonBlockGeneratorBlockedKey> _lastBlockedKeyByGeneratorTileId = new();
+        private readonly List<EntityState> _unitOccupantBuffer = new();
+
         public MoonBlockGeneratorRespawnProcessorResult Process(
             WorldSnapshot postCleanupSnapshot,
             Func<WorldSnapshot> refreshedSnapshotFactory,
@@ -22,6 +75,7 @@ namespace Game.Feature.Gameplay.Loop
 
             if (respawnDefinitions == null || respawnDefinitions.Count == 0)
             {
+                _lastBlockedKeyByGeneratorTileId.Clear();
                 return MoonBlockGeneratorRespawnProcessorResult.Empty;
             }
 
@@ -34,12 +88,14 @@ namespace Game.Feature.Gameplay.Loop
             var didRefresh = false;
             var eventLogEntries = new List<string>();
             var respawnFacts = new List<MoonBlockGeneratorRespawnFact>();
+            var blockedFacts = new List<MoonBlockGeneratorBlockedFact>();
 
             for (var i = 0; i < respawnDefinitions.Count; i++)
             {
                 var definition = respawnDefinitions[i];
                 if (IsBoundMoonBlockAlive(snapshot, definition.MoonBlockEntityId))
                 {
+                    ClearBlockedMemory(definition.GeneratorTileId);
                     continue;
                 }
 
@@ -54,6 +110,7 @@ namespace Game.Feature.Gameplay.Loop
                     didRefresh = true;
                     if (IsBoundMoonBlockAlive(snapshot, definition.MoonBlockEntityId))
                     {
+                        ClearBlockedMemory(definition.GeneratorTileId);
                         continue;
                     }
                 }
@@ -63,14 +120,22 @@ namespace Game.Feature.Gameplay.Loop
                     !TryFindTileFeatureDefinition(tileFeatureDefinitions, definition.GeneratorTileId, out var tileDefinition) ||
                     !TileFeatureActivationQueries.IsActive(generator, tileDefinition, snapshot.Topology))
                 {
+                    ClearBlockedMemory(definition.GeneratorTileId);
                     continue;
                 }
 
                 var spawnCell = definition.SpawnCell;
-                if (snapshot.HasAnyUnitAt(spawnCell))
+                if (TryGetFirstUnitAt(snapshot, spawnCell, out var unitBlocker))
                 {
                     eventLogEntries.Add(
                         $"MoonBlockGeneratorRespawnDeferred|TileId={definition.GeneratorTileId}|E={definition.MoonBlockEntityId}|Reason=UnitBlocked|Tick={tickIndex}");
+                    AddDebouncedBlockedFact(
+                        blockedFacts,
+                        definition,
+                        generator,
+                        MoonBlockGeneratorBlockedReason.UnitOccupant,
+                        unitBlocker.entityId,
+                        spawnCell);
                     continue;
                 }
 
@@ -99,6 +164,13 @@ namespace Game.Feature.Gameplay.Loop
                     {
                         eventLogEntries.Add(
                             $"MoonBlockGeneratorRespawnDeferred|TileId={definition.GeneratorTileId}|E={definition.MoonBlockEntityId}|Reason=SolidBlocked|Blocker={solidOccupant.entityId}|Tick={tickIndex}");
+                        AddDebouncedBlockedFact(
+                            blockedFacts,
+                            definition,
+                            generator,
+                            MoonBlockGeneratorBlockedReason.WallLikeSolid,
+                            solidOccupant.entityId,
+                            spawnCell);
                         continue;
                     }
                 }
@@ -112,6 +184,13 @@ namespace Game.Feature.Gameplay.Loop
                 {
                     eventLogEntries.Add(
                         $"MoonBlockGeneratorRespawnDeferred|TileId={definition.GeneratorTileId}|E={definition.MoonBlockEntityId}|Reason=PlacementBlocked|Tick={tickIndex}");
+                    AddDebouncedBlockedFact(
+                        blockedFacts,
+                        definition,
+                        generator,
+                        MoonBlockGeneratorBlockedReason.PlacementBlocked,
+                        blockingEntityId: 0,
+                        spawnCell);
                     continue;
                 }
 
@@ -143,11 +222,63 @@ namespace Game.Feature.Gameplay.Loop
                         generator.SourceEntityId,
                         generator.OwnerEntityId,
                         generator.TeamId));
+                ClearBlockedMemory(definition.GeneratorTileId);
                 eventLogEntries.Add(
                     $"MoonBlockGeneratorRespawnCommitted|TileId={definition.GeneratorTileId}|E={respawnEntity.entityId}|Pos=({respawnEntity.position.x},{respawnEntity.position.y})|Face={respawnEntity.position.face}|Tick={tickIndex}");
             }
 
-            return new MoonBlockGeneratorRespawnProcessorResult(eventLogEntries, respawnFacts);
+            return new MoonBlockGeneratorRespawnProcessorResult(eventLogEntries, respawnFacts, blockedFacts);
+        }
+
+        private void AddDebouncedBlockedFact(
+            List<MoonBlockGeneratorBlockedFact> blockedFacts,
+            in MoonBlockRespawnDefinition definition,
+            in TileFeatureState generator,
+            MoonBlockGeneratorBlockedReason reason,
+            int blockingEntityId,
+            SurfaceCell spawnCell)
+        {
+            if (reason == MoonBlockGeneratorBlockedReason.None)
+            {
+                return;
+            }
+
+            var key = new MoonBlockGeneratorBlockedKey(definition.GeneratorTileId, reason, blockingEntityId);
+            if (_lastBlockedKeyByGeneratorTileId.TryGetValue(definition.GeneratorTileId, out var lastKey) &&
+                lastKey.Equals(key))
+            {
+                return;
+            }
+
+            _lastBlockedKeyByGeneratorTileId[definition.GeneratorTileId] = key;
+            blockedFacts.Add(
+                new MoonBlockGeneratorBlockedFact(
+                    definition.GeneratorTileId,
+                    spawnCell,
+                    blockingEntityId,
+                    generator.SourceEntityId,
+                    generator.OwnerEntityId,
+                    generator.TeamId));
+        }
+
+        private void ClearBlockedMemory(int generatorTileId)
+        {
+            _lastBlockedKeyByGeneratorTileId.Remove(generatorTileId);
+        }
+
+        private bool TryGetFirstUnitAt(WorldSnapshot snapshot, SurfaceCell cell, out EntityState unit)
+        {
+            _unitOccupantBuffer.Clear();
+            snapshot.EnumerateUnitsAt(cell, _unitOccupantBuffer);
+            if (_unitOccupantBuffer.Count > 0)
+            {
+                unit = _unitOccupantBuffer[0];
+                _unitOccupantBuffer.Clear();
+                return true;
+            }
+
+            unit = default;
+            return false;
         }
 
         private static EntityState BuildRespawnEntity(
@@ -208,21 +339,27 @@ namespace Game.Feature.Gameplay.Loop
     {
         public static readonly MoonBlockGeneratorRespawnProcessorResult Empty = new(
             Array.Empty<string>(),
-            Array.Empty<MoonBlockGeneratorRespawnFact>());
+            Array.Empty<MoonBlockGeneratorRespawnFact>(),
+            Array.Empty<MoonBlockGeneratorBlockedFact>());
 
         private readonly IReadOnlyList<string> _eventLogEntries;
+        private readonly IReadOnlyList<MoonBlockGeneratorBlockedFact> _blockedFacts;
         private readonly IReadOnlyList<MoonBlockGeneratorRespawnFact> _respawnFacts;
 
         public MoonBlockGeneratorRespawnProcessorResult(
             IReadOnlyList<string> eventLogEntries,
-            IReadOnlyList<MoonBlockGeneratorRespawnFact> respawnFacts)
+            IReadOnlyList<MoonBlockGeneratorRespawnFact> respawnFacts,
+            IReadOnlyList<MoonBlockGeneratorBlockedFact> blockedFacts)
         {
             _eventLogEntries = eventLogEntries ?? throw new ArgumentNullException(nameof(eventLogEntries));
             _respawnFacts = respawnFacts ?? throw new ArgumentNullException(nameof(respawnFacts));
+            _blockedFacts = blockedFacts ?? throw new ArgumentNullException(nameof(blockedFacts));
         }
 
         public IReadOnlyList<string> EventLogEntries => _eventLogEntries;
 
         public IReadOnlyList<MoonBlockGeneratorRespawnFact> RespawnFacts => _respawnFacts;
+
+        public IReadOnlyList<MoonBlockGeneratorBlockedFact> BlockedFacts => _blockedFacts;
     }
 }

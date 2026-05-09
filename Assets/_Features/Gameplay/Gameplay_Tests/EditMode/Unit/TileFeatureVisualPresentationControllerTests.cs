@@ -267,6 +267,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void MoonBlockGeneratorBlockedRequest_WithSupportedTargetView_CallsPlayMoonBlockGeneratorBlockedOnce()
+        {
+            var rootObject = new GameObject(nameof(MoonBlockGeneratorBlockedRequest_WithSupportedTargetView_CallsPlayMoonBlockGeneratorBlockedOnce));
+            var targetObject = new GameObject("MoonBlockGeneratorVisualTarget");
+            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+
+            try
+            {
+                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+                target.Configure(100, cell);
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(registry);
+
+                controller.PlayRequests(new[] { CreateMoonBlockGeneratorBlockedRequest(100, cell, blockerEntityId: 20) });
+
+                Assert.That(target.DebugPlayMoonBlockGeneratorBlockedCount, Is.EqualTo(1));
+                Assert.That(target.DebugLastMoonBlockGeneratorBlockedEntityId, Is.EqualTo(20));
+                Assert.That(target.DebugPlayMoonBlockGeneratedCount, Is.Zero);
+                Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void ButtonActivatedRequest_MissingTarget_NoOpsWithOptionalDiagnostic()
         {
             var diagnostics = new List<string>();
@@ -382,6 +413,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(target.PlayCount, Is.Zero);
             Assert.That(diagnostics, Has.Count.EqualTo(1));
             Assert.That(diagnostics[0], Does.Contain("unsupported MoonBlockGenerated"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MoonBlockGeneratorBlockedRequest_UnsupportedTarget_NoOpWithOptionalDiagnostic()
+        {
+            var diagnostics = new List<string>();
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var target = new RecordingTarget(100, cell);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(new RecordingRegistry(target));
+            controller.SetDiagnosticSink(diagnostics.Add);
+
+            controller.PlayRequests(new[] { CreateMoonBlockGeneratorBlockedRequest(100, cell, blockerEntityId: 20) });
+
+            Assert.That(target.PlayCount, Is.Zero);
+            Assert.That(diagnostics, Has.Count.EqualTo(1));
+            Assert.That(diagnostics[0], Does.Contain("unsupported MoonBlockGeneratorBlocked"));
         }
 
         [Test]
@@ -961,6 +1010,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 ownerEntityId: tileId + 2,
                 teamId: tileId + 3,
                 targetEntityId: moonBlockEntityId);
+        }
+
+        private static TilePresentationRequest CreateMoonBlockGeneratorBlockedRequest(
+            int tileId,
+            SurfaceCell cell,
+            int blockerEntityId)
+        {
+            return new TilePresentationRequest(
+                TilePresentationRequestKind.MoonBlockGeneratorBlocked,
+                tileId,
+                cell,
+                TileFeatureKind.MoonBlockGenerator,
+                sourceEntityId: tileId + 1,
+                ownerEntityId: tileId + 2,
+                teamId: tileId + 3,
+                targetEntityId: blockerEntityId);
         }
 
         private static void AssertStageTileFeatureVisualBindingAppliesResolvedLocalPose(

@@ -16,6 +16,7 @@ namespace Game.Feature.Gameplay.Loop
         MoonBlockGenerated = 7,
         BarricadeActivated = 8,
         BarricadeDeactivated = 9,
+        MoonBlockGeneratorBlocked = 10,
     }
 
     public readonly struct TilePresentationRequest
@@ -135,6 +136,9 @@ namespace Game.Feature.Gameplay.Loop
                     return true;
                 case TilePresentationEventKind.BarricadeDeactivated:
                     requestKind = TilePresentationRequestKind.BarricadeDeactivated;
+                    return true;
+                case TilePresentationEventKind.MoonBlockGeneratorBlocked:
+                    requestKind = TilePresentationRequestKind.MoonBlockGeneratorBlocked;
                     return true;
                 default:
                     requestKind = default;
