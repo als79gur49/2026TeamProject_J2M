@@ -616,14 +616,33 @@ namespace Game.Feature.Gameplay.Loop
                 phaseRelocationSpaceContests,
                 ref nextContestId);
 
+            var rejectedReasons = new List<string>();
+            var playerActionAttemptResolutions = new List<PlayerActionAttemptResolution>();
+            var consumedPlayerActionAttemptEntityIds = new HashSet<int>();
+            var playerActionAttemptBatch = new FinalizationBatch();
+            CollectPreMovementPlayerActionAttemptResolutions(
+                planSnapshot,
+                input.PlayerCommand,
+                input.TickIndex,
+                rejectedReasons,
+                playerActionAttemptBatch,
+                playerActionAttemptResolutions,
+                consumedPlayerActionAttemptEntityIds);
+            if (playerActionAttemptBatch.Operations.Count > 0 ||
+                playerActionAttemptBatch.TileFeatureOperations.Count > 0)
+            {
+                planFinalizationBatch.MergeFrom(playerActionAttemptBatch);
+                projectedWorld.ApplyBatch(playerActionAttemptBatch);
+                planSnapshot = projectedWorld.CreateSnapshot();
+            }
+
             var rawMovementIntents = new List<RawMovementIntent>();
             _movementIntentCollector.Collect(planSnapshot, in input, entityLogicsForTick.MovementLogics, rawMovementIntents);
-            var rejectedReasons = new List<string>();
+            FilterConsumedPlayerActionAttemptMovementIntents(rawMovementIntents, consumedPlayerActionAttemptEntityIds);
             var executableMovementIntents = FilterExecutionLockedMovementIntents(planSnapshot, input.TickIndex, rawMovementIntents, rejectedReasons);
             var sortedIntents = BuildMovementIntents(executableMovementIntents);
             var expansionIntents = sortedIntents;
             var kinematicMovementActionPlanPayloads = new Dictionary<int, MovementActionPlanPayload>();
-            var playerActionAttemptResolutions = new List<PlayerActionAttemptResolution>();
             if (_runtimeFeatureFlags.EnablePlayerFree2DLocalLocomotion)
             {
                 var free2DBatch = new FinalizationBatch();
@@ -634,7 +653,7 @@ namespace Game.Feature.Gameplay.Loop
                     input.TickIndex,
                     rejectedReasons,
                     free2DBatch,
-                    playerActionAttemptResolutions);
+                    consumedPlayerActionAttemptEntityIds);
                 planFinalizationBatch.MergeFrom(free2DBatch);
                 projectedWorld.ApplyBatch(free2DBatch);
                 planSnapshot = projectedWorld.CreateSnapshot();
@@ -647,12 +666,9 @@ namespace Game.Feature.Gameplay.Loop
                     input.PlayerCommand,
                     input.TickIndex,
                     rejectedReasons,
+                    consumedPlayerActionAttemptEntityIds,
                     kinematicMovementActionPlanPayloads);
             }
-            CollectUnhandledPlayerActionAttemptResolutions(
-                planSnapshot,
-                input.PlayerCommand,
-                playerActionAttemptResolutions);
             if (_runtimeFeatureFlags.EnableEnemySameFaceContinuousLocomotion ||
                 _runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion)
             {
@@ -1550,6 +1566,34 @@ namespace Game.Feature.Gameplay.Loop
             return sortedIntents;
         }
 
+        private static void FilterConsumedPlayerActionAttemptMovementIntents(
+            List<RawMovementIntent> rawMovementIntents,
+            HashSet<int> consumedPlayerActionAttemptEntityIds)
+        {
+            if (rawMovementIntents == null ||
+                consumedPlayerActionAttemptEntityIds == null ||
+                consumedPlayerActionAttemptEntityIds.Count == 0)
+            {
+                return;
+            }
+
+            for (var i = rawMovementIntents.Count - 1; i >= 0; i--)
+            {
+                if (consumedPlayerActionAttemptEntityIds.Contains(rawMovementIntents[i].SourceId))
+                {
+                    rawMovementIntents.RemoveAt(i);
+                }
+            }
+        }
+
+        private static bool IsConsumedPlayerActionAttemptEntity(
+            HashSet<int> consumedPlayerActionAttemptEntityIds,
+            int entityId)
+        {
+            return consumedPlayerActionAttemptEntityIds != null &&
+                   consumedPlayerActionAttemptEntityIds.Contains(entityId);
+        }
+
         private List<MoveIntent> ValidateLegacyExpansionIntents(
             WorldSnapshot snapshot,
             IReadOnlyList<MoveIntent> expansionIntents,
@@ -1762,6 +1806,7 @@ namespace Game.Feature.Gameplay.Loop
             PlayerTickCommand playerCommand,
             int tickIndex,
             List<string> rejectedReasons,
+            HashSet<int> consumedPlayerActionAttemptEntityIds,
             Dictionary<int, MovementActionPlanPayload> kinematicPayloads)
         {
             var legacyIntents = new List<MoveIntent>(sortedIntents.Count);
@@ -1779,6 +1824,12 @@ namespace Game.Feature.Gameplay.Loop
                      (!_runtimeFeatureFlags.EnablePlayerStoppableKinematicLocomotion ||
                       pose.Mode != MotionMode.Held)))
                 {
+                    continue;
+                }
+
+                if (IsConsumedPlayerActionAttemptEntity(consumedPlayerActionAttemptEntityIds, entity.entityId))
+                {
+                    kinematicControlledPlayerIds.Add(entity.entityId);
                     continue;
                 }
 
@@ -1804,6 +1855,7 @@ namespace Game.Feature.Gameplay.Loop
                 {
                     var entity = entities[i];
                     if (kinematicControlledPlayerIds.Contains(entity.entityId) ||
+                        IsConsumedPlayerActionAttemptEntity(consumedPlayerActionAttemptEntityIds, entity.entityId) ||
                         !TryBuildPlayerQueuedKinematicTurnStartPayload(
                             snapshot,
                             entity.entityId,
@@ -1865,7 +1917,7 @@ namespace Game.Feature.Gameplay.Loop
             int tickIndex,
             List<string> rejectedReasons,
             FinalizationBatch batch,
-            List<PlayerActionAttemptResolution> playerActionAttemptResolutions)
+            HashSet<int> consumedPlayerActionAttemptEntityIds)
         {
             var legacyIntents = new List<MoveIntent>(sortedIntents.Count);
             var consumedFree2DIntentIds = new HashSet<int>();
@@ -1886,12 +1938,21 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
+                var consumedByActionAttempt = IsConsumedPlayerActionAttemptEntity(
+                    consumedPlayerActionAttemptEntityIds,
+                    entity.entityId);
                 for (var intentIndex = 0; intentIndex < sortedIntents.Count; intentIndex++)
                 {
                     var intent = sortedIntents[intentIndex];
                     if (intent.SourceId != entity.entityId ||
                         intent.CommandKind != Movement.MovementCommandKind.Move)
                     {
+                        continue;
+                    }
+
+                    if (consumedByActionAttempt)
+                    {
+                        consumedFree2DIntentIds.Add(intent.IntentId);
                         continue;
                     }
 
@@ -1955,6 +2016,11 @@ namespace Game.Feature.Gameplay.Loop
                     consumedFree2DIntentIds.Add(intent.IntentId);
                 }
 
+                if (consumedByActionAttempt)
+                {
+                    continue;
+                }
+
                 if (topologyHandoffPlayerIds.Contains(entity.entityId) ||
                     settledApproachPlayerIds.Contains(entity.entityId))
                 {
@@ -1969,7 +2035,6 @@ namespace Game.Feature.Gameplay.Loop
                     tickIndex,
                     rejectedReasons,
                     skipTopologyApproachSettleFallbackPlayerIds.Contains(entity.entityId),
-                    playerActionAttemptResolutions,
                     batch);
             }
 
@@ -2368,7 +2433,6 @@ namespace Game.Feature.Gameplay.Loop
             int tickIndex,
             List<string> rejectedReasons,
             bool skipTopologyApproachSettleFallback,
-            List<PlayerActionAttemptResolution> playerActionAttemptResolutions,
             FinalizationBatch batch)
         {
             if (!snapshot.TryGetUnitContinuousLocomotionPose(entity.entityId, out var pose))
@@ -2390,21 +2454,6 @@ namespace Game.Feature.Gameplay.Loop
                     out var queuedPlayerControlState))
             {
                 effectivePlayerControlState = queuedPlayerControlState;
-            }
-
-            if (TryCreatePlayerActionAttemptResolution(
-                    snapshot,
-                    entity,
-                    effectivePlayerControlState,
-                    playerCommand,
-                    pose,
-                    out var attemptResolution))
-            {
-                AddPlayerActionAttemptResolution(playerActionAttemptResolutions, attemptResolution);
-                if (attemptResolution.ConsumesMovement)
-                {
-                    return;
-                }
             }
 
             if (_runtimeFeatureFlags.EnablePlayerFree2DActionAssist &&
@@ -2532,10 +2581,32 @@ namespace Game.Feature.Gameplay.Loop
             }
         }
 
-        private static void CollectUnhandledPlayerActionAttemptResolutions(
+        private void CollectPreMovementPlayerActionAttemptResolutions(
             WorldSnapshot snapshot,
             PlayerTickCommand playerCommand,
+            int tickIndex,
+            List<string> rejectedReasons,
+            FinalizationBatch batch,
             List<PlayerActionAttemptResolution> playerActionAttemptResolutions)
+        {
+            CollectPreMovementPlayerActionAttemptResolutions(
+                snapshot,
+                playerCommand,
+                tickIndex,
+                rejectedReasons,
+                batch,
+                playerActionAttemptResolutions,
+                consumedPlayerActionAttemptEntityIds: null);
+        }
+
+        private void CollectPreMovementPlayerActionAttemptResolutions(
+            WorldSnapshot snapshot,
+            PlayerTickCommand playerCommand,
+            int tickIndex,
+            List<string> rejectedReasons,
+            FinalizationBatch batch,
+            List<PlayerActionAttemptResolution> playerActionAttemptResolutions,
+            HashSet<int> consumedPlayerActionAttemptEntityIds)
         {
             if (!TryResolveAttemptActionKind(playerCommand, out _))
             {
@@ -2556,18 +2627,40 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
+                if (_runtimeFeatureFlags.EnablePlayerFree2DActionAssist &&
+                    snapshot.TryGetUnitContinuousLocomotionPose(entity.entityId, out var free2DPose) &&
+                    TryQueueFree2DActionAssist(
+                        snapshot,
+                        entity,
+                        free2DPose,
+                        playerControlState,
+                        playerCommand,
+                        tickIndex,
+                        rejectedReasons,
+                        batch,
+                        out _))
+                {
+                    continue;
+                }
+
                 if (!TryCreatePlayerActionAttemptResolution(
                         snapshot,
                         entity,
                         playerControlState,
                         playerCommand,
-                        free2DPose: null,
+                        snapshot.TryGetUnitContinuousLocomotionPose(entity.entityId, out free2DPose)
+                            ? free2DPose
+                            : null,
                         out var attemptResolution))
                 {
                     continue;
                 }
 
                 AddPlayerActionAttemptResolution(playerActionAttemptResolutions, attemptResolution);
+                if (attemptResolution.ConsumesMovement)
+                {
+                    consumedPlayerActionAttemptEntityIds?.Add(entity.entityId);
+                }
             }
         }
 
@@ -4125,6 +4218,13 @@ namespace Game.Feature.Gameplay.Loop
             {
                 rejectedReasons.Add(
                     $"MovementRejected|Stage=Plan|Source={entityId}|Reason=KinematicContinuationCorrupt|Anchor={FormatCell(entity.position)}");
+                return false;
+            }
+
+            if (playerCommand.PushPressed || playerCommand.FlipPressed)
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Plan|Source={entityId}|Reason=ActionAttemptConsumesKinematicContinuation|Push={playerCommand.PushPressed}|Flip={playerCommand.FlipPressed}|StepDirection={facing}");
                 return false;
             }
 
