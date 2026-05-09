@@ -194,8 +194,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Push, GameplayActionAudioMoment.Contact, out _), Is.True);
             Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Push, GameplayActionAudioMoment.Blocked, out _), Is.True);
             Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Push, GameplayActionAudioMoment.ImpactEnemy, out _), Is.True);
+            Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Push, GameplayActionAudioMoment.AssistOutOfRange, out _), Is.True);
+            Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Push, GameplayActionAudioMoment.NoTarget, out _), Is.True);
+            Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Push, GameplayActionAudioMoment.Invalid, out _), Is.True);
             Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Flip, GameplayActionAudioMoment.Windup, out _), Is.True);
             Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Flip, GameplayActionAudioMoment.Blocked, out _), Is.True);
+            Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Flip, GameplayActionAudioMoment.AssistOutOfRange, out _), Is.True);
+            Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Flip, GameplayActionAudioMoment.NoTarget, out _), Is.True);
+            Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Flip, GameplayActionAudioMoment.Invalid, out _), Is.True);
         }
 
         [Test]
@@ -317,6 +323,49 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     canceledThisTick: false)));
 
             Assert.That(planner.BuildRequests(result), Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayActionAudioRequestPlanner_AttemptFailures_MapToFailureMomentsOnly()
+        {
+            var planner = new GameplayActionAudioRequestPlanner();
+            var result = CreateTickResult(CreatePresentationData(
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                new[]
+                {
+                    new TickPlayerActionAttemptPresentationSignal(
+                        10,
+                        PlayerActionKind.Push,
+                        Direction.Right,
+                        PlayerActionAttemptFeedbackKind.AssistOutOfRange),
+                    new TickPlayerActionAttemptPresentationSignal(
+                        10,
+                        PlayerActionKind.Push,
+                        Direction.Right,
+                        PlayerActionAttemptFeedbackKind.NoTarget),
+                    new TickPlayerActionAttemptPresentationSignal(
+                        10,
+                        PlayerActionKind.Flip,
+                        Direction.Right,
+                        PlayerActionAttemptFeedbackKind.Invalid),
+                }));
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(
+                requests.Select(request => request.Moment).ToArray(),
+                Is.EqualTo(new[]
+                {
+                    GameplayActionAudioMoment.AssistOutOfRange,
+                    GameplayActionAudioMoment.NoTarget,
+                    GameplayActionAudioMoment.Invalid,
+                }));
+            Assert.That(requests.Any(request =>
+                request.Moment == GameplayActionAudioMoment.Windup ||
+                request.Moment == GameplayActionAudioMoment.Execute ||
+                request.Moment == GameplayActionAudioMoment.Contact ||
+                request.Moment == GameplayActionAudioMoment.Blocked), Is.False);
         }
 
         [Test]
@@ -512,6 +561,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
             params TickPlayerActionPresentationSignal[] playerActionSignals)
         {
             return CreatePresentationData(playerActionSignals, Array.Empty<TickEnemyDamagePresentationSignal>());
+        }
+
+        private static TickPresentationData CreatePresentationData(
+            TickPlayerActionPresentationSignal[] playerActionSignals,
+            TickPlayerActionAttemptPresentationSignal[] playerActionAttemptSignals)
+        {
+            return new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                playerActionSignals ?? Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                Array.Empty<TickEntityExitPresentationSignal>(),
+                playerActionAttemptSignals ?? Array.Empty<TickPlayerActionAttemptPresentationSignal>());
         }
 
         private static TickPresentationData CreatePresentationData(

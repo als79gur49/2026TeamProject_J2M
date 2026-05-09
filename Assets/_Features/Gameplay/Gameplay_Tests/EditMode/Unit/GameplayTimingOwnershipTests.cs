@@ -721,6 +721,86 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void PlayerViewPresentationMapper_ActionAttemptSignal_SetsFakeAttemptStateWithoutActiveAction()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerViewPresentationMapper_ActionAttemptSignal_SetsFakeAttemptStateWithoutActiveAction");
+
+            try
+            {
+                var view = rootObject.GetComponent<GameplayEntityView>();
+                var mapper = new PlayerViewPresentationMapper();
+                var buffer = new Dictionary<int, PlayerViewPresentationState>();
+                var viewsByEntityId = new Dictionary<int, GameplayEntityView>
+                {
+                    [10] = view,
+                };
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+
+                mapper.Build(
+                    new TickResult(
+                        1,
+                        Array.Empty<TickPhase>(),
+                        Array.Empty<string>(),
+                        MovementPhaseResult.Empty,
+                        AttackPhaseResult.Empty,
+                        new[]
+                        {
+                            new EntityState
+                            {
+                                entityId = 10,
+                                position = sourceCell,
+                                hp = 3,
+                                maxHp = 3,
+                                teamId = 1,
+                                type = EntityType.Unit,
+                                unitRole = UnitRole.Player,
+                                facing = Direction.Right,
+                                boardPresence = EntityBoardPresence.Occupying,
+                            },
+                        },
+                        Array.Empty<string>(),
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            Array.Empty<TickVisibilityChange>(),
+                            Array.Empty<TickTransitionVisibilityChange>(),
+                            Array.Empty<TickPlayerActionPresentationSignal>(),
+                            Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                            Array.Empty<TickPlayerDamagePresentationSignal>(),
+                            Array.Empty<TickEnemyDamagePresentationSignal>(),
+                            Array.Empty<TickEnemyActionPresentationSignal>(),
+                            Array.Empty<TickEnemyJumpPresentationSignal>(),
+                            Array.Empty<TickEntityExitPresentationSignal>(),
+                            new[]
+                            {
+                                new TickPlayerActionAttemptPresentationSignal(
+                                    10,
+                                    PlayerActionKind.Push,
+                                    Direction.Right,
+                                    PlayerActionAttemptFeedbackKind.NoTarget),
+                            }),
+                        string.Empty,
+                        TickTrace.Empty),
+                    viewsByEntityId,
+                    buffer);
+
+                Assert.That(buffer.ContainsKey(10), Is.True);
+                Assert.That(buffer[10].ActiveActionKind, Is.EqualTo(PlayerActionKind.None));
+                Assert.That(buffer[10].HasActionAttempt, Is.True);
+                Assert.That(buffer[10].ActionAttemptKind, Is.EqualTo(PlayerActionKind.Push));
+                Assert.That(buffer[10].ActionAttemptDirection, Is.EqualTo(Direction.Right));
+                Assert.That(buffer[10].ActionAttemptFeedbackKind, Is.EqualTo(PlayerActionAttemptFeedbackKind.NoTarget));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void PlayerViewPresentationMapper_DeathSignal_CopiesFatalSourcePresentationFields()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerViewPresentationMapper_DeathSignal_CopiesFatalSourcePresentationFields");
