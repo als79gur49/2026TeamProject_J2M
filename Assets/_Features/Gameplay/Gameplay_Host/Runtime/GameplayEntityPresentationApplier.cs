@@ -150,9 +150,18 @@ namespace Game.Feature.Gameplay.Host
                     }
                 }
 
+                var hasActiveLocalMotion = _trackState.LocalMotionTracks.TryGetValue(
+                    entityId,
+                    out var activeMotionTrack) &&
+                    activeMotionTrack.HasClips;
+                var isDeferredExitRetained =
+                    _trackState.DeferredExitRetainedEntityIds.Contains(entityId) &&
+                    hasActiveLocalMotion &&
+                    _stateStore.RetainedLocalTargetPoses.ContainsKey(entityId);
                 var isVisible = hasKinematicPoseOverride ||
                                 hasPlayerDeathHoldPose ||
                                 _stateStore.CommittedLocalTargetPoses.ContainsKey(entityId) ||
+                                isDeferredExitRetained ||
                                 _stateStore.JumpDetachedVisibilityStates.ContainsKey(entityId) ||
                                 _stateStore.TransitionVisibilityStates.ContainsKey(entityId);
                 if (!hasPlayerDeathHoldPose &&
@@ -166,8 +175,7 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 var hasActiveMotion = hasKinematicPoseOverride && kinematicPoseOverride.IsActiveLocomotion ||
-                                      _trackState.LocalMotionTracks.TryGetValue(entityId, out var activeMotionTrack) &&
-                                      activeMotionTrack.HasClips;
+                                      hasActiveLocalMotion;
                 var resolvedPlayerAnimationState = _animationSync.ResolvePlayerAnimationState(
                     entityId,
                     ShouldPlayPlayerWalkLoop(entityId),

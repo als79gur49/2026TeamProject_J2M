@@ -120,6 +120,7 @@ namespace Game.Feature.Gameplay.Host
             {
                 var entityId = _completedDeferredExitIds[i];
                 _deferredAfterEntityMotionExitIds.Remove(entityId);
+                _trackState.DeferredExitRetainedEntityIds.Remove(entityId);
                 ApplyImmediateExitCleanup(entityId, queueFlipInteractionReset: false);
             }
         }
@@ -132,6 +133,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _deferredAfterEntityMotionExitIds.Add(entityId);
+            _trackState.DeferredExitRetainedEntityIds.Add(entityId);
             _trackState.JumpTracks.Remove(entityId);
             _trackState.OriginalViewMotionTracks.Remove(entityId);
             _trackState.VisibilityTracks.Remove(entityId);
@@ -151,6 +153,7 @@ namespace Game.Feature.Gameplay.Host
             _trackState.LocalMotionTracks.Remove(entityId);
             _trackState.OriginalViewMotionTracks.Remove(entityId);
             _trackState.VisibilityTracks.Remove(entityId);
+            _trackState.DeferredExitRetainedEntityIds.Remove(entityId);
             _stateStore.CommittedLocalTargetPoses.Remove(entityId);
             _stateStore.CommittedFacesByEntityId.Remove(entityId);
             _stateStore.CommittedProjectedSlotsByEntityId.Remove(entityId);
