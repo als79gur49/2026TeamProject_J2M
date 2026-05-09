@@ -18,33 +18,49 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GravityFieldPresentationRequestPlanner_MapsActivatedExpired_AndPreservesOrderAndDuplicates()
+        public void GravityFieldPresentationRequestPlanner_MapsActivatedExpiredLockedBox_AndPreservesOrderPayloadAndDuplicates()
         {
             var planner = new GravityFieldPresentationRequestPlanner();
             var first = new GravityFieldPresentationEvent(
                 GravityFieldPresentationEventKind.Activated,
                 30,
                 new SurfaceCell(FaceId.Floor, 0, 0));
+            var lockedBoxPayload = new GravityFieldLockedBoxPayload(
+                30,
+                20,
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                new SurfaceCell(FaceId.Floor, 1, 0));
+            var lockedBox = new GravityFieldPresentationEvent(
+                GravityFieldPresentationEventKind.LockedBox,
+                30,
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                targetEntityId: 20,
+                lockedBoxPayload: lockedBoxPayload);
             var second = new GravityFieldPresentationEvent(
                 GravityFieldPresentationEventKind.Expired,
                 31,
                 new SurfaceCell(FaceId.Floor, 1, 0));
 
-            var requests = planner.BuildRequests(CreatePresentationData(first, second, first));
+            var requests = planner.BuildRequests(CreatePresentationData(first, lockedBox, second, lockedBox));
 
             Assert.That(
                 requests.Select(request => request.RequestKind).ToArray(),
                 Is.EqualTo(new[]
                 {
                     GravityFieldPresentationRequestKind.Activated,
+                    GravityFieldPresentationRequestKind.LockedBox,
                     GravityFieldPresentationRequestKind.Expired,
-                    GravityFieldPresentationRequestKind.Activated,
+                    GravityFieldPresentationRequestKind.LockedBox,
                 }));
             Assert.That(
                 requests.Select(request => request.EmitterEntityId).ToArray(),
-                Is.EqualTo(new[] { 30, 31, 30 }));
+                Is.EqualTo(new[] { 30, 30, 31, 30 }));
             Assert.That(requests[0].Cell, Is.EqualTo(first.Cell));
-            Assert.That(requests[1].Cell, Is.EqualTo(second.Cell));
+            Assert.That(requests[1].Cell, Is.EqualTo(lockedBox.Cell));
+            Assert.That(requests[1].TargetEntityId, Is.EqualTo(20));
+            Assert.That(requests[1].LockedBoxPayload, Is.EqualTo(lockedBoxPayload));
+            Assert.That(requests[2].Cell, Is.EqualTo(second.Cell));
+            Assert.That(requests[3].LockedBoxPayload, Is.EqualTo(lockedBoxPayload));
         }
 
         [Test]

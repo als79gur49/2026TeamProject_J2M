@@ -108,28 +108,30 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
-        public void GravityFieldLockedTargetPolicy_DocumentsReadModelAndClosedEventAudioScope()
+        public void GravityFieldLockedTargetPolicy_DocumentsReadModelAndLockedBoxOneShotScope()
         {
             var document = File.ReadAllText(GetAbsolutePath(GravityFieldLockedTargetPresentationPolicyPath));
             var requiredSnippets = new[]
             {
                 "GravityField is `EntityType.Box + BoxArchetype.GravityField`, not a TileFeature.",
                 "`GravityFieldVisualState.LockedTargetEntityIds` is the continuous presentation read model",
-                "Target dimming consumes the previous/current `LockedTargetEntityIds` read model diff",
-                "`GravityFieldPresentationEventKind.LockedBox`, `GravityFieldPresentationRequestKind.LockedBox`, and `GravityFieldAudioCue.LockedBox` are intentionally not implemented",
-                "LockedBox event/audio remains closed unless one-shot feedback is explicitly required.",
+                "Target dimming consumes the previous/current `LockedTargetEntityIds` read model diff and remains independent of one-shot events.",
+                "`GravityFieldPresentationEventKind.LockedBox`, `GravityFieldPresentationRequestKind.LockedBox`, and `GravityFieldAudioCue.LockedBox` are implemented",
+                "`GravityFieldLockedBoxPayload` carries `EmitterEntityId`, `TargetEntityId`, `EmitterCell`, and `TargetCell`.",
+                "LockedBox one-shot feedback is presentation-only and complements target dimming",
                 "`MaterialPropertyBlock`-based actual dimming remains a future presentation-only step.",
                 "The read model must not be inferred from a final snapshot diff.",
-                "Before opening one-shot `LockedBox` event/audio, answer these reevaluation questions:",
-                "Is target dimming alone sufficient UX?",
-                "Future one-shot `LockedBox` event/audio, if opened, must debounce by `EmitterEntityId + TargetEntityId + ActiveWindow`.",
+                "One-shot `LockedBox` event/audio debounces by `EmitterEntityId + TargetEntityId + ActiveWindow`.",
                 "`Charging -> Active` starts a new active window.",
                 "`Active -> Charging`, ineligible reset, and emitter destroyed/detached clear active-window memory.",
                 "The same emitter-target pair emits at most once per active window.",
-                "Future `LockedBox` audio is optional Sfx one-shot only",
-                "The current MVP uses only a continuous read model, so there is no repeated event/audio spam path.",
+                "`LockedBox` audio is optional Sfx one-shot only",
+                "Repeated one-shot dedupe belongs to resolver event generation",
                 "Locked target presentation data is presentation-only and does not enter the canonical determinism hash.",
+                "LockedBox one-shot state is transient resolver/pipeline memory",
+                "Environmental destroy immunity is not implemented by LockedBox one-shot feedback.",
                 "`TickPipeline` transports facts but must not execute prefab, audio, UI, or material work.",
+                "GravityField remains `EntityType.Box + BoxArchetype.GravityField`, not `EntityType." + "GravityField` or `TileFeatureKind." + "GravityField`.",
             };
 
             for (var i = 0; i < requiredSnippets.Length; i++)
@@ -559,25 +561,47 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
-        public void GravityFieldLockedBox_SurfaceAndConsumerBranchesRemainClosed()
+        public void GravityFieldLockedBox_SurfaceOpensOnlyGravityFieldLane()
         {
-            var sourcePaths = new[]
+            Assert.That(Enum.GetNames(typeof(TilePresentationEventKind)), Does.Not.Contain("LockedBox"));
+            Assert.That(Enum.GetNames(typeof(TilePresentationRequestKind)), Does.Not.Contain("LockedBox"));
+            Assert.That(File.ReadAllText(GetAbsolutePath(TileFeatureAudioTypesPath)), Does.Not.Contain("LockedBox"));
+
+            var stageDefinitionSource = File.ReadAllText(GetAbsolutePath(StageDefinitionPath));
+            var buildResultSource = File.ReadAllText(GetAbsolutePath(StageRuntimeBuildResultPath));
+            Assert.That(stageDefinitionSource, Does.Not.Contain("GravityFieldLockedBoxPayload"));
+            Assert.That(buildResultSource, Does.Not.Contain("GravityFieldLockedBoxPayload"));
+
+            var boardStateSources = Directory.GetFiles(GetAbsolutePath(GameplayBoardStateRuntimePath), "*.cs", SearchOption.AllDirectories);
+            for (var i = 0; i < boardStateSources.Length; i++)
             {
-                "Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPresentationData.cs",
-                GravityFieldPresentationRequestPlannerPath,
+                var source = File.ReadAllText(boardStateSources[i]);
+                Assert.That(source, Does.Not.Contain("GravityFieldLockedBoxPayload"), boardStateSources[i]);
+            }
+
+            var gravityFieldConsumerPaths = new[]
+            {
                 GravityFieldVisualControllerPath,
                 GravityFieldAudioControllerPath,
                 "Assets/_Features/Gameplay/Gameplay_GravityFieldAudio/Runtime/GravityFieldAudioTypes.cs",
                 "Assets/_Features/Gameplay/Gameplay_GravityFieldAudio/Runtime/GravityFieldAudioRequestPlanner.cs",
             };
-
-            for (var i = 0; i < sourcePaths.Length; i++)
+            var forbiddenConsumerTokens = new[]
             {
-                var source = File.ReadAllText(GetAbsolutePath(sourcePaths[i]));
-                Assert.That(
-                    source,
-                    Does.Not.Contain("LockedBox"),
-                    $"{sourcePaths[i]} must not open a LockedBox event/request/audio branch.");
+                "WorldState.CreateSnapshot",
+                "Play3D",
+                "Spatial",
+                "spatial",
+                "StagePresentationDefinition",
+                "TileFeatureAudioCue",
+            };
+            for (var i = 0; i < gravityFieldConsumerPaths.Length; i++)
+            {
+                var source = File.ReadAllText(GetAbsolutePath(gravityFieldConsumerPaths[i]));
+                for (var tokenIndex = 0; tokenIndex < forbiddenConsumerTokens.Length; tokenIndex++)
+                {
+                    Assert.That(source, Does.Not.Contain(forbiddenConsumerTokens[tokenIndex]), gravityFieldConsumerPaths[i]);
+                }
             }
 
             var uiRoot = GetAbsolutePath(UiRuntimePath);

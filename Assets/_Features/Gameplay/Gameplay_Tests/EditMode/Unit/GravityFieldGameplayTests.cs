@@ -62,11 +62,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(TryGetEntity(worldState, 20, out var target), Is.True);
             Assert.That(target.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(result.PresentationData.TileEvents, Is.Empty);
-            Assert.That(result.PresentationData.GravityFieldEvents, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.GravityFieldEvents, Has.Count.EqualTo(3));
             Assert.That(result.PresentationData.GravityFieldEvents[0].EventKind, Is.EqualTo(GravityFieldPresentationEventKind.Activated));
             Assert.That(result.PresentationData.GravityFieldEvents[0].EmitterEntityId, Is.EqualTo(30));
             Assert.That(result.PresentationData.GravityFieldEvents[0].Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 1)));
             Assert.That(result.PresentationData.GravityFieldEvents[0].TargetEntityId, Is.Zero);
+            AssertLockedBoxEvent(
+                result.PresentationData.GravityFieldEvents[1],
+                emitterEntityId: 30,
+                targetEntityId: 20,
+                emitterCell: new SurfaceCell(FaceId.Floor, 1, 1),
+                targetCell: new SurfaceCell(FaceId.Floor, 1, 0));
+            AssertLockedBoxEvent(
+                result.PresentationData.GravityFieldEvents[2],
+                emitterEntityId: 30,
+                targetEntityId: 30,
+                emitterCell: new SurfaceCell(FaceId.Floor, 1, 1),
+                targetCell: new SurfaceCell(FaceId.Floor, 1, 1));
         }
 
         [Test]
@@ -111,11 +123,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 result.PresentationData.GravityFieldVisualStates[0].LockedTargetEntityIds.ToArray(),
                 Is.EqualTo(new[] { 20, 30 }));
-            Assert.That(result.PresentationData.GravityFieldEvents, Is.Empty);
+            Assert.That(
+                LockedBoxTargetIds(result.PresentationData.GravityFieldEvents),
+                Is.EqualTo(new[] { 20, 30 }));
 
             var presentationRequests = new GravityFieldPresentationRequestPlanner().BuildRequests(result.PresentationData);
-            Assert.That(presentationRequests, Is.Empty);
-            Assert.That(new GravityFieldAudioRequestPlanner().BuildRequests(presentationRequests), Is.Empty);
+            Assert.That(
+                presentationRequests.Select(request => request.TargetEntityId).ToArray(),
+                Is.EqualTo(new[] { 20, 30 }));
+            Assert.That(
+                new GravityFieldAudioRequestPlanner().BuildRequests(presentationRequests)
+                    .Select(request => request.Cue)
+                    .ToArray(),
+                Is.EqualTo(new[] { GravityFieldAudioCue.LockedBox, GravityFieldAudioCue.LockedBox }));
         }
 
         [Test]
@@ -269,6 +289,115 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void GravityFieldLockedBox_ActiveWindowDebouncesRetainedLeaveReenterAndReopensNextWindow()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreatePlayer(10, new SurfaceCell(FaceId.Floor, -4, -4)),
+                CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxArchetype.Normal, BoxCapabilities.Push),
+                CreateBox(30, new SurfaceCell(FaceId.Floor, 0, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Active, timerTicks: 5),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+
+            var firstActive = pipeline.RunTick(new TickInput(1));
+            var retained = pipeline.RunTick(new TickInput(2));
+            worldState.CreateWriteContext().MoveEntity(20, new SurfaceCell(FaceId.Floor, 4, 4));
+            var left = pipeline.RunTick(new TickInput(3));
+            worldState.CreateWriteContext().MoveEntity(20, new SurfaceCell(FaceId.Floor, 1, 0));
+            var reentered = pipeline.RunTick(new TickInput(4));
+            worldState.CreateWriteContext().SetGravityFieldState(30, GravityFieldPhase.Charging, timerTicks: 1);
+            var nextWindow = pipeline.RunTick(new TickInput(5));
+
+            Assert.That(LockedBoxTargetIds(firstActive.PresentationData.GravityFieldEvents), Is.EqualTo(new[] { 20, 30 }));
+            Assert.That(LockedBoxTargetIds(retained.PresentationData.GravityFieldEvents), Is.Empty);
+            Assert.That(LockedBoxTargetIds(left.PresentationData.GravityFieldEvents), Is.Empty);
+            Assert.That(LockedBoxTargetIds(reentered.PresentationData.GravityFieldEvents), Is.Empty);
+            Assert.That(LockedBoxTargetIds(nextWindow.PresentationData.GravityFieldEvents), Is.EqualTo(new[] { 20, 30 }));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GravityFieldLockedBox_MultipleEmittersDebounceIndependentlyAndOrderByEmitterThenTarget()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreatePlayer(10, new SurfaceCell(FaceId.Floor, -4, -4)),
+                CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxArchetype.Normal, BoxCapabilities.Push),
+                CreateBox(21, new SurfaceCell(FaceId.Floor, 2, 0), BoxArchetype.Normal, BoxCapabilities.Push),
+                CreateBox(30, new SurfaceCell(FaceId.Floor, 0, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Active, timerTicks: 3),
+                CreateBox(31, new SurfaceCell(FaceId.Floor, 2, 1), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Active, timerTicks: 3),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+
+            var firstActive = pipeline.RunTick(new TickInput(1));
+            var retained = pipeline.RunTick(new TickInput(2));
+
+            Assert.That(
+                firstActive.PresentationData.GravityFieldEvents
+                    .Where(evt => evt.EventKind == GravityFieldPresentationEventKind.LockedBox)
+                    .Select(evt => (evt.EmitterEntityId, evt.TargetEntityId))
+                    .ToArray(),
+                Is.EqualTo(new[]
+                {
+                    (30, 20),
+                    (30, 30),
+                    (31, 20),
+                    (31, 21),
+                    (31, 31),
+                }));
+            Assert.That(LockedBoxTargetIds(retained.PresentationData.GravityFieldEvents), Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GravityFieldLockedBox_IneligibleTargetsDoNotEmit()
+        {
+            var marked = CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxArchetype.Normal, BoxCapabilities.Push);
+            marked.markedForDeath = true;
+            var detached = CreateBox(21, new SurfaceCell(FaceId.Floor, -1, 0), BoxArchetype.Normal, BoxCapabilities.Push);
+            detached.boardPresence = EntityBoardPresence.Detached;
+            var sliding = CreateBox(22, new SurfaceCell(FaceId.Floor, 0, 1), BoxArchetype.Normal, BoxCapabilities.Push);
+            sliding.state = EntityPhaseState.Sliding;
+            var worldState = CreateWorldState(new[]
+            {
+                CreatePlayer(10, new SurfaceCell(FaceId.Floor, -4, -4)),
+                marked,
+                detached,
+                sliding,
+                CreateBox(30, new SurfaceCell(FaceId.Floor, 0, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Active, timerTicks: 2),
+            });
+
+            var result = GameplayCompositionRoot.CreateTickPipeline(worldState).RunTick(new TickInput(1));
+
+            Assert.That(LockedBoxTargetIds(result.PresentationData.GravityFieldEvents), Is.EqualTo(new[] { 30 }));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GravityFieldLockedBox_IneligibleEmitterClearsMemory()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreatePlayer(10, new SurfaceCell(FaceId.Floor, -4, -4)),
+                CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxArchetype.Normal, BoxCapabilities.Push),
+                CreateBox(30, new SurfaceCell(FaceId.Floor, 0, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Active, timerTicks: 4),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+
+            var firstActive = pipeline.RunTick(new TickInput(1));
+            ((IMovementCommitContext)worldState.CreateWriteContext()).ApplyStateChange(30, EntityPhaseState.Sliding, stateTimer: 1);
+            var ineligible = pipeline.RunTick(new TickInput(2));
+            ((IMovementCommitContext)worldState.CreateWriteContext()).ApplyStateChange(30, EntityPhaseState.Idle, stateTimer: 0);
+            worldState.CreateWriteContext().SetGravityFieldState(30, GravityFieldPhase.Active, timerTicks: 2);
+            var activeAgain = pipeline.RunTick(new TickInput(3));
+
+            Assert.That(LockedBoxTargetIds(firstActive.PresentationData.GravityFieldEvents), Is.EqualTo(new[] { 20, 30 }));
+            Assert.That(LockedBoxTargetIds(ineligible.PresentationData.GravityFieldEvents), Is.Empty);
+            Assert.That(LockedBoxTargetIds(activeAgain.PresentationData.GravityFieldEvents), Is.EqualTo(new[] { 20, 30 }));
+        }
+
+        [Test]
+        [Category("Core")]
         public void GravityField_LockedPushDestroyBoxDoesNotSelfDestroyOnBlockedFallback()
         {
             var terrain = new GameplayTerrainData(new[]
@@ -382,9 +511,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<DelayedAttackEffectRecord>(),
                 Array.Empty<string>(),
                 CreateGravityFieldPresentationData(new GravityFieldPresentationEvent(
-                    GravityFieldPresentationEventKind.Activated,
+                    GravityFieldPresentationEventKind.LockedBox,
                     30,
-                    new SurfaceCell(FaceId.Floor, 0, 0))));
+                    new SurfaceCell(FaceId.Floor, 0, 0),
+                    targetEntityId: 20,
+                    lockedBoxPayload: new GravityFieldLockedBoxPayload(
+                        30,
+                        20,
+                        new SurfaceCell(FaceId.Floor, 0, 0),
+                        new SurfaceCell(FaceId.Floor, 1, 0)))));
             var withVisualState = new TickResultData(
                 finalEntities,
                 Array.Empty<DelayedAttackEffectRecord>(),
@@ -446,11 +581,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GravityFieldLockedBoxEventAndAudioCue_AreNotOpenedForReadModelMvp()
+        public void GravityFieldLockedBoxEventRequestAndAudioCue_AreOpenedForOneShotFeedback()
         {
-            Assert.That(Enum.GetNames(typeof(GravityFieldPresentationEventKind)), Does.Not.Contain("LockedBox"));
-            Assert.That(Enum.GetNames(typeof(GravityFieldPresentationRequestKind)), Does.Not.Contain("LockedBox"));
-            Assert.That(Enum.GetNames(typeof(GravityFieldAudioCue)), Does.Not.Contain("LockedBox"));
+            Assert.That(Enum.GetNames(typeof(GravityFieldPresentationEventKind)), Does.Contain("LockedBox"));
+            Assert.That(Enum.GetNames(typeof(GravityFieldPresentationRequestKind)), Does.Contain("LockedBox"));
+            Assert.That(Enum.GetNames(typeof(GravityFieldAudioCue)), Does.Contain("LockedBox"));
+        }
+
+        private static int[] LockedBoxTargetIds(IReadOnlyList<GravityFieldPresentationEvent> events)
+        {
+            return events
+                .Where(evt => evt.EventKind == GravityFieldPresentationEventKind.LockedBox)
+                .Select(evt => evt.TargetEntityId)
+                .ToArray();
+        }
+
+        private static void AssertLockedBoxEvent(
+            GravityFieldPresentationEvent evt,
+            int emitterEntityId,
+            int targetEntityId,
+            SurfaceCell emitterCell,
+            SurfaceCell targetCell)
+        {
+            Assert.That(evt.EventKind, Is.EqualTo(GravityFieldPresentationEventKind.LockedBox));
+            Assert.That(evt.EmitterEntityId, Is.EqualTo(emitterEntityId));
+            Assert.That(evt.TargetEntityId, Is.EqualTo(targetEntityId));
+            Assert.That(evt.Cell, Is.EqualTo(emitterCell));
+            Assert.That(evt.LockedBoxPayload.IsValid, Is.True);
+            Assert.That(evt.LockedBoxPayload.EmitterEntityId, Is.EqualTo(emitterEntityId));
+            Assert.That(evt.LockedBoxPayload.TargetEntityId, Is.EqualTo(targetEntityId));
+            Assert.That(evt.LockedBoxPayload.EmitterCell, Is.EqualTo(emitterCell));
+            Assert.That(evt.LockedBoxPayload.TargetCell, Is.EqualTo(targetCell));
         }
 
         private static TickPresentationData CreateGravityFieldPresentationData(
