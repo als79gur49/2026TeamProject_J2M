@@ -7,6 +7,33 @@ using UnityEngine.Serialization;
 
 namespace Game.Feature.Gameplay.Host
 {
+    public readonly struct PlayerAnimationPlaybackRequest
+    {
+        public PlayerAnimationPlaybackRequest(
+            bool isVisible,
+            PlayerViewAnimationState state,
+            PlayerPresentationPhase phaseOverride = PlayerPresentationPhase.None,
+            bool restart = false,
+            float resolvedMotionDurationSeconds = 0f)
+        {
+            IsVisible = isVisible;
+            State = state;
+            PhaseOverride = phaseOverride;
+            Restart = restart;
+            ResolvedMotionDurationSeconds = resolvedMotionDurationSeconds;
+        }
+
+        public bool IsVisible { get; }
+
+        public PlayerViewAnimationState State { get; }
+
+        public PlayerPresentationPhase PhaseOverride { get; }
+
+        public bool Restart { get; }
+
+        public float ResolvedMotionDurationSeconds { get; }
+    }
+
     public sealed class PlayerAnimatorDriver : MonoBehaviour
     {
         private const string OptionalStateParameterName = "PlayerPresentationState";
@@ -109,15 +136,30 @@ namespace Game.Feature.Gameplay.Host
             PlayerViewAnimationState resolvedState,
             float resolvedMotionDurationSeconds = 0f)
         {
-            IsVisible = isVisible;
+            SyncRuntimeState(new PlayerAnimationPlaybackRequest(
+                isVisible,
+                resolvedState,
+                PlayerPresentationPhase.None,
+                restart: false,
+                resolvedMotionDurationSeconds));
+        }
 
-            var restart = _pendingRestart;
+        public void SyncRuntimeState(in PlayerAnimationPlaybackRequest request)
+        {
+            IsVisible = request.IsVisible;
+
+            var restart = _pendingRestart || request.Restart;
             _pendingRestart = false;
             var shouldTriggerHit = _pendingHitTrigger;
             _pendingHitTrigger = false;
             var executeActionKind = _pendingExecuteActionKind;
             _pendingExecuteActionKind = PlayerActionKind.None;
-            ApplyResolvedState(resolvedState, restart, executeActionKind, resolvedMotionDurationSeconds);
+            ApplyResolvedState(
+                request.State,
+                restart,
+                executeActionKind,
+                request.ResolvedMotionDurationSeconds,
+                request.PhaseOverride);
             if (shouldTriggerHit)
             {
                 FireHitTrigger(ResolveAnimator());
@@ -158,17 +200,20 @@ namespace Game.Feature.Gameplay.Host
             PlayerViewAnimationState resolvedState,
             bool restart,
             PlayerActionKind executeActionKind,
-            float resolvedMotionDurationSeconds)
+            float resolvedMotionDurationSeconds,
+            PlayerPresentationPhase phaseOverride = PlayerPresentationPhase.None)
         {
             var targetAnimator = ResolveAnimator();
             var previousState = CurrentState;
             var previousPhase = CurrentPresentationPhase;
-            var targetPhase = ResolveTargetPresentationPhase(
-                resolvedState,
-                restart,
-                executeActionKind,
-                previousState,
-                previousPhase);
+            var targetPhase = phaseOverride != PlayerPresentationPhase.None
+                ? phaseOverride
+                : ResolveTargetPresentationPhase(
+                    resolvedState,
+                    restart,
+                    executeActionKind,
+                    previousState,
+                    previousPhase);
 
             ApplyAnimatorSpeed(targetAnimator, resolvedState, targetPhase, resolvedMotionDurationSeconds);
             SyncOptionalStateParameter(targetAnimator, resolvedState);

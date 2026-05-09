@@ -180,7 +180,7 @@ namespace Game.Feature.Gameplay.Host
                 var hasActiveMotion = hasKinematicPoseOverride && kinematicPoseOverride.IsActiveLocomotion ||
                                       _trackState.LocalMotionTracks.TryGetValue(entityId, out var activeMotionTrack) &&
                                       activeMotionTrack.HasClips;
-                var resolvedPlayerAnimationState = _animationSync.ResolvePlayerAnimationState(
+                var playerAnimationPlayback = _animationSync.ResolvePlayerAnimationPlayback(
                     entityId,
                     ShouldPlayPlayerWalkLoop(entityId),
                     HasActivePlayerWalkMotion(entityId));
@@ -194,10 +194,10 @@ namespace Game.Feature.Gameplay.Host
                 _animationSync.SyncPlayerRuntimeState(
                     entityId,
                     isVisible,
-                    resolvedPlayerAnimationState,
+                    playerAnimationPlayback,
                     _motionTimingResolver.ResolvePlayerAnimationStateMotionDurationSeconds(
                         entityId,
-                        resolvedPlayerAnimationState,
+                        playerAnimationPlayback.State,
                         timingProfile),
                     _stateStore.ViewsByEntityId);
                 if (!isVisible)

@@ -7,6 +7,29 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
+    public readonly struct PlayerAnimationPlaybackResolution
+    {
+        public PlayerAnimationPlaybackResolution(
+            PlayerViewAnimationState state,
+            PlayerPresentationPhase phaseOverride = PlayerPresentationPhase.None,
+            bool restart = false,
+            float resolvedMotionDurationSeconds = 0f)
+        {
+            State = state;
+            PhaseOverride = phaseOverride;
+            Restart = restart;
+            ResolvedMotionDurationSeconds = resolvedMotionDurationSeconds;
+        }
+
+        public PlayerViewAnimationState State { get; }
+
+        public PlayerPresentationPhase PhaseOverride { get; }
+
+        public bool Restart { get; }
+
+        public float ResolvedMotionDurationSeconds { get; }
+    }
+
     public sealed class GameplayAnimationSyncCoordinator
     {
         private readonly List<int> _completedPlayerVisualHoldEntityIds = new();
@@ -190,6 +213,13 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        public bool IsPlayerActionAttemptHoldActive(int entityId)
+        {
+            return _playerVisualHoldStates.TryGetValue(entityId, out var holdState) &&
+                   holdState.Source == PlayerVisualPresentationHoldSource.ActionAttempt &&
+                   holdState.IsActive;
+        }
+
         public void CacheDrivers(int entityId, GameplayEntityView view)
         {
             CacheEnemyAnimatorDriver(entityId, view);
@@ -288,7 +318,43 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        public void SyncPlayerRuntimeState(
+            int entityId,
+            bool isVisible,
+            in PlayerAnimationPlaybackResolution playback,
+            float resolvedMotionDurationSeconds,
+            IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId)
+        {
+            if (TryGetPlayerAnimatorDriver(entityId, viewsByEntityId, out var driver))
+            {
+                driver.SyncRuntimeState(new PlayerAnimationPlaybackRequest(
+                    isVisible,
+                    playback.State,
+                    playback.PhaseOverride,
+                    playback.Restart,
+                    playback.ResolvedMotionDurationSeconds > 0f
+                        ? playback.ResolvedMotionDurationSeconds
+                        : resolvedMotionDurationSeconds));
+            }
+
+            if (!isVisible)
+            {
+                _playerDeathVisualOverrideEntityIds.Remove(entityId);
+            }
+        }
+
         public PlayerViewAnimationState ResolvePlayerAnimationState(
+            int entityId,
+            bool shouldPlayWalkLoop,
+            bool hasActiveWalkMotion)
+        {
+            return ResolvePlayerAnimationPlayback(
+                entityId,
+                shouldPlayWalkLoop,
+                hasActiveWalkMotion).State;
+        }
+
+        public PlayerAnimationPlaybackResolution ResolvePlayerAnimationPlayback(
             int entityId,
             bool shouldPlayWalkLoop,
             bool hasActiveWalkMotion)
@@ -296,44 +362,60 @@ namespace Game.Feature.Gameplay.Host
             if (_playerDeathVisualOverrideEntityIds.Contains(entityId))
             {
                 _playerVisualHoldStates.Remove(entityId);
-                return PlayerViewAnimationState.Death;
+                return new PlayerAnimationPlaybackResolution(PlayerViewAnimationState.Death);
             }
 
             if (_playerViewPresentationStates.TryGetValue(entityId, out var state) &&
                 TryResolveActionAnimationState(state.ActiveActionKind, out var authoritativeState))
             {
-                return authoritativeState;
+                return new PlayerAnimationPlaybackResolution(authoritativeState);
             }
 
             if (_playerViewPresentationStates.TryGetValue(entityId, out state) &&
                 state.HasActionAttempt &&
                 TryResolveActionAnimationState(state.ActionAttemptKind, out var attemptState))
             {
-                _playerVisualHoldStates.Remove(entityId);
-                return attemptState;
+                if (_playerVisualHoldStates.TryGetValue(entityId, out var currentAttemptHold) &&
+                    currentAttemptHold.IsActive &&
+                    currentAttemptHold.Source == PlayerVisualPresentationHoldSource.ActionAttempt)
+                {
+                    return currentAttemptHold.ToPlaybackResolution();
+                }
+
+                return new PlayerAnimationPlaybackResolution(
+                    attemptState,
+                    ResolveWindupPhase(state.ActionAttemptKind),
+                    restart: true);
+            }
+
+            if (_playerVisualHoldStates.TryGetValue(entityId, out var attemptHoldState) &&
+                attemptHoldState.IsActive &&
+                attemptHoldState.Source == PlayerVisualPresentationHoldSource.ActionAttempt)
+            {
+                return attemptHoldState.ToPlaybackResolution();
             }
 
             if ((_playerViewPresentationStates.TryGetValue(entityId, out state) && state.ShouldPlayWalkLoop) ||
                 shouldPlayWalkLoop)
             {
-                _playerVisualHoldStates.Remove(entityId);
-                return PlayerViewAnimationState.WalkLoop;
+                RemovePlayerVisualHoldUnlessActionAttempt(entityId);
+                return new PlayerAnimationPlaybackResolution(PlayerViewAnimationState.WalkLoop);
             }
 
             if (hasActiveWalkMotion)
             {
                 // Active move clips only bridge the tail when the session signal has already ended.
-                _playerVisualHoldStates.Remove(entityId);
-                return PlayerViewAnimationState.WalkLoop;
+                RemovePlayerVisualHoldUnlessActionAttempt(entityId);
+                return new PlayerAnimationPlaybackResolution(PlayerViewAnimationState.WalkLoop);
             }
 
             if (_playerVisualHoldStates.TryGetValue(entityId, out var holdState) &&
                 holdState.IsActive)
             {
-                return holdState.AnimationState;
+                return holdState.ToPlaybackResolution();
             }
 
-            return PlayerViewAnimationState.Idle;
+            return new PlayerAnimationPlaybackResolution(PlayerViewAnimationState.Idle);
         }
 
         private void CacheEnemyAnimatorDriver(int entityId, GameplayEntityView view)
@@ -383,27 +465,43 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            if (!state.StartedThisTick ||
-                !TryResolveActionAnimationState(state.ActiveActionKind, out var animationState))
+            if (state.StartedThisTick &&
+                TryResolveActionAnimationState(state.ActiveActionKind, out var animationState))
+            {
+                var presentationDurationSeconds = driver.GetPresentationDurationSeconds(
+                    state.ActiveActionKind,
+                    resolvePlayerMotionDurationSeconds != null
+                        ? resolvePlayerMotionDurationSeconds(entityId, state.ActiveActionKind)
+                        : 0f);
+                if (presentationDurationSeconds <= 0f)
+                {
+                    _playerVisualHoldStates.Remove(entityId);
+                    return;
+                }
+
+                _playerVisualHoldStates[entityId] = PlayerVisualPresentationHoldState.CreateActiveAction(
+                    animationState,
+                    state.ActiveActionKind,
+                    state.ActiveActionSequence,
+                    presentationDurationSeconds);
+                return;
+            }
+
+            if (!state.HasActionAttempt ||
+                !TryResolveActionAnimationState(state.ActionAttemptKind, out var attemptAnimationState))
             {
                 return;
             }
 
-            var presentationDurationSeconds = driver.GetPresentationDurationSeconds(
-                state.ActiveActionKind,
+            _playerVisualHoldStates[entityId] = CreateActionAttemptHold(
+                attemptAnimationState,
+                state.ActionAttemptKind,
+                state.ActionAttemptDirection,
+                state.ActionAttemptFeedbackKind,
+                driver,
                 resolvePlayerMotionDurationSeconds != null
-                    ? resolvePlayerMotionDurationSeconds(entityId, state.ActiveActionKind)
+                    ? resolvePlayerMotionDurationSeconds(entityId, state.ActionAttemptKind)
                     : 0f);
-            if (presentationDurationSeconds <= 0f)
-            {
-                _playerVisualHoldStates.Remove(entityId);
-                return;
-            }
-
-            _playerVisualHoldStates[entityId] = new PlayerVisualPresentationHoldState(
-                animationState,
-                state.ActiveActionSequence,
-                presentationDurationSeconds);
         }
 
         private static bool TryResolveActionAnimationState(
@@ -424,6 +522,84 @@ namespace Game.Feature.Gameplay.Host
                     animationState = PlayerViewAnimationState.Idle;
                     return false;
             }
+        }
+
+        private PlayerVisualPresentationHoldState CreateActionAttemptHold(
+            PlayerViewAnimationState animationState,
+            PlayerActionKind actionKind,
+            Direction direction,
+            PlayerActionAttemptFeedbackKind feedbackKind,
+            PlayerAnimatorDriver driver,
+            float resolvedMotionDurationSeconds)
+        {
+            var windupPhase = ResolveWindupPhase(actionKind);
+            var recoveryPhase = ResolveRecoveryPhase(actionKind);
+            var windupDurationSeconds = driver.GetPresentationDurationSeconds(windupPhase);
+            var recoveryDurationSeconds = driver.GetPresentationDurationSeconds(recoveryPhase);
+            var totalDurationSeconds = driver.GetPresentationDurationSeconds(actionKind, resolvedMotionDurationSeconds);
+
+            if (windupDurationSeconds <= 0f &&
+                recoveryDurationSeconds <= 0f)
+            {
+                var halfDurationSeconds = totalDurationSeconds > 0f
+                    ? totalDurationSeconds * 0.5f
+                    : 0.01f;
+                windupDurationSeconds = halfDurationSeconds;
+                recoveryDurationSeconds = halfDurationSeconds;
+            }
+            else if (windupDurationSeconds <= 0f)
+            {
+                windupDurationSeconds = Mathf.Max(0.01f, totalDurationSeconds - recoveryDurationSeconds);
+            }
+            else if (recoveryDurationSeconds <= 0f)
+            {
+                recoveryDurationSeconds = Mathf.Max(0.01f, totalDurationSeconds - windupDurationSeconds);
+            }
+
+            windupDurationSeconds = Mathf.Max(0.01f, windupDurationSeconds);
+            recoveryDurationSeconds = Mathf.Max(0.01f, recoveryDurationSeconds);
+
+            return PlayerVisualPresentationHoldState.CreateActionAttempt(
+                animationState,
+                actionKind,
+                direction,
+                feedbackKind,
+                windupPhase,
+                recoveryPhase,
+                windupDurationSeconds,
+                recoveryDurationSeconds);
+        }
+
+        private static PlayerPresentationPhase ResolveWindupPhase(PlayerActionKind actionKind)
+        {
+            return actionKind switch
+            {
+                PlayerActionKind.Push => PlayerPresentationPhase.PushWindup,
+                PlayerActionKind.Flip => PlayerPresentationPhase.FlipWindup,
+                _ => PlayerPresentationPhase.None,
+            };
+        }
+
+        private static PlayerPresentationPhase ResolveRecoveryPhase(PlayerActionKind actionKind)
+        {
+            return actionKind switch
+            {
+                PlayerActionKind.Push => PlayerPresentationPhase.PushRecovery,
+                PlayerActionKind.Flip => PlayerPresentationPhase.FlipRecovery,
+                _ => PlayerPresentationPhase.None,
+            };
+        }
+
+        private void RemovePlayerVisualHoldUnlessActionAttempt(int entityId)
+        {
+            if (_playerVisualHoldStates.TryGetValue(entityId, out var holdState) &&
+                holdState.Source == PlayerVisualPresentationHoldSource.ActionAttempt &&
+                holdState.IsActive)
+            {
+                return;
+            }
+
+            _playerVisualHoldStates.Remove(entityId);
         }
 
         private bool TryGetEnemyAnimatorDriver(
@@ -498,32 +674,152 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        private enum PlayerVisualPresentationHoldSource
+        {
+            ActiveAction,
+            ActionAttempt,
+        }
+
         private readonly struct PlayerVisualPresentationHoldState
         {
-            public PlayerVisualPresentationHoldState(
+            private PlayerVisualPresentationHoldState(
+                PlayerVisualPresentationHoldSource source,
                 PlayerViewAnimationState animationState,
+                PlayerActionKind actionKind,
                 int actionSequence,
-                float remainingSeconds)
+                Direction direction,
+                PlayerActionAttemptFeedbackKind feedbackKind,
+                PlayerPresentationPhase windupPhase,
+                PlayerPresentationPhase recoveryPhase,
+                float windupDurationSeconds,
+                float recoveryDurationSeconds,
+                float remainingSeconds,
+                float elapsedSeconds)
             {
+                Source = source;
                 AnimationState = animationState;
+                ActionKind = actionKind;
                 ActionSequence = actionSequence;
+                Direction = direction;
+                FeedbackKind = feedbackKind;
+                WindupPhase = windupPhase;
+                RecoveryPhase = recoveryPhase;
+                WindupDurationSeconds = windupDurationSeconds;
+                RecoveryDurationSeconds = recoveryDurationSeconds;
                 RemainingSeconds = remainingSeconds;
+                ElapsedSeconds = elapsedSeconds;
             }
+
+            public PlayerVisualPresentationHoldSource Source { get; }
 
             public PlayerViewAnimationState AnimationState { get; }
 
+            public PlayerActionKind ActionKind { get; }
+
             public int ActionSequence { get; }
+
+            public Direction Direction { get; }
+
+            public PlayerActionAttemptFeedbackKind FeedbackKind { get; }
+
+            public PlayerPresentationPhase WindupPhase { get; }
+
+            public PlayerPresentationPhase RecoveryPhase { get; }
+
+            public float WindupDurationSeconds { get; }
+
+            public float RecoveryDurationSeconds { get; }
 
             public float RemainingSeconds { get; }
 
+            public float ElapsedSeconds { get; }
+
             public bool IsActive => RemainingSeconds > 0f;
+
+            public static PlayerVisualPresentationHoldState CreateActiveAction(
+                PlayerViewAnimationState animationState,
+                PlayerActionKind actionKind,
+                int actionSequence,
+                float remainingSeconds)
+            {
+                return new PlayerVisualPresentationHoldState(
+                    PlayerVisualPresentationHoldSource.ActiveAction,
+                    animationState,
+                    actionKind,
+                    actionSequence,
+                    Direction.None,
+                    PlayerActionAttemptFeedbackKind.None,
+                    PlayerPresentationPhase.None,
+                    PlayerPresentationPhase.None,
+                    windupDurationSeconds: 0f,
+                    recoveryDurationSeconds: 0f,
+                    remainingSeconds,
+                    elapsedSeconds: 0f);
+            }
+
+            public static PlayerVisualPresentationHoldState CreateActionAttempt(
+                PlayerViewAnimationState animationState,
+                PlayerActionKind actionKind,
+                Direction direction,
+                PlayerActionAttemptFeedbackKind feedbackKind,
+                PlayerPresentationPhase windupPhase,
+                PlayerPresentationPhase recoveryPhase,
+                float windupDurationSeconds,
+                float recoveryDurationSeconds)
+            {
+                return new PlayerVisualPresentationHoldState(
+                    PlayerVisualPresentationHoldSource.ActionAttempt,
+                    animationState,
+                    actionKind,
+                    actionSequence: 0,
+                    direction,
+                    feedbackKind,
+                    windupPhase,
+                    recoveryPhase,
+                    windupDurationSeconds,
+                    recoveryDurationSeconds,
+                    windupDurationSeconds + recoveryDurationSeconds,
+                    elapsedSeconds: 0f);
+            }
+
+            public PlayerAnimationPlaybackResolution ToPlaybackResolution()
+            {
+                return new PlayerAnimationPlaybackResolution(
+                    AnimationState,
+                    Source == PlayerVisualPresentationHoldSource.ActionAttempt
+                        ? ResolveCurrentAttemptPhase()
+                        : PlayerPresentationPhase.None,
+                    restart: false,
+                    WindupDurationSeconds + RecoveryDurationSeconds);
+            }
 
             public PlayerVisualPresentationHoldState Advance(float deltaTime)
             {
                 return new PlayerVisualPresentationHoldState(
+                    Source,
                     AnimationState,
+                    ActionKind,
                     ActionSequence,
-                    Mathf.Max(0f, RemainingSeconds - deltaTime));
+                    Direction,
+                    FeedbackKind,
+                    WindupPhase,
+                    RecoveryPhase,
+                    WindupDurationSeconds,
+                    RecoveryDurationSeconds,
+                    Mathf.Max(0f, RemainingSeconds - deltaTime),
+                    Mathf.Max(0f, ElapsedSeconds + Mathf.Max(0f, deltaTime)));
+            }
+
+            private PlayerPresentationPhase ResolveCurrentAttemptPhase()
+            {
+                if (Source != PlayerVisualPresentationHoldSource.ActionAttempt)
+                {
+                    return PlayerPresentationPhase.None;
+                }
+
+                return ElapsedSeconds >= WindupDurationSeconds
+                    ? RecoveryPhase
+                    : WindupPhase;
             }
         }
     }
