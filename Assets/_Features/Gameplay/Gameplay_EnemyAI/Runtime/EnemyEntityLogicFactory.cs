@@ -168,7 +168,7 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
-    internal sealed class EnemyCoreLogicAdapter : IEnemyAiStateLogic, IPreMovementStateLogic, IMovementEntityLogic, IEnemyJumpTimingBinding
+    internal sealed class EnemyCoreLogicAdapter : IEnemyAiStateLogic, IPreMovementStateLogic, IMovementEntityLogic, IMovementEntityDebugLogic, IEnemyJumpTimingBinding
     {
         private readonly EnemyLogic _logic;
 
@@ -210,6 +210,15 @@ namespace Game.Feature.Gameplay.Entities
             List<RawMovementIntent> buffer)
         {
             _logic.CollectMovementIntents(snapshot, input, buffer);
+        }
+
+        public void CollectMovementDebugEvents(
+            WorldSnapshot snapshot,
+            in TickInput input,
+            IReadOnlyList<RawMovementIntent> rawIntents,
+            List<string> debugEvents)
+        {
+            _logic.CollectMovementDebugEvents(snapshot, input, rawIntents, debugEvents);
         }
     }
 

@@ -125,10 +125,12 @@ namespace Game.Feature.Gameplay.Loop
             Array.Empty<string>(),
             Array.Empty<FrontFaceShieldSourcePresentationExport>(),
             Array.Empty<FrontFaceShieldBlockPresentationExport>(),
-            Array.Empty<BarricadeBlockFact>());
+            Array.Empty<BarricadeBlockFact>(),
+            Array.Empty<string>());
 
         private readonly ReadOnlyCollection<BarricadeBlockFact> _barricadeBlockFacts;
         private readonly ReadOnlyCollection<string> _commitEvents;
+        private readonly ReadOnlyCollection<string> _debugEvents;
         private readonly ReadOnlyCollection<FrontFaceShieldBlockPresentationExport> _frontFaceShieldBlockExports;
         private readonly ReadOnlyCollection<FrontFaceShieldSourcePresentationExport> _frontFaceShieldSourceExports;
         private readonly ReadOnlyCollection<ImpactDispositionResolutionRecord> _impactDispositionRecords;
@@ -148,7 +150,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<string> rejectedReasons,
             IEnumerable<FrontFaceShieldSourcePresentationExport> frontFaceShieldSourceExports = null,
             IEnumerable<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports = null,
-            IEnumerable<BarricadeBlockFact> barricadeBlockFacts = null)
+            IEnumerable<BarricadeBlockFact> barricadeBlockFacts = null,
+            IEnumerable<string> debugEvents = null)
         {
             if (rawIntents == null)
             {
@@ -193,6 +196,8 @@ namespace Game.Feature.Gameplay.Loop
             _resolvedOperations = new ReadOnlyCollection<FinalizationOperation>(new List<FinalizationOperation>(resolvedOperations));
             _commitEvents = new ReadOnlyCollection<string>(new List<string>(commitEvents));
             _rejectedReasons = new ReadOnlyCollection<string>(new List<string>(rejectedReasons));
+            _debugEvents = new ReadOnlyCollection<string>(
+                new List<string>(debugEvents ?? Array.Empty<string>()));
             _frontFaceShieldSourceExports = new ReadOnlyCollection<FrontFaceShieldSourcePresentationExport>(
                 new List<FrontFaceShieldSourcePresentationExport>(
                     frontFaceShieldSourceExports ?? Array.Empty<FrontFaceShieldSourcePresentationExport>()));
@@ -219,6 +224,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<string> CommitEvents => _commitEvents;
 
         public IReadOnlyList<string> RejectedReasons => _rejectedReasons;
+
+        public IReadOnlyList<string> DebugEvents => _debugEvents;
 
         internal IReadOnlyList<FrontFaceShieldSourcePresentationExport> FrontFaceShieldSourceExports =>
             _frontFaceShieldSourceExports;

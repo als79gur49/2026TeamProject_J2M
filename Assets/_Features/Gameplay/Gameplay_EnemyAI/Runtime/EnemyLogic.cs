@@ -4,6 +4,7 @@ using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.PlayerControl;
 using UnityEngine;
@@ -24,7 +25,7 @@ namespace Game.Feature.Gameplay.Entities
             in DetectionSettings detectionSettings);
     }
 
-    public sealed class EnemyLogic : IEnemyAiStateLogic, IPreMovementStateLogic, IMovementEntityLogic, IAttackEntityLogic, IEntityLogicSourceBinding
+    public sealed class EnemyLogic : IEnemyAiStateLogic, IPreMovementStateLogic, IMovementEntityLogic, IMovementEntityDebugLogic, IAttackEntityLogic, IEntityLogicSourceBinding
     {
         private readonly struct GroundLocomotionResolution
         {
@@ -362,6 +363,53 @@ namespace Game.Feature.Gameplay.Entities
             }
         }
 
+        public void CollectMovementDebugEvents(
+            WorldSnapshot snapshot,
+            in TickInput input,
+            IReadOnlyList<RawMovementIntent> rawIntents,
+            List<string> debugEvents)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (rawIntents == null)
+            {
+                throw new ArgumentNullException(nameof(rawIntents));
+            }
+
+            if (debugEvents == null)
+            {
+                throw new ArgumentNullException(nameof(debugEvents));
+            }
+
+            if (!HasGlideMovementSkill() ||
+                !TryGetControllableEnemy(snapshot, out var source) ||
+                !snapshot.TryGetEnemyGlideState(_entityId, out var glideState))
+            {
+                return;
+            }
+
+            var result = "Skipped";
+            var reason = ResolveGlideMoveIntentDebugReason(snapshot, source, glideState, input.TickIndex, rawIntents);
+            if (reason == "IntentCreated")
+            {
+                result = "IntentCreated";
+            }
+
+            AppendGlideMoveIntentDebug(
+                debugEvents,
+                snapshot,
+                input.TickIndex,
+                source,
+                glideState,
+                result,
+                reason,
+                TryFindMoveIntent(rawIntents, source.entityId, out var intent) ? intent.Destination : default,
+                hasDestination: reason == "IntentCreated");
+        }
+
         public void CollectAttackIntents(
             WorldSnapshot snapshot,
             in TickInput input,
@@ -574,6 +622,7 @@ namespace Game.Feature.Gameplay.Entities
                     nextState = EnemyGlideQueries.Clear();
                     changed = true;
                     AppendGlideUpdate(updates, _entityId, "ClearDead", nextState);
+                    AppendGlideStateDebug(updates, snapshot, input.TickIndex, source, "ClearDead", nextState);
                 }
 
                 if (changed)
@@ -640,6 +689,7 @@ namespace Game.Feature.Gameplay.Entities
                         hasPreviousState = true;
                         changed = true;
                         AppendGlideUpdate(updates, _entityId, "EnterActive", nextState);
+                        AppendGlideStateDebug(updates, snapshot, input.TickIndex, source, "EnterActive", nextState);
                         continue;
 
                     case EnemyGlidePhase.Active:
@@ -673,6 +723,13 @@ namespace Game.Feature.Gameplay.Entities
                             _entityId,
                             nextState.IsLandingPending ? "EnterLandingPending" : "EnterRecovery",
                             nextState);
+                        AppendGlideStateDebug(
+                            updates,
+                            snapshot,
+                            input.TickIndex,
+                            source,
+                            nextState.IsLandingPending ? "EnterLandingPending" : "EnterRecovery",
+                            nextState);
                         continue;
 
                     case EnemyGlidePhase.LandingPending:
@@ -686,6 +743,7 @@ namespace Game.Feature.Gameplay.Entities
                         hasPreviousState = true;
                         changed = true;
                         AppendGlideUpdate(updates, _entityId, "EnterRecovery", nextState);
+                        AppendGlideStateDebug(updates, snapshot, input.TickIndex, source, "EnterRecovery", nextState);
                         continue;
 
                     case EnemyGlidePhase.Recovery:
@@ -698,6 +756,7 @@ namespace Game.Feature.Gameplay.Entities
                         hasPreviousState = true;
                         changed = true;
                         AppendGlideUpdate(updates, _entityId, "EnterCooldown", nextState);
+                        AppendGlideStateDebug(updates, snapshot, input.TickIndex, source, "EnterCooldown", nextState);
                         continue;
 
                     case EnemyGlidePhase.Cooldown:
@@ -709,6 +768,7 @@ namespace Game.Feature.Gameplay.Entities
                             hasPreviousState = false;
                             changed = true;
                             AppendGlideUpdate(updates, _entityId, "Ready", nextState);
+                            AppendGlideStateDebug(updates, snapshot, input.TickIndex, source, "Ready", nextState);
                         }
 
                         return changed;
@@ -1711,6 +1771,128 @@ namespace Game.Feature.Gameplay.Entities
 
             updates.Add(
                 $"EnemyGlideStateUpdated|E={entityId}|Label={label}|Phase={state.Phase}|Active={(state.IsActive ? 1 : 0)}|LandingPending={(state.IsLandingPending ? 1 : 0)}|Seq={state.Sequence}|WindupUntil={state.WindupUntilTickExclusive}|ActiveUntil={state.ActiveUntilTickExclusive}|RecoveryUntil={state.RecoveryUntilTickExclusive}|CooldownUntil={state.CooldownUntilTickExclusive}|Windup={state.WindupTicks}|Duration={state.DurationTicks}|Recovery={state.RecoveryTicks}|Cooldown={state.CooldownTicks}|LastExited={state.LastExitedTick}|PendingCell={state.LandingPendingCell}");
+        }
+
+        private void AppendGlideStateDebug(
+            List<string> updates,
+            WorldSnapshot snapshot,
+            int tickIndex,
+            in EntityState source,
+            string label,
+            in EnemyGlideRuntimeState state)
+        {
+            var targetSummary = ResolveGlideDebugTargetSummary(snapshot, source);
+            updates.Add(
+                $"EnemyGlideStateDebug|Tick={tickIndex}|E={_entityId}|Label={label}|Phase={state.Phase}|AiMode={source.aiMode}|Pos={source.position}|Facing={source.facing}|LocomotionCooldown={source.enemyLocomotionCooldownTicks}|{targetSummary}");
+        }
+
+        private void AppendGlideMoveIntentDebug(
+            List<string> debugEvents,
+            WorldSnapshot snapshot,
+            int tickIndex,
+            in EntityState source,
+            in EnemyGlideRuntimeState state,
+            string result,
+            string reason,
+            Vector2Int destination,
+            bool hasDestination)
+        {
+            var targetSummary = ResolveGlideDebugTargetSummary(snapshot, source);
+            var destinationSuffix = hasDestination
+                ? $"|Destination=({destination.x},{destination.y})"
+                : string.Empty;
+            debugEvents.Add(
+                $"EnemyGlideMoveIntentDebug|Tick={tickIndex}|E={_entityId}|Phase={state.Phase}|AiMode={source.aiMode}|Pos={source.position}|Facing={source.facing}|LocomotionCooldown={source.enemyLocomotionCooldownTicks}|{targetSummary}|Result={result}|Reason={reason}{destinationSuffix}");
+        }
+
+        private string ResolveGlideMoveIntentDebugReason(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EnemyGlideRuntimeState state,
+            int tickIndex,
+            IReadOnlyList<RawMovementIntent> rawIntents)
+        {
+            if (state.Phase != EnemyGlidePhase.Active)
+            {
+                return "NotActive";
+            }
+
+            if (snapshot.TryGetUnitKinematicPose(source.entityId, out var pose) &&
+                pose.HasAuthoritativeState &&
+                !pose.IsSettledAtAnchor &&
+                pose.Mode == MotionMode.Voluntary)
+            {
+                return "PoseUnsettled";
+            }
+
+            if (ShouldSuppressMovementForJump(snapshot, tickIndex))
+            {
+                return "SuppressedByJump";
+            }
+
+            if (ShouldSuppressMovementForEnemyPhase(snapshot))
+            {
+                return "SuppressedByPhase";
+            }
+
+            if (source.enemyLocomotionCooldownTicks > 0)
+            {
+                return "CooldownBlocked";
+            }
+
+            if (source.aiMode != EnemyAiMode.Chase)
+            {
+                return "NotChase";
+            }
+
+            if (!_detectionStrategy.TryFindTarget(snapshot, source, _detectionSettings, out var chaseTarget))
+            {
+                return "NoTarget";
+            }
+
+            if (!_chaseStrategy.TryBuildMovementIntent(
+                    snapshot,
+                    source,
+                    chaseTarget,
+                    _commonSettings,
+                    _chaseSettings,
+                    out _))
+            {
+                return "ChaseIntentFailed";
+            }
+
+            return TryFindMoveIntent(rawIntents, source.entityId, out _)
+                ? "IntentCreated"
+                : "ChaseIntentFailed";
+        }
+
+        private string ResolveGlideDebugTargetSummary(WorldSnapshot snapshot, in EntityState source)
+        {
+            if (_detectionStrategy.TryFindTarget(snapshot, source, _detectionSettings, out var target))
+            {
+                return $"HasTarget=1|TargetId={target.entityId}|TargetCell={target.position}";
+            }
+
+            return "HasTarget=0|TargetId=-1|TargetCell=None";
+        }
+
+        private static bool TryFindMoveIntent(
+            IReadOnlyList<RawMovementIntent> rawIntents,
+            int entityId,
+            out RawMovementIntent intent)
+        {
+            for (var i = 0; i < rawIntents.Count; i++)
+            {
+                if (rawIntents[i].SourceId == entityId &&
+                    rawIntents[i].CommandKind == MovementCommandKind.Move)
+                {
+                    intent = rawIntents[i];
+                    return true;
+                }
+            }
+
+            intent = default;
+            return false;
         }
 
         private GroundLocomotionResolution ResolveBaselineGroundLocomotion(

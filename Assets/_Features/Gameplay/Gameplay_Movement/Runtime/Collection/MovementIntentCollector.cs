@@ -12,7 +12,8 @@ namespace Game.Feature.Gameplay.Movement.Collection
             WorldSnapshot snapshot,
             in TickInput input,
             IReadOnlyList<IMovementEntityLogic> entityLogics,
-            List<RawMovementIntent> buffer)
+            List<RawMovementIntent> buffer,
+            List<string> debugEvents = null)
         {
             if (snapshot == null)
             {
@@ -37,6 +38,19 @@ namespace Game.Feature.Gameplay.Movement.Collection
             }
 
             ValidateSinglePrimaryIntentPerSource(buffer);
+
+            if (debugEvents == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < entityLogics.Count; i++)
+            {
+                if (entityLogics[i] is IMovementEntityDebugLogic debugLogic)
+                {
+                    debugLogic.CollectMovementDebugEvents(snapshot, in input, buffer, debugEvents);
+                }
+            }
         }
 
         private static void ValidateSinglePrimaryIntentPerSource(List<RawMovementIntent> buffer)

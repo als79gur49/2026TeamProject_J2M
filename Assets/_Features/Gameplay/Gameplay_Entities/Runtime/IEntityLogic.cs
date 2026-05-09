@@ -32,6 +32,15 @@ namespace Game.Feature.Gameplay.Entities
             List<RawMovementIntent> buffer);
     }
 
+    public interface IMovementEntityDebugLogic : IEntityLogic
+    {
+        void CollectMovementDebugEvents(
+            WorldSnapshot snapshot,
+            in TickInput input,
+            IReadOnlyList<RawMovementIntent> rawIntents,
+            List<string> debugEvents);
+    }
+
     public interface IPreMovementStateLogic : IEntityLogic
     {
         void CommitPreMovementState(

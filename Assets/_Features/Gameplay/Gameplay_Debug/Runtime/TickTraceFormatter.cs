@@ -42,6 +42,7 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, "PreMovement.EventLogEntries", preMovementStatePhaseResult.EventLogEntries, FormatString);
             AppendSection(builder, "Movement.RawIntents", movementPhaseResult.RawIntents, FormatRawMovementIntent);
             AppendSection(builder, "Movement.SortedIntents", movementPhaseResult.SortedIntents, FormatMoveIntent);
+            AppendSection(builder, "Movement.DebugEvents", movementPhaseResult.DebugEvents, FormatString);
             AppendSection(builder, "Movement.RejectedReasons", movementPhaseResult.RejectedReasons, FormatString);
             AppendSection(builder, "Movement.Resolutions", movementPhaseResult.ResolutionRecords, FormatResolutionRecord);
             AppendSection(builder, "Movement.ResolvedOperations", movementPhaseResult.ResolvedOperations, FormatFinalizationOperation);
