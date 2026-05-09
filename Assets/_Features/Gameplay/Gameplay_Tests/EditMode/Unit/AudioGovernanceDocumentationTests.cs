@@ -119,11 +119,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("missing owner view => no-op"));
             Assert.That(doc, Does.Contain("missing `GameplayActionAudioAuthoring` => no-op"));
             Assert.That(doc, Does.Contain("component가 존재하면 profile must be non-null and valid"));
-            Assert.That(doc, Does.Contain("Push`: `Windup`, `Contact`, `Blocked`, `ImpactEnemy`"));
-            Assert.That(doc, Does.Contain("Flip`: `Windup`, `Blocked`"));
+            Assert.That(doc, Does.Contain("Push`: `Windup`, `Contact`, `Blocked`, `ImpactEnemy`, `AssistOutOfRange`, `NoTarget`, `Invalid`"));
+            Assert.That(doc, Does.Contain("Flip`: `Windup`, `Blocked`, `AssistOutOfRange`, `NoTarget`, `Invalid`"));
             Assert.That(doc, Does.Contain("Windup` => `StartedThisTick`"));
             Assert.That(doc, Does.Contain("Execute` => `ExecutedThisTick`"));
             Assert.That(doc, Does.Contain("ImpactEnemy` => `ExecutedThisTick && ResolutionKind == Impact`"));
+            Assert.That(doc, Does.Contain("AssistOutOfRange` => `PlayerActionAttemptSignals.FeedbackKind == AssistOutOfRange`"));
+            Assert.That(doc, Does.Contain("fake failure moments는 lifecycle moments를 synthesize하지 않고"));
             Assert.That(doc, Does.Contain("same-tick duplicate suppression은 하지 않는다"));
             Assert.That(doc, Does.Contain("Action-side `ImpactEnemy` may coexist with core `EnemyDamage`"));
             Assert.That(doc, Does.Contain("GameplayPresentationAudioConfig"));

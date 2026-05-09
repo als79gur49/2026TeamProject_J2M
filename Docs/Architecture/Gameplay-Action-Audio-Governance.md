@@ -37,13 +37,13 @@ production prefab contract:
 
 v1 canonical-player required coverage:
 
-- `Push`: `Windup`, `Contact`, `Blocked`, `ImpactEnemy`
-- `Flip`: `Windup`, `Blocked`
+- `Push`: `Windup`, `Contact`, `Blocked`, `ImpactEnemy`, `AssistOutOfRange`, `NoTarget`, `Invalid`
+- `Flip`: `Windup`, `Blocked`, `AssistOutOfRange`, `NoTarget`, `Invalid`
 - `Execute`, `Recovery`, flip contact/impact layering은 optional이다
 
 ## 3. Frozen V1 Moment Mapping
 
-`TickResult`에 audio-specific data를 추가하지 않는다. v1은 existing `PlayerActionSignals`만 읽는다.
+`TickResult`에 audio-specific data를 추가하지 않는다. v1은 actual action lifecycle에는 `PlayerActionSignals`를 읽고, fake Push/Flip attempt failure에는 별도 `PlayerActionAttemptSignals`를 읽는다.
 
 mapping table:
 
@@ -53,15 +53,20 @@ mapping table:
 - `ImpactEnemy` => `ExecutedThisTick && ResolutionKind == Impact`
 - `Blocked` => `ExecutedThisTick && ResolutionKind == Blocked`
 - `Recovery` => `ExecutedThisTick && IsRecoveryPhase`
+- `AssistOutOfRange` => `PlayerActionAttemptSignals.FeedbackKind == AssistOutOfRange`
+- `NoTarget` => `PlayerActionAttemptSignals.FeedbackKind == NoTarget`
+- `Invalid` => `PlayerActionAttemptSignals.FeedbackKind == Invalid`
 
 rules:
 
 - action kind는 `TickPlayerActionPresentationSignal.ActiveActionKind`가 `Push` 또는 `Flip`일 때만 resolve한다
+- fake attempt action kind는 `TickPlayerActionAttemptPresentationSignal.ActionKind`가 `Push` 또는 `Flip`일 때만 resolve한다
 - `ActiveActionKind == None` 이면 no action audio를 emit한다
-- fixed emission order는 `Windup`, `Execute`, `Contact`, `ImpactEnemy`, `Blocked`, `Recovery`
+- fixed lifecycle emission order는 `Windup`, `Execute`, `Contact`, `ImpactEnemy`, `Blocked`, `Recovery`
+- fake failure moments는 lifecycle moments를 synthesize하지 않고 `AssistOutOfRange`, `NoTarget`, `Invalid`만 emit한다
 - same-tick duplicate suppression은 하지 않는다
 - multiple authored one-shots on the same tick intentionally layer and all play in order
-- `ExplicitPushNotStartable` 같은 pre-start rejection은 actionable `PlayerActionSignals`가 없으므로 v1 action audio를 emit하지 않는다
+- `ExplicitPushNotStartable` 같은 pre-start rejection은 fake attempt classification이 `PlayerActionAttemptSignals`를 만든 경우에만 failure audio를 emit한다
 - future support가 필요하면 new non-audio presentation facts를 추가하고 audio semantics를 simulation에 넣지 않는다
 
 ## 4. Action-Side vs Target-Reaction Layering
