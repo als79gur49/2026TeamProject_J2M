@@ -163,6 +163,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void TileFeatureAudioRequestPlanner_BarricadeActiveStateRequests_NoOp()
+        {
+            var planner = new TileFeatureAudioRequestPlanner();
+            var cell = new SurfaceCell(FaceId.Front, 2, 3);
+
+            var requests = planner.BuildRequests(new[]
+            {
+                CreateTilePresentationRequest(
+                    100,
+                    cell,
+                    requestKind: TilePresentationRequestKind.BarricadeActivated,
+                    tileFeatureKind: TileFeatureKind.Barricade),
+                CreateTilePresentationRequest(
+                    101,
+                    cell,
+                    requestKind: TilePresentationRequestKind.BarricadeDeactivated,
+                    tileFeatureKind: TileFeatureKind.Barricade),
+            });
+
+            Assert.That(requests, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void TileFeatureAudioRequestPlanner_ExitRequests_PreservePayload()
         {
             var planner = new TileFeatureAudioRequestPlanner();

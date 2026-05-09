@@ -222,7 +222,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void TileFeaturePlanner_IgnoresDirectionlessSlideAndBarricadeBlockedEvents()
+        public void TileFeaturePlanner_IgnoresDirectionlessAndAnimatorOnlyEvents()
         {
             var topology = new CubeTopologyState(FaceId.Floor);
             var cell = new SurfaceCell(FaceId.Floor, 2, 3);
@@ -230,7 +230,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var plan = PlanTileFeature(
                 topology,
                 new TilePresentationEvent(TilePresentationEventKind.SlideTileRedirected, 1, cell, TileFeatureKind.Slide, 10, 0, 1),
-                new TilePresentationEvent(TilePresentationEventKind.BarricadeBlocked, 2, cell, TileFeatureKind.Barricade, 10, 0, 1));
+                new TilePresentationEvent(TilePresentationEventKind.BarricadeBlocked, 2, cell, TileFeatureKind.Barricade, 10, 0, 1),
+                new TilePresentationEvent(TilePresentationEventKind.BarricadeActivated, 3, cell, TileFeatureKind.Barricade, 10, 0, 1),
+                new TilePresentationEvent(TilePresentationEventKind.BarricadeDeactivated, 4, cell, TileFeatureKind.Barricade, 10, 0, 1));
 
             Assert.That(plan.Requests, Is.Empty);
         }
