@@ -58,20 +58,17 @@ namespace Game.Feature.UI.Screens
                 throw new InvalidOperationException(MissingAuthoredStructureMessage);
             }
 
-            if (_topBar.parent != transform ||
-                _contentHost.parent != transform ||
-                _bottomBar.parent != transform ||
-                _mainCommandPanel.parent != transform ||
-                _saveSlotPanel.transform.parent != _contentHost ||
-                _startButton.transform.parent != _mainCommandPanel ||
-                _settingsButton.transform.parent != _mainCommandPanel ||
-                _quitButton.transform.parent != _mainCommandPanel ||
-                _startButtonLabel.transform.parent != _startButton.transform ||
-                _settingsButtonLabel.transform.parent != _settingsButton.transform ||
-                _quitButtonLabel.transform.parent != _quitButton.transform)
-            {
-                throw new InvalidOperationException(MissingAuthoredStructureMessage);
-            }
+            RequireOwnedBy(_topBar, transform);
+            RequireOwnedBy(_contentHost, transform);
+            RequireOwnedBy(_bottomBar, transform);
+            RequireOwnedBy(_mainCommandPanel, transform);
+            RequireOwnedBy(_saveSlotPanel.transform, _contentHost);
+            RequireOwnedBy(_startButton.transform, _mainCommandPanel);
+            RequireOwnedBy(_settingsButton.transform, _mainCommandPanel);
+            RequireOwnedBy(_quitButton.transform, _mainCommandPanel);
+            RequireOwnedBy(_startButtonLabel.transform, _startButton.transform);
+            RequireOwnedBy(_settingsButtonLabel.transform, _settingsButton.transform);
+            RequireOwnedBy(_quitButtonLabel.transform, _quitButton.transform);
 
             _saveSlotPanel.ValidateAuthoredStructureOrThrow();
         }
@@ -174,6 +171,14 @@ namespace Game.Feature.UI.Screens
             }
 
             button.onClick.RemoveListener(action);
+        }
+
+        private static void RequireOwnedBy(Transform child, Transform owner)
+        {
+            if (child == null || owner == null || !child.IsChildOf(owner))
+            {
+                throw new InvalidOperationException(MissingAuthoredStructureMessage);
+            }
         }
     }
 }
