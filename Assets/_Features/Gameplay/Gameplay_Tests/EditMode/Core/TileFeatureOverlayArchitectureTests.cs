@@ -156,7 +156,8 @@ namespace Game.Feature.Gameplay.Tests.Core
                 "`HasMoonBlockSource` is retained as current/future naming.",
                 "`MoonBlockGenerated` event emits only on actual respawn success.",
                 "Event source is MoonBlockGenerator respawn processor success fact.",
-                "`MoonBlockGeneratorBlocked` is intentionally not implemented.",
+                "`MoonBlockGeneratorBlocked` is debounced presentation-only feedback for generator defer cases.",
+                "`MoonBlockGeneratorBlocked` does not alter respawn gameplay policy.",
                 "`TargetEntityId` is the respawned MoonBlock entity id.",
                 "Final snapshot diffing must not create the event.",
                 "MoonBlockGenerator activation rule is `BottomFaceOnly`.",
@@ -189,8 +190,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 "Exit open is derived from required non-PrimaryGoal conditions complete plus active Exit.",
                 "Exit open is not mutable TileFeature state and must not reuse `TileFeatureFlags.Activated`.",
                 "Same-tick open and enter emits both events, ordered `ExitOpened` before `ExitEntered`.",
-                "No `TilePresentationEventKind.MoonBlockGeneratorBlocked`.",
-                "Blocked/defer feedback requires debounce/noise policy before opening.",
+                "Live MoonBlock no-op and inactive generator do not emit `MoonBlockGeneratorBlocked`.",
             };
 
             for (var i = 0; i < requiredSnippets.Length; i++)
@@ -378,25 +378,25 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
-        public void MoonBlockGeneratorPresentationAudioSurface_OpensGeneratedAndKeepsBlockedClosed()
+        public void MoonBlockGeneratorPresentationAudioSurface_OpensGeneratedAndBlocked()
         {
             Assert.That(Enum.GetNames(typeof(TilePresentationEventKind)), Does.Contain("MoonBlockGenerated"));
-            Assert.That(Enum.GetNames(typeof(TilePresentationEventKind)), Does.Not.Contain("MoonBlockGeneratorBlocked"));
+            Assert.That(Enum.GetNames(typeof(TilePresentationEventKind)), Does.Contain("MoonBlockGeneratorBlocked"));
             Assert.That(Enum.GetNames(typeof(TilePresentationRequestKind)), Does.Contain("MoonBlockGenerated"));
-            Assert.That(Enum.GetNames(typeof(TilePresentationRequestKind)), Does.Not.Contain("MoonBlockGeneratorBlocked"));
+            Assert.That(Enum.GetNames(typeof(TilePresentationRequestKind)), Does.Contain("MoonBlockGeneratorBlocked"));
 
             var audioTypesSource = File.ReadAllText(GetAbsolutePath(TileFeatureAudioTypesPath));
             Assert.That(audioTypesSource, Does.Contain("MoonBlockGenerated"));
-            Assert.That(audioTypesSource, Does.Not.Contain("MoonBlockGeneratorBlocked"));
+            Assert.That(audioTypesSource, Does.Contain("MoonBlockGeneratorBlocked"));
 
             var visualRegistrySource = File.ReadAllText(GetAbsolutePath(
                 "Assets/_Features/Gameplay/Gameplay_Host/Runtime/ITileFeatureVisualRegistry.cs"));
             Assert.That(visualRegistrySource, Does.Contain("IMoonBlockGeneratedVisualTarget"));
-            Assert.That(visualRegistrySource, Does.Not.Contain("IMoonBlockGeneratorBlockedVisualTarget"));
+            Assert.That(visualRegistrySource, Does.Contain("IMoonBlockGeneratorBlockedVisualTarget"));
 
             var requestPlannerSource = File.ReadAllText(GetAbsolutePath(TilePresentationRequestPlannerPath));
             Assert.That(requestPlannerSource, Does.Contain("MoonBlockGenerated"));
-            Assert.That(requestPlannerSource, Does.Not.Contain("MoonBlockGeneratorBlocked"));
+            Assert.That(requestPlannerSource, Does.Contain("MoonBlockGeneratorBlocked"));
         }
 
         [Test]
