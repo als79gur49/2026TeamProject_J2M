@@ -658,6 +658,58 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Is.True);
         }
 
+        [Test]
+        [Category("Extended")]
+        public void PlayerSameFaceContinuousLocomotion_PushInputWhileMovingWithHeldDirection_EmitsFakeAttemptAndStopsKinematicContinuation()
+        {
+            var worldState = CreateWorldState(CreatePlayer(10));
+            var pipeline = CreatePipeline(
+                worldState,
+                GameplayRuntimeFeatureFlags.PlayerSameFaceContinuousLocomotionEnabled);
+
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(
+                2,
+                PlayerTickCommand.Push(Direction.Right, heldMoveDirection: Direction.Right)));
+            var snapshot = worldState.CreateSnapshot();
+
+            AssertPose(snapshot, expectedAnchorX: 0, expectedLocalX: 205, expectedRemainingTicks: 19, expectedElapsedTicks: 1, expectedTotalTicks: 20);
+            Assert.That(snapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.activeAction.IsActive, Is.False);
+            Assert.That(result.PresentationData.EntityMotions, Is.Empty);
+            Assert.That(result.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 10), Is.False);
+            Assert.That(result.PresentationData.PlayerActionSignals, Is.Empty);
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals[0].ActionKind, Is.EqualTo(PlayerActionKind.Push));
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals[0].Direction, Is.EqualTo(Direction.Right));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerSameFaceContinuousLocomotion_FlipInputWhileMovingWithHeldDirection_EmitsFakeAttemptAndStopsKinematicContinuation()
+        {
+            var worldState = CreateWorldState(CreatePlayer(10));
+            var pipeline = CreatePipeline(
+                worldState,
+                GameplayRuntimeFeatureFlags.PlayerSameFaceContinuousLocomotionEnabled);
+
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(
+                2,
+                PlayerTickCommand.Flip(Direction.Right, heldMoveDirection: Direction.Right)));
+            var snapshot = worldState.CreateSnapshot();
+
+            AssertPose(snapshot, expectedAnchorX: 0, expectedLocalX: 205, expectedRemainingTicks: 19, expectedElapsedTicks: 1, expectedTotalTicks: 20);
+            Assert.That(snapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.activeAction.IsActive, Is.False);
+            Assert.That(result.PresentationData.EntityMotions, Is.Empty);
+            Assert.That(result.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 10), Is.False);
+            Assert.That(result.PresentationData.PlayerActionSignals, Is.Empty);
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals[0].ActionKind, Is.EqualTo(PlayerActionKind.Flip));
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals[0].Direction, Is.EqualTo(Direction.Right));
+        }
+
         [TestCase(5, 0, 1024)]
         [TestCase(10, 1, -2048)]
         [TestCase(15, 1, -1024)]

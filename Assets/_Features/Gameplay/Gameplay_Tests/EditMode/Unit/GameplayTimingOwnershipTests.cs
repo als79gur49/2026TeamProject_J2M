@@ -286,6 +286,48 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void PlayerAnimatorDriver_ActionAttemptPush_CrossFadesToPushWindup()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_ActionAttemptPush_CrossFadesToPushWindup");
+
+            try
+            {
+                var authoring = rootObject.GetComponent<PlayerAnimationTimingAuthoring>();
+                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
+
+                Assert.That(authoring, Is.Not.Null);
+                Assert.That(driver, Is.Not.Null);
+
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushWindupAnimatorDurationSeconds", 0.25f);
+
+                driver.Apply(new PlayerViewPresentationState(
+                    10,
+                    1,
+                    PlayerActionKind.None,
+                    0,
+                    startedThisTick: false,
+                    executedThisTick: false,
+                    completedThisTick: false,
+                    canceledThisTick: false,
+                    hasActionAttempt: true,
+                    actionAttemptKind: PlayerActionKind.Push,
+                    actionAttemptDirection: Direction.Right,
+                    actionAttemptFeedbackKind: PlayerActionAttemptFeedbackKind.NoTarget));
+                driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Push);
+
+                Assert.That(driver.ActionStartSignalCount, Is.EqualTo(1));
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Push));
+                Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.PushWindup));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Push_Windup"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void PlayerAnimatorDriver_PushExecute_CrossFadesToRecovery()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_PushExecute_CrossFadesToRecovery");
@@ -332,6 +374,48 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 driver.Apply(new PlayerViewPresentationState(10, 1, PlayerActionKind.Flip, 1, startedThisTick: true, executedThisTick: false, completedThisTick: false, canceledThisTick: false));
                 driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Flip);
 
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Flip));
+                Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.FlipWindup));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Flip_Windup"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerAnimatorDriver_ActionAttemptFlip_CrossFadesToFlipWindup()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_ActionAttemptFlip_CrossFadesToFlipWindup");
+
+            try
+            {
+                var authoring = rootObject.GetComponent<PlayerAnimationTimingAuthoring>();
+                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
+
+                Assert.That(authoring, Is.Not.Null);
+                Assert.That(driver, Is.Not.Null);
+
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipWindupAnimatorDurationSeconds", 0.5f);
+
+                driver.Apply(new PlayerViewPresentationState(
+                    10,
+                    1,
+                    PlayerActionKind.None,
+                    0,
+                    startedThisTick: false,
+                    executedThisTick: false,
+                    completedThisTick: false,
+                    canceledThisTick: false,
+                    hasActionAttempt: true,
+                    actionAttemptKind: PlayerActionKind.Flip,
+                    actionAttemptDirection: Direction.Right,
+                    actionAttemptFeedbackKind: PlayerActionAttemptFeedbackKind.NoTarget));
+                driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Flip);
+
+                Assert.That(driver.ActionStartSignalCount, Is.EqualTo(1));
                 Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Flip));
                 Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.FlipWindup));
                 Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Flip_Windup"));
@@ -796,6 +880,568 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayAnimationSyncCoordinator_ActionAttempt_PrioritizesAttemptOverWalkLoop()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("GameplayAnimationSyncCoordinator_ActionAttempt_PrioritizesAttemptOverWalkLoop");
+
+            try
+            {
+                var view = rootObject.GetComponent<GameplayEntityView>();
+                var viewsByEntityId = new Dictionary<int, GameplayEntityView>
+                {
+                    [10] = view,
+                };
+                var coordinator = new GameplayAnimationSyncCoordinator();
+                coordinator.CacheDrivers(10, view);
+                coordinator.ApplyInitialPlayerPresentation(new Dictionary<int, GameplayEntityPose>());
+
+                coordinator.ApplyTickPresentation(
+                    new TickResult(
+                        1,
+                        Array.Empty<TickPhase>(),
+                        Array.Empty<string>(),
+                        MovementPhaseResult.Empty,
+                        AttackPhaseResult.Empty,
+                        new[] { CreatePlayerEntity() },
+                        Array.Empty<string>(),
+                        new CubeTopologyState(FaceId.Floor),
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            Array.Empty<TickVisibilityChange>(),
+                            Array.Empty<TickTransitionVisibilityChange>(),
+                            Array.Empty<TickPlayerActionPresentationSignal>(),
+                            new[]
+                            {
+                                new TickPlayerLocomotionPresentationSignal(
+                                    10,
+                                    shouldPlayWalkLoop: true,
+                                    moveMotionGeneratedThisTick: true,
+                                    waitingForNextMoveCadence: false),
+                            },
+                            Array.Empty<TickPlayerDamagePresentationSignal>(),
+                            Array.Empty<TickEnemyDamagePresentationSignal>(),
+                            Array.Empty<TickEnemyActionPresentationSignal>(),
+                            Array.Empty<TickEnemyJumpPresentationSignal>(),
+                            Array.Empty<TickEntityExitPresentationSignal>(),
+                            new[]
+                            {
+                                new TickPlayerActionAttemptPresentationSignal(
+                                    10,
+                                    PlayerActionKind.Push,
+                                    Direction.Right,
+                                    PlayerActionAttemptFeedbackKind.NoTarget),
+                            }),
+                        string.Empty,
+                        TickTrace.Empty),
+                    viewsByEntityId,
+                    (_, _) => 0.25f);
+
+                Assert.That(
+                    coordinator.ResolvePlayerAnimationState(10, shouldPlayWalkLoop: true, hasActiveWalkMotion: true),
+                    Is.EqualTo(PlayerViewAnimationState.Push));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayAnimationSyncCoordinator_ActionAttemptPush_HoldsUntilPlaybackComplete_EvenWhenNextTickHasWalk()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("GameplayAnimationSyncCoordinator_ActionAttemptPush_HoldsUntilPlaybackComplete_EvenWhenNextTickHasWalk");
+
+            try
+            {
+                var view = rootObject.GetComponent<GameplayEntityView>();
+                var authoring = rootObject.GetComponent<PlayerAnimationTimingAuthoring>();
+                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushWindupAnimatorDurationSeconds", 0.2f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushRecoveryAnimatorDurationSeconds", 0.2f);
+
+                var viewsByEntityId = new Dictionary<int, GameplayEntityView> { [10] = view };
+                var coordinator = new GameplayAnimationSyncCoordinator();
+                coordinator.CacheDrivers(10, view);
+                coordinator.ApplyInitialPlayerPresentation(new Dictionary<int, GameplayEntityPose>());
+
+                ApplyPlayerPresentationTick(
+                    coordinator,
+                    viewsByEntityId,
+                    tickIndex: 1,
+                    playerLocomotionSignals: new[]
+                    {
+                        CreateWalkLoopSignal(),
+                    },
+                    playerActionAttemptSignals: new[]
+                    {
+                        new TickPlayerActionAttemptPresentationSignal(
+                            10,
+                            PlayerActionKind.Push,
+                            Direction.Right,
+                            PlayerActionAttemptFeedbackKind.NoTarget),
+                    });
+
+                var playback = coordinator.ResolvePlayerAnimationPlayback(10, shouldPlayWalkLoop: true, hasActiveWalkMotion: true);
+                Assert.That(playback.State, Is.EqualTo(PlayerViewAnimationState.Push));
+                Assert.That(playback.PhaseOverride, Is.EqualTo(PlayerPresentationPhase.PushWindup));
+                coordinator.SyncPlayerRuntimeState(10, isVisible: true, playback, resolvedMotionDurationSeconds: 0f, viewsByEntityId);
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Push_Windup"));
+
+                coordinator.AdvancePlayerPresentation(0.1f);
+                ApplyPlayerPresentationTick(
+                    coordinator,
+                    viewsByEntityId,
+                    tickIndex: 2,
+                    playerLocomotionSignals: new[] { CreateWalkLoopSignal() });
+                playback = coordinator.ResolvePlayerAnimationPlayback(10, shouldPlayWalkLoop: true, hasActiveWalkMotion: true);
+                Assert.That(playback.State, Is.EqualTo(PlayerViewAnimationState.Push));
+                Assert.That(playback.PhaseOverride, Is.EqualTo(PlayerPresentationPhase.PushWindup));
+
+                coordinator.AdvancePlayerPresentation(0.15f);
+                ApplyPlayerPresentationTick(
+                    coordinator,
+                    viewsByEntityId,
+                    tickIndex: 3,
+                    playerLocomotionSignals: new[] { CreateWalkLoopSignal() });
+                playback = coordinator.ResolvePlayerAnimationPlayback(10, shouldPlayWalkLoop: true, hasActiveWalkMotion: true);
+                Assert.That(playback.State, Is.EqualTo(PlayerViewAnimationState.Push));
+                Assert.That(playback.PhaseOverride, Is.EqualTo(PlayerPresentationPhase.PushRecovery));
+                coordinator.SyncPlayerRuntimeState(10, isVisible: true, playback, resolvedMotionDurationSeconds: 0f, viewsByEntityId);
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Push_Recovery"));
+
+                coordinator.AdvancePlayerPresentation(0.2f);
+                ApplyPlayerPresentationTick(
+                    coordinator,
+                    viewsByEntityId,
+                    tickIndex: 4,
+                    playerLocomotionSignals: new[] { CreateWalkLoopSignal() });
+                playback = coordinator.ResolvePlayerAnimationPlayback(10, shouldPlayWalkLoop: true, hasActiveWalkMotion: true);
+                Assert.That(playback.State, Is.EqualTo(PlayerViewAnimationState.WalkLoop));
+                Assert.That(playback.PhaseOverride, Is.EqualTo(PlayerPresentationPhase.None));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayAnimationSyncCoordinator_ActionAttemptFlip_HoldsUntilPlaybackComplete_EvenWhenNextTickHasWalk()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("GameplayAnimationSyncCoordinator_ActionAttemptFlip_HoldsUntilPlaybackComplete_EvenWhenNextTickHasWalk");
+
+            try
+            {
+                var view = rootObject.GetComponent<GameplayEntityView>();
+                var authoring = rootObject.GetComponent<PlayerAnimationTimingAuthoring>();
+                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipWindupAnimatorDurationSeconds", 0.15f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipRecoveryAnimatorDurationSeconds", 0.25f);
+
+                var viewsByEntityId = new Dictionary<int, GameplayEntityView> { [10] = view };
+                var coordinator = new GameplayAnimationSyncCoordinator();
+                coordinator.CacheDrivers(10, view);
+                coordinator.ApplyInitialPlayerPresentation(new Dictionary<int, GameplayEntityPose>());
+
+                ApplyPlayerPresentationTick(
+                    coordinator,
+                    viewsByEntityId,
+                    tickIndex: 1,
+                    playerLocomotionSignals: new[] { CreateWalkLoopSignal() },
+                    playerActionAttemptSignals: new[]
+                    {
+                        new TickPlayerActionAttemptPresentationSignal(
+                            10,
+                            PlayerActionKind.Flip,
+                            Direction.Right,
+                            PlayerActionAttemptFeedbackKind.NoTarget),
+                    });
+
+                var playback = coordinator.ResolvePlayerAnimationPlayback(10, shouldPlayWalkLoop: true, hasActiveWalkMotion: true);
+                Assert.That(playback.State, Is.EqualTo(PlayerViewAnimationState.Flip));
+                Assert.That(playback.PhaseOverride, Is.EqualTo(PlayerPresentationPhase.FlipWindup));
+                coordinator.SyncPlayerRuntimeState(10, isVisible: true, playback, resolvedMotionDurationSeconds: 0f, viewsByEntityId);
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Flip_Windup"));
+
+                coordinator.AdvancePlayerPresentation(0.2f);
+                ApplyPlayerPresentationTick(
+                    coordinator,
+                    viewsByEntityId,
+                    tickIndex: 2,
+                    playerLocomotionSignals: new[] { CreateWalkLoopSignal() });
+                playback = coordinator.ResolvePlayerAnimationPlayback(10, shouldPlayWalkLoop: true, hasActiveWalkMotion: true);
+                Assert.That(playback.State, Is.EqualTo(PlayerViewAnimationState.Flip));
+                Assert.That(playback.PhaseOverride, Is.EqualTo(PlayerPresentationPhase.FlipRecovery));
+                coordinator.SyncPlayerRuntimeState(10, isVisible: true, playback, resolvedMotionDurationSeconds: 0f, viewsByEntityId);
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Flip_Recovery"));
+
+                coordinator.AdvancePlayerPresentation(0.25f);
+                ApplyPlayerPresentationTick(
+                    coordinator,
+                    viewsByEntityId,
+                    tickIndex: 3,
+                    playerLocomotionSignals: new[] { CreateWalkLoopSignal() });
+                playback = coordinator.ResolvePlayerAnimationPlayback(10, shouldPlayWalkLoop: true, hasActiveWalkMotion: true);
+                Assert.That(playback.State, Is.EqualTo(PlayerViewAnimationState.WalkLoop));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayAnimationSyncCoordinator_RealActionStart_ClearsActionAttemptHold()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("GameplayAnimationSyncCoordinator_RealActionStart_ClearsActionAttemptHold");
+
+            try
+            {
+                var view = rootObject.GetComponent<GameplayEntityView>();
+                var authoring = rootObject.GetComponent<PlayerAnimationTimingAuthoring>();
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushWindupAnimatorDurationSeconds", 0.2f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushRecoveryAnimatorDurationSeconds", 0.2f);
+
+                var viewsByEntityId = new Dictionary<int, GameplayEntityView> { [10] = view };
+                var coordinator = new GameplayAnimationSyncCoordinator();
+                coordinator.CacheDrivers(10, view);
+                coordinator.ApplyInitialPlayerPresentation(new Dictionary<int, GameplayEntityPose>());
+
+                ApplyPlayerPresentationTick(
+                    coordinator,
+                    viewsByEntityId,
+                    tickIndex: 1,
+                    playerActionAttemptSignals: new[]
+                    {
+                        new TickPlayerActionAttemptPresentationSignal(
+                            10,
+                            PlayerActionKind.Push,
+                            Direction.Right,
+                            PlayerActionAttemptFeedbackKind.NoTarget),
+                    });
+
+                coordinator.AdvancePlayerPresentation(0.1f);
+                ApplyPlayerPresentationTick(
+                    coordinator,
+                    viewsByEntityId,
+                    tickIndex: 2,
+                    playerActionSignals: new[]
+                    {
+                        new TickPlayerActionPresentationSignal(
+                            10,
+                            PlayerActionKind.Push,
+                            7,
+                            startedThisTick: true,
+                            completedThisTick: false,
+                            canceledThisTick: false),
+                    });
+
+                var playback = coordinator.ResolvePlayerAnimationPlayback(10, shouldPlayWalkLoop: true, hasActiveWalkMotion: true);
+                Assert.That(playback.State, Is.EqualTo(PlayerViewAnimationState.Push));
+                Assert.That(playback.PhaseOverride, Is.EqualTo(PlayerPresentationPhase.None));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayAnimationSyncCoordinator_Death_ClearsActionAttemptHold()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("GameplayAnimationSyncCoordinator_Death_ClearsActionAttemptHold");
+
+            try
+            {
+                var view = rootObject.GetComponent<GameplayEntityView>();
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var viewsByEntityId = new Dictionary<int, GameplayEntityView> { [10] = view };
+                var coordinator = new GameplayAnimationSyncCoordinator();
+                coordinator.CacheDrivers(10, view);
+                coordinator.ApplyInitialPlayerPresentation(new Dictionary<int, GameplayEntityPose>());
+
+                ApplyPlayerPresentationTick(
+                    coordinator,
+                    viewsByEntityId,
+                    tickIndex: 1,
+                    playerActionAttemptSignals: new[]
+                    {
+                        new TickPlayerActionAttemptPresentationSignal(
+                            10,
+                            PlayerActionKind.Flip,
+                            Direction.Right,
+                            PlayerActionAttemptFeedbackKind.NoTarget),
+                    });
+
+                coordinator.AdvancePlayerPresentation(0.1f);
+                coordinator.ApplyTickPresentation(
+                    new TickResult(
+                        2,
+                        Array.Empty<TickPhase>(),
+                        Array.Empty<string>(),
+                        MovementPhaseResult.Empty,
+                        AttackPhaseResult.Empty,
+                        Array.Empty<EntityState>(),
+                        Array.Empty<string>(),
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            new[]
+                            {
+                                new TickVisibilityChange(10, TickVisibilityChangeKind.Remove, sourceCell, topology, Direction.Right),
+                            },
+                            Array.Empty<TickTransitionVisibilityChange>(),
+                            Array.Empty<TickPlayerActionPresentationSignal>(),
+                            Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                            new[]
+                            {
+                                new TickPlayerDamagePresentationSignal(10, tookDamageThisTick: true, damageAmount: 1),
+                            },
+                            Array.Empty<TickEnemyActionPresentationSignal>(),
+                            Array.Empty<TickEnemyJumpPresentationSignal>(),
+                            Array.Empty<TickEntityExitPresentationSignal>()),
+                        string.Empty,
+                        TickTrace.Empty),
+                    viewsByEntityId,
+                    (_, _) => 0.4f);
+
+                var playback = coordinator.ResolvePlayerAnimationPlayback(10, shouldPlayWalkLoop: true, hasActiveWalkMotion: true);
+                Assert.That(playback.State, Is.EqualTo(PlayerViewAnimationState.Death));
+                Assert.That(playback.PhaseOverride, Is.EqualTo(PlayerPresentationPhase.None));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayAnimationSyncCoordinator_NewActionAttempt_ReplacesExistingAttemptHold()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("GameplayAnimationSyncCoordinator_NewActionAttempt_ReplacesExistingAttemptHold");
+
+            try
+            {
+                var view = rootObject.GetComponent<GameplayEntityView>();
+                var authoring = rootObject.GetComponent<PlayerAnimationTimingAuthoring>();
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushWindupAnimatorDurationSeconds", 0.2f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushRecoveryAnimatorDurationSeconds", 0.2f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipWindupAnimatorDurationSeconds", 0.2f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipRecoveryAnimatorDurationSeconds", 0.2f);
+
+                var viewsByEntityId = new Dictionary<int, GameplayEntityView> { [10] = view };
+                var coordinator = new GameplayAnimationSyncCoordinator();
+                coordinator.CacheDrivers(10, view);
+                coordinator.ApplyInitialPlayerPresentation(new Dictionary<int, GameplayEntityPose>());
+
+                ApplyPlayerPresentationTick(
+                    coordinator,
+                    viewsByEntityId,
+                    tickIndex: 1,
+                    playerActionAttemptSignals: new[]
+                    {
+                        new TickPlayerActionAttemptPresentationSignal(
+                            10,
+                            PlayerActionKind.Push,
+                            Direction.Right,
+                            PlayerActionAttemptFeedbackKind.NoTarget),
+                    });
+                Assert.That(
+                    coordinator.ResolvePlayerAnimationPlayback(10, shouldPlayWalkLoop: false, hasActiveWalkMotion: false).State,
+                    Is.EqualTo(PlayerViewAnimationState.Push));
+
+                coordinator.AdvancePlayerPresentation(0.1f);
+                ApplyPlayerPresentationTick(
+                    coordinator,
+                    viewsByEntityId,
+                    tickIndex: 2,
+                    playerActionAttemptSignals: new[]
+                    {
+                        new TickPlayerActionAttemptPresentationSignal(
+                            10,
+                            PlayerActionKind.Flip,
+                            Direction.Left,
+                            PlayerActionAttemptFeedbackKind.AssistOutOfRange),
+                    });
+
+                var playback = coordinator.ResolvePlayerAnimationPlayback(10, shouldPlayWalkLoop: false, hasActiveWalkMotion: false);
+                Assert.That(playback.State, Is.EqualTo(PlayerViewAnimationState.Flip));
+                Assert.That(playback.PhaseOverride, Is.EqualTo(PlayerPresentationPhase.FlipWindup));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayAnimationSyncCoordinator_ActionAttemptHoldQuery_TracksOnlyFakeAttemptHold()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("GameplayAnimationSyncCoordinator_ActionAttemptHoldQuery_TracksOnlyFakeAttemptHold");
+
+            try
+            {
+                var view = rootObject.GetComponent<GameplayEntityView>();
+                var authoring = rootObject.GetComponent<PlayerAnimationTimingAuthoring>();
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushWindupAnimatorDurationSeconds", 0.2f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushRecoveryAnimatorDurationSeconds", 0.2f);
+
+                var viewsByEntityId = new Dictionary<int, GameplayEntityView> { [10] = view };
+                var coordinator = new GameplayAnimationSyncCoordinator();
+                coordinator.CacheDrivers(10, view);
+                coordinator.ApplyInitialPlayerPresentation(new Dictionary<int, GameplayEntityPose>());
+
+                ApplyPlayerPresentationTick(
+                    coordinator,
+                    viewsByEntityId,
+                    tickIndex: 1,
+                    playerActionAttemptSignals: new[]
+                    {
+                        new TickPlayerActionAttemptPresentationSignal(
+                            10,
+                            PlayerActionKind.Push,
+                            Direction.Right,
+                            PlayerActionAttemptFeedbackKind.NoTarget),
+                    });
+                Assert.That(coordinator.IsPlayerActionAttemptHoldActive(10), Is.True);
+
+                ApplyPlayerPresentationTick(
+                    coordinator,
+                    viewsByEntityId,
+                    tickIndex: 2,
+                    playerActionSignals: new[]
+                    {
+                        new TickPlayerActionPresentationSignal(
+                            10,
+                            PlayerActionKind.Push,
+                            7,
+                            startedThisTick: true,
+                            completedThisTick: false,
+                            canceledThisTick: false),
+                    });
+                Assert.That(coordinator.IsPlayerActionAttemptHoldActive(10), Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayInputHost_ActionAttemptPlaybackActive_SuppressesMoveCommandAndPendingActions()
+        {
+            var playerViewObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("GameplayInputHost_ActionAttemptPlaybackActive_PlayerView");
+            var presenterObject = new GameObject("GameplayInputHost_ActionAttemptPlaybackActive_Presenter");
+            var inputHostObject = new GameObject("GameplayInputHost_ActionAttemptPlaybackActive_InputHost");
+
+            try
+            {
+                var view = playerViewObject.GetComponent<GameplayEntityView>();
+                var authoring = playerViewObject.GetComponent<PlayerAnimationTimingAuthoring>();
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushWindupAnimatorDurationSeconds", 0.2f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushRecoveryAnimatorDurationSeconds", 0.2f);
+
+                var presenter = presenterObject.AddComponent<GameplayTickViewPresenter>();
+                var coordinator = ReadPrivateField<GameplayTickPresentationCoordinator>(
+                    presenter,
+                    "_presentationCoordinator");
+                var animationSync = ReadPrivateField<GameplayAnimationSyncCoordinator>(
+                    coordinator,
+                    "_animationSync");
+                var viewsByEntityId = new Dictionary<int, GameplayEntityView> { [10] = view };
+                animationSync.CacheDrivers(10, view);
+                animationSync.ApplyInitialPlayerPresentation(new Dictionary<int, GameplayEntityPose>());
+                ApplyPlayerPresentationTick(
+                    animationSync,
+                    viewsByEntityId,
+                    tickIndex: 1,
+                    playerActionAttemptSignals: new[]
+                    {
+                        new TickPlayerActionAttemptPresentationSignal(
+                            10,
+                            PlayerActionKind.Push,
+                            Direction.Right,
+                            PlayerActionAttemptFeedbackKind.NoTarget),
+                    });
+
+                var inputHost = inputHostObject.AddComponent<GameplayInputHost>();
+                InitializeInputHostForCommandTest(inputHost, presenter);
+                inputHost.SetRawMoveInput(Vector2.right);
+                inputHost.BufferPush();
+                inputHost.BufferFlip();
+                InvokeInstanceMethod(inputHost, "BufferUiPush", Direction.Right);
+                InvokeInstanceMethod(inputHost, "BufferUiFlip", Direction.Left);
+
+                var command = (PlayerTickCommand)InvokeInstanceMethod(inputHost, "BuildPlayerCommand");
+
+                Assert.That(presenter.IsPlayerActionAttemptPlaybackActive(10), Is.True);
+                Assert.That(command.MoveDirection, Is.EqualTo(Direction.None));
+                Assert.That(command.PushPressed, Is.False);
+                Assert.That(command.FlipPressed, Is.False);
+                Assert.That(ReadPrivateField<bool>(inputHost, "_hasBufferedPush"), Is.False);
+                Assert.That(ReadPrivateField<bool>(inputHost, "_hasBufferedFlip"), Is.False);
+                Assert.That(ReadPrivateField<bool>(inputHost, "_hasBufferedUiPush"), Is.False);
+                Assert.That(ReadPrivateField<bool>(inputHost, "_hasBufferedUiFlip"), Is.False);
+                Assert.That(ReadPrivateField<Direction>(inputHost, "_uiBufferedPushDirection"), Is.EqualTo(Direction.None));
+                Assert.That(ReadPrivateField<Direction>(inputHost, "_uiBufferedFlipDirection"), Is.EqualTo(Direction.None));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(playerViewObject);
+                UnityEngine.Object.DestroyImmediate(presenterObject);
+                UnityEngine.Object.DestroyImmediate(inputHostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayInputHost_ActionAttemptSignal_ClearsBufferedMoveIntent()
+        {
+            var inputHostObject = new GameObject("GameplayInputHost_ActionAttemptSignal_ClearsBufferedMoveIntent");
+
+            try
+            {
+                var inputHost = inputHostObject.AddComponent<GameplayInputHost>();
+                InitializeInputHostForCommandTest(inputHost, presenter: null);
+                inputHost.SetRawMoveInput(Vector2.right);
+                inputHost.SetRawMoveInput(Vector2.zero);
+
+                var bufferedCommand = (PlayerTickCommand)InvokeInstanceMethod(inputHost, "BuildPlayerCommand");
+                Assert.That(bufferedCommand.MoveDirection, Is.EqualTo(Direction.Right));
+
+                InvokeInstanceMethod(
+                    inputHost,
+                    "ApplyAcceptedBufferedInput",
+                    CreateActionAttemptTickResult(
+                        new TickPlayerActionAttemptPresentationSignal(
+                            10,
+                            PlayerActionKind.Push,
+                            Direction.Right,
+                            PlayerActionAttemptFeedbackKind.NoTarget)));
+
+                var clearedCommand = (PlayerTickCommand)InvokeInstanceMethod(inputHost, "BuildPlayerCommand");
+                Assert.That(clearedCommand.MoveDirection, Is.EqualTo(Direction.None));
+                Assert.That(clearedCommand.PushPressed, Is.False);
+                Assert.That(clearedCommand.FlipPressed, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(inputHostObject);
             }
         }
 
@@ -2475,6 +3121,115 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 boardPresence = EntityBoardPresence.Occupying,
                 aiMode = EnemyAiMode.None,
             };
+        }
+
+        private static TickPlayerLocomotionPresentationSignal CreateWalkLoopSignal()
+        {
+            return new TickPlayerLocomotionPresentationSignal(
+                10,
+                shouldPlayWalkLoop: true,
+                moveMotionGeneratedThisTick: true,
+                waitingForNextMoveCadence: false);
+        }
+
+        private static void ApplyPlayerPresentationTick(
+            GameplayAnimationSyncCoordinator coordinator,
+            IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId,
+            int tickIndex,
+            IEnumerable<TickPlayerActionPresentationSignal> playerActionSignals = null,
+            IEnumerable<TickPlayerLocomotionPresentationSignal> playerLocomotionSignals = null,
+            IEnumerable<TickPlayerActionAttemptPresentationSignal> playerActionAttemptSignals = null)
+        {
+            coordinator.ApplyTickPresentation(
+                new TickResult(
+                    tickIndex,
+                    Array.Empty<TickPhase>(),
+                    Array.Empty<string>(),
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    new[] { CreatePlayerEntity() },
+                    Array.Empty<string>(),
+                    new CubeTopologyState(FaceId.Floor),
+                    new TickPresentationData(
+                        Array.Empty<TickEntityMotion>(),
+                        topologyMotion: null,
+                        Array.Empty<TickVisibilityChange>(),
+                        Array.Empty<TickTransitionVisibilityChange>(),
+                        playerActionSignals ?? Array.Empty<TickPlayerActionPresentationSignal>(),
+                        playerLocomotionSignals ?? Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                        Array.Empty<TickPlayerDamagePresentationSignal>(),
+                        Array.Empty<TickEnemyDamagePresentationSignal>(),
+                        Array.Empty<TickEnemyActionPresentationSignal>(),
+                        Array.Empty<TickEnemyJumpPresentationSignal>(),
+                        Array.Empty<TickEntityExitPresentationSignal>(),
+                        playerActionAttemptSignals),
+                    string.Empty,
+                    TickTrace.Empty),
+                viewsByEntityId,
+                (_, _) => 0.4f);
+        }
+
+        private static void InitializeInputHostForCommandTest(
+            GameplayInputHost inputHost,
+            GameplayTickViewPresenter presenter)
+        {
+            var bufferType = typeof(GameplayInputHost).Assembly.GetType("Game.Feature.Gameplay.Host.PlayerMoveIntentBuffer");
+            Assert.That(bufferType, Is.Not.Null);
+
+            SetPrivateField(inputHost, "_isInitialized", true);
+            SetPrivateField(inputHost, "_playerEntityId", 10);
+            SetPrivateField(inputHost, "_presenter", presenter);
+            SetPrivateField(inputHost, "_moveIntentBuffer", Activator.CreateInstance(bufferType, 1f));
+        }
+
+        private static TickResult CreateActionAttemptTickResult(
+            TickPlayerActionAttemptPresentationSignal playerActionAttemptSignal)
+        {
+            return new TickResult(
+                1,
+                Array.Empty<TickPhase>(),
+                Array.Empty<string>(),
+                MovementPhaseResult.Empty,
+                AttackPhaseResult.Empty,
+                new[] { CreatePlayerEntity() },
+                Array.Empty<string>(),
+                new CubeTopologyState(FaceId.Floor),
+                new TickPresentationData(
+                    Array.Empty<TickEntityMotion>(),
+                    topologyMotion: null,
+                    Array.Empty<TickVisibilityChange>(),
+                    Array.Empty<TickTransitionVisibilityChange>(),
+                    Array.Empty<TickPlayerActionPresentationSignal>(),
+                    Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                    Array.Empty<TickPlayerDamagePresentationSignal>(),
+                    Array.Empty<TickEnemyDamagePresentationSignal>(),
+                    Array.Empty<TickEnemyActionPresentationSignal>(),
+                    Array.Empty<TickEnemyJumpPresentationSignal>(),
+                    Array.Empty<TickEntityExitPresentationSignal>(),
+                    new[] { playerActionAttemptSignal }),
+                string.Empty,
+                TickTrace.Empty);
+        }
+
+        private static T ReadPrivateField<T>(object target, string fieldName)
+        {
+            var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            return (T)field.GetValue(target);
+        }
+
+        private static void SetPrivateField(object target, string fieldName, object value)
+        {
+            var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            field.SetValue(target, value);
+        }
+
+        private static object InvokeInstanceMethod(object target, string methodName, params object[] args)
+        {
+            var method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            return method.Invoke(target, args);
         }
 
         private static StageContentEntry CreateStageContentEntry(string stageId)
