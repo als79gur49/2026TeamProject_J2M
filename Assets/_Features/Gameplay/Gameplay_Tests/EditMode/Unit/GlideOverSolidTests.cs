@@ -517,13 +517,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         [Category("Extended")]
         [Category("GlideDebug")]
-        public void GlideActive_NotChase_TraceShowsNotActiveGlideParticipant()
+        public void GlideActive_PatrolNoTarget_UsesLockedStepAndCreatesKinematicPayload()
         {
             var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
                 new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 6, recoveryTicks: 1, cooldownTicks: 0));
             var worldState = CreateWorldState(new[]
             {
-                CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Attack),
+                CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Patrol),
             });
             worldState.CreateWriteContext().SetEnemyGlideState(
                 40,
@@ -536,12 +536,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var tick = pipeline.RunTick(new TickInput(1));
 
                 Assert.That(tick.Trace.Text, Does.Contain("EnemyGlideMoveIntentDebug|Tick=1|E=40"));
-                Assert.That(tick.Trace.Text, Does.Contain("Result=Skipped|Reason=NotChase"));
+                Assert.That(tick.Trace.Text, Does.Contain("AiMode=Patrol"));
+                Assert.That(tick.Trace.Text, Does.Contain("HasTarget=0|TargetId=-1|TargetCell=None"));
+                Assert.That(tick.Trace.Text, Does.Contain("Result=IntentCreated|Reason=IntentCreated"));
+                Assert.That(tick.Trace.Text, Does.Contain("EnemyGlideKinematicStartDebug|Tick=1|E=40"));
+                Assert.That(tick.Trace.Text, Does.Contain("Result=PayloadCreated"));
+                Assert.That(HasGlideActiveKinematicAnchorCommit(tick, 40), Is.True);
 
                 var scriptedWorldState = CreateWorldState(new[]
                 {
-                    CreateUnit(10, teamId: 1, new SurfaceCell(FaceId.Floor, 3, 0), EnemyAiMode.None),
-                    CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Attack),
+                    CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Patrol),
                 });
                 scriptedWorldState.CreateWriteContext().SetEnemyGlideState(
                     40,
@@ -552,7 +556,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var scriptedTick = scriptedPipeline.RunTick(new TickInput(1));
 
                 Assert.That(scriptedTick.Trace.Text, Does.Contain("EnemyGlideKinematicStartDebug|Tick=1|E=40"));
-                Assert.That(scriptedTick.Trace.Text, Does.Contain("Result=NotActiveGlideParticipant"));
+                Assert.That(scriptedTick.Trace.Text, Does.Contain("Result=PayloadCreated"));
+                Assert.That(HasGlideActiveKinematicAnchorCommit(scriptedTick, 40), Is.True);
             }
             finally
             {
@@ -583,9 +588,99 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var tick = pipeline.RunTick(new TickInput(1));
 
                 Assert.That(tick.Trace.Text, Does.Contain("EnemyGlideMoveIntentDebug|Tick=1|E=40"));
+                Assert.That(tick.Trace.Text, Does.Contain("LockedStep=(1,0)"));
                 Assert.That(tick.Trace.Text, Does.Contain("Result=IntentCreated|Reason=IntentCreated"));
                 Assert.That(tick.Trace.Text, Does.Contain("EnemyGlideKinematicStartDebug|Tick=1|E=40"));
                 Assert.That(tick.Trace.Text, Does.Contain("Result=PayloadCreated"));
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        [Category("GlideDebug")]
+        public void GlideWindup_TargetLostBeforeActive_ContinuesUsingLockedStep()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(windupTicks: 1, durationTicks: 6, recoveryTicks: 1, cooldownTicks: 0));
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(10, teamId: 1, new SurfaceCell(FaceId.Floor, 3, 0), EnemyAiMode.None),
+                CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Chase),
+            });
+
+            try
+            {
+                var pipeline = CreateGlideDebugPipeline(profile, worldState);
+
+                var windupTick = pipeline.RunTick(new TickInput(1));
+                Assert.That(windupTick.Trace.Text, Does.Contain("EnemyGlideStateDebug|Tick=1|E=40|Label=Start"));
+                Assert.That(windupTick.Trace.Text, Does.Contain("LockedStep=(1,0)"));
+
+                var writeContext = worldState.CreateWriteContext();
+                writeContext.RemoveEntity(10);
+                writeContext.ApplyEnemyAiState(40, EnemyAiMode.Patrol, 0);
+
+                var activeTick = pipeline.RunTick(new TickInput(2));
+
+                Assert.That(activeTick.Trace.Text, Does.Contain("EnemyGlideStateDebug|Tick=2|E=40|Label=EnterActive"));
+                Assert.That(activeTick.Trace.Text, Does.Contain("AiMode=Patrol"));
+                Assert.That(activeTick.Trace.Text, Does.Contain("Result=IntentCreated|Reason=IntentCreated"));
+                Assert.That(activeTick.Trace.Text, Does.Contain("EnemyGlideKinematicStartDebug|Tick=2|E=40"));
+                Assert.That(activeTick.Trace.Text, Does.Contain("Result=PayloadCreated"));
+                Assert.That(activeTick.Trace.Text, Does.Not.Contain("Reason=NotChase"));
+                Assert.That(activeTick.Trace.Text, Does.Not.Contain("Result=NotActiveGlideParticipant"));
+                Assert.That(HasGlideActiveKinematicAnchorCommit(activeTick, 40), Is.True);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        [Category("GlideDebug")]
+        public void GlideLandingPending_TargetLost_EgressesUsingLockedStep()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 3, recoveryTicks: 1, cooldownTicks: 0));
+            var wallCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateWall(30, wallCell),
+                CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Patrol),
+            });
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetEnemyGlideState(
+                40,
+                CreateActiveGlide(activeUntilTickExclusive: 3, durationTicks: 3, cooldownTicks: 0, recoveryTicks: 1));
+            writeContext.MoveEntity(40, wallCell);
+            writeContext.SetEnemyGlideState(
+                40,
+                CreateGlideState(
+                    EnemyGlidePhase.LandingPending,
+                    activeUntilTickExclusive: 3,
+                    durationTicks: 3,
+                    recoveryTicks: 1,
+                    cooldownTicks: 0,
+                    landingPendingCell: wallCell,
+                    hasLockedStep: true,
+                    lockedStepX: 1,
+                    lockedStepY: 0));
+
+            try
+            {
+                var pipeline = CreateGlideDebugPipeline(profile, worldState);
+
+                var tick = pipeline.RunTick(new TickInput(4));
+
+                Assert.That(HasGlideLandingPendingKinematicAnchorCommit(tick, 40), Is.True);
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(enemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
             }
             finally
             {
@@ -1156,14 +1251,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int activeUntilTickExclusive,
             int durationTicks,
             int cooldownTicks,
-            int recoveryTicks = 0)
+            int recoveryTicks = 0,
+            int lockedStepX = 1,
+            int lockedStepY = 0)
         {
             return CreateGlideState(
                 EnemyGlidePhase.Active,
                 activeUntilTickExclusive: activeUntilTickExclusive,
                 durationTicks: durationTicks,
                 recoveryTicks: recoveryTicks,
-                cooldownTicks: cooldownTicks);
+                cooldownTicks: cooldownTicks,
+                hasLockedStep: true,
+                lockedStepX: lockedStepX,
+                lockedStepY: lockedStepY);
         }
 
         private static EnemyGlideRuntimeState CreateGlideState(
@@ -1178,7 +1278,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int recoveryTicks = 0,
             int cooldownTicks = 1,
             int lastExitedTick = 0,
-            SurfaceCell landingPendingCell = default)
+            SurfaceCell landingPendingCell = default,
+            bool hasLockedStep = false,
+            int lockedStepX = 0,
+            int lockedStepY = 0)
         {
             return EnemyGlideRuntimeState.Create(
                 phase,
@@ -1192,7 +1295,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 recoveryTicks,
                 cooldownTicks,
                 lastExitedTick,
-                landingPendingCell);
+                landingPendingCell,
+                hasLockedStep,
+                lockedStepX,
+                lockedStepY);
         }
 
         private static void AssertBoxSlideBlockedBy(WorldState worldState, SurfaceCell origin, int expectedBlockerEntityId)

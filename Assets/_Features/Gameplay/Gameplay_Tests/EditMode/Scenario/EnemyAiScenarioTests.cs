@@ -5512,7 +5512,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 recoveryTicks,
                 cooldownTicks,
                 lastExitedTick: 0,
-                landingPendingCell: default);
+                landingPendingCell: default,
+                hasLockedStep: true,
+                lockedStepX: -1,
+                lockedStepY: 0);
         }
 
         private static EnemyGlideRuntimeState CreateCooldownGlide(

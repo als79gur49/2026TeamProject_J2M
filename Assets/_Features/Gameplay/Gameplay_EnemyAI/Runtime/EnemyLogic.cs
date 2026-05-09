@@ -346,6 +346,21 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
+            if (HasGlideMovementSkill() &&
+                snapshot.TryGetEnemyGlideState(_entityId, out movementGlideState) &&
+                movementGlideState.Phase == EnemyGlidePhase.Active)
+            {
+                if (TryResolveActiveGlideLockedLocomotion(snapshot, source, movementGlideState, out var activeGlideLocomotion))
+                {
+                    buffer.Add(ApplyMovementTiming(
+                        activeGlideLocomotion.Intent,
+                        activeGlideLocomotion.CooldownTicks,
+                        activeGlideLocomotion.OrdinaryKinematicMoveTicks));
+                }
+
+                return;
+            }
+
             if (ShouldSuppressMovementForJump(snapshot, input.TickIndex) ||
                 ShouldSuppressMovementForGlide(snapshot) ||
                 ShouldSuppressMovementForEnemyPhase(snapshot))
@@ -650,21 +665,33 @@ namespace Game.Feature.Gameplay.Entities
             }
             else if (canStartGlide)
             {
-                nextState = EnemyGlideQueries.Start(
-                    nextState,
-                    input.TickIndex,
-                    _movementSkillCapability.GlideTimingSettings);
-                hasPreviousState = true;
-                changed = true;
-                AppendGlideUpdate(updates, _entityId, "Start", nextState);
-                AppendGlideStateDebug(updates, snapshot, input.TickIndex, source, "Start", nextState);
-                changed |= TryAdvanceGlideLifecycle(
-                    snapshot,
-                    in input,
-                    source,
-                    ref hasPreviousState,
-                    ref nextState,
-                    updates);
+                if (!_detectionStrategy.TryFindTarget(snapshot, source, _detectionSettings, out var chaseTarget))
+                {
+                    AppendGlideStateDebug(updates, snapshot, input.TickIndex, source, "StartBlockedNoTarget", nextState);
+                }
+                else if (!TryResolveGlideStartLockedStep(snapshot, source, chaseTarget, out var lockedStep))
+                {
+                    AppendGlideStateDebug(updates, snapshot, input.TickIndex, source, "StartBlockedChaseIntentFailed", nextState);
+                }
+                else
+                {
+                    nextState = EnemyGlideQueries.Start(
+                        nextState,
+                        input.TickIndex,
+                        _movementSkillCapability.GlideTimingSettings,
+                        lockedStep);
+                    hasPreviousState = true;
+                    changed = true;
+                    AppendGlideUpdate(updates, _entityId, "Start", nextState);
+                    AppendGlideStateDebug(updates, snapshot, input.TickIndex, source, "Start", nextState);
+                    changed |= TryAdvanceGlideLifecycle(
+                        snapshot,
+                        in input,
+                        source,
+                        ref hasPreviousState,
+                        ref nextState,
+                        updates);
+                }
             }
 
             if (changed)
@@ -892,7 +919,6 @@ namespace Game.Feature.Gameplay.Entities
         {
             locomotion = default;
             if (!HasGlideMovementSkill() ||
-                source.aiMode != EnemyAiMode.Chase ||
                 !snapshot.TryGetEnemyGlideState(_entityId, out var glideState) ||
                 glideState.Phase != EnemyGlidePhase.LandingPending)
             {
@@ -902,6 +928,22 @@ namespace Game.Feature.Gameplay.Entities
             var sourceIsSolid = snapshot.TryGetSolidSemanticAt(source.position, out _);
             var pendingCellIsSolid = snapshot.TryGetSolidSemanticAt(glideState.LandingPendingCell, out _);
             if (!sourceIsSolid && !pendingCellIsSolid)
+            {
+                return false;
+            }
+
+            if (TryGetLockedGlideStep(glideState, out var lockedStep) &&
+                TryBuildLandingPendingEgressIntentForStep(snapshot, source, lockedStep, out var lockedEgressIntent))
+            {
+                locomotion = new GroundLocomotionResolution(
+                    hasIntent: true,
+                    lockedEgressIntent,
+                    _locomotionTimingSettings.MoveCooldownTicks,
+                    _locomotionTimingSettings.OrdinaryKinematicMoveTicks);
+                return true;
+            }
+
+            if (source.aiMode != EnemyAiMode.Chase)
             {
                 return false;
             }
@@ -932,6 +974,33 @@ namespace Game.Feature.Gameplay.Entities
             locomotion = new GroundLocomotionResolution(
                 hasIntent: true,
                 egressIntent,
+                _locomotionTimingSettings.MoveCooldownTicks,
+                _locomotionTimingSettings.OrdinaryKinematicMoveTicks);
+            return true;
+        }
+
+        private bool TryResolveActiveGlideLockedLocomotion(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EnemyGlideRuntimeState glideState,
+            out GroundLocomotionResolution locomotion)
+        {
+            locomotion = default;
+            if (!TryGetLockedGlideStep(glideState, out var lockedStep) ||
+                source.enemyLocomotionCooldownTicks > 0 ||
+                !EnemyMovementStrategyShared.TryBuildMoveIntent(
+                    snapshot,
+                    source,
+                    _commonSettings,
+                    lockedStep,
+                    out var intent))
+            {
+                return false;
+            }
+
+            locomotion = new GroundLocomotionResolution(
+                hasIntent: true,
+                intent,
                 _locomotionTimingSettings.MoveCooldownTicks,
                 _locomotionTimingSettings.OrdinaryKinematicMoveTicks);
             return true;
@@ -1091,6 +1160,112 @@ namespace Game.Feature.Gameplay.Entities
         {
             stepDirection = new Vector2Int(state.stepDirectionX, state.stepDirectionY);
             return Math.Abs(stepDirection.x) + Math.Abs(stepDirection.y) == 1;
+        }
+
+        private static bool TryGetLockedGlideStep(
+            in EnemyGlideRuntimeState state,
+            out Vector2Int lockedStep)
+        {
+            lockedStep = new Vector2Int(state.LockedStepX, state.LockedStepY);
+            return state.HasLockedStep &&
+                   Math.Abs(lockedStep.x) + Math.Abs(lockedStep.y) == 1;
+        }
+
+        private static bool TryResolveGlideLockedStep(
+            in EntityState source,
+            Vector2Int destination,
+            out Vector2Int lockedStep)
+        {
+            lockedStep = destination - source.position.PlanarPosition;
+            return Math.Abs(lockedStep.x) + Math.Abs(lockedStep.y) == 1;
+        }
+
+        private bool TryResolveGlideStartLockedStep(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EntityState target,
+            out Vector2Int lockedStep)
+        {
+            lockedStep = Vector2Int.zero;
+            if (_chaseStrategy.TryBuildMovementIntent(
+                    snapshot,
+                    source,
+                    target,
+                    _commonSettings,
+                    _chaseSettings,
+                    out var chaseIntent) &&
+                TryResolveGlideLockedStep(source, chaseIntent.Destination, out lockedStep))
+            {
+                return true;
+            }
+
+            return TryResolveGlideLockedStepTowardTarget(source, target, _chaseSettings, out lockedStep);
+        }
+
+        private static bool TryResolveGlideLockedStepTowardTarget(
+            in EntityState source,
+            in EntityState target,
+            in ChaseSettings settings,
+            out Vector2Int lockedStep)
+        {
+            lockedStep = Vector2Int.zero;
+            if (source.position.face != target.position.face)
+            {
+                return false;
+            }
+
+            var planarDelta = target.position - source.position;
+            settings.Validate(nameof(settings));
+            if (Math.Abs(planarDelta.x) + Math.Abs(planarDelta.y) <= settings.DesiredChaseDistance)
+            {
+                return false;
+            }
+
+            var horizontalStep = planarDelta.x == 0
+                ? (Vector2Int?)null
+                : new Vector2Int(Math.Sign(planarDelta.x), 0);
+            var verticalStep = planarDelta.y == 0
+                ? (Vector2Int?)null
+                : new Vector2Int(0, Math.Sign(planarDelta.y));
+            var tryHorizontalFirst = ShouldTryHorizontalGlideStepFirst(planarDelta, source.facing, settings.AxisPriority);
+            var selected = tryHorizontalFirst
+                ? horizontalStep ?? verticalStep
+                : verticalStep ?? horizontalStep;
+            if (!selected.HasValue)
+            {
+                return false;
+            }
+
+            lockedStep = selected.Value;
+            return Math.Abs(lockedStep.x) + Math.Abs(lockedStep.y) == 1;
+        }
+
+        private static bool ShouldTryHorizontalGlideStepFirst(
+            Vector2Int planarDelta,
+            Direction facing,
+            ChaseAxisPriorityMode axisPriority)
+        {
+            switch (axisPriority)
+            {
+                case ChaseAxisPriorityMode.HorizontalFirst:
+                    return true;
+
+                case ChaseAxisPriorityMode.VerticalFirst:
+                    return false;
+
+                case ChaseAxisPriorityMode.GreatestDistanceThenFacingTieBreak:
+                default:
+                    var absX = Math.Abs(planarDelta.x);
+                    var absY = Math.Abs(planarDelta.y);
+                    if (absX != absY)
+                    {
+                        return absX > absY;
+                    }
+
+                    return facing == Direction.Left ||
+                           facing == Direction.Right ||
+                           planarDelta.x != 0;
+            }
         }
 
         private bool ShouldSuppressAttackForEnemyPhase(WorldSnapshot snapshot, int tickIndex)
@@ -1777,7 +1952,7 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             updates.Add(
-                $"EnemyGlideStateUpdated|E={entityId}|Label={label}|Phase={state.Phase}|Active={(state.IsActive ? 1 : 0)}|LandingPending={(state.IsLandingPending ? 1 : 0)}|Seq={state.Sequence}|WindupUntil={state.WindupUntilTickExclusive}|ActiveUntil={state.ActiveUntilTickExclusive}|RecoveryUntil={state.RecoveryUntilTickExclusive}|CooldownUntil={state.CooldownUntilTickExclusive}|Windup={state.WindupTicks}|Duration={state.DurationTicks}|Recovery={state.RecoveryTicks}|Cooldown={state.CooldownTicks}|LastExited={state.LastExitedTick}|PendingCell={state.LandingPendingCell}");
+                $"EnemyGlideStateUpdated|E={entityId}|Label={label}|Phase={state.Phase}|Active={(state.IsActive ? 1 : 0)}|LandingPending={(state.IsLandingPending ? 1 : 0)}|Seq={state.Sequence}|WindupUntil={state.WindupUntilTickExclusive}|ActiveUntil={state.ActiveUntilTickExclusive}|RecoveryUntil={state.RecoveryUntilTickExclusive}|CooldownUntil={state.CooldownUntilTickExclusive}|Windup={state.WindupTicks}|Duration={state.DurationTicks}|Recovery={state.RecoveryTicks}|Cooldown={state.CooldownTicks}|LastExited={state.LastExitedTick}|PendingCell={state.LandingPendingCell}|LockedStep={FormatLockedGlideStep(state)}");
         }
 
         private void AppendGlideStateDebug(
@@ -1790,7 +1965,7 @@ namespace Game.Feature.Gameplay.Entities
         {
             var targetSummary = ResolveGlideDebugTargetSummary(snapshot, source);
             updates.Add(
-                $"EnemyGlideStateDebug|Tick={tickIndex}|E={_entityId}|Label={label}|Phase={state.Phase}|AiMode={source.aiMode}|Pos={source.position}|Facing={source.facing}|LocomotionCooldown={source.enemyLocomotionCooldownTicks}|{targetSummary}");
+                $"EnemyGlideStateDebug|Tick={tickIndex}|E={_entityId}|Label={label}|Phase={state.Phase}|AiMode={source.aiMode}|Pos={source.position}|Facing={source.facing}|LocomotionCooldown={source.enemyLocomotionCooldownTicks}|LockedStep={FormatLockedGlideStep(state)}|{targetSummary}");
         }
 
         private void AppendGlideMoveIntentDebug(
@@ -1809,7 +1984,14 @@ namespace Game.Feature.Gameplay.Entities
                 ? $"|Destination=({destination.x},{destination.y})"
                 : string.Empty;
             debugEvents.Add(
-                $"EnemyGlideMoveIntentDebug|Tick={tickIndex}|E={_entityId}|Phase={state.Phase}|AiMode={source.aiMode}|Pos={source.position}|Facing={source.facing}|LocomotionCooldown={source.enemyLocomotionCooldownTicks}|{targetSummary}|Result={result}|Reason={reason}{destinationSuffix}");
+                $"EnemyGlideMoveIntentDebug|Tick={tickIndex}|E={_entityId}|Phase={state.Phase}|AiMode={source.aiMode}|Pos={source.position}|Facing={source.facing}|LocomotionCooldown={source.enemyLocomotionCooldownTicks}|LockedStep={FormatLockedGlideStep(state)}|{targetSummary}|Result={result}|Reason={reason}{destinationSuffix}");
+        }
+
+        private static string FormatLockedGlideStep(in EnemyGlideRuntimeState state)
+        {
+            return TryGetLockedGlideStep(state, out var lockedStep)
+                ? $"({lockedStep.x},{lockedStep.y})"
+                : "None";
         }
 
         private string ResolveGlideMoveIntentDebugReason(
@@ -1847,30 +2029,24 @@ namespace Game.Feature.Gameplay.Entities
                 return "CooldownBlocked";
             }
 
-            if (source.aiMode != EnemyAiMode.Chase)
+            if (!TryGetLockedGlideStep(state, out var lockedStep))
             {
-                return "NotChase";
+                return "NoLockedStep";
             }
 
-            if (!_detectionStrategy.TryFindTarget(snapshot, source, _detectionSettings, out var chaseTarget))
-            {
-                return "NoTarget";
-            }
-
-            if (!_chaseStrategy.TryBuildMovementIntent(
+            if (!EnemyMovementStrategyShared.TryBuildMoveIntent(
                     snapshot,
                     source,
-                    chaseTarget,
                     _commonSettings,
-                    _chaseSettings,
+                    lockedStep,
                     out _))
             {
-                return "ChaseIntentFailed";
+                return "GlideIntentFailed";
             }
 
             return TryFindMoveIntent(rawIntents, source.entityId, out _)
                 ? "IntentCreated"
-                : "ChaseIntentFailed";
+                : "GlideIntentMissing";
         }
 
         private string ResolveGlideDebugTargetSummary(WorldSnapshot snapshot, in EntityState source)

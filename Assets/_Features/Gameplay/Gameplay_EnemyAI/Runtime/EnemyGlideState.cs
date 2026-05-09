@@ -30,6 +30,9 @@ namespace Game.Feature.Gameplay.Entities
         [SerializeField] private int cooldownTicks;
         [SerializeField] private int lastExitedTick;
         [SerializeField] private SurfaceCell landingPendingCell;
+        [SerializeField] private bool hasLockedStep;
+        [SerializeField] private int lockedStepX;
+        [SerializeField] private int lockedStepY;
 
         public EnemyGlidePhase Phase => ResolvePhase();
 
@@ -59,6 +62,12 @@ namespace Game.Feature.Gameplay.Entities
 
         public SurfaceCell LandingPendingCell => landingPendingCell;
 
+        public bool HasLockedStep => hasLockedStep;
+
+        public int LockedStepX => lockedStepX;
+
+        public int LockedStepY => lockedStepY;
+
         public bool HasAuthoritativeRecord =>
             Phase != EnemyGlidePhase.Ready ||
             isActive ||
@@ -72,7 +81,10 @@ namespace Game.Feature.Gameplay.Entities
             durationTicks != 0 ||
             recoveryTicks != 0 ||
             cooldownTicks != 0 ||
-            lastExitedTick != 0;
+            lastExitedTick != 0 ||
+            hasLockedStep ||
+            lockedStepX != 0 ||
+            lockedStepY != 0;
 
         internal static EnemyGlideRuntimeState Create(
             bool isActive,
@@ -83,7 +95,10 @@ namespace Game.Feature.Gameplay.Entities
             int durationTicks,
             int cooldownTicks,
             int lastExitedTick,
-            SurfaceCell landingPendingCell)
+            SurfaceCell landingPendingCell,
+            bool hasLockedStep = false,
+            int lockedStepX = 0,
+            int lockedStepY = 0)
         {
             var phase = isActive
                 ? EnemyGlidePhase.Active
@@ -102,7 +117,10 @@ namespace Game.Feature.Gameplay.Entities
                 recoveryTicks: 0,
                 cooldownTicks,
                 lastExitedTick,
-                landingPendingCell);
+                landingPendingCell,
+                hasLockedStep,
+                lockedStepX,
+                lockedStepY);
         }
 
         internal static EnemyGlideRuntimeState Create(
@@ -117,7 +135,10 @@ namespace Game.Feature.Gameplay.Entities
             int recoveryTicks,
             int cooldownTicks,
             int lastExitedTick,
-            SurfaceCell landingPendingCell)
+            SurfaceCell landingPendingCell,
+            bool hasLockedStep = false,
+            int lockedStepX = 0,
+            int lockedStepY = 0)
         {
             return new EnemyGlideRuntimeState
             {
@@ -135,6 +156,9 @@ namespace Game.Feature.Gameplay.Entities
                 cooldownTicks = cooldownTicks,
                 lastExitedTick = lastExitedTick,
                 landingPendingCell = landingPendingCell,
+                hasLockedStep = hasLockedStep,
+                lockedStepX = lockedStepX,
+                lockedStepY = lockedStepY,
             };
         }
 
@@ -172,7 +196,8 @@ namespace Game.Feature.Gameplay.Entities
         public static EnemyGlideRuntimeState Start(
             in EnemyGlideRuntimeState previousState,
             int tickIndex,
-            in EnemyGlideTimingSettings timingSettings)
+            in EnemyGlideTimingSettings timingSettings,
+            Vector2Int lockedStep)
         {
             timingSettings.Validate(nameof(timingSettings));
 
@@ -188,7 +213,10 @@ namespace Game.Feature.Gameplay.Entities
                 recoveryTicks: timingSettings.RecoveryTicks,
                 cooldownTicks: timingSettings.CooldownTicks,
                 lastExitedTick: previousState.LastExitedTick,
-                landingPendingCell: default);
+                landingPendingCell: default,
+                hasLockedStep: true,
+                lockedStepX: lockedStep.x,
+                lockedStepY: lockedStep.y);
         }
 
         public static EnemyGlideRuntimeState BeginActive(
@@ -207,7 +235,10 @@ namespace Game.Feature.Gameplay.Entities
                 recoveryTicks: state.RecoveryTicks,
                 cooldownTicks: state.CooldownTicks,
                 lastExitedTick: state.LastExitedTick,
-                landingPendingCell: default);
+                landingPendingCell: default,
+                hasLockedStep: state.HasLockedStep,
+                lockedStepX: state.LockedStepX,
+                lockedStepY: state.LockedStepY);
         }
 
         public static EnemyGlideRuntimeState EndActiveToLandingPending(
@@ -227,7 +258,10 @@ namespace Game.Feature.Gameplay.Entities
                 recoveryTicks: state.RecoveryTicks,
                 cooldownTicks: state.CooldownTicks,
                 lastExitedTick: state.LastExitedTick,
-                landingPendingCell: pendingCell);
+                landingPendingCell: pendingCell,
+                hasLockedStep: state.HasLockedStep,
+                lockedStepX: state.LockedStepX,
+                lockedStepY: state.LockedStepY);
         }
 
         public static EnemyGlideRuntimeState BeginRecovery(
@@ -246,7 +280,10 @@ namespace Game.Feature.Gameplay.Entities
                 recoveryTicks: state.RecoveryTicks,
                 cooldownTicks: state.CooldownTicks,
                 lastExitedTick: state.LastExitedTick,
-                landingPendingCell: default);
+                landingPendingCell: default,
+                hasLockedStep: state.HasLockedStep,
+                lockedStepX: state.LockedStepX,
+                lockedStepY: state.LockedStepY);
         }
 
         public static EnemyGlideRuntimeState EndRecoveryToCooldown(
@@ -265,7 +302,10 @@ namespace Game.Feature.Gameplay.Entities
                 recoveryTicks: state.RecoveryTicks,
                 cooldownTicks: state.CooldownTicks,
                 lastExitedTick: tickIndex,
-                landingPendingCell: default);
+                landingPendingCell: default,
+                hasLockedStep: state.HasLockedStep,
+                lockedStepX: state.LockedStepX,
+                lockedStepY: state.LockedStepY);
         }
 
         public static EnemyGlideRuntimeState Clear()

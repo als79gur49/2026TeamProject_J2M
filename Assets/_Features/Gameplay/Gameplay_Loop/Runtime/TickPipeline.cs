@@ -3359,6 +3359,14 @@ namespace Game.Feature.Gameplay.Loop
                     debugEvents,
                     debugResult,
                     destination);
+                if (string.Equals(debugResult, "GlideDirectionMismatch", StringComparison.Ordinal))
+                {
+                    handledByKinematic = true;
+                    rejectedReasons.Add(
+                        $"MovementRejected|Stage=Plan|Source={intent.SourceId}|I={intent.IntentId}|Reason=EnemyGlideDirectionMismatch");
+                    return true;
+                }
+
                 return false;
             }
 
@@ -3697,6 +3705,13 @@ namespace Game.Feature.Gameplay.Loop
                 return false;
             }
 
+            if (glideKinematicKind == EnemyGlideKinematicKind.Active &&
+                !MatchesLockedGlideStep(snapshot, entity.entityId, delta))
+            {
+                debugResult = "GlideDirectionMismatch";
+                return false;
+            }
+
             if (!snapshot.TryResolveUnitStep(
                     entity.position,
                     delta,
@@ -3914,14 +3929,14 @@ namespace Game.Feature.Gameplay.Loop
         private static bool IsEnemyActiveGlideKinematicParticipant(WorldSnapshot snapshot, in EntityState entity)
         {
             if (!IsEnemyLogicParticipant(entity) ||
-                !EnemyParticipationPolicy.IsControllableParticipant(snapshot, entity) ||
-                entity.aiMode != EnemyAiMode.Chase)
+                !EnemyParticipationPolicy.IsControllableParticipant(snapshot, entity))
             {
                 return false;
             }
 
             if (!snapshot.TryGetEnemyGlideState(entity.entityId, out var glideState) ||
-                glideState.Phase != EnemyGlidePhase.Active)
+                glideState.Phase != EnemyGlidePhase.Active ||
+                !HasValidLockedGlideStep(glideState))
             {
                 return false;
             }
@@ -3945,8 +3960,7 @@ namespace Game.Feature.Gameplay.Loop
         private static bool IsEnemyLandingPendingEgressKinematicParticipant(WorldSnapshot snapshot, in EntityState entity)
         {
             if (!IsEnemyLogicParticipant(entity) ||
-                !EnemyParticipationPolicy.IsControllableParticipant(snapshot, entity) ||
-                entity.aiMode != EnemyAiMode.Chase)
+                !EnemyParticipationPolicy.IsControllableParticipant(snapshot, entity))
             {
                 return false;
             }
@@ -3988,7 +4002,6 @@ namespace Game.Feature.Gameplay.Loop
         {
             if (!IsEnemyLogicParticipant(entity) ||
                 !EnemyParticipationPolicy.IsControllableParticipant(snapshot, entity) ||
-                entity.aiMode != EnemyAiMode.Chase ||
                 pose.Mode != MotionMode.Voluntary ||
                 !snapshot.TryGetEnemyGlideState(entity.entityId, out var glideState) ||
                 !glideState.HasAuthoritativeRecord ||
@@ -4019,7 +4032,6 @@ namespace Game.Feature.Gameplay.Loop
             glideKinematicKind = EnemyGlideKinematicKind.None;
             if (!IsEnemyLogicParticipant(entity) ||
                 !EnemyParticipationPolicy.IsControllableParticipant(snapshot, entity) ||
-                entity.aiMode != EnemyAiMode.Chase ||
                 pose.Mode != MotionMode.Voluntary)
             {
                 return false;
@@ -4078,6 +4090,27 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return false;
+        }
+
+        private static bool MatchesLockedGlideStep(WorldSnapshot snapshot, int entityId, Vector2Int delta)
+        {
+            return snapshot.TryGetEnemyGlideState(entityId, out var glideState) &&
+                   TryGetLockedGlideStep(glideState, out var lockedStep) &&
+                   delta == lockedStep;
+        }
+
+        private static bool HasValidLockedGlideStep(in EnemyGlideRuntimeState glideState)
+        {
+            return TryGetLockedGlideStep(glideState, out _);
+        }
+
+        private static bool TryGetLockedGlideStep(
+            in EnemyGlideRuntimeState glideState,
+            out Vector2Int lockedStep)
+        {
+            lockedStep = new Vector2Int(glideState.LockedStepX, glideState.LockedStepY);
+            return glideState.HasLockedStep &&
+                   Math.Abs(lockedStep.x) + Math.Abs(lockedStep.y) == 1;
         }
 
         private static bool TryResolveSolidBoundKinematicTerminal(

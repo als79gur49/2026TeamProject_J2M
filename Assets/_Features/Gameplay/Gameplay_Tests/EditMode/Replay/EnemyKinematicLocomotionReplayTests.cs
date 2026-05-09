@@ -1484,7 +1484,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     recoveryTicks: 1,
                     cooldownTicks: 0,
                     lastExitedTick: 0,
-                    landingPendingCell: default));
+                    landingPendingCell: default,
+                    hasLockedStep: true,
+                    lockedStepX: 1,
+                    lockedStepY: 0));
         }
 
         private static EnemyAiProfile CreateChargeSettleWaitProfile()

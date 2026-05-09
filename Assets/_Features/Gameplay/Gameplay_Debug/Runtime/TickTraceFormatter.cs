@@ -262,7 +262,7 @@ namespace Game.Feature.Gameplay.Debug
             {
                 var entry = entries[i];
                 lines.Add(
-                    $"E={entry.EntityId}|Phase={entry.State.Phase}|Active={(entry.State.IsActive ? 1 : 0)}|LandingPending={(entry.State.IsLandingPending ? 1 : 0)}|Seq={entry.State.Sequence}|WindupUntil={entry.State.WindupUntilTickExclusive}|ActiveUntil={entry.State.ActiveUntilTickExclusive}|RecoveryUntil={entry.State.RecoveryUntilTickExclusive}|CooldownUntil={entry.State.CooldownUntilTickExclusive}|Windup={entry.State.WindupTicks}|Duration={entry.State.DurationTicks}|Recovery={entry.State.RecoveryTicks}|Cooldown={entry.State.CooldownTicks}|LastExited={entry.State.LastExitedTick}|PendingCell={entry.State.LandingPendingCell}");
+                    $"E={entry.EntityId}|Phase={entry.State.Phase}|Active={(entry.State.IsActive ? 1 : 0)}|LandingPending={(entry.State.IsLandingPending ? 1 : 0)}|Seq={entry.State.Sequence}|WindupUntil={entry.State.WindupUntilTickExclusive}|ActiveUntil={entry.State.ActiveUntilTickExclusive}|RecoveryUntil={entry.State.RecoveryUntilTickExclusive}|CooldownUntil={entry.State.CooldownUntilTickExclusive}|Windup={entry.State.WindupTicks}|Duration={entry.State.DurationTicks}|Recovery={entry.State.RecoveryTicks}|Cooldown={entry.State.CooldownTicks}|LastExited={entry.State.LastExitedTick}|PendingCell={entry.State.LandingPendingCell}|LockedStep={FormatLockedGlideStep(entry.State)}");
             }
 
             return lines;
@@ -282,6 +282,14 @@ namespace Game.Feature.Gameplay.Debug
             }
 
             return lines;
+        }
+
+        private static string FormatLockedGlideStep(in EnemyGlideRuntimeState state)
+        {
+            return state.HasLockedStep &&
+                   Math.Abs(state.LockedStepX) + Math.Abs(state.LockedStepY) == 1
+                ? $"({state.LockedStepX},{state.LockedStepY})"
+                : "None";
         }
 
         private static List<string> GetEnemyChargeEntries(WorldSnapshot snapshot)
@@ -587,7 +595,8 @@ namespace Game.Feature.Gameplay.Debug
                         .Append("|Recovery=").Append(operation.EnemyGlideState.RecoveryTicks)
                         .Append("|Cooldown=").Append(operation.EnemyGlideState.CooldownTicks)
                         .Append("|LastExited=").Append(operation.EnemyGlideState.LastExitedTick)
-                        .Append("|PendingCell=").Append(operation.EnemyGlideState.LandingPendingCell);
+                        .Append("|PendingCell=").Append(operation.EnemyGlideState.LandingPendingCell)
+                        .Append("|LockedStep=").Append(FormatLockedGlideStep(operation.EnemyGlideState));
                     break;
 
                 case FinalizationOperationKind.SetEnemyUtilityState:
