@@ -26,7 +26,6 @@ namespace Game.Feature.UI.Tests
         private const string PopupFactorySourcePath = "Assets/_Features/UI/UI_Composition/Runtime/GameplayPopupRuntimeFactory.cs";
         private const string HudRootViewSourcePath = "Assets/_Features/UI/UI_HUD/Runtime/HUDRootView.cs";
         private const string ObjectiveHudViewSourcePath = "Assets/_Features/UI/UI_HUD/Runtime/ObjectiveHudView.cs";
-        private const string ObjectiveConditionRowViewSourcePath = "Assets/_Features/UI/UI_HUD/Runtime/ObjectiveConditionRowView.cs";
         private const string ChancePanelViewSourcePath = "Assets/_Features/UI/UI_HUD/Runtime/ChancePanelView.cs";
         private const string ChanceSlotViewSourcePath = "Assets/_Features/UI/UI_HUD/Runtime/ChanceSlotView.cs";
         private const string TopologyBeltViewSourcePath = "Assets/_Features/UI/UI_HUD/Runtime/TopologyBeltView.cs";
@@ -187,24 +186,23 @@ namespace Game.Feature.UI.Tests
             RequireComponent<VerticalLayoutGroup>(topLeftStack);
             RequireComponent<VerticalLayoutGroup>(topRightStack);
             RequireComponent<VerticalLayoutGroup>(bottomRightStack);
-            AssertOwnedBy(hudPrefab.ObjectiveHudView.transform, topLeftStack);
+            var objectiveView = hudPrefab.ObjectiveHudView;
+            Assert.That(objectiveView, Is.Not.Null);
+            var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+            AssertOwnedBy(objectiveListRoot, topLeftStack);
             AssertOwnedBy(hudPrefab.NotificationView.transform, bottomRightStack);
             var chancePanelView = hudPrefab.GetComponentsInChildren<ChancePanelView>(true).Single();
             var topologyBeltView = hudPrefab.GetComponentsInChildren<TopologyBeltView>(true).Single();
             AssertOwnedBy(chancePanelView.transform, bottomRightStack);
             AssertOwnedBy(topologyBeltView.transform, topRightStack);
 
-            var objectiveView = hudPrefab.ObjectiveHudView;
-            var conditionListRoot = GetSerializedReference<RectTransform>(objectiveView, "_conditionListRoot");
-            var rowTemplate = GetSerializedReference<ObjectiveConditionRowView>(objectiveView, "_conditionRowTemplate");
-            Assert.That(rowTemplate.transform.parent, Is.EqualTo(conditionListRoot));
-            Assert.That(rowTemplate.gameObject.activeSelf, Is.False);
-            Assert.That(rowTemplate.GetComponent<CanvasGroup>(), Is.Not.Null);
-            Assert.That(GetSerializedReference<Image>(rowTemplate, "_checkIcon"), Is.Not.Null);
-            Assert.That(GetSerializedReference<TMP_Text>(rowTemplate, "_titleText"), Is.Not.Null);
-            Assert.That(GetSerializedReference<TMP_Text>(rowTemplate, "_progressText"), Is.Not.Null);
-            Assert.That(GetSerializedReference<TMP_Text>(rowTemplate, "_badgeText"), Is.Not.Null);
-            Assert.That(GetSerializedReference<CanvasGroup>(rowTemplate, "_canvasGroup"), Is.Not.Null);
+            var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+            Assert.That(itemTemplate.transform.parent, Is.EqualTo(objectiveListRoot));
+            Assert.That(itemTemplate.gameObject.activeSelf, Is.False);
+            Assert.That(itemTemplate.GetComponent<Animator>(), Is.Not.Null);
+            Assert.That(
+                itemTemplate.GetComponentsInChildren<TMP_Text>(true).Single(label => label.name == "Label_Objective"),
+                Is.Not.Null);
 
             var slotContainer = FindRequired(chancePanelView.transform, "SlotContainer");
             var slotViews = chancePanelView.GetComponentsInChildren<ChanceSlotView>(true);
@@ -1190,7 +1188,6 @@ namespace Game.Feature.UI.Tests
             {
                 ReadRepoFile(HudRootViewSourcePath),
                 ReadRepoFile(ObjectiveHudViewSourcePath),
-                ReadRepoFile(ObjectiveConditionRowViewSourcePath),
                 ReadRepoFile(ChancePanelViewSourcePath),
                 ReadRepoFile(ChanceSlotViewSourcePath),
                 ReadRepoFile(TopologyBeltViewSourcePath),

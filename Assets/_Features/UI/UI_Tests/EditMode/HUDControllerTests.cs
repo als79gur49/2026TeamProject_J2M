@@ -194,7 +194,8 @@ namespace Game.Feature.UI.Tests
                 AssertStackTransform(topRightStack, new Vector2(1.0f, 1.0f), new Vector2(1.0f, 1.0f), new Vector2(-24.0f, -24.0f));
                 AssertStackTransform(bottomRightStack, new Vector2(1.0f, 0.0f), new Vector2(1.0f, 0.0f), new Vector2(-24.0f, 24.0f));
 
-                AssertOwnedBy(hudView.ObjectiveHudView.transform, topLeftStack);
+                var objectiveListRoot = GetSerializedReference<RectTransform>(hudView.ObjectiveHudView, "_objectiveListRoot");
+                AssertOwnedBy(objectiveListRoot, topLeftStack);
                 AssertOwnedBy(GetSerializedReference<TMP_Text>(hudView, "_stageNameLabel").transform, topRightStack);
                 AssertOwnedBy(GetSerializedReference<Button>(hudView, "_pauseButton").transform, topRightStack);
                 AssertOwnedBy(hudView.TopologyBeltView.transform, topRightStack);
@@ -510,49 +511,74 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void ObjectiveHudView_ClonesAuthoredConditionRowTemplate()
+        public void ObjectiveHudView_ClonesAuthoredObjectiveItemTemplate()
         {
-            var rootObject = new GameObject("ObjectiveHudView_ClonesAuthoredConditionRowTemplate");
+            var rootObject = new GameObject("ObjectiveHudView_ClonesAuthoredObjectiveItemTemplate");
 
             try
             {
                 CreateCanonicalRootView(rootObject, out var hudView);
                 var objectiveView = hudView.ObjectiveHudView;
-                var conditionListRoot = GetSerializedReference<RectTransform>(objectiveView, "_conditionListRoot");
-                var rowTemplate = GetSerializedReference<ObjectiveConditionRowView>(objectiveView, "_conditionRowTemplate");
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
                 var viewModel = new ObjectiveHudViewModel();
-                viewModel.SetDropdownState(
-                    isVisible: true,
-                    title: "Reach the Exit",
-                    summary: "Complete the required objective.",
-                    rows: new[]
+                viewModel.SetState(
+                    true,
+                    new[]
                     {
-                        new ObjectiveConditionHudViewModel(
-                            "reach-exit",
-                            "Reach the exit zone",
-                            false,
-                            true,
-                            ObjectiveConditionHudRole.PrimaryGoal,
-                            "0/1",
-                            false,
-                            0),
-                    },
-                    completedRequiredCount: 0,
-                    totalRequiredCount: 1,
-                    isComplete: false,
-                    expansionMode: ObjectiveExpansionMode.ManualExpanded,
-                    animationHint: ObjectiveDropdownAnimationHint.None);
+                        new ObjectiveConditionHudViewModel("reach-exit", "Reach the exit zone", false, false),
+                    });
 
                 objectiveView.Bind(viewModel);
 
-                var rows = conditionListRoot.GetComponentsInChildren<ObjectiveConditionRowView>(true);
-                var runtimeRows = rows.Where(row => row != rowTemplate).ToArray();
+                var runtimeItems = objectiveListRoot
+                    .Cast<Transform>()
+                    .Where(child => child != itemTemplate && child.gameObject.activeSelf)
+                    .ToArray();
 
-                Assert.That(rowTemplate.gameObject.activeSelf, Is.False);
-                Assert.That(runtimeRows, Has.Length.EqualTo(1));
-                Assert.That(runtimeRows[0].transform.parent, Is.SameAs(conditionListRoot));
-                Assert.That(runtimeRows[0].gameObject.activeSelf, Is.True);
-                Assert.That(GetSerializedReference<TMPro.TMP_Text>(runtimeRows[0], "_titleText").text, Is.EqualTo("Reach the exit zone"));
+                Assert.That(itemTemplate.gameObject.activeSelf, Is.False);
+                Assert.That(runtimeItems, Has.Length.EqualTo(1));
+                Assert.That(runtimeItems[0].parent, Is.SameAs(objectiveListRoot));
+                Assert.That(runtimeItems[0].gameObject.activeSelf, Is.True);
+                Assert.That(FindObjectiveLabel(runtimeItems[0]).text, Is.EqualTo("Reach the exit zone"));
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudView_HidesRootAndRuntimeItems_WhenNoObjective()
+        {
+            var rootObject = new GameObject("ObjectiveHudView_HidesRootAndRuntimeItems_WhenNoObjective");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveRoot = GetSerializedReference<GameObject>(objectiveView, "_root");
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("reach-exit", "Reach the exit zone", false, false),
+                    });
+
+                objectiveView.Bind(viewModel);
+                viewModel.Reset();
+
+                var runtimeItems = objectiveListRoot
+                    .Cast<Transform>()
+                    .Where(child => child != itemTemplate && child.name.StartsWith("Objective_Item_Runtime_", StringComparison.Ordinal))
+                    .ToArray();
+
+                Assert.That(objectiveRoot.activeSelf, Is.False);
+                Assert.That(runtimeItems, Has.Length.EqualTo(1));
+                Assert.That(runtimeItems[0].gameObject.activeSelf, Is.False);
             }
             finally
             {
@@ -611,13 +637,29 @@ namespace Game.Feature.UI.Tests
                 CreateCanonicalRootView(rootObject, out var hudView);
 
                 Assert.That(hudView.ObjectiveHudView, Is.Not.Null);
-                Assert.That(hudView.ObjectiveHudView.transform.name, Is.EqualTo("ObjectiveHud"));
-                Assert.That(hudView.ObjectiveHudView.GetComponent<Button>(), Is.Not.Null);
+                var objectiveListRoot = GetSerializedReference<RectTransform>(hudView.ObjectiveHudView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(hudView.ObjectiveHudView, "_objectiveItemTemplate");
+                Assert.That(objectiveListRoot, Is.Not.Null);
+                Assert.That(objectiveListRoot.name, Is.EqualTo("Objective_List"));
+                Assert.That(itemTemplate, Is.Not.Null);
+                Assert.That(itemTemplate.parent, Is.SameAs(objectiveListRoot));
+                Assert.That(itemTemplate.gameObject.activeSelf, Is.False);
+                Assert.That(itemTemplate.GetComponent<Animator>(), Is.Not.Null);
+                Assert.That(
+                    itemTemplate.GetComponentsInChildren<TMP_Text>(true).Any(label => label.name == "Label_Objective"),
+                    Is.True);
             }
             finally
             {
                 DestroySupportObjects(rootObject);
             }
+        }
+
+        private static TMP_Text FindObjectiveLabel(Transform item)
+        {
+            return item
+                .GetComponentsInChildren<TMP_Text>(true)
+                .Single(label => label.name == "Label_Objective");
         }
 
         [Test]

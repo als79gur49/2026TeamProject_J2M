@@ -1,40 +1,23 @@
 using System;
 using System.Collections.Generic;
-using DG.Tweening;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace Game.Feature.UI.HUD
 {
     public sealed class ObjectiveHudView : MonoBehaviour
     {
-        private const string CompleteColor = "#8EE6A8";
-        private const string ActiveColor = "#FFFFFF";
+        private const string ActiveStateName = "Active";
+        private const string InactiveStateName = "Inactive";
+        private const int BaseLayerIndex = 0;
 
         [SerializeField] private GameObject _root;
-        [SerializeField] private TMP_Text _objectiveLabel;
-        [SerializeField] private Button _dropdownButton;
-        [SerializeField] private TMP_Text _eyebrowText;
-        [SerializeField] private TMP_Text _titleText;
-        [SerializeField] private TMP_Text _progressPillText;
-        [SerializeField] private Image _progressBar;
-        [SerializeField] private RectTransform _chevronIcon;
-        [SerializeField] private CanvasGroup _bodyCanvasGroup;
-        [SerializeField] private RectTransform _bodyRoot;
-        [SerializeField] private TMP_Text _summaryText;
-        [SerializeField] private RectTransform _conditionListRoot;
-        [SerializeField] private ObjectiveConditionRowView _conditionRowTemplate;
-        [SerializeField] private TMP_Text _footerStatusText;
-        [SerializeField] private GameObject _completeBadge;
+        [SerializeField] private RectTransform _objectiveListRoot;
+        [SerializeField] private RectTransform _objectiveItemTemplate;
 
-        private readonly List<ObjectiveConditionRowView> _rowPool = new List<ObjectiveConditionRowView>();
+        private readonly List<ObjectiveItemBinding> _itemPool = new List<ObjectiveItemBinding>();
+        private readonly HashSet<string> _animatedSatisfiedStableIds = new HashSet<string>(StringComparer.Ordinal);
         private ObjectiveHudViewModel _viewModel;
-        private Sequence _bodySequence;
-        private Tween _completePulseTween;
-        private int _lastAnimationSequenceId;
-
-        public event Action ExpandToggleRequested;
 
         public ObjectiveHudViewModel ViewModel => _viewModel;
 
@@ -57,70 +40,41 @@ namespace Game.Feature.UI.HUD
         public void ValidateAuthoredStructureOrThrow()
         {
             RequireReference(_root, nameof(_root));
-            RequireReference(_objectiveLabel, nameof(_objectiveLabel));
-            RequireReference(_dropdownButton, nameof(_dropdownButton));
-            RequireReference(_eyebrowText, nameof(_eyebrowText));
-            RequireReference(_titleText, nameof(_titleText));
-            RequireReference(_progressPillText, nameof(_progressPillText));
-            RequireReference(_progressBar, nameof(_progressBar));
-            RequireReference(_chevronIcon, nameof(_chevronIcon));
-            RequireReference(_bodyCanvasGroup, nameof(_bodyCanvasGroup));
-            RequireReference(_bodyRoot, nameof(_bodyRoot));
-            RequireReference(_summaryText, nameof(_summaryText));
-            RequireReference(_conditionListRoot, nameof(_conditionListRoot));
-            RequireReference(_conditionRowTemplate, nameof(_conditionRowTemplate));
-            RequireReference(_footerStatusText, nameof(_footerStatusText));
-            RequireReference(_completeBadge, nameof(_completeBadge));
+            RequireReference(_objectiveListRoot, nameof(_objectiveListRoot));
+            RequireReference(_objectiveItemTemplate, nameof(_objectiveItemTemplate));
 
-            if (_conditionRowTemplate.transform.parent != _conditionListRoot)
+            if (_objectiveItemTemplate.transform.parent != _objectiveListRoot)
             {
-                throw new InvalidOperationException($"{nameof(ObjectiveHudView)} row template must be a direct child of ConditionListRoot.");
+                throw new InvalidOperationException($"{nameof(ObjectiveHudView)} item template must be a direct child of Objective_List.");
             }
 
-            if (_conditionRowTemplate.gameObject.activeSelf)
+            if (_objectiveItemTemplate.GetComponent<Animator>() == null)
             {
-                throw new InvalidOperationException($"{nameof(ObjectiveHudView)} row template must be inactive in the authored prefab.");
+                throw new InvalidOperationException($"{nameof(ObjectiveHudView)} item template is missing an Animator.");
             }
 
-            _conditionRowTemplate.ValidateAuthoredStructureOrThrow();
-        }
-
-        public void ClickDropdown()
-        {
-            if (ExpandToggleRequested != null)
+            if (!HasObjectiveLabel(_objectiveItemTemplate.gameObject))
             {
-                ExpandToggleRequested.Invoke();
-                return;
+                throw new InvalidOperationException($"{nameof(ObjectiveHudView)} item template is missing Label_Objective.");
             }
-
-            _viewModel?.ToggleExpanded();
         }
 
         private void OnEnable()
         {
-            RebindButton(_dropdownButton, ClickDropdown);
             RefreshView();
-        }
-
-        private void OnDisable()
-        {
-            KillTweens();
-            UnbindButton(_dropdownButton, ClickDropdown);
         }
 
 #if UNITY_EDITOR
         private void OnValidate()
         {
             ValidateSerializedReference(_root, nameof(_root));
-            ValidateSerializedReference(_objectiveLabel, nameof(_objectiveLabel));
-            ValidateSerializedReference(_dropdownButton, nameof(_dropdownButton));
+            ValidateSerializedReference(_objectiveListRoot, nameof(_objectiveListRoot));
+            ValidateSerializedReference(_objectiveItemTemplate, nameof(_objectiveItemTemplate));
         }
 #endif
 
         private void OnDestroy()
         {
-            UnbindButton(_dropdownButton, ClickDropdown);
-            KillTweens();
             if (_viewModel != null)
             {
                 _viewModel.Changed -= HandleViewModelChanged;
@@ -135,194 +89,128 @@ namespace Game.Feature.UI.HUD
         private void RefreshView()
         {
             ValidateAuthoredStructureOrThrow();
+            HideAuthoredListChildren();
+
             var isVisible = _viewModel != null && _viewModel.IsVisible;
-            if (_root != null)
+            _root.SetActive(isVisible);
+            if (!isVisible)
             {
-                _root.SetActive(isVisible);
-            }
-
-            if (_dropdownButton != null)
-            {
-                _dropdownButton.interactable = isVisible && _viewModel != null && _viewModel.CanExpand;
-            }
-
-            RefreshStructuredDropdown(isVisible);
-            if (_objectiveLabel == null)
-            {
-                return;
-            }
-
-            _objectiveLabel.textWrappingMode = _viewModel != null && _viewModel.IsExpanded
-                ? TextWrappingModes.Normal
-                : TextWrappingModes.NoWrap;
-            _objectiveLabel.overflowMode = _viewModel != null && _viewModel.IsExpanded
-                ? TextOverflowModes.Overflow
-                : TextOverflowModes.Ellipsis;
-            _objectiveLabel.color = _viewModel != null && _viewModel.IsComplete
-                ? ParseColor(CompleteColor)
-                : ParseColor(ActiveColor);
-            _objectiveLabel.text = isVisible ? _viewModel.ObjectiveText : string.Empty;
-        }
-
-        private void RefreshStructuredDropdown(bool isVisible)
-        {
-            if (_viewModel == null)
-            {
-                return;
-            }
-
-            if (_eyebrowText != null)
-            {
-                _eyebrowText.text = "OBJECTIVE";
-            }
-
-            if (_titleText != null)
-            {
-                _titleText.text = isVisible ? _viewModel.Title : string.Empty;
-                _titleText.textWrappingMode = TextWrappingModes.NoWrap;
-                _titleText.overflowMode = TextOverflowModes.Ellipsis;
-            }
-
-            if (_progressPillText != null)
-            {
-                _progressPillText.text = _viewModel.ProgressText;
-                _progressPillText.gameObject.SetActive(isVisible && !string.IsNullOrWhiteSpace(_viewModel.ProgressText));
-            }
-
-            if (_progressBar != null)
-            {
-                _progressBar.fillAmount = _viewModel.Progress01;
-            }
-
-            if (_summaryText != null)
-            {
-                _summaryText.text = _viewModel.IsExpanded ? _viewModel.Summary : string.Empty;
-                _summaryText.gameObject.SetActive(_viewModel.IsExpanded && !string.IsNullOrWhiteSpace(_viewModel.Summary));
-            }
-
-            if (_footerStatusText != null)
-            {
-                _footerStatusText.text = _viewModel.IsComplete ? "Complete" : string.Empty;
-                _footerStatusText.gameObject.SetActive(_viewModel.IsExpanded || _viewModel.IsComplete);
-            }
-
-            if (_completeBadge != null)
-            {
-                _completeBadge.SetActive(_viewModel.ShowCompleteBadge);
-            }
-
-            if (_chevronIcon != null)
-            {
-                _chevronIcon.localRotation = Quaternion.Euler(0.0f, 0.0f, _viewModel.IsExpanded ? 180.0f : 0.0f);
-            }
-
-            RefreshRows();
-            RefreshBodyVisibility();
-            PlayCompletePulseIfNeeded();
-        }
-
-        private void RefreshRows()
-        {
-            if (_conditionListRoot == null)
-            {
+                DeactivatePooledItems();
+                _animatedSatisfiedStableIds.Clear();
                 return;
             }
 
             var rows = _viewModel.Rows;
-            while (_rowPool.Count < rows.Count)
+            while (_itemPool.Count < rows.Count)
             {
-                _rowPool.Add(CreateRow(_rowPool.Count));
+                _itemPool.Add(CreateItem(_itemPool.Count));
             }
 
-            for (var i = 0; i < _rowPool.Count; i++)
+            for (var i = 0; i < _itemPool.Count; i++)
             {
-                var active = _viewModel.IsExpanded && i < rows.Count;
-                _rowPool[i].gameObject.SetActive(active);
-                if (active)
+                var active = i < rows.Count;
+                var item = _itemPool[i];
+                item.Root.SetActive(active);
+                if (!active)
                 {
-                    _rowPool[i].Bind(rows[i], HudAnimationSettings.Default);
+                    continue;
+                }
+
+                BindItem(item, rows[i]);
+            }
+        }
+
+        private ObjectiveItemBinding CreateItem(int index)
+        {
+            var itemTransform = Instantiate(_objectiveItemTemplate, _objectiveListRoot);
+            itemTransform.name = $"Objective_Item_Runtime_{index:00}";
+            itemTransform.gameObject.SetActive(false);
+            return new ObjectiveItemBinding(itemTransform.gameObject);
+        }
+
+        private void BindItem(
+            ObjectiveItemBinding item,
+            ObjectiveConditionHudViewModel row)
+        {
+            item.Label.text = row.Text;
+
+            if (!row.IsSatisfied)
+            {
+                _animatedSatisfiedStableIds.Remove(row.StableId);
+                PlayAnimatorState(item.Animator, InactiveStateName);
+                return;
+            }
+
+            if (row.JustSatisfied)
+            {
+                PlayAnimatorState(item.Animator, ActiveStateName);
+                _animatedSatisfiedStableIds.Add(row.StableId);
+            }
+        }
+
+        private void HideAuthoredListChildren()
+        {
+            if (_objectiveListRoot == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _objectiveListRoot.childCount; i++)
+            {
+                var child = _objectiveListRoot.GetChild(i).gameObject;
+                if (IsPooledItem(child))
+                {
+                    continue;
+                }
+
+                child.SetActive(false);
+            }
+        }
+
+        private bool IsPooledItem(GameObject child)
+        {
+            for (var i = 0; i < _itemPool.Count; i++)
+            {
+                if (ReferenceEquals(_itemPool[i].Root, child))
+                {
+                    return true;
                 }
             }
+
+            return false;
         }
 
-        private ObjectiveConditionRowView CreateRow(int index)
+        private void DeactivatePooledItems()
         {
-            var rowObject = Instantiate(_conditionRowTemplate.gameObject, _conditionListRoot);
-            rowObject.name = $"ObjectiveConditionRowView {index}";
-            rowObject.SetActive(false);
-            return rowObject.GetComponent<ObjectiveConditionRowView>();
-        }
-
-        private void RefreshBodyVisibility()
-        {
-            if (_bodyRoot != null)
+            for (var i = 0; i < _itemPool.Count; i++)
             {
-                _bodyRoot.gameObject.SetActive(_viewModel.IsExpanded);
+                _itemPool[i].Root.SetActive(false);
             }
+        }
 
-            if (_bodyCanvasGroup == null)
+        private static void PlayAnimatorState(Animator animator, string stateName)
+        {
+            if (animator == null || string.IsNullOrWhiteSpace(stateName))
             {
                 return;
             }
 
-            KillBodySequence();
-            _bodyCanvasGroup.alpha = _viewModel.IsExpanded ? 1.0f : 0.0f;
+            animator.Play(stateName, BaseLayerIndex, 0.0f);
+            animator.Update(0.0f);
         }
 
-        private void PlayCompletePulseIfNeeded()
+        private static bool HasObjectiveLabel(GameObject root)
         {
-            var hint = _viewModel.AnimationHint;
-            if (!hint.PulseComplete ||
-                hint.SequenceId <= 0 ||
-                hint.SequenceId == _lastAnimationSequenceId)
+            var labels = root.GetComponentsInChildren<TMP_Text>(true);
+            for (var i = 0; i < labels.Length; i++)
             {
-                return;
+                if (labels[i].name == "Label_Objective")
+                {
+                    return true;
+                }
             }
 
-            _lastAnimationSequenceId = hint.SequenceId;
-            if (_completeBadge == null)
-            {
-                return;
-            }
-
-            KillCompletePulse();
-            _completePulseTween = _completeBadge.transform
-                .DOPunchScale(Vector3.one * 0.12f, 0.32f, 8, 0.75f)
-                .SetUpdate(true)
-                .SetLink(_completeBadge, LinkBehaviour.KillOnDestroy);
-        }
-
-        private void KillTweens()
-        {
-            KillBodySequence();
-            KillCompletePulse();
-        }
-
-        private void KillBodySequence()
-        {
-            if (_bodySequence == null)
-            {
-                return;
-            }
-
-            _bodySequence.Kill(false);
-            _bodySequence = null;
-        }
-
-        private void KillCompletePulse()
-        {
-            if (_completePulseTween == null)
-            {
-                return;
-            }
-
-            _completePulseTween.Kill(false);
-            _completePulseTween = null;
-        }
-
-        private static Color ParseColor(string htmlString)
-        {
-            return ColorUtility.TryParseHtmlString(htmlString, out var color) ? color : Color.white;
+            return false;
         }
 
         private static void RequireReference(UnityEngine.Object value, string fieldName)
@@ -331,27 +219,6 @@ namespace Game.Feature.UI.HUD
             {
                 throw new InvalidOperationException($"{nameof(ObjectiveHudView)} is missing authored reference '{fieldName}'.");
             }
-        }
-
-        private static void RebindButton(Button button, UnityEngine.Events.UnityAction action)
-        {
-            if (button == null)
-            {
-                return;
-            }
-
-            button.onClick.RemoveListener(action);
-            button.onClick.AddListener(action);
-        }
-
-        private static void UnbindButton(Button button, UnityEngine.Events.UnityAction action)
-        {
-            if (button == null)
-            {
-                return;
-            }
-
-            button.onClick.RemoveListener(action);
         }
 
 #if UNITY_EDITOR
@@ -363,5 +230,40 @@ namespace Game.Feature.UI.HUD
             }
         }
 #endif
+
+        private sealed class ObjectiveItemBinding
+        {
+            public ObjectiveItemBinding(GameObject root)
+            {
+                Root = root ?? throw new ArgumentNullException(nameof(root));
+                Animator = root.GetComponent<Animator>();
+                Label = FindLabel(root);
+            }
+
+            public GameObject Root { get; }
+
+            public Animator Animator { get; }
+
+            public TMP_Text Label { get; }
+
+            private static TMP_Text FindLabel(GameObject root)
+            {
+                var labels = root.GetComponentsInChildren<TMP_Text>(true);
+                for (var i = 0; i < labels.Length; i++)
+                {
+                    if (labels[i].name == "Label_Objective")
+                    {
+                        return labels[i];
+                    }
+                }
+
+                if (labels.Length > 0)
+                {
+                    return labels[0];
+                }
+
+                throw new InvalidOperationException($"{nameof(ObjectiveHudView)} item '{root.name}' is missing a TMP label.");
+            }
+        }
     }
 }
