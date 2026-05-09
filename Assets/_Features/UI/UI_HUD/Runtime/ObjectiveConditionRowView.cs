@@ -1,4 +1,5 @@
 using DG.Tweening;
+using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -19,7 +20,7 @@ namespace Game.Feature.UI.HUD
             ObjectiveConditionHudViewModel viewModel,
             HudAnimationSettings settings)
         {
-            EnsureBuilt();
+            ValidateAuthoredStructureOrThrow();
             KillSequence();
             _titleText.text = viewModel.Title;
             _titleText.color = viewModel.IsSatisfied
@@ -53,42 +54,13 @@ namespace Game.Feature.UI.HUD
             KillSequence();
         }
 
-        private void EnsureBuilt()
+        public void ValidateAuthoredStructureOrThrow()
         {
-            if (_canvasGroup == null)
-            {
-                _canvasGroup = GetComponent<CanvasGroup>() ?? gameObject.AddComponent<CanvasGroup>();
-            }
-
-            _checkIcon = _checkIcon != null ? _checkIcon : CreateImage("CheckIcon");
-            _titleText = _titleText != null ? _titleText : CreateText("TitleText", 14, TextAlignmentOptions.Left);
-            _progressText = _progressText != null ? _progressText : CreateText("ProgressText", 12, TextAlignmentOptions.Right);
-            _badgeText = _badgeText != null ? _badgeText : CreateText("RequiredBadge", 11, TextAlignmentOptions.Center);
-        }
-
-        private Image CreateImage(string childName)
-        {
-            var child = new GameObject(childName, typeof(RectTransform), typeof(Image));
-            child.transform.SetParent(transform, false);
-            var rect = (RectTransform)child.transform;
-            rect.sizeDelta = new Vector2(14.0f, 14.0f);
-            var image = child.GetComponent<Image>();
-            image.raycastTarget = false;
-            return image;
-        }
-
-        private TMP_Text CreateText(
-            string childName,
-            int fontSize,
-            TextAlignmentOptions alignment)
-        {
-            var child = new GameObject(childName, typeof(RectTransform), typeof(TextMeshProUGUI));
-            child.transform.SetParent(transform, false);
-            var label = child.GetComponent<TMP_Text>();
-            label.fontSize = fontSize;
-            label.alignment = alignment;
-            label.raycastTarget = false;
-            return label;
+            RequireReference(_checkIcon, nameof(_checkIcon));
+            RequireReference(_titleText, nameof(_titleText));
+            RequireReference(_progressText, nameof(_progressText));
+            RequireReference(_badgeText, nameof(_badgeText));
+            RequireReference(_canvasGroup, nameof(_canvasGroup));
         }
 
         private static string ResolveBadgeText(ObjectiveConditionHudViewModel viewModel)
@@ -110,6 +82,14 @@ namespace Game.Feature.UI.HUD
 
             _sequence.Kill(false);
             _sequence = null;
+        }
+
+        private static void RequireReference(UnityEngine.Object value, string fieldName)
+        {
+            if (value == null)
+            {
+                throw new InvalidOperationException($"{nameof(ObjectiveConditionRowView)} is missing authored reference '{fieldName}'.");
+            }
         }
     }
 }

@@ -54,6 +54,37 @@ namespace Game.Feature.UI.HUD
             RefreshView();
         }
 
+        public void ValidateAuthoredStructureOrThrow()
+        {
+            RequireReference(_root, nameof(_root));
+            RequireReference(_objectiveLabel, nameof(_objectiveLabel));
+            RequireReference(_dropdownButton, nameof(_dropdownButton));
+            RequireReference(_eyebrowText, nameof(_eyebrowText));
+            RequireReference(_titleText, nameof(_titleText));
+            RequireReference(_progressPillText, nameof(_progressPillText));
+            RequireReference(_progressBar, nameof(_progressBar));
+            RequireReference(_chevronIcon, nameof(_chevronIcon));
+            RequireReference(_bodyCanvasGroup, nameof(_bodyCanvasGroup));
+            RequireReference(_bodyRoot, nameof(_bodyRoot));
+            RequireReference(_summaryText, nameof(_summaryText));
+            RequireReference(_conditionListRoot, nameof(_conditionListRoot));
+            RequireReference(_conditionRowTemplate, nameof(_conditionRowTemplate));
+            RequireReference(_footerStatusText, nameof(_footerStatusText));
+            RequireReference(_completeBadge, nameof(_completeBadge));
+
+            if (_conditionRowTemplate.transform.parent != _conditionListRoot)
+            {
+                throw new InvalidOperationException($"{nameof(ObjectiveHudView)} row template must be a direct child of ConditionListRoot.");
+            }
+
+            if (_conditionRowTemplate.gameObject.activeSelf)
+            {
+                throw new InvalidOperationException($"{nameof(ObjectiveHudView)} row template must be inactive in the authored prefab.");
+            }
+
+            _conditionRowTemplate.ValidateAuthoredStructureOrThrow();
+        }
+
         public void ClickDropdown()
         {
             if (ExpandToggleRequested != null)
@@ -103,6 +134,7 @@ namespace Game.Feature.UI.HUD
 
         private void RefreshView()
         {
+            ValidateAuthoredStructureOrThrow();
             var isVisible = _viewModel != null && _viewModel.IsVisible;
             if (_root != null)
             {
@@ -196,7 +228,6 @@ namespace Game.Feature.UI.HUD
                 return;
             }
 
-            EnsureRowTemplate();
             var rows = _viewModel.Rows;
             while (_rowPool.Count < rows.Count)
             {
@@ -212,19 +243,6 @@ namespace Game.Feature.UI.HUD
                     _rowPool[i].Bind(rows[i], HudAnimationSettings.Default);
                 }
             }
-        }
-
-        private void EnsureRowTemplate()
-        {
-            if (_conditionRowTemplate != null)
-            {
-                return;
-            }
-
-            var template = new GameObject("ObjectiveConditionRowTemplate", typeof(RectTransform), typeof(ObjectiveConditionRowView));
-            template.transform.SetParent(_conditionListRoot, false);
-            _conditionRowTemplate = template.GetComponent<ObjectiveConditionRowView>();
-            _conditionRowTemplate.gameObject.SetActive(false);
         }
 
         private ObjectiveConditionRowView CreateRow(int index)
@@ -305,6 +323,14 @@ namespace Game.Feature.UI.HUD
         private static Color ParseColor(string htmlString)
         {
             return ColorUtility.TryParseHtmlString(htmlString, out var color) ? color : Color.white;
+        }
+
+        private static void RequireReference(UnityEngine.Object value, string fieldName)
+        {
+            if (value == null)
+            {
+                throw new InvalidOperationException($"{nameof(ObjectiveHudView)} is missing authored reference '{fieldName}'.");
+            }
         }
 
         private static void RebindButton(Button button, UnityEngine.Events.UnityAction action)

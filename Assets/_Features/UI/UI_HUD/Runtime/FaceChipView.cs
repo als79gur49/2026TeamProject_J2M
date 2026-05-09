@@ -1,4 +1,5 @@
 using DG.Tweening;
+using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -23,7 +24,7 @@ namespace Game.Feature.UI.HUD
             bool pulse,
             HudAnimationSettings settings)
         {
-            EnsureBuilt();
+            ValidateAuthoredStructureOrThrow();
             KillPulse();
             _faceNameText.text = viewModel.Label;
             _canvasGroup.alpha = viewModel.IsActive ? 1.0f : 0.62f;
@@ -55,53 +56,12 @@ namespace Game.Feature.UI.HUD
             KillPulse();
         }
 
-        private void EnsureBuilt()
+        public void ValidateAuthoredStructureOrThrow()
         {
-            if (_canvasGroup == null)
-            {
-                var canvasGroup = GetComponent<CanvasGroup>();
-                if (canvasGroup == null)
-                {
-                    canvasGroup = gameObject.AddComponent<CanvasGroup>();
-                }
-
-                _canvasGroup = canvasGroup;
-            }
-
-            _background = _background != null ? _background : CreateImage("Background", InactiveColor);
-            _activeGlow = _activeGlow != null ? _activeGlow : CreateImage("ActiveGlow", Color.clear);
-            _faceNameText = _faceNameText != null ? _faceNameText : CreateText("FaceNameText");
-        }
-
-        private Image CreateImage(string childName, Color color)
-        {
-            var child = new GameObject(childName, typeof(RectTransform), typeof(Image));
-            child.transform.SetParent(transform, false);
-            var rect = (RectTransform)child.transform;
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-            var image = child.GetComponent<Image>();
-            image.color = color;
-            image.raycastTarget = false;
-            return image;
-        }
-
-        private TMP_Text CreateText(string childName)
-        {
-            var child = new GameObject(childName, typeof(RectTransform), typeof(TextMeshProUGUI));
-            child.transform.SetParent(transform, false);
-            var rect = (RectTransform)child.transform;
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-            var label = child.GetComponent<TMP_Text>();
-            label.alignment = TextAlignmentOptions.Center;
-            label.fontSize = 14;
-            label.raycastTarget = false;
-            return label;
+            RequireReference(_background, nameof(_background));
+            RequireReference(_faceNameText, nameof(_faceNameText));
+            RequireReference(_activeGlow, nameof(_activeGlow));
+            RequireReference(_canvasGroup, nameof(_canvasGroup));
         }
 
         private void KillPulse()
@@ -113,6 +73,14 @@ namespace Game.Feature.UI.HUD
 
             _pulseTween.Kill(false);
             _pulseTween = null;
+        }
+
+        private static void RequireReference(UnityEngine.Object value, string fieldName)
+        {
+            if (value == null)
+            {
+                throw new InvalidOperationException($"{nameof(FaceChipView)} is missing authored reference '{fieldName}'.");
+            }
         }
     }
 }

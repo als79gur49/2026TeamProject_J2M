@@ -13,18 +13,9 @@ namespace Game.Feature.UI.HUD
         private const float HudDimTweenDurationSeconds = 0.12f;
         private const Ease HudDimTweenEase = Ease.OutQuad;
         private const bool HudDimUseUnscaledTime = true;
-        private const float HudLayoutMargin = 24.0f;
-        private const float HudLayoutSpacing = 8.0f;
         private const string HudTopLeftStackName = "HudTopLeftStack";
         private const string HudTopRightStackName = "HudTopRightStack";
         private const string HudBottomRightStackName = "HudBottomRightStack";
-
-        private static readonly Vector2 ObjectiveHudSize = new Vector2(380.0f, 72.0f);
-        private static readonly Vector2 StageNameSize = new Vector2(360.0f, 28.0f);
-        private static readonly Vector2 PauseButtonSize = new Vector2(80.0f, 32.0f);
-        private static readonly Vector2 TopologyBeltSize = new Vector2(480.0f, 72.0f);
-        private static readonly Vector2 NotificationSize = new Vector2(320.0f, 128.0f);
-        private static readonly Vector2 ChancePanelSize = new Vector2(220.0f, 72.0f);
 
         [SerializeField] private GameObject _root;
         [SerializeField] private CanvasGroup _shellCanvasGroup;
@@ -43,9 +34,6 @@ namespace Game.Feature.UI.HUD
         private bool _lastRootVisibleState;
         private bool _hasShellAlphaTarget;
         private float _lastShellAlphaTarget = HudNormalAlpha;
-        private RectTransform _topLeftStack;
-        private RectTransform _topRightStack;
-        private RectTransform _bottomRightStack;
 
         public event Action PauseRequested;
 
@@ -53,25 +41,9 @@ namespace Game.Feature.UI.HUD
 
         public ObjectiveHudView ObjectiveHudView => _objectiveHudView;
 
-        public ChancePanelView ChancePanelView
-        {
-            get
-            {
-                EnsureHudModules();
-                EnsureHudLayout();
-                return _chancePanelView;
-            }
-        }
+        public ChancePanelView ChancePanelView => _chancePanelView;
 
-        public TopologyBeltView TopologyBeltView
-        {
-            get
-            {
-                EnsureHudModules();
-                EnsureHudLayout();
-                return _topologyBeltView;
-            }
-        }
+        public TopologyBeltView TopologyBeltView => _topologyBeltView;
 
         public NotificationView NotificationView => _notificationView;
 
@@ -131,10 +103,42 @@ namespace Game.Feature.UI.HUD
             PauseRequested?.Invoke();
         }
 
+        public void ValidateAuthoredStructureOrThrow()
+        {
+            RequireReference(_root, nameof(_root));
+            RequireReference(_shellCanvasGroup, nameof(_shellCanvasGroup));
+            RequireReference(_pauseButton, nameof(_pauseButton));
+            RequireReference(_stageNameLabel, nameof(_stageNameLabel));
+            RequireReference(_objectiveHudView, nameof(_objectiveHudView));
+            RequireReference(_chancePanelView, nameof(_chancePanelView));
+            RequireReference(_topologyBeltView, nameof(_topologyBeltView));
+            RequireReference(_playerStatusView, nameof(_playerStatusView));
+            RequireReference(_notificationView, nameof(_notificationView));
+            RequireSingleChildView<ChancePanelView>(nameof(ChancePanelView));
+            RequireSingleChildView<TopologyBeltView>(nameof(TopologyBeltView));
+
+            var authoredRoot = _root != null ? _root.transform : transform;
+            var topLeftStack = RequireStack(authoredRoot, HudTopLeftStackName);
+            var topRightStack = RequireStack(authoredRoot, HudTopRightStackName);
+            var bottomRightStack = RequireStack(authoredRoot, HudBottomRightStackName);
+
+            RequireOwnedByStack(_objectiveHudView.transform, topLeftStack, nameof(_objectiveHudView));
+            RequireOwnedByStack(_stageNameLabel.transform, topRightStack, nameof(_stageNameLabel));
+            RequireOwnedByStack(_pauseButton.transform, topRightStack, nameof(_pauseButton));
+            RequireOwnedByStack(_topologyBeltView.transform, topRightStack, nameof(_topologyBeltView));
+            RequireOwnedByStack(_notificationView.transform, bottomRightStack, nameof(_notificationView));
+            RequireOwnedByStack(_chancePanelView.transform, bottomRightStack, nameof(_chancePanelView));
+
+            _objectiveHudView.ValidateAuthoredStructureOrThrow();
+            _chancePanelView.ValidateAuthoredStructureOrThrow();
+            _topologyBeltView.ValidateAuthoredStructureOrThrow();
+            _playerStatusView.ValidateAuthoredStructureOrThrow();
+            _notificationView.ValidateAuthoredStructureOrThrow();
+        }
+
         private void OnEnable()
         {
-            EnsureHudModules();
-            EnsureHudLayout();
+            ValidateAuthoredStructureOrThrow();
             if (_pauseButton != null)
             {
                 _pauseButton.onClick.RemoveListener(ClickPause);
@@ -199,8 +203,6 @@ namespace Game.Feature.UI.HUD
 
         private void RefreshView()
         {
-            EnsureHudModules();
-            EnsureHudLayout();
             var isRootVisible = IsVisible && (_viewModel == null || _viewModel.IsVisible);
             var targetShellAlpha = _viewModel != null && _viewModel.IsDimmed ? HudDimmedAlpha : HudNormalAlpha;
             var becameVisible = !_lastRootVisibleState && isRootVisible;
@@ -309,253 +311,44 @@ namespace Game.Feature.UI.HUD
             _shellTween = null;
         }
 
-        private void EnsureHudModules()
+        private static void RequireReference(UnityEngine.Object value, string fieldName)
         {
-            if (_chancePanelView == null)
+            if (value == null)
             {
-                _chancePanelView = GetComponentInChildren<ChancePanelView>(true);
+                throw new InvalidOperationException($"{nameof(HUDRootView)} is missing authored reference '{fieldName}'.");
             }
-
-            if (_topologyBeltView == null)
-            {
-                _topologyBeltView = GetComponentInChildren<TopologyBeltView>(true);
-            }
-
-            if (!Application.isPlaying && !gameObject.scene.IsValid())
-            {
-                return;
-            }
-
-            _chancePanelView = ResolveSingleChancePanelView(_chancePanelView);
-
-            if (_chancePanelView == null)
-            {
-                _chancePanelView = CreateRuntimeHudModule<ChancePanelView>("ChancePanel");
-            }
-
-            if (_topologyBeltView == null)
-            {
-                _topologyBeltView = CreateRuntimeHudModule<TopologyBeltView>("TopologyBelt");
-            }
-
-            EnsureHudLayout();
         }
 
-        private T CreateRuntimeHudModule<T>(string moduleName)
-            where T : Component
+        private void RequireSingleChildView<TView>(string viewName) where TView : Component
         {
-            var module = new GameObject(moduleName, typeof(RectTransform), typeof(T));
-            var parent = _root != null ? _root.transform : transform;
-            module.transform.SetParent(parent, false);
-            var rect = (RectTransform)module.transform;
-            if (typeof(T) == typeof(ChancePanelView))
+            var views = GetComponentsInChildren<TView>(true);
+            if (views.Length != 1)
             {
-                rect.anchorMin = new Vector2(1.0f, 0.0f);
-                rect.anchorMax = new Vector2(1.0f, 0.0f);
-                rect.pivot = new Vector2(1.0f, 0.0f);
-                rect.anchoredPosition = new Vector2(-HudLayoutMargin, HudLayoutMargin);
-                rect.sizeDelta = ChancePanelSize;
+                throw new InvalidOperationException($"{nameof(HUDRootView)} requires exactly one authored {viewName}; found {views.Length}.");
             }
-            else if (typeof(T) == typeof(TopologyBeltView))
-            {
-                rect.anchorMin = new Vector2(1.0f, 1.0f);
-                rect.anchorMax = new Vector2(1.0f, 1.0f);
-                rect.pivot = new Vector2(1.0f, 1.0f);
-                rect.anchoredPosition = new Vector2(-HudLayoutMargin, -HudLayoutMargin);
-                rect.sizeDelta = TopologyBeltSize;
-            }
-            else
-            {
-                rect.anchorMin = Vector2.zero;
-                rect.anchorMax = Vector2.one;
-                rect.offsetMin = Vector2.zero;
-                rect.offsetMax = Vector2.zero;
-            }
-
-            return module.GetComponent<T>();
         }
 
-        private void EnsureHudLayout()
+        private static RectTransform RequireStack(Transform root, string stackName)
         {
-            var parent = _root != null ? _root.transform : transform;
-            if (parent == null)
+            var stack = root != null ? root.Find(stackName) as RectTransform : null;
+            if (stack == null)
             {
-                return;
+                throw new InvalidOperationException($"{nameof(HUDRootView)} is missing authored HUD stack '{stackName}'.");
             }
 
-            _topLeftStack = EnsureStack(
-                _topLeftStack,
-                parent,
-                HudTopLeftStackName,
-                new Vector2(0.0f, 1.0f),
-                new Vector2(0.0f, 1.0f),
-                new Vector2(HudLayoutMargin, -HudLayoutMargin),
-                ObjectiveHudSize,
-                TextAnchor.UpperLeft);
-            _topRightStack = EnsureStack(
-                _topRightStack,
-                parent,
-                HudTopRightStackName,
-                new Vector2(1.0f, 1.0f),
-                new Vector2(1.0f, 1.0f),
-                new Vector2(-HudLayoutMargin, -HudLayoutMargin),
-                new Vector2(Mathf.Max(StageNameSize.x, TopologyBeltSize.x), StageNameSize.y + PauseButtonSize.y + TopologyBeltSize.y + HudLayoutSpacing * 2.0f),
-                TextAnchor.UpperRight);
-            _bottomRightStack = EnsureStack(
-                _bottomRightStack,
-                parent,
-                HudBottomRightStackName,
-                new Vector2(1.0f, 0.0f),
-                new Vector2(1.0f, 0.0f),
-                new Vector2(-HudLayoutMargin, HudLayoutMargin),
-                new Vector2(NotificationSize.x, NotificationSize.y + ChancePanelSize.y + HudLayoutSpacing),
-                TextAnchor.LowerRight);
+            if (stack.GetComponent<VerticalLayoutGroup>() == null)
+            {
+                throw new InvalidOperationException($"Authored HUD stack '{stackName}' is missing VerticalLayoutGroup.");
+            }
 
-            MoveToStack(_objectiveHudView, _topLeftStack, 0, ObjectiveHudSize);
-            MoveToStack(_stageNameLabel, _topRightStack, 0, StageNameSize);
-            MoveToStack(_pauseButton, _topRightStack, 1, PauseButtonSize);
-            MoveToStack(_topologyBeltView, _topRightStack, 2, TopologyBeltSize);
-            MoveToStack(_notificationView, _bottomRightStack, 0, NotificationSize);
-            MoveToStack(_chancePanelView, _bottomRightStack, 1, ChancePanelSize);
+            return stack;
         }
 
-        private static RectTransform EnsureStack(
-            RectTransform current,
-            Transform parent,
-            string stackName,
-            Vector2 anchor,
-            Vector2 pivot,
-            Vector2 anchoredPosition,
-            Vector2 size,
-            TextAnchor childAlignment)
+        private static void RequireOwnedByStack(Transform child, Transform stack, string fieldName)
         {
-            if (current == null || current.name != stackName)
+            if (child == null || stack == null || !child.IsChildOf(stack))
             {
-                current = parent.Find(stackName) as RectTransform;
-            }
-
-            if (current == null)
-            {
-                var stack = new GameObject(stackName, typeof(RectTransform));
-                stack.transform.SetParent(parent, false);
-                current = (RectTransform)stack.transform;
-            }
-            else if (current.parent != parent)
-            {
-                current.SetParent(parent, false);
-            }
-
-            current.anchorMin = anchor;
-            current.anchorMax = anchor;
-            current.pivot = pivot;
-            current.anchoredPosition = anchoredPosition;
-            current.sizeDelta = size;
-
-            var layoutGroup = current.GetComponent<VerticalLayoutGroup>();
-            if (layoutGroup == null)
-            {
-                layoutGroup = current.gameObject.AddComponent<VerticalLayoutGroup>();
-            }
-
-            layoutGroup.childAlignment = childAlignment;
-            layoutGroup.spacing = HudLayoutSpacing;
-            layoutGroup.childControlWidth = false;
-            layoutGroup.childControlHeight = false;
-            layoutGroup.childForceExpandWidth = false;
-            layoutGroup.childForceExpandHeight = false;
-            layoutGroup.padding = new RectOffset(0, 0, 0, 0);
-
-            return current;
-        }
-
-        private static void MoveToStack(Component component, RectTransform stack, int siblingIndex, Vector2 size)
-        {
-            if (component == null || stack == null)
-            {
-                return;
-            }
-
-            var rect = component.transform as RectTransform;
-            if (rect == null)
-            {
-                return;
-            }
-
-            rect.SetParent(stack, false);
-            rect.SetSiblingIndex(siblingIndex);
-            rect.anchorMin = new Vector2(0.0f, 1.0f);
-            rect.anchorMax = new Vector2(0.0f, 1.0f);
-            rect.pivot = new Vector2(0.0f, 1.0f);
-            rect.sizeDelta = size;
-
-            var layoutElement = rect.GetComponent<LayoutElement>();
-            if (layoutElement == null)
-            {
-                layoutElement = rect.gameObject.AddComponent<LayoutElement>();
-            }
-
-            layoutElement.preferredWidth = size.x;
-            layoutElement.preferredHeight = size.y;
-            layoutElement.minWidth = size.x;
-            layoutElement.minHeight = size.y;
-        }
-
-        private ChancePanelView ResolveSingleChancePanelView(ChancePanelView preferred)
-        {
-            var modules = GetComponentsInChildren<ChancePanelView>(true);
-            if (modules == null || modules.Length == 0)
-            {
-                return null;
-            }
-
-            var selected = preferred;
-            var hasSelected = false;
-            if (selected != null)
-            {
-                for (var i = 0; i < modules.Length; i++)
-                {
-                    if (modules[i] == selected)
-                    {
-                        hasSelected = true;
-                        break;
-                    }
-                }
-            }
-
-            if (!hasSelected)
-            {
-                selected = modules[0];
-            }
-
-            for (var i = 0; i < modules.Length; i++)
-            {
-                var module = modules[i];
-                if (module == null || module == selected)
-                {
-                    continue;
-                }
-
-                DestroyDuplicateChancePanelView(module);
-            }
-
-            return selected;
-        }
-
-        private static void DestroyDuplicateChancePanelView(ChancePanelView module)
-        {
-            module.Bind(null);
-
-            var target = module.gameObject == null || module.gameObject.GetComponent<HUDRootView>() != null
-                ? (UnityEngine.Object)module
-                : module.gameObject;
-
-            if (Application.isPlaying)
-            {
-                Destroy(target);
-            }
-            else
-            {
-                DestroyImmediate(target);
+                throw new InvalidOperationException($"Authored HUD reference '{fieldName}' must be under '{stack.name}'.");
             }
         }
 

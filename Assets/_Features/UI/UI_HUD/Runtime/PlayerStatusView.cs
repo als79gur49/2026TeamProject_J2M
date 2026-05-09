@@ -1,4 +1,5 @@
 using TMPro;
+using System;
 using UnityEngine;
 
 namespace Game.Feature.UI.HUD
@@ -31,6 +32,15 @@ namespace Game.Feature.UI.HUD
             RefreshView();
         }
 
+        public void ValidateAuthoredStructureOrThrow()
+        {
+            RequireReference(_root, nameof(_root));
+            RequireReference(_titleLabel, nameof(_titleLabel));
+            RequireReference(_facingLabel, nameof(_facingLabel));
+            RequireReference(_topologyLabel, nameof(_topologyLabel));
+            RequireReference(_chancesLabel, nameof(_chancesLabel));
+        }
+
 #if UNITY_EDITOR
         private void OnValidate()
         {
@@ -57,6 +67,7 @@ namespace Game.Feature.UI.HUD
 
         private void RefreshView()
         {
+            ValidateAuthoredStructureOrThrow();
             if (_root != null)
             {
                 _root.SetActive(true);
@@ -119,5 +130,13 @@ namespace Game.Feature.UI.HUD
             }
         }
 #endif
+
+        private static void RequireReference(UnityEngine.Object value, string fieldName)
+        {
+            if (value == null)
+            {
+                throw new InvalidOperationException($"{nameof(PlayerStatusView)} is missing authored reference '{fieldName}'.");
+            }
+        }
     }
 }

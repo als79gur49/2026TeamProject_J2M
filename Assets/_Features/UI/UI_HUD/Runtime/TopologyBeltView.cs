@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using DG.Tweening;
 using TMPro;
@@ -8,22 +9,7 @@ namespace Game.Feature.UI.HUD
 {
     public sealed class TopologyBeltView : MonoBehaviour
     {
-        private const float BeltWidth = 480.0f;
-        private const float LabelHeight = 18.0f;
-        private const float FaceChipWidth = 72.0f;
-        private const float FaceChipHeight = 28.0f;
-        private const float FaceChipSpacing = 4.0f;
-        private const float TransitionLabelHeight = 16.0f;
-
-        private static readonly string[] AuthoredFaceChipLabels =
-        {
-            "U",
-            "D",
-            "F",
-            "B",
-            "L",
-            "R",
-        };
+        private const int AuthoredFaceChipCount = 6;
 
         [SerializeField] private GameObject _root;
         [SerializeField] private TMP_Text _labelText;
@@ -43,7 +29,7 @@ namespace Game.Feature.UI.HUD
         {
             get
             {
-                EnsureBuilt();
+                ValidateAuthoredStructureOrThrow();
                 return _runtimeChips;
             }
         }
@@ -62,6 +48,31 @@ namespace Game.Feature.UI.HUD
             }
 
             RefreshView();
+        }
+
+        public void ValidateAuthoredStructureOrThrow()
+        {
+            RequireReference(_root, nameof(_root));
+            RequireReference(_labelText, nameof(_labelText));
+            RequireReference(_faceChipContainer, nameof(_faceChipContainer));
+            RequireReference(_transitionLabel, nameof(_transitionLabel));
+            if (_faceChips == null || _faceChips.Length != AuthoredFaceChipCount)
+            {
+                throw new InvalidOperationException($"{nameof(TopologyBeltView)} requires exactly {AuthoredFaceChipCount} authored face chip references.");
+            }
+
+            _runtimeChips.Clear();
+            for (var i = 0; i < _faceChips.Length; i++)
+            {
+                var chip = _faceChips[i];
+                if (chip == null)
+                {
+                    throw new InvalidOperationException($"{nameof(TopologyBeltView)} has a null authored face chip at index {i}.");
+                }
+
+                chip.ValidateAuthoredStructureOrThrow();
+                _runtimeChips.Add(chip);
+            }
         }
 
         private void OnEnable()
@@ -88,184 +99,9 @@ namespace Game.Feature.UI.HUD
             RefreshView();
         }
 
-        private void EnsureBuilt()
-        {
-            if (_root == null)
-            {
-                _root = gameObject;
-            }
-
-            if (GetComponent<LayoutGroup>() == null)
-            {
-                var layout = gameObject.AddComponent<VerticalLayoutGroup>();
-                layout.childAlignment = TextAnchor.UpperRight;
-                layout.spacing = 4.0f;
-                layout.childControlHeight = false;
-                layout.childControlWidth = false;
-                layout.childForceExpandHeight = false;
-                layout.childForceExpandWidth = false;
-            }
-
-            if (_labelText == null)
-            {
-                _labelText = CreateText("LabelText", "SURFACE", 16, TextAlignmentOptions.Right);
-            }
-
-            ConfigureLayoutElement((RectTransform)_labelText.transform, BeltWidth, LabelHeight);
-
-            if (_faceChipContainer == null)
-            {
-                var container = new GameObject("FaceChipContainer", typeof(RectTransform), typeof(HorizontalLayoutGroup));
-                container.transform.SetParent(transform, false);
-                _faceChipContainer = (RectTransform)container.transform;
-            }
-
-            ConfigureFaceChipContainer(_faceChipContainer);
-
-            if (_transitionLabel == null)
-            {
-                _transitionLabel = CreateText("TransitionLabel", string.Empty, 13, TextAlignmentOptions.Right);
-            }
-
-            ConfigureLayoutElement((RectTransform)_transitionLabel.transform, BeltWidth, TransitionLabelHeight);
-
-            RebuildRuntimeChipCache();
-
-            while (_runtimeChips.Count < AuthoredFaceChipLabels.Length)
-            {
-                _runtimeChips.Add(CreateChip(_runtimeChips.Count));
-            }
-
-            TrimChipCapacity(AuthoredFaceChipLabels.Length);
-        }
-
-        private TMP_Text CreateText(
-            string childName,
-            string text,
-            int fontSize,
-            TextAlignmentOptions alignment)
-        {
-            var child = new GameObject(childName, typeof(RectTransform), typeof(TextMeshProUGUI));
-            child.transform.SetParent(transform, false);
-            var label = child.GetComponent<TMP_Text>();
-            label.text = text;
-            label.fontSize = fontSize;
-            label.alignment = alignment;
-            label.raycastTarget = false;
-            return label;
-        }
-
-        private FaceChipView CreateChip(int index)
-        {
-            var chip = new GameObject(
-                $"FaceChipView {GetAuthoredFaceChipLabel(index)}",
-                typeof(RectTransform),
-                typeof(CanvasGroup),
-                typeof(FaceChipView));
-            chip.transform.SetParent(_faceChipContainer, false);
-            var rect = (RectTransform)chip.transform;
-            rect.sizeDelta = new Vector2(FaceChipWidth, FaceChipHeight);
-            return chip.GetComponent<FaceChipView>();
-        }
-
-        private void RebuildRuntimeChipCache()
-        {
-            _runtimeChips.Clear();
-            if (_faceChips != null)
-            {
-                for (var i = 0; i < _faceChips.Length; i++)
-                {
-                    AddRuntimeChip(_faceChips[i]);
-                }
-            }
-
-            if (_faceChipContainer == null)
-            {
-                return;
-            }
-
-            var discoveredChips = _faceChipContainer.GetComponentsInChildren<FaceChipView>(true);
-            for (var i = 0; i < discoveredChips.Length; i++)
-            {
-                AddRuntimeChip(discoveredChips[i]);
-            }
-        }
-
-        private void AddRuntimeChip(FaceChipView chip)
-        {
-            if (chip == null)
-            {
-                return;
-            }
-
-            for (var i = 0; i < _runtimeChips.Count; i++)
-            {
-                if (_runtimeChips[i] == chip ||
-                    (_runtimeChips[i] != null && chip != null && _runtimeChips[i].GetInstanceID() == chip.GetInstanceID()))
-                {
-                    return;
-                }
-            }
-
-            _runtimeChips.Add(chip);
-        }
-
-        private void TrimChipCapacity(int targetCount)
-        {
-            if (_runtimeChips.Count <= targetCount)
-            {
-                return;
-            }
-
-            _runtimeChips.RemoveRange(targetCount, _runtimeChips.Count - targetCount);
-        }
-
-        private static void ConfigureFaceChipContainer(RectTransform rect)
-        {
-            if (rect == null)
-            {
-                return;
-            }
-
-            var layout = rect.GetComponent<HorizontalLayoutGroup>() ?? rect.gameObject.AddComponent<HorizontalLayoutGroup>();
-            layout.childAlignment = TextAnchor.MiddleRight;
-            layout.spacing = FaceChipSpacing;
-            layout.childControlHeight = false;
-            layout.childControlWidth = false;
-            layout.childForceExpandHeight = false;
-            layout.childForceExpandWidth = false;
-
-            var chipCount = AuthoredFaceChipLabels.Length;
-            var width = chipCount * FaceChipWidth + Mathf.Max(0, chipCount - 1) * FaceChipSpacing;
-            ConfigureLayoutElement(rect, width, FaceChipHeight);
-        }
-
-        private static string GetAuthoredFaceChipLabel(int index)
-        {
-            return index >= 0 && index < AuthoredFaceChipLabels.Length
-                ? AuthoredFaceChipLabels[index]
-                : index.ToString();
-        }
-
-        private static void ConfigureLayoutElement(RectTransform rect, float width, float height)
-        {
-            if (rect == null)
-            {
-                return;
-            }
-
-            rect.sizeDelta = new Vector2(width, height);
-            var layoutElement = rect.GetComponent<LayoutElement>() ?? rect.gameObject.AddComponent<LayoutElement>();
-            layoutElement.ignoreLayout = false;
-            layoutElement.minWidth = width;
-            layoutElement.preferredWidth = width;
-            layoutElement.minHeight = height;
-            layoutElement.preferredHeight = height;
-        }
-
         private void RefreshView()
         {
-            EnsureBuilt();
+            ValidateAuthoredStructureOrThrow();
             if (_root != null)
             {
                 _root.SetActive(_viewModel != null);
@@ -275,6 +111,12 @@ namespace Game.Feature.UI.HUD
             {
                 KillMarkerTween();
                 return;
+            }
+
+            if (_viewModel.Chips.Length > _runtimeChips.Count)
+            {
+                throw new InvalidOperationException(
+                    $"{nameof(TopologyBeltView)} has {_runtimeChips.Count} authored face chips but received {_viewModel.Chips.Length} chip view models.");
             }
 
             if (_labelText != null)
@@ -340,5 +182,14 @@ namespace Game.Feature.UI.HUD
             _markerTween.Kill(false);
             _markerTween = null;
         }
+
+        private static void RequireReference(UnityEngine.Object value, string fieldName)
+        {
+            if (value == null)
+            {
+                throw new InvalidOperationException($"{nameof(TopologyBeltView)} is missing authored reference '{fieldName}'.");
+            }
+        }
+
     }
 }
