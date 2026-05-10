@@ -31,13 +31,13 @@ MonoBehaviour:
       y: 1
     Facing: 2
     Hp: 3
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId:
+    PresentationId: 
   - StableGuid: combined-gameplay-showcase:Enemy:56
     DisplayName: Enemy 56
     Kind: 1
@@ -47,7 +47,7 @@ MonoBehaviour:
       y: 7
     Facing: 1
     Hp: 3
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 1
@@ -63,7 +63,7 @@ MonoBehaviour:
       y: 7
     Facing: 4
     Hp: 3
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 1
@@ -79,7 +79,7 @@ MonoBehaviour:
       y: 5
     Facing: 4
     Hp: 3
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 1
@@ -95,7 +95,7 @@ MonoBehaviour:
       y: 5
     Facing: 4
     Hp: 3
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 1
@@ -111,7 +111,7 @@ MonoBehaviour:
       y: 1
     Facing: 2
     Hp: 1
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 1
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -127,7 +127,7 @@ MonoBehaviour:
       y: 3
     Facing: 2
     Hp: 1
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 4
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -143,7 +143,7 @@ MonoBehaviour:
       y: 3
     Facing: 2
     Hp: 1
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 9
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -159,7 +159,7 @@ MonoBehaviour:
       y: 5
     Facing: 4
     Hp: 1
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 2
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -175,7 +175,7 @@ MonoBehaviour:
       y: 1
     Facing: 2
     Hp: 1
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 3
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -191,7 +191,7 @@ MonoBehaviour:
       y: 3
     Facing: 4
     Hp: 1
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 6
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -207,7 +207,7 @@ MonoBehaviour:
       y: 3
     Facing: 2
     Hp: 1
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 11
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -223,7 +223,7 @@ MonoBehaviour:
       y: 5
     Facing: 2
     Hp: 1
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 7
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -239,7 +239,7 @@ MonoBehaviour:
       y: 6
     Facing: 1
     Hp: 1
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 1
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -255,7 +255,7 @@ MonoBehaviour:
       y: 1
     Facing: 2
     Hp: 1
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 5
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -271,7 +271,7 @@ MonoBehaviour:
       y: 1
     Facing: 4
     Hp: 1
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 3
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -287,7 +287,7 @@ MonoBehaviour:
       y: 5
     Facing: 2
     Hp: 1
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 9
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -303,7 +303,7 @@ MonoBehaviour:
       y: 1
     Facing: 0
     Hp: 1
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -319,7 +319,7 @@ MonoBehaviour:
       y: 3
     Facing: 0
     Hp: 1
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -335,7 +335,7 @@ MonoBehaviour:
       y: 1
     Facing: 0
     Hp: 1
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -351,7 +351,7 @@ MonoBehaviour:
       y: 3
     Facing: 0
     Hp: 1
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -367,7 +367,7 @@ MonoBehaviour:
       y: 3
     Facing: 0
     Hp: 1
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -383,7 +383,7 @@ MonoBehaviour:
       y: 3
     Facing: 0
     Hp: 1
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 1
@@ -399,13 +399,45 @@ MonoBehaviour:
       y: 2
     Facing: 2
     Hp: 1
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 11
     BoxArchetype: 1
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
     PresentationId: moon_box_showcase
+  - StableGuid: 4b6f3ab452224434ae512337e604e052
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 10
+      y: 2
+    Facing: 0
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 1
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: 
+  - StableGuid: 0e6aeffce63349509296dc778200efe4
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 13
+      y: 1
+    Facing: 0
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 1
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: 
   tileFeatures:
   - TileId: 901
     Cell:
@@ -417,7 +449,7 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 3
     BoundEntityId: 0
-    PresentationKey:
+    PresentationKey: 
   - TileId: 902
     Cell:
       face: 0
@@ -437,9 +469,9 @@ MonoBehaviour:
     Kind: 2
     ActivationRule: 1
     Direction: 0
-    BoxSelector: 3
+    BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey:
+    PresentationKey: destroy.bottom
   - TileId: 904
     Cell:
       face: 0
@@ -472,7 +504,7 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey:
+    PresentationKey: 
   - TileId: 907
     Cell:
       face: 3
@@ -483,7 +515,7 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey:
+    PresentationKey: 
   - TileId: 908
     Cell:
       face: 0
@@ -494,7 +526,7 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 201
-    PresentationKey:
+    PresentationKey: 
   - TileId: 910
     Cell:
       face: 0
@@ -527,7 +559,62 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 3
     BoundEntityId: 0
-    PresentationKey:
+    PresentationKey: 
+  - TileId: 914
+    Cell:
+      face: 2
+      x: 10
+      y: 4
+    Kind: 4
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 3
+    BoundEntityId: 0
+    PresentationKey: 
+  - TileId: 915
+    Cell:
+      face: 1
+      x: 12
+      y: 2
+    Kind: 1
+    ActivationRule: 2
+    Direction: 2
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: slide.right
+  - TileId: 916
+    Cell:
+      face: 1
+      x: 11
+      y: 2
+    Kind: 3
+    ActivationRule: 2
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: barricade.default
+  - TileId: 917
+    Cell:
+      face: 1
+      x: 10
+      y: 1
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.front
+  - TileId: 918
+    Cell:
+      face: 1
+      x: 12
+      y: 3
+    Kind: 1
+    ActivationRule: 2
+    Direction: 1
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: 
   zones:
   - ZoneId: 1
     FaceId: 3
@@ -536,14 +623,14 @@ MonoBehaviour:
       MaxInclusive: {x: 0, y: 6}
   objective:
     CompletionPolicy: 2
-    ObjectiveTitle:
-    ObjectiveSummary:
+    ObjectiveTitle: 
+    ObjectiveSummary: 
     ConditionEntries:
     - Condition: {fileID: 11400000, guid: 0a5ed70e5ae1212d3c1dee3e4107b5b2, type: 2}
       Required: 1
       Role: 1
       StableConditionId: primary-goal
-      DisplayText:
+      DisplayText: 
       SortOrder: 0
     - Condition: {fileID: 11400000, guid: 3c6df7d7b4614cb3a9715a470126fc74, type: 2}
       Required: 1
@@ -620,6 +707,10 @@ MonoBehaviour:
     EntityId: 60
     Retired: 0
     LastKnownDisplayName: Enemy 60
+  - StableGuid: 95b57e884ed04b2cb81992829372f8c4
+    EntityId: 61
+    Retired: 0
+    LastKnownDisplayName: Enemy 61
   - StableGuid: combined-gameplay-showcase:Wall:196
     EntityId: 196
     Retired: 0
@@ -640,12 +731,16 @@ MonoBehaviour:
     EntityId: 200
     Retired: 0
     LastKnownDisplayName: Wall 200
-  - StableGuid: 95b57e884ed04b2cb81992829372f8c4
-    EntityId: 61
-    Retired: 0
-    LastKnownDisplayName: Enemy 61
   - StableGuid: combined-gameplay-showcase:Box:201
     EntityId: 201
     Retired: 0
     LastKnownDisplayName: Moon QA Box 201
+  - StableGuid: 4b6f3ab452224434ae512337e604e052
+    EntityId: 202
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 0e6aeffce63349509296dc778200efe4
+    EntityId: 203
+    Retired: 0
+    LastKnownDisplayName: Placement
   enforceGeneratedSync: 0
