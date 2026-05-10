@@ -236,6 +236,41 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void AddDestroyTile_PreservesSupportedFrontFaceActivation()
+        {
+            var feature = StageAuthoringPlacementCommands.CreateTileFeaturePreset(
+                TileFeatureKind.Destroy,
+                new SurfaceCell(FaceId.Front, 0, 0),
+                TileFeatureActivationRule.FrontFaceOnly,
+                Direction2D.Left,
+                TileFeatureBoxSelector.AnyPushableBox,
+                99,
+                string.Empty);
+
+            Assert.That(feature.ActivationRule, Is.EqualTo(TileFeatureActivationRule.FrontFaceOnly));
+            Assert.That(feature.Direction, Is.EqualTo(Direction2D.None));
+            Assert.That(feature.BoxSelector, Is.EqualTo(TileFeatureBoxSelector.None));
+            Assert.That(feature.BoundEntityId, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void UpdateDestroyTile_AllowsFrontFaceActivation()
+        {
+            WithAuthoring(authoring =>
+            {
+                var original = CreateFeature(1, TileFeatureKind.Destroy, new SurfaceCell(FaceId.Floor, 0, 0));
+                authoring.SetTileFeatures(new[] { original });
+                var updated = original;
+                updated.ActivationRule = TileFeatureActivationRule.FrontFaceOnly;
+
+                var changed = StageAuthoringPlacementCommands.TryUpdateTileFeature(authoring, updated, out var error);
+
+                Assert.That(changed, Is.True, error);
+                Assert.That(authoring.TileFeatures.Single().ActivationRule, Is.EqualTo(TileFeatureActivationRule.FrontFaceOnly));
+            });
+        }
+
+        [Test]
         public void AddSlideTile_RequiresCardinalDirection()
         {
             WithAuthoring(authoring =>

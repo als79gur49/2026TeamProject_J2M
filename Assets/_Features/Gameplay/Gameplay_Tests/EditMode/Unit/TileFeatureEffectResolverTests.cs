@@ -292,6 +292,54 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void DestroyTile_ActiveFrontFace_DestroysMovingBoxOnceAndKeepsTile()
+        {
+            var cell = new SurfaceCell(FaceId.Front, 1, 1);
+            var destroyTile = CreateTileFeature(10, cell, TileFeatureKind.Destroy);
+            var snapshot = CreateWorldState(
+                    new[] { CreateBox(20, cell) },
+                    new[] { destroyTile })
+                .CreateSnapshot();
+
+            var result = Resolve(
+                snapshot,
+                new[] { new TileEffectBoxContact(20, cell, TileEffectBoxContactKind.PushEnter) },
+                CreateDefinition(10, TileFeatureActivationRule.FrontFaceOnly));
+
+            Assert.That(result.Operations.IsEmpty, Is.True);
+            Assert.That(result.EntityOperations.Operations.Count, Is.EqualTo(2));
+            Assert.That(result.EntityOperations.Operations[0].Kind, Is.EqualTo(FinalizationOperationKind.SetBoardPresence));
+            Assert.That(result.EntityOperations.Operations[1].Kind, Is.EqualTo(FinalizationOperationKind.MarkDestroy));
+            Assert.That(result.EntityOperations.Operations[1].EntityId, Is.EqualTo(20));
+            Assert.That(result.TileEvents, Has.Count.EqualTo(1));
+            Assert.That(result.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.DestroyTileTriggered));
+            Assert.That(result.TileEvents[0].TileId, Is.EqualTo(10));
+            Assert.That(result.TileEvents[0].Cell, Is.EqualTo(cell));
+            Assert.That(result.TileEvents[0].TargetEntityId, Is.EqualTo(20));
+            Assert.That(snapshot.TryGetTileFeature(10, out var storedTile), Is.True);
+            Assert.That(storedTile.Kind, Is.EqualTo(TileFeatureKind.Destroy));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DestroyTile_FrontOnlyOnBottomFace_DoesNotDestroy()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var snapshot = CreateWorldState(
+                    new[] { CreateBox(20, cell) },
+                    new[] { CreateTileFeature(10, cell, TileFeatureKind.Destroy) })
+                .CreateSnapshot();
+
+            var result = Resolve(
+                snapshot,
+                new[] { new TileEffectBoxContact(20, cell, TileEffectBoxContactKind.PushEnter) },
+                CreateDefinition(10, TileFeatureActivationRule.FrontFaceOnly));
+
+            Assert.That(result.IsEmpty, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
         public void DestroyTile_InactiveOrStationaryOrNonBoxTargets_DoNotDestroy()
         {
             var floorCell = new SurfaceCell(FaceId.Floor, 1, 1);
