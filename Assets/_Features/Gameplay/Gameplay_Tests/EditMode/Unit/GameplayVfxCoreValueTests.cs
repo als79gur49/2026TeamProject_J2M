@@ -239,6 +239,60 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void TileFeaturePlanner_MapsDestroyActiveStateToPersistentLaserCue()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var cell = new SurfaceCell(FaceId.Floor, 2, 3);
+            var activeVisualState = new TileFeatureActiveVisualState(
+                100,
+                cell,
+                TileFeatureKind.Destroy,
+                sourceEntityId: 10,
+                ownerEntityId: 20,
+                teamId: 1);
+            var inactiveKindState = new TileFeatureActiveVisualState(
+                101,
+                cell,
+                TileFeatureKind.Barricade,
+                sourceEntityId: 11,
+                ownerEntityId: 21,
+                teamId: 1);
+            var data = CreatePresentationData(tileFeatureActiveVisualStates: new[]
+            {
+                activeVisualState,
+                inactiveKindState,
+            });
+            var builder = new GameplayVfxRequestPlanBuilder();
+
+            new TileFeatureVfxRequestPlanner().Plan(
+                new GameplayVfxPlanningContext(21, data, topology),
+                builder);
+            var request = builder.Build().Requests.Single();
+            var expectedCueId = GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive);
+            var expectedKey = new VfxPersistentKey(
+                expectedCueId,
+                VfxAnchorKind.Cell,
+                tileId: 100,
+                cell: cell,
+                hasCell: true);
+
+            Assert.That(request.CueId, Is.EqualTo(expectedCueId));
+            Assert.That(request.IsPersistent, Is.True);
+            Assert.That(request.PersistentKey, Is.EqualTo(expectedKey));
+            Assert.That(request.Anchor.Kind, Is.EqualTo(VfxAnchorKind.Cell));
+            Assert.That(request.Anchor.Cell, Is.EqualTo(cell));
+            Assert.That(request.SourceEntityId, Is.EqualTo(10));
+
+            var secondBuilder = new GameplayVfxRequestPlanBuilder();
+            new TileFeatureVfxRequestPlanner().Plan(
+                new GameplayVfxPlanningContext(22, data, topology),
+                secondBuilder);
+
+            Assert.That(secondBuilder.Build().Requests.Single().PersistentKey, Is.EqualTo(request.PersistentKey));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GravityFieldPlanner_MapsEventsAndPersistentState()
         {
             var topology = new CubeTopologyState(FaceId.Floor);
@@ -306,7 +360,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static TickPresentationData CreatePresentationData(
             TilePresentationEvent[] tileEvents = null,
             GravityFieldPresentationEvent[] gravityFieldEvents = null,
-            GravityFieldVisualState[] gravityFieldVisualStates = null)
+            GravityFieldVisualState[] gravityFieldVisualStates = null,
+            TileFeatureActiveVisualState[] tileFeatureActiveVisualStates = null)
         {
             return new TickPresentationData(
                 Array.Empty<TickEntityMotion>(),
@@ -324,7 +379,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<FlipImpactPresentationSignal>(),
                 tileEvents: tileEvents,
                 gravityFieldEvents: gravityFieldEvents,
-                gravityFieldVisualStates: gravityFieldVisualStates);
+                gravityFieldVisualStates: gravityFieldVisualStates,
+                tileFeatureActiveVisualStates: tileFeatureActiveVisualStates);
         }
     }
 }

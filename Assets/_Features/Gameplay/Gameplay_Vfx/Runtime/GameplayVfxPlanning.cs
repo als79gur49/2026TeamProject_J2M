@@ -655,6 +655,39 @@ namespace Game.Feature.Gameplay.Vfx
                             VfxAnchorSlot.CellCenter),
                         timing: VfxTimingKind.ImmediateOnTickPresentation));
             }
+
+            var activeVisualStates = presentationData.TileFeatureActiveVisualStates;
+            for (var i = 0; i < activeVisualStates.Count; i++)
+            {
+                var activeVisualState = activeVisualStates[i];
+                if (activeVisualState.TileFeatureKind != TileFeatureKind.Destroy)
+                {
+                    continue;
+                }
+
+                var cueId = GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive);
+                var persistentKey = new VfxPersistentKey(
+                    cueId,
+                    VfxAnchorKind.Cell,
+                    tileId: activeVisualState.TileId,
+                    cell: activeVisualState.Cell,
+                    hasCell: true);
+                var sequenceId = ResolveActiveVisualStateSequenceId(activeVisualState);
+                builder.Add(
+                    new GameplayVfxRequest(
+                        tickIndex: context.TickIndex,
+                        sequenceId: sequenceId,
+                        presentationSeed: sequenceId,
+                        sourceEntityId: activeVisualState.SourceEntityId,
+                        cueId: cueId,
+                        anchor: VfxAnchor.ForCell(
+                            activeVisualState.Cell,
+                            context.Topology,
+                            VfxAnchorSlot.CellCenter),
+                        timing: VfxTimingKind.ImmediateOnTickPresentation,
+                        isPersistent: true,
+                        persistentKey: persistentKey));
+            }
         }
 
         private static bool TryResolveCue(
@@ -752,6 +785,18 @@ namespace Game.Feature.Gameplay.Vfx
                 hash = (hash * 397) ^ tileEvent.OwnerEntityId;
                 hash = (hash * 397) ^ tileEvent.TargetEntityId;
                 return hash != 0 ? hash : eventIndex + 1;
+            }
+        }
+
+        private static int ResolveActiveVisualStateSequenceId(in TileFeatureActiveVisualState activeVisualState)
+        {
+            unchecked
+            {
+                var hash = (int)TileFeatureVfxCue.DestroyTileLaserActive;
+                hash = (hash * 397) ^ activeVisualState.TileId;
+                hash = (hash * 397) ^ activeVisualState.Cell.GetHashCode();
+                hash = (hash * 397) ^ activeVisualState.SourceEntityId;
+                return hash != 0 ? hash : activeVisualState.TileId != 0 ? activeVisualState.TileId : 1;
             }
         }
     }
