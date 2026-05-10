@@ -174,6 +174,9 @@ namespace Game.Feature.Gameplay.Host
 
         internal int PendingGameplayAudioRequestCount => _presentationCoordinator.PendingGameplayAudioRequestCount;
 
+        internal int PendingMoonBlockEmergenceRequestCount =>
+            _presentationCoordinator.PendingMoonBlockEmergenceRequestCount;
+
         public void AttachCameraRuntime(GameplayCameraRig viewCameraRig, CinemachineBrain viewCameraBrain)
         {
             _presentationCoordinator.AttachCameraRig(viewCameraRig);
