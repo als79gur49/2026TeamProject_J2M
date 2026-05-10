@@ -16,7 +16,7 @@ using UnityEngine.InputSystem;
 namespace Game.Feature.UI.Composition
 {
     [DisallowMultipleComponent]
-    public sealed class GameplayUiFlowInstaller : MonoBehaviour
+    public sealed class GameplayUiFlowInstaller : MonoBehaviour, IStageLaunchRouterProvider
     {
         private const string MissingAudioInstallerMessage =
             "GameplayUiFlowInstaller requires a co-located AudioRuntimeInstaller on the canonical bootstrap root for SettingsScreen audio controls.";
@@ -91,6 +91,12 @@ namespace Game.Feature.UI.Composition
         public TooltipPopupView TooltipPopupView => PopupLayerView != null ? PopupLayerView.FindPopupView<TooltipPopupView>() : null;
 
         public RewardPopupView RewardPopupView => PopupLayerView != null ? PopupLayerView.FindPopupView<RewardPopupView>() : null;
+
+        public bool TryCreateStageLaunchRouter(string currentSceneName, out IStageLaunchRouter router)
+        {
+            router = new CurrentSceneStageLaunchRouter(currentSceneName);
+            return true;
+        }
 
         private void Start()
         {

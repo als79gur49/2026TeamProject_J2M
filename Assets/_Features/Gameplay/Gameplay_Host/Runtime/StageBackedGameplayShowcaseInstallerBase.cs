@@ -135,8 +135,29 @@ namespace Game.Feature.Gameplay.Host
                 _saveSlotStore,
                 _activeSlotProvider,
                 sequenceResolver,
-                new SceneNameStageLaunchRouter(gameObject.scene.name));
+                CreateStageLaunchRouter(gameObject, gameObject.scene.name));
             _campaignFlowController.Bind();
+        }
+
+        private static IStageLaunchRouter CreateStageLaunchRouter(
+            GameObject owner,
+            string currentSceneName)
+        {
+            if (owner != null)
+            {
+                var behaviours = owner.GetComponents<MonoBehaviour>();
+                for (var i = 0; i < behaviours.Length; i++)
+                {
+                    if (behaviours[i] is IStageLaunchRouterProvider provider &&
+                        provider.TryCreateStageLaunchRouter(currentSceneName, out var router) &&
+                        router != null)
+                    {
+                        return router;
+                    }
+                }
+            }
+
+            return new SceneNameStageLaunchRouter(currentSceneName);
         }
 
         private void OnDestroy()

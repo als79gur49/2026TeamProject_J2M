@@ -35,16 +35,24 @@ namespace Game.Feature.Stages
             bool holdSceneActivationUntilMinimumElapsed,
             bool blockInput,
             bool showProgress,
-            TransitionOverlayKind overlayKind)
+            TransitionOverlayKind overlayKind,
+            float preOverlayDelaySeconds = 0f,
+            bool blockInputDuringPreOverlayDelay = false,
+            bool startAsyncLoadBeforeOverlay = false)
         {
             Kind = kind;
             FromSceneName = Normalize(fromSceneName);
             ToSceneName = Normalize(toSceneName);
             MinimumVisibleSeconds = Math.Max(0f, minimumVisibleSeconds);
-            HoldSceneActivationUntilMinimumElapsed = holdSceneActivationUntilMinimumElapsed;
+            HoldSceneActivationUntilMinimumElapsed =
+                kind == StageTransitionKind.DeathRetryChanceLost ||
+                holdSceneActivationUntilMinimumElapsed;
             BlockInput = blockInput;
             ShowProgress = showProgress;
             OverlayKind = overlayKind;
+            PreOverlayDelaySeconds = Math.Max(0f, preOverlayDelaySeconds);
+            BlockInputDuringPreOverlayDelay = blockInputDuringPreOverlayDelay;
+            StartAsyncLoadBeforeOverlay = startAsyncLoadBeforeOverlay;
         }
 
         public StageTransitionKind Kind { get; }
@@ -62,6 +70,12 @@ namespace Game.Feature.Stages
         public bool ShowProgress { get; }
 
         public TransitionOverlayKind OverlayKind { get; }
+
+        public float PreOverlayDelaySeconds { get; }
+
+        public bool BlockInputDuringPreOverlayDelay { get; }
+
+        public bool StartAsyncLoadBeforeOverlay { get; }
 
         public static StageTransitionProfile Default { get; } = new(
             StageTransitionKind.Unknown,
@@ -83,7 +97,10 @@ namespace Game.Feature.Stages
                 HoldSceneActivationUntilMinimumElapsed,
                 BlockInput,
                 ShowProgress,
-                OverlayKind);
+                OverlayKind,
+                PreOverlayDelaySeconds,
+                BlockInputDuringPreOverlayDelay,
+                StartAsyncLoadBeforeOverlay);
         }
 
         internal static string Normalize(string sceneName)
@@ -332,7 +349,10 @@ namespace Game.Feature.Stages
                 true,
                 true,
                 true,
-                TransitionOverlayKind.ChanceLost));
+                TransitionOverlayKind.ChanceLost,
+                preOverlayDelaySeconds: 0.35f,
+                blockInputDuringPreOverlayDelay: true,
+                startAsyncLoadBeforeOverlay: true));
             AddProfile(new StageTransitionProfile(
                 StageTransitionKind.LevelFailedRestart,
                 string.Empty,

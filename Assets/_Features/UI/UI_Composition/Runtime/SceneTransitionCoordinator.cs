@@ -89,6 +89,8 @@ namespace Game.Feature.UI.Composition
                 throw new InvalidOperationException("Scene transition requires a target scene name.");
             }
 
+            var fromSceneName = SceneManager.GetActiveScene().name;
+            var profile = _profileResolver.Resolve(request, fromSceneName, targetSceneName);
             if (!_guard.TryBegin(out var transitionId))
             {
                 Debug.LogWarning(
@@ -97,12 +99,25 @@ namespace Game.Feature.UI.Composition
                 return false;
             }
 
-            beforeLoad?.Invoke();
-            var fromSceneName = SceneManager.GetActiveScene().name;
-            var profile = _profileResolver.Resolve(request, fromSceneName, targetSceneName);
-            EnsureOverlay().Show(profile, request.TransitionHint);
-            StartCoroutine(RunTransition(transitionId, request, targetSceneName, profile));
-            return true;
+            try
+            {
+                beforeLoad?.Invoke();
+                var overlay = EnsureOverlay();
+                overlay.PrepareHidden();
+                if (profile.BlockInputDuringPreOverlayDelay)
+                {
+                    overlay.ShowInputBlocker();
+                }
+
+                StartCoroutine(RunTransition(transitionId, request, targetSceneName, profile));
+                return true;
+            }
+            catch
+            {
+                TryHideOverlay();
+                _guard.Complete(transitionId);
+                throw;
+            }
         }
 
         private IEnumerator RunTransition(
@@ -111,33 +126,47 @@ namespace Game.Feature.UI.Composition
             string targetSceneName,
             StageTransitionProfile profile)
         {
-            var startedAt = Time.unscaledTime;
             AsyncOperation operation = null;
             try
             {
-                operation = SceneManager.LoadSceneAsync(targetSceneName, LoadSceneMode.Single);
-                if (operation == null)
+                if (profile.StartAsyncLoadBeforeOverlay)
                 {
-                    throw new InvalidOperationException($"LoadSceneAsync returned null for scene '{targetSceneName}'.");
+                    operation = BeginLoad(targetSceneName);
                 }
 
-                operation.allowSceneActivation = false;
-                while (operation.progress < 0.9f)
+                var preOverlayDelaySeconds = Math.Max(0f, profile.PreOverlayDelaySeconds);
+                var preOverlayStartedAt = Time.unscaledTime;
+                while (Time.unscaledTime - preOverlayStartedAt < preOverlayDelaySeconds)
                 {
-                    EnsureOverlay().SetProgress(NormalizeProgress(operation.progress), profile.ShowProgress);
                     yield return null;
                 }
 
-                EnsureOverlay().SetProgress(1f, profile.ShowProgress);
-                var minimumVisibleSeconds = Math.Max(0f, profile.MinimumVisibleSeconds);
-                if (profile.HoldSceneActivationUntilMinimumElapsed)
+                var overlay = EnsureOverlay();
+                overlay.Show(profile, request.TransitionHint);
+                var overlayShownAt = Time.unscaledTime;
+
+                if (operation == null)
                 {
-                    while (Time.unscaledTime - startedAt < minimumVisibleSeconds)
-                    {
-                        yield return null;
-                    }
+                    operation = BeginLoad(targetSceneName);
                 }
 
+                var minimumVisibleSeconds = Math.Max(0f, profile.MinimumVisibleSeconds);
+                var loadReady = false;
+                var minimumElapsed = !profile.HoldSceneActivationUntilMinimumElapsed;
+                while (!loadReady || !minimumElapsed)
+                {
+                    loadReady = operation.progress >= 0.9f;
+                    overlay.SetProgress(
+                        loadReady ? 1f : NormalizeProgress(operation.progress),
+                        profile.ShowProgress);
+                    minimumElapsed = IsMinimumVisibleElapsedForActivation(
+                        profile,
+                        overlayShownAt,
+                        Time.unscaledTime);
+                    yield return null;
+                }
+
+                overlay.SetProgress(1f, profile.ShowProgress);
                 operation.allowSceneActivation = true;
                 while (!operation.isDone)
                 {
@@ -145,7 +174,7 @@ namespace Game.Feature.UI.Composition
                 }
 
                 while (!profile.HoldSceneActivationUntilMinimumElapsed &&
-                       Time.unscaledTime - startedAt < minimumVisibleSeconds)
+                       Time.unscaledTime - overlayShownAt < minimumVisibleSeconds)
                 {
                     yield return null;
                 }
@@ -157,9 +186,21 @@ namespace Game.Feature.UI.Composition
                     operation.allowSceneActivation = true;
                 }
 
-                EnsureOverlay().Hide();
+                TryHideOverlay();
                 _guard.Complete(transitionId);
             }
+        }
+
+        private static AsyncOperation BeginLoad(string targetSceneName)
+        {
+            var operation = SceneManager.LoadSceneAsync(targetSceneName, LoadSceneMode.Single);
+            if (operation == null)
+            {
+                throw new InvalidOperationException($"LoadSceneAsync returned null for scene '{targetSceneName}'.");
+            }
+
+            operation.allowSceneActivation = false;
+            return operation;
         }
 
         private SceneTransitionOverlay EnsureOverlay()
@@ -172,9 +213,34 @@ namespace Game.Feature.UI.Composition
             return _overlay;
         }
 
+        private void TryHideOverlay()
+        {
+            try
+            {
+                EnsureOverlay().Hide();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception, this);
+            }
+        }
+
         private static float NormalizeProgress(float progress)
         {
             return Mathf.Clamp01(progress / 0.9f);
+        }
+
+        internal static bool IsMinimumVisibleElapsedForActivation(
+            StageTransitionProfile profile,
+            float overlayShownAt,
+            float now)
+        {
+            if (profile == null || !profile.HoldSceneActivationUntilMinimumElapsed)
+            {
+                return true;
+            }
+
+            return now - overlayShownAt >= Math.Max(0f, profile.MinimumVisibleSeconds);
         }
 
         private sealed class SceneTransitionOverlay
@@ -182,6 +248,7 @@ namespace Game.Feature.UI.Composition
             private readonly CanvasGroup _canvasGroup;
             private readonly GameObject _root;
             private readonly Image _blocker;
+            private readonly Transform _panel;
             private readonly TMP_Text _titleText;
             private readonly TMP_Text _messageText;
             private readonly TMP_Text _chanceText;
@@ -219,6 +286,7 @@ namespace Game.Feature.UI.Composition
                     new Vector2(0.5f, 0.5f),
                     new Vector2(620f, 250f),
                     Vector2.zero);
+                _panel = panel;
                 panel.GetComponent<Image>().color = new Color(0.08f, 0.10f, 0.13f, 0.96f);
 
                 _titleText = UiCanvasElementFactory.CreateLabel(
@@ -274,6 +342,28 @@ namespace Game.Feature.UI.Composition
                 Hide();
             }
 
+            public void PrepareHidden()
+            {
+                _canvasGroup.alpha = 1f;
+                _canvasGroup.blocksRaycasts = false;
+                _canvasGroup.interactable = false;
+                _blocker.color = Color.clear;
+                _blocker.raycastTarget = false;
+                _panel.gameObject.SetActive(false);
+                _root.SetActive(true);
+            }
+
+            public void ShowInputBlocker()
+            {
+                _canvasGroup.alpha = 1f;
+                _canvasGroup.blocksRaycasts = true;
+                _canvasGroup.interactable = true;
+                _blocker.color = Color.clear;
+                _blocker.raycastTarget = true;
+                _panel.gameObject.SetActive(false);
+                _root.SetActive(true);
+            }
+
             public void Show(StageTransitionProfile profile, StageTransitionHint hint)
             {
                 var title = ResolveTitle(profile, hint);
@@ -284,7 +374,11 @@ namespace Game.Feature.UI.Composition
                 _chanceText.gameObject.SetActive(profile.OverlayKind == TransitionOverlayKind.ChanceLost);
                 SetProgress(0f, profile.ShowProgress);
                 _blocker.raycastTarget = profile.BlockInput;
-                _canvasGroup.alpha = profile.OverlayKind == TransitionOverlayKind.None ? 0f : 1f;
+                _blocker.color = profile.OverlayKind == TransitionOverlayKind.None
+                    ? Color.clear
+                    : new Color(0.03f, 0.04f, 0.06f, 0.92f);
+                _panel.gameObject.SetActive(profile.OverlayKind != TransitionOverlayKind.None);
+                _canvasGroup.alpha = 1f;
                 _canvasGroup.blocksRaycasts = profile.BlockInput;
                 _canvasGroup.interactable = profile.BlockInput;
                 _root.SetActive(true);
@@ -303,6 +397,9 @@ namespace Game.Feature.UI.Composition
                 _canvasGroup.alpha = 0f;
                 _canvasGroup.blocksRaycasts = false;
                 _canvasGroup.interactable = false;
+                _blocker.color = Color.clear;
+                _blocker.raycastTarget = false;
+                _panel.gameObject.SetActive(false);
                 _root.SetActive(false);
             }
 

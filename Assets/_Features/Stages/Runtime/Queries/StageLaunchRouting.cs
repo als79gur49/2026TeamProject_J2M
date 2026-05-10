@@ -51,4 +51,9 @@ namespace Game.Feature.Stages
     {
         void Launch(StageNavigationRequest request);
     }
+
+    public interface IStageLaunchRouterProvider
+    {
+        bool TryCreateStageLaunchRouter(string currentSceneName, out IStageLaunchRouter router);
+    }
 }
