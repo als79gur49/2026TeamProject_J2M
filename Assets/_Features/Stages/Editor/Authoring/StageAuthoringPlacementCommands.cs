@@ -188,7 +188,9 @@ namespace Game.Feature.Stages.Editor
                         : selectedBoxSelector;
                     break;
                 case TileFeatureKind.Destroy:
-                    feature.ActivationRule = TileFeatureActivationRule.BottomFaceOnly;
+                    feature.ActivationRule = TileFeatureActivationQueries.IsSupportedDestroyActivation(selectedActivationRule)
+                        ? selectedActivationRule
+                        : TileFeatureActivationRule.BottomFaceOnly;
                     break;
                 case TileFeatureKind.Slide:
                     feature.ActivationRule = TileFeatureActivationRule.FrontFaceOnly;
@@ -509,9 +511,9 @@ namespace Game.Feature.Stages.Editor
             switch (feature.Kind)
             {
                 case TileFeatureKind.Destroy:
-                    if (feature.ActivationRule != TileFeatureActivationRule.BottomFaceOnly)
+                    if (!TileFeatureActivationQueries.IsSupportedDestroyActivation(feature.ActivationRule))
                     {
-                        error = "DestroyTile must use BottomFaceOnly activation.";
+                        error = "DestroyTile must use BottomFaceOnly or FrontFaceOnly activation.";
                         return false;
                     }
 

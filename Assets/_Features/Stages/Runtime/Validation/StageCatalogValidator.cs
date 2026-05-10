@@ -440,12 +440,12 @@ namespace Game.Feature.Stages
                 }
 
                 if (tileFeature.Kind == TileFeatureKind.Destroy &&
-                    tileFeature.ActivationRule != TileFeatureActivationRule.BottomFaceOnly)
+                    !TileFeatureActivationQueries.IsSupportedDestroyActivation(tileFeature.ActivationRule))
                 {
                     report.Add(
                         severity,
                         "authoring.tile-feature.destroy-activation-unsupported",
-                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] DestroyTile must use BottomFaceOnly activation.",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] DestroyTile must use BottomFaceOnly or FrontFaceOnly activation.",
                         authoring,
                         authoringPath,
                         options.Timing);
