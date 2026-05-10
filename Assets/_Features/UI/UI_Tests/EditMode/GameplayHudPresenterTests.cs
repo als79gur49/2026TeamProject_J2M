@@ -222,37 +222,25 @@ namespace Game.Feature.UI.Tests
             presenter.Apply(UIObjectiveSlice.Empty);
 
             Assert.That(presenter.ViewModel.IsVisible, Is.False);
-            Assert.That(presenter.ViewModel.ObjectiveText, Is.Empty);
+            Assert.That(presenter.ViewModel.Rows, Is.Empty);
         }
 
         [Test]
-        public void ObjectiveHudPresenter_ShowsMainGoalAndRequiredProgress()
+        public void ObjectiveHudPresenter_ShowsObjectiveConditionRows()
         {
             var presenter = new ObjectiveHudPresenter();
 
             presenter.Apply(CreateObjectiveSlice(summary: "Move to the exit zone."));
 
             Assert.That(presenter.ViewModel.IsVisible, Is.True);
-            Assert.That(presenter.ViewModel.MainGoalText, Is.EqualTo("Reach the Exit"));
-            Assert.That(presenter.ViewModel.ProgressText, Is.EqualTo("0/1"));
-            Assert.That(presenter.ViewModel.ObjectiveText, Is.EqualTo("Reach the Exit 0/1 [v]\n[ ] Reach the exit zone"));
-            Assert.That(presenter.ViewModel.IsComplete, Is.False);
+            Assert.That(presenter.ViewModel.Rows.Count, Is.EqualTo(1));
+            Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo("Reach the exit zone"));
+            Assert.That(presenter.ViewModel.Rows[0].IsSatisfied, Is.False);
+            Assert.That(presenter.ViewModel.Rows[0].JustSatisfied, Is.False);
         }
 
         [Test]
-        public void ObjectiveHudPresenter_FallsBackToTitleOrFirstCondition()
-        {
-            var presenter = new ObjectiveHudPresenter();
-
-            presenter.Apply(CreateObjectiveSlice(summary: string.Empty, title: "Reach the Exit"));
-            Assert.That(presenter.ViewModel.ObjectiveText, Is.EqualTo("Reach the Exit 0/1 [v]\n[ ] Reach the exit zone"));
-
-            presenter.Apply(CreateObjectiveSlice(summary: string.Empty, title: string.Empty));
-            Assert.That(presenter.ViewModel.ObjectiveText, Is.EqualTo("Reach the exit zone 0/1 [v]\n[ ] Reach the exit zone"));
-        }
-
-        [Test]
-        public void ObjectiveDropdownPresenter_BuildsRowsAndCountsRequiredCompletion()
+        public void ObjectiveHudPresenter_SortsRowsByConditionSortOrder()
         {
             var presenter = new ObjectiveHudPresenter();
 
@@ -267,32 +255,52 @@ namespace Game.Feature.UI.Tests
                     CreateCondition("Leave no enemies behind", isSatisfied: true, role: UIObjectiveConditionRole.SecondaryGoal, sortOrder: 30),
                 }));
 
-            Assert.That(presenter.ViewModel.ProgressText, Is.EqualTo("2/4"));
             Assert.That(presenter.ViewModel.Rows.Count, Is.EqualTo(4));
-            Assert.That(presenter.ViewModel.HiddenSubGoalCount, Is.EqualTo(0));
-            Assert.That(presenter.ViewModel.ObjectiveText, Does.Contain("Reach the Exit 2/4 [v]"));
+            Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo("primary-goal"));
+            Assert.That(presenter.ViewModel.Rows[1].Text, Is.EqualTo("Open the gate"));
+            Assert.That(presenter.ViewModel.Rows[2].Text, Is.EqualTo("Enter the exit room"));
+            Assert.That(presenter.ViewModel.Rows[3].Text, Is.EqualTo("Leave no enemies behind"));
         }
 
         [Test]
-        public void ObjectiveHudViewModel_ToggleExpanded_ChangesObjectiveText()
+        public void ObjectiveHudPresenter_MarksConditionJustSatisfiedOnFalseToTrueTransition()
         {
-            var viewModel = new ObjectiveHudViewModel();
-            viewModel.SetState(
-                true,
-                "Reach the Exit",
-                "1/3",
-                new[] { "[ ] Open the gate", "[x] Reach the exit zone" },
-                hiddenSubGoalCount: 1,
-                isComplete: false);
+            var presenter = new ObjectiveHudPresenter();
 
-            Assert.That(viewModel.ObjectiveText, Is.EqualTo("Reach the Exit 1/3 [>]"));
+            presenter.Apply(CreateObjectiveSlice(summary: "Move to the exit zone."));
+            presenter.Apply(CreateObjectiveSlice(
+                summary: "Move to the exit zone.",
+                conditions: new[]
+                {
+                    CreateCondition(
+                        "Reach the exit zone",
+                        isSatisfied: true,
+                        role: UIObjectiveConditionRole.PrimaryGoal,
+                        sortOrder: 0),
+                }));
 
-            viewModel.ToggleExpanded();
+            Assert.That(presenter.ViewModel.Rows.Count, Is.EqualTo(1));
+            Assert.That(presenter.ViewModel.Rows[0].IsSatisfied, Is.True);
+            Assert.That(presenter.ViewModel.Rows[0].JustSatisfied, Is.True);
+        }
 
-            Assert.That(viewModel.IsExpanded, Is.True);
-            Assert.That(viewModel.ObjectiveText, Does.Contain("Reach the Exit 1/3 [v]"));
-            Assert.That(viewModel.ObjectiveText, Does.Contain("[ ] Open the gate"));
-            Assert.That(viewModel.ObjectiveText, Does.Contain("+1 more"));
+        [Test]
+        public void ObjectiveHudPresenter_DoesNotMarkNewSatisfiedConditionAsJustSatisfied()
+        {
+            var presenter = new ObjectiveHudPresenter();
+
+            presenter.Apply(CreateObjectiveSlice(summary: "Move to the exit zone."));
+            presenter.Apply(CreateObjectiveSlice(
+                summary: "Move to the exit zone.",
+                conditions: new[]
+                {
+                    CreateCondition("Reach the exit zone", isSatisfied: false, role: UIObjectiveConditionRole.PrimaryGoal, sortOrder: 0),
+                    CreateCondition("Open the gate", isSatisfied: true, role: UIObjectiveConditionRole.SecondaryGoal, sortOrder: 10),
+                }));
+
+            Assert.That(presenter.ViewModel.Rows.Count, Is.EqualTo(2));
+            Assert.That(presenter.ViewModel.Rows[1].Text, Is.EqualTo("Open the gate"));
+            Assert.That(presenter.ViewModel.Rows[1].JustSatisfied, Is.False);
         }
 
         [Test]
@@ -313,7 +321,8 @@ namespace Game.Feature.UI.Tests
             source.PublishSnapshot(CreateSnapshot(objective: CreateObjectiveSlice(summary: "Move to the exit zone.")));
 
             Assert.That(objectiveHudPresenter.ViewModel.IsVisible, Is.True);
-            Assert.That(objectiveHudPresenter.ViewModel.ObjectiveText, Is.EqualTo("Reach the Exit 0/1 [v]\n[ ] Reach the exit zone"));
+            Assert.That(objectiveHudPresenter.ViewModel.Rows.Count, Is.EqualTo(1));
+            Assert.That(objectiveHudPresenter.ViewModel.Rows[0].Text, Is.EqualTo("Reach the exit zone"));
         }
 
         [Test]

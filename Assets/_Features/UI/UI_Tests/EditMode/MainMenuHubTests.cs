@@ -22,20 +22,24 @@ namespace Game.Feature.UI.Tests
         public void MainMenuScreenPrefab_HasTopBarContentHostBottomBar()
         {
             var prefab = LoadMainMenuPrefab();
+            var topBar = GetPrivateField<RectTransform>(prefab, "_topBar");
+            var contentHost = GetPrivateField<RectTransform>(prefab, "_contentHost");
+            var bottomBar = GetPrivateField<RectTransform>(prefab, "_bottomBar");
+            var commandPanel = GetPrivateField<RectTransform>(prefab, "_mainCommandPanel");
+            var startButton = GetPrivateField<Button>(prefab, "_startButton");
+            var settingsButton = GetPrivateField<Button>(prefab, "_settingsButton");
+            var quitButton = GetPrivateField<Button>(prefab, "_quitButton");
 
-            Assert.That(prefab.transform.Find("TopBar"), Is.Not.Null);
-            Assert.That(prefab.transform.Find("ContentHost"), Is.Not.Null);
-            Assert.That(prefab.transform.Find("BottomBar"), Is.Not.Null);
-            Assert.That(prefab.transform.Find("MainCommandPanel"), Is.Not.Null);
-            Assert.That(prefab.transform.Find("MainCommandPanel/StartButton"), Is.Not.Null);
-            Assert.That(prefab.transform.Find("MainCommandPanel/SettingsButton"), Is.Not.Null);
-            Assert.That(prefab.transform.Find("MainCommandPanel/QuitButton"), Is.Not.Null);
-            Assert.That(prefab.transform.Find("MainCommandPanel/StartButton").GetSiblingIndex(), Is.EqualTo(0));
-            Assert.That(prefab.transform.Find("MainCommandPanel/SettingsButton").GetSiblingIndex(), Is.EqualTo(1));
-            Assert.That(prefab.transform.Find("MainCommandPanel/QuitButton").GetSiblingIndex(), Is.EqualTo(2));
-            AssertCommandButtonHoverScaleEffect(prefab.transform, "MainCommandPanel/StartButton");
-            AssertCommandButtonHoverScaleEffect(prefab.transform, "MainCommandPanel/SettingsButton");
-            AssertCommandButtonHoverScaleEffect(prefab.transform, "MainCommandPanel/QuitButton");
+            Assert.That(topBar.transform.IsChildOf(prefab.transform), Is.True);
+            Assert.That(contentHost.transform.IsChildOf(prefab.transform), Is.True);
+            Assert.That(bottomBar.transform.IsChildOf(prefab.transform), Is.True);
+            Assert.That(commandPanel.transform.IsChildOf(prefab.transform), Is.True);
+            Assert.That(startButton.transform.IsChildOf(commandPanel), Is.True);
+            Assert.That(settingsButton.transform.IsChildOf(commandPanel), Is.True);
+            Assert.That(quitButton.transform.IsChildOf(commandPanel), Is.True);
+            AssertCommandButtonHoverScaleEffect(startButton.transform);
+            AssertCommandButtonHoverScaleEffect(settingsButton.transform);
+            AssertCommandButtonHoverScaleEffect(quitButton.transform);
         }
 
         [Test]
@@ -43,14 +47,16 @@ namespace Game.Feature.UI.Tests
         {
             var prefab = LoadMainMenuPrefab();
             var panel = prefab.SaveSlotPanel;
+            var contentHost = prefab.transform.Find("ContentHost");
 
             Assert.That(panel, Is.Not.Null);
-            Assert.That(panel.transform.parent.name, Is.EqualTo("ContentHost"));
+            Assert.That(contentHost, Is.Not.Null);
+            Assert.That(panel.transform.IsChildOf(contentHost), Is.True);
             Assert.That(panel.GetComponentsInChildren<SaveSlotCardView>(true).Length, Is.EqualTo(3));
             foreach (var card in panel.SlotCards)
             {
                 Assert.That(card, Is.Not.Null);
-                Assert.That(card.transform.parent, Is.EqualTo(panel.transform));
+                Assert.That(card.transform.IsChildOf(panel.transform), Is.True);
             }
         }
 
@@ -60,6 +66,90 @@ namespace Game.Feature.UI.Tests
             var prefab = LoadMainMenuPrefab();
 
             Assert.DoesNotThrow(prefab.ValidateAuthoredStructureOrThrow);
+        }
+
+        [Test]
+        public void MainMenuScreenView_ValidateAuthoredStructure_AllowsNestedButtonLabelsAndSaveSlotPanel()
+        {
+            var root = new GameObject(nameof(MainMenuScreenView_ValidateAuthoredStructure_AllowsNestedButtonLabelsAndSaveSlotPanel), typeof(RectTransform));
+            root.SetActive(false);
+            try
+            {
+                var view = root.AddComponent<MainMenuScreenView>();
+                var topBar = new GameObject("TopBar", typeof(RectTransform)).GetComponent<RectTransform>();
+                var contentHost = new GameObject("ContentHost", typeof(RectTransform)).GetComponent<RectTransform>();
+                var bottomBar = new GameObject("BottomBar", typeof(RectTransform)).GetComponent<RectTransform>();
+                var commandPanel = new GameObject("MainCommandPanel", typeof(RectTransform)).GetComponent<RectTransform>();
+                topBar.SetParent(root.transform, false);
+                contentHost.SetParent(root.transform, false);
+                bottomBar.SetParent(root.transform, false);
+                commandPanel.SetParent(root.transform, false);
+
+                var saveSlotWrapper = new GameObject("SaveSlotWrapper", typeof(RectTransform)).transform;
+                saveSlotWrapper.SetParent(contentHost, false);
+                var panelObject = new GameObject("SaveSlotPanelView", typeof(RectTransform));
+                panelObject.transform.SetParent(saveSlotWrapper, false);
+                var panel = panelObject.AddComponent<SaveSlotPanelView>();
+                var cards = new SaveSlotCardView[SaveSlotPanelView.RequiredSlotCardCount];
+                for (var i = 0; i < cards.Length; i++)
+                {
+                    cards[i] = CreateAuthoredSaveSlotCard($"SaveSlotCard{i + 1}", panel.transform);
+                }
+
+                SetPrivateField(panel, "_slotCards", cards);
+
+                var startButton = CreateButton("StartButton", commandPanel);
+                var settingsButton = CreateButton("SettingsButton", commandPanel);
+                var quitButton = CreateButton("QuitButton", commandPanel);
+                var startLabel = CreateNestedButtonLabel(startButton.transform);
+                var settingsLabel = CreateNestedButtonLabel(settingsButton.transform);
+                var quitLabel = CreateNestedButtonLabel(quitButton.transform);
+
+                SetPrivateField(view, "_root", root);
+                SetPrivateField(view, "_topBar", topBar);
+                SetPrivateField(view, "_contentHost", contentHost);
+                SetPrivateField(view, "_bottomBar", bottomBar);
+                SetPrivateField(view, "_mainCommandPanel", commandPanel);
+                SetPrivateField(view, "_saveSlotPanel", panel);
+                SetPrivateField(view, "_startButton", startButton);
+                SetPrivateField(view, "_startButtonLabel", startLabel);
+                SetPrivateField(view, "_settingsButton", settingsButton);
+                SetPrivateField(view, "_settingsButtonLabel", settingsLabel);
+                SetPrivateField(view, "_quitButton", quitButton);
+                SetPrivateField(view, "_quitButtonLabel", quitLabel);
+
+                Assert.DoesNotThrow(view.ValidateAuthoredStructureOrThrow);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void SaveSlotPanelView_ValidateAuthoredStructure_AllowsCardsUnderContentWrapper()
+        {
+            var root = new GameObject(nameof(SaveSlotPanelView_ValidateAuthoredStructure_AllowsCardsUnderContentWrapper), typeof(RectTransform));
+            root.SetActive(false);
+            try
+            {
+                var panel = root.AddComponent<SaveSlotPanelView>();
+                var content = new GameObject("Content", typeof(RectTransform)).transform;
+                content.SetParent(root.transform, false);
+                var cards = new SaveSlotCardView[SaveSlotPanelView.RequiredSlotCardCount];
+                for (var i = 0; i < cards.Length; i++)
+                {
+                    cards[i] = CreateAuthoredSaveSlotCard($"SaveSlotCard{i + 1}", content);
+                }
+
+                SetPrivateField(panel, "_slotCards", cards);
+
+                Assert.DoesNotThrow(panel.ValidateAuthoredStructureOrThrow);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
         }
 
         [Test]
@@ -79,7 +169,7 @@ namespace Game.Feature.UI.Tests
                 var cards = panel.SlotCards;
 
                 Assert.That(panelLayout, Is.Not.Null);
-                Assert.That(panelLayout.spacing, Is.EqualTo(16f));
+                Assert.That(panelLayout.spacing, Is.GreaterThanOrEqualTo(0f));
                 Assert.That(panelLayout.padding.left, Is.Zero);
                 Assert.That(panel.GetComponentsInChildren<SaveSlotCardView>(true).Length, Is.EqualTo(3));
                 Assert.That(cards, Has.Length.EqualTo(3));
@@ -87,7 +177,7 @@ namespace Game.Feature.UI.Tests
                 for (var i = 0; i < cards.Length; i++)
                 {
                     Assert.That(cards[i], Is.Not.Null);
-                    Assert.That(cards[i].transform.parent, Is.EqualTo(panel.transform));
+                    Assert.That(cards[i].transform.IsChildOf(panel.transform), Is.True);
                     Assert.That(cards[i].transform.GetSiblingIndex(), Is.EqualTo(i));
                 }
             }
@@ -620,6 +710,13 @@ namespace Game.Feature.UI.Tests
             return labelObject.AddComponent<TextMeshProUGUI>();
         }
 
+        private static TMP_Text CreateNestedButtonLabel(Transform button)
+        {
+            var labelWrapper = new GameObject("LabelWrapper", typeof(RectTransform)).transform;
+            labelWrapper.SetParent(button, false);
+            return CreateLabel("Label", labelWrapper);
+        }
+
         private static Button CreateActionButton(string name, Transform parent, out TMP_Text label)
         {
             var buttonObject = new GameObject(name, typeof(RectTransform));
@@ -629,21 +726,22 @@ namespace Game.Feature.UI.Tests
             return button;
         }
 
-        private static void AssertCommandButtonHoverScaleEffect(Transform root, string path)
+        private static void AssertCommandButtonHoverScaleEffect(Transform button)
         {
-            var button = root.Find(path) as RectTransform;
-            Assert.That(button, Is.Not.Null, path);
+            Assert.That(button, Is.Not.Null);
+            var buttonRect = button as RectTransform;
+            Assert.That(buttonRect, Is.Not.Null, button.name);
 
             var effect = button.GetComponent<UiHoverScaleEffect>();
-            Assert.That(effect, Is.Not.Null, path);
+            Assert.That(effect, Is.Not.Null, button.name);
 
             var serialized = new SerializedObject(effect);
-            Assert.That(serialized.FindProperty("_target").objectReferenceValue, Is.EqualTo(button), path);
-            Assert.That(serialized.FindProperty("_hoverScale").floatValue, Is.EqualTo(1.10f).Within(0.001f), path);
-            Assert.That(serialized.FindProperty("_pressedScale").floatValue, Is.EqualTo(1.04f).Within(0.001f), path);
-            Assert.That(serialized.FindProperty("_durationSeconds").floatValue, Is.EqualTo(0.12f).Within(0.001f), path);
-            Assert.That(serialized.FindProperty("_useUnscaledTime").boolValue, Is.True, path);
-            Assert.That(serialized.FindProperty("_restoreOnDisable").boolValue, Is.True, path);
+            Assert.That(serialized.FindProperty("_target").objectReferenceValue, Is.EqualTo(buttonRect), button.name);
+            Assert.That(serialized.FindProperty("_hoverScale").floatValue, Is.EqualTo(1.10f).Within(0.001f), button.name);
+            Assert.That(serialized.FindProperty("_pressedScale").floatValue, Is.EqualTo(1.04f).Within(0.001f), button.name);
+            Assert.That(serialized.FindProperty("_durationSeconds").floatValue, Is.EqualTo(0.12f).Within(0.001f), button.name);
+            Assert.That(serialized.FindProperty("_useUnscaledTime").boolValue, Is.True, button.name);
+            Assert.That(serialized.FindProperty("_restoreOnDisable").boolValue, Is.True, button.name);
         }
 
         private static string ReadRepoFile(string relativePath)

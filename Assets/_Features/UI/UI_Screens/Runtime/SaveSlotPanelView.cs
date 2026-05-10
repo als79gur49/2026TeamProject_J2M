@@ -8,7 +8,7 @@ namespace Game.Feature.UI.Screens
         public const int RequiredSlotCardCount = 3;
 
         private const string MissingAuthoredStructureMessage =
-            "MainMenu save slot panel is missing required authored SaveSlotCardView references. Repair MainMenuScreen.prefab so SaveSlotPanelView owns exactly three direct SaveSlotCardView children.";
+            "MainMenu save slot panel is missing required authored SaveSlotCardView references. Repair MainMenuScreen.prefab so SaveSlotPanelView owns exactly three SaveSlotCardView children.";
 
         [SerializeField] private SaveSlotCardView[] _slotCards = Array.Empty<SaveSlotCardView>();
 
@@ -40,7 +40,7 @@ namespace Game.Feature.UI.Screens
             for (var i = 0; i < _slotCards.Length; i++)
             {
                 var card = _slotCards[i];
-                if (card == null || card.transform.parent != transform)
+                if (card == null || !card.transform.IsChildOf(transform))
                 {
                     throw new InvalidOperationException(MissingAuthoredStructureMessage);
                 }

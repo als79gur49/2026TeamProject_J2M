@@ -1,4 +1,5 @@
 using DG.Tweening;
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -24,7 +25,7 @@ namespace Game.Feature.UI.HUD
             ChanceChangeAnimationHint animationHint,
             HudAnimationSettings settings)
         {
-            EnsureBuilt();
+            ValidateAuthoredStructureOrThrow();
             var shouldAnimate = animationHint.Kind != ChanceChangeKind.None &&
                 animationHint.SequenceId > 0 &&
                 ContainsSlot(animationHint, viewModel.Index);
@@ -60,31 +61,12 @@ namespace Game.Feature.UI.HUD
             KillSequence();
         }
 
-        private void EnsureBuilt()
+        public void ValidateAuthoredStructureOrThrow()
         {
-            if (_canvasGroup == null)
-            {
-                _canvasGroup = GetComponent<CanvasGroup>() ?? gameObject.AddComponent<CanvasGroup>();
-            }
-
-            _glow = _glow != null ? _glow : CreateImage("Glow", GlowColor);
-            _emptyIcon = _emptyIcon != null ? _emptyIcon : CreateImage("EmptyIcon", EmptyColor);
-            _filledIcon = _filledIcon != null ? _filledIcon : CreateImage("FilledIcon", FilledColor);
-        }
-
-        private Image CreateImage(string childName, Color color)
-        {
-            var child = new GameObject(childName, typeof(RectTransform), typeof(Image));
-            child.transform.SetParent(transform, false);
-            var rect = (RectTransform)child.transform;
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-            var image = child.GetComponent<Image>();
-            image.color = color;
-            image.raycastTarget = false;
-            return image;
+            RequireReference(_filledIcon, nameof(_filledIcon));
+            RequireReference(_emptyIcon, nameof(_emptyIcon));
+            RequireReference(_glow, nameof(_glow));
+            RequireReference(_canvasGroup, nameof(_canvasGroup));
         }
 
         private void ApplyImmediate(ChanceSlotViewModel viewModel)
@@ -235,6 +217,14 @@ namespace Game.Feature.UI.HUD
 
             root.SetActive(false);
             root.SetActive(true);
+        }
+
+        private static void RequireReference(UnityEngine.Object value, string fieldName)
+        {
+            if (value == null)
+            {
+                throw new InvalidOperationException($"{nameof(ChanceSlotView)} is missing authored reference '{fieldName}'.");
+            }
         }
     }
 }

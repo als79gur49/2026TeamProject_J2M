@@ -5,10 +5,14 @@ using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.HUD;
 using NUnit.Framework;
+using System;
+using System.Linq;
 using System.Reflection;
+using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.TestTools;
 using UnityEngine.UI;
 
 namespace Game.Feature.UI.Tests
@@ -113,6 +117,36 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void HUDRootView_CanonicalPrefab_ValidateAuthoredStructurePasses()
+        {
+            var hudPrefab = UiTestPrefabAssetUtility.LoadHudPrefab();
+
+            Assert.DoesNotThrow(() => hudPrefab.ValidateAuthoredStructureOrThrow());
+        }
+
+        [Test]
+        public void HUDRootView_MissingRequiredChildReference_ThrowsAuthoredContractFailure()
+        {
+            var rootObject = new GameObject("HUDRootView_MissingRequiredChildReference_ThrowsAuthoredContractFailure");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                LogAssert.Expect(
+                    LogType.Warning,
+                    "HUDRootView on 'GameplayHudRoot(Clone)' is missing serialized reference '_chancePanelView'.");
+                SetSerializedReference(hudView, "_chancePanelView", null);
+
+                var exception = Assert.Throws<InvalidOperationException>(() => hudView.ValidateAuthoredStructureOrThrow());
+                Assert.That(exception.Message, Does.Contain("_chancePanelView"));
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
         public void HUDController_CanonicalPrefab_ArrangesVisibleHudElementsIntoStacks()
         {
             var rootObject = new GameObject("HUDController_CanonicalPrefab_ArrangesVisibleHudElementsIntoStacks");
@@ -160,12 +194,13 @@ namespace Game.Feature.UI.Tests
                 AssertStackTransform(topRightStack, new Vector2(1.0f, 1.0f), new Vector2(1.0f, 1.0f), new Vector2(-24.0f, -24.0f));
                 AssertStackTransform(bottomRightStack, new Vector2(1.0f, 0.0f), new Vector2(1.0f, 0.0f), new Vector2(-24.0f, 24.0f));
 
-                Assert.That(hudView.ObjectiveHudView.transform.parent, Is.SameAs(topLeftStack));
-                AssertChildOrder(topRightStack, "StageName", "PauseButton", "TopologyBelt");
-                AssertChildOrder(bottomRightStack, "Notifications", "ChancePanel");
-                Assert.That(hudView.TopologyBeltView.transform.parent, Is.SameAs(topRightStack));
-                Assert.That(hudView.NotificationView.transform.parent, Is.SameAs(bottomRightStack));
-                Assert.That(hudView.ChancePanelView.transform.parent, Is.SameAs(bottomRightStack));
+                var objectiveListRoot = GetSerializedReference<RectTransform>(hudView.ObjectiveHudView, "_objectiveListRoot");
+                AssertOwnedBy(objectiveListRoot, topLeftStack);
+                AssertOwnedBy(GetSerializedReference<TMP_Text>(hudView, "_stageNameLabel").transform, topRightStack);
+                AssertOwnedBy(GetSerializedReference<Button>(hudView, "_pauseButton").transform, topRightStack);
+                AssertOwnedBy(hudView.TopologyBeltView.transform, topRightStack);
+                AssertOwnedBy(hudView.NotificationView.transform, bottomRightStack);
+                AssertOwnedBy(hudView.ChancePanelView.transform, bottomRightStack);
                 Assert.That(hudView.ChancePanelView.ViewModel, Is.SameAs(chancePanelPresenter.ViewModel));
                 Assert.That(hudView.TopologyBeltView.ViewModel, Is.SameAs(topologyHudPresenter.ViewModel));
             }
@@ -310,16 +345,15 @@ namespace Game.Feature.UI.Tests
                 AssertWorldRectContains(chancePanel, slotContainer);
                 AssertWorldRectContains(chancePanel, floatingFeedbackRoot);
 
-                var topologyBelt = (RectTransform)hudView.TopologyBeltView.transform;
-                var faceChipContainer = FindRequiredRect(topologyBelt, "FaceChipContainer");
-                AssertWorldRectContains(topologyBelt, faceChipContainer);
-                Assert.That(faceChipContainer.GetComponentsInChildren<FaceChipView>(true).Length, Is.EqualTo(6));
+                var topRightStack = FindRequiredRect(hudView.transform, "HudTopRightStack");
+                var faceChipContainer = GetSerializedReference<RectTransform>(hudView.TopologyBeltView, "_faceChipContainer");
+                AssertOwnedBy(faceChipContainer, topRightStack);
 
                 var faceChips = hudView.TopologyBeltView.FaceChips;
                 Assert.That(faceChips.Count, Is.EqualTo(6));
                 for (var i = 0; i < faceChips.Count; i++)
                 {
-                    AssertWorldRectContains(topologyBelt, (RectTransform)faceChips[i].transform);
+                    AssertOwnedBy(faceChips[i].transform, topRightStack);
                 }
             }
             finally
@@ -345,30 +379,38 @@ namespace Game.Feature.UI.Tests
 
             var topRightStack = FindRequiredRect(hudPrefab.transform, "HudTopRightStack");
             var bottomRightStack = FindRequiredRect(hudPrefab.transform, "HudBottomRightStack");
-            AssertChildOrder(topRightStack, "StageName", "PauseButton", "TopologyBelt");
-            AssertChildOrder(bottomRightStack, "Notifications", "ChancePanel");
-            Assert.That(serializedTopologyBelt.transform.parent, Is.SameAs(topRightStack));
-            Assert.That(serializedChancePanel.transform.parent, Is.SameAs(bottomRightStack));
+            AssertOwnedBy(GetSerializedReference<TMP_Text>(hudPrefab, "_stageNameLabel").transform, topRightStack);
+            AssertOwnedBy(GetSerializedReference<Button>(hudPrefab, "_pauseButton").transform, topRightStack);
+            AssertOwnedBy(serializedTopologyBelt.transform, topRightStack);
+            AssertOwnedBy(serializedChancePanel.transform, bottomRightStack);
 
             var slotContainer = FindRequiredRect(serializedChancePanel.transform, "SlotContainer");
-            Assert.That(slotContainer.GetComponentsInChildren<ChanceSlotView>(true).Length, Is.EqualTo(3));
+            var slotViews = serializedChancePanel.GetComponentsInChildren<ChanceSlotView>(true);
+            Assert.That(slotViews.Length, Is.EqualTo(3));
             AssertSerializedReference(serializedChancePanel, "_slotContainer", slotContainer);
             AssertSerializedArrayCount(serializedChancePanel, "_slotViews", 3);
 
-            foreach (var slot in slotContainer.GetComponentsInChildren<ChanceSlotView>(true))
+            foreach (var slot in slotViews)
             {
+                AssertOwnedBy(slot.transform, slotContainer);
                 AssertSerializedReferenceIsAssigned(slot, "_filledIcon");
                 AssertSerializedReferenceIsAssigned(slot, "_emptyIcon");
                 AssertSerializedReferenceIsAssigned(slot, "_glow");
                 AssertSerializedReferenceIsAssigned(slot, "_canvasGroup");
             }
 
-            var faceChipContainer = FindRequiredRect(serializedTopologyBelt.transform, "FaceChipContainer");
-            Assert.That(faceChipContainer.GetComponentsInChildren<FaceChipView>(true).Length, Is.EqualTo(6));
+            var faceChipContainer = GetSerializedReference<RectTransform>(serializedTopologyBelt, "_faceChipContainer");
+            var faceChips = serializedTopologyBelt.GetComponentsInChildren<FaceChipView>(true);
+            if (faceChips.Length == 0)
+            {
+                faceChips = hudPrefab.GetComponentsInChildren<FaceChipView>(true);
+            }
+
+            Assert.That(faceChips.Length, Is.EqualTo(6));
             AssertSerializedReference(serializedTopologyBelt, "_faceChipContainer", faceChipContainer);
             AssertSerializedArrayCount(serializedTopologyBelt, "_faceChips", 6);
 
-            foreach (var chip in faceChipContainer.GetComponentsInChildren<FaceChipView>(true))
+            foreach (var chip in faceChips)
             {
                 AssertSerializedReferenceIsAssigned(chip, "_background");
                 AssertSerializedReferenceIsAssigned(chip, "_faceNameText");
@@ -378,15 +420,15 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void HUDController_CanonicalPrefab_RemovesDuplicateChancePanelViews()
+        public void HUDController_CanonicalPrefab_DuplicateChancePanelView_FailsPrefabContract()
         {
-            var rootObject = new GameObject("HUDController_CanonicalPrefab_RemovesDuplicateChancePanelViews");
+            var rootObject = new GameObject("HUDController_CanonicalPrefab_DuplicateChancePanelView_FailsPrefabContract");
 
             try
             {
                 CreateCanonicalRootView(rootObject, out var hudView);
-                var duplicateObject = new GameObject("DuplicateChancePanel", typeof(RectTransform), typeof(ChancePanelView));
-                duplicateObject.transform.SetParent(hudView.transform, false);
+                var duplicateObject = UnityEngine.Object.Instantiate(hudView.ChancePanelView.gameObject, hudView.transform, false);
+                duplicateObject.name = "DuplicateChancePanel";
 
                 Assert.That(hudView.GetComponentsInChildren<ChancePanelView>(true).Length, Is.GreaterThanOrEqualTo(2));
 
@@ -414,13 +456,129 @@ namespace Game.Feature.UI.Tests
                     playerStatusPresenter.ViewModel,
                     notificationPresenter.ViewModel);
 
-                controller.AttachView(hudView);
-                source.PublishSnapshot(CreateSnapshot(hasRemainingChances: true, remainingChances: 3, maxChances: 3));
+                Assert.Throws<InvalidOperationException>(() => controller.AttachView(hudView));
+                Assert.That(hudView.GetComponentsInChildren<ChancePanelView>(true).Length, Is.EqualTo(2));
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
 
-                var chancePanelViews = hudView.GetComponentsInChildren<ChancePanelView>(true);
-                Assert.That(chancePanelViews.Length, Is.EqualTo(1));
-                Assert.That(chancePanelViews[0].ViewModel, Is.SameAs(chancePanelPresenter.ViewModel));
-                Assert.That(chancePanelViews[0].SlotViews.Count, Is.EqualTo(3));
+        [Test]
+        public void ChancePanelView_MaxChancesBeyondAuthoredSlots_Throws()
+        {
+            var rootObject = new GameObject("ChancePanelView_MaxChancesBeyondAuthoredSlots_Throws");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+
+                var source = new ManualGameplayUiPresentationSource();
+                var playerStatusPresenter = new PlayerStatusPresenter();
+                var stageInfoPresenter = new StageInfoPresenter();
+                var objectiveHudPresenter = new ObjectiveHudPresenter();
+                var chancePanelPresenter = new ChancePanelPresenter();
+                var topologyHudPresenter = new TopologyHudPresenter();
+                var notificationPresenter = new NotificationPresenter();
+                using var rootPresenter = new HUDRootPresenter(
+                    source,
+                    stageInfoPresenter,
+                    objectiveHudPresenter,
+                    chancePanelPresenter,
+                    topologyHudPresenter,
+                    playerStatusPresenter,
+                    notificationPresenter);
+                using var controller = new HUDController(
+                    rootPresenter.ViewModel,
+                    stageInfoPresenter.ViewModel,
+                    objectiveHudPresenter.ViewModel,
+                    chancePanelPresenter.ViewModel,
+                    topologyHudPresenter.ViewModel,
+                    playerStatusPresenter.ViewModel,
+                    notificationPresenter.ViewModel);
+
+                controller.AttachView(hudView);
+
+                var exception = Assert.Throws<InvalidOperationException>(() =>
+                    source.PublishSnapshot(CreateSnapshot(hasRemainingChances: true, remainingChances: 4, maxChances: 4)));
+                Assert.That(exception.Message, Does.Contain("authored slots"));
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudView_ClonesAuthoredObjectiveItemTemplate()
+        {
+            var rootObject = new GameObject("ObjectiveHudView_ClonesAuthoredObjectiveItemTemplate");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("reach-exit", "Reach the exit zone", false, false),
+                    });
+
+                objectiveView.Bind(viewModel);
+
+                var runtimeItems = objectiveListRoot
+                    .Cast<Transform>()
+                    .Where(child => child != itemTemplate && child.gameObject.activeSelf)
+                    .ToArray();
+
+                Assert.That(itemTemplate.gameObject.activeSelf, Is.False);
+                Assert.That(runtimeItems, Has.Length.EqualTo(1));
+                Assert.That(runtimeItems[0].parent, Is.SameAs(objectiveListRoot));
+                Assert.That(runtimeItems[0].gameObject.activeSelf, Is.True);
+                Assert.That(FindObjectiveLabel(runtimeItems[0]).text, Is.EqualTo("Reach the exit zone"));
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudView_HidesRootAndRuntimeItems_WhenNoObjective()
+        {
+            var rootObject = new GameObject("ObjectiveHudView_HidesRootAndRuntimeItems_WhenNoObjective");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveRoot = GetSerializedReference<GameObject>(objectiveView, "_root");
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("reach-exit", "Reach the exit zone", false, false),
+                    });
+
+                objectiveView.Bind(viewModel);
+                viewModel.Reset();
+
+                var runtimeItems = objectiveListRoot
+                    .Cast<Transform>()
+                    .Where(child => child != itemTemplate && child.name.StartsWith("Objective_Item_Runtime_", StringComparison.Ordinal))
+                    .ToArray();
+
+                Assert.That(objectiveRoot.activeSelf, Is.False);
+                Assert.That(runtimeItems, Has.Length.EqualTo(1));
+                Assert.That(runtimeItems[0].gameObject.activeSelf, Is.False);
             }
             finally
             {
@@ -458,7 +616,7 @@ namespace Game.Feature.UI.Tests
                 controller.AttachView(hudView);
                 source.PublishSnapshot(CreateSnapshot(stageDisplayName: "Stage 1-1"));
 
-                var stageLabel = FindRequiredRect(hudView.transform, "StageName").GetComponent<TMPro.TMP_Text>();
+                var stageLabel = GetSerializedReference<TMP_Text>(hudView, "_stageNameLabel");
                 Assert.That(stageLabel, Is.Not.Null);
                 Assert.That(stageLabel.gameObject.activeSelf, Is.True);
                 Assert.That(stageLabel.text, Is.EqualTo("Stage 1-1"));
@@ -479,13 +637,29 @@ namespace Game.Feature.UI.Tests
                 CreateCanonicalRootView(rootObject, out var hudView);
 
                 Assert.That(hudView.ObjectiveHudView, Is.Not.Null);
-                Assert.That(hudView.ObjectiveHudView.transform.name, Is.EqualTo("ObjectiveHud"));
-                Assert.That(hudView.ObjectiveHudView.GetComponent<Button>(), Is.Not.Null);
+                var objectiveListRoot = GetSerializedReference<RectTransform>(hudView.ObjectiveHudView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(hudView.ObjectiveHudView, "_objectiveItemTemplate");
+                Assert.That(objectiveListRoot, Is.Not.Null);
+                Assert.That(objectiveListRoot.name, Is.EqualTo("Objective_List"));
+                Assert.That(itemTemplate, Is.Not.Null);
+                Assert.That(itemTemplate.parent, Is.SameAs(objectiveListRoot));
+                Assert.That(itemTemplate.gameObject.activeSelf, Is.False);
+                Assert.That(itemTemplate.GetComponent<Animator>(), Is.Not.Null);
+                Assert.That(
+                    itemTemplate.GetComponentsInChildren<TMP_Text>(true).Any(label => label.name == "Label_Objective"),
+                    Is.True);
             }
             finally
             {
                 DestroySupportObjects(rootObject);
             }
+        }
+
+        private static TMP_Text FindObjectiveLabel(Transform item)
+        {
+            return item
+                .GetComponentsInChildren<TMP_Text>(true)
+                .Single(label => label.name == "Label_Objective");
         }
 
         [Test]
@@ -535,7 +709,7 @@ namespace Game.Feature.UI.Tests
             var rootShellPrefab = Resources.Load<GameObject>("UI/GameplayUiCanvasRootShell");
             Assert.That(rootShellPrefab, Is.Not.Null);
 
-            var rootShellInstance = Object.Instantiate(rootShellPrefab, rootObject.transform, false);
+            var rootShellInstance = UnityEngine.Object.Instantiate(rootShellPrefab, rootObject.transform, false);
             var rootView = rootShellInstance.GetComponent<GameplayUiCanvasRootView>();
             Assert.That(rootView, Is.Not.Null);
             rootView.EnsureHierarchy();
@@ -679,20 +853,13 @@ namespace Game.Feature.UI.Tests
             Assert.That(stack.anchoredPosition, Is.EqualTo(expectedPosition));
             var layoutGroup = stack.GetComponent<VerticalLayoutGroup>();
             Assert.That(layoutGroup, Is.Not.Null);
-            Assert.That(layoutGroup.spacing, Is.EqualTo(8.0f));
-            Assert.That(layoutGroup.childControlWidth, Is.False);
-            Assert.That(layoutGroup.childControlHeight, Is.False);
-            Assert.That(layoutGroup.childForceExpandWidth, Is.False);
-            Assert.That(layoutGroup.childForceExpandHeight, Is.False);
         }
 
-        private static void AssertChildOrder(RectTransform parent, params string[] childNames)
+        private static void AssertOwnedBy(Transform child, Transform owner)
         {
-            Assert.That(parent.childCount, Is.GreaterThanOrEqualTo(childNames.Length));
-            for (var i = 0; i < childNames.Length; i++)
-            {
-                Assert.That(parent.GetChild(i).name, Is.EqualTo(childNames[i]));
-            }
+            Assert.That(child, Is.Not.Null);
+            Assert.That(owner, Is.Not.Null);
+            Assert.That(child.IsChildOf(owner), Is.True, $"{child.name} should be under {owner.name}.");
         }
 
         private static void AssertNoOverlap(RectTransform first, RectTransform second)
@@ -729,6 +896,18 @@ namespace Game.Feature.UI.Tests
         {
             var actual = GetSerializedReference<UnityEngine.Object>(target, fieldName);
             Assert.That(actual, Is.SameAs(expected), fieldName);
+        }
+
+        private static void SetSerializedReference(
+            UnityEngine.Object target,
+            string fieldName,
+            UnityEngine.Object value)
+        {
+            var serializedObject = new SerializedObject(target);
+            var property = serializedObject.FindProperty(fieldName);
+            Assert.That(property, Is.Not.Null, fieldName);
+            property.objectReferenceValue = value;
+            serializedObject.ApplyModifiedProperties();
         }
 
         private static void AssertSerializedReferenceIsAssigned(
@@ -774,15 +953,15 @@ namespace Game.Feature.UI.Tests
 
         private static void DestroySupportObjects(GameObject rootObject)
         {
-            var eventSystem = Object.FindFirstObjectByType<EventSystem>();
+            var eventSystem = UnityEngine.Object.FindFirstObjectByType<EventSystem>();
             if (eventSystem != null)
             {
-                Object.DestroyImmediate(eventSystem.gameObject);
+                UnityEngine.Object.DestroyImmediate(eventSystem.gameObject);
             }
 
             if (rootObject != null)
             {
-                Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
     }

@@ -8,10 +8,8 @@ namespace Game.Feature.UI.Composition
     {
         private readonly IUiAudioPort _uiAudioPort;
         private readonly ChancePanelViewModel _chanceViewModel;
-        private readonly ObjectiveHudViewModel _objectiveViewModel;
         private readonly TopologyBeltViewModel _topologyViewModel;
         private int _lastChanceSequenceId;
-        private int _lastObjectiveSequenceId;
         private int _lastTopologySequenceId;
 
         public HudUiAudioFeedbackController(
@@ -22,18 +20,16 @@ namespace Game.Feature.UI.Composition
         {
             _uiAudioPort = uiAudioPort ?? throw new ArgumentNullException(nameof(uiAudioPort));
             _chanceViewModel = chanceViewModel ?? throw new ArgumentNullException(nameof(chanceViewModel));
-            _objectiveViewModel = objectiveViewModel ?? throw new ArgumentNullException(nameof(objectiveViewModel));
+            _ = objectiveViewModel ?? throw new ArgumentNullException(nameof(objectiveViewModel));
             _topologyViewModel = topologyViewModel ?? throw new ArgumentNullException(nameof(topologyViewModel));
 
             _chanceViewModel.Changed += HandleChanceChanged;
-            _objectiveViewModel.Changed += HandleObjectiveChanged;
             _topologyViewModel.Changed += HandleTopologyChanged;
         }
 
         public void Dispose()
         {
             _chanceViewModel.Changed -= HandleChanceChanged;
-            _objectiveViewModel.Changed -= HandleObjectiveChanged;
             _topologyViewModel.Changed -= HandleTopologyChanged;
         }
 
@@ -57,21 +53,6 @@ namespace Game.Feature.UI.Composition
                 case ChanceChangeKind.Lost:
                     _uiAudioPort.Play(UiAudioCueId.ChanceLoss);
                     break;
-            }
-        }
-
-        private void HandleObjectiveChanged()
-        {
-            var hint = _objectiveViewModel.AnimationHint;
-            if (hint.SequenceId <= 0 || hint.SequenceId == _lastObjectiveSequenceId)
-            {
-                return;
-            }
-
-            _lastObjectiveSequenceId = hint.SequenceId;
-            if (hint.PulseComplete)
-            {
-                _uiAudioPort.Play(UiAudioCueId.ObjectiveComplete);
             }
         }
 

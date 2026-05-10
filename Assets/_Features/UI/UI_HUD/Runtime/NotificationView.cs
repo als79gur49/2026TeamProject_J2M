@@ -1,4 +1,5 @@
 using TMPro;
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -32,6 +33,15 @@ namespace Game.Feature.UI.HUD
             RefreshView();
         }
 
+        public void ValidateAuthoredStructureOrThrow()
+        {
+            RequireReference(_root, nameof(_root));
+            RequireReference(_titleLabel, nameof(_titleLabel));
+            RequireReference(_firstLabel, nameof(_firstLabel));
+            RequireReference(_secondLabel, nameof(_secondLabel));
+            RequireReference(_thirdLabel, nameof(_thirdLabel));
+        }
+
 #if UNITY_EDITOR
         private void OnValidate()
         {
@@ -58,6 +68,7 @@ namespace Game.Feature.UI.HUD
 
         private void RefreshView()
         {
+            ValidateAuthoredStructureOrThrow();
             if (_root != null)
             {
                 _root.SetActive(true);
@@ -95,5 +106,13 @@ namespace Game.Feature.UI.HUD
             }
         }
 #endif
+
+        private static void RequireReference(UnityEngine.Object value, string fieldName)
+        {
+            if (value == null)
+            {
+                throw new InvalidOperationException($"{nameof(NotificationView)} is missing authored reference '{fieldName}'.");
+            }
+        }
     }
 }

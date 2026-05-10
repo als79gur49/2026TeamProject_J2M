@@ -24,6 +24,12 @@ namespace Game.Feature.UI.Tests
         private const string InstallerSourcePath = "Assets/_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs";
         private const string ScreenFactorySourcePath = "Assets/_Features/UI/UI_Composition/Runtime/GameplayScreenRuntimeFactory.cs";
         private const string PopupFactorySourcePath = "Assets/_Features/UI/UI_Composition/Runtime/GameplayPopupRuntimeFactory.cs";
+        private const string HudRootViewSourcePath = "Assets/_Features/UI/UI_HUD/Runtime/HUDRootView.cs";
+        private const string ObjectiveHudViewSourcePath = "Assets/_Features/UI/UI_HUD/Runtime/ObjectiveHudView.cs";
+        private const string ChancePanelViewSourcePath = "Assets/_Features/UI/UI_HUD/Runtime/ChancePanelView.cs";
+        private const string ChanceSlotViewSourcePath = "Assets/_Features/UI/UI_HUD/Runtime/ChanceSlotView.cs";
+        private const string TopologyBeltViewSourcePath = "Assets/_Features/UI/UI_HUD/Runtime/TopologyBeltView.cs";
+        private const string FaceChipViewSourcePath = "Assets/_Features/UI/UI_HUD/Runtime/FaceChipView.cs";
         private const string PausePopupViewSourcePath = "Assets/_Features/UI/UI_Popups/Runtime/PausePopupView.cs";
         private const string ObjectiveInfoPopupViewSourcePath = "Assets/_Features/UI/UI_Popups/Runtime/ObjectiveInfoPopupView.cs";
         private const string ConfirmPopupViewSourcePath = "Assets/_Features/UI/UI_Popups/Runtime/ConfirmPopupView.cs";
@@ -169,7 +175,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void HudPrefabAsset_AuthorsPersistentStackLayout_BeforeRuntimeLayoutRemoval()
+        public void HudPrefabAsset_AuthorsPersistentStackLayout_AndHudModuleTemplates()
         {
             var hudPrefab = UiTestPrefabAssetUtility.LoadHudPrefab();
 
@@ -180,16 +186,40 @@ namespace Game.Feature.UI.Tests
             RequireComponent<VerticalLayoutGroup>(topLeftStack);
             RequireComponent<VerticalLayoutGroup>(topRightStack);
             RequireComponent<VerticalLayoutGroup>(bottomRightStack);
-            Assert.That(hudPrefab.ObjectiveHudView.transform.parent, Is.EqualTo(topLeftStack));
-            Assert.That(hudPrefab.NotificationView.transform.parent, Is.EqualTo(bottomRightStack));
+            var objectiveView = hudPrefab.ObjectiveHudView;
+            Assert.That(objectiveView, Is.Not.Null);
+            var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+            AssertOwnedBy(objectiveListRoot, topLeftStack);
+            AssertOwnedBy(hudPrefab.NotificationView.transform, bottomRightStack);
             var chancePanelView = hudPrefab.GetComponentsInChildren<ChancePanelView>(true).Single();
             var topologyBeltView = hudPrefab.GetComponentsInChildren<TopologyBeltView>(true).Single();
-            Assert.That(chancePanelView.transform.parent, Is.EqualTo(bottomRightStack));
-            Assert.That(topologyBeltView.transform.parent, Is.EqualTo(topRightStack));
-            Assert.That(hudPrefab.ObjectiveHudView.GetComponent<LayoutElement>(), Is.Not.Null);
-            Assert.That(hudPrefab.NotificationView.GetComponent<LayoutElement>(), Is.Not.Null);
-            Assert.That(chancePanelView.GetComponent<LayoutElement>(), Is.Not.Null);
-            Assert.That(topologyBeltView.GetComponent<LayoutElement>(), Is.Not.Null);
+            AssertOwnedBy(chancePanelView.transform, bottomRightStack);
+            AssertOwnedBy(topologyBeltView.transform, topRightStack);
+
+            var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+            Assert.That(itemTemplate.transform.parent, Is.EqualTo(objectiveListRoot));
+            Assert.That(itemTemplate.gameObject.activeSelf, Is.False);
+            Assert.That(itemTemplate.GetComponent<Animator>(), Is.Not.Null);
+            Assert.That(
+                itemTemplate.GetComponentsInChildren<TMP_Text>(true).Single(label => label.name == "Label_Objective"),
+                Is.Not.Null);
+
+            var slotContainer = FindRequired(chancePanelView.transform, "SlotContainer");
+            var slotViews = chancePanelView.GetComponentsInChildren<ChanceSlotView>(true);
+            Assert.That(slotViews, Has.Length.EqualTo(3));
+            foreach (var slotView in slotViews)
+            {
+                AssertOwnedBy(slotView.transform, slotContainer);
+            }
+
+            Assert.That(GetSerializedReference<RectTransform>(topologyBeltView, "_faceChipContainer"), Is.Not.Null);
+            var faceChips = topologyBeltView.GetComponentsInChildren<FaceChipView>(true);
+            if (faceChips.Length == 0)
+            {
+                faceChips = hudPrefab.GetComponentsInChildren<FaceChipView>(true);
+            }
+
+            Assert.That(faceChips, Has.Length.EqualTo(6));
         }
 
         [Test]
@@ -1151,6 +1181,35 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Not.Contain("Screen:Gameplay -> GameplayScreenRuntimeFactory." + "Create" + "GameplayScreen"));
         }
 
+        [Test]
+        public void HudRuntimeBuilderSymbols_AreAbsent_FromHudSources()
+        {
+            var hudSources = new[]
+            {
+                ReadRepoFile(HudRootViewSourcePath),
+                ReadRepoFile(ObjectiveHudViewSourcePath),
+                ReadRepoFile(ChancePanelViewSourcePath),
+                ReadRepoFile(ChanceSlotViewSourcePath),
+                ReadRepoFile(TopologyBeltViewSourcePath),
+                ReadRepoFile(FaceChipViewSourcePath),
+            };
+
+            foreach (var hudSource in hudSources)
+            {
+                Assert.That(hudSource, Does.Not.Contain("new GameObject"));
+                Assert.That(hudSource, Does.Not.Contain("AddComponent<"));
+                Assert.That(hudSource, Does.Not.Contain("EnsureHudLayout"));
+                Assert.That(hudSource, Does.Not.Contain("CreateRuntimeHudModule"));
+                Assert.That(hudSource, Does.Not.Contain("MoveToStack"));
+                Assert.That(hudSource, Does.Not.Contain("EnsureBuilt"));
+                Assert.That(hudSource, Does.Not.Contain("EnsureRowTemplate"));
+                Assert.That(hudSource, Does.Not.Contain("CreateSlot("));
+                Assert.That(hudSource, Does.Not.Contain("CreateChip("));
+                Assert.That(hudSource, Does.Not.Contain("CreateImage("));
+                Assert.That(hudSource, Does.Not.Contain("CreateText("));
+            }
+        }
+
         [TestCase(PopupId.Pause, "_popupPrefabCatalog.PausePrefab", "AddComponent<PausePopupView>")]
         [TestCase(PopupId.ObjectiveInfo, "_popupPrefabCatalog.ObjectiveInfoPrefab", "AddComponent<ObjectiveInfoPopupView>")]
         [TestCase(PopupId.Confirm, "_popupPrefabCatalog.ConfirmPrefab", "AddComponent<ConfirmPopupView>")]
@@ -1386,6 +1445,28 @@ namespace Game.Feature.UI.Tests
             var component = transform.GetComponent<T>();
             Assert.That(component, Is.Not.Null, $"{typeof(T).Name} missing on {transform.name}");
             return component;
+        }
+
+        private static void AssertOwnedBy(Transform child, Transform owner)
+        {
+            Assert.That(child, Is.Not.Null);
+            Assert.That(owner, Is.Not.Null);
+            Assert.That(child.IsChildOf(owner), Is.True, $"{child.name} should be under {owner.name}.");
+        }
+
+        private static TReference GetSerializedReference<TReference>(
+            UnityEngine.Object target,
+            string fieldName)
+            where TReference : UnityEngine.Object
+        {
+            var serializedObject = new SerializedObject(target);
+            var property = serializedObject.FindProperty(fieldName);
+            Assert.That(property, Is.Not.Null, fieldName);
+            Assert.That(property.objectReferenceValue, Is.Not.Null, fieldName);
+
+            var reference = property.objectReferenceValue as TReference;
+            Assert.That(reference, Is.Not.Null, fieldName);
+            return reference;
         }
 
         private static Component OpenMountedScreen(GameplayUiFlowInstaller installer, ScreenId screenId)

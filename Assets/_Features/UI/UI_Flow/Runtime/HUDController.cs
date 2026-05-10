@@ -69,6 +69,7 @@ namespace Game.Feature.UI.Flow
             DetachView();
 
             _view = view ?? throw new ArgumentNullException(nameof(view));
+            _view.ValidateAuthoredStructureOrThrow();
             _view.Bind(RootViewModel);
             _view.BindStageInfo(StageInfoViewModel);
             _view.ObjectiveHudView.Bind(ObjectiveHudViewModel);
