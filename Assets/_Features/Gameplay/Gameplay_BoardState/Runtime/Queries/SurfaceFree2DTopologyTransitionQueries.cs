@@ -297,13 +297,6 @@ namespace Game.Feature.Gameplay.BoardState
                 return true;
             }
 
-            if (snapshot.TryGetPrimaryUnitAt(updatedTopology, targetAnchor, out var unitOccupant) &&
-                unitOccupant.entityId != movingEntityId)
-            {
-                rejectReason = Free2DTopologyTransitionRejectReason.TargetFaceBlockedByUnit;
-                return true;
-            }
-
             rejectReason = Free2DTopologyTransitionRejectReason.None;
             return false;
         }

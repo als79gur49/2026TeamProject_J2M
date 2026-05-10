@@ -53,7 +53,6 @@ namespace Game.Feature.Gameplay.Entities
         private enum EnemyGlideAdvanceVerdict
         {
             CanAdvance,
-            WaitUnitBlocked,
             BlockedBoundary,
             BlockedTopology,
             BlockedTraversal,
@@ -87,7 +86,6 @@ namespace Game.Feature.Gameplay.Entities
             public string DebugReason => Verdict switch
             {
                 EnemyGlideAdvanceVerdict.CanAdvance => "IntentCreated",
-                EnemyGlideAdvanceVerdict.WaitUnitBlocked => "GlideAdvanceWaitUnitBlocked",
                 EnemyGlideAdvanceVerdict.BlockedBoundary => "GlideAdvanceBlockedBoundary",
                 EnemyGlideAdvanceVerdict.BlockedTopology => "GlideAdvanceBlockedTopology",
                 EnemyGlideAdvanceVerdict.BlockedTraversal => "GlideAdvanceBlockedTraversal",
@@ -1128,15 +1126,6 @@ namespace Game.Feature.Gameplay.Entities
                 return true;
             }
 
-            if (HasNonTraversableUnitOccupant(snapshot, source, destination))
-            {
-                resolution = new EnemyGlideAdvanceResolution(
-                    EnemyGlideAdvanceVerdict.WaitUnitBlocked,
-                    destination,
-                    default);
-                return true;
-            }
-
             if (!EnemyMovementStrategyShared.TryBuildMoveIntent(
                     snapshot,
                     source,
@@ -1168,35 +1157,6 @@ namespace Game.Feature.Gameplay.Entities
                 destination,
                 intent);
             return true;
-        }
-
-        private bool HasNonTraversableUnitOccupant(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            SurfaceCell destination)
-        {
-            _sharedCellUnits.Clear();
-            snapshot.EnumerateUnitsAt(destination, _sharedCellUnits);
-
-            for (var i = 0; i < _sharedCellUnits.Count; i++)
-            {
-                var occupant = _sharedCellUnits[i];
-                if (occupant.entityId == source.entityId ||
-                    occupant.boardPresence != EntityBoardPresence.Occupying ||
-                    occupant.hp <= 0 ||
-                    occupant.markedForDeath)
-                {
-                    continue;
-                }
-
-                if (occupant.teamId == source.teamId ||
-                    !EntityRolePolicy.IsPlayerUnit(occupant))
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         private bool TryBuildLandingPendingEgressIntent(
@@ -1246,8 +1206,7 @@ namespace Game.Feature.Gameplay.Entities
                     out _) ||
                 rotationKind != CubeRotationKind.None ||
                 destination.face != source.position.face ||
-                snapshot.TryGetSolidSemanticAt(destination, out _) ||
-                !IsLandingPendingEgressUnitDestinationAllowed(snapshot, source, destination))
+                snapshot.TryGetSolidSemanticAt(destination, out _))
             {
                 return false;
             }
@@ -1256,34 +1215,6 @@ namespace Game.Feature.Gameplay.Entities
                 source.entityId,
                 _commonSettings.MovementPriority,
                 destination.PlanarPosition);
-            return true;
-        }
-
-        private static bool IsLandingPendingEgressUnitDestinationAllowed(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            SurfaceCell destination)
-        {
-            var occupants = new List<EntityState>();
-            snapshot.EnumerateUnitsAt(destination, occupants);
-            for (var i = 0; i < occupants.Count; i++)
-            {
-                var occupant = occupants[i];
-                if (occupant.entityId == source.entityId ||
-                    occupant.boardPresence != EntityBoardPresence.Occupying ||
-                    occupant.hp <= 0 ||
-                    occupant.markedForDeath)
-                {
-                    continue;
-                }
-
-                if (occupant.teamId == source.teamId ||
-                    !EntityRolePolicy.IsPlayerUnit(occupant))
-                {
-                    return false;
-                }
-            }
-
             return true;
         }
 

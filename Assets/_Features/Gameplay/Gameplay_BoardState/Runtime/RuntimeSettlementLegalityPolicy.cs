@@ -59,7 +59,8 @@ namespace Game.Feature.Gameplay.BoardState
                     context.ReservationStatus);
             }
 
-            if (TryGetSettlementBlockingOccupant(
+            if (!ShouldIgnoreUnitSettlementOccupants(context) &&
+                TryGetSettlementBlockingOccupant(
                     context,
                     shouldIgnoreOccupant: null,
                     shouldTreatAsBlockingOccupant: null,
@@ -108,7 +109,6 @@ namespace Game.Feature.Gameplay.BoardState
         {
             SpatialStateSemantics.EnsureProductionSupported(context.Actor.SpatialState.Kind);
             SpatialStateSemantics.EnsureProductionSupported(context.RequestedTerminalState);
-            var modifiers = ModifierQuery.GetJumpLandingModifiers(context, evidence);
 
             if (ReservationQuery.BlocksSettlement(context.ReservationStatus))
             {
@@ -134,7 +134,7 @@ namespace Game.Feature.Gameplay.BoardState
                     context.ReservationStatus);
             }
 
-            if (!modifiers.Has(LegalityModifierId.LockedTargetUnitStackAllowance) &&
+            if (!ShouldIgnoreUnitSettlementOccupants(context) &&
                 TryGetSettlementBlockingOccupant(
                         context,
                         shouldIgnoreOccupant: null,
@@ -206,8 +206,7 @@ namespace Game.Feature.Gameplay.BoardState
                     crushedBoxEntityId: 0);
             }
 
-            var modifiers = ModifierQuery.GetJumpLandingModifiers(context, evidence);
-            if (!modifiers.Has(LegalityModifierId.LockedTargetUnitStackAllowance) &&
+            if (!ShouldIgnoreUnitSettlementOccupants(context) &&
                 TryGetSettlementBlockingOccupant(
                         context,
                         shouldIgnoreOccupant: null,
@@ -376,6 +375,11 @@ namespace Game.Feature.Gameplay.BoardState
         {
             return entity.type == EntityType.Box &&
                    (entity.boxCapabilities & capability) == capability;
+        }
+
+        private static bool ShouldIgnoreUnitSettlementOccupants(SettlementContext context)
+        {
+            return context.Actor.EntityType == EntityType.Unit;
         }
 
         private static bool TryGetSettlementBlockingOccupant(
