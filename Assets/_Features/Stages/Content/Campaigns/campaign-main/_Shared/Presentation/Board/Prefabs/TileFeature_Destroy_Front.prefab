@@ -1,0 +1,222 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &7188209733966921564
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8304247677180510382}
+  m_Layer: 0
+  m_Name: ModelRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8304247677180510382
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7188209733966921564}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.7071068, y: -0, z: -0, w: -0.7071068}
+  m_LocalPosition: {x: 0, y: -0.015, z: 0.675}
+  m_LocalScale: {x: 7.25, y: 7.25, z: 7.25}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 3950682141157539838}
+  m_Father: {fileID: 5580159906189423778}
+  m_LocalEulerAnglesHint: {x: 270, y: 0, z: 0}
+--- !u!1 &8989521553511816573
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5580159906189423778}
+  - component: {fileID: 6046516430808634461}
+  m_Layer: 0
+  m_Name: TileFeature_Destroy_Front
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &5580159906189423778
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8989521553511816573}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 8304247677180510382}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &6046516430808634461
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8989521553511816573}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0d4188397f39405b8cef1259ab54d190, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.TileFeatureVisualTargetView
+  tileId: 0
+  cell:
+    face: 0
+    x: 0
+    y: 0
+  animator: {fileID: 0}
+  buttonActivatedTriggerName: ButtonActivated
+  destroyTileTriggeredTriggerName: DestroyTileTriggered
+  slideTileRedirectedTriggerName: SlideTileRedirected
+  barricadeBlockedTriggerName: BarricadeBlocked
+  barricadeCrushedTriggerName: BarricadeCrushed
+  barricadeActivatedTriggerName: BarricadeActivated
+  barricadeDeactivatedTriggerName: BarricadeDeactivated
+  barricadeActiveBoolName: BarricadeActive
+  barricadeRaisedStateName: RaisedIdle
+  barricadeLoweredStateName: LoweredIdle
+  exitOpenedTriggerName: ExitOpened
+  exitEnteredTriggerName: ExitEntered
+  moonBlockGeneratedTriggerName: MoonBlockGenerated
+  moonBlockGeneratorBlockedTriggerName: MoonBlockGeneratorBlocked
+  moonBlockGeneratorBlockedUnitTriggerName: 
+  moonBlockGeneratorBlockedWallLikeSolidTriggerName: 
+  moonBlockGeneratorBlockedPlacementTriggerName: 
+  buttonActivatedParticles: {fileID: 0}
+  destroyTileTriggeredParticles: {fileID: 0}
+  slideTileRedirectedParticles: {fileID: 0}
+  barricadeBlockedParticles: {fileID: 0}
+  barricadeCrushedParticles: {fileID: 0}
+  exitOpenedParticles: {fileID: 0}
+  exitEnteredParticles: {fileID: 0}
+  moonBlockGeneratedParticles: {fileID: 0}
+  moonBlockGeneratorBlockedParticles: {fileID: 0}
+  moonBlockGeneratorBlockedUnitParticles: {fileID: 0}
+  moonBlockGeneratorBlockedWallLikeSolidParticles: {fileID: 0}
+  moonBlockGeneratorBlockedPlacementParticles: {fileID: 0}
+  buttonActivatedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  destroyTileTriggeredPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  slideTileRedirectedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  barricadeBlockedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  barricadeCrushedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  barricadeActivatedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  barricadeDeactivatedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  exitOpenedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  exitEnteredPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  moonBlockGeneratedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  moonBlockGeneratorBlockedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  moonBlockGeneratorBlockedUnitPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  moonBlockGeneratorBlockedWallLikeSolidPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  moonBlockGeneratorBlockedPlacementPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!1001 &6583398317705456992
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 8304247677180510382}
+    m_Modifications:
+    - target: {fileID: 2932437296662986770, guid: 2d47293a44485d147b600a6286e664d3, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7405212148455966756, guid: 2d47293a44485d147b600a6286e664d3, type: 3}
+      propertyPath: m_Name
+      value: Laser_Default
+      objectReference: {fileID: 0}
+    - target: {fileID: 7894609599482843806, guid: 2d47293a44485d147b600a6286e664d3, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7894609599482843806, guid: 2d47293a44485d147b600a6286e664d3, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7894609599482843806, guid: 2d47293a44485d147b600a6286e664d3, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7894609599482843806, guid: 2d47293a44485d147b600a6286e664d3, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: 7894609599482843806, guid: 2d47293a44485d147b600a6286e664d3, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: 7894609599482843806, guid: 2d47293a44485d147b600a6286e664d3, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7894609599482843806, guid: 2d47293a44485d147b600a6286e664d3, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7894609599482843806, guid: 2d47293a44485d147b600a6286e664d3, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7894609599482843806, guid: 2d47293a44485d147b600a6286e664d3, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7894609599482843806, guid: 2d47293a44485d147b600a6286e664d3, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 2d47293a44485d147b600a6286e664d3, type: 3}
+--- !u!4 &3950682141157539838 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 7894609599482843806, guid: 2d47293a44485d147b600a6286e664d3, type: 3}
+  m_PrefabInstance: {fileID: 6583398317705456992}
+  m_PrefabAsset: {fileID: 0}
