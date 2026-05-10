@@ -165,6 +165,35 @@ namespace Game.Feature.Gameplay.Vfx
                         isPersistent: false,
                         persistentKey: VfxPersistentKey.None));
             }
+
+            var boxSlideStopSignals = presentationData.BoxSlideStopSignals;
+            for (var i = 0; i < boxSlideStopSignals.Count; i++)
+            {
+                var signal = boxSlideStopSignals[i];
+                if (signal.StopperKind != BoxSlideStopperKind.SolidEntity ||
+                    signal.Cause != BoxSlideStopCause.SlidingContinuationBlocked ||
+                    signal.BoxEntityId <= 0 ||
+                    signal.StopperEntityId <= 0)
+                {
+                    continue;
+                }
+
+                var seed = ComputeBoxSlideSolidStopSequenceId(context.TickIndex, signal);
+                builder.Add(
+                    new GameplayVfxRequest(
+                        tickIndex: context.TickIndex,
+                        sequenceId: seed,
+                        presentationSeed: seed,
+                        sourceEntityId: signal.BoxEntityId,
+                        cueId: GameplayVfxCueId.From(BoxVfxCue.BoxSlideSolidStop),
+                        anchor: VfxAnchor.ForCell(
+                            signal.SourceCell,
+                            signal.Topology,
+                            VfxAnchorSlot.CellCenter),
+                        timing: VfxTimingKind.ImmediateOnTickPresentation,
+                        isPersistent: false,
+                        persistentKey: VfxPersistentKey.None));
+            }
         }
 
         private static void AddExitRequest(
@@ -202,6 +231,25 @@ namespace Game.Feature.Gameplay.Vfx
                 hash = (hash * 31) + (int)BoxVfxCue.ImpactTransientBreak;
                 hash = (hash * 31) + signal.SourceCell.GetHashCode();
                 hash = (hash * 31) + signal.ImpactCell.GetHashCode();
+                hash = (hash * 31) + signal.Topology.GetHashCode();
+                return hash == 0 ? 1 : hash;
+            }
+        }
+
+        internal static int ComputeBoxSlideSolidStopSequenceId(
+            int tickIndex,
+            in BoxSlideStopPresentationSignal signal)
+        {
+            unchecked
+            {
+                var hash = 17;
+                hash = (hash * 31) + tickIndex;
+                hash = (hash * 31) + signal.BoxEntityId;
+                hash = (hash * 31) + signal.StopperEntityId;
+                hash = (hash * 31) + (int)BoxVfxCue.BoxSlideSolidStop;
+                hash = (hash * 31) + signal.SourceCell.GetHashCode();
+                hash = (hash * 31) + signal.StopperCell.GetHashCode();
+                hash = (hash * 31) + (int)signal.SlideDirection;
                 hash = (hash * 31) + signal.Topology.GetHashCode();
                 return hash == 0 ? 1 : hash;
             }

@@ -25,6 +25,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         [SerializeField] private bool enableGameplayVfxGlideWindTrail = true;
         [SerializeField] private bool enableGameplayVfxChargeBoosterTrail = true;
         [SerializeField] private bool enableGameplayVfxBoxSlideTrail = true;
+        [SerializeField] private bool enableGameplayVfxBoxSlideSolidStop = true;
         [SerializeField] private bool enableGameplayVfxImpactTransientBreakMigration = true;
         [SerializeField] private bool enableGameplayVfxOutOfBoundsExitMigration = true;
         [SerializeField] private bool enableGameplayVfxUtilityWindupMigration = true;
@@ -46,6 +47,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private readonly GameplayVfxRequestPlanBuilder planBuilder = new();
         private readonly HashSet<FlipDestroySelfMotionInstanceKey> playedFlipDestroySelfMotionKeys = new();
         private readonly HashSet<BoxSlideTrailMotionInstanceKey> playedBoxSlideTrailMotionKeys = new();
+        private readonly HashSet<int> playedBoxSlideSolidStopKeys = new();
         private readonly HashSet<ImpactTransientBreakInstanceKey> playedImpactTransientBreakKeys = new();
         private readonly HashSet<OutOfBoundsExitInstanceKey> playedOutOfBoundsExitKeys = new();
         private readonly EnemyMotionAttachedVfxFollowerPlanner enemyMotionAttachedFollowerPlanner = new();
@@ -68,6 +70,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private int enemyMotionAttachedMissingBindingCount;
         private int enemyMotionAttachedMissingOwnerViewCount;
         private int boxSlideTrailMissingBindingCount;
+        private int boxSlideSolidStopMissingBindingCount;
+        private int boxSlideSolidStopMissingAnchorCount;
         private int boxDestroyShrinkMissingBindingCount;
         private int boxDestroyShrinkMissingAnchorCount;
         private int impactTransientBreakMissingBindingCount;
@@ -329,6 +333,21 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
+        public bool EnableGameplayVfxBoxSlideSolidStop
+        {
+            get => enableGameplayVfxBoxSlideSolidStop;
+            set
+            {
+                if (enableGameplayVfxBoxSlideSolidStop == value)
+                {
+                    return;
+                }
+
+                enableGameplayVfxBoxSlideSolidStop = value;
+                ResetIfNoGameplayVfxEnabled();
+            }
+        }
+
         public bool EnableGameplayVfxTileFeatureLane
         {
             get => enableGameplayVfxTileFeatureLane;
@@ -545,6 +564,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             enemyDeathMotionMissingAnchorCount = 0;
             playedFlipDestroySelfMotionKeys.Clear();
             playedBoxSlideTrailMotionKeys.Clear();
+            playedBoxSlideSolidStopKeys.Clear();
             playedImpactTransientBreakKeys.Clear();
             playedOutOfBoundsExitKeys.Clear();
             enemyMotionAttachedFollowerPlanner.Clear();
@@ -604,6 +624,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var shouldPlayBoxSlideTrail =
                 enableGameplayVfxBoxSlideTrail &&
                 HasBoxSlideMotion(context.Result.PresentationData);
+            var shouldPlayBoxSlideSolidStop =
+                enableGameplayVfxBoxSlideSolidStop &&
+                HasBoxSlideSolidStopSignal(context.Result.PresentationData);
             var shouldPlayBoxDestroyShrink =
                 enableGameplayVfxBoxDestroyShrinkMigration &&
                 HasBoxDestroyExitSignal(context.Result.PresentationData);
@@ -619,6 +642,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             if (plan.Requests.Count == 0 &&
                 !shouldPlayFlipDestroySelfMotion &&
                 !shouldPlayBoxSlideTrail &&
+                !shouldPlayBoxSlideSolidStop &&
                 !shouldPlayBoxDestroyShrink &&
                 !shouldPlayImpactTransientBreak &&
                 !shouldPlayOutOfBoundsExit &&
@@ -636,6 +660,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var boxSlideTrailCommandCount = shouldPlayBoxSlideTrail
                 ? PlayBoxSlideTrailCommands(context)
                 : 0;
+            var boxSlideSolidStopCommandCount = shouldPlayBoxSlideSolidStop
+                ? PlayBoxSlideSolidStopCommands(context)
+                : 0;
             var boxDestroyShrinkCommandCount = shouldPlayBoxDestroyShrink
                 ? PlayBoxDestroyShrinkCommands(context)
                 : 0;
@@ -651,6 +678,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             LastPlannedRequestCount = plan.Requests.Count +
                                       flipDestroySelfMotionCommandCount +
                                       boxSlideTrailCommandCount +
+                                      boxSlideSolidStopCommandCount +
                                       boxDestroyShrinkCommandCount +
                                       impactTransientBreakCommandCount +
                                       outOfBoundsExitCommandCount +
@@ -816,6 +844,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             enableGameplayVfxGlideWindTrail ||
             enableGameplayVfxChargeBoosterTrail ||
             enableGameplayVfxBoxSlideTrail ||
+            enableGameplayVfxBoxSlideSolidStop ||
             enableGameplayVfxImpactTransientBreakMigration ||
             enableGameplayVfxOutOfBoundsExitMigration ||
             enableGameplayVfxUtilityWindupMigration ||
@@ -885,6 +914,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                    (enableGameplayVfxGlideWindTrail && cueId == GameplayVfxCueId.From(EnemyVfxCue.GlideWindTrail)) ||
                    (enableGameplayVfxChargeBoosterTrail && cueId == GameplayVfxCueId.From(EnemyVfxCue.ChargeBoosterTrail)) ||
                    (enableGameplayVfxBoxSlideTrail && cueId == GameplayVfxCueId.From(BoxVfxCue.SlideDustTrail)) ||
+                   (enableGameplayVfxBoxSlideSolidStop && cueId == GameplayVfxCueId.From(BoxVfxCue.BoxSlideSolidStop)) ||
                    (enableGameplayVfxImpactTransientBreakMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak)) ||
                    (enableGameplayVfxOutOfBoundsExitMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.OutOfBoundsExit)) ||
                    (enableGameplayVfxOutOfBoundsExitMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit)) ||
@@ -922,6 +952,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private static bool IsParameterizedCommandOwnedCue(GameplayVfxCueId cueId)
         {
             return cueId == GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak) ||
+                   cueId == GameplayVfxCueId.From(BoxVfxCue.BoxSlideSolidStop) ||
                    cueId == GameplayVfxCueId.From(BoxVfxCue.OutOfBoundsExit) ||
                    cueId == GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit);
         }
@@ -1287,6 +1318,69 @@ namespace Game.Feature.Gameplay.Vfx.Host
             return pool.PlayParameterizedMotion(playbackCommand, command) != null;
         }
 
+        private int PlayBoxSlideSolidStopCommands(in GameplayTickPresentationExtensionContext context)
+        {
+            var presentationData = context.Result.PresentationData;
+            if (presentationData == null || pool == null || bindingResolver == null)
+            {
+                return 0;
+            }
+
+            var plannedCommandCount = 0;
+            var signals = presentationData.BoxSlideStopSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (!BoxSlideSolidStopVfxCommandBuilder.TryBuild(
+                        context.Result.TickIndex,
+                        signal,
+                        context.Projector,
+                        out var request,
+                        out var anchor))
+                {
+                    if (BoxSlideSolidStopVfxCommandBuilder.IsCandidate(signal))
+                    {
+                        boxSlideSolidStopMissingAnchorCount++;
+                    }
+
+                    continue;
+                }
+
+                plannedCommandCount++;
+                if (playedBoxSlideSolidStopKeys.Contains(request.SequenceId))
+                {
+                    continue;
+                }
+
+                if (TryPlayBoxSlideSolidStopCommand(request, anchor))
+                {
+                    playedBoxSlideSolidStopKeys.Add(request.SequenceId);
+                }
+            }
+
+            return plannedCommandCount;
+        }
+
+        private bool TryPlayBoxSlideSolidStopCommand(
+            in GameplayVfxRequest request,
+            in VfxResolvedAnchor anchor)
+        {
+            if (!bindingResolver.TryResolve(request, out var policy))
+            {
+                boxSlideSolidStopMissingBindingCount++;
+                return false;
+            }
+
+            policy.ValidateOrThrow();
+            if (policy.CueId != request.CueId)
+            {
+                throw new InvalidOperationException("Gameplay VFX binding cue does not match Box Slide solid stop request cue.");
+            }
+
+            var playbackCommand = new ResolvedVfxPlaybackCommand(request, policy, anchor);
+            return pool.PlayTransient(playbackCommand) != null;
+        }
+
         private int PlayBoxDestroyShrinkCommands(in GameplayTickPresentationExtensionContext context)
         {
             var presentationData = context.Result.PresentationData;
@@ -1484,6 +1578,25 @@ namespace Game.Feature.Gameplay.Vfx.Host
             {
                 if (motions[i].MotionKind == TickEntityMotionKind.BoxSlide &&
                     motions[i].EntityId > 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool HasBoxSlideSolidStopSignal(TickPresentationData presentationData)
+        {
+            if (presentationData == null)
+            {
+                return false;
+            }
+
+            var signals = presentationData.BoxSlideStopSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                if (BoxSlideSolidStopVfxCommandBuilder.IsCandidate(signals[i]))
                 {
                     return true;
                 }
