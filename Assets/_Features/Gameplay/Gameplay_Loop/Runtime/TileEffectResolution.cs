@@ -32,32 +32,6 @@ namespace Game.Feature.Gameplay.Loop
         public TileEffectBoxContactKind Kind { get; }
     }
 
-    internal enum TileEffectBoxMovementFamily
-    {
-        None = 0,
-        Push = 1,
-        Slide = 2,
-    }
-
-    internal readonly struct TileEffectBoxStop
-    {
-        public TileEffectBoxStop(
-            int boxEntityId,
-            SurfaceCell cell,
-            TileEffectBoxMovementFamily movementFamily)
-        {
-            BoxEntityId = boxEntityId;
-            Cell = cell;
-            MovementFamily = movementFamily;
-        }
-
-        public int BoxEntityId { get; }
-
-        public SurfaceCell Cell { get; }
-
-        public TileEffectBoxMovementFamily MovementFamily { get; }
-    }
-
     internal readonly struct TileEffectResolutionContext
     {
         public TileEffectResolutionContext(
@@ -65,15 +39,13 @@ namespace Game.Feature.Gameplay.Loop
             WorldSnapshot snapshot,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             IReadOnlyList<TileEffectBoxContact> boxContacts = null,
-            WorldSnapshot previousSnapshot = null,
-            IReadOnlyList<TileEffectBoxStop> boxStops = null)
+            WorldSnapshot previousSnapshot = null)
         {
             TickIndex = tickIndex;
             Snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
             TileFeatureDefinitions = tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
             BoxContacts = boxContacts ?? Array.Empty<TileEffectBoxContact>();
             PreviousSnapshot = previousSnapshot;
-            BoxStops = boxStops ?? Array.Empty<TileEffectBoxStop>();
         }
 
         public int TickIndex { get; }
@@ -83,8 +55,6 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<TileFeatureRuntimeDefinition> TileFeatureDefinitions { get; }
 
         public IReadOnlyList<TileEffectBoxContact> BoxContacts { get; }
-
-        public IReadOnlyList<TileEffectBoxStop> BoxStops { get; }
 
         public WorldSnapshot PreviousSnapshot { get; }
     }
@@ -148,15 +118,11 @@ namespace Game.Feature.Gameplay.Loop
             var tileFeatures = new List<TileFeatureState>();
             context.Snapshot.EnumerateTileFeaturesOrdered(tileFeatures);
 
-            var entityOperations = ResolveDestroyTiles(context, out var tileEvents, out var destroyedBoxIds);
-            entityOperations.MergeFrom(ResolveBarricadeCrushes(context, destroyedBoxIds, tileEvents));
-            entityOperations.MergeFrom(ResolveSlideTiles(context, destroyedBoxIds, tileEvents));
-
             TileFeatureOperationBatch operations = null;
             for (var i = 0; i < tileFeatures.Count; i++)
             {
                 var tileFeature = tileFeatures[i];
-                if (!ShouldLatchButton(context, tileFeature, destroyedBoxIds))
+                if (!ShouldLatchButton(context, tileFeature))
                 {
                     continue;
                 }
@@ -164,6 +130,10 @@ namespace Game.Feature.Gameplay.Loop
                 operations ??= new TileFeatureOperationBatch();
                 operations.Add(TileFeatureOperation.Update(CreateActivatedState(tileFeature)));
             }
+
+            var entityOperations = ResolveDestroyTiles(context, out var tileEvents, out var destroyedBoxIds);
+            entityOperations.MergeFrom(ResolveBarricadeCrushes(context, destroyedBoxIds, tileEvents));
+            entityOperations.MergeFrom(ResolveSlideTiles(context, destroyedBoxIds, tileEvents));
 
             return (operations == null || operations.IsEmpty) &&
                    entityOperations.Operations.Count == 0 &&
@@ -177,8 +147,7 @@ namespace Game.Feature.Gameplay.Loop
 
         private static bool ShouldLatchButton(
             in TileEffectResolutionContext context,
-            TileFeatureState tileFeature,
-            HashSet<int> excludedBoxIds)
+            TileFeatureState tileFeature)
         {
             if (tileFeature.Kind != TileFeatureKind.Button ||
                 (tileFeature.Flags & TileFeatureFlags.Activated) != 0)
@@ -192,13 +161,7 @@ namespace Game.Feature.Gameplay.Loop
                 return false;
             }
 
-            return TryGetAcceptedPushSlideStoppedBox(
-                context.Snapshot,
-                context.BoxStops,
-                tileFeature.Cell,
-                definition.BoxSelector,
-                excludedBoxIds,
-                out _);
+            return IsAcceptedBox(context.Snapshot, tileFeature.Cell, definition.BoxSelector);
         }
 
         private static FinalizationBatch ResolveDestroyTiles(
@@ -558,51 +521,20 @@ namespace Game.Feature.Gameplay.Loop
             return false;
         }
 
-        private static bool TryGetAcceptedPushSlideStoppedBox(
+        private static bool IsAcceptedBox(
             WorldSnapshot snapshot,
-            IReadOnlyList<TileEffectBoxStop> stops,
-            SurfaceCell buttonCell,
-            TileFeatureBoxSelector selector,
-            HashSet<int> excludedBoxIds,
-            out EntityState acceptedBox)
-        {
-            acceptedBox = default;
-            if (stops == null || stops.Count == 0)
-            {
-                return false;
-            }
-
-            for (var i = 0; i < stops.Count; i++)
-            {
-                var stop = stops[i];
-                if (stop.Cell != buttonCell ||
-                    (excludedBoxIds != null && excludedBoxIds.Contains(stop.BoxEntityId)) ||
-                    (stop.MovementFamily != TileEffectBoxMovementFamily.Push &&
-                     stop.MovementFamily != TileEffectBoxMovementFamily.Slide) ||
-                    !TryGetValidStoppedBox(snapshot, stop.BoxEntityId, buttonCell, out var box) ||
-                    !MatchesButtonBoxSelector(box, selector))
-                {
-                    continue;
-                }
-
-                acceptedBox = box;
-                return true;
-            }
-
-            return false;
-        }
-
-        private static bool MatchesButtonBoxSelector(
-            EntityState box,
+            SurfaceCell cell,
             TileFeatureBoxSelector selector)
         {
             switch (selector)
             {
                 case TileFeatureBoxSelector.AnyPushableBox:
-                    return (box.boxCapabilities & BoxCapabilities.Push) != 0;
+                    return TryGetValidOccupyingBox(snapshot, cell, out var anyBox) &&
+                           (anyBox.boxCapabilities & BoxCapabilities.Push) != 0;
 
                 case TileFeatureBoxSelector.MoonBlockOnly:
-                    return box.boxArchetype == BoxArchetype.Moon;
+                    return TryGetValidOccupyingBox(snapshot, cell, out var moonBox) &&
+                           moonBox.boxArchetype == BoxArchetype.Moon;
 
                 case TileFeatureBoxSelector.None:
                 case TileFeatureBoxSelector.FeatureCell:
@@ -612,31 +544,6 @@ namespace Game.Feature.Gameplay.Loop
                 default:
                     throw new ArgumentOutOfRangeException(nameof(selector), selector, "Unknown TileFeature box selector.");
             }
-        }
-
-        private static bool TryGetValidStoppedBox(
-            WorldSnapshot snapshot,
-            int boxEntityId,
-            SurfaceCell expectedCell,
-            out EntityState box)
-        {
-            if (snapshot.TryGetEntity(boxEntityId, out var entity) &&
-                entity.type == EntityType.Box &&
-                entity.position == expectedCell &&
-                entity.boardPresence == EntityBoardPresence.Occupying &&
-                entity.hp > 0 &&
-                !entity.markedForDeath &&
-                entity.state == EntityPhaseState.Idle &&
-                snapshot.TryGetSolidSemanticAt(expectedCell, out var semantic) &&
-                semantic.Kind == SolidKind.Box &&
-                semantic.Entity.entityId == boxEntityId)
-            {
-                box = entity;
-                return true;
-            }
-
-            box = default;
-            return false;
         }
 
         private static bool TryGetValidOccupyingBox(WorldSnapshot snapshot, SurfaceCell cell, out EntityState box)

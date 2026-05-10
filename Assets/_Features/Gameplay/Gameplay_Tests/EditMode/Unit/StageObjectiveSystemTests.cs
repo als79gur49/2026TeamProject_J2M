@@ -1697,9 +1697,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         TileFeatureActivationRule.Always,
                         TileFeatureBoxSelector.AnyPushableBox));
                 var worldState = GameplayCompositionRoot.CreateWorldState(
-                    new[] { CreateSlidingBoxEntity(20, cell, BoxCapabilities.Push) },
+                    new[] { CreateBoxEntity(20, cell, BoxCapabilities.Push) },
                     buildResult.BoardBounds,
-                    CreateSlideStopTerrain(cell),
+                    buildResult.InitialTerrain,
                     buildResult.InitialTopology,
                     buildResult.InitialTileFeatures);
                 var pipeline = CreatePipeline(
@@ -1754,9 +1754,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         TileFeatureBoxSelector.MoonBlockOnly),
                     CreateBoxSpawn(20, new SurfaceCell(FaceId.Floor, 2, 1), moonCapabilities, BoxArchetype.Moon));
                 var worldState = GameplayCompositionRoot.CreateWorldState(
-                    new[] { CreateSlidingBoxEntity(20, cell, moonCapabilities, BoxArchetype.Moon) },
+                    new[] { CreateBoxEntity(20, cell, moonCapabilities, BoxArchetype.Moon) },
                     buildResult.BoardBounds,
-                    CreateSlideStopTerrain(cell),
+                    buildResult.InitialTerrain,
                     buildResult.InitialTopology,
                     buildResult.InitialTileFeatures);
                 var pipeline = CreatePipeline(
@@ -1865,7 +1865,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var conditionAsset = CreateButtonActivatedCondition(100);
             var rootObject = new GameObject(nameof(ObjectiveClear_ButtonLatch_ProducesButtonActivatedRequestThroughPresenter));
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
-            var box = CreateSlidingBoxEntity(20, cell, BoxCapabilities.Push);
+            var box = CreateBoxEntity(20, cell, BoxCapabilities.Push);
 
             try
             {
@@ -1880,7 +1880,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var worldState = GameplayCompositionRoot.CreateWorldState(
                     new[] { box },
                     buildResult.BoardBounds,
-                    CreateSlideStopTerrain(cell),
+                    buildResult.InitialTerrain,
                     buildResult.InitialTopology,
                     buildResult.InitialTileFeatures);
                 var pipeline = CreatePipeline(
@@ -1917,7 +1917,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var conditionAsset = CreateButtonActivatedCondition(100);
             var rootObject = new GameObject(nameof(ObjectiveClear_ButtonLatch_AlreadyActivatedNextTickProducesNoRequestThroughPresenter));
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
-            var box = CreateSlidingBoxEntity(20, cell, BoxCapabilities.Push);
+            var box = CreateBoxEntity(20, cell, BoxCapabilities.Push);
 
             try
             {
@@ -1932,7 +1932,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var worldState = GameplayCompositionRoot.CreateWorldState(
                     new[] { box },
                     buildResult.BoardBounds,
-                    CreateSlideStopTerrain(cell),
+                    buildResult.InitialTerrain,
                     buildResult.InitialTopology,
                     buildResult.InitialTileFeatures);
                 var pipeline = CreatePipeline(
@@ -2021,15 +2021,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var firstBuild = BuildButtonObjectiveStage(firstCondition, tileFeature);
                 var secondBuild = BuildButtonObjectiveStage(secondCondition, tileFeature);
                 var firstWorld = GameplayCompositionRoot.CreateWorldState(
-                    new[] { CreateSlidingBoxEntity(20, cell, BoxCapabilities.Push) },
+                    new[] { CreateBoxEntity(20, cell, BoxCapabilities.Push) },
                     firstBuild.BoardBounds,
-                    CreateSlideStopTerrain(cell),
+                    firstBuild.InitialTerrain,
                     firstBuild.InitialTopology,
                     firstBuild.InitialTileFeatures);
                 var secondWorld = GameplayCompositionRoot.CreateWorldState(
-                    new[] { CreateSlidingBoxEntity(20, cell, BoxCapabilities.Push) },
+                    new[] { CreateBoxEntity(20, cell, BoxCapabilities.Push) },
                     secondBuild.BoardBounds,
-                    CreateSlideStopTerrain(cell),
+                    secondBuild.InitialTerrain,
                     secondBuild.InitialTopology,
                     secondBuild.InitialTileFeatures);
 
@@ -2084,15 +2084,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var firstBuild = BuildButtonObjectiveStage(firstCondition, tileFeature, authoredMoonSpawn);
                 var secondBuild = BuildButtonObjectiveStage(secondCondition, tileFeature, authoredMoonSpawn);
                 var firstWorld = GameplayCompositionRoot.CreateWorldState(
-                    new[] { CreateSlidingBoxEntity(20, cell, moonCapabilities, BoxArchetype.Moon) },
+                    new[] { CreateBoxEntity(20, cell, moonCapabilities, BoxArchetype.Moon) },
                     firstBuild.BoardBounds,
-                    CreateSlideStopTerrain(cell),
+                    firstBuild.InitialTerrain,
                     firstBuild.InitialTopology,
                     firstBuild.InitialTileFeatures);
                 var secondWorld = GameplayCompositionRoot.CreateWorldState(
-                    new[] { CreateSlidingBoxEntity(20, cell, moonCapabilities, BoxArchetype.Moon) },
+                    new[] { CreateBoxEntity(20, cell, moonCapabilities, BoxArchetype.Moon) },
                     secondBuild.BoardBounds,
-                    CreateSlideStopTerrain(cell),
+                    secondBuild.InitialTerrain,
                     secondBuild.InitialTopology,
                     secondBuild.InitialTileFeatures);
 
@@ -3109,31 +3109,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 boxCapabilities = boxCapabilities,
                 boxArchetype = boxArchetype,
             };
-        }
-
-        private static EntityState CreateSlidingBoxEntity(
-            int entityId,
-            SurfaceCell cell,
-            BoxCapabilities boxCapabilities,
-            BoxArchetype boxArchetype = BoxArchetype.Normal)
-        {
-            var box = CreateBoxEntity(entityId, cell, boxCapabilities, boxArchetype);
-            box.state = EntityPhaseState.Sliding;
-            box.stateTimer = 0;
-            box.facing = Direction.Right;
-            return box;
-        }
-
-        private static Game.Feature.Gameplay.BoardState.TerrainData CreateSlideStopTerrain(SurfaceCell cell)
-        {
-            return new Game.Feature.Gameplay.BoardState.TerrainData(
-                new[]
-                {
-                    new TerrainCellState(
-                        new SurfaceCell(cell.face, cell.x + 1, cell.y),
-                        TerrainKind.Generic,
-                        TerrainFlags.BlocksGroundTraversal),
-                });
         }
 
         private static EntityState CreateEnemyEntity(int entityId, SurfaceCell cell, int hp = 1, bool markedForDeath = false)
