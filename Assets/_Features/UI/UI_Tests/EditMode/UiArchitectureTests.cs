@@ -447,7 +447,7 @@ namespace Game.Feature.UI.Tests
                     "PlayerStatusViewModel",
                     "RootViewModel",
                     "StageInfoViewModel",
-                    "TopologyBeltViewModel",
+                    "SurfaceIndicatorViewModel",
                 }));
 
             var methodNames = typeof(HUDController)
@@ -499,7 +499,7 @@ namespace Game.Feature.UI.Tests
             AssertViewBindSignature(typeof(HUDRootView), typeof(HUDRootViewModel));
             AssertViewBindSignature(typeof(ObjectiveHudView), typeof(ObjectiveHudViewModel));
             AssertViewBindSignature(typeof(ChancePanelView), typeof(ChancePanelViewModel));
-            AssertViewBindSignature(typeof(TopologyBeltView), typeof(TopologyBeltViewModel));
+            AssertViewBindSignature(typeof(SurfaceIndicatorView), typeof(SurfaceIndicatorViewModel));
             AssertViewBindSignature(typeof(PlayerStatusView), typeof(PlayerStatusViewModel));
             AssertViewBindSignature(typeof(ActionBarView), typeof(ActionBarViewModel));
             AssertViewBindSignature(typeof(NotificationView), typeof(NotificationViewModel));
@@ -513,7 +513,7 @@ namespace Game.Feature.UI.Tests
                 typeof(HUDRootView),
                 typeof(ObjectiveHudView),
                 typeof(ChancePanelView),
-                typeof(TopologyBeltView),
+                typeof(SurfaceIndicatorView),
                 typeof(PlayerStatusView),
                 typeof(ActionBarView),
                 typeof(NotificationView),
@@ -537,7 +537,7 @@ namespace Game.Feature.UI.Tests
                 typeof(HUDRootView),
                 typeof(ObjectiveHudView),
                 typeof(ChancePanelView),
-                typeof(TopologyBeltView),
+                typeof(SurfaceIndicatorView),
                 typeof(PlayerStatusView),
                 typeof(ActionBarView),
                 typeof(NotificationView),

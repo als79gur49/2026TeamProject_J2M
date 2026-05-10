@@ -8,7 +8,7 @@ namespace Game.Feature.UI.Composition
     {
         private readonly IUiAudioPort _uiAudioPort;
         private readonly ChancePanelViewModel _chanceViewModel;
-        private readonly TopologyBeltViewModel _topologyViewModel;
+        private readonly SurfaceIndicatorViewModel _surfaceIndicatorViewModel;
         private int _lastChanceSequenceId;
         private int _lastTopologySequenceId;
 
@@ -16,21 +16,21 @@ namespace Game.Feature.UI.Composition
             IUiAudioPort uiAudioPort,
             ChancePanelViewModel chanceViewModel,
             ObjectiveHudViewModel objectiveViewModel,
-            TopologyBeltViewModel topologyViewModel)
+            SurfaceIndicatorViewModel surfaceIndicatorViewModel)
         {
             _uiAudioPort = uiAudioPort ?? throw new ArgumentNullException(nameof(uiAudioPort));
             _chanceViewModel = chanceViewModel ?? throw new ArgumentNullException(nameof(chanceViewModel));
             _ = objectiveViewModel ?? throw new ArgumentNullException(nameof(objectiveViewModel));
-            _topologyViewModel = topologyViewModel ?? throw new ArgumentNullException(nameof(topologyViewModel));
+            _surfaceIndicatorViewModel = surfaceIndicatorViewModel ?? throw new ArgumentNullException(nameof(surfaceIndicatorViewModel));
 
             _chanceViewModel.Changed += HandleChanceChanged;
-            _topologyViewModel.Changed += HandleTopologyChanged;
+            _surfaceIndicatorViewModel.Changed += HandleTopologyChanged;
         }
 
         public void Dispose()
         {
             _chanceViewModel.Changed -= HandleChanceChanged;
-            _topologyViewModel.Changed -= HandleTopologyChanged;
+            _surfaceIndicatorViewModel.Changed -= HandleTopologyChanged;
         }
 
         private void HandleChanceChanged()
@@ -58,7 +58,7 @@ namespace Game.Feature.UI.Composition
 
         private void HandleTopologyChanged()
         {
-            var hint = _topologyViewModel.AnimationHint;
+            var hint = _surfaceIndicatorViewModel.AnimationHint;
             if (hint.SequenceId <= 0 || hint.SequenceId == _lastTopologySequenceId)
             {
                 return;

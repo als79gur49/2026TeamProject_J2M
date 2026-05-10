@@ -10,6 +10,7 @@ using System.Linq;
 using System.Reflection;
 using TMPro;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.TestTools;
@@ -198,11 +199,11 @@ namespace Game.Feature.UI.Tests
                 AssertOwnedBy(objectiveListRoot, topLeftStack);
                 AssertOwnedBy(GetSerializedReference<TMP_Text>(hudView, "_stageNameLabel").transform, topRightStack);
                 AssertOwnedBy(GetSerializedReference<Button>(hudView, "_pauseButton").transform, topRightStack);
-                AssertOwnedBy(hudView.TopologyBeltView.transform, topRightStack);
+                AssertOwnedBy(hudView.SurfaceIndicatorView.transform, topRightStack);
                 AssertOwnedBy(hudView.NotificationView.transform, bottomRightStack);
                 AssertOwnedBy(hudView.ChancePanelView.transform, bottomRightStack);
                 Assert.That(hudView.ChancePanelView.ViewModel, Is.SameAs(chancePanelPresenter.ViewModel));
-                Assert.That(hudView.TopologyBeltView.ViewModel, Is.SameAs(topologyHudPresenter.ViewModel));
+                Assert.That(hudView.SurfaceIndicatorView.ViewModel, Is.SameAs(topologyHudPresenter.ViewModel));
             }
             finally
             {
@@ -336,7 +337,7 @@ namespace Game.Feature.UI.Tests
 
                 LayoutRebuilder.ForceRebuildLayoutImmediate(hudRect);
                 LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)hudView.ChancePanelView.transform);
-                LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)hudView.TopologyBeltView.transform);
+                LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)hudView.SurfaceIndicatorView.transform);
                 Canvas.ForceUpdateCanvases();
 
                 var chancePanel = (RectTransform)hudView.ChancePanelView.transform;
@@ -345,16 +346,10 @@ namespace Game.Feature.UI.Tests
                 AssertWorldRectContains(chancePanel, slotContainer);
                 AssertWorldRectContains(chancePanel, floatingFeedbackRoot);
 
-                var topRightStack = FindRequiredRect(hudView.transform, "HudTopRightStack");
-                var faceChipContainer = GetSerializedReference<RectTransform>(hudView.TopologyBeltView, "_faceChipContainer");
-                AssertOwnedBy(faceChipContainer, topRightStack);
-
-                var faceChips = hudView.TopologyBeltView.FaceChips;
-                Assert.That(faceChips.Count, Is.EqualTo(6));
-                for (var i = 0; i < faceChips.Count; i++)
-                {
-                    AssertOwnedBy(faceChips[i].transform, topRightStack);
-                }
+                var cubeMapView = GetSerializedReference<SurfaceCubeMapView>(hudView.SurfaceIndicatorView, "_cubeMapView");
+                AssertOwnedBy(cubeMapView.transform, hudView.transform);
+                Assert.That(cubeMapView.PreviewImage, Is.Not.Null);
+                AssertCubeMapPreviewHasRenderableLayoutContract(cubeMapView);
             }
             finally
             {
@@ -363,25 +358,25 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void HUDPrefab_AuthorsChanceAndTopologyModulesInPrefabHierarchy()
+        public void HUDPrefab_AuthorsChanceAndSurfaceIndicatorModulesInPrefabHierarchy()
         {
             var hudPrefab = UiTestPrefabAssetUtility.LoadHudPrefab();
             var serializedChancePanel = GetSerializedReference<ChancePanelView>(hudPrefab, "_chancePanelView");
-            var serializedTopologyBelt = GetSerializedReference<TopologyBeltView>(hudPrefab, "_topologyBeltView");
+            var serializedSurfaceIndicator = GetSerializedReference<SurfaceIndicatorView>(hudPrefab, "_surfaceIndicatorView");
 
             var chancePanels = hudPrefab.GetComponentsInChildren<ChancePanelView>(true);
             Assert.That(chancePanels.Length, Is.EqualTo(1));
             Assert.That(chancePanels[0], Is.SameAs(serializedChancePanel));
 
-            var topologyBelts = hudPrefab.GetComponentsInChildren<TopologyBeltView>(true);
-            Assert.That(topologyBelts.Length, Is.EqualTo(1));
-            Assert.That(topologyBelts[0], Is.SameAs(serializedTopologyBelt));
+            var surfaceIndicators = hudPrefab.GetComponentsInChildren<SurfaceIndicatorView>(true);
+            Assert.That(surfaceIndicators.Length, Is.EqualTo(1));
+            Assert.That(surfaceIndicators[0], Is.SameAs(serializedSurfaceIndicator));
 
             var topRightStack = FindRequiredRect(hudPrefab.transform, "HudTopRightStack");
             var bottomRightStack = FindRequiredRect(hudPrefab.transform, "HudBottomRightStack");
             AssertOwnedBy(GetSerializedReference<TMP_Text>(hudPrefab, "_stageNameLabel").transform, topRightStack);
             AssertOwnedBy(GetSerializedReference<Button>(hudPrefab, "_pauseButton").transform, topRightStack);
-            AssertOwnedBy(serializedTopologyBelt.transform, topRightStack);
+            AssertOwnedBy(serializedSurfaceIndicator.transform, topRightStack);
             AssertOwnedBy(serializedChancePanel.transform, bottomRightStack);
 
             var slotContainer = FindRequiredRect(serializedChancePanel.transform, "SlotContainer");
@@ -399,23 +394,75 @@ namespace Game.Feature.UI.Tests
                 AssertSerializedReferenceIsAssigned(slot, "_canvasGroup");
             }
 
-            var faceChipContainer = GetSerializedReference<RectTransform>(serializedTopologyBelt, "_faceChipContainer");
-            var faceChips = serializedTopologyBelt.GetComponentsInChildren<FaceChipView>(true);
-            if (faceChips.Length == 0)
-            {
-                faceChips = hudPrefab.GetComponentsInChildren<FaceChipView>(true);
-            }
+            var cubeMapView = GetSerializedReference<SurfaceCubeMapView>(serializedSurfaceIndicator, "_cubeMapView");
+            AssertOwnedBy(cubeMapView.transform, hudPrefab.transform);
+            AssertSerializedReference(serializedSurfaceIndicator, "_cubeMapView", cubeMapView);
+            AssertSerializedReferenceIsAssigned(cubeMapView, "_previewImage");
+            AssertSerializedReferenceIsAssigned(cubeMapView, "_cubeMapPrefab");
+            AssertCubeMapPreviewHasRenderableLayoutContract(cubeMapView);
+        }
 
-            Assert.That(faceChips.Length, Is.EqualTo(6));
-            AssertSerializedReference(serializedTopologyBelt, "_faceChipContainer", faceChipContainer);
-            AssertSerializedArrayCount(serializedTopologyBelt, "_faceChips", 6);
+        [Test]
+        public void SurfaceCubeMapView_ResolvesCubeMapFaces_FromLocalPositions()
+        {
+            Assert.That(
+                SurfaceCubeMapView.TryResolveFaceRole(new Vector3(0.0f, -0.2f, 0.0f), out var floorRole),
+                Is.True);
+            Assert.That(floorRole, Is.EqualTo(SurfaceCubeMapFaceRole.Floor));
+            Assert.That(
+                SurfaceCubeMapView.TryResolveFaceRole(new Vector3(0.0f, 0.0f, 0.2f), out var frontRole),
+                Is.True);
+            Assert.That(frontRole, Is.EqualTo(SurfaceCubeMapFaceRole.Front));
+            Assert.That(
+                SurfaceCubeMapView.TryResolveFaceRole(new Vector3(0.0f, 0.2f, 0.0f), out var ceilingRole),
+                Is.True);
+            Assert.That(ceilingRole, Is.EqualTo(SurfaceCubeMapFaceRole.Ceiling));
+            Assert.That(
+                SurfaceCubeMapView.TryResolveFaceRole(new Vector3(0.0f, 0.0f, -0.2f), out var backRole),
+                Is.True);
+            Assert.That(backRole, Is.EqualTo(SurfaceCubeMapFaceRole.Back));
+            Assert.That(
+                SurfaceCubeMapView.TryResolveFaceRole(new Vector3(-0.2f, 0.0f, 0.0f), out var leftRole),
+                Is.True);
+            Assert.That(leftRole, Is.EqualTo(SurfaceCubeMapFaceRole.Left));
+            Assert.That(SurfaceCubeMapView.IsSelectableFace(leftRole), Is.False);
+            Assert.That(
+                SurfaceCubeMapView.TryResolveFaceRole(new Vector3(0.2f, 0.0f, 0.0f), out var rightRole),
+                Is.True);
+            Assert.That(rightRole, Is.EqualTo(SurfaceCubeMapFaceRole.Right));
+            Assert.That(SurfaceCubeMapView.IsSelectableFace(rightRole), Is.False);
+        }
 
-            foreach (var chip in faceChips)
+        [Test]
+        public void SurfaceCubeMapPreviewLayer_IsExcludedFromGameplayMainCameras()
+        {
+            var previewLayer = LayerMask.NameToLayer(SurfaceCubeMapView.PreviewLayerName);
+            Assert.That(previewLayer, Is.GreaterThanOrEqualTo(0));
+
+            var previewMask = 1 << previewLayer;
+            var scenePaths = new[]
             {
-                AssertSerializedReferenceIsAssigned(chip, "_background");
-                AssertSerializedReferenceIsAssigned(chip, "_faceNameText");
-                AssertSerializedReferenceIsAssigned(chip, "_activeGlow");
-                AssertSerializedReferenceIsAssigned(chip, "_canvasGroup");
+                "Assets/Scenes/CombinedGameplayShowcase.unity",
+                "Assets/Scenes/TutorialScene.unity",
+                "Assets/Scenes/UIAudioScene.unity",
+            };
+
+            foreach (var scenePath in scenePaths)
+            {
+                var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+                var mainCameras = scene.GetRootGameObjects()
+                    .SelectMany(root => root.GetComponentsInChildren<Camera>(true))
+                    .Where(camera => camera.CompareTag("MainCamera"))
+                    .ToArray();
+
+                Assert.That(mainCameras, Is.Not.Empty, scenePath);
+                foreach (var mainCamera in mainCameras)
+                {
+                    Assert.That(
+                        mainCamera.cullingMask & previewMask,
+                        Is.EqualTo(0),
+                        $"{scenePath} MainCamera '{mainCamera.name}' must not render {SurfaceCubeMapView.PreviewLayerName}.");
+                }
             }
         }
 
@@ -860,6 +907,30 @@ namespace Game.Feature.UI.Tests
             Assert.That(child, Is.Not.Null);
             Assert.That(owner, Is.Not.Null);
             Assert.That(child.IsChildOf(owner), Is.True, $"{child.name} should be under {owner.name}.");
+        }
+
+        private static void AssertCubeMapPreviewHasRenderableLayoutContract(SurfaceCubeMapView cubeMapView)
+        {
+            Assert.That(cubeMapView, Is.Not.Null);
+            Assert.That(cubeMapView.transform, Is.InstanceOf<RectTransform>());
+
+            var layoutElement = cubeMapView.GetComponent<LayoutElement>();
+            if (layoutElement != null)
+            {
+                Assert.That(layoutElement.enabled, Is.True);
+                Assert.That(layoutElement.ignoreLayout, Is.False);
+                Assert.That(
+                    layoutElement.preferredWidth > 0.0f || layoutElement.minWidth > 0.0f,
+                    Is.True);
+                Assert.That(
+                    layoutElement.preferredHeight > 0.0f || layoutElement.minHeight > 0.0f,
+                    Is.True);
+                return;
+            }
+
+            var rectTransform = (RectTransform)cubeMapView.transform;
+            Assert.That(rectTransform.sizeDelta.x, Is.GreaterThan(0.0f));
+            Assert.That(rectTransform.sizeDelta.y, Is.GreaterThan(0.0f));
         }
 
         private static void AssertNoOverlap(RectTransform first, RectTransform second)
