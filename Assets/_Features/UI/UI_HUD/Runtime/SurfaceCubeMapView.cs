@@ -19,7 +19,8 @@ namespace Game.Feature.UI.HUD
 
     public sealed class SurfaceCubeMapView : MonoBehaviour
     {
-        private const int PreviewLayer = 31;
+        public const string PreviewLayerName = "SurfacePreview";
+
         private const int DefaultPreviewTextureSize = 256;
         private const float DefaultOrthographicSize = 0.52f;
         private const float PulseDurationSeconds = 0.28f;
@@ -50,6 +51,10 @@ namespace Game.Feature.UI.HUD
         public Transform CubeRoot => _cubeRoot;
 
         public IReadOnlyList<Renderer> FaceRenderers => _faceRenderers ?? Array.Empty<Renderer>();
+
+        public static int PreviewLayer => ResolvePreviewLayerOrThrow();
+
+        public static int PreviewLayerMask => 1 << PreviewLayer;
 
         public void Bind(SurfaceIndicatorViewModel viewModel)
         {
@@ -297,7 +302,7 @@ namespace Game.Feature.UI.HUD
             _previewCamera.orthographicSize = _orthographicSize > 0.0f ? _orthographicSize : DefaultOrthographicSize;
             _previewCamera.nearClipPlane = 0.01f;
             _previewCamera.farClipPlane = 10.0f;
-            _previewCamera.cullingMask = 1 << PreviewLayer;
+            _previewCamera.cullingMask = PreviewLayerMask;
             _previewCamera.targetTexture = ResolveRenderTexture() as RenderTexture;
             _previewCamera.transform.SetPositionAndRotation(new Vector3(0.0f, 0.0f, -2.0f), Quaternion.identity);
         }
@@ -386,6 +391,18 @@ namespace Game.Feature.UI.HUD
             {
                 SetLayerRecursively(root.transform.GetChild(i).gameObject, layer);
             }
+        }
+
+        private static int ResolvePreviewLayerOrThrow()
+        {
+            var layer = LayerMask.NameToLayer(PreviewLayerName);
+            if (layer < 0)
+            {
+                throw new InvalidOperationException(
+                    $"{nameof(SurfaceCubeMapView)} requires Unity layer '{PreviewLayerName}' to isolate the render-texture preview from gameplay cameras.");
+            }
+
+            return layer;
         }
 
         private static void DestroyRuntimeObject(UnityEngine.Object target)
