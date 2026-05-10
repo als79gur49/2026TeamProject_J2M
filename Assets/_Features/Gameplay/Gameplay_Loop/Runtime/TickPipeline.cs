@@ -3199,6 +3199,31 @@ namespace Game.Feature.Gameplay.Loop
                     out var resolvedGlideKind)
                 ? resolvedGlideKind
                 : EnemyGlideKinematicKind.None;
+            if (continuationGlideKind == EnemyGlideKinematicKind.None &&
+                outcome.AnchorChanged)
+            {
+                var anchorCommitLegality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
+                    snapshot,
+                    EntityType.Unit,
+                    outcome.ResolvedAnchorCell,
+                    entityId,
+                    snapshot.Topology,
+                    CubeRotationKind.None,
+                    snapshot.Topology);
+                if (anchorCommitLegality.Verdict != LegalityVerdict.Allowed)
+                {
+                    rejectedReasons.Add(FormatEnemyKinematicContinuationBlockedReason(
+                        entityId,
+                        pose,
+                        outcome.ResolvedAnchorCell,
+                        anchorCommitLegality));
+                    outcome = CreateBlockedKinematicMotionOutcome(
+                        entityId,
+                        pose,
+                        KinematicSweepRejectionReason.TraversalBlocked);
+                }
+            }
+
             payload = CreateKinematicMovementPayload(
                 _idAllocator.AllocateGroupId(),
                 _idAllocator.AllocateIntentId(),
@@ -3213,6 +3238,19 @@ namespace Game.Feature.Gameplay.Loop
                 boundaryReason: ResolveEnemyKinematicContinuationBoundaryReason(continuationGlideKind));
 
             return true;
+        }
+
+        private static string FormatEnemyKinematicContinuationBlockedReason(
+            int entityId,
+            UnitKinematicPose pose,
+            SurfaceCell blockedAnchorCell,
+            LegalityResult legality)
+        {
+            var blocker = legality.Blockers.Count > 0 ? legality.Blockers[0] : default;
+            var blockerId = legality.Blockers.Count > 0 ? blocker.EntityId : 0;
+            var blockerKind = legality.Blockers.Count > 0 ? blocker.Kind.ToString() : "None";
+            return
+                $"EnemyKinematicContinuationBlocked|E={entityId}|From={FormatCell(pose.AnchorCell)}|To={FormatCell(blockedAnchorCell)}|Blocker={blockerId}|BlockerKind={blockerKind}|Boundary={MovementExecutionBoundaryKind.LocomotionAnchorCommit}|BoundaryReason=OrdinaryKinematicAnchorCommit|{LegalityDiagnosticsFormatter.FormatStableSummary(legality)}";
         }
 
         private bool TryResolveEnemyKinematicStartScope(
@@ -4380,6 +4418,24 @@ namespace Game.Feature.Gameplay.Loop
                 anchorChanged: false,
                 blocked: true,
                 rejectedBy: sweep.RejectedBy);
+        }
+
+        private static KinematicMotionOutcome CreateBlockedKinematicMotionOutcome(
+            int entityId,
+            UnitKinematicPose pose,
+            KinematicSweepRejectionReason rejectedBy)
+        {
+            return new KinematicMotionOutcome(
+                entityId,
+                pose.AnchorCell,
+                pose.LocalOffset,
+                pose.AnchorCell,
+                KinematicOffset2.Zero,
+                KinematicVelocity2.Zero,
+                UnitKinematicRuntimeState.SettledZero,
+                anchorChanged: false,
+                blocked: true,
+                rejectedBy: rejectedBy);
         }
 
         private static UnitKinematicRuntimeState CreateVoluntaryKinematicState(
