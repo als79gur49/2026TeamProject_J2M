@@ -18,7 +18,11 @@ namespace Game.Feature.Stages
 
         public void LoadScene(string sceneName)
         {
-            SceneManager.LoadScene(sceneName);
+            var operation = SceneManager.LoadSceneAsync(sceneName, LoadSceneMode.Single);
+            if (operation == null)
+            {
+                SceneManager.LoadScene(sceneName);
+            }
         }
     }
 

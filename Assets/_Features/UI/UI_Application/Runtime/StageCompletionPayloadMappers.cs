@@ -36,16 +36,32 @@ namespace Game.Feature.UI.Application
                 nextStageRequest = ResolveCanonicalCampaignNextRequest(readModel.StageId);
             }
 
+            var continueRequest = nextStageRequest.IsValid
+                ? nextStageRequest.WithTransitionHint(StageTransitionHint.ForKind(StageTransitionKind.StageClearNext))
+                : new StageNavigationRequest(
+                    readModel.StageId,
+                    StageNavigationKind.Continue,
+                    "stage-result-continue",
+                    StageTransitionHint.ForKind(StageTransitionKind.StageClearNext));
+
+            var retryRequest = new StageNavigationRequest(
+                readModel.StageId,
+                StageNavigationKind.Retry,
+                "stage-result-retry",
+                StageTransitionHint.ForKind(StageTransitionKind.StageRetryManual));
+
+            var typedNextStageRequest = nextStageRequest.IsValid
+                ? nextStageRequest.WithTransitionHint(StageTransitionHint.ForKind(StageTransitionKind.StageClearNext))
+                : StageNavigationRequest.None;
+
             return new StageResultScreenPayload(
                 string.IsNullOrWhiteSpace(readModel.ResultTitle) ? "Stage Cleared" : readModel.ResultTitle,
                 summaryText,
                 detailText,
                 string.IsNullOrWhiteSpace(readModel.ResultContinueLabel) ? "Continue" : readModel.ResultContinueLabel,
-                nextStageRequest.IsValid
-                    ? nextStageRequest
-                    : new StageNavigationRequest(readModel.StageId, StageNavigationKind.Continue, "stage-result-continue"),
-                new StageNavigationRequest(readModel.StageId, StageNavigationKind.Retry, "stage-result-retry"),
-                nextStageRequest);
+                continueRequest,
+                retryRequest,
+                typedNextStageRequest);
         }
 
         private static StageNavigationRequest ResolveCanonicalCampaignNextRequest(StageId stageId)
@@ -58,7 +74,11 @@ namespace Game.Feature.UI.Application
                 return StageNavigationRequest.None;
             }
 
-            return new StageNavigationRequest(nextStageId, StageNavigationKind.NextStage, "campaign-auto-next");
+            return new StageNavigationRequest(
+                nextStageId,
+                StageNavigationKind.NextStage,
+                "campaign-auto-next",
+                StageTransitionHint.ForKind(StageTransitionKind.StageClearNext));
         }
 
         private static string BuildDefaultSummary(StageCompletionReadModel readModel)

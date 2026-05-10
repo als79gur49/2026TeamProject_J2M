@@ -1,5 +1,6 @@
 using System;
 using Game.Feature.Stages;
+using UnityEngine;
 
 namespace Game.Feature.UI.Composition
 {
@@ -13,7 +14,7 @@ namespace Game.Feature.UI.Composition
             ISceneLoadPort sceneLoadPort = null)
         {
             _routeConfig = routeConfig ?? throw new ArgumentNullException(nameof(routeConfig));
-            _sceneLoadPort = sceneLoadPort ?? UnitySceneLoadPort.Instance;
+            _sceneLoadPort = sceneLoadPort;
         }
 
         public void Launch(StageNavigationRequest request)
@@ -28,8 +29,29 @@ namespace Game.Feature.UI.Composition
                 throw new InvalidOperationException("Configured gameplay launch requires a gameplay shell scene in route config.");
             }
 
+            if (_sceneLoadPort != null)
+            {
+                StageLaunchContextStore.SetCurrent(request.StageId);
+                _sceneLoadPort.LoadScene(_routeConfig.GameplayShellSceneName);
+                return;
+            }
+
+            if (UnityEngine.Application.isPlaying)
+            {
+                SceneTransitionCoordinator.Instance.TryStartStageTransition(
+                    request.TransitionHint.HasExplicitKind
+                        ? request
+                        : new StageNavigationRequest(
+                            request.StageId,
+                            request.NavigationKind,
+                            request.Source,
+                            StageTransitionHint.ForKind(StageTransitionKind.MainToGameplay)),
+                    _routeConfig.GameplayShellSceneName);
+                return;
+            }
+
             StageLaunchContextStore.SetCurrent(request.StageId);
-            _sceneLoadPort.LoadScene(_routeConfig.GameplayShellSceneName);
+            UnitySceneLoadPort.Instance.LoadScene(_routeConfig.GameplayShellSceneName);
         }
     }
 }

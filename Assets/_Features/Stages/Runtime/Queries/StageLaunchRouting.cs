@@ -17,7 +17,8 @@ namespace Game.Feature.Stages
         public StageNavigationRequest(
             StageId stageId,
             StageNavigationKind navigationKind,
-            string source)
+            string source,
+            StageTransitionHint transitionHint = default)
         {
             if (navigationKind != StageNavigationKind.None && !stageId.IsValid)
             {
@@ -27,6 +28,7 @@ namespace Game.Feature.Stages
             StageId = stageId;
             NavigationKind = navigationKind;
             Source = source ?? string.Empty;
+            TransitionHint = transitionHint;
         }
 
         public StageId StageId { get; }
@@ -35,7 +37,14 @@ namespace Game.Feature.Stages
 
         public string Source { get; }
 
+        public StageTransitionHint TransitionHint { get; }
+
         public bool IsValid => StageId.IsValid && NavigationKind != StageNavigationKind.None;
+
+        public StageNavigationRequest WithTransitionHint(StageTransitionHint transitionHint)
+        {
+            return new StageNavigationRequest(StageId, NavigationKind, Source, transitionHint);
+        }
     }
 
     public interface IStageLaunchRouter

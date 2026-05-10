@@ -100,6 +100,10 @@ namespace Game.Feature.Gameplay.Host
             var activeSlotNumber = _activeSlotProvider.ActiveSlotNumber;
             var slot = _saveSlotStore.LoadSlot(activeSlotNumber);
             var route = _retryChanceTracker.ResolveDeathRoute(slot);
+            var previousRemainingChances = slot.RemainingChances <= 0
+                ? SaveSlotStore.DefaultRemainingChances
+                : slot.RemainingChances;
+            var deathCount = slot.TotalDeaths + 1;
             var routeLevelGroupId = _sequenceResolver.GetLevelGroupId(route.NextStageId);
             _saveSlotStore.UpdateSlot(
                 activeSlotNumber,
@@ -125,7 +129,17 @@ namespace Game.Feature.Gameplay.Host
                 new StageNavigationRequest(
                     route.NextStageId,
                     StageNavigationKind.Retry,
-                    "campaign-death-retry"),
+                    "campaign-death-retry",
+                    StageTransitionHint.ForChanceLost(new StageTransitionChanceLostPayload(
+                        previousRemainingChances,
+                        route.RemainingChances,
+                        SaveSlotStore.DefaultRemainingChances,
+                        slot.CurrentStageId,
+                        route.NextStageId,
+                        deathCount,
+                        "campaign-death-retry",
+                        "Chance Lost",
+                        "Retrying with one fewer chance."))),
                 result.TickIndex,
                 ResolveDeathRecoveryEligibleTick(result));
         }
@@ -183,7 +197,8 @@ namespace Game.Feature.Gameplay.Host
                 new StageNavigationRequest(
                     route.NextStageId,
                     StageNavigationKind.Retry,
-                    "level-failed-restart-level")));
+                    "level-failed-restart-level",
+                    StageTransitionHint.ForKind(StageTransitionKind.LevelFailedRestart))));
         }
 
         private void HandleStageClearCommitted(TickResult result, StageCompletionReadModel readModel)

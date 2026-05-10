@@ -185,7 +185,11 @@ namespace Game.Feature.UI.Application
 
         private void Launch(StageId stageId, StageNavigationKind navigationKind, string source)
         {
-            _stageLaunchRouter.Launch(new StageNavigationRequest(stageId, navigationKind, source));
+            _stageLaunchRouter.Launch(new StageNavigationRequest(
+                stageId,
+                navigationKind,
+                source,
+                StageTransitionHint.ForKind(StageTransitionKind.MainToGameplay)));
         }
 
         private SaveSlotValidationResult ValidateAndSync(int slotNumber)

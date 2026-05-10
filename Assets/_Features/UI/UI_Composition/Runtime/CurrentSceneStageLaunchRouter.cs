@@ -1,17 +1,17 @@
 using System;
 using Game.Feature.Stages;
-using UnityEngine;
-using UnityEngine.SceneManagement;
 
 namespace Game.Feature.UI.Composition
 {
     internal sealed class CurrentSceneStageLaunchRouter : IStageLaunchRouter
     {
-        private readonly string sceneName;
+        private readonly ISceneLoadPort _sceneLoadPort;
+        private readonly string _sceneName;
 
-        public CurrentSceneStageLaunchRouter(string sceneName)
+        public CurrentSceneStageLaunchRouter(string sceneName, ISceneLoadPort sceneLoadPort = null)
         {
-            this.sceneName = sceneName ?? string.Empty;
+            _sceneName = sceneName ?? string.Empty;
+            _sceneLoadPort = sceneLoadPort;
         }
 
         public void Launch(StageNavigationRequest request)
@@ -21,10 +21,21 @@ namespace Game.Feature.UI.Composition
                 throw new ArgumentException("Stage launch router requires a valid StageNavigationRequest.", nameof(request));
             }
 
-            StageLaunchContextStore.SetCurrent(request.StageId);
-            if (UnityEngine.Application.isPlaying && !string.IsNullOrWhiteSpace(sceneName))
+            if (string.IsNullOrWhiteSpace(_sceneName))
             {
-                SceneManager.LoadScene(sceneName);
+                return;
+            }
+
+            if (_sceneLoadPort != null)
+            {
+                StageLaunchContextStore.SetCurrent(request.StageId);
+                _sceneLoadPort.LoadScene(_sceneName);
+                return;
+            }
+
+            if (UnityEngine.Application.isPlaying)
+            {
+                SceneTransitionCoordinator.Instance.TryStartStageTransition(request, _sceneName);
             }
         }
     }

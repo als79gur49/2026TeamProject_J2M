@@ -547,6 +547,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(router.LaunchCount, Is.EqualTo(1));
                 Assert.That(router.LastRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Retry));
                 Assert.That(router.LastRequest.StageId.Value, Is.EqualTo("stage-2-2"));
+                Assert.That(router.LastRequest.TransitionHint.Kind, Is.EqualTo(StageTransitionKind.DeathRetryChanceLost));
+                Assert.That(router.LastRequest.TransitionHint.HasChanceLostPayload, Is.True);
+                Assert.That(router.LastRequest.TransitionHint.ChanceLostPayload.PreviousRemainingChances, Is.EqualTo(2));
+                Assert.That(router.LastRequest.TransitionHint.ChanceLostPayload.CurrentRemainingChances, Is.EqualTo(1));
+                Assert.That(router.LastRequest.TransitionHint.ChanceLostPayload.TotalChances, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
                 Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.True);
             }
             finally
