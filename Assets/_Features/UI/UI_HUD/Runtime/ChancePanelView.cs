@@ -124,14 +124,6 @@ namespace Game.Feature.UI.HUD
                     $"{nameof(ChancePanelView)} has {_runtimeSlots.Count} authored slots but received MaxChances {_viewModel.MaxChances}.");
             }
 
-            if (_labelText != null)
-            {
-                _labelText.text = "CHANCES";
-                _labelText.color = _viewModel.IsLastChance
-                    ? new Color(1.0f, 0.38f, 0.42f, 1.0f)
-                    : Color.white;
-            }
-
             for (var i = 0; i < _runtimeSlots.Count; i++)
             {
                 _runtimeSlots[i].gameObject.SetActive(i < _viewModel.Slots.Count);

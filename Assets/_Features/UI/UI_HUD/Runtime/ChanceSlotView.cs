@@ -7,10 +7,6 @@ namespace Game.Feature.UI.HUD
 {
     public sealed class ChanceSlotView : MonoBehaviour
     {
-        private static readonly Color FilledColor = new Color(0.91f, 0.22f, 0.36f, 1.0f);
-        private static readonly Color EmptyColor = new Color(0.25f, 0.29f, 0.36f, 0.75f);
-        private static readonly Color GlowColor = new Color(1.0f, 0.24f, 0.34f, 0.0f);
-
         [SerializeField] private Image _filledIcon;
         [SerializeField] private Image _emptyIcon;
         [SerializeField] private Image _glow;
@@ -19,6 +15,10 @@ namespace Game.Feature.UI.HUD
         [SerializeField] private GameObject _gainVfxRoot;
 
         private Sequence _sequence;
+        private bool _hasAuthoredColors;
+        private Color _authoredFilledColor;
+        private Color _authoredEmptyColor;
+        private Color _authoredGlowColor;
 
         public void Bind(
             ChanceSlotViewModel viewModel,
@@ -26,6 +26,7 @@ namespace Game.Feature.UI.HUD
             HudAnimationSettings settings)
         {
             ValidateAuthoredStructureOrThrow();
+            EnsureAuthoredColorsCached();
             var shouldAnimate = animationHint.Kind != ChanceChangeKind.None &&
                 animationHint.SequenceId > 0 &&
                 ContainsSlot(animationHint, viewModel.Index);
@@ -51,6 +52,11 @@ namespace Game.Feature.UI.HUD
             }
         }
 
+        private void Awake()
+        {
+            TryCacheAuthoredColors();
+        }
+
         private void OnDisable()
         {
             KillSequence();
@@ -71,6 +77,7 @@ namespace Game.Feature.UI.HUD
 
         private void ApplyImmediate(ChanceSlotViewModel viewModel)
         {
+            EnsureAuthoredColorsCached();
             KillSequence();
             transform.localScale = Vector3.one;
             if (_canvasGroup != null)
@@ -80,22 +87,20 @@ namespace Game.Feature.UI.HUD
 
             if (_filledIcon != null)
             {
-                _filledIcon.color = FilledColor;
+                _filledIcon.color = _authoredFilledColor;
                 _filledIcon.gameObject.SetActive(viewModel.IsFilled);
                 _filledIcon.transform.localScale = Vector3.one;
             }
 
             if (_emptyIcon != null)
             {
-                _emptyIcon.color = EmptyColor;
+                _emptyIcon.color = _authoredEmptyColor;
                 _emptyIcon.gameObject.SetActive(!viewModel.IsFilled);
             }
 
             if (_glow != null)
             {
-                _glow.color = viewModel.IsLastChanceSlot
-                    ? new Color(1.0f, 0.24f, 0.34f, 0.32f)
-                    : GlowColor;
+                _glow.color = _authoredGlowColor;
                 _glow.transform.localScale = Vector3.one;
             }
         }
@@ -105,14 +110,17 @@ namespace Game.Feature.UI.HUD
             HudAnimationSettings settings)
         {
             KillSequence();
+            EnsureAuthoredColorsCached();
             ToggleVfx(_lossVfxRoot);
             if (_filledIcon != null)
             {
+                _filledIcon.color = _authoredFilledColor;
                 _filledIcon.gameObject.SetActive(true);
             }
 
             if (_emptyIcon != null)
             {
+                _emptyIcon.color = WithAlpha(_authoredEmptyColor, 0.0f);
                 _emptyIcon.gameObject.SetActive(true);
             }
 
@@ -127,8 +135,7 @@ namespace Game.Feature.UI.HUD
 
             if (_emptyIcon != null)
             {
-                _emptyIcon.color = new Color(EmptyColor.r, EmptyColor.g, EmptyColor.b, 0.0f);
-                _sequence.Join(_emptyIcon.DOFade(EmptyColor.a, 0.18f));
+                _sequence.Join(_emptyIcon.DOFade(_authoredEmptyColor.a, 0.18f));
             }
 
             _sequence.OnComplete(() => ApplyImmediate(viewModel));
@@ -139,22 +146,24 @@ namespace Game.Feature.UI.HUD
             HudAnimationSettings settings)
         {
             KillSequence();
+            EnsureAuthoredColorsCached();
             ToggleVfx(_gainVfxRoot);
             if (_emptyIcon != null)
             {
+                _emptyIcon.color = _authoredEmptyColor;
                 _emptyIcon.gameObject.SetActive(true);
             }
 
             if (_filledIcon != null)
             {
                 _filledIcon.gameObject.SetActive(true);
-                _filledIcon.color = new Color(FilledColor.r, FilledColor.g, FilledColor.b, 0.0f);
+                _filledIcon.color = WithAlpha(_authoredFilledColor, 0.0f);
                 _filledIcon.transform.localScale = Vector3.one * 0.7f;
             }
 
             if (_glow != null)
             {
-                _glow.color = new Color(1.0f, 0.42f, 0.54f, 0.45f);
+                _glow.color = _authoredGlowColor;
                 _glow.transform.localScale = Vector3.one * 0.75f;
             }
 
@@ -163,7 +172,7 @@ namespace Game.Feature.UI.HUD
                 .SetLink(gameObject, LinkBehaviour.KillOnDestroy);
             if (_filledIcon != null)
             {
-                _sequence.Append(_filledIcon.DOFade(FilledColor.a, 0.16f));
+                _sequence.Append(_filledIcon.DOFade(_authoredFilledColor.a, 0.16f));
                 _sequence.Join(_filledIcon.transform.DOScale(1.0f, 0.2f).SetEase(Ease.OutBack));
             }
 
@@ -217,6 +226,35 @@ namespace Game.Feature.UI.HUD
 
             root.SetActive(false);
             root.SetActive(true);
+        }
+
+        private void EnsureAuthoredColorsCached()
+        {
+            if (_hasAuthoredColors)
+            {
+                return;
+            }
+
+            ValidateAuthoredStructureOrThrow();
+            TryCacheAuthoredColors();
+        }
+
+        private void TryCacheAuthoredColors()
+        {
+            if (_filledIcon == null || _emptyIcon == null || _glow == null)
+            {
+                return;
+            }
+
+            _authoredFilledColor = _filledIcon.color;
+            _authoredEmptyColor = _emptyIcon.color;
+            _authoredGlowColor = _glow.color;
+            _hasAuthoredColors = true;
+        }
+
+        private static Color WithAlpha(Color color, float alpha)
+        {
+            return new Color(color.r, color.g, color.b, alpha);
         }
 
         private static void RequireReference(UnityEngine.Object value, string fieldName)
