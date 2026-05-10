@@ -683,7 +683,6 @@ namespace Game.Feature.Gameplay.Loop
                     expansionIntents,
                     input.TickIndex,
                     rejectedReasons,
-                    movementDebugEvents,
                     kinematicMovementActionPlanPayloads);
             }
             if (_runtimeFeatureFlags.EnableEnemyChargeKinematicLocomotion)
@@ -3195,7 +3194,6 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<MoveIntent> sortedIntents,
             int tickIndex,
             List<string> rejectedReasons,
-            List<string> debugEvents,
             Dictionary<int, MovementActionPlanPayload> kinematicPayloads)
         {
             var legacyIntents = new List<MoveIntent>(sortedIntents.Count);
@@ -3240,7 +3238,6 @@ namespace Game.Feature.Gameplay.Loop
                         intent,
                         tickIndex,
                         rejectedReasons,
-                        debugEvents,
                         out var handledByKinematic,
                         out var startPayload))
                 {
@@ -3334,7 +3331,6 @@ namespace Game.Feature.Gameplay.Loop
             MoveIntent intent,
             int tickIndex,
             List<string> rejectedReasons,
-            List<string> debugEvents,
             out bool handledByKinematic,
             out MovementActionPlanPayload payload)
         {
@@ -3350,16 +3346,9 @@ namespace Game.Feature.Gameplay.Loop
                     out var destination,
                     out var facing,
                     out var glideKinematicKind,
-                    out var debugResult))
+                    out var isGlideDirectionMismatch))
             {
-                AppendEnemyGlideKinematicStartDebug(
-                    snapshot,
-                    intent,
-                    tickIndex,
-                    debugEvents,
-                    debugResult,
-                    destination);
-                if (string.Equals(debugResult, "GlideDirectionMismatch", StringComparison.Ordinal))
+                if (isGlideDirectionMismatch)
                 {
                     handledByKinematic = true;
                     rejectedReasons.Add(
@@ -3381,13 +3370,6 @@ namespace Game.Feature.Gameplay.Loop
                 snapshot.Topology);
             if (legality.Verdict != LegalityVerdict.Allowed)
             {
-                AppendEnemyGlideKinematicStartDebug(
-                    snapshot,
-                    intent,
-                    tickIndex,
-                    debugEvents,
-                    "DestinationBlocked",
-                    destination);
                 rejectedReasons.Add(
                     $"MovementRejected|Stage=Plan|Source={intent.SourceId}|I={intent.IntentId}|Reason=EnemyKinematicTraversalBlocked|Cell={FormatCell(destination)}|{LegalityDiagnosticsFormatter.FormatStableSummary(legality)}");
                 return true;
@@ -3395,13 +3377,6 @@ namespace Game.Feature.Gameplay.Loop
 
             if (!TryResolveKinematicVelocity(delta, out var velocity, out _))
             {
-                AppendEnemyGlideKinematicStartDebug(
-                    snapshot,
-                    intent,
-                    tickIndex,
-                    debugEvents,
-                    "NonCardinalDelta",
-                    destination);
                 rejectedReasons.Add(
                     $"MovementRejected|Stage=Plan|Source={intent.SourceId}|I={intent.IntentId}|Reason=EnemyKinematicSweepRejected|RejectedBy={KinematicSweepRejectionReason.NonCardinalDelta}|Anchor={FormatCell(entity.position)}");
                 return true;
@@ -3414,13 +3389,6 @@ namespace Game.Feature.Gameplay.Loop
                     out var sweep) ||
                 sweep.Blocked)
             {
-                AppendEnemyGlideKinematicStartDebug(
-                    snapshot,
-                    intent,
-                    tickIndex,
-                    debugEvents,
-                    "SweepBlocked",
-                    destination);
                 rejectedReasons.Add(
                     $"MovementRejected|Stage=Plan|Source={intent.SourceId}|I={intent.IntentId}|Reason=EnemyKinematicSweepRejected|RejectedBy={sweep.RejectedBy}|Anchor={FormatCell(entity.position)}");
                 return true;
@@ -3453,13 +3421,6 @@ namespace Game.Feature.Gameplay.Loop
                     ? MovementExecutionBoundaryKind.UnitSpecialLocomotion
                     : MovementExecutionBoundaryKind.UnitOrdinaryLocomotion,
                 boundaryReason: ResolveEnemyKinematicStartBoundaryReason(glideKinematicKind));
-            AppendEnemyGlideKinematicStartDebug(
-                snapshot,
-                intent,
-                tickIndex,
-                debugEvents,
-                "PayloadCreated",
-                destination);
             return true;
         }
 
@@ -3643,7 +3604,7 @@ namespace Game.Feature.Gameplay.Loop
             out SurfaceCell destination,
             out Direction facing,
             out EnemyGlideKinematicKind glideKinematicKind,
-            out string debugResult)
+            out bool isGlideDirectionMismatch)
         {
             entity = default;
             pose = default;
@@ -3651,64 +3612,53 @@ namespace Game.Feature.Gameplay.Loop
             destination = default;
             facing = Direction.None;
             glideKinematicKind = EnemyGlideKinematicKind.None;
-            debugResult = null;
+            isGlideDirectionMismatch = false;
 
             if (intent == null)
             {
-                debugResult = "NotMoveIntent";
                 return false;
             }
 
             if (intent.CommandKind != Movement.MovementCommandKind.Move)
             {
-                debugResult = "NotMoveIntent";
                 return false;
             }
 
             if (!snapshot.TryGetEntity(intent.SourceId, out entity))
             {
-                debugResult = "EntityMissing";
                 return false;
             }
 
             if (!IsEnemyLogicParticipant(entity))
             {
-                debugResult = "NotEnemyUnit";
                 return false;
             }
 
             if (!IsEnemyKinematicStartParticipant(snapshot, entity, out glideKinematicKind))
             {
-                debugResult = snapshot.TryGetEnemyGlideState(entity.entityId, out var blockedGlideState) &&
-                              blockedGlideState.Phase == EnemyGlidePhase.Active
-                    ? "NotActiveGlideParticipant"
-                    : "NotEnemyUnit";
                 return false;
             }
 
             if (!snapshot.TryGetUnitKinematicPose(intent.SourceId, out pose))
             {
-                debugResult = "PoseMissing";
                 return false;
             }
 
             if (!pose.IsSettledAtAnchor)
             {
-                debugResult = "PoseUnsettled";
                 return false;
             }
 
             delta = intent.Destination - entity.position.PlanarPosition;
             if (!TryResolveKinematicVelocity(delta, out _, out facing))
             {
-                debugResult = "NonCardinalDelta";
                 return false;
             }
 
             if (glideKinematicKind == EnemyGlideKinematicKind.Active &&
                 !MatchesLockedGlideStep(snapshot, entity.entityId, delta))
             {
-                debugResult = "GlideDirectionMismatch";
+                isGlideDirectionMismatch = true;
                 return false;
             }
 
@@ -3722,40 +3672,10 @@ namespace Game.Feature.Gameplay.Loop
                 destination.face != entity.position.face ||
                 destination.PlanarPosition != intent.Destination)
             {
-                debugResult = "StepResolveFailed";
                 return false;
             }
 
-            debugResult = "PayloadCreated";
             return true;
-        }
-
-        private static void AppendEnemyGlideKinematicStartDebug(
-            WorldSnapshot snapshot,
-            MoveIntent intent,
-            int tickIndex,
-            List<string> debugEvents,
-            string result,
-            SurfaceCell destination)
-        {
-            if (debugEvents == null ||
-                intent == null ||
-                string.IsNullOrEmpty(result) ||
-                !snapshot.TryGetEnemyGlideState(intent.SourceId, out var glideState) ||
-                glideState.Phase != EnemyGlidePhase.Active)
-            {
-                return;
-            }
-
-            var hasEntity = snapshot.TryGetEntity(intent.SourceId, out var entity);
-            var aiMode = hasEntity ? entity.aiMode.ToString() : "Missing";
-            var position = hasEntity ? FormatCell(entity.position) : "Missing";
-            var facing = hasEntity ? entity.facing.ToString() : "Missing";
-            var destinationCell = destination.Equals(default(SurfaceCell))
-                ? "None"
-                : FormatCell(destination);
-            debugEvents.Add(
-                $"EnemyGlideKinematicStartDebug|Tick={tickIndex}|E={intent.SourceId}|I={intent.IntentId}|Phase={glideState.Phase}|AiMode={aiMode}|Pos={position}|Facing={facing}|IntentDest=({intent.Destination.x},{intent.Destination.y})|Destination={destinationCell}|Result={result}");
         }
 
         private static bool TryResolveEnemyChargeKinematicStartScope(
