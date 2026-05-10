@@ -29,13 +29,21 @@ MonoBehaviour:
     icon: {fileID: 0}
     isDefaultForKind: 0
     directionHint: 0
-  - presentationKey: destroy.default
-    displayName: Destroy Default
+  - presentationKey: destroy.bottom
+    displayName: Destroy Bottom
+    kind: 2
+    visualPrefab: {fileID: 8989521553511816573, guid: 48735843b6acafa47822af253750e2c7, type: 3}
+    placementMode: 1
+    icon: {fileID: 0}
+    isDefaultForKind: 1
+    directionHint: 0
+  - presentationKey: destroy.front
+    displayName: Destroy Front
     kind: 2
     visualPrefab: {fileID: 8989521553511816573, guid: 4644dfb2af612484fbddc63a85574b98, type: 3}
     placementMode: 1
     icon: {fileID: 0}
-    isDefaultForKind: 1
+    isDefaultForKind: 0
     directionHint: 0
   - presentationKey: slide.up
     displayName: Slide Up
