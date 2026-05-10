@@ -7,6 +7,8 @@ using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
+using UnityEngine;
+using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
@@ -213,7 +215,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EvaluateJumpLandingCell_NonLockedTargetWithUnitStack_Blocks()
+        public void JumpLanding_NonLockedUnitOnlyFallbackCell_AllowsStack()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var lockedTargetCell = new SurfaceCell(FaceId.Floor, 2, 0);
@@ -234,12 +236,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     SpatialState.Anchored),
                 new JumpLandingEvidence(snapshot, lockedTargetCell));
 
-            Assert.That(result.Verdict, Is.EqualTo(LegalityVerdict.Blocked));
+            Assert.That(result.Verdict, Is.EqualTo(LegalityVerdict.Allowed));
         }
 
         [Test]
         [Category("Extended")]
-        public void EvaluateJumpLandingCell_LockedTargetWithoutPlayerControl_Allows()
+        public void JumpLanding_UnitOnlyLandingCell_AllowsStack()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -262,9 +264,163 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(result.Verdict, Is.EqualTo(LegalityVerdict.Allowed));
         }
 
+        [Test]
+        [Category("Extended")]
+        public void JumpLanding_StillBlocksSolid()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateWall(10, targetCell),
+                CreateUnit(40, sourceCell, teamId: 2, boardPresence: EntityBoardPresence.Detached),
+            });
+            var snapshot = worldState.CreateSnapshot();
+
+            var result = RuntimeSettlementLegalityPolicy.EvaluateJumpLandingCell(
+                new SettlementContext(
+                    snapshot,
+                    StateQuery.BuildActorRef(snapshot, 40, EntityType.Unit),
+                    targetCell,
+                    snapshot.Topology,
+                    SpatialState.Anchored),
+                new JumpLandingEvidence(snapshot, targetCell));
+
+            Assert.That(result.Verdict, Is.EqualTo(LegalityVerdict.Blocked));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void JumpLanding_StillBlocksTerrainOrBounds()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var terrainCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var outOfBoundsCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(40, sourceCell, teamId: 2, boardPresence: EntityBoardPresence.Detached),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
+                new GameplayTerrainData(new[]
+                {
+                    new TerrainCellState(terrainCell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
+                }));
+            var snapshot = worldState.CreateSnapshot();
+            var actor = StateQuery.BuildActorRef(snapshot, 40, EntityType.Unit);
+
+            Assert.That(
+                RuntimeSettlementLegalityPolicy.EvaluateJumpLandingCell(
+                    new SettlementContext(snapshot, actor, terrainCell, snapshot.Topology, SpatialState.Anchored),
+                    new JumpLandingEvidence(snapshot, terrainCell)).Verdict,
+                Is.EqualTo(LegalityVerdict.Blocked));
+            Assert.That(
+                RuntimeSettlementLegalityPolicy.EvaluateJumpLandingCell(
+                    new SettlementContext(snapshot, actor, outOfBoundsCell, snapshot.Topology, SpatialState.Anchored),
+                    new JumpLandingEvidence(snapshot, outOfBoundsCell)).Verdict,
+                Is.EqualTo(LegalityVerdict.Blocked));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void JumpLanding_ReservationConflictStillBlocks()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(10, targetCell, teamId: 1),
+                CreateUnit(40, sourceCell, teamId: 2, boardPresence: EntityBoardPresence.Detached),
+            });
+            var snapshot = worldState.CreateSnapshot();
+
+            var result = RuntimeSettlementLegalityPolicy.EvaluateJumpLandingCell(
+                new SettlementContext(
+                    snapshot,
+                    StateQuery.BuildActorRef(snapshot, 40, EntityType.Unit),
+                    targetCell,
+                    snapshot.Topology,
+                    SpatialState.Anchored,
+                    ReservationStatus.Conflicted),
+                new JumpLandingEvidence(snapshot, targetCell));
+
+            Assert.That(result.Verdict, Is.EqualTo(LegalityVerdict.Blocked));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PhaseRelocation_UnitOnlyTerminalCell_AllowsStack()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var terminalCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(10, terminalCell, teamId: 1),
+                CreateUnit(40, sourceCell, teamId: 2),
+            });
+            var snapshot = worldState.CreateSnapshot();
+
+            var result = RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
+                new SettlementContext(
+                    snapshot,
+                    StateQuery.BuildActorRef(snapshot, 40, EntityType.Unit),
+                    terminalCell,
+                    snapshot.Topology,
+                    SpatialState.Phased));
+
+            Assert.That(result.Verdict, Is.EqualTo(LegalityVerdict.Allowed));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PhaseRelocation_StillBlocksSolidTerrainBoundsOrReservation()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var solidCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var terrainCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var outOfBoundsCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var reservedCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateWall(10, solidCell),
+                    CreateUnit(40, sourceCell, teamId: 2),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                new GameplayTerrainData(new[]
+                {
+                    new TerrainCellState(terrainCell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
+                }));
+            var snapshot = worldState.CreateSnapshot();
+            var actor = StateQuery.BuildActorRef(snapshot, 40, EntityType.Unit);
+
+            Assert.That(EvaluatePhasedSettlement(snapshot, actor, solidCell).Verdict, Is.EqualTo(LegalityVerdict.Blocked));
+            Assert.That(EvaluatePhasedSettlement(snapshot, actor, terrainCell).Verdict, Is.EqualTo(LegalityVerdict.Blocked));
+            Assert.That(EvaluatePhasedSettlement(snapshot, actor, outOfBoundsCell).Verdict, Is.EqualTo(LegalityVerdict.Blocked));
+            Assert.That(
+                EvaluatePhasedSettlement(snapshot, actor, reservedCell, ReservationStatus.Conflicted).Verdict,
+                Is.EqualTo(LegalityVerdict.Blocked));
+        }
+
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
+        }
+
+        private static LegalityResult EvaluatePhasedSettlement(
+            WorldSnapshot snapshot,
+            LegalityActorRef actor,
+            SurfaceCell terminalCell,
+            ReservationStatus reservationStatus = ReservationStatus.None)
+        {
+            return RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
+                new SettlementContext(
+                    snapshot,
+                    actor,
+                    terminalCell,
+                    snapshot.Topology,
+                    SpatialState.Phased,
+                    reservationStatus));
         }
 
         private static FinalizationBatch ResolveJumpLandingSpaceContestsCanonical(
@@ -353,6 +509,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 markedForDeath = false,
                 spawnTick = 0,
                 boxCapabilities = capabilities,
+                aiMode = EnemyAiMode.None,
+                aiStateTimer = 0,
+            };
+        }
+
+        private static EntityState CreateWall(int entityId, SurfaceCell position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.None,
+                state = EntityPhaseState.Idle,
+                stateTimer = 0,
+                facing = Direction.None,
+                boardPresence = EntityBoardPresence.Occupying,
+                markedForDeath = false,
+                spawnTick = 0,
                 aiMode = EnemyAiMode.None,
                 aiStateTimer = 0,
             };

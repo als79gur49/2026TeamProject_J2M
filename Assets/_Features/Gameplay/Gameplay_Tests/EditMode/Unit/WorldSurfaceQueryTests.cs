@@ -999,9 +999,82 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(rejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.UnsupportedSeam));
         }
 
+        [Test]
+        [Category("Extended")]
+        public void Free2DTopologyTransition_TargetAnchorWithUnit_AllowsTransitionOrIntent()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)),
+                    CreateUnit(20, new SurfaceCell(FaceId.Front, 0, 0), teamId: 2),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty);
+            SetContinuousPoseAtForwardSeam(worldState, 10);
+
+            var resolved = SurfaceFree2DTopologyTransitionQueries.TryResolveFree2DTopologyTransition(
+                worldState.CreateSnapshot(),
+                10,
+                Vector2Int.up,
+                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
+                collisionRadiusUnits: 0,
+                out var result);
+
+            Assert.That(resolved, Is.True);
+            Assert.That(result.Success, Is.True);
+            Assert.That(result.TargetAnchor, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(result.RejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.None));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Free2DTopologyTransition_TargetAnchorWithSolid_StillBlocks()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)),
+                    CreateWall(20, new SurfaceCell(FaceId.Front, 0, 0)),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty);
+            SetContinuousPoseAtForwardSeam(worldState, 10);
+
+            var resolved = SurfaceFree2DTopologyTransitionQueries.TryResolveFree2DTopologyTransition(
+                worldState.CreateSnapshot(),
+                10,
+                Vector2Int.up,
+                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
+                collisionRadiusUnits: 0,
+                out var result);
+
+            Assert.That(resolved, Is.False);
+            Assert.That(result.Success, Is.False);
+            Assert.That(result.RejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.TargetFaceBlockedBySolid));
+        }
+
         private static WorldSnapshot CreateSnapshot(WorldState worldState)
         {
             return worldState.CreateSnapshot();
+        }
+
+        private static void SetContinuousPoseAtForwardSeam(WorldState worldState, int entityId)
+        {
+            worldState.CreateWriteContext().SetUnitContinuousLocomotionState(
+                entityId,
+                new UnitContinuousLocomotionState
+                {
+                    localOffset = new KinematicOffset2(
+                        KinematicFixed.Zero,
+                        KinematicFixed.FromRaw(KinematicFixed.MaxPositiveLocalOffset)),
+                    velocity = KinematicVelocity2.Zero,
+                    facing = Direction.Up,
+                    lastMoveDirection = Direction.Up,
+                    speedUnitsPerTick = 0,
+                    mode = ContinuousLocomotionMode.Idle,
+                    sequenceId = 1,
+                }.NormalizedForStorage());
         }
 
         private static EntityState CreateUnit(

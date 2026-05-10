@@ -380,12 +380,42 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyPatrolDecisionPlanner_Forward_BlockedStop_ReturnsNoDirection_SameFacing_NoInit()
+        public void EnemyPatrol_MoveIntoEnemyOccupiedCell_SucceedsAndStacks()
         {
             var worldState = CreateWorldState(
                 new[]
                 {
                     CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)));
+            var snapshot = worldState.CreateSnapshot();
+            var source = GetEntity(worldState, 40);
+
+            var builtIntent = ForwardPatrolStrategy.Instance.TryBuildMovementIntent(
+                snapshot,
+                source,
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                new PatrolSettings(PatrolBlockedMovementResponse.Stop),
+                out var intent);
+            Assert.That(builtIntent, Is.True);
+            Assert.That(intent.Destination, Is.EqualTo(new Vector2Int(1, 0)));
+
+            worldState.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Floor, 1, 0));
+            var stackedUnits = new List<EntityState>();
+            worldState.CreateSnapshot().EnumerateUnitsAt(new SurfaceCell(FaceId.Floor, 1, 0), stackedUnits);
+
+            Assert.That(stackedUnits.Select(unit => unit.entityId), Is.EquivalentTo(new[] { 30, 40 }));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyPatrolDecisionPlanner_Forward_BlockedStop_ReturnsNoDirection_SameFacing_NoInit()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateWall(entityId: 30, position: new Vector2Int(1, 0)),
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
                 },
                 new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(1, 0)));
@@ -409,7 +439,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var worldState = CreateWorldState(
                 new[]
                 {
-                    CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                    CreateWall(entityId: 30, position: new Vector2Int(1, 0)),
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
                 },
                 new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(1, 0)));
@@ -506,6 +536,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That((plan.CandidateMask & (1 << 2)) == 0, Is.True, "Immediate reverse direction should be excluded when alternatives exist.");
             Assert.That(plan.HasDirection, Is.True);
             Assert.That(plan.PlannedDirection, Is.Not.EqualTo(Direction.Down));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyRandomWalk_UnitOccupiedCandidate_IsNotRejectedBecauseOfUnit()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 2, 2);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(3, 2), aiMode: EnemyAiMode.None),
+                    CreateUnit(entityId: 40, teamId: 2, position: sourceCell, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 4)));
+            var snapshot = worldState.CreateSnapshot();
+            var source = GetEntity(worldState, 40);
+            var settings = PatrolSettings.CreateDefaultRandomWalk();
+            var patrolState = new EnemyPatrolRuntimeState
+            {
+                sequence = 2,
+                homeCell = sourceCell,
+                lastCommittedDirection = Direction.None,
+            };
+
+            var plan = EnemyRandomWalkPatrolPlanner.BuildPlan(snapshot, source, tickIndex: 5, patrolState, settings);
+
+            Assert.That((plan.CandidateMask & GetCandidateMaskBit(Direction.Right)) != 0, Is.True);
         }
 
         [Test]
@@ -880,7 +937,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateWorldState(
                         new[]
                         {
-                            CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                            CreateWall(entityId: 30, position: new Vector2Int(1, 0)),
                             CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
                         },
                         new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(1, 0))),
@@ -890,7 +947,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateWorldState(
                         new[]
                         {
-                            CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                            CreateWall(entityId: 30, position: new Vector2Int(1, 0)),
                             CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
                         },
                         new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(1, 0))),
@@ -1044,12 +1101,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyLogic_ChaseMode_FallsBackToSecondaryAxisWhenPrimaryStepIsBlocked()
+        public void EnemyChase_MoveIntoPlayerOccupiedCell_SucceedsAndStacks()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 20, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var snapshot = worldState.CreateSnapshot();
+            var source = GetEntity(worldState, 40);
+            var target = GetEntity(worldState, 10);
+
+            var builtIntent = AxisPriorityChaseStrategy.Instance.TryBuildMovementIntent(
+                snapshot,
+                source,
+                target,
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                ChaseSettings.CreateDefault(),
+                out var intent);
+
+            Assert.That(builtIntent, Is.True);
+            Assert.That(intent.Destination, Is.EqualTo(new Vector2Int(1, 0)));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyLogic_ChaseMode_FallsBackToSecondaryAxisWhenPrimaryStepIsBlockedBySolid()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(2, 1), aiMode: EnemyAiMode.None),
-                CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                CreateWall(entityId: 30, position: new Vector2Int(1, 0)),
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
             });
             var logic = new EnemyLogic(entityId: 40);
@@ -1570,7 +1653,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var worldState = CreateWorldState(
                 new[]
                 {
-                    CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                    CreateWall(entityId: 30, position: new Vector2Int(1, 0)),
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
                 },
                 new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(1, 0)));
@@ -1621,6 +1704,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(facingChanged, Is.False);
             Assert.That(facing, Is.EqualTo(Direction.Left));
             Assert.That(EnemyMovementStrategyShared.HasWallFollowAnchor(snapshot, source, settings), Is.True);
+            Assert.That(builtIntent, Is.True);
+            Assert.That(intent.Destination, Is.EqualTo(new Vector2Int(0, 0)));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyWallFollow_UnitOccupiedCandidate_IsNotRejectedBecauseOfUnit()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+                CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Left),
+            });
+            var snapshot = worldState.CreateSnapshot();
+            var source = GetEntity(worldState, 40);
+            var settings = new PatrolSettings(PatrolBlockedMovementResponse.Stop, WallFollowTurnPreference.Right);
+
+            var builtIntent = WallFollowPatrolStrategy.Instance.TryBuildMovementIntent(
+                snapshot,
+                source,
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                settings,
+                out var intent);
+
             Assert.That(builtIntent, Is.True);
             Assert.That(intent.Destination, Is.EqualTo(new Vector2Int(0, 0)));
         }
@@ -1703,6 +1811,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     GetEntity(worldState, 40),
                     new PatrolSettings(PatrolBlockedMovementResponse.Stop, WallFollowTurnPreference.Left)),
                 Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyMovement_UnitOccupiedDestination_DoesNotBypassSolid()
+        {
+            var unitOnlyWorld = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            var solidWorld = CreateWorldState(new[]
+            {
+                CreateWall(entityId: 90, position: new Vector2Int(1, 0)),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+
+            Assert.That(
+                EnemyMovementStrategyShared.TryBuildMoveIntent(
+                    unitOnlyWorld.CreateSnapshot(),
+                    GetEntity(unitOnlyWorld, 40),
+                    EnemyAiCommonSettings.CreateDefaultMelee(),
+                    Vector2Int.right,
+                    out _),
+                Is.True);
+            Assert.That(
+                EnemyMovementStrategyShared.TryBuildMoveIntent(
+                    solidWorld.CreateSnapshot(),
+                    GetEntity(solidWorld, 40),
+                    EnemyAiCommonSettings.CreateDefaultMelee(),
+                    Vector2Int.right,
+                    out _),
+                Is.False);
         }
 
         [Test]
