@@ -1469,6 +1469,7 @@ MonoBehaviour:
   enableGameplayVfxGlideWindTrail: 1
   enableGameplayVfxChargeBoosterTrail: 1
   enableGameplayVfxBoxSlideTrail: 1
+  enableGameplayVfxBoxSlideSolidStop: 1
   enableGameplayVfxImpactTransientBreakMigration: 1
   enableGameplayVfxOutOfBoundsExitMigration: 1
   enableGameplayVfxUtilityWindupMigration: 1
