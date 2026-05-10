@@ -13,6 +13,7 @@ using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
 using UnityEngine;
+using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Scenario
 {
@@ -4263,6 +4264,91 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void ChargeActive_UnitOccupiedCell_DoesNotStopAsTraversalBlocker()
+        {
+            AssertActiveChargeAdvancesThroughUnitOccupiedCell(occupantEntityId: 30, occupantTeamId: 3);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ChargeActive_SameTeamUnitOccupiedCell_DoesNotStopAsTraversalBlocker()
+        {
+            AssertActiveChargeAdvancesThroughUnitOccupiedCell(occupantEntityId: 41, occupantTeamId: 2);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ChargeActive_PlayerUnitOccupiedCell_DoesNotStopAsTraversalBlocker()
+        {
+            AssertActiveChargeAdvancesThroughUnitOccupiedCell(occupantEntityId: 10, occupantTeamId: 1);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ChargeActive_SolidOrTerrainStillStops()
+        {
+            AssertActiveChargeStopsBeforeHardBlocker(
+                CreateWorldState(
+                    new[]
+                    {
+                        CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Charge, facing: Direction.Right),
+                        CreateBox(entityId: 50, position: new Vector2Int(1, 0)),
+                    },
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0))));
+            AssertActiveChargeStopsBeforeHardBlocker(
+                CreateWorldState(
+                    new[]
+                    {
+                        CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Charge, facing: Direction.Right),
+                    },
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0)),
+                    new GameplayTerrainData(new[]
+                    {
+                        new TerrainCellState(
+                            new SurfaceCell(FaceId.Floor, 1, 0),
+                            TerrainKind.Generic,
+                            TerrainFlags.BlocksGroundTraversal),
+                    })));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ChargePassiveContact_StillUsesTargetSelection()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), hp: 5),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Charge, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0)));
+            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 0, includePassiveContact: true, chargeStepCooldownTicks: 0);
+            SeedActiveCharge(worldState);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemyChargeKinematicLocomotionEnabled);
+                var result = pipeline.RunTick(new TickInput(1));
+
+                Assert.That(GetEntityAfterTick(result, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
+                Assert.That(HasAcceptedPassiveContact(result, 40, 10), Is.True, BuildChargeKinematicDebug(1, worldState, result));
+                Assert.That(
+                    result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                        reason.Contains("EnemyChargeKinematicTraversalBlocked", StringComparison.Ordinal)),
+                    Is.False,
+                    BuildChargeKinematicDebug(1, worldState, result));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyCharge_EnemyOrdinaryKinematicOff_NoDeferralNeeded()
         {
             var worldState = CreateWorldState(
@@ -5137,7 +5223,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             IEnumerable<EntityState> initialEntities,
             BoardBounds boardBounds)
         {
-            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, Game.Feature.Gameplay.BoardState.TerrainData.Empty);
+            return CreateWorldState(initialEntities, boardBounds, GameplayTerrainData.Empty);
+        }
+
+        private static WorldState CreateWorldState(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            GameplayTerrainData terrainData)
+        {
+            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData);
         }
 
         private static WorldState CreateWorldState(
@@ -5147,7 +5241,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return GameplayWorldStateTestFactory.CreateBounded(
                 initialEntities,
                 new BoardBounds(new Vector2Int(-32, -32), new Vector2Int(32, 32)),
-                Game.Feature.Gameplay.BoardState.TerrainData.Empty,
+                GameplayTerrainData.Empty,
                 topology);
         }
 
@@ -5636,6 +5730,86 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
                 .Count(line => line.Contains("EnemyPatrolStateUpdated|", StringComparison.Ordinal) &&
                                line.Contains($"|E={entityId}|", StringComparison.Ordinal));
+        }
+
+        private static void AssertActiveChargeAdvancesThroughUnitOccupiedCell(int occupantEntityId, int occupantTeamId)
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: occupantEntityId, teamId: occupantTeamId, position: new Vector2Int(1, 0), hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Charge, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0)));
+            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 0, includePassiveContact: false, chargeStepCooldownTicks: 0);
+            SeedActiveCharge(worldState);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemyChargeKinematicLocomotionEnabled);
+                var result = pipeline.RunTick(new TickInput(1));
+
+                Assert.That(GetEntityAfterTick(result, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)), BuildChargeKinematicDebug(1, worldState, result));
+                Assert.That(
+                    result.Trace.Text,
+                    Does.Not.Contain("ChargeBlocked"),
+                    BuildChargeKinematicDebug(1, worldState, result));
+                Assert.That(
+                    result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                        reason.Contains("EnemyChargeKinematicTraversalBlocked", StringComparison.Ordinal)),
+                    Is.False,
+                    BuildChargeKinematicDebug(1, worldState, result));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        private static void AssertActiveChargeStopsBeforeHardBlocker(WorldState worldState)
+        {
+            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 0, includePassiveContact: false, chargeStepCooldownTicks: 0);
+            SeedActiveCharge(worldState);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemyChargeKinematicLocomotionEnabled);
+                var result = pipeline.RunTick(new TickInput(1));
+
+                Assert.That(GetEntityAfterTick(result, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(0, 0)), BuildChargeKinematicDebug(1, worldState, result));
+                Assert.That(result.Trace.Text, Does.Contain("ChargeBlocked"), BuildChargeKinematicDebug(1, worldState, result));
+                Assert.That(
+                    result.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40),
+                    Is.False,
+                    BuildChargeKinematicDebug(1, worldState, result));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        private static void SeedActiveCharge(
+            WorldState worldState,
+            int entityId = 40,
+            Direction direction = Direction.Right,
+            int remainingActiveSteps = 2)
+        {
+            worldState.CreateWriteContext().SetEnemyChargeState(
+                entityId,
+                new EnemyChargeRuntimeState
+                {
+                    phase = EnemyChargePhase.Active,
+                    sequence = 1,
+                    lockedDirection = direction,
+                    remainingActiveSteps = remainingActiveSteps,
+                });
         }
 
         private static TickPipeline CreateEnemyPipeline(

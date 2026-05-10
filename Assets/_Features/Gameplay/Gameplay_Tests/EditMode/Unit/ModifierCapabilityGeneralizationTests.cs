@@ -242,9 +242,97 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     snapshot.Topology,
                     SpatialState.Phased));
 
+            Assert.That(legality.Verdict, Is.EqualTo(LegalityVerdict.Allowed));
+            Assert.That(legality.Blockers.Any(blocker => blocker.Kind == LegalityBlockerKind.Unit), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void RuntimeSettlementLegalityPolicy_EvaluateLandingPlacement_RequestedPhasedState_SolidDestinationStillBlocksUnitActor()
+        {
+            var terminalCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), teamId: 1),
+                    CreateBox(30, terminalCell),
+                });
+            WritePhasedState(worldState, 10, PhasedRuntimeStateQueries.BeginMovementPreMovement(default, tickIndex: 1));
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var source), Is.True);
+
+            var legality = RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
+                new SettlementContext(
+                    snapshot,
+                    StateQuery.BuildActorRef(snapshot, source),
+                    terminalCell,
+                    snapshot.Topology,
+                    SpatialState.Phased));
+
+            Assert.That(legality.Verdict, Is.EqualTo(LegalityVerdict.Blocked));
+            Assert.That(legality.Blockers.Count, Is.EqualTo(1));
+            Assert.That(legality.Blockers[0].Kind, Is.EqualTo(LegalityBlockerKind.Solid));
+        }
+
+        [TestCase("Box")]
+        [TestCase("Solid")]
+        [Category("Extended")]
+        public void RuntimeSettlementLegalityPolicy_EvaluateLandingPlacement_NonUnitActorDestinationWithUnitStack_RemainsBlockedByUnit(string actorKind)
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var terminalCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var actor = actorKind == "Box"
+                ? CreateBox(10, sourceCell)
+                : CreateWall(10, sourceCell);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    actor,
+                    CreateUnit(20, terminalCell, teamId: 2),
+                });
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var source), Is.True);
+
+            var legality = RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
+                new SettlementContext(
+                    snapshot,
+                    StateQuery.BuildActorRef(snapshot, source),
+                    terminalCell,
+                    snapshot.Topology,
+                    SpatialState.Anchored));
+
             Assert.That(legality.Verdict, Is.EqualTo(LegalityVerdict.Blocked));
             Assert.That(legality.Blockers.Count, Is.EqualTo(1));
             Assert.That(legality.Blockers[0].Kind, Is.EqualTo(LegalityBlockerKind.Unit));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void RuntimeSettlementLegalityPolicy_EvaluateLandingPlacement_UnitOnlyDestinationWithReservationConflict_BlocksByReservation()
+        {
+            var terminalCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), teamId: 1),
+                    CreateUnit(20, terminalCell, teamId: 2),
+                });
+            WritePhasedState(worldState, 10, PhasedRuntimeStateQueries.BeginMovementPreMovement(default, tickIndex: 1));
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var source), Is.True);
+
+            var legality = RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
+                new SettlementContext(
+                    snapshot,
+                    StateQuery.BuildActorRef(snapshot, source),
+                    terminalCell,
+                    snapshot.Topology,
+                    SpatialState.Phased,
+                    ReservationStatus.Conflicted));
+
+            Assert.That(legality.Verdict, Is.EqualTo(LegalityVerdict.Blocked));
+            Assert.That(legality.Blockers.Count, Is.EqualTo(1));
+            Assert.That(legality.Blockers[0].Kind, Is.EqualTo(LegalityBlockerKind.Reservation));
         }
 
         [Test]
@@ -602,6 +690,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 state = EntityPhaseState.Idle,
                 facing = Direction.Right,
                 boxCapabilities = capabilities,
+                boardPresence = EntityBoardPresence.Occupying,
+            };
+        }
+
+        private static EntityState CreateWall(int entityId, SurfaceCell position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.None,
+                state = EntityPhaseState.Idle,
+                facing = Direction.None,
                 boardPresence = EntityBoardPresence.Occupying,
             };
         }
