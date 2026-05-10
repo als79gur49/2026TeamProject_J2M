@@ -277,6 +277,8 @@ namespace Game.Feature.Gameplay.Loop
             int generatorTileId,
             SurfaceCell cell,
             int moonBlockEntityId,
+            int spawnTick,
+            int spawnInteractionLockTicks,
             int sourceEntityId,
             int ownerEntityId,
             int teamId)
@@ -284,6 +286,8 @@ namespace Game.Feature.Gameplay.Loop
             GeneratorTileId = generatorTileId;
             Cell = cell;
             MoonBlockEntityId = moonBlockEntityId;
+            SpawnTick = spawnTick;
+            SpawnInteractionLockTicks = spawnInteractionLockTicks;
             SourceEntityId = sourceEntityId;
             OwnerEntityId = ownerEntityId;
             TeamId = teamId;
@@ -294,6 +298,10 @@ namespace Game.Feature.Gameplay.Loop
         public SurfaceCell Cell { get; }
 
         public int MoonBlockEntityId { get; }
+
+        public int SpawnTick { get; }
+
+        public int SpawnInteractionLockTicks { get; }
 
         public int SourceEntityId { get; }
 
@@ -992,7 +1000,9 @@ namespace Game.Feature.Gameplay.Loop
                         fact.OwnerEntityId,
                         fact.TeamId,
                         targetEntityId: fact.MoonBlockEntityId,
-                        direction: Direction.None));
+                        direction: Direction.None,
+                        spawnTick: fact.SpawnTick,
+                        spawnInteractionLockTicks: fact.SpawnInteractionLockTicks));
             }
 
             var moonBlockGeneratorBlockedFacts = context.RespawnPhaseResult.MoonBlockGeneratorBlockedFacts;

@@ -660,6 +660,25 @@ namespace Game.Feature.Gameplay.PlayerControl
             in EntityState player,
             in PlayerActionRuntimeState action)
         {
+            return CanPendingActionStillExecute(snapshot, player, action, tickIndex: 0, checkLocks: false);
+        }
+
+        public static bool CanPendingActionStillExecute(
+            WorldSnapshot snapshot,
+            in EntityState player,
+            in PlayerActionRuntimeState action,
+            int tickIndex)
+        {
+            return CanPendingActionStillExecute(snapshot, player, action, tickIndex, checkLocks: true);
+        }
+
+        private static bool CanPendingActionStillExecute(
+            WorldSnapshot snapshot,
+            in EntityState player,
+            in PlayerActionRuntimeState action,
+            int tickIndex,
+            bool checkLocks)
+        {
             if (snapshot == null)
             {
                 throw new ArgumentNullException(nameof(snapshot));
@@ -675,10 +694,10 @@ namespace Game.Feature.Gameplay.PlayerControl
             switch (action.kind)
             {
                 case PlayerActionKind.Push:
-                    return CanPendingPushStillExecute(snapshot, player, action.targetEntityId, delta);
+                    return CanPendingPushStillExecute(snapshot, player, action.targetEntityId, delta, tickIndex, checkLocks);
 
                 case PlayerActionKind.Flip:
-                    return CanPendingFlipStillExecute(snapshot, player, action.targetEntityId, delta);
+                    return CanPendingFlipStillExecute(snapshot, player, action.targetEntityId, delta, tickIndex, checkLocks);
 
                 default:
                     return false;
@@ -689,7 +708,9 @@ namespace Game.Feature.Gameplay.PlayerControl
             WorldSnapshot snapshot,
             in EntityState player,
             int targetEntityId,
-            Vector2Int delta)
+            Vector2Int delta,
+            int tickIndex,
+            bool checkLocks)
         {
             if (!TryResolveTraversalStep(snapshot, player, delta, out var targetCell, out var movementTopology) ||
                 !snapshot.TryGetSolidSemanticAt(movementTopology, targetCell, out var targetSemantic) ||
@@ -700,14 +721,18 @@ namespace Game.Feature.Gameplay.PlayerControl
 
             var target = targetSemantic.Entity;
             return target.entityId == targetEntityId &&
-                   HasBoxCapability(target, BoxCapabilities.Push);
+                   HasBoxCapability(target, BoxCapabilities.Push) &&
+                   (!checkLocks ||
+                    !TryGetActiveBoxInteractionLock(snapshot, target.entityId, tickIndex, blocksPush: true, out _));
         }
 
         private static bool CanPendingFlipStillExecute(
             WorldSnapshot snapshot,
             in EntityState player,
             int targetEntityId,
-            Vector2Int delta)
+            Vector2Int delta,
+            int tickIndex,
+            bool checkLocks)
         {
             if (!snapshot.TryResolveLocalFlipCells(player.position, delta, out var targetCell, out _) ||
                 !snapshot.TryGetSolidSemanticAt(targetCell, out var targetSemantic) ||
@@ -718,7 +743,9 @@ namespace Game.Feature.Gameplay.PlayerControl
 
             var target = targetSemantic.Entity;
             return target.entityId == targetEntityId &&
-                   HasBoxCapability(target, BoxCapabilities.Flip);
+                   HasBoxCapability(target, BoxCapabilities.Flip) &&
+                   (!checkLocks ||
+                    !TryGetActiveBoxInteractionLock(snapshot, target.entityId, tickIndex, blocksPush: false, out _));
         }
 
         private static bool TryResolveDelta(Direction direction, out Vector2Int delta)
