@@ -32,6 +32,8 @@
   - current supporting truth for gameplay audio semantic-family governance, host one-shot controller scope, and safe semantic expansion protocol
 - [Gameplay-Action-Audio-Governance.md](./Gameplay-Action-Audio-Governance.md)
   - current supporting truth for gameplay action-audio profile governance, prefab-local authoring policy, and frozen v1 moment semantics
+- [Gameplay-PushFlip-Fake-Attempt-Policy.md](./Gameplay-PushFlip-Fake-Attempt-Policy.md)
+  - current supporting truth for Push/Flip fake attempt classification, movement consume, presentation playback hold, input gate, and known caution points
 - [Gameplay-VFX-Governance.md](./Gameplay-VFX-Governance.md)
   - current supporting truth for presentation-only Gameplay VFX lane boundaries, family-specific planners, lifecycle vocabulary, persistent desired state, and existing presenter migration guardrails
 - [Bgm-Flow-V1-Guidelines.md](./Bgm-Flow-V1-Guidelines.md)
