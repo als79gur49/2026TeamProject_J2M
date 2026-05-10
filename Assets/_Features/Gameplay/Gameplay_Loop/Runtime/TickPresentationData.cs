@@ -91,7 +91,9 @@ namespace Game.Feature.Gameplay.Loop
             int teamId,
             int targetEntityId = 0,
             Direction direction = Direction.None,
-            MoonBlockGeneratorBlockedPayload moonBlockGeneratorBlockedPayload = default)
+            MoonBlockGeneratorBlockedPayload moonBlockGeneratorBlockedPayload = default,
+            int spawnTick = 0,
+            int spawnInteractionLockTicks = 0)
         {
             EventKind = eventKind;
             TileId = tileId;
@@ -103,6 +105,8 @@ namespace Game.Feature.Gameplay.Loop
             TargetEntityId = targetEntityId;
             Direction = direction;
             MoonBlockGeneratorBlockedPayload = moonBlockGeneratorBlockedPayload;
+            SpawnTick = spawnTick;
+            SpawnInteractionLockTicks = spawnInteractionLockTicks;
         }
 
         public TilePresentationEventKind EventKind { get; }
@@ -124,6 +128,10 @@ namespace Game.Feature.Gameplay.Loop
         public Direction Direction { get; }
 
         public MoonBlockGeneratorBlockedPayload MoonBlockGeneratorBlockedPayload { get; }
+
+        public int SpawnTick { get; }
+
+        public int SpawnInteractionLockTicks { get; }
     }
 
     public readonly struct GravityFieldLockedBoxPayload

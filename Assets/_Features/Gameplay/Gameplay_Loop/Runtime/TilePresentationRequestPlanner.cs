@@ -31,7 +31,9 @@ namespace Game.Feature.Gameplay.Loop
             int teamId,
             int targetEntityId = 0,
             Direction direction = Direction.None,
-            MoonBlockGeneratorBlockedPayload moonBlockGeneratorBlockedPayload = default)
+            MoonBlockGeneratorBlockedPayload moonBlockGeneratorBlockedPayload = default,
+            int spawnTick = 0,
+            int spawnInteractionLockTicks = 0)
         {
             RequestKind = requestKind;
             TileId = tileId;
@@ -43,6 +45,8 @@ namespace Game.Feature.Gameplay.Loop
             TargetEntityId = targetEntityId;
             Direction = direction;
             MoonBlockGeneratorBlockedPayload = moonBlockGeneratorBlockedPayload;
+            SpawnTick = spawnTick;
+            SpawnInteractionLockTicks = spawnInteractionLockTicks;
         }
 
         public TilePresentationRequestKind RequestKind { get; }
@@ -64,6 +68,10 @@ namespace Game.Feature.Gameplay.Loop
         public Direction Direction { get; }
 
         public MoonBlockGeneratorBlockedPayload MoonBlockGeneratorBlockedPayload { get; }
+
+        public int SpawnTick { get; }
+
+        public int SpawnInteractionLockTicks { get; }
     }
 
     public sealed class TilePresentationRequestPlanner
@@ -100,7 +108,9 @@ namespace Game.Feature.Gameplay.Loop
                     tileEvent.TeamId,
                     tileEvent.TargetEntityId,
                     tileEvent.Direction,
-                    tileEvent.MoonBlockGeneratorBlockedPayload));
+                    tileEvent.MoonBlockGeneratorBlockedPayload,
+                    tileEvent.SpawnTick,
+                    tileEvent.SpawnInteractionLockTicks));
             }
 
             return requests.Count == 0 ? Array.Empty<TilePresentationRequest>() : requests;

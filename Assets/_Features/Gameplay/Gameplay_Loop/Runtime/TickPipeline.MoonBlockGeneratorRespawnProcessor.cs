@@ -4,6 +4,11 @@ using Game.Feature.Gameplay.BoardState;
 
 namespace Game.Feature.Gameplay.Loop
 {
+    internal static class MoonBlockGeneratorRespawnDefaults
+    {
+        public const int SpawnInteractionLockTicks = 7;
+    }
+
     internal readonly struct MoonBlockGeneratorBlockedKey : IEquatable<MoonBlockGeneratorBlockedKey>
     {
         public MoonBlockGeneratorBlockedKey(
@@ -206,11 +211,28 @@ namespace Game.Feature.Gameplay.Loop
                 var respawnEntity = BuildRespawnEntity(definition, tickIndex);
                 writeContext.SpawnEntity(respawnEntity);
                 writeContext.RemoveBoxInteractionLockState(respawnEntity.entityId);
+                var spawnInteractionLockTicks = MoonBlockGeneratorRespawnDefaults.SpawnInteractionLockTicks;
+                if (spawnInteractionLockTicks > 0)
+                {
+                    writeContext.SetBoxInteractionLockState(
+                        respawnEntity.entityId,
+                        new BoxInteractionLockState(
+                            generator.SourceEntityId,
+                            sourceEffectIndex: 0,
+                            expiresTickExclusive: tickIndex + spawnInteractionLockTicks,
+                            blocksPush: true,
+                            blocksFlip: true,
+                            blocksDestroy: false,
+                            sourceReason: BoxInteractionLockSourceReason.MoonBlockGeneratorSpawn));
+                }
+
                 respawnFacts.Add(
                     new MoonBlockGeneratorRespawnFact(
                         definition.GeneratorTileId,
                         spawnCell,
                         respawnEntity.entityId,
+                        tickIndex,
+                        spawnInteractionLockTicks,
                         generator.SourceEntityId,
                         generator.OwnerEntityId,
                         generator.TeamId));

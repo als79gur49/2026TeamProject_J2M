@@ -56,6 +56,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(moon.hp, Is.EqualTo(template.maxHp));
             Assert.That(moon.maxHp, Is.EqualTo(template.maxHp));
             Assert.That(moon.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(snapshot.TryGetSolidOccupantAt(GeneratorCell, out var solidOccupant), Is.True);
+            Assert.That(solidOccupant.entityId, Is.EqualTo(20));
+            Assert.That(snapshot.TryGetActiveBoxInteractionLockState(20, 1, out var lockState), Is.True);
+            Assert.That(lockState.BlocksPush, Is.True);
+            Assert.That(lockState.BlocksFlip, Is.True);
+            Assert.That(lockState.BlocksDestroy, Is.False);
+            Assert.That(lockState.ExpiresTickExclusive, Is.EqualTo(1 + MoonBlockGeneratorRespawnDefaults.SpawnInteractionLockTicks));
+            Assert.That(lockState.SourceReason, Is.EqualTo(BoxInteractionLockSourceReason.MoonBlockGeneratorSpawn));
             Assert.That(moon.markedForDeath, Is.False);
             Assert.That(moon.kineticInstigatorEntityId, Is.Zero);
             Assert.That(moon.kineticInstigatorTeamId, Is.Zero);
@@ -106,6 +114,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(snapshot.TryGetSolidOccupantAt(GeneratorCell, out var solid), Is.True);
             Assert.That(solid.entityId, Is.EqualTo(20));
             AssertMoonBlockGeneratedEvent(result, moonBlockEntityId: 20);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SpawnInteractionLock_ExpiresOnExclusiveTick()
+        {
+            var template = CreateMoonBlock(20, InitialMoonCell);
+            var worldState = CreateWorld(new[] { CreatePlayer() });
+            var pipeline = CreatePipeline(worldState, template);
+
+            pipeline.RunTick(new TickInput(1));
+            var activeSnapshot = GameplayCompositionRoot.CreateSnapshot(worldState);
+            Assert.That(activeSnapshot.TryGetActiveBoxInteractionLockState(20, 7, out _), Is.True);
+
+            pipeline.RunTick(new TickInput(8));
+            var expiredSnapshot = GameplayCompositionRoot.CreateSnapshot(worldState);
+
+            Assert.That(expiredSnapshot.TryGetActiveBoxInteractionLockState(20, 8, out _), Is.False);
+            Assert.That(expiredSnapshot.TryGetBoxInteractionLockState(20, out _), Is.False);
+            Assert.That(expiredSnapshot.TryGetEntity(20, out var moon), Is.True);
+            Assert.That(moon.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
         }
 
         [Test]
@@ -381,6 +410,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(tileEvent.SourceEntityId, Is.EqualTo(101));
             Assert.That(tileEvent.OwnerEntityId, Is.EqualTo(102));
             Assert.That(tileEvent.TeamId, Is.EqualTo(7));
+            Assert.That(tileEvent.SpawnTick, Is.EqualTo(result.TickIndex));
+            Assert.That(tileEvent.SpawnInteractionLockTicks, Is.EqualTo(MoonBlockGeneratorRespawnDefaults.SpawnInteractionLockTicks));
         }
 
         private static void AssertMoonBlockGeneratorBlockedEvent(

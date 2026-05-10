@@ -12,6 +12,7 @@ namespace Game.Feature.Gameplay.BoardState
         Unspecified = 0,
         EnemyUtility = 1,
         GravityField = 2,
+        MoonBlockGeneratorSpawn = 3,
     }
 
     public readonly struct BoxInteractionLockState

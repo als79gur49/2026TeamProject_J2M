@@ -136,7 +136,7 @@ namespace Game.Feature.Gameplay.PlayerControl
             if (previousAction.IsActive)
             {
                 if (!previousAction.executionAttempted &&
-                    !PlayerControlQueries.CanPendingActionStillExecute(snapshot, entity, previousAction))
+                    !PlayerControlQueries.CanPendingActionStillExecute(snapshot, entity, previousAction, input.TickIndex))
                 {
                     nextState.activeAction = default;
                     nextState.nextMoveAllowedTick = Math.Max(nextState.nextMoveAllowedTick, input.TickIndex + 1);
