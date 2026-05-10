@@ -22,6 +22,7 @@ namespace Game.Feature.Gameplay.Loop
         public const float DefaultPlayerDeathDisplacementDurationSeconds = 0.18f;
         public const float DefaultPlayerDeathDisplacementDistanceInCells = 0.4f;
         public const float DefaultPlayerDeathDisplacementCameraBiasWeight = 0.3f;
+        public const float DefaultMoonBlockEmergenceDurationSeconds = 0.3f;
         public const float DefaultPlayerRespawnDelaySeconds = 1f;
         public const float DefaultFlipArcHeightInCells = 0.65f;
         public const int DefaultMaxTicksPerFrame = 8;
@@ -95,7 +96,8 @@ namespace Game.Feature.Gameplay.Loop
             float enemyDeathEffectDurationSeconds = DefaultEnemyDeathEffectDurationSeconds,
             float playerDeathDisplacementDurationSeconds = DefaultPlayerDeathDisplacementDurationSeconds,
             float playerDeathDisplacementDistanceInCells = DefaultPlayerDeathDisplacementDistanceInCells,
-            float playerDeathDisplacementCameraBiasWeight = DefaultPlayerDeathDisplacementCameraBiasWeight)
+            float playerDeathDisplacementCameraBiasWeight = DefaultPlayerDeathDisplacementCameraBiasWeight,
+            float moonBlockEmergenceDurationSeconds = DefaultMoonBlockEmergenceDurationSeconds)
         {
             if (simulationTicksPerSecond <= 0)
             {
@@ -228,6 +230,13 @@ namespace Game.Feature.Gameplay.Loop
                     "Player death displacement camera bias weight must be between zero and one.");
             }
 
+            if (moonBlockEmergenceDurationSeconds <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(moonBlockEmergenceDurationSeconds),
+                    "MoonBlock emergence duration must be greater than zero.");
+            }
+
             SimulationTicksPerSecond = simulationTicksPerSecond;
             SimulationTickIntervalSeconds = 1f / simulationTicksPerSecond;
             InitialMoveDelaySeconds = initialMoveDelaySeconds;
@@ -245,6 +254,7 @@ namespace Game.Feature.Gameplay.Loop
             PlayerDeathDisplacementDurationSeconds = playerDeathDisplacementDurationSeconds;
             PlayerDeathDisplacementDistanceInCells = playerDeathDisplacementDistanceInCells;
             PlayerDeathDisplacementCameraBiasWeight = playerDeathDisplacementCameraBiasWeight;
+            MoonBlockEmergenceDurationSeconds = moonBlockEmergenceDurationSeconds;
             FlipArcHeightInCells = flipArcHeightInCells;
             MaxTicksPerFrame = maxTicksPerFrame;
             InitialMoveDelayTicks = SecondsToTicks(initialMoveDelaySeconds, simulationTicksPerSecond, allowZero: true);
@@ -288,6 +298,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public float PlayerDeathDisplacementCameraBiasWeight { get; }
 
+        public float MoonBlockEmergenceDurationSeconds { get; }
+
         public float FlipArcHeightInCells { get; }
 
         public int MaxTicksPerFrame { get; }
@@ -322,7 +334,8 @@ namespace Game.Feature.Gameplay.Loop
                 DefaultEnemyDeathEffectDurationSeconds,
                 DefaultPlayerDeathDisplacementDurationSeconds,
                 DefaultPlayerDeathDisplacementDistanceInCells,
-                DefaultPlayerDeathDisplacementCameraBiasWeight);
+                DefaultPlayerDeathDisplacementCameraBiasWeight,
+                DefaultMoonBlockEmergenceDurationSeconds);
         }
 
         public static int SecondsToCeilTicks(float seconds, int simulationTicksPerSecond, bool allowZero = false)
