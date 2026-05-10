@@ -28,7 +28,7 @@ namespace Game.Feature.UI.Tests
         private const string ObjectiveHudViewSourcePath = "Assets/_Features/UI/UI_HUD/Runtime/ObjectiveHudView.cs";
         private const string ChancePanelViewSourcePath = "Assets/_Features/UI/UI_HUD/Runtime/ChancePanelView.cs";
         private const string ChanceSlotViewSourcePath = "Assets/_Features/UI/UI_HUD/Runtime/ChanceSlotView.cs";
-        private const string TopologyBeltViewSourcePath = "Assets/_Features/UI/UI_HUD/Runtime/TopologyBeltView.cs";
+        private const string SurfaceIndicatorViewSourcePath = "Assets/_Features/UI/UI_HUD/Runtime/SurfaceIndicatorView.cs";
         private const string FaceChipViewSourcePath = "Assets/_Features/UI/UI_HUD/Runtime/FaceChipView.cs";
         private const string PausePopupViewSourcePath = "Assets/_Features/UI/UI_Popups/Runtime/PausePopupView.cs";
         private const string ObjectiveInfoPopupViewSourcePath = "Assets/_Features/UI/UI_Popups/Runtime/ObjectiveInfoPopupView.cs";
@@ -192,9 +192,9 @@ namespace Game.Feature.UI.Tests
             AssertOwnedBy(objectiveListRoot, topLeftStack);
             AssertOwnedBy(hudPrefab.NotificationView.transform, bottomRightStack);
             var chancePanelView = hudPrefab.GetComponentsInChildren<ChancePanelView>(true).Single();
-            var topologyBeltView = hudPrefab.GetComponentsInChildren<TopologyBeltView>(true).Single();
+            var surfaceIndicatorView = hudPrefab.GetComponentsInChildren<SurfaceIndicatorView>(true).Single();
             AssertOwnedBy(chancePanelView.transform, bottomRightStack);
-            AssertOwnedBy(topologyBeltView.transform, topRightStack);
+            AssertOwnedBy(surfaceIndicatorView.transform, topRightStack);
 
             var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
             Assert.That(itemTemplate.transform.parent, Is.EqualTo(objectiveListRoot));
@@ -212,14 +212,9 @@ namespace Game.Feature.UI.Tests
                 AssertOwnedBy(slotView.transform, slotContainer);
             }
 
-            Assert.That(GetSerializedReference<RectTransform>(topologyBeltView, "_faceChipContainer"), Is.Not.Null);
-            var faceChips = topologyBeltView.GetComponentsInChildren<FaceChipView>(true);
-            if (faceChips.Length == 0)
-            {
-                faceChips = hudPrefab.GetComponentsInChildren<FaceChipView>(true);
-            }
-
-            Assert.That(faceChips, Has.Length.EqualTo(6));
+            var cubeMapView = GetSerializedReference<SurfaceCubeMapView>(surfaceIndicatorView, "_cubeMapView");
+            Assert.That(cubeMapView.PreviewImage, Is.Not.Null);
+            Assert.That(GetSerializedReference<GameObject>(cubeMapView, "_cubeMapPrefab"), Is.Not.Null);
         }
 
         [Test]
@@ -1190,7 +1185,7 @@ namespace Game.Feature.UI.Tests
                 ReadRepoFile(ObjectiveHudViewSourcePath),
                 ReadRepoFile(ChancePanelViewSourcePath),
                 ReadRepoFile(ChanceSlotViewSourcePath),
-                ReadRepoFile(TopologyBeltViewSourcePath),
+                ReadRepoFile(SurfaceIndicatorViewSourcePath),
                 ReadRepoFile(FaceChipViewSourcePath),
             };
 

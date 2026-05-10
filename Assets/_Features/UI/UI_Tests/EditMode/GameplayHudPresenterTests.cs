@@ -211,7 +211,7 @@ namespace Game.Feature.UI.Tests
                 0.0f));
 
             Assert.That(presenter.ViewModel.IsTransitionActive, Is.True);
-            Assert.That(presenter.ViewModel.TransitionLabel, Is.EqualTo("Floor -> Front"));
+            Assert.That(presenter.ViewModel.SurfaceStateText, Is.EqualTo("Floor -> Front"));
         }
 
         [Test]
