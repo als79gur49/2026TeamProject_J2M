@@ -1086,6 +1086,10 @@ namespace Game.Feature.Gameplay.Loop
                 movementStageBatch,
                 jumpLandingResolveBatch,
                 phaseRelocationResolveBatch);
+            var tileEffectBoxStops = BuildTileEffectBoxStops(
+                planSnapshot,
+                attackReadSnapshot,
+                movementStageBatch);
             IReadOnlyList<TilePresentationEvent> tilePresentationEvents = Array.Empty<TilePresentationEvent>();
             var tileEffectResult = _tileEffectResolver.Resolve(
                 new TileEffectResolutionContext(
@@ -1093,7 +1097,8 @@ namespace Game.Feature.Gameplay.Loop
                     attackReadSnapshot,
                     _tileFeatureDefinitions,
                     tileEffectBoxContacts,
-                    planSnapshot));
+                    planSnapshot,
+                    tileEffectBoxStops));
             tilePresentationEvents = tileEffectResult.TileEvents;
             if (!tileEffectResult.IsEmpty)
             {
@@ -6984,6 +6989,145 @@ namespace Game.Feature.Gameplay.Loop
 
             contacts.Sort(CompareTileEffectBoxContacts);
             return contacts;
+        }
+
+        internal static List<TileEffectBoxStop> BuildTileEffectBoxStops(
+            WorldSnapshot beforeMovementOrPreStopSnapshot,
+            WorldSnapshot finalSnapshot,
+            FinalizationBatch movementStageBatch)
+        {
+            var stops = new List<TileEffectBoxStop>();
+            if (beforeMovementOrPreStopSnapshot == null ||
+                finalSnapshot == null ||
+                movementStageBatch == null)
+            {
+                return stops;
+            }
+
+            var seen = new HashSet<int>();
+            var operations = movementStageBatch.Operations;
+            for (var operationIndex = 0; operationIndex < operations.Count; operationIndex++)
+            {
+                var operation = operations[operationIndex];
+                if (operation.Kind == FinalizationOperationKind.MoveEntity)
+                {
+                    if (!TryResolveTileEffectBoxStopMovementFamily(operation.Metadata, out var family) ||
+                        !TryGetValidTileEffectStoppedBox(
+                            finalSnapshot,
+                            operation.EntityId,
+                            operation.Destination,
+                            out _))
+                    {
+                        continue;
+                    }
+
+                    if (seen.Add(operation.EntityId))
+                    {
+                        stops.Add(new TileEffectBoxStop(operation.EntityId, operation.Destination, family));
+                    }
+
+                    continue;
+                }
+
+                if (operation.Kind != FinalizationOperationKind.ApplyStateChange ||
+                    operation.PhaseState != EntityPhaseState.Idle ||
+                    operation.StateTimer != 0 ||
+                    !IsTileEffectBoxStopStateChange(operation.Metadata) ||
+                    !beforeMovementOrPreStopSnapshot.TryGetEntity(operation.EntityId, out var before) ||
+                    before.type != EntityType.Box ||
+                    before.state != EntityPhaseState.Sliding ||
+                    !TryGetValidTileEffectStoppedBox(
+                        finalSnapshot,
+                        operation.EntityId,
+                        before.position,
+                        out _))
+                {
+                    continue;
+                }
+
+                if (seen.Add(operation.EntityId))
+                {
+                    stops.Add(new TileEffectBoxStop(
+                        operation.EntityId,
+                        before.position,
+                        TileEffectBoxMovementFamily.Slide));
+                }
+            }
+
+            stops.Sort(CompareTileEffectBoxStops);
+            return stops;
+        }
+
+        private static bool TryResolveTileEffectBoxStopMovementFamily(
+            FinalizationOperationMetadata metadata,
+            out TileEffectBoxMovementFamily family)
+        {
+            if (metadata.LocalActionIndex == 1)
+            {
+                family = default;
+                return false;
+            }
+
+            switch (metadata.MovementSemanticKind)
+            {
+                case MovementSemanticKind.Push:
+                    family = TileEffectBoxMovementFamily.Push;
+                    return true;
+                case MovementSemanticKind.Slide:
+                    family = TileEffectBoxMovementFamily.Slide;
+                    return true;
+                default:
+                    family = default;
+                    return false;
+            }
+        }
+
+        private static bool IsTileEffectBoxStopStateChange(FinalizationOperationMetadata metadata)
+        {
+            return metadata.MovementSemanticKind == MovementSemanticKind.Stop ||
+                   metadata.SemanticKind == ResolvedActionSemanticKind.Stop;
+        }
+
+        private static bool TryGetValidTileEffectStoppedBox(
+            WorldSnapshot snapshot,
+            int boxEntityId,
+            SurfaceCell expectedCell,
+            out EntityState box)
+        {
+            if (snapshot.TryGetEntity(boxEntityId, out var entity) &&
+                entity.type == EntityType.Box &&
+                entity.position == expectedCell &&
+                entity.state == EntityPhaseState.Idle &&
+                entity.boardPresence == EntityBoardPresence.Occupying &&
+                entity.hp > 0 &&
+                !entity.markedForDeath &&
+                snapshot.TryGetSolidSemanticAt(expectedCell, out var semantic) &&
+                semantic.Kind == SolidKind.Box &&
+                semantic.Entity.entityId == boxEntityId)
+            {
+                box = entity;
+                return true;
+            }
+
+            box = default;
+            return false;
+        }
+
+        private static int CompareTileEffectBoxStops(TileEffectBoxStop left, TileEffectBoxStop right)
+        {
+            var cellCompare = CompareSurfaceCells(left.Cell, right.Cell);
+            if (cellCompare != 0)
+            {
+                return cellCompare;
+            }
+
+            var boxCompare = left.BoxEntityId.CompareTo(right.BoxEntityId);
+            if (boxCompare != 0)
+            {
+                return boxCompare;
+            }
+
+            return left.MovementFamily.CompareTo(right.MovementFamily);
         }
 
         private static bool TryResolveTileEffectBoxContactKind(
