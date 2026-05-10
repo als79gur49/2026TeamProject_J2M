@@ -706,6 +706,7 @@ namespace Game.Feature.Gameplay.Loop
                 input.TickIndex);
             var frontFaceShieldBlockExports = new List<FrontFaceShieldBlockPresentationExport>();
             var barricadeBlockFacts = new List<BarricadeBlockFact>();
+            var boxSlideStops = new List<BoxSlideStopResult>();
             var expandedCandidates = new List<ActionGroup>();
             var preExpansionRejectedReasons = new List<string>(rejectedReasons);
             var legacyExpansionIntents = ValidateLegacyExpansionIntents(
@@ -726,7 +727,8 @@ namespace Game.Feature.Gameplay.Loop
                 frontFaceShieldBlockExports,
                 barricadeBlockFacts,
                 forbiddenLegacyUnitOrdinaryIntentIds,
-                _tileFeatureDefinitions);
+                _tileFeatureDefinitions,
+                boxSlideStops);
             if (preExpansionRejectedReasons.Count > 0)
             {
                 rejectedReasons.InsertRange(0, preExpansionRejectedReasons);
@@ -773,6 +775,7 @@ namespace Game.Feature.Gameplay.Loop
                 frontFaceShieldSourceExports,
                 frontFaceShieldBlockExports,
                 barricadeBlockFacts,
+                boxSlideStops,
                 movementDebugEvents,
                 nextContestId,
                 aiPhaseResult,
@@ -1261,6 +1264,10 @@ namespace Game.Feature.Gameplay.Loop
                 planPhaseResult.FrontFaceShieldSourceExports,
                 planPhaseResult.FrontFaceShieldBlockExports,
                 planPhaseResult.BarricadeBlockFacts,
+                FilterSelectedBoxSlideStops(
+                    planPhaseResult.BoxSlideStops,
+                    movementResolutionRecords,
+                    planPhaseResult.MovementActionPlanPayloads),
                 planPhaseResult.MovementDebugEvents);
 
             AddRange(attackCommitEvents, utilityResolveResult.EventLogEntries);
@@ -9441,6 +9448,43 @@ namespace Game.Feature.Gameplay.Loop
             {
                 destination.Add(source[i]);
             }
+        }
+
+        private static List<BoxSlideStopResult> FilterSelectedBoxSlideStops(
+            IReadOnlyList<BoxSlideStopResult> candidates,
+            IReadOnlyList<ResolutionRecord> resolutionRecords,
+            IReadOnlyDictionary<int, MovementActionPlanPayload> payloads)
+        {
+            if (candidates == null || candidates.Count == 0)
+            {
+                return new List<BoxSlideStopResult>();
+            }
+
+            var selectedIntentIds = new HashSet<int>();
+            for (var i = 0; i < resolutionRecords.Count; i++)
+            {
+                var record = resolutionRecords[i];
+                if (!record.Accepted ||
+                    !payloads.TryGetValue(record.ActionPlanId, out var payload) ||
+                    payload.MovementCandidateKind != MovementCandidateKind.Stop)
+                {
+                    continue;
+                }
+
+                selectedIntentIds.Add(payload.IntentId);
+            }
+
+            var filtered = new List<BoxSlideStopResult>(candidates.Count);
+            for (var i = 0; i < candidates.Count; i++)
+            {
+                var candidate = candidates[i];
+                if (selectedIntentIds.Contains(candidate.IntentId))
+                {
+                    filtered.Add(candidate);
+                }
+            }
+
+            return filtered;
         }
 
         private static List<string> CreateMovementCommitEventBuffer(IReadOnlyList<string> preMovementEventLogEntries)

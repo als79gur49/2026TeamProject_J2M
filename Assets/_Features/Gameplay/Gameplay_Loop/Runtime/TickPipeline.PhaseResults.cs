@@ -159,6 +159,7 @@ namespace Game.Feature.Gameplay.Loop
             List<FrontFaceShieldSourcePresentationExport> frontFaceShieldSourceExports,
             List<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports,
             List<BarricadeBlockFact> barricadeBlockFacts,
+            List<BoxSlideStopResult> boxSlideStops,
             List<string> movementDebugEvents,
             int nextContestId,
             EnemyAiPhaseResult enemyAiPhaseResult,
@@ -189,6 +190,7 @@ namespace Game.Feature.Gameplay.Loop
             FrontFaceShieldSourceExports = frontFaceShieldSourceExports ?? throw new ArgumentNullException(nameof(frontFaceShieldSourceExports));
             FrontFaceShieldBlockExports = frontFaceShieldBlockExports ?? throw new ArgumentNullException(nameof(frontFaceShieldBlockExports));
             BarricadeBlockFacts = barricadeBlockFacts ?? throw new ArgumentNullException(nameof(barricadeBlockFacts));
+            BoxSlideStops = boxSlideStops ?? throw new ArgumentNullException(nameof(boxSlideStops));
             MovementDebugEvents = movementDebugEvents ?? throw new ArgumentNullException(nameof(movementDebugEvents));
             NextContestId = nextContestId;
             EnemyAiPhaseResult = enemyAiPhaseResult ?? throw new ArgumentNullException(nameof(enemyAiPhaseResult));
@@ -238,6 +240,8 @@ namespace Game.Feature.Gameplay.Loop
         public List<FrontFaceShieldBlockPresentationExport> FrontFaceShieldBlockExports { get; }
 
         public List<BarricadeBlockFact> BarricadeBlockFacts { get; }
+
+        public List<BoxSlideStopResult> BoxSlideStops { get; }
 
         public List<string> MovementDebugEvents { get; }
 

@@ -1467,6 +1467,49 @@ namespace Game.Feature.Gameplay.Loop
         public FlipImpactPresentationDisposition Disposition { get; }
     }
 
+    public readonly struct BoxSlideStopPresentationSignal
+    {
+        public BoxSlideStopPresentationSignal(
+            int boxEntityId,
+            SurfaceCell sourceCell,
+            SurfaceCell stopperCell,
+            Direction slideDirection,
+            BoxSlideStopperKind stopperKind,
+            int stopperEntityId,
+            SolidKind solidKind,
+            CubeTopologyState topology,
+            BoxSlideStopCause cause)
+        {
+            BoxEntityId = boxEntityId;
+            SourceCell = sourceCell;
+            StopperCell = stopperCell;
+            SlideDirection = slideDirection;
+            StopperKind = stopperKind;
+            StopperEntityId = stopperEntityId;
+            SolidKind = solidKind;
+            Topology = topology;
+            Cause = cause;
+        }
+
+        public int BoxEntityId { get; }
+
+        public SurfaceCell SourceCell { get; }
+
+        public SurfaceCell StopperCell { get; }
+
+        public Direction SlideDirection { get; }
+
+        public BoxSlideStopperKind StopperKind { get; }
+
+        public int StopperEntityId { get; }
+
+        public SolidKind SolidKind { get; }
+
+        public CubeTopologyState Topology { get; }
+
+        public BoxSlideStopCause Cause { get; }
+    }
+
     public sealed class TickPresentationData
     {
         public static readonly TickPresentationData Empty = new(
@@ -1486,6 +1529,7 @@ namespace Game.Feature.Gameplay.Loop
             Array.Empty<FlipImpactPresentationSignal>());
 
         private readonly ReadOnlyCollection<TickEntityExitPresentationSignal> _entityExitSignals;
+        private readonly ReadOnlyCollection<BoxSlideStopPresentationSignal> _boxSlideStopSignals;
         private ReadOnlyCollection<TickImpactTransientPresentationSignal> _impactTransientSignals;
         private readonly ReadOnlyCollection<FlipImpactPresentationSignal> _flipImpactSignals;
         private readonly ReadOnlyCollection<TickEnemyActionPresentationSignal> _enemyActionSignals;
@@ -1848,7 +1892,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TilePresentationEvent> tileEvents = null,
             IEnumerable<GravityFieldPresentationEvent> gravityFieldEvents = null,
             IEnumerable<GravityFieldVisualState> gravityFieldVisualStates = null,
-            IEnumerable<TickPlayerActionAttemptPresentationSignal> playerActionAttemptSignals = null)
+            IEnumerable<TickPlayerActionAttemptPresentationSignal> playerActionAttemptSignals = null,
+            IEnumerable<BoxSlideStopPresentationSignal> boxSlideStopSignals = null)
         {
             if (entityMotions == null)
             {
@@ -1962,6 +2007,9 @@ namespace Game.Feature.Gameplay.Loop
                     enemyGlideSignals ?? Array.Empty<TickEnemyGlidePresentationSignal>()));
             _entityExitSignals = new ReadOnlyCollection<TickEntityExitPresentationSignal>(
                 new List<TickEntityExitPresentationSignal>(entityExitSignals));
+            _boxSlideStopSignals = new ReadOnlyCollection<BoxSlideStopPresentationSignal>(
+                new List<BoxSlideStopPresentationSignal>(
+                    boxSlideStopSignals ?? Array.Empty<BoxSlideStopPresentationSignal>()));
             _flipImpactSignals = new ReadOnlyCollection<FlipImpactPresentationSignal>(
                 new List<FlipImpactPresentationSignal>(flipImpactSignals));
             _impactTransientSignals = new ReadOnlyCollection<TickImpactTransientPresentationSignal>(
@@ -1999,7 +2047,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TilePresentationEvent> tileEvents = null,
             IEnumerable<GravityFieldPresentationEvent> gravityFieldEvents = null,
             IEnumerable<GravityFieldVisualState> gravityFieldVisualStates = null,
-            IEnumerable<TickPlayerActionAttemptPresentationSignal> playerActionAttemptSignals = null)
+            IEnumerable<TickPlayerActionAttemptPresentationSignal> playerActionAttemptSignals = null,
+            IEnumerable<BoxSlideStopPresentationSignal> boxSlideStopSignals = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -2018,7 +2067,8 @@ namespace Game.Feature.Gameplay.Loop
                 tileEvents: tileEvents,
                 gravityFieldEvents: gravityFieldEvents,
                 gravityFieldVisualStates: gravityFieldVisualStates,
-                playerActionAttemptSignals: playerActionAttemptSignals)
+                playerActionAttemptSignals: playerActionAttemptSignals,
+                boxSlideStopSignals: boxSlideStopSignals)
         {
         }
 
@@ -2079,7 +2129,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TilePresentationEvent> tileEvents = null,
             IEnumerable<GravityFieldPresentationEvent> gravityFieldEvents = null,
             IEnumerable<GravityFieldVisualState> gravityFieldVisualStates = null,
-            IEnumerable<TickPlayerActionAttemptPresentationSignal> playerActionAttemptSignals = null)
+            IEnumerable<TickPlayerActionAttemptPresentationSignal> playerActionAttemptSignals = null,
+            IEnumerable<BoxSlideStopPresentationSignal> boxSlideStopSignals = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -2102,7 +2153,8 @@ namespace Game.Feature.Gameplay.Loop
                 tileEvents: tileEvents,
                 gravityFieldEvents: gravityFieldEvents,
                 gravityFieldVisualStates: gravityFieldVisualStates,
-                playerActionAttemptSignals: playerActionAttemptSignals)
+                playerActionAttemptSignals: playerActionAttemptSignals,
+                boxSlideStopSignals: boxSlideStopSignals)
         {
             if (impactTransientSignals == null)
             {
@@ -2141,7 +2193,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TilePresentationEvent> tileEvents = null,
             IEnumerable<GravityFieldPresentationEvent> gravityFieldEvents = null,
             IEnumerable<GravityFieldVisualState> gravityFieldVisualStates = null,
-            IEnumerable<TickPlayerActionAttemptPresentationSignal> playerActionAttemptSignals = null)
+            IEnumerable<TickPlayerActionAttemptPresentationSignal> playerActionAttemptSignals = null,
+            IEnumerable<BoxSlideStopPresentationSignal> boxSlideStopSignals = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -2165,7 +2218,8 @@ namespace Game.Feature.Gameplay.Loop
                 tileEvents,
                 gravityFieldEvents,
                 gravityFieldVisualStates,
-                playerActionAttemptSignals)
+                playerActionAttemptSignals,
+                boxSlideStopSignals)
         {
             if (summonedEnemyPresentationBindings == null)
             {
@@ -2230,6 +2284,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<TickEnemyGlidePresentationSignal> EnemyGlideSignals => _enemyGlideSignals;
 
         public IReadOnlyList<TickEntityExitPresentationSignal> EntityExitSignals => _entityExitSignals;
+
+        public IReadOnlyList<BoxSlideStopPresentationSignal> BoxSlideStopSignals => _boxSlideStopSignals;
 
         public IReadOnlyList<FlipImpactPresentationSignal> FlipImpactSignals => _flipImpactSignals;
 

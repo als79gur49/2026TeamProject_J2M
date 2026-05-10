@@ -79,7 +79,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             List<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports = null,
             List<BarricadeBlockFact> barricadeBlockFacts = null,
             ISet<int> forbiddenLegacyUnitOrdinaryIntentIds = null,
-            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
+            List<BoxSlideStopResult> boxSlideStops = null)
         {
             if (snapshot == null)
             {
@@ -156,7 +157,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                             buffer,
                             rejectedReasons,
                             frontFaceShieldBlockExports,
-                            barricadeBlockFacts);
+                            barricadeBlockFacts,
+                            boxSlideStops);
                         break;
 
                     case MovementCommandKind.Flip:
@@ -182,7 +184,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             List<ActionGroup> buffer,
             List<string> rejectedReasons,
             List<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports,
-            List<BarricadeBlockFact> barricadeBlockFacts)
+            List<BarricadeBlockFact> barricadeBlockFacts,
+            List<BoxSlideStopResult> boxSlideStops)
         {
             if (IsSlidingPushBox(source))
             {
@@ -196,7 +199,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                     buffer,
                     rejectedReasons,
                     frontFaceShieldBlockExports,
-                    barricadeBlockFacts);
+                    barricadeBlockFacts,
+                    boxSlideStops);
                 return;
             }
 
@@ -264,7 +268,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                         buffer,
                         rejectedReasons,
                         frontFaceShieldBlockExports,
-                        barricadeBlockFacts);
+                        barricadeBlockFacts,
+                        boxSlideStops);
                     return;
                 }
 
@@ -566,7 +571,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             List<ActionGroup> buffer,
             List<string> rejectedReasons,
             List<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports,
-            List<BarricadeBlockFact> barricadeBlockFacts)
+            List<BarricadeBlockFact> barricadeBlockFacts,
+            List<BoxSlideStopResult> boxSlideStops)
         {
             var destinationResolved = snapshot.TryResolveNextSurfaceBoxSlideStep(
                 snapshot.Topology,
@@ -700,7 +706,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             List<ActionGroup> buffer,
             List<string> rejectedReasons,
             List<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports,
-            List<BarricadeBlockFact> barricadeBlockFacts)
+            List<BarricadeBlockFact> barricadeBlockFacts,
+            List<BoxSlideStopResult> boxSlideStops)
         {
             var delta = ResolveIntentDelta(source.position, intent.Destination);
             var stepFacing = ResolveCardinalFacing(
@@ -750,6 +757,13 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                         EntityPhaseState.Idle,
                         stateTimer: 0));
                 buffer.Add(stopGroup);
+                AddSolidEntityBoxSlideStop(
+                    boxSlideStops,
+                    snapshot,
+                    intent.IntentId,
+                    source,
+                    stopper,
+                    stepFacing);
                 return;
             }
 
@@ -1102,6 +1116,37 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                     barricade.Cell,
                     boxEntityId,
                     attemptedDirection));
+        }
+
+        private static void AddSolidEntityBoxSlideStop(
+            List<BoxSlideStopResult> stops,
+            WorldSnapshot snapshot,
+            int intentId,
+            EntityState box,
+            SlideStopper stopper,
+            Direction slideDirection)
+        {
+            if (stops == null ||
+                stopper.Kind != SlideStopperKind.Entity ||
+                stopper.EntityId <= 0 ||
+                !snapshot.TryGetSolidSemanticAt(stopper.Cell, out var semantic) ||
+                semantic.Entity.entityId != stopper.EntityId)
+            {
+                return;
+            }
+
+            stops.Add(
+                new BoxSlideStopResult(
+                    intentId,
+                    box.entityId,
+                    box.position,
+                    stopper.Cell,
+                    slideDirection,
+                    BoxSlideStopperKind.SolidEntity,
+                    stopper.EntityId,
+                    semantic.Kind,
+                    snapshot.Topology,
+                    BoxSlideStopCause.SlidingContinuationBlocked));
         }
 
         internal static int BuildFrontFaceShieldPresentationSeed(

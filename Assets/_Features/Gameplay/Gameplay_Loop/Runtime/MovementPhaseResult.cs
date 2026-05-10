@@ -113,6 +113,68 @@ namespace Game.Feature.Gameplay.Loop
         public Direction AttemptedDirection { get; }
     }
 
+    public enum BoxSlideStopperKind
+    {
+        None = 0,
+        SolidEntity = 1,
+        Terrain = 2,
+        BoardEdge = 3,
+        Shield = 4,
+    }
+
+    public enum BoxSlideStopCause
+    {
+        None = 0,
+        SlidingContinuationBlocked = 1,
+    }
+
+    internal readonly struct BoxSlideStopResult
+    {
+        public BoxSlideStopResult(
+            int intentId,
+            int boxEntityId,
+            SurfaceCell sourceCell,
+            SurfaceCell stopperCell,
+            Direction slideDirection,
+            BoxSlideStopperKind stopperKind,
+            int stopperEntityId,
+            SolidKind solidKind,
+            CubeTopologyState topology,
+            BoxSlideStopCause cause)
+        {
+            IntentId = intentId;
+            BoxEntityId = boxEntityId;
+            SourceCell = sourceCell;
+            StopperCell = stopperCell;
+            SlideDirection = slideDirection;
+            StopperKind = stopperKind;
+            StopperEntityId = stopperEntityId;
+            SolidKind = solidKind;
+            Topology = topology;
+            Cause = cause;
+        }
+
+        internal int IntentId { get; }
+
+        public int BoxEntityId { get; }
+
+        public SurfaceCell SourceCell { get; }
+
+        public SurfaceCell StopperCell { get; }
+
+        public Direction SlideDirection { get; }
+
+        public BoxSlideStopperKind StopperKind { get; }
+
+        public int StopperEntityId { get; }
+
+        public SolidKind SolidKind { get; }
+
+        public CubeTopologyState Topology { get; }
+
+        public BoxSlideStopCause Cause { get; }
+    }
+
     internal sealed class MovementPhaseResult
     {
         public static readonly MovementPhaseResult Empty = new(
@@ -126,9 +188,11 @@ namespace Game.Feature.Gameplay.Loop
             Array.Empty<FrontFaceShieldSourcePresentationExport>(),
             Array.Empty<FrontFaceShieldBlockPresentationExport>(),
             Array.Empty<BarricadeBlockFact>(),
+            Array.Empty<BoxSlideStopResult>(),
             Array.Empty<string>());
 
         private readonly ReadOnlyCollection<BarricadeBlockFact> _barricadeBlockFacts;
+        private readonly ReadOnlyCollection<BoxSlideStopResult> _boxSlideStops;
         private readonly ReadOnlyCollection<string> _commitEvents;
         private readonly ReadOnlyCollection<string> _debugEvents;
         private readonly ReadOnlyCollection<FrontFaceShieldBlockPresentationExport> _frontFaceShieldBlockExports;
@@ -151,6 +215,7 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<FrontFaceShieldSourcePresentationExport> frontFaceShieldSourceExports = null,
             IEnumerable<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports = null,
             IEnumerable<BarricadeBlockFact> barricadeBlockFacts = null,
+            IEnumerable<BoxSlideStopResult> boxSlideStops = null,
             IEnumerable<string> debugEvents = null)
         {
             if (rawIntents == null)
@@ -207,6 +272,9 @@ namespace Game.Feature.Gameplay.Loop
             _barricadeBlockFacts = new ReadOnlyCollection<BarricadeBlockFact>(
                 new List<BarricadeBlockFact>(
                     barricadeBlockFacts ?? Array.Empty<BarricadeBlockFact>()));
+            _boxSlideStops = new ReadOnlyCollection<BoxSlideStopResult>(
+                new List<BoxSlideStopResult>(
+                    boxSlideStops ?? Array.Empty<BoxSlideStopResult>()));
         }
 
         public IReadOnlyList<RawMovementIntent> RawIntents => _rawIntents;
@@ -234,5 +302,7 @@ namespace Game.Feature.Gameplay.Loop
             _frontFaceShieldBlockExports;
 
         internal IReadOnlyList<BarricadeBlockFact> BarricadeBlockFacts => _barricadeBlockFacts;
+
+        internal IReadOnlyList<BoxSlideStopResult> BoxSlideStops => _boxSlideStops;
     }
 }
