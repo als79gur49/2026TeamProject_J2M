@@ -970,10 +970,100 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "State=Idle",
                     "Timer=0"),
                 Is.True);
+            Assert.That(thirdTick.PresentationData.BoxSlideStopSignals, Has.Count.EqualTo(1));
+            var stopSignal = thirdTick.PresentationData.BoxSlideStopSignals[0];
+            Assert.That(stopSignal.BoxEntityId, Is.EqualTo(30));
+            Assert.That(stopSignal.StopperEntityId, Is.EqualTo(90));
+            Assert.That(stopSignal.SourceCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 3, 0)));
+            Assert.That(stopSignal.StopperCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 4, 0)));
+            Assert.That(stopSignal.SlideDirection, Is.EqualTo(Direction.Right));
+            Assert.That(stopSignal.StopperKind, Is.EqualTo(BoxSlideStopperKind.SolidEntity));
+            Assert.That(stopSignal.Cause, Is.EqualTo(BoxSlideStopCause.SlidingContinuationBlocked));
             Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(3, 0)));
             Assert.That(snapshotAfter.TryGetEntity(30, out var pushedBox), Is.True);
             Assert.That(pushedBox.state, Is.EqualTo(EntityPhaseState.Idle));
             Assert.That(pushedBox.stateTimer, Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Movement_SlidingPushBox_StoppedByTerrain_DoesNotEmitBoxSlideStopSignal()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                    CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)),
+                new GameplayTerrainData(new[] { new Vector2Int(4, 0) }));
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    CreateImmediatePushPlayerLogic(10),
+                });
+
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            RunTicks(pipeline, startTickIndex: 2, endTickIndex: 12);
+            pipeline.RunTick(new TickInput(13));
+            RunTicks(pipeline, startTickIndex: 14, endTickIndex: 24);
+            var stopTick = pipeline.RunTick(new TickInput(25));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            Assert.That(stopTick.PresentationData.BoxSlideStopSignals, Is.Empty);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    stopTick.MovementPhaseResult.CommitEvents,
+                    "StateChanged",
+                    "E=30",
+                    "State=Idle",
+                    "Timer=0"),
+                Is.True);
+            Assert.That(snapshotAfter.TryGetEntity(30, out var pushedBox), Is.True);
+            Assert.That(pushedBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 3, 0)));
+            Assert.That(pushedBox.state, Is.EqualTo(EntityPhaseState.Idle));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Movement_CrossFaceSlidingPushBox_StoppedBySolidStillEmitsBoxSlideStopSignal()
+        {
+            var slidingBox = CreateBox(
+                entityId: 30,
+                position: new SurfaceCell(FaceId.Floor, 0, 1),
+                capabilities: BoxCapabilities.Push,
+                facing: Direction.Up);
+            slidingBox.state = EntityPhaseState.Sliding;
+            slidingBox.stateTimer = 0;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    slidingBox,
+                    CreateNonUnitBlocker(entityId: 90, position: new SurfaceCell(FaceId.Front, 0, 0)),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                Array.Empty<IEntityLogic>());
+
+            var stopTick = pipeline.RunTick(new TickInput(1));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            Assert.That(stopTick.PresentationData.BoxSlideStopSignals, Has.Count.EqualTo(1));
+            var stopSignal = stopTick.PresentationData.BoxSlideStopSignals[0];
+            Assert.That(stopSignal.BoxEntityId, Is.EqualTo(30));
+            Assert.That(stopSignal.StopperEntityId, Is.EqualTo(90));
+            Assert.That(stopSignal.SourceCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
+            Assert.That(stopSignal.StopperCell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(stopSignal.SourceCell.face, Is.Not.EqualTo(stopSignal.StopperCell.face));
+            Assert.That(stopSignal.SlideDirection, Is.EqualTo(Direction.Up));
+            Assert.That(stopSignal.StopperKind, Is.EqualTo(BoxSlideStopperKind.SolidEntity));
+            Assert.That(stopSignal.Cause, Is.EqualTo(BoxSlideStopCause.SlidingContinuationBlocked));
+            Assert.That(snapshotAfter.TryGetEntity(30, out var stoppedBox), Is.True);
+            Assert.That(stoppedBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
+            Assert.That(stoppedBox.state, Is.EqualTo(EntityPhaseState.Idle));
         }
 
         [Test]
@@ -1557,6 +1647,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
+            Assert.That(result.PresentationData.BoxSlideStopSignals, Is.Empty);
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
                     result.MovementPhaseResult.RejectedReasons,
@@ -1597,6 +1688,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
+            Assert.That(result.PresentationData.BoxSlideStopSignals, Is.Empty);
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
                     result.MovementPhaseResult.RejectedReasons,
@@ -1608,6 +1700,25 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "StopperKind=Terrain",
                     "Cell=(2,0)"),
                 Is.True);
+            Assert.That(GetEntityPosition(worldState, 20), Is.EqualTo(new Vector2Int(1, 0)));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Movement_IdleBoxAdjacentToSolid_DoesNotEmitBoxSlideStopSignal()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                CreateNonUnitBlocker(entityId: 90, position: new Vector2Int(2, 0)),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                Array.Empty<IEntityLogic>());
+
+            var result = pipeline.RunTick(new TickInput(1));
+
+            Assert.That(result.PresentationData.BoxSlideStopSignals, Is.Empty);
             Assert.That(GetEntityPosition(worldState, 20), Is.EqualTo(new Vector2Int(1, 0)));
         }
 

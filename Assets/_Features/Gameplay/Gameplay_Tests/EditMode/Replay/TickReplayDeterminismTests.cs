@@ -291,6 +291,69 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
+        public void DeterminismHash_BoxSlideStopPresentationData_DoesNotAffectCanonicalStateOrHash()
+        {
+            var finalEntities = new[]
+            {
+                CreateBox(entityId: 30, position: new Vector2Int(3, 0), capabilities: BoxCapabilities.Push),
+                CreateBox(entityId: 90, position: new Vector2Int(4, 0), capabilities: BoxCapabilities.Push),
+            };
+            finalEntities[0].state = EntityPhaseState.Idle;
+            finalEntities[1].state = EntityPhaseState.Idle;
+            var finalSnapshot = SnapshotBuilder.Create(CreateWorldState(finalEntities));
+            var eventLog = new[]
+            {
+                "StateChanged|E=30|State=Idle|Timer=0",
+            };
+            var topology = finalSnapshot.Topology;
+            var boxSlideStopPresentation = new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
+                playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
+                playerLocomotionSignals: Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                playerDamageSignals: Array.Empty<TickPlayerDamagePresentationSignal>(),
+                playerDeathSignals: Array.Empty<TickPlayerDeathPresentationSignal>(),
+                enemyDamageSignals: Array.Empty<TickEnemyDamagePresentationSignal>(),
+                enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                enemyJumpSignals: Array.Empty<TickEnemyJumpPresentationSignal>(),
+                entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>(),
+                flipImpactSignals: Array.Empty<FlipImpactPresentationSignal>(),
+                boxSlideStopSignals: new[]
+                {
+                    new BoxSlideStopPresentationSignal(
+                        boxEntityId: 30,
+                        sourceCell: new SurfaceCell(FaceId.Floor, 3, 0),
+                        stopperCell: new SurfaceCell(FaceId.Floor, 4, 0),
+                        slideDirection: Direction.Right,
+                        stopperKind: BoxSlideStopperKind.SolidEntity,
+                        stopperEntityId: 90,
+                        solidKind: SolidKind.Box,
+                        topology: topology,
+                        cause: BoxSlideStopCause.SlidingContinuationBlocked),
+                });
+            var baselineData = new TickResultData(
+                finalEntities,
+                Array.Empty<DelayedAttackEffectRecord>(),
+                eventLog,
+                TickPresentationData.Empty);
+            var boxSlideStopData = new TickResultData(
+                finalEntities,
+                Array.Empty<DelayedAttackEffectRecord>(),
+                eventLog,
+                boxSlideStopPresentation);
+            var hashBuilder = new DeterminismHashBuilder();
+
+            CollectionAssert.AreEqual(baselineData.FinalEntities, boxSlideStopData.FinalEntities);
+            CollectionAssert.AreEqual(baselineData.EventLog, boxSlideStopData.EventLog);
+            Assert.That(
+                hashBuilder.Build(25, finalSnapshot, baselineData),
+                Is.EqualTo(hashBuilder.Build(25, finalSnapshot, boxSlideStopData)));
+        }
+
+        [Test]
+        [Category("Core")]
         public void Replay_BoundaryMetadata_DoesNotAffectCanonicalHash()
         {
             var finalEntities = new[]

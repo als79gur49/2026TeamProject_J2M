@@ -25,7 +25,8 @@ namespace Game.Feature.Gameplay.Tests
             IEnumerable<string> commitEvents,
             IEnumerable<string> rejectedReasons,
             Func<ActionGroup, ResolvedActionSemanticKind> semanticResolver = null,
-            IEnumerable<ImpactDispositionResolutionRecord> impactDispositionRecords = null)
+            IEnumerable<ImpactDispositionResolutionRecord> impactDispositionRecords = null,
+            IEnumerable<BoxSlideStopResult> boxSlideStops = null)
         {
             var groups = Materialize(selectedGroups);
             var resolutionRecords = new List<ResolutionRecord>(groups.Count);
@@ -138,7 +139,8 @@ namespace Game.Feature.Gameplay.Tests
                 materializedImpactDispositionRecords,
                 operations,
                 commitEvents,
-                rejectedReasons);
+                rejectedReasons,
+                boxSlideStops: boxSlideStops);
         }
 
         public static MovementPhaseResult CreateMovementPhaseResult(params ActionGroup[] selectedGroups)

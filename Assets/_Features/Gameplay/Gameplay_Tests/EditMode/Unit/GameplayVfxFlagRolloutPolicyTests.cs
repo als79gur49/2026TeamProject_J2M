@@ -75,6 +75,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "Tier 1",
                 "targeted tests + density visual spot check"),
             new(
+                "EnableGameplayVfxBoxSlideSolidStop",
+                "enableGameplayVfxBoxSlideSolidStop",
+                "BoxVfxCue.BoxSlideSolidStop",
+                "Augmentation / signal-owned boundary VFX",
+                "Tier 1",
+                "targeted planner/runtime regression + visual spot check"),
+            new(
                 "EnableGameplayVfxImpactTransientBreakMigration",
                 "enableGameplayVfxImpactTransientBreakMigration",
                 "BoxVfxCue.ImpactTransientBreak",

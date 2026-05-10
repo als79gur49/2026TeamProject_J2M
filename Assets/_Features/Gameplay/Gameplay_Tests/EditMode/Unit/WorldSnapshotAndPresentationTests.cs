@@ -37,6 +37,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(TickPresentationData.Empty.FrontFaceShieldWindupWarnings, Is.Empty);
             Assert.That(TickPresentationData.Empty.TileEvents, Is.Empty);
             Assert.That(TickPresentationData.Empty.GravityFieldVisualStates, Is.Empty);
+            Assert.That(TickPresentationData.Empty.BoxSlideStopSignals, Is.Empty);
 
             var presentationData = new TickPresentationData(Array.Empty<TickEntityMotion>());
 
@@ -46,6 +47,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(presentationData.FrontFaceShieldWindupWarnings, Is.Empty);
             Assert.That(presentationData.TileEvents, Is.Empty);
             Assert.That(presentationData.GravityFieldVisualStates, Is.Empty);
+            Assert.That(presentationData.BoxSlideStopSignals, Is.Empty);
         }
 
         [Test]
