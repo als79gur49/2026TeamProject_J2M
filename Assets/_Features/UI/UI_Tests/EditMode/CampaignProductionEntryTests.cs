@@ -476,6 +476,89 @@ namespace Game.Feature.UI.Tests
             Assert.That(source, Does.Contain("ConfiguredGameplayStageLaunchRouter"));
         }
 
+        [Test]
+        public void DeathRetryProductionRouter_IsCoordinatorBacked()
+        {
+            var root = new GameObject("gameplay-ui-router-provider");
+            try
+            {
+                var installer = root.AddComponent<GameplayUiFlowInstaller>();
+                Assert.That(installer, Is.InstanceOf<IStageLaunchRouterProvider>());
+
+                var provider = (IStageLaunchRouterProvider)installer;
+                Assert.That(provider.TryCreateStageLaunchRouter("UIAudioScene", out var router), Is.True);
+                Assert.That(router, Is.TypeOf<CurrentSceneStageLaunchRouter>());
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void MinimumVisible_StartsAfterOverlayVisible()
+        {
+            var profile = new StageTransitionProfile(
+                StageTransitionKind.DeathRetryChanceLost,
+                string.Empty,
+                string.Empty,
+                0.2f,
+                true,
+                true,
+                true,
+                TransitionOverlayKind.ChanceLost,
+                preOverlayDelaySeconds: 0.5f,
+                blockInputDuringPreOverlayDelay: true,
+                startAsyncLoadBeforeOverlay: true);
+            const float transitionStartedAt = 10f;
+            const float overlayShownAt = 10.5f;
+
+            Assert.That(
+                SceneTransitionCoordinator.IsMinimumVisibleElapsedForActivation(
+                    profile,
+                    overlayShownAt,
+                    transitionStartedAt + 0.25f),
+                Is.False);
+            Assert.That(
+                SceneTransitionCoordinator.IsMinimumVisibleElapsedForActivation(
+                    profile,
+                    overlayShownAt,
+                    overlayShownAt + 0.21f),
+                Is.True);
+        }
+
+        [Test]
+        public void LaunchGuard_PrecedesSetCurrent()
+        {
+            var source = ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/SceneTransitionCoordinator.cs");
+            var guardIndex = source.IndexOf("_guard.TryBegin", StringComparison.Ordinal);
+            var beforeLoadIndex = source.IndexOf("beforeLoad?.Invoke()", StringComparison.Ordinal);
+
+            Assert.That(guardIndex, Is.GreaterThanOrEqualTo(0));
+            Assert.That(beforeLoadIndex, Is.GreaterThanOrEqualTo(0));
+            Assert.That(guardIndex, Is.LessThan(beforeLoadIndex));
+        }
+
+        [Test]
+        public void DuplicateLaunch_DoesNotOverwriteStageContext()
+        {
+            var guard = new StageTransitionLaunchGuard();
+            StageLaunchContextStore.Clear();
+            var firstStage = StageId.CreateOrThrow("stage-0-1");
+            var secondStage = StageId.CreateOrThrow("stage-0-2");
+
+            Assert.That(guard.TryBegin(out var transitionId), Is.True);
+            StageLaunchContextStore.SetCurrent(firstStage);
+            Assert.That(guard.TryBegin(out _), Is.False);
+
+            Assert.That(StageLaunchContextStore.TryGetCurrent(out var current), Is.True);
+            Assert.That(current, Is.EqualTo(firstStage));
+            Assert.That(current, Is.Not.EqualTo(secondStage));
+
+            guard.Complete(transitionId);
+            StageLaunchContextStore.Clear();
+        }
+
         private static ControllerHarness CreateControllerHarness(params string[] catalogStageIds)
         {
             var provider = CreateProvider(catalogStageIds);

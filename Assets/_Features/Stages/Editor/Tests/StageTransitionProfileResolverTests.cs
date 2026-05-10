@@ -36,6 +36,38 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void Resolve_DeathRetryProfile_HasPreOverlayDelay()
+        {
+            var resolver = new StageTransitionProfileResolver();
+            var request = new StageNavigationRequest(
+                StageId.CreateOrThrow("stage-0-1"),
+                StageNavigationKind.Retry,
+                "campaign-death-retry");
+
+            var profile = resolver.Resolve(request, "UIAudioScene", "UIAudioScene");
+
+            Assert.That(profile.PreOverlayDelaySeconds, Is.GreaterThan(0f));
+            Assert.That(profile.MinimumVisibleSeconds, Is.GreaterThan(0f));
+            Assert.That(profile.HoldSceneActivationUntilMinimumElapsed, Is.True);
+        }
+
+        [Test]
+        public void Resolve_DeathRetryProfile_BlocksInputDuringPreOverlay()
+        {
+            var resolver = new StageTransitionProfileResolver();
+            var request = new StageNavigationRequest(
+                StageId.CreateOrThrow("stage-0-1"),
+                StageNavigationKind.Retry,
+                "campaign-death-retry");
+
+            var profile = resolver.Resolve(request, "UIAudioScene", "UIAudioScene");
+
+            Assert.That(profile.BlockInput, Is.True);
+            Assert.That(profile.BlockInputDuringPreOverlayDelay, Is.True);
+            Assert.That(profile.StartAsyncLoadBeforeOverlay, Is.True);
+        }
+
+        [Test]
         public void Resolve_SourceMapsLevelFailedRestartSeparatelyFromDeathRetry()
         {
             var resolver = new StageTransitionProfileResolver();

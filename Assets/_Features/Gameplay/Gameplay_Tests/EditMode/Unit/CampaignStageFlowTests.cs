@@ -502,9 +502,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void CampaignDeath_RetryNavigationWaitsForDeathRecoveryHold()
+        public void CampaignDeath_RetryNavigationLaunchesBeforeDeathRecoveryHold()
         {
-            var saveKey = CreatePrefsKey(nameof(CampaignDeath_RetryNavigationWaitsForDeathRecoveryHold));
+            var saveKey = CreatePrefsKey(nameof(CampaignDeath_RetryNavigationLaunchesBeforeDeathRecoveryHold));
             var activeKey = saveKey + ".active";
             var saveStore = new SaveSlotStore(saveKey);
             var activeSlotProvider = new ActiveSlotProvider(activeKey);
@@ -534,15 +534,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var handleTickCompleted = GetHandleTickCompletedMethod();
 
                 handleTickCompleted.Invoke(controller, new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
-                handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(51) });
-                handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(52) });
-
-                Assert.That(router.LaunchCount, Is.EqualTo(0));
-                Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.False);
-                Assert.That(saveStore.LoadSlot(1).RemainingChances, Is.EqualTo(1));
-
-                handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(53) });
-                handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(54) });
 
                 Assert.That(router.LaunchCount, Is.EqualTo(1));
                 Assert.That(router.LastRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Retry));
@@ -553,6 +544,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(router.LastRequest.TransitionHint.ChanceLostPayload.CurrentRemainingChances, Is.EqualTo(1));
                 Assert.That(router.LastRequest.TransitionHint.ChanceLostPayload.TotalChances, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
                 Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.True);
+                Assert.That(saveStore.LoadSlot(1).RemainingChances, Is.EqualTo(1));
+
+                handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(51) });
+                handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(53) });
+
+                Assert.That(router.LaunchCount, Is.EqualTo(1));
             }
             finally
             {
@@ -621,9 +618,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void CampaignDeath_PendingRetry_IgnoresLaterStageClear()
+        public void CampaignDeath_RetryLaunch_IgnoresLaterStageClear()
         {
-            var saveKey = CreatePrefsKey(nameof(CampaignDeath_PendingRetry_IgnoresLaterStageClear));
+            var saveKey = CreatePrefsKey(nameof(CampaignDeath_RetryLaunch_IgnoresLaterStageClear));
             var activeKey = saveKey + ".active";
             var saveStore = new SaveSlotStore(saveKey);
             var activeSlotProvider = new ActiveSlotProvider(activeKey);
@@ -653,14 +650,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(pendingSlot.CurrentLevelGroupId, Is.EqualTo("level-2"));
                 Assert.That(pendingSlot.RemainingChances, Is.EqualTo(1));
                 Assert.That(pendingSlot.TotalDeaths, Is.EqualTo(1));
-                Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.False);
-                Assert.That(router.LaunchCount, Is.EqualTo(0));
+                Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.True);
+                Assert.That(router.LaunchCount, Is.EqualTo(1));
+                Assert.That(router.LastRequest.StageId.Value, Is.EqualTo("stage-2-2"));
+                Assert.That(router.LastRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Retry));
 
                 handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(53) });
 
                 Assert.That(router.LaunchCount, Is.EqualTo(1));
-                Assert.That(router.LastRequest.StageId.Value, Is.EqualTo("stage-2-2"));
-                Assert.That(router.LastRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Retry));
             }
             finally
             {
@@ -760,10 +757,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(slot.RemainingChances, Is.EqualTo(1));
                 Assert.That(slot.TotalDeaths, Is.EqualTo(1));
 
+                Assert.That(router.LaunchCount, Is.EqualTo(1));
+                Assert.That(router.LastRequest.StageId.Value, Is.EqualTo("stage-2-2"));
+
                 handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(53) });
 
                 Assert.That(router.LaunchCount, Is.EqualTo(1));
-                Assert.That(router.LastRequest.StageId.Value, Is.EqualTo("stage-2-2"));
             }
             finally
             {
@@ -803,7 +802,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var slot = saveStore.LoadSlot(1);
                 Assert.That(slot.RemainingChances, Is.EqualTo(1));
                 Assert.That(slot.TotalDeaths, Is.EqualTo(1));
-                Assert.That(router.LaunchCount, Is.EqualTo(0));
+                Assert.That(router.LaunchCount, Is.EqualTo(1));
 
                 handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(53) });
 
@@ -846,6 +845,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var slot = saveStore.LoadSlot(1);
                 Assert.That(slot.RemainingChances, Is.EqualTo(1));
                 Assert.That(slot.TotalDeaths, Is.EqualTo(1));
+                Assert.That(router.LaunchCount, Is.EqualTo(1));
 
                 handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(53) });
 
@@ -938,9 +938,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void CampaignDeathHold_PauseResume_PreservesPendingRoute()
+        public void CampaignDeathRetry_PauseResume_DoesNotDuplicateRoute()
         {
-            var saveKey = CreatePrefsKey(nameof(CampaignDeathHold_PauseResume_PreservesPendingRoute));
+            var saveKey = CreatePrefsKey(nameof(CampaignDeathRetry_PauseResume_DoesNotDuplicateRoute));
             var activeKey = saveKey + ".active";
             var saveStore = new SaveSlotStore(saveKey);
             var activeSlotProvider = new ActiveSlotProvider(activeKey);
@@ -967,7 +967,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var pendingSlot = saveStore.LoadSlot(1);
                 Assert.That(pendingSlot.CurrentStageId.Value, Is.EqualTo("stage-2-2"));
                 Assert.That(pendingSlot.RemainingChances, Is.EqualTo(1));
-                Assert.That(router.LaunchCount, Is.EqualTo(0));
+                Assert.That(router.LaunchCount, Is.EqualTo(1));
 
                 handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(53) });
 
@@ -1120,6 +1120,51 @@ namespace Game.Feature.Gameplay.Tests.Unit
             });
 
             Assert.That(route.NextStageId.Value, Is.EqualTo("stage-2-1"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageBackedInstaller_UsesSameRootStageLaunchRouterProviderBeforeFallback()
+        {
+            var root = new GameObject("stage-launch-router-provider-root");
+            try
+            {
+                var provider = root.AddComponent<FakeStageLaunchRouterProvider>();
+                var method = typeof(StageBackedGameplayShowcaseInstallerBase).GetMethod(
+                    "CreateStageLaunchRouter",
+                    BindingFlags.Static | BindingFlags.NonPublic);
+                Assert.That(method, Is.Not.Null);
+
+                var router = (IStageLaunchRouter)method.Invoke(null, new object[] { root, "UIAudioScene" });
+
+                Assert.That(router, Is.SameAs(provider.Router));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayHost_DoesNotReferenceUiComposition()
+        {
+            var asmdefPath = Path.Combine(
+                Application.dataPath,
+                "_Features/Gameplay/Gameplay_Host/Gameplay.Host.asmdef");
+            var asmdef = File.ReadAllText(asmdefPath);
+            Assert.That(asmdef, Does.Not.Contain("Game.Feature.UI.Composition"));
+
+            foreach (var path in Directory.GetFiles(
+                         Path.Combine(Application.dataPath, "_Features/Gameplay/Gameplay_Host/Runtime"),
+                         "*.cs",
+                         SearchOption.AllDirectories))
+            {
+                var source = File.ReadAllText(path);
+                Assert.That(source, Does.Not.Contain("Game.Feature.UI.Composition"), path);
+                Assert.That(source, Does.Not.Contain("SceneTransitionCoordinator"), path);
+                Assert.That(source, Does.Not.Contain("CurrentSceneStageLaunchRouter"), path);
+            }
         }
 
         private static CampaignStageSequenceResolver CreateResolver()
@@ -1456,6 +1501,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 LaunchCount++;
                 LastRequest = request;
+            }
+        }
+
+        private sealed class FakeStageLaunchRouterProvider : MonoBehaviour, IStageLaunchRouterProvider
+        {
+            public FakeStageLaunchRouter Router { get; } = new();
+
+            public bool TryCreateStageLaunchRouter(string currentSceneName, out IStageLaunchRouter router)
+            {
+                router = Router;
+                return true;
             }
         }
     }
