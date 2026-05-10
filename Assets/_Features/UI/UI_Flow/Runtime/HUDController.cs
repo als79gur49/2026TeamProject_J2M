@@ -13,7 +13,7 @@ namespace Game.Feature.UI.Flow
             StageInfoViewModel stageInfoViewModel,
             ObjectiveHudViewModel objectiveHudViewModel,
             ChancePanelViewModel chancePanelViewModel,
-            TopologyBeltViewModel topologyBeltViewModel,
+            SurfaceIndicatorViewModel surfaceIndicatorViewModel,
             PlayerStatusViewModel playerStatusViewModel,
             NotificationViewModel notificationViewModel)
         {
@@ -21,7 +21,7 @@ namespace Game.Feature.UI.Flow
             StageInfoViewModel = stageInfoViewModel ?? throw new ArgumentNullException(nameof(stageInfoViewModel));
             ObjectiveHudViewModel = objectiveHudViewModel ?? throw new ArgumentNullException(nameof(objectiveHudViewModel));
             ChancePanelViewModel = chancePanelViewModel ?? throw new ArgumentNullException(nameof(chancePanelViewModel));
-            TopologyBeltViewModel = topologyBeltViewModel ?? throw new ArgumentNullException(nameof(topologyBeltViewModel));
+            SurfaceIndicatorViewModel = surfaceIndicatorViewModel ?? throw new ArgumentNullException(nameof(surfaceIndicatorViewModel));
             PlayerStatusViewModel = playerStatusViewModel ?? throw new ArgumentNullException(nameof(playerStatusViewModel));
             NotificationViewModel = notificationViewModel ?? throw new ArgumentNullException(nameof(notificationViewModel));
         }
@@ -37,7 +37,7 @@ namespace Game.Feature.UI.Flow
                 stageInfoViewModel,
                 objectiveHudViewModel,
                 new ChancePanelViewModel(),
-                new TopologyBeltViewModel(),
+                new SurfaceIndicatorViewModel(),
                 playerStatusViewModel,
                 notificationViewModel)
         {
@@ -51,7 +51,7 @@ namespace Game.Feature.UI.Flow
 
         public ChancePanelViewModel ChancePanelViewModel { get; }
 
-        public TopologyBeltViewModel TopologyBeltViewModel { get; }
+        public SurfaceIndicatorViewModel SurfaceIndicatorViewModel { get; }
 
         public PlayerStatusViewModel PlayerStatusViewModel { get; }
 
@@ -74,7 +74,7 @@ namespace Game.Feature.UI.Flow
             _view.BindStageInfo(StageInfoViewModel);
             _view.ObjectiveHudView.Bind(ObjectiveHudViewModel);
             _view.ChancePanelView?.Bind(ChancePanelViewModel);
-            _view.TopologyBeltView?.Bind(TopologyBeltViewModel);
+            _view.SurfaceIndicatorView?.Bind(SurfaceIndicatorViewModel);
             _view.PlayerStatusView.Bind(PlayerStatusViewModel);
             _view.NotificationView.Bind(NotificationViewModel);
             _view.IsVisible = true;
@@ -94,7 +94,7 @@ namespace Game.Feature.UI.Flow
 
             _view.NotificationView.Bind(null);
             _view.PlayerStatusView.Bind(null);
-            _view.TopologyBeltView?.Bind(null);
+            _view.SurfaceIndicatorView?.Bind(null);
             _view.ChancePanelView?.Bind(null);
             _view.ObjectiveHudView.Bind(null);
             _view.BindStageInfo(null);

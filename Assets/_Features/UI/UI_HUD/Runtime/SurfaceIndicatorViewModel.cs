@@ -2,11 +2,11 @@ using System;
 
 namespace Game.Feature.UI.HUD
 {
-    public readonly struct TopologyBeltAnimationHint : IEquatable<TopologyBeltAnimationHint>
+    public readonly struct SurfaceIndicatorAnimationHint : IEquatable<SurfaceIndicatorAnimationHint>
     {
-        public static readonly TopologyBeltAnimationHint None = new(false, -1, 0);
+        public static readonly SurfaceIndicatorAnimationHint None = new(false, -1, 0);
 
-        public TopologyBeltAnimationHint(
+        public SurfaceIndicatorAnimationHint(
             bool pulseDestination,
             int destinationFaceIndex,
             int sequenceId)
@@ -22,7 +22,7 @@ namespace Game.Feature.UI.HUD
 
         public int SequenceId { get; }
 
-        public bool Equals(TopologyBeltAnimationHint other)
+        public bool Equals(SurfaceIndicatorAnimationHint other)
         {
             return PulseDestination == other.PulseDestination &&
                    DestinationFaceIndex == other.DestinationFaceIndex &&
@@ -31,7 +31,7 @@ namespace Game.Feature.UI.HUD
 
         public override bool Equals(object obj)
         {
-            return obj is TopologyBeltAnimationHint other && Equals(other);
+            return obj is SurfaceIndicatorAnimationHint other && Equals(other);
         }
 
         public override int GetHashCode()
@@ -81,7 +81,7 @@ namespace Game.Feature.UI.HUD
         }
     }
 
-    public sealed class TopologyBeltViewModel
+    public sealed class SurfaceIndicatorViewModel
     {
         public static readonly string[] CanonicalFaceLabels =
         {
@@ -99,13 +99,17 @@ namespace Game.Feature.UI.HUD
 
         public bool IsTransitionActive { get; private set; }
 
-        public string TransitionLabel { get; private set; } = string.Empty;
+        public string SurfaceStateText { get; private set; } = string.Empty;
+
+        public string SourceFaceLabel { get; private set; } = string.Empty;
+
+        public string DestinationFaceLabel { get; private set; } = string.Empty;
 
         public float Progress01 { get; private set; } = 1.0f;
 
         public FaceChipViewModel[] Chips { get; private set; } = BuildChips(0, false, string.Empty, string.Empty);
 
-        public TopologyBeltAnimationHint AnimationHint { get; private set; } = TopologyBeltAnimationHint.None;
+        public SurfaceIndicatorAnimationHint AnimationHint { get; private set; } = SurfaceIndicatorAnimationHint.None;
 
         public void SetState(
             string currentFaceLabel,
@@ -114,16 +118,18 @@ namespace Game.Feature.UI.HUD
             string sourceFaceLabel,
             string destinationFaceLabel,
             float progress01,
-            TopologyBeltAnimationHint animationHint)
+            SurfaceIndicatorAnimationHint animationHint)
         {
             var nextFaceIndex = NormalizeFaceIndex(currentFaceIndex);
             var nextFaceLabel = string.IsNullOrWhiteSpace(currentFaceLabel)
                 ? CanonicalFaceLabels[nextFaceIndex]
                 : currentFaceLabel;
-            var nextTransitionLabel = BuildTransitionLabel(
+            var nextSurfaceStateText = BuildSurfaceStateText(
                 isTransitionActive,
                 sourceFaceLabel,
                 destinationFaceLabel);
+            var nextSourceFaceLabel = sourceFaceLabel ?? string.Empty;
+            var nextDestinationFaceLabel = destinationFaceLabel ?? string.Empty;
             var nextProgress = Math.Max(0.0f, Math.Min(1.0f, progress01));
             var nextChips = BuildChips(
                 nextFaceIndex,
@@ -134,7 +140,9 @@ namespace Game.Feature.UI.HUD
             if (string.Equals(CurrentFaceLabel, nextFaceLabel, StringComparison.Ordinal) &&
                 CurrentFaceIndex == nextFaceIndex &&
                 IsTransitionActive == isTransitionActive &&
-                string.Equals(TransitionLabel, nextTransitionLabel, StringComparison.Ordinal) &&
+                string.Equals(SurfaceStateText, nextSurfaceStateText, StringComparison.Ordinal) &&
+                string.Equals(SourceFaceLabel, nextSourceFaceLabel, StringComparison.Ordinal) &&
+                string.Equals(DestinationFaceLabel, nextDestinationFaceLabel, StringComparison.Ordinal) &&
                 Progress01.Equals(nextProgress) &&
                 AnimationHint.Equals(animationHint) &&
                 ChipsEqual(Chips, nextChips))
@@ -145,14 +153,16 @@ namespace Game.Feature.UI.HUD
             CurrentFaceLabel = nextFaceLabel;
             CurrentFaceIndex = nextFaceIndex;
             IsTransitionActive = isTransitionActive;
-            TransitionLabel = nextTransitionLabel;
+            SurfaceStateText = nextSurfaceStateText;
+            SourceFaceLabel = nextSourceFaceLabel;
+            DestinationFaceLabel = nextDestinationFaceLabel;
             Progress01 = nextProgress;
             Chips = nextChips;
             AnimationHint = animationHint;
             Changed?.Invoke();
         }
 
-        private static string BuildTransitionLabel(
+        private static string BuildSurfaceStateText(
             bool isTransitionActive,
             string sourceFaceLabel,
             string destinationFaceLabel)

@@ -8,7 +8,7 @@ namespace Game.Feature.UI.Application
         private UITopologySlice _previous;
         private int _sequenceId;
 
-        public TopologyBeltViewModel ViewModel { get; } = new();
+        public SurfaceIndicatorViewModel ViewModel { get; } = new();
 
         public void Apply(UITopologySlice topology)
         {
@@ -26,11 +26,11 @@ namespace Game.Feature.UI.Application
             _hasPrevious = true;
         }
 
-        private TopologyBeltAnimationHint BuildAnimationHint(UITopologySlice next)
+        private SurfaceIndicatorAnimationHint BuildAnimationHint(UITopologySlice next)
         {
             if (!_hasPrevious)
             {
-                return TopologyBeltAnimationHint.None;
+                return SurfaceIndicatorAnimationHint.None;
             }
 
             var completedTransition = _previous.IsTransitionActive &&
@@ -38,11 +38,11 @@ namespace Game.Feature.UI.Application
                 _previous.CurrentFaceIndex != next.CurrentFaceIndex;
             if (!completedTransition)
             {
-                return TopologyBeltAnimationHint.None;
+                return SurfaceIndicatorAnimationHint.None;
             }
 
             _sequenceId++;
-            return new TopologyBeltAnimationHint(
+            return new SurfaceIndicatorAnimationHint(
                 true,
                 next.CurrentFaceIndex,
                 _sequenceId);
