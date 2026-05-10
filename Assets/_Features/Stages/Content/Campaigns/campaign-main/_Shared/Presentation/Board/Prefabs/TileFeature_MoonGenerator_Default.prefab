@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 737932831820545621}
   - component: {fileID: 903923434343586168}
+  - component: {fileID: 6660101000000000001}
   m_Layer: 0
   m_Name: TileFeature_MoonGenerator_Default
   m_TagString: Untagged
@@ -50,15 +51,24 @@ MonoBehaviour:
     face: 0
     x: 0
     y: 0
-  animator: {fileID: 0}
+  animator: {fileID: 6660101000000000001}
   buttonActivatedTriggerName: ButtonActivated
   destroyTileTriggeredTriggerName: DestroyTileTriggered
   slideTileRedirectedTriggerName: SlideTileRedirected
   barricadeBlockedTriggerName: BarricadeBlocked
   barricadeCrushedTriggerName: BarricadeCrushed
+  barricadeActivatedTriggerName: BarricadeActivated
+  barricadeDeactivatedTriggerName: BarricadeDeactivated
+  barricadeActiveBoolName: BarricadeActive
+  barricadeRaisedStateName: RaisedIdle
+  barricadeLoweredStateName: LoweredIdle
   exitOpenedTriggerName: ExitOpened
   exitEnteredTriggerName: ExitEntered
   moonBlockGeneratedTriggerName: MoonBlockGenerated
+  moonBlockGeneratorBlockedTriggerName: MoonBlockGeneratorBlocked
+  moonBlockGeneratorBlockedUnitTriggerName:
+  moonBlockGeneratorBlockedWallLikeSolidTriggerName:
+  moonBlockGeneratorBlockedPlacementTriggerName:
   buttonActivatedParticles: {fileID: 0}
   destroyTileTriggeredParticles: {fileID: 0}
   slideTileRedirectedParticles: {fileID: 0}
@@ -67,6 +77,10 @@ MonoBehaviour:
   exitOpenedParticles: {fileID: 0}
   exitEnteredParticles: {fileID: 0}
   moonBlockGeneratedParticles: {fileID: 0}
+  moonBlockGeneratorBlockedParticles: {fileID: 0}
+  moonBlockGeneratorBlockedUnitParticles: {fileID: 0}
+  moonBlockGeneratorBlockedWallLikeSolidParticles: {fileID: 0}
+  moonBlockGeneratorBlockedPlacementParticles: {fileID: 0}
   buttonActivatedPlayed:
     m_PersistentCalls:
       m_Calls: []
@@ -82,6 +96,12 @@ MonoBehaviour:
   barricadeCrushedPlayed:
     m_PersistentCalls:
       m_Calls: []
+  barricadeActivatedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  barricadeDeactivatedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
   exitOpenedPlayed:
     m_PersistentCalls:
       m_Calls: []
@@ -91,6 +111,40 @@ MonoBehaviour:
   moonBlockGeneratedPlayed:
     m_PersistentCalls:
       m_Calls: []
+  moonBlockGeneratorBlockedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  moonBlockGeneratorBlockedUnitPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  moonBlockGeneratorBlockedWallLikeSolidPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  moonBlockGeneratorBlockedPlacementPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!95 &6660101000000000001
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4481319356736171375}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 68845b07cb504714b660128830183788, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage:
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &7140505535224229829
 GameObject:
   m_ObjectHideFlags: 0
