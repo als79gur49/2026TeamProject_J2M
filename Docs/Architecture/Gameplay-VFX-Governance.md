@@ -1278,6 +1278,7 @@ TileFeatureAudio and GravityFieldAudio are not VFX. If those lanes are needed, t
 | `EnableGameplayVfxItemConsumeBurstMigration` | `BoxVfxCue.ItemConsume` | Migration | True | Tier 1 | Yes | targeted tests + visual spot check |
 | `EnableEnemyJumpLandingDustVfx` | `EnemyVfxCue.JumperLandingDust` | Augmentation | True | Tier 1 | Yes | targeted tests + visual spot check |
 | `EnableGameplayVfxBoxSlideTrail` | `BoxVfxCue.SlideDustTrail` | Augmentation / parameterized motion | True | Tier 1 | Yes | targeted tests + density visual spot check |
+| `EnableGameplayVfxBoxSlideSolidStop` | `BoxVfxCue.BoxSlideSolidStop` | Augmentation / signal-owned boundary VFX | True | Tier 1 | Yes | targeted planner/runtime regression + visual spot check |
 | `EnableGameplayVfxImpactTransientBreakMigration` | `BoxVfxCue.ImpactTransientBreak` | Migration / reserved parameterized clone motion | True | Tier 2 | Yes | manual visual approval + targeted reserved-hook regression |
 | `EnableGameplayVfxOutOfBoundsExitMigration` | `BoxVfxCue.OutOfBoundsExit / EnemyVfxCue.OutOfBoundsExit` | Migration / reserved parameterized clone motion | True | Tier 2 | Yes | manual visual approval + targeted reserved-hook regression |
 | `EnableEnemyJumpTargetVfx` | `EnemyVfxCue.JumperLandingTarget` | Augmentation | True | Tier 2 | Yes | manual visual approval + targeted regression |
