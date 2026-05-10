@@ -719,12 +719,14 @@ namespace Game.Feature.Gameplay.Loop
             var tileEvents = new List<TilePresentationEvent>();
             var gravityFieldEvents = new List<GravityFieldPresentationEvent>();
             var gravityFieldVisualStates = new List<GravityFieldVisualState>();
+            var tileFeatureActiveVisualStates = new List<TileFeatureActiveVisualState>();
             var exitOwnedEntityIds = new HashSet<int>();
             var topologyFact = ResolveTopologyTransitionFact(context);
 
             BuildTilePresentationEvents(context, topologyFact, tileEvents);
             BuildGravityFieldPresentationEvents(context, gravityFieldEvents);
             BuildGravityFieldVisualStates(context, gravityFieldVisualStates);
+            BuildTileFeatureActiveVisualStates(context, topologyFact, tileFeatureActiveVisualStates);
             BuildEntityExitPresentation(context, entityExitSignals, exitOwnedEntityIds);
             BuildFlipImpactPresentation(context, flipImpactSignals);
             BuildImpactTransientPresentation(context, impactTransientSignals);
@@ -777,6 +779,7 @@ namespace Game.Feature.Gameplay.Loop
                    tileEvents.Count == 0 &&
                    gravityFieldEvents.Count == 0 &&
                    gravityFieldVisualStates.Count == 0 &&
+                   tileFeatureActiveVisualStates.Count == 0 &&
                    !topologyMotion.HasValue
                 ? TickPresentationData.Empty
                 : new TickPresentationData(
@@ -806,7 +809,46 @@ namespace Game.Feature.Gameplay.Loop
                     enemyGlideSignals,
                     tileEvents,
                     gravityFieldEvents,
-                    gravityFieldVisualStates);
+                    gravityFieldVisualStates,
+                    tileFeatureActiveVisualStates);
+        }
+
+        private static void BuildTileFeatureActiveVisualStates(
+            in TickPresentationBuildContext context,
+            in TickTopologyTransitionFact topologyFact,
+            List<TileFeatureActiveVisualState> tileFeatureActiveVisualStates)
+        {
+            var finalTopology = topologyFact.HasTransition
+                ? topologyFact.DestinationTopology
+                : context.FinalAuthoritativeSnapshot.Topology;
+            var finalTileFeatures = new List<TileFeatureState>();
+            context.FinalAuthoritativeSnapshot.EnumerateTileFeaturesOrdered(finalTileFeatures);
+
+            for (var i = 0; i < finalTileFeatures.Count; i++)
+            {
+                var finalTileFeature = finalTileFeatures[i];
+                if (finalTileFeature.Kind != TileFeatureKind.Destroy ||
+                    !TryGetTileFeatureDefinition(
+                        context.TileFeatureDefinitions,
+                        finalTileFeature.TileId,
+                        out var definition) ||
+                    !TileFeatureActivationQueries.IsActive(
+                        finalTileFeature,
+                        definition,
+                        finalTopology))
+                {
+                    continue;
+                }
+
+                tileFeatureActiveVisualStates.Add(
+                    new TileFeatureActiveVisualState(
+                        finalTileFeature.TileId,
+                        finalTileFeature.Cell,
+                        finalTileFeature.Kind,
+                        finalTileFeature.SourceEntityId,
+                        finalTileFeature.OwnerEntityId,
+                        finalTileFeature.TeamId));
+            }
         }
 
         private static void BuildGravityFieldVisualStates(

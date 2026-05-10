@@ -37,6 +37,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(TickPresentationData.Empty.FrontFaceShieldWindupWarnings, Is.Empty);
             Assert.That(TickPresentationData.Empty.TileEvents, Is.Empty);
             Assert.That(TickPresentationData.Empty.GravityFieldVisualStates, Is.Empty);
+            Assert.That(TickPresentationData.Empty.TileFeatureActiveVisualStates, Is.Empty);
 
             var presentationData = new TickPresentationData(Array.Empty<TickEntityMotion>());
 
@@ -46,6 +47,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(presentationData.FrontFaceShieldWindupWarnings, Is.Empty);
             Assert.That(presentationData.TileEvents, Is.Empty);
             Assert.That(presentationData.GravityFieldVisualStates, Is.Empty);
+            Assert.That(presentationData.TileFeatureActiveVisualStates, Is.Empty);
         }
 
         [Test]
@@ -1492,6 +1494,66 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     }));
 
             Assert.That(presentationData.TileEvents, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickPresentationDataBuilder_DestroyTileActiveVisualStates_UseFinalTopology()
+        {
+            var activeCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var inactiveCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var activeDestroy = CreateTileFeature(
+                100,
+                activeCell,
+                TileFeatureKind.Destroy,
+                TileFeatureFlags.None,
+                sourceEntityId: 10,
+                ownerEntityId: 20,
+                teamId: 1);
+            var inactiveDestroy = CreateTileFeature(
+                101,
+                inactiveCell,
+                TileFeatureKind.Destroy,
+                TileFeatureFlags.None);
+            var activeNonDestroy = CreateTileFeature(
+                102,
+                activeCell,
+                TileFeatureKind.Barricade,
+                TileFeatureFlags.None);
+            var preMovementSnapshot = CreateTileFeatureSnapshot(
+                new CubeTopologyState(FaceId.Floor),
+                activeDestroy,
+                inactiveDestroy,
+                activeNonDestroy);
+            var finalSnapshot = CreateTileFeatureSnapshot(
+                new CubeTopologyState(FaceId.Front),
+                activeDestroy,
+                inactiveDestroy,
+                activeNonDestroy);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                        CreateTileFeatureDefinition(101, TileFeatureActivationRule.FrontFaceOnly),
+                        CreateTileFeatureDefinition(102, TileFeatureActivationRule.FrontFaceOnly),
+                    }));
+
+            var state = presentationData.TileFeatureActiveVisualStates.Single();
+            Assert.That(state.TileId, Is.EqualTo(100));
+            Assert.That(state.Cell, Is.EqualTo(activeCell));
+            Assert.That(state.TileFeatureKind, Is.EqualTo(TileFeatureKind.Destroy));
+            Assert.That(state.SourceEntityId, Is.EqualTo(10));
+            Assert.That(state.OwnerEntityId, Is.EqualTo(20));
+            Assert.That(state.TeamId, Is.EqualTo(1));
         }
 
         [Test]

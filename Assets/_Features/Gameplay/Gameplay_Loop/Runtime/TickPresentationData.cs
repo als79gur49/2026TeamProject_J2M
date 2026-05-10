@@ -366,6 +366,37 @@ namespace Game.Feature.Gameplay.Loop
         }
     }
 
+    public readonly struct TileFeatureActiveVisualState
+    {
+        public TileFeatureActiveVisualState(
+            int tileId,
+            SurfaceCell cell,
+            TileFeatureKind tileFeatureKind,
+            int sourceEntityId,
+            int ownerEntityId,
+            int teamId)
+        {
+            TileId = tileId;
+            Cell = cell;
+            TileFeatureKind = tileFeatureKind;
+            SourceEntityId = sourceEntityId;
+            OwnerEntityId = ownerEntityId;
+            TeamId = teamId;
+        }
+
+        public int TileId { get; }
+
+        public SurfaceCell Cell { get; }
+
+        public TileFeatureKind TileFeatureKind { get; }
+
+        public int SourceEntityId { get; }
+
+        public int OwnerEntityId { get; }
+
+        public int TeamId { get; }
+    }
+
     public readonly struct TickEntityMotion
     {
         // Motion records describe a render transition between already-committed logical cells.
@@ -1587,6 +1618,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<TilePresentationEvent> _tileEvents;
         private readonly ReadOnlyCollection<GravityFieldPresentationEvent> _gravityFieldEvents;
         private readonly ReadOnlyCollection<GravityFieldVisualState> _gravityFieldVisualStates;
+        private readonly ReadOnlyCollection<TileFeatureActiveVisualState> _tileFeatureActiveVisualStates;
         private ReadOnlyCollection<TickFrontFaceShieldBlockSignal> _frontFaceShieldBlocks;
         private ReadOnlyCollection<TickFrontFaceShieldSourceSignal> _frontFaceShieldSources;
         private ReadOnlyCollection<TickFrontFaceShieldWindupWarningSignal> _frontFaceShieldWindupWarnings;
@@ -1932,7 +1964,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickEnemyGlidePresentationSignal> enemyGlideSignals = null,
             IEnumerable<TilePresentationEvent> tileEvents = null,
             IEnumerable<GravityFieldPresentationEvent> gravityFieldEvents = null,
-            IEnumerable<GravityFieldVisualState> gravityFieldVisualStates = null)
+            IEnumerable<GravityFieldVisualState> gravityFieldVisualStates = null,
+            IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null)
         {
             if (entityMotions == null)
             {
@@ -2015,6 +2048,9 @@ namespace Game.Feature.Gameplay.Loop
             _gravityFieldVisualStates = new ReadOnlyCollection<GravityFieldVisualState>(
                 new List<GravityFieldVisualState>(
                     gravityFieldVisualStates ?? Array.Empty<GravityFieldVisualState>()));
+            _tileFeatureActiveVisualStates = new ReadOnlyCollection<TileFeatureActiveVisualState>(
+                new List<TileFeatureActiveVisualState>(
+                    tileFeatureActiveVisualStates ?? Array.Empty<TileFeatureActiveVisualState>()));
             _topologyMotion = topologyMotion;
             _visibilityChanges = new ReadOnlyCollection<TickVisibilityChange>(new List<TickVisibilityChange>(visibilityChanges));
             _transitionVisibilityChanges = new ReadOnlyCollection<TickTransitionVisibilityChange>(
@@ -2079,7 +2115,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<FlipImpactPresentationSignal> flipImpactSignals,
             IEnumerable<TilePresentationEvent> tileEvents = null,
             IEnumerable<GravityFieldPresentationEvent> gravityFieldEvents = null,
-            IEnumerable<GravityFieldVisualState> gravityFieldVisualStates = null)
+            IEnumerable<GravityFieldVisualState> gravityFieldVisualStates = null,
+            IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -2097,7 +2134,8 @@ namespace Game.Feature.Gameplay.Loop
                 flipImpactSignals,
                 tileEvents: tileEvents,
                 gravityFieldEvents: gravityFieldEvents,
-                gravityFieldVisualStates: gravityFieldVisualStates)
+                gravityFieldVisualStates: gravityFieldVisualStates,
+                tileFeatureActiveVisualStates: tileFeatureActiveVisualStates)
         {
         }
 
@@ -2157,7 +2195,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickEnemyGlidePresentationSignal> enemyGlideSignals = null,
             IEnumerable<TilePresentationEvent> tileEvents = null,
             IEnumerable<GravityFieldPresentationEvent> gravityFieldEvents = null,
-            IEnumerable<GravityFieldVisualState> gravityFieldVisualStates = null)
+            IEnumerable<GravityFieldVisualState> gravityFieldVisualStates = null,
+            IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -2179,7 +2218,8 @@ namespace Game.Feature.Gameplay.Loop
                 enemyGlideSignals: enemyGlideSignals,
                 tileEvents: tileEvents,
                 gravityFieldEvents: gravityFieldEvents,
-                gravityFieldVisualStates: gravityFieldVisualStates)
+                gravityFieldVisualStates: gravityFieldVisualStates,
+                tileFeatureActiveVisualStates: tileFeatureActiveVisualStates)
         {
             if (impactTransientSignals == null)
             {
@@ -2217,7 +2257,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickEnemyGlidePresentationSignal> enemyGlideSignals = null,
             IEnumerable<TilePresentationEvent> tileEvents = null,
             IEnumerable<GravityFieldPresentationEvent> gravityFieldEvents = null,
-            IEnumerable<GravityFieldVisualState> gravityFieldVisualStates = null)
+            IEnumerable<GravityFieldVisualState> gravityFieldVisualStates = null,
+            IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -2240,7 +2281,8 @@ namespace Game.Feature.Gameplay.Loop
                 enemyGlideSignals,
                 tileEvents,
                 gravityFieldEvents,
-                gravityFieldVisualStates)
+                gravityFieldVisualStates,
+                tileFeatureActiveVisualStates)
         {
             if (summonedEnemyPresentationBindings == null)
             {
@@ -2274,6 +2316,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<GravityFieldPresentationEvent> GravityFieldEvents => _gravityFieldEvents;
 
         public IReadOnlyList<GravityFieldVisualState> GravityFieldVisualStates => _gravityFieldVisualStates;
+
+        public IReadOnlyList<TileFeatureActiveVisualState> TileFeatureActiveVisualStates => _tileFeatureActiveVisualStates;
 
         public TickTopologyMotion? TopologyMotion => _topologyMotion;
 
