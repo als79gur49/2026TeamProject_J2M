@@ -9,6 +9,7 @@ using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
+using Game.Feature.UI.Screens;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -237,10 +238,15 @@ namespace Game.Feature.UI.Tests
                 installer.RewardPopupView.ClickAcknowledge();
                 Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
 
+                var stageResultPayload = installer.ScreenController.CurrentEntry.Value.Payload as StageResultScreenPayload;
+                Assert.That(stageResultPayload, Is.Not.Null);
+                Assert.That(stageResultPayload.ContinueStageRequest.IsValid, Is.True);
+                Assert.That(stageResultPayload.ContinueStageRequest.StageId, Is.EqualTo(contentEntry.StageId));
+                Assert.That(stageResultPayload.ContinueStageRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Continue));
+
                 installer.StageResultScreenView.ClickContinue();
 
-                Assert.That(StageLaunchContextStore.TryGetCurrent(out var requestedStageId), Is.True);
-                Assert.That(requestedStageId, Is.EqualTo(contentEntry.StageId));
+                Assert.That(StageLaunchContextStore.TryGetCurrent(out _), Is.False);
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
                 Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
             }
