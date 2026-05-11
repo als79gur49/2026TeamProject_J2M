@@ -476,7 +476,7 @@ namespace Game.Feature.UI.Tests
                 .transform;
             var settingsRootLayout = RequireComponent<VerticalLayoutGroup>(settingsRoot);
             Assert.That(settingsRoot.GetChild(0).name, Is.EqualTo("Background"));
-            Assert.That(settingsRootLayout.padding.top, Is.EqualTo(20));
+            Assert.That(settingsRootLayout.padding.top, Is.EqualTo(40));
             Assert.That(settingsRootLayout.padding.bottom, Is.EqualTo(20));
             RequireComponent<HorizontalLayoutGroup>(FindRequired(settingsRoot, "SettingsHeader"));
             RequireComponent<HorizontalLayoutGroup>(FindRequired(settingsRoot, "SettingsTabRow"));
@@ -484,7 +484,7 @@ namespace Game.Feature.UI.Tests
             RequireComponent<VerticalLayoutGroup>(sectionHost);
             var sectionHostLayout = RequireComponent<LayoutElement>(sectionHost);
             Assert.That(sectionHostLayout.minHeight, Is.EqualTo(320f));
-            Assert.That(sectionHostLayout.preferredHeight, Is.EqualTo(432f));
+            Assert.That(sectionHostLayout.preferredHeight, Is.EqualTo(400f));
             AssertSettingsSectionLayout(FindRequired(sectionHost, SettingsScreenView.AudioSectionName));
             AssertSettingsSectionLayout(FindRequired(sectionHost, SettingsScreenView.DisplaySectionName));
             AssertSettingsSectionLayout(FindRequired(sectionHost, SettingsScreenView.InputSectionName));
@@ -497,7 +497,7 @@ namespace Game.Feature.UI.Tests
             RequireComponent<HorizontalLayoutGroup>(FindRequired(sectionHost, "SettingsDisplaySection/FullscreenRow"));
             RequireComponent<HorizontalLayoutGroup>(FindRequired(sectionHost, "SettingsDisplaySection/DisplayActionRow"));
             RequireComponent<CanvasGroup>(FindRequired(sectionHost, "SettingsDisplaySection/ResolutionHoverHint"));
-            RequireComponent<LayoutElement>(FindRequired(sectionHost, "SettingsDisplaySection/DisplayPreviewCountdown"));
+            RequireComponent<LayoutElement>(FindRequired(sectionHost, "SettingsDisplaySection/DisplayPreviewCountdownRow/DisplayPreviewCountdown"));
             RequireComponent<HorizontalLayoutGroup>(FindRequired(sectionHost, "SettingsInputSection/MovementInputRow"));
             var pushInputRow = FindRequired(sectionHost, "SettingsInputSection/PushInputRow");
             var flipInputRow = FindRequired(sectionHost, "SettingsInputSection/FlipInputRow");
@@ -572,7 +572,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(((TMP_Text)serializedAudio.FindProperty("_sfxRow._label").objectReferenceValue).text, Is.EqualTo("Effects"));
 
             var serializedDisplay = new SerializedObject(displayView);
-            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_sectionTitle", displayView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_currentDisplayLabel", displayView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_currentDisplayValue", displayView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_resolutionLabel", displayView.transform);
@@ -595,7 +594,6 @@ namespace Game.Feature.UI.Tests
             var hoverHintRoot = (RectTransform)serializedDisplay.FindProperty("_resolutionHoverHintRoot").objectReferenceValue;
             var hoverHintLabel = (TMP_Text)serializedDisplay.FindProperty("_resolutionHoverHintLabel").objectReferenceValue;
             var hoverRelay = (SettingsHoverRelay)serializedDisplay.FindProperty("_resolutionHoverRelay").objectReferenceValue;
-            var sectionTitle = (TMP_Text)serializedDisplay.FindProperty("_sectionTitle").objectReferenceValue;
             var currentDisplayLabel = (TMP_Text)serializedDisplay.FindProperty("_currentDisplayLabel").objectReferenceValue;
             var resolutionLabel = (TMP_Text)serializedDisplay.FindProperty("_resolutionLabel").objectReferenceValue;
             var fullscreenLabel = (TMP_Text)serializedDisplay.FindProperty("_fullscreenLabel").objectReferenceValue;
@@ -612,8 +610,8 @@ namespace Game.Feature.UI.Tests
                 ? countdownSlider.fillRect.GetComponent<Image>()
                 : null;
 
+            Assert.That(displayView.transform.Find("DisplaySectionTitle"), Is.Null);
             Assert.That(hoverHintRoot.gameObject.activeSelf, Is.False);
-            Assert.That(sectionTitle.text, Is.EqualTo("Display"));
             Assert.That(currentDisplayLabel.text, Is.EqualTo("Current Display"));
             Assert.That(resolutionLabel.text, Is.EqualTo("Resolution"));
             Assert.That(hoverHintLabel.text, Is.EqualTo("Only automatically detected resolutions are shown."));
@@ -647,6 +645,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(countdownFill.raycastTarget, Is.False);
 
             var serializedInput = new SerializedObject(inputView);
+            Assert.That(inputView.transform.Find("InputSectionTitle"), Is.Null);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedInput, "_pushKeyDisplayLabel", inputView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedInput, "_flipKeyDisplayLabel", inputView.transform);
 
@@ -679,7 +678,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(resetButton.GetComponent<Animator>(), Is.Not.Null);
             Assert.That(resetButtonLabel.name, Is.EqualTo("ResetInputLabel"));
             Assert.That(resetButton.GetComponent<LayoutElement>().preferredWidth, Is.EqualTo(180f));
-            Assert.That(resetButton.GetComponent<LayoutElement>().preferredHeight, Is.EqualTo(40f));
+            Assert.That(resetButton.GetComponent<LayoutElement>().preferredHeight, Is.EqualTo(36f));
             Assert.That(inputView.transform.Find("FlipInputRow/FlipChange_Legacy").gameObject.activeSelf, Is.False);
             Assert.That(inputView.transform.Find("InputResetRow/ResetInput_Legacy").gameObject.activeSelf, Is.False);
         }
@@ -702,7 +701,6 @@ namespace Game.Feature.UI.Tests
 
                 inputView.Bind(viewModel);
                 viewModel.SetContent(
-                    "Input",
                     "Movement Keys",
                     "Use Arrow Keys",
                     false,
@@ -723,7 +721,6 @@ namespace Game.Feature.UI.Tests
                 Assert.That(flipKeyDisplayLabel.text, Is.EqualTo("T"));
 
                 viewModel.SetContent(
-                    "Input",
                     "Movement Keys",
                     "Use Arrow Keys",
                     false,
@@ -792,7 +789,6 @@ namespace Game.Feature.UI.Tests
                 string statusText)
             {
                 viewModel.SetContent(
-                    "Input",
                     "Movement Keys",
                     "Use Arrow Keys",
                     false,
@@ -838,14 +834,12 @@ namespace Game.Feature.UI.Tests
             }
         }
 
-        [TestCase(1920f, 1080f, 560f, 640f)]
-        [TestCase(1280f, 720f, 560f, 592f)]
-        [TestCase(1366f, 768f, 560f, 640f)]
-        public void SettingsScreenRuntimeLayout_ClampsCenteredPanelWithinParent(
+        [TestCase(1920f, 1080f)]
+        [TestCase(1280f, 720f)]
+        [TestCase(1366f, 768f)]
+        public void SettingsScreenRuntimeLayout_UsesAuthoredCenteredPanelSize(
             float parentWidth,
-            float parentHeight,
-            float expectedWidth,
-            float expectedHeight)
+            float parentHeight)
         {
             var parentObject = new GameObject("SettingsScreenRuntimeLayoutParent", typeof(RectTransform));
             var parentRect = (RectTransform)parentObject.transform;
@@ -867,10 +861,8 @@ namespace Game.Feature.UI.Tests
                 Assert.That(settingsRect.anchorMax, Is.EqualTo(new Vector2(0.5f, 0.5f)));
                 Assert.That(settingsRect.pivot, Is.EqualTo(new Vector2(0.5f, 0.5f)));
                 Assert.That(settingsRect.anchoredPosition, Is.EqualTo(Vector2.zero));
-                Assert.That(settingsRect.sizeDelta.x, Is.EqualTo(expectedWidth).Within(0.01f));
-                Assert.That(settingsRect.sizeDelta.y, Is.EqualTo(expectedHeight).Within(0.01f));
-                Assert.That(settingsRect.sizeDelta.x, Is.LessThanOrEqualTo(parentWidth - 128f));
-                Assert.That(settingsRect.sizeDelta.y, Is.LessThanOrEqualTo(parentHeight - 128f));
+                Assert.That(settingsRect.sizeDelta.x, Is.EqualTo(800f).Within(0.01f));
+                Assert.That(settingsRect.sizeDelta.y, Is.EqualTo(700f).Within(0.01f));
             }
             finally
             {

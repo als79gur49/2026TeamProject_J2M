@@ -708,7 +708,6 @@ namespace Game.Feature.UI.Application
     public readonly struct SettingsInputPresenterInput
     {
         public SettingsInputPresenterInput(
-            string sectionTitle,
             string movementLabel,
             string useArrowKeysLabel,
             string pushLabel,
@@ -716,7 +715,6 @@ namespace Game.Feature.UI.Application
             string changeLabel,
             string resetLabel)
         {
-            SectionTitle = sectionTitle ?? string.Empty;
             MovementLabel = movementLabel ?? string.Empty;
             UseArrowKeysLabel = useArrowKeysLabel ?? string.Empty;
             PushLabel = pushLabel ?? string.Empty;
@@ -724,8 +722,6 @@ namespace Game.Feature.UI.Application
             ChangeLabel = changeLabel ?? string.Empty;
             ResetLabel = resetLabel ?? string.Empty;
         }
-
-        public string SectionTitle { get; }
 
         public string MovementLabel { get; }
 
@@ -744,7 +740,6 @@ namespace Game.Feature.UI.Application
     {
         private readonly IKeyboardBindingSettingsPort _keyboardBindingSettingsPort;
         private SettingsInputPresenterInput _input = new SettingsInputPresenterInput(
-            "Input",
             "Movement Keys",
             "Use Arrow Keys",
             "Push",
@@ -814,7 +809,6 @@ namespace Game.Feature.UI.Application
         {
             var areControlsInteractable = !snapshot.IsRebinding;
             ViewModel.SetContent(
-                _input.SectionTitle,
                 _input.MovementLabel,
                 _input.UseArrowKeysLabel,
                 snapshot.MovementScheme == KeyboardMovementScheme.ArrowKeys,
@@ -899,7 +893,6 @@ namespace Game.Feature.UI.Application
             AudioPresenter.Apply(default);
             DisplayPresenter.Apply(default, previewTimeoutSeconds);
             InputPresenter.Apply(new SettingsInputPresenterInput(
-                _payload.InputSectionTitle,
                 _payload.MovementLabel,
                 _payload.UseArrowKeysLabel,
                 _payload.PushLabel,

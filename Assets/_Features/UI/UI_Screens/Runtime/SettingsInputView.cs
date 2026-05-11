@@ -12,7 +12,6 @@ namespace Game.Feature.UI.Screens
         private const string MissingControlsMessage =
             "Settings input section is missing required authored controls. Repair: open SettingsScreen.prefab and assign every SettingsInputView serialized reference.";
 
-        [SerializeField] private TMP_Text _sectionTitle;
         [SerializeField] private TMP_Text _movementLabel;
         [SerializeField] private Toggle _movementToggle;
         [SerializeField] private TMP_Text _movementToggleLabel;
@@ -72,7 +71,6 @@ namespace Game.Feature.UI.Screens
         public void ValidateAuthoredControlsOrThrow()
         {
             var issues = new List<string>();
-            ValidateControl(_sectionTitle, nameof(_sectionTitle), issues);
             ValidateControl(_movementLabel, nameof(_movementLabel), issues);
             ValidateControl(_movementToggle, nameof(_movementToggle), issues);
             ValidateControl(_movementToggleLabel, nameof(_movementToggleLabel), issues);
@@ -157,7 +155,6 @@ namespace Game.Feature.UI.Screens
 #if UNITY_EDITOR
         private void OnValidate()
         {
-            ValidateSerializedReference(_sectionTitle, nameof(_sectionTitle));
             ValidateSerializedReference(_movementLabel, nameof(_movementLabel));
             ValidateSerializedReference(_movementToggle, nameof(_movementToggle));
             ValidateSerializedReference(_movementToggleLabel, nameof(_movementToggleLabel));
@@ -213,7 +210,6 @@ namespace Game.Feature.UI.Screens
             _isRefreshingControls = true;
             try
             {
-                SetText(_sectionTitle, _viewModel.SectionTitle);
                 SetText(_movementLabel, _viewModel.MovementLabel);
                 SetText(_movementToggleLabel, _viewModel.UseArrowKeysLabel);
                 SetText(_movementCurrentText, _viewModel.MovementCurrentText);

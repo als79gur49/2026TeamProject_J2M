@@ -11,7 +11,6 @@ namespace Game.Feature.UI.Screens
         private const string MissingControlsMessage =
             "Settings display section is missing required authored controls. Repair: open SettingsScreen.prefab and assign every SettingsDisplayView serialized reference.";
 
-        [SerializeField] private TMP_Text _sectionTitle;
         [SerializeField] private TMP_Text _currentDisplayLabel;
         [SerializeField] private TMP_Text _currentDisplayValue;
         [SerializeField] private TMP_Text _resolutionLabel;
@@ -84,7 +83,6 @@ namespace Game.Feature.UI.Screens
         public void ValidateAuthoredControlsOrThrow()
         {
             var issues = new List<string>();
-            ValidateControl(_sectionTitle, nameof(_sectionTitle), issues);
             ValidateControl(_currentDisplayLabel, nameof(_currentDisplayLabel), issues);
             ValidateControl(_currentDisplayValue, nameof(_currentDisplayValue), issues);
             ValidateControl(_resolutionLabel, nameof(_resolutionLabel), issues);
@@ -177,7 +175,6 @@ namespace Game.Feature.UI.Screens
 #if UNITY_EDITOR
         private void OnValidate()
         {
-            ValidateSerializedReference(_sectionTitle, nameof(_sectionTitle));
             ValidateSerializedReference(_currentDisplayLabel, nameof(_currentDisplayLabel));
             ValidateSerializedReference(_currentDisplayValue, nameof(_currentDisplayValue));
             ValidateSerializedReference(_resolutionLabel, nameof(_resolutionLabel));
@@ -409,7 +406,7 @@ namespace Game.Feature.UI.Screens
 
         private void ShowResolutionHoverHint()
         {
-            if (!_isVisible || _viewModel == null || !HasResolutionHoverHintText())
+            if (!_isVisible || _viewModel == null || !HasResolutionHoverHintCopy())
             {
                 HideResolutionHoverHint();
                 return;
@@ -435,11 +432,11 @@ namespace Game.Feature.UI.Screens
             var shouldShow = _isVisible &&
                              _isResolutionHoverHintVisible &&
                              _viewModel != null &&
-                             HasResolutionHoverHintText();
+                             HasResolutionHoverHintCopy();
             _resolutionHoverHintRoot.gameObject.SetActive(shouldShow);
         }
 
-        private bool HasResolutionHoverHintText()
+        private bool HasResolutionHoverHintCopy()
         {
             return _resolutionHoverHintLabel != null &&
                    !string.IsNullOrEmpty(_resolutionHoverHintLabel.text);

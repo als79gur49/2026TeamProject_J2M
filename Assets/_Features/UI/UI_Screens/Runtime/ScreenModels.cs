@@ -37,7 +37,6 @@ namespace Game.Feature.UI.Screens
             "Audio",
             "Display",
             "Input",
-            "Input",
             "Movement Keys",
             "Use Arrow Keys",
             "Push",
@@ -54,7 +53,6 @@ namespace Game.Feature.UI.Screens
                 "Audio",
                 "Display",
                 "Input",
-                "Input",
                 "Movement Keys",
                 "Use Arrow Keys",
                 "Push",
@@ -70,7 +68,6 @@ namespace Game.Feature.UI.Screens
             string audioTabLabel,
             string displayTabLabel,
             string inputTabLabel,
-            string inputSectionTitle,
             string movementLabel,
             string useArrowKeysLabel,
             string pushLabel,
@@ -83,7 +80,6 @@ namespace Game.Feature.UI.Screens
             AudioTabLabel = audioTabLabel ?? string.Empty;
             DisplayTabLabel = displayTabLabel ?? string.Empty;
             InputTabLabel = inputTabLabel ?? string.Empty;
-            InputSectionTitle = inputSectionTitle ?? string.Empty;
             MovementLabel = movementLabel ?? string.Empty;
             UseArrowKeysLabel = useArrowKeysLabel ?? string.Empty;
             PushLabel = pushLabel ?? string.Empty;
@@ -100,8 +96,6 @@ namespace Game.Feature.UI.Screens
         public string DisplayTabLabel { get; }
 
         public string InputTabLabel { get; }
-
-        public string InputSectionTitle { get; }
 
         public string MovementLabel { get; }
 
@@ -332,8 +326,6 @@ namespace Game.Feature.UI.Screens
     {
         public event Action Changed;
 
-        public string SectionTitle { get; private set; } = string.Empty;
-
         public string MovementLabel { get; private set; } = string.Empty;
 
         public string UseArrowKeysLabel { get; private set; } = string.Empty;
@@ -365,7 +357,6 @@ namespace Game.Feature.UI.Screens
         public bool AreControlsInteractable { get; private set; } = true;
 
         public void SetContent(
-            string sectionTitle,
             string movementLabel,
             string useArrowKeysLabel,
             bool useArrowKeys,
@@ -382,7 +373,6 @@ namespace Game.Feature.UI.Screens
             KeyboardBindableAction? rebindingAction,
             bool areControlsInteractable)
         {
-            SectionTitle = sectionTitle ?? string.Empty;
             MovementLabel = movementLabel ?? string.Empty;
             UseArrowKeysLabel = useArrowKeysLabel ?? string.Empty;
             UseArrowKeys = useArrowKeys;
