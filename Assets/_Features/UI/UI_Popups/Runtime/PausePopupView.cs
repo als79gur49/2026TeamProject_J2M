@@ -18,6 +18,10 @@ namespace Game.Feature.UI.Popups
         [SerializeField] private TMP_Text _objectiveButtonLabel;
         [SerializeField] private Button _settingsButton;
         [SerializeField] private TMP_Text _settingsButtonLabel;
+        [SerializeField] private Button _retryButton;
+        [SerializeField] private TMP_Text _retryButtonLabel;
+        [SerializeField] private Button _mainMenuButton;
+        [SerializeField] private TMP_Text _mainMenuButtonLabel;
 
         private PausePopupViewModel _viewModel;
         private bool _isVisible;
@@ -65,6 +69,8 @@ namespace Game.Feature.UI.Popups
             RebindButton(_resumeButton, ClickResume);
             RebindButton(_objectiveButton, ClickObjective);
             RebindButton(_settingsButton, ClickSettings);
+            RebindButton(_retryButton, ClickRetry);
+            RebindButton(_mainMenuButton, ClickMainMenu);
 
             RefreshView();
         }
@@ -75,6 +81,8 @@ namespace Game.Feature.UI.Popups
             UnbindButton(_resumeButton, ClickResume);
             UnbindButton(_objectiveButton, ClickObjective);
             UnbindButton(_settingsButton, ClickSettings);
+            UnbindButton(_retryButton, ClickRetry);
+            UnbindButton(_mainMenuButton, ClickMainMenu);
         }
 
         public void SetIsTopmost(bool isTopmost)
@@ -118,6 +126,26 @@ namespace Game.Feature.UI.Popups
             CompletionRequested?.Invoke(PopupCompletionKind.SettingsRequested);
         }
 
+        public void ClickRetry()
+        {
+            if (!IsVisible || _viewModel == null || _canvasGroup == null || !_canvasGroup.interactable)
+            {
+                return;
+            }
+
+            CompletionRequested?.Invoke(PopupCompletionKind.RetryRequested);
+        }
+
+        public void ClickMainMenu()
+        {
+            if (!IsVisible || _viewModel == null || _canvasGroup == null || !_canvasGroup.interactable)
+            {
+                return;
+            }
+
+            CompletionRequested?.Invoke(PopupCompletionKind.MainMenuRequested);
+        }
+
         private void OnDestroy()
         {
             StopRootEnterMotion();
@@ -129,6 +157,8 @@ namespace Game.Feature.UI.Popups
             UnbindButton(_resumeButton, ClickResume);
             UnbindButton(_objectiveButton, ClickObjective);
             UnbindButton(_settingsButton, ClickSettings);
+            UnbindButton(_retryButton, ClickRetry);
+            UnbindButton(_mainMenuButton, ClickMainMenu);
         }
 
         private void HandleViewModelChanged()
@@ -168,6 +198,16 @@ namespace Game.Feature.UI.Popups
             if (_settingsButtonLabel != null)
             {
                 _settingsButtonLabel.text = _viewModel.SettingsLabel;
+            }
+
+            if (_retryButtonLabel != null)
+            {
+                _retryButtonLabel.text = _viewModel.RetryLabel;
+            }
+
+            if (_mainMenuButtonLabel != null)
+            {
+                _mainMenuButtonLabel.text = _viewModel.MainMenuLabel;
             }
         }
 

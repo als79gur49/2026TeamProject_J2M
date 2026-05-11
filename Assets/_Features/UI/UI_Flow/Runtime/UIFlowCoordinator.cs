@@ -200,6 +200,18 @@ namespace Game.Feature.UI.Flow
                     ClearPauseReturnMode();
                     _pauseService.Resume();
                     break;
+
+                case PopupCompletionKind.RetryRequested:
+                    ClearPauseReturnMode();
+                    _pauseService.Resume();
+                    LaunchStage(BuildPauseRetryRequest());
+                    break;
+
+                case PopupCompletionKind.MainMenuRequested:
+                    ClearPauseReturnMode();
+                    _pauseService.Resume();
+                    ReturnToMainMenu();
+                    break;
             }
         }
 
@@ -670,6 +682,8 @@ namespace Game.Feature.UI.Flow
                     {
                         PopupCompletionKind.SettingsRequested => UiFlowAudioIntentKind.OpenForward,
                         PopupCompletionKind.ObjectiveRequested => UiFlowAudioIntentKind.OpenForward,
+                        PopupCompletionKind.RetryRequested => UiFlowAudioIntentKind.Confirm,
+                        PopupCompletionKind.MainMenuRequested => UiFlowAudioIntentKind.Back,
                         PopupCompletionKind.Resumed => UiFlowAudioIntentKind.Confirm,
                         PopupCompletionKind.Closed => UiFlowAudioIntentKind.Back,
                         _ => UiFlowAudioIntentKind.None,
@@ -749,6 +763,22 @@ namespace Game.Feature.UI.Flow
         private static ScreenRequest BuildSettingsRequest()
         {
             return new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, ScreenId.Settings.ToString());
+        }
+
+        private StageNavigationRequest BuildPauseRetryRequest()
+        {
+            var stageId = _presentationSource.CurrentSnapshot.Stage.StageId;
+            if (!stageId.IsValid)
+            {
+                throw new InvalidOperationException(
+                    "Pause retry requires the current gameplay presentation snapshot to contain a valid stage id.");
+            }
+
+            return new StageNavigationRequest(
+                stageId,
+                StageNavigationKind.Retry,
+                "pause-retry",
+                StageTransitionHint.ForKind(StageTransitionKind.StageRetryManual));
         }
     }
 }
