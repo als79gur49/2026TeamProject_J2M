@@ -24,6 +24,8 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var runtimeContext = CreateRuntimeContext(rootObject);
+                double statusNow = 0d;
+                runtimeContext.TransientStatusRelay.SetTimeProviderForTesting(() => statusNow);
                 var displayPort = new FakeDisplaySettingsPort();
                 var factory = CreateFactory(runtimeContext, displayPort);
 
@@ -48,7 +50,14 @@ namespace Game.Feature.UI.Tests
                 Assert.That(displayPort.CommitPreviewCallCount, Is.EqualTo(1));
                 Assert.That(runtimeContext.PopupController.PopupCount, Is.EqualTo(0));
                 Assert.That(view.DisplayStatusText, Is.EqualTo("Display settings saved."));
+                Assert.That(GetDisplayPrivateField<TMP_Text>(view.DisplayView, "_displayStatusLabel").gameObject.activeSelf, Is.True);
                 Assert.That(view.IsDisplayApplyInteractable, Is.False);
+
+                statusNow = 2.1d;
+                InvokePrivateMethod(runtimeContext.TransientStatusRelay, "Update");
+
+                Assert.That(view.DisplayStatusText, Is.Empty);
+                Assert.That(GetDisplayPrivateField<TMP_Text>(view.DisplayView, "_displayStatusLabel").gameObject.activeSelf, Is.False);
             }
             finally
             {
@@ -148,6 +157,8 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var runtimeContext = CreateRuntimeContext(rootObject, new FailingPopupRuntimeFactory());
+                double statusNow = 0d;
+                runtimeContext.TransientStatusRelay.SetTimeProviderForTesting(() => statusNow);
                 var displayPort = new FakeDisplaySettingsPort();
                 var factory = CreateFactory(runtimeContext, displayPort);
 
@@ -168,6 +179,12 @@ namespace Game.Feature.UI.Tests
                 Assert.That(runtimeContext.PopupController.PopupCount, Is.EqualTo(0));
                 Assert.That(countdownRoot.gameObject.activeSelf, Is.False);
                 Assert.That(displayView.DisplayStatusText, Is.EqualTo("Preview reverted to the previous saved display settings."));
+
+                statusNow = 2.1d;
+                InvokePrivateMethod(runtimeContext.TransientStatusRelay, "Update");
+
+                Assert.That(displayView.DisplayStatusText, Is.Empty);
+                Assert.That(GetDisplayPrivateField<TMP_Text>(displayView, "_displayStatusLabel").gameObject.activeSelf, Is.False);
             }
             finally
             {
@@ -457,7 +474,8 @@ namespace Game.Feature.UI.Tests
                 new RecordingUiAudioPort(),
                 runtimeContext.PreviewSessionHost,
                 runtimeContext.LifecycleRelay,
-                screenCatalog ?? UiTestPrefabAssetUtility.LoadScreenCatalog());
+                screenCatalog ?? UiTestPrefabAssetUtility.LoadScreenCatalog(),
+                runtimeContext.TransientStatusRelay);
         }
 
         private static RuntimeContext CreateRuntimeContext(
@@ -493,10 +511,11 @@ namespace Game.Feature.UI.Tests
                 popupLayerView,
                 UiTestPrefabAssetUtility.LoadPopupCatalog()));
             var timeoutRelay = rootObject.AddComponent<DisplayPreviewTimeoutRelay>();
+            var transientStatusRelay = rootObject.AddComponent<DisplayStatusTransientRelay>();
             var lifecycleRelay = rootObject.AddComponent<DisplaySettingsLifecycleRelay>();
             var previewSessionHost = new DisplayPreviewSessionHost(popupController, timeoutRelay, previewTimeoutSeconds);
 
-            return new RuntimeContext(screenLayerView, popupController, previewSessionHost, lifecycleRelay, timeoutRelay);
+            return new RuntimeContext(screenLayerView, popupController, previewSessionHost, lifecycleRelay, timeoutRelay, transientStatusRelay);
         }
 
         private static ScreenPrefabCatalog CreateCatalogWithSettingsPrefab(SettingsScreenView settingsPrefab)
@@ -534,13 +553,15 @@ namespace Game.Feature.UI.Tests
                 PopupController popupController,
                 DisplayPreviewSessionHost previewSessionHost,
                 DisplaySettingsLifecycleRelay lifecycleRelay,
-                DisplayPreviewTimeoutRelay timeoutRelay)
+                DisplayPreviewTimeoutRelay timeoutRelay,
+                DisplayStatusTransientRelay transientStatusRelay)
             {
                 ScreenLayerView = screenLayerView;
                 PopupController = popupController;
                 PreviewSessionHost = previewSessionHost;
                 LifecycleRelay = lifecycleRelay;
                 TimeoutRelay = timeoutRelay;
+                TransientStatusRelay = transientStatusRelay;
             }
 
             public ScreenLayerView ScreenLayerView { get; }
@@ -552,6 +573,8 @@ namespace Game.Feature.UI.Tests
             public DisplaySettingsLifecycleRelay LifecycleRelay { get; }
 
             public DisplayPreviewTimeoutRelay TimeoutRelay { get; }
+
+            public DisplayStatusTransientRelay TransientStatusRelay { get; }
         }
 
         private static void EnterResolutionHover(SettingsDisplayView displayView)

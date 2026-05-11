@@ -18,6 +18,7 @@ namespace Game.Feature.UI.Composition
         private readonly IUiAudioPort _uiAudioPort;
         private readonly DisplayPreviewSessionHost _displayPreviewSessionHost;
         private readonly DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
+        private readonly DisplayStatusTransientRelay _displayStatusTransientRelay;
         private readonly ScreenPrefabCatalog _screenPrefabCatalog;
         private readonly ScreenLayerView _screenLayerView;
         private readonly AccessibilitySettingsStore _accessibilitySettingsStore;
@@ -32,7 +33,8 @@ namespace Game.Feature.UI.Composition
             IUiAudioPort uiAudioPort,
             DisplayPreviewSessionHost displayPreviewSessionHost,
             DisplaySettingsLifecycleRelay displaySettingsLifecycleRelay,
-            ScreenPrefabCatalog screenPrefabCatalog)
+            ScreenPrefabCatalog screenPrefabCatalog,
+            DisplayStatusTransientRelay displayStatusTransientRelay = null)
             : this(
                 screenLayerView,
                 queryFacade,
@@ -44,7 +46,8 @@ namespace Game.Feature.UI.Composition
                 uiAudioPort,
                 displayPreviewSessionHost,
                 displaySettingsLifecycleRelay,
-                screenPrefabCatalog)
+                screenPrefabCatalog,
+                displayStatusTransientRelay)
         {
         }
 
@@ -59,7 +62,8 @@ namespace Game.Feature.UI.Composition
             IUiAudioPort uiAudioPort,
             DisplayPreviewSessionHost displayPreviewSessionHost,
             DisplaySettingsLifecycleRelay displaySettingsLifecycleRelay,
-            ScreenPrefabCatalog screenPrefabCatalog)
+            ScreenPrefabCatalog screenPrefabCatalog,
+            DisplayStatusTransientRelay displayStatusTransientRelay = null)
         {
             _screenLayerView = screenLayerView ?? throw new ArgumentNullException(nameof(screenLayerView));
             _queryFacade = queryFacade ?? throw new ArgumentNullException(nameof(queryFacade));
@@ -71,6 +75,7 @@ namespace Game.Feature.UI.Composition
             _uiAudioPort = uiAudioPort ?? throw new ArgumentNullException(nameof(uiAudioPort));
             _displayPreviewSessionHost = displayPreviewSessionHost ?? throw new ArgumentNullException(nameof(displayPreviewSessionHost));
             _displaySettingsLifecycleRelay = displaySettingsLifecycleRelay ?? throw new ArgumentNullException(nameof(displaySettingsLifecycleRelay));
+            _displayStatusTransientRelay = displayStatusTransientRelay;
             _screenPrefabCatalog = screenPrefabCatalog ?? throw new ArgumentNullException(nameof(screenPrefabCatalog));
         }
 
@@ -160,6 +165,7 @@ namespace Game.Feature.UI.Composition
                     _uiAudioPort,
                     _displayPreviewSessionHost,
                     _displaySettingsLifecycleRelay,
+                    _displayStatusTransientRelay ?? view.gameObject.AddComponent<DisplayStatusTransientRelay>(),
                     () => DestroyObject(view.gameObject)));
         }
 
@@ -365,7 +371,9 @@ namespace Game.Feature.UI.Composition
             private readonly SettingsDisplayView _displayView;
             private readonly SettingsInputView _inputView;
             private readonly DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
+            private readonly DisplayStatusTransientRelay _displayStatusTransientRelay;
             private readonly SettingsScreenPresenter _presenter;
+            private const double DisplayStatusTransientSeconds = 2d;
             private bool _isCurrent;
 
             public SettingsRuntime(
@@ -374,6 +382,7 @@ namespace Game.Feature.UI.Composition
                 IUiAudioPort uiAudioPort,
                 DisplayPreviewSessionHost displayPreviewSessionHost,
                 DisplaySettingsLifecycleRelay displaySettingsLifecycleRelay,
+                DisplayStatusTransientRelay displayStatusTransientRelay,
                 Action dispose)
                 : base(view, uiAudioPort, dispose)
             {
@@ -383,6 +392,7 @@ namespace Game.Feature.UI.Composition
                 _inputView = view.InputView ?? throw new ArgumentNullException(nameof(view.InputView));
                 _displayPreviewSessionHost = displayPreviewSessionHost ?? throw new ArgumentNullException(nameof(displayPreviewSessionHost));
                 _displaySettingsLifecycleRelay = displaySettingsLifecycleRelay ?? throw new ArgumentNullException(nameof(displaySettingsLifecycleRelay));
+                _displayStatusTransientRelay = displayStatusTransientRelay ?? throw new ArgumentNullException(nameof(displayStatusTransientRelay));
                 _audioView.VolumeChanged += HandleAudioVolumeChanged;
                 _audioView.MuteChanged += HandleAudioMuteChanged;
                 _audioView.InteractionCompleted += HandleAudioInteractionCompleted;
@@ -408,6 +418,7 @@ namespace Game.Feature.UI.Composition
             public override void Dispose()
             {
                 _displayPreviewSessionHost.CancelActivePreview();
+                CancelDisplayStatusAutoHide();
                 _presenter.DisplayPresenter.ClearPreviewCountdown();
                 _presenter.AudioPresenter.Flush();
                 _presenter.InputPresenter.CancelRebind();
@@ -438,6 +449,7 @@ namespace Game.Feature.UI.Composition
                 if (_isCurrent && !isCurrent)
                 {
                     _displayPreviewSessionHost.CancelActivePreview();
+                    CancelDisplayStatusAutoHide();
                     _presenter.DisplayPresenter.ClearPreviewCountdown();
                     _presenter.AudioPresenter.Flush();
                     _presenter.InputPresenter.CancelRebind();
@@ -448,6 +460,7 @@ namespace Game.Feature.UI.Composition
 
                 if (isCurrent)
                 {
+                    CancelDisplayStatusAutoHide();
                     _presenter.DisplayPresenter.ResyncState(_displayPreviewSessionHost.PreviewTimeoutSeconds);
                 }
             }
@@ -518,12 +531,14 @@ namespace Game.Feature.UI.Composition
 
             private void HandleDisplayResolutionChanged(int modeIndex)
             {
+                CancelDisplayStatusAutoHide();
                 _presenter.DisplayPresenter.StageResolution(modeIndex);
                 PlayLocalCue(UiAudioCueId.Select);
             }
 
             private void HandleDisplayFullscreenToggled(bool isFullscreen)
             {
+                CancelDisplayStatusAutoHide();
                 _presenter.DisplayPresenter.StageWindowMode(isFullscreen
                     ? DisplayWindowMode.FullScreenWindow
                     : DisplayWindowMode.Windowed);
@@ -532,6 +547,7 @@ namespace Game.Feature.UI.Composition
 
             private void HandleDisplayApplyRequested()
             {
+                CancelDisplayStatusAutoHide();
                 if (!_presenter.DisplayPresenter.ApplyStagedSettings(_displayPreviewSessionHost.PreviewTimeoutSeconds))
                 {
                     return;
@@ -544,28 +560,33 @@ namespace Game.Feature.UI.Composition
                 {
                     _presenter.DisplayPresenter.CancelPreview();
                     _presenter.DisplayPresenter.ClearPreviewCountdown();
+                    ScheduleDisplayStatusAutoHideIfNeeded();
                 }
             }
 
             private void HandleDisplayRevertRequested()
             {
+                CancelDisplayStatusAutoHide();
                 _presenter.DisplayPresenter.ResetStagedToCurrent();
             }
 
             private void HandleDisplayPreviewConfirmed()
             {
                 _presenter.DisplayPresenter.ConfirmPreview();
+                ScheduleDisplayStatusAutoHideIfNeeded();
             }
 
             private void HandleDisplayPreviewCancelled()
             {
                 _presenter.DisplayPresenter.CancelPreview();
+                ScheduleDisplayStatusAutoHideIfNeeded();
             }
 
             private void HandleDisplayResyncRequested()
             {
                 if (_isCurrent)
                 {
+                    CancelDisplayStatusAutoHide();
                     _presenter.DisplayPresenter.ResyncState(_displayPreviewSessionHost.PreviewTimeoutSeconds);
                 }
             }
@@ -579,6 +600,31 @@ namespace Game.Feature.UI.Composition
                 }
 
                 _presenter.DisplayPresenter.ClearPreviewCountdown();
+            }
+
+            private void ScheduleDisplayStatusAutoHideIfNeeded()
+            {
+                CancelDisplayStatusAutoHide();
+                if (!_isCurrent || !_presenter.DisplayPresenter.ViewModel.IsDisplayStatusTransient)
+                {
+                    return;
+                }
+
+                _displayStatusTransientRelay.Arm(
+                    DisplayStatusTransientSeconds,
+                    () =>
+                    {
+                        if (_isCurrent)
+                        {
+                            _presenter.DisplayPresenter.ClearTransientDisplayStatus(
+                                _displayPreviewSessionHost.PreviewTimeoutSeconds);
+                        }
+                    });
+            }
+
+            private void CancelDisplayStatusAutoHide()
+            {
+                _displayStatusTransientRelay.Cancel();
             }
 
             private void HandleBackRequested()

@@ -359,6 +359,27 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void MainMenuSettingsRuntime_DisplayConfirm_HidesTransientStatusAfterDelay()
+        {
+            using var harness = new RuntimeHarness();
+            double now = 0d;
+            harness.PopupHarness.TransientStatusRelay.SetTimeProviderForTesting(() => now);
+            harness.Runtime.Open();
+            harness.Runtime.View.ClickDisplayTab();
+
+            harness.Runtime.View.SelectDisplayResolution(1);
+            harness.Runtime.View.ClickDisplayApply();
+            harness.PopupHarness.PopupController.CloseTop(PopupCloseReason.UserAction, PopupCompletionKind.Confirmed);
+
+            Assert.That(harness.Runtime.View.DisplayStatusText, Is.EqualTo("Display settings saved."));
+
+            now = 2.1d;
+            InvokePrivateMethod(harness.PopupHarness.TransientStatusRelay, "Update");
+
+            Assert.That(harness.Runtime.View.DisplayStatusText, Is.Empty);
+        }
+
+        [Test]
         public void MainMenuSettingsRuntime_CancelOrClose_RevertsActiveDisplayPreview()
         {
             using var harness = new RuntimeHarness();
@@ -509,6 +530,13 @@ namespace Game.Feature.UI.Tests
             setter.Invoke(target, new[] { value });
         }
 
+        private static void InvokePrivateMethod(object target, string methodName)
+        {
+            var method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null, methodName);
+            method.Invoke(target, null);
+        }
+
         private sealed class RuntimeHarness : IDisposable
         {
             public RuntimeHarness(IKeyboardBindingSettingsPort keyboardBindingSettingsPort = null)
@@ -592,6 +620,7 @@ namespace Game.Feature.UI.Tests
                 PopupController = new PopupController(new GameplayPopupRuntimeFactory(PopupLayerView, popupCatalog));
                 PopupController.StateChanged += SyncPopupLayer;
                 TimeoutRelay = PopupLayerView.gameObject.AddComponent<DisplayPreviewTimeoutRelay>();
+                TransientStatusRelay = PopupLayerView.gameObject.AddComponent<DisplayStatusTransientRelay>();
                 DisplayLifecycleRelay = PopupLayerView.gameObject.AddComponent<DisplaySettingsLifecycleRelay>();
                 DisplayPreviewSessionHost = new DisplayPreviewSessionHost(PopupController, TimeoutRelay, 15d);
             }
@@ -601,6 +630,8 @@ namespace Game.Feature.UI.Tests
             public PopupController PopupController { get; }
 
             public DisplayPreviewTimeoutRelay TimeoutRelay { get; }
+
+            public DisplayStatusTransientRelay TransientStatusRelay { get; }
 
             public DisplaySettingsLifecycleRelay DisplayLifecycleRelay { get; }
 
@@ -648,7 +679,8 @@ namespace Game.Feature.UI.Tests
                 popupHarness.DisplayPreviewSessionHost,
                 popupHarness.DisplayLifecycleRelay,
                 SettingsScreenPayload.Default,
-                15d);
+                15d,
+                popupHarness.TransientStatusRelay);
         }
 
         private static PopupLayerView CreatePopupLayer(Transform parent)

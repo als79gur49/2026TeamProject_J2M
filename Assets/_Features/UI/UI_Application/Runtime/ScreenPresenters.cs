@@ -456,6 +456,7 @@ namespace Game.Feature.UI.Application
         private int _stagedDisplayModeIndex;
         private DisplayWindowMode _stagedDisplayWindowMode;
         private string _displayStatusText = string.Empty;
+        private bool _isDisplayStatusTransient;
         private DisplayPreviewCountdownSnapshot _previewCountdown = DisplayPreviewCountdownSnapshot.Inactive;
 
         public SettingsDisplayPresenter(IDisplaySettingsPort displaySettingsPort)
@@ -488,7 +489,8 @@ namespace Game.Feature.UI.Application
             ResyncState(
                 resetStagedToCommitted: false,
                 previewTimeoutSeconds: previewTimeoutSeconds,
-                overrideStatusText: started ? BuildPreviewActiveStatusText(previewTimeoutSeconds) : null);
+                overrideStatusText: started ? BuildPreviewActiveStatusText(previewTimeoutSeconds) : null,
+                overrideStatusTransient: false);
             return started;
         }
 
@@ -499,7 +501,8 @@ namespace Game.Feature.UI.Application
             ResyncState(
                 resetStagedToCommitted: true,
                 previewTimeoutSeconds: 0d,
-                overrideStatusText: reverted ? PreviewRevertedStatusText : null);
+                overrideStatusText: reverted ? PreviewRevertedStatusText : null,
+                overrideStatusTransient: reverted);
             return reverted;
         }
 
@@ -510,8 +513,20 @@ namespace Game.Feature.UI.Application
             ResyncState(
                 resetStagedToCommitted: true,
                 previewTimeoutSeconds: 0d,
-                overrideStatusText: committed ? PreviewCommittedStatusText : null);
+                overrideStatusText: committed ? PreviewCommittedStatusText : null,
+                overrideStatusTransient: committed);
             return committed;
+        }
+
+        public bool ClearTransientDisplayStatus(double previewTimeoutSeconds)
+        {
+            if (!_isDisplayStatusTransient)
+            {
+                return false;
+            }
+
+            ResyncState(resetStagedToCommitted: false, previewTimeoutSeconds: previewTimeoutSeconds);
+            return true;
         }
 
         public void ClearPreviewCountdown()
@@ -529,6 +544,7 @@ namespace Game.Feature.UI.Application
 
             _stagedDisplayModeIndex = ClampDisplayModeIndex(_displaySnapshot.CommittedModeIndex, _displaySnapshot.AvailableModes.Count);
             _stagedDisplayWindowMode = _displaySnapshot.CommittedWindowMode;
+            ClearTransientDisplayStatusCore();
             RefreshViewModel();
         }
 
@@ -551,6 +567,7 @@ namespace Game.Feature.UI.Application
             }
 
             _stagedDisplayModeIndex = ClampDisplayModeIndex(modeIndex, _displaySnapshot.AvailableModes.Count);
+            ClearTransientDisplayStatusCore();
             RefreshViewModel();
         }
 
@@ -562,13 +579,15 @@ namespace Game.Feature.UI.Application
             }
 
             _stagedDisplayWindowMode = mode;
+            ClearTransientDisplayStatusCore();
             RefreshViewModel();
         }
 
         private void ResyncState(
             bool resetStagedToCommitted,
             double previewTimeoutSeconds,
-            string overrideStatusText = null)
+            string overrideStatusText = null,
+            bool overrideStatusTransient = false)
         {
             _displaySnapshot = _displaySettingsPort.Read();
             if (_displaySnapshot.AvailableModes.Count == 0)
@@ -593,7 +612,19 @@ namespace Game.Feature.UI.Application
             }
 
             _displayStatusText = overrideStatusText ?? BuildDisplayStatusText(previewTimeoutSeconds);
+            _isDisplayStatusTransient = overrideStatusText != null && overrideStatusTransient;
             RefreshViewModel();
+        }
+
+        private void ClearTransientDisplayStatusCore()
+        {
+            if (!_isDisplayStatusTransient)
+            {
+                return;
+            }
+
+            _displayStatusText = string.Empty;
+            _isDisplayStatusTransient = false;
         }
 
         private static string BuildPreviewActiveStatusText(double previewTimeoutSeconds)
@@ -660,7 +691,9 @@ namespace Game.Feature.UI.Application
                 _displaySnapshot.IsPreviewActive,
                 previewCountdownText,
                 previewCountdownNormalized,
-                isPreviewCountdownVisible);
+                isPreviewCountdownVisible,
+                _displayStatusText.Length > 0,
+                _isDisplayStatusTransient);
         }
 
         private bool IsDirty()

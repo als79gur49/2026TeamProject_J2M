@@ -92,4 +92,58 @@ namespace Game.Feature.UI.Composition
             timeProvider = provider ?? throw new ArgumentNullException(nameof(provider));
         }
     }
+
+    [DisallowMultipleComponent]
+    internal sealed class DisplayStatusTransientRelay : MonoBehaviour
+    {
+        private Action onElapsed;
+        private double deadline;
+        private Func<double> timeProvider;
+
+        public bool IsArmed => onElapsed != null;
+
+        private void Awake()
+        {
+            timeProvider ??= GetTimeNow;
+        }
+
+        public void Arm(double durationSeconds, Action callback)
+        {
+            onElapsed = callback ?? throw new ArgumentNullException(nameof(callback));
+            deadline = (timeProvider ??= GetTimeNow).Invoke() + Math.Max(0d, durationSeconds);
+        }
+
+        public void Cancel()
+        {
+            onElapsed = null;
+            deadline = 0d;
+        }
+
+        private void Update()
+        {
+            if (onElapsed == null)
+            {
+                return;
+            }
+
+            if ((timeProvider ??= GetTimeNow).Invoke() < deadline)
+            {
+                return;
+            }
+
+            var callback = onElapsed;
+            Cancel();
+            callback?.Invoke();
+        }
+
+        private static double GetTimeNow()
+        {
+            return Time.realtimeSinceStartupAsDouble;
+        }
+
+        internal void SetTimeProviderForTesting(Func<double> provider)
+        {
+            timeProvider = provider ?? throw new ArgumentNullException(nameof(provider));
+        }
+    }
 }

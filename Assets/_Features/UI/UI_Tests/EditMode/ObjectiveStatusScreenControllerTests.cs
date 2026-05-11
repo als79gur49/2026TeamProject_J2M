@@ -164,6 +164,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 presenter.ViewModel.DisplayStatusText,
                 Is.EqualTo("Preview active. Current display is temporary and not saved. Confirm to keep it, or it will revert in 15 seconds."));
+            Assert.That(presenter.ViewModel.IsDisplayStatusVisible, Is.True);
+            Assert.That(presenter.ViewModel.IsDisplayStatusTransient, Is.False);
             Assert.That(presenter.ViewModel.CurrentDisplayValueText, Is.EqualTo("1280 x 720"));
 
             Assert.That(presenter.ConfirmPreview(), Is.True);
@@ -174,6 +176,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenter.ViewModel.SelectedResolutionIndex, Is.EqualTo(2));
             Assert.That(presenter.ViewModel.IsFullscreenEnabled, Is.True);
             Assert.That(presenter.ViewModel.DisplayStatusText, Is.EqualTo("Display settings saved."));
+            Assert.That(presenter.ViewModel.IsDisplayStatusVisible, Is.True);
+            Assert.That(presenter.ViewModel.IsDisplayStatusTransient, Is.True);
         }
 
         [Test]
@@ -194,6 +198,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenter.ViewModel.SelectedResolutionIndex, Is.EqualTo(displayPort.CommittedModeIndex));
             Assert.That(presenter.ViewModel.IsFullscreenEnabled, Is.False);
             Assert.That(presenter.ViewModel.DisplayStatusText, Is.EqualTo("Preview reverted to the previous saved display settings."));
+            Assert.That(presenter.ViewModel.IsDisplayStatusVisible, Is.True);
+            Assert.That(presenter.ViewModel.IsDisplayStatusTransient, Is.True);
             Assert.That(presenter.ViewModel.IsDisplayApplyInteractable, Is.False);
         }
 
@@ -211,8 +217,35 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 presenter.ViewModel.DisplayStatusText,
                 Is.EqualTo("Current display changed outside saved settings. Saved settings remain unchanged until you apply again."));
+            Assert.That(presenter.ViewModel.IsDisplayStatusVisible, Is.True);
+            Assert.That(presenter.ViewModel.IsDisplayStatusTransient, Is.False);
             Assert.That(presenter.ViewModel.SelectedResolutionIndex, Is.EqualTo(0));
             Assert.That(presenter.ViewModel.IsDisplayApplyInteractable, Is.False);
+        }
+
+        [Test]
+        public void SettingsDisplayPresenter_ClearTransientDisplayStatus_HidesCompletionCopyOnly()
+        {
+            var displayPort = new FakeDisplaySettingsPort();
+            var presenter = new SettingsDisplayPresenter(displayPort);
+
+            presenter.Apply(default, 15d);
+            presenter.StageResolution(2);
+            presenter.ApplyStagedSettings(15d);
+            presenter.ConfirmPreview();
+
+            Assert.That(presenter.ClearTransientDisplayStatus(15d), Is.True);
+            Assert.That(presenter.ViewModel.DisplayStatusText, Is.Empty);
+            Assert.That(presenter.ViewModel.IsDisplayStatusVisible, Is.False);
+            Assert.That(presenter.ViewModel.IsDisplayStatusTransient, Is.False);
+
+            displayPort.SetRuntimeDrift(1, DisplayWindowMode.FullScreenWindow);
+            presenter.ResyncState(15d);
+
+            Assert.That(presenter.ClearTransientDisplayStatus(15d), Is.False);
+            Assert.That(
+                presenter.ViewModel.DisplayStatusText,
+                Is.EqualTo("Current display changed outside saved settings. Saved settings remain unchanged until you apply again."));
         }
 
         [Test]

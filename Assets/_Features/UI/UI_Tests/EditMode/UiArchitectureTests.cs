@@ -942,6 +942,7 @@ namespace Game.Feature.UI.Tests
                     "ApplyStagedSettings(Double)",
                     "CancelPreview()",
                     "ClearPreviewCountdown()",
+                    "ClearTransientDisplayStatus(Double)",
                     "ConfirmPreview()",
                     "ResetStagedToCurrent()",
                     "ResyncState(Double)",

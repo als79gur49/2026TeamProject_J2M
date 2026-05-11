@@ -282,6 +282,10 @@ namespace Game.Feature.UI.Screens
 
         public string DisplayStatusText { get; private set; } = string.Empty;
 
+        public bool IsDisplayStatusVisible { get; private set; }
+
+        public bool IsDisplayStatusTransient { get; private set; }
+
         public bool IsDisplayApplyInteractable { get; private set; }
 
         public bool IsDisplayRevertInteractable { get; private set; }
@@ -305,13 +309,17 @@ namespace Game.Feature.UI.Screens
             bool isDisplayPreviewActive,
             string previewCountdownText,
             float previewCountdownNormalized,
-            bool isPreviewCountdownVisible)
+            bool isPreviewCountdownVisible,
+            bool isDisplayStatusVisible = true,
+            bool isDisplayStatusTransient = false)
         {
             CurrentDisplayValueText = currentDisplayValueText ?? string.Empty;
             ResolutionOptionTexts = resolutionOptionTexts ?? Array.Empty<string>();
             SelectedResolutionIndex = selectedResolutionIndex;
             IsFullscreenEnabled = isFullscreenEnabled;
             DisplayStatusText = displayStatusText ?? string.Empty;
+            IsDisplayStatusVisible = isDisplayStatusVisible && DisplayStatusText.Length > 0;
+            IsDisplayStatusTransient = IsDisplayStatusVisible && isDisplayStatusTransient;
             IsDisplayApplyInteractable = isDisplayApplyInteractable;
             IsDisplayRevertInteractable = isDisplayRevertInteractable;
             IsDisplayPreviewActive = isDisplayPreviewActive;

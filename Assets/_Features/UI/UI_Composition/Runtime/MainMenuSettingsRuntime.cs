@@ -15,11 +15,13 @@ namespace Game.Feature.UI.Composition
         private readonly IKeyboardBindingSettingsPort keyboardBindingSettingsPort;
         private readonly DisplayPreviewSessionHost displayPreviewSessionHost;
         private readonly DisplaySettingsLifecycleRelay displaySettingsLifecycleRelay;
+        private DisplayStatusTransientRelay displayStatusTransientRelay;
         private readonly SettingsScreenPayload payload;
         private readonly PopupController popupController;
         private readonly double previewTimeoutSeconds;
         private readonly SettingsScreenView settingsScreenPrefab;
         private readonly RectTransform settingsContentRoot;
+        private const double DisplayStatusTransientSeconds = 2d;
         private bool isDisposed;
         private SettingsAudioView audioView;
         private SettingsDisplayView displayView;
@@ -38,7 +40,8 @@ namespace Game.Feature.UI.Composition
             DisplayPreviewSessionHost displayPreviewSessionHost,
             DisplaySettingsLifecycleRelay displaySettingsLifecycleRelay,
             SettingsScreenPayload payload,
-            double previewTimeoutSeconds)
+            double previewTimeoutSeconds,
+            DisplayStatusTransientRelay displayStatusTransientRelay = null)
         {
             this.settingsScreenPrefab = settingsScreenPrefab != null
                 ? settingsScreenPrefab
@@ -53,6 +56,7 @@ namespace Game.Feature.UI.Composition
             this.popupController = popupController ?? throw new ArgumentNullException(nameof(popupController));
             this.displayPreviewSessionHost = displayPreviewSessionHost ?? throw new ArgumentNullException(nameof(displayPreviewSessionHost));
             this.displaySettingsLifecycleRelay = displaySettingsLifecycleRelay ?? throw new ArgumentNullException(nameof(displaySettingsLifecycleRelay));
+            this.displayStatusTransientRelay = displayStatusTransientRelay;
             this.payload = payload ?? throw new ArgumentNullException(nameof(payload));
             this.previewTimeoutSeconds = previewTimeoutSeconds;
         }
@@ -77,7 +81,8 @@ namespace Game.Feature.UI.Composition
             DisplayPreviewSessionHost displayPreviewSessionHost,
             DisplaySettingsLifecycleRelay displaySettingsLifecycleRelay,
             SettingsScreenPayload payload,
-            double previewTimeoutSeconds)
+            double previewTimeoutSeconds,
+            DisplayStatusTransientRelay displayStatusTransientRelay = null)
             : this(
                 settingsScreenPrefab,
                 settingsContentRoot,
@@ -89,7 +94,8 @@ namespace Game.Feature.UI.Composition
                 displayPreviewSessionHost,
                 displaySettingsLifecycleRelay,
                 payload,
-                previewTimeoutSeconds)
+                previewTimeoutSeconds,
+                displayStatusTransientRelay)
         {
         }
 
@@ -110,15 +116,16 @@ namespace Game.Feature.UI.Composition
 
             view = instantiatedRoot.GetComponent<SettingsScreenView>();
             if (view == null)
-            {
-                DestroyObject(instantiatedRoot);
-                throw new InvalidOperationException(
-                    $"Settings screen prefab is missing the expected root component '{nameof(SettingsScreenView)}'.");
-            }
+                {
+                    DestroyObject(instantiatedRoot);
+                    throw new InvalidOperationException(
+                        $"Settings screen prefab is missing the expected root component '{nameof(SettingsScreenView)}'.");
+                }
 
             try
             {
                 view.name = settingsScreenPrefab.name;
+                displayStatusTransientRelay ??= view.gameObject.AddComponent<DisplayStatusTransientRelay>();
                 audioView = view.AudioView ?? throw new InvalidOperationException("Settings screen view is missing an audio section.");
                 displayView = view.DisplayView ?? throw new InvalidOperationException("Settings screen view is missing a display section.");
                 inputView = view.InputView ?? throw new InvalidOperationException("Settings screen view is missing an input section.");
@@ -151,6 +158,7 @@ namespace Game.Feature.UI.Composition
 
             isDisposed = true;
             CancelDisplayPreviewOnClose();
+            CancelDisplayStatusAutoHide();
             presenter?.InputPresenter.CancelRebind();
 
             if (presenter != null)
@@ -342,11 +350,13 @@ namespace Game.Feature.UI.Composition
 
         private void HandleDisplayResolutionChanged(int modeIndex)
         {
+            CancelDisplayStatusAutoHide();
             presenter.DisplayPresenter.StageResolution(modeIndex);
         }
 
         private void HandleDisplayFullscreenToggled(bool isFullscreen)
         {
+            CancelDisplayStatusAutoHide();
             presenter.DisplayPresenter.StageWindowMode(isFullscreen
                 ? DisplayWindowMode.FullScreenWindow
                 : DisplayWindowMode.Windowed);
@@ -354,6 +364,7 @@ namespace Game.Feature.UI.Composition
 
         private void HandleDisplayApplyRequested()
         {
+            CancelDisplayStatusAutoHide();
             if (!presenter.DisplayPresenter.ApplyStagedSettings(displayPreviewSessionHost.PreviewTimeoutSeconds))
             {
                 return;
@@ -366,32 +377,55 @@ namespace Game.Feature.UI.Composition
             {
                 presenter.DisplayPresenter.CancelPreview();
                 presenter.DisplayPresenter.ClearPreviewCountdown();
+                ScheduleDisplayStatusAutoHideIfNeeded();
             }
         }
 
         private void HandleDisplayRevertRequested()
         {
+            CancelDisplayStatusAutoHide();
             presenter.DisplayPresenter.ResetStagedToCurrent();
         }
 
         private void HandleDisplayPreviewConfirmed()
         {
             presenter?.DisplayPresenter.ConfirmPreview();
+            ScheduleDisplayStatusAutoHideIfNeeded();
         }
 
         private void HandleDisplayPreviewCancelled()
         {
             presenter?.DisplayPresenter.CancelPreview();
+            ScheduleDisplayStatusAutoHideIfNeeded();
         }
 
         private void HandleDisplayResyncRequested()
         {
+            CancelDisplayStatusAutoHide();
             presenter?.DisplayPresenter.ResyncState(displayPreviewSessionHost.PreviewTimeoutSeconds);
         }
 
         private void HandleDisplayPreviewCountdownChanged(DisplayPreviewCountdownSnapshot snapshot)
         {
             presenter?.DisplayPresenter.SetPreviewCountdown(snapshot);
+        }
+
+        private void ScheduleDisplayStatusAutoHideIfNeeded()
+        {
+            CancelDisplayStatusAutoHide();
+            if (presenter == null || !presenter.DisplayPresenter.ViewModel.IsDisplayStatusTransient)
+            {
+                return;
+            }
+
+            displayStatusTransientRelay.Arm(
+                DisplayStatusTransientSeconds,
+                () => presenter?.DisplayPresenter.ClearTransientDisplayStatus(displayPreviewSessionHost.PreviewTimeoutSeconds));
+        }
+
+        private void CancelDisplayStatusAutoHide()
+        {
+            displayStatusTransientRelay?.Cancel();
         }
 
         private void HandleBackRequested()

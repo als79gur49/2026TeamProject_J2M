@@ -290,6 +290,12 @@ namespace Game.Feature.UI.Screens
         {
             if (_viewModel == null)
             {
+                if (_displayStatusLabel != null)
+                {
+                    _displayStatusLabel.text = string.Empty;
+                    _displayStatusLabel.gameObject.SetActive(false);
+                }
+
                 if (_previewCountdownLabel != null)
                 {
                     _previewCountdownLabel.text = string.Empty;
@@ -314,6 +320,7 @@ namespace Game.Feature.UI.Screens
                 if (_displayStatusLabel != null)
                 {
                     _displayStatusLabel.text = _viewModel.DisplayStatusText;
+                    _displayStatusLabel.gameObject.SetActive(_viewModel.IsDisplayStatusVisible);
                 }
 
                 if (_previewCountdownLabel != null)
