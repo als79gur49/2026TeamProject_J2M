@@ -35,9 +35,32 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 return default;
             }
 
+            var remainingChances = 0;
+            var maxChances = 0;
+            var hasRemainingChances = _campaignChancesReadSource != null &&
+                                      _campaignChancesReadSource.TryReadChances(out remainingChances, out maxChances);
+
             if (!_admissionPolicy.TryGetCommittedControllableActor(out var playerEntity))
             {
-                return default;
+                return new GameplayPlayerHudReadModel(
+                    isAvailable: false,
+                    playerEntityId: 0,
+                    currentHp: 0,
+                    maxHp: 0,
+                    facing: GameplayUiDirection.None,
+                    activeActionKind: GameplayUiActionKind.None,
+                    activeActionDirection: GameplayUiDirection.None,
+                    activeTargetEntityId: 0,
+                    isActionInProgress: false,
+                    isActionInRecoveryPhase: false,
+                    canMoveThisTick: false,
+                    canStartActionThisTick: false,
+                    recoveryCooldown: null,
+                    canStartAnyActionThisTick: false,
+                    hasExplicitPushCandidateInCurrentDirection: false,
+                    hasRemainingChances: hasRemainingChances,
+                    remainingChances: hasRemainingChances ? remainingChances : 0,
+                    maxChances: hasRemainingChances ? maxChances : 0);
             }
 
             var playerEntityId = playerEntity.entityId;
@@ -57,10 +80,6 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                                                                  playerEntity,
                                                                  _inputHost?.PreviewPushDirection() ?? Direction.None);
             var recoveryCooldown = TryCreateRecoveryCooldown(playerControlState, nextTickIndex);
-            var remainingChances = 0;
-            var maxChances = 0;
-            var hasRemainingChances = _campaignChancesReadSource != null &&
-                                      _campaignChancesReadSource.TryReadChances(out remainingChances, out maxChances);
 
             return new GameplayPlayerHudReadModel(
                 isAvailable: true,
