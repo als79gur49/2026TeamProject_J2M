@@ -19,3 +19,9 @@ MonoBehaviour:
     ViewPrefab: {fileID: 1140000000000000010, guid: d88a1ebaf3e2422e9fe1cb9c438a0bc4, type: 3}
   - PresentationId: wall_bed_tutorial
     ViewPrefab: {fileID: 1140000000000000010, guid: d9f50935bb52c624da03e9a7cf58003a, type: 3}
+  - PresentationId: wall_chair
+    ViewPrefab: {fileID: 1140000000000000010, guid: 173968ba94cea07438c10ec6ad055599, type: 3}
+  - PresentationId: wall_spaceBed
+    ViewPrefab: {fileID: 1140000000000000010, guid: bba30f8ea749a2e45828d5dcbe76aed7, type: 3}
+  - PresentationId: wall_grave
+    ViewPrefab: {fileID: 1140000000000000010, guid: 9d38eb4cb92244441bf88f9638c971b5, type: 3}
