@@ -82,6 +82,17 @@ namespace Game.Feature.UI.Screens
             }
         }
 
+        public bool TryCloseActiveSection()
+        {
+            if (ActiveSection == MainMenuSectionId.None)
+            {
+                return false;
+            }
+
+            ShowSection(MainMenuSectionId.None);
+            return true;
+        }
+
         public void SetActiveSection(MainMenuSectionId sectionId)
         {
             ShowSection(sectionId);

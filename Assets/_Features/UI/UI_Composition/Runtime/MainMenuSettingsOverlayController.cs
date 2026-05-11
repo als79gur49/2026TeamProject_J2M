@@ -108,6 +108,11 @@ namespace Game.Feature.UI.Composition
             Closed?.Invoke();
         }
 
+        public bool TryHandleBackRequested()
+        {
+            return runtime != null && runtime.TryHandleBackRequested();
+        }
+
         public void Focus()
         {
             if (overlayLayer != null)

@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
@@ -105,6 +106,167 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(harness.OverlayController.IsOpen, Is.False);
             Assert.That(harness.OverlayController.OverlayLayer.gameObject.activeSelf, Is.False);
+        }
+
+        [Test]
+        public void MainMenuSettingsRuntime_BackDuringRebind_CancelsRebindWithoutCloseRequest()
+        {
+            var keyboardPort = new ControllableKeyboardSettingsPort();
+            using var harness = new RuntimeHarness(keyboardPort);
+            var closeRequestCount = 0;
+            harness.Runtime.CloseRequested += () => closeRequestCount++;
+            harness.Runtime.Open();
+            harness.Runtime.View.ClickInputTab();
+
+            harness.Runtime.View.InputView.ClickPushChange();
+            Assert.That(keyboardPort.IsRebinding, Is.True);
+
+            Assert.That(harness.Runtime.TryHandleBackRequested(), Is.True);
+
+            Assert.That(keyboardPort.CancelRebindCount, Is.EqualTo(1));
+            Assert.That(keyboardPort.IsRebinding, Is.False);
+            Assert.That(closeRequestCount, Is.Zero);
+            Assert.That(harness.Runtime.IsOpen, Is.True);
+        }
+
+        [Test]
+        public void MainMenuUiFlowInstaller_BackWithSettingsOverlayOpen_ClosesOverlayThroughSettingsPolicy()
+        {
+            using var harness = new OverlayHarness();
+            var installerObject = new GameObject(nameof(MainMenuUiFlowInstaller_BackWithSettingsOverlayOpen_ClosesOverlayThroughSettingsPolicy));
+            try
+            {
+                var installer = installerObject.AddComponent<MainMenuUiFlowInstaller>();
+                SetPrivateField(installer, "_settingsOverlayController", harness.OverlayController);
+                harness.OverlayController.Open();
+
+                Assert.That(installer.TryHandleBackRequested(), Is.True);
+
+                Assert.That(harness.OverlayController.IsOpen, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(installerObject);
+            }
+        }
+
+        [Test]
+        public void MainMenuUiFlowInstaller_BackDuringKeyboardRebind_ConsumesWithoutClosingPopupSettingsOrSection()
+        {
+            using var harness = new OverlayHarness();
+            var installerObject = new GameObject(nameof(MainMenuUiFlowInstaller_BackDuringKeyboardRebind_ConsumesWithoutClosingPopupSettingsOrSection));
+            var menuObject = new GameObject("MainMenuScreenView");
+            var popupController = new PopupController(new FakePopupRuntimeFactory());
+            try
+            {
+                var installer = installerObject.AddComponent<MainMenuUiFlowInstaller>();
+                var mainMenuView = menuObject.AddComponent<MainMenuScreenView>();
+                mainMenuView.ShowSection(MainMenuSectionId.SaveSlots);
+                harness.OverlayController.Open();
+                popupController.Push(
+                    new PopupRequest(PopupId.Tooltip, new TooltipPopupPayload("Tip", "Body")),
+                    out _);
+
+                SetPrivateField(installer, "_keyboardBindingSettingsPort", new RebindingKeyboardSettingsPort());
+                SetPrivateField(installer, "PopupController", popupController);
+                SetPrivateField(installer, "_settingsOverlayController", harness.OverlayController);
+                SetPrivateField(installer, "_mainMenuScreenView", mainMenuView);
+
+                Assert.That(installer.TryHandleBackRequested(), Is.True);
+
+                Assert.That(popupController.PopupCount, Is.EqualTo(1));
+                Assert.That(harness.OverlayController.IsOpen, Is.True);
+                Assert.That(mainMenuView.ActiveSection, Is.EqualTo(MainMenuSectionId.SaveSlots));
+            }
+            finally
+            {
+                popupController.Dispose();
+                UnityEngine.Object.DestroyImmediate(menuObject);
+                UnityEngine.Object.DestroyImmediate(installerObject);
+            }
+        }
+
+        [Test]
+        public void MainMenuUiFlowInstaller_BackWithPopupOpen_UsesPopupPolicyBeforeSettingsOrSection()
+        {
+            using var harness = new OverlayHarness();
+            var installerObject = new GameObject(nameof(MainMenuUiFlowInstaller_BackWithPopupOpen_UsesPopupPolicyBeforeSettingsOrSection));
+            var menuObject = new GameObject("MainMenuScreenView");
+            var popupController = new PopupController(new FakePopupRuntimeFactory());
+            try
+            {
+                var installer = installerObject.AddComponent<MainMenuUiFlowInstaller>();
+                var mainMenuView = menuObject.AddComponent<MainMenuScreenView>();
+                mainMenuView.ShowSection(MainMenuSectionId.SaveSlots);
+                harness.OverlayController.Open();
+                popupController.Push(
+                    new PopupRequest(
+                        PopupId.Confirm,
+                        new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false)),
+                    out _);
+
+                SetPrivateField(installer, "PopupController", popupController);
+                SetPrivateField(installer, "_settingsOverlayController", harness.OverlayController);
+                SetPrivateField(installer, "_mainMenuScreenView", mainMenuView);
+
+                Assert.That(installer.TryHandleBackRequested(), Is.True);
+
+                Assert.That(popupController.PopupCount, Is.Zero);
+                Assert.That(harness.OverlayController.IsOpen, Is.True);
+                Assert.That(mainMenuView.ActiveSection, Is.EqualTo(MainMenuSectionId.SaveSlots));
+            }
+            finally
+            {
+                popupController.Dispose();
+                UnityEngine.Object.DestroyImmediate(menuObject);
+                UnityEngine.Object.DestroyImmediate(installerObject);
+            }
+        }
+
+        [Test]
+        public void MainMenuUiFlowInstaller_BackWithSaveSlotSectionOpen_ReturnsToRootSection()
+        {
+            var installerObject = new GameObject(nameof(MainMenuUiFlowInstaller_BackWithSaveSlotSectionOpen_ReturnsToRootSection));
+            var menuObject = new GameObject("MainMenuScreenView");
+            try
+            {
+                var installer = installerObject.AddComponent<MainMenuUiFlowInstaller>();
+                var mainMenuView = menuObject.AddComponent<MainMenuScreenView>();
+                mainMenuView.ShowSection(MainMenuSectionId.SaveSlots);
+                SetPrivateField(installer, "_mainMenuScreenView", mainMenuView);
+
+                Assert.That(installer.TryHandleBackRequested(), Is.True);
+
+                Assert.That(mainMenuView.ActiveSection, Is.EqualTo(MainMenuSectionId.None));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(menuObject);
+                UnityEngine.Object.DestroyImmediate(installerObject);
+            }
+        }
+
+        [Test]
+        public void MainMenuUiFlowInstaller_BackAtRoot_IsNoOp()
+        {
+            var installerObject = new GameObject(nameof(MainMenuUiFlowInstaller_BackAtRoot_IsNoOp));
+            var menuObject = new GameObject("MainMenuScreenView");
+            try
+            {
+                var installer = installerObject.AddComponent<MainMenuUiFlowInstaller>();
+                var mainMenuView = menuObject.AddComponent<MainMenuScreenView>();
+                mainMenuView.ShowSection(MainMenuSectionId.None);
+                SetPrivateField(installer, "_mainMenuScreenView", mainMenuView);
+
+                Assert.That(installer.TryHandleBackRequested(), Is.False);
+
+                Assert.That(mainMenuView.ActiveSection, Is.EqualTo(MainMenuSectionId.None));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(menuObject);
+                UnityEngine.Object.DestroyImmediate(installerObject);
+            }
         }
 
         [Test]
@@ -330,16 +492,33 @@ namespace Game.Feature.UI.Tests
             return File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), relativePath));
         }
 
+        private static void SetPrivateField(object target, string memberName, object value)
+        {
+            var type = target.GetType();
+            var field = type.GetField(memberName, BindingFlags.Instance | BindingFlags.NonPublic);
+            if (field != null)
+            {
+                field.SetValue(target, value);
+                return;
+            }
+
+            var property = type.GetProperty(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            Assert.That(property, Is.Not.Null, $"{type.Name}.{memberName}");
+            var setter = property.GetSetMethod(true);
+            Assert.That(setter, Is.Not.Null, $"{type.Name}.{memberName} setter");
+            setter.Invoke(target, new[] { value });
+        }
+
         private sealed class RuntimeHarness : IDisposable
         {
-            public RuntimeHarness()
+            public RuntimeHarness(IKeyboardBindingSettingsPort keyboardBindingSettingsPort = null)
             {
                 Root = new GameObject("MainMenuSettingsRuntimeTestRoot", typeof(RectTransform));
                 ContentRoot = CreateFullScreenRect("SettingsContentRoot", Root.transform);
                 PopupHarness = new PopupHarness(Root.transform);
                 AudioPort = new RecordingAudioSettingsPort();
                 DisplayPort = new RecordingDisplaySettingsPort();
-                Runtime = CreateRuntime(ContentRoot, PopupHarness, AudioPort, DisplayPort);
+                Runtime = CreateRuntime(ContentRoot, PopupHarness, AudioPort, DisplayPort, keyboardBindingSettingsPort);
             }
 
             public GameObject Root { get; }
@@ -455,7 +634,8 @@ namespace Game.Feature.UI.Tests
             RectTransform contentRoot,
             PopupHarness popupHarness,
             RecordingAudioSettingsPort audioPort,
-            RecordingDisplaySettingsPort displayPort)
+            RecordingDisplaySettingsPort displayPort,
+            IKeyboardBindingSettingsPort keyboardBindingSettingsPort = null)
         {
             return new MainMenuSettingsRuntime(
                 UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath),
@@ -463,6 +643,7 @@ namespace Game.Feature.UI.Tests
                 new AccessibilitySettingsStore(),
                 audioPort,
                 displayPort,
+                keyboardBindingSettingsPort ?? NoOpKeyboardBindingSettingsPort.Instance,
                 popupHarness.PopupController,
                 popupHarness.DisplayPreviewSessionHost,
                 popupHarness.DisplayLifecycleRelay,
@@ -532,6 +713,107 @@ namespace Game.Feature.UI.Tests
         {
             public void Request(ConfirmPopupPayload payload, Action<bool> completion)
             {
+            }
+        }
+
+        private sealed class ControllableKeyboardSettingsPort : IKeyboardBindingSettingsPort
+        {
+            public bool IsRebinding { get; private set; }
+
+            public int CancelRebindCount { get; private set; }
+
+            public KeyboardBindingSettingsSnapshot Read()
+            {
+                return BuildSnapshot(IsRebinding);
+            }
+
+            public KeyboardBindingValidationResult TrySetMovementScheme(KeyboardMovementScheme scheme)
+            {
+                return IsRebinding
+                    ? KeyboardBindingValidationResult.AlreadyRebinding
+                    : KeyboardBindingValidationResult.Success;
+            }
+
+            public KeyboardRebindStartResult StartRebind(
+                KeyboardBindableAction action,
+                Action<KeyboardRebindResult> completed)
+            {
+                if (IsRebinding)
+                {
+                    return new KeyboardRebindStartResult(
+                        false,
+                        KeyboardBindingValidationResult.AlreadyRebinding,
+                        BuildSnapshot(isRebinding: true));
+                }
+
+                IsRebinding = true;
+                return new KeyboardRebindStartResult(
+                    true,
+                    KeyboardBindingValidationResult.Success,
+                    BuildSnapshot(isRebinding: true));
+            }
+
+            public void CancelRebind()
+            {
+                CancelRebindCount++;
+                IsRebinding = false;
+            }
+
+            public KeyboardBindingSettingsSnapshot ResetToDefaults()
+            {
+                IsRebinding = false;
+                return BuildSnapshot(isRebinding: false);
+            }
+
+            private static KeyboardBindingSettingsSnapshot BuildSnapshot(bool isRebinding)
+            {
+                return new KeyboardBindingSettingsSnapshot(
+                    KeyboardMovementScheme.Wasd,
+                    "WASD",
+                    "E",
+                    "Q",
+                    isRebinding,
+                    isRebinding ? (KeyboardBindableAction?)KeyboardBindableAction.Push : null);
+            }
+        }
+
+        private sealed class RebindingKeyboardSettingsPort : IKeyboardBindingSettingsPort
+        {
+            public bool IsRebinding => true;
+
+            public KeyboardBindingSettingsSnapshot Read()
+            {
+                return new KeyboardBindingSettingsSnapshot(
+                    KeyboardMovementScheme.Wasd,
+                    "WASD",
+                    "E",
+                    "Q",
+                    isRebinding: true,
+                    rebindingAction: KeyboardBindableAction.Push);
+            }
+
+            public KeyboardBindingValidationResult TrySetMovementScheme(KeyboardMovementScheme scheme)
+            {
+                return KeyboardBindingValidationResult.AlreadyRebinding;
+            }
+
+            public KeyboardRebindStartResult StartRebind(
+                KeyboardBindableAction action,
+                Action<KeyboardRebindResult> completed)
+            {
+                return new KeyboardRebindStartResult(
+                    false,
+                    KeyboardBindingValidationResult.AlreadyRebinding,
+                    Read());
+            }
+
+            public void CancelRebind()
+            {
+            }
+
+            public KeyboardBindingSettingsSnapshot ResetToDefaults()
+            {
+                return Read();
             }
         }
 
