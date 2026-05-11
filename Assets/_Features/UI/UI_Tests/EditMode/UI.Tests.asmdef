@@ -17,7 +17,8 @@
     "Game.Feature.UI.Composition",
     "Game.Shared.Input",
     "Unity.InputSystem",
-    "Unity.TextMeshPro"
+    "Unity.TextMeshPro",
+    "DOTween.Modules"
   ],
   "includePlatforms": [
     "Editor"

@@ -11,11 +11,24 @@ namespace Game.Feature.UI.Composition
     internal sealed class SceneTransitionCoordinator : MonoBehaviour
     {
         private const string RootName = "[SceneTransitionCoordinator]";
+        private const string ShellPrefabResourcePath = "UI/Transitions/SceneTransitionOverlayShell";
+        private const string ContentCatalogResourcePath = "UI/Transitions/SceneTransitionOverlayContentCatalog";
+        private const string OverlayPrefabResourcePath = "UI/SceneTransitionOverlayView";
         private static SceneTransitionCoordinator _instance;
+        private static Func<SceneTransitionOverlayShellView> _shellResourceLoaderForTests;
+        private static Func<SceneTransitionOverlayContentCatalog> _contentCatalogResourceLoaderForTests;
+        private static Func<string, SceneTransitionOverlayContentView> _contentResourceLoaderForTests;
+        private static Func<SceneTransitionOverlayView> _overlayResourceLoaderForTests;
 
         private readonly StageTransitionLaunchGuard _guard = new();
         private readonly StageTransitionProfileResolver _profileResolver = new();
-        private SceneTransitionOverlay _overlay;
+        private readonly SceneTransitionOverlayContentResolver _contentResolver = new();
+        [SerializeField] private SceneTransitionOverlayShellView _overlayShellPrefab;
+        [SerializeField] private SceneTransitionOverlayContentCatalog _contentCatalog;
+        [SerializeField] private SceneTransitionOverlayView _overlayPrefab;
+        private ISceneTransitionOverlayShellView _overlayShell;
+        private bool _generatedFallbackWarningLogged;
+        private bool _contentFallbackWarningLogged;
 
         public static SceneTransitionCoordinator Instance
         {
@@ -76,7 +89,7 @@ namespace Game.Feature.UI.Composition
 
             _instance = this;
             DontDestroyOnLoad(gameObject);
-            EnsureOverlay();
+            EnsureOverlayShell();
         }
 
         private bool TryStartTransition(
@@ -102,11 +115,11 @@ namespace Game.Feature.UI.Composition
             try
             {
                 beforeLoad?.Invoke();
-                var overlay = EnsureOverlay();
-                overlay.PrepareHidden();
+                var shell = EnsureOverlayShell();
+                shell.HideAll();
                 if (profile.BlockInputDuringPreOverlayDelay)
                 {
-                    overlay.ShowInputBlocker();
+                    shell.ShowBlockerOnly(true);
                 }
 
                 StartCoroutine(RunTransition(transitionId, request, targetSceneName, profile));
@@ -141,8 +154,11 @@ namespace Game.Feature.UI.Composition
                     yield return null;
                 }
 
-                var overlay = EnsureOverlay();
-                overlay.Show(profile, request.TransitionHint);
+                var overlay = EnsureOverlayShell();
+                var viewModel = CreateViewModel(profile, request.TransitionHint, 0f);
+                var contentPrefab = ResolveContentPrefab(viewModel);
+                var content = overlay.MountContent(contentPrefab);
+                overlay.ShowContent(viewModel, content);
                 var overlayShownAt = Time.unscaledTime;
 
                 if (operation == null)
@@ -156,9 +172,7 @@ namespace Game.Feature.UI.Composition
                 while (!loadReady || !minimumElapsed)
                 {
                     loadReady = operation.progress >= 0.9f;
-                    overlay.SetProgress(
-                        loadReady ? 1f : NormalizeProgress(operation.progress),
-                        profile.ShowProgress);
+                    overlay.SetProgress(loadReady ? 1f : NormalizeProgress(operation.progress));
                     minimumElapsed = IsMinimumVisibleElapsedForActivation(
                         profile,
                         overlayShownAt,
@@ -166,7 +180,7 @@ namespace Game.Feature.UI.Composition
                     yield return null;
                 }
 
-                overlay.SetProgress(1f, profile.ShowProgress);
+                overlay.SetProgress(1f);
                 operation.allowSceneActivation = true;
                 while (!operation.isDone)
                 {
@@ -203,21 +217,57 @@ namespace Game.Feature.UI.Composition
             return operation;
         }
 
-        private SceneTransitionOverlay EnsureOverlay()
+        private ISceneTransitionOverlayShellView EnsureOverlay()
         {
-            if (_overlay == null)
+            return EnsureOverlayShell();
+        }
+
+        private ISceneTransitionOverlayShellView EnsureOverlayShell()
+        {
+            if (_overlayShell != null)
             {
-                _overlay = new SceneTransitionOverlay(transform);
+                return _overlayShell;
             }
 
-            return _overlay;
+            var shellPrefab = _overlayShellPrefab != null ? _overlayShellPrefab : LoadShellPrefabFromResources();
+            if (shellPrefab != null)
+            {
+                var instance = Instantiate(shellPrefab, transform, false);
+                instance.name = "SceneTransitionOverlayShell";
+                instance.HideAll();
+                _overlayShell = instance;
+                return _overlayShell;
+            }
+
+            var legacyPrefab = _overlayPrefab != null ? _overlayPrefab : LoadOverlayPrefabFromResources();
+            if (legacyPrefab != null)
+            {
+                var instance = Instantiate(legacyPrefab, transform, false);
+                instance.name = "SceneTransitionOverlayView";
+                instance.HideAll();
+                _overlayShell = new LegacyOverlayShellAdapter(instance, false);
+                return _overlayShell;
+            }
+
+            if (!_generatedFallbackWarningLogged)
+            {
+                Debug.LogWarning(
+                    $"Scene transition overlay shell prefab was not found at Resources path '{ShellPrefabResourcePath}' " +
+                    $"and legacy overlay prefab was not found at Resources path '{OverlayPrefabResourcePath}'. " +
+                    "Using the generated fallback overlay.",
+                    this);
+                _generatedFallbackWarningLogged = true;
+            }
+
+            _overlayShell = new LegacyOverlayShellAdapter(new GeneratedSceneTransitionOverlayView(transform), true);
+            return _overlayShell;
         }
 
         private void TryHideOverlay()
         {
             try
             {
-                EnsureOverlay().Hide();
+                EnsureOverlay().HideAll();
             }
             catch (Exception exception)
             {
@@ -228,6 +278,219 @@ namespace Game.Feature.UI.Composition
         private static float NormalizeProgress(float progress)
         {
             return Mathf.Clamp01(progress / 0.9f);
+        }
+
+        internal static void SetOverlayResourceLoaderForTests(Func<SceneTransitionOverlayView> loader)
+        {
+            _overlayResourceLoaderForTests = loader;
+        }
+
+        internal static void SetOverlayShellResourceLoaderForTests(Func<SceneTransitionOverlayShellView> loader)
+        {
+            _shellResourceLoaderForTests = loader;
+        }
+
+        internal static void SetContentCatalogResourceLoaderForTests(Func<SceneTransitionOverlayContentCatalog> loader)
+        {
+            _contentCatalogResourceLoaderForTests = loader;
+        }
+
+        internal static void SetContentResourceLoaderForTests(Func<string, SceneTransitionOverlayContentView> loader)
+        {
+            _contentResourceLoaderForTests = loader;
+        }
+
+        internal bool IsUsingGeneratedOverlayForTests =>
+            _overlayShell is LegacyOverlayShellAdapter { IsGenerated: true };
+
+        private static SceneTransitionOverlayShellView LoadShellPrefabFromResources()
+        {
+            return _shellResourceLoaderForTests != null
+                ? _shellResourceLoaderForTests()
+                : Resources.Load<SceneTransitionOverlayShellView>(ShellPrefabResourcePath);
+        }
+
+        private static SceneTransitionOverlayView LoadOverlayPrefabFromResources()
+        {
+            return _overlayResourceLoaderForTests != null
+                ? _overlayResourceLoaderForTests()
+                : Resources.Load<SceneTransitionOverlayView>(OverlayPrefabResourcePath);
+        }
+
+        private SceneTransitionOverlayContentView ResolveContentPrefab(SceneTransitionOverlayViewModel model)
+        {
+            var catalog = _contentCatalog != null ? _contentCatalog : LoadContentCatalogFromResources();
+            var content = _contentResolver.Resolve(
+                model,
+                catalog,
+                LoadContentPrefabForTransitionKind,
+                LoadContentPrefabForOverlayKind,
+                LoadGenericContentPrefab);
+            if (content == null && !_contentFallbackWarningLogged)
+            {
+                Debug.LogWarning(
+                    "Scene transition overlay content prefab was not found. " +
+                    "Using a generated generic transition content view.",
+                    this);
+                _contentFallbackWarningLogged = true;
+            }
+
+            return content;
+        }
+
+        private static SceneTransitionOverlayContentCatalog LoadContentCatalogFromResources()
+        {
+            return _contentCatalogResourceLoaderForTests != null
+                ? _contentCatalogResourceLoaderForTests()
+                : Resources.Load<SceneTransitionOverlayContentCatalog>(ContentCatalogResourcePath);
+        }
+
+        private static SceneTransitionOverlayContentView LoadContentPrefabForTransitionKind(StageTransitionKind transitionKind)
+        {
+            return transitionKind switch
+            {
+                StageTransitionKind.MainToGameplay => LoadContentPrefab("UI/Transitions/Contents/GenericLoadingOverlayContent"),
+                StageTransitionKind.GameplayToMain => LoadContentPrefab("UI/Transitions/Contents/MainMenuReturnOverlayContent"),
+                StageTransitionKind.StageClearNext => LoadContentPrefab("UI/Transitions/Contents/StageClearOverlayContent"),
+                StageTransitionKind.StageRetryManual => LoadContentPrefab("UI/Transitions/Contents/ManualRestartOverlayContent"),
+                StageTransitionKind.DeathRetryChanceLost => LoadContentPrefab("UI/Transitions/Contents/ChanceLostOverlayContent"),
+                StageTransitionKind.LevelFailedRestart => LoadContentPrefab("UI/Transitions/Contents/LevelFailedRestartOverlayContent"),
+                _ => null,
+            };
+        }
+
+        private static SceneTransitionOverlayContentView LoadContentPrefabForOverlayKind(TransitionOverlayKind overlayKind)
+        {
+            return overlayKind switch
+            {
+                TransitionOverlayKind.GenericLoading => LoadContentPrefab("UI/Transitions/Contents/GenericLoadingOverlayContent"),
+                TransitionOverlayKind.ChanceLost => LoadContentPrefab("UI/Transitions/Contents/ChanceLostOverlayContent"),
+                TransitionOverlayKind.StageClear => LoadContentPrefab("UI/Transitions/Contents/StageClearOverlayContent"),
+                TransitionOverlayKind.Restart => LoadContentPrefab("UI/Transitions/Contents/ManualRestartOverlayContent"),
+                TransitionOverlayKind.MainMenuReturn => LoadContentPrefab("UI/Transitions/Contents/MainMenuReturnOverlayContent"),
+                _ => null,
+            };
+        }
+
+        private static SceneTransitionOverlayContentView LoadGenericContentPrefab()
+        {
+            return LoadContentPrefab("UI/Transitions/Contents/GenericLoadingOverlayContent");
+        }
+
+        private static SceneTransitionOverlayContentView LoadContentPrefab(string resourcePath)
+        {
+            return _contentResourceLoaderForTests != null
+                ? _contentResourceLoaderForTests(resourcePath)
+                : Resources.Load<SceneTransitionOverlayContentView>(resourcePath);
+        }
+
+        private static SceneTransitionOverlayViewModel CreateViewModel(
+            StageTransitionProfile profile,
+            StageTransitionHint hint,
+            float progress01)
+        {
+            var transitionKind = ResolveTransitionKind(profile, hint);
+            var hasChanceLost = transitionKind == StageTransitionKind.DeathRetryChanceLost &&
+                                profile.OverlayKind == TransitionOverlayKind.ChanceLost &&
+                                hint.HasChanceLostPayload;
+            var payload = hasChanceLost ? hint.ChanceLostPayload : default;
+            return new SceneTransitionOverlayViewModel(
+                transitionKind,
+                profile.OverlayKind,
+                ResolveTitle(profile, hint, transitionKind),
+                ResolveMessage(profile, hint, transitionKind),
+                profile.BlockInput,
+                profile.ShowProgress,
+                progress01,
+                hasChanceLost,
+                hasChanceLost ? payload.PreviousRemainingChances : 0,
+                hasChanceLost ? payload.CurrentRemainingChances : 0,
+                hasChanceLost ? payload.TotalChances : 0,
+                hasChanceLost ? payload.DeathCount : 0);
+        }
+
+        private static StageTransitionKind ResolveTransitionKind(StageTransitionProfile profile, StageTransitionHint hint)
+        {
+            if (profile != null && profile.Kind != StageTransitionKind.Unknown)
+            {
+                return profile.Kind;
+            }
+
+            return hint.Kind;
+        }
+
+        private static string ResolveTitle(
+            StageTransitionProfile profile,
+            StageTransitionHint hint,
+            StageTransitionKind transitionKind)
+        {
+            if (hint.HasChanceLostPayload && !string.IsNullOrWhiteSpace(hint.ChanceLostPayload.Title))
+            {
+                return hint.ChanceLostPayload.Title;
+            }
+
+            switch (transitionKind)
+            {
+                case StageTransitionKind.MainToGameplay:
+                    return "Loading";
+                case StageTransitionKind.GameplayToMain:
+                    return "Returning to Main";
+                case StageTransitionKind.StageClearNext:
+                    return "Loading Next Stage";
+                case StageTransitionKind.StageRetryManual:
+                    return "Retrying Stage";
+                case StageTransitionKind.DeathRetryChanceLost:
+                    return "Chance Lost";
+                case StageTransitionKind.LevelFailedRestart:
+                    return "Restarting Level";
+            }
+
+            return profile.OverlayKind switch
+            {
+                TransitionOverlayKind.ChanceLost => "Chance Lost",
+                TransitionOverlayKind.StageClear => "Loading Next Stage",
+                TransitionOverlayKind.Restart => "Restarting",
+                TransitionOverlayKind.MainMenuReturn => "Returning to Main",
+                TransitionOverlayKind.None => string.Empty,
+                _ => "Loading",
+            };
+        }
+
+        private static string ResolveMessage(
+            StageTransitionProfile profile,
+            StageTransitionHint hint,
+            StageTransitionKind transitionKind)
+        {
+            if (hint.HasChanceLostPayload && !string.IsNullOrWhiteSpace(hint.ChanceLostPayload.Message))
+            {
+                return hint.ChanceLostPayload.Message;
+            }
+
+            switch (transitionKind)
+            {
+                case StageTransitionKind.MainToGameplay:
+                    return "Preparing the stage.";
+                case StageTransitionKind.GameplayToMain:
+                    return "Preparing the main menu.";
+                case StageTransitionKind.StageClearNext:
+                    return "Preparing the next stage.";
+                case StageTransitionKind.StageRetryManual:
+                    return "Restarting the current stage.";
+                case StageTransitionKind.DeathRetryChanceLost:
+                    return "Retrying from your current stage.";
+                case StageTransitionKind.LevelFailedRestart:
+                    return "Returning to the first stage in this level.";
+            }
+
+            return profile.OverlayKind switch
+            {
+                TransitionOverlayKind.ChanceLost => "Retrying from your current stage.",
+                TransitionOverlayKind.StageClear => "Preparing the next stage.",
+                TransitionOverlayKind.Restart => "Preparing the stage.",
+                TransitionOverlayKind.MainMenuReturn => "Preparing the main menu.",
+                TransitionOverlayKind.None => string.Empty,
+                _ => "Preparing the scene.",
+            };
         }
 
         internal static bool IsMinimumVisibleElapsedForActivation(
@@ -243,7 +506,52 @@ namespace Game.Feature.UI.Composition
             return now - overlayShownAt >= Math.Max(0f, profile.MinimumVisibleSeconds);
         }
 
-        private sealed class SceneTransitionOverlay
+        private sealed class LegacyOverlayShellAdapter : ISceneTransitionOverlayShellView
+        {
+            private readonly ISceneTransitionOverlayView _legacyView;
+
+            public LegacyOverlayShellAdapter(ISceneTransitionOverlayView legacyView, bool isGenerated)
+            {
+                _legacyView = legacyView ?? throw new ArgumentNullException(nameof(legacyView));
+                IsGenerated = isGenerated;
+            }
+
+            public bool IsGenerated { get; }
+
+            public void ShowBlockerOnly(bool blockInput)
+            {
+                _legacyView.ShowBlockerOnly(blockInput);
+            }
+
+            public ISceneTransitionOverlayContentView MountContent(SceneTransitionOverlayContentView contentPrefab)
+            {
+                return null;
+            }
+
+            public void ShowContent(
+                SceneTransitionOverlayViewModel model,
+                ISceneTransitionOverlayContentView content)
+            {
+                _legacyView.ShowOverlay(model);
+            }
+
+            public void SetProgress(float progress01)
+            {
+                _legacyView.SetProgress(progress01);
+            }
+
+            public void HideVisual()
+            {
+                _legacyView.HideVisual();
+            }
+
+            public void HideAll()
+            {
+                _legacyView.HideAll();
+            }
+        }
+
+        private sealed class GeneratedSceneTransitionOverlayView : ISceneTransitionOverlayView
         {
             private readonly CanvasGroup _canvasGroup;
             private readonly GameObject _root;
@@ -254,8 +562,9 @@ namespace Game.Feature.UI.Composition
             private readonly TMP_Text _chanceText;
             private readonly TMP_Text _progressText;
             private readonly RectTransform _progressFill;
+            private bool _showProgress;
 
-            public SceneTransitionOverlay(Transform parent)
+            public GeneratedSceneTransitionOverlayView(Transform parent)
             {
                 _root = new GameObject("SceneTransitionOverlay", typeof(RectTransform));
                 _root.transform.SetParent(parent, false);
@@ -339,115 +648,75 @@ namespace Game.Feature.UI.Composition
                     TextAnchor.MiddleCenter,
                     14);
 
-                Hide();
+                HideAll();
             }
 
-            public void PrepareHidden()
+            public void ShowBlockerOnly(bool blockInput)
             {
                 _canvasGroup.alpha = 1f;
-                _canvasGroup.blocksRaycasts = false;
-                _canvasGroup.interactable = false;
+                _canvasGroup.blocksRaycasts = blockInput;
+                _canvasGroup.interactable = blockInput;
                 _blocker.color = Color.clear;
-                _blocker.raycastTarget = false;
+                _blocker.raycastTarget = blockInput;
                 _panel.gameObject.SetActive(false);
                 _root.SetActive(true);
             }
 
-            public void ShowInputBlocker()
+            public void ShowOverlay(SceneTransitionOverlayViewModel model)
             {
-                _canvasGroup.alpha = 1f;
-                _canvasGroup.blocksRaycasts = true;
-                _canvasGroup.interactable = true;
-                _blocker.color = Color.clear;
-                _blocker.raycastTarget = true;
-                _panel.gameObject.SetActive(false);
-                _root.SetActive(true);
-            }
-
-            public void Show(StageTransitionProfile profile, StageTransitionHint hint)
-            {
-                var title = ResolveTitle(profile, hint);
-                var message = ResolveMessage(profile, hint);
-                _titleText.text = title;
-                _messageText.text = message;
-                _chanceText.text = ResolveChanceText(profile, hint);
-                _chanceText.gameObject.SetActive(profile.OverlayKind == TransitionOverlayKind.ChanceLost);
-                SetProgress(0f, profile.ShowProgress);
-                _blocker.raycastTarget = profile.BlockInput;
-                _blocker.color = profile.OverlayKind == TransitionOverlayKind.None
+                _titleText.text = model.Title;
+                _messageText.text = model.Message;
+                _chanceText.text = ResolveChanceText(model);
+                _chanceText.gameObject.SetActive(
+                    model.TransitionKind == StageTransitionKind.DeathRetryChanceLost && model.HasChanceLost);
+                _showProgress = model.ShowProgress;
+                SetProgress(model.Progress01);
+                _blocker.raycastTarget = model.BlockInput;
+                _blocker.color = model.OverlayKind == TransitionOverlayKind.None
                     ? Color.clear
                     : new Color(0.03f, 0.04f, 0.06f, 0.92f);
-                _panel.gameObject.SetActive(profile.OverlayKind != TransitionOverlayKind.None);
+                _panel.gameObject.SetActive(model.OverlayKind != TransitionOverlayKind.None);
                 _canvasGroup.alpha = 1f;
-                _canvasGroup.blocksRaycasts = profile.BlockInput;
-                _canvasGroup.interactable = profile.BlockInput;
+                _canvasGroup.blocksRaycasts = model.BlockInput;
+                _canvasGroup.interactable = model.BlockInput;
                 _root.SetActive(true);
             }
 
-            public void SetProgress(float progress, bool visible)
+            public void SetProgress(float progress)
             {
                 _progressFill.anchorMax = new Vector2(Mathf.Clamp01(progress), 1f);
-                _progressText.text = visible ? $"{Mathf.RoundToInt(Mathf.Clamp01(progress) * 100f)}%" : string.Empty;
-                _progressFill.parent.gameObject.SetActive(visible);
-                _progressText.gameObject.SetActive(visible);
+                _progressText.text = _showProgress ? $"{Mathf.RoundToInt(Mathf.Clamp01(progress) * 100f)}%" : string.Empty;
+                _progressFill.parent.gameObject.SetActive(_showProgress);
+                _progressText.gameObject.SetActive(_showProgress);
             }
 
-            public void Hide()
+            public void HideVisual()
             {
+                _panel.gameObject.SetActive(false);
+                _chanceText.gameObject.SetActive(false);
+            }
+
+            public void HideAll()
+            {
+                _showProgress = false;
                 _canvasGroup.alpha = 0f;
                 _canvasGroup.blocksRaycasts = false;
                 _canvasGroup.interactable = false;
                 _blocker.color = Color.clear;
                 _blocker.raycastTarget = false;
-                _panel.gameObject.SetActive(false);
+                HideVisual();
+                SetProgress(0f);
                 _root.SetActive(false);
             }
 
-            private static string ResolveTitle(StageTransitionProfile profile, StageTransitionHint hint)
+            private static string ResolveChanceText(SceneTransitionOverlayViewModel model)
             {
-                if (hint.HasChanceLostPayload && !string.IsNullOrWhiteSpace(hint.ChanceLostPayload.Title))
-                {
-                    return hint.ChanceLostPayload.Title;
-                }
-
-                return profile.OverlayKind switch
-                {
-                    TransitionOverlayKind.ChanceLost => "Chance Lost",
-                    TransitionOverlayKind.StageClear => "Loading Next Stage",
-                    TransitionOverlayKind.Restart => "Restarting",
-                    TransitionOverlayKind.MainMenuReturn => "Returning to Main",
-                    TransitionOverlayKind.None => string.Empty,
-                    _ => "Loading",
-                };
-            }
-
-            private static string ResolveMessage(StageTransitionProfile profile, StageTransitionHint hint)
-            {
-                if (hint.HasChanceLostPayload && !string.IsNullOrWhiteSpace(hint.ChanceLostPayload.Message))
-                {
-                    return hint.ChanceLostPayload.Message;
-                }
-
-                return profile.OverlayKind switch
-                {
-                    TransitionOverlayKind.ChanceLost => "Retrying from your current stage.",
-                    TransitionOverlayKind.StageClear => "Preparing the next stage.",
-                    TransitionOverlayKind.Restart => "Preparing the stage.",
-                    TransitionOverlayKind.MainMenuReturn => "Preparing the main menu.",
-                    TransitionOverlayKind.None => string.Empty,
-                    _ => "Preparing the scene.",
-                };
-            }
-
-            private static string ResolveChanceText(StageTransitionProfile profile, StageTransitionHint hint)
-            {
-                if (profile.OverlayKind != TransitionOverlayKind.ChanceLost || !hint.HasChanceLostPayload)
+                if (model.TransitionKind != StageTransitionKind.DeathRetryChanceLost || !model.HasChanceLost)
                 {
                     return string.Empty;
                 }
 
-                var payload = hint.ChanceLostPayload;
-                return $"Chance {payload.PreviousRemainingChances} -> {payload.CurrentRemainingChances} / {payload.TotalChances}  |  Deaths {payload.DeathCount}";
+                return $"Chance {model.PreviousRemainingChances} -> {model.CurrentRemainingChances} / {model.TotalChances}  |  Deaths {model.DeathCount}";
             }
         }
     }
