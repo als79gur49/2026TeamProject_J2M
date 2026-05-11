@@ -185,6 +185,15 @@ namespace Game.Feature.UI.Application
 
         private void Launch(StageId stageId, StageNavigationKind navigationKind, string source)
         {
+            CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.StageLaunch)
+            {
+                Source = source,
+                RequestedStageId = stageId.IsValid ? stageId.Value : string.Empty,
+                HasActiveSlot = _activeSlotProvider.TryGetActiveSlotNumber(out var activeSlotNumber),
+                ActiveSlotNumber = activeSlotNumber,
+                ActiveSlotProviderKey = _activeSlotProvider.PlayerPrefsKey,
+                SaveSlotStoreKey = _saveSlotStore.PlayerPrefsKey,
+            });
             _stageLaunchRouter.Launch(new StageNavigationRequest(
                 stageId,
                 navigationKind,

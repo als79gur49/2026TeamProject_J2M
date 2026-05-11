@@ -9,6 +9,7 @@ namespace Game.Feature.Gameplay.Host
     internal sealed class CampaignGameplayFlowController : IDisposable
     {
         private readonly ActiveSlotProvider _activeSlotProvider;
+        private readonly CampaignChanceDisplayOverride _chanceDisplayOverride;
         private readonly GameplaySceneHost _host;
         private readonly IStageLaunchRouter _stageLaunchRouter;
         private readonly SaveSlotStore _saveSlotStore;
@@ -24,13 +25,15 @@ namespace Game.Feature.Gameplay.Host
             SaveSlotStore saveSlotStore,
             ActiveSlotProvider activeSlotProvider,
             CampaignStageSequenceResolver sequenceResolver,
-            IStageLaunchRouter stageLaunchRouter)
+            IStageLaunchRouter stageLaunchRouter,
+            CampaignChanceDisplayOverride chanceDisplayOverride = null)
         {
             _host = host ?? throw new ArgumentNullException(nameof(host));
             _saveSlotStore = saveSlotStore ?? throw new ArgumentNullException(nameof(saveSlotStore));
             _activeSlotProvider = activeSlotProvider ?? throw new ArgumentNullException(nameof(activeSlotProvider));
             _sequenceResolver = sequenceResolver ?? throw new ArgumentNullException(nameof(sequenceResolver));
             _stageLaunchRouter = stageLaunchRouter ?? throw new ArgumentNullException(nameof(stageLaunchRouter));
+            _chanceDisplayOverride = chanceDisplayOverride;
             _retryChanceTracker = new StageRetryChanceTracker(_sequenceResolver);
         }
 
@@ -118,6 +121,7 @@ namespace Game.Feature.Gameplay.Host
 
             if (route.RouteKind == StageRetryRouteKind.ReturnToLevelGroupFirstStage)
             {
+                _chanceDisplayOverride?.Set(0, SaveSlotStore.DefaultRemainingChances);
                 _pendingDeathRecovery = PendingDeathRecoveryState.CreateLevelFailed(
                     route,
                     result.TickIndex,

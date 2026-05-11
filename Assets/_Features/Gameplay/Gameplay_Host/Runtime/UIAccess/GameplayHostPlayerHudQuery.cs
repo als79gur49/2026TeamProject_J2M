@@ -4,6 +4,7 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Gameplay.UIAccess.Queries;
+using Game.Feature.Stages;
 
 namespace Game.Feature.Gameplay.Host.UIAccess
 {
@@ -24,6 +25,14 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             _inputHost = inputHost;
             _admissionPolicy = admissionPolicy;
             _campaignChancesReadSource = campaignChancesReadSource;
+            CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.HudQueryConstructed)
+            {
+                SourceType = campaignChancesReadSource != null ? campaignChancesReadSource.GetType().Name : string.Empty,
+                SourceIsNull = campaignChancesReadSource == null,
+                FailureReason = campaignChancesReadSource == null
+                    ? CampaignChanceReadFailureReason.SourceMissing
+                    : CampaignChanceReadFailureReason.None,
+            });
         }
 
         public GameplayPlayerHudReadModel Read()
@@ -39,8 +48,26 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             var maxChances = 0;
             var hasRemainingChances = _campaignChancesReadSource != null &&
                                       _campaignChancesReadSource.TryReadChances(out remainingChances, out maxChances);
+            var hasPlayer = _admissionPolicy.TryGetCommittedControllableActor(out var playerEntity);
+            CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.HudQueryRead)
+            {
+                SourceType = _campaignChancesReadSource != null ? _campaignChancesReadSource.GetType().Name : string.Empty,
+                SourceIsNull = _campaignChancesReadSource == null,
+                TryReadResult = hasRemainingChances,
+                FailureReason = _campaignChancesReadSource == null
+                    ? CampaignChanceReadFailureReason.SourceMissing
+                    : hasRemainingChances
+                        ? maxChances > 0
+                            ? CampaignChanceReadFailureReason.None
+                            : CampaignChanceReadFailureReason.MaxChancesZero
+                        : CampaignChanceReadFailureReason.Unknown,
+                RemainingChances = hasRemainingChances ? remainingChances : 0,
+                MaxChances = hasRemainingChances ? maxChances : 0,
+                PlayerFound = hasPlayer,
+                FinalHasChances = hasRemainingChances && maxChances > 0,
+            });
 
-            if (!_admissionPolicy.TryGetCommittedControllableActor(out var playerEntity))
+            if (!hasPlayer)
             {
                 return new GameplayPlayerHudReadModel(
                     isAvailable: false,

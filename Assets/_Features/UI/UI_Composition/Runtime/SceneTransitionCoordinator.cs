@@ -64,7 +64,18 @@ namespace Game.Feature.UI.Composition
             return TryStartTransition(
                 request,
                 targetSceneName,
-                beforeLoad: () => StageLaunchContextStore.SetCurrent(request.StageId));
+                beforeLoad: () =>
+                {
+                    StageLaunchContextStore.SetCurrent(request.StageId);
+                    CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.StageLaunch)
+                    {
+                        SceneName = targetSceneName,
+                        Source = request.Source,
+                        RequestedStageId = request.StageId.Value,
+                        LaunchStageId = request.StageId.Value,
+                        EditorDirectPlayMode = EditorDirectPlayContextStore.GetCurrentOrNone().Mode,
+                    });
+                });
         }
 
         public bool TryStartMainMenuReturn(string targetSceneName)

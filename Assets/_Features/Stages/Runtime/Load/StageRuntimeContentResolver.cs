@@ -24,6 +24,14 @@ namespace Game.Feature.Stages
                         $"{request.SceneName} failed to resolve launch-context StageId '{launchStageId.Value}'.");
                 }
 
+                CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.StageResolve)
+                {
+                    SceneName = request.SceneName,
+                    LaunchStageId = launchStageId.Value,
+                    ResolvedStageId = launchEntry.StageId.IsValid ? launchEntry.StageId.Value : string.Empty,
+                    GameplayDefinitionName = launchEntry.GameplayDefinition != null ? launchEntry.GameplayDefinition.name : string.Empty,
+                    PresentationDefinitionName = launchEntry.PresentationDefinition != null ? launchEntry.PresentationDefinition.name : string.Empty,
+                });
                 return new ResolvedStageContent(
                     launchStageId,
                     launchEntry,

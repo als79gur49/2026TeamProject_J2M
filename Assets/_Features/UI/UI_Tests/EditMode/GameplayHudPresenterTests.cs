@@ -185,6 +185,21 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ChancePanelPresenter_FinalChanceLostShowsAllSlotsEmpty()
+        {
+            var presenter = new ChancePanelPresenter();
+
+            presenter.Apply(new UIChanceSlice(true, 1, 3));
+            presenter.Apply(new UIChanceSlice(true, 0, 3));
+
+            Assert.That(presenter.ViewModel.RemainingChances, Is.EqualTo(0));
+            Assert.That(presenter.ViewModel.Slots.Count, Is.EqualTo(3));
+            Assert.That(presenter.ViewModel.Slots.All(slot => !slot.IsFilled), Is.True);
+            Assert.That(presenter.ViewModel.AnimationHint.Kind, Is.EqualTo(ChanceChangeKind.Lost));
+            Assert.That(presenter.ViewModel.AnimationHint.PrimarySlotIndex, Is.EqualTo(0));
+        }
+
+        [Test]
         public void TopologyHudPresenter_MapsCurrentFaceToFourStateIndex()
         {
             var presenter = new TopologyHudPresenter();

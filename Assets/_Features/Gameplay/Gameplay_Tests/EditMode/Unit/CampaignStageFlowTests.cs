@@ -618,6 +618,49 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void CampaignDeath_LevelFailedDisplaysZeroChancesWhileSaveSlotIsRecovered()
+        {
+            var saveKey = CreatePrefsKey(nameof(CampaignDeath_LevelFailedDisplaysZeroChancesWhileSaveSlotIsRecovered));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("campaign-level-failed-zero-chances-host");
+            var chanceDisplayOverride = new CampaignChanceDisplayOverride();
+            var chancesReadSource = new SaveSlotCampaignChancesReadSource(
+                saveStore,
+                activeSlotProvider,
+                chanceDisplayOverride);
+
+            try
+            {
+                SeedSaveSlot(saveStore, activeSlotProvider, "stage-2-2", "level-2", remainingChances: 1);
+                var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    activeSlotProvider,
+                    CreateResolver(),
+                    new FakeStageLaunchRouter(),
+                    chanceDisplayOverride);
+                var handleTickCompleted = GetHandleTickCompletedMethod();
+
+                handleTickCompleted.Invoke(controller, new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
+
+                Assert.That(saveStore.LoadSlot(1).RemainingChances, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
+                Assert.That(chancesReadSource.TryReadChances(out var remainingChances, out var maxChances), Is.True);
+                Assert.That(remainingChances, Is.EqualTo(0));
+                Assert.That(maxChances, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void CampaignDeath_RetryLaunch_IgnoresLaterStageClear()
         {
             var saveKey = CreatePrefsKey(nameof(CampaignDeath_RetryLaunch_IgnoresLaterStageClear));

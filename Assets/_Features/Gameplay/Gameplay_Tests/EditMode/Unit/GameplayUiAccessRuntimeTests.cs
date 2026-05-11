@@ -104,6 +104,51 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void GameplayPlayerHudQuery_PlayerAlive_PreservesCampaignChances()
+        {
+            var hostObject = new GameObject("GameplayPlayerHudQuery_PlayerAlive_PreservesCampaignChances");
+            var saveKey = CreatePrefsKey(nameof(GameplayPlayerHudQuery_PlayerAlive_PreservesCampaignChances));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+
+            try
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                saveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
+                    CurrentLevelGroupId = "level-1",
+                    RemainingChances = 2,
+                });
+                activeSlotProvider.SetActiveSlot(1);
+
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(
+                    new[] { CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right) },
+                    campaignChancesReadSource: new SaveSlotCampaignChancesReadSource(
+                        saveStore,
+                        activeSlotProvider)));
+
+                var playerHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+
+                Assert.That(playerHud.IsAvailable, Is.True);
+                Assert.That(playerHud.HasRemainingChances, Is.True);
+                Assert.That(playerHud.RemainingChances, Is.EqualTo(2));
+                Assert.That(playerHud.MaxChances, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayPlayerHudQuery_PlayerMissing_WithoutCampaignChances_RemainsUnavailable()
         {
             var hostObject = new GameObject("GameplayPlayerHudQuery_PlayerMissing_WithoutCampaignChances_RemainsUnavailable");
