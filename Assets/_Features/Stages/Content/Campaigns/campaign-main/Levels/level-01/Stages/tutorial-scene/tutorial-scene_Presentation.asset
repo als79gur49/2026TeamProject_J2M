@@ -23,27 +23,27 @@ MonoBehaviour:
   enemyPresentationCatalog: {fileID: 11400000, guid: 885611ba81833ec4f88e7110964b962e, type: 2}
   enemyPresentationBindings:
   - EntityId: 101
-    PresentationId: nonAttacking_showcase
+    PresentationId: tutorial_passive_secbot
   - EntityId: 102
-    PresentationId: nonAttacking_showcase
+    PresentationId: tutorial_passive_secbot
   - EntityId: 103
-    PresentationId: nonAttacking_showcase
+    PresentationId: tutorial_passive_secbot
   - EntityId: 104
-    PresentationId: nonAttacking_showcase
+    PresentationId: tutorial_passive_secbot
   - EntityId: 105
-    PresentationId: nonAttacking_showcase
+    PresentationId: tutorial_passive_secbot
   - EntityId: 106
-    PresentationId: nonAttacking_showcase
+    PresentationId: tutorial_passive_secbot
   - EntityId: 107
-    PresentationId: nonAttacking_showcase
+    PresentationId: tutorial_passive_secbot
   - EntityId: 108
-    PresentationId: nonAttacking_showcase
+    PresentationId: tutorial_passive_secbot
   - EntityId: 109
-    PresentationId: nonAttacking_showcase
+    PresentationId: tutorial_passive_secbot
   - EntityId: 110
-    PresentationId: nonAttacking_showcase
+    PresentationId: tutorial_passive_secbot
   - EntityId: 111
-    PresentationId: nonAttacking_showcase
+    PresentationId: tutorial_passive_secbot
   staticEntityPresentationCatalog: {fileID: 11400000, guid: ca2a1a66d2d84d478cf3e1228d8af6df, type: 2}
   staticEntityPresentationBindings:
   - EntityId: 31
