@@ -1648,6 +1648,208 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void CrossLineOfSight_detects_target_on_same_row_without_blocker()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+
+            var detected = TryFindCrossLineOfSightTarget(worldState, sourceEntityId: 40, senseRange: 3, out var target);
+
+            Assert.That(detected, Is.True);
+            Assert.That(target.entityId, Is.EqualTo(10));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CrossLineOfSight_detects_target_on_same_column_without_blocker()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 3), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Up),
+            });
+
+            var detected = TryFindCrossLineOfSightTarget(worldState, sourceEntityId: 40, senseRange: 3, out var target);
+
+            Assert.That(detected, Is.True);
+            Assert.That(target.entityId, Is.EqualTo(10));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CrossLineOfSight_does_not_detect_diagonal_target()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(2, 2), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+
+            var detected = TryFindCrossLineOfSightTarget(worldState, sourceEntityId: 40, senseRange: 4, out _);
+
+            Assert.That(detected, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CrossLineOfSight_does_not_detect_beyond_range()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(4, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+
+            var detected = TryFindCrossLineOfSightTarget(worldState, sourceEntityId: 40, senseRange: 3, out _);
+
+            Assert.That(detected, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CrossLineOfSight_is_blocked_by_wall_solid()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(2, 0), aiMode: EnemyAiMode.None),
+                CreateWall(entityId: 30, position: new Vector2Int(1, 0)),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+
+            var detected = TryFindCrossLineOfSightTarget(worldState, sourceEntityId: 40, senseRange: 2, out _);
+
+            Assert.That(detected, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CrossLineOfSight_is_blocked_by_box_solid()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(2, 0), aiMode: EnemyAiMode.None),
+                CreateBox(entityId: 30, position: new Vector2Int(1, 0)),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+
+            var detected = TryFindCrossLineOfSightTarget(worldState, sourceEntityId: 40, senseRange: 2, out _);
+
+            Assert.That(detected, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CrossLineOfSight_does_not_treat_target_cell_as_blocker()
+        {
+            var targetCell = new Vector2Int(2, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: targetCell, aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+
+            var detected = TryFindCrossLineOfSightTarget(worldState, sourceEntityId: 40, senseRange: 2, out var target);
+
+            Assert.That(detected, Is.True);
+            Assert.That(target.entityId, Is.EqualTo(10));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CrossLineOfSight_chooses_nearest_visible_target()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 20, teamId: 1, position: new Vector2Int(0, 2), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Up),
+            });
+
+            var detected = TryFindCrossLineOfSightTarget(worldState, sourceEntityId: 40, senseRange: 4, out var target);
+
+            Assert.That(detected, Is.True);
+            Assert.That(target.entityId, Is.EqualTo(20));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CrossLineOfSight_ignores_blocked_nearer_target_and_can_choose_farther_visible_target()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(2, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 20, teamId: 1, position: new Vector2Int(0, 3), aiMode: EnemyAiMode.None),
+                CreateWall(entityId: 30, position: new Vector2Int(1, 0)),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Up),
+            });
+
+            var detected = TryFindCrossLineOfSightTarget(worldState, sourceEntityId: 40, senseRange: 4, out var target);
+
+            Assert.That(detected, Is.True);
+            Assert.That(target.entityId, Is.EqualTo(20));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CrossLineOfSight_tie_breaks_by_existing_entity_order()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 20, teamId: 1, position: new Vector2Int(0, 2), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(2, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+
+            var detected = TryFindCrossLineOfSightTarget(worldState, sourceEntityId: 40, senseRange: 2, out var target);
+
+            Assert.That(detected, Is.True);
+            Assert.That(target.entityId, Is.EqualTo(10));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CrossLineOfSight_rejects_different_face_target()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Front, 0, 3), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Up),
+            });
+
+            var detected = TryFindCrossLineOfSightTarget(worldState, sourceEntityId: 40, senseRange: 3, out _);
+
+            Assert.That(detected, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void DetectionStrategyKind_cross_line_of_sight_compiles_to_new_strategy()
+        {
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                DetectionStrategyKind = DetectionStrategyKind.CrossLineOfSightOpponent,
+                DetectionSettings = new DetectionSettings(senseRange: 5, requireSameFace: false, canTargetMarkedForDeath: false),
+            });
+
+            try
+            {
+                var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+
+                Assert.That(definition.Brain.Detection.Kind, Is.EqualTo(DetectionStrategyKind.CrossLineOfSightOpponent));
+                Assert.That(definition.Brain.Detection.Strategy, Is.SameAs(CrossLineOfSightOpponentDetectionStrategy.Instance));
+                Assert.That(definition.Brain.Detection.Settings.SenseRange, Is.EqualTo(5));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void ForwardPatrolStrategy_BlockedMovementResponseSetting_ChangesMovementOutcome()
         {
             var worldState = CreateWorldState(
@@ -2291,6 +2493,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     cooldownSeconds: 0.5f,
                     radius: 2,
                     durationSeconds: 0.3f,
+                    activationDelaySeconds: 0.4f,
                     blocksPush: true,
                     blocksFlip: false,
                     includeSourceCell: true,
@@ -2307,10 +2510,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(utility.Effects[0].CooldownTicks, Is.EqualTo(5));
                 Assert.That(utility.Effects[0].LockNearbyBoxes.Radius, Is.EqualTo(2));
                 Assert.That(utility.Effects[0].LockNearbyBoxes.DurationTicks, Is.EqualTo(3));
+                Assert.That(utility.Effects[0].LockNearbyBoxes.ActivationDelayTicks, Is.EqualTo(4));
                 Assert.That(utility.Effects[0].LockNearbyBoxes.BlocksPush, Is.True);
                 Assert.That(utility.Effects[0].LockNearbyBoxes.BlocksFlip, Is.False);
                 Assert.That(utility.Effects[0].LockNearbyBoxes.IncludeSourceCell, Is.True);
                 Assert.That(utility.Effects[0].LockNearbyBoxes.TargetPattern, Is.EqualTo(BoxLockTargetPattern.OrthogonalAdjacent4));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAiProfile_CreateRuntimeDefinition_UtilityCapability_LockNearbyBoxes_DefaultActivationDelayIsImmediate()
+        {
+            var profile = CreateUtilitySummonerProfile(CreateLockNearbyBoxesUtilityEffect());
+
+            try
+            {
+                var definition = profile.CreateRuntimeDefinition(10);
+
+                Assert.That(definition.Capabilities.TryGetUtility(out var utility), Is.True);
+                Assert.That(utility.Effects[0].LockNearbyBoxes.ActivationDelayTicks, Is.Zero);
             }
             finally
             {
@@ -2536,6 +2759,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var profile = CreateUtilitySummonerProfile(
                 CreateLockNearbyBoxesUtilityEffect(durationSeconds: 0f));
+
+            try
+            {
+                Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAiProfileCompiler_UtilityCapability_LockNearbyBoxes_NegativeActivationDelay_Throws()
+        {
+            var profile = CreateUtilitySummonerProfile(
+                CreateLockNearbyBoxesUtilityEffect(activationDelaySeconds: -0.1f));
 
             try
             {
@@ -4076,6 +4316,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return entity;
         }
 
+        private static bool TryFindCrossLineOfSightTarget(
+            WorldState worldState,
+            int sourceEntityId,
+            int senseRange,
+            out EntityState target)
+        {
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(sourceEntityId, out var source), Is.True);
+
+            return CrossLineOfSightOpponentDetectionStrategy.Instance.TryFindTarget(
+                snapshot,
+                source,
+                new DetectionSettings(senseRange, requireSameFace: false, canTargetMarkedForDeath: false),
+                out target);
+        }
+
         private static EntityState GetEntityAfterTick(TickResult tickResult, int entityId)
         {
             return tickResult.FinalEntities.Single(entity => entity.entityId == entityId);
@@ -5215,11 +5471,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             bool blocksPush = true,
             bool blocksFlip = true,
             bool includeSourceCell = false,
-            BoxLockTargetPattern targetPattern = BoxLockTargetPattern.ManhattanRadius)
+            BoxLockTargetPattern targetPattern = BoxLockTargetPattern.ManhattanRadius,
+            float activationDelaySeconds = 0f)
         {
             var lockNearbyBoxes = new LockNearbyBoxesAuthoring();
             EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "radius", radius);
             EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "durationSeconds", durationSeconds);
+            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "activationDelaySeconds", activationDelaySeconds);
             EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "blocksPush", blocksPush);
             EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "blocksFlip", blocksFlip);
             EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "includeSourceCell", includeSourceCell);

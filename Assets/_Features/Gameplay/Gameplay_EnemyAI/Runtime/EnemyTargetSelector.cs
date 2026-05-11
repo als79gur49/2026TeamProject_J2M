@@ -100,7 +100,7 @@ namespace Game.Feature.Gameplay.Entities
             for (var i = 0; i < orderedEntities.Count; i++)
             {
                 var candidate = orderedEntities[i];
-                if (!IsValidTarget(snapshot, source, candidate, settings))
+                if (!EnemyDetectionTargetRules.IsValidTarget(snapshot, source, candidate, settings))
                 {
                     continue;
                 }
@@ -118,7 +118,116 @@ namespace Game.Feature.Gameplay.Entities
             return bestDistance != int.MaxValue;
         }
 
-        private static bool IsValidTarget(
+        private static int? GetPlanarDistance(
+            SurfaceCell source,
+            SurfaceCell target,
+            bool requireSameFace)
+        {
+            if (requireSameFace && source.face != target.face)
+            {
+                return null;
+            }
+
+            var sourcePlanar = source.PlanarPosition;
+            var targetPlanar = target.PlanarPosition;
+            return Math.Abs(targetPlanar.x - sourcePlanar.x) + Math.Abs(targetPlanar.y - sourcePlanar.y);
+        }
+    }
+
+    public sealed class CrossLineOfSightOpponentDetectionStrategy : IDetectionStrategy
+    {
+        public static readonly CrossLineOfSightOpponentDetectionStrategy Instance = new();
+
+        public bool TryFindTarget(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in DetectionSettings settings,
+            out EntityState target)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            settings.Validate(nameof(settings));
+
+            target = default;
+
+            var orderedEntities = new List<EntityState>();
+            snapshot.EnumerateEntitiesOrdered(orderedEntities);
+
+            var sourceCell = source.position;
+            var bestDistance = int.MaxValue;
+            for (var i = 0; i < orderedEntities.Count; i++)
+            {
+                var candidate = orderedEntities[i];
+                if (!EnemyDetectionTargetRules.IsValidTarget(snapshot, source, candidate, settings))
+                {
+                    continue;
+                }
+
+                var targetCell = candidate.position;
+                if (targetCell.face != sourceCell.face)
+                {
+                    continue;
+                }
+
+                var dx = targetCell.x - sourceCell.x;
+                var dy = targetCell.y - sourceCell.y;
+                if (dx != 0 && dy != 0)
+                {
+                    continue;
+                }
+
+                var distance = Math.Abs(dx) + Math.Abs(dy);
+                if (distance > settings.SenseRange ||
+                    distance >= bestDistance ||
+                    IsLineOfSightBlocked(snapshot, sourceCell, targetCell))
+                {
+                    continue;
+                }
+
+                bestDistance = distance;
+                target = candidate;
+            }
+
+            return bestDistance != int.MaxValue;
+        }
+
+        private static bool IsLineOfSightBlocked(
+            WorldSnapshot snapshot,
+            SurfaceCell source,
+            SurfaceCell target)
+        {
+            var dx = target.x - source.x;
+            var dy = target.y - source.y;
+            var distance = Math.Abs(dx) + Math.Abs(dy);
+            if (distance <= 1)
+            {
+                return false;
+            }
+
+            var stepX = Math.Sign(dx);
+            var stepY = Math.Sign(dy);
+            var current = new SurfaceCell(source.face, source.x + stepX, source.y + stepY);
+
+            while (current.x != target.x || current.y != target.y)
+            {
+                if (snapshot.TryGetSolidSemanticAt(current, out _))
+                {
+                    return true;
+                }
+
+                current = new SurfaceCell(current.face, current.x + stepX, current.y + stepY);
+            }
+
+            return false;
+        }
+    }
+
+    internal static class EnemyDetectionTargetRules
+    {
+        public static bool IsValidTarget(
             WorldSnapshot snapshot,
             in EntityState source,
             in EntityState candidate,
@@ -140,21 +249,6 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return snapshot.CanBeTargetedForNewSelection(candidate.entityId);
-        }
-
-        private static int? GetPlanarDistance(
-            SurfaceCell source,
-            SurfaceCell target,
-            bool requireSameFace)
-        {
-            if (requireSameFace && source.face != target.face)
-            {
-                return null;
-            }
-
-            var sourcePlanar = source.PlanarPosition;
-            var targetPlanar = target.PlanarPosition;
-            return Math.Abs(targetPlanar.x - sourcePlanar.x) + Math.Abs(targetPlanar.y - sourcePlanar.y);
         }
     }
 }

@@ -1,5 +1,6 @@
 using System;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.Loop;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -56,6 +57,8 @@ namespace Game.Feature.Gameplay.Host
         public int JumpAirborneSignalCount { get; private set; }
 
         public int ChargeActiveSignalCount { get; private set; }
+
+        public int UtilityWindupSignalCount { get; private set; }
 
         public int HitSignalCount { get; private set; }
 
@@ -142,6 +145,11 @@ namespace Game.Feature.Gameplay.Host
                 }
             }
 
+            if (state.StartedUtilityWindupThisTick)
+            {
+                PlayUtilityWindup(state.UtilityPresentationKind);
+            }
+
             if (state.ExecutedThisTick)
             {
                 AttackSignalCount++;
@@ -180,6 +188,18 @@ namespace Game.Feature.Gameplay.Host
             SyncOptionalMovingParameter(targetAnimator, isMoving);
 
             ApplyAnimatorTiming(targetAnimator, ResolvePresentationPhase(LastPresentationState));
+        }
+
+        public void PlayUtilityWindup(EnemyUtilityPresentationKind kind)
+        {
+            var targetAnimator = ResolveAnimator();
+            if (kind != EnemyUtilityPresentationKind.LockNearbyBoxes)
+            {
+                return;
+            }
+
+            UtilityWindupSignalCount++;
+            SetTrigger(targetAnimator, attackTriggerName);
         }
 
         private Animator ResolveAnimator()
@@ -647,10 +667,31 @@ namespace Game.Feature.Gameplay.Host
                 return true;
             }
 
+            var stateHash = ResolveAnimatorStateHash(targetAnimator, stateName);
             targetAnimator.CrossFadeInFixedTime(
-                Animator.StringToHash(stateName),
+                stateHash,
                 LastCrossFadeDurationSeconds);
             return true;
+        }
+
+        private static int ResolveAnimatorStateHash(Animator targetAnimator, string stateName)
+        {
+            var shortNameHash = Animator.StringToHash(stateName);
+            if (targetAnimator.HasState(0, shortNameHash))
+            {
+                return shortNameHash;
+            }
+
+            var rootStateHash = Animator.StringToHash($"Base Layer.{stateName}");
+            if (targetAnimator.HasState(0, rootStateHash))
+            {
+                return rootStateHash;
+            }
+
+            var locomotionStateHash = Animator.StringToHash($"Base Layer.Locomotion.{stateName}");
+            return targetAnimator.HasState(0, locomotionStateHash)
+                ? locomotionStateHash
+                : shortNameHash;
         }
 
         private enum EnemyPresentationPhase

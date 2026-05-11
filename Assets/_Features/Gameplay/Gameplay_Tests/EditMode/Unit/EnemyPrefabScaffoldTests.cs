@@ -59,6 +59,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
             StringAssert.Contains("UnitLocomotionPresentationAuthoring", prefabText);
             StringAssert.Contains("moveMotionDurationSeconds: 1", prefabText);
             StringAssert.Contains("EntityMotionPresentationAuthoring", prefabText);
+            StringAssert.Contains(
+                "attackWindupReferenceClip: {fileID: 3060872287085348379, guid: 1716406119d8be34d841f0d4eb033a2c, type: 3}",
+                prefabText);
+            StringAssert.Contains(
+                "recoverReferenceClip: {fileID: -5059006814000262888, guid: 1716406119d8be34d841f0d4eb033a2c, type: 3}",
+                prefabText);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void EnemyAnimatorChargeController_DrivesChargePhasesFromChargePhaseParameter()
+        {
+            var controllerText = ReadNormalizedText("Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAnimator_Charge.controller");
+
+            StringAssert.Contains(
+                "m_ConditionEvent: EnemyChargePhase\n    m_EventTreshold: 1\n  m_DstStateMachine: {fileID: 0}\n  m_DstState: {fileID: -5566630273135047605}",
+                controllerText);
+            StringAssert.Contains(
+                "m_ConditionEvent: EnemyChargePhase\n    m_EventTreshold: 2\n  m_DstStateMachine: {fileID: 0}\n  m_DstState: {fileID: 700200000000000001}",
+                controllerText);
+            StringAssert.Contains(
+                "m_ConditionEvent: EnemyChargePhase\n    m_EventTreshold: 3\n  m_DstStateMachine: {fileID: 0}\n  m_DstState: {fileID: 3792528062960070313}",
+                controllerText);
+            StringAssert.DoesNotContain(
+                "m_ConditionEvent: EnemyAiMode\n    m_EventTreshold: 3\n  m_DstStateMachine: {fileID: 0}\n  m_DstState: {fileID: -5566630273135047605}",
+                controllerText);
         }
 
         [Test]

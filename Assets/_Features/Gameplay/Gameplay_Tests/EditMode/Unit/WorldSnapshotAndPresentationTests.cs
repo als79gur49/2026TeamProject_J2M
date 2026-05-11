@@ -35,6 +35,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(TickPresentationData.Empty.FrontFaceShieldBlocks, Is.Empty);
             Assert.That(TickPresentationData.Empty.SummonWindupWarnings, Is.Empty);
             Assert.That(TickPresentationData.Empty.FrontFaceShieldWindupWarnings, Is.Empty);
+            Assert.That(TickPresentationData.Empty.EnemyUtilitySignals, Is.Empty);
             Assert.That(TickPresentationData.Empty.TileEvents, Is.Empty);
             Assert.That(TickPresentationData.Empty.GravityFieldVisualStates, Is.Empty);
             Assert.That(TickPresentationData.Empty.BoxSlideStopSignals, Is.Empty);
@@ -45,6 +46,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(presentationData.FrontFaceShieldBlocks, Is.Empty);
             Assert.That(presentationData.SummonWindupWarnings, Is.Empty);
             Assert.That(presentationData.FrontFaceShieldWindupWarnings, Is.Empty);
+            Assert.That(presentationData.EnemyUtilitySignals, Is.Empty);
             Assert.That(presentationData.TileEvents, Is.Empty);
             Assert.That(presentationData.GravityFieldVisualStates, Is.Empty);
             Assert.That(presentationData.BoxSlideStopSignals, Is.Empty);

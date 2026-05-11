@@ -105,7 +105,9 @@ namespace Game.Feature.Gameplay.Host
             EnemyGlidePhase glidePhase = EnemyGlidePhase.Ready,
             bool startedGlideWindupThisTick = false,
             bool startedGlideActiveThisTick = false,
-            bool startedGlideRecoverThisTick = false)
+            bool startedGlideRecoverThisTick = false,
+            EnemyUtilityPresentationKind utilityPresentationKind = EnemyUtilityPresentationKind.None,
+            bool startedUtilityWindupThisTick = false)
         {
             EntityId = entityId;
             TickIndex = tickIndex;
@@ -129,6 +131,8 @@ namespace Game.Feature.Gameplay.Host
             StartedGlideWindupThisTick = startedGlideWindupThisTick;
             StartedGlideActiveThisTick = startedGlideActiveThisTick;
             StartedGlideRecoverThisTick = startedGlideRecoverThisTick;
+            UtilityPresentationKind = utilityPresentationKind;
+            StartedUtilityWindupThisTick = startedUtilityWindupThisTick;
             TookDamage = tookDamage;
             DidDie = didDie;
         }
@@ -177,6 +181,10 @@ namespace Game.Feature.Gameplay.Host
 
         public bool StartedGlideRecoverThisTick { get; }
 
+        public EnemyUtilityPresentationKind UtilityPresentationKind { get; }
+
+        public bool StartedUtilityWindupThisTick { get; }
+
         public bool DidAttack => ExecutedThisTick;
 
         public bool TookDamage { get; }
@@ -192,6 +200,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, TickEnemyJumpPresentationSignal> _enemyJumpSignalsByEntityId = new();
         private readonly Dictionary<int, TickEnemyChargePresentationSignal> _enemyChargeSignalsByEntityId = new();
         private readonly Dictionary<int, TickEnemyGlidePresentationSignal> _enemyGlideSignalsByEntityId = new();
+        private readonly Dictionary<int, TickEnemyUtilityPresentationSignal> _enemyUtilitySignalsByEntityId = new();
         private readonly Dictionary<int, EntityState> _finalEntitiesById = new();
         private readonly HashSet<int> _movingEntityIds = new();
         private readonly HashSet<int> _removedEntityIds = new();
@@ -224,6 +233,7 @@ namespace Game.Feature.Gameplay.Host
             _enemyJumpSignalsByEntityId.Clear();
             _enemyChargeSignalsByEntityId.Clear();
             _enemyGlideSignalsByEntityId.Clear();
+            _enemyUtilitySignalsByEntityId.Clear();
             _removedEntityIds.Clear();
             _finalEntitiesById.Clear();
 
@@ -234,6 +244,7 @@ namespace Game.Feature.Gameplay.Host
             CollectEnemyJumpSignals(result.PresentationData);
             CollectEnemyChargeSignals(result.PresentationData);
             CollectEnemyGlideSignals(result.PresentationData);
+            CollectEnemyUtilitySignals(result.PresentationData);
             CollectRemovalSignals(result.PresentationData);
 
             foreach (var entityId in _candidateEntityIds)
@@ -268,6 +279,8 @@ namespace Game.Feature.Gameplay.Host
                 var startedGlideWindupThisTick = false;
                 var startedGlideActiveThisTick = false;
                 var startedGlideRecoverThisTick = false;
+                var utilityPresentationKind = EnemyUtilityPresentationKind.None;
+                var startedUtilityWindupThisTick = false;
                 var tookDamageThisTick = false;
 
                 if (_enemyActionSignalsByEntityId.TryGetValue(entityId, out var actionSignal))
@@ -316,6 +329,13 @@ namespace Game.Feature.Gameplay.Host
                     startedRecoveryThisTick |= startedGlideRecoverThisTick;
                 }
 
+                if (_enemyUtilitySignalsByEntityId.TryGetValue(entityId, out var utilitySignal))
+                {
+                    utilityPresentationKind = utilitySignal.Kind;
+                    startedUtilityWindupThisTick = utilitySignal.Phase == EnemyUtilityPresentationPhase.WindupStarted;
+                    startedRecoveryThisTick |= utilitySignal.Phase == EnemyUtilityPresentationPhase.RecoverStarted;
+                }
+
                 buffer[entityId] = new EnemyViewPresentationState(
                     entityId,
                     result.TickIndex,
@@ -340,7 +360,9 @@ namespace Game.Feature.Gameplay.Host
                     glidePhase,
                     startedGlideWindupThisTick,
                     startedGlideActiveThisTick,
-                    startedGlideRecoverThisTick);
+                    startedGlideRecoverThisTick,
+                    utilityPresentationKind,
+                    startedUtilityWindupThisTick);
             }
         }
 
@@ -451,6 +473,17 @@ namespace Game.Feature.Gameplay.Host
                 var signal = enemyGlideSignals[i];
                 _candidateEntityIds.Add(signal.EntityId);
                 _enemyGlideSignalsByEntityId[signal.EntityId] = signal;
+            }
+        }
+
+        private void CollectEnemyUtilitySignals(TickPresentationData presentationData)
+        {
+            var enemyUtilitySignals = presentationData.EnemyUtilitySignals;
+            for (var i = 0; i < enemyUtilitySignals.Count; i++)
+            {
+                var signal = enemyUtilitySignals[i];
+                _candidateEntityIds.Add(signal.EntityId);
+                _enemyUtilitySignalsByEntityId[signal.EntityId] = signal;
             }
         }
 

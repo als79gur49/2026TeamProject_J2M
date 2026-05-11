@@ -2465,6 +2465,162 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void EnemyAnimatorDriver_ChargePhaseSignals_RequestWindupBeforeChargeActive()
+        {
+            var rootObject = new GameObject("EnemyAnimatorDriver_ChargePhaseSignals_RequestWindupBeforeChargeActive");
+            var windupReferenceClip = CreateReferenceClip("ChargeWindupReference", 1f);
+            var recoverReferenceClip = CreateReferenceClip("ChargeRecoverReference", 1f);
+
+            try
+            {
+                rootObject.AddComponent<Animator>();
+                var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
+                var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
+                ConfigureEnemyAnimationTimingAuthoring(
+                    authoring,
+                    attackWindupAnimatorDurationSeconds: 1f,
+                    recoverAnimatorDurationSeconds: 1f,
+                    stateTransitionCrossFadeDurationSeconds: 0.001f,
+                    attackWindupReferenceClip: windupReferenceClip,
+                    recoverReferenceClip: recoverReferenceClip);
+
+                driver.Apply(new EnemyViewPresentationState(
+                    entityId: 58,
+                    tickIndex: 1,
+                    aiMode: EnemyAiMode.Charge,
+                    activeActionKind: EnemyActionKind.None,
+                    jumpPhase: EnemyJumpPhase.None,
+                    chargePhase: EnemyChargePhase.Windup,
+                    isMoving: false,
+                    startedWindupThisTick: true,
+                    executedThisTick: false,
+                    startedRecoveryThisTick: false,
+                    startedJumpWindupThisTick: false,
+                    startedJumpAirborneThisTick: false,
+                    landedFromJumpThisTick: false,
+                    retryingJumpAirborneThisTick: false,
+                    startedChargeWindupThisTick: true,
+                    startedChargeActiveThisTick: false,
+                    startedChargeRecoverThisTick: false,
+                    tookDamage: false,
+                    didDie: false));
+
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Windup"));
+                Assert.That(driver.WindupSignalCount, Is.EqualTo(1));
+                Assert.That(driver.ChargeActiveSignalCount, Is.Zero);
+
+                driver.Apply(new EnemyViewPresentationState(
+                    entityId: 58,
+                    tickIndex: 2,
+                    aiMode: EnemyAiMode.Charge,
+                    activeActionKind: EnemyActionKind.None,
+                    jumpPhase: EnemyJumpPhase.None,
+                    chargePhase: EnemyChargePhase.Active,
+                    isMoving: true,
+                    startedWindupThisTick: false,
+                    executedThisTick: false,
+                    startedRecoveryThisTick: false,
+                    startedJumpWindupThisTick: false,
+                    startedJumpAirborneThisTick: false,
+                    landedFromJumpThisTick: false,
+                    retryingJumpAirborneThisTick: false,
+                    startedChargeWindupThisTick: false,
+                    startedChargeActiveThisTick: true,
+                    startedChargeRecoverThisTick: false,
+                    tookDamage: false,
+                    didDie: false));
+
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Charge"));
+                Assert.That(driver.WindupSignalCount, Is.EqualTo(1));
+                Assert.That(driver.ChargeActiveSignalCount, Is.EqualTo(1));
+
+                driver.Apply(new EnemyViewPresentationState(
+                    entityId: 58,
+                    tickIndex: 3,
+                    aiMode: EnemyAiMode.Recover,
+                    activeActionKind: EnemyActionKind.None,
+                    jumpPhase: EnemyJumpPhase.None,
+                    chargePhase: EnemyChargePhase.Recover,
+                    isMoving: false,
+                    startedWindupThisTick: false,
+                    executedThisTick: false,
+                    startedRecoveryThisTick: true,
+                    startedJumpWindupThisTick: false,
+                    startedJumpAirborneThisTick: false,
+                    landedFromJumpThisTick: false,
+                    retryingJumpAirborneThisTick: false,
+                    startedChargeWindupThisTick: false,
+                    startedChargeActiveThisTick: false,
+                    startedChargeRecoverThisTick: true,
+                    tookDamage: false,
+                    didDie: false));
+
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Recover"));
+                Assert.That(driver.RecoverySignalCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(windupReferenceClip);
+                UnityEngine.Object.DestroyImmediate(recoverReferenceClip);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void EnemyAnimatorDriver_ChargePrefabWindupSignal_EntersWindupAnimatorState()
+        {
+            const string prefabPath = StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_Charge.prefab";
+            var prefab = AssetDatabase.LoadAssetAtPath<GameplayEntityView>(prefabPath);
+            Assert.That(prefab, Is.Not.Null, $"Missing prefab at '{prefabPath}'.");
+
+            var instance = UnityEngine.Object.Instantiate(prefab.gameObject);
+
+            try
+            {
+                var driver = instance.GetComponent<EnemyAnimatorDriver>();
+                var animator = instance.GetComponentInChildren<Animator>();
+
+                Assert.That(driver, Is.Not.Null);
+                Assert.That(animator, Is.Not.Null);
+                Assert.That(animator.runtimeAnimatorController, Is.Not.Null);
+
+                driver.Apply(new EnemyViewPresentationState(
+                    entityId: 58,
+                    tickIndex: 1,
+                    aiMode: EnemyAiMode.Charge,
+                    activeActionKind: EnemyActionKind.None,
+                    jumpPhase: EnemyJumpPhase.None,
+                    chargePhase: EnemyChargePhase.Windup,
+                    isMoving: false,
+                    startedWindupThisTick: true,
+                    executedThisTick: false,
+                    startedRecoveryThisTick: false,
+                    startedJumpWindupThisTick: false,
+                    startedJumpAirborneThisTick: false,
+                    landedFromJumpThisTick: false,
+                    retryingJumpAirborneThisTick: false,
+                    startedChargeWindupThisTick: true,
+                    startedChargeActiveThisTick: false,
+                    startedChargeRecoverThisTick: false,
+                    tookDamage: false,
+                    didDie: false));
+
+                animator.Update(0.02f);
+
+                Assert.That(
+                    animator.GetCurrentAnimatorStateInfo(0).IsName("Windup"),
+                    Is.True,
+                    "Charge Windup presentation must start the actual Windup animator state.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyAnimatorDriver_StateNameAndClipNameMismatch_UsesReferenceClipLengthForAnimatorSpeed()
         {
             var rootObject = new GameObject("EnemyAnimatorDriver_StateNameAndClipNameMismatch_UsesReferenceClipLengthForAnimatorSpeed");

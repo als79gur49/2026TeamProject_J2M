@@ -23,6 +23,7 @@ namespace Game.Feature.Gameplay.Entities
     {
         NearestOpponent = 0,
         None = 1,
+        CrossLineOfSightOpponent = 2,
     }
 
     public enum ChaseStrategyKind
@@ -1072,6 +1073,7 @@ namespace Game.Feature.Gameplay.Entities
             {
                 NearestOpponentDetectionStrategy _ => DetectionStrategyKind.NearestOpponent,
                 NoDetectionStrategy _ => DetectionStrategyKind.None,
+                CrossLineOfSightOpponentDetectionStrategy _ => DetectionStrategyKind.CrossLineOfSightOpponent,
                 null => throw new ArgumentNullException(nameof(detectionStrategy)),
                 _ => throw new ArgumentOutOfRangeException(nameof(detectionStrategy), detectionStrategy, "Unknown detection strategy implementation."),
             };

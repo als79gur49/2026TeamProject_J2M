@@ -416,7 +416,8 @@ namespace Game.Feature.Gameplay.Entities
 
             if (ShouldSuppressMovementForJump(snapshot, input.TickIndex) ||
                 ShouldSuppressMovementForGlide(snapshot) ||
-                ShouldSuppressMovementForEnemyPhase(snapshot))
+                ShouldSuppressMovementForEnemyPhase(snapshot) ||
+                ShouldSuppressMovementForUtilityWindup(snapshot, source, input.TickIndex))
             {
                 return;
             }
@@ -536,6 +537,41 @@ namespace Game.Feature.Gameplay.Entities
 
             return jumpState.phase == EnemyJumpPhase.Windup ||
                    jumpState.phase == EnemyJumpPhase.Airborne;
+        }
+
+        private bool ShouldSuppressMovementForUtilityWindup(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            int tickIndex)
+        {
+            if (_utilityCapability == null ||
+                !EnemyParticipationPolicy.IsControllableParticipant(snapshot, source) ||
+                !snapshot.TryGetEnemyUtilityState(_entityId, out var utilityState))
+            {
+                return false;
+            }
+
+            var effectCount = Math.Min(utilityState.EffectStates.Count, _utilityCapability.Effects.Count);
+            for (var effectIndex = 0; effectIndex < effectCount; effectIndex++)
+            {
+                var effectState = utilityState.EffectStates[effectIndex];
+                if (effectState.movementSuppressionUntilTickInclusive <= 0 ||
+                    tickIndex > effectState.movementSuppressionUntilTickInclusive)
+                {
+                    continue;
+                }
+
+                var effectRuntime = _utilityCapability.Effects[effectIndex];
+                if (effectState.effectKind != effectRuntime.Kind ||
+                    !SuppressesMovementForUtilityState(effectRuntime, effectState))
+                {
+                    continue;
+                }
+
+                return true;
+            }
+
+            return false;
         }
 
         private bool TryGetJumpState(WorldSnapshot snapshot, out EnemyJumpRuntimeState jumpState)
@@ -1414,6 +1450,26 @@ namespace Game.Feature.Gameplay.Entities
                 var nextEffectState = previousEffectState;
                 var effectRuntime = _utilityCapability.Effects[effectIndex];
                 var triggered = false;
+                nextEffectState.effectKind = effectRuntime.Kind;
+                if (nextEffectState.movementSuppressionUntilTickInclusive > 0 &&
+                    input.TickIndex > nextEffectState.movementSuppressionUntilTickInclusive)
+                {
+                    nextEffectState.movementSuppressionUntilTickInclusive = 0;
+                }
+
+                if (nextEffectState.phase == EnemyUtilityEffectPhase.Recover)
+                {
+                    AdvanceUtilityRecover(input.TickIndex, ref nextEffectState);
+                    nextEffectStates[effectIndex] = nextEffectState;
+                    if (!AreEqual(previousEffectState, nextEffectState))
+                    {
+                        hasAnyChange = true;
+                        updates.Add(
+                            $"EnemyUtilityRecoverUpdated|E={_entityId}|Effect={effectIndex}|Phase={nextEffectState.phase}|RecoverStart={nextEffectState.recoverStartTick}|RecoverEnd={nextEffectState.recoverEndTickExclusive}|Cooldown={nextEffectState.cooldownTicksRemaining}");
+                    }
+
+                    continue;
+                }
 
                 if (effectRuntime.Kind == EnemyUtilityEffectKind.SummonMinion)
                 {
@@ -1421,10 +1477,6 @@ namespace Game.Feature.Gameplay.Entities
                     {
                         if (input.TickIndex >= nextEffectState.windupEndTick)
                         {
-                            nextEffectState.phase = EnemyUtilityEffectPhase.None;
-                            nextEffectState.windupStartTick = 0;
-                            nextEffectState.windupEndTick = 0;
-                            nextEffectState.cooldownTicksRemaining = effectRuntime.CooldownTicks;
                             triggered = true;
                             if (writeContext is IEnemyUtilityTriggerSink triggerSink)
                             {
@@ -1437,6 +1489,7 @@ namespace Game.Feature.Gameplay.Entities
                                         effectRuntime));
                             }
 
+                            EnterUtilityRecoverOrClear(effectRuntime, input.TickIndex, ref nextEffectState);
                             updates.Add(
                                 $"EnemyUtilityWindupCommitted|E={_entityId}|Effect={effectIndex}|Sequence={nextEffectState.activationSequence}|Tick={input.TickIndex}");
                         }
@@ -1453,7 +1506,14 @@ namespace Game.Feature.Gameplay.Entities
                             nextEffectState.phase = EnemyUtilityEffectPhase.Windup;
                             nextEffectState.windupStartTick = input.TickIndex;
                             nextEffectState.windupEndTick = input.TickIndex + effectRuntime.Summon.WindupTicks;
+                            nextEffectState.recoverStartTick = 0;
+                            nextEffectState.recoverEndTickExclusive = 0;
                             nextEffectState.activationSequence = Math.Max(0, nextEffectState.activationSequence) + 1;
+                            if (effectRuntime.Summon.SuppressMovementDuringWindup)
+                            {
+                                nextEffectState.movementSuppressionUntilTickInclusive = nextEffectState.windupEndTick;
+                            }
+
                             updates.Add(
                                 $"EnemyUtilityWindupStarted|E={_entityId}|Effect={effectIndex}|Sequence={nextEffectState.activationSequence}|Start={nextEffectState.windupStartTick}|End={nextEffectState.windupEndTick}");
                         }
@@ -1470,24 +1530,77 @@ namespace Game.Feature.Gameplay.Entities
                     continue;
                 }
 
-                if (nextEffectState.cooldownTicksRemaining > 0)
+                if (effectRuntime.Kind == EnemyUtilityEffectKind.LockNearbyBoxes &&
+                    effectRuntime.LockNearbyBoxes.ActivationDelayTicks > 0)
                 {
-                    nextEffectState.cooldownTicksRemaining = Mathf.Max(0, nextEffectState.cooldownTicksRemaining - 1);
-                }
-
-                triggered = nextEffectState.cooldownTicksRemaining == 0;
-                if (triggered)
-                {
-                    nextEffectState.cooldownTicksRemaining = effectRuntime.CooldownTicks;
-                    if (writeContext is IEnemyUtilityTriggerSink triggerSink)
+                    if (nextEffectState.phase == EnemyUtilityEffectPhase.Windup)
                     {
-                        triggerSink.EmitEnemyUtilityTriggerIntent(
-                            new EnemyUtilityTriggerIntent(
-                                _entityId,
-                                effectIndex,
-                                effectRuntime.Kind,
+                        if (input.TickIndex >= nextEffectState.windupEndTick)
+                        {
+                            triggered = true;
+                            if (writeContext is IEnemyUtilityTriggerSink triggerSink)
+                            {
+                                triggerSink.EmitEnemyUtilityTriggerIntent(
+                                    new EnemyUtilityTriggerIntent(
+                                        _entityId,
+                                        effectIndex,
+                                        effectRuntime.Kind,
+                                        input.TickIndex,
+                                        effectRuntime));
+                            }
+
+                            EnterUtilityRecoverOrClear(effectRuntime, input.TickIndex, ref nextEffectState);
+                            updates.Add(
+                                $"EnemyUtilityWindupCommitted|E={_entityId}|Effect={effectIndex}|Sequence={nextEffectState.activationSequence}|Tick={input.TickIndex}");
+                        }
+                    }
+                    else
+                    {
+                        if (nextEffectState.cooldownTicksRemaining > 0)
+                        {
+                            nextEffectState.cooldownTicksRemaining = Mathf.Max(0, nextEffectState.cooldownTicksRemaining - 1);
+                        }
+
+                        if (nextEffectState.cooldownTicksRemaining == 0)
+                        {
+                            nextEffectState.phase = EnemyUtilityEffectPhase.Windup;
+                            nextEffectState.windupStartTick = input.TickIndex;
+                            nextEffectState.windupEndTick = input.TickIndex + effectRuntime.LockNearbyBoxes.ActivationDelayTicks;
+                            nextEffectState.recoverStartTick = 0;
+                            nextEffectState.recoverEndTickExclusive = 0;
+                            nextEffectState.activationSequence = Math.Max(0, nextEffectState.activationSequence) + 1;
+                            if (effectRuntime.LockNearbyBoxes.SuppressMovementDuringWindup)
+                            {
+                                nextEffectState.movementSuppressionUntilTickInclusive = nextEffectState.windupEndTick;
+                            }
+
+                            updates.Add(
+                                $"EnemyUtilityWindupStarted|E={_entityId}|Effect={effectIndex}|Sequence={nextEffectState.activationSequence}|Start={nextEffectState.windupStartTick}|End={nextEffectState.windupEndTick}");
+                        }
+                    }
+                }
+                else
+                {
+                    if (nextEffectState.cooldownTicksRemaining > 0)
+                    {
+                        nextEffectState.cooldownTicksRemaining = Mathf.Max(0, nextEffectState.cooldownTicksRemaining - 1);
+                    }
+
+                    triggered = nextEffectState.cooldownTicksRemaining == 0;
+                    if (triggered)
+                    {
+                        if (writeContext is IEnemyUtilityTriggerSink triggerSink)
+                        {
+                            triggerSink.EmitEnemyUtilityTriggerIntent(
+                                new EnemyUtilityTriggerIntent(
+                                    _entityId,
+                                    effectIndex,
+                                    effectRuntime.Kind,
                                 input.TickIndex,
                                 effectRuntime));
+                        }
+
+                        EnterUtilityRecoverOrClear(effectRuntime, input.TickIndex, ref nextEffectState);
                     }
                 }
 
@@ -1525,7 +1638,9 @@ namespace Game.Feature.Gameplay.Entities
             {
                 var previousEffectState = currentState.EffectStates[effectIndex];
                 var nextEffectState = previousEffectState;
-                if (nextEffectState.phase == EnemyUtilityEffectPhase.Windup)
+                if (nextEffectState.phase == EnemyUtilityEffectPhase.Windup ||
+                    nextEffectState.phase == EnemyUtilityEffectPhase.Recover ||
+                    nextEffectState.movementSuppressionUntilTickInclusive != 0)
                 {
                     var cooldownTicks = effectIndex < _utilityCapability.Effects.Count
                         ? _utilityCapability.Effects[effectIndex].CooldownTicks
@@ -1535,6 +1650,9 @@ namespace Game.Feature.Gameplay.Entities
                     nextEffectState.cooldownTicksRemaining = cooldownTicks;
                     nextEffectState.windupStartTick = 0;
                     nextEffectState.windupEndTick = 0;
+                    nextEffectState.recoverStartTick = 0;
+                    nextEffectState.recoverEndTickExclusive = 0;
+                    nextEffectState.movementSuppressionUntilTickInclusive = 0;
                     hasAnyChange = true;
                     updates.Add(
                         $"EnemyUtilityWindupCanceled|E={_entityId}|Effect={effectIndex}|Sequence={nextEffectState.activationSequence}|Cooldown={nextEffectState.cooldownTicksRemaining}");
@@ -1659,11 +1777,102 @@ namespace Game.Feature.Gameplay.Entities
 
         private static bool AreEqual(EnemyUtilityEffectState left, EnemyUtilityEffectState right)
         {
-            return left.cooldownTicksRemaining == right.cooldownTicksRemaining &&
+            return left.effectKind == right.effectKind &&
+                   left.cooldownTicksRemaining == right.cooldownTicksRemaining &&
                    left.phase == right.phase &&
                    left.windupStartTick == right.windupStartTick &&
                    left.windupEndTick == right.windupEndTick &&
-                   left.activationSequence == right.activationSequence;
+                   left.recoverStartTick == right.recoverStartTick &&
+                   left.recoverEndTickExclusive == right.recoverEndTickExclusive &&
+                   left.activationSequence == right.activationSequence &&
+                   left.movementSuppressionUntilTickInclusive == right.movementSuppressionUntilTickInclusive;
+        }
+
+        private static void EnterUtilityRecoverOrClear(
+            EnemyUtilityEffectRuntime effectRuntime,
+            int tickIndex,
+            ref EnemyUtilityEffectState state)
+        {
+            state.windupStartTick = 0;
+            state.windupEndTick = 0;
+            state.cooldownTicksRemaining = effectRuntime.CooldownTicks;
+
+            var recoveryTicks = GetUtilityRecoveryTicks(effectRuntime);
+            if (recoveryTicks <= 0)
+            {
+                state.phase = EnemyUtilityEffectPhase.None;
+                state.recoverStartTick = 0;
+                state.recoverEndTickExclusive = 0;
+                return;
+            }
+
+            state.phase = EnemyUtilityEffectPhase.Recover;
+            state.recoverStartTick = tickIndex;
+            state.recoverEndTickExclusive = tickIndex + recoveryTicks;
+            if (SuppressesMovementDuringRecover(effectRuntime))
+            {
+                state.movementSuppressionUntilTickInclusive = Mathf.Max(
+                    state.movementSuppressionUntilTickInclusive,
+                    state.recoverEndTickExclusive - 1);
+            }
+        }
+
+        private static void AdvanceUtilityRecover(int tickIndex, ref EnemyUtilityEffectState state)
+        {
+            if (tickIndex >= state.recoverEndTickExclusive)
+            {
+                state.phase = EnemyUtilityEffectPhase.None;
+                state.recoverStartTick = 0;
+                state.recoverEndTickExclusive = 0;
+                return;
+            }
+
+            if (state.cooldownTicksRemaining > 0)
+            {
+                state.cooldownTicksRemaining = Mathf.Max(0, state.cooldownTicksRemaining - 1);
+            }
+        }
+
+        private static int GetUtilityRecoveryTicks(EnemyUtilityEffectRuntime effectRuntime)
+        {
+            return effectRuntime.Kind switch
+            {
+                EnemyUtilityEffectKind.SummonMinion => effectRuntime.Summon.RecoveryTicks,
+                EnemyUtilityEffectKind.LockNearbyBoxes => effectRuntime.LockNearbyBoxes.RecoveryTicks,
+                _ => 0,
+            };
+        }
+
+        private static bool SuppressesMovementForUtilityState(
+            EnemyUtilityEffectRuntime effectRuntime,
+            in EnemyUtilityEffectState state)
+        {
+            return state.phase switch
+            {
+                EnemyUtilityEffectPhase.Windup => SuppressesMovementDuringWindup(effectRuntime),
+                EnemyUtilityEffectPhase.Recover => SuppressesMovementDuringRecover(effectRuntime),
+                _ => SuppressesMovementDuringWindup(effectRuntime) || SuppressesMovementDuringRecover(effectRuntime),
+            };
+        }
+
+        private static bool SuppressesMovementDuringWindup(EnemyUtilityEffectRuntime effectRuntime)
+        {
+            return effectRuntime.Kind switch
+            {
+                EnemyUtilityEffectKind.SummonMinion => effectRuntime.Summon.SuppressMovementDuringWindup,
+                EnemyUtilityEffectKind.LockNearbyBoxes => effectRuntime.LockNearbyBoxes.SuppressMovementDuringWindup,
+                _ => false,
+            };
+        }
+
+        private static bool SuppressesMovementDuringRecover(EnemyUtilityEffectRuntime effectRuntime)
+        {
+            return effectRuntime.Kind switch
+            {
+                EnemyUtilityEffectKind.SummonMinion => effectRuntime.Summon.SuppressMovementDuringRecover,
+                EnemyUtilityEffectKind.LockNearbyBoxes => effectRuntime.LockNearbyBoxes.SuppressMovementDuringRecover,
+                _ => false,
+            };
         }
 
         private static bool AreEqual(EnemyFrontFaceSupportEffectState left, EnemyFrontFaceSupportEffectState right)

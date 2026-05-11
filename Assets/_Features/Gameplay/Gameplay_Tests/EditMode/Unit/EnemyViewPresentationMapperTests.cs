@@ -197,6 +197,81 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(recoverState.StartedRecoveryThisTick, Is.True);
         }
 
+        [Test]
+        [Category("Core")]
+        public void EnemyViewPresentationMapper_MapsLockNearbyBoxesUtilityWindupWithoutEnemyActionSignal()
+        {
+            const int enemyId = 40;
+            var mapper = new EnemyViewPresentationMapper();
+            var states = new Dictionary<int, EnemyViewPresentationState>();
+            var viewsByEntityId = new Dictionary<int, GameplayEntityView>();
+            var enemy = CreateEnemy(enemyId, EnemyAiMode.Patrol);
+
+            mapper.Build(
+                CreateResult(
+                    tickIndex: 1,
+                    enemy,
+                    new TickEnemyUtilityPresentationSignal(
+                        enemyId,
+                        EnemyUtilityPresentationKind.LockNearbyBoxes,
+                        EnemyUtilityPresentationPhase.WindupStarted,
+                        startTick: 1,
+                        executeTick: 3,
+                        durationTicks: 2)),
+                viewsByEntityId,
+                states);
+
+            Assert.That(states.TryGetValue(enemyId, out var state), Is.True);
+            Assert.That(state.UtilityPresentationKind, Is.EqualTo(EnemyUtilityPresentationKind.LockNearbyBoxes));
+            Assert.That(state.StartedUtilityWindupThisTick, Is.True);
+            Assert.That(state.ActiveActionKind, Is.EqualTo(EnemyActionKind.None));
+            Assert.That(state.StartedWindupThisTick, Is.False);
+            Assert.That(state.ExecutedThisTick, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAnimatorDriver_LockNearbyBoxesUtilityWindupUsesUtilityPathWithoutAttackSemantic()
+        {
+            var gameObject = new UnityEngine.GameObject("EnemyAnimatorDriver_LockNearbyBoxesUtilityWindupUsesUtilityPathWithoutAttackSemantic");
+            try
+            {
+                var driver = gameObject.AddComponent<EnemyAnimatorDriver>();
+
+                driver.Apply(
+                    new EnemyViewPresentationState(
+                        entityId: 40,
+                        tickIndex: 1,
+                        aiMode: EnemyAiMode.Patrol,
+                        activeActionKind: EnemyActionKind.None,
+                        jumpPhase: EnemyJumpPhase.None,
+                        chargePhase: EnemyChargePhase.None,
+                        isMoving: false,
+                        startedWindupThisTick: false,
+                        executedThisTick: false,
+                        startedRecoveryThisTick: false,
+                        startedJumpWindupThisTick: false,
+                        startedJumpAirborneThisTick: false,
+                        landedFromJumpThisTick: false,
+                        retryingJumpAirborneThisTick: false,
+                        startedChargeWindupThisTick: false,
+                        startedChargeActiveThisTick: false,
+                        startedChargeRecoverThisTick: false,
+                        tookDamage: false,
+                        didDie: false,
+                        utilityPresentationKind: EnemyUtilityPresentationKind.LockNearbyBoxes,
+                        startedUtilityWindupThisTick: true));
+
+                Assert.That(driver.UtilityWindupSignalCount, Is.EqualTo(1));
+                Assert.That(driver.AttackSignalCount, Is.Zero);
+                Assert.That(driver.WindupSignalCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
+        }
+
         private static TickResult CreateResult(
             int tickIndex,
             EntityState enemy,
@@ -253,6 +328,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new[] { chargeSignal },
                     Array.Empty<TickEntityExitPresentationSignal>(),
                     Array.Empty<TickImpactTransientPresentationSignal>()),
+                string.Empty,
+                TickTrace.Empty);
+        }
+
+        private static TickResult CreateResult(
+            int tickIndex,
+            EntityState enemy,
+            TickEnemyUtilityPresentationSignal utilitySignal)
+        {
+            return new TickResult(
+                tickIndex,
+                Array.Empty<TickPhase>(),
+                Array.Empty<string>(),
+                MovementPhaseResult.Empty,
+                AttackPhaseResult.Empty,
+                new[] { enemy },
+                Array.Empty<string>(),
+                new CubeTopologyState(FaceId.Floor),
+                new TickPresentationData(
+                    Array.Empty<TickEntityMotion>(),
+                    topologyMotion: null,
+                    Array.Empty<TickVisibilityChange>(),
+                    Array.Empty<TickTransitionVisibilityChange>(),
+                    Array.Empty<TickPlayerActionPresentationSignal>(),
+                    Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                    Array.Empty<TickPlayerDamagePresentationSignal>(),
+                    Array.Empty<TickPlayerDeathPresentationSignal>(),
+                    Array.Empty<TickEnemyDamagePresentationSignal>(),
+                    Array.Empty<TickEnemyActionPresentationSignal>(),
+                    Array.Empty<TickEnemyJumpPresentationSignal>(),
+                    Array.Empty<TickEnemyChargePresentationSignal>(),
+                    Array.Empty<TickEntityExitPresentationSignal>(),
+                    Array.Empty<TickImpactTransientPresentationSignal>(),
+                    Array.Empty<FlipImpactPresentationSignal>(),
+                    enemyUtilitySignals: new[] { utilitySignal }),
                 string.Empty,
                 TickTrace.Empty);
         }

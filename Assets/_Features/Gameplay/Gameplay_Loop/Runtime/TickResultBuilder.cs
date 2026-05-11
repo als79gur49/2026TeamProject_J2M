@@ -622,6 +622,7 @@ namespace Game.Feature.Gameplay.Loop
             var enemyJumpSignals = new List<TickEnemyJumpPresentationSignal>();
             var enemyChargeSignals = new List<TickEnemyChargePresentationSignal>();
             var enemyGlideSignals = new List<TickEnemyGlidePresentationSignal>();
+            var enemyUtilitySignals = new List<TickEnemyUtilityPresentationSignal>();
             var frontFaceShieldSourceSignals = new List<TickFrontFaceShieldSourceSignal>();
             var frontFaceShieldBlockSignals = new List<TickFrontFaceShieldBlockSignal>();
             var summonWindupWarnings = new List<TickSummonWindupWarningSignal>();
@@ -667,7 +668,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildEnemyChargePresentation(context, enemyChargeSignals);
             BuildEnemyGlidePresentation(context, enemyGlideSignals);
             BuildFrontFaceShieldPresentation(context, frontFaceShieldSourceSignals, frontFaceShieldBlockSignals);
-            BuildEnemyUtilityWindupPresentation(context, summonWindupWarnings, frontFaceShieldWindupWarnings);
+            BuildEnemyUtilityWindupPresentation(context, summonWindupWarnings, frontFaceShieldWindupWarnings, enemyUtilitySignals);
             BuildSummonedEnemyPresentationBindings(context, summonedEnemyPresentationBindings);
 
             var topologyMotion = BuildTopologyMotion(context);
@@ -679,6 +680,7 @@ namespace Game.Feature.Gameplay.Loop
                    enemyJumpSignals.Count == 0 &&
                    enemyChargeSignals.Count == 0 &&
                    enemyGlideSignals.Count == 0 &&
+                   enemyUtilitySignals.Count == 0 &&
                    frontFaceShieldSourceSignals.Count == 0 &&
                    frontFaceShieldBlockSignals.Count == 0 &&
                    summonWindupWarnings.Count == 0 &&
@@ -732,7 +734,8 @@ namespace Game.Feature.Gameplay.Loop
                     gravityFieldEvents,
                     gravityFieldVisualStates,
                     playerActionAttemptSignals,
-                    boxSlideStopSignals);
+                    boxSlideStopSignals,
+                    enemyUtilitySignals);
         }
 
         private static void BuildBoxSlideStopPresentation(
@@ -1176,7 +1179,8 @@ namespace Game.Feature.Gameplay.Loop
         private static void BuildEnemyUtilityWindupPresentation(
             in TickPresentationBuildContext context,
             List<TickSummonWindupWarningSignal> summonWindupWarnings,
-            List<TickFrontFaceShieldWindupWarningSignal> frontFaceShieldWindupWarnings)
+            List<TickFrontFaceShieldWindupWarningSignal> frontFaceShieldWindupWarnings,
+            List<TickEnemyUtilityPresentationSignal> enemyUtilitySignals)
         {
             var utilityEntries = new List<EnemyUtilitySnapshotEntry>();
             context.FinalAuthoritativeSnapshot.EnumerateEnemyUtilityStatesOrdered(utilityEntries);
@@ -1192,28 +1196,65 @@ namespace Game.Feature.Gameplay.Loop
                 for (var effectIndex = 0; effectIndex < entry.State.EffectStates.Count; effectIndex++)
                 {
                     var effectState = entry.State.EffectStates[effectIndex];
+                    if (effectState.phase == EnemyUtilityEffectPhase.Recover)
+                    {
+                        if (effectState.effectKind == EnemyUtilityEffectKind.LockNearbyBoxes &&
+                            context.CurrentTickIndex == effectState.recoverStartTick)
+                        {
+                            enemyUtilitySignals.Add(
+                                new TickEnemyUtilityPresentationSignal(
+                                    entry.EntityId,
+                                    EnemyUtilityPresentationKind.LockNearbyBoxes,
+                                    EnemyUtilityPresentationPhase.RecoverStarted,
+                                    effectState.recoverStartTick,
+                                    effectState.recoverEndTickExclusive,
+                                    Math.Max(0, effectState.recoverEndTickExclusive - effectState.recoverStartTick),
+                                    effectIndex,
+                                    effectState.activationSequence));
+                        }
+
+                        continue;
+                    }
+
                     if (effectState.phase != EnemyUtilityEffectPhase.Windup)
                     {
                         continue;
                     }
 
-                    summonWindupWarnings.Add(
-                        new TickSummonWindupWarningSignal(
-                            entry.EntityId,
-                            effectIndex,
-                            source.position,
-                            context.FinalAuthoritativeSnapshot.Topology,
-                            source.facing,
-                            effectState.windupStartTick,
-                            effectState.windupEndTick,
-                            effectState.activationSequence,
-                            context.CurrentTickIndex,
-                            BuildUtilityWarningPresentationSeed(
-                                context.CurrentTickIndex,
+                    if (effectState.effectKind == EnemyUtilityEffectKind.SummonMinion)
+                    {
+                        summonWindupWarnings.Add(
+                            new TickSummonWindupWarningSignal(
                                 entry.EntityId,
                                 effectIndex,
                                 source.position,
-                                effectState.activationSequence)));
+                                context.FinalAuthoritativeSnapshot.Topology,
+                                source.facing,
+                                effectState.windupStartTick,
+                                effectState.windupEndTick,
+                                effectState.activationSequence,
+                                context.CurrentTickIndex,
+                                BuildUtilityWarningPresentationSeed(
+                                    context.CurrentTickIndex,
+                                    entry.EntityId,
+                                    effectIndex,
+                                    source.position,
+                                    effectState.activationSequence)));
+                    }
+                    else if (effectState.effectKind == EnemyUtilityEffectKind.LockNearbyBoxes &&
+                             context.CurrentTickIndex == effectState.windupStartTick)
+                    {
+                        enemyUtilitySignals.Add(
+                            new TickEnemyUtilityPresentationSignal(
+                                entry.EntityId,
+                                EnemyUtilityPresentationKind.LockNearbyBoxes,
+                                EnemyUtilityPresentationPhase.WindupStarted,
+                                effectState.windupStartTick,
+                                effectState.windupEndTick,
+                                Math.Max(0, effectState.windupEndTick - effectState.windupStartTick),
+                                effectIndex,
+                                effectState.activationSequence));
+                    }
                 }
             }
 
@@ -2739,35 +2780,35 @@ namespace Game.Feature.Gameplay.Loop
         {
             var candidateEntityIds = new List<int>();
             var seenEntityIds = new HashSet<int>();
-            var preMovementEntries = new List<EnemyChargeSnapshotEntry>();
+            var baselineEntries = new List<EnemyChargeSnapshotEntry>();
             var postMovementEntries = new List<EnemyChargeSnapshotEntry>();
             var finalEntries = new List<EnemyChargeSnapshotEntry>();
 
-            context.PreMovementSnapshot.EnumerateEnemyChargeStatesOrdered(preMovementEntries);
+            context.JumpBaselineSnapshot.EnumerateEnemyChargeStatesOrdered(baselineEntries);
             context.PostMovementSnapshot.EnumerateEnemyChargeStatesOrdered(postMovementEntries);
             context.FinalAuthoritativeSnapshot.EnumerateEnemyChargeStatesOrdered(finalEntries);
 
-            CollectEnemyChargeCandidateIds(preMovementEntries, seenEntityIds, candidateEntityIds);
+            CollectEnemyChargeCandidateIds(baselineEntries, seenEntityIds, candidateEntityIds);
             CollectEnemyChargeCandidateIds(postMovementEntries, seenEntityIds, candidateEntityIds);
             CollectEnemyChargeCandidateIds(finalEntries, seenEntityIds, candidateEntityIds);
 
             for (var i = 0; i < candidateEntityIds.Count; i++)
             {
                 var entityId = candidateEntityIds[i];
-                var hasPreviousState = context.PreMovementSnapshot.TryGetEnemyChargeState(entityId, out var previousChargeState);
+                var hasBaselineState = context.JumpBaselineSnapshot.TryGetEnemyChargeState(entityId, out var baselineChargeState);
                 var hasPostMovementState = context.PostMovementSnapshot.TryGetEnemyChargeState(entityId, out var postMovementChargeState);
                 var hasFinalState = context.FinalAuthoritativeSnapshot.TryGetEnemyChargeState(entityId, out var finalChargeState);
 
                 var resolvedState = ResolvePresentationChargeState(
-                    hasPreviousState,
-                    previousChargeState,
+                    hasBaselineState,
+                    baselineChargeState,
                     hasPostMovementState,
                     postMovementChargeState,
                     hasFinalState,
                     finalChargeState);
                 if (!ShouldEmitChargeSignal(
-                        hasPreviousState,
-                        previousChargeState,
+                        hasBaselineState,
+                        baselineChargeState,
                         hasPostMovementState,
                         postMovementChargeState,
                         hasFinalState,
@@ -2782,11 +2823,11 @@ namespace Game.Feature.Gameplay.Loop
                         resolvedState.sequence,
                         resolvedState.phase,
                         startedWindupThisTick: resolvedState.phase == EnemyChargePhase.Windup &&
-                                               (!hasPreviousState || previousChargeState.phase != EnemyChargePhase.Windup),
+                                               (!hasBaselineState || baselineChargeState.phase != EnemyChargePhase.Windup),
                         startedActiveThisTick: resolvedState.phase == EnemyChargePhase.Active &&
-                                               (!hasPreviousState || previousChargeState.phase != EnemyChargePhase.Active),
+                                               (!hasBaselineState || baselineChargeState.phase != EnemyChargePhase.Active),
                         startedRecoverThisTick: resolvedState.phase == EnemyChargePhase.Recover &&
-                                                (!hasPreviousState || previousChargeState.phase != EnemyChargePhase.Recover),
+                                                (!hasBaselineState || baselineChargeState.phase != EnemyChargePhase.Recover),
                         lockedDirection: resolvedState.lockedDirection));
             }
         }

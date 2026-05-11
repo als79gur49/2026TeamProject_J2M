@@ -377,6 +377,15 @@ namespace Game.Feature.Gameplay.Tests
                     return detection;
                 }
 
+                case DetectionStrategyKind.CrossLineOfSightOpponent:
+                {
+                    var detection = CreateHiddenAsset<CrossLineOfSightOpponentDetectionAsset>("Test_CrossLineOfSightOpponentDetection");
+                    SetSerializedField(detection, "senseRange", settings.SenseRange);
+                    SetSerializedField(detection, "requireSameFace", settings.RequireSameFace);
+                    SetSerializedField(detection, "canTargetMarkedForDeath", settings.CanTargetMarkedForDeath);
+                    return detection;
+                }
+
                 case DetectionStrategyKind.None:
                     return CreateHiddenAsset<NoDetectionStrategyAsset>("Test_NoDetection");
 

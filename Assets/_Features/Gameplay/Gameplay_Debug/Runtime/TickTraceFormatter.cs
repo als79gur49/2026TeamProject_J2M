@@ -336,7 +336,7 @@ namespace Game.Feature.Gameplay.Debug
                 {
                     var effectState = entries[i].State.EffectStates[effectIndex];
                     lines.Add(
-                        $"E={entries[i].EntityId}|Effect={effectIndex}|Cooldown={effectState.cooldownTicksRemaining}|Phase={effectState.phase}|WindupStart={effectState.windupStartTick}|WindupEnd={effectState.windupEndTick}|Sequence={effectState.activationSequence}");
+                        $"E={entries[i].EntityId}|Effect={effectIndex}|Cooldown={effectState.cooldownTicksRemaining}|Phase={effectState.phase}|WindupStart={effectState.windupStartTick}|WindupEnd={effectState.windupEndTick}|RecoverStart={effectState.recoverStartTick}|RecoverEnd={effectState.recoverEndTickExclusive}|Sequence={effectState.activationSequence}|MoveSuppressUntil={effectState.movementSuppressionUntilTickInclusive}|Kind={effectState.effectKind}");
                 }
             }
 
@@ -620,7 +620,13 @@ namespace Game.Feature.Gameplay.Debug
                             .Append(':')
                             .Append(effectState.windupEndTick)
                             .Append(':')
-                            .Append(effectState.activationSequence);
+                            .Append(effectState.recoverStartTick)
+                            .Append(':')
+                            .Append(effectState.recoverEndTickExclusive)
+                            .Append(':')
+                            .Append(effectState.activationSequence)
+                            .Append(':')
+                            .Append(effectState.movementSuppressionUntilTickInclusive);
                     }
                     break;
 

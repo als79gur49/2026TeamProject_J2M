@@ -511,7 +511,10 @@ namespace Game.Feature.Gameplay.Entities
             EnemyUnitArchetypeId summonedArchetypeId,
             bool overrideHp = false,
             int hpOverride = 1,
-            int windupTicks = 1)
+            int windupTicks = 1,
+            bool suppressMovementDuringWindup = false,
+            int recoveryTicks = 0,
+            bool suppressMovementDuringRecover = false)
         {
             SpawnCountPerTrigger = spawnCountPerTrigger;
             CandidatePattern = candidatePattern;
@@ -522,6 +525,9 @@ namespace Game.Feature.Gameplay.Entities
             OverrideHp = overrideHp;
             HpOverride = hpOverride;
             WindupTicks = windupTicks;
+            SuppressMovementDuringWindup = suppressMovementDuringWindup;
+            RecoveryTicks = recoveryTicks;
+            SuppressMovementDuringRecover = suppressMovementDuringRecover;
             Validate(nameof(SummonMinionRuntime));
         }
 
@@ -542,6 +548,12 @@ namespace Game.Feature.Gameplay.Entities
         public int HpOverride { get; }
 
         public int WindupTicks { get; }
+
+        public bool SuppressMovementDuringWindup { get; }
+
+        public int RecoveryTicks { get; }
+
+        public bool SuppressMovementDuringRecover { get; }
 
         public void Validate(string paramName)
         {
@@ -565,6 +577,11 @@ namespace Game.Feature.Gameplay.Entities
             {
                 throw new ArgumentException("Summon minion runtime requires a positive windup duration.", paramName);
             }
+
+            if (RecoveryTicks < 0)
+            {
+                throw new ArgumentException("Summon minion runtime requires a non-negative recovery duration.", paramName);
+            }
         }
     }
 
@@ -573,23 +590,33 @@ namespace Game.Feature.Gameplay.Entities
         public LockNearbyBoxesRuntime(
             int radius,
             int durationTicks,
+            int activationDelayTicks,
             bool blocksPush,
             bool blocksFlip,
             bool includeSourceCell,
-            BoxLockTargetPattern targetPattern)
+            BoxLockTargetPattern targetPattern,
+            bool suppressMovementDuringWindup = false,
+            int recoveryTicks = 0,
+            bool suppressMovementDuringRecover = false)
         {
             Radius = radius;
             DurationTicks = durationTicks;
+            ActivationDelayTicks = activationDelayTicks;
             BlocksPush = blocksPush;
             BlocksFlip = blocksFlip;
             IncludeSourceCell = includeSourceCell;
             TargetPattern = targetPattern;
+            SuppressMovementDuringWindup = suppressMovementDuringWindup;
+            RecoveryTicks = recoveryTicks;
+            SuppressMovementDuringRecover = suppressMovementDuringRecover;
             Validate(nameof(LockNearbyBoxesRuntime));
         }
 
         public int Radius { get; }
 
         public int DurationTicks { get; }
+
+        public int ActivationDelayTicks { get; }
 
         public bool BlocksPush { get; }
 
@@ -598,6 +625,12 @@ namespace Game.Feature.Gameplay.Entities
         public bool IncludeSourceCell { get; }
 
         public BoxLockTargetPattern TargetPattern { get; }
+
+        public bool SuppressMovementDuringWindup { get; }
+
+        public int RecoveryTicks { get; }
+
+        public bool SuppressMovementDuringRecover { get; }
 
         public void Validate(string paramName)
         {
@@ -609,6 +642,16 @@ namespace Game.Feature.Gameplay.Entities
             if (DurationTicks <= 0)
             {
                 throw new ArgumentException("Lock nearby boxes runtime requires a positive duration.", paramName);
+            }
+
+            if (ActivationDelayTicks < 0)
+            {
+                throw new ArgumentException("Lock nearby boxes runtime requires a non-negative activation delay.", paramName);
+            }
+
+            if (RecoveryTicks < 0)
+            {
+                throw new ArgumentException("Lock nearby boxes runtime requires a non-negative recovery duration.", paramName);
             }
 
             if (!BlocksPush && !BlocksFlip)
@@ -975,17 +1018,22 @@ namespace Game.Feature.Gameplay.Entities
 
     public struct EnemyUtilityEffectState
     {
+        public EnemyUtilityEffectKind effectKind;
         public int cooldownTicksRemaining;
         public EnemyUtilityEffectPhase phase;
         public int windupStartTick;
         public int windupEndTick;
+        public int recoverStartTick;
+        public int recoverEndTickExclusive;
         public int activationSequence;
+        public int movementSuppressionUntilTickInclusive;
     }
 
     public enum EnemyUtilityEffectPhase
     {
         None = 0,
         Windup = 1,
+        Recover = 2,
     }
 
     public sealed class EnemyUtilityRuntimeState
@@ -1098,6 +1146,7 @@ namespace Game.Feature.Gameplay.Entities
             {
                 effectStates[i] = new EnemyUtilityEffectState
                 {
+                    effectKind = capability.Effects[i].Kind,
                     cooldownTicksRemaining = capability.Effects[i].InitialDelayTicks,
                 };
             }
@@ -1124,7 +1173,8 @@ namespace Game.Feature.Gameplay.Entities
 
             for (var i = 0; i < left.EffectStates.Count; i++)
             {
-                if (left.EffectStates[i].cooldownTicksRemaining != right.EffectStates[i].cooldownTicksRemaining)
+                if (left.EffectStates[i].effectKind != right.EffectStates[i].effectKind ||
+                    left.EffectStates[i].cooldownTicksRemaining != right.EffectStates[i].cooldownTicksRemaining)
                 {
                     return false;
                 }
@@ -1132,7 +1182,10 @@ namespace Game.Feature.Gameplay.Entities
                 if (left.EffectStates[i].phase != right.EffectStates[i].phase ||
                     left.EffectStates[i].windupStartTick != right.EffectStates[i].windupStartTick ||
                     left.EffectStates[i].windupEndTick != right.EffectStates[i].windupEndTick ||
-                    left.EffectStates[i].activationSequence != right.EffectStates[i].activationSequence)
+                    left.EffectStates[i].recoverStartTick != right.EffectStates[i].recoverStartTick ||
+                    left.EffectStates[i].recoverEndTickExclusive != right.EffectStates[i].recoverEndTickExclusive ||
+                    left.EffectStates[i].activationSequence != right.EffectStates[i].activationSequence ||
+                    left.EffectStates[i].movementSuppressionUntilTickInclusive != right.EffectStates[i].movementSuppressionUntilTickInclusive)
                 {
                     return false;
                 }

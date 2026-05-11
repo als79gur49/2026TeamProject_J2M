@@ -164,6 +164,9 @@ namespace Game.Feature.Gameplay.Entities
         [SerializeField] private bool overrideHp;
         [SerializeField] private int hpOverride = 1;
         [SerializeField] private float windupSeconds = 1.0f;
+        [SerializeField] private bool suppressMovementDuringWindup = false;
+        [SerializeField, Min(0f)] private float recoverySeconds = 0f;
+        [SerializeField] private bool suppressMovementDuringRecover = false;
 
         public int SpawnCountPerTrigger => spawnCountPerTrigger;
 
@@ -182,6 +185,12 @@ namespace Game.Feature.Gameplay.Entities
         public int HpOverride => hpOverride;
 
         public float WindupSeconds => windupSeconds;
+
+        public bool SuppressMovementDuringWindup => suppressMovementDuringWindup;
+
+        public float RecoverySeconds => recoverySeconds;
+
+        public bool SuppressMovementDuringRecover => suppressMovementDuringRecover;
 
         internal SummonMinionRuntime Compile()
         {
@@ -217,11 +226,21 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentException("Summon minion authoring requires a positive windup duration.", nameof(windupSeconds));
             }
 
+            if (recoverySeconds < 0f)
+            {
+                throw new ArgumentException("Summon minion authoring requires a non-negative recovery duration.", nameof(recoverySeconds));
+            }
+
             var windupTicks = GameplayTimingProfile.SecondsToTicks(windupSeconds, simulationTicksPerSecond);
             if (windupTicks <= 0)
             {
                 throw new ArgumentException("Summon minion authoring windup must compile to a positive duration.", nameof(windupSeconds));
             }
+
+            var recoveryTicks = GameplayTimingProfile.SecondsToTicks(
+                recoverySeconds,
+                simulationTicksPerSecond,
+                allowZero: true);
 
             return new SummonMinionRuntime(
                 spawnCountPerTrigger,
@@ -232,7 +251,10 @@ namespace Game.Feature.Gameplay.Entities
                 summonedArchetype.ArchetypeId,
                 overrideHp,
                 hpOverride,
-                windupTicks);
+                windupTicks,
+                suppressMovementDuringWindup,
+                recoveryTicks,
+                suppressMovementDuringRecover);
         }
     }
 
@@ -241,14 +263,20 @@ namespace Game.Feature.Gameplay.Entities
     {
         [SerializeField] private int radius = 1;
         [SerializeField] private float durationSeconds = 2f;
+        [SerializeField, Min(0f)] private float activationDelaySeconds = 0f;
         [SerializeField] private bool blocksPush = true;
         [SerializeField] private bool blocksFlip = true;
         [SerializeField] private bool includeSourceCell;
         [SerializeField] private BoxLockTargetPattern targetPattern = BoxLockTargetPattern.ManhattanRadius;
+        [SerializeField] private bool suppressMovementDuringWindup = false;
+        [SerializeField, Min(0f)] private float recoverySeconds = 0f;
+        [SerializeField] private bool suppressMovementDuringRecover = false;
 
         public int Radius => radius;
 
         public float DurationSeconds => durationSeconds;
+
+        public float ActivationDelaySeconds => activationDelaySeconds;
 
         public bool BlocksPush => blocksPush;
 
@@ -257,6 +285,12 @@ namespace Game.Feature.Gameplay.Entities
         public bool IncludeSourceCell => includeSourceCell;
 
         public BoxLockTargetPattern TargetPattern => targetPattern;
+
+        public bool SuppressMovementDuringWindup => suppressMovementDuringWindup;
+
+        public float RecoverySeconds => recoverySeconds;
+
+        public bool SuppressMovementDuringRecover => suppressMovementDuringRecover;
 
         internal LockNearbyBoxesRuntime Compile(int simulationTicksPerSecond)
         {
@@ -268,6 +302,16 @@ namespace Game.Feature.Gameplay.Entities
             if (durationSeconds <= 0f)
             {
                 throw new ArgumentException("Lock nearby boxes authoring requires a positive duration.", nameof(durationSeconds));
+            }
+
+            if (activationDelaySeconds < 0f)
+            {
+                throw new ArgumentException("Lock nearby boxes authoring requires a non-negative activation delay.", nameof(activationDelaySeconds));
+            }
+
+            if (recoverySeconds < 0f)
+            {
+                throw new ArgumentException("Lock nearby boxes authoring requires a non-negative recovery duration.", nameof(recoverySeconds));
             }
 
             if (!blocksPush && !blocksFlip)
@@ -291,13 +335,26 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentException("Lock nearby boxes authoring must compile to a positive duration.", nameof(durationSeconds));
             }
 
+            var activationDelayTicks = GameplayTimingProfile.SecondsToTicks(
+                activationDelaySeconds,
+                simulationTicksPerSecond,
+                allowZero: true);
+            var recoveryTicks = GameplayTimingProfile.SecondsToTicks(
+                recoverySeconds,
+                simulationTicksPerSecond,
+                allowZero: true);
+
             return new LockNearbyBoxesRuntime(
                 radius,
                 durationTicks,
+                activationDelayTicks,
                 blocksPush,
                 blocksFlip,
                 includeSourceCell,
-                targetPattern);
+                targetPattern,
+                suppressMovementDuringWindup,
+                recoveryTicks,
+                suppressMovementDuringRecover);
         }
     }
 

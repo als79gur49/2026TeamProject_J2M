@@ -525,11 +525,15 @@ namespace Game.Feature.Gameplay.Loop
                     builder
                         .Append(entry.EntityId).Append('|')
                         .Append(effectIndex).Append('|')
+                        .Append((int)entry.State.EffectStates[effectIndex].effectKind).Append('|')
                         .Append(entry.State.EffectStates[effectIndex].cooldownTicksRemaining).Append('|')
                         .Append((int)entry.State.EffectStates[effectIndex].phase).Append('|')
                         .Append(entry.State.EffectStates[effectIndex].windupStartTick).Append('|')
                         .Append(entry.State.EffectStates[effectIndex].windupEndTick).Append('|')
-                        .Append(entry.State.EffectStates[effectIndex].activationSequence).Append('\n');
+                        .Append(entry.State.EffectStates[effectIndex].recoverStartTick).Append('|')
+                        .Append(entry.State.EffectStates[effectIndex].recoverEndTickExclusive).Append('|')
+                        .Append(entry.State.EffectStates[effectIndex].activationSequence).Append('|')
+                        .Append(entry.State.EffectStates[effectIndex].movementSuppressionUntilTickInclusive).Append('\n');
                 }
             }
         }
