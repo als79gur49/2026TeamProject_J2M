@@ -13,6 +13,6 @@ MonoBehaviour:
   m_Name: EnemyBrain_GlideChaser
   m_EditorClassIdentifier: 
   stateResolver: {fileID: 11400000, guid: 1c331aa8897d4100ac3f31c93cb2ceb2, type: 2}
-  patrolStrategy: {fileID: 11400000, guid: 3eb79fb163e548c7be67ab9d5f0f8879, type: 2}
-  detectionStrategy: {fileID: 11400000, guid: a2e3acaa001c4755bb7797d2c342177b, type: 2}
-  chaseStrategy: {fileID: 11400000, guid: 3d5d7eb642324ce6babb68ac5115316a, type: 2}
+  patrolStrategy: {fileID: 11400000, guid: 66b7b0478da444948bf558c19698c99c, type: 2}
+  detectionStrategy: {fileID: 11400000, guid: 7fc98331ad463e74caf4f34493aefad3, type: 2}
+  chaseStrategy: {fileID: 11400000, guid: 8cddf3edcd82e4147913c968a48b130a, type: 2}

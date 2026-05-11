@@ -12,7 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b8e8443191cf4d54b46f4588ab76f6fe, type: 3}
   m_Name: EnemyAi_LockNearbyBoxes
   m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Entities.EnemyAiProfile
-  coreAuthoring: {fileID: 11400000, guid: 8ab4b6bcb06349ecbe018d6d3e91dc79, type: 2}
-  brainAuthoring: {fileID: 11400000, guid: 16dfa7401e224377b59eb2d3d33cc242, type: 2}
+  coreAuthoring: {fileID: 11400000, guid: c1e3f8a2b5d94e4a9f0712c6d8b0a345, type: 2}
+  brainAuthoring: {fileID: 11400000, guid: d4a17e8c9b2f4aa5a36c0d7e8192f4b0, type: 2}
   capabilityAssets:
   - {fileID: 11400000, guid: 97bbf56322f7f4c260e47dbe5fb697de, type: 2}
+  - {fileID: 11400000, guid: bf094ca1fd8f4a378e18159ddaf0d4f0, type: 2}

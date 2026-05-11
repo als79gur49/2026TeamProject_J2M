@@ -15,4 +15,4 @@ MonoBehaviour:
   stateResolver: {fileID: 11400000, guid: 1c331aa8897d4100ac3f31c93cb2ceb2, type: 2}
   patrolStrategy: {fileID: 11400000, guid: 4b1f10340ce6444ca22161a7fcc39fba, type: 2}
   detectionStrategy: {fileID: 11400000, guid: df98fa20e4eb454da625652a1e41d70d, type: 2}
-  chaseStrategy: {fileID: 11400000, guid: 3d5d7eb642324ce6babb68ac5115316a, type: 2}
+  chaseStrategy: {fileID: 11400000, guid: 8cddf3edcd82e4147913c968a48b130a, type: 2}

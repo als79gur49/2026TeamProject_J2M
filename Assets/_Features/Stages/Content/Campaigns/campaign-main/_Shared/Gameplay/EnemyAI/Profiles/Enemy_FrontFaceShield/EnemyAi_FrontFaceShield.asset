@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b8e8443191cf4d54b46f4588ab76f6fe, type: 3}
   m_Name: EnemyAi_FrontFaceShield
   m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Entities.EnemyAiProfile
-  coreAuthoring: {fileID: 11400000, guid: 8ab4b6bcb06349ecbe018d6d3e91dc79, type: 2}
-  brainAuthoring: {fileID: 11400000, guid: 16dfa7401e224377b59eb2d3d33cc242, type: 2}
+  coreAuthoring: {fileID: 11400000, guid: 2a6b1e0d7f9a4c3f8d12e5b670a9c041, type: 2}
+  brainAuthoring: {fileID: 11400000, guid: 5b0c9d2e3f4a4e2aa0138f6c7d9b5e20, type: 2}
   capabilityAssets:
   - {fileID: 11400000, guid: 0c4fcc181d8c1bbb92482cec45fb2a60, type: 2}
