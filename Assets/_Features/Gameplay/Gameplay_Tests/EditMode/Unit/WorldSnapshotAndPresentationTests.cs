@@ -2343,7 +2343,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void TickPresentationDataBuilder_BuildsEnemyJumpSignal_ForWindupStart()
+        public void TickPresentationDataBuilder_BuildsEnemyJumpSignal_ForWindupStart_UsesLockedTargetFacing()
         {
             const int enemyId = 40;
             var enemyCell = new SurfaceCell(FaceId.Floor, 1, 1);
@@ -2356,12 +2356,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var preMovementSnapshot = CreateSnapshotWithEnemyJumpStates(
                 new[]
                 {
-                    CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Patrol, Direction.Right),
+                    CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Patrol, Direction.Up),
                 });
             var postMovementSnapshot = CreateSnapshotWithEnemyJumpStates(
                 new[]
                 {
-                    CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Patrol, Direction.Right),
+                    CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Patrol, Direction.Up),
                 },
                 new EnemyJumpStateSeed(enemyId, jumpState));
 
@@ -2371,7 +2371,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     postMovementSnapshot,
                     postMovementSnapshot,
                     postMovementSnapshot,
-                    CreateMovementPhaseResult(),
+                    CreateMovementPhaseResultWithOperations(
+                        FinalizationOperation.SetEnemyJumpState(
+                            sequence: 1,
+                            entityId: enemyId,
+                            enemyJumpState: jumpState,
+                            metadata: new FinalizationOperationMetadata(
+                                TickPhase.Plan,
+                                ResolvedActionSemanticKind.JumpLanding,
+                                enemyId,
+                                actionPlanId: 0,
+                                movementSemanticKind: MovementSemanticKind.JumpLanding,
+                                jumpPresentationKind: JumpPresentationKind.WindupStart,
+                                presentationTargetCell: jumpState.lockedTargetCell,
+                                movementExecutionBoundaryKind: MovementExecutionBoundaryKind.UnitSpecialLocomotion,
+                                boundaryReason: "EnemyJumpState"))),
                     AttackPhaseResult.Empty,
                     CleanupFixtureFactory.None(),
                     currentTickIndex: 5,

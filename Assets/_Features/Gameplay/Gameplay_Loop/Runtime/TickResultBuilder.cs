@@ -2695,7 +2695,7 @@ namespace Game.Feature.Gameplay.Loop
                     }
                 }
 
-                var facing = ResolveJumpPresentationFacing(context, entityId);
+                var facing = ResolveJumpPresentationFacing(context, entityId, resolvedState);
                 var remainingAirborneTicks = resolvedState.phase == EnemyJumpPhase.Airborne
                     ? Math.Max(0, resolvedState.landingTick - context.CurrentTickIndex)
                     : 0;
@@ -3127,6 +3127,24 @@ namespace Game.Feature.Gameplay.Loop
         }
 
         private static Direction ResolveJumpPresentationFacing(
+            in TickPresentationBuildContext context,
+            int entityId,
+            in EnemyJumpRuntimeState jumpState)
+        {
+            var fallbackFacing = ResolveJumpPresentationEntityFacing(context, entityId);
+            if (jumpState.phase != EnemyJumpPhase.Windup)
+            {
+                return fallbackFacing;
+            }
+
+            return EnemyJumpQueries.ResolveJumpBasisFacing(
+                jumpState.sourceCell,
+                jumpState.lockedTargetCell,
+                fallbackFacing == Direction.None ? Direction.Up : fallbackFacing,
+                ChaseAxisPriorityMode.GreatestDistanceThenFacingTieBreak);
+        }
+
+        private static Direction ResolveJumpPresentationEntityFacing(
             in TickPresentationBuildContext context,
             int entityId)
         {
