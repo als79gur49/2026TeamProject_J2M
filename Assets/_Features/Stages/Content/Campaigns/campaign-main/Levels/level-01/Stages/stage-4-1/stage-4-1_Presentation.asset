@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ownerEntry: {fileID: 11400000, guid: 11affcb9dad0844b53320cf3fe9880fb, type: 2}
   ownerEntryGuid: 11affcb9dad0844b53320cf3fe9880fb
-  displayName: 4-1
+  displayName: Morgue-01
   summaryText: 
   previewSprite: {fileID: 0}
   backgroundPrefab: {fileID: 0}
@@ -37,6 +37,10 @@ MonoBehaviour:
     PresentationId: utility_summoner_prefab
   staticEntityPresentationCatalog: {fileID: 11400000, guid: 28eb5cc07ccd15d4b9a99a3364f7fd07, type: 2}
   staticEntityPresentationBindings: []
+  boardTilePresentationCatalog: {fileID: 0}
+  boardTilePresentationOverrides: []
+  tileFeaturePresentationCatalog: {fileID: 0}
+  tileFeaturePresentationBindings: []
   resultTitle: Stage Cleared
   resultSummaryText: 
   resultDetailText: 

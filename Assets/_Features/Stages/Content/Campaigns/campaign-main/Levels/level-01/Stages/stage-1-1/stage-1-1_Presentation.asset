@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ownerEntry: {fileID: 11400000, guid: 2bb12b179be6221d088823d5f83b2c95, type: 2}
   ownerEntryGuid: 2bb12b179be6221d088823d5f83b2c95
-  displayName: 1-1
+  displayName: Lobby-01
   summaryText: 
   previewSprite: {fileID: 0}
   backgroundPrefab: {fileID: 0}
