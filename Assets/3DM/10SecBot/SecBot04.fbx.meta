@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 1dc4a0cd368f40746b8b3b71623a6871
+guid: 52b6fccfa5e5acd4a9a88c76732d83c0
 ModelImporter:
   serializedVersion: 24200
   internalIDToNameTable: []
@@ -7,38 +7,28 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: Material #25
-    second: {fileID: 2100000, guid: 5ae54b67d9904e8439f5d47658e0c014, type: 2}
+      name: Material #402
+    second: {fileID: 2100000, guid: 4f738b47d896bac419c6ee6939914ce4, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: Material #37
-    second: {fileID: 2100000, guid: f9f056a2e3173a64ab009f77cdc9494f, type: 2}
+      name: Material #403
+    second: {fileID: 2100000, guid: fcc8cd603eb63cb4a948e6befcc0a66a, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: Material #50
-    second: {fileID: 2100000, guid: f3379ebe2fab6c34db6dfa317cf59449, type: 2}
+      name: Material #404
+    second: {fileID: 2100000, guid: b3e9748ec020a4f43bd30fa3579b4911, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: Material #51
-    second: {fileID: 2100000, guid: ee934232253002a4fbc9439921a5e803, type: 2}
+      name: Material #416
+    second: {fileID: 2100000, guid: 3cb0940344ee956459eb1f90654f256b, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: Material #52
-    second: {fileID: 2100000, guid: a726335b182afb742b62cef8b7be9524, type: 2}
-  - first:
-      type: UnityEngine:Material
-      assembly: UnityEngine.CoreModule
-      name: Material #86
-    second: {fileID: 2100000, guid: 5d0d8b91c39ba20438364e3793e8e08e, type: 2}
-  - first:
-      type: UnityEngine:Material
-      assembly: UnityEngine.CoreModule
-      name: Material #98
-    second: {fileID: 2100000, guid: 4629c7529a94a234cae4076d3a1da02c, type: 2}
+      name: Material #467
+    second: {fileID: 2100000, guid: 62454578a841c9e4cb472d6ef1d7b2de, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0
@@ -50,10 +40,10 @@ ModelImporter:
     resampleCurves: 1
     optimizeGameObjects: 0
     removeConstantScaleCurves: 0
-    motionNodeName:
-    animationImportErrors:
-    animationImportWarnings:
-    animationRetargetingWarnings:
+    motionNodeName: 
+    animationImportErrors: 
+    animationImportWarnings: 
+    animationRetargetingWarnings: 
     animationDoRetargetingWarnings: 0
     importAnimatedCustomProperties: 0
     importConstraints: 0
@@ -68,7 +58,7 @@ ModelImporter:
     isReadable: 0
   meshes:
     lODScreenPercentages: []
-    globalScale: 0.3
+    globalScale: 1
     meshCompression: 0
     addColliders: 0
     useSRGBMaterialColor: 1
@@ -126,8 +116,8 @@ ModelImporter:
     armStretch: 0.05
     legStretch: 0.05
     feetSpacing: 0
-    globalScale: 0.3
-    rootMotionBoneName:
+    globalScale: 1
+    rootMotionBoneName: 
     hasTranslationDoF: 0
     hasExtraRoot: 0
     skeletonHasParents: 1
@@ -140,6 +130,6 @@ ModelImporter:
   importBlendShapeDeformPercent: 1
   remapMaterialsIfMaterialImportModeIsNone: 0
   additionalBone: 0
-  userData:
-  assetBundleName:
-  assetBundleVariant:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
