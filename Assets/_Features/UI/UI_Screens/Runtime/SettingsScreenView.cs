@@ -22,12 +22,6 @@ namespace Game.Feature.UI.Screens
         private const string MissingInputSectionMessage =
             "Settings screen is missing or miswired required authored input section. Repair: assign SettingsScreenView._inputView to the SettingsInputSection child view.";
 
-        private const float PreferredPanelWidth = 560f;
-        private const float PreferredPanelHeight = 640f;
-        private const float MinimumPanelWidth = 420f;
-        private const float MinimumPanelHeight = 520f;
-        private const float ScreenMargin = 64f;
-
         [SerializeField] private GameObject _root;
         [SerializeField] private TMP_Text _titleLabel;
         [SerializeField] private Button _audioTabButton;
@@ -233,7 +227,6 @@ namespace Game.Feature.UI.Screens
             RebindButton(_displayTabButton, ClickDisplayTab);
             RebindButton(_inputTabButton, ClickInputTab);
             RebindButton(_backButton, ClickBack);
-            ApplyResponsiveRootSize();
             RefreshView();
         }
 
@@ -274,11 +267,6 @@ namespace Game.Feature.UI.Screens
             }
         }
 
-        private void OnRectTransformDimensionsChange()
-        {
-            ApplyResponsiveRootSize();
-        }
-
         private void HandleViewModelChanged()
         {
             RefreshView();
@@ -289,8 +277,6 @@ namespace Game.Feature.UI.Screens
             ApplySectionVisibility();
 
             ApplyRootVisibility();
-
-            ApplyResponsiveRootSize();
 
             if (_viewModel == null)
             {
@@ -422,36 +408,6 @@ namespace Game.Feature.UI.Screens
             {
                 ScreenEnterTweenUtility.RestoreAlpha(_rootCanvasGroup, _rootRestAlpha);
             }
-        }
-
-        private void ApplyResponsiveRootSize()
-        {
-            if (_root == null)
-            {
-                return;
-            }
-
-            var rootRect = _root.GetComponent<RectTransform>();
-            if (rootRect != null)
-            {
-                rootRect.anchorMin = new Vector2(0.5f, 0.5f);
-                rootRect.anchorMax = new Vector2(0.5f, 0.5f);
-                rootRect.pivot = new Vector2(0.5f, 0.5f);
-                rootRect.anchoredPosition = Vector2.zero;
-                rootRect.sizeDelta = CalculatePanelSize(rootRect.parent as RectTransform);
-            }
-        }
-
-        private static Vector2 CalculatePanelSize(RectTransform parentRect)
-        {
-            var parentSize = parentRect != null && parentRect.rect.size.sqrMagnitude > 0f
-                ? parentRect.rect.size
-                : new Vector2(PreferredPanelWidth + ScreenMargin * 2f, PreferredPanelHeight + ScreenMargin * 2f);
-            var maxWidth = Mathf.Max(MinimumPanelWidth, parentSize.x - ScreenMargin * 2f);
-            var maxHeight = Mathf.Max(MinimumPanelHeight, parentSize.y - ScreenMargin * 2f);
-            return new Vector2(
-                Mathf.Clamp(PreferredPanelWidth, MinimumPanelWidth, maxWidth),
-                Mathf.Clamp(PreferredPanelHeight, MinimumPanelHeight, maxHeight));
         }
 
         private void ValidateSection(Component sectionView, string fieldName, string expectedSectionName, string baseMessage)

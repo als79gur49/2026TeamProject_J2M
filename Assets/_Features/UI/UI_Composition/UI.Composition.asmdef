@@ -14,6 +14,7 @@
     "Game.Feature.UI.Popups",
     "Game.Shared.Input",
     "Unity.InputSystem",
-    "Unity.TextMeshPro"
+    "Unity.TextMeshPro",
+    "DOTween.Modules"
   ]
 }

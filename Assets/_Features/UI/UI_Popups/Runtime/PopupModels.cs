@@ -16,6 +16,8 @@ namespace Game.Feature.UI.Popups
         Resumed = 4,
         SettingsRequested = 5,
         ObjectiveRequested = 6,
+        RetryRequested = 7,
+        MainMenuRequested = 8,
     }
 
     public enum PopupBackdropMode
@@ -48,20 +50,26 @@ namespace Game.Feature.UI.Popups
             "Pausing modal popup",
             "Resume",
             "Objective",
-            "Settings");
+            "Settings",
+            "Retry",
+            "Main Menu");
 
         public PausePopupPayload(
             string titleText,
             string descriptionText,
             string resumeLabel,
             string objectiveLabel,
-            string settingsLabel)
+            string settingsLabel,
+            string retryLabel = "Retry",
+            string mainMenuLabel = "Main Menu")
         {
             TitleText = titleText ?? string.Empty;
             DescriptionText = descriptionText ?? string.Empty;
             ResumeLabel = resumeLabel ?? string.Empty;
             ObjectiveLabel = objectiveLabel ?? string.Empty;
             SettingsLabel = settingsLabel ?? string.Empty;
+            RetryLabel = retryLabel ?? string.Empty;
+            MainMenuLabel = mainMenuLabel ?? string.Empty;
         }
 
         public string TitleText { get; }
@@ -73,6 +81,10 @@ namespace Game.Feature.UI.Popups
         public string ObjectiveLabel { get; }
 
         public string SettingsLabel { get; }
+
+        public string RetryLabel { get; }
+
+        public string MainMenuLabel { get; }
     }
 
     public sealed class ObjectiveInfoPopupPayload : IPopupPayload
@@ -192,18 +204,26 @@ namespace Game.Feature.UI.Popups
 
         public string SettingsLabel { get; private set; } = string.Empty;
 
+        public string RetryLabel { get; private set; } = string.Empty;
+
+        public string MainMenuLabel { get; private set; } = string.Empty;
+
         public void SetContent(
             string titleText,
             string descriptionText,
             string resumeLabel,
             string objectiveLabel,
-            string settingsLabel)
+            string settingsLabel,
+            string retryLabel,
+            string mainMenuLabel)
         {
             TitleText = titleText ?? string.Empty;
             DescriptionText = descriptionText ?? string.Empty;
             ResumeLabel = resumeLabel ?? string.Empty;
             ObjectiveLabel = objectiveLabel ?? string.Empty;
             SettingsLabel = settingsLabel ?? string.Empty;
+            RetryLabel = retryLabel ?? string.Empty;
+            MainMenuLabel = mainMenuLabel ?? string.Empty;
             Changed?.Invoke();
         }
     }

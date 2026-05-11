@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Stages;
 using Game.Feature.UI.HUD;
 
 namespace Game.Feature.UI.Application
@@ -25,6 +26,18 @@ namespace Game.Feature.UI.Application
                 chance.MaxChances,
                 isInitialBind,
                 hint);
+            CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.HudViewModel)
+            {
+                TryReadResult = chance.HasChances,
+                RemainingChances = chance.RemainingChances,
+                MaxChances = chance.MaxChances,
+                FinalHasChances = ViewModel.HasChances,
+                FailureReason = ViewModel.HasChances
+                    ? CampaignChanceReadFailureReason.None
+                    : chance.MaxChances <= 0
+                        ? CampaignChanceReadFailureReason.MaxChancesZero
+                        : CampaignChanceReadFailureReason.Unknown,
+            });
 
             _previous = chance;
             _hasPrevious = true;

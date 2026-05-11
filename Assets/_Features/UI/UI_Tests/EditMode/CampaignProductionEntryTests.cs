@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Timing;
 using Game.Feature.Stages;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
@@ -28,11 +30,22 @@ namespace Game.Feature.UI.Tests
         private const string RouteConfigPath = "Assets/_Features/UI/UI_Composition/Authoring/GameplayStageLaunchRouteConfig.asset";
         private const string MainMenuScenePath = "Assets/Scenes/MainMenuScene.unity";
         private const string GameplayShellScenePath = "Assets/Scenes/UIAudioScene.unity";
+        private const string CombinedStageId = "combined-gameplay-showcase";
+        private const string StageCatalogProviderAssetPath =
+            StageContentPaths.StageCatalogProviderAssetPath;
+        private const string DefaultSimulationTimingPresetAssetPath =
+            "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplaySimulationTimingPreset_DefaultShowcase.asset";
+        private const string DefaultPresentationTimingPresetAssetPath =
+            "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplayPresentationTimingPreset_DefaultShowcase.asset";
 
         [TearDown]
         public void TearDown()
         {
             StageLaunchContextStore.Clear();
+            EditorDirectPlayContextStore.Clear();
+            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            CampaignChanceHudDiagnostics.IsEnabled = false;
+            CampaignChanceHudDiagnostics.Clear();
             var eventSystem = UnityEngine.Object.FindFirstObjectByType<EventSystem>();
             if (eventSystem != null)
             {
@@ -360,6 +373,36 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ConfiguredGameplayStageLaunchRouter_Launch_ClearsStaleCampaignTempDirectPlayContext_BeforeStageTransition()
+        {
+            AssertConfiguredGameplayLaunchClearsStaleDirectPlayContext(
+                EditorDirectPlayContext.CreateCampaignTempSlot(StageId.CreateOrThrow("stage-0-1"), remainingChances: 2));
+        }
+
+        [Test]
+        public void ConfiguredGameplayStageLaunchRouter_Launch_ClearsStaleNonCampaignDirectPlayContext_BeforeStageTransition()
+        {
+            AssertConfiguredGameplayLaunchClearsStaleDirectPlayContext(
+                EditorDirectPlayContext.CreateNonCampaign(StageId.CreateOrThrow("stage-0-1")));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void ProductionMainMenuLaunch_WithStaleCampaignTempDirectPlayContext_InjectsChanceReadSource()
+        {
+            AssertProductionMainMenuLaunchWithStaleContextInjectsChanceReadSource(
+                EditorDirectPlayContext.CreateCampaignTempSlot(StageId.CreateOrThrow(CombinedStageId), remainingChances: 2));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void ProductionMainMenuLaunch_WithStaleNonCampaignDirectPlayContext_InjectsChanceReadSource()
+        {
+            AssertProductionMainMenuLaunchWithStaleContextInjectsChanceReadSource(
+                EditorDirectPlayContext.CreateNonCampaign(StageId.CreateOrThrow(CombinedStageId)));
+        }
+
+        [Test]
         public void ConfiguredGameplayStageLaunchRouter_RejectsMissingOrInvalidSceneConfig()
         {
             var routeConfig = ScriptableObject.CreateInstance<GameplayStageLaunchRouteConfig>();
@@ -622,6 +665,210 @@ namespace Game.Feature.UI.Tests
             return "Game.Feature.UI.Tests." + suffix + "." + Guid.NewGuid().ToString("N");
         }
 
+        private static void AssertConfiguredGameplayLaunchClearsStaleDirectPlayContext(
+            EditorDirectPlayContext staleContext)
+        {
+            var routeConfig = ScriptableObject.CreateInstance<GameplayStageLaunchRouteConfig>();
+            var stageId = StageId.CreateOrThrow("stage-0-1");
+            var defaultActiveSlotKey = new ActiveSlotProvider().PlayerPrefsKey;
+            var saveBackup = PlayerPrefsStringBackup.Capture(SaveSlotStore.DefaultPlayerPrefsKey);
+            var activeBackup = PlayerPrefsIntBackup.Capture(defaultActiveSlotKey);
+            try
+            {
+                routeConfig.SetScenePathsForTests(MainMenuScenePath, GameplayShellScenePath);
+                PrepareProductionDefaultSlot(stageId, remainingChances: 2);
+                EditorDirectPlayContextStore.SetCurrent(staleContext);
+                Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().Mode, Is.EqualTo(staleContext.Mode));
+
+                var sceneLoader = new FakeSceneLoadPort(sceneName =>
+                {
+                    Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().Mode, Is.EqualTo(EditorDirectPlayMode.None));
+                    Assert.That(StageLaunchContextStore.TryGetCurrent(out var current), Is.True);
+                    Assert.That(current, Is.EqualTo(stageId));
+                    Assert.That(sceneName, Is.EqualTo("UIAudioScene"));
+                });
+
+                new ConfiguredGameplayStageLaunchRouter(routeConfig, sceneLoader).Launch(
+                    new StageNavigationRequest(stageId, StageNavigationKind.Continue, "test"));
+
+                Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().Mode, Is.EqualTo(EditorDirectPlayMode.None));
+                Assert.That(StageLaunchContextStore.TryGetCurrent(out var currentAfterLaunch), Is.True);
+                Assert.That(currentAfterLaunch, Is.EqualTo(stageId));
+                Assert.That(sceneLoader.LoadedScenes, Is.EqualTo(new[] { "UIAudioScene" }));
+            }
+            finally
+            {
+                saveBackup.Restore();
+                activeBackup.Restore();
+                UnityEngine.Object.DestroyImmediate(routeConfig);
+            }
+        }
+
+        private static void AssertProductionMainMenuLaunchWithStaleContextInjectsChanceReadSource(
+            EditorDirectPlayContext staleContext)
+        {
+            var routeConfig = ScriptableObject.CreateInstance<GameplayStageLaunchRouteConfig>();
+            var installerObject = new GameObject("ProductionMainMenuLaunch_WithStaleDirectPlayContext_InjectsChanceReadSource");
+            var stageId = StageId.CreateOrThrow(CombinedStageId);
+            var defaultActiveSlotKey = new ActiveSlotProvider().PlayerPrefsKey;
+            var saveBackup = PlayerPrefsStringBackup.Capture(SaveSlotStore.DefaultPlayerPrefsKey);
+            var activeBackup = PlayerPrefsIntBackup.Capture(defaultActiveSlotKey);
+            try
+            {
+                routeConfig.SetScenePathsForTests(MainMenuScenePath, GameplayShellScenePath);
+                PrepareProductionDefaultSlot(stageId, remainingChances: 2);
+                EditorDirectPlayContextStore.SetCurrent(staleContext);
+                Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().Mode, Is.EqualTo(staleContext.Mode));
+
+                var sceneLoader = new FakeSceneLoadPort();
+                new ConfiguredGameplayStageLaunchRouter(routeConfig, sceneLoader).Launch(
+                    new StageNavigationRequest(stageId, StageNavigationKind.Continue, "test"));
+
+                Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().Mode, Is.EqualTo(EditorDirectPlayMode.None));
+                Assert.That(StageLaunchContextStore.TryGetCurrent(out var current), Is.True);
+                Assert.That(current, Is.EqualTo(stageId));
+                Assert.That(sceneLoader.LoadedScenes, Is.EqualTo(new[] { "UIAudioScene" }));
+
+                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                DisableAutoCreateViews(installer);
+                AssignStageCatalogProvider(installer);
+                AssignTimingPresets(installer);
+                var configuration = BuildConfiguration(installer);
+
+                Assert.That(configuration.CampaignChancesReadSource, Is.Not.Null);
+                Assert.That(configuration.CampaignChancesReadSource.TryReadChances(out var remaining, out var max), Is.True);
+                Assert.That(remaining, Is.GreaterThanOrEqualTo(0));
+                Assert.That(max, Is.GreaterThan(0));
+
+                var host = installerObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(configuration);
+                var playerHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+
+                Assert.That(playerHud.HasRemainingChances, Is.True);
+                Assert.That(playerHud.MaxChances, Is.GreaterThan(0));
+
+                var uiInstaller = installerObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(uiInstaller);
+                uiInstaller.Install(host);
+                var chancePanelView = uiInstaller.HudView.ChancePanelView;
+                var chancePanelRoot = GetPrivateField<GameObject>(chancePanelView, "_root");
+
+                Assert.That(chancePanelView.ViewModel.HasChances, Is.True);
+                Assert.That(chancePanelRoot.activeSelf, Is.True);
+            }
+            finally
+            {
+                saveBackup.Restore();
+                activeBackup.Restore();
+                StageLaunchContextStore.Clear();
+                EditorDirectPlayContextStore.Clear();
+                EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+                UnityEngine.Object.DestroyImmediate(installerObject);
+                UnityEngine.Object.DestroyImmediate(routeConfig);
+            }
+        }
+
+        private static void PrepareProductionDefaultSlot(StageId stageId, int remainingChances)
+        {
+            var saveStore = new SaveSlotStore();
+            var activeSlotProvider = new ActiveSlotProvider();
+            saveStore.ClearAll();
+            activeSlotProvider.ClearActiveSlot();
+            saveStore.SaveSlot(new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = stageId,
+                CurrentLevelGroupId = "level-01",
+                RemainingChances = remainingChances,
+                LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
+            });
+            activeSlotProvider.SetActiveSlot(1);
+        }
+
+        private static void AssignStageCatalogProvider(CombinedGameplayShowcaseInstaller installer)
+        {
+            var provider = AssetDatabase.LoadAssetAtPath<ScriptableObjectStageCatalogProvider>(
+                StageCatalogProviderAssetPath);
+            Assert.That(provider, Is.Not.Null, $"Missing stage catalog provider at '{StageCatalogProviderAssetPath}'.");
+
+            var providerField = typeof(StageBackedGameplayShowcaseInstallerBase).GetField(
+                "stageCatalogProvider",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(providerField, Is.Not.Null);
+            providerField.SetValue(installer, provider);
+        }
+
+        private static void DisableAutoCreateViews(CombinedGameplayShowcaseInstaller installer)
+        {
+            var autoCreateViewsField = typeof(GameplayShowcaseSceneInstallerBase).GetField(
+                "autoCreateViews",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(autoCreateViewsField, Is.Not.Null);
+            autoCreateViewsField.SetValue(installer, false);
+        }
+
+        private static void AssignTimingPresets(CombinedGameplayShowcaseInstaller installer)
+        {
+            var simulationPreset = AssetDatabase.LoadAssetAtPath<GameplaySimulationTimingPreset>(
+                DefaultSimulationTimingPresetAssetPath);
+            Assert.That(
+                simulationPreset,
+                Is.Not.Null,
+                $"Missing simulation timing preset asset at '{DefaultSimulationTimingPresetAssetPath}'.");
+
+            var presentationPreset = AssetDatabase.LoadAssetAtPath<GameplayPresentationTimingPreset>(
+                DefaultPresentationTimingPresetAssetPath);
+            Assert.That(
+                presentationPreset,
+                Is.Not.Null,
+                $"Missing presentation timing preset asset at '{DefaultPresentationTimingPresetAssetPath}'.");
+
+            var simulationField = typeof(GameplayShowcaseSceneInstallerBase).GetField(
+                "simulationTimingPreset",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(simulationField, Is.Not.Null);
+            simulationField.SetValue(installer, simulationPreset);
+
+            var presentationField = typeof(GameplayShowcaseSceneInstallerBase).GetField(
+                "presentationTimingPreset",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(presentationField, Is.Not.Null);
+            presentationField.SetValue(installer, presentationPreset);
+        }
+
+        private static GameplaySceneHostConfiguration BuildConfiguration(CombinedGameplayShowcaseInstaller installer)
+        {
+            EnsureCameraTopologyAuthoring(installer);
+
+            var initialState = BuildInitialGameplayState(installer);
+            var createConfigurationMethod = typeof(GameplayShowcaseSceneInstallerBase).GetMethod(
+                "CreateConfiguration",
+                BindingFlags.Instance | BindingFlags.NonPublic,
+                binder: null,
+                types: new[] { initialState.GetType(), typeof(GameplayCameraSettings) },
+                modifiers: null);
+
+            Assert.That(createConfigurationMethod, Is.Not.Null);
+            return (GameplaySceneHostConfiguration)createConfigurationMethod.Invoke(
+                installer,
+                new object[] { initialState, installer.GetCameraSettings() });
+        }
+
+        private static object BuildInitialGameplayState(CombinedGameplayShowcaseInstaller installer)
+        {
+            var buildInitialStateMethod = typeof(StageBackedGameplayShowcaseInstallerBase).GetMethod(
+                "BuildInitialGameplayState",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(buildInitialStateMethod, Is.Not.Null);
+            return buildInitialStateMethod.Invoke(installer, Array.Empty<object>());
+        }
+
+        private static GameplayCameraTopologyAuthoring EnsureCameraTopologyAuthoring(Component owner)
+        {
+            return owner.GetComponent<GameplayCameraTopologyAuthoring>() ??
+                   owner.gameObject.AddComponent<GameplayCameraTopologyAuthoring>();
+        }
+
         private static void SetPrivateField(object target, string fieldName, object value)
         {
             var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
@@ -667,12 +914,91 @@ namespace Game.Feature.UI.Tests
         private sealed class FakeSceneLoadPort : ISceneLoadPort
         {
             private readonly List<string> _loadedScenes = new();
+            private readonly Action<string> _beforeLoad;
+
+            public FakeSceneLoadPort(Action<string> beforeLoad = null)
+            {
+                _beforeLoad = beforeLoad;
+            }
 
             public IReadOnlyList<string> LoadedScenes => _loadedScenes;
 
             public void LoadScene(string sceneName)
             {
+                _beforeLoad?.Invoke(sceneName);
                 _loadedScenes.Add(sceneName);
+            }
+        }
+
+        private readonly struct PlayerPrefsStringBackup
+        {
+            private readonly bool _hadValue;
+            private readonly string _key;
+            private readonly string _value;
+
+            private PlayerPrefsStringBackup(string key, bool hadValue, string value)
+            {
+                _key = key;
+                _hadValue = hadValue;
+                _value = value;
+            }
+
+            public static PlayerPrefsStringBackup Capture(string key)
+            {
+                return new PlayerPrefsStringBackup(
+                    key,
+                    PlayerPrefs.HasKey(key),
+                    PlayerPrefs.GetString(key, string.Empty));
+            }
+
+            public void Restore()
+            {
+                if (_hadValue)
+                {
+                    PlayerPrefs.SetString(_key, _value);
+                }
+                else
+                {
+                    PlayerPrefs.DeleteKey(_key);
+                }
+
+                PlayerPrefs.Save();
+            }
+        }
+
+        private readonly struct PlayerPrefsIntBackup
+        {
+            private readonly bool _hadValue;
+            private readonly string _key;
+            private readonly int _value;
+
+            private PlayerPrefsIntBackup(string key, bool hadValue, int value)
+            {
+                _key = key;
+                _hadValue = hadValue;
+                _value = value;
+            }
+
+            public static PlayerPrefsIntBackup Capture(string key)
+            {
+                return new PlayerPrefsIntBackup(
+                    key,
+                    PlayerPrefs.HasKey(key),
+                    PlayerPrefs.GetInt(key, 0));
+            }
+
+            public void Restore()
+            {
+                if (_hadValue)
+                {
+                    PlayerPrefs.SetInt(_key, _value);
+                }
+                else
+                {
+                    PlayerPrefs.DeleteKey(_key);
+                }
+
+                PlayerPrefs.Save();
             }
         }
 

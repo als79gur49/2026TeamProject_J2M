@@ -345,7 +345,7 @@ namespace Game.Feature.Stages
                 StageTransitionKind.DeathRetryChanceLost,
                 string.Empty,
                 string.Empty,
-                0.75f,
+                1.5f,
                 true,
                 true,
                 true,

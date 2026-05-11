@@ -898,6 +898,69 @@ namespace Game.Feature.UI.Tests
             Assert.That(mainMenuReturnRouter.ReturnCallCount, Is.EqualTo(1));
         }
 
+        [Test]
+        public void UIFlowCoordinator_PausePopupRetry_LaunchesCurrentStageRetry_AndResumesPause()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            var screenRuntimeFactory = new FakeScreenRuntimeFactory();
+            var presentationSource = new ManualGameplayUiPresentationSource();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                screenRuntimeFactory,
+                presentationSource,
+                out _,
+                out var popupController,
+                out _,
+                out var stageLaunchRouter);
+            var stageId = StageId.CreateOrThrow("stage-1-1");
+
+            coordinator.Initialize();
+            presentationSource.PublishSnapshot(CreateSnapshotForStage(stageId));
+            Assert.That(coordinator.RequestPausePopup(), Is.True);
+
+            popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.RetryRequested);
+
+            Assert.That(popupController.PopupCount, Is.EqualTo(0));
+            Assert.That(pauseService.IsPaused, Is.False);
+            Assert.That(stageLaunchRouter.Requests, Has.Count.EqualTo(1));
+            Assert.That(stageLaunchRouter.Requests[0].StageId, Is.EqualTo(stageId));
+            Assert.That(stageLaunchRouter.Requests[0].NavigationKind, Is.EqualTo(StageNavigationKind.Retry));
+            Assert.That(stageLaunchRouter.Requests[0].Source, Is.EqualTo("pause-retry"));
+            Assert.That(stageLaunchRouter.Requests[0].TransitionHint.Kind, Is.EqualTo(StageTransitionKind.StageRetryManual));
+        }
+
+        [Test]
+        public void UIFlowCoordinator_PausePopupMainMenu_UsesMainRouter_AndResumesPause()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            var screenRuntimeFactory = new FakeScreenRuntimeFactory();
+            var presentationSource = new ManualGameplayUiPresentationSource();
+            var mainMenuReturnRouter = new FakeMainMenuReturnRouter();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                screenRuntimeFactory,
+                presentationSource,
+                mainMenuReturnRouter,
+                out _,
+                out var popupController,
+                out _,
+                out var stageLaunchRouter);
+
+            coordinator.Initialize();
+            Assert.That(coordinator.RequestPausePopup(), Is.True);
+
+            popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.MainMenuRequested);
+
+            Assert.That(popupController.PopupCount, Is.EqualTo(0));
+            Assert.That(pauseService.IsPaused, Is.False);
+            Assert.That(stageLaunchRouter.Requests, Has.Count.EqualTo(0));
+            Assert.That(mainMenuReturnRouter.ReturnCallCount, Is.EqualTo(1));
+        }
+
         private static UIFlowCoordinator CreateCoordinatorWithStageLaunchRouter(
             FakeGameplayPauseService pauseService,
             FakePopupRuntimeFactory runtimeFactory,
@@ -1054,6 +1117,16 @@ namespace Game.Feature.UI.Tests
                 out screenController,
                 out popupController,
                 out _);
+        }
+
+        private static UIPresentationSnapshot CreateSnapshotForStage(StageId stageId)
+        {
+            return new UIPresentationSnapshot(
+                UIPresentationSnapshot.Empty.Tick,
+                UIPresentationSnapshot.Empty.Interaction,
+                new UIStageSlice(stageId, stageId.Value),
+                UIPresentationSnapshot.Empty.Player,
+                UIPresentationSnapshot.Empty.Notifications);
         }
 
         private static UITickEventBatch CreateStageClearedBatch(int tickIndex)

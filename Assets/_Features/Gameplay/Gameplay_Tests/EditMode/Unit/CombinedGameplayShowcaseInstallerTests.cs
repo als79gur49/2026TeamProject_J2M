@@ -759,6 +759,182 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
+        public void CombinedGameplayShowcaseInstaller_ProductionCampaignLaunch_InjectsChanceReadSource()
+        {
+            var installerObject = new GameObject(
+                "CombinedGameplayShowcaseInstaller_ProductionCampaignLaunch_InjectsChanceReadSource");
+            var saveKey = CreatePrefsKey(nameof(CombinedGameplayShowcaseInstaller_ProductionCampaignLaunch_InjectsChanceReadSource));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var launchStageId = StageId.CreateOrThrow(CombinedLaunchStageId);
+
+            try
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                saveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = launchStageId,
+                    CurrentLevelGroupId = "level-01",
+                    RemainingChances = 2,
+                    LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
+                });
+                activeSlotProvider.SetActiveSlot(1);
+
+                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                AssignStageContentEntryForProductionLaunch(installer, launchStageId);
+                AssignTimingPresets(installer);
+                AssignCampaignStores(installer, saveStore, activeSlotProvider);
+
+                var configuration = BuildConfiguration(installer);
+
+                Assert.That(configuration.DisablePlayerRespawn, Is.True);
+                Assert.That(configuration.CampaignChancesReadSource, Is.Not.Null);
+                Assert.That(configuration.StageCompletionProfileStore, Is.Not.Null);
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                DestroyAssignedStageContent(installerObject);
+                Object.DestroyImmediate(installerObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void CombinedGameplayShowcaseInstaller_StaleCampaignTempDirectPlayContext_SkipsProductionChanceSource()
+        {
+            var installerObject = new GameObject(
+                "CombinedGameplayShowcaseInstaller_StaleCampaignTempDirectPlayContext_SkipsProductionChanceSource");
+            var defaultActiveSlotKey = new ActiveSlotProvider().PlayerPrefsKey;
+            var saveBackup = PlayerPrefsStringBackup.Capture(SaveSlotStore.DefaultPlayerPrefsKey);
+            var activeBackup = PlayerPrefsIntBackup.Capture(defaultActiveSlotKey);
+            var launchStageId = StageId.CreateOrThrow(CombinedLaunchStageId);
+
+            try
+            {
+                CampaignChanceHudDiagnostics.Clear();
+                CampaignChanceHudDiagnostics.IsEnabled = true;
+
+                var productionSaveStore = new SaveSlotStore();
+                var productionActiveSlotProvider = new ActiveSlotProvider();
+                productionSaveStore.ClearAll();
+                productionActiveSlotProvider.ClearActiveSlot();
+                productionSaveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = launchStageId,
+                    CurrentLevelGroupId = "level-01",
+                    RemainingChances = 2,
+                    LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
+                });
+                productionActiveSlotProvider.SetActiveSlot(1);
+
+                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                AssignStageContentEntryForProductionLaunch(installer, launchStageId);
+                AssignTimingPresets(installer);
+                EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+                EditorDirectPlayContextStore.SetCurrent(
+                    EditorDirectPlayContext.CreateCampaignTempSlot(launchStageId, remainingChances: 2));
+
+                var configuration = BuildConfiguration(installer);
+
+                Assert.That(configuration.CampaignChancesReadSource, Is.Null);
+                Assert.That(configuration.DisablePlayerRespawn, Is.False);
+                var installerRecord = CampaignChanceHudDiagnostics.Snapshot()
+                    .LastOrDefault(record => record.Kind == CampaignChanceHudDiagnosticKind.Installer);
+                Assert.That(installerRecord, Is.Not.Null);
+                Assert.That(installerRecord.EditorDirectPlayMode, Is.EqualTo(EditorDirectPlayMode.CampaignTempSlot));
+                Assert.That(installerRecord.HasCustomSaveNamespace, Is.True);
+                Assert.That(installerRecord.HasActiveSlot, Is.False);
+                Assert.That(installerRecord.CampaignRuntimeActive, Is.False);
+                Assert.That(installerRecord.SourceIsNull, Is.True);
+                Assert.That(installerRecord.FailureReason, Is.EqualTo(CampaignChanceReadFailureReason.NoActiveSlot));
+                Assert.That(installerRecord.ActiveSlotProviderKey, Is.EqualTo(EditorDirectPlayContextStore.TempActiveSlotProviderKey));
+            }
+            finally
+            {
+                CampaignChanceHudDiagnostics.IsEnabled = false;
+                CampaignChanceHudDiagnostics.Clear();
+                StageLaunchContextStore.Clear();
+                EditorDirectPlayContextStore.Clear();
+                EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+                saveBackup.Restore();
+                activeBackup.Restore();
+                DestroyAssignedStageContent(installerObject);
+                Object.DestroyImmediate(installerObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void CombinedGameplayShowcaseInstaller_StaleNonCampaignDirectPlayContext_SuppressesProductionChanceSource()
+        {
+            var installerObject = new GameObject(
+                "CombinedGameplayShowcaseInstaller_StaleNonCampaignDirectPlayContext_SuppressesProductionChanceSource");
+            var defaultActiveSlotKey = new ActiveSlotProvider().PlayerPrefsKey;
+            var saveBackup = PlayerPrefsStringBackup.Capture(SaveSlotStore.DefaultPlayerPrefsKey);
+            var activeBackup = PlayerPrefsIntBackup.Capture(defaultActiveSlotKey);
+            var launchStageId = StageId.CreateOrThrow(CombinedLaunchStageId);
+
+            try
+            {
+                CampaignChanceHudDiagnostics.Clear();
+                CampaignChanceHudDiagnostics.IsEnabled = true;
+
+                var productionSaveStore = new SaveSlotStore();
+                var productionActiveSlotProvider = new ActiveSlotProvider();
+                productionSaveStore.ClearAll();
+                productionActiveSlotProvider.ClearActiveSlot();
+                productionSaveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = launchStageId,
+                    CurrentLevelGroupId = "level-01",
+                    RemainingChances = 2,
+                    LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
+                });
+                productionActiveSlotProvider.SetActiveSlot(1);
+
+                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                AssignStageContentEntryForProductionLaunch(installer, launchStageId);
+                AssignTimingPresets(installer);
+                EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(launchStageId));
+
+                var configuration = BuildConfiguration(installer);
+
+                Assert.That(configuration.CampaignChancesReadSource, Is.Null);
+                Assert.That(configuration.DisablePlayerRespawn, Is.False);
+                var installerRecord = CampaignChanceHudDiagnostics.Snapshot()
+                    .LastOrDefault(record => record.Kind == CampaignChanceHudDiagnosticKind.Installer);
+                Assert.That(installerRecord, Is.Not.Null);
+                Assert.That(installerRecord.EditorDirectPlayMode, Is.EqualTo(EditorDirectPlayMode.NonCampaign));
+                Assert.That(installerRecord.SuppressCampaignFlow, Is.True);
+                Assert.That(installerRecord.HasCustomSaveNamespace, Is.False);
+                Assert.That(installerRecord.HasActiveSlot, Is.True);
+                Assert.That(installerRecord.CampaignRuntimeActive, Is.False);
+                Assert.That(installerRecord.SourceIsNull, Is.True);
+                Assert.That(installerRecord.FailureReason, Is.EqualTo(CampaignChanceReadFailureReason.EditorDirectPlaySuppressed));
+            }
+            finally
+            {
+                CampaignChanceHudDiagnostics.IsEnabled = false;
+                CampaignChanceHudDiagnostics.Clear();
+                StageLaunchContextStore.Clear();
+                EditorDirectPlayContextStore.Clear();
+                EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+                saveBackup.Restore();
+                activeBackup.Restore();
+                DestroyAssignedStageContent(installerObject);
+                Object.DestroyImmediate(installerObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
         public void CombinedGameplayShowcaseInstaller_Configuration_CarriesStageTileFeatureDefinitions()
         {
             var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_Configuration_CarriesStageTileFeatureDefinitions");
@@ -935,6 +1111,42 @@ namespace Game.Feature.Gameplay.Tests.Unit
             PrimeCampaignLaunchContext(StageId.CreateOrThrow(CombinedLaunchStageId));
         }
 
+        private static void AssignStageContentEntryForProductionLaunch(
+            CombinedGameplayShowcaseInstaller installer,
+            StageId launchStageId)
+        {
+            var provider = AssetDatabase.LoadAssetAtPath<ScriptableObjectStageCatalogProvider>(StageCatalogProviderAssetPath);
+            Assert.That(provider, Is.Not.Null, $"Missing stage catalog provider at '{StageCatalogProviderAssetPath}'.");
+
+            var providerField = typeof(StageBackedGameplayShowcaseInstallerBase).GetField(
+                "stageCatalogProvider",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(providerField, Is.Not.Null);
+            providerField.SetValue(installer, provider);
+
+            EditorDirectPlayContextStore.Clear();
+            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            StageLaunchContextStore.SetCurrent(launchStageId);
+        }
+
+        private static void AssignCampaignStores(
+            CombinedGameplayShowcaseInstaller installer,
+            SaveSlotStore saveStore,
+            ActiveSlotProvider activeSlotProvider)
+        {
+            var saveStoreField = typeof(StageBackedGameplayShowcaseInstallerBase).GetField(
+                "_saveSlotStore",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(saveStoreField, Is.Not.Null);
+            saveStoreField.SetValue(installer, saveStore);
+
+            var activeSlotProviderField = typeof(StageBackedGameplayShowcaseInstallerBase).GetField(
+                "_activeSlotProvider",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(activeSlotProviderField, Is.Not.Null);
+            activeSlotProviderField.SetValue(installer, activeSlotProvider);
+        }
+
         private static void AssignTimingPresets(CombinedGameplayShowcaseInstaller installer)
         {
             var simulationPreset = AssetDatabase.LoadAssetAtPath<GameplaySimulationTimingPreset>(
@@ -1098,6 +1310,83 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             return false;
+        }
+
+        private static string CreatePrefsKey(string suffix)
+        {
+            return "Game.Feature.Tests." + suffix + "." + Guid.NewGuid().ToString("N");
+        }
+
+        private readonly struct PlayerPrefsStringBackup
+        {
+            private readonly bool _hadValue;
+            private readonly string _key;
+            private readonly string _value;
+
+            private PlayerPrefsStringBackup(string key, bool hadValue, string value)
+            {
+                _key = key;
+                _hadValue = hadValue;
+                _value = value;
+            }
+
+            public static PlayerPrefsStringBackup Capture(string key)
+            {
+                return new PlayerPrefsStringBackup(
+                    key,
+                    PlayerPrefs.HasKey(key),
+                    PlayerPrefs.GetString(key, string.Empty));
+            }
+
+            public void Restore()
+            {
+                if (_hadValue)
+                {
+                    PlayerPrefs.SetString(_key, _value);
+                }
+                else
+                {
+                    PlayerPrefs.DeleteKey(_key);
+                }
+
+                PlayerPrefs.Save();
+            }
+        }
+
+        private readonly struct PlayerPrefsIntBackup
+        {
+            private readonly bool _hadValue;
+            private readonly string _key;
+            private readonly int _value;
+
+            private PlayerPrefsIntBackup(string key, bool hadValue, int value)
+            {
+                _key = key;
+                _hadValue = hadValue;
+                _value = value;
+            }
+
+            public static PlayerPrefsIntBackup Capture(string key)
+            {
+                return new PlayerPrefsIntBackup(
+                    key,
+                    PlayerPrefs.HasKey(key),
+                    PlayerPrefs.GetInt(key, 0));
+            }
+
+            public void Restore()
+            {
+                if (_hadValue)
+                {
+                    PlayerPrefs.SetInt(_key, _value);
+                }
+                else
+                {
+                    PlayerPrefs.DeleteKey(_key);
+                }
+
+                PlayerPrefs.Save();
+            }
         }
 
         private static bool HasPushableBoxAt(IReadOnlyList<EntityState> entities, SurfaceCell cell)

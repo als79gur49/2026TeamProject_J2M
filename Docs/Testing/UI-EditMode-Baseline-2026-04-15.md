@@ -50,36 +50,6 @@
   - governance warnings remain non-blocking unless the runner exit code changes
   - the current soft governance warning state must be recorded separately from UI regressions
 
-## Prefab Migration Mixed-Mode Status
-- Root shell status:
-  - canonical root shell is now migrated to the installer-instantiated prefab path
-  - no mixed-mode allowlist row remains for the root shell
-- HUD status:
-  - canonical HUD is now migrated to one installer-assigned prefab-authored path under `HudLayer`
-  - HUD legacy runtime builder path was removed in the same phase
-  - this remains a bounded HUD proof and must not be treated as precedent for screen migration
-- Popup status:
-  - canonical popup layer is now migrated to one popup-catalog-backed prefab-authored path under `PopupLayer`
-  - popup legacy runtime builder paths were removed in the same phase
-  - the popup catalog remains fixed-shape and popup-only; it must not drift into a cross-layer asset registry or policy store
-  - tooltip remains a bounded special case for local anchor/clamp presentation only; auto-hide and timer-owned lifetime remain out of scope
-  - this remains a bounded popup proof and must not be treated as precedent for screen migration
-- Screen status:
-  - canonical screen layer is now migrated to one screen-catalog-backed prefab-authored path under `ScreenLayer`
-  - screen legacy runtime builder paths were removed in the same phase
-  - the screen catalog remains fixed-shape and screen-only; it must not drift into a theme registry, variant registry, child-section catalog, or cross-layer asset registry
-  - simple-shell checkpoint remains complete for `ObjectiveStatus`; `Help` has been removed from product UI
-  - `ScreenId.Gameplay` remains a gameplay-root logical state with no visible gameplay screen view/prefab and must not be treated as the ordinary migration template
-  - terminal-screen checkpoint is complete for `StageResult`, which remains a runtime-owned terminal special case rather than a generic screen model
-  - complex-screen checkpoint is complete for bounded `Settings`, which remains one screen shell with nested authored child views and bounded child presenters while `Settings` accessibility remains root-shell-owned
-- Hybrid allowlist status:
-  - root shell, HUD, popup, and screen migration allowlists are now empty
-  - screen hybrid allowlist is now empty
-- Allowlisted hybrid entries:
-  - none
-- Governance rule:
-  - any reintroduced legacy builder, child-section runtime unit, or mixed-mode entry is drift and blocks freeze
-
 ## Guard Evolution
 - Expected architectural evolution:
   - legitimate public-surface evolution is allowed only when it is durable, architecture-relevant, and lands with the functional change, updated freeze expectation, matching behavior guard, and baseline/doc rationale in the same change
@@ -137,17 +107,17 @@
 - `TutorialScene` now preserves one canonical `GameplaySceneHost -> GameplayUiFlowInstaller` bootstrap path with no serialized duplicate UI roots, duplicate input-routing roots, or pre-authored popup/screen lifecycle trees
 - canonical UI bootstrap now instantiates one prefab-authored root shell named `GameplayUiCanvasRoot`, and that shell remains infrastructure-only at the top level
 - HUD legacy runtime builder path was removed in the same phase, leaving one canonical prefab-authored HUD creation path beneath `HudLayer`
-- HUD prefab migration is a bounded HUD proof and must not be treated as precedent for screen migration without fresh review
+- HUD prefab authoring remains a bounded HUD proof and must not be treated as precedent for screen changes without fresh review
 - popup legacy runtime builder paths were removed in the same phase, leaving one canonical prefab-authored popup creation path beneath `PopupLayer` via a fixed-shape popup-only catalog
 - popup prefab views remain visual/local only; popup callbacks, timers, and animation completions do not own lifecycle, stack mutation, or dismissibility policy
 - tooltip remains a bounded popup special case for local anchor/clamp presentation only and does not own auto-hide, backdrop, or timer-driven lifetime policy
 - screen legacy runtime builder paths were removed in the same phase, leaving one canonical prefab-authored screen creation path beneath `ScreenLayer` via a fixed-shape screen-only catalog
 - the screen catalog remains fixed-shape and screen-only and does not widen into a variant/theme/child-section registry
-- screen prefab migration is guarded by simple-shell checkpoint, terminal-screen checkpoint, and complex-screen checkpoint evidence so the logical gameplay root, `StageResultScreen`, and `SettingsScreen` cannot distort the general migration model
+- screen prefab authoring is guarded by simple-shell checkpoint, terminal-screen checkpoint, and complex-screen checkpoint evidence so the logical gameplay root, `StageResultScreen`, and `SettingsScreen` cannot distort the general screen model
 - `ScreenId.Gameplay` remains gameplay-root-adjacent with no visible screen prefab/view and does not acquire gameplay-access shortcuts, pause ownership, or history shortcuts
 - `StageResultScreen` remains a runtime-owned terminal special case; its continue action stays intent-only and does not locally decide root replacement policy
 - `SettingsScreen` now remains one runtime-managed shell with authored `SettingsAudioSection` and `SettingsDisplaySection` children; audio/display fallback rebuilding is removed while preview/session ownership remains in `SettingsRuntime`
-- Settings authored child-view canonicalization and migration helper cleanup are closed here; no UI mixed-mode allowlist remains as runtime or editor code
+- Settings authored child-view canonicalization is closed here; future changes should update runtime contracts and focused behavior tests directly
 - stage clear reaches only the canonical Stage 7 terminal `StageResult` screen path; the legacy host-owned clear overlay no longer survives as a parallel runtime UI system
 - no Stage 4–8 contract is widened merely for test/debug convenience
 

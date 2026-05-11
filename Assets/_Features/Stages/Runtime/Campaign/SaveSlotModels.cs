@@ -4,6 +4,146 @@ using UnityEngine;
 
 namespace Game.Feature.Stages
 {
+    public enum CampaignChanceHudDiagnosticKind
+    {
+        StageLaunch = 0,
+        StageResolve = 1,
+        Installer = 2,
+        SourceRead = 3,
+        HudQueryConstructed = 4,
+        HudQueryRead = 5,
+        HudViewModel = 6,
+    }
+
+    public enum CampaignChanceReadFailureReason
+    {
+        None = 0,
+        SourceMissing = 1,
+        NoActiveSlot = 2,
+        SlotNotLoaded = 3,
+        StageIdMissing = 4,
+        StageIdMismatch = 5,
+        CampaignProgressMissing = 6,
+        StageNotCampaignTracked = 7,
+        MaxChancesZero = 8,
+        SaveDataNotInitialized = 9,
+        EditorDirectPlaySuppressed = 10,
+        Unknown = 11,
+    }
+
+    public sealed class CampaignChanceHudDiagnosticRecord
+    {
+        public CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind kind)
+        {
+            Kind = kind;
+        }
+
+        public CampaignChanceHudDiagnosticKind Kind { get; }
+
+        public string SceneName { get; set; } = string.Empty;
+
+        public string Source { get; set; } = string.Empty;
+
+        public string RequestedStageId { get; set; } = string.Empty;
+
+        public string LaunchStageId { get; set; } = string.Empty;
+
+        public string ResolvedStageId { get; set; } = string.Empty;
+
+        public string GameplayDefinitionName { get; set; } = string.Empty;
+
+        public string PresentationDefinitionName { get; set; } = string.Empty;
+
+        public EditorDirectPlayMode EditorDirectPlayMode { get; set; }
+
+        public bool SuppressCampaignFlow { get; set; }
+
+        public bool HasCustomSaveNamespace { get; set; }
+
+        public bool EnableCampaignFlow { get; set; }
+
+        public bool CampaignRuntimeActive { get; set; }
+
+        public bool HasActiveSlot { get; set; }
+
+        public int ActiveSlotNumber { get; set; }
+
+        public string SaveSlotStoreKey { get; set; } = string.Empty;
+
+        public string ActiveSlotProviderKey { get; set; } = string.Empty;
+
+        public string SourceType { get; set; } = string.Empty;
+
+        public bool SourceIsNull { get; set; }
+
+        public bool TryReadResult { get; set; }
+
+        public CampaignChanceReadFailureReason FailureReason { get; set; }
+
+        public string SourceStageId { get; set; } = string.Empty;
+
+        public int RemainingChances { get; set; }
+
+        public int MaxChances { get; set; }
+
+        public bool PlayerFound { get; set; }
+
+        public bool FinalHasChances { get; set; }
+
+        public override string ToString()
+        {
+            return
+                $"[CampaignChanceHUD] kind={Kind} scene={SceneName} source={Source} requested={RequestedStageId} launch={LaunchStageId} resolved={ResolvedStageId} directPlay={EditorDirectPlayMode} suppress={SuppressCampaignFlow} customNamespace={HasCustomSaveNamespace} activeSlot={ActiveSlotNumber} hasActiveSlot={HasActiveSlot} runtimeActive={CampaignRuntimeActive} sourceType={SourceType} sourceNull={SourceIsNull} read={TryReadResult} reason={FailureReason} sourceStage={SourceStageId} remaining={RemainingChances} max={MaxChances} playerFound={PlayerFound} finalHas={FinalHasChances}";
+        }
+    }
+
+    public static class CampaignChanceHudDiagnostics
+    {
+        private const int Capacity = 128;
+        private static readonly List<CampaignChanceHudDiagnosticRecord> Records = new(Capacity);
+
+        public static bool IsEnabled { get; set; }
+
+        public static bool LogToUnityConsole { get; set; }
+
+        public static void Clear()
+        {
+            Records.Clear();
+        }
+
+        public static IReadOnlyList<CampaignChanceHudDiagnosticRecord> Snapshot()
+        {
+            return Records.ToArray();
+        }
+
+        public static void Record(CampaignChanceHudDiagnosticRecord record)
+        {
+            if (!IsEnabled || record == null)
+            {
+                return;
+            }
+
+            if (Records.Count == Capacity)
+            {
+                Records.RemoveAt(0);
+            }
+
+            Records.Add(record);
+            if (LogToUnityConsole)
+            {
+                Debug.Log(record.ToString());
+            }
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetOnDomainReload()
+        {
+            Clear();
+            IsEnabled = false;
+            LogToUnityConsole = false;
+        }
+    }
+
     public sealed class SaveSlotData
     {
         public int SlotNumber { get; set; }
@@ -110,6 +250,8 @@ namespace Game.Feature.Stages
 
         public bool HasActiveSlot => SaveSlotStore.IsValidSlotNumber(_activeSlotNumber);
 
+        public string PlayerPrefsKey => _playerPrefsKey;
+
         public int ActiveSlotNumber
         {
             get
@@ -166,6 +308,8 @@ namespace Game.Feature.Stages
                 ? DefaultPlayerPrefsKey
                 : playerPrefsKey;
         }
+
+        public string PlayerPrefsKey => _playerPrefsKey;
 
         public static bool IsValidSlotNumber(int slotNumber)
         {

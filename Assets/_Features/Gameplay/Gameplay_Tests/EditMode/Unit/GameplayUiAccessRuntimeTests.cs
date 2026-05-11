@@ -7,6 +7,7 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.UIAccess.Models;
+using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -49,6 +50,120 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(objectives.HasObjective, Is.False);
                 Assert.That(objectives.IsCleared, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayPlayerHudQuery_PlayerMissing_PreservesCampaignChances()
+        {
+            var hostObject = new GameObject("GameplayPlayerHudQuery_PlayerMissing_PreservesCampaignChances");
+            var saveKey = CreatePrefsKey(nameof(GameplayPlayerHudQuery_PlayerMissing_PreservesCampaignChances));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+
+            try
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                saveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
+                    CurrentLevelGroupId = "level-1",
+                    RemainingChances = 2,
+                });
+                activeSlotProvider.SetActiveSlot(1);
+
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(
+                    Array.Empty<EntityState>(),
+                    campaignChancesReadSource: new SaveSlotCampaignChancesReadSource(
+                        saveStore,
+                        activeSlotProvider)));
+
+                var playerHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+
+                Assert.That(playerHud.IsAvailable, Is.False);
+                Assert.That(playerHud.HasRemainingChances, Is.True);
+                Assert.That(playerHud.RemainingChances, Is.EqualTo(2));
+                Assert.That(playerHud.MaxChances, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayPlayerHudQuery_PlayerAlive_PreservesCampaignChances()
+        {
+            var hostObject = new GameObject("GameplayPlayerHudQuery_PlayerAlive_PreservesCampaignChances");
+            var saveKey = CreatePrefsKey(nameof(GameplayPlayerHudQuery_PlayerAlive_PreservesCampaignChances));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+
+            try
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                saveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
+                    CurrentLevelGroupId = "level-1",
+                    RemainingChances = 2,
+                });
+                activeSlotProvider.SetActiveSlot(1);
+
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(
+                    new[] { CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right) },
+                    campaignChancesReadSource: new SaveSlotCampaignChancesReadSource(
+                        saveStore,
+                        activeSlotProvider)));
+
+                var playerHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+
+                Assert.That(playerHud.IsAvailable, Is.True);
+                Assert.That(playerHud.HasRemainingChances, Is.True);
+                Assert.That(playerHud.RemainingChances, Is.EqualTo(2));
+                Assert.That(playerHud.MaxChances, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayPlayerHudQuery_PlayerMissing_WithoutCampaignChances_RemainsUnavailable()
+        {
+            var hostObject = new GameObject("GameplayPlayerHudQuery_PlayerMissing_WithoutCampaignChances_RemainsUnavailable");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(Array.Empty<EntityState>()));
+
+                var playerHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+
+                Assert.That(playerHud.IsAvailable, Is.False);
+                Assert.That(playerHud.HasRemainingChances, Is.False);
+                Assert.That(playerHud.RemainingChances, Is.EqualTo(0));
+                Assert.That(playerHud.MaxChances, Is.EqualTo(0));
             }
             finally
             {
@@ -611,7 +726,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             EntityState[] initialEntities,
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
             BoardBounds? boardBounds = null,
-            PlayerControlTimingSettings playerControlTiming = null)
+            PlayerControlTimingSettings playerControlTiming = null,
+            ICampaignChancesReadSource campaignChancesReadSource = null)
         {
             return new GameplaySceneHostConfiguration
             {
@@ -623,6 +739,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 ObjectiveRuntimeDefinition = objectiveDefinition ?? StageObjectiveRuntimeDefinition.Disabled,
                 PlayerEntityId = 10,
                 PlayerControlTiming = playerControlTiming ?? PlayerControlTimingSettings.CreateDefault(),
+                CampaignChancesReadSource = campaignChancesReadSource,
             };
         }
 
@@ -721,6 +838,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 boxCapabilities = capabilities,
                 aiMode = EnemyAiMode.None,
             };
+        }
+
+        private static string CreatePrefsKey(string suffix)
+        {
+            return "Game.Feature.Tests." + suffix + "." + Guid.NewGuid().ToString("N");
         }
     }
 }

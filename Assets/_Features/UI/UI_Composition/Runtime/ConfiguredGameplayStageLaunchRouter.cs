@@ -29,8 +29,19 @@ namespace Game.Feature.UI.Composition
                 throw new InvalidOperationException("Configured gameplay launch requires a gameplay shell scene in route config.");
             }
 
+            EditorDirectPlayContextStore.Clear();
+            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+
             if (_sceneLoadPort != null)
             {
+                CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.StageLaunch)
+                {
+                    SceneName = _routeConfig.GameplayShellSceneName,
+                    Source = request.Source,
+                    RequestedStageId = request.StageId.Value,
+                    LaunchStageId = request.StageId.Value,
+                    EditorDirectPlayMode = EditorDirectPlayContextStore.GetCurrentOrNone().Mode,
+                });
                 StageLaunchContextStore.SetCurrent(request.StageId);
                 _sceneLoadPort.LoadScene(_routeConfig.GameplayShellSceneName);
                 return;
@@ -38,6 +49,7 @@ namespace Game.Feature.UI.Composition
 
             if (UnityEngine.Application.isPlaying)
             {
+                StageLaunchContextStore.SetCurrent(request.StageId);
                 SceneTransitionCoordinator.Instance.TryStartStageTransition(
                     request.TransitionHint.HasExplicitKind
                         ? request
@@ -50,6 +62,14 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
+            CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.StageLaunch)
+            {
+                SceneName = _routeConfig.GameplayShellSceneName,
+                Source = request.Source,
+                RequestedStageId = request.StageId.Value,
+                LaunchStageId = request.StageId.Value,
+                EditorDirectPlayMode = EditorDirectPlayContextStore.GetCurrentOrNone().Mode,
+            });
             StageLaunchContextStore.SetCurrent(request.StageId);
             UnitySceneLoadPort.Instance.LoadScene(_routeConfig.GameplayShellSceneName);
         }

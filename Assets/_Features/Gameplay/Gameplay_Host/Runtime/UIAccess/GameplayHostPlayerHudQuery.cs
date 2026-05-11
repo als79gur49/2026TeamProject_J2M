@@ -4,6 +4,7 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Gameplay.UIAccess.Queries;
+using Game.Feature.Stages;
 
 namespace Game.Feature.Gameplay.Host.UIAccess
 {
@@ -24,6 +25,14 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             _inputHost = inputHost;
             _admissionPolicy = admissionPolicy;
             _campaignChancesReadSource = campaignChancesReadSource;
+            CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.HudQueryConstructed)
+            {
+                SourceType = campaignChancesReadSource != null ? campaignChancesReadSource.GetType().Name : string.Empty,
+                SourceIsNull = campaignChancesReadSource == null,
+                FailureReason = campaignChancesReadSource == null
+                    ? CampaignChanceReadFailureReason.SourceMissing
+                    : CampaignChanceReadFailureReason.None,
+            });
         }
 
         public GameplayPlayerHudReadModel Read()
@@ -35,9 +44,50 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 return default;
             }
 
-            if (!_admissionPolicy.TryGetCommittedControllableActor(out var playerEntity))
+            var remainingChances = 0;
+            var maxChances = 0;
+            var hasRemainingChances = _campaignChancesReadSource != null &&
+                                      _campaignChancesReadSource.TryReadChances(out remainingChances, out maxChances);
+            var hasPlayer = _admissionPolicy.TryGetCommittedControllableActor(out var playerEntity);
+            CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.HudQueryRead)
             {
-                return default;
+                SourceType = _campaignChancesReadSource != null ? _campaignChancesReadSource.GetType().Name : string.Empty,
+                SourceIsNull = _campaignChancesReadSource == null,
+                TryReadResult = hasRemainingChances,
+                FailureReason = _campaignChancesReadSource == null
+                    ? CampaignChanceReadFailureReason.SourceMissing
+                    : hasRemainingChances
+                        ? maxChances > 0
+                            ? CampaignChanceReadFailureReason.None
+                            : CampaignChanceReadFailureReason.MaxChancesZero
+                        : CampaignChanceReadFailureReason.Unknown,
+                RemainingChances = hasRemainingChances ? remainingChances : 0,
+                MaxChances = hasRemainingChances ? maxChances : 0,
+                PlayerFound = hasPlayer,
+                FinalHasChances = hasRemainingChances && maxChances > 0,
+            });
+
+            if (!hasPlayer)
+            {
+                return new GameplayPlayerHudReadModel(
+                    isAvailable: false,
+                    playerEntityId: 0,
+                    currentHp: 0,
+                    maxHp: 0,
+                    facing: GameplayUiDirection.None,
+                    activeActionKind: GameplayUiActionKind.None,
+                    activeActionDirection: GameplayUiDirection.None,
+                    activeTargetEntityId: 0,
+                    isActionInProgress: false,
+                    isActionInRecoveryPhase: false,
+                    canMoveThisTick: false,
+                    canStartActionThisTick: false,
+                    recoveryCooldown: null,
+                    canStartAnyActionThisTick: false,
+                    hasExplicitPushCandidateInCurrentDirection: false,
+                    hasRemainingChances: hasRemainingChances,
+                    remainingChances: hasRemainingChances ? remainingChances : 0,
+                    maxChances: hasRemainingChances ? maxChances : 0);
             }
 
             var playerEntityId = playerEntity.entityId;
@@ -57,10 +107,6 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                                                                  playerEntity,
                                                                  _inputHost?.PreviewPushDirection() ?? Direction.None);
             var recoveryCooldown = TryCreateRecoveryCooldown(playerControlState, nextTickIndex);
-            var remainingChances = 0;
-            var maxChances = 0;
-            var hasRemainingChances = _campaignChancesReadSource != null &&
-                                      _campaignChancesReadSource.TryReadChances(out remainingChances, out maxChances);
 
             return new GameplayPlayerHudReadModel(
                 isAvailable: true,

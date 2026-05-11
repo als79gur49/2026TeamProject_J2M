@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using Game.Feature.Stages;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
@@ -33,6 +34,7 @@ namespace Game.Feature.UI.Composition
             "MainMenuUiFlowInstaller requires a same-root DisplayRuntimeInstaller with a DisplaySettingsService.";
         private const string MissingUiAudioCueMapMessage =
             "MainMenuUiFlowInstaller requires a serialized UiAudioCueMap for MainMenu UI SFX.";
+        private static readonly InputSystemKeyboardBridge KeyboardBridge = new();
 
         [SerializeField] private MainMenuScreenView _mainMenuScreenView;
         [SerializeField] private MainMenuScreenView _mainMenuScreenPrefab;
@@ -52,6 +54,8 @@ namespace Game.Feature.UI.Composition
         private DisplayPreviewTimeoutRelay _displayPreviewTimeoutRelay;
         private DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
         private bool _isInstalled;
+        private IKeyboardBindingSettingsPort _keyboardBindingSettingsPort;
+        private bool _wasKeyboardBindingRebinding;
         private MainMenuSettingsOverlayController _settingsOverlayController;
         private IMainMenuSettingsPort _settingsPort;
         private MainMenuUiAudioFeedbackController _uiAudioFeedbackController;
@@ -70,6 +74,28 @@ namespace Game.Feature.UI.Composition
             {
                 Install();
             }
+        }
+
+        private void Update()
+        {
+            if (!_isInstalled)
+            {
+                return;
+            }
+
+            var isKeyboardBindingRebinding = IsKeyboardBindingRebinding();
+            if (KeyboardBridge.WasEscapePressedThisFrame())
+            {
+                if (isKeyboardBindingRebinding || _wasKeyboardBindingRebinding)
+                {
+                    _wasKeyboardBindingRebinding = isKeyboardBindingRebinding;
+                    return;
+                }
+
+                TryHandleBackRequested();
+            }
+
+            _wasKeyboardBindingRebinding = IsKeyboardBindingRebinding();
         }
 
         public void Install()
@@ -110,6 +136,36 @@ namespace Game.Feature.UI.Composition
             _isInstalled = true;
         }
 
+        public bool TryHandleBackRequested()
+        {
+            if (IsKeyboardBindingRebinding())
+            {
+                return true;
+            }
+
+            if (PopupController != null && PopupController.PopupCount > 0)
+            {
+                return PopupController.HandleBackRequested();
+            }
+
+            if (_settingsOverlayController != null && _settingsOverlayController.IsOpen)
+            {
+                return _settingsOverlayController.TryHandleBackRequested();
+            }
+
+            if (_mainMenuScreenView != null && _mainMenuScreenView.TryCloseActiveSection())
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool IsKeyboardBindingRebinding()
+        {
+            return _keyboardBindingSettingsPort != null && _keyboardBindingSettingsPort.IsRebinding;
+        }
+
         private void BuildPopupModule()
         {
             PopupController = new PopupController(new GameplayPopupRuntimeFactory(_popupLayerView, _popupPrefabCatalog));
@@ -127,7 +183,7 @@ namespace Game.Feature.UI.Composition
 
             var audioSettingsPort = CreateAudioSettingsPort();
             var displaySettingsPort = CreateDisplaySettingsPort();
-            var keyboardBindingSettingsPort = CreateKeyboardBindingSettingsPort();
+            _keyboardBindingSettingsPort = CreateKeyboardBindingSettingsPort();
             EnsureAudioSettingsLifecycleRelay(audioSettingsPort);
             EnsureDisplayPreviewTimeoutRelay();
             EnsureDisplaySettingsLifecycleRelay();
@@ -147,7 +203,7 @@ namespace Game.Feature.UI.Composition
                     accessibilitySettingsStore,
                     audioSettingsPort,
                     displaySettingsPort,
-                    keyboardBindingSettingsPort,
+                    _keyboardBindingSettingsPort,
                     PopupController,
                     displayPreviewSessionHost,
                     _displaySettingsLifecycleRelay,
@@ -467,6 +523,38 @@ namespace Game.Feature.UI.Composition
             if (_displaySettingsLifecycleRelay == null)
             {
                 _displaySettingsLifecycleRelay = gameObject.AddComponent<DisplaySettingsLifecycleRelay>();
+            }
+        }
+
+        // Resolve Input System keyboard state without relying on UnityEngine.Input.
+        private sealed class InputSystemKeyboardBridge
+        {
+            private static readonly Type KeyboardType = Type.GetType("UnityEngine.InputSystem.Keyboard, Unity.InputSystem");
+            private static readonly PropertyInfo CurrentKeyboardProperty = KeyboardType?.GetProperty("current", BindingFlags.Public | BindingFlags.Static);
+            private static readonly PropertyInfo EscapeKeyProperty = KeyboardType?.GetProperty("escapeKey", BindingFlags.Public | BindingFlags.Instance);
+            private static readonly PropertyInfo WasPressedThisFrameProperty =
+                EscapeKeyProperty?.PropertyType.GetProperty("wasPressedThisFrame", BindingFlags.Public | BindingFlags.Instance);
+
+            public bool WasEscapePressedThisFrame()
+            {
+                if (CurrentKeyboardProperty == null || EscapeKeyProperty == null || WasPressedThisFrameProperty == null)
+                {
+                    return false;
+                }
+
+                var keyboard = CurrentKeyboardProperty.GetValue(null);
+                if (keyboard == null)
+                {
+                    return false;
+                }
+
+                var escapeKey = EscapeKeyProperty.GetValue(keyboard);
+                if (escapeKey == null)
+                {
+                    return false;
+                }
+
+                return WasPressedThisFrameProperty.GetValue(escapeKey) is bool pressed && pressed;
             }
         }
     }

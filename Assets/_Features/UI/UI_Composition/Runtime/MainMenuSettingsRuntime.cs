@@ -190,6 +190,23 @@ namespace Game.Feature.UI.Composition
             view = null;
         }
 
+        public bool TryHandleBackRequested()
+        {
+            if (!IsOpen)
+            {
+                return false;
+            }
+
+            if (presenter != null && presenter.InputPresenter.IsRebinding)
+            {
+                presenter.InputPresenter.CancelRebind();
+                return true;
+            }
+
+            CloseRequested?.Invoke();
+            return true;
+        }
+
         private void SubscribeEvents()
         {
             audioView.VolumeChanged += HandleAudioVolumeChanged;
@@ -379,13 +396,7 @@ namespace Game.Feature.UI.Composition
 
         private void HandleBackRequested()
         {
-            if (presenter != null && presenter.InputPresenter.IsRebinding)
-            {
-                presenter.InputPresenter.CancelRebind();
-                return;
-            }
-
-            CloseRequested?.Invoke();
+            TryHandleBackRequested();
         }
 
         private ConfirmPopupPayload BuildDisplayPreviewConfirmPayload()

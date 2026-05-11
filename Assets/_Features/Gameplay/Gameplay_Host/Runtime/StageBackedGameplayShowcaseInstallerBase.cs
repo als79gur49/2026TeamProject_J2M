@@ -24,6 +24,7 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private GlobalAudioFlowBootstrap globalAudioFlowBootstrap;
 
         private ActiveSlotProvider _activeSlotProvider;
+        private CampaignChanceDisplayOverride _campaignChanceDisplayOverride;
         private CampaignGameplayFlowController _campaignFlowController;
         private bool _campaignRuntimeActive;
         private StagePresentationDefinition _resolvedPresentationDefinition;
@@ -75,23 +76,77 @@ namespace Game.Feature.Gameplay.Host
             in InitialGameplayState initialState)
         {
             EnsureCampaignStores();
+            var directPlayContext = EditorDirectPlayContextStore.GetCurrentOrNone();
             var activation = CampaignRuntimeActivationPolicy.Evaluate(enableCampaignFlow, _activeSlotProvider);
             _campaignRuntimeActive = activation.IsActive;
             if (!_campaignRuntimeActive)
             {
+                _campaignChanceDisplayOverride = null;
+                CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.Installer)
+                {
+                    SceneName = gameObject.scene.name,
+                    LaunchStageId = StageLaunchContextStore.CurrentStageId.IsValid
+                        ? StageLaunchContextStore.CurrentStageId.Value
+                        : string.Empty,
+                    ResolvedStageId = initialState.StageContentEntry != null && initialState.StageContentEntry.StageId.IsValid
+                        ? initialState.StageContentEntry.StageId.Value
+                        : string.Empty,
+                    EditorDirectPlayMode = directPlayContext.Mode,
+                    SuppressCampaignFlow = directPlayContext.SuppressCampaignFlow,
+                    HasCustomSaveNamespace = directPlayContext.HasCustomSaveNamespace,
+                    EnableCampaignFlow = activation.EnableCampaignFlow,
+                    CampaignRuntimeActive = false,
+                    HasActiveSlot = activation.HasActiveSlot,
+                    ActiveSlotNumber = _activeSlotProvider != null && _activeSlotProvider.TryGetActiveSlotNumber(out var inactiveSlotNumber)
+                        ? inactiveSlotNumber
+                        : 0,
+                    SaveSlotStoreKey = _saveSlotStore != null ? _saveSlotStore.PlayerPrefsKey : string.Empty,
+                    ActiveSlotProviderKey = _activeSlotProvider != null ? _activeSlotProvider.PlayerPrefsKey : string.Empty,
+                    SourceIsNull = true,
+                    FailureReason = !activation.HasActiveSlot
+                        ? CampaignChanceReadFailureReason.NoActiveSlot
+                        : directPlayContext.SuppressCampaignFlow
+                            ? CampaignChanceReadFailureReason.EditorDirectPlaySuppressed
+                            : CampaignChanceReadFailureReason.SourceMissing,
+                });
                 return;
             }
 
             ValidateActiveSlotMatchesLaunchStage(initialState.StageContentEntry != null
                 ? initialState.StageContentEntry.StageId
                 : StageId.None);
+            _campaignChanceDisplayOverride = new CampaignChanceDisplayOverride();
             configuration.DisablePlayerRespawn = true;
             configuration.CampaignChancesReadSource = new SaveSlotCampaignChancesReadSource(
                 _saveSlotStore,
-                _activeSlotProvider);
+                _activeSlotProvider,
+                _campaignChanceDisplayOverride);
             configuration.StageCompletionProfileStore = new SaveSlotStageCompletionProfileStore(
                 _saveSlotStore,
                 _activeSlotProvider);
+            CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.Installer)
+            {
+                SceneName = gameObject.scene.name,
+                LaunchStageId = StageLaunchContextStore.CurrentStageId.IsValid
+                    ? StageLaunchContextStore.CurrentStageId.Value
+                    : string.Empty,
+                ResolvedStageId = initialState.StageContentEntry != null && initialState.StageContentEntry.StageId.IsValid
+                    ? initialState.StageContentEntry.StageId.Value
+                    : string.Empty,
+                EditorDirectPlayMode = directPlayContext.Mode,
+                SuppressCampaignFlow = directPlayContext.SuppressCampaignFlow,
+                HasCustomSaveNamespace = directPlayContext.HasCustomSaveNamespace,
+                EnableCampaignFlow = activation.EnableCampaignFlow,
+                CampaignRuntimeActive = true,
+                HasActiveSlot = activation.HasActiveSlot,
+                ActiveSlotNumber = _activeSlotProvider.TryGetActiveSlotNumber(out var activeSlotNumber)
+                    ? activeSlotNumber
+                    : 0,
+                SaveSlotStoreKey = _saveSlotStore.PlayerPrefsKey,
+                ActiveSlotProviderKey = _activeSlotProvider.PlayerPrefsKey,
+                SourceType = configuration.CampaignChancesReadSource.GetType().Name,
+                SourceIsNull = false,
+            });
         }
 
         protected override void ConfigureObjectiveRuntimeDefinition(
@@ -135,7 +190,8 @@ namespace Game.Feature.Gameplay.Host
                 _saveSlotStore,
                 _activeSlotProvider,
                 sequenceResolver,
-                CreateStageLaunchRouter(gameObject, gameObject.scene.name));
+                CreateStageLaunchRouter(gameObject, gameObject.scene.name),
+                _campaignChanceDisplayOverride);
             _campaignFlowController.Bind();
         }
 
