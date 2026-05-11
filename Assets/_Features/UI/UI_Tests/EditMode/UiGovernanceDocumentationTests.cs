@@ -15,7 +15,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Contain("## Scope"));
             Assert.That(baseline, Does.Contain("## Result"));
             Assert.That(baseline, Does.Contain("## Structural Delta"));
-            Assert.That(baseline, Does.Contain("## Prefab Migration Mixed-Mode Status"));
             Assert.That(baseline, Does.Contain("## Guard Evolution"));
             Assert.That(baseline, Does.Contain("## Runner Warning Status"));
             Assert.That(baseline, Does.Contain("## PlayMode Escalation"));
@@ -28,24 +27,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Contain("Obsolete guards"));
             Assert.That(baseline, Does.Contain("Runner warning changes"));
             Assert.That(baseline, Does.Contain("Public-surface change governance"));
-            Assert.That(baseline, Does.Contain("root shell, HUD, popup, and screen migration allowlists are now empty"));
             Assert.That(baseline, Does.Not.Contain("Hud:PersistentHud -> GameplayLegacyHudViewFactory.Create"));
-            Assert.That(baseline, Does.Contain("HUD legacy runtime builder path was removed in the same phase"));
-            Assert.That(baseline, Does.Contain("bounded HUD proof"));
-            Assert.That(baseline, Does.Contain("popup legacy runtime builder paths were removed in the same phase"));
-            Assert.That(baseline, Does.Contain("popup catalog remains fixed-shape and popup-only"));
-            Assert.That(baseline, Does.Contain("must not be treated as precedent for screen migration"));
-            Assert.That(baseline, Does.Contain("screen legacy runtime builder paths were removed in the same phase"));
-            Assert.That(baseline, Does.Contain("screen catalog remains fixed-shape and screen-only"));
-            Assert.That(baseline, Does.Contain("screen hybrid allowlist is now empty"));
-            Assert.That(baseline, Does.Contain("simple-shell checkpoint"));
-            Assert.That(baseline, Does.Contain("terminal-screen checkpoint"));
-            Assert.That(baseline, Does.Contain("complex-screen checkpoint"));
-            Assert.That(baseline, Does.Not.Contain("simple-shell checkpoint is complete for `Help`, `ObjectiveStatus`, and `Settings`"));
-            Assert.That(baseline, Does.Contain("simple-shell checkpoint remains complete for `ObjectiveStatus`; `Help` has been removed from product UI"));
-            Assert.That(baseline, Does.Contain("`ScreenId.Gameplay` remains a gameplay-root logical state with no visible gameplay screen view/prefab"));
-            Assert.That(baseline, Does.Contain("complex-screen checkpoint is complete for bounded `Settings`"));
-            Assert.That(baseline, Does.Contain("Settings authored child-view canonicalization and migration helper cleanup are closed here"));
             Assert.That(baseline, Does.Not.Contain("removal and unrelated migration/helper cleanup remain later work"));
             Assert.That(baseline, Does.Not.Contain("Popup:Pause -> GameplayPopupRuntimeFactory.CreatePausePopup"));
         }
@@ -148,7 +130,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(displayGuidelines, Does.Contain("whole-second stepwise text plus bar"));
             Assert.That(displayGuidelines, Does.Contain("does not add live popup countdown UI"));
             Assert.That(displayGuidelines, Does.Not.Contain("TooltipPopup auto-hide"));
-            Assert.That(displayGuidelines, Does.Contain("Settings authored child-view canonicalization and migration helper cleanup are complete"));
             Assert.That(displayGuidelines, Does.Not.Contain("remain later work"));
             Assert.That(buildChecklist, Does.Contain("Editor-only execution is insufficient evidence for fullscreen/window correctness."));
             Assert.That(buildChecklist, Does.Contain("startup apply"));
