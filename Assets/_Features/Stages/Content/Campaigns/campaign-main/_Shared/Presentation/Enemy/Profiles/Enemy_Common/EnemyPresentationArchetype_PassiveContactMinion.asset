@@ -14,4 +14,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.EnemyPresentationArchetypeAsset
   archetypeId:
     value: PassiveContactMinion
-  viewPrefab: {fileID: 9211435893976661014, guid: d2fcbcdf8d3b4dd4b88dd02f4fb843ae, type: 3}
+  viewPrefab: {fileID: 1141000000000009001, guid: 6eced58e0a1a4a6881cc0c15aa61f402, type: 3}

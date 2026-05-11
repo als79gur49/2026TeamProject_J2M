@@ -32,4 +32,4 @@ MonoBehaviour:
   - PresentationId: utility_summoner_prefab
     ViewPrefab: {fileID: 2823823344174377908, guid: 7fa07cb2cf222ca4194569602c56204a, type: 3}
   - PresentationId: LockNearybyBoxes_prefab
-    ViewPrefab: {fileID: 2823823344174377908, guid: 63df51ad8ec0533438680ec9b4db5298, type: 3}
+    ViewPrefab: {fileID: 1141000000000008001, guid: 8fa155d3aa7c4ea4bb582c5fb364e801, type: 3}
