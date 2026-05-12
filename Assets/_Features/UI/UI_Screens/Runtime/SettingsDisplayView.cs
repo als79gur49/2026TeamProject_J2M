@@ -58,6 +58,9 @@ namespace Game.Feature.UI.Screens
         public int SelectedResolutionIndex =>
             _resolutionDropdown != null ? _resolutionDropdown.value : 0;
 
+        public int ResolutionOptionCount =>
+            _resolutionDropdown != null && _resolutionDropdown.options != null ? _resolutionDropdown.options.Count : 0;
+
         public bool IsFullscreenOn =>
             _fullscreenToggle != null && _fullscreenToggle.isOn;
 

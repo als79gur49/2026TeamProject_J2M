@@ -52,6 +52,8 @@ namespace Game.Feature.UI.Screens
 
         public bool IsResetInteractable => _resetButton != null && _resetButton.interactable;
 
+        public bool IsRebindingActive => IsRebinding;
+
         public void Bind(SettingsInputViewModel viewModel)
         {
             if (_viewModel != null)

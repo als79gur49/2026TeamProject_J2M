@@ -91,6 +91,20 @@ namespace Game.Feature.UI.Screens
             }
         }
 
+        public bool IsMuted(AudioSettingsChannel channel)
+        {
+            return _audioControls.TryGetValue(channel, out var widgets) &&
+                   widgets.Toggle != null &&
+                   widgets.Toggle.isOn;
+        }
+
+        public float GetVolume(AudioSettingsChannel channel)
+        {
+            return _audioControls.TryGetValue(channel, out var widgets) && widgets.Slider != null
+                ? widgets.Slider.value
+                : 0f;
+        }
+
         public void SetVolume(AudioSettingsChannel channel, float value)
         {
             if (!_isVisible)
