@@ -34,8 +34,6 @@ namespace Game.Feature.UI.Composition
             "MainMenuUiFlowInstaller requires a same-root DisplayRuntimeInstaller with a DisplaySettingsService.";
         private const string MissingUiAudioCueMapMessage =
             "MainMenuUiFlowInstaller requires a serialized UiAudioCueMap for MainMenu UI SFX.";
-        private static readonly InputSystemKeyboardBridge KeyboardBridge = new();
-
         [SerializeField] private MainMenuScreenView _mainMenuScreenView;
         [SerializeField] private MainMenuScreenView _mainMenuScreenPrefab;
         [SerializeField] private SettingsScreenView _settingsScreenPrefab;
@@ -55,6 +53,7 @@ namespace Game.Feature.UI.Composition
         private DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
         private bool _isInstalled;
         private IKeyboardBindingSettingsPort _keyboardBindingSettingsPort;
+        private UiNavigationInputRouter _navigationInputRouter;
         private bool _wasKeyboardBindingRebinding;
         private MainMenuSettingsOverlayController _settingsOverlayController;
         private IMainMenuSettingsPort _settingsPort;
@@ -81,18 +80,6 @@ namespace Game.Feature.UI.Composition
             if (!_isInstalled)
             {
                 return;
-            }
-
-            var isKeyboardBindingRebinding = IsKeyboardBindingRebinding();
-            if (KeyboardBridge.WasEscapePressedThisFrame())
-            {
-                if (isKeyboardBindingRebinding || _wasKeyboardBindingRebinding)
-                {
-                    _wasKeyboardBindingRebinding = isKeyboardBindingRebinding;
-                    return;
-                }
-
-                TryHandleBackRequested();
             }
 
             _wasKeyboardBindingRebinding = IsKeyboardBindingRebinding();
@@ -131,6 +118,7 @@ namespace Game.Feature.UI.Composition
             BuildSaveSlotModule();
             BuildHubModule();
             BuildAudioFeedbackModule();
+            EnsureNavigationInputRouter();
             _mainMenuScreenView.SetVisible(true);
             _popupLayerView.SetState(false, false, false, PopupBackdropMode.None);
             _isInstalled = true;
@@ -257,6 +245,43 @@ namespace Game.Feature.UI.Composition
                 _settingsOverlayController);
         }
 
+        private void EnsureNavigationInputRouter()
+        {
+            _navigationInputRouter = GetComponent<UiNavigationInputRouter>();
+            if (_navigationInputRouter == null)
+            {
+                _navigationInputRouter = gameObject.AddComponent<UiNavigationInputRouter>();
+            }
+
+            ConfigureNavigationInputRouter();
+            if (PopupController != null)
+            {
+                PopupController.StateChanged -= HandlePopupNavigationStateChanged;
+                PopupController.StateChanged += HandlePopupNavigationStateChanged;
+            }
+        }
+
+        private void HandlePopupNavigationStateChanged()
+        {
+            ConfigureNavigationInputRouter();
+        }
+
+        private void ConfigureNavigationInputRouter()
+        {
+            if (_navigationInputRouter == null)
+            {
+                return;
+            }
+
+            _navigationInputRouter.Initialize(
+                _inputActions,
+                PopupController,
+                _popupLayerView,
+                _mainMenuScreenView,
+                TryHandleBackRequested,
+                () => IsKeyboardBindingRebinding() || _wasKeyboardBindingRebinding);
+        }
+
         private void OnDestroy()
         {
             _uiAudioFeedbackController?.Dispose();
@@ -286,6 +311,7 @@ namespace Game.Feature.UI.Composition
             if (PopupController != null)
             {
                 PopupController.StateChanged -= SyncPopupLayer;
+                PopupController.StateChanged -= HandlePopupNavigationStateChanged;
             }
 
             _settingsOverlayController?.Dispose();
@@ -358,6 +384,8 @@ namespace Game.Feature.UI.Composition
                 eventSystem.gameObject.AddComponent(inputSystemUiModuleType);
             }
 
+            DisableInputSystemUiModuleNavigationActions(eventSystem, inputSystemUiModuleType);
+
             var legacyModules = eventSystem.GetComponents<StandaloneInputModule>();
             foreach (var legacyModule in legacyModules)
             {
@@ -369,6 +397,43 @@ namespace Game.Feature.UI.Composition
                 {
                     DestroyImmediate(legacyModule);
                 }
+            }
+        }
+
+        private static void DisableInputSystemUiModuleNavigationActions(
+            EventSystem eventSystem,
+            Type inputSystemUiModuleType)
+        {
+            var module = eventSystem.GetComponent(inputSystemUiModuleType);
+            if (module == null)
+            {
+                return;
+            }
+
+            ClearActionReference(module, inputSystemUiModuleType, "move");
+            ClearActionReference(module, inputSystemUiModuleType, "moveAction");
+            ClearActionReference(module, inputSystemUiModuleType, "m_MoveAction");
+            ClearActionReference(module, inputSystemUiModuleType, "submit");
+            ClearActionReference(module, inputSystemUiModuleType, "submitAction");
+            ClearActionReference(module, inputSystemUiModuleType, "m_SubmitAction");
+            ClearActionReference(module, inputSystemUiModuleType, "cancel");
+            ClearActionReference(module, inputSystemUiModuleType, "cancelAction");
+            ClearActionReference(module, inputSystemUiModuleType, "m_CancelAction");
+        }
+
+        private static void ClearActionReference(object module, Type moduleType, string memberName)
+        {
+            var property = moduleType.GetProperty(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (property != null && property.CanWrite)
+            {
+                property.SetValue(module, null);
+                return;
+            }
+
+            var field = moduleType.GetField(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (field != null)
+            {
+                field.SetValue(module, null);
             }
         }
 
@@ -526,36 +591,5 @@ namespace Game.Feature.UI.Composition
             }
         }
 
-        // Resolve Input System keyboard state without relying on UnityEngine.Input.
-        private sealed class InputSystemKeyboardBridge
-        {
-            private static readonly Type KeyboardType = Type.GetType("UnityEngine.InputSystem.Keyboard, Unity.InputSystem");
-            private static readonly PropertyInfo CurrentKeyboardProperty = KeyboardType?.GetProperty("current", BindingFlags.Public | BindingFlags.Static);
-            private static readonly PropertyInfo EscapeKeyProperty = KeyboardType?.GetProperty("escapeKey", BindingFlags.Public | BindingFlags.Instance);
-            private static readonly PropertyInfo WasPressedThisFrameProperty =
-                EscapeKeyProperty?.PropertyType.GetProperty("wasPressedThisFrame", BindingFlags.Public | BindingFlags.Instance);
-
-            public bool WasEscapePressedThisFrame()
-            {
-                if (CurrentKeyboardProperty == null || EscapeKeyProperty == null || WasPressedThisFrameProperty == null)
-                {
-                    return false;
-                }
-
-                var keyboard = CurrentKeyboardProperty.GetValue(null);
-                if (keyboard == null)
-                {
-                    return false;
-                }
-
-                var escapeKey = EscapeKeyProperty.GetValue(keyboard);
-                if (escapeKey == null)
-                {
-                    return false;
-                }
-
-                return WasPressedThisFrameProperty.GetValue(escapeKey) is bool pressed && pressed;
-            }
-        }
     }
 }
