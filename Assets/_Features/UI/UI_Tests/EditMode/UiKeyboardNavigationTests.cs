@@ -32,6 +32,14 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void MainMenuScreenView_OnEnable_DoesNotShowCommandFrameBeforeKeyboardInput()
+        {
+            using var harness = CreateMainMenuHarness();
+
+            AssertAllFramesHidden(harness.View, "_commandNavigationGroup", isHidden: true);
+        }
+
+        [Test]
         public void ConfirmPopupNavigation_CancelInput_UsesClickCancelCompletionPath()
         {
             using var harness = CreateConfirmPopupHarness(isDestructive: false);
@@ -54,6 +62,37 @@ namespace Game.Feature.UI.Tests
             Assert.That(harness.View.SelectedActionIndex, Is.EqualTo(0));
             Assert.That(harness.View.HandleSubmit(), Is.True);
             Assert.That(completion, Is.EqualTo(PopupCompletionKind.Confirmed));
+        }
+
+        [Test]
+        public void ConfirmPopup_FirstSubmit_RevealsOnly_SecondSubmitConfirms()
+        {
+            using var popup = CreateConfirmPopupHarness(isDestructive: true);
+            PopupCompletionKind? completion = null;
+            popup.View.CompletionRequested += kind => completion = kind;
+
+            var routerObject = new GameObject(nameof(ConfirmPopup_FirstSubmit_RevealsOnly_SecondSubmitConfirms));
+            try
+            {
+                var router = routerObject.AddComponent<UiNavigationInputRouter>();
+                router.Initialize(
+                    null,
+                    new FixedNavigationTargetResolver(popup.View),
+                    () => false,
+                    () => false);
+
+                AssertAllFramesHidden(popup.View, "_actionNavigationGroup", isHidden: true);
+                Assert.That(router.DispatchSubmit(), Is.True);
+                Assert.That(completion.HasValue, Is.False);
+                AssertAllFramesHidden(popup.View, "_actionNavigationGroup", isHidden: false);
+
+                Assert.That(router.DispatchSubmit(), Is.True);
+                Assert.That(completion, Is.EqualTo(PopupCompletionKind.Confirmed));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(routerObject);
+            }
         }
 
         [Test]
@@ -109,14 +148,13 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void UiNavigationInputRouter_SubmitOnce_InvokesClickOnce()
+        public void UiNavigationInputRouter_FirstSubmit_RevealsFocus_DoesNotInvokeSubmit()
         {
             using var harness = CreateMainMenuHarness();
-            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
-            var commandCount = 0;
-            harness.View.CommandRequested += _ => commandCount++;
+            var navigationCount = 0;
+            harness.View.NavigationRequested += _ => navigationCount++;
 
-            var routerObject = new GameObject(nameof(UiNavigationInputRouter_SubmitOnce_InvokesClickOnce));
+            var routerObject = new GameObject(nameof(UiNavigationInputRouter_FirstSubmit_RevealsFocus_DoesNotInvokeSubmit));
             try
             {
                 var router = routerObject.AddComponent<UiNavigationInputRouter>();
@@ -124,7 +162,228 @@ namespace Game.Feature.UI.Tests
 
                 Assert.That(router.DispatchSubmit(), Is.True);
 
-                Assert.That(commandCount, Is.EqualTo(1));
+                Assert.That(navigationCount, Is.EqualTo(0));
+                AssertAllFramesHidden(harness.View, "_commandNavigationGroup", isHidden: false);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(routerObject);
+            }
+        }
+
+        [Test]
+        public void UiNavigationInputRouter_SecondSubmit_AfterReveal_InvokesSubmitOnce()
+        {
+            using var harness = CreateMainMenuHarness();
+            var navigationCount = 0;
+            harness.View.NavigationRequested += _ => navigationCount++;
+
+            var routerObject = new GameObject(nameof(UiNavigationInputRouter_SecondSubmit_AfterReveal_InvokesSubmitOnce));
+            try
+            {
+                var router = routerObject.AddComponent<UiNavigationInputRouter>();
+                router.Initialize(null, null, null, harness.View, () => false, () => false);
+
+                Assert.That(router.DispatchSubmit(), Is.True);
+                Assert.That(router.DispatchSubmit(), Is.True);
+
+                Assert.That(navigationCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(routerObject);
+            }
+        }
+
+        [Test]
+        public void UiNavigationInputRouter_FirstNavigate_RevealsFocus_AndMovesSelection()
+        {
+            using var harness = CreateMainMenuHarness();
+            Assert.That(harness.View.SelectedCommandIndex, Is.EqualTo(0));
+            AssertAllFramesHidden(harness.View, "_commandNavigationGroup", isHidden: true);
+
+            var routerObject = new GameObject(nameof(UiNavigationInputRouter_FirstNavigate_RevealsFocus_AndMovesSelection));
+            try
+            {
+                var router = routerObject.AddComponent<UiNavigationInputRouter>();
+                router.Initialize(null, null, null, harness.View, () => false, () => false);
+
+                Assert.That(router.DispatchNavigate(UiNavigationCommand.Down), Is.True);
+
+                Assert.That(harness.View.SelectedCommandIndex, Is.EqualTo(1));
+                AssertAllFramesHidden(harness.View, "_commandNavigationGroup", isHidden: false);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(routerObject);
+            }
+        }
+
+        [Test]
+        public void UiNavigationInputRouter_FirstCancel_DoesNotReveal_UsesExistingBackPath()
+        {
+            using var harness = CreateMainMenuHarness();
+            var backCount = 0;
+
+            var routerObject = new GameObject(nameof(UiNavigationInputRouter_FirstCancel_DoesNotReveal_UsesExistingBackPath));
+            try
+            {
+                var router = routerObject.AddComponent<UiNavigationInputRouter>();
+                router.Initialize(null, null, null, harness.View, () =>
+                {
+                    backCount++;
+                    return true;
+                }, () => false);
+
+                Assert.That(router.DispatchCancel(), Is.True);
+
+                Assert.That(backCount, Is.EqualTo(1));
+                AssertAllFramesHidden(harness.View, "_commandNavigationGroup", isHidden: true);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(routerObject);
+            }
+        }
+
+        [Test]
+        public void PausePopup_FirstSubmit_RevealsOnly_SecondSubmitResumes()
+        {
+            var prefab = UiTestPrefabAssetUtility.LoadPopupPrefab<PausePopupView>(
+                UiTestPrefabAssetUtility.PausePopupPrefabPath);
+            var view = UnityEngine.Object.Instantiate(prefab);
+            var routerObject = new GameObject(nameof(PausePopup_FirstSubmit_RevealsOnly_SecondSubmitResumes));
+            try
+            {
+                var viewModel = new PausePopupViewModel();
+                viewModel.SetContent("Paused", "Body", "Resume", string.Empty, "Settings", "Retry", "Main Menu");
+                view.Bind(viewModel);
+                view.IsVisible = true;
+                view.SetIsTopmost(true);
+
+                PopupCompletionKind? completion = null;
+                view.CompletionRequested += kind => completion = kind;
+
+                var router = routerObject.AddComponent<UiNavigationInputRouter>();
+                router.Initialize(
+                    null,
+                    new FixedNavigationTargetResolver(view),
+                    () => false,
+                    () => false);
+
+                AssertAllFramesHidden(view, "_navigationGroup", isHidden: true);
+                Assert.That(router.DispatchSubmit(), Is.True);
+                Assert.That(completion.HasValue, Is.False);
+                AssertAllFramesHidden(view, "_navigationGroup", isHidden: false);
+
+                Assert.That(router.DispatchSubmit(), Is.True);
+                Assert.That(completion, Is.EqualTo(PopupCompletionKind.Resumed));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(routerObject);
+                UnityEngine.Object.DestroyImmediate(view.gameObject);
+            }
+        }
+
+        [Test]
+        public void UiNavigationInputRouter_GameplayCurrentScreenTarget_ReceivesNavigation()
+        {
+            var target = new TrackingNavigationTarget();
+            using var screenController = new ScreenController(new NavigationScreenRuntimeFactory(target));
+            screenController.SetRoot(new ScreenRequest(ScreenId.Gameplay, GameplayRootPayload.Default));
+
+            var routerObject = new GameObject(nameof(UiNavigationInputRouter_GameplayCurrentScreenTarget_ReceivesNavigation));
+            try
+            {
+                var router = routerObject.AddComponent<UiNavigationInputRouter>();
+                router.Initialize(
+                    null,
+                    new UiLayeredNavigationTargetResolver(null, screenController),
+                    () => false,
+                    () => false);
+
+                Assert.That(router.DispatchNavigate(UiNavigationCommand.Down), Is.True);
+
+                Assert.That(target.NavigateCount, Is.EqualTo(1));
+                Assert.That(target.LastNavigateCommand, Is.EqualTo(UiNavigationCommand.Down));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(routerObject);
+            }
+        }
+
+        [Test]
+        public void UiNavigationInputRouter_BlockingPopup_DoesNotFallThroughToScreenOrHud()
+        {
+            var target = new TrackingNavigationTarget();
+            using var screenController = new ScreenController(new NavigationScreenRuntimeFactory(target));
+            using var popupController = new PopupController(new PolicyOnlyPopupRuntimeFactory(
+                new PopupPolicy(
+                    PopupPolicyClass.ModalBlocking,
+                    PopupLifetimeScope.CurrentScreen,
+                    PopupBackAction.Consume,
+                    PopupBackdropMode.Consume,
+                    showsDim: true,
+                    blocksLowerLayers: true)));
+            screenController.SetRoot(new ScreenRequest(ScreenId.Gameplay, GameplayRootPayload.Default));
+            popupController.Push(new PopupRequest(PopupId.Pause, PausePopupPayload.Default), out _);
+
+            var routerObject = new GameObject(nameof(UiNavigationInputRouter_BlockingPopup_DoesNotFallThroughToScreenOrHud));
+            try
+            {
+                var router = routerObject.AddComponent<UiNavigationInputRouter>();
+                router.Initialize(
+                    null,
+                    new UiLayeredNavigationTargetResolver(popupController, screenController),
+                    () => false,
+                    () => false);
+
+                Assert.That(router.DispatchSubmit(), Is.False);
+
+                Assert.That(target.SubmitCount, Is.EqualTo(0));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(routerObject);
+            }
+        }
+
+        [Test]
+        public void UiNavigationInputRouter_NonBlockingTooltip_FallthroughPolicyIsExplicit()
+        {
+            var target = new TrackingNavigationTarget();
+            using var screenController = new ScreenController(new NavigationScreenRuntimeFactory(target));
+            using var popupController = new PopupController(new PolicyOnlyPopupRuntimeFactory(
+                new PopupPolicy(
+                    PopupPolicyClass.AnchoredEphemeral,
+                    PopupLifetimeScope.CurrentScreen,
+                    PopupBackAction.Close,
+                    PopupBackdropMode.None,
+                    showsDim: false,
+                    blocksLowerLayers: false)));
+            screenController.SetRoot(new ScreenRequest(ScreenId.Gameplay, GameplayRootPayload.Default));
+            popupController.Push(new PopupRequest(
+                    PopupId.Tooltip,
+                    new TooltipPopupPayload("Tip", "Body", TooltipPopupAnchorPreset.Center)),
+                out _);
+
+            var routerObject = new GameObject(nameof(UiNavigationInputRouter_NonBlockingTooltip_FallthroughPolicyIsExplicit));
+            try
+            {
+                var router = routerObject.AddComponent<UiNavigationInputRouter>();
+                router.Initialize(
+                    null,
+                    new UiLayeredNavigationTargetResolver(popupController, screenController),
+                    () => false,
+                    () => false);
+
+                Assert.That(router.DispatchSubmit(), Is.True);
+
+                Assert.That(target.SubmitCount, Is.EqualTo(0));
+                Assert.That(router.DispatchSubmit(), Is.True);
+                Assert.That(target.SubmitCount, Is.EqualTo(1));
             }
             finally
             {
@@ -215,6 +474,408 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        [Test]
+        public void GameplayNavigationPrefabs_SimpleTargets_HaveSelectionFrames()
+        {
+            AssertButtonGroupFrames(
+                UiTestPrefabAssetUtility.LoadScreenPrefab<StageResultScreenView>(UiTestPrefabAssetUtility.StageResultScreenPrefabPath),
+                "_navigationGroup",
+                1);
+            AssertButtonGroupFrames(
+                UiTestPrefabAssetUtility.LoadScreenPrefab<ObjectiveStatusScreenView>(UiTestPrefabAssetUtility.ObjectiveStatusScreenPrefabPath),
+                "_navigationGroup",
+                2);
+            AssertButtonGroupFrames(
+                UiTestPrefabAssetUtility.LoadPopupPrefab<PausePopupView>(UiTestPrefabAssetUtility.PausePopupPrefabPath),
+                "_navigationGroup",
+                4);
+            AssertButtonGroupFrames(
+                UiTestPrefabAssetUtility.LoadPopupPrefab<ObjectiveInfoPopupView>(UiTestPrefabAssetUtility.ObjectiveInfoPopupPrefabPath),
+                "_navigationGroup",
+                1);
+            AssertButtonGroupFrames(
+                UiTestPrefabAssetUtility.LoadPopupPrefab<RewardPopupView>(UiTestPrefabAssetUtility.RewardPopupPrefabPath),
+                "_navigationGroup",
+                1);
+            AssertButtonGroupFrames(
+                UiTestPrefabAssetUtility.LoadHudPrefab(),
+                "_navigationGroup",
+                1);
+        }
+
+        [Test]
+        public void PausePopupPrefab_NavigationOrder_MatchesVisibleLayoutOrder()
+        {
+            var prefab = UiTestPrefabAssetUtility.LoadPopupPrefab<PausePopupView>(
+                UiTestPrefabAssetUtility.PausePopupPrefabPath);
+            var group = GetPrivateField<UiSelectableButtonGroup>(prefab, "_navigationGroup");
+            var expectedNames = new[]
+            {
+                "ResumeButton",
+                "SettingsButton",
+                "RetryButton",
+                "MainMenuButton",
+            };
+
+            Assert.That(prefab.transform.Find("ObjectiveButton"), Is.Null);
+            Assert.That(group.SlotCount, Is.EqualTo(expectedNames.Length));
+
+            var previousSiblingIndex = -1;
+            for (var i = 0; i < expectedNames.Length; i++)
+            {
+                var button = group.GetSlot(i).Button;
+                Assert.That(button, Is.Not.Null);
+                Assert.That(button.name, Is.EqualTo(expectedNames[i]));
+                Assert.That(button.gameObject.activeSelf, Is.True);
+                Assert.That(button.transform.GetSiblingIndex(), Is.GreaterThan(previousSiblingIndex));
+                previousSiblingIndex = button.transform.GetSiblingIndex();
+            }
+        }
+
+        [Test]
+        public void PausePopupView_SettingsSubmit_ReusesClickPath()
+        {
+            var prefab = UiTestPrefabAssetUtility.LoadPopupPrefab<PausePopupView>(
+                UiTestPrefabAssetUtility.PausePopupPrefabPath);
+            var view = UnityEngine.Object.Instantiate(prefab);
+            try
+            {
+                var viewModel = new PausePopupViewModel();
+                viewModel.SetContent("Paused", "Body", "Resume", string.Empty, "Settings", "Retry", "Main Menu");
+                view.Bind(viewModel);
+                view.IsVisible = true;
+                view.OnNavigationFocusGained();
+
+                PopupCompletionKind? completion = null;
+                view.CompletionRequested += kind => completion = kind;
+
+                Assert.That(view.HandleNavigate(UiNavigationCommand.Down), Is.True);
+                Assert.That(view.HandleSubmit(), Is.True);
+                Assert.That(completion, Is.EqualTo(PopupCompletionKind.SettingsRequested));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(view.gameObject);
+            }
+        }
+
+        [Test]
+        public void SettingsScreenPrefab_AllFocusableNodesHaveSelectionFrames()
+        {
+            var prefab = UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(
+                UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
+            var slots = GetPrivateField<UiFocusNodeSlot[]>(prefab, "_focusNodeSlots");
+
+            Assert.That(slots, Is.Not.Null);
+            Assert.That(slots.Length, Is.EqualTo(18));
+
+            var expectedIds = new[]
+            {
+                "Header.Back",
+                "Header.AudioTab",
+                "Header.DisplayTab",
+                "Header.InputTab",
+                "Audio.Main.Slider",
+                "Audio.Main.Mute",
+                "Audio.Bgm.Slider",
+                "Audio.Bgm.Mute",
+                "Audio.Sfx.Slider",
+                "Audio.Sfx.Mute",
+                "Display.Resolution.Dropdown",
+                "Display.Fullscreen.Toggle",
+                "Display.Apply.Button",
+                "Display.Revert.Button",
+                "Input.Movement.Toggle",
+                "Input.Push.Change",
+                "Input.Flip.Change",
+                "Input.Reset",
+            };
+
+            for (var i = 0; i < expectedIds.Length; i++)
+            {
+                Assert.That(slots[i], Is.Not.Null, expectedIds[i]);
+                Assert.That(slots[i].Id, Is.EqualTo(expectedIds[i]));
+                Assert.That(slots[i].SelectionFrame, Is.Not.Null, expectedIds[i]);
+                Assert.That(slots[i].VisualProfile, Is.Not.Null, expectedIds[i]);
+            }
+        }
+
+        [Test]
+        public void SettingsScreen_OnEnable_DoesNotShowFrameBeforeKeyboardInput()
+        {
+            using var harness = CreateSettingsHarness();
+
+            AssertSettingsFramesHidden(harness.View, isHidden: true);
+        }
+
+        [Test]
+        public void SettingsScreen_FirstSubmit_RevealsOnly_SecondSubmitEntersSliderEditMode()
+        {
+            using var harness = CreateSettingsHarness();
+            var routerObject = new GameObject(nameof(SettingsScreen_FirstSubmit_RevealsOnly_SecondSubmitEntersSliderEditMode));
+            try
+            {
+                var router = routerObject.AddComponent<UiNavigationInputRouter>();
+                router.Initialize(
+                    null,
+                    new FixedNavigationTargetResolver(harness.View),
+                    () => false,
+                    () => false);
+
+                Assert.That(router.DispatchSubmit(), Is.True);
+                AssertSettingsFramesHidden(harness.View, isHidden: false);
+                Assert.That(IsSettingsFocusEditing(harness.View), Is.False);
+
+                Assert.That(router.DispatchSubmit(), Is.True);
+                Assert.That(IsSettingsFocusEditing(harness.View), Is.True);
+                Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Audio.Main.Slider"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(routerObject);
+            }
+        }
+
+        [Test]
+        public void SettingsScreen_NavigateDown_PreservesFocusAcrossInputs()
+        {
+            using var harness = CreateSettingsHarness();
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Audio.Bgm.Slider"));
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Audio.Sfx.Slider"));
+        }
+
+        [Test]
+        public void SettingsScreen_ContentTopUp_GoesToHeaderBack()
+        {
+            using var harness = CreateSettingsHarness();
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
+
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Header.Back"));
+        }
+
+        [Test]
+        public void SettingsScreen_HeaderBackDown_RestoresCurrentSectionLastContentFocus()
+        {
+            using var harness = CreateSettingsHarness();
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Header.Back"));
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Audio.Main.Slider"));
+        }
+
+        [Test]
+        public void SettingsScreen_HeaderTabSubmit_SwitchesVisibleSectionAndFocusesContent()
+        {
+            using var harness = CreateSettingsHarness();
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Header.DisplayTab"));
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+
+            Assert.That(harness.ScreenViewModel.SelectedSection, Is.EqualTo(SettingsSectionId.Display));
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Display.Resolution.Dropdown"));
+        }
+
+        [Test]
+        public void SettingsScreen_AudioSliderSubmit_EntersEditMode()
+        {
+            using var harness = CreateSettingsHarness();
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+
+            Assert.That(IsSettingsFocusEditing(harness.View), Is.True);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Audio.Main.Slider"));
+        }
+
+        [Test]
+        public void SettingsScreen_AudioSliderEdit_LeftRightAdjustsValue()
+        {
+            using var harness = CreateSettingsHarness();
+            harness.View.OnNavigationFocusGained();
+            var initialValue = harness.View.AudioView.GetVolume(AudioSettingsChannel.Main);
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
+
+            Assert.That(harness.View.AudioView.GetVolume(AudioSettingsChannel.Main), Is.GreaterThan(initialValue));
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Audio.Main.Slider"));
+        }
+
+        [Test]
+        public void SettingsScreen_AudioSliderEdit_CancelDoesNotScreenBack()
+        {
+            using var harness = CreateSettingsHarness();
+            var backCount = 0;
+            harness.View.BackRequested += () => backCount++;
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleCancel(), Is.True);
+
+            Assert.That(IsSettingsFocusEditing(harness.View), Is.False);
+            Assert.That(backCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void SettingsScreen_AudioMuteSubmit_ReusesExistingMutePath()
+        {
+            using var harness = CreateSettingsHarness();
+            AudioSettingsChannel? mutedChannel = null;
+            bool? mutedValue = null;
+            harness.View.AudioView.MuteChanged += (channel, isMuted) =>
+            {
+                mutedChannel = channel;
+                mutedValue = isMuted;
+            };
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Audio.Main.Mute"));
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+
+            Assert.That(mutedChannel, Is.EqualTo(AudioSettingsChannel.Main));
+            Assert.That(mutedValue, Is.True);
+        }
+
+        [Test]
+        public void SettingsScreen_DisplayResolutionSubmit_EntersCycleMode()
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Display);
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+
+            Assert.That(IsSettingsFocusEditing(harness.View), Is.True);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Display.Resolution.Dropdown"));
+        }
+
+        [Test]
+        public void SettingsScreen_DisplayResolutionCycle_ChangesStagedResolution()
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Display);
+            harness.View.OnNavigationFocusGained();
+            var initialIndex = harness.View.SelectedDisplayResolutionIndex;
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
+
+            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(initialIndex + 1));
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Display.Resolution.Dropdown"));
+        }
+
+        private static SettingsHarness CreateSettingsHarness(SettingsSectionId selectedSection = SettingsSectionId.Audio)
+        {
+            var prefab = UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(
+                UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
+            var view = UnityEngine.Object.Instantiate(prefab);
+            var screenViewModel = new SettingsScreenViewModel();
+            var audioViewModel = new SettingsAudioViewModel();
+            var displayViewModel = new SettingsDisplayViewModel();
+            var inputViewModel = new SettingsInputViewModel();
+
+            ConfigureSettingsScreenViewModel(screenViewModel, selectedSection);
+            audioViewModel.SetContent(
+                new AudioSettingsRowViewModel("50%", 0.5f, false),
+                new AudioSettingsRowViewModel("40%", 0.4f, false),
+                new AudioSettingsRowViewModel("30%", 0.3f, false));
+            displayViewModel.SetContent(
+                "Current",
+                new[] { "800 x 600", "1280 x 720", "1920 x 1080" },
+                0,
+                false,
+                string.Empty,
+                true,
+                true,
+                false,
+                string.Empty,
+                0f,
+                false,
+                isDisplayStatusVisible: false);
+            inputViewModel.SetContent(
+                "Movement",
+                "Use arrow keys",
+                false,
+                "WASD",
+                "Push",
+                "Space",
+                "Change",
+                "Flip",
+                "F",
+                "Change",
+                "Reset",
+                string.Empty,
+                false,
+                null,
+                true);
+
+            view.Bind(screenViewModel);
+            view.AudioView.Bind(audioViewModel);
+            view.DisplayView.Bind(displayViewModel);
+            view.InputView.Bind(inputViewModel);
+            view.SectionSelected += sectionId => ConfigureSettingsScreenViewModel(screenViewModel, sectionId);
+            view.SetIsCurrent(true);
+
+            return new SettingsHarness(view, screenViewModel);
+        }
+
+        private static void ConfigureSettingsScreenViewModel(
+            SettingsScreenViewModel viewModel,
+            SettingsSectionId selectedSection)
+        {
+            viewModel.SetContent("Settings", "Back", "Audio", "Display", "Input", selectedSection);
+        }
+
+        private static string GetSettingsFocusNodeId(SettingsScreenView view)
+        {
+            return GetPrivateField<UiFocusGraphNavigator>(view, "_focusGraph").CurrentNodeId.Value;
+        }
+
+        private static bool IsSettingsFocusEditing(SettingsScreenView view)
+        {
+            return GetPrivateField<UiFocusGraphNavigator>(view, "_focusGraph").IsEditing;
+        }
+
+        private static void AssertSettingsFramesHidden(SettingsScreenView view, bool isHidden)
+        {
+            var slots = GetPrivateField<UiFocusNodeSlot[]>(view, "_focusNodeSlots");
+            Assert.That(slots, Is.Not.Null);
+
+            var activeFrameCount = 0;
+            for (var i = 0; i < slots.Length; i++)
+            {
+                Assert.That(slots[i], Is.Not.Null);
+                Assert.That(slots[i].SelectionFrame, Is.Not.Null, slots[i].Id);
+                if (slots[i].SelectionFrame.gameObject.activeSelf)
+                {
+                    activeFrameCount++;
+                }
+            }
+
+            if (isHidden)
+            {
+                Assert.That(activeFrameCount, Is.EqualTo(0));
+            }
+            else
+            {
+                Assert.That(activeFrameCount, Is.GreaterThan(0));
+            }
+        }
+
         private static MainMenuHarness CreateMainMenuHarness()
         {
             var root = new GameObject("MainMenuNavigationHarness", typeof(RectTransform));
@@ -237,6 +898,7 @@ namespace Game.Feature.UI.Tests
                 CreateNavigationGroup(startButton, settingsButton, quitButton));
 
             root.SetActive(true);
+            view.OnNavigationFocusLost();
             return new MainMenuHarness(root, view);
         }
 
@@ -246,6 +908,8 @@ namespace Game.Feature.UI.Tests
             root.SetActive(false);
             var view = root.AddComponent<ConfirmPopupView>();
             var canvasGroup = root.AddComponent<CanvasGroup>();
+            canvasGroup.interactable = true;
+            canvasGroup.blocksRaycasts = true;
             var confirmButton = CreateButton("ConfirmButton", root.transform);
             var cancelButton = CreateButton("CancelButton", root.transform);
 
@@ -322,6 +986,47 @@ namespace Game.Feature.UI.Tests
             return frameObject.AddComponent<Image>();
         }
 
+        private static void AssertButtonGroupFrames(object prefab, string fieldName, int expectedSlotCount)
+        {
+            var group = GetPrivateField<UiSelectableButtonGroup>(prefab, fieldName);
+            Assert.That(group, Is.Not.Null);
+            Assert.That(group.SlotCount, Is.EqualTo(expectedSlotCount));
+            for (var i = 0; i < group.SlotCount; i++)
+            {
+                var slot = group.GetSlot(i);
+                Assert.That(slot, Is.Not.Null);
+                Assert.That(slot.Button, Is.Not.Null);
+                Assert.That(slot.SelectionFrame, Is.Not.Null);
+                Assert.That(slot.SelectionFrame.transform.IsChildOf(slot.Button.transform), Is.True);
+            }
+        }
+
+        private static void AssertAllFramesHidden(object target, string fieldName, bool isHidden)
+        {
+            var group = GetPrivateField<UiSelectableButtonGroup>(target, fieldName);
+            Assert.That(group, Is.Not.Null);
+
+            var activeFrameCount = 0;
+            for (var i = 0; i < group.SlotCount; i++)
+            {
+                var frame = group.GetSlot(i)?.SelectionFrame;
+                Assert.That(frame, Is.Not.Null);
+                if (frame.gameObject.activeSelf)
+                {
+                    activeFrameCount++;
+                }
+            }
+
+            if (isHidden)
+            {
+                Assert.That(activeFrameCount, Is.EqualTo(0));
+            }
+            else
+            {
+                Assert.That(activeFrameCount, Is.GreaterThan(0));
+            }
+        }
+
         private static void SetPrivateField(object target, string fieldName, object value)
         {
             var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
@@ -387,6 +1092,167 @@ namespace Game.Feature.UI.Tests
             public void Dispose()
             {
                 UnityEngine.Object.DestroyImmediate(_root);
+            }
+        }
+
+        private sealed class SettingsHarness : IDisposable
+        {
+            public SettingsHarness(SettingsScreenView view, SettingsScreenViewModel screenViewModel)
+            {
+                View = view;
+                ScreenViewModel = screenViewModel;
+            }
+
+            public SettingsScreenView View { get; }
+
+            public SettingsScreenViewModel ScreenViewModel { get; }
+
+            public void Dispose()
+            {
+                if (View != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(View.gameObject);
+                }
+            }
+        }
+
+        private sealed class FixedNavigationTargetResolver : IUiNavigationTargetResolver
+        {
+            private readonly IUiNavigationTarget _target;
+
+            public FixedNavigationTargetResolver(IUiNavigationTarget target)
+            {
+                _target = target;
+            }
+
+            public UiNavigationTargetResolution Resolve()
+            {
+                return UiNavigationTargetResolution.Open(_target);
+            }
+        }
+
+        private sealed class TrackingNavigationTarget : IUiNavigationTarget
+        {
+            public int NavigateCount { get; private set; }
+
+            public int SubmitCount { get; private set; }
+
+            public UiNavigationCommand LastNavigateCommand { get; private set; }
+
+            public bool CanHandleUiNavigation => true;
+
+            public bool HandleNavigate(UiNavigationCommand command)
+            {
+                NavigateCount++;
+                LastNavigateCommand = command;
+                return true;
+            }
+
+            public bool HandleSubmit()
+            {
+                SubmitCount++;
+                return true;
+            }
+
+            public bool HandleCancel()
+            {
+                return false;
+            }
+
+            public void OnNavigationFocusGained()
+            {
+            }
+
+            public void OnNavigationFocusLost()
+            {
+            }
+        }
+
+        private sealed class NavigationScreenRuntimeFactory : IScreenRuntimeFactory
+        {
+            private readonly IUiNavigationTarget _target;
+
+            public NavigationScreenRuntimeFactory(IUiNavigationTarget target)
+            {
+                _target = target;
+            }
+
+            public ScreenRuntimeFactoryResult Create(ScreenRequest request)
+            {
+                return new ScreenRuntimeFactoryResult(
+                    new ScreenPolicy(
+                        ScreenPolicyClass.GameplayRoot,
+                        ScreenRetentionMode.RetainMountedHistory,
+                        ScreenBackAction.None,
+                        HudShellMode.Visible,
+                        blocksUiGameplayInput: false),
+                    new NavigationScreenRuntime(_target));
+            }
+        }
+
+        private sealed class NavigationScreenRuntime : IScreenRuntime, IUiNavigationTargetProvider
+        {
+            private readonly IUiNavigationTarget _target;
+
+            public NavigationScreenRuntime(IUiNavigationTarget target)
+            {
+                _target = target;
+            }
+
+            public event Action<ScreenAction> ActionRequested
+            {
+                add { }
+                remove { }
+            }
+
+            public void ApplyPayload(IScreenPayload payload)
+            {
+            }
+
+            public void SetIsCurrent(bool isCurrent)
+            {
+            }
+
+            public void Dispose()
+            {
+            }
+
+            public bool TryGetNavigationTarget(out IUiNavigationTarget target)
+            {
+                target = _target;
+                return target != null;
+            }
+        }
+
+        private sealed class PolicyOnlyPopupRuntimeFactory : IPopupRuntimeFactory
+        {
+            private readonly PopupPolicy _policy;
+
+            public PolicyOnlyPopupRuntimeFactory(PopupPolicy policy)
+            {
+                _policy = policy;
+            }
+
+            public PopupRuntimeFactoryResult Create(PopupRequest request)
+            {
+                return new PopupRuntimeFactoryResult(_policy, new PolicyOnlyPopupRuntime());
+            }
+        }
+
+        private sealed class PolicyOnlyPopupRuntime : IPopupRuntime
+        {
+            public event Action<PopupCompletionKind> CompletionRequested
+            {
+                add { }
+                remove { }
+            }
+
+            public void SetIsTopmost(bool isTopmost)
+            {
+            }
+
+            public void Dispose()
+            {
             }
         }
     }
