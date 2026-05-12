@@ -212,6 +212,7 @@ namespace Game.Feature.Gameplay.Loop
 
             var initialSnapshot = SnapshotBuilder.Create(_worldState);
             var entityLogicsForTick = _entityLogicProvider.Build(initialSnapshot, _staticEntityLogics);
+            BindTileFeatureDefinitionContext(entityLogicsForTick);
             var planPhaseResult = RunPlanPhase(
                 initialSnapshot,
                 in input,
@@ -327,6 +328,34 @@ namespace Game.Feature.Gameplay.Loop
                 determinismHash,
                 tickTrace,
                 objectiveResult);
+        }
+
+        private void BindTileFeatureDefinitionContext(EntityLogicSet entityLogicsForTick)
+        {
+            if (entityLogicsForTick == null)
+            {
+                return;
+            }
+
+            BindTileFeatureDefinitionContext(entityLogicsForTick.AiStateLogics);
+            BindTileFeatureDefinitionContext(entityLogicsForTick.PreMovementStateLogics);
+            BindTileFeatureDefinitionContext(entityLogicsForTick.MovementLogics);
+        }
+
+        private void BindTileFeatureDefinitionContext<TLogic>(IReadOnlyList<TLogic> logics)
+        {
+            if (logics == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < logics.Count; i++)
+            {
+                if (logics[i] is ITileFeatureDefinitionContextReceiver receiver)
+                {
+                    receiver.BindTileFeatureDefinitions(_tileFeatureDefinitions);
+                }
+            }
         }
 
         private EnemyAiPhaseResult RunEnemyAiPhase(

@@ -205,6 +205,7 @@ namespace Game.Feature.Stages
                         teamId = 1,
                         type = EntityType.Unit,
                         unitRole = UnitRole.Player,
+                        unitMobilityKind = spawn.UnitMobilityKind,
                         state = EntityPhaseState.Idle,
                         facing = ResolveFacing(spawn.Facing, Direction.Up),
                     };
@@ -219,6 +220,7 @@ namespace Game.Feature.Stages
                         teamId = 2,
                         type = EntityType.Unit,
                         unitRole = UnitRole.Enemy,
+                        unitMobilityKind = spawn.UnitMobilityKind,
                         state = EntityPhaseState.Idle,
                         facing = ResolveFacing(spawn.Facing, Direction.Left),
                         aiMode = spawn.EnemyAiMode,

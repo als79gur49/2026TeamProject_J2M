@@ -585,6 +585,7 @@ namespace Game.Feature.Gameplay.Loop
         {
             if (snapshot.TryGetEntity(unitEntityId, out unit) &&
                 unit.type == EntityType.Unit &&
+                TileFeatureHazardQueries.IsDestroyTileLethalForUnit(unit) &&
                 unit.position == contactCell &&
                 unit.boardPresence == EntityBoardPresence.Occupying &&
                 unit.hp > 0 &&

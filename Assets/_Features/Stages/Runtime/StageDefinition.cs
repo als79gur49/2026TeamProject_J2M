@@ -31,6 +31,7 @@ namespace Game.Feature.Stages
         public SurfaceCell Cell;
         public Direction Facing;
         public int Hp;
+        public UnitMobilityKind UnitMobilityKind;
         public BoxCapabilities BoxCapabilities;
         public BoxArchetype BoxArchetype;
         public EnemyAiMode EnemyAiMode;

@@ -168,7 +168,7 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
-    internal sealed class EnemyCoreLogicAdapter : IEnemyAiStateLogic, IPreMovementStateLogic, IMovementEntityLogic, IEnemyJumpTimingBinding
+    internal sealed class EnemyCoreLogicAdapter : IEnemyAiStateLogic, IPreMovementStateLogic, IMovementEntityLogic, IEnemyJumpTimingBinding, ITileFeatureDefinitionContextReceiver
     {
         private readonly EnemyLogic _logic;
 
@@ -182,6 +182,11 @@ namespace Game.Feature.Gameplay.Entities
         public bool TryGetJumpCooldownTicks(out int cooldownTicks)
         {
             return _logic.TryGetJumpCooldownTicks(out cooldownTicks);
+        }
+
+        public void BindTileFeatureDefinitions(IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
+        {
+            _logic.BindTileFeatureDefinitions(tileFeatureDefinitions);
         }
 
         public void CommitAiTransitions(
