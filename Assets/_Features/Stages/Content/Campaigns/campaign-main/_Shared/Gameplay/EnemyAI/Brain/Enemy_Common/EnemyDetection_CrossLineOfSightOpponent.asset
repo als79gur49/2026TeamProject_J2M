@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3f7b3a08fae24b6d84b1c9c0f2b71d95, type: 3}
   m_Name: EnemyDetection_CrossLineOfSightOpponent
   m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Entities.CrossLineOfSightOpponentDetectionAsset
-  senseRange: 8
+  senseRange: 20
   requireSameFace: 1
   canTargetMarkedForDeath: 0
