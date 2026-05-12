@@ -7427,8 +7427,7 @@ namespace Game.Feature.Gameplay.Loop
             out SurfaceCell fromCell)
         {
             fromCell = default;
-            if (operation.Metadata.MovementSemanticKind != MovementSemanticKind.Move ||
-                !IsTileEffectUnitMoveEnterBoundary(operation.Metadata.MovementExecutionBoundaryKind) ||
+            if (!IsTileEffectUnitMoveEnterMovement(operation.Metadata) ||
                 !sourceSnapshot.TryGetEntity(operation.EntityId, out var sourceEntity) ||
                 sourceEntity.type != EntityType.Unit ||
                 sourceEntity.position == operation.Destination)
@@ -7440,10 +7439,19 @@ namespace Game.Feature.Gameplay.Loop
             return true;
         }
 
-        private static bool IsTileEffectUnitMoveEnterBoundary(MovementExecutionBoundaryKind boundaryKind)
+        private static bool IsTileEffectUnitMoveEnterMovement(FinalizationOperationMetadata metadata)
         {
-            return boundaryKind == MovementExecutionBoundaryKind.UnitOrdinaryLocomotion ||
-                   boundaryKind == MovementExecutionBoundaryKind.LegacyFallback;
+            switch (metadata.MovementSemanticKind)
+            {
+                case MovementSemanticKind.Move:
+                    return metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.UnitOrdinaryLocomotion ||
+                           metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.LegacyFallback ||
+                           metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.LocomotionAnchorCommit;
+                case MovementSemanticKind.JumpLanding:
+                    return metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.UnitSpecialLocomotion;
+                default:
+                    return false;
+            }
         }
 
         private static int CompareTileEffectBoxContacts(TileEffectBoxContact left, TileEffectBoxContact right)

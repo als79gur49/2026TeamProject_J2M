@@ -472,6 +472,127 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void ContactFacts_MovingUnitLocomotionAnchorCommit_CreatesMoveEnterContact()
+        {
+            var fromCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var destinationCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var sourceSnapshot = CreateWorldState(
+                    new[] { CreateUnit(20, fromCell) },
+                    Array.Empty<TileFeatureState>())
+                .CreateSnapshot();
+            var destinationSnapshot = CreateWorldState(
+                    new[] { CreateUnit(20, destinationCell) },
+                    Array.Empty<TileFeatureState>())
+                .CreateSnapshot();
+            var batch = new FinalizationBatch();
+            batch.MoveEntity(
+                20,
+                destinationCell,
+                CreateMovementMetadata(
+                    MovementSemanticKind.Move,
+                    movementExecutionBoundaryKind: MovementExecutionBoundaryKind.LocomotionAnchorCommit));
+
+            var contacts = TickPipeline.BuildTileEffectEntityContacts(sourceSnapshot, destinationSnapshot, batch);
+
+            Assert.That(contacts, Has.Count.EqualTo(1));
+            Assert.That(contacts[0].EntityId, Is.EqualTo(20));
+            Assert.That(contacts[0].EntityType, Is.EqualTo(EntityType.Unit));
+            Assert.That(contacts[0].FromCell, Is.EqualTo(fromCell));
+            Assert.That(contacts[0].DestinationCell, Is.EqualTo(destinationCell));
+            Assert.That(contacts[0].TileCell, Is.EqualTo(destinationCell));
+            Assert.That(contacts[0].ContactKind, Is.EqualTo(TileEffectEntityContactKind.MoveEnter));
+            Assert.That(contacts[0].MovementSemanticKind, Is.EqualTo(MovementSemanticKind.Move));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ContactFacts_JumpLandingUnitSpecialLocomotion_CreatesMoveEnterContact()
+        {
+            var fromCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var destinationCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var sourceSnapshot = CreateWorldState(
+                    new[] { CreateUnit(20, fromCell) },
+                    Array.Empty<TileFeatureState>())
+                .CreateSnapshot();
+            var destinationSnapshot = CreateWorldState(
+                    new[] { CreateUnit(20, destinationCell) },
+                    Array.Empty<TileFeatureState>())
+                .CreateSnapshot();
+            var batch = new FinalizationBatch();
+            batch.MoveEntity(
+                20,
+                destinationCell,
+                CreateMovementMetadata(
+                    MovementSemanticKind.JumpLanding,
+                    movementExecutionBoundaryKind: MovementExecutionBoundaryKind.UnitSpecialLocomotion));
+
+            var contacts = TickPipeline.BuildTileEffectEntityContacts(sourceSnapshot, destinationSnapshot, batch);
+
+            Assert.That(contacts, Has.Count.EqualTo(1));
+            Assert.That(contacts[0].EntityId, Is.EqualTo(20));
+            Assert.That(contacts[0].EntityType, Is.EqualTo(EntityType.Unit));
+            Assert.That(contacts[0].FromCell, Is.EqualTo(fromCell));
+            Assert.That(contacts[0].DestinationCell, Is.EqualTo(destinationCell));
+            Assert.That(contacts[0].TileCell, Is.EqualTo(destinationCell));
+            Assert.That(contacts[0].ContactKind, Is.EqualTo(TileEffectEntityContactKind.MoveEnter));
+            Assert.That(contacts[0].MovementSemanticKind, Is.EqualTo(MovementSemanticKind.JumpLanding));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ContactFacts_ScriptedRelocationUnitMove_CreatesNoContact()
+        {
+            var fromCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var destinationCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var sourceSnapshot = CreateWorldState(
+                    new[] { CreateUnit(20, fromCell) },
+                    Array.Empty<TileFeatureState>())
+                .CreateSnapshot();
+            var destinationSnapshot = CreateWorldState(
+                    new[] { CreateUnit(20, destinationCell) },
+                    Array.Empty<TileFeatureState>())
+                .CreateSnapshot();
+            var batch = new FinalizationBatch();
+            batch.MoveEntity(
+                20,
+                destinationCell,
+                CreateMovementMetadata(
+                    MovementSemanticKind.Move,
+                    movementExecutionBoundaryKind: MovementExecutionBoundaryKind.ScriptedRelocation));
+
+            var contacts = TickPipeline.BuildTileEffectEntityContacts(sourceSnapshot, destinationSnapshot, batch);
+
+            Assert.That(contacts, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ContactFacts_SameCellLocomotionAnchorCommit_CreatesNoContact()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var sourceSnapshot = CreateWorldState(
+                    new[] { CreateUnit(20, cell) },
+                    Array.Empty<TileFeatureState>())
+                .CreateSnapshot();
+            var destinationSnapshot = CreateWorldState(
+                    new[] { CreateUnit(20, cell) },
+                    Array.Empty<TileFeatureState>())
+                .CreateSnapshot();
+            var batch = new FinalizationBatch();
+            batch.MoveEntity(
+                20,
+                cell,
+                CreateMovementMetadata(
+                    MovementSemanticKind.Move,
+                    movementExecutionBoundaryKind: MovementExecutionBoundaryKind.LocomotionAnchorCommit));
+
+            var contacts = TickPipeline.BuildTileEffectEntityContacts(sourceSnapshot, destinationSnapshot, batch);
+
+            Assert.That(contacts, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
         public void StopFacts_MoveEndingSliding_CreatesNoStop()
         {
             var beforeCell = new SurfaceCell(FaceId.Floor, 0, 0);
@@ -700,6 +821,150 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 },
                 CreateDefinition(10, TileFeatureActivationRule.BottomFaceOnly));
 
+            Assert.That(result.IsEmpty, Is.True);
+            Assert.That(result.TileEvents, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DestroyTile_GroundUnit_LocomotionAnchorCommitIntoActiveDestroyTile_Dies()
+        {
+            var fromCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var sourceSnapshot = CreateWorldState(
+                    new[] { CreateUnit(20, fromCell) },
+                    Array.Empty<TileFeatureState>())
+                .CreateSnapshot();
+            var destinationSnapshot = CreateWorldState(
+                    new[] { CreateUnit(20, cell) },
+                    new[] { CreateTileFeature(10, cell, TileFeatureKind.Destroy) })
+                .CreateSnapshot();
+            var batch = new FinalizationBatch();
+            batch.MoveEntity(
+                20,
+                cell,
+                CreateMovementMetadata(
+                    MovementSemanticKind.Move,
+                    movementExecutionBoundaryKind: MovementExecutionBoundaryKind.LocomotionAnchorCommit));
+
+            var contacts = TickPipeline.BuildTileEffectEntityContacts(sourceSnapshot, destinationSnapshot, batch);
+            var result = ResolveEntityContacts(
+                destinationSnapshot,
+                contacts,
+                CreateDefinition(10, TileFeatureActivationRule.BottomFaceOnly));
+
+            Assert.That(contacts, Has.Count.EqualTo(1));
+            Assert.That(contacts[0].ContactKind, Is.EqualTo(TileEffectEntityContactKind.MoveEnter));
+            Assert.That(result.EntityOperations.Operations.Any(operation =>
+                operation.Kind == FinalizationOperationKind.MarkDestroy &&
+                operation.EntityId == 20), Is.True);
+            Assert.That(result.TileEvents, Has.Count.EqualTo(1));
+            Assert.That(result.TileEvents[0].TargetEntityId, Is.EqualTo(20));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DestroyTile_AirUnit_LocomotionAnchorCommitIntoActiveDestroyTile_Survives()
+        {
+            var fromCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var sourceSnapshot = CreateWorldState(
+                    new[] { CreateUnit(20, fromCell, UnitMobilityKind.Air) },
+                    Array.Empty<TileFeatureState>())
+                .CreateSnapshot();
+            var destinationSnapshot = CreateWorldState(
+                    new[] { CreateUnit(20, cell, UnitMobilityKind.Air) },
+                    new[] { CreateTileFeature(10, cell, TileFeatureKind.Destroy) })
+                .CreateSnapshot();
+            var batch = new FinalizationBatch();
+            batch.MoveEntity(
+                20,
+                cell,
+                CreateMovementMetadata(
+                    MovementSemanticKind.Move,
+                    movementExecutionBoundaryKind: MovementExecutionBoundaryKind.LocomotionAnchorCommit));
+
+            var contacts = TickPipeline.BuildTileEffectEntityContacts(sourceSnapshot, destinationSnapshot, batch);
+            var result = ResolveEntityContacts(
+                destinationSnapshot,
+                contacts,
+                CreateDefinition(10, TileFeatureActivationRule.BottomFaceOnly));
+
+            Assert.That(contacts, Has.Count.EqualTo(1));
+            Assert.That(contacts[0].ContactKind, Is.EqualTo(TileEffectEntityContactKind.MoveEnter));
+            Assert.That(result.IsEmpty, Is.True);
+            Assert.That(result.TileEvents, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DestroyTile_GroundUnit_JumpLandingOntoActiveDestroyTile_Dies()
+        {
+            var fromCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var sourceSnapshot = CreateWorldState(
+                    new[] { CreateUnit(20, fromCell) },
+                    Array.Empty<TileFeatureState>())
+                .CreateSnapshot();
+            var destinationSnapshot = CreateWorldState(
+                    new[] { CreateUnit(20, cell) },
+                    new[] { CreateTileFeature(10, cell, TileFeatureKind.Destroy) })
+                .CreateSnapshot();
+            var batch = new FinalizationBatch();
+            batch.MoveEntity(
+                20,
+                cell,
+                CreateMovementMetadata(
+                    MovementSemanticKind.JumpLanding,
+                    movementExecutionBoundaryKind: MovementExecutionBoundaryKind.UnitSpecialLocomotion));
+
+            var contacts = TickPipeline.BuildTileEffectEntityContacts(sourceSnapshot, destinationSnapshot, batch);
+            var result = ResolveEntityContacts(
+                destinationSnapshot,
+                contacts,
+                CreateDefinition(10, TileFeatureActivationRule.BottomFaceOnly));
+
+            Assert.That(contacts, Has.Count.EqualTo(1));
+            Assert.That(contacts[0].ContactKind, Is.EqualTo(TileEffectEntityContactKind.MoveEnter));
+            Assert.That(contacts[0].MovementSemanticKind, Is.EqualTo(MovementSemanticKind.JumpLanding));
+            Assert.That(result.EntityOperations.Operations.Any(operation =>
+                operation.Kind == FinalizationOperationKind.MarkDestroy &&
+                operation.EntityId == 20), Is.True);
+            Assert.That(result.TileEvents, Has.Count.EqualTo(1));
+            Assert.That(result.TileEvents[0].TargetEntityId, Is.EqualTo(20));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DestroyTile_AirUnit_JumpLandingOntoActiveDestroyTile_Survives()
+        {
+            var fromCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var sourceSnapshot = CreateWorldState(
+                    new[] { CreateUnit(20, fromCell, UnitMobilityKind.Air) },
+                    Array.Empty<TileFeatureState>())
+                .CreateSnapshot();
+            var destinationSnapshot = CreateWorldState(
+                    new[] { CreateUnit(20, cell, UnitMobilityKind.Air) },
+                    new[] { CreateTileFeature(10, cell, TileFeatureKind.Destroy) })
+                .CreateSnapshot();
+            var batch = new FinalizationBatch();
+            batch.MoveEntity(
+                20,
+                cell,
+                CreateMovementMetadata(
+                    MovementSemanticKind.JumpLanding,
+                    movementExecutionBoundaryKind: MovementExecutionBoundaryKind.UnitSpecialLocomotion));
+
+            var contacts = TickPipeline.BuildTileEffectEntityContacts(sourceSnapshot, destinationSnapshot, batch);
+            var result = ResolveEntityContacts(
+                destinationSnapshot,
+                contacts,
+                CreateDefinition(10, TileFeatureActivationRule.BottomFaceOnly));
+
+            Assert.That(contacts, Has.Count.EqualTo(1));
+            Assert.That(contacts[0].ContactKind, Is.EqualTo(TileEffectEntityContactKind.MoveEnter));
+            Assert.That(contacts[0].MovementSemanticKind, Is.EqualTo(MovementSemanticKind.JumpLanding));
             Assert.That(result.IsEmpty, Is.True);
             Assert.That(result.TileEvents, Is.Empty);
         }
@@ -2620,6 +2885,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 MovementSemanticKind.Slide => ResolvedActionSemanticKind.Slide,
                 MovementSemanticKind.Flip => ResolvedActionSemanticKind.Flip,
                 MovementSemanticKind.Stop => ResolvedActionSemanticKind.Stop,
+                MovementSemanticKind.JumpLanding => ResolvedActionSemanticKind.JumpLanding,
                 _ => ResolvedActionSemanticKind.Move,
             };
             return new FinalizationOperationMetadata(
