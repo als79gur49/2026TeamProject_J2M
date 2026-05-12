@@ -192,7 +192,8 @@ namespace Game.Feature.UI.Screens
         {
             EnsureSaveSlotCardOrder();
             WireButtons();
-            _commandNavigationGroup?.SetSelectedIndex(_commandNavigationGroup.SelectedIndex);
+            _commandNavigationGroup?.SetSelectedIndexSilently(_commandNavigationGroup.SelectedIndex);
+            _commandNavigationGroup?.HideAllFrames();
         }
 
         private void OnDisable()

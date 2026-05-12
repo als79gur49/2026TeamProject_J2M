@@ -110,11 +110,7 @@ namespace Game.Feature.UI.Popups
 
             _canvasGroup.interactable = isTopmost;
             _canvasGroup.blocksRaycasts = isTopmost;
-            if (isTopmost)
-            {
-                OnNavigationFocusGained();
-            }
-            else
+            if (!isTopmost)
             {
                 OnNavigationFocusLost();
             }
@@ -273,7 +269,8 @@ namespace Game.Feature.UI.Popups
             }
 
             // Product policy: destructive confirmations intentionally default to Confirm.
-            _actionNavigationGroup.SetSelectedIndex(ConfirmSelectionIndex);
+            _actionNavigationGroup.SetSelectedIndexSilently(ConfirmSelectionIndex);
+            _actionNavigationGroup.HideAllFrames();
         }
 
         private void ApplyRootVisibility()

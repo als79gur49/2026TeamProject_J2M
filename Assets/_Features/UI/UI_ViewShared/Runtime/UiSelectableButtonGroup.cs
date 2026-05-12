@@ -116,6 +116,32 @@ namespace Game.Feature.UI.ViewShared
             return changed;
         }
 
+        public bool SetSelectedIndexSilently(int index)
+        {
+            if (!IsConfigured)
+            {
+                var previousIndex = _selectedIndex;
+                _selectedIndex = Mathf.Max(0, index);
+                return previousIndex != _selectedIndex;
+            }
+
+            var clamped = Mathf.Clamp(index, 0, _slots.Length - 1);
+            if (!IsSelectable(clamped))
+            {
+                var selectable = FindNextSelectableIndex(clamped, 1);
+                if (selectable < 0)
+                {
+                    return false;
+                }
+
+                clamped = selectable;
+            }
+
+            var changed = _selectedIndex != clamped;
+            _selectedIndex = clamped;
+            return changed;
+        }
+
         public Button GetSelectedButton()
         {
             var slot = GetSlot(_selectedIndex);
@@ -168,7 +194,7 @@ namespace Game.Feature.UI.ViewShared
 
                 var profile = _visualProfile;
                 frame.color = profile != null ? profile.UnselectedFrameColor : new Color(1f, 1f, 1f, 0f);
-                frame.gameObject.SetActive(profile == null || !profile.HideUnselectedFrames);
+                frame.gameObject.SetActive(false);
             }
         }
 
@@ -211,7 +237,9 @@ namespace Game.Feature.UI.ViewShared
         private bool IsSelectable(int index)
         {
             var button = GetSlot(index)?.Button;
-            return button != null && (!_skipNonInteractable || button.interactable);
+            return button != null &&
+                   button.gameObject.activeInHierarchy &&
+                   (!_skipNonInteractable || button.interactable);
         }
     }
 }
