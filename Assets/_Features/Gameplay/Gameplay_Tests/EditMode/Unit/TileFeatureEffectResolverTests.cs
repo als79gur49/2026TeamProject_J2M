@@ -634,7 +634,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void DestroyTile_ActiveBottomFace_DestroysMovingUnit()
+        public void DestroyTile_ActiveBottomFace_DestroysMovingGroundUnit()
         {
             var fromCell = new SurfaceCell(FaceId.Floor, 0, 1);
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
@@ -671,6 +671,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(result.TileEvents, Has.Count.EqualTo(1));
             Assert.That(result.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.DestroyTileTriggered));
             Assert.That(result.TileEvents[0].TargetEntityId, Is.EqualTo(20));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DestroyTile_ActiveBottomFace_DoesNotDestroyMovingAirUnit()
+        {
+            var fromCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var snapshot = CreateWorldState(
+                    new[] { CreateUnit(20, cell, UnitMobilityKind.Air) },
+                    new[] { CreateTileFeature(10, cell, TileFeatureKind.Destroy) })
+                .CreateSnapshot();
+
+            var result = ResolveEntityContacts(
+                snapshot,
+                new[]
+                {
+                    new TileEffectEntityContact(
+                        20,
+                        EntityType.Unit,
+                        fromCell,
+                        cell,
+                        cell,
+                        TileEffectEntityContactKind.MoveEnter,
+                        MovementSemanticKind.Move,
+                        operationOrder: 0),
+                },
+                CreateDefinition(10, TileFeatureActivationRule.BottomFaceOnly));
+
+            Assert.That(result.IsEmpty, Is.True);
+            Assert.That(result.TileEvents, Is.Empty);
         }
 
         [Test]
@@ -2946,7 +2977,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return new TerrainCellState(cell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal);
         }
 
-        private static EntityState CreateUnit(int entityId, SurfaceCell position)
+        private static EntityState CreateUnit(
+            int entityId,
+            SurfaceCell position,
+            UnitMobilityKind unitMobilityKind = UnitMobilityKind.Ground)
         {
             return new EntityState
             {
@@ -2956,6 +2990,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 maxHp = 3,
                 teamId = 1,
                 type = EntityType.Unit,
+                unitMobilityKind = unitMobilityKind,
                 state = EntityPhaseState.Idle,
                 facing = Direction.Right,
                 boardPresence = EntityBoardPresence.Occupying,

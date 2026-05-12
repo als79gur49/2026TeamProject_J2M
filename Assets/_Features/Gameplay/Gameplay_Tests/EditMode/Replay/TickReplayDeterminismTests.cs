@@ -104,6 +104,31 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
+        public void DeterminismHash_UnitMobilityDifference_ChangesHash()
+        {
+            var groundWorld = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+            });
+            var airWorld = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3, unitMobilityKind: UnitMobilityKind.Air),
+            });
+
+            var groundHash = GameplayCompositionRoot.CreateTickPipeline(groundWorld, Array.Empty<IEntityLogic>())
+                .RunTick(new TickInput(1))
+                .DeterminismHash;
+            var airHash = GameplayCompositionRoot.CreateTickPipeline(airWorld, Array.Empty<IEntityLogic>())
+                .RunTick(new TickInput(1))
+                .DeterminismHash;
+
+            Assert.That(groundHash, Is.Not.Empty);
+            Assert.That(airHash, Is.Not.Empty);
+            Assert.That(groundHash, Is.Not.EqualTo(airHash));
+        }
+
+        [Test]
+        [Category("Core")]
         public void Replay_AttackLogicRegistrationPermutation_ProducesSameHashTraceAndEventLog()
         {
             var firstReplay = RunAttackLogicPermutationReplaySequence(reverseLogicOrder: false);
@@ -2943,9 +2968,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
             EnemyAiMode aiMode = EnemyAiMode.None,
             int aiStateTimer = 0,
             int enemyLocomotionCooldownTicks = 0,
-            Direction facing = Direction.Right)
+            Direction facing = Direction.Right,
+            UnitMobilityKind unitMobilityKind = UnitMobilityKind.Ground)
         {
-            return CreateUnit(entityId, teamId, SurfaceCell.FromPlanar(position), hp, aiMode, aiStateTimer, enemyLocomotionCooldownTicks, facing);
+            return CreateUnit(entityId, teamId, SurfaceCell.FromPlanar(position), hp, aiMode, aiStateTimer, enemyLocomotionCooldownTicks, facing, unitMobilityKind);
         }
 
         private static EntityState CreateUnit(
@@ -2956,7 +2982,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
             EnemyAiMode aiMode = EnemyAiMode.None,
             int aiStateTimer = 0,
             int enemyLocomotionCooldownTicks = 0,
-            Direction facing = Direction.Right)
+            Direction facing = Direction.Right,
+            UnitMobilityKind unitMobilityKind = UnitMobilityKind.Ground)
         {
             return new EntityState
             {
@@ -2966,6 +2993,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 maxHp = hp,
                 teamId = teamId,
                 type = EntityType.Unit,
+                unitMobilityKind = unitMobilityKind,
                 state = EntityPhaseState.Idle,
                 stateTimer = 0,
                 facing = facing,

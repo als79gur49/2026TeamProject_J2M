@@ -54,6 +54,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void StageRuntimeBuilder_UnitMobility_DefaultsGround_AndAuthoredAirMaterializesForUnits()
+        {
+            var stage = CreateStage(
+                "UnitMobilityMaterialization",
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(4, 4)),
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
+                CreateSpawn(20, StageSpawnKind.Enemy, new SurfaceCell(FaceId.Floor, 1, 0), hp: 2, enemyAiMode: EnemyAiMode.Patrol),
+                CreateSpawn(30, StageSpawnKind.Enemy, new SurfaceCell(FaceId.Floor, 2, 0), hp: 2, enemyAiMode: EnemyAiMode.Patrol, unitMobilityKind: UnitMobilityKind.Air),
+                CreateSpawn(40, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 3, 0), hp: 1, unitMobilityKind: UnitMobilityKind.Air),
+                CreateSpawn(50, StageSpawnKind.Wall, new SurfaceCell(FaceId.Floor, 4, 0), hp: 1, unitMobilityKind: UnitMobilityKind.Air));
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(TryGetEntity(buildResult.InitialEntities, 10, out var player), Is.True);
+                Assert.That(player.unitMobilityKind, Is.EqualTo(UnitMobilityKind.Ground));
+                Assert.That(TryGetEntity(buildResult.InitialEntities, 20, out var groundEnemy), Is.True);
+                Assert.That(groundEnemy.unitMobilityKind, Is.EqualTo(UnitMobilityKind.Ground));
+                Assert.That(TryGetEntity(buildResult.InitialEntities, 30, out var airEnemy), Is.True);
+                Assert.That(airEnemy.unitMobilityKind, Is.EqualTo(UnitMobilityKind.Air));
+                Assert.That(TryGetEntity(buildResult.InitialEntities, 40, out var box), Is.True);
+                Assert.That(box.type, Is.EqualTo(EntityType.Box));
+                Assert.That(TryGetEntity(buildResult.InitialEntities, 50, out var wall), Is.True);
+                Assert.That(wall.type, Is.EqualTo(EntityType.None));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void StageRuntimeBuilder_InitialTileFeatures_DefaultsToEmpty()
         {
             var stage = CreateStage(
@@ -1913,7 +1947,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int enemyAiStateTimer = 0,
             EnemyAiProfile enemyAiProfile = null,
             string presentationId = null,
-            string unitStackGroup = null)
+            string unitStackGroup = null,
+            UnitMobilityKind unitMobilityKind = UnitMobilityKind.Ground)
         {
             return new StageSpawnDefinition
             {
@@ -1922,6 +1957,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Cell = cell,
                 Facing = facing,
                 Hp = hp,
+                UnitMobilityKind = unitMobilityKind,
                 BoxCapabilities = boxCapabilities,
                 BoxArchetype = boxArchetype,
                 EnemyAiMode = enemyAiMode,

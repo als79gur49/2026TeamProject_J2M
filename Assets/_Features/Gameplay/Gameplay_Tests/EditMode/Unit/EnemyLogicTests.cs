@@ -397,6 +397,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 source,
                 EnemyAiCommonSettings.CreateDefaultMelee(),
                 new PatrolSettings(PatrolBlockedMovementResponse.Stop),
+                Array.Empty<TileFeatureRuntimeDefinition>(),
                 out var intent);
             Assert.That(builtIntent, Is.True);
             Assert.That(intent.Destination, Is.EqualTo(new Vector2Int(1, 0)));
@@ -498,9 +499,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var source = GetEntity(worldState, 40);
             var settings = PatrolSettings.CreateDefaultRandomWalk();
 
-            var initialPlan = EnemyRandomWalkPatrolPlanner.BuildPlan(snapshot, source, tickIndex: 7, default, settings);
+            var initialPlan = EnemyRandomWalkPatrolPlanner.BuildPlan(
+                snapshot,
+                source,
+                tickIndex: 7,
+                default,
+                settings,
+                Array.Empty<TileFeatureRuntimeDefinition>());
             var initializedState = EnemyPatrolQueries.Initialize(default, source.position);
-            var initializedPlan = EnemyRandomWalkPatrolPlanner.BuildPlan(snapshot, source, tickIndex: 7, initializedState, settings);
+            var initializedPlan = EnemyRandomWalkPatrolPlanner.BuildPlan(
+                snapshot,
+                source,
+                tickIndex: 7,
+                initializedState,
+                settings,
+                Array.Empty<TileFeatureRuntimeDefinition>());
 
             Assert.That(initialPlan.ShouldInitializeState, Is.True);
             Assert.That(initialPlan.HasDirection, Is.True);
@@ -531,7 +544,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 lastCommittedDirection = Direction.Up,
             };
 
-            var plan = EnemyRandomWalkPatrolPlanner.BuildPlan(snapshot, source, tickIndex: 5, patrolState, settings);
+            var plan = EnemyRandomWalkPatrolPlanner.BuildPlan(
+                snapshot,
+                source,
+                tickIndex: 5,
+                patrolState,
+                settings,
+                Array.Empty<TileFeatureRuntimeDefinition>());
 
             Assert.That((plan.CandidateMask & (1 << 2)) == 0, Is.True, "Immediate reverse direction should be excluded when alternatives exist.");
             Assert.That(plan.HasDirection, Is.True);
@@ -560,7 +579,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 lastCommittedDirection = Direction.None,
             };
 
-            var plan = EnemyRandomWalkPatrolPlanner.BuildPlan(snapshot, source, tickIndex: 5, patrolState, settings);
+            var plan = EnemyRandomWalkPatrolPlanner.BuildPlan(
+                snapshot,
+                source,
+                tickIndex: 5,
+                patrolState,
+                settings,
+                Array.Empty<TileFeatureRuntimeDefinition>());
 
             Assert.That((plan.CandidateMask & GetCandidateMaskBit(Direction.Right)) != 0, Is.True);
         }
@@ -587,7 +612,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 lastCommittedDirection = Direction.Right,
             };
 
-            var plan = EnemyRandomWalkPatrolPlanner.BuildPlan(snapshot, source, tickIndex: 9, patrolState, settings);
+            var plan = EnemyRandomWalkPatrolPlanner.BuildPlan(
+                snapshot,
+                source,
+                tickIndex: 9,
+                patrolState,
+                settings,
+                Array.Empty<TileFeatureRuntimeDefinition>());
 
             Assert.That(plan.HasDirection, Is.True);
             Assert.That(plan.PlannedDirection, Is.EqualTo(Direction.Left));
@@ -615,7 +646,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 lastCommittedDirection = Direction.Up,
             };
 
-            var legacyPlan = EnemyRandomWalkPatrolPlanner.BuildPlan(snapshot, source, tickIndex: 5, patrolState, settings);
+            var legacyPlan = EnemyRandomWalkPatrolPlanner.BuildPlan(
+                snapshot,
+                source,
+                tickIndex: 5,
+                patrolState,
+                settings,
+                Array.Empty<TileFeatureRuntimeDefinition>());
             var built = EnemyPatrolDecisionPlanner.TryBuildProposal(
                 snapshot,
                 source,
@@ -623,6 +660,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 PatrolStrategyKind.RandomWalk,
                 patrolState,
                 settings,
+                Array.Empty<TileFeatureRuntimeDefinition>(),
                 out var proposal);
 
             Assert.That(built, Is.True);
@@ -654,9 +692,88 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 lastCommittedDirection = Direction.Left,
             };
 
-            var plan = EnemyRandomWalkPatrolPlanner.BuildPlan(snapshot, source, tickIndex: 3, patrolState, settings);
+            var plan = EnemyRandomWalkPatrolPlanner.BuildPlan(
+                snapshot,
+                source,
+                tickIndex: 3,
+                patrolState,
+                settings,
+                Array.Empty<TileFeatureRuntimeDefinition>());
 
             Assert.That((plan.CandidateMask & (1 << 0)) == 0, Is.True, "Topology-changing up-step must never be emitted as a patrol candidate.");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyRandomWalk_GroundUnit_ChoosesSafePoolBeforeDestroyTileCandidates()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var riskyCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: sourceCell, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 1), new Vector2Int(2, 1)),
+                new[] { CreateDestroyTile(100, riskyCell) });
+            var snapshot = worldState.CreateSnapshot();
+            var source = GetEntity(worldState, 40);
+            var settings = new PatrolSettings(
+                PatrolBlockedMovementResponse.Stop,
+                leashRadius: 3,
+                forwardWeight: 10,
+                backwardWeight: 1);
+
+            var plan = EnemyRandomWalkPatrolPlanner.BuildPlan(
+                snapshot,
+                source,
+                tickIndex: 5,
+                new EnemyPatrolRuntimeState { sequence = 1, homeCell = sourceCell },
+                settings,
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
+
+            Assert.That(plan.HasDirection, Is.True);
+            Assert.That(plan.PlannedDirection, Is.EqualTo(Direction.Left));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyRandomWalk_GroundUnit_CanChooseDestroyTileWhenAllLegalCandidatesAreRisky()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: sourceCell, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 1), new Vector2Int(2, 1)),
+                new[]
+                {
+                    CreateDestroyTile(100, new SurfaceCell(FaceId.Floor, 2, 1)),
+                    CreateDestroyTile(101, new SurfaceCell(FaceId.Floor, 0, 1)),
+                });
+            var snapshot = worldState.CreateSnapshot();
+            var source = GetEntity(worldState, 40);
+            var settings = new PatrolSettings(
+                PatrolBlockedMovementResponse.Stop,
+                leashRadius: 3,
+                forwardWeight: 10,
+                backwardWeight: 1);
+
+            var plan = EnemyRandomWalkPatrolPlanner.BuildPlan(
+                snapshot,
+                source,
+                tickIndex: 5,
+                new EnemyPatrolRuntimeState { sequence = 1, homeCell = sourceCell },
+                settings,
+                new[]
+                {
+                    CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly),
+                    CreateTileFeatureDefinition(101, TileFeatureActivationRule.BottomFaceOnly),
+                });
+
+            Assert.That(plan.HasDirection, Is.True);
+            Assert.That(plan.CandidateMask, Is.Not.EqualTo(0));
         }
 
 
@@ -978,6 +1095,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     source,
                     EnemyAiCommonSettings.CreateDefaultMelee(),
                     fixture.Settings,
+                    Array.Empty<TileFeatureRuntimeDefinition>(),
                     out var expectedIntent);
                 var profile = CreateForwardPatrolOnlyProfile(fixture.Settings);
 
@@ -1119,10 +1237,103 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 target,
                 EnemyAiCommonSettings.CreateDefaultMelee(),
                 ChaseSettings.CreateDefault(),
+                Array.Empty<TileFeatureRuntimeDefinition>(),
                 out var intent);
 
             Assert.That(builtIntent, Is.True);
             Assert.That(intent.Destination, Is.EqualTo(new Vector2Int(1, 0)));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyChase_GroundUnit_PrefersSafeSecondaryAxisOverDestroyTilePrimary()
+        {
+            var riskyPrimary = new SurfaceCell(FaceId.Floor, 1, 0);
+            var safeSecondary = new SurfaceCell(FaceId.Floor, 0, 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(2, 1), aiMode: EnemyAiMode.None),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
+                new[] { CreateDestroyTile(100, riskyPrimary) });
+            var snapshot = worldState.CreateSnapshot();
+            var source = GetEntity(worldState, 40);
+            var target = GetEntity(worldState, 10);
+
+            var builtIntent = AxisPriorityChaseStrategy.Instance.TryBuildMovementIntent(
+                snapshot,
+                source,
+                target,
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                ChaseSettings.CreateDefault(),
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) },
+                out var intent);
+
+            Assert.That(builtIntent, Is.True);
+            Assert.That(intent.Destination, Is.EqualTo(safeSecondary.PlanarPosition));
+            Assert.That(EnemyMovementStrategyShared.CanTraverseStep(snapshot, source, Vector2Int.right), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyChase_GroundUnit_CanEnterDestroyTileWhenItIsOnlyLegalCandidate()
+        {
+            var riskyPrimary = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(2, 0), aiMode: EnemyAiMode.None),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 0)),
+                new[] { CreateDestroyTile(100, riskyPrimary) });
+            var snapshot = worldState.CreateSnapshot();
+            var source = GetEntity(worldState, 40);
+            var target = GetEntity(worldState, 10);
+
+            var builtIntent = AxisPriorityChaseStrategy.Instance.TryBuildMovementIntent(
+                snapshot,
+                source,
+                target,
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                ChaseSettings.CreateDefault(),
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) },
+                out var intent);
+
+            Assert.That(builtIntent, Is.True);
+            Assert.That(intent.Destination, Is.EqualTo(riskyPrimary.PlanarPosition));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyChase_AirUnit_KeepsPrimaryPriorityOverDestroyTile()
+        {
+            var riskyPrimary = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(2, 1), aiMode: EnemyAiMode.None),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right, unitMobilityKind: UnitMobilityKind.Air),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
+                new[] { CreateDestroyTile(100, riskyPrimary) });
+            var snapshot = worldState.CreateSnapshot();
+            var source = GetEntity(worldState, 40);
+            var target = GetEntity(worldState, 10);
+
+            var builtIntent = AxisPriorityChaseStrategy.Instance.TryBuildMovementIntent(
+                snapshot,
+                source,
+                target,
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                ChaseSettings.CreateDefault(),
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) },
+                out var intent);
+
+            Assert.That(builtIntent, Is.True);
+            Assert.That(intent.Destination, Is.EqualTo(riskyPrimary.PlanarPosition));
         }
 
         [Test]
@@ -1868,12 +2079,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 source,
                 EnemyAiCommonSettings.CreateDefaultMelee(),
                 new PatrolSettings(PatrolBlockedMovementResponse.Stop),
+                Array.Empty<TileFeatureRuntimeDefinition>(),
                 out _);
             var steppedBackward = strategy.TryBuildMovementIntent(
                 snapshot,
                 source,
                 EnemyAiCommonSettings.CreateDefaultMelee(),
                 new PatrolSettings(PatrolBlockedMovementResponse.TryStepBackward),
+                Array.Empty<TileFeatureRuntimeDefinition>(),
                 out var backwardIntent);
 
             Assert.That(stopped, Is.False);
@@ -1901,6 +2114,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 source,
                 EnemyAiCommonSettings.CreateDefaultMelee(),
                 settings,
+                Array.Empty<TileFeatureRuntimeDefinition>(),
                 out var intent);
 
             Assert.That(facingChanged, Is.False);
@@ -1929,6 +2143,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 source,
                 EnemyAiCommonSettings.CreateDefaultMelee(),
                 settings,
+                Array.Empty<TileFeatureRuntimeDefinition>(),
                 out var intent);
 
             Assert.That(builtIntent, Is.True);
@@ -1957,6 +2172,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 source,
                 EnemyAiCommonSettings.CreateDefaultMelee(),
                 settings,
+                Array.Empty<TileFeatureRuntimeDefinition>(),
                 out var intent);
 
             Assert.That(EnemyMovementStrategyShared.HasWallFollowAnchor(snapshot, source, settings), Is.False);
@@ -1988,6 +2204,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 source,
                 EnemyAiCommonSettings.CreateDefaultMelee(),
                 settings,
+                Array.Empty<TileFeatureRuntimeDefinition>(),
                 out var intent);
 
             Assert.That(EnemyMovementStrategyShared.HasWallFollowAnchor(snapshot, source, settings), Is.False);
@@ -4277,6 +4494,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static WorldState CreateWorldState(
             IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            IEnumerable<TileFeatureState> initialTileFeatures)
+        {
+            return GameplayWorldStateTestFactory.CreateBounded(
+                initialEntities,
+                boardBounds,
+                Game.Feature.Gameplay.BoardState.TerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                GameplayTimingProfile.CreateDefault(),
+                initialTileFeatures);
+        }
+
+        private static WorldState CreateWorldState(
+            IEnumerable<EntityState> initialEntities,
             CubeTopologyState topology)
         {
             return GameplayWorldStateTestFactory.CreateBounded(
@@ -4354,6 +4585,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 patrolKind,
                 patrolState,
                 settings,
+                Array.Empty<TileFeatureRuntimeDefinition>(),
                 out var proposal);
 
             Assert.That(built, Is.True);
@@ -4557,6 +4789,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         PatrolStrategyKind.RandomWalk,
                         patrolStateBeforeTick,
                         patrolSettings,
+                        Array.Empty<TileFeatureRuntimeDefinition>(),
                         out var proposal);
                     var forwardCandidateAvailable = builtProposal &&
                                                     (proposal.CandidateMask & GetCandidateMaskBit(enemyBeforeTick.facing)) != 0;
@@ -5700,7 +5933,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int hp = 3,
             int aiStateTimer = 0,
             int enemyLocomotionCooldownTicks = 0,
-            UnitRole unitRole = UnitRole.None)
+            UnitRole unitRole = UnitRole.None,
+            UnitMobilityKind unitMobilityKind = UnitMobilityKind.Ground)
         {
             var resolvedUnitRole = unitRole != UnitRole.None
                 ? unitRole
@@ -5720,6 +5954,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 teamId = teamId,
                 type = EntityType.Unit,
                 unitRole = resolvedUnitRole,
+                unitMobilityKind = unitMobilityKind,
                 state = EntityPhaseState.Idle,
                 stateTimer = 0,
                 facing = facing,
@@ -5741,7 +5976,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int hp = 3,
             int aiStateTimer = 0,
             int enemyLocomotionCooldownTicks = 0,
-            UnitRole unitRole = UnitRole.None)
+            UnitRole unitRole = UnitRole.None,
+            UnitMobilityKind unitMobilityKind = UnitMobilityKind.Ground)
         {
             var resolvedUnitRole = unitRole != UnitRole.None
                 ? unitRole
@@ -5761,6 +5997,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 teamId = teamId,
                 type = EntityType.Unit,
                 unitRole = resolvedUnitRole,
+                unitMobilityKind = unitMobilityKind,
                 state = EntityPhaseState.Idle,
                 stateTimer = 0,
                 facing = facing,
@@ -5771,6 +6008,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 aiStateTimer = aiStateTimer,
                 enemyLocomotionCooldownTicks = enemyLocomotionCooldownTicks,
             };
+        }
+
+        private static TileFeatureState CreateDestroyTile(int tileId, SurfaceCell cell)
+        {
+            return new TileFeatureState(
+                tileId,
+                cell,
+                TileFeatureKind.Destroy,
+                TileFeatureFlags.None,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0,
+                lifetimeTicks: 0,
+                charges: 0);
+        }
+
+        private static TileFeatureRuntimeDefinition CreateTileFeatureDefinition(
+            int tileId,
+            TileFeatureActivationRule activationRule)
+        {
+            return new TileFeatureRuntimeDefinition(
+                tileId,
+                activationRule,
+                Direction2D.None,
+                TileFeatureBoxSelector.None,
+                boundEntityId: 0,
+                presentationKey: string.Empty);
         }
 
         private static EntityState CreateBox(int entityId, Vector2Int position)
