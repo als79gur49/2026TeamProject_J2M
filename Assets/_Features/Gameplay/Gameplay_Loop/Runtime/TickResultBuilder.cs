@@ -617,6 +617,7 @@ namespace Game.Feature.Gameplay.Loop
             var impactTransientSignals = new List<TickImpactTransientPresentationSignal>();
             var flipImpactSignals = new List<FlipImpactPresentationSignal>();
             var boxSlideStopSignals = new List<BoxSlideStopPresentationSignal>();
+            var boxSlideStartSignals = new List<BoxSlideStartPresentationSignal>();
             var enemyActionSignals = new List<TickEnemyActionPresentationSignal>();
             var enemyDamageSignals = new List<TickEnemyDamagePresentationSignal>();
             var enemyJumpSignals = new List<TickEnemyJumpPresentationSignal>();
@@ -649,6 +650,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildEntityExitPresentation(context, entityExitSignals, exitOwnedEntityIds);
             BuildFlipImpactPresentation(context, flipImpactSignals);
             BuildBoxSlideStopPresentation(context, boxSlideStopSignals);
+            BuildBoxSlideStartPresentation(context, boxSlideStartSignals);
             BuildImpactTransientPresentation(context, impactTransientSignals);
             BuildMovementPresentation(context, entityMotions, visibilityChanges, exitOwnedEntityIds);
             BuildKinematicMotionPresentation(context, kinematicMotionTracks);
@@ -689,6 +691,7 @@ namespace Game.Feature.Gameplay.Loop
                    impactTransientSignals.Count == 0 &&
                    flipImpactSignals.Count == 0 &&
                    boxSlideStopSignals.Count == 0 &&
+                   boxSlideStartSignals.Count == 0 &&
                    playerActionSignals.Count == 0 &&
                    playerActionAttemptSignals.Count == 0 &&
                    playerDamageSignals.Count == 0 &&
@@ -735,7 +738,36 @@ namespace Game.Feature.Gameplay.Loop
                     gravityFieldVisualStates,
                     playerActionAttemptSignals,
                     boxSlideStopSignals,
-                    enemyUtilitySignals);
+                    enemyUtilitySignals,
+                    boxSlideStartSignals);
+        }
+
+        private static void BuildBoxSlideStartPresentation(
+            in TickPresentationBuildContext context,
+            List<BoxSlideStartPresentationSignal> boxSlideStartSignals)
+        {
+            var operations = context.MovementPhaseResult.ResolvedOperations;
+            for (var i = 0; i < operations.Count; i++)
+            {
+                var operation = operations[i];
+                if (operation.Kind != FinalizationOperationKind.MoveEntity ||
+                    operation.Metadata.MovementSemanticKind != MovementSemanticKind.Slide ||
+                    operation.Metadata.SourceActorEntityId <= 0 ||
+                    operation.Metadata.SourceActorEntityId == operation.EntityId ||
+                    !context.PreMovementSnapshot.TryGetEntity(operation.EntityId, out var sourceEntity) ||
+                    sourceEntity.type != EntityType.Box)
+                {
+                    continue;
+                }
+
+                boxSlideStartSignals.Add(
+                    new BoxSlideStartPresentationSignal(
+                        operation.EntityId,
+                        operation.Metadata.SourceActorEntityId,
+                        sourceEntity.position,
+                        operation.Destination,
+                        context.PreMovementSnapshot.Topology));
+            }
         }
 
         private static void BuildBoxSlideStopPresentation(
@@ -2185,7 +2217,7 @@ namespace Game.Feature.Gameplay.Loop
                     !entry.State.activeAction.IsActive &&
                     !context.PlayerCommand.PushPressed &&
                     !context.PlayerCommand.FlipPressed &&
-                    (moveMotionGeneratedThisTick || waitingForNextMoveCadence);
+                    context.PlayerCommand.MoveDirection != Direction.None;
 
                 playerLocomotionSignals.Add(
                     new TickPlayerLocomotionPresentationSignal(
