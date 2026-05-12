@@ -9,6 +9,7 @@ namespace Game.Feature.Gameplay.BlockAudio
         None = 0,
         FlipLanding = 1,
         BoxSlideSolidStop = 2,
+        BoxSlideStarted = 3,
     }
 
     public readonly struct BlockAudioRequest
@@ -44,6 +45,7 @@ namespace Game.Feature.Gameplay.BlockAudio
         {
             BlockAudioCue.FlipLanding,
             BlockAudioCue.BoxSlideSolidStop,
+            BlockAudioCue.BoxSlideStarted,
         };
 
         public static IReadOnlyList<BlockAudioCue> RequiredOneShotV1 => RequiredCues;
@@ -55,6 +57,7 @@ namespace Game.Feature.Gameplay.BlockAudio
                 BlockAudioCue.None => nameof(BlockAudioCue.None),
                 BlockAudioCue.FlipLanding => nameof(BlockAudioCue.FlipLanding),
                 BlockAudioCue.BoxSlideSolidStop => nameof(BlockAudioCue.BoxSlideSolidStop),
+                BlockAudioCue.BoxSlideStarted => nameof(BlockAudioCue.BoxSlideStarted),
                 _ => throw new ArgumentOutOfRangeException(nameof(cue), cue, "Unsupported block audio cue."),
             };
         }

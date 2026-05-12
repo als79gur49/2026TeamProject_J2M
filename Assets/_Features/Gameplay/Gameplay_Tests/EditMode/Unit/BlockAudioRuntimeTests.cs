@@ -105,10 +105,32 @@ namespace Game.Feature.Gameplay.Tests
             Assert.That(requests[0].DelaySeconds, Is.Zero);
         }
 
+        [Test]
+        public void Planner_BuildsBoxSlideStartedCue_ForBoxSlideStartSignal()
+        {
+            var planner = new BlockAudioRequestPlanner();
+            var boxSlideStart = new BoxSlideStartPresentationSignal(
+                boxEntityId: 20,
+                actorEntityId: 10,
+                sourceCell: Cell(1, 0),
+                destinationCell: Cell(2, 0),
+                new CubeTopologyState(FaceId.Floor));
+
+            var requests = planner.BuildRequests(
+                CreateTickResult(CreatePresentationData(boxSlideStartSignals: new[] { boxSlideStart })),
+                CreateTimingProfile(flipMotionDurationSeconds: 0.5f));
+
+            Assert.That(requests, Has.Count.EqualTo(1));
+            Assert.That(requests[0].Cue, Is.EqualTo(BlockAudioCue.BoxSlideStarted));
+            Assert.That(requests[0].OwnerEntityId, Is.EqualTo(20));
+            Assert.That(requests[0].DelaySeconds, Is.Zero);
+        }
+
         private static TickPresentationData CreatePresentationData(
             IReadOnlyList<TickEntityMotion> entityMotions = null,
             IReadOnlyList<FlipImpactPresentationSignal> flipImpactSignals = null,
-            IReadOnlyList<BoxSlideStopPresentationSignal> boxSlideStopSignals = null)
+            IReadOnlyList<BoxSlideStopPresentationSignal> boxSlideStopSignals = null,
+            IReadOnlyList<BoxSlideStartPresentationSignal> boxSlideStartSignals = null)
         {
             return new TickPresentationData(
                 entityMotions ?? Array.Empty<TickEntityMotion>(),
@@ -124,7 +146,8 @@ namespace Game.Feature.Gameplay.Tests
                 Array.Empty<TickEnemyJumpPresentationSignal>(),
                 Array.Empty<TickEntityExitPresentationSignal>(),
                 flipImpactSignals ?? Array.Empty<FlipImpactPresentationSignal>(),
-                boxSlideStopSignals: boxSlideStopSignals ?? Array.Empty<BoxSlideStopPresentationSignal>());
+                boxSlideStopSignals: boxSlideStopSignals ?? Array.Empty<BoxSlideStopPresentationSignal>(),
+                boxSlideStartSignals: boxSlideStartSignals ?? Array.Empty<BoxSlideStartPresentationSignal>());
         }
 
         private static TickResult CreateTickResult(TickPresentationData presentationData)

@@ -26,6 +26,7 @@ namespace Game.Feature.Gameplay.BlockAudio
 
             var requests = new List<BlockAudioRequest>();
             BuildFlipLandingRequests(result, timingProfile, requests);
+            BuildBoxSlideStartedRequests(result, requests);
             BuildBoxSlideSolidStopRequests(result, requests);
             return requests;
         }
@@ -104,6 +105,31 @@ namespace Game.Feature.Gameplay.BlockAudio
             }
         }
 
+        private static void BuildBoxSlideStartedRequests(
+            TickResult result,
+            ICollection<BlockAudioRequest> requests)
+        {
+            var signals = result.PresentationData.BoxSlideStartSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (signal.BoxEntityId <= 0 ||
+                    signal.ActorEntityId <= 0)
+                {
+                    continue;
+                }
+
+                requests.Add(new BlockAudioRequest(
+                    BlockAudioCue.BoxSlideStarted,
+                    signal.BoxEntityId,
+                    ComputeBoxSlideStartedSequenceId(result.TickIndex, signal),
+                    delaySeconds: 0f,
+                    new AudioPlaybackContext(
+                        ownerEntityId: signal.BoxEntityId,
+                        debugTag: BlockAudioCueCatalog.Format(BlockAudioCue.BoxSlideStarted))));
+            }
+        }
+
         private static int ComputeFlipMotionSequenceId(int tickIndex, in TickEntityMotion motion)
         {
             unchecked
@@ -147,6 +173,24 @@ namespace Game.Feature.Gameplay.BlockAudio
                 hash = (hash * 31) + signal.SourceCell.GetHashCode();
                 hash = (hash * 31) + signal.StopperCell.GetHashCode();
                 hash = (hash * 31) + (int)signal.SlideDirection;
+                hash = (hash * 31) + signal.Topology.GetHashCode();
+                return hash == 0 ? 1 : hash;
+            }
+        }
+
+        private static int ComputeBoxSlideStartedSequenceId(
+            int tickIndex,
+            in BoxSlideStartPresentationSignal signal)
+        {
+            unchecked
+            {
+                var hash = 17;
+                hash = (hash * 31) + tickIndex;
+                hash = (hash * 31) + signal.BoxEntityId;
+                hash = (hash * 31) + signal.ActorEntityId;
+                hash = (hash * 31) + (int)BlockAudioCue.BoxSlideStarted;
+                hash = (hash * 31) + signal.SourceCell.GetHashCode();
+                hash = (hash * 31) + signal.DestinationCell.GetHashCode();
                 hash = (hash * 31) + signal.Topology.GetHashCode();
                 return hash == 0 ? 1 : hash;
             }
