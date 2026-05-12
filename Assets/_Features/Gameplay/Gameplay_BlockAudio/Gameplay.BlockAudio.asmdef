@@ -1,0 +1,8 @@
+{
+  "name": "Game.Feature.Gameplay.BlockAudio",
+  "rootNamespace": "Game.Feature.Gameplay.BlockAudio",
+  "references": [
+    "Game.Feature.Gameplay",
+    "Game.Shared.Audio"
+  ]
+}

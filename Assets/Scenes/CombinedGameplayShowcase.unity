@@ -540,6 +540,7 @@ MonoBehaviour:
   gameplayAudioMap: {fileID: 11400000, guid: 2e17653afa1ba264a950b76bcd5ccc56, type: 2}
   tileFeatureAudioMap: {fileID: 0}
   gravityFieldAudioMap: {fileID: 0}
+  blockAudioMap: {fileID: 11400000, guid: 5a6bb3f9bcde4e6ca7487767ab9ba305, type: 2}
   faceSeamGap: -1
   stageCatalogProvider: {fileID: 11400000, guid: acd8229e8e9e4f1da31d8206dfa8188e, type: 2}
   campaignStageSequenceDefinition: {fileID: 0}
