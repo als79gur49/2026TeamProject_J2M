@@ -27,6 +27,13 @@ MonoBehaviour:
         id: 
       policy:
         rid: -2
+  - Cue: 3
+    Binding:
+      definition: {fileID: 11400000, guid: b1f0d30e92094bfe934c76a1d00d32f1, type: 2}
+      attachmentSlot:
+        id:
+      policy:
+        rid: -2
   references:
     version: 2
     RefIds:
