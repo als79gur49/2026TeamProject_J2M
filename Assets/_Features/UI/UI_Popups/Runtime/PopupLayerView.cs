@@ -1,5 +1,6 @@
 using System;
 using DG.Tweening;
+using Game.Feature.UI.ViewShared;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -81,6 +82,27 @@ namespace Game.Feature.UI.Popups
             }
 
             return _contentRoot.GetComponentInChildren<T>(true);
+        }
+
+        public bool TryFindNavigationTarget(out IUiNavigationTarget target)
+        {
+            target = null;
+            if (_contentRoot == null)
+            {
+                return false;
+            }
+
+            var behaviours = _contentRoot.GetComponentsInChildren<MonoBehaviour>(true);
+            for (var i = behaviours.Length - 1; i >= 0; i--)
+            {
+                if (behaviours[i] is IUiNavigationTarget candidate)
+                {
+                    target = candidate;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public void SetState(

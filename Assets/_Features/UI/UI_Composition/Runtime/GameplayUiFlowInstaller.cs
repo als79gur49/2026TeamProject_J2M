@@ -47,6 +47,7 @@ namespace Game.Feature.UI.Composition
         private DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
         private bool _isInstalled;
         private IKeyboardBindingSettingsPort _keyboardBindingSettingsPort;
+        private UiNavigationInputRouter _navigationInputRouter;
         private StageResultAutoNextDriver _stageResultAutoNextDriver;
         private HudUiAudioFeedbackController _hudUiAudioFeedbackController;
 
@@ -108,13 +109,6 @@ namespace Game.Feature.UI.Composition
 
         private void Update()
         {
-            if (_isInstalled &&
-                (_keyboardBindingSettingsPort == null || !_keyboardBindingSettingsPort.IsRebinding) &&
-                KeyboardBridge.WasEscapePressedThisFrame())
-            {
-                Coordinator.HandleBackRequested();
-            }
-
             if (_isInstalled)
             {
                 _stageResultAutoNextDriver?.Tick(Time.unscaledDeltaTime);
@@ -253,6 +247,7 @@ namespace Game.Feature.UI.Composition
             WireViewEvents();
             WireControllerEvents();
             Coordinator.Initialize();
+            EnsureNavigationInputRouter();
             SyncViews();
             SetupDiagnostics();
 
@@ -447,6 +442,36 @@ namespace Game.Feature.UI.Composition
             {
                 _displaySettingsLifecycleRelay = gameObject.AddComponent<DisplaySettingsLifecycleRelay>();
             }
+        }
+
+        private void EnsureNavigationInputRouter()
+        {
+            _navigationInputRouter = GetComponent<UiNavigationInputRouter>();
+            if (_navigationInputRouter == null)
+            {
+                _navigationInputRouter = gameObject.AddComponent<UiNavigationInputRouter>();
+            }
+
+            var resolver = new UiLayeredNavigationTargetResolver(
+                PopupController,
+                ScreenController,
+                modalOverlayProvider: null,
+                hudProvider: _rootView != null
+                    ? _rootView.HudView as Game.Feature.UI.ViewShared.IUiNavigationTargetProvider
+                    : null,
+                isHudFocusEnabled: () => false);
+            _navigationInputRouter.Initialize(
+                ResolveUiInputActions(),
+                resolver,
+                () => Coordinator != null && Coordinator.HandleBackRequested(),
+                () => false);
+        }
+
+        private InputActionAsset ResolveUiInputActions()
+        {
+            return _sceneHost != null && _sceneHost.InputHost != null
+                ? _sceneHost.InputHost.Actions
+                : _inputActions;
         }
 
         private void SetupDiagnostics()

@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using Game.Feature.Stages;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
@@ -275,9 +274,11 @@ namespace Game.Feature.UI.Composition
 
             _navigationInputRouter.Initialize(
                 _inputActions,
-                PopupController,
-                _popupLayerView,
-                _mainMenuScreenView,
+                new UiLayeredNavigationTargetResolver(
+                    PopupController,
+                    screenController: null,
+                    screenProvider: new SingleUiNavigationTargetProvider(_mainMenuScreenView),
+                    modalOverlayProvider: _settingsOverlayController),
                 TryHandleBackRequested,
                 () => IsKeyboardBindingRebinding() || _wasKeyboardBindingRebinding);
         }
@@ -373,18 +374,14 @@ namespace Game.Feature.UI.Composition
                 eventSystem = eventSystemObject.AddComponent<EventSystem>();
             }
 
-            var inputSystemUiModuleType = Type.GetType("UnityEngine.InputSystem.UI.InputSystemUIInputModule, Unity.InputSystem");
-            if (inputSystemUiModuleType == null)
-            {
-                throw new InvalidOperationException("Unity Input System UI module is unavailable. Verify that the Input System package is installed.");
-            }
+            var inputSystemUiModuleType = UiEventSystemNavigationActionUtility.RequireInputSystemUiModuleType();
 
             if (eventSystem.GetComponent(inputSystemUiModuleType) == null)
             {
                 eventSystem.gameObject.AddComponent(inputSystemUiModuleType);
             }
 
-            DisableInputSystemUiModuleNavigationActions(eventSystem, inputSystemUiModuleType);
+            UiEventSystemNavigationActionUtility.DisableNavigationActions(eventSystem, inputSystemUiModuleType);
 
             var legacyModules = eventSystem.GetComponents<StandaloneInputModule>();
             foreach (var legacyModule in legacyModules)
@@ -397,43 +394,6 @@ namespace Game.Feature.UI.Composition
                 {
                     DestroyImmediate(legacyModule);
                 }
-            }
-        }
-
-        private static void DisableInputSystemUiModuleNavigationActions(
-            EventSystem eventSystem,
-            Type inputSystemUiModuleType)
-        {
-            var module = eventSystem.GetComponent(inputSystemUiModuleType);
-            if (module == null)
-            {
-                return;
-            }
-
-            ClearActionReference(module, inputSystemUiModuleType, "move");
-            ClearActionReference(module, inputSystemUiModuleType, "moveAction");
-            ClearActionReference(module, inputSystemUiModuleType, "m_MoveAction");
-            ClearActionReference(module, inputSystemUiModuleType, "submit");
-            ClearActionReference(module, inputSystemUiModuleType, "submitAction");
-            ClearActionReference(module, inputSystemUiModuleType, "m_SubmitAction");
-            ClearActionReference(module, inputSystemUiModuleType, "cancel");
-            ClearActionReference(module, inputSystemUiModuleType, "cancelAction");
-            ClearActionReference(module, inputSystemUiModuleType, "m_CancelAction");
-        }
-
-        private static void ClearActionReference(object module, Type moduleType, string memberName)
-        {
-            var property = moduleType.GetProperty(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            if (property != null && property.CanWrite)
-            {
-                property.SetValue(module, null);
-                return;
-            }
-
-            var field = moduleType.GetField(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            if (field != null)
-            {
-                field.SetValue(module, null);
             }
         }
 

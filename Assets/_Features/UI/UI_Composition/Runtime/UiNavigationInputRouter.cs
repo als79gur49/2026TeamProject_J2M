@@ -25,9 +25,11 @@ namespace Game.Feature.UI.Composition
         private Func<bool> _isNavigationBlocked;
         private InputAction _cancelAction;
         private IUiNavigationTarget _currentTarget;
+        private bool _currentTargetFocusRevealed;
         private bool _initialized;
         private InputAction _navigateAction;
         private PopupController _popupController;
+        private IUiNavigationTargetResolver _targetResolver;
         private InputAction _submitAction;
 
         public void Initialize(
@@ -43,11 +45,31 @@ namespace Game.Feature.UI.Composition
             _popupController = popupController;
             _popupLayerView = popupLayerView;
             _mainMenuScreenView = mainMenuScreenView;
+            _targetResolver = new LegacyNavigationTargetResolver(popupController, popupLayerView, mainMenuScreenView);
             _backRequestedFallback = backRequestedFallback;
             _isNavigationBlocked = isNavigationBlocked;
             _initialized = true;
             BindActions();
-            SetCurrentTarget(ResolveTarget());
+            SetCurrentTarget(ResolveTarget().Target);
+        }
+
+        public void Initialize(
+            InputActionAsset inputActions,
+            IUiNavigationTargetResolver targetResolver,
+            Func<bool> backRequestedFallback,
+            Func<bool> isNavigationBlocked)
+        {
+            UnbindActions();
+            _inputActions = inputActions;
+            _popupController = null;
+            _popupLayerView = null;
+            _mainMenuScreenView = null;
+            _targetResolver = targetResolver;
+            _backRequestedFallback = backRequestedFallback;
+            _isNavigationBlocked = isNavigationBlocked;
+            _initialized = true;
+            BindActions();
+            SetCurrentTarget(ResolveTarget().Target);
         }
 
         private void OnEnable()
@@ -58,7 +80,7 @@ namespace Game.Feature.UI.Composition
             }
 
             BindActions();
-            SetCurrentTarget(ResolveTarget());
+            SetCurrentTarget(ResolveTarget().Target);
         }
 
         private void OnDisable()
@@ -80,9 +102,16 @@ namespace Game.Feature.UI.Composition
                 return false;
             }
 
-            var target = ResolveTarget();
+            var resolution = ResolveTarget();
+            var target = resolution.Target;
             SetCurrentTarget(target);
-            return target != null && target.CanHandleUiNavigation && target.HandleNavigate(command);
+            if (target == null || !target.CanHandleUiNavigation)
+            {
+                return false;
+            }
+
+            RevealCurrentTargetFocus();
+            return target.HandleNavigate(command);
         }
 
         public bool DispatchSubmit()
@@ -92,9 +121,21 @@ namespace Game.Feature.UI.Composition
                 return false;
             }
 
-            var target = ResolveTarget();
+            var resolution = ResolveTarget();
+            var target = resolution.Target;
             SetCurrentTarget(target);
-            return target != null && target.CanHandleUiNavigation && target.HandleSubmit();
+            if (target == null || !target.CanHandleUiNavigation)
+            {
+                return false;
+            }
+
+            if (!_currentTargetFocusRevealed)
+            {
+                RevealCurrentTargetFocus();
+                return true;
+            }
+
+            return target.HandleSubmit();
         }
 
         public bool DispatchCancel()
@@ -104,7 +145,8 @@ namespace Game.Feature.UI.Composition
                 return false;
             }
 
-            var target = ResolveTarget();
+            var resolution = ResolveTarget();
+            var target = resolution.Target;
             SetCurrentTarget(target);
             if (target != null && target.CanHandleUiNavigation && target.HandleCancel())
             {
@@ -210,16 +252,53 @@ namespace Game.Feature.UI.Composition
             DispatchCancel();
         }
 
-        private IUiNavigationTarget ResolveTarget()
+        private UiNavigationTargetResolution ResolveTarget()
         {
-            if (_popupController != null && _popupController.TopPopup.HasValue)
+            return _targetResolver != null
+                ? _targetResolver.Resolve()
+                : UiNavigationTargetResolution.Open(null);
+        }
+
+        private sealed class LegacyNavigationTargetResolver : IUiNavigationTargetResolver
+        {
+            private readonly MainMenuScreenView _mainMenuScreenView;
+            private readonly PopupController _popupController;
+            private readonly PopupLayerView _popupLayerView;
+
+            public LegacyNavigationTargetResolver(
+                PopupController popupController,
+                PopupLayerView popupLayerView,
+                MainMenuScreenView mainMenuScreenView)
             {
-                return _popupLayerView != null
-                    ? _popupLayerView.FindPopupView<ConfirmPopupView>()
-                    : null;
+                _popupController = popupController;
+                _popupLayerView = popupLayerView;
+                _mainMenuScreenView = mainMenuScreenView;
             }
 
-            return _mainMenuScreenView;
+            public UiNavigationTargetResolution Resolve()
+            {
+                if (_popupController != null && _popupController.TopPopup.HasValue)
+                {
+                    var popup = _popupController.TopPopup.Value;
+                    if (_popupController is IUiNavigationTargetProvider popupProvider &&
+                        popupProvider.TryGetNavigationTarget(out var runtimeTarget))
+                    {
+                        return new UiNavigationTargetResolution(runtimeTarget, popup.Policy.BlocksLowerLayers);
+                    }
+
+                    if (_popupLayerView != null && _popupLayerView.TryFindNavigationTarget(out var layerTarget))
+                    {
+                        return new UiNavigationTargetResolution(layerTarget, popup.Policy.BlocksLowerLayers);
+                    }
+
+                    if (popup.Policy.BlocksLowerLayers)
+                    {
+                        return UiNavigationTargetResolution.Blocking(null);
+                    }
+                }
+
+                return UiNavigationTargetResolution.Open(_mainMenuScreenView);
+            }
         }
 
         private void SetCurrentTarget(IUiNavigationTarget target)
@@ -231,7 +310,18 @@ namespace Game.Feature.UI.Composition
 
             _currentTarget?.OnNavigationFocusLost();
             _currentTarget = target;
-            _currentTarget?.OnNavigationFocusGained();
+            _currentTargetFocusRevealed = false;
+        }
+
+        private void RevealCurrentTargetFocus()
+        {
+            if (_currentTarget == null || _currentTargetFocusRevealed)
+            {
+                return;
+            }
+
+            _currentTarget.OnNavigationFocusGained();
+            _currentTargetFocusRevealed = true;
         }
 
         private bool IsBlocked()
