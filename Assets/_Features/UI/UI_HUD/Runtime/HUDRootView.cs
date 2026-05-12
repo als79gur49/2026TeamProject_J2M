@@ -1,5 +1,6 @@
 using System;
 using DG.Tweening;
+using Game.Feature.UI.ViewShared;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Serialization;
@@ -7,7 +8,7 @@ using UnityEngine.UI;
 
 namespace Game.Feature.UI.HUD
 {
-    public sealed class HUDRootView : MonoBehaviour
+    public sealed class HUDRootView : MonoBehaviour, IUiNavigationTarget, IUiNavigationTargetProvider
     {
         private const float HudNormalAlpha = 1.0f;
         private const float HudDimmedAlpha = 0.82f;
@@ -21,6 +22,7 @@ namespace Game.Feature.UI.HUD
         [SerializeField] private GameObject _root;
         [SerializeField] private CanvasGroup _shellCanvasGroup;
         [SerializeField] private Button _pauseButton;
+        [SerializeField] private UiSelectableButtonGroup _navigationGroup = new();
         [SerializeField] private TMP_Text _stageNameLabel;
         [SerializeField] private ObjectiveHudView _objectiveHudView;
         [SerializeField] private ChancePanelView _chancePanelView;
@@ -36,8 +38,16 @@ namespace Game.Feature.UI.HUD
         private bool _lastRootVisibleState;
         private bool _hasShellAlphaTarget;
         private float _lastShellAlphaTarget = HudNormalAlpha;
+        private bool _isKeyboardFocusEnabled;
 
         public event Action PauseRequested;
+
+        public bool CanHandleUiNavigation =>
+            _isKeyboardFocusEnabled &&
+            IsVisible &&
+            isActiveAndEnabled &&
+            _viewModel != null &&
+            _viewModel.IsPauseButtonEnabled;
 
         public PlayerStatusView PlayerStatusView => _playerStatusView;
 
@@ -103,6 +113,52 @@ namespace Game.Feature.UI.HUD
             }
 
             PauseRequested?.Invoke();
+        }
+
+        public void SetKeyboardFocusEnabled(bool isEnabled)
+        {
+            _isKeyboardFocusEnabled = isEnabled;
+            if (!isEnabled)
+            {
+                _navigationGroup?.HideAllFrames();
+            }
+        }
+
+        public bool TryGetNavigationTarget(out IUiNavigationTarget target)
+        {
+            target = CanHandleUiNavigation ? this : null;
+            return target != null;
+        }
+
+        public bool HandleNavigate(UiNavigationCommand command)
+        {
+            return false;
+        }
+
+        public bool HandleSubmit()
+        {
+            if (!CanHandleUiNavigation)
+            {
+                return false;
+            }
+
+            ClickPause();
+            return true;
+        }
+
+        public bool HandleCancel()
+        {
+            return false;
+        }
+
+        public void OnNavigationFocusGained()
+        {
+            _navigationGroup?.SetSelectedIndex(0);
+        }
+
+        public void OnNavigationFocusLost()
+        {
+            _navigationGroup?.HideAllFrames();
         }
 
         public void ValidateAuthoredStructureOrThrow()
