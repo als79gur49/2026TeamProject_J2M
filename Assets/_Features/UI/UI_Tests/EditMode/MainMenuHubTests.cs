@@ -6,6 +6,7 @@ using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
+using Game.Feature.UI.ViewShared;
 using NUnit.Framework;
 using TMPro;
 using UnityEditor;
@@ -117,6 +118,13 @@ namespace Game.Feature.UI.Tests
                 SetPrivateField(view, "_settingsButtonLabel", settingsLabel);
                 SetPrivateField(view, "_quitButton", quitButton);
                 SetPrivateField(view, "_quitButtonLabel", quitLabel);
+                SetPrivateField(
+                    view,
+                    "_commandNavigationGroup",
+                    CreateNavigationGroup(
+                        startButton,
+                        settingsButton,
+                        quitButton));
 
                 Assert.DoesNotThrow(view.ValidateAuthoredStructureOrThrow);
             }
@@ -665,6 +673,21 @@ namespace Game.Feature.UI.Tests
             var buttonObject = new GameObject(name, typeof(RectTransform));
             buttonObject.transform.SetParent(parent, false);
             return buttonObject.AddComponent<Button>();
+        }
+
+        private static UiSelectableButtonGroup CreateNavigationGroup(params Button[] buttons)
+        {
+            var slots = new UiSelectableButtonSlot[buttons.Length];
+            for (var i = 0; i < buttons.Length; i++)
+            {
+                var frameObject = new GameObject("SelectionFrame", typeof(RectTransform));
+                frameObject.transform.SetParent(buttons[i].transform, false);
+                slots[i] = new UiSelectableButtonSlot(buttons[i], frameObject.AddComponent<Image>());
+            }
+
+            var group = new UiSelectableButtonGroup();
+            group.Configure(slots, UiSelectionVisualProfile.CreateRuntimeDefault(), wrap: false, skipNonInteractable: true);
+            return group;
         }
 
         private static SaveSlotCardView CreateAuthoredSaveSlotCard(string name, Transform parent)

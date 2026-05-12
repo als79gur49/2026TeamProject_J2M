@@ -54,6 +54,34 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void KeyboardBindingSettingsService_Wasd_DisablesUiNavigateArrowKeys()
+        {
+            var actions = CreateActions();
+            var store = new FakeKeyboardBindingStore();
+            using var service = new KeyboardBindingSettingsService(actions, store);
+
+            var result = service.SetMovementScheme(KeyboardMovementScheme.Wasd);
+
+            Assert.That(result, Is.EqualTo(KeyboardBindingValidationStatus.Success));
+            Assert.That(IsEffective(actions, "UI/Navigate", "<Keyboard>/w"), Is.True);
+            Assert.That(IsEffective(actions, "UI/Navigate", "<Keyboard>/upArrow"), Is.False);
+        }
+
+        [Test]
+        public void KeyboardBindingSettingsService_ArrowKeys_DisablesUiNavigateWasd()
+        {
+            var actions = CreateActions();
+            var store = new FakeKeyboardBindingStore();
+            using var service = new KeyboardBindingSettingsService(actions, store);
+
+            var result = service.SetMovementScheme(KeyboardMovementScheme.ArrowKeys);
+
+            Assert.That(result, Is.EqualTo(KeyboardBindingValidationStatus.Success));
+            Assert.That(IsEffective(actions, "UI/Navigate", "<Keyboard>/w"), Is.False);
+            Assert.That(IsEffective(actions, "UI/Navigate", "<Keyboard>/upArrow"), Is.True);
+        }
+
+        [Test]
         public void KeyboardBindingSettingsService_ResetToDefaults_RestoresWasdPushEFlipQ()
         {
             var actions = CreateActions();
@@ -152,6 +180,20 @@ namespace Game.Feature.UI.Tests
                 .AddBinding("<Keyboard>/q")
                 .WithGroup("Keyboard&Mouse");
             actions.AddActionMap(player);
+
+            var ui = new InputActionMap("UI");
+            var navigate = ui.AddAction("Navigate", InputActionType.PassThrough);
+            navigate.AddCompositeBinding("2DVector")
+                .With("Up", "<Keyboard>/w")
+                .With("Down", "<Keyboard>/s")
+                .With("Left", "<Keyboard>/a")
+                .With("Right", "<Keyboard>/d")
+                .With("Up", "<Keyboard>/upArrow")
+                .With("Down", "<Keyboard>/downArrow")
+                .With("Left", "<Keyboard>/leftArrow")
+                .With("Right", "<Keyboard>/rightArrow");
+            actions.AddActionMap(ui);
+
             _createdActions.Add(actions);
             return actions;
         }
