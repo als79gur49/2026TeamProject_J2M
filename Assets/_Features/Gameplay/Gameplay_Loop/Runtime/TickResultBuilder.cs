@@ -2277,26 +2277,67 @@ namespace Game.Feature.Gameplay.Loop
                         : DeathDirectionHintKind.FacingReverse);
             }
 
-            if (fatalSignalsByPlayerId.Count == 0)
+            var removedPlayerIds = context.CleanupPhaseResult.RemovedEntityIds.Count > 0
+                ? new HashSet<int>(context.CleanupPhaseResult.RemovedEntityIds)
+                : null;
+            if (fatalSignalsByPlayerId.Count > 0)
+            {
+                foreach (var pair in fatalSignalsByPlayerId)
+                {
+                    var didDieThisTick =
+                        (context.PostAttackSnapshot.TryGetEntity(pair.Key, out var postAttackPlayer) &&
+                         postAttackPlayer.hp <= 0) ||
+                        (removedPlayerIds != null && removedPlayerIds.Contains(pair.Key));
+                    if (!didDieThisTick)
+                    {
+                        continue;
+                    }
+
+                    playerDeathSignals.Add(pair.Value);
+                }
+            }
+
+            BuildMovementOwnedPlayerDeathPresentation(context, playerDeathSignals, fatalSignalsByPlayerId);
+        }
+
+        private static void BuildMovementOwnedPlayerDeathPresentation(
+            in TickPresentationBuildContext context,
+            List<TickPlayerDeathPresentationSignal> playerDeathSignals,
+            IDictionary<int, TickPlayerDeathPresentationSignal> existingSignalsByPlayerId)
+        {
+            var removedPlayerIds = context.CleanupPhaseResult.RemovedEntityIds.Count > 0
+                ? new HashSet<int>(context.CleanupPhaseResult.RemovedEntityIds)
+                : null;
+            if (removedPlayerIds == null)
             {
                 return;
             }
 
-            var removedPlayerIds = context.CleanupPhaseResult.RemovedEntityIds.Count > 0
-                ? new HashSet<int>(context.CleanupPhaseResult.RemovedEntityIds)
-                : null;
-            foreach (var pair in fatalSignalsByPlayerId)
+            var operations = context.MovementPhaseResult.ResolvedOperations;
+            for (var i = 0; i < operations.Count; i++)
             {
-                var didDieThisTick =
-                    (context.PostAttackSnapshot.TryGetEntity(pair.Key, out var postAttackPlayer) &&
-                     postAttackPlayer.hp <= 0) ||
-                    (removedPlayerIds != null && removedPlayerIds.Contains(pair.Key));
-                if (!didDieThisTick)
+                var operation = operations[i];
+                if (operation.Kind != FinalizationOperationKind.MarkDestroy ||
+                    operation.Metadata.DamageSourceType != DamageSourceType.Environmental ||
+                    operation.Metadata.BoundaryReason != "DestroyTile" ||
+                    existingSignalsByPlayerId.ContainsKey(operation.EntityId) ||
+                    !removedPlayerIds.Contains(operation.EntityId) ||
+                    !context.PostAttackSnapshot.TryGetEntity(operation.EntityId, out var player) ||
+                    !EntityRolePolicy.IsPlayerUnit(player))
                 {
                     continue;
                 }
 
-                playerDeathSignals.Add(pair.Value);
+                var signal = new TickPlayerDeathPresentationSignal(
+                    operation.EntityId,
+                    didDieThisTick: true,
+                    sourceEntityId: 0,
+                    player.facing,
+                    resolvedDamageSourceAvailable: false,
+                    damageAmountAtFatalHit: Math.Max(1, player.hp),
+                    DeathDirectionHintKind.FacingReverse);
+                existingSignalsByPlayerId[operation.EntityId] = signal;
+                playerDeathSignals.Add(signal);
             }
         }
 
