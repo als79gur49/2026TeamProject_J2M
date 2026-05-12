@@ -9,6 +9,9 @@ namespace Game.Feature.UI.Popups
 {
     public sealed class ConfirmPopupView : MonoBehaviour, IPopupView, IUiNavigationTarget
     {
+        private const int ConfirmSelectionIndex = 0;
+        private const int CancelSelectionIndex = 1;
+
         [SerializeField] private GameObject _root;
         [SerializeField] private CanvasGroup _canvasGroup;
         [SerializeField] private TMP_Text _titleLabel;
@@ -127,10 +130,10 @@ namespace Game.Feature.UI.Popups
             switch (command)
             {
                 case UiNavigationCommand.Left:
-                    return _actionNavigationGroup.SetSelectedIndex(0);
+                    return _actionNavigationGroup.SetSelectedIndex(CancelSelectionIndex);
 
                 case UiNavigationCommand.Right:
-                    return _actionNavigationGroup.SetSelectedIndex(1);
+                    return _actionNavigationGroup.SetSelectedIndex(ConfirmSelectionIndex);
 
                 default:
                     return false;
@@ -144,7 +147,7 @@ namespace Game.Feature.UI.Popups
                 return false;
             }
 
-            if (_actionNavigationGroup.SelectedIndex == 1)
+            if (_actionNavigationGroup.SelectedIndex == CancelSelectionIndex)
             {
                 ClickCancel();
                 return true;
@@ -269,7 +272,8 @@ namespace Game.Feature.UI.Popups
                 return;
             }
 
-            _actionNavigationGroup.SetSelectedIndex(_viewModel != null && _viewModel.IsConfirmDestructive ? 1 : 0);
+            // Product policy: destructive confirmations intentionally default to Confirm.
+            _actionNavigationGroup.SetSelectedIndex(ConfirmSelectionIndex);
         }
 
         private void ApplyRootVisibility()

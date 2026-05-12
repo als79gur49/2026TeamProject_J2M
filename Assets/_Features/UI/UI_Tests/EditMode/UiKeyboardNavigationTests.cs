@@ -45,6 +45,37 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ConfirmPopupNavigation_DestructivePayload_DefaultsToConfirm_ByProductPolicy()
+        {
+            using var harness = CreateConfirmPopupHarness(isDestructive: true);
+            PopupCompletionKind? completion = null;
+            harness.View.CompletionRequested += kind => completion = kind;
+
+            Assert.That(harness.View.SelectedActionIndex, Is.EqualTo(0));
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(completion, Is.EqualTo(PopupCompletionKind.Confirmed));
+        }
+
+        [Test]
+        public void ConfirmPopupNavigation_HorizontalInputMatchesVisualOrder()
+        {
+            using var harness = CreateConfirmPopupHarness(isDestructive: true);
+            PopupCompletionKind? completion = null;
+            harness.View.CompletionRequested += kind => completion = kind;
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Left), Is.True);
+            Assert.That(harness.View.SelectedActionIndex, Is.EqualTo(1));
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(completion, Is.EqualTo(PopupCompletionKind.Cancelled));
+
+            completion = null;
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
+            Assert.That(harness.View.SelectedActionIndex, Is.EqualTo(0));
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(completion, Is.EqualTo(PopupCompletionKind.Confirmed));
+        }
+
+        [Test]
         public void UiNavigationInputRouter_ConfirmPopupTopmost_BlocksMainMenuSelection()
         {
             using var mainMenu = CreateMainMenuHarness();
