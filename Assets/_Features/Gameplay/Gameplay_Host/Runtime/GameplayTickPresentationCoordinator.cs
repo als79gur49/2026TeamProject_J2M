@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using Game.Feature.Gameplay.ActionAudio;
 using Game.Feature.Gameplay.Audio;
 using Game.Feature.Gameplay.BlockAudio;
+using Game.Feature.Gameplay.EnemyAudio;
 using Game.Feature.Gameplay.GravityFieldAudio;
 using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
@@ -28,6 +29,8 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplayAnimationSyncCoordinator _animationSync = new();
         private readonly GameplayActionAudioRequestPlanner _actionAudioRequestPlanner = new();
         private readonly GameplayActionAudioPresentationController _actionAudioPresentationController;
+        private readonly EnemyAudioRequestPlanner _enemyAudioRequestPlanner = new();
+        private readonly EnemyAudioPresentationController _enemyAudioPresentationController;
         private readonly BlockAudioRequestPlanner _blockAudioRequestPlanner = new();
         private readonly BlockAudioPresentationController _blockAudioPresentationController;
         private readonly PlayerLocomotionAudioPresentationController _playerLocomotionAudioPresentationController;
@@ -76,6 +79,7 @@ namespace Game.Feature.Gameplay.Host
         {
             _audioPresentationController = new GameplayAudioPresentationController(_stateStore);
             _actionAudioPresentationController = new GameplayActionAudioPresentationController(_stateStore);
+            _enemyAudioPresentationController = new EnemyAudioPresentationController(_stateStore);
             _blockAudioPresentationController = new BlockAudioPresentationController(_stateStore);
             _playerLocomotionAudioPresentationController = new PlayerLocomotionAudioPresentationController(_stateStore);
             _tileFeatureAudioPresentationController = new TileFeatureAudioPresentationController(_stateStore);
@@ -193,6 +197,7 @@ namespace Game.Feature.Gameplay.Host
             _exitPresentationController.Reset();
             _audioPresentationController.ResetSession();
             _actionAudioPresentationController.ResetSession();
+            _enemyAudioPresentationController.ResetSession();
             _blockAudioPresentationController.ResetSession();
             _playerLocomotionAudioPresentationController.ResetSession();
             _tileFeatureAudioPresentationController.ResetSession();
@@ -273,6 +278,7 @@ namespace Game.Feature.Gameplay.Host
             TraceStep("RefreshAudioPlan");
             _audioPresentationController.ReplacePendingPlan(_audioRequestPlanner.BuildRequests(result));
             _actionAudioPresentationController.ReplacePendingPlan(_actionAudioRequestPlanner.BuildRequests(result));
+            _enemyAudioPresentationController.ReplacePendingPlan(_enemyAudioRequestPlanner.BuildRequests(result));
             _blockAudioPresentationController.ReplacePendingPlan(
                 _blockAudioRequestPlanner.BuildRequests(result, _timingProfile));
             RefreshTilePresentationRequests(result.PresentationData);
@@ -337,6 +343,7 @@ namespace Game.Feature.Gameplay.Host
             TraceStep("PlayPlannedAudio");
             _audioPresentationController.PlayPlannedAudio();
             _actionAudioPresentationController.PlayPlannedAudio();
+            _enemyAudioPresentationController.PlayPlannedAudio();
             _blockAudioPresentationController.PlayPlannedAudio();
             _playerLocomotionAudioPresentationController.PlayPlannedAudio();
             _tileFeatureAudioPresentationController.PlayPlannedAudio();
@@ -359,6 +366,7 @@ namespace Game.Feature.Gameplay.Host
             _gravityFieldVisualPresentationController.ClearTrackedContinuousStates();
             _audioPresentationController.ResetSession();
             _actionAudioPresentationController.ResetSession();
+            _enemyAudioPresentationController.ResetSession();
             _blockAudioPresentationController.ResetSession();
             _playerLocomotionAudioPresentationController.ResetSession();
             _tileFeatureAudioPresentationController.ResetSession();
@@ -424,6 +432,7 @@ namespace Game.Feature.Gameplay.Host
         {
             _audioPresentationController.AttachRuntime(playbackPort, gameplayAudioMap);
             _actionAudioPresentationController.AttachRuntime(playbackPort);
+            _enemyAudioPresentationController.AttachRuntime(playbackPort);
         }
 
         internal void AttachTileFeatureAudioRuntime(
@@ -462,6 +471,7 @@ namespace Game.Feature.Gameplay.Host
         internal void DetachGameplayAudioRuntime()
         {
             _actionAudioPresentationController.DetachRuntime();
+            _enemyAudioPresentationController.DetachRuntime();
             _audioPresentationController.DetachRuntime();
         }
 
@@ -494,6 +504,7 @@ namespace Game.Feature.Gameplay.Host
 
             _audioPresentationController.ReplacePendingPlan(_audioRequestPlanner.BuildRequests(result));
             _actionAudioPresentationController.ReplacePendingPlan(_actionAudioRequestPlanner.BuildRequests(result));
+            _enemyAudioPresentationController.ReplacePendingPlan(_enemyAudioRequestPlanner.BuildRequests(result));
         }
 
         internal void SetTraceSink(Action<string> traceSink)

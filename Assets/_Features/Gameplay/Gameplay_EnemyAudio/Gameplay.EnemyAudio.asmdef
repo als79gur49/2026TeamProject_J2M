@@ -1,0 +1,8 @@
+{
+  "name": "Game.Feature.Gameplay.EnemyAudio",
+  "rootNamespace": "Game.Feature.Gameplay.EnemyAudio",
+  "references": [
+    "Game.Feature.Gameplay",
+    "Game.Shared.Audio"
+  ]
+}
