@@ -1,12 +1,13 @@
 using System;
 using DG.Tweening;
+using Game.Feature.UI.ViewShared;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Game.Feature.UI.Popups
 {
-    public sealed class ConfirmPopupView : MonoBehaviour, IPopupView
+    public sealed class ConfirmPopupView : MonoBehaviour, IPopupView, IUiNavigationTarget
     {
         [SerializeField] private GameObject _root;
         [SerializeField] private CanvasGroup _canvasGroup;
@@ -17,6 +18,7 @@ namespace Game.Feature.UI.Popups
         [SerializeField] private TMP_Text _confirmButtonLabel;
         [SerializeField] private TMP_Text _cancelButtonLabel;
         [SerializeField] private Image _confirmButtonImage;
+        [SerializeField] private UiSelectableButtonGroup _actionNavigationGroup = new UiSelectableButtonGroup();
 
         private ConfirmPopupViewModel _viewModel;
         private bool _isVisible;
@@ -32,6 +34,10 @@ namespace Game.Feature.UI.Popups
         public string TitleText => _viewModel != null ? _viewModel.TitleText : string.Empty;
 
         public string BodyText => _viewModel != null ? _viewModel.BodyText : string.Empty;
+
+        public bool CanHandleUiNavigation => IsVisible && isActiveAndEnabled && _canvasGroup != null && _canvasGroup.interactable;
+
+        public int SelectedActionIndex => _actionNavigationGroup != null ? _actionNavigationGroup.SelectedIndex : 0;
 
         public bool IsVisible
         {
@@ -56,6 +62,7 @@ namespace Game.Feature.UI.Popups
                 _viewModel.Changed += HandleViewModelChanged;
             }
 
+            ResetDefaultSelection();
             RefreshView();
         }
 
@@ -73,6 +80,7 @@ namespace Game.Feature.UI.Popups
                 _cancelButton.onClick.AddListener(ClickCancel);
             }
 
+            ResetDefaultSelection();
             RefreshView();
         }
 
@@ -99,6 +107,72 @@ namespace Game.Feature.UI.Popups
 
             _canvasGroup.interactable = isTopmost;
             _canvasGroup.blocksRaycasts = isTopmost;
+            if (isTopmost)
+            {
+                OnNavigationFocusGained();
+            }
+            else
+            {
+                OnNavigationFocusLost();
+            }
+        }
+
+        public bool HandleNavigate(UiNavigationCommand command)
+        {
+            if (!CanHandleUiNavigation || _actionNavigationGroup == null)
+            {
+                return false;
+            }
+
+            switch (command)
+            {
+                case UiNavigationCommand.Left:
+                    return _actionNavigationGroup.SetSelectedIndex(0);
+
+                case UiNavigationCommand.Right:
+                    return _actionNavigationGroup.SetSelectedIndex(1);
+
+                default:
+                    return false;
+            }
+        }
+
+        public bool HandleSubmit()
+        {
+            if (!CanHandleUiNavigation || _actionNavigationGroup == null)
+            {
+                return false;
+            }
+
+            if (_actionNavigationGroup.SelectedIndex == 1)
+            {
+                ClickCancel();
+                return true;
+            }
+
+            ClickConfirm();
+            return true;
+        }
+
+        public bool HandleCancel()
+        {
+            if (!CanHandleUiNavigation)
+            {
+                return false;
+            }
+
+            ClickCancel();
+            return true;
+        }
+
+        public void OnNavigationFocusGained()
+        {
+            _actionNavigationGroup?.RefreshVisuals();
+        }
+
+        public void OnNavigationFocusLost()
+        {
+            _actionNavigationGroup?.HideAllFrames();
         }
 
         public void ClickConfirm()
@@ -147,6 +221,7 @@ namespace Game.Feature.UI.Popups
 
         private void HandleViewModelChanged()
         {
+            ResetDefaultSelection();
             RefreshView();
         }
 
@@ -185,6 +260,16 @@ namespace Game.Feature.UI.Popups
                     ? new Color(0.62f, 0.21f, 0.21f, 1f)
                     : new Color(0.20f, 0.25f, 0.34f, 1f);
             }
+        }
+
+        private void ResetDefaultSelection()
+        {
+            if (_actionNavigationGroup == null)
+            {
+                return;
+            }
+
+            _actionNavigationGroup.SetSelectedIndex(_viewModel != null && _viewModel.IsConfirmDestructive ? 1 : 0);
         }
 
         private void ApplyRootVisibility()

@@ -1,14 +1,15 @@
 using System;
+using Game.Feature.UI.ViewShared;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Game.Feature.UI.Screens
 {
-    public sealed class MainMenuScreenView : MonoBehaviour
+    public sealed class MainMenuScreenView : MonoBehaviour, IUiNavigationTarget
     {
         private const string MissingAuthoredStructureMessage =
-            "MainMenu screen is missing required authored shell references. Repair MainMenuScreen.prefab so it contains TopBar, ContentHost, BottomBar, MainCommandPanel, StartButton, SettingsButton, QuitButton, and SaveSlotPanelView.";
+            "MainMenu screen is missing required authored shell references. Repair MainMenuScreen.prefab so it contains TopBar, ContentHost, BottomBar, MainCommandPanel, StartButton, SettingsButton, QuitButton, SaveSlotPanelView, and command SelectionFrame slots.";
 
         [SerializeField] private GameObject _root;
         [SerializeField] private RectTransform _topBar;
@@ -22,6 +23,7 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private TMP_Text _settingsButtonLabel;
         [SerializeField] private Button _quitButton;
         [SerializeField] private TMP_Text _quitButtonLabel;
+        [SerializeField] private UiSelectableButtonGroup _commandNavigationGroup = new UiSelectableButtonGroup();
 
         public event Action<MainMenuCommandIntent> CommandRequested;
 
@@ -30,6 +32,10 @@ namespace Game.Feature.UI.Screens
         public SaveSlotPanelView SaveSlotPanel => _saveSlotPanel;
 
         public MainMenuSectionId ActiveSection { get; private set; } = MainMenuSectionId.SaveSlots;
+
+        public bool CanHandleUiNavigation => isActiveAndEnabled && (_root == null || _root.activeInHierarchy);
+
+        public int SelectedCommandIndex => _commandNavigationGroup != null ? _commandNavigationGroup.SelectedIndex : 0;
 
         public void SetVisible(bool visible)
         {
@@ -53,10 +59,13 @@ namespace Game.Feature.UI.Screens
                 _settingsButton == null ||
                 _settingsButtonLabel == null ||
                 _quitButton == null ||
-                _quitButtonLabel == null)
+                _quitButtonLabel == null ||
+                _commandNavigationGroup == null)
             {
                 throw new InvalidOperationException(MissingAuthoredStructureMessage);
             }
+
+            _commandNavigationGroup.ValidateOrThrow(MissingAuthoredStructureMessage);
 
             RequireOwnedBy(_topBar, transform);
             RequireOwnedBy(_contentHost, transform);
@@ -71,6 +80,67 @@ namespace Game.Feature.UI.Screens
             RequireOwnedBy(_quitButtonLabel.transform, _quitButton.transform);
 
             _saveSlotPanel.ValidateAuthoredStructureOrThrow();
+        }
+
+        public bool HandleNavigate(UiNavigationCommand command)
+        {
+            if (!CanHandleUiNavigation || _commandNavigationGroup == null)
+            {
+                return false;
+            }
+
+            switch (command)
+            {
+                case UiNavigationCommand.Up:
+                    return _commandNavigationGroup.TryMove(-1);
+
+                case UiNavigationCommand.Down:
+                    return _commandNavigationGroup.TryMove(1);
+
+                default:
+                    return false;
+            }
+        }
+
+        public bool HandleSubmit()
+        {
+            if (!CanHandleUiNavigation || _commandNavigationGroup == null)
+            {
+                return false;
+            }
+
+            switch (_commandNavigationGroup.SelectedIndex)
+            {
+                case 0:
+                    ClickStart();
+                    return true;
+
+                case 1:
+                    ClickSettings();
+                    return true;
+
+                case 2:
+                    ClickQuit();
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        public bool HandleCancel()
+        {
+            return false;
+        }
+
+        public void OnNavigationFocusGained()
+        {
+            _commandNavigationGroup?.RefreshVisuals();
+        }
+
+        public void OnNavigationFocusLost()
+        {
+            _commandNavigationGroup?.HideAllFrames();
         }
 
         public void ShowSection(MainMenuSectionId sectionId)
@@ -122,6 +192,7 @@ namespace Game.Feature.UI.Screens
         {
             EnsureSaveSlotCardOrder();
             WireButtons();
+            _commandNavigationGroup?.SetSelectedIndex(_commandNavigationGroup.SelectedIndex);
         }
 
         private void OnDisable()

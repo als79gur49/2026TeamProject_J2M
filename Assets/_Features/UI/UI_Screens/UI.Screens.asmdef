@@ -3,6 +3,7 @@
   "rootNamespace": "Game.Feature.UI.Screens",
   "references": [
     "Game.Feature.Stages",
+    "Game.Feature.UI.ViewShared",
     "Unity.TextMeshPro",
     "DOTween.Modules"
   ]
