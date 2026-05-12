@@ -551,15 +551,25 @@ namespace Game.Feature.Gameplay.Host
                 return legacyDurationSeconds;
             }
 
-            if (resolvedMotionDurationSeconds > 0f)
-            {
-                return resolvedMotionDurationSeconds;
-            }
-
             var windupPhase = ResolveWindupPhase(actionKind);
             var recoveryPhase = ResolveRecoveryPhase(actionKind);
             var hasWindupOverride = animationTiming.TryGetAnimatorDurationOverride(windupPhase, out var windupDurationSeconds);
             var hasRecoveryOverride = animationTiming.TryGetAnimatorDurationOverride(recoveryPhase, out var recoveryDurationSeconds);
+            if (resolvedMotionDurationSeconds > 0f)
+            {
+                if (hasWindupOverride)
+                {
+                    return windupDurationSeconds;
+                }
+
+                if (hasRecoveryOverride)
+                {
+                    return recoveryDurationSeconds;
+                }
+
+                return resolvedMotionDurationSeconds;
+            }
+
             if (hasWindupOverride || hasRecoveryOverride)
             {
                 return (hasWindupOverride ? windupDurationSeconds : ResolvePhaseReferenceClipLengthSeconds(targetAnimator, windupPhase)) +
