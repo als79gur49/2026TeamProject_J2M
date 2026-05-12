@@ -1,12 +1,13 @@
 using System;
 using DG.Tweening;
+using Game.Feature.UI.ViewShared;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Game.Feature.UI.Popups
 {
-    public sealed class RewardPopupView : MonoBehaviour, IPopupView
+    public sealed class RewardPopupView : MonoBehaviour, IPopupView, IUiNavigationTarget
     {
         [SerializeField] private GameObject _root;
         [SerializeField] private CanvasGroup _canvasGroup;
@@ -17,6 +18,7 @@ namespace Game.Feature.UI.Popups
         [SerializeField] private TMP_Text _summaryLabel;
         [SerializeField] private Button _closeButton;
         [SerializeField] private TMP_Text _closeButtonLabel;
+        [SerializeField] private UiSelectableButtonGroup _navigationGroup = new();
 
         private RewardPopupViewModel _viewModel;
         private bool _isVisible;
@@ -28,6 +30,8 @@ namespace Game.Feature.UI.Popups
         private Vector3 _rootRestScale = Vector3.one;
 
         public event Action<PopupCompletionKind> CompletionRequested;
+
+        public bool CanHandleUiNavigation => IsVisible && isActiveAndEnabled && _canvasGroup != null && _canvasGroup.interactable;
 
         public bool IsVisible
         {
@@ -94,6 +98,37 @@ namespace Game.Feature.UI.Popups
             }
 
             CompletionRequested?.Invoke(PopupCompletionKind.Acknowledged);
+        }
+
+        public bool HandleNavigate(UiNavigationCommand command)
+        {
+            return false;
+        }
+
+        public bool HandleSubmit()
+        {
+            if (!CanHandleUiNavigation)
+            {
+                return false;
+            }
+
+            ClickAcknowledge();
+            return true;
+        }
+
+        public bool HandleCancel()
+        {
+            return false;
+        }
+
+        public void OnNavigationFocusGained()
+        {
+            _navigationGroup?.SetSelectedIndex(0);
+        }
+
+        public void OnNavigationFocusLost()
+        {
+            _navigationGroup?.HideAllFrames();
         }
 
         private void OnDestroy()

@@ -1,12 +1,13 @@
 using System;
 using DG.Tweening;
+using Game.Feature.UI.ViewShared;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Game.Feature.UI.Screens
 {
-    public sealed class ObjectiveStatusScreenView : MonoBehaviour, IScreenView
+    public sealed class ObjectiveStatusScreenView : MonoBehaviour, IScreenView, IUiNavigationTarget
     {
         [SerializeField] private GameObject _root;
         [SerializeField] private TMP_Text _titleLabel;
@@ -16,6 +17,7 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private TMP_Text _secondaryLabel;
         [SerializeField] private Button _infoButton;
         [SerializeField] private Button _backButton;
+        [SerializeField] private UiSelectableButtonGroup _navigationGroup = new();
 
         private ObjectiveStatusScreenViewModel _viewModel;
         private bool _isVisible;
@@ -28,6 +30,8 @@ namespace Game.Feature.UI.Screens
         public event Action InfoRequested;
 
         public event Action BackRequested;
+
+        public bool CanHandleUiNavigation => IsVisible && isActiveAndEnabled;
 
         public bool IsVisible
         {
@@ -78,6 +82,71 @@ namespace Game.Feature.UI.Screens
             }
 
             BackRequested?.Invoke();
+        }
+
+        public bool HandleNavigate(UiNavigationCommand command)
+        {
+            if (!CanHandleUiNavigation || _navigationGroup == null)
+            {
+                return false;
+            }
+
+            switch (command)
+            {
+                case UiNavigationCommand.Up:
+                    return _navigationGroup.TryMove(-1);
+
+                case UiNavigationCommand.Down:
+                    return _navigationGroup.TryMove(1);
+
+                default:
+                    return false;
+            }
+        }
+
+        public bool HandleSubmit()
+        {
+            if (!CanHandleUiNavigation)
+            {
+                return false;
+            }
+
+            var selected = _navigationGroup != null ? _navigationGroup.GetSelectedButton() : null;
+            if (selected == _infoButton)
+            {
+                ClickInfo();
+                return true;
+            }
+
+            if (selected == _backButton || selected == null)
+            {
+                ClickBack();
+                return true;
+            }
+
+            selected.onClick.Invoke();
+            return true;
+        }
+
+        public bool HandleCancel()
+        {
+            if (!CanHandleUiNavigation)
+            {
+                return false;
+            }
+
+            ClickBack();
+            return true;
+        }
+
+        public void OnNavigationFocusGained()
+        {
+            _navigationGroup?.SetSelectedIndex(0);
+        }
+
+        public void OnNavigationFocusLost()
+        {
+            _navigationGroup?.HideAllFrames();
         }
 
         private void OnEnable()

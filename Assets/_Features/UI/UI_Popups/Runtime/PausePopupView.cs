@@ -1,12 +1,13 @@
 using System;
 using DG.Tweening;
+using Game.Feature.UI.ViewShared;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Game.Feature.UI.Popups
 {
-    public sealed class PausePopupView : MonoBehaviour, IPopupView
+    public sealed class PausePopupView : MonoBehaviour, IPopupView, IUiNavigationTarget
     {
         [SerializeField] private GameObject _root;
         [SerializeField] private CanvasGroup _canvasGroup;
@@ -22,6 +23,7 @@ namespace Game.Feature.UI.Popups
         [SerializeField] private TMP_Text _retryButtonLabel;
         [SerializeField] private Button _mainMenuButton;
         [SerializeField] private TMP_Text _mainMenuButtonLabel;
+        [SerializeField] private UiSelectableButtonGroup _navigationGroup = new();
 
         private PausePopupViewModel _viewModel;
         private bool _isVisible;
@@ -33,6 +35,8 @@ namespace Game.Feature.UI.Popups
         private Vector3 _rootRestScale = Vector3.one;
 
         public event Action<PopupCompletionKind> CompletionRequested;
+
+        public bool CanHandleUiNavigation => IsVisible && isActiveAndEnabled && _canvasGroup != null && _canvasGroup.interactable;
 
         public string TitleText => _viewModel != null ? _viewModel.TitleText : string.Empty;
 
@@ -144,6 +148,77 @@ namespace Game.Feature.UI.Popups
             }
 
             CompletionRequested?.Invoke(PopupCompletionKind.MainMenuRequested);
+        }
+
+        public bool HandleNavigate(UiNavigationCommand command)
+        {
+            if (!CanHandleUiNavigation || _navigationGroup == null)
+            {
+                return false;
+            }
+
+            switch (command)
+            {
+                case UiNavigationCommand.Up:
+                    return _navigationGroup.TryMove(-1);
+
+                case UiNavigationCommand.Down:
+                    return _navigationGroup.TryMove(1);
+
+                default:
+                    return false;
+            }
+        }
+
+        public bool HandleSubmit()
+        {
+            if (!CanHandleUiNavigation)
+            {
+                return false;
+            }
+
+            var selected = _navigationGroup != null ? _navigationGroup.GetSelectedButton() : null;
+            if (selected == _resumeButton || selected == null)
+            {
+                ClickResume();
+            }
+            else if (selected == _objectiveButton)
+            {
+                ClickObjective();
+            }
+            else if (selected == _settingsButton)
+            {
+                ClickSettings();
+            }
+            else if (selected == _retryButton)
+            {
+                ClickRetry();
+            }
+            else if (selected == _mainMenuButton)
+            {
+                ClickMainMenu();
+            }
+            else
+            {
+                selected.onClick.Invoke();
+            }
+
+            return true;
+        }
+
+        public bool HandleCancel()
+        {
+            return false;
+        }
+
+        public void OnNavigationFocusGained()
+        {
+            _navigationGroup?.SetSelectedIndex(0);
+        }
+
+        public void OnNavigationFocusLost()
+        {
+            _navigationGroup?.HideAllFrames();
         }
 
         private void OnDestroy()
