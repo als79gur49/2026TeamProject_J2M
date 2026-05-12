@@ -2,6 +2,36 @@
   "version": 1,
   "overrides": [
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickResultBuilder_Free2DTopologyTransition_BarricadeFrontFace_DeactivatedWhenSnapshotsAlreadyMatch",
+      "category": "Core",
+      "contracts": [
+        "topology_transition_presentation_fact",
+        "barricade_presentation_event"
+      ],
+      "reason": "Locked Core coverage for Free2D topology transition Barricade deactivation presentation fact normalization.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickResultBuilder_Free2DTopologyTransition_BarricadeFrontFace_ActivatedWhenSnapshotsAlreadyMatch",
+      "category": "Core",
+      "contracts": [
+        "topology_transition_presentation_fact",
+        "barricade_presentation_event"
+      ],
+      "reason": "Locked Core coverage for Free2D topology transition Barricade activation presentation fact normalization.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickResultBuilder_TopologyTransitionFact_SnapshotDiffWinsOverFree2DMetadata",
+      "category": "Core",
+      "contracts": [
+        "topology_transition_presentation_fact",
+        "barricade_presentation_event"
+      ],
+      "reason": "Locked Core coverage for canonical topology transition fact priority.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.PlayMode.PlayerMovementPlayModeTests.PlayerMove_PlayMode_PushStartedEdgeOnly_HeldKeyDoesNotAutoRetrigger",
       "category": "Core",
       "contracts": [

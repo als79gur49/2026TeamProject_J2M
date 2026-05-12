@@ -39,6 +39,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(TickPresentationData.Empty.TileEvents, Is.Empty);
             Assert.That(TickPresentationData.Empty.GravityFieldVisualStates, Is.Empty);
             Assert.That(TickPresentationData.Empty.BoxSlideStopSignals, Is.Empty);
+            Assert.That(TickPresentationData.Empty.TileFeatureActiveVisualStates, Is.Empty);
 
             var presentationData = new TickPresentationData(Array.Empty<TickEntityMotion>());
 
@@ -50,6 +51,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(presentationData.TileEvents, Is.Empty);
             Assert.That(presentationData.GravityFieldVisualStates, Is.Empty);
             Assert.That(presentationData.BoxSlideStopSignals, Is.Empty);
+            Assert.That(presentationData.TileFeatureActiveVisualStates, Is.Empty);
         }
 
         [Test]
@@ -1328,6 +1330,284 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void TickPresentationDataBuilder_DestroyTileFinalization_EmitsAfterMotionBoxDestroyExitWithoutCleanupRemove()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var contactCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            const int boxId = 30;
+
+            var preMovementBox = CreateEntity(boxId, EntityType.Box, sourceCell, Direction.Down);
+            preMovementBox.boxCapabilities = BoxCapabilities.Push;
+            var postMovementBox = CreateEntity(boxId, EntityType.Box, contactCell, Direction.Down);
+            postMovementBox.boxCapabilities = BoxCapabilities.Push;
+            var postAttackBox = postMovementBox;
+            postAttackBox.boardPresence = EntityBoardPresence.Detached;
+            postAttackBox.markedForDeath = true;
+
+            var preMovementSnapshot = CreateWorldState(new[] { preMovementBox }).CreateSnapshot();
+            var postMovementSnapshot = CreateWorldState(new[] { postMovementBox }).CreateSnapshot();
+            var postAttackSnapshot = CreateWorldState(new[] { postAttackBox }).CreateSnapshot();
+            var finalSnapshot = CreateWorldState(Array.Empty<EntityState>()).CreateSnapshot();
+            var moveMetadata = new FinalizationOperationMetadata(
+                TickPhase.Resolve,
+                ResolvedActionSemanticKind.Push,
+                sourceActorEntityId: 10,
+                actionPlanId: 1,
+                movementSemanticKind: MovementSemanticKind.Push);
+            var destroyMetadata = new FinalizationOperationMetadata(
+                TickPhase.Resolve,
+                ResolvedActionSemanticKind.None,
+                sourceActorEntityId: boxId,
+                actionPlanId: 1,
+                exitCauseHint: TickEntityExitCause.BoxDestroy,
+                damageSourceType: DamageSourceType.Environmental,
+                presentationTargetCell: contactCell,
+                movementExecutionBoundaryKind: MovementExecutionBoundaryKind.ScriptedRelocation,
+                boundaryReason: "DestroyTile",
+                exitPresentationTiming: EntityExitPresentationTiming.AfterEntityMotion,
+                hasPresentationTargetCell: true);
+            var finalizationBatch = new FinalizationBatch();
+            finalizationBatch.MoveEntity(boxId, contactCell, moveMetadata);
+            finalizationBatch.SetBoardPresence(boxId, EntityBoardPresence.Detached, destroyMetadata);
+            finalizationBatch.MarkDestroy(boxId, destroyMetadata);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    postMovementSnapshot,
+                    postAttackSnapshot,
+                    finalSnapshot,
+                    CreateMovementPhaseResultWithOperations(
+                        FinalizationOperation.MoveEntity(1, boxId, contactCell, moveMetadata)),
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.RemovedEntities(boxId),
+                    finalizationBatch: finalizationBatch));
+
+            Assert.That(presentationData.EntityMotions.Select(motion => motion.EntityId), Does.Contain(boxId));
+            Assert.That(
+                presentationData.VisibilityChanges.Any(
+                    change => change.EntityId == boxId &&
+                              change.ChangeKind == TickVisibilityChangeKind.Remove),
+                Is.False);
+            var exitSignal = presentationData.EntityExitSignals.Single();
+            Assert.That(exitSignal.ExitedEntityId, Is.EqualTo(boxId));
+            Assert.That(exitSignal.ExitCause, Is.EqualTo(TickEntityExitCause.BoxDestroy));
+            Assert.That(exitSignal.SourceCell, Is.EqualTo(contactCell));
+            Assert.That(exitSignal.Timing, Is.EqualTo(EntityExitPresentationTiming.AfterEntityMotion));
+            Assert.That(exitSignal.EntityType, Is.EqualTo(EntityType.Box));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickPresentationDataBuilder_BarricadeFrontFaceTransition_EmitsActivatedAtPresentationStart()
+        {
+            var cell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var barricade = CreateTileFeature(
+                100,
+                cell,
+                TileFeatureKind.Barricade,
+                TileFeatureFlags.None);
+            var preMovementSnapshot = CreateTileFeatureSnapshot(new CubeTopologyState(FaceId.Floor), barricade);
+            var finalSnapshot = CreateTileFeatureSnapshot(new CubeTopologyState(FaceId.Front), barricade);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                    }));
+
+            var tileEvent = presentationData.TileEvents.Single();
+            Assert.That(tileEvent.EventKind, Is.EqualTo(TilePresentationEventKind.BarricadeActivated));
+            Assert.That(tileEvent.TileId, Is.EqualTo(100));
+            Assert.That(tileEvent.Cell, Is.EqualTo(cell));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickPresentationDataBuilder_BarricadeFrontFaceTransition_EmitsDeactivatedAtPresentationStart()
+        {
+            var cell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var barricade = CreateTileFeature(
+                100,
+                cell,
+                TileFeatureKind.Barricade,
+                TileFeatureFlags.None);
+            var preMovementSnapshot = CreateTileFeatureSnapshot(new CubeTopologyState(FaceId.Front), barricade);
+            var finalSnapshot = CreateTileFeatureSnapshot(new CubeTopologyState(FaceId.Floor), barricade);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                    }));
+
+            var tileEvent = presentationData.TileEvents.Single();
+            Assert.That(tileEvent.EventKind, Is.EqualTo(TilePresentationEventKind.BarricadeDeactivated));
+            Assert.That(tileEvent.TileId, Is.EqualTo(100));
+            Assert.That(tileEvent.Cell, Is.EqualTo(cell));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickPresentationDataBuilder_BarricadeFrontFaceStableState_DoesNotEmitActiveStateEvents()
+        {
+            var activeCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var inactiveCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var activeBarricade = CreateTileFeature(
+                100,
+                activeCell,
+                TileFeatureKind.Barricade,
+                TileFeatureFlags.None);
+            var inactiveBarricade = CreateTileFeature(
+                101,
+                inactiveCell,
+                TileFeatureKind.Barricade,
+                TileFeatureFlags.None);
+            var topology = new CubeTopologyState(FaceId.Front);
+            var snapshot = CreateTileFeatureSnapshot(topology, activeBarricade, inactiveBarricade);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                        CreateTileFeatureDefinition(101, TileFeatureActivationRule.FrontFaceOnly),
+                    }));
+
+            Assert.That(presentationData.TileEvents, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickPresentationDataBuilder_DestroyTileActiveVisualStates_UseFinalTopology()
+        {
+            var activeCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var inactiveCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var activeDestroy = CreateTileFeature(
+                100,
+                activeCell,
+                TileFeatureKind.Destroy,
+                TileFeatureFlags.None,
+                sourceEntityId: 10,
+                ownerEntityId: 20,
+                teamId: 1);
+            var inactiveDestroy = CreateTileFeature(
+                101,
+                inactiveCell,
+                TileFeatureKind.Destroy,
+                TileFeatureFlags.None);
+            var activeNonDestroy = CreateTileFeature(
+                102,
+                activeCell,
+                TileFeatureKind.Barricade,
+                TileFeatureFlags.None);
+            var preMovementSnapshot = CreateTileFeatureSnapshot(
+                new CubeTopologyState(FaceId.Floor),
+                activeDestroy,
+                inactiveDestroy,
+                activeNonDestroy);
+            var finalSnapshot = CreateTileFeatureSnapshot(
+                new CubeTopologyState(FaceId.Front),
+                activeDestroy,
+                inactiveDestroy,
+                activeNonDestroy);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                        CreateTileFeatureDefinition(101, TileFeatureActivationRule.FrontFaceOnly),
+                        CreateTileFeatureDefinition(102, TileFeatureActivationRule.FrontFaceOnly),
+                    }));
+
+            var state = presentationData.TileFeatureActiveVisualStates.Single();
+            Assert.That(state.TileId, Is.EqualTo(100));
+            Assert.That(state.Cell, Is.EqualTo(activeCell));
+            Assert.That(state.TileFeatureKind, Is.EqualTo(TileFeatureKind.Destroy));
+            Assert.That(state.SourceEntityId, Is.EqualTo(10));
+            Assert.That(state.OwnerEntityId, Is.EqualTo(20));
+            Assert.That(state.TeamId, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickPresentationDataBuilder_BarricadeActivated_SortsBeforeCrushedOnSameTick()
+        {
+            var cell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var barricade = CreateTileFeature(
+                100,
+                cell,
+                TileFeatureKind.Barricade,
+                TileFeatureFlags.None);
+            var preMovementSnapshot = CreateTileFeatureSnapshot(new CubeTopologyState(FaceId.Floor), barricade);
+            var finalSnapshot = CreateTileFeatureSnapshot(new CubeTopologyState(FaceId.Front), barricade);
+            var crushedEvent = new TilePresentationEvent(
+                TilePresentationEventKind.BarricadeCrushed,
+                100,
+                cell,
+                TileFeatureKind.Barricade,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0,
+                targetEntityId: 30);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileEvents: new[] { crushedEvent },
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                    }));
+
+            Assert.That(
+                presentationData.TileEvents.Select(tileEvent => tileEvent.EventKind).ToArray(),
+                Is.EqualTo(new[]
+                {
+                    TilePresentationEventKind.BarricadeActivated,
+                    TilePresentationEventKind.BarricadeCrushed,
+                }));
+        }
+
+        [Test]
+        [Category("Core")]
         public void TickResultBuilder_LocomotionAnchorCommit_SuppressesLegacyMotion()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
@@ -1415,6 +1695,158 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(presentationData.TopologyMotion.Value.DestinationTopology, Is.EqualTo(destinationTopology));
             Assert.That(presentationData.TopologyMotion.Value.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
             Assert.That(presentationData.EntityMotions, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickResultBuilder_Free2DTopologyTransition_BarricadeFrontFace_DeactivatedWhenSnapshotsAlreadyMatch()
+        {
+            var destinationTopology = new CubeTopologyState(FaceId.Front);
+            var expectedSourceTopology = destinationTopology.Rotate(CubeRotationKind.Backward);
+            var barricadeCell = new SurfaceCell(FaceId.Front, 1, 1);
+            var destinationCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var barricade = CreateTileFeature(
+                100,
+                barricadeCell,
+                TileFeatureKind.Barricade,
+                TileFeatureFlags.None);
+            var snapshot = CreateTileFeatureSnapshot(destinationTopology, barricade);
+            var metadata = new FinalizationOperationMetadata(
+                TickPhase.Plan,
+                ResolvedActionSemanticKind.Move,
+                sourceActorEntityId: 10,
+                actionPlanId: 0,
+                intentId: 1,
+                rotationKind: CubeRotationKind.Forward,
+                movementSemanticKind: MovementSemanticKind.Move,
+                movementExecutionBoundaryKind: MovementExecutionBoundaryKind.Free2DTopologyTransition,
+                boundaryReason: "Free2DTopologyNativeTransition");
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    CreateMovementPhaseResultWithOperations(
+                        FinalizationOperation.MoveEntity(1, 10, destinationCell, metadata)),
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                    }));
+
+            Assert.That(presentationData.TopologyMotion.HasValue, Is.True);
+            Assert.That(presentationData.TopologyMotion.Value.SourceTopology, Is.EqualTo(expectedSourceTopology));
+            Assert.That(presentationData.TopologyMotion.Value.DestinationTopology, Is.EqualTo(destinationTopology));
+            Assert.That(presentationData.TopologyMotion.Value.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
+            var tileEvent = presentationData.TileEvents.Single();
+            Assert.That(tileEvent.EventKind, Is.EqualTo(TilePresentationEventKind.BarricadeDeactivated));
+            Assert.That(tileEvent.TileId, Is.EqualTo(100));
+            Assert.That(tileEvent.Cell, Is.EqualTo(barricadeCell));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickResultBuilder_Free2DTopologyTransition_BarricadeFrontFace_ActivatedWhenSnapshotsAlreadyMatch()
+        {
+            var destinationTopology = new CubeTopologyState(FaceId.Front);
+            var expectedSourceTopology = destinationTopology.Rotate(CubeRotationKind.Backward);
+            var barricadeCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var destinationCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var barricade = CreateTileFeature(
+                100,
+                barricadeCell,
+                TileFeatureKind.Barricade,
+                TileFeatureFlags.None);
+            var snapshot = CreateTileFeatureSnapshot(destinationTopology, barricade);
+            var metadata = new FinalizationOperationMetadata(
+                TickPhase.Plan,
+                ResolvedActionSemanticKind.Move,
+                sourceActorEntityId: 10,
+                actionPlanId: 0,
+                intentId: 1,
+                rotationKind: CubeRotationKind.Forward,
+                movementSemanticKind: MovementSemanticKind.Move,
+                movementExecutionBoundaryKind: MovementExecutionBoundaryKind.Free2DTopologyTransition,
+                boundaryReason: "Free2DTopologyNativeTransition");
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    CreateMovementPhaseResultWithOperations(
+                        FinalizationOperation.MoveEntity(1, 10, destinationCell, metadata)),
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                    }));
+
+            Assert.That(presentationData.TopologyMotion.HasValue, Is.True);
+            Assert.That(presentationData.TopologyMotion.Value.SourceTopology, Is.EqualTo(expectedSourceTopology));
+            Assert.That(presentationData.TopologyMotion.Value.DestinationTopology, Is.EqualTo(destinationTopology));
+            Assert.That(presentationData.TopologyMotion.Value.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
+            var tileEvent = presentationData.TileEvents.Single();
+            Assert.That(tileEvent.EventKind, Is.EqualTo(TilePresentationEventKind.BarricadeActivated));
+            Assert.That(tileEvent.TileId, Is.EqualTo(100));
+            Assert.That(tileEvent.Cell, Is.EqualTo(barricadeCell));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickResultBuilder_TopologyTransitionFact_SnapshotDiffWinsOverFree2DMetadata()
+        {
+            var sourceTopology = new CubeTopologyState(FaceId.Floor);
+            var destinationTopology = new CubeTopologyState(FaceId.Front);
+            var free2DSyntheticSourceTopology = destinationTopology.Rotate(CubeRotationKind.Forward);
+            var barricadeCell = new SurfaceCell(FaceId.Front, 1, 1);
+            var destinationCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var barricade = CreateTileFeature(
+                100,
+                barricadeCell,
+                TileFeatureKind.Barricade,
+                TileFeatureFlags.None);
+            var preMovementSnapshot = CreateTileFeatureSnapshot(sourceTopology, barricade);
+            var postMovementSnapshot = CreateTileFeatureSnapshot(destinationTopology, barricade);
+            var metadata = new FinalizationOperationMetadata(
+                TickPhase.Plan,
+                ResolvedActionSemanticKind.Move,
+                sourceActorEntityId: 10,
+                actionPlanId: 0,
+                intentId: 1,
+                rotationKind: CubeRotationKind.Backward,
+                movementSemanticKind: MovementSemanticKind.Move,
+                movementExecutionBoundaryKind: MovementExecutionBoundaryKind.Free2DTopologyTransition,
+                boundaryReason: "Free2DTopologyNativeTransition");
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    postMovementSnapshot,
+                    postMovementSnapshot,
+                    postMovementSnapshot,
+                    CreateMovementPhaseResultWithOperations(
+                        FinalizationOperation.MoveEntity(1, 10, destinationCell, metadata)),
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                    }));
+
+            Assert.That(presentationData.TopologyMotion.HasValue, Is.True);
+            Assert.That(presentationData.TopologyMotion.Value.SourceTopology, Is.EqualTo(sourceTopology));
+            Assert.That(presentationData.TopologyMotion.Value.SourceTopology, Is.Not.EqualTo(free2DSyntheticSourceTopology));
+            Assert.That(presentationData.TopologyMotion.Value.DestinationTopology, Is.EqualTo(destinationTopology));
+            Assert.That(presentationData.TopologyMotion.Value.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
+            Assert.That(presentationData.TileEvents.Count, Is.EqualTo(1));
+            Assert.That(presentationData.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.BarricadeDeactivated));
+            Assert.That(presentationData.TileEvents[0].TileId, Is.EqualTo(100));
         }
 
         [Test]
@@ -2630,6 +3062,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(exitSignal.ExitCause, Is.EqualTo(TickEntityExitCause.BoxDestroy));
             Assert.That(exitSignal.SourceActorEntityId, Is.EqualTo(enemyId));
             Assert.That(exitSignal.SourceCell, Is.EqualTo(targetCell));
+            Assert.That(exitSignal.Timing, Is.EqualTo(EntityExitPresentationTiming.Immediate));
             Assert.That(exitSignal.EntityType, Is.EqualTo(EntityType.Box));
         }
 
@@ -2961,11 +3394,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static WorldSnapshot CreateTileFeatureSnapshot(params TileFeatureState[] tileFeatures)
         {
+            return CreateTileFeatureSnapshot(new CubeTopologyState(FaceId.Floor), tileFeatures);
+        }
+
+        private static WorldSnapshot CreateTileFeatureSnapshot(
+            CubeTopologyState topology,
+            params TileFeatureState[] tileFeatures)
+        {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 Array.Empty<EntityState>(),
                 new BoardBounds(Vector2Int.zero, new Vector2Int(3, 3)),
                 GameplayTerrainData.Empty,
-                new CubeTopologyState(FaceId.Floor),
+                topology,
                 GameplayTimingProfile.CreateDefault(),
                 tileFeatures);
 
@@ -2991,6 +3431,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 teamId,
                 lifetimeTicks: 0,
                 charges: 0);
+        }
+
+        private static TileFeatureRuntimeDefinition CreateTileFeatureDefinition(
+            int tileId,
+            TileFeatureActivationRule activationRule = TileFeatureActivationRule.Always)
+        {
+            return new TileFeatureRuntimeDefinition(
+                tileId,
+                activationRule,
+                Direction2D.None,
+                TileFeatureBoxSelector.None,
+                boundEntityId: 0,
+                presentationKey: string.Empty);
         }
 
         private static IWorldWriteContext CreateWriteContext(WorldState worldState)

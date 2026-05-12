@@ -230,12 +230,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 {
                     window.SetEditModeForTests(StageAuthoringGridEditMode.TileFeaturePlacement);
                     window.SetTargetCellForTests(FaceId.Floor, new Vector2Int(0, 0));
-                    window.SetTileFeatureDraftForTests(
-                        TileFeatureKind.Button,
-                        TileFeatureActivationRule.BottomFaceOnly,
-                        Direction2D.None,
-                        TileFeatureBoxSelector.AnyPushableBox,
-                        0);
 
                     window.AddTileFeatureAtTargetCellForTests();
 
@@ -243,6 +237,253 @@ namespace Game.Feature.Stages.Editor.Tests
                     Assert.That(authoring.TileFeatures, Has.Count.EqualTo(1));
                     Assert.That(authoring.TileFeatures[0].Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
                     Assert.That(window.SelectedTileFeatureIdForTests, Is.EqualTo(authoring.TileFeatures[0].TileId));
+                });
+        }
+
+        [Test]
+        public void TileFeatureMode_AddTileFeature_AllowedWhileAnotherTileFeatureIsSelected()
+        {
+            WithWindow(
+                System.Array.Empty<StagePlacedEntityAuthoring>(),
+                (window, authoring) =>
+                {
+                    authoring.SetBoard(Board(0, 0, 2, 2));
+                    authoring.SetTileFeatures(new[] { TileFeature(1, FaceId.Floor, 0, 0) });
+                    window.SetEditModeForTests(StageAuthoringGridEditMode.TileFeaturePlacement);
+                    window.SelectTileFeatureByIdForTests(1);
+                    window.SetTargetCellForTests(FaceId.Floor, new Vector2Int(1, 1));
+                    window.SetTileFeatureDraftForTests(
+                        TileFeatureKind.Slide,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        Direction2D.Right,
+                        TileFeatureBoxSelector.None,
+                        0);
+
+                    window.AddTileFeatureAtTargetCellForTests();
+
+                    Assert.That(authoring.TileFeatures, Has.Count.EqualTo(2));
+                    var added = authoring.TileFeatures.Single(feature => feature.TileId != 1);
+                    Assert.That(added.Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 1)));
+                    Assert.That(added.Kind, Is.EqualTo(TileFeatureKind.Button));
+                    Assert.That(added.ActivationRule, Is.EqualTo(TileFeatureActivationRule.BottomFaceOnly));
+                    Assert.That(added.BoxSelector, Is.EqualTo(TileFeatureBoxSelector.AnyPushableBox));
+                    Assert.That(added.Direction, Is.EqualTo(Direction2D.None));
+                    Assert.That(added.PresentationKey, Is.Empty);
+                    Assert.That(window.SelectedTileFeatureIdForTests, Is.EqualTo(added.TileId));
+                });
+        }
+
+        [Test]
+        public void TileFeatureMode_AddTileFeature_UsesDefaultButtonTemplate()
+        {
+            WithWindow(
+                System.Array.Empty<StagePlacedEntityAuthoring>(),
+                (window, authoring) =>
+                {
+                    authoring.SetBoard(Board(0, 0, 2, 2));
+                    window.SetEditModeForTests(StageAuthoringGridEditMode.TileFeaturePlacement);
+                    window.SetTileFeatureDraftForTests(
+                        TileFeatureKind.Slide,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        Direction2D.Right,
+                        TileFeatureBoxSelector.None,
+                        0,
+                        "slide-key");
+                    window.SetTargetCellForTests(FaceId.Floor, new Vector2Int(1, 1));
+
+                    window.AddTileFeatureAtTargetCellForTests();
+
+                    var added = authoring.TileFeatures.Single();
+                    Assert.That(added.Kind, Is.EqualTo(TileFeatureKind.Button));
+                    Assert.That(added.ActivationRule, Is.EqualTo(TileFeatureActivationRule.BottomFaceOnly));
+                    Assert.That(added.BoxSelector, Is.EqualTo(TileFeatureBoxSelector.AnyPushableBox));
+                    Assert.That(added.Direction, Is.EqualTo(Direction2D.None));
+                    Assert.That(added.PresentationKey, Is.Empty);
+                    Assert.That(window.SelectedTileFeatureIdForTests, Is.EqualTo(added.TileId));
+                });
+        }
+
+        [Test]
+        public void TileFeatureMode_SelectedKindChangeSavesImmediately()
+        {
+            WithWindow(
+                System.Array.Empty<StagePlacedEntityAuthoring>(),
+                (window, authoring) =>
+                {
+                    authoring.SetBoard(Board(0, 0, 2, 2));
+                    authoring.SetTileFeatures(new[] { TileFeature(1, FaceId.Floor, 0, 0) });
+                    window.SetEditModeForTests(StageAuthoringGridEditMode.TileFeaturePlacement);
+                    window.SelectTileFeatureByIdForTests(1);
+
+                    var changed = window.SetSelectedTileFeatureKindForTests(TileFeatureKind.Slide);
+
+                    Assert.That(changed, Is.True);
+                    var updated = authoring.TileFeatures.Single();
+                    Assert.That(updated.Kind, Is.EqualTo(TileFeatureKind.Slide));
+                    Assert.That(updated.Direction, Is.EqualTo(Direction2D.Right));
+                });
+        }
+
+        [Test]
+        public void TileFeatureMode_CatalogPresentationKeyChangeDoesNotLoseSelectedKind()
+        {
+            WithWindow(
+                System.Array.Empty<StagePlacedEntityAuthoring>(),
+                (window, authoring) =>
+                {
+                    authoring.SetBoard(Board(0, 0, 2, 2));
+                    authoring.SetTileFeatures(new[] { TileFeature(1, FaceId.Floor, 0, 0) });
+                    window.SetEditModeForTests(StageAuthoringGridEditMode.TileFeaturePlacement);
+                    window.SelectTileFeatureByIdForTests(1);
+                    Assert.That(window.SetSelectedTileFeatureKindForTests(TileFeatureKind.Slide), Is.True);
+
+                    var changed = window.SetSelectedTileFeatureCatalogPresentationKeyForTests("slide-key");
+
+                    Assert.That(changed, Is.True);
+                    var updated = authoring.TileFeatures.Single();
+                    Assert.That(updated.Kind, Is.EqualTo(TileFeatureKind.Slide));
+                    Assert.That(updated.Direction, Is.EqualTo(Direction2D.Right));
+                    Assert.That(updated.PresentationKey, Is.EqualTo("slide-key"));
+                });
+        }
+
+        [Test]
+        public void TileFeatureMode_InvalidSelectedKindChangeRevertsStoredFeature()
+        {
+            WithWindow(
+                System.Array.Empty<StagePlacedEntityAuthoring>(),
+                (window, authoring) =>
+                {
+                    authoring.SetBoard(Board(0, 0, 2, 2));
+                    authoring.SetTileFeatures(new[]
+                    {
+                        TileFeature(1, FaceId.Floor, 0, 0),
+                        TileFeature(
+                            2,
+                            FaceId.Floor,
+                            0,
+                            0,
+                            TileFeatureKind.Slide,
+                            TileFeatureActivationRule.FrontFaceOnly,
+                            Direction2D.Right,
+                            TileFeatureBoxSelector.None),
+                    });
+                    window.SetEditModeForTests(StageAuthoringGridEditMode.TileFeaturePlacement);
+                    window.SelectTileFeatureByIdForTests(1);
+
+                    var changed = window.SetSelectedTileFeatureKindForTests(TileFeatureKind.Slide);
+
+                    Assert.That(changed, Is.False);
+                    var unchanged = authoring.TileFeatures.Single(feature => feature.TileId == 1);
+                    Assert.That(unchanged.Kind, Is.EqualTo(TileFeatureKind.Button));
+                    Assert.That(unchanged.ActivationRule, Is.EqualTo(TileFeatureActivationRule.BottomFaceOnly));
+                    Assert.That(unchanged.BoxSelector, Is.EqualTo(TileFeatureBoxSelector.AnyPushableBox));
+                });
+        }
+
+        [Test]
+        public void TileFeatureMode_SourceDoesNotExposeEraseModeUi()
+        {
+            var windowSource = System.IO.File.ReadAllText(
+                "Assets/_Features/Stages/Editor/Authoring/StageAuthoringGridWindow.cs");
+
+            Assert.That(windowSource, Does.Not.Contain("Erase Mode"));
+            Assert.That(windowSource, Does.Not.Contain("Erase Cell TileFeatures"));
+            Assert.That(windowSource, Does.Not.Contain("tileFeatureEraseMode"));
+            Assert.That(windowSource, Does.Not.Contain("New TileFeature"));
+            Assert.That(windowSource, Does.Not.Contain("WithPreviewTileId"));
+            Assert.That(windowSource, Does.Not.Contain("Apply Update"));
+            Assert.That(windowSource, Does.Not.Contain("ApplySelectedTileFeatureUpdateForTests"));
+        }
+
+        [Test]
+        public void TileFeatureMode_MoveSelectedHere_MovesSelectedTileFeatureToTargetAndPreservesData()
+        {
+            WithWindow(
+                System.Array.Empty<StagePlacedEntityAuthoring>(),
+                (window, authoring) =>
+                {
+                    authoring.SetBoard(Board(0, 0, 2, 2));
+                    authoring.SetTileFeatures(new[] { TileFeature(7, FaceId.Floor, 0, 0, "button-key") });
+                    window.SetEditModeForTests(StageAuthoringGridEditMode.TileFeaturePlacement);
+                    window.SelectTileFeatureByIdForTests(7);
+                    window.SetTargetCellForTests(FaceId.Floor, new Vector2Int(2, 2));
+
+                    window.MoveSelectedTileFeatureToTargetCellForTests();
+
+                    Assert.That(authoring.TileFeatures, Has.Count.EqualTo(1));
+                    var moved = authoring.TileFeatures.Single();
+                    Assert.That(moved.TileId, Is.EqualTo(7));
+                    Assert.That(moved.Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 2)));
+                    Assert.That(moved.Kind, Is.EqualTo(TileFeatureKind.Button));
+                    Assert.That(moved.ActivationRule, Is.EqualTo(TileFeatureActivationRule.BottomFaceOnly));
+                    Assert.That(moved.Direction, Is.EqualTo(Direction2D.None));
+                    Assert.That(moved.BoxSelector, Is.EqualTo(TileFeatureBoxSelector.AnyPushableBox));
+                    Assert.That(moved.PresentationKey, Is.EqualTo("button-key"));
+                    Assert.That(window.SelectedTileFeatureIdForTests, Is.EqualTo(7));
+                });
+        }
+
+        [Test]
+        public void TileFeatureMode_MoveSelectedHere_PreservesDirectVisualBinding()
+        {
+            WithTileFeatureWindow((window, authoring, presentation, prefab) =>
+            {
+                authoring.SetBoard(Board(0, 0, 2, 2));
+                window.SelectTileFeatureByIdForTests(1);
+                window.SetSelectedTileFeatureVisualPrefabForTests(prefab);
+                Assert.That(window.SetSelectedTileFeatureVisualBindingForTests(out var error), Is.True, error);
+                window.SetTargetCellForTests(FaceId.Floor, new Vector2Int(1, 1));
+
+                window.MoveSelectedTileFeatureToTargetCellForTests();
+
+                Assert.That(authoring.TileFeatures.Single(feature => feature.TileId == 1).Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 1)));
+                Assert.That(presentation.TileFeaturePresentationBindings, Has.Length.EqualTo(1));
+                Assert.That(presentation.TileFeaturePresentationBindings[0].TileId, Is.EqualTo(1));
+                Assert.That(presentation.TileFeaturePresentationBindings[0].VisualPrefab, Is.SameAs(prefab));
+            });
+        }
+
+        [Test]
+        public void TileFeatureMode_MoveSelectedHere_AllowsEntityOccupiedTarget()
+        {
+            WithWindow(
+                new[] { Placement("entity", FaceId.Floor, 1, 1) },
+                (window, authoring) =>
+                {
+                    authoring.SetBoard(Board(0, 0, 2, 2));
+                    authoring.SetTileFeatures(new[] { TileFeature(1, FaceId.Floor, 0, 0) });
+                    window.SetEditModeForTests(StageAuthoringGridEditMode.TileFeaturePlacement);
+                    window.SelectTileFeatureByIdForTests(1);
+                    window.SetTargetCellForTests(FaceId.Floor, new Vector2Int(1, 1));
+
+                    window.MoveSelectedTileFeatureToTargetCellForTests();
+
+                    Assert.That(authoring.Placements, Has.Count.EqualTo(1));
+                    Assert.That(authoring.TileFeatures.Single().Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 1)));
+                });
+        }
+
+        [Test]
+        public void TileFeatureMode_DeleteSelected_RemovesOnlySelectedTileFeature()
+        {
+            WithWindow(
+                System.Array.Empty<StagePlacedEntityAuthoring>(),
+                (window, authoring) =>
+                {
+                    authoring.SetBoard(Board(0, 0, 2, 2));
+                    authoring.SetTileFeatures(new[]
+                    {
+                        TileFeature(1, FaceId.Floor, 0, 0),
+                        TileFeature(2, FaceId.Floor, 0, 0),
+                    });
+                    window.SetEditModeForTests(StageAuthoringGridEditMode.TileFeaturePlacement);
+                    window.SelectTileFeatureByIdForTests(1);
+
+                    window.DeleteSelectedTileFeatureForTests();
+
+                    Assert.That(authoring.TileFeatures.Select(feature => feature.TileId), Is.EqualTo(new[] { 2 }));
+                    Assert.That(window.ResolveSelectedTileFeatureIndexForTests(), Is.EqualTo(-1));
                 });
         }
 
@@ -575,11 +816,26 @@ namespace Game.Feature.Stages.Editor.Tests
             };
         }
 
+        private static StageBoardDefinition Board(
+            int minX,
+            int minY,
+            int maxX,
+            int maxY)
+        {
+            return new StageBoardDefinition
+            {
+                MinInclusive = new Vector2Int(minX, minY),
+                MaxInclusive = new Vector2Int(maxX, maxY),
+                InitialBottomFace = FaceId.Floor,
+            };
+        }
+
         private static StageTileFeatureDefinition TileFeature(
             int tileId,
             FaceId face,
             int x,
-            int y)
+            int y,
+            string presentationKey = "")
         {
             return new StageTileFeatureDefinition
             {
@@ -589,6 +845,30 @@ namespace Game.Feature.Stages.Editor.Tests
                 ActivationRule = TileFeatureActivationRule.BottomFaceOnly,
                 Direction = Direction2D.None,
                 BoxSelector = TileFeatureBoxSelector.AnyPushableBox,
+                PresentationKey = presentationKey,
+            };
+        }
+
+        private static StageTileFeatureDefinition TileFeature(
+            int tileId,
+            FaceId face,
+            int x,
+            int y,
+            TileFeatureKind kind,
+            TileFeatureActivationRule activationRule,
+            Direction2D direction,
+            TileFeatureBoxSelector boxSelector,
+            string presentationKey = "")
+        {
+            return new StageTileFeatureDefinition
+            {
+                TileId = tileId,
+                Cell = new SurfaceCell(face, x, y),
+                Kind = kind,
+                ActivationRule = activationRule,
+                Direction = direction,
+                BoxSelector = boxSelector,
+                PresentationKey = presentationKey,
             };
         }
 

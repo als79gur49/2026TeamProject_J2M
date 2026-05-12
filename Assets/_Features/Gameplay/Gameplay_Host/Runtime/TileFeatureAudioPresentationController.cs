@@ -84,7 +84,7 @@ namespace Game.Feature.Gameplay.Host
 
         private void PlayRequest(in TileFeatureAudioRequest request)
         {
-            if (!TryResolveBinding(request.Cue, out var binding))
+            if (!TryResolveBinding(request, out var binding))
             {
                 return;
             }
@@ -109,6 +109,18 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return _audioMap.TryResolveOptional(cue, out binding);
+        }
+
+        private bool TryResolveBinding(in TileFeatureAudioRequest request, out AudioBinding binding)
+        {
+            if (request.Cue == TileFeatureAudioCue.MoonBlockGeneratorBlocked)
+            {
+                return _audioMap.TryResolveMoonBlockGeneratorBlocked(
+                    request.MoonBlockGeneratorBlockedPayload,
+                    out binding);
+            }
+
+            return TryResolveBinding(request.Cue, out binding);
         }
 
         private bool TryResolveOwner(int ownerEntityId, out GameplayEntityView owner)

@@ -25,13 +25,7 @@ namespace Game.Feature.Stages.Editor
         private bool validationIssuesFoldout = true;
         private StageAuthoringEntityKind? focusedGridKind;
         private StageAuthoringGridEditMode editMode = StageAuthoringGridEditMode.EntityPlacement;
-        private TileFeatureKind selectedTileFeatureKind = TileFeatureKind.Button;
-        private TileFeatureActivationRule selectedActivationRule = TileFeatureActivationRule.BottomFaceOnly;
-        private Direction2D selectedDirection = Direction2D.Right;
-        private TileFeatureBoxSelector selectedBoxSelector = TileFeatureBoxSelector.AnyPushableBox;
-        private int selectedBoundEntityId;
-        private string selectedPresentationKey = string.Empty;
-        private bool tileFeatureEraseMode;
+        private TileFeatureDraftState tileFeatureDraft = CreateDefaultTileFeatureDraft();
         private string tileFeatureFeedback = string.Empty;
         private MessageType tileFeatureFeedbackType = MessageType.Info;
         private string boardTilePresentationKey = string.Empty;
@@ -52,6 +46,48 @@ namespace Game.Feature.Stages.Editor
         internal StageAuthoringGridEditMode EditModeForTests => editMode;
 
         internal int SelectedTileFeatureIdForTests => selection.SelectedTileFeatureId;
+
+        private struct TileFeatureDraftState
+        {
+            public TileFeatureKind Kind;
+            public TileFeatureActivationRule ActivationRule;
+            public Direction2D Direction;
+            public TileFeatureBoxSelector BoxSelector;
+            public int BoundEntityId;
+            public string PresentationKey;
+        }
+
+        private static TileFeatureDraftState CreateDefaultTileFeatureDraft()
+        {
+            return new TileFeatureDraftState
+            {
+                Kind = TileFeatureKind.Button,
+                ActivationRule = TileFeatureActivationRule.BottomFaceOnly,
+                Direction = Direction2D.None,
+                BoxSelector = TileFeatureBoxSelector.AnyPushableBox,
+                BoundEntityId = 0,
+                PresentationKey = string.Empty,
+            };
+        }
+
+        private static TileFeatureDraftState CreateTileFeatureDraftState(
+            TileFeatureKind kind,
+            TileFeatureActivationRule activationRule,
+            Direction2D direction,
+            TileFeatureBoxSelector boxSelector,
+            int boundEntityId,
+            string presentationKey)
+        {
+            return new TileFeatureDraftState
+            {
+                Kind = kind,
+                ActivationRule = activationRule,
+                Direction = direction,
+                BoxSelector = boxSelector,
+                BoundEntityId = boundEntityId,
+                PresentationKey = presentationKey ?? string.Empty,
+            };
+        }
 
         public static void Open(StageAuthoringDefinition definition)
         {
@@ -76,13 +112,7 @@ namespace Game.Feature.Stages.Editor
             lastReport = null;
             focusedGridKind = null;
             editMode = StageAuthoringGridEditMode.EntityPlacement;
-            selectedTileFeatureKind = TileFeatureKind.Button;
-            selectedActivationRule = TileFeatureActivationRule.BottomFaceOnly;
-            selectedDirection = Direction2D.Right;
-            selectedBoxSelector = TileFeatureBoxSelector.AnyPushableBox;
-            selectedBoundEntityId = 0;
-            selectedPresentationKey = string.Empty;
-            tileFeatureEraseMode = false;
+            tileFeatureDraft = CreateDefaultTileFeatureDraft();
             tileFeatureFeedback = string.Empty;
             boardTilePresentationKey = string.Empty;
             boardTileFeedback = string.Empty;
@@ -134,12 +164,13 @@ namespace Game.Feature.Stages.Editor
             int boundEntityId,
             string presentationKey = "")
         {
-            selectedTileFeatureKind = kind;
-            selectedActivationRule = activationRule;
-            selectedDirection = direction;
-            selectedBoxSelector = boxSelector;
-            selectedBoundEntityId = boundEntityId;
-            selectedPresentationKey = presentationKey ?? string.Empty;
+            tileFeatureDraft = CreateTileFeatureDraftState(
+                kind,
+                activationRule,
+                direction,
+                boxSelector,
+                boundEntityId,
+                presentationKey);
         }
 
         internal void AddTileFeatureAtTargetCellForTests()
@@ -147,9 +178,22 @@ namespace Game.Feature.Stages.Editor
             AddTileFeatureAtTargetCell();
         }
 
-        internal void RemoveTileFeaturesAtTargetCellForTests()
+        internal void MoveSelectedTileFeatureToTargetCellForTests()
         {
-            RemoveTileFeaturesAtTargetCell();
+            MoveSelectedTileFeatureToTargetCell();
+        }
+
+        internal void DeleteSelectedTileFeatureForTests()
+        {
+            DeleteSelectedTileFeature();
+        }
+
+        internal bool SetSelectedTileFeatureKindForTests(TileFeatureKind kind)
+        {
+            tileFeatureDraft.Kind = kind;
+            ApplyTileFeatureKindDefaults(ref tileFeatureDraft, kind);
+            ApplyTileFeatureContextDefaults(ref tileFeatureDraft);
+            return TryUpdateSelectedTileFeatureFromDraft();
         }
 
         internal int ResolveSelectedTileFeatureIndexForTests()
@@ -192,7 +236,7 @@ namespace Game.Feature.Stages.Editor
             return index >= 0 && index < authoring.TileFeatures.Count
                 ? StageAuthoringTileFeaturePresentationCatalogCommands.BuildOptions(
                     authoring.GeneratedPresentationDefinition,
-                    authoring.TileFeatures[index].Kind)
+                    tileFeatureDraft.Kind)
                 : System.Array.Empty<TileFeaturePresentationCatalogOption>();
         }
 
@@ -212,9 +256,11 @@ namespace Game.Feature.Stages.Editor
                 authoring,
                 selection.SelectedTileFeatureId,
                 out var bindingStatus);
+            var draftFeature = BuildTileFeatureDraft(authoring.TileFeatures[index].Cell, tileFeatureDraft);
+            draftFeature.TileId = authoring.TileFeatures[index].TileId;
             return StageAuthoringTileFeaturePresentationCatalogCommands.ResolveStatus(
                 authoring.GeneratedPresentationDefinition,
-                authoring.TileFeatures[index],
+                draftFeature,
                 IsDirectOverrideActive(bindingStatus));
         }
 
@@ -409,7 +455,10 @@ namespace Game.Feature.Stages.Editor
             }
             else if (editMode == StageAuthoringGridEditMode.TileFeaturePlacement)
             {
-                DrawSelectedTileFeatureInspector();
+                if (selection.ResolveSelectedTileFeatureIndex(authoring.TileFeatures) >= 0)
+                {
+                    DrawSelectedTileFeatureInspector();
+                }
             }
 
             StageAuthoringGridToolbarRenderer.DrawReport(lastReport);
@@ -576,41 +625,13 @@ namespace Game.Feature.Stages.Editor
         private void DrawTileFeatureTools()
         {
             var targetCell = GetTargetSurfaceCell();
-            EditorGUILayout.LabelField("Target Cell", targetCell.ToString());
+            var selectedTileFeatureIndex = selection.ResolveSelectedTileFeatureIndex(authoring.TileFeatures);
 
-            tileFeatureEraseMode = EditorGUILayout.Toggle("Erase Mode", tileFeatureEraseMode);
-            DrawTileFeatureDraftFields();
-
-            var preview = BuildTileFeatureDraft(targetCell);
-            if (!StageAuthoringPlacementCommands.ValidateTileFeatureForPlacement(
+            ExecuteTileFeatureCellAction(
+                StageAuthoringGridToolbarRenderer.DrawTileFeatureCellTools(
                     authoring,
-                    WithPreviewTileId(preview),
-                    ignoredTileId: 0,
-                    out var validationError))
-            {
-                EditorGUILayout.HelpBox(validationError, MessageType.Warning);
-            }
-
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                using (new EditorGUI.DisabledScope(tileFeatureEraseMode))
-                {
-                    if (GUILayout.Button("Add TileFeature"))
-                    {
-                        AddTileFeatureAtTargetCell();
-                    }
-                }
-
-                using (new EditorGUI.DisabledScope(
-                           !tileFeatureEraseMode ||
-                           selection.CountTileFeaturesAt(authoring.TileFeatures, targetCell.face, targetCell.x, targetCell.y) == 0))
-                {
-                    if (GUILayout.Button("Erase Cell TileFeatures"))
-                    {
-                        RemoveTileFeaturesAtTargetCell();
-                    }
-                }
-            }
+                    selection,
+                    selectedTileFeatureIndex));
 
             DrawTileFeatureFeedback();
             DrawTileFeatureListAtTarget(targetCell);
@@ -711,47 +732,62 @@ namespace Game.Feature.Stages.Editor
             DrawBoardTileFeedback();
         }
 
-        private void DrawTileFeatureDraftFields()
+        private bool DrawTileFeatureCoreDraftFields(ref TileFeatureDraftState draft)
         {
+            var changed = false;
             EditorGUI.BeginChangeCheck();
-            var nextKind = (TileFeatureKind)EditorGUILayout.EnumPopup("Kind", selectedTileFeatureKind);
-            if (EditorGUI.EndChangeCheck() && nextKind != selectedTileFeatureKind)
+            var nextKind = (TileFeatureKind)EditorGUILayout.EnumPopup("Kind", draft.Kind);
+            if (EditorGUI.EndChangeCheck() && nextKind != draft.Kind)
             {
-                selectedTileFeatureKind = nextKind;
-                ApplyTileFeatureKindDefaults(nextKind);
+                draft.Kind = nextKind;
+                ApplyTileFeatureKindDefaults(ref draft, nextKind);
+                ApplyTileFeatureContextDefaults(ref draft);
+                changed = true;
             }
 
-            if (selectedTileFeatureKind == TileFeatureKind.Button)
+            if (draft.Kind == TileFeatureKind.Button)
             {
-                selectedActivationRule = (TileFeatureActivationRule)EditorGUILayout.EnumPopup(
+                EditorGUI.BeginChangeCheck();
+                draft.ActivationRule = (TileFeatureActivationRule)EditorGUILayout.EnumPopup(
                     "Activation Rule",
-                    selectedActivationRule);
-                selectedBoxSelector = (TileFeatureBoxSelector)EditorGUILayout.EnumPopup(
+                    draft.ActivationRule);
+                draft.BoxSelector = (TileFeatureBoxSelector)EditorGUILayout.EnumPopup(
                     "Box Selector",
-                    selectedBoxSelector);
+                    draft.BoxSelector);
+                changed |= EditorGUI.EndChangeCheck();
             }
-            else if (selectedTileFeatureKind == TileFeatureKind.Slide)
+            else if (draft.Kind == TileFeatureKind.Slide)
             {
-                selectedDirection = (Direction2D)EditorGUILayout.EnumPopup("Direction", selectedDirection);
+                EditorGUI.BeginChangeCheck();
+                draft.Direction = (Direction2D)EditorGUILayout.EnumPopup("Direction", draft.Direction);
+                changed |= EditorGUI.EndChangeCheck();
             }
-            else if (selectedTileFeatureKind == TileFeatureKind.MoonBlockGenerator)
+            else if (draft.Kind == TileFeatureKind.MoonBlockGenerator)
             {
-                DrawMoonBoundEntityPicker();
+                changed |= DrawMoonBoundEntityPicker(ref draft);
             }
 
-            selectedPresentationKey = EditorGUILayout.TextField(
-                "Presentation Key",
-                selectedPresentationKey ?? string.Empty);
+            return changed;
         }
 
-        private void DrawMoonBoundEntityPicker()
+        private bool DrawTileFeaturePresentationKeyField(ref TileFeatureDraftState draft)
+        {
+            EditorGUI.BeginChangeCheck();
+            draft.PresentationKey = EditorGUILayout.TextField(
+                "Presentation Key",
+                draft.PresentationKey ?? string.Empty);
+            return EditorGUI.EndChangeCheck();
+        }
+
+        private bool DrawMoonBoundEntityPicker(ref TileFeatureDraftState draft)
         {
             var moonOptions = BuildMoonBoxEntityOptions();
             if (moonOptions.Length == 0)
             {
                 EditorGUILayout.HelpBox("No persisted Moon Box entity id is available.", MessageType.Warning);
-                selectedBoundEntityId = EditorGUILayout.IntField("Bound Entity Id", selectedBoundEntityId);
-                return;
+                EditorGUI.BeginChangeCheck();
+                draft.BoundEntityId = EditorGUILayout.IntField("Bound Entity Id", draft.BoundEntityId);
+                return EditorGUI.EndChangeCheck();
             }
 
             var labels = new string[moonOptions.Length + 1];
@@ -767,14 +803,16 @@ namespace Game.Feature.Stages.Editor
             var selectedIndex = 0;
             for (var i = 0; i < ids.Length; i++)
             {
-                if (ids[i] == selectedBoundEntityId)
+                if (ids[i] == draft.BoundEntityId)
                 {
                     selectedIndex = i;
                     break;
                 }
             }
 
-            selectedBoundEntityId = ids[EditorGUILayout.Popup("Bound Moon Box", selectedIndex, labels)];
+            EditorGUI.BeginChangeCheck();
+            draft.BoundEntityId = ids[EditorGUILayout.Popup("Bound Moon Box", selectedIndex, labels)];
+            return EditorGUI.EndChangeCheck();
         }
 
         private void DrawTileFeatureListAtTarget(SurfaceCell targetCell)
@@ -806,11 +844,6 @@ namespace Game.Feature.Stages.Editor
                         selection.SelectTileFeature(index, authoring.TileFeatures);
                         LoadTileFeatureEditorState(feature);
                     }
-
-                    if (GUILayout.Button("Delete", GUILayout.Width(72)))
-                    {
-                        RemoveTileFeature(feature.TileId);
-                    }
                 }
             }
         }
@@ -836,8 +869,36 @@ namespace Game.Feature.Stages.Editor
             EditorGUILayout.LabelField("TileId", feature.TileId.ToString());
             EditorGUILayout.LabelField("Cell", feature.Cell.ToString());
 
-            DrawTileFeatureDraftFields();
-            DrawTileFeatureCatalogSection(feature);
+            if (DrawTileFeatureCoreDraftFields(ref tileFeatureDraft) &&
+                !TryUpdateSelectedTileFeatureFromDraft())
+            {
+                return;
+            }
+
+            selectedIndex = selection.ResolveSelectedTileFeatureIndex(authoring.TileFeatures);
+            if (selectedIndex < 0 || selectedIndex >= authoring.TileFeatures.Count)
+            {
+                return;
+            }
+
+            feature = authoring.TileFeatures[selectedIndex];
+            var draftFeature = BuildTileFeatureDraft(feature.Cell, tileFeatureDraft);
+            draftFeature.TileId = feature.TileId;
+            DrawTileFeatureCatalogSection(draftFeature);
+
+            if (DrawTileFeaturePresentationKeyField(ref tileFeatureDraft) &&
+                !TryUpdateSelectedTileFeatureFromDraft())
+            {
+                return;
+            }
+
+            selectedIndex = selection.ResolveSelectedTileFeatureIndex(authoring.TileFeatures);
+            if (selectedIndex < 0 || selectedIndex >= authoring.TileFeatures.Count)
+            {
+                return;
+            }
+
+            feature = authoring.TileFeatures[selectedIndex];
             DrawExitGoalZoneSection(feature);
             tileFeatureVisualBindingAdvancedFoldout = EditorGUILayout.Foldout(
                 tileFeatureVisualBindingAdvancedFoldout,
@@ -850,18 +911,6 @@ namespace Game.Feature.Stages.Editor
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                if (GUILayout.Button("Apply Update", GUILayout.Width(128)))
-                {
-                    var updated = BuildTileFeatureDraft(feature.Cell);
-                    updated.TileId = feature.TileId;
-                    UpdateTileFeature(updated);
-                }
-
-                if (GUILayout.Button("Delete", GUILayout.Width(96)))
-                {
-                    RemoveTileFeature(feature.TileId);
-                }
-
                 if (GUILayout.Button("Clear Selection", GUILayout.Width(128)))
                 {
                     selection.ClearSelectedTileFeature();
@@ -1189,7 +1238,7 @@ namespace Game.Feature.Stages.Editor
         private void AddTileFeatureAtTargetCell()
         {
             var cell = GetTargetSurfaceCell();
-            var template = BuildTileFeatureDraft(cell);
+            var template = CreateDefaultTileFeatureTemplate(cell);
             var expectedTileId = template.TileId > 0
                 ? template.TileId
                 : StageAuthoringPlacementCommands.AllocateNextTileId(authoring);
@@ -1205,21 +1254,20 @@ namespace Game.Feature.Stages.Editor
             Repaint();
         }
 
-        private void RemoveTileFeaturesAtTargetCell()
+        private void ExecuteTileFeatureCellAction(StageAuthoringTileFeatureCellAction action)
         {
-            var cell = GetTargetSurfaceCell();
-            if (!StageAuthoringPlacementCommands.TryRemoveTileFeaturesAt(authoring, cell, out var removedCount))
+            switch (action)
             {
-                SetTileFeatureFeedback("No TileFeatures were removed.", MessageType.Info);
-                return;
+                case StageAuthoringTileFeatureCellAction.AddTileFeature:
+                    AddTileFeatureAtTargetCell();
+                    break;
+                case StageAuthoringTileFeatureCellAction.MoveSelectedHere:
+                    MoveSelectedTileFeatureToTargetCell();
+                    break;
+                case StageAuthoringTileFeatureCellAction.DeleteSelected:
+                    DeleteSelectedTileFeature();
+                    break;
             }
-
-            selection.ClearSelectedTileFeature();
-            loadedTileFeatureId = 0;
-            selectedTileFeatureVisualPrefab = null;
-            serializedAuthoring.Update();
-            SetTileFeatureFeedback($"Removed {removedCount} TileFeature(s).", MessageType.Info);
-            Repaint();
         }
 
         private void RemoveTileFeature(int tileId)
@@ -1238,8 +1286,37 @@ namespace Game.Feature.Stages.Editor
             Repaint();
         }
 
-        private void UpdateTileFeature(StageTileFeatureDefinition updated)
+        private void DeleteSelectedTileFeature()
         {
+            var selectedIndex = selection.ResolveSelectedTileFeatureIndex(authoring.TileFeatures);
+            if (selectedIndex < 0 || selectedIndex >= authoring.TileFeatures.Count)
+            {
+                SetTileFeatureFeedback("No TileFeature selected.", MessageType.Info);
+                return;
+            }
+
+            RemoveTileFeature(authoring.TileFeatures[selectedIndex].TileId);
+        }
+
+        private void MoveSelectedTileFeatureToTargetCell()
+        {
+            var selectedIndex = selection.ResolveSelectedTileFeatureIndex(authoring.TileFeatures);
+            if (selectedIndex < 0 || selectedIndex >= authoring.TileFeatures.Count)
+            {
+                SetTileFeatureFeedback("No TileFeature selected.", MessageType.Info);
+                return;
+            }
+
+            var cell = GetTargetSurfaceCell();
+            var selected = authoring.TileFeatures[selectedIndex];
+            if (selected.Cell == cell)
+            {
+                SetTileFeatureFeedback("Selected TileFeature is already at the target cell.", MessageType.Info);
+                return;
+            }
+
+            var updated = selected;
+            updated.Cell = cell;
             if (!StageAuthoringPlacementCommands.TryUpdateTileFeature(authoring, updated, out var error))
             {
                 SetTileFeatureFeedback(error, MessageType.Error);
@@ -1248,63 +1325,110 @@ namespace Game.Feature.Stages.Editor
 
             selection.SelectTileFeatureById(updated.TileId, authoring.TileFeatures);
             serializedAuthoring.Update();
-            SetTileFeatureFeedback($"Updated TileFeature {updated.TileId}.", MessageType.Info);
+            SetTileFeatureFeedback($"Moved TileFeature {updated.TileId}.", MessageType.Info);
             Repaint();
         }
 
-        private StageTileFeatureDefinition BuildTileFeatureDraft(SurfaceCell cell)
+        private bool TryUpdateSelectedTileFeatureFromDraft()
         {
-            return StageAuthoringPlacementCommands.CreateTileFeaturePreset(
-                selectedTileFeatureKind,
-                cell,
-                selectedActivationRule,
-                selectedDirection,
-                selectedBoxSelector,
-                selectedBoundEntityId,
-                selectedPresentationKey);
-        }
-
-        private StageTileFeatureDefinition WithPreviewTileId(StageTileFeatureDefinition feature)
-        {
-            if (feature.TileId <= 0)
+            var selectedIndex = selection.ResolveSelectedTileFeatureIndex(authoring.TileFeatures);
+            if (selectedIndex < 0 || selectedIndex >= authoring.TileFeatures.Count)
             {
-                feature.TileId = StageAuthoringPlacementCommands.AllocateNextTileId(authoring);
+                SetTileFeatureFeedback("No TileFeature selected.", MessageType.Warning);
+                return false;
             }
 
-            return feature;
+            var current = authoring.TileFeatures[selectedIndex];
+            var updated = BuildTileFeatureDraft(current.Cell, tileFeatureDraft);
+            updated.TileId = current.TileId;
+            if (!StageAuthoringPlacementCommands.TryUpdateTileFeature(authoring, updated, out var error))
+            {
+                SetTileFeatureFeedback(error, MessageType.Error);
+                LoadTileFeatureEditorState(current);
+                Repaint();
+                return false;
+            }
+
+            selection.SelectTileFeatureById(updated.TileId, authoring.TileFeatures);
+            serializedAuthoring.Update();
+            LoadTileFeatureEditorState(updated);
+            SetTileFeatureFeedback($"Updated TileFeature {updated.TileId}.", MessageType.Info);
+            Repaint();
+            return true;
         }
 
-        private void ApplyTileFeatureKindDefaults(TileFeatureKind kind)
+        private static StageTileFeatureDefinition CreateDefaultTileFeatureTemplate(SurfaceCell cell)
         {
-            selectedActivationRule = TileFeatureActivationRule.BottomFaceOnly;
-            selectedDirection = Direction2D.None;
-            selectedBoxSelector = TileFeatureBoxSelector.None;
-            selectedBoundEntityId = 0;
+            return StageAuthoringPlacementCommands.CreateTileFeaturePreset(
+                TileFeatureKind.Button,
+                cell,
+                TileFeatureActivationRule.BottomFaceOnly,
+                Direction2D.None,
+                TileFeatureBoxSelector.AnyPushableBox,
+                selectedBoundEntityId: 0,
+                selectedPresentationKey: string.Empty);
+        }
+
+        private static StageTileFeatureDefinition BuildTileFeatureDraft(
+            SurfaceCell cell,
+            TileFeatureDraftState draft)
+        {
+            return StageAuthoringPlacementCommands.CreateTileFeaturePreset(
+                draft.Kind,
+                cell,
+                draft.ActivationRule,
+                draft.Direction,
+                draft.BoxSelector,
+                draft.BoundEntityId,
+                draft.PresentationKey);
+        }
+
+        private static void ApplyTileFeatureKindDefaults(ref TileFeatureDraftState draft, TileFeatureKind kind)
+        {
+            draft.ActivationRule = TileFeatureActivationRule.BottomFaceOnly;
+            draft.Direction = Direction2D.None;
+            draft.BoxSelector = TileFeatureBoxSelector.None;
+            draft.BoundEntityId = 0;
 
             switch (kind)
             {
                 case TileFeatureKind.Button:
-                    selectedBoxSelector = TileFeatureBoxSelector.AnyPushableBox;
+                    draft.BoxSelector = TileFeatureBoxSelector.AnyPushableBox;
                     break;
                 case TileFeatureKind.Slide:
-                    selectedActivationRule = TileFeatureActivationRule.FrontFaceOnly;
-                    selectedDirection = Direction2D.Right;
+                    draft.ActivationRule = TileFeatureActivationRule.FrontFaceOnly;
+                    draft.Direction = Direction2D.Right;
                     break;
                 case TileFeatureKind.Barricade:
-                    selectedActivationRule = TileFeatureActivationRule.FrontFaceOnly;
+                    draft.ActivationRule = TileFeatureActivationRule.FrontFaceOnly;
                     break;
+            }
+        }
+
+        private void ApplyTileFeatureContextDefaults(ref TileFeatureDraftState draft)
+        {
+            if (draft.Kind != TileFeatureKind.MoonBlockGenerator || draft.BoundEntityId > 0)
+            {
+                return;
+            }
+
+            var moonOptions = BuildMoonBoxEntityOptions();
+            if (moonOptions.Length > 0)
+            {
+                draft.BoundEntityId = moonOptions[0].EntityId;
             }
         }
 
         private void LoadTileFeatureEditorState(StageTileFeatureDefinition feature)
         {
             loadedTileFeatureId = feature.TileId;
-            selectedTileFeatureKind = feature.Kind;
-            selectedActivationRule = feature.ActivationRule;
-            selectedDirection = feature.Direction;
-            selectedBoxSelector = feature.BoxSelector;
-            selectedBoundEntityId = feature.BoundEntityId;
-            selectedPresentationKey = feature.PresentationKey ?? string.Empty;
+            tileFeatureDraft = CreateTileFeatureDraftState(
+                feature.Kind,
+                feature.ActivationRule,
+                feature.Direction,
+                feature.BoxSelector,
+                feature.BoundEntityId,
+                feature.PresentationKey);
             selectedTileFeatureVisualPrefab = ResolveTileFeatureVisualPrefab(feature.TileId);
         }
 
@@ -1348,27 +1472,8 @@ namespace Game.Feature.Stages.Editor
 
         private bool SetSelectedTileFeaturePresentationKey(string presentationKey)
         {
-            var selectedIndex = selection.ResolveSelectedTileFeatureIndex(authoring.TileFeatures);
-            if (selectedIndex < 0 || selectedIndex >= authoring.TileFeatures.Count)
-            {
-                SetTileFeatureFeedback("No TileFeature selected.", MessageType.Warning);
-                return false;
-            }
-
-            var next = authoring.TileFeatures.ToArray();
-            var updated = next[selectedIndex];
-            updated.PresentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(presentationKey);
-            next[selectedIndex] = updated;
-
-            Undo.RecordObject(authoring, "Set TileFeature Presentation Key");
-            authoring.SetTileFeatures(next);
-            EditorUtility.SetDirty(authoring);
-            serializedAuthoring.Update();
-            selectedPresentationKey = updated.PresentationKey;
-            selection.SelectTileFeatureById(updated.TileId, authoring.TileFeatures);
-            SetTileFeatureFeedback($"Updated TileFeature {updated.TileId} PresentationKey.", MessageType.Info);
-            Repaint();
-            return true;
+            tileFeatureDraft.PresentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(presentationKey);
+            return TryUpdateSelectedTileFeatureFromDraft();
         }
 
         private bool EnableSelectedExitObjective(out string error)

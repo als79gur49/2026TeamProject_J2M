@@ -15,9 +15,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         [Test]
         [Category("Core")]
-        public void GravityFieldAudioRequestPlanner_MapsActivatedExpired()
+        public void GravityFieldAudioRequestPlanner_MapsActivatedExpiredLockedBox()
         {
             var planner = new GravityFieldAudioRequestPlanner();
+            var lockedBoxPayload = new GravityFieldLockedBoxPayload(
+                30,
+                20,
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                new SurfaceCell(FaceId.Floor, 1, 0));
             var requests = planner.BuildRequests(new[]
             {
                 new GravityFieldPresentationRequest(
@@ -28,13 +33,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     GravityFieldPresentationRequestKind.Expired,
                     31,
                     new SurfaceCell(FaceId.Floor, 1, 0)),
+                new GravityFieldPresentationRequest(
+                    GravityFieldPresentationRequestKind.LockedBox,
+                    30,
+                    new SurfaceCell(FaceId.Floor, 0, 0),
+                    targetEntityId: 20,
+                    lockedBoxPayload: lockedBoxPayload),
             });
 
-            Assert.That(requests, Has.Count.EqualTo(2));
+            Assert.That(requests, Has.Count.EqualTo(3));
             Assert.That(requests[0].Cue, Is.EqualTo(GravityFieldAudioCue.Activated));
             Assert.That(requests[1].Cue, Is.EqualTo(GravityFieldAudioCue.Expired));
+            Assert.That(requests[2].Cue, Is.EqualTo(GravityFieldAudioCue.LockedBox));
             Assert.That(requests[0].EmitterEntityId, Is.EqualTo(30));
             Assert.That(requests[0].Context.OwnerEntityId, Is.EqualTo(30));
+            Assert.That(requests[2].TargetEntityId, Is.EqualTo(20));
+            Assert.That(requests[2].LockedBoxPayload, Is.EqualTo(lockedBoxPayload));
         }
 
         [Test]
@@ -89,6 +103,42 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void GravityFieldAudioPresentationController_LockedBoxUsesTargetAttachedPlaybackOr2DFallback()
+        {
+            using var scope = new TestAssetScope();
+            var map = scope.CreateMap();
+            var definition = scope.CreateDefinition(AudioCategory.Sfx, loop: false);
+            var slot = AudioAttachmentSlot.FromId("Center");
+            SetEntries(map, (GravityFieldAudioCue.LockedBox, scope.CreateBinding(definition, slot)));
+            var playbackPort = new RecordingGameplayAudioPlaybackPort();
+            var stateStore = new GameplayPresentationStateStore();
+            var targetObject = scope.Track(new GameObject("GravityFieldLockedBoxAudioTarget"));
+            var targetView = targetObject.AddComponent<GameplayEntityView>();
+            targetView.Initialize(20);
+            stateStore.ViewsByEntityId[20] = targetView;
+            var controller = new GravityFieldAudioPresentationController(stateStore);
+            var payload = new GravityFieldLockedBoxPayload(
+                30,
+                20,
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                new SurfaceCell(FaceId.Floor, 1, 0));
+
+            controller.AttachRuntime(playbackPort, map);
+            controller.ReplacePendingPlan(new[] { CreateRequest(GravityFieldAudioCue.LockedBox, 20, payload) });
+            controller.PlayPlannedAudio();
+            stateStore.ViewsByEntityId.Clear();
+            controller.ReplacePendingPlan(new[] { CreateRequest(GravityFieldAudioCue.LockedBox, 20, payload) });
+            controller.PlayPlannedAudio();
+
+            Assert.That(playbackPort.AttachedCalls, Has.Count.EqualTo(1));
+            Assert.That(playbackPort.AttachedCalls[0].Owner, Is.SameAs(targetView));
+            Assert.That(playbackPort.AttachedCalls[0].Slot, Is.EqualTo(slot));
+            Assert.That(playbackPort.TwoDCalls, Has.Count.EqualTo(1));
+            Assert.That(playbackPort.TwoDCalls[0].Definition, Is.SameAs(definition));
+        }
+
+        [Test]
+        [Category("Core")]
         public void GravityFieldAudioMap_RejectsInvalidEntries()
         {
             using var scope = new TestAssetScope();
@@ -128,13 +178,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             });
         }
 
-        private static GravityFieldAudioRequest CreateRequest(GravityFieldAudioCue cue)
+        private static GravityFieldAudioRequest CreateRequest(
+            GravityFieldAudioCue cue,
+            int targetEntityId = 0,
+            GravityFieldLockedBoxPayload lockedBoxPayload = default)
         {
             return new GravityFieldAudioRequest(
                 cue,
                 30,
                 new SurfaceCell(FaceId.Floor, 0, 0),
-                new AudioPlaybackContext(ownerEntityId: 30, debugTag: GravityFieldAudioCueCatalog.Format(cue)));
+                new AudioPlaybackContext(ownerEntityId: 30, debugTag: GravityFieldAudioCueCatalog.Format(cue)),
+                targetEntityId,
+                lockedBoxPayload);
         }
 
         private static void SetEntries(
@@ -269,7 +324,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 }
             }
 
-            private T Track<T>(T obj)
+            public T Track<T>(T obj)
                 where T : UnityEngine.Object
             {
                 _trackedObjects.Add(obj);

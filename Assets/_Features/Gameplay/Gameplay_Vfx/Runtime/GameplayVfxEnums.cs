@@ -87,6 +87,7 @@ namespace Game.Feature.Gameplay.Vfx
         ExitOpened = 18,
         ExitEntered = 19,
         MoonBlockGenerated = 20,
+        DestroyTileLaserActive = 21,
     }
 
     public enum GravityFieldVfxCue

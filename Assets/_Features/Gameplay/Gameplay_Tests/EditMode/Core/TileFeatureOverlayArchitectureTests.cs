@@ -108,28 +108,30 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
-        public void GravityFieldLockedTargetPolicy_DocumentsReadModelAndClosedEventAudioScope()
+        public void GravityFieldLockedTargetPolicy_DocumentsReadModelAndLockedBoxOneShotScope()
         {
             var document = File.ReadAllText(GetAbsolutePath(GravityFieldLockedTargetPresentationPolicyPath));
             var requiredSnippets = new[]
             {
                 "GravityField is `EntityType.Box + BoxArchetype.GravityField`, not a TileFeature.",
                 "`GravityFieldVisualState.LockedTargetEntityIds` is the continuous presentation read model",
-                "Target dimming consumes the previous/current `LockedTargetEntityIds` read model diff",
-                "`GravityFieldPresentationEventKind.LockedBox`, `GravityFieldPresentationRequestKind.LockedBox`, and `GravityFieldAudioCue.LockedBox` are intentionally not implemented",
-                "LockedBox event/audio remains closed unless one-shot feedback is explicitly required.",
+                "Target dimming consumes the previous/current `LockedTargetEntityIds` read model diff and remains independent of one-shot events.",
+                "`GravityFieldPresentationEventKind.LockedBox`, `GravityFieldPresentationRequestKind.LockedBox`, and `GravityFieldAudioCue.LockedBox` are implemented",
+                "`GravityFieldLockedBoxPayload` carries `EmitterEntityId`, `TargetEntityId`, `EmitterCell`, and `TargetCell`.",
+                "LockedBox one-shot feedback is presentation-only and complements target dimming",
                 "`MaterialPropertyBlock`-based actual dimming remains a future presentation-only step.",
                 "The read model must not be inferred from a final snapshot diff.",
-                "Before opening one-shot `LockedBox` event/audio, answer these reevaluation questions:",
-                "Is target dimming alone sufficient UX?",
-                "Future one-shot `LockedBox` event/audio, if opened, must debounce by `EmitterEntityId + TargetEntityId + ActiveWindow`.",
+                "One-shot `LockedBox` event/audio debounces by `EmitterEntityId + TargetEntityId + ActiveWindow`.",
                 "`Charging -> Active` starts a new active window.",
                 "`Active -> Charging`, ineligible reset, and emitter destroyed/detached clear active-window memory.",
                 "The same emitter-target pair emits at most once per active window.",
-                "Future `LockedBox` audio is optional Sfx one-shot only",
-                "The current MVP uses only a continuous read model, so there is no repeated event/audio spam path.",
+                "`LockedBox` audio is optional Sfx one-shot only",
+                "Repeated one-shot dedupe belongs to resolver event generation",
                 "Locked target presentation data is presentation-only and does not enter the canonical determinism hash.",
+                "LockedBox one-shot state is transient resolver/pipeline memory",
+                "Environmental destroy immunity is not implemented by LockedBox one-shot feedback.",
                 "`TickPipeline` transports facts but must not execute prefab, audio, UI, or material work.",
+                "GravityField remains `EntityType.Box + BoxArchetype.GravityField`, not `EntityType." + "GravityField` or `TileFeatureKind." + "GravityField`.",
             };
 
             for (var i = 0; i < requiredSnippets.Length; i++)
@@ -156,7 +158,13 @@ namespace Game.Feature.Gameplay.Tests.Core
                 "`HasMoonBlockSource` is retained as current/future naming.",
                 "`MoonBlockGenerated` event emits only on actual respawn success.",
                 "Event source is MoonBlockGenerator respawn processor success fact.",
-                "`MoonBlockGeneratorBlocked` is intentionally not implemented.",
+                "`MoonBlockGeneratorBlocked` is debounced presentation-only feedback for generator defer cases.",
+                "`MoonBlockGeneratorBlocked` does not alter respawn gameplay policy.",
+                "The event kind remains `MoonBlockGeneratorBlocked`; reason-specific event kinds are not introduced.",
+                "`MoonBlockGeneratorBlocked` carries a presentation-only `MoonBlockGeneratorBlockedPayload`.",
+                "Payload fields are `Reason`, `BlockingEntityId`, and `BlockedCell`.",
+                "Reason values are `UnitOccupant`, `WallLikeSolid`, and `PlacementBlocked`.",
+                "Reason-specific visual and audio feedback is payload-driven and falls back to generic blocked feedback",
                 "`TargetEntityId` is the respawned MoonBlock entity id.",
                 "Final snapshot diffing must not create the event.",
                 "MoonBlockGenerator activation rule is `BottomFaceOnly`.",
@@ -192,8 +200,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 "Exit open is derived from required non-PrimaryGoal conditions complete plus active Exit.",
                 "Exit open is not mutable TileFeature state and must not reuse `TileFeatureFlags.Activated`.",
                 "Same-tick open and enter emits both events, ordered `ExitOpened` before `ExitEntered`.",
-                "No `TilePresentationEventKind.MoonBlockGeneratorBlocked`.",
-                "Blocked/defer feedback requires debounce/noise policy before opening.",
+                "Live MoonBlock no-op and inactive generator do not emit `MoonBlockGeneratorBlocked`.",
             };
 
             for (var i = 0; i < requiredSnippets.Length; i++)
@@ -381,25 +388,73 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
-        public void MoonBlockGeneratorPresentationAudioSurface_OpensGeneratedAndKeepsBlockedClosed()
+        public void MoonBlockGeneratorPresentationAudioSurface_OpensGeneratedAndBlocked()
         {
             Assert.That(Enum.GetNames(typeof(TilePresentationEventKind)), Does.Contain("MoonBlockGenerated"));
-            Assert.That(Enum.GetNames(typeof(TilePresentationEventKind)), Does.Not.Contain("MoonBlockGeneratorBlocked"));
+            Assert.That(Enum.GetNames(typeof(TilePresentationEventKind)), Does.Contain("MoonBlockGeneratorBlocked"));
+            Assert.That(Enum.GetNames(typeof(TilePresentationEventKind)), Has.None.Contains("MoonBlockGeneratorUnitBlocked"));
+            Assert.That(Enum.GetNames(typeof(TilePresentationEventKind)), Has.None.Contains("MoonBlockGeneratorWallLikeSolidBlocked"));
+            Assert.That(Enum.GetNames(typeof(TilePresentationEventKind)), Has.None.Contains("MoonBlockGeneratorPlacementBlocked"));
             Assert.That(Enum.GetNames(typeof(TilePresentationRequestKind)), Does.Contain("MoonBlockGenerated"));
-            Assert.That(Enum.GetNames(typeof(TilePresentationRequestKind)), Does.Not.Contain("MoonBlockGeneratorBlocked"));
+            Assert.That(Enum.GetNames(typeof(TilePresentationRequestKind)), Does.Contain("MoonBlockGeneratorBlocked"));
+            Assert.That(Enum.GetNames(typeof(TilePresentationRequestKind)), Has.None.Contains("MoonBlockGeneratorUnitBlocked"));
+            Assert.That(Enum.GetNames(typeof(TilePresentationRequestKind)), Has.None.Contains("MoonBlockGeneratorWallLikeSolidBlocked"));
+            Assert.That(Enum.GetNames(typeof(TilePresentationRequestKind)), Has.None.Contains("MoonBlockGeneratorPlacementBlocked"));
 
             var audioTypesSource = File.ReadAllText(GetAbsolutePath(TileFeatureAudioTypesPath));
             Assert.That(audioTypesSource, Does.Contain("MoonBlockGenerated"));
-            Assert.That(audioTypesSource, Does.Not.Contain("MoonBlockGeneratorBlocked"));
+            Assert.That(audioTypesSource, Does.Contain("MoonBlockGeneratorBlocked"));
+            Assert.That(audioTypesSource, Does.Not.Contain("MoonBlockGeneratorBlockedUnitOccupant"));
+            Assert.That(audioTypesSource, Does.Not.Contain("MoonBlockGeneratorBlockedWallLikeSolid"));
+            Assert.That(audioTypesSource, Does.Not.Contain("MoonBlockGeneratorBlockedPlacementBlocked"));
 
             var visualRegistrySource = File.ReadAllText(GetAbsolutePath(
                 "Assets/_Features/Gameplay/Gameplay_Host/Runtime/ITileFeatureVisualRegistry.cs"));
             Assert.That(visualRegistrySource, Does.Contain("IMoonBlockGeneratedVisualTarget"));
-            Assert.That(visualRegistrySource, Does.Not.Contain("IMoonBlockGeneratorBlockedVisualTarget"));
+            Assert.That(visualRegistrySource, Does.Contain("IMoonBlockGeneratorBlockedVisualTarget"));
 
             var requestPlannerSource = File.ReadAllText(GetAbsolutePath(TilePresentationRequestPlannerPath));
             Assert.That(requestPlannerSource, Does.Contain("MoonBlockGenerated"));
-            Assert.That(requestPlannerSource, Does.Not.Contain("MoonBlockGeneratorBlocked"));
+            Assert.That(requestPlannerSource, Does.Contain("MoonBlockGeneratorBlocked"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void MoonBlockGeneratorBlockedPayload_DoesNotEnterAuthoritativeStateOrStageBuildSurfaces()
+        {
+            var forbiddenTokens = new[]
+            {
+                "MoonBlockGeneratorBlockedPayload",
+                "MoonBlockGeneratorBlockedReason",
+            };
+            var sourcePaths = new List<string>
+            {
+                WorldStatePath,
+                StageDefinitionPath,
+                StageRuntimeBuildResultPath,
+            };
+            sourcePaths.AddRange(Directory.GetFiles(
+                GetAbsolutePath(GameplayBoardStateRuntimePath),
+                "*.cs",
+                SearchOption.AllDirectories));
+
+            for (var sourceIndex = 0; sourceIndex < sourcePaths.Count; sourceIndex++)
+            {
+                var sourcePath = GetAbsolutePath(sourcePaths[sourceIndex]);
+                if (!File.Exists(sourcePath))
+                {
+                    sourcePath = sourcePaths[sourceIndex];
+                }
+
+                var source = File.ReadAllText(sourcePath);
+                for (var tokenIndex = 0; tokenIndex < forbiddenTokens.Length; tokenIndex++)
+                {
+                    Assert.That(
+                        source,
+                        Does.Not.Contain(forbiddenTokens[tokenIndex]),
+                        $"{forbiddenTokens[tokenIndex]} must not enter {sourcePath}.");
+                }
+            }
         }
 
         [Test]
@@ -509,25 +564,47 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
-        public void GravityFieldLockedBox_SurfaceAndConsumerBranchesRemainClosed()
+        public void GravityFieldLockedBox_SurfaceOpensOnlyGravityFieldLane()
         {
-            var sourcePaths = new[]
+            Assert.That(Enum.GetNames(typeof(TilePresentationEventKind)), Does.Not.Contain("LockedBox"));
+            Assert.That(Enum.GetNames(typeof(TilePresentationRequestKind)), Does.Not.Contain("LockedBox"));
+            Assert.That(File.ReadAllText(GetAbsolutePath(TileFeatureAudioTypesPath)), Does.Not.Contain("LockedBox"));
+
+            var stageDefinitionSource = File.ReadAllText(GetAbsolutePath(StageDefinitionPath));
+            var buildResultSource = File.ReadAllText(GetAbsolutePath(StageRuntimeBuildResultPath));
+            Assert.That(stageDefinitionSource, Does.Not.Contain("GravityFieldLockedBoxPayload"));
+            Assert.That(buildResultSource, Does.Not.Contain("GravityFieldLockedBoxPayload"));
+
+            var boardStateSources = Directory.GetFiles(GetAbsolutePath(GameplayBoardStateRuntimePath), "*.cs", SearchOption.AllDirectories);
+            for (var i = 0; i < boardStateSources.Length; i++)
             {
-                "Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPresentationData.cs",
-                GravityFieldPresentationRequestPlannerPath,
+                var source = File.ReadAllText(boardStateSources[i]);
+                Assert.That(source, Does.Not.Contain("GravityFieldLockedBoxPayload"), boardStateSources[i]);
+            }
+
+            var gravityFieldConsumerPaths = new[]
+            {
                 GravityFieldVisualControllerPath,
                 GravityFieldAudioControllerPath,
                 "Assets/_Features/Gameplay/Gameplay_GravityFieldAudio/Runtime/GravityFieldAudioTypes.cs",
                 "Assets/_Features/Gameplay/Gameplay_GravityFieldAudio/Runtime/GravityFieldAudioRequestPlanner.cs",
             };
-
-            for (var i = 0; i < sourcePaths.Length; i++)
+            var forbiddenConsumerTokens = new[]
             {
-                var source = File.ReadAllText(GetAbsolutePath(sourcePaths[i]));
-                Assert.That(
-                    source,
-                    Does.Not.Contain("LockedBox"),
-                    $"{sourcePaths[i]} must not open a LockedBox event/request/audio branch.");
+                "WorldState.CreateSnapshot",
+                "Play3D",
+                "Spatial",
+                "spatial",
+                "StagePresentationDefinition",
+                "TileFeatureAudioCue",
+            };
+            for (var i = 0; i < gravityFieldConsumerPaths.Length; i++)
+            {
+                var source = File.ReadAllText(GetAbsolutePath(gravityFieldConsumerPaths[i]));
+                for (var tokenIndex = 0; tokenIndex < forbiddenConsumerTokens.Length; tokenIndex++)
+                {
+                    Assert.That(source, Does.Not.Contain(forbiddenConsumerTokens[tokenIndex]), gravityFieldConsumerPaths[i]);
+                }
             }
 
             var uiRoot = GetAbsolutePath(UiRuntimePath);

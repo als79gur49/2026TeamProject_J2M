@@ -4,6 +4,12 @@ namespace Game.Feature.Gameplay.BoardState
 {
     public static class TileFeatureActivationQueries
     {
+        public static bool IsSupportedDestroyActivation(TileFeatureActivationRule activationRule)
+        {
+            return activationRule == TileFeatureActivationRule.BottomFaceOnly ||
+                   activationRule == TileFeatureActivationRule.FrontFaceOnly;
+        }
+
         public static bool IsActive(
             TileFeatureState state,
             TileFeatureRuntimeDefinition definition,

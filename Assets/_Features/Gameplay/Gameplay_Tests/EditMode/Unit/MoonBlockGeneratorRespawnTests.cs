@@ -56,6 +56,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(moon.hp, Is.EqualTo(template.maxHp));
             Assert.That(moon.maxHp, Is.EqualTo(template.maxHp));
             Assert.That(moon.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(snapshot.TryGetSolidOccupantAt(GeneratorCell, out var solidOccupant), Is.True);
+            Assert.That(solidOccupant.entityId, Is.EqualTo(20));
+            Assert.That(snapshot.TryGetActiveBoxInteractionLockState(20, 1, out var lockState), Is.True);
+            Assert.That(lockState.BlocksPush, Is.True);
+            Assert.That(lockState.BlocksFlip, Is.True);
+            Assert.That(lockState.BlocksDestroy, Is.False);
+            Assert.That(lockState.ExpiresTickExclusive, Is.EqualTo(1 + MoonBlockGeneratorRespawnDefaults.SpawnInteractionLockTicks));
+            Assert.That(lockState.SourceReason, Is.EqualTo(BoxInteractionLockSourceReason.MoonBlockGeneratorSpawn));
             Assert.That(moon.markedForDeath, Is.False);
             Assert.That(moon.kineticInstigatorEntityId, Is.Zero);
             Assert.That(moon.kineticInstigatorTeamId, Is.Zero);
@@ -110,6 +118,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void SpawnInteractionLock_ExpiresOnExclusiveTick()
+        {
+            var template = CreateMoonBlock(20, InitialMoonCell);
+            var worldState = CreateWorld(new[] { CreatePlayer() });
+            var pipeline = CreatePipeline(worldState, template);
+
+            pipeline.RunTick(new TickInput(1));
+            var activeSnapshot = GameplayCompositionRoot.CreateSnapshot(worldState);
+            Assert.That(activeSnapshot.TryGetActiveBoxInteractionLockState(20, 7, out _), Is.True);
+
+            pipeline.RunTick(new TickInput(8));
+            var expiredSnapshot = GameplayCompositionRoot.CreateSnapshot(worldState);
+
+            Assert.That(expiredSnapshot.TryGetActiveBoxInteractionLockState(20, 8, out _), Is.False);
+            Assert.That(expiredSnapshot.TryGetBoxInteractionLockState(20, out _), Is.False);
+            Assert.That(expiredSnapshot.TryGetEntity(20, out var moon), Is.True);
+            Assert.That(moon.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+        }
+
+        [Test]
+        [Category("Core")]
         public void GeneratorCellUnit_DefersWithoutKillingOrMovingUnit()
         {
             var template = CreateMoonBlock(20, InitialMoonCell);
@@ -126,7 +155,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(finalUnit.hp, Is.EqualTo(unit.hp));
             Assert.That(finalUnit.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
             Assert.That(finalUnit.markedForDeath, Is.False);
-            Assert.That(result.PresentationData.TileEvents, Is.Empty);
+            AssertMoonBlockGeneratorBlockedEvent(
+                result,
+                blockerEntityId: 30,
+                MoonBlockGeneratorBlockedReason.UnitOccupant);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GeneratorCellPlayerUnit_DefersWithUnitOccupantPayload()
+        {
+            var template = CreateMoonBlock(20, InitialMoonCell);
+            var player = CreatePlayer(GeneratorCell);
+            var worldState = CreateWorld(new[] { player });
+            var pipeline = CreatePipeline(worldState, template);
+
+            var result = pipeline.RunTick(new TickInput(1));
+
+            AssertMoonBlockGeneratorBlockedEvent(
+                result,
+                blockerEntityId: 10,
+                MoonBlockGeneratorBlockedReason.UnitOccupant);
         }
 
         [Test]
@@ -163,12 +212,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
             Assert.That(snapshot.TryGetEntity(50, out var finalWall), Is.True);
             Assert.That(finalWall.position, Is.EqualTo(GeneratorCell));
-            Assert.That(result.PresentationData.TileEvents, Is.Empty);
+            AssertMoonBlockGeneratorBlockedEvent(
+                result,
+                blockerEntityId: 50,
+                MoonBlockGeneratorBlockedReason.WallLikeSolid);
         }
 
         [Test]
         [Category("Core")]
-        public void RepeatedUnitConflictDefer_EmitsNoBlockedEventRequestAudioOrRespawn()
+        public void GeneratorCellPlacementBlocked_DefersWithPlacementPayload()
+        {
+            var template = CreateMoonBlock(20, InitialMoonCell);
+            var terrain = new TerrainData(new[]
+            {
+                new TerrainCellState(GeneratorCell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
+            });
+            var worldState = CreateWorld(new[] { CreatePlayer() }, terrainData: terrain);
+            var pipeline = CreatePipeline(worldState, template);
+
+            var result = pipeline.RunTick(new TickInput(1));
+
+            Assert.That(GameplayCompositionRoot.CreateSnapshot(worldState).TryGetEntity(20, out _), Is.False);
+            AssertMoonBlockGeneratorBlockedEvent(
+                result,
+                blockerEntityId: 0,
+                MoonBlockGeneratorBlockedReason.PlacementBlocked);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void RepeatedUnitConflictDefer_EmitsBlockedEventRequestAudioOnce()
         {
             var template = CreateMoonBlock(20, InitialMoonCell);
             var unit = CreateEnemy(30, GeneratorCell);
@@ -180,13 +253,93 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var first = pipeline.RunTick(new TickInput(1));
             var second = pipeline.RunTick(new TickInput(2));
 
-            AssertGeneratorDeferIsSilent(first, requestPlanner, audioPlanner);
+            AssertGeneratorDeferEmitsBlocked(
+                first,
+                requestPlanner,
+                audioPlanner,
+                blockerEntityId: 30,
+                MoonBlockGeneratorBlockedReason.UnitOccupant);
             AssertGeneratorDeferIsSilent(second, requestPlanner, audioPlanner);
             var snapshot = GameplayCompositionRoot.CreateSnapshot(worldState);
             Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
             Assert.That(snapshot.TryGetEntity(30, out var finalUnit), Is.True);
             Assert.That(finalUnit.position, Is.EqualTo(GeneratorCell));
             Assert.That(finalUnit.markedForDeath, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void UnitConflict_ClearThenReappear_EmitsBlockedAgainAfterGeneratedClearsDebounce()
+        {
+            var template = CreateMoonBlock(20, InitialMoonCell);
+            var unit = CreateEnemy(30, GeneratorCell);
+            var worldState = CreateWorld(new[] { CreatePlayer(), unit });
+            var pipeline = CreatePipeline(worldState, template);
+
+            var first = pipeline.RunTick(new TickInput(1));
+            worldState.CreateWriteContext().RemoveEntity(30);
+            var generated = pipeline.RunTick(new TickInput(2));
+            worldState.CreateWriteContext().RemoveEntity(20);
+            worldState.CreateWriteContext().SpawnEntity(CreateEnemy(30, GeneratorCell));
+            var blockedAgain = pipeline.RunTick(new TickInput(3));
+
+            AssertMoonBlockGeneratorBlockedEvent(
+                first,
+                blockerEntityId: 30,
+                MoonBlockGeneratorBlockedReason.UnitOccupant);
+            AssertMoonBlockGeneratedEvent(generated, moonBlockEntityId: 20);
+            AssertMoonBlockGeneratorBlockedEvent(
+                blockedAgain,
+                blockerEntityId: 30,
+                MoonBlockGeneratorBlockedReason.UnitOccupant);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void UnitConflict_DifferentBlockingEntity_EmitsBlockedAgain()
+        {
+            var template = CreateMoonBlock(20, InitialMoonCell);
+            var unit = CreateEnemy(30, GeneratorCell);
+            var worldState = CreateWorld(new[] { CreatePlayer(), unit });
+            var pipeline = CreatePipeline(worldState, template);
+
+            var first = pipeline.RunTick(new TickInput(1));
+            worldState.CreateWriteContext().RemoveEntity(30);
+            worldState.CreateWriteContext().SpawnEntity(CreateEnemy(31, GeneratorCell));
+            var second = pipeline.RunTick(new TickInput(2));
+
+            AssertMoonBlockGeneratorBlockedEvent(
+                first,
+                blockerEntityId: 30,
+                MoonBlockGeneratorBlockedReason.UnitOccupant);
+            AssertMoonBlockGeneratorBlockedEvent(
+                second,
+                blockerEntityId: 31,
+                MoonBlockGeneratorBlockedReason.UnitOccupant);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BlockedReasonChange_EmitsBlockedAgain()
+        {
+            var template = CreateMoonBlock(20, InitialMoonCell);
+            var unit = CreateEnemy(30, GeneratorCell);
+            var worldState = CreateWorld(new[] { CreatePlayer(), unit });
+            var pipeline = CreatePipeline(worldState, template);
+
+            var first = pipeline.RunTick(new TickInput(1));
+            worldState.CreateWriteContext().RemoveEntity(30);
+            worldState.CreateWriteContext().SpawnEntity(CreateWall(50, GeneratorCell));
+            var second = pipeline.RunTick(new TickInput(2));
+
+            AssertMoonBlockGeneratorBlockedEvent(
+                first,
+                blockerEntityId: 30,
+                MoonBlockGeneratorBlockedReason.UnitOccupant);
+            AssertMoonBlockGeneratorBlockedEvent(
+                second,
+                blockerEntityId: 50,
+                MoonBlockGeneratorBlockedReason.WallLikeSolid);
         }
 
         [Test]
@@ -257,6 +410,59 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(tileEvent.SourceEntityId, Is.EqualTo(101));
             Assert.That(tileEvent.OwnerEntityId, Is.EqualTo(102));
             Assert.That(tileEvent.TeamId, Is.EqualTo(7));
+            Assert.That(tileEvent.SpawnTick, Is.EqualTo(result.TickIndex));
+            Assert.That(tileEvent.SpawnInteractionLockTicks, Is.EqualTo(MoonBlockGeneratorRespawnDefaults.SpawnInteractionLockTicks));
+        }
+
+        private static void AssertMoonBlockGeneratorBlockedEvent(
+            TickResult result,
+            int blockerEntityId,
+            MoonBlockGeneratorBlockedReason reason)
+        {
+            Assert.That(result.PresentationData.TileEvents, Has.Count.EqualTo(1));
+            var tileEvent = result.PresentationData.TileEvents[0];
+            Assert.That(tileEvent.EventKind, Is.EqualTo(TilePresentationEventKind.MoonBlockGeneratorBlocked));
+            Assert.That(tileEvent.TileId, Is.EqualTo(100));
+            Assert.That(tileEvent.Cell, Is.EqualTo(GeneratorCell));
+            Assert.That(tileEvent.TileFeatureKind, Is.EqualTo(TileFeatureKind.MoonBlockGenerator));
+            Assert.That(tileEvent.TargetEntityId, Is.EqualTo(blockerEntityId));
+            Assert.That(tileEvent.Direction, Is.EqualTo(Direction.None));
+            Assert.That(tileEvent.SourceEntityId, Is.EqualTo(101));
+            Assert.That(tileEvent.OwnerEntityId, Is.EqualTo(102));
+            Assert.That(tileEvent.TeamId, Is.EqualTo(7));
+            Assert.That(tileEvent.MoonBlockGeneratorBlockedPayload.IsValid, Is.True);
+            Assert.That(tileEvent.MoonBlockGeneratorBlockedPayload.Reason, Is.EqualTo(reason));
+            Assert.That(tileEvent.MoonBlockGeneratorBlockedPayload.BlockingEntityId, Is.EqualTo(blockerEntityId));
+            Assert.That(tileEvent.MoonBlockGeneratorBlockedPayload.BlockedCell, Is.EqualTo(GeneratorCell));
+            Assert.That(
+                result.PresentationData.TileEvents.Any(evt => evt.EventKind == TilePresentationEventKind.MoonBlockGenerated),
+                Is.False);
+        }
+
+        private static void AssertGeneratorDeferEmitsBlocked(
+            TickResult result,
+            TilePresentationRequestPlanner requestPlanner,
+            TileFeatureAudioRequestPlanner audioPlanner,
+            int blockerEntityId,
+            MoonBlockGeneratorBlockedReason reason)
+        {
+            Assert.That(result.EventLog, Has.None.Contains("MoonBlockGeneratorRespawnCommitted"));
+            Assert.That(result.EventLog, Has.None.Contains("MoonBlockGeneratorBlockingBoxDestroyed"));
+            AssertMoonBlockGeneratorBlockedEvent(result, blockerEntityId, reason);
+            var requests = requestPlanner.BuildRequests(result.PresentationData);
+            Assert.That(requests, Has.Count.EqualTo(1));
+            Assert.That(requests[0].RequestKind, Is.EqualTo(TilePresentationRequestKind.MoonBlockGeneratorBlocked));
+            Assert.That(requests[0].TargetEntityId, Is.EqualTo(blockerEntityId));
+            Assert.That(requests[0].MoonBlockGeneratorBlockedPayload.Reason, Is.EqualTo(reason));
+            Assert.That(requests[0].MoonBlockGeneratorBlockedPayload.BlockingEntityId, Is.EqualTo(blockerEntityId));
+            Assert.That(requests[0].MoonBlockGeneratorBlockedPayload.BlockedCell, Is.EqualTo(GeneratorCell));
+            var audioRequests = audioPlanner.BuildRequests(requests);
+            Assert.That(audioRequests, Has.Count.EqualTo(1));
+            Assert.That(audioRequests[0].Cue, Is.EqualTo(TileFeatureAudioCue.MoonBlockGeneratorBlocked));
+            Assert.That(audioRequests[0].TargetEntityId, Is.EqualTo(blockerEntityId));
+            Assert.That(audioRequests[0].MoonBlockGeneratorBlockedPayload.Reason, Is.EqualTo(reason));
+            Assert.That(audioRequests[0].MoonBlockGeneratorBlockedPayload.BlockingEntityId, Is.EqualTo(blockerEntityId));
+            Assert.That(audioRequests[0].MoonBlockGeneratorBlockedPayload.BlockedCell, Is.EqualTo(GeneratorCell));
         }
 
         private static void AssertGeneratorDeferIsSilent(
@@ -300,7 +506,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static WorldState CreateWorld(
             IReadOnlyList<EntityState> entities,
-            CubeTopologyState topology = default)
+            CubeTopologyState topology = default,
+            TerrainData terrainData = null)
         {
             if (topology.Equals(default(CubeTopologyState)))
             {
@@ -310,7 +517,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return GameplayCompositionRoot.CreateWorldState(
                 entities,
                 Bounds,
-                TerrainData.Empty,
+                terrainData ?? TerrainData.Empty,
                 topology,
                 new[] { CreateGeneratorTileFeatureState() });
         }
@@ -354,10 +561,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static EntityState CreatePlayer()
         {
+            return CreatePlayer(new SurfaceCell(FaceId.Floor, 0, 0));
+        }
+
+        private static EntityState CreatePlayer(SurfaceCell position)
+        {
             return new EntityState
             {
                 entityId = 10,
-                position = new SurfaceCell(FaceId.Floor, 0, 0),
+                position = position,
                 hp = 3,
                 maxHp = 3,
                 teamId = 1,

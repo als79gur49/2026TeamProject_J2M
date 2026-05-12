@@ -72,6 +72,83 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void StageCatalogValidator_AuthoringDestroyPolicy_AllowsBottomAndFrontFaceOnly()
+        {
+            var fixture = CreateSyncedEntry(enforceGeneratedSync: false);
+
+            try
+            {
+                fixture.Authoring.SetTileFeatures(new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        TileFeatureKind.Destroy,
+                        TileFeatureActivationRule.BottomFaceOnly,
+                        Direction2D.None,
+                        TileFeatureBoxSelector.None,
+                        new SurfaceCell(FaceId.Floor, 1, 1)),
+                    CreateTileFeature(
+                        101,
+                        TileFeatureKind.Destroy,
+                        TileFeatureActivationRule.FrontFaceOnly,
+                        Direction2D.None,
+                        TileFeatureBoxSelector.None,
+                        new SurfaceCell(FaceId.Front, 1, 1)),
+                });
+
+                var report = ValidateFixture(fixture);
+
+                Assert.That(
+                    report.Issues.Any(issue => issue.Code == "authoring.tile-feature.destroy-activation-unsupported"),
+                    Is.False);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        public void StageCatalogValidator_AuthoringDestroyPolicy_RejectsUnsupportedActivation()
+        {
+            var unsupportedRules = new[]
+            {
+                TileFeatureActivationRule.Always,
+                TileFeatureActivationRule.ActiveFaceOnly,
+                TileFeatureActivationRule.InactiveFaceOnly,
+            };
+
+            for (var i = 0; i < unsupportedRules.Length; i++)
+            {
+                var fixture = CreateSyncedEntry(enforceGeneratedSync: false);
+
+                try
+                {
+                    fixture.Authoring.SetTileFeatures(new[]
+                    {
+                        CreateTileFeature(
+                            100,
+                            TileFeatureKind.Destroy,
+                            unsupportedRules[i],
+                            Direction2D.None,
+                            TileFeatureBoxSelector.None),
+                    });
+
+                    var report = ValidateFixture(fixture);
+
+                    Assert.That(
+                        report.Issues.Any(issue => issue.Code == "authoring.tile-feature.destroy-activation-unsupported"),
+                        Is.True,
+                        unsupportedRules[i].ToString());
+                }
+                finally
+                {
+                    fixture.Destroy();
+                }
+            }
+        }
+
+        [Test]
         public void StageCatalogValidator_AuthoringBarricadePolicy_ValidDefinitionPasses()
         {
             var fixture = CreateSyncedEntry(enforceGeneratedSync: false);

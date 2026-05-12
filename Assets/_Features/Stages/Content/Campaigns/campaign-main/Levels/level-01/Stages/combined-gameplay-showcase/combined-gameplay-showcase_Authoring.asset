@@ -406,6 +406,102 @@ MonoBehaviour:
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
     PresentationId: moon_box_showcase
+  - StableGuid: 4b6f3ab452224434ae512337e604e052
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 10
+      y: 2
+    Facing: 0
+    Hp: 1
+    UnitStackGroup:
+    BoxCapabilities: 1
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId:
+  - StableGuid: 0e6aeffce63349509296dc778200efe4
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 13
+      y: 1
+    Facing: 0
+    Hp: 1
+    UnitStackGroup:
+    BoxCapabilities: 1
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId:
+  - StableGuid: 72bbd2c7513a4ad7be43181a00ae5796
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 2
+      y: 3
+    Facing: 0
+    Hp: 1
+    UnitStackGroup:
+    BoxCapabilities: 2
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId:
+  - StableGuid: 87b6e5f802ba4511ad1df292ee0ac635
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 1
+      y: 0
+    Facing: 0
+    Hp: 1
+    UnitStackGroup:
+    BoxCapabilities: 1
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId:
+  - StableGuid: c32d1baaf7cc43b8a3293b07f2649cca
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 1
+      y: 3
+    Facing: 0
+    Hp: 1
+    UnitStackGroup:
+    BoxCapabilities: 1
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId:
+  - StableGuid: 16f66fab6aed473a91281cd26f80b0ec
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 12
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitStackGroup:
+    BoxCapabilities: 1
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId:
   tileFeatures:
   - TileId: 901
     Cell:
@@ -437,9 +533,9 @@ MonoBehaviour:
     Kind: 2
     ActivationRule: 1
     Direction: 0
-    BoxSelector: 3
+    BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey:
+    PresentationKey: destroy.bottom
   - TileId: 904
     Cell:
       face: 0
@@ -526,6 +622,61 @@ MonoBehaviour:
     ActivationRule: 1
     Direction: 0
     BoxSelector: 3
+    BoundEntityId: 0
+    PresentationKey:
+  - TileId: 914
+    Cell:
+      face: 2
+      x: 10
+      y: 4
+    Kind: 4
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 3
+    BoundEntityId: 0
+    PresentationKey:
+  - TileId: 915
+    Cell:
+      face: 1
+      x: 12
+      y: 2
+    Kind: 1
+    ActivationRule: 2
+    Direction: 2
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: slide.right
+  - TileId: 916
+    Cell:
+      face: 1
+      x: 11
+      y: 2
+    Kind: 3
+    ActivationRule: 2
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: barricade.default
+  - TileId: 917
+    Cell:
+      face: 1
+      x: 10
+      y: 1
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.front
+  - TileId: 918
+    Cell:
+      face: 1
+      x: 12
+      y: 3
+    Kind: 1
+    ActivationRule: 2
+    Direction: 1
+    BoxSelector: 0
     BoundEntityId: 0
     PresentationKey:
   zones:
@@ -620,6 +771,10 @@ MonoBehaviour:
     EntityId: 60
     Retired: 0
     LastKnownDisplayName: Enemy 60
+  - StableGuid: 95b57e884ed04b2cb81992829372f8c4
+    EntityId: 61
+    Retired: 0
+    LastKnownDisplayName: Enemy 61
   - StableGuid: combined-gameplay-showcase:Wall:196
     EntityId: 196
     Retired: 0
@@ -640,12 +795,32 @@ MonoBehaviour:
     EntityId: 200
     Retired: 0
     LastKnownDisplayName: Wall 200
-  - StableGuid: 95b57e884ed04b2cb81992829372f8c4
-    EntityId: 61
-    Retired: 0
-    LastKnownDisplayName: Enemy 61
   - StableGuid: combined-gameplay-showcase:Box:201
     EntityId: 201
     Retired: 0
     LastKnownDisplayName: Moon QA Box 201
+  - StableGuid: 4b6f3ab452224434ae512337e604e052
+    EntityId: 202
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 0e6aeffce63349509296dc778200efe4
+    EntityId: 203
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 72bbd2c7513a4ad7be43181a00ae5796
+    EntityId: 204
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 87b6e5f802ba4511ad1df292ee0ac635
+    EntityId: 205
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: c32d1baaf7cc43b8a3293b07f2649cca
+    EntityId: 206
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 16f66fab6aed473a91281cd26f80b0ec
+    EntityId: 207
+    Retired: 0
+    LastKnownDisplayName: Placement
   enforceGeneratedSync: 0

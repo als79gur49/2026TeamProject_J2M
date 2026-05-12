@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-04-30
-- Last updated: 2026-05-07
+- Last updated: 2026-05-10
 
 ## Decision
 
@@ -39,6 +39,7 @@ The implemented TileFeature pipeline followed this order and future work must pr
 17. Exit
 18. MoonBlockGenerator
 19. MoonBlockGenerated feedback
+20. MoonBlockGeneratorBlocked feedback
 
 Dynamic TileEffect mutation must not be implemented before TileFeature state/query/export/hash exists. TileEffect-free ticks must not increase snapshot materialization budget.
 
@@ -93,7 +94,7 @@ Dynamic TileEffect mutation must not be implemented before TileFeature state/que
 - `DestroyTileTriggered` is a resolver-origin event.
 - The same destroyed entity creates at most one event per tick.
 - Multiple destroyed entities may create multiple events.
-- DestroyTile activation rule is `BottomFaceOnly`.
+- DestroyTile supports `BottomFaceOnly` and `FrontFaceOnly` activation; default authoring remains `BottomFaceOnly`.
 - `DestroyTileTriggered` event `TargetEntityId` is the destroyed entity id.
 
 ## SlideTile Policy
@@ -122,10 +123,12 @@ Barricade box-only blocker MVP is implemented. Barricade remains a TileFeature o
 - Barricade is a box-only movement blocker.
 - Unit/player/enemy traversal is not blocked.
 - Projectile movement is not blocked.
-- Flip landing, impact follow-through, and topology relocation are not blocked by Barricade.
-- Active Barricade blocks box push first step and sliding continuation entry.
+- Impact follow-through and topology relocation are not blocked by Barricade.
+- Active Barricade blocks box push first step, sliding continuation entry, and flip landing entry.
 - Inactive Barricade does not block existing DestroyTile or SlideTile behavior.
+- Inactive Barricade does not block existing flip behavior.
 - Push/Destroy first-step blocked fallback stays the existing first-step semantics.
+- Flip landing blocked by active Barricade does not create hostile unit impact reservation, Unit kill/eject, DestroyTile contact, or SlideTile contact.
 - Active Barricade + DestroyTile same-cell emits `BarricadeBlocked`, not `DestroyTileTriggered`.
 - Active Barricade + SlideTile same-cell emits `BarricadeBlocked`, not `SlideTileRedirected`.
 
@@ -207,8 +210,8 @@ Exit presentation is presentation-only.
 - Event is created from the success fact after `writeContext.SpawnEntity(respawnEntity)`.
 - Live MoonBlock no-op emits no event.
 - Inactive generator emits no event.
-- Unit conflict defer emits no event.
-- Wall-like/non-box solid defer emits no event.
+- Unit conflict defer emits no generated event.
+- Wall-like/non-box solid defer emits no generated event.
 - Invalid/skipped path emits no event.
 - `TargetEntityId` is the respawned MoonBlock entity id.
 - Event `Cell` is the generator cell.
@@ -218,32 +221,33 @@ Exit presentation is presentation-only.
 - `MoonBlockGenerated` audio cue is optional.
 - `ButtonActivated` remains the only required TileFeatureAudio cue.
 
-## MoonBlockGeneratorBlocked Closed Policy
+## MoonBlockGeneratorBlocked Policy
 
-`MoonBlockGeneratorBlocked` is intentionally not implemented.
+`MoonBlockGeneratorBlocked` is debounced presentation-only feedback for generator defer cases. It does not alter respawn gameplay policy and is not gameplay authority.
 
-- No `TilePresentationEventKind.MoonBlockGeneratorBlocked`.
-- No `TilePresentationRequestKind.MoonBlockGeneratorBlocked`.
-- No `TileFeatureAudioCue.MoonBlockGeneratorBlocked`.
-- No `IMoonBlockGeneratorBlockedVisualTarget`.
-- Unit conflict defer emits no blocked event.
-- Wall-like/non-box solid defer emits no blocked event.
+- `MoonBlockGeneratorBlocked` does not alter respawn gameplay policy.
+- `TilePresentationEventKind.MoonBlockGeneratorBlocked`, `TilePresentationRequestKind.MoonBlockGeneratorBlocked`, `TileFeatureAudioCue.MoonBlockGeneratorBlocked`, and optional `IMoonBlockGeneratorBlockedVisualTarget` are open.
+- The event kind remains `MoonBlockGeneratorBlocked`; reason-specific event kinds are not introduced.
+- `MoonBlockGeneratorBlocked` carries a presentation-only `MoonBlockGeneratorBlockedPayload`.
+- Payload fields are `Reason`, `BlockingEntityId`, and `BlockedCell`.
+- Reason values are `UnitOccupant`, `WallLikeSolid`, and `PlacementBlocked`.
+- `MoonBlockGeneratorBlockedPayload` is transported through event, request, visual, and audio surfaces only.
+- Reason-specific visual and audio feedback is payload-driven and falls back to generic blocked feedback when no reason-specific binding is configured.
+- Unit/player/enemy conflict defer emits blocked feedback.
+- Wall-like/non-box solid defer emits blocked feedback.
+- Placement-blocked defer emits blocked feedback with `BlockingEntityId` `0`.
 - Inactive generator emits no blocked event.
 - Live MoonBlock no-op emits no blocked event.
-- Placement blocked or skipped invalid paths emit no blocked event.
-- Repeated defer across ticks emits no request, audio, or visual.
-- Blocked/defer feedback requires debounce/noise policy before opening.
-
-Future policy questions must be answered before opening this surface:
-
-- Emit every blocked tick or only first blocked tick?
-- Re-emit when blocker identity changes?
-- Separate UnitDefer and SolidBlocked event kinds?
-- Should inactive generator be silent forever?
-- Should wall-like solid block be warning-only, event, or validation error?
-- Should blocked audio be optional and throttled?
-- Should blocked visual be generator-local only?
-- Should blocked state be transient presentation memory or derived per tick?
+- Live MoonBlock no-op and inactive generator do not emit `MoonBlockGeneratorBlocked`.
+- Normal/non-Moon Box conflict destroy plus spawn success emits `MoonBlockGenerated`, not blocked.
+- Projectile coexist spawn success emits `MoonBlockGenerated`, not blocked.
+- Debounce key is GeneratorTileId + BlockedReason + BlockingEntityId, with `0` for no blocking entity.
+- The same key does not emit repeatedly while maintained; key change may emit.
+- Generator inactive, blocker cleared, live MoonBlock exists, and MoonBlockGenerated success clear debounce memory.
+- Debounce memory is transient processor state, not `WorldState`, `StageRuntimeBuildResult`, snapshot, or determinism hash input.
+- Public event/request payload exposes only MoonBlockGenerator-specific presentation facts and is not authoritative gameplay state.
+- Audio remains optional Sfx one-shot; reason-specific binding entries are owned by `TileFeatureAudioMap`.
+- No UI/HUD notification, spatial audio/Play3D, Unit kill/eject, Projectile destroy, or wall-like solid destroy is introduced.
 
 ## Presentation Rule
 
@@ -257,6 +261,7 @@ Current `TilePresentationEvent` source matrix:
 - `ExitOpened`: objective-derived transition.
 - `ExitEntered`: objective clear tick plus player at active Exit center.
 - `MoonBlockGenerated`: MoonBlockGenerator respawn processor success fact.
+- `MoonBlockGeneratorBlocked`: MoonBlockGenerator respawn processor debounced defer fact.
 
 `TilePresentationEvent` is a presentation-only fact and must not enter the canonical determinism hash.
 
@@ -291,8 +296,7 @@ VFX, audio, and UI must not call `WorldState.CreateSnapshot` to infer TileFeatur
 - TileFeatureAudio reads only `CurrentTilePresentationRequests`.
 - `TileFeatureAudioRequestPlanner` reads `TilePresentationRequest` values, not `TickPresentationData.TileEvents`, and must not call `TilePresentationRequestPlanner`.
 - `ButtonActivated` cue is required.
-- `DestroyTileTriggered`, `SlideTileRedirected`, `BarricadeBlocked`, `BarricadeCrushed`, `ExitOpened`, `ExitEntered`, and `MoonBlockGenerated` cues are optional.
-- `MoonBlockGeneratorBlocked` cue does not exist.
+- `DestroyTileTriggered`, `SlideTileRedirected`, `BarricadeBlocked`, `BarricadeCrushed`, `ExitOpened`, `ExitEntered`, `MoonBlockGenerated`, and `MoonBlockGeneratorBlocked` cues are optional.
 - Only Sfx one-shot playback is allowed.
 - Ui, Bgm, Voice, Ambience, Master, loop, and non-null playback policy bindings are rejected.
 - Missing optional bindings are no-op.

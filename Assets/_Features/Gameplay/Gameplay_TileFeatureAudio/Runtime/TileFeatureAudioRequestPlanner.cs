@@ -39,7 +39,8 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
                     new AudioPlaybackContext(
                         ownerEntityId: request.OwnerEntityId > 0 ? request.OwnerEntityId : null,
                         debugTag: TileFeatureAudioCueCatalog.Format(cue)),
-                    request.TargetEntityId));
+                    request.TargetEntityId,
+                    request.MoonBlockGeneratorBlockedPayload));
             }
 
             return requests.Count == 0 ? Array.Empty<TileFeatureAudioRequest>() : requests;
@@ -72,6 +73,9 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
                     return true;
                 case TilePresentationRequestKind.MoonBlockGenerated:
                     cue = TileFeatureAudioCue.MoonBlockGenerated;
+                    return true;
+                case TilePresentationRequestKind.MoonBlockGeneratorBlocked:
+                    cue = TileFeatureAudioCue.MoonBlockGeneratorBlocked;
                     return true;
                 default:
                     cue = default;
