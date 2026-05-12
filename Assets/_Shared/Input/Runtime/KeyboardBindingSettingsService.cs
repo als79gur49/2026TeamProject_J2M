@@ -8,6 +8,7 @@ namespace Game.Shared.Input
     public sealed class KeyboardBindingSettingsService : IDisposable
     {
         private const string MoveActionPath = "Player/Move";
+        private const string UiNavigateActionPath = "UI/Navigate";
         private const string PushActionPath = "Player/Push";
         private const string FlipActionPath = "Player/Flip";
         private const string KeyboardGroup = "Keyboard&Mouse";
@@ -82,7 +83,7 @@ namespace Game.Shared.Input
                 return validation;
             }
 
-            WithPlayerMapDisabled(() =>
+            WithManagedMapsDisabled(() =>
             {
                 ApplyMovementScheme(scheme);
             });
@@ -147,7 +148,7 @@ namespace Game.Shared.Input
         public KeyboardBindingSettingsSnapshot ResetToDefaults()
         {
             CancelRebind();
-            WithPlayerMapDisabled(() =>
+            WithManagedMapsDisabled(() =>
             {
                 ClearManagedOverrides();
                 ApplyMovementScheme(KeyboardMovementScheme.Wasd);
@@ -166,7 +167,7 @@ namespace Game.Shared.Input
                 ? storedScheme
                 : KeyboardMovementScheme.Wasd;
 
-            WithPlayerMapDisabled(() =>
+            WithManagedMapsDisabled(() =>
             {
                 ClearManagedOverrides();
                 if (_store.TryLoadBindingOverridesJson(out var json))
@@ -294,15 +295,20 @@ namespace Game.Shared.Input
 
         private void ApplyMovementScheme(KeyboardMovementScheme scheme)
         {
-            var moveAction = _actions.FindAction(MoveActionPath, throwIfNotFound: false);
-            if (moveAction == null)
+            ApplyMovementSchemeToAction(_actions.FindAction(MoveActionPath, throwIfNotFound: false), scheme);
+            ApplyMovementSchemeToAction(_actions.FindAction(UiNavigateActionPath, throwIfNotFound: false), scheme);
+        }
+
+        private static void ApplyMovementSchemeToAction(InputAction action, KeyboardMovementScheme scheme)
+        {
+            if (action == null)
             {
                 return;
             }
 
-            for (var i = 0; i < moveAction.bindings.Count; i++)
+            for (var i = 0; i < action.bindings.Count; i++)
             {
-                var binding = moveAction.bindings[i];
+                var binding = action.bindings[i];
                 if (!binding.isPartOfComposite || !IsKeyboardPath(binding.path))
                 {
                     continue;
@@ -310,11 +316,11 @@ namespace Game.Shared.Input
 
                 if (IsWasdPath(binding.path))
                 {
-                    ApplyMovementPartEnabled(moveAction, i, scheme == KeyboardMovementScheme.Wasd);
+                    ApplyMovementPartEnabled(action, i, scheme == KeyboardMovementScheme.Wasd);
                 }
                 else if (IsArrowPath(binding.path))
                 {
-                    ApplyMovementPartEnabled(moveAction, i, scheme == KeyboardMovementScheme.ArrowKeys);
+                    ApplyMovementPartEnabled(action, i, scheme == KeyboardMovementScheme.ArrowKeys);
                 }
             }
         }
@@ -338,18 +344,23 @@ namespace Game.Shared.Input
 
         private void ClearMovementOverrides()
         {
-            var moveAction = _actions.FindAction(MoveActionPath, throwIfNotFound: false);
-            if (moveAction == null)
+            ClearMovementOverrides(_actions.FindAction(MoveActionPath, throwIfNotFound: false));
+            ClearMovementOverrides(_actions.FindAction(UiNavigateActionPath, throwIfNotFound: false));
+        }
+
+        private static void ClearMovementOverrides(InputAction action)
+        {
+            if (action == null)
             {
                 return;
             }
 
-            for (var i = 0; i < moveAction.bindings.Count; i++)
+            for (var i = 0; i < action.bindings.Count; i++)
             {
-                var binding = moveAction.bindings[i];
+                var binding = action.bindings[i];
                 if (binding.isPartOfComposite && IsKeyboardPath(binding.path))
                 {
-                    moveAction.RemoveBindingOverride(i);
+                    action.RemoveBindingOverride(i);
                 }
             }
         }
@@ -473,13 +484,20 @@ namespace Game.Shared.Input
             return -1;
         }
 
-        private void WithPlayerMapDisabled(Action action)
+        private void WithManagedMapsDisabled(Action action)
         {
-            var actionMap = ResolvePlayerMap();
-            var wasEnabled = actionMap != null && actionMap.enabled;
-            if (wasEnabled)
+            var playerMap = ResolvePlayerMap();
+            var uiMap = _actions.FindActionMap("UI", throwIfNotFound: false);
+            var wasPlayerEnabled = playerMap != null && playerMap.enabled;
+            var wasUiEnabled = uiMap != null && uiMap.enabled;
+            if (wasPlayerEnabled)
             {
-                actionMap.Disable();
+                playerMap.Disable();
+            }
+
+            if (wasUiEnabled)
+            {
+                uiMap.Disable();
             }
 
             try
@@ -488,9 +506,14 @@ namespace Game.Shared.Input
             }
             finally
             {
-                if (wasEnabled && actionMap != null)
+                if (wasPlayerEnabled && playerMap != null)
                 {
-                    actionMap.Enable();
+                    playerMap.Enable();
+                }
+
+                if (wasUiEnabled && uiMap != null)
+                {
+                    uiMap.Enable();
                 }
             }
         }
