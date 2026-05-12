@@ -8,6 +8,7 @@ using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 using Game.Feature.UI.ViewShared;
 using NUnit.Framework;
+using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
@@ -38,6 +39,127 @@ namespace Game.Feature.UI.Tests
             using var harness = CreateMainMenuHarness();
 
             AssertAllFramesHidden(harness.View, "_commandNavigationGroup", isHidden: true);
+        }
+
+        [Test]
+        public void MainMenu_StartSubmit_OpensSaveSlotPanel_AndMovesFocusToFirstSlotPrimary()
+        {
+            using var harness = CreateMainMenuSaveSlotHarness();
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+
+            Assert.That(harness.View.ActiveSection, Is.EqualTo(MainMenuSectionId.SaveSlots));
+            Assert.That(harness.Panel.SelectedCardIndex, Is.EqualTo(0));
+            Assert.That(harness.Panel.SelectedAction, Is.EqualTo(SaveSlotActionSelection.Primary));
+            Assert.That(IsFrameVisible(harness.Cards[0], "_primarySelectionFrame"), Is.True);
+            AssertAllFramesHidden(harness.View, "_commandNavigationGroup", isHidden: true);
+        }
+
+        [Test]
+        public void MainMenu_MouseStartOpen_DoesNotForceSaveSlotFrameUntilKeyboardFocus()
+        {
+            using var harness = CreateMainMenuSaveSlotHarness();
+
+            harness.View.ClickStart();
+
+            Assert.That(harness.View.ActiveSection, Is.EqualTo(MainMenuSectionId.SaveSlots));
+            AssertSaveSlotFramesHidden(harness.Cards, isHidden: true);
+        }
+
+        [Test]
+        public void MainMenu_SaveSlotPanelOpen_CommandNavigationDoesNotMoveSettingsOrQuit()
+        {
+            using var harness = CreateMainMenuSaveSlotHarness();
+            harness.View.OnNavigationFocusGained();
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+
+            Assert.That(harness.Panel.SelectedCardIndex, Is.EqualTo(1));
+            Assert.That(harness.View.SelectedCommandIndex, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void SaveSlotPanel_DownFromDelete_FallsBackToPrimary_WhenTargetDeleteDisabled()
+        {
+            using var harness = CreateMainMenuSaveSlotHarness(
+                CreateCardViewModel(1, SaveSlotIntentKind.Continue, showDelete: true),
+                CreateCardViewModel(2, SaveSlotIntentKind.NewGame, showDelete: false),
+                CreateCardViewModel(3, SaveSlotIntentKind.Continue, showDelete: true));
+            harness.Panel.FocusFirstAvailableCardPrimary(showFrame: true);
+            Assert.That(harness.Panel.HandleNavigate(UiNavigationCommand.Right), Is.True);
+
+            Assert.That(harness.Panel.HandleNavigate(UiNavigationCommand.Down), Is.True);
+
+            Assert.That(harness.Panel.SelectedCardIndex, Is.EqualTo(1));
+            Assert.That(harness.Panel.SelectedAction, Is.EqualTo(SaveSlotActionSelection.Primary));
+            Assert.That(IsFrameVisible(harness.Cards[1], "_primarySelectionFrame"), Is.True);
+            Assert.That(IsFrameVisible(harness.Cards[1], "_deleteSelectionFrame"), Is.False);
+        }
+
+        [Test]
+        public void SaveSlotCard_RightFromPrimary_NoOp_WhenDeleteDisabled()
+        {
+            using var harness = CreateMainMenuSaveSlotHarness(
+                CreateCardViewModel(1, SaveSlotIntentKind.NewGame, showDelete: false),
+                CreateCardViewModel(2, SaveSlotIntentKind.Continue, showDelete: true),
+                CreateCardViewModel(3, SaveSlotIntentKind.Continue, showDelete: true));
+            var card = harness.Cards[0];
+            card.SetActionSelection(SaveSlotActionSelection.Primary, showFrame: true);
+
+            Assert.That(card.MoveActionRight(), Is.False);
+
+            Assert.That(card.CurrentSelection, Is.EqualTo(SaveSlotActionSelection.Primary));
+            Assert.That(IsFrameVisible(card, "_primarySelectionFrame"), Is.True);
+            Assert.That(IsFrameVisible(card, "_deleteSelectionFrame"), Is.False);
+        }
+
+        [Test]
+        public void SaveSlotPanel_SubmitPrimary_ReusesExistingPrimaryClickPath()
+        {
+            using var harness = CreateMainMenuSaveSlotHarness();
+            SaveSlotIntent? received = null;
+            harness.Panel.SaveSlotIntentRequested += intent => received = intent;
+            harness.Panel.FocusFirstAvailableCardPrimary(showFrame: true);
+
+            Assert.That(harness.Panel.HandleSubmit(), Is.True);
+
+            Assert.That(received.HasValue, Is.True);
+            Assert.That(received.Value.SlotNumber, Is.EqualTo(1));
+            Assert.That(received.Value.IntentKind, Is.EqualTo(SaveSlotIntentKind.Continue));
+        }
+
+        [Test]
+        public void SaveSlotPanel_SubmitDelete_ReusesExistingDeleteClickPath()
+        {
+            using var harness = CreateMainMenuSaveSlotHarness();
+            SaveSlotIntent? received = null;
+            harness.Panel.SaveSlotIntentRequested += intent => received = intent;
+            harness.Panel.FocusFirstAvailableCardPrimary(showFrame: true);
+            Assert.That(harness.Panel.HandleNavigate(UiNavigationCommand.Right), Is.True);
+
+            Assert.That(harness.Panel.HandleSubmit(), Is.True);
+
+            Assert.That(received.HasValue, Is.True);
+            Assert.That(received.Value.SlotNumber, Is.EqualTo(1));
+            Assert.That(received.Value.IntentKind, Is.EqualTo(SaveSlotIntentKind.Delete));
+        }
+
+        [Test]
+        public void SaveSlotPanel_Cancel_ClosesPanelAndReturnsFocusToStart()
+        {
+            using var harness = CreateMainMenuSaveSlotHarness();
+            harness.View.OnNavigationFocusGained();
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+
+            Assert.That(harness.View.HandleCancel(), Is.True);
+
+            Assert.That(harness.View.ActiveSection, Is.EqualTo(MainMenuSectionId.None));
+            Assert.That(harness.View.SelectedCommandIndex, Is.EqualTo(0));
+            Assert.That(harness.Panel.gameObject.activeSelf, Is.False);
+            AssertSaveSlotFramesHidden(harness.Cards, isHidden: true);
         }
 
         [Test]
@@ -453,6 +575,35 @@ namespace Game.Feature.UI.Tests
                 Assert.That(slot.Button, Is.Not.Null);
                 Assert.That(slot.SelectionFrame, Is.Not.Null);
                 Assert.That(slot.SelectionFrame.transform.IsChildOf(slot.Button.transform), Is.True);
+            }
+        }
+
+        [Test]
+        public void MainMenuScreenPrefab_SaveSlotCards_HavePrimaryAndDeleteSelectionFrames()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<MainMenuScreenView>(MainMenuScreenPrefabPath);
+            Assert.That(prefab, Is.Not.Null);
+            Assert.That(prefab.SaveSlotPanel, Is.Not.Null);
+
+            var cards = prefab.SaveSlotPanel.SlotCards;
+            Assert.That(cards, Is.Not.Null);
+            Assert.That(cards.Length, Is.EqualTo(SaveSlotPanelView.RequiredSlotCardCount));
+            for (var i = 0; i < cards.Length; i++)
+            {
+                var card = cards[i];
+                Assert.That(card, Is.Not.Null, $"card {i}");
+                var primaryButton = GetPrivateField<Button>(card, "_primaryButton");
+                var deleteButton = GetPrivateField<Button>(card, "_deleteButton");
+                var primaryFrame = GetPrivateField<Image>(card, "_primarySelectionFrame");
+                var deleteFrame = GetPrivateField<Image>(card, "_deleteSelectionFrame");
+                var profile = GetPrivateField<UiSelectionVisualProfile>(card, "_selectionVisualProfile");
+
+                Assert.That(primaryFrame, Is.Not.Null, card.name);
+                Assert.That(deleteFrame, Is.Not.Null, card.name);
+                Assert.That(profile, Is.Not.Null, card.name);
+                Assert.That(primaryFrame.transform.IsChildOf(primaryButton.transform), Is.True, card.name);
+                Assert.That(deleteFrame.transform.IsChildOf(deleteButton.transform), Is.True, card.name);
+                Assert.That(primaryFrame, Is.Not.SameAs(deleteFrame), card.name);
             }
         }
 
@@ -1549,6 +1700,127 @@ namespace Game.Feature.UI.Tests
             return new MainMenuHarness(root, view);
         }
 
+        private static MainMenuSaveSlotHarness CreateMainMenuSaveSlotHarness(params SaveSlotCardViewModel[] cardViewModels)
+        {
+            var root = new GameObject("MainMenuSaveSlotNavigationHarness", typeof(RectTransform));
+            root.SetActive(false);
+            var view = root.AddComponent<MainMenuScreenView>();
+
+            var topBar = new GameObject("TopBar", typeof(RectTransform)).transform;
+            var contentHost = new GameObject("ContentHost", typeof(RectTransform)).transform;
+            var bottomBar = new GameObject("BottomBar", typeof(RectTransform)).transform;
+            var commandPanel = new GameObject("MainCommandPanel", typeof(RectTransform)).transform;
+            topBar.SetParent(root.transform, false);
+            contentHost.SetParent(root.transform, false);
+            bottomBar.SetParent(root.transform, false);
+            commandPanel.SetParent(root.transform, false);
+
+            var startButton = CreateButton("StartButton", commandPanel);
+            var settingsButton = CreateButton("SettingsButton", commandPanel);
+            var quitButton = CreateButton("QuitButton", commandPanel);
+
+            var panelObject = new GameObject("SaveSlotPanelView", typeof(RectTransform));
+            panelObject.transform.SetParent(contentHost, false);
+            var panel = panelObject.AddComponent<SaveSlotPanelView>();
+            var cards = new SaveSlotCardView[SaveSlotPanelView.RequiredSlotCardCount];
+            for (var i = 0; i < cards.Length; i++)
+            {
+                cards[i] = CreateSaveSlotCard($"SaveSlotCard{i + 1}", panel.transform);
+            }
+
+            SetPrivateField(panel, "_slotCards", cards);
+            SetPrivateField(view, "_root", root);
+            SetPrivateField(view, "_topBar", topBar);
+            SetPrivateField(view, "_contentHost", contentHost);
+            SetPrivateField(view, "_bottomBar", bottomBar);
+            SetPrivateField(view, "_mainCommandPanel", commandPanel);
+            SetPrivateField(view, "_saveSlotPanel", panel);
+            SetPrivateField(view, "_startButton", startButton);
+            SetPrivateField(view, "_settingsButton", settingsButton);
+            SetPrivateField(view, "_quitButton", quitButton);
+            SetPrivateField(
+                view,
+                "_commandNavigationGroup",
+                CreateNavigationGroup(startButton, settingsButton, quitButton));
+
+            root.SetActive(true);
+            panel.Bind(new SaveSlotPanelViewModel(
+                cardViewModels != null && cardViewModels.Length > 0
+                    ? cardViewModels
+                    : new[]
+                    {
+                        CreateCardViewModel(1, SaveSlotIntentKind.Continue, showDelete: true),
+                        CreateCardViewModel(2, SaveSlotIntentKind.Continue, showDelete: true),
+                        CreateCardViewModel(3, SaveSlotIntentKind.Continue, showDelete: true),
+                    }));
+            view.NavigationRequested += intent => view.ShowSection(intent.SectionId);
+            view.ShowSection(MainMenuSectionId.None);
+            view.OnNavigationFocusLost();
+            return new MainMenuSaveSlotHarness(root, view, panel, cards);
+        }
+
+        private static SaveSlotCardView CreateSaveSlotCard(string name, Transform parent)
+        {
+            var cardObject = new GameObject(name, typeof(RectTransform));
+            cardObject.transform.SetParent(parent, false);
+            var card = cardObject.AddComponent<SaveSlotCardView>();
+
+            var headerRow = CreateRow("HeaderRow", card.transform);
+            var detailRow = CreateRow("DetailRow", card.transform);
+            var metaRow = CreateRow("MetaRow", card.transform);
+            var actionRow = CreateRow("ActionRow", card.transform);
+
+            SetPrivateField(card, "_titleLabel", CreateLabel("Title", headerRow));
+            SetPrivateField(card, "_statusLabel", CreateLabel("Status", headerRow));
+            SetPrivateField(card, "_stageLabel", CreateLabel("Stage", detailRow));
+            SetPrivateField(card, "_chancesLabel", CreateLabel("Chances", detailRow));
+            SetPrivateField(card, "_deathsLabel", CreateLabel("Deaths", metaRow));
+            SetPrivateField(card, "_lastPlayedLabel", CreateLabel("LastPlayed", metaRow));
+
+            var primaryButton = CreateButton("PrimaryButton", actionRow);
+            SetPrivateField(card, "_primaryButton", primaryButton);
+            SetPrivateField(card, "_primaryButtonLabel", CreateLabel("Label", primaryButton.transform));
+            var deleteButton = CreateButton("DeleteButton", actionRow);
+            SetPrivateField(card, "_deleteButton", deleteButton);
+            SetPrivateField(card, "_primarySelectionFrame", CreateNamedFrame("PrimarySelectionFrame", primaryButton.transform));
+            SetPrivateField(card, "_deleteSelectionFrame", CreateNamedFrame("DeleteSelectionFrame", deleteButton.transform));
+            SetPrivateField(card, "_selectionVisualProfile", UiSelectionVisualProfile.CreateRuntimeDefault());
+            return card;
+        }
+
+        private static SaveSlotCardViewModel CreateCardViewModel(
+            int slotNumber,
+            SaveSlotIntentKind primaryIntentKind,
+            bool showDelete)
+        {
+            return new SaveSlotCardViewModel(
+                slotNumber,
+                SaveSlotCardState.Existing,
+                $"Slot {slotNumber}",
+                "Continue",
+                "Stage 1",
+                "Chances 3",
+                "Deaths 0",
+                string.Empty,
+                primaryIntentKind == SaveSlotIntentKind.NewGame ? "New Game" : "Continue",
+                primaryIntentKind,
+                showDelete);
+        }
+
+        private static Transform CreateRow(string name, Transform parent)
+        {
+            var rowObject = new GameObject(name, typeof(RectTransform));
+            rowObject.transform.SetParent(parent, false);
+            return rowObject.transform;
+        }
+
+        private static TMP_Text CreateLabel(string name, Transform parent)
+        {
+            var labelObject = new GameObject(name, typeof(RectTransform));
+            labelObject.transform.SetParent(parent, false);
+            return labelObject.AddComponent<TextMeshProUGUI>();
+        }
+
         private static ConfirmPopupHarness CreateConfirmPopupHarness(bool isDestructive)
         {
             var root = new GameObject("ConfirmPopupNavigationHarness", typeof(RectTransform));
@@ -1633,6 +1905,13 @@ namespace Game.Feature.UI.Tests
             return frameObject.AddComponent<Image>();
         }
 
+        private static Image CreateNamedFrame(string name, Transform parent)
+        {
+            var frameObject = new GameObject(name, typeof(RectTransform));
+            frameObject.transform.SetParent(parent, false);
+            return frameObject.AddComponent<Image>();
+        }
+
         private static void AssertButtonGroupFrames(object prefab, string fieldName, int expectedSlotCount)
         {
             var group = GetPrivateField<UiSelectableButtonGroup>(prefab, fieldName);
@@ -1674,6 +1953,39 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        private static void AssertSaveSlotFramesHidden(IReadOnlyList<SaveSlotCardView> cards, bool isHidden)
+        {
+            var activeFrameCount = 0;
+            for (var i = 0; i < cards.Count; i++)
+            {
+                if (IsFrameVisible(cards[i], "_primarySelectionFrame"))
+                {
+                    activeFrameCount++;
+                }
+
+                if (IsFrameVisible(cards[i], "_deleteSelectionFrame"))
+                {
+                    activeFrameCount++;
+                }
+            }
+
+            if (isHidden)
+            {
+                Assert.That(activeFrameCount, Is.EqualTo(0));
+            }
+            else
+            {
+                Assert.That(activeFrameCount, Is.GreaterThan(0));
+            }
+        }
+
+        private static bool IsFrameVisible(SaveSlotCardView card, string fieldName)
+        {
+            var frame = GetPrivateField<Image>(card, fieldName);
+            Assert.That(frame, Is.Not.Null, $"{card.name}.{fieldName}");
+            return frame.gameObject.activeSelf;
+        }
+
         private static void SetPrivateField(object target, string fieldName, object value)
         {
             var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
@@ -1699,6 +2011,34 @@ namespace Game.Feature.UI.Tests
             }
 
             public MainMenuScreenView View { get; }
+
+            public void Dispose()
+            {
+                UnityEngine.Object.DestroyImmediate(_root);
+            }
+        }
+
+        private sealed class MainMenuSaveSlotHarness : IDisposable
+        {
+            private readonly GameObject _root;
+
+            public MainMenuSaveSlotHarness(
+                GameObject root,
+                MainMenuScreenView view,
+                SaveSlotPanelView panel,
+                SaveSlotCardView[] cards)
+            {
+                _root = root;
+                View = view;
+                Panel = panel;
+                Cards = cards;
+            }
+
+            public MainMenuScreenView View { get; }
+
+            public SaveSlotPanelView Panel { get; }
+
+            public SaveSlotCardView[] Cards { get; }
 
             public void Dispose()
             {

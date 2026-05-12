@@ -716,7 +716,11 @@ namespace Game.Feature.UI.Tests
             var primaryButton = CreateActionButton("PrimaryButton", actionRow, out var primaryButtonLabel);
             SetPrivateField(card, "_primaryButton", primaryButton);
             SetPrivateField(card, "_primaryButtonLabel", primaryButtonLabel);
-            SetPrivateField(card, "_deleteButton", CreateActionButton("DeleteButton", actionRow, out _));
+            var deleteButton = CreateActionButton("DeleteButton", actionRow, out _);
+            SetPrivateField(card, "_deleteButton", deleteButton);
+            SetPrivateField(card, "_primarySelectionFrame", CreateSelectionFrame("PrimarySelectionFrame", primaryButton.transform));
+            SetPrivateField(card, "_deleteSelectionFrame", CreateSelectionFrame("DeleteSelectionFrame", deleteButton.transform));
+            SetPrivateField(card, "_selectionVisualProfile", UiSelectionVisualProfile.CreateRuntimeDefault());
         }
 
         private static Transform CreateRow(string name, Transform parent)
@@ -747,6 +751,13 @@ namespace Game.Feature.UI.Tests
             var button = buttonObject.AddComponent<Button>();
             label = CreateLabel("Label", buttonObject.transform);
             return button;
+        }
+
+        private static Image CreateSelectionFrame(string name, Transform parent)
+        {
+            var frameObject = new GameObject(name, typeof(RectTransform));
+            frameObject.transform.SetParent(parent, false);
+            return frameObject.AddComponent<Image>();
         }
 
         private static void AssertCommandButtonHoverScaleEffect(Transform button)
