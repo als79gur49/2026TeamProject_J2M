@@ -12,6 +12,7 @@ namespace Game.Feature.Stages
             SurfaceCell cell,
             Direction facing,
             int hp,
+            UnitMobilityKind unitMobilityKind,
             string unitStackGroup,
             BoxCapabilities boxCapabilities,
             BoxArchetype boxArchetype,
@@ -25,6 +26,7 @@ namespace Game.Feature.Stages
             Cell = cell;
             Facing = facing;
             Hp = hp;
+            UnitMobilityKind = unitMobilityKind;
             UnitStackGroup = unitStackGroup ?? string.Empty;
             BoxCapabilities = boxCapabilities;
             BoxArchetype = boxArchetype;
@@ -44,6 +46,8 @@ namespace Game.Feature.Stages
         public Direction Facing { get; }
 
         public int Hp { get; }
+
+        public UnitMobilityKind UnitMobilityKind { get; }
 
         public string UnitStackGroup { get; }
 

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
 
 namespace Game.Feature.Stages
@@ -160,6 +161,7 @@ namespace Game.Feature.Stages
                     placement.Cell,
                     placement.Facing,
                     placement.Hp,
+                    NormalizeUnitMobility(placement.Kind, placement.UnitMobilityKind),
                     Normalize(placement.UnitStackGroup),
                     placement.BoxCapabilities,
                     placement.BoxArchetype,
@@ -277,6 +279,7 @@ namespace Game.Feature.Stages
                     spawn.Cell,
                     spawn.Facing,
                     spawn.Hp,
+                    NormalizeUnitMobility(spawn.Kind, spawn.UnitMobilityKind),
                     Normalize(spawn.UnitStackGroup),
                     spawn.BoxCapabilities,
                     spawn.BoxArchetype,
@@ -475,6 +478,33 @@ namespace Game.Feature.Stages
                 StageAuthoringEntityKind.Wall => StageSpawnKind.Wall,
                 _ => StageSpawnKind.Player,
             };
+        }
+
+        private static UnitMobilityKind NormalizeUnitMobility(
+            StageAuthoringEntityKind kind,
+            UnitMobilityKind unitMobilityKind)
+        {
+            return kind == StageAuthoringEntityKind.Player ||
+                   kind == StageAuthoringEntityKind.Enemy
+                ? NormalizeUnitMobility(unitMobilityKind)
+                : UnitMobilityKind.Ground;
+        }
+
+        private static UnitMobilityKind NormalizeUnitMobility(
+            StageSpawnKind kind,
+            UnitMobilityKind unitMobilityKind)
+        {
+            return kind == StageSpawnKind.Player ||
+                   kind == StageSpawnKind.Enemy
+                ? NormalizeUnitMobility(unitMobilityKind)
+                : UnitMobilityKind.Ground;
+        }
+
+        private static UnitMobilityKind NormalizeUnitMobility(UnitMobilityKind unitMobilityKind)
+        {
+            return Enum.IsDefined(typeof(UnitMobilityKind), unitMobilityKind)
+                ? unitMobilityKind
+                : UnitMobilityKind.Ground;
         }
 
         private static string ResolveDisplayName(StagePlacedEntityAuthoring placement)

@@ -88,6 +88,86 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void StageAuthoringGeneration_PlayerMobility_IsWrittenToGeneratedStageDefinition()
+        {
+            var fixture = CreateFixture(
+                Placement("player", StageAuthoringEntityKind.Player, 0, 0, unitMobilityKind: UnitMobilityKind.Air),
+                Placement("enemy", StageAuthoringEntityKind.Enemy, 1, 0));
+
+            try
+            {
+                var report = StageAuthoringGenerator.Generate(fixture.Authoring, StageAuthoringGenerateOptions.WriteAll);
+                Assert.That(report.HasErrors, Is.False, FormatIssues(report));
+                Assert.That(fixture.Gameplay.PlayerSpawns[0].UnitMobilityKind, Is.EqualTo(UnitMobilityKind.Air));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        public void StageAuthoringGeneration_EnemyMobility_IsWrittenToGeneratedStageDefinition()
+        {
+            var fixture = CreateFixture(
+                Placement("player", StageAuthoringEntityKind.Player, 0, 0),
+                Placement("enemy", StageAuthoringEntityKind.Enemy, 1, 0, unitMobilityKind: UnitMobilityKind.Air));
+
+            try
+            {
+                var report = StageAuthoringGenerator.Generate(fixture.Authoring, StageAuthoringGenerateOptions.WriteAll);
+                Assert.That(report.HasErrors, Is.False, FormatIssues(report));
+                Assert.That(fixture.Gameplay.EnemySpawns[0].UnitMobilityKind, Is.EqualTo(UnitMobilityKind.Air));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        public void StageAuthoringGeneration_MissingMobility_DefaultsToGround()
+        {
+            var fixture = CreateFixture(
+                Placement("player", StageAuthoringEntityKind.Player, 0, 0),
+                Placement("enemy", StageAuthoringEntityKind.Enemy, 1, 0));
+
+            try
+            {
+                var report = StageAuthoringGenerator.Generate(fixture.Authoring, StageAuthoringGenerateOptions.WriteAll);
+                Assert.That(report.HasErrors, Is.False, FormatIssues(report));
+                Assert.That(fixture.Gameplay.PlayerSpawns[0].UnitMobilityKind, Is.EqualTo(UnitMobilityKind.Ground));
+                Assert.That(fixture.Gameplay.EnemySpawns[0].UnitMobilityKind, Is.EqualTo(UnitMobilityKind.Ground));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        public void StageAuthoringGeneration_NonUnitMobility_IsNormalizedToGround()
+        {
+            var fixture = CreateFixture(
+                Placement("player", StageAuthoringEntityKind.Player, 0, 0),
+                Placement("box", StageAuthoringEntityKind.Box, 1, 0, unitMobilityKind: UnitMobilityKind.Air),
+                Placement("wall", StageAuthoringEntityKind.Wall, 2, 0, unitMobilityKind: UnitMobilityKind.Air));
+
+            try
+            {
+                var report = StageAuthoringGenerator.Generate(fixture.Authoring, StageAuthoringGenerateOptions.WriteAll);
+                Assert.That(report.HasErrors, Is.False, FormatIssues(report));
+                Assert.That(fixture.Gameplay.PlayerSpawns[0].UnitMobilityKind, Is.EqualTo(UnitMobilityKind.Ground));
+                Assert.That(fixture.Gameplay.BoxSpawns[0].UnitMobilityKind, Is.EqualTo(UnitMobilityKind.Ground));
+                Assert.That(fixture.Gameplay.WallSpawns[0].UnitMobilityKind, Is.EqualTo(UnitMobilityKind.Ground));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
         public void GeneratedStageDefinitionPreservesTileFeatureAuthoring()
         {
             var fixture = CreateFixture(
@@ -369,7 +449,8 @@ namespace Game.Feature.Stages.Editor.Tests
             int x,
             int y,
             string presentationId = "",
-            string unitStackGroup = "")
+            string unitStackGroup = "",
+            UnitMobilityKind unitMobilityKind = UnitMobilityKind.Ground)
         {
             return new StagePlacedEntityAuthoring
             {
@@ -379,6 +460,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 Cell = new SurfaceCell(FaceId.Floor, x, y),
                 Facing = Direction.Right,
                 Hp = 1,
+                UnitMobilityKind = unitMobilityKind,
                 UnitStackGroup = unitStackGroup,
                 BoxCapabilities = BoxCapabilities.Push,
                 EnemyAiMode = kind == StageAuthoringEntityKind.Enemy ? EnemyAiMode.Patrol : EnemyAiMode.None,
