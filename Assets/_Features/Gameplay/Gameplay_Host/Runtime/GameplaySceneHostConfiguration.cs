@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.Audio;
+using Game.Feature.Gameplay.BlockAudio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.GravityFieldAudio;
@@ -186,6 +187,7 @@ namespace Game.Feature.Gameplay.Host
         public GameplayAudioMap GameplayAudioMap;
         public TileFeatureAudioMap TileFeatureAudioMap;
         public GravityFieldAudioMap GravityFieldAudioMap;
+        public BlockAudioMap BlockAudioMap;
         public ICampaignChancesReadSource CampaignChancesReadSource;
         public IEntityLogic[] StaticEntityLogics = Array.Empty<IEntityLogic>();
         public GameplayEntityView PlayerViewPrefab;

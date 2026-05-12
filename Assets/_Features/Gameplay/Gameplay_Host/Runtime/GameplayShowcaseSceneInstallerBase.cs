@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.Audio;
+using Game.Feature.Gameplay.BlockAudio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.GravityFieldAudio;
@@ -127,6 +128,7 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private GameplayAudioMap gameplayAudioMap;
         [SerializeField] private TileFeatureAudioMap tileFeatureAudioMap;
         [SerializeField] private GravityFieldAudioMap gravityFieldAudioMap;
+        [SerializeField] private BlockAudioMap blockAudioMap;
         [SerializeField] private float faceSeamGap = -1f;
 
         protected bool AutoCreateViews => autoCreateViews;
@@ -235,6 +237,11 @@ namespace Game.Feature.Gameplay.Host
             return gravityFieldAudioMap;
         }
 
+        protected virtual BlockAudioMap ResolveBlockAudioMap()
+        {
+            return blockAudioMap;
+        }
+
         protected abstract InitialGameplayState BuildInitialGameplayState();
 
         protected virtual void ConfigureRuntimeConfiguration(
@@ -340,6 +347,7 @@ namespace Game.Feature.Gameplay.Host
                 GameplayAudioMap = ResolveGameplayAudioMap(),
                 TileFeatureAudioMap = ResolveTileFeatureAudioMap(),
                 GravityFieldAudioMap = ResolveGravityFieldAudioMap(),
+                BlockAudioMap = ResolveBlockAudioMap(),
                 ViewFactory = viewFactory,
             };
 

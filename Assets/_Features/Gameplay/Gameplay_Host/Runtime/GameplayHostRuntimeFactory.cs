@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.Audio;
+using Game.Feature.Gameplay.BlockAudio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.GravityFieldAudio;
@@ -27,6 +28,8 @@ namespace Game.Feature.Gameplay.Host
             "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when TileFeatureAudioMap is assigned.";
         private const string MissingGravityFieldAudioRuntimeInstallerMessage =
             "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when GravityFieldAudioMap is assigned.";
+        private const string MissingBlockAudioRuntimeInstallerMessage =
+            "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when BlockAudioMap is assigned.";
 
         public static GameplayHostRuntimeContext Create(
             GameplaySceneHost host,
@@ -509,9 +512,11 @@ namespace Game.Feature.Gameplay.Host
             var hasGameplayAudioMap = configuration?.GameplayAudioMap != null;
             var hasTileFeatureAudioMap = configuration?.TileFeatureAudioMap != null;
             var hasGravityFieldAudioMap = configuration?.GravityFieldAudioMap != null;
+            var hasBlockAudioMap = configuration?.BlockAudioMap != null;
             if (!hasGameplayAudioMap &&
                 !hasTileFeatureAudioMap &&
-                !hasGravityFieldAudioMap)
+                !hasGravityFieldAudioMap &&
+                !hasBlockAudioMap)
             {
                 return;
             }
@@ -522,7 +527,8 @@ namespace Game.Feature.Gameplay.Host
                 throw new InvalidOperationException(ResolveMissingAudioRuntimeInstallerMessage(
                     hasGameplayAudioMap,
                     hasTileFeatureAudioMap,
-                    hasGravityFieldAudioMap));
+                    hasGravityFieldAudioMap,
+                    hasBlockAudioMap));
             }
 
             audioRuntimeInstaller.Install();
@@ -531,7 +537,8 @@ namespace Game.Feature.Gameplay.Host
                 throw new InvalidOperationException(ResolveMissingAudioRuntimeInstallerMessage(
                     hasGameplayAudioMap,
                     hasTileFeatureAudioMap,
-                    hasGravityFieldAudioMap));
+                    hasGravityFieldAudioMap,
+                    hasBlockAudioMap));
             }
 
             var playbackPort = new GameplayAudioPlaybackPortAdapter(audioRuntimeInstaller.AudioService);
@@ -549,12 +556,18 @@ namespace Game.Feature.Gameplay.Host
             {
                 presenter.AttachGravityFieldAudioRuntime(playbackPort, configuration.GravityFieldAudioMap);
             }
+
+            if (hasBlockAudioMap)
+            {
+                presenter.AttachBlockAudioRuntime(playbackPort, configuration.BlockAudioMap);
+            }
         }
 
         private static string ResolveMissingAudioRuntimeInstallerMessage(
             bool hasGameplayAudioMap,
             bool hasTileFeatureAudioMap,
-            bool hasGravityFieldAudioMap)
+            bool hasGravityFieldAudioMap,
+            bool hasBlockAudioMap)
         {
             if (hasGameplayAudioMap)
             {
@@ -566,8 +579,13 @@ namespace Game.Feature.Gameplay.Host
                 return MissingTileFeatureAudioRuntimeInstallerMessage;
             }
 
-            return hasGravityFieldAudioMap
-                ? MissingGravityFieldAudioRuntimeInstallerMessage
+            if (hasGravityFieldAudioMap)
+            {
+                return MissingGravityFieldAudioRuntimeInstallerMessage;
+            }
+
+            return hasBlockAudioMap
+                ? MissingBlockAudioRuntimeInstallerMessage
                 : MissingGameplayAudioRuntimeInstallerMessage;
         }
 
