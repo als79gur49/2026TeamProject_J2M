@@ -4,6 +4,7 @@ using Game.Feature.Gameplay.BlockAudio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.GravityFieldAudio;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.PlayerLocomotionAudio;
 using Game.Feature.Gameplay.TileFeatureAudio;
 using Unity.Cinemachine;
 using UnityEngine;
@@ -143,6 +144,13 @@ namespace Game.Feature.Gameplay.Host
             BlockAudioMap blockAudioMap)
         {
             _presentationCoordinator.AttachBlockAudioRuntime(playbackPort, blockAudioMap);
+        }
+
+        internal void AttachPlayerLocomotionAudioRuntime(
+            IGameplayAudioPlaybackPort playbackPort,
+            PlayerLocomotionAudioMap playerLocomotionAudioMap)
+        {
+            _presentationCoordinator.AttachPlayerLocomotionAudioRuntime(playbackPort, playerLocomotionAudioMap);
         }
 
         public void AttachTileFeatureVisualRegistry(ITileFeatureVisualRegistry registry)

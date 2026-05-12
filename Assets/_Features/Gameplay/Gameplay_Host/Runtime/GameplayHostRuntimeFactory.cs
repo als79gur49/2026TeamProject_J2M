@@ -9,6 +9,7 @@ using Game.Feature.Gameplay.Host.UIAccess;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.PlayerLocomotionAudio;
 using Game.Feature.Gameplay.TileFeatureAudio;
 using Game.Feature.Gameplay.UIAccess.Queries;
 using Game.Feature.Stages;
@@ -30,6 +31,8 @@ namespace Game.Feature.Gameplay.Host
             "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when GravityFieldAudioMap is assigned.";
         private const string MissingBlockAudioRuntimeInstallerMessage =
             "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when BlockAudioMap is assigned.";
+        private const string MissingPlayerLocomotionAudioRuntimeInstallerMessage =
+            "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when PlayerLocomotionAudioMap is assigned.";
 
         public static GameplayHostRuntimeContext Create(
             GameplaySceneHost host,
@@ -513,10 +516,12 @@ namespace Game.Feature.Gameplay.Host
             var hasTileFeatureAudioMap = configuration?.TileFeatureAudioMap != null;
             var hasGravityFieldAudioMap = configuration?.GravityFieldAudioMap != null;
             var hasBlockAudioMap = configuration?.BlockAudioMap != null;
+            var hasPlayerLocomotionAudioMap = configuration?.PlayerLocomotionAudioMap != null;
             if (!hasGameplayAudioMap &&
                 !hasTileFeatureAudioMap &&
                 !hasGravityFieldAudioMap &&
-                !hasBlockAudioMap)
+                !hasBlockAudioMap &&
+                !hasPlayerLocomotionAudioMap)
             {
                 return;
             }
@@ -528,7 +533,8 @@ namespace Game.Feature.Gameplay.Host
                     hasGameplayAudioMap,
                     hasTileFeatureAudioMap,
                     hasGravityFieldAudioMap,
-                    hasBlockAudioMap));
+                    hasBlockAudioMap,
+                    hasPlayerLocomotionAudioMap));
             }
 
             audioRuntimeInstaller.Install();
@@ -538,7 +544,8 @@ namespace Game.Feature.Gameplay.Host
                     hasGameplayAudioMap,
                     hasTileFeatureAudioMap,
                     hasGravityFieldAudioMap,
-                    hasBlockAudioMap));
+                    hasBlockAudioMap,
+                    hasPlayerLocomotionAudioMap));
             }
 
             var playbackPort = new GameplayAudioPlaybackPortAdapter(audioRuntimeInstaller.AudioService);
@@ -561,13 +568,19 @@ namespace Game.Feature.Gameplay.Host
             {
                 presenter.AttachBlockAudioRuntime(playbackPort, configuration.BlockAudioMap);
             }
+
+            if (hasPlayerLocomotionAudioMap)
+            {
+                presenter.AttachPlayerLocomotionAudioRuntime(playbackPort, configuration.PlayerLocomotionAudioMap);
+            }
         }
 
         private static string ResolveMissingAudioRuntimeInstallerMessage(
             bool hasGameplayAudioMap,
             bool hasTileFeatureAudioMap,
             bool hasGravityFieldAudioMap,
-            bool hasBlockAudioMap)
+            bool hasBlockAudioMap,
+            bool hasPlayerLocomotionAudioMap)
         {
             if (hasGameplayAudioMap)
             {
@@ -584,8 +597,13 @@ namespace Game.Feature.Gameplay.Host
                 return MissingGravityFieldAudioRuntimeInstallerMessage;
             }
 
-            return hasBlockAudioMap
-                ? MissingBlockAudioRuntimeInstallerMessage
+            if (hasBlockAudioMap)
+            {
+                return MissingBlockAudioRuntimeInstallerMessage;
+            }
+
+            return hasPlayerLocomotionAudioMap
+                ? MissingPlayerLocomotionAudioRuntimeInstallerMessage
                 : MissingGameplayAudioRuntimeInstallerMessage;
         }
 
