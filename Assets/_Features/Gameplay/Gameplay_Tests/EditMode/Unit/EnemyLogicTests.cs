@@ -1278,17 +1278,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyChase_GroundUnit_CanEnterDestroyTileWhenItIsOnlyLegalCandidate()
+        public void GroundChase_WhenDirectStepIsDestroyTile_ChoosesNeutralPerpendicularAvoidance()
         {
-            var riskyPrimary = new SurfaceCell(FaceId.Floor, 1, 0);
+            var directHazard = new SurfaceCell(FaceId.Floor, 2, 1);
+            var expectedAvoidance = new SurfaceCell(FaceId.Floor, 3, 2);
             var worldState = CreateWorldState(
                 new[]
                 {
-                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(2, 0), aiMode: EnemyAiMode.None),
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 1), aiMode: EnemyAiMode.None),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(3, 1), aiMode: EnemyAiMode.Chase, facing: Direction.Left),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 0)),
-                new[] { CreateDestroyTile(100, riskyPrimary) });
+                new BoardBounds(new Vector2Int(1, 0), new Vector2Int(3, 2)),
+                new[] { CreateDestroyTile(100, directHazard) });
             var snapshot = worldState.CreateSnapshot();
             var source = GetEntity(worldState, 40);
             var target = GetEntity(worldState, 10);
@@ -1303,7 +1304,56 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 out var intent);
 
             Assert.That(builtIntent, Is.True);
-            Assert.That(intent.Destination, Is.EqualTo(riskyPrimary.PlanarPosition));
+            Assert.That(intent.Destination, Is.EqualTo(expectedAvoidance.PlanarPosition));
+            Assert.That(intent.Destination, Is.Not.EqualTo(directHazard.PlanarPosition));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GroundChase_WhenDirectStepIsDestroyTileAndNoSafeAvoidance_StaysStill()
+        {
+            var directHazard = new SurfaceCell(FaceId.Floor, 2, 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 1), aiMode: EnemyAiMode.None),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(3, 1), aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+                },
+                new BoardBounds(new Vector2Int(1, 1), new Vector2Int(3, 1)),
+                new[] { CreateDestroyTile(100, directHazard) });
+            var snapshot = worldState.CreateSnapshot();
+            var source = GetEntity(worldState, 40);
+            var target = GetEntity(worldState, 10);
+
+            var builtIntent = AxisPriorityChaseStrategy.Instance.TryBuildMovementIntent(
+                snapshot,
+                source,
+                target,
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                ChaseSettings.CreateDefault(),
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) },
+                out _);
+
+            Assert.That(builtIntent, Is.False);
+            Assert.That(EnemyMovementStrategyShared.CanTraverseStep(snapshot, source, Vector2Int.left), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DestroyTile_RemainsTraversalLegal_ForGroundUnit()
+        {
+            var directHazard = new SurfaceCell(FaceId.Floor, 2, 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(3, 1), aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+                },
+                new BoardBounds(new Vector2Int(2, 1), new Vector2Int(3, 1)),
+                new[] { CreateDestroyTile(100, directHazard) });
+            var snapshot = worldState.CreateSnapshot();
+            var source = GetEntity(worldState, 40);
+
+            Assert.That(EnemyMovementStrategyShared.CanTraverseStep(snapshot, source, Vector2Int.left), Is.True);
         }
 
         [Test]
@@ -1334,6 +1384,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(builtIntent, Is.True);
             Assert.That(intent.Destination, Is.EqualTo(riskyPrimary.PlanarPosition));
+            Assert.That(
+                TileFeatureHazardQueries.EvaluateTileApproachRisk(
+                    snapshot,
+                    new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) },
+                    source,
+                    riskyPrimary),
+                Is.EqualTo(TileApproachRisk.Neutral));
         }
 
         [Test]
