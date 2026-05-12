@@ -80,19 +80,21 @@ Dynamic TileEffect mutation must not be implemented before TileFeature state/que
 
 ## DestroyTile Policy
 
-- DestroyTile uses movement-derived `TileEffectBoxContact`, not final snapshot scanning.
-- Stationary boxes are not destroyed.
-- Unit, Projectile, and non-box solid occupants are not destroyed.
+- DestroyTile v1 targets Box and Unit through movement-derived `TileEffectEntityContact`, not final snapshot scanning.
+- Stationary boxes and stationary units are not destroyed.
+- Unit targets are destroyed only when ordinary Unit locomotion moves them into an active DestroyTile after movement and before attack collection.
+- Player and Enemy are both Unit targets; Player death presentation/audio is transported through `TickResult` presentation facts, not direct gameplay UI/audio calls.
+- Projectile and non-box solid occupants are not destroyed in v1.
 - MoonBlock is a Box, so a moving MoonBlock contact is destroyed.
 - DestroyTile itself is not consumed, updated, or removed.
 - Contact facts are transient and are not authoritative state or direct determinism hash input.
 - DestroyTile contact facts come from accepted `MoveEntity` operations only.
-- Post-attack follow-through, flip landing, spawn/respawn, and topology relocation are not DestroyTile contact sources.
+- Unit jump landing, phase relocation, spawn/respawn, topology relocation, and projectile movement are not DestroyTile contact sources in v1.
 - `DestroyTileTriggered` is a resolver-origin event.
-- The same destroyed box creates at most one event per tick.
-- Multiple destroyed boxes may create multiple events.
+- The same destroyed entity creates at most one event per tick.
+- Multiple destroyed entities may create multiple events.
 - DestroyTile activation rule is `BottomFaceOnly`.
-- `DestroyTileTriggered` event `TargetEntityId` is the destroyed box id.
+- `DestroyTileTriggered` event `TargetEntityId` is the destroyed entity id.
 
 ## SlideTile Policy
 
