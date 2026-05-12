@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
@@ -567,11 +568,9 @@ namespace Game.Feature.UI.Tests
             var slots = GetPrivateField<UiFocusNodeSlot[]>(prefab, "_focusNodeSlots");
 
             Assert.That(slots, Is.Not.Null);
-            Assert.That(slots.Length, Is.EqualTo(18));
 
             var expectedIds = new[]
             {
-                "Header.Back",
                 "Header.AudioTab",
                 "Header.DisplayTab",
                 "Header.InputTab",
@@ -593,10 +592,10 @@ namespace Game.Feature.UI.Tests
 
             for (var i = 0; i < expectedIds.Length; i++)
             {
-                Assert.That(slots[i], Is.Not.Null, expectedIds[i]);
-                Assert.That(slots[i].Id, Is.EqualTo(expectedIds[i]));
-                Assert.That(slots[i].SelectionFrame, Is.Not.Null, expectedIds[i]);
-                Assert.That(slots[i].VisualProfile, Is.Not.Null, expectedIds[i]);
+                var slot = FindSettingsFocusSlot(slots, expectedIds[i]);
+                Assert.That(slot, Is.Not.Null, expectedIds[i]);
+                Assert.That(slot.SelectionFrame, Is.Not.Null, expectedIds[i]);
+                Assert.That(slot.VisualProfile, Is.Not.Null, expectedIds[i]);
             }
         }
 
@@ -609,10 +608,10 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SettingsScreen_FirstSubmit_RevealsOnly_SecondSubmitEntersSliderEditMode()
+        public void SettingsFirstSubmit_ShowsFocusOnly_DoesNotEnterSliderEditMode()
         {
             using var harness = CreateSettingsHarness();
-            var routerObject = new GameObject(nameof(SettingsScreen_FirstSubmit_RevealsOnly_SecondSubmitEntersSliderEditMode));
+            var routerObject = new GameObject(nameof(SettingsFirstSubmit_ShowsFocusOnly_DoesNotEnterSliderEditMode));
             try
             {
                 var router = routerObject.AddComponent<UiNavigationInputRouter>();
@@ -625,8 +624,31 @@ namespace Game.Feature.UI.Tests
                 Assert.That(router.DispatchSubmit(), Is.True);
                 AssertSettingsFramesHidden(harness.View, isHidden: false);
                 Assert.That(IsSettingsFocusEditing(harness.View), Is.False);
+                Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Audio.Main.Slider"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(routerObject);
+            }
+        }
+
+        [Test]
+        public void SettingsSecondSubmit_OnSlider_EntersEditMode()
+        {
+            using var harness = CreateSettingsHarness();
+            var routerObject = new GameObject(nameof(SettingsSecondSubmit_OnSlider_EntersEditMode));
+            try
+            {
+                var router = routerObject.AddComponent<UiNavigationInputRouter>();
+                router.Initialize(
+                    null,
+                    new FixedNavigationTargetResolver(harness.View),
+                    () => false,
+                    () => false);
 
                 Assert.That(router.DispatchSubmit(), Is.True);
+                Assert.That(router.DispatchSubmit(), Is.True);
+
                 Assert.That(IsSettingsFocusEditing(harness.View), Is.True);
                 Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Audio.Main.Slider"));
             }
@@ -637,7 +659,298 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SettingsScreen_NavigateDown_PreservesFocusAcrossInputs()
+        public void SettingsFirstSubmit_OnDropdown_ShowsFocusOnly_DoesNotOpenList()
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Display);
+            var routerObject = new GameObject(nameof(SettingsFirstSubmit_OnDropdown_ShowsFocusOnly_DoesNotOpenList));
+            try
+            {
+                var router = routerObject.AddComponent<UiNavigationInputRouter>();
+                router.Initialize(
+                    null,
+                    new FixedNavigationTargetResolver(harness.View),
+                    () => false,
+                    () => false);
+
+                Assert.That(router.DispatchSubmit(), Is.True);
+
+                AssertSettingsFramesHidden(harness.View, isHidden: false);
+                Assert.That(IsSettingsDropdownListMode(harness.View), Is.False);
+                Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.False);
+                Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Display.Resolution.Dropdown"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(routerObject);
+            }
+        }
+
+        [Test]
+        public void SettingsSecondSubmit_OnDropdown_OpensDropdownListMode()
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Display);
+            var routerObject = new GameObject(nameof(SettingsSecondSubmit_OnDropdown_OpensDropdownListMode));
+            try
+            {
+                var router = routerObject.AddComponent<UiNavigationInputRouter>();
+                router.Initialize(
+                    null,
+                    new FixedNavigationTargetResolver(harness.View),
+                    () => false,
+                    () => false);
+
+                Assert.That(router.DispatchSubmit(), Is.True);
+                Assert.That(router.DispatchSubmit(), Is.True);
+
+                Assert.That(IsSettingsDropdownListMode(harness.View), Is.True);
+                Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.True);
+                Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Display.Resolution.Dropdown"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(routerObject);
+            }
+        }
+
+        [Test]
+        public void SettingsFirstNavigate_ShowsFocusAndMoves()
+        {
+            using var harness = CreateSettingsHarness();
+            var routerObject = new GameObject(nameof(SettingsFirstNavigate_ShowsFocusAndMoves));
+            try
+            {
+                var router = routerObject.AddComponent<UiNavigationInputRouter>();
+                router.Initialize(
+                    null,
+                    new FixedNavigationTargetResolver(harness.View),
+                    () => false,
+                    () => false);
+
+                Assert.That(router.DispatchNavigate(UiNavigationCommand.Down), Is.True);
+
+                AssertSettingsFramesHidden(harness.View, isHidden: false);
+                Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Audio.Bgm.Slider"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(routerObject);
+            }
+        }
+
+        [Test]
+        public void SettingsHeaderTabs_Right_WrapsAudioDisplayInputAudio()
+        {
+            using var harness = CreateSettingsHarness();
+            MoveToCurrentHeaderTab(harness.View);
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Header.DisplayTab"));
+            Assert.That(harness.ScreenViewModel.SelectedSection, Is.EqualTo(SettingsSectionId.Display));
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Header.InputTab"));
+            Assert.That(harness.ScreenViewModel.SelectedSection, Is.EqualTo(SettingsSectionId.Input));
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Header.AudioTab"));
+            Assert.That(harness.ScreenViewModel.SelectedSection, Is.EqualTo(SettingsSectionId.Audio));
+        }
+
+        [Test]
+        public void SettingsHeaderTabs_Left_WrapsAudioInputDisplayAudio()
+        {
+            using var harness = CreateSettingsHarness();
+            MoveToCurrentHeaderTab(harness.View);
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Left), Is.True);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Header.InputTab"));
+            Assert.That(harness.ScreenViewModel.SelectedSection, Is.EqualTo(SettingsSectionId.Input));
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Left), Is.True);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Header.DisplayTab"));
+            Assert.That(harness.ScreenViewModel.SelectedSection, Is.EqualTo(SettingsSectionId.Display));
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Left), Is.True);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Header.AudioTab"));
+            Assert.That(harness.ScreenViewModel.SelectedSection, Is.EqualTo(SettingsSectionId.Audio));
+        }
+
+        [Test]
+        public void SettingsHeaderTabs_RightFromInput_DoesNotFocusBack()
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Input);
+            MoveToCurrentHeaderTab(harness.View);
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
+
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Header.AudioTab"));
+        }
+
+        [Test]
+        public void SettingsHeaderTabs_LeftFromAudio_DoesNotFocusBack()
+        {
+            using var harness = CreateSettingsHarness();
+            MoveToCurrentHeaderTab(harness.View);
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Left), Is.True);
+
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Header.InputTab"));
+        }
+
+        [Test]
+        public void SettingsBackButton_NotPartOfHeaderTabCycle()
+        {
+            using var harness = CreateSettingsHarness();
+            MoveToCurrentHeaderTab(harness.View);
+
+            for (var i = 0; i < 6; i++)
+            {
+                Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
+                Assert.That(GetSettingsFocusNodeId(harness.View), Is.Not.EqualTo("Header.Back"));
+            }
+        }
+
+        [Test]
+        public void SettingsHeaderTabs_Move_ActivatesVisibleSection()
+        {
+            using var harness = CreateSettingsHarness();
+            MoveToCurrentHeaderTab(harness.View);
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
+
+            Assert.That(harness.ScreenViewModel.SelectedSection, Is.EqualTo(SettingsSectionId.Display));
+            Assert.That(harness.View.DisplayView.gameObject.activeSelf, Is.True);
+            Assert.That(harness.View.AudioView.gameObject.activeSelf, Is.False);
+        }
+
+        [Test]
+        public void SettingsHeaderTabs_Submit_ReusesExistingTabClickPath()
+        {
+            using var harness = CreateSettingsHarness();
+            MoveToCurrentHeaderTab(harness.View);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
+
+            var selectedCount = 0;
+            SettingsSectionId? selectedSection = null;
+            harness.View.SectionSelected += section =>
+            {
+                selectedCount++;
+                selectedSection = section;
+            };
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+
+            Assert.That(selectedCount, Is.EqualTo(1));
+            Assert.That(selectedSection, Is.EqualTo(SettingsSectionId.Display));
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Header.DisplayTab"));
+        }
+
+        [Test]
+        public void SettingsHeaderTabs_DownFromAudio_EntersAudioMainSlider()
+        {
+            using var harness = CreateSettingsHarness();
+            MoveToCurrentHeaderTab(harness.View);
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Audio.Main.Slider"));
+        }
+
+        [Test]
+        public void SettingsHeaderTabs_DownFromDisplay_EntersDisplayResolutionDropdown()
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Display);
+            MoveToCurrentHeaderTab(harness.View);
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Display.Resolution.Dropdown"));
+        }
+
+        [Test]
+        public void SettingsHeaderTabs_DownFromInput_EntersInputMovementToggle()
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Input);
+            MoveToCurrentHeaderTab(harness.View);
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Input.Movement.Toggle"));
+        }
+
+        [Test]
+        public void SettingsHeaderTabs_DownFromDisplay_FallsBackWhenResolutionUnavailable()
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Display, resolutionOptions: Array.Empty<string>());
+            MoveToCurrentHeaderTab(harness.View);
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Display.Fullscreen.Toggle"));
+        }
+
+        [Test]
+        public void SettingsContentTop_UpFromAudio_ReturnsToAudioHeaderTab()
+        {
+            using var harness = CreateSettingsHarness();
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
+
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Header.AudioTab"));
+        }
+
+        [Test]
+        public void SettingsContentTop_UpFromDisplay_ReturnsToDisplayHeaderTab()
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Display);
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
+
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Header.DisplayTab"));
+        }
+
+        [Test]
+        public void SettingsContentTop_UpFromInput_ReturnsToInputHeaderTab()
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Input);
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
+
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Header.InputTab"));
+        }
+
+        [Test]
+        public void SettingsContent_LeftRight_DoesNotCrossSections()
+        {
+            using var harness = CreateSettingsHarness();
+            harness.View.OnNavigationFocusGained();
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Audio.Main.Mute"));
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.False);
+
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Audio.Main.Mute"));
+            Assert.That(harness.ScreenViewModel.SelectedSection, Is.EqualTo(SettingsSectionId.Audio));
+        }
+
+        [Test]
+        public void SettingsAudioSlider_NavigationRight_MovesToMute_DoesNotChangeValue()
+        {
+            using var harness = CreateSettingsHarness();
+            harness.View.OnNavigationFocusGained();
+            var initialValue = harness.View.AudioView.GetVolume(AudioSettingsChannel.Main);
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
+
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Audio.Main.Mute"));
+            Assert.That(harness.View.AudioView.GetVolume(AudioSettingsChannel.Main), Is.EqualTo(initialValue));
+        }
+
+        [Test]
+        public void SettingsAudioSlider_NavigationDown_PreservesSliderColumn()
         {
             using var harness = CreateSettingsHarness();
             harness.View.OnNavigationFocusGained();
@@ -650,48 +963,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SettingsScreen_ContentTopUp_GoesToHeaderBack()
-        {
-            using var harness = CreateSettingsHarness();
-            harness.View.OnNavigationFocusGained();
-
-            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
-
-            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Header.Back"));
-        }
-
-        [Test]
-        public void SettingsScreen_HeaderBackDown_RestoresCurrentSectionLastContentFocus()
-        {
-            using var harness = CreateSettingsHarness();
-            harness.View.OnNavigationFocusGained();
-
-            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
-            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Header.Back"));
-
-            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
-            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Audio.Main.Slider"));
-        }
-
-        [Test]
-        public void SettingsScreen_HeaderTabSubmit_SwitchesVisibleSectionAndFocusesContent()
-        {
-            using var harness = CreateSettingsHarness();
-            harness.View.OnNavigationFocusGained();
-
-            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
-            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
-            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
-            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Header.DisplayTab"));
-
-            Assert.That(harness.View.HandleSubmit(), Is.True);
-
-            Assert.That(harness.ScreenViewModel.SelectedSection, Is.EqualTo(SettingsSectionId.Display));
-            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Display.Resolution.Dropdown"));
-        }
-
-        [Test]
-        public void SettingsScreen_AudioSliderSubmit_EntersEditMode()
+        public void SettingsAudioSlider_Submit_EntersEditMode()
         {
             using var harness = CreateSettingsHarness();
             harness.View.OnNavigationFocusGained();
@@ -703,7 +975,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SettingsScreen_AudioSliderEdit_LeftRightAdjustsValue()
+        public void SettingsAudioSlider_EditRight_ChangesValue_DoesNotMoveFocus()
         {
             using var harness = CreateSettingsHarness();
             harness.View.OnNavigationFocusGained();
@@ -717,22 +989,87 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SettingsScreen_AudioSliderEdit_CancelDoesNotScreenBack()
+        public void SettingsAudioSlider_EditLeft_ChangesValue_DoesNotMoveFocus()
         {
             using var harness = CreateSettingsHarness();
-            var backCount = 0;
-            harness.View.BackRequested += () => backCount++;
+            harness.View.OnNavigationFocusGained();
+            var initialValue = harness.View.AudioView.GetVolume(AudioSettingsChannel.Main);
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Left), Is.True);
+
+            Assert.That(harness.View.AudioView.GetVolume(AudioSettingsChannel.Main), Is.LessThan(initialValue));
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Audio.Main.Slider"));
+        }
+
+        [Test]
+        public void SettingsAudioSlider_EditUp_IsConsumedNoOp()
+        {
+            using var harness = CreateSettingsHarness();
+            harness.View.OnNavigationFocusGained();
+            var initialValue = harness.View.AudioView.GetVolume(AudioSettingsChannel.Main);
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
+
+            Assert.That(IsSettingsFocusEditing(harness.View), Is.True);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Audio.Main.Slider"));
+            Assert.That(harness.View.AudioView.GetVolume(AudioSettingsChannel.Main), Is.EqualTo(initialValue));
+        }
+
+        [Test]
+        public void SettingsAudioSlider_EditDown_IsConsumedNoOp()
+        {
+            using var harness = CreateSettingsHarness();
+            harness.View.OnNavigationFocusGained();
+            var initialValue = harness.View.AudioView.GetVolume(AudioSettingsChannel.Main);
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+
+            Assert.That(IsSettingsFocusEditing(harness.View), Is.True);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Audio.Main.Slider"));
+            Assert.That(harness.View.AudioView.GetVolume(AudioSettingsChannel.Main), Is.EqualTo(initialValue));
+        }
+
+        [Test]
+        public void SettingsAudioSlider_EditSubmit_CommitsAndExitsEditMode()
+        {
+            using var harness = CreateSettingsHarness();
+            var commitCount = 0;
+            harness.View.AudioView.InteractionCompleted += () => commitCount++;
             harness.View.OnNavigationFocusGained();
 
             Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+
+            Assert.That(IsSettingsFocusEditing(harness.View), Is.False);
+            Assert.That(commitCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SettingsAudioSlider_EditCancel_KeepsValueCommitsAndExitsEditMode()
+        {
+            using var harness = CreateSettingsHarness();
+            var backCount = 0;
+            var commitCount = 0;
+            harness.View.BackRequested += () => backCount++;
+            harness.View.AudioView.InteractionCompleted += () => commitCount++;
+            harness.View.OnNavigationFocusGained();
+            var initialValue = harness.View.AudioView.GetVolume(AudioSettingsChannel.Main);
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
             Assert.That(harness.View.HandleCancel(), Is.True);
 
             Assert.That(IsSettingsFocusEditing(harness.View), Is.False);
+            Assert.That(harness.View.AudioView.GetVolume(AudioSettingsChannel.Main), Is.GreaterThan(initialValue));
+            Assert.That(commitCount, Is.EqualTo(1));
             Assert.That(backCount, Is.EqualTo(0));
         }
 
         [Test]
-        public void SettingsScreen_AudioMuteSubmit_ReusesExistingMutePath()
+        public void SettingsAudioMute_Submit_ReusesExistingMutePath()
         {
             using var harness = CreateSettingsHarness();
             AudioSettingsChannel? mutedChannel = null;
@@ -753,32 +1090,318 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SettingsScreen_DisplayResolutionSubmit_EntersCycleMode()
+        public void SettingsCancel_NormalMode_ReusesClickBackPath()
+        {
+            using var harness = CreateSettingsHarness();
+            var backCount = 0;
+            harness.View.BackRequested += () => backCount++;
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleCancel(), Is.True);
+
+            Assert.That(backCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SettingsCancel_DoesNotRequireBackButtonFocus()
+        {
+            using var harness = CreateSettingsHarness();
+            var backCount = 0;
+            harness.View.BackRequested += () => backCount++;
+
+            Assert.That(harness.View.HandleCancel(), Is.True);
+
+            Assert.That(backCount, Is.EqualTo(1));
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.Not.EqualTo("Header.Back"));
+        }
+
+        [Test]
+        public void SettingsCancel_SliderEditMode_ExitsEditMode_DoesNotBack()
+        {
+            using var harness = CreateSettingsHarness();
+            var backCount = 0;
+            harness.View.BackRequested += () => backCount++;
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleCancel(), Is.True);
+
+            Assert.That(IsSettingsFocusEditing(harness.View), Is.False);
+            Assert.That(backCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void SettingsCancel_DropdownListMode_ClosesList_DoesNotBack()
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Display);
+            var backCount = 0;
+            harness.View.BackRequested += () => backCount++;
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleCancel(), Is.True);
+
+            Assert.That(IsSettingsDropdownListMode(harness.View), Is.False);
+            Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.False);
+            Assert.That(backCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void SettingsDisplayResolution_Submit_OpensDropdownListMode()
         {
             using var harness = CreateSettingsHarness(SettingsSectionId.Display);
             harness.View.OnNavigationFocusGained();
 
             Assert.That(harness.View.HandleSubmit(), Is.True);
 
-            Assert.That(IsSettingsFocusEditing(harness.View), Is.True);
+            Assert.That(IsSettingsFocusEditing(harness.View), Is.False);
+            Assert.That(IsSettingsDropdownListMode(harness.View), Is.True);
+            Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.True);
             Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Display.Resolution.Dropdown"));
         }
 
         [Test]
-        public void SettingsScreen_DisplayResolutionCycle_ChangesStagedResolution()
+        public void SettingsDisplayResolution_ListMode_OpensListBelowDropdown()
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Display);
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+
+            Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.True);
+            Assert.That(
+                harness.View.DisplayView.transform.Find("ResolutionRow/ResolutionDropdown/Dropdown List"),
+                Is.Not.Null);
+        }
+
+        [Test]
+        public void SettingsDisplayResolution_ListMode_InitialHighlightMatchesCurrentValue()
         {
             using var harness = CreateSettingsHarness(SettingsSectionId.Display);
             harness.View.OnNavigationFocusGained();
             var initialIndex = harness.View.SelectedDisplayResolutionIndex;
 
             Assert.That(harness.View.HandleSubmit(), Is.True);
-            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
 
-            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(initialIndex + 1));
+            Assert.That(harness.View.DisplayView.ResolutionKeyboardHighlightedIndex, Is.EqualTo(initialIndex));
+        }
+
+        [Test]
+        public void SettingsDisplayResolution_ListMode_Down_MovesHighlightToNextOption()
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Display);
+            harness.View.OnNavigationFocusGained();
+            var initialIndex = harness.View.SelectedDisplayResolutionIndex;
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+
+            Assert.That(harness.View.DisplayView.ResolutionKeyboardHighlightedIndex, Is.EqualTo(initialIndex + 1));
+            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(initialIndex));
             Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Display.Resolution.Dropdown"));
         }
 
-        private static SettingsHarness CreateSettingsHarness(SettingsSectionId selectedSection = SettingsSectionId.Audio)
+        [Test]
+        public void SettingsDisplayResolution_ListMode_Up_MovesHighlightToPreviousOption()
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Display, selectedResolutionIndex: 1);
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
+
+            Assert.That(harness.View.DisplayView.ResolutionKeyboardHighlightedIndex, Is.EqualTo(0));
+            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SettingsDisplayResolution_ListMode_DownAtLast_Clamps()
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Display, selectedResolutionIndex: 2);
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+
+            Assert.That(harness.View.DisplayView.ResolutionKeyboardHighlightedIndex, Is.EqualTo(2));
+            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void SettingsDisplayResolution_ListMode_UpAtFirst_Clamps()
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Display);
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
+
+            Assert.That(harness.View.DisplayView.ResolutionKeyboardHighlightedIndex, Is.EqualTo(0));
+            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void SettingsDisplayResolution_ListMode_Left_IsConsumedNoOp()
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Display, selectedResolutionIndex: 1);
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Left), Is.True);
+
+            Assert.That(harness.View.DisplayView.ResolutionKeyboardHighlightedIndex, Is.EqualTo(1));
+            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SettingsDisplayResolution_ListMode_Right_IsConsumedNoOp()
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Display, selectedResolutionIndex: 1);
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
+
+            Assert.That(harness.View.DisplayView.ResolutionKeyboardHighlightedIndex, Is.EqualTo(1));
+            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SettingsDisplayResolution_ListMode_LeftRight_AreConsumedNoOp()
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Display, selectedResolutionIndex: 1);
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Left), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
+
+            Assert.That(harness.View.DisplayView.ResolutionKeyboardHighlightedIndex, Is.EqualTo(1));
+            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SettingsDisplayResolution_ListMode_Submit_SelectsHighlightedOptionAndStagesResolution()
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Display);
+            var changedIndex = -1;
+            harness.View.DisplayView.ResolutionChanged += index => changedIndex = index;
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+
+            Assert.That(changedIndex, Is.EqualTo(1));
+            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+            Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.False);
+        }
+
+        [Test]
+        public void SettingsDisplayResolution_ListMode_Cancel_ClosesList_DoesNotStageNewHighlight()
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Display);
+            var changedCount = 0;
+            harness.View.DisplayView.ResolutionChanged += _ => changedCount++;
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            Assert.That(harness.View.HandleCancel(), Is.True);
+
+            Assert.That(changedCount, Is.EqualTo(0));
+            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(0));
+            Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.False);
+        }
+
+        [Test]
+        public void SettingsDisplayResolution_MouseValueChanged_UsesSameStageResolutionPath()
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Display);
+            var changedIndex = -1;
+            harness.View.DisplayView.ResolutionChanged += index => changedIndex = index;
+
+            harness.View.DisplayView.SelectResolution(2);
+
+            Assert.That(changedIndex, Is.EqualTo(2));
+            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void DropdownKeyboardList_DoesNotRequireEventSystemSelectedObject()
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Display);
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+
+            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SettingsDropdownSubmitOnce_DoesNotOpenDuplicateLists()
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Display);
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+
+            Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.False);
+        }
+
+        [Test]
+        public void SettingsDropdownSubmitOnce_DoesNotDoubleStageResolution()
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Display);
+            var changedCount = 0;
+            harness.View.DisplayView.ResolutionChanged += _ => changedCount++;
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+
+            Assert.That(changedCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SettingsScreen_SubmitOnce_DoesNotDoubleInvokeToggle()
+        {
+            using var harness = CreateSettingsHarness();
+            var muteCount = 0;
+            harness.View.AudioView.MuteChanged += (_, _) => muteCount++;
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+
+            Assert.That(muteCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SettingsScreen_ApplySubmitOnce_DoesNotDoubleOpenConfirm()
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Display);
+            var applyCount = 0;
+            harness.View.DisplayView.ApplyRequested += () => applyCount++;
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Display.Apply.Button"));
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+
+            Assert.That(applyCount, Is.EqualTo(1));
+        }
+
+        private static SettingsHarness CreateSettingsHarness(
+            SettingsSectionId selectedSection = SettingsSectionId.Audio,
+            IReadOnlyList<string> resolutionOptions = null,
+            int selectedResolutionIndex = 0,
+            bool inputControlsInteractable = true)
         {
             var prefab = UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(
                 UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
@@ -795,8 +1418,8 @@ namespace Game.Feature.UI.Tests
                 new AudioSettingsRowViewModel("30%", 0.3f, false));
             displayViewModel.SetContent(
                 "Current",
-                new[] { "800 x 600", "1280 x 720", "1920 x 1080" },
-                0,
+                resolutionOptions ?? new[] { "800 x 600", "1280 x 720", "1920 x 1080" },
+                selectedResolutionIndex,
                 false,
                 string.Empty,
                 true,
@@ -821,7 +1444,7 @@ namespace Game.Feature.UI.Tests
                 string.Empty,
                 false,
                 null,
-                true);
+                inputControlsInteractable);
 
             view.Bind(screenViewModel);
             view.AudioView.Bind(audioViewModel);
@@ -830,7 +1453,7 @@ namespace Game.Feature.UI.Tests
             view.SectionSelected += sectionId => ConfigureSettingsScreenViewModel(screenViewModel, sectionId);
             view.SetIsCurrent(true);
 
-            return new SettingsHarness(view, screenViewModel);
+            return new SettingsHarness(view, screenViewModel, displayViewModel, inputViewModel);
         }
 
         private static void ConfigureSettingsScreenViewModel(
@@ -848,6 +1471,30 @@ namespace Game.Feature.UI.Tests
         private static bool IsSettingsFocusEditing(SettingsScreenView view)
         {
             return GetPrivateField<UiFocusGraphNavigator>(view, "_focusGraph").IsEditing;
+        }
+
+        private static bool IsSettingsDropdownListMode(SettingsScreenView view)
+        {
+            return GetPrivateField<UiFocusGraphNavigator>(view, "_focusGraph").IsDropdownListMode;
+        }
+
+        private static void MoveToCurrentHeaderTab(SettingsScreenView view)
+        {
+            view.OnNavigationFocusGained();
+            Assert.That(view.HandleNavigate(UiNavigationCommand.Up), Is.True);
+        }
+
+        private static UiFocusNodeSlot FindSettingsFocusSlot(IReadOnlyList<UiFocusNodeSlot> slots, string id)
+        {
+            for (var i = 0; i < slots.Count; i++)
+            {
+                if (slots[i] != null && string.Equals(slots[i].Id, id, StringComparison.Ordinal))
+                {
+                    return slots[i];
+                }
+            }
+
+            return null;
         }
 
         private static void AssertSettingsFramesHidden(SettingsScreenView view, bool isHidden)
@@ -1097,15 +1744,25 @@ namespace Game.Feature.UI.Tests
 
         private sealed class SettingsHarness : IDisposable
         {
-            public SettingsHarness(SettingsScreenView view, SettingsScreenViewModel screenViewModel)
+            public SettingsHarness(
+                SettingsScreenView view,
+                SettingsScreenViewModel screenViewModel,
+                SettingsDisplayViewModel displayViewModel,
+                SettingsInputViewModel inputViewModel)
             {
                 View = view;
                 ScreenViewModel = screenViewModel;
+                DisplayViewModel = displayViewModel;
+                InputViewModel = inputViewModel;
             }
 
             public SettingsScreenView View { get; }
 
             public SettingsScreenViewModel ScreenViewModel { get; }
+
+            public SettingsDisplayViewModel DisplayViewModel { get; }
+
+            public SettingsInputViewModel InputViewModel { get; }
 
             public void Dispose()
             {

@@ -5,7 +5,6 @@ namespace Game.Feature.UI.Screens
 {
     internal static class SettingsFocusGraphBinding
     {
-        private const string HeaderBackNodeId = "Header.Back";
         private const string HeaderAudioTabNodeId = "Header.AudioTab";
         private const string HeaderDisplayTabNodeId = "Header.DisplayTab";
         private const string HeaderInputTabNodeId = "Header.InputTab";
@@ -32,36 +31,26 @@ namespace Game.Feature.UI.Screens
             }
 
             view.RegisterFocusNode(
-                HeaderBackNodeId,
-                UiFocusRegion.Header,
-                UiFocusNodeKind.Button,
-                0,
-                0,
-                () => SettingsScreenView.InvokeAndReturnTrue(view.ClickBack));
-            view.RegisterFocusNode(
                 HeaderAudioTabNodeId,
                 UiFocusRegion.Header,
                 UiFocusNodeKind.Button,
                 0,
                 1,
-                () => view.SelectSectionFromKeyboard(SettingsSectionId.Audio),
-                isInteractable: () => view.CurrentSectionId() != SettingsSectionId.Audio);
+                () => view.SelectSectionFromKeyboard(SettingsSectionId.Audio));
             view.RegisterFocusNode(
                 HeaderDisplayTabNodeId,
                 UiFocusRegion.Header,
                 UiFocusNodeKind.Button,
                 0,
                 2,
-                () => view.SelectSectionFromKeyboard(SettingsSectionId.Display),
-                isInteractable: () => view.CurrentSectionId() != SettingsSectionId.Display);
+                () => view.SelectSectionFromKeyboard(SettingsSectionId.Display));
             view.RegisterFocusNode(
                 HeaderInputTabNodeId,
                 UiFocusRegion.Header,
                 UiFocusNodeKind.Button,
                 0,
                 3,
-                () => view.SelectSectionFromKeyboard(SettingsSectionId.Input),
-                isInteractable: () => view.CurrentSectionId() != SettingsSectionId.Input);
+                () => view.SelectSectionFromKeyboard(SettingsSectionId.Input));
 
             AddAudioNodes(view, AudioSettingsChannel.Main, AudioMainSliderNodeId, AudioMainMuteNodeId, 0);
             AddAudioNodes(view, AudioSettingsChannel.Bgm, AudioBgmSliderNodeId, AudioBgmMuteNodeId, 1);
@@ -73,8 +62,7 @@ namespace Game.Feature.UI.Screens
                 UiFocusNodeKind.Dropdown,
                 0,
                 0,
-                submit: null,
-                adjust: view.AdjustResolution);
+                new ResolutionListFocusAdapter(view));
             view.RegisterFocusNode(
                 DisplayFullscreenToggleNodeId,
                 UiFocusRegion.Display,
@@ -106,7 +94,8 @@ namespace Game.Feature.UI.Screens
                 0,
                 0,
                 () => view.InputView != null &&
-                      SettingsScreenView.InvokeAndReturnTrue(() => view.InputView.SetMovementUseArrowKeys(!view.InputView.IsMovementToggleOn)));
+                      SettingsScreenView.InvokeAndReturnTrue(() => view.InputView.SetMovementUseArrowKeys(!view.InputView.IsMovementToggleOn)),
+                isInteractable: () => view.InputView != null && view.InputView.IsMovementToggleInteractable);
             view.RegisterFocusNode(
                 InputPushChangeNodeId,
                 UiFocusRegion.Input,
@@ -179,11 +168,87 @@ namespace Game.Feature.UI.Screens
                       SettingsScreenView.InvokeAndReturnTrue(() => view.SetAudioMuted(channel, !view.AudioView.IsMuted(channel))));
         }
 
-        private static SettingsSectionId CurrentSectionId(this SettingsScreenView view)
+        private sealed class ResolutionListFocusAdapter : IUiDropdownListControlAdapter
         {
-            return view != null && view.CurrentSectionIdForNavigation.HasValue
-                ? view.CurrentSectionIdForNavigation.Value
-                : SettingsSectionId.Audio;
+            private readonly SettingsScreenView _view;
+
+            public ResolutionListFocusAdapter(SettingsScreenView view)
+            {
+                _view = view;
+            }
+
+            public bool IsInteractable =>
+                _view != null &&
+                _view.DisplayView != null &&
+                _view.DisplayView.ResolutionOptionCount > 0;
+
+            public bool IsListOpen =>
+                _view != null &&
+                _view.DisplayView != null &&
+                _view.DisplayView.IsResolutionKeyboardListOpen;
+
+            public bool Activate()
+            {
+                return OpenList();
+            }
+
+            public bool Adjust(int delta)
+            {
+                return false;
+            }
+
+            public bool OpenList()
+            {
+                return IsInteractable &&
+                       _view.DisplayView.OpenResolutionKeyboardList(_view.DisplayView.CurrentResolutionIndex);
+            }
+
+            public bool CloseList()
+            {
+                if (_view == null || _view.DisplayView == null)
+                {
+                    return false;
+                }
+
+                _view.DisplayView.CloseResolutionKeyboardList();
+                return true;
+            }
+
+            public bool MoveHighlight(int delta)
+            {
+                if (!IsInteractable || !IsListOpen)
+                {
+                    return false;
+                }
+
+                var displayView = _view.DisplayView;
+                var next = Math.Max(
+                    0,
+                    Math.Min(
+                        displayView.ResolutionKeyboardHighlightedIndex + delta,
+                        displayView.ResolutionOptionCount - 1));
+                displayView.SetResolutionKeyboardHighlight(next);
+                return true;
+            }
+
+            public bool CommitHighlighted()
+            {
+                if (!IsInteractable || !IsListOpen)
+                {
+                    return false;
+                }
+
+                var displayView = _view.DisplayView;
+                var highlightedIndex = displayView.ResolutionKeyboardHighlightedIndex;
+                displayView.CloseResolutionKeyboardList();
+                if (highlightedIndex < 0 || highlightedIndex >= displayView.ResolutionOptionCount)
+                {
+                    return false;
+                }
+
+                _view.SelectDisplayResolution(highlightedIndex);
+                return true;
+            }
         }
     }
 }

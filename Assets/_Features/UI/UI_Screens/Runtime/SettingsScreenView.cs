@@ -275,7 +275,20 @@ namespace Game.Feature.UI.Screens
         public bool HandleCancel()
         {
             BuildFocusGraphIfNeeded();
-            if (_focusGraph.Cancel() != UiFocusMoveResult.NotHandled)
+            if (InputView != null && InputView.IsRebindingActive)
+            {
+                return true;
+            }
+
+            var currentNode = _focusGraph.CurrentNodeId.Value;
+            var result = _focusGraph.Cancel();
+            if (result == UiFocusMoveResult.ExitedEditMode)
+            {
+                CommitEditedNode(currentNode);
+                return true;
+            }
+
+            if (result == UiFocusMoveResult.ExitedListMode)
             {
                 return true;
             }
@@ -461,6 +474,30 @@ namespace Game.Feature.UI.Screens
             _focusGraph.AddNode(slot, new UiDelegateFocusAdapter(submit, adjust, isInteractable));
         }
 
+        internal void RegisterFocusNode(
+            string id,
+            UiFocusRegion region,
+            UiFocusNodeKind kind,
+            int row,
+            int column,
+            IUiFocusableControlAdapter adapter)
+        {
+            var slot = FindFocusSlot(id) ?? new UiFocusNodeSlot
+            {
+                Id = id,
+                Region = region,
+                Kind = kind,
+                Row = row,
+                Column = column,
+            };
+            slot.Id = id;
+            slot.Region = region;
+            slot.Kind = kind;
+            slot.Row = row;
+            slot.Column = column;
+            _focusGraph.AddNode(slot, adapter);
+        }
+
         internal bool SelectSectionFromKeyboard(SettingsSectionId sectionId)
         {
             switch (sectionId)
@@ -478,8 +515,7 @@ namespace Game.Feature.UI.Screens
                     break;
             }
 
-            var selectedSection = _viewModel != null ? _viewModel.SelectedSection : sectionId;
-            _focusGraph.FocusContentRegion(ToFocusRegion(selectedSection), restoreLast: true);
+            _focusGraph.SetVisibleContentRegion(ToFocusRegion(_viewModel != null ? _viewModel.SelectedSection : sectionId));
             if (!_hasNavigationFocus)
             {
                 _focusGraph.HideAllFrames();

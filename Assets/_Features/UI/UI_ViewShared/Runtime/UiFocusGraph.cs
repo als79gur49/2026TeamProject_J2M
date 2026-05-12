@@ -30,6 +30,9 @@ namespace Game.Feature.UI.ViewShared
         EnteredEditMode = 3,
         ExitedEditMode = 4,
         Submitted = 5,
+        ConsumedNoOp = 6,
+        EnteredListMode = 7,
+        ExitedListMode = 8,
     }
 
     [Serializable]
@@ -72,6 +75,19 @@ namespace Game.Feature.UI.ViewShared
         bool Activate();
 
         bool Adjust(int delta);
+    }
+
+    public interface IUiDropdownListControlAdapter : IUiFocusableControlAdapter
+    {
+        bool IsListOpen { get; }
+
+        bool OpenList();
+
+        bool CloseList();
+
+        bool MoveHighlight(int delta);
+
+        bool CommitHighlighted();
     }
 
     public sealed class UiDelegateFocusAdapter : IUiFocusableControlAdapter
@@ -122,19 +138,24 @@ namespace Game.Feature.UI.ViewShared
         private Node _current;
         private Node _lastContent;
         private bool _isEditing;
+        private bool _isDropdownListMode;
 
         public UiFocusNodeId CurrentNodeId => _current != null ? _current.Id : new UiFocusNodeId();
 
         public bool IsEditing => _isEditing;
 
+        public bool IsDropdownListMode => _isDropdownListMode;
+
         public void Clear()
         {
+            ExitDropdownListMode();
             HideCurrent();
             _nodes.Clear();
             _lastContentByRegion.Clear();
             _current = null;
             _lastContent = null;
             _isEditing = false;
+            _isDropdownListMode = false;
         }
 
         public void AddNode(UiFocusNodeSlot slot, IUiFocusableControlAdapter adapter)
@@ -150,9 +171,9 @@ namespace Game.Feature.UI.ViewShared
         public void SetVisibleContentRegion(UiFocusRegion region)
         {
             _visibleContentRegion = region;
-            if (_current == null || !IsVisible(_current))
+            if (_current == null || !IsFocusable(_current))
             {
-                Focus(GetLastContentNode(region) ?? GetFirstContentNode(region) ?? GetNode("Header.Back") ?? GetFirstVisibleNode());
+                Focus(GetFirstContentNode(region) ?? GetHeaderTab(region) ?? GetFirstVisibleNode());
             }
         }
 
@@ -160,7 +181,7 @@ namespace Game.Feature.UI.ViewShared
         {
             _visibleContentRegion = region;
             var target = restoreLast ? GetLastContentNode(region) : null;
-            Focus(target ?? GetFirstContentNode(region) ?? GetNode("Header.Back") ?? GetFirstVisibleNode());
+            Focus(target != null && IsFocusable(target) ? target : GetFirstContentNode(region) ?? GetHeaderTab(region) ?? GetFirstVisibleNode());
         }
 
         public void Focus(UiFocusNodeId id)
@@ -170,7 +191,7 @@ namespace Game.Feature.UI.ViewShared
 
         public void FocusFirst()
         {
-            Focus(GetLastContentNode(_visibleContentRegion) ?? GetFirstContentNode(_visibleContentRegion) ?? GetNode("Header.Back") ?? GetFirstVisibleNode());
+            Focus(GetFirstContentNode(_visibleContentRegion) ?? GetHeaderTab(_visibleContentRegion) ?? GetFirstVisibleNode());
         }
 
         public UiFocusMoveResult Navigate(UiNavigationCommand command)
@@ -181,31 +202,162 @@ namespace Game.Feature.UI.ViewShared
                 return _current != null ? UiFocusMoveResult.Moved : UiFocusMoveResult.NotHandled;
             }
 
-            if (_isEditing)
+            if (_isDropdownListMode)
             {
-                if (command == UiNavigationCommand.Left || command == UiNavigationCommand.Down)
-                {
-                    return _current.Adapter != null && _current.Adapter.Adjust(-1)
-                        ? UiFocusMoveResult.AdjustedValue
-                        : UiFocusMoveResult.NotHandled;
-                }
-
-                if (command == UiNavigationCommand.Right || command == UiNavigationCommand.Up)
-                {
-                    return _current.Adapter != null && _current.Adapter.Adjust(1)
-                        ? UiFocusMoveResult.AdjustedValue
-                        : UiFocusMoveResult.NotHandled;
-                }
+                return TryHandleDropdownListNavigate(command);
             }
 
-            var target = ResolveMove(command);
-            if (target == null || ReferenceEquals(target, _current))
+            if (_isEditing)
             {
+                return TryHandleEditNavigate(command);
+            }
+
+            if (TryMoveHeaderTab(command, out var headerResult))
+            {
+                return headerResult;
+            }
+
+            if (TryEnterActiveSectionFromHeader(command, out var entryResult))
+            {
+                return entryResult;
+            }
+
+            if (TryReturnToHeaderFromContentTop(command, out var headerReturnResult))
+            {
+                return headerReturnResult;
+            }
+
+            if (TryMoveWithinContent(command, out var contentResult))
+            {
+                return contentResult;
+            }
+
+            return UiFocusMoveResult.NotHandled;
+        }
+
+        private UiFocusMoveResult TryHandleEditNavigate(UiNavigationCommand command)
+        {
+            if (_current.Kind == UiFocusNodeKind.Slider)
+            {
+                if (command == UiNavigationCommand.Up || command == UiNavigationCommand.Down)
+                {
+                    return UiFocusMoveResult.ConsumedNoOp;
+                }
+
+                var sliderDelta = command == UiNavigationCommand.Right ? 1 : -1;
+                return _current.Adapter != null && _current.Adapter.Adjust(sliderDelta)
+                    ? UiFocusMoveResult.AdjustedValue
+                    : UiFocusMoveResult.ConsumedNoOp;
+            }
+
+            return UiFocusMoveResult.NotHandled;
+        }
+
+        private UiFocusMoveResult TryHandleDropdownListNavigate(UiNavigationCommand command)
+        {
+            if (_current == null || _current.Kind != UiFocusNodeKind.Dropdown)
+            {
+                ExitDropdownListMode();
                 return UiFocusMoveResult.NotHandled;
             }
 
+            if (command == UiNavigationCommand.Left || command == UiNavigationCommand.Right)
+            {
+                return UiFocusMoveResult.ConsumedNoOp;
+            }
+
+            var dropdown = _current.Adapter as IUiDropdownListControlAdapter;
+            if (dropdown == null)
+            {
+                return UiFocusMoveResult.ConsumedNoOp;
+            }
+
+            var delta = command == UiNavigationCommand.Down ? 1 : -1;
+            return dropdown.MoveHighlight(delta)
+                ? UiFocusMoveResult.Moved
+                : UiFocusMoveResult.ConsumedNoOp;
+        }
+
+        private bool TryMoveHeaderTab(UiNavigationCommand command, out UiFocusMoveResult result)
+        {
+            result = UiFocusMoveResult.NotHandled;
+            if (_current.Region != UiFocusRegion.Header ||
+                (command != UiNavigationCommand.Left && command != UiNavigationCommand.Right))
+            {
+                return false;
+            }
+
+            var target = GetWrappedHeaderTab(command == UiNavigationCommand.Right ? 1 : -1);
+            if (target == null || ReferenceEquals(target, _current))
+            {
+                return false;
+            }
+
             Focus(target);
-            return UiFocusMoveResult.Moved;
+            target.Adapter?.Activate();
+            result = UiFocusMoveResult.Moved;
+            return true;
+        }
+
+        private bool TryEnterActiveSectionFromHeader(UiNavigationCommand command, out UiFocusMoveResult result)
+        {
+            result = UiFocusMoveResult.NotHandled;
+            if (_current.Region != UiFocusRegion.Header || command != UiNavigationCommand.Down)
+            {
+                return false;
+            }
+
+            var target = GetFirstContentNode(_visibleContentRegion);
+            if (target == null)
+            {
+                return false;
+            }
+
+            Focus(target);
+            result = UiFocusMoveResult.Moved;
+            return true;
+        }
+
+        private bool TryReturnToHeaderFromContentTop(UiNavigationCommand command, out UiFocusMoveResult result)
+        {
+            result = UiFocusMoveResult.NotHandled;
+            if (_current.Region == UiFocusRegion.Header ||
+                command != UiNavigationCommand.Up ||
+                !IsTopContentRow(_current))
+            {
+                return false;
+            }
+
+            var target = GetHeaderTab(_current.Region);
+            if (target == null)
+            {
+                return false;
+            }
+
+            Focus(target);
+            result = UiFocusMoveResult.Moved;
+            return true;
+        }
+
+        private bool TryMoveWithinContent(UiNavigationCommand command, out UiFocusMoveResult result)
+        {
+            result = UiFocusMoveResult.NotHandled;
+            if (_current.Region == UiFocusRegion.Header)
+            {
+                return false;
+            }
+
+            var target = command == UiNavigationCommand.Up || command == UiNavigationCommand.Down
+                ? FindVertical(command == UiNavigationCommand.Down ? 1 : -1)
+                : FindHorizontal(command == UiNavigationCommand.Right ? 1 : -1);
+            if (target == null || ReferenceEquals(target, _current))
+            {
+                return false;
+            }
+
+            Focus(target);
+            result = UiFocusMoveResult.Moved;
+            return true;
         }
 
         public UiFocusMoveResult Submit()
@@ -220,6 +372,21 @@ namespace Game.Feature.UI.ViewShared
                 return UiFocusMoveResult.NotHandled;
             }
 
+            if (_isDropdownListMode)
+            {
+                var dropdown = _current.Adapter as IUiDropdownListControlAdapter;
+                if (dropdown == null)
+                {
+                    ExitDropdownListMode();
+                    return UiFocusMoveResult.ExitedListMode;
+                }
+
+                var committed = dropdown.CommitHighlighted();
+                _isDropdownListMode = false;
+                RefreshCurrentVisual();
+                return committed ? UiFocusMoveResult.Submitted : UiFocusMoveResult.ExitedListMode;
+            }
+
             if (_isEditing)
             {
                 _isEditing = false;
@@ -227,11 +394,24 @@ namespace Game.Feature.UI.ViewShared
                 return UiFocusMoveResult.ExitedEditMode;
             }
 
-            if (_current.Kind == UiFocusNodeKind.Slider || _current.Kind == UiFocusNodeKind.Dropdown)
+            if (_current.Kind == UiFocusNodeKind.Slider)
             {
                 _isEditing = true;
                 RefreshCurrentVisual();
                 return UiFocusMoveResult.EnteredEditMode;
+            }
+
+            if (_current.Kind == UiFocusNodeKind.Dropdown)
+            {
+                var dropdown = _current.Adapter as IUiDropdownListControlAdapter;
+                if (dropdown == null || !dropdown.OpenList())
+                {
+                    return UiFocusMoveResult.NotHandled;
+                }
+
+                _isDropdownListMode = true;
+                RefreshCurrentVisual();
+                return UiFocusMoveResult.EnteredListMode;
             }
 
             return _current.Adapter != null && _current.Adapter.Activate()
@@ -241,6 +421,13 @@ namespace Game.Feature.UI.ViewShared
 
         public UiFocusMoveResult Cancel()
         {
+            if (_isDropdownListMode)
+            {
+                ExitDropdownListMode();
+                RefreshCurrentVisual();
+                return UiFocusMoveResult.ExitedListMode;
+            }
+
             if (!_isEditing)
             {
                 return UiFocusMoveResult.NotHandled;
@@ -261,6 +448,7 @@ namespace Game.Feature.UI.ViewShared
 
         public void HideAllFrames()
         {
+            ExitDropdownListMode();
             for (var i = 0; i < _nodes.Count; i++)
             {
                 var node = _nodes[i];
@@ -274,36 +462,13 @@ namespace Game.Feature.UI.ViewShared
             }
         }
 
-        private Node ResolveMove(UiNavigationCommand command)
-        {
-            if (_current.Id.Value == "Header.Back" && command == UiNavigationCommand.Down)
-            {
-                var lastContent = GetLastContentNode(_visibleContentRegion);
-                return lastContent != null && IsVisible(lastContent)
-                    ? lastContent
-                    : GetFirstContentNode(_visibleContentRegion);
-            }
-
-            if (_current.Region != UiFocusRegion.Header && command == UiNavigationCommand.Up && IsTopContentRow(_current))
-            {
-                return GetNode("Header.Back");
-            }
-
-            if (command == UiNavigationCommand.Up || command == UiNavigationCommand.Down)
-            {
-                return FindVertical(command == UiNavigationCommand.Down ? 1 : -1);
-            }
-
-            return FindHorizontal(command == UiNavigationCommand.Right ? 1 : -1);
-        }
-
         private Node FindVertical(int delta)
         {
             var best = (Node)null;
             for (var i = 0; i < _nodes.Count; i++)
             {
                 var candidate = _nodes[i];
-                if (!IsVisible(candidate) || candidate.Region != _current.Region)
+                if (!IsFocusable(candidate) || candidate.Region != _current.Region)
                 {
                     continue;
                 }
@@ -332,7 +497,7 @@ namespace Game.Feature.UI.ViewShared
             for (var i = 0; i < _nodes.Count; i++)
             {
                 var candidate = _nodes[i];
-                if (!IsVisible(candidate) ||
+                if (!IsFocusable(candidate) ||
                     candidate.Region != _current.Region ||
                     candidate.Row != _current.Row)
                 {
@@ -359,7 +524,7 @@ namespace Game.Feature.UI.ViewShared
             for (var i = 0; i < _nodes.Count; i++)
             {
                 var candidate = _nodes[i];
-                if (IsVisible(candidate) &&
+                if (IsFocusable(candidate) &&
                     candidate.Region == node.Region &&
                     candidate.Row < node.Row)
                 {
@@ -376,7 +541,7 @@ namespace Game.Feature.UI.ViewShared
             for (var i = 0; i < _nodes.Count; i++)
             {
                 var candidate = _nodes[i];
-                if (!IsVisible(candidate) || candidate.Region != region)
+                if (!IsFocusable(candidate) || candidate.Region != region)
                 {
                     continue;
                 }
@@ -390,6 +555,62 @@ namespace Game.Feature.UI.ViewShared
             return best;
         }
 
+        private Node GetWrappedHeaderTab(int delta)
+        {
+            var headerTabs = new[]
+            {
+                GetNode("Header.AudioTab"),
+                GetNode("Header.DisplayTab"),
+                GetNode("Header.InputTab"),
+            };
+            var currentIndex = -1;
+            var availableCount = 0;
+            for (var i = 0; i < headerTabs.Length; i++)
+            {
+                if (headerTabs[i] != null)
+                {
+                    availableCount++;
+                }
+
+                if (ReferenceEquals(headerTabs[i], _current))
+                {
+                    currentIndex = i;
+                }
+            }
+
+            if (currentIndex < 0 || availableCount <= 1)
+            {
+                return null;
+            }
+
+            var nextIndex = currentIndex;
+            for (var i = 0; i < headerTabs.Length; i++)
+            {
+                nextIndex = (nextIndex + delta + headerTabs.Length) % headerTabs.Length;
+                if (headerTabs[nextIndex] != null)
+                {
+                    return headerTabs[nextIndex];
+                }
+            }
+
+            return null;
+        }
+
+        private Node GetHeaderTab(UiFocusRegion region)
+        {
+            switch (region)
+            {
+                case UiFocusRegion.Display:
+                    return GetNode("Header.DisplayTab");
+
+                case UiFocusRegion.Input:
+                    return GetNode("Header.InputTab");
+
+                default:
+                    return GetNode("Header.AudioTab");
+            }
+        }
+
         private Node GetLastContentNode(UiFocusRegion region)
         {
             return _lastContentByRegion.TryGetValue(region, out var node) && node != null && IsNodeRegistered(node)
@@ -401,7 +622,7 @@ namespace Game.Feature.UI.ViewShared
         {
             for (var i = 0; i < _nodes.Count; i++)
             {
-                if (IsVisible(_nodes[i]))
+                if (IsFocusable(_nodes[i]))
                 {
                     return _nodes[i];
                 }
@@ -441,6 +662,13 @@ namespace Game.Feature.UI.ViewShared
             return node.Region == UiFocusRegion.Header || node.Region == _visibleContentRegion;
         }
 
+        private bool IsFocusable(Node node)
+        {
+            return node != null &&
+                   IsVisible(node) &&
+                   (node.Adapter == null || node.Adapter.IsInteractable);
+        }
+
         private void Focus(Node node)
         {
             if (ReferenceEquals(_current, node))
@@ -449,6 +677,7 @@ namespace Game.Feature.UI.ViewShared
                 return;
             }
 
+            ExitDropdownListMode();
             HideCurrent();
             _current = node;
             _isEditing = false;
@@ -461,11 +690,26 @@ namespace Game.Feature.UI.ViewShared
             RefreshCurrentVisual();
         }
 
+        private void ExitDropdownListMode()
+        {
+            if (!_isDropdownListMode)
+            {
+                return;
+            }
+
+            if (_current != null && _current.Adapter is IUiDropdownListControlAdapter dropdown)
+            {
+                dropdown.CloseList();
+            }
+
+            _isDropdownListMode = false;
+        }
+
         private void RefreshCurrentVisual()
         {
             if (_current != null)
             {
-                ApplyFrame(_current, selected: true, editing: _isEditing);
+                ApplyFrame(_current, selected: true, editing: _isEditing || _isDropdownListMode);
             }
         }
 
