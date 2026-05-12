@@ -68,6 +68,7 @@ GameObject:
   - component: {fileID: 6633445522110099887}
   - component: {fileID: 4994410876415863292}
   - component: {fileID: 2407586926128549279}
+  - component: {fileID: 5500000000000000102}
   m_Layer: 0
   m_Name: EnemyView_UtilitySummoner
   m_TagString: Untagged
@@ -167,6 +168,19 @@ MonoBehaviour:
   jumpAirborneReferenceClip: {fileID: 0}
   recoverReferenceClip: {fileID: 0}
   deathReferenceClip: {fileID: 0}
+--- !u!114 &5500000000000000102
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1747997918927781177}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9385076df6dc49c98c945bd1e50d2edc, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game.Feature.Gameplay.EnemyAudio::Game.Feature.Gameplay.EnemyAudio.EnemyAudioAuthoring
+  profile: {fileID: 11400000, guid: 585a572c9a4d4f618d53c3bf6bc07241, type: 2}
 --- !u!1001 &1688274191991749584
 PrefabInstance:
   m_ObjectHideFlags: 0
