@@ -11,6 +11,7 @@ namespace Game.Feature.Stages.Editor
         Validate,
         AddPlacement,
         MoveSelectedHere,
+        CopySelectedHere,
         DeleteSelected,
     }
 
@@ -19,6 +20,7 @@ namespace Game.Feature.Stages.Editor
         None,
         AddTileFeature,
         MoveSelectedHere,
+        CopySelectedHere,
         DeleteSelected,
     }
 
@@ -119,6 +121,14 @@ namespace Game.Feature.Stages.Editor
                     }
                 }
 
+                using (new EditorGUI.DisabledScope(selectedPlacementIndex < 0 || targetOccupied))
+                {
+                    if (GUILayout.Button("Copy Selected Here"))
+                    {
+                        return StageAuthoringGridToolbarAction.CopySelectedHere;
+                    }
+                }
+
                 using (new EditorGUI.DisabledScope(selectedPlacementIndex < 0))
                 {
                     if (GUILayout.Button("Delete Selected"))
@@ -174,6 +184,14 @@ namespace Game.Feature.Stages.Editor
                     if (GUILayout.Button("Move Selected Here"))
                     {
                         return StageAuthoringTileFeatureCellAction.MoveSelectedHere;
+                    }
+                }
+
+                using (new EditorGUI.DisabledScope(selectedTileFeatureIndex < 0))
+                {
+                    if (GUILayout.Button("Copy Selected Here"))
+                    {
+                        return StageAuthoringTileFeatureCellAction.CopySelectedHere;
                     }
                 }
 

@@ -151,6 +151,15 @@ namespace Game.Feature.Stages.Editor
             ExecuteCommandResult(StageAuthoringPlacementCommands.AddPlacement(serializedAuthoring, authoring, selection));
         }
 
+        internal void DuplicateSelectedPlacementToTargetCellForTests()
+        {
+            ExecuteCommandResult(StageAuthoringPlacementCommands.DuplicateSelectedPlacementToTarget(
+                serializedAuthoring,
+                authoring,
+                selection,
+                selection.ResolveSelectedPlacementIndex(authoring.Placements)));
+        }
+
         internal void SetEditModeForTests(StageAuthoringGridEditMode value)
         {
             editMode = value;
@@ -181,6 +190,11 @@ namespace Game.Feature.Stages.Editor
         internal void MoveSelectedTileFeatureToTargetCellForTests()
         {
             MoveSelectedTileFeatureToTargetCell();
+        }
+
+        internal void DuplicateSelectedTileFeatureToTargetCellForTests()
+        {
+            DuplicateSelectedTileFeatureToTargetCell();
         }
 
         internal void DeleteSelectedTileFeatureForTests()
@@ -547,6 +561,13 @@ namespace Game.Feature.Stages.Editor
                     break;
                 case StageAuthoringGridToolbarAction.MoveSelectedHere:
                     ExecuteCommandResult(StageAuthoringPlacementCommands.MoveSelectedHere(
+                        serializedAuthoring,
+                        authoring,
+                        selection,
+                        selectedPlacementIndex));
+                    break;
+                case StageAuthoringGridToolbarAction.CopySelectedHere:
+                    ExecuteCommandResult(StageAuthoringPlacementCommands.DuplicateSelectedPlacementToTarget(
                         serializedAuthoring,
                         authoring,
                         selection,
@@ -1264,6 +1285,9 @@ namespace Game.Feature.Stages.Editor
                 case StageAuthoringTileFeatureCellAction.MoveSelectedHere:
                     MoveSelectedTileFeatureToTargetCell();
                     break;
+                case StageAuthoringTileFeatureCellAction.CopySelectedHere:
+                    DuplicateSelectedTileFeatureToTargetCell();
+                    break;
                 case StageAuthoringTileFeatureCellAction.DeleteSelected:
                     DeleteSelectedTileFeature();
                     break;
@@ -1326,6 +1350,33 @@ namespace Game.Feature.Stages.Editor
             selection.SelectTileFeatureById(updated.TileId, authoring.TileFeatures);
             serializedAuthoring.Update();
             SetTileFeatureFeedback($"Moved TileFeature {updated.TileId}.", MessageType.Info);
+            Repaint();
+        }
+
+        private void DuplicateSelectedTileFeatureToTargetCell()
+        {
+            var selectedIndex = selection.ResolveSelectedTileFeatureIndex(authoring.TileFeatures);
+            var cell = GetTargetSurfaceCell();
+            if (!StageAuthoringPlacementCommands.TryDuplicateSelectedTileFeatureToTarget(
+                    authoring,
+                    cell,
+                    selectedIndex,
+                    out var duplicatedTileId,
+                    out var error))
+            {
+                SetTileFeatureFeedback(error, MessageType.Error);
+                return;
+            }
+
+            selection.SelectTileFeatureById(duplicatedTileId, authoring.TileFeatures);
+            var duplicatedIndex = selection.ResolveSelectedTileFeatureIndex(authoring.TileFeatures);
+            if (duplicatedIndex >= 0 && duplicatedIndex < authoring.TileFeatures.Count)
+            {
+                LoadTileFeatureEditorState(authoring.TileFeatures[duplicatedIndex]);
+            }
+
+            serializedAuthoring.Update();
+            SetTileFeatureFeedback($"Copied TileFeature {duplicatedTileId}.", MessageType.Info);
             Repaint();
         }
 

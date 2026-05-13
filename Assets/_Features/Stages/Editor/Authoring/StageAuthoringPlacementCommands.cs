@@ -78,6 +78,48 @@ namespace Game.Feature.Stages.Editor
             return StageAuthoringCommandResult.ChangedResult();
         }
 
+        public static StageAuthoringCommandResult DuplicateSelectedPlacementToTarget(
+            SerializedObject serializedAuthoring,
+            StageAuthoringDefinition authoring,
+            StageAuthoringGridSelectionState selection,
+            int selectedPlacementIndex)
+        {
+            var placementsProperty = serializedAuthoring != null
+                ? serializedAuthoring.FindProperty("placements")
+                : null;
+            if (placementsProperty == null ||
+                authoring == null ||
+                selection == null ||
+                selectedPlacementIndex < 0 ||
+                selectedPlacementIndex >= placementsProperty.arraySize ||
+                selectedPlacementIndex >= authoring.Placements.Count ||
+                selection.CountPlacementsAt(
+                    authoring.Placements,
+                    selection.TargetFace,
+                    selection.TargetCell.x,
+                    selection.TargetCell.y) > 0)
+            {
+                return StageAuthoringCommandResult.NoOp();
+            }
+
+            var clone = authoring.Placements[selectedPlacementIndex]?.Clone();
+            if (clone == null)
+            {
+                return StageAuthoringCommandResult.NoOp();
+            }
+
+            clone.StableGuid = System.Guid.NewGuid().ToString("N");
+            clone.Cell = new SurfaceCell(
+                selection.TargetFace,
+                selection.TargetCell.x,
+                selection.TargetCell.y);
+
+            placementsProperty.InsertArrayElementAtIndex(placementsProperty.arraySize);
+            var addedIndex = placementsProperty.arraySize - 1;
+            WritePlacement(placementsProperty.GetArrayElementAtIndex(addedIndex), clone);
+            return StageAuthoringCommandResult.ChangedResult(selectPlacementIndex: addedIndex);
+        }
+
         public static StageAuthoringCommandResult DeleteSelected(
             SerializedObject serializedAuthoring,
             int selectedPlacementIndex)
@@ -345,6 +387,47 @@ namespace Game.Feature.Stages.Editor
             return true;
         }
 
+        public static bool TryDuplicateSelectedTileFeatureToTarget(
+            StageAuthoringDefinition authoring,
+            SurfaceCell cell,
+            int selectedTileFeatureIndex,
+            out int duplicatedTileId,
+            out string error)
+        {
+            duplicatedTileId = 0;
+            error = string.Empty;
+            if (authoring == null)
+            {
+                error = "StageAuthoringDefinition is missing.";
+                return false;
+            }
+
+            if (selectedTileFeatureIndex < 0 ||
+                selectedTileFeatureIndex >= authoring.TileFeatures.Count)
+            {
+                error = "No TileFeature selected.";
+                return false;
+            }
+
+            var duplicate = authoring.TileFeatures[selectedTileFeatureIndex];
+            duplicate.TileId = AllocateNextTileId(authoring);
+            duplicate.Cell = cell;
+            if (!ValidateTileFeatureForPlacement(authoring, duplicate, ignoredTileId: 0, out error))
+            {
+                return false;
+            }
+
+            var next = new List<StageTileFeatureDefinition>(authoring.TileFeatures)
+            {
+                duplicate,
+            };
+            Undo.RecordObject(authoring, "Duplicate Stage TileFeature");
+            authoring.SetTileFeatures(next);
+            EditorUtility.SetDirty(authoring);
+            duplicatedTileId = duplicate.TileId;
+            return true;
+        }
+
         public static bool ValidateTileFeatureForPlacement(
             StageAuthoringDefinition authoring,
             StageTileFeatureDefinition feature,
@@ -465,6 +548,29 @@ namespace Game.Feature.Stages.Editor
             }
 
             return true;
+        }
+
+        private static void WritePlacement(
+            SerializedProperty element,
+            StagePlacedEntityAuthoring placement)
+        {
+            element.FindPropertyRelative("StableGuid").stringValue = placement.StableGuid ?? string.Empty;
+            element.FindPropertyRelative("DisplayName").stringValue = placement.DisplayName ?? string.Empty;
+            element.FindPropertyRelative("Kind").intValue = (int)placement.Kind;
+            var cellProperty = element.FindPropertyRelative("Cell");
+            cellProperty.FindPropertyRelative("face").intValue = (int)placement.Cell.face;
+            cellProperty.FindPropertyRelative("x").intValue = placement.Cell.x;
+            cellProperty.FindPropertyRelative("y").intValue = placement.Cell.y;
+            element.FindPropertyRelative("Facing").intValue = (int)placement.Facing;
+            element.FindPropertyRelative("Hp").intValue = placement.Hp;
+            element.FindPropertyRelative("UnitMobilityKind").intValue = (int)placement.UnitMobilityKind;
+            element.FindPropertyRelative("UnitStackGroup").stringValue = placement.UnitStackGroup ?? string.Empty;
+            element.FindPropertyRelative("BoxCapabilities").intValue = (int)placement.BoxCapabilities;
+            element.FindPropertyRelative("BoxArchetype").intValue = (int)placement.BoxArchetype;
+            element.FindPropertyRelative("EnemyAiMode").intValue = (int)placement.EnemyAiMode;
+            element.FindPropertyRelative("EnemyAiStateTimer").intValue = placement.EnemyAiStateTimer;
+            element.FindPropertyRelative("EnemyAiProfileOverride").objectReferenceValue = placement.EnemyAiProfileOverride;
+            element.FindPropertyRelative("PresentationId").stringValue = placement.PresentationId ?? string.Empty;
         }
 
         private static StageAuthoringCommandResult RotateSelectedFacing(
