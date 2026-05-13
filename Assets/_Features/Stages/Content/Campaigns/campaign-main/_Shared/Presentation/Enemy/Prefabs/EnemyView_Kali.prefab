@@ -14,7 +14,7 @@ GameObject:
   - component: {fileID: 1141000000000009003}
   - component: {fileID: 1141000000000009004}
   m_Layer: 0
-  m_Name: EnemyView_PassiveContactMinion_Kali
+  m_Name: EnemyView_Kali
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

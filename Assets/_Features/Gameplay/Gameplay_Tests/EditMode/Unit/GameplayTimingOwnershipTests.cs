@@ -2570,7 +2570,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Full")]
         public void EnemyAnimatorDriver_ChargePrefabWindupSignal_EntersWindupAnimatorState()
         {
-            const string prefabPath = StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_Charge.prefab";
+            const string prefabPath = StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_RocketFace.prefab";
             var prefab = AssetDatabase.LoadAssetAtPath<GameplayEntityView>(prefabPath);
             Assert.That(prefab, Is.Not.Null, $"Missing prefab at '{prefabPath}'.");
 

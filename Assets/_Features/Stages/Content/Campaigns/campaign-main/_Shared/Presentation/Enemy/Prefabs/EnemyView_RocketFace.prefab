@@ -17,7 +17,7 @@ GameObject:
   - component: {fileID: 3687895322971148645}
   - component: {fileID: 3687895322971148646}
   m_Layer: 0
-  m_Name: EnemyView_Charge
+  m_Name: EnemyView_RocketFace
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

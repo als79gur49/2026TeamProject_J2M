@@ -648,11 +648,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return new[]
             {
                 new EnemyPrefabExpectation(
-                    $"{EnemyPrefabRoot}/EnemyView_WallFollowerSun.prefab",
+                    $"{EnemyPrefabRoot}/EnemyView_Sunwheel.prefab",
                     EnemyAudioCue.Move,
                     EnemyAudioCue.Death),
                 new EnemyPrefabExpectation(
-                    $"{EnemyPrefabRoot}/EnemyView_JumpChaserAstra.prefab",
+                    $"{EnemyPrefabRoot}/EnemyView_Astreton.prefab",
                     EnemyAudioCue.Move,
                     EnemyAudioCue.Landing,
                     EnemyAudioCue.Death),
@@ -663,13 +663,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     EnemyAudioCue.Plasma,
                     EnemyAudioCue.Death),
                 new EnemyPrefabExpectation(
-                    $"{EnemyPrefabRoot}/EnemyView_LockNearbyBoxes_DrS.prefab",
+                    $"{EnemyPrefabRoot}/EnemyView_DrSaturn.prefab",
                     EnemyAudioCue.Move,
                     EnemyAudioCue.Act,
                     EnemyAudioCue.GravityField,
                     EnemyAudioCue.Death),
                 new EnemyPrefabExpectation(
-                    $"{EnemyPrefabRoot}/EnemyView_UtilitySummoner.prefab",
+                    $"{EnemyPrefabRoot}/EnemyView_JPeter.prefab",
                     EnemyAudioCue.Act,
                     EnemyAudioCue.Death),
                 new EnemyPrefabExpectation(

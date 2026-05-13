@@ -70,7 +70,7 @@ GameObject:
   - component: {fileID: 2407586926128549279}
   - component: {fileID: 5500000000000000102}
   m_Layer: 0
-  m_Name: EnemyView_UtilitySummoner
+  m_Name: EnemyView_JPeter
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

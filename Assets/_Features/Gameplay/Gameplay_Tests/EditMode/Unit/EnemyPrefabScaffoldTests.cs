@@ -54,7 +54,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Full")]
         public void EnemyViewChargePrefab_BindsGenericMoveAuthoringWithoutChargeMoveRuntimeField()
         {
-            var prefabText = ReadNormalizedText(StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_Charge.prefab");
+            var prefabText = ReadNormalizedText(StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_RocketFace.prefab");
 
             StringAssert.Contains("UnitLocomotionPresentationAuthoring", prefabText);
             StringAssert.Contains("moveMotionDurationSeconds: 1", prefabText);
@@ -91,9 +91,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Full")]
         public void EnemyViewWallFollowerSunPrefab_BindsSunModelAndAnimationController()
         {
-            var prefabText = ReadNormalizedText(StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_WallFollowerSun.prefab");
+            var prefabText = ReadNormalizedText(StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_Sunwheel.prefab");
 
-            StringAssert.Contains("EnemyView_WallFollowerSun", prefabText);
+            StringAssert.Contains("EnemyView_Sunwheel", prefabText);
             StringAssert.Contains("guid: bbf461ea260c63b4785c6c2c72a480bf", prefabText);
             StringAssert.Contains("guid: 506850279d08adc3d62015a52b2109e4", prefabText);
             StringAssert.Contains("UnitLocomotionPresentationAuthoring", prefabText);
@@ -105,9 +105,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Full")]
         public void EnemyViewJumpChaserAstraPrefab_BindsAstraModelAndJumpTimingClips()
         {
-            var prefabText = ReadNormalizedText(StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_JumpChaserAstra.prefab");
+            var prefabText = ReadNormalizedText(StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_Astreton.prefab");
 
-            StringAssert.Contains("EnemyView_JumpChaserAstra", prefabText);
+            StringAssert.Contains("EnemyView_Astreton", prefabText);
             StringAssert.Contains("guid: 9870afb7c6d615c458c88e0e341207e3", prefabText);
             StringAssert.Contains("guid: 6be19350b5cac6763aebb3b88b54c091", prefabText);
             StringAssert.Contains("jumpWindupAnimatorDurationSeconds: 0.35", prefabText);

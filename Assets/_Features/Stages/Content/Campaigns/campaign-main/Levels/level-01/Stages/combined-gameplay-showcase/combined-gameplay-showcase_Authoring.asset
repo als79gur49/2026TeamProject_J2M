@@ -53,7 +53,7 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 8d6b1bc1c4aa4d57b9c6d8df30d7e6a2, type: 2}
-    PresentationId: wallFollower_sun
+    PresentationId: sunwheel
   - StableGuid: combined-gameplay-showcase:Enemy:58
     DisplayName: Enemy 58
     Kind: 1
@@ -69,7 +69,7 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 3d157a22696a4ee29ac2852d6486cd31, type: 2}
-    PresentationId: Charge_showcase
+    PresentationId: rocket_face
   - StableGuid: combined-gameplay-showcase:Enemy:59
     DisplayName: Enemy 59
     Kind: 1
@@ -85,7 +85,7 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 8fdb5400ceb74592aa5dea3cbb2cf2a8, type: 2}
-    PresentationId: utility_summoner_prefab
+    PresentationId: j_peter
   - StableGuid: combined-gameplay-showcase:Enemy:60
     DisplayName: Enemy 60
     Kind: 1
@@ -101,7 +101,7 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: ee4160b1ea994e21b5b93ee5e5b66c8d, type: 2}
-    PresentationId: Attacking_showcase
+    PresentationId: black_eye
   - StableGuid: combined-gameplay-showcase:Box:30
     DisplayName: Box 30
     Kind: 2
@@ -389,7 +389,7 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 47dcd8d154bb4222829ef11b18507f76, type: 2}
-    PresentationId: jumpChaser_astra
+    PresentationId: astreton
   - StableGuid: combined-gameplay-showcase:Box:201
     DisplayName: Moon QA Box 201
     Kind: 2

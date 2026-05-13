@@ -24,11 +24,11 @@ MonoBehaviour:
   enemyPresentationArchetypeCatalog: {fileID: 11400000, guid: dd4f6d4763f54f89830e7ab92c7d9953, type: 2}
   enemyPresentationBindings:
   - EntityId: 54
-    PresentationId: Attacking_showcase
+    PresentationId: black_eye
   - EntityId: 55
-    PresentationId: nonAttacking_showcase
+    PresentationId: startis
   - EntityId: 56
-    PresentationId: wallFollower_sun
+    PresentationId: sunwheel
   staticEntityPresentationCatalog: {fileID: 11400000, guid: 28eb5cc07ccd15d4b9a99a3364f7fd07, type: 2}
   staticEntityPresentationBindings: []
   boardTilePresentationCatalog: {fileID: 0}

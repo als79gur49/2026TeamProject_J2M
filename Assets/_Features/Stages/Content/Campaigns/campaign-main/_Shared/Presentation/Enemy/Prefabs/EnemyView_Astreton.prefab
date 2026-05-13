@@ -16,7 +16,7 @@ GameObject:
   - component: {fileID: 1141000000000003005}
   - component: {fileID: 1141000000000003006}
   m_Layer: 0
-  m_Name: EnemyView_JumpChaserAstra
+  m_Name: EnemyView_Astreton
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

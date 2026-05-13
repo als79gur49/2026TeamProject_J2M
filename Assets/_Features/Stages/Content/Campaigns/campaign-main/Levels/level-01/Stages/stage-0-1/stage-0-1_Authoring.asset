@@ -51,7 +51,7 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
-    PresentationId: tutorial_passive_secbot
+    PresentationId: secbot
   - StableGuid: stage-0-1:Enemy:102
     DisplayName: Enemy 102
     Kind: 1
@@ -66,7 +66,7 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
-    PresentationId: tutorial_passive_secbot
+    PresentationId: secbot
   - StableGuid: stage-0-1:Enemy:103
     DisplayName: Enemy 103
     Kind: 1
@@ -81,7 +81,7 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
-    PresentationId: tutorial_passive_secbot
+    PresentationId: secbot
   - StableGuid: stage-0-1:Enemy:104
     DisplayName: Enemy 104
     Kind: 1
@@ -96,7 +96,7 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
-    PresentationId: tutorial_passive_secbot
+    PresentationId: secbot
   - StableGuid: stage-0-1:Enemy:105
     DisplayName: Enemy 105
     Kind: 1
@@ -111,7 +111,7 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
-    PresentationId: tutorial_passive_secbot
+    PresentationId: secbot
   - StableGuid: stage-0-1:Enemy:106
     DisplayName: Enemy 106
     Kind: 1
@@ -126,7 +126,7 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
-    PresentationId: tutorial_passive_secbot
+    PresentationId: secbot
   - StableGuid: stage-0-1:Enemy:107
     DisplayName: Enemy 107
     Kind: 1
@@ -141,7 +141,7 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
-    PresentationId: tutorial_passive_secbot
+    PresentationId: secbot
   - StableGuid: stage-0-1:Enemy:108
     DisplayName: Enemy 108
     Kind: 1
@@ -156,7 +156,7 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
-    PresentationId: tutorial_passive_secbot
+    PresentationId: secbot
   - StableGuid: stage-0-1:Enemy:109
     DisplayName: Enemy 109
     Kind: 1
@@ -171,7 +171,7 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
-    PresentationId: tutorial_passive_secbot
+    PresentationId: secbot
   - StableGuid: stage-0-1:Enemy:110
     DisplayName: Enemy 110
     Kind: 1
@@ -186,7 +186,7 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
-    PresentationId: tutorial_passive_secbot
+    PresentationId: secbot
   - StableGuid: stage-0-1:Enemy:111
     DisplayName: Enemy 111
     Kind: 1
@@ -201,7 +201,7 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
-    PresentationId: tutorial_passive_secbot
+    PresentationId: secbot
   - StableGuid: stage-0-1:Box:31
     DisplayName: Box 31
     Kind: 2

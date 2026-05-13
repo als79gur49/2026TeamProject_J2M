@@ -14,7 +14,7 @@ GameObject:
   - component: {fileID: 1141000000000010003}
   - component: {fileID: 1141000000000010004}
   m_Layer: 0
-  m_Name: EnemyView_TutorialPassive_SecBot
+  m_Name: EnemyView_SecBot
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
