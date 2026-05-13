@@ -920,6 +920,7 @@ namespace Game.Feature.Gameplay.Tests.Core
             {
                 "Replace" + "BaseTile",
                 "TileFeature" + "Visual" + "PlacementMode",
+                "TileFeature" + "Visual" + "FootprintMode",
                 "Placement" + "Mode",
             };
             var sourcePaths = new[]
@@ -947,6 +948,7 @@ namespace Game.Feature.Gameplay.Tests.Core
             {
                 "Replace" + "BaseTile",
                 "TileFeature" + "Visual" + "PlacementMode",
+                "TileFeature" + "Visual" + "FootprintMode",
             };
             var sourcePaths = Directory
                 .GetFiles(GetAbsolutePath(GameplayLoopRuntimePath), "*.cs", SearchOption.AllDirectories);
@@ -980,6 +982,7 @@ namespace Game.Feature.Gameplay.Tests.Core
 
             Assert.That(source, Does.Not.Contain("Replace" + "BaseTile"));
             Assert.That(source, Does.Not.Contain("TileFeature" + "Visual" + "PlacementMode"));
+            Assert.That(source, Does.Not.Contain("TileFeature" + "Visual" + "FootprintMode"));
         }
 
         [Test]
