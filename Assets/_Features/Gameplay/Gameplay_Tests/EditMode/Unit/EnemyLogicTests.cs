@@ -1477,6 +1477,49 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        [Category("Extended")]
+        public void EnemyLogic_JumpInitialDelay_BlocksFirstStartUntilDelayCompletes()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateJumpChaser(
+                new EnemyJumpTimingSettings(
+                    initialDelayTicks: 2,
+                    windupTicks: 1,
+                    airborneTicks: 1,
+                    cooldownTicks: 1));
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var logic = new EnemyLogic(entityId: 40, profile);
+
+            try
+            {
+                var delayedUpdates = CommitPreMovementState(logic, worldState, tickIndex: 1);
+
+                Assert.That(delayedUpdates, Has.Some.Contains("Label=InitialDelayTick"));
+                Assert.That(delayedUpdates, Has.None.Contains("Label=Start"));
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyJumpState(40, out var delayed), Is.True);
+                Assert.That(delayed.phase, Is.EqualTo(EnemyJumpPhase.None));
+                Assert.That(delayed.initialDelayInitialized, Is.True);
+                Assert.That(delayed.initialDelayTicksRemaining, Is.EqualTo(1));
+
+                var startUpdates = CommitPreMovementState(logic, worldState, tickIndex: 2);
+
+                Assert.That(startUpdates, Has.Some.Contains("Label=InitialDelayReady"));
+                Assert.That(startUpdates, Has.Some.Contains("Label=Start"));
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyJumpState(40, out var started), Is.True);
+                Assert.That(started.phase, Is.EqualTo(EnemyJumpPhase.Windup));
+                Assert.That(started.initialDelayInitialized, Is.True);
+                Assert.That(started.initialDelayTicksRemaining, Is.Zero);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
         [TestCase(EnemyJumpPhase.Windup)]
         [TestCase(EnemyJumpPhase.Airborne)]
         public void EnemyLogic_JumpActivePhases_SuppressMovementAndAttack(EnemyJumpPhase phase)
@@ -2852,6 +2895,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     radius: 2,
                     includeSourceCell: true,
                     targetPattern: FrontFaceShieldTargetPattern.OrthogonalAdjacent4,
+                    initialDelayTicks: 3,
                     cooldownTicks: 10));
 
             try
@@ -2864,8 +2908,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(support.Effects[0].BoxSlideShield.Radius, Is.EqualTo(2));
                 Assert.That(support.Effects[0].BoxSlideShield.IncludeSourceCell, Is.True);
                 Assert.That(support.Effects[0].BoxSlideShield.TargetPattern, Is.EqualTo(FrontFaceShieldTargetPattern.OrthogonalAdjacent4));
+                Assert.That(support.Effects[0].BoxSlideShield.InitialDelayTicks, Is.EqualTo(3));
                 Assert.That(support.Effects[0].BoxSlideShield.WindupTicks, Is.EqualTo(10));
                 Assert.That(support.Effects[0].BoxSlideShield.CooldownTicks, Is.EqualTo(10));
+
+                var initialState = EnemyFrontFaceSupportStateQueries.CreateInitialState(support);
+                Assert.That(initialState.EffectStates[0].cooldownTicksRemaining, Is.EqualTo(3));
             }
             finally
             {
@@ -4178,6 +4226,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 LocomotionTimingSettings = new EnemyLocomotionTimingAuthoringSettings(moveCooldownSeconds: 0f),
                 MovementSkillStrategyKind = MovementSkillStrategyKind.JumpToLockedTarget,
                 JumpTimingSettings = new EnemyJumpTimingAuthoringSettings(
+                    initialDelaySeconds: 0.05f,
                     windupSeconds: 0.1f,
                     airborneSeconds: 0.2f,
                     cooldownSeconds: 0.3f),
@@ -4188,9 +4237,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var definition = profile.CreateRuntimeDefinition(60);
 
                 Assert.That(profile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.JumpToLockedTarget));
+                Assert.That(profile.JumpTimingSettings.InitialDelaySeconds, Is.EqualTo(0.05f).Within(0.0001f));
                 Assert.That(profile.JumpTimingSettings.WindupSeconds, Is.EqualTo(0.1f).Within(0.0001f));
                 Assert.That(profile.JumpTimingSettings.AirborneSeconds, Is.EqualTo(0.2f).Within(0.0001f));
                 Assert.That(profile.JumpTimingSettings.CooldownSeconds, Is.EqualTo(0.3f).Within(0.0001f));
+                Assert.That(definition.JumpTimingSettings.InitialDelayTicks, Is.EqualTo(3));
                 Assert.That(definition.JumpTimingSettings.WindupTicks, Is.EqualTo(6));
                 Assert.That(definition.JumpTimingSettings.AirborneTicks, Is.EqualTo(12));
                 Assert.That(definition.JumpTimingSettings.CooldownTicks, Is.EqualTo(18));
@@ -4663,6 +4714,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 worldState.CreateWriteContext(),
                 updates,
                 new List<PlayerActionTransition>());
+        }
+
+        private static List<string> CommitPreMovementState(
+            EnemyLogic logic,
+            WorldState worldState,
+            int tickIndex)
+        {
+            var updates = new List<string>();
+            ((IPreMovementStateLogic)logic).CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(tickIndex),
+                worldState.CreateWriteContext(),
+                updates,
+                new List<PlayerActionTransition>());
+            return updates;
         }
 
         private static EnemyAiProfile CreateEnemyProfile(int windupTicks, int moveCooldownTicks = 0)
@@ -5785,6 +5851,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int radius = 1,
             bool includeSourceCell = false,
             FrontFaceShieldTargetPattern targetPattern = FrontFaceShieldTargetPattern.ManhattanRadius,
+            int initialDelayTicks = 0,
             int windupTicks = 10,
             int cooldownTicks = 10)
         {
@@ -5792,6 +5859,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "radius", radius);
             EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "includeSourceCell", includeSourceCell);
             EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "targetPattern", targetPattern);
+            EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "initialDelaySeconds", TicksToSeconds(initialDelayTicks));
             EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "windupSeconds", TicksToSeconds(windupTicks));
             EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "cooldownSeconds", TicksToSeconds(cooldownTicks));
 

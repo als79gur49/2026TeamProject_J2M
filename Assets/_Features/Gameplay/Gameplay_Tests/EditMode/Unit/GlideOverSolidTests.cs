@@ -54,6 +54,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new EnemyGlideTimingAuthoringSettings(0f, 0f)
                     .ToRuntimeSettings(GameplayTimingProfile.DefaultSimulationTicksPerSecond));
             Assert.Throws<ArgumentException>(() =>
+                new EnemyGlideTimingAuthoringSettings(-0.01f, 0f, 1f, 0f, 0f)
+                    .ToRuntimeSettings(GameplayTimingProfile.DefaultSimulationTicksPerSecond));
+            Assert.Throws<ArgumentException>(() =>
                 new EnemyGlideTimingAuthoringSettings(-0.01f, 1f, 0f, 0f)
                     .ToRuntimeSettings(GameplayTimingProfile.DefaultSimulationTicksPerSecond));
             Assert.Throws<ArgumentException>(() =>
@@ -64,16 +67,62 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     .ToRuntimeSettings(GameplayTimingProfile.DefaultSimulationTicksPerSecond));
 
             var runtime = new EnemyGlideTimingAuthoringSettings(
+                    initialDelaySeconds: 3f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     windupSeconds: 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     durationSeconds: 1f,
                     recoverySeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     cooldownSeconds: 0f)
                 .ToRuntimeSettings(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
 
+            Assert.That(runtime.InitialDelayTicks, Is.EqualTo(3));
             Assert.That(runtime.WindupTicks, Is.EqualTo(1));
             Assert.That(runtime.DurationTicks, Is.EqualTo(GameplayTimingProfile.DefaultSimulationTicksPerSecond));
             Assert.That(runtime.RecoveryTicks, Is.EqualTo(2));
             Assert.That(runtime.CooldownTicks, Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyLogic_GlideInitialDelay_BlocksFirstStartUntilDelayCompletes()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(
+                    initialDelayTicks: 2,
+                    windupTicks: 0,
+                    durationTicks: 1,
+                    recoveryTicks: 0,
+                    cooldownTicks: 0));
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(10, teamId: 1, new Vector2Int(3, 0), EnemyAiMode.None),
+                CreateUnit(40, teamId: 2, new Vector2Int(0, 0), EnemyAiMode.Chase),
+            });
+            var logic = new EnemyLogic(40, profile);
+
+            try
+            {
+                var delayedUpdates = CommitPreMovementAndGetUpdates(logic, worldState, tickIndex: 1);
+
+                Assert.That(delayedUpdates, Has.Some.Contains("Label=InitialDelayTick"));
+                Assert.That(delayedUpdates, Has.None.Contains("Label=Start"));
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyGlideState(40, out var delayed), Is.True);
+                Assert.That(delayed.Phase, Is.EqualTo(EnemyGlidePhase.Ready));
+                Assert.That(delayed.InitialDelayInitialized, Is.True);
+                Assert.That(delayed.InitialDelayTicksRemaining, Is.EqualTo(1));
+
+                var startUpdates = CommitPreMovementAndGetUpdates(logic, worldState, tickIndex: 2);
+
+                Assert.That(startUpdates, Has.Some.Contains("Label=InitialDelayReady"));
+                Assert.That(startUpdates, Has.Some.Contains("Label=Start"));
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyGlideState(40, out var started), Is.True);
+                Assert.That(started.Phase, Is.EqualTo(EnemyGlidePhase.Active));
+                Assert.That(started.InitialDelayInitialized, Is.True);
+                Assert.That(started.InitialDelayTicksRemaining, Is.Zero);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
         }
 
         [Test]
