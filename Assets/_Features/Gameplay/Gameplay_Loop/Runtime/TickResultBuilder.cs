@@ -1586,7 +1586,10 @@ namespace Game.Feature.Gameplay.Loop
                         context.PreMovementSnapshot.Topology,
                         context.PostMovementSnapshot.Topology,
                         sourceEntity.facing,
-                        destinationEntity.facing));
+                        destinationEntity.facing,
+                        startedTick: destinationPose.State.startedTick,
+                        elapsedTicks: destinationPose.State.elapsedTicks,
+                        totalTicks: destinationPose.State.totalTicks));
                 movementKinematicEntityIds.Add(operation.EntityId);
             }
 
@@ -1617,7 +1620,10 @@ namespace Game.Feature.Gameplay.Loop
                         context.FinalAuthoritativeSnapshot.Topology,
                         context.FinalAuthoritativeSnapshot.Topology,
                         heldEntity.facing,
-                        heldEntity.facing));
+                        heldEntity.facing,
+                        startedTick: heldPose.State.startedTick,
+                        elapsedTicks: heldPose.State.elapsedTicks,
+                        totalTicks: heldPose.State.totalTicks));
             }
 
             for (var i = 0; i < interruptedEntityIds.Count; i++)
@@ -1645,7 +1651,10 @@ namespace Game.Feature.Gameplay.Loop
                         context.PostAttackSnapshot.Topology,
                         sourceEntity.facing,
                         destinationEntity.facing,
-                        TickKinematicMotionTerminalKind.Interrupted));
+                        TickKinematicMotionTerminalKind.Interrupted,
+                        startedTick: destinationPose.State.startedTick,
+                        elapsedTicks: destinationPose.State.elapsedTicks,
+                        totalTicks: destinationPose.State.totalTicks));
             }
 
             for (var i = 0; i < context.CleanupPhaseResult.RemovedUnitKinematicPoses.Count; i++)
@@ -1676,7 +1685,10 @@ namespace Game.Feature.Gameplay.Loop
                         context.PostAttackSnapshot.Topology,
                         sourceEntity.facing,
                         destinationEntity.facing,
-                        TickKinematicMotionTerminalKind.Removed));
+                        TickKinematicMotionTerminalKind.Removed,
+                        startedTick: removedPose.State.startedTick,
+                        elapsedTicks: removedPose.State.elapsedTicks,
+                        totalTicks: removedPose.State.totalTicks));
             }
         }
 

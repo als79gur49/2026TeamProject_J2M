@@ -407,7 +407,10 @@ namespace Game.Feature.Gameplay.Loop
             KinematicOffset2 destinationLocalOffset,
             MotionMode motionMode,
             ForcedMotionOp forcedMotionOp,
-            TickKinematicMotionTerminalKind terminalKind = TickKinematicMotionTerminalKind.None)
+            TickKinematicMotionTerminalKind terminalKind = TickKinematicMotionTerminalKind.None,
+            int startedTick = 0,
+            int elapsedTicks = 0,
+            int totalTicks = 0)
             : this(
                 entityId,
                 sourceAnchorCell,
@@ -421,7 +424,10 @@ namespace Game.Feature.Gameplay.Loop
                 destinationTopology: null,
                 sourceFacing: null,
                 destinationFacing: null,
-                terminalKind: terminalKind)
+                terminalKind: terminalKind,
+                startedTick: startedTick,
+                elapsedTicks: elapsedTicks,
+                totalTicks: totalTicks)
         {
         }
 
@@ -438,7 +444,10 @@ namespace Game.Feature.Gameplay.Loop
             CubeTopologyState? destinationTopology,
             Direction? sourceFacing,
             Direction? destinationFacing,
-            TickKinematicMotionTerminalKind terminalKind = TickKinematicMotionTerminalKind.None)
+            TickKinematicMotionTerminalKind terminalKind = TickKinematicMotionTerminalKind.None,
+            int startedTick = 0,
+            int elapsedTicks = 0,
+            int totalTicks = 0)
         {
             EntityId = entityId;
             SourceAnchorCell = sourceAnchorCell;
@@ -453,6 +462,9 @@ namespace Game.Feature.Gameplay.Loop
             SourceFacing = sourceFacing;
             DestinationFacing = destinationFacing;
             TerminalKind = terminalKind;
+            StartedTick = Math.Max(0, startedTick);
+            ElapsedTicks = Math.Max(0, elapsedTicks);
+            TotalTicks = Math.Max(0, totalTicks);
         }
 
         public int EntityId { get; }
@@ -480,6 +492,12 @@ namespace Game.Feature.Gameplay.Loop
         public Direction? DestinationFacing { get; }
 
         public TickKinematicMotionTerminalKind TerminalKind { get; }
+
+        public int StartedTick { get; }
+
+        public int ElapsedTicks { get; }
+
+        public int TotalTicks { get; }
     }
 
     public readonly struct TickContinuousLocomotionTrack

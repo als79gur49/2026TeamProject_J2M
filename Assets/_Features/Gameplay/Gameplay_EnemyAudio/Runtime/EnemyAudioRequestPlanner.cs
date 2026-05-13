@@ -18,7 +18,7 @@ namespace Game.Feature.Gameplay.EnemyAudio
 
             var enemyEntityIds = BuildEnemyEntityIdSet(result.FinalEntities);
             var requests = new List<EnemyAudioRequest>();
-            BuildMoveRequests(result.PresentationData, enemyEntityIds, requests);
+            BuildMoveRequests(result.PresentationData, result.TickIndex, enemyEntityIds, requests);
             BuildActionRequests(result.PresentationData, requests);
             BuildUtilityRequests(result.PresentationData, requests);
             BuildSummonRequests(result.PresentationData, requests);
@@ -44,21 +44,64 @@ namespace Game.Feature.Gameplay.EnemyAudio
 
         private static void BuildMoveRequests(
             TickPresentationData presentationData,
+            int tickIndex,
             ISet<int> enemyEntityIds,
             ICollection<EnemyAudioRequest> requests)
         {
+            var plannedMoveEntityIds = new HashSet<int>();
             var motions = presentationData.EntityMotions;
             for (var i = 0; i < motions.Count; i++)
             {
                 var motion = motions[i];
                 if (motion.MotionKind != TickEntityMotionKind.Move ||
-                    !enemyEntityIds.Contains(motion.EntityId))
+                    !enemyEntityIds.Contains(motion.EntityId) ||
+                    !plannedMoveEntityIds.Add(motion.EntityId))
                 {
                     continue;
                 }
 
                 AddRequest(motion.EntityId, EnemyAudioCue.Move, requests);
             }
+
+            var kinematicTracks = presentationData.KinematicMotionTracks;
+            for (var i = 0; i < kinematicTracks.Count; i++)
+            {
+                var track = kinematicTracks[i];
+                if (!IsEnemyLocomotionMoveTrack(track, tickIndex, enemyEntityIds) ||
+                    !plannedMoveEntityIds.Add(track.EntityId))
+                {
+                    continue;
+                }
+
+                AddRequest(track.EntityId, EnemyAudioCue.Move, requests);
+            }
+        }
+
+        private static bool IsEnemyLocomotionMoveTrack(
+            in TickKinematicMotionTrack track,
+            int tickIndex,
+            ISet<int> enemyEntityIds)
+        {
+            return track.EntityId > 0 &&
+                   enemyEntityIds.Contains(track.EntityId) &&
+                   track.EntityType == EntityType.Unit &&
+                   track.TerminalKind == TickKinematicMotionTerminalKind.None &&
+                   track.MotionMode == MotionMode.Voluntary &&
+                   track.ForcedMotionOp == ForcedMotionOp.None &&
+                   HasActualKinematicMovement(track) &&
+                   IsKinematicMoveStartTick(track, tickIndex);
+        }
+
+        private static bool HasActualKinematicMovement(in TickKinematicMotionTrack track)
+        {
+            return !track.SourceAnchorCell.Equals(track.DestinationAnchorCell) ||
+                   !track.SourceLocalOffset.Equals(track.DestinationLocalOffset);
+        }
+
+        private static bool IsKinematicMoveStartTick(in TickKinematicMotionTrack track, int tickIndex)
+        {
+            return track.StartedTick <= 0 ||
+                   track.StartedTick == tickIndex;
         }
 
         private static void BuildActionRequests(
@@ -103,7 +146,13 @@ namespace Game.Feature.Gameplay.EnemyAudio
             var signals = presentationData.SummonWindupWarnings;
             for (var i = 0; i < signals.Count; i++)
             {
-                AddRequest(signals[i].SourceEntityId, EnemyAudioCue.Act, requests);
+                var signal = signals[i];
+                AddRequestIf(
+                    signal.SourceEntityId,
+                    EnemyAudioCue.Act,
+                    signal.SourceEntityId > 0 &&
+                    signal.TickIndex == signal.WindupStartTick,
+                    requests);
             }
         }
 

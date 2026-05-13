@@ -129,6 +129,434 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void LegacyEntityMotionMove_StillPlansEnemyMoveCue()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(
+                CreatePresentationData(
+                    entityMotions: new[]
+                    {
+                        new TickEntityMotion(20, TickEntityMotionKind.Move, sourceCell, targetCell),
+                    }),
+                new[] { CreateUnit(20, UnitRole.Enemy) });
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(
+                requests.Select(request => (request.OwnerEntityId, request.Cue)).ToArray(),
+                Is.EqualTo(new[] { (20, EnemyAudioCue.Move) }));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyKinematicMotionTrack_PlansEnemyMoveCue()
+        {
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(
+                CreatePresentationData(
+                    kinematicMotionTracks: new[]
+                    {
+                        CreateKinematicTrack(
+                            20,
+                            MotionMode.Voluntary,
+                            ForcedMotionOp.None,
+                            startedTick: 1,
+                            elapsedTicks: 1,
+                            totalTicks: 16),
+                    }),
+                new[] { CreateUnit(20, UnitRole.Enemy) });
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(
+                requests.Select(request => (request.OwnerEntityId, request.Cue)).ToArray(),
+                Is.EqualTo(new[] { (20, EnemyAudioCue.Move) }));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyKinematicMotionTrack_ContinuationTick_DoesNotPlanMoveCue()
+        {
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(
+                CreatePresentationData(
+                    kinematicMotionTracks: new[]
+                    {
+                        CreateKinematicTrack(
+                            20,
+                            MotionMode.Voluntary,
+                            ForcedMotionOp.None,
+                            startedTick: 1,
+                            elapsedTicks: 2,
+                            totalTicks: 16),
+                    }),
+                new[] { CreateUnit(20, UnitRole.Enemy) },
+                tickIndex: 2);
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(requests, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void KinematicHeldOrTerminalTrack_DoesNotPlanMoveCue()
+        {
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(
+                CreatePresentationData(
+                    kinematicMotionTracks: new[]
+                    {
+                        CreateKinematicTrack(
+                            20,
+                            MotionMode.Held,
+                            ForcedMotionOp.None,
+                            sourceLocalOffset: new KinematicOffset2(KinematicFixed.FromRaw(512), KinematicFixed.Zero),
+                            destinationLocalOffset: new KinematicOffset2(KinematicFixed.FromRaw(512), KinematicFixed.Zero)),
+                        CreateKinematicTrack(
+                            21,
+                            MotionMode.Voluntary,
+                            ForcedMotionOp.None,
+                            terminalKind: TickKinematicMotionTerminalKind.Interrupted),
+                        CreateKinematicTrack(22, MotionMode.Settled, ForcedMotionOp.None),
+                    }),
+                new[]
+                {
+                    CreateUnit(20, UnitRole.Enemy),
+                    CreateUnit(21, UnitRole.Enemy),
+                    CreateUnit(22, UnitRole.Enemy),
+                });
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(requests, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void LegacyAndKinematicSameEntity_DedupesMoveCue()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(
+                CreatePresentationData(
+                    entityMotions: new[]
+                    {
+                        new TickEntityMotion(20, TickEntityMotionKind.Move, sourceCell, targetCell),
+                    },
+                    kinematicMotionTracks: new[]
+                    {
+                        CreateKinematicTrack(
+                            20,
+                            MotionMode.Voluntary,
+                            ForcedMotionOp.None,
+                            startedTick: 1,
+                            elapsedTicks: 1,
+                            totalTicks: 16),
+                    }),
+                new[] { CreateUnit(20, UnitRole.Enemy) });
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(
+                requests.Count(request => request.OwnerEntityId == 20 && request.Cue == EnemyAudioCue.Move),
+                Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void NonEnemyKinematicTrack_DoesNotPlanEnemyMoveCue()
+        {
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(
+                CreatePresentationData(
+                    kinematicMotionTracks: new[]
+                    {
+                        CreateKinematicTrack(10, MotionMode.Voluntary, ForcedMotionOp.None),
+                        CreateKinematicTrack(
+                            30,
+                            MotionMode.Voluntary,
+                            ForcedMotionOp.None,
+                            entityType: EntityType.Box),
+                        CreateKinematicTrack(
+                            40,
+                            MotionMode.Voluntary,
+                            ForcedMotionOp.None,
+                            entityType: EntityType.Projectile),
+                    }),
+                new[]
+                {
+                    CreateUnit(10, UnitRole.Player),
+                    CreateEntity(30, EntityType.Box),
+                    CreateEntity(40, EntityType.Projectile),
+                });
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(requests, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SunwheelKinematicMove_WithMoveProfile_ProducesMoveRequest()
+        {
+            var rootObject = new GameObject(nameof(SunwheelKinematicMove_WithMoveProfile_ProducesMoveRequest));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateEnemyAudioProfile(
+                new EnemyAudioEntrySpec(EnemyAudioCue.Move, CreateDefinitionSpec()));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var enemy = CreateUnit(20, UnitRole.Enemy);
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { enemy }, new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(
+                    CreatePresentationData(
+                        kinematicMotionTracks: new[]
+                        {
+                            CreateKinematicTrack(
+                                20,
+                                MotionMode.Voluntary,
+                                ForcedMotionOp.None,
+                                startedTick: 1,
+                                elapsedTicks: 1,
+                                totalTicks: 16),
+                        }),
+                    new[] { enemy }));
+
+                Assert.That(
+                    playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
+                    Is.EqualTo(new[] { "Move" }));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyMoveCadenceGate_DefaultTiming_UsesDocumentedTwentyTpsIntervals()
+        {
+            var gate = new EnemyMoveCadenceGate();
+
+            gate.Configure(simulationTicksPerSecond: 20);
+
+            Assert.That(gate.PerEntityMoveMinIntervalTicks, Is.EqualTo(140));
+            Assert.That(gate.GlobalMoveMinIntervalTicks, Is.EqualTo(60));
+            Assert.That(gate.JitterTicks, Is.EqualTo(20));
+            Assert.That(gate.MaxMoveRequestsPerTick, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyMoveCadenceGate_PerEntityInterval_ThrottlesSameEnemyMove()
+        {
+            var gate = new EnemyMoveCadenceGate(
+                perEntityMoveMinIntervalTicks: 16,
+                globalMoveMinIntervalTicks: 0,
+                jitterTicks: 0,
+                maxMoveRequestsPerTick: 10);
+
+            Assert.That(gate.ShouldPlayMove(ownerEntityId: 20, tickIndex: 1), Is.True);
+            Assert.That(gate.ShouldPlayMove(ownerEntityId: 20, tickIndex: 16), Is.False);
+            Assert.That(gate.ShouldPlayMove(ownerEntityId: 20, tickIndex: 17), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyMoveCadenceGate_GlobalInterval_ThrottlesDifferentEnemyMoves()
+        {
+            var gate = new EnemyMoveCadenceGate(
+                perEntityMoveMinIntervalTicks: 0,
+                globalMoveMinIntervalTicks: 4,
+                jitterTicks: 0,
+                maxMoveRequestsPerTick: 10);
+
+            Assert.That(gate.ShouldPlayMove(ownerEntityId: 20, tickIndex: 1), Is.True);
+            Assert.That(gate.ShouldPlayMove(ownerEntityId: 21, tickIndex: 4), Is.False);
+            Assert.That(gate.ShouldPlayMove(ownerEntityId: 21, tickIndex: 5), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyMoveCadenceGate_TickBudget_AllowsOnlyConfiguredMovesPerTick()
+        {
+            var gate = new EnemyMoveCadenceGate(
+                perEntityMoveMinIntervalTicks: 0,
+                globalMoveMinIntervalTicks: 0,
+                jitterTicks: 0,
+                maxMoveRequestsPerTick: 1);
+
+            Assert.That(gate.ShouldPlayMove(ownerEntityId: 20, tickIndex: 1), Is.True);
+            Assert.That(gate.ShouldPlayMove(ownerEntityId: 21, tickIndex: 1), Is.False);
+            Assert.That(gate.ShouldPlayMove(ownerEntityId: 21, tickIndex: 2), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyMoveCadenceGate_Jitter_IsDeterministicAndBounded()
+        {
+            var first = EnemyMoveCadenceGate.ComputeDeterministicJitterTicks(20, 10, jitterTicks: 4);
+            var second = EnemyMoveCadenceGate.ComputeDeterministicJitterTicks(20, 10, jitterTicks: 4);
+
+            Assert.That(second, Is.EqualTo(first));
+            Assert.That(first, Is.InRange(0, 4));
+            Assert.That(EnemyMoveCadenceGate.ComputeDeterministicJitterTicks(20, 10, jitterTicks: 0), Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTickViewPresenter_Present_EnemyMoveCadence_ThrottlesMoveButNotActionCue()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_Present_EnemyMoveCadence_ThrottlesMoveButNotActionCue));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateEnemyAudioProfile(
+                new EnemyAudioEntrySpec(EnemyAudioCue.Move, CreateDefinitionSpec()),
+                new EnemyAudioEntrySpec(EnemyAudioCue.Act, CreateDefinitionSpec()));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var enemy = CreateUnit(20, UnitRole.Enemy);
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { enemy }, new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(
+                    CreatePresentationData(
+                        entityMotions: new[]
+                        {
+                            new TickEntityMotion(enemy.entityId, TickEntityMotionKind.Move, sourceCell, targetCell),
+                        },
+                        enemyActionSignals: new[] { CreateEnemyActionStartedSignal(enemy.entityId) }),
+                    new[] { enemy },
+                    tickIndex: 1));
+                presenter.Present(CreateTickResult(
+                    CreatePresentationData(
+                        entityMotions: new[]
+                        {
+                            new TickEntityMotion(enemy.entityId, TickEntityMotionKind.Move, sourceCell, targetCell),
+                        },
+                        enemyActionSignals: new[] { CreateEnemyActionStartedSignal(enemy.entityId) }),
+                    new[] { enemy },
+                    tickIndex: 2));
+
+                Assert.That(
+                    playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
+                    Is.EqualTo(new[] { "Move", "Act", "Act" }));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTickViewPresenter_Present_EnemyMoveCadence_AppliesGlobalTickBudget()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_Present_EnemyMoveCadence_AppliesGlobalTickBudget));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateEnemyAudioProfile(
+                new EnemyAudioEntrySpec(EnemyAudioCue.Move, CreateDefinitionSpec()));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var firstEnemy = CreateUnit(20, UnitRole.Enemy);
+                var secondEnemy = CreateUnit(21, UnitRole.Enemy);
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { firstEnemy, secondEnemy }, new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(
+                    CreatePresentationData(
+                        entityMotions: new[]
+                        {
+                            new TickEntityMotion(firstEnemy.entityId, TickEntityMotionKind.Move, sourceCell, targetCell),
+                            new TickEntityMotion(secondEnemy.entityId, TickEntityMotionKind.Move, sourceCell, targetCell),
+                        }),
+                    new[] { firstEnemy, secondEnemy },
+                    tickIndex: 1));
+
+                Assert.That(
+                    playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
+                    Is.EqualTo(new[] { "Move" }));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAudioRequestPlanner_SummonWindupStartTick_EmitsSingleActCue()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(CreatePresentationData(
+                summonWindupWarnings: new[]
+                {
+                    new TickSummonWindupWarningSignal(
+                        sourceEntityId: 22,
+                        effectIndex: 0,
+                        sourceCell,
+                        topology,
+                        Direction.Right,
+                        windupStartTick: 10,
+                        windupEndTick: 14,
+                        activationSequence: 1,
+                        tickIndex: 10,
+                        presentationSeed: 0),
+                }));
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(
+                requests.Select(request => (request.OwnerEntityId, request.Cue)).ToArray(),
+                Is.EqualTo(new[] { (22, EnemyAudioCue.Act) }));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAudioRequestPlanner_SummonWindupActiveTick_DoesNotEmitActCue()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(CreatePresentationData(
+                summonWindupWarnings: new[]
+                {
+                    new TickSummonWindupWarningSignal(
+                        sourceEntityId: 22,
+                        effectIndex: 0,
+                        sourceCell,
+                        topology,
+                        Direction.Right,
+                        windupStartTick: 10,
+                        windupEndTick: 14,
+                        activationSequence: 1,
+                        tickIndex: 12,
+                        presentationSeed: 0),
+                }));
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(requests, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyAudioProfile_ValidateOrThrow_RejectsInvalidEntries()
         {
             using var duplicateProfile = CreateEnemyAudioProfile(
@@ -286,10 +714,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static TickResult CreateTickResult(
             TickPresentationData presentationData,
-            IReadOnlyList<EntityState> finalEntities = null)
+            IReadOnlyList<EntityState> finalEntities = null,
+            int tickIndex = 1)
         {
             return new TickResult(
-                1,
+                tickIndex,
                 new[] { TickPhase.Plan },
                 Array.Empty<string>(),
                 MovementPhaseResult.Empty,
@@ -309,7 +738,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             IReadOnlyList<TickEnemyJumpPresentationSignal> enemyJumpSignals = null,
             IReadOnlyList<TickEnemyUtilityPresentationSignal> enemyUtilitySignals = null,
             IReadOnlyList<TickSummonWindupWarningSignal> summonWindupWarnings = null,
-            IReadOnlyList<TickEntityExitPresentationSignal> entityExitSignals = null)
+            IReadOnlyList<TickEntityExitPresentationSignal> entityExitSignals = null,
+            IReadOnlyList<TickKinematicMotionTrack> kinematicMotionTracks = null)
         {
             return new TickPresentationData(
                 entityMotions ?? Array.Empty<TickEntityMotion>(),
@@ -327,7 +757,51 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 entityExitSignals ?? Array.Empty<TickEntityExitPresentationSignal>(),
                 Array.Empty<FlipImpactPresentationSignal>(),
                 summonWindupWarnings: summonWindupWarnings ?? Array.Empty<TickSummonWindupWarningSignal>(),
+                kinematicMotionTracks: kinematicMotionTracks ?? Array.Empty<TickKinematicMotionTrack>(),
                 enemyUtilitySignals: enemyUtilitySignals ?? Array.Empty<TickEnemyUtilityPresentationSignal>());
+        }
+
+        private static TickKinematicMotionTrack CreateKinematicTrack(
+            int entityId,
+            MotionMode motionMode,
+            ForcedMotionOp forcedMotionOp,
+            EntityType entityType = EntityType.Unit,
+            TickKinematicMotionTerminalKind terminalKind = TickKinematicMotionTerminalKind.None,
+            KinematicOffset2? sourceLocalOffset = null,
+            KinematicOffset2? destinationLocalOffset = null,
+            int startedTick = 0,
+            int elapsedTicks = 0,
+            int totalTicks = 0)
+        {
+            return new TickKinematicMotionTrack(
+                entityId,
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                sourceLocalOffset ?? KinematicOffset2.Zero,
+                new SurfaceCell(FaceId.Floor, 1, 0),
+                destinationLocalOffset ?? KinematicOffset2.Zero,
+                motionMode,
+                forcedMotionOp,
+                entityType,
+                sourceTopology: null,
+                destinationTopology: null,
+                sourceFacing: Direction.Right,
+                destinationFacing: Direction.Right,
+                terminalKind: terminalKind,
+                startedTick: startedTick,
+                elapsedTicks: elapsedTicks,
+                totalTicks: totalTicks);
+        }
+
+        private static TickEnemyActionPresentationSignal CreateEnemyActionStartedSignal(int entityId)
+        {
+            return new TickEnemyActionPresentationSignal(
+                entityId,
+                EnemyActionKind.Melee,
+                activeActionSequence: 1,
+                startedThisTick: true,
+                canceledThisTick: false,
+                executedThisTick: false,
+                startedRecoveryThisTick: false);
         }
 
         private static EntityState CreateUnit(int entityId, UnitRole unitRole)
@@ -341,6 +815,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 teamId = unitRole == UnitRole.Player ? 1 : 2,
                 type = EntityType.Unit,
                 unitRole = unitRole,
+                state = EntityPhaseState.Idle,
+                facing = Direction.Up,
+                boardPresence = EntityBoardPresence.Occupying,
+            };
+        }
+
+        private static EntityState CreateEntity(int entityId, EntityType entityType)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = new SurfaceCell(FaceId.Floor, 0, 0),
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = entityType,
+                unitRole = UnitRole.None,
                 state = EntityPhaseState.Idle,
                 facing = Direction.Up,
                 boardPresence = EntityBoardPresence.Occupying,

@@ -185,6 +185,7 @@ namespace Game.Feature.Gameplay.Host
             var resolvedFaceSeamGap = faceSeamGap >= 0f ? faceSeamGap : cellSize;
             _projector = new GameplayCubeProjector(boardBounds, cellSize, resolvedFaceSeamGap);
             _timingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
+            _enemyAudioPresentationController.ConfigureMoveCadence(_timingProfile.SimulationTicksPerSecond);
             _topologyTransitionController.Configure(
                 boardRoot,
                 boardSurfaceRenderer,
@@ -343,7 +344,7 @@ namespace Game.Feature.Gameplay.Host
             TraceStep("PlayPlannedAudio");
             _audioPresentationController.PlayPlannedAudio();
             _actionAudioPresentationController.PlayPlannedAudio();
-            _enemyAudioPresentationController.PlayPlannedAudio();
+            _enemyAudioPresentationController.PlayPlannedAudio(result.TickIndex);
             _blockAudioPresentationController.PlayPlannedAudio();
             _playerLocomotionAudioPresentationController.PlayPlannedAudio();
             _tileFeatureAudioPresentationController.PlayPlannedAudio();

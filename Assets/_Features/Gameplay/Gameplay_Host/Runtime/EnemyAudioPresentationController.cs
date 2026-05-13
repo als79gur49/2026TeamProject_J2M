@@ -7,6 +7,7 @@ namespace Game.Feature.Gameplay.Host
 {
     internal sealed class EnemyAudioPresentationController
     {
+        private readonly EnemyMoveCadenceGate _moveCadenceGate = new();
         private readonly List<EnemyAudioRequest> _pendingRequests = new();
         private readonly GameplayPresentationStateStore _stateStore;
 
@@ -19,21 +20,29 @@ namespace Game.Feature.Gameplay.Host
 
         internal int PendingRequestCount => _pendingRequests.Count;
 
+        public void ConfigureMoveCadence(int simulationTicksPerSecond)
+        {
+            _moveCadenceGate.Configure(simulationTicksPerSecond);
+        }
+
         public void AttachRuntime(IGameplayAudioPlaybackPort playbackPort)
         {
             _playbackPort = playbackPort ?? throw new ArgumentNullException(nameof(playbackPort));
             ClearPendingPlan();
+            _moveCadenceGate.ResetState();
         }
 
         public void DetachRuntime()
         {
             ClearPendingPlan();
+            _moveCadenceGate.ResetState();
             _playbackPort = null;
         }
 
         public void ResetSession()
         {
             ClearPendingPlan();
+            _moveCadenceGate.ResetState();
         }
 
         public void ReplacePendingPlan(IReadOnlyList<EnemyAudioRequest> plannedRequests)
@@ -50,7 +59,7 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        public void PlayPlannedAudio()
+        public void PlayPlannedAudio(int tickIndex)
         {
             if (_playbackPort == null)
             {
@@ -62,7 +71,7 @@ namespace Game.Feature.Gameplay.Host
             {
                 for (var i = 0; i < _pendingRequests.Count; i++)
                 {
-                    PlayRequest(_pendingRequests[i]);
+                    PlayRequest(_pendingRequests[i], tickIndex);
                 }
             }
             finally
@@ -76,7 +85,7 @@ namespace Game.Feature.Gameplay.Host
             _pendingRequests.Clear();
         }
 
-        private void PlayRequest(in EnemyAudioRequest request)
+        private void PlayRequest(in EnemyAudioRequest request, int tickIndex)
         {
             if (!TryResolveLiveOwner(request.OwnerEntityId, out var ownerView))
             {
@@ -86,6 +95,12 @@ namespace Game.Feature.Gameplay.Host
             var authoring = EnemyAudioAuthoring.GetOptionalValidatedAuthoring(ownerView);
             if (authoring == null ||
                 !authoring.Profile.TryResolve(request.Cue, out var binding))
+            {
+                return;
+            }
+
+            if (request.Cue == EnemyAudioCue.Move &&
+                !_moveCadenceGate.ShouldPlayMove(request.OwnerEntityId, tickIndex))
             {
                 return;
             }
