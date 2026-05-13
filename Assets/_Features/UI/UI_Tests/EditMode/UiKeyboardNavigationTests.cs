@@ -1312,7 +1312,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SettingsDisplayResolution_ListMode_OpensListBelowDropdown()
+        public void SettingsDisplayResolution_ListMode_OpensNativeTmpDropdownList()
         {
             using var harness = CreateSettingsHarness(SettingsSectionId.Display);
             harness.View.OnNavigationFocusGained();
@@ -1320,9 +1320,12 @@ namespace Game.Feature.UI.Tests
             Assert.That(harness.View.HandleSubmit(), Is.True);
 
             Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.True);
-            Assert.That(
-                harness.View.DisplayView.transform.Find("ResolutionRow/ResolutionDropdown/Dropdown List"),
-                Is.Not.Null);
+            var dropdownList = harness.View.DisplayView.transform.Find("ResolutionRow/ResolutionDropdown/Dropdown List");
+            Assert.That(dropdownList, Is.Not.Null);
+            var popupCanvas = dropdownList.GetComponent<Canvas>();
+            Assert.That(popupCanvas, Is.Not.Null);
+            Assert.That(popupCanvas.overrideSorting, Is.True);
+            Assert.That(popupCanvas.sortingOrder, Is.EqualTo(30000));
         }
 
         [Test]
@@ -1445,6 +1448,54 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(changedIndex, Is.EqualTo(1));
             Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+            Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.False);
+        }
+
+        [Test]
+        public void SettingsDisplayResolution_ListMode_ReopensAfterSectionRoundTrip_AndSelectsOption()
+        {
+            var options = new[] { "800 x 600", "1280 x 720", "1920 x 1080" };
+            using var harness = CreateSettingsHarness(SettingsSectionId.Display, resolutionOptions: options);
+            var changedIndices = new List<int>();
+            harness.View.DisplayView.ResolutionChanged += index =>
+            {
+                changedIndices.Add(index);
+                harness.DisplayViewModel.SetContent(
+                    "Current",
+                    options,
+                    index,
+                    false,
+                    string.Empty,
+                    true,
+                    true,
+                    false,
+                    string.Empty,
+                    0f,
+                    false,
+                    isDisplayStatusVisible: false);
+            };
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Left), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Display.Resolution.Dropdown"));
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            var dropdownList = harness.View.DisplayView.transform.Find("ResolutionRow/ResolutionDropdown/Dropdown List");
+            Assert.That(dropdownList, Is.Not.Null);
+            Assert.That(dropdownList.GetComponent<Canvas>()?.overrideSorting, Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+
+            Assert.That(changedIndices, Is.EqualTo(new[] { 1, 2 }));
+            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(2));
             Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.False);
         }
 
