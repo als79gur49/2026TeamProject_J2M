@@ -37,13 +37,11 @@ namespace Game.Feature.UI.Screens
         public event Action<SaveSlotIntent> IntentRequested;
 
         public bool CanFocusPrimary => _primaryButton != null &&
-                                       _primaryButton.gameObject.activeInHierarchy &&
                                        _primaryButton.interactable &&
                                        _viewModel != null &&
                                        _viewModel.PrimaryIntentKind != SaveSlotIntentKind.None;
 
         public bool CanFocusDelete => _deleteButton != null &&
-                                      _deleteButton.gameObject.activeInHierarchy &&
                                       _deleteButton.interactable &&
                                       _viewModel != null &&
                                       _viewModel.ShowDelete;

@@ -119,6 +119,7 @@ namespace Game.Feature.UI.Screens
 
         public bool HandleSubmit()
         {
+            WireSlotCards();
             var card = GetSelectedCard();
             return card != null && card.SubmitSelectedAction();
         }

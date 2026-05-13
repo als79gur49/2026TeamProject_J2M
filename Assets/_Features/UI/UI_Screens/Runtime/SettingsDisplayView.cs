@@ -74,7 +74,6 @@ namespace Game.Feature.UI.Screens
         public int ResolutionKeyboardHighlightedIndex => _resolutionKeyboardHighlightedIndex;
 
         public bool IsResolutionKeyboardListOpen =>
-            TryGetNativeResolutionDropdownList(out var nativeList) && nativeList.gameObject.activeSelf ||
             _resolutionKeyboardListRoot != null && _resolutionKeyboardListRoot.gameObject.activeSelf;
 
         public bool IsFullscreenOn =>
@@ -179,14 +178,9 @@ namespace Game.Feature.UI.Screens
                 return false;
             }
 
-            // Keyboard opens TMP's visual list, but option navigation/commit still stays in UiFocusGraph.
-            _resolutionDropdown.Show();
-            if (!TryGetNativeResolutionDropdownList(out _))
-            {
-                EnsureResolutionKeyboardList();
-                RefreshResolutionKeyboardOptions();
-                _resolutionKeyboardListRoot.gameObject.SetActive(true);
-            }
+            EnsureResolutionKeyboardList();
+            RefreshResolutionKeyboardOptions();
+            _resolutionKeyboardListRoot.gameObject.SetActive(true);
 
             SetResolutionKeyboardHighlight(Mathf.Clamp(highlightedIndex, 0, ResolutionOptionCount - 1));
             return true;
@@ -197,11 +191,6 @@ namespace Game.Feature.UI.Screens
             if (_resolutionKeyboardListRoot != null)
             {
                 _resolutionKeyboardListRoot.gameObject.SetActive(false);
-            }
-
-            if (_resolutionDropdown != null)
-            {
-                _resolutionDropdown.Hide();
             }
 
             _resolutionKeyboardHighlightedIndex = -1;
@@ -218,27 +207,11 @@ namespace Game.Feature.UI.Screens
 
             _resolutionKeyboardHighlightedIndex = Mathf.Clamp(index, 0, ResolutionOptionCount - 1);
             RefreshResolutionKeyboardHighlight();
-            RefreshNativeResolutionKeyboardHighlight();
             EnsureResolutionKeyboardHighlightVisible(_resolutionKeyboardHighlightedIndex);
         }
 
         public void EnsureResolutionKeyboardHighlightVisible(int index)
         {
-            if (TryGetNativeResolutionDropdownList(out var nativeList))
-            {
-                var nativeScrollRect = nativeList.GetComponentInChildren<ScrollRect>(true);
-                if (nativeScrollRect != null && ResolutionOptionCount > KeyboardListVisibleItemCount)
-                {
-                    var nativeMaxTopIndex = Mathf.Max(0, ResolutionOptionCount - KeyboardListVisibleItemCount);
-                    var nativeTopIndex = Mathf.Clamp(index - KeyboardListVisibleItemCount + 1, 0, nativeMaxTopIndex);
-                    nativeScrollRect.verticalNormalizedPosition = nativeMaxTopIndex <= 0
-                        ? 1f
-                        : 1f - nativeTopIndex / (float)nativeMaxTopIndex;
-                }
-
-                return;
-            }
-
             if (_resolutionKeyboardListScrollRect == null ||
                 _resolutionKeyboardListContent == null ||
                 ResolutionOptionCount <= KeyboardListVisibleItemCount)
@@ -564,21 +537,22 @@ namespace Game.Feature.UI.Screens
             }
 
             var dropdownTransform = _resolutionDropdown != null ? _resolutionDropdown.transform as RectTransform : null;
-            var parent = dropdownTransform != null && dropdownTransform.parent is RectTransform parentRect
-                ? parentRect
+            var parent = dropdownTransform != null
+                ? dropdownTransform
                 : transform as RectTransform;
             var rootObject = new GameObject("ResolutionKeyboardDropdownList", typeof(RectTransform), typeof(Image), typeof(ScrollRect));
+            rootObject.name = "Dropdown List";
             rootObject.transform.SetParent(parent, false);
             _resolutionKeyboardListRoot = rootObject.GetComponent<RectTransform>();
             _resolutionKeyboardListRoot.SetAsLastSibling();
-            _resolutionKeyboardListRoot.anchorMin = dropdownTransform != null ? dropdownTransform.anchorMin : new Vector2(0f, 1f);
-            _resolutionKeyboardListRoot.anchorMax = dropdownTransform != null ? dropdownTransform.anchorMax : new Vector2(0f, 1f);
+            _resolutionKeyboardListRoot.anchorMin = new Vector2(0f, 0f);
+            _resolutionKeyboardListRoot.anchorMax = new Vector2(1f, 0f);
             _resolutionKeyboardListRoot.pivot = new Vector2(0.5f, 1f);
             _resolutionKeyboardListRoot.sizeDelta = dropdownTransform != null
-                ? new Vector2(dropdownTransform.rect.width, KeyboardListItemHeight * KeyboardListVisibleItemCount)
+                ? new Vector2(0f, KeyboardListItemHeight * KeyboardListVisibleItemCount)
                 : new Vector2(260f, KeyboardListItemHeight * KeyboardListVisibleItemCount);
             _resolutionKeyboardListRoot.anchoredPosition = dropdownTransform != null
-                ? dropdownTransform.anchoredPosition - new Vector2(0f, dropdownTransform.rect.height)
+                ? Vector2.zero
                 : Vector2.zero;
 
             var background = rootObject.GetComponent<Image>();
@@ -686,46 +660,6 @@ namespace Game.Feature.UI.Screens
                     ? new Color(0.95f, 0.82f, 0.28f, 0.42f)
                     : new Color(1f, 1f, 1f, 0.08f);
             }
-        }
-
-        private void RefreshNativeResolutionKeyboardHighlight()
-        {
-            if (!TryGetNativeResolutionDropdownList(out var nativeList))
-            {
-                return;
-            }
-
-            var toggles = nativeList.GetComponentsInChildren<Toggle>(false);
-            for (var i = 0; i < toggles.Length; i++)
-            {
-                var targetGraphic = toggles[i] != null ? toggles[i].targetGraphic as Graphic : null;
-                if (targetGraphic == null)
-                {
-                    continue;
-                }
-
-                targetGraphic.color = i == _resolutionKeyboardHighlightedIndex
-                    ? new Color(0.95f, 0.82f, 0.28f, 0.42f)
-                    : new Color(1f, 1f, 1f, 0.08f);
-            }
-        }
-
-        private bool TryGetNativeResolutionDropdownList(out RectTransform dropdownList)
-        {
-            dropdownList = null;
-            if (_resolutionDropdown == null)
-            {
-                return false;
-            }
-
-            var found = _resolutionDropdown.transform.Find("Dropdown List") as RectTransform;
-            if (found == null)
-            {
-                return false;
-            }
-
-            dropdownList = found;
-            return true;
         }
 
         private void EnsureResolutionPointerRelay()
