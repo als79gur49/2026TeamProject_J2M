@@ -1,12 +1,13 @@
 using System;
 using DG.Tweening;
+using Game.Feature.UI.ViewShared;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Game.Feature.UI.Screens
 {
-    public sealed class StageResultScreenView : MonoBehaviour, IScreenView
+    public sealed class StageResultScreenView : MonoBehaviour, IScreenView, IUiNavigationTarget
     {
         [SerializeField] private GameObject _root;
         [SerializeField] private TMP_Text _titleLabel;
@@ -14,6 +15,7 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private TMP_Text _detailLabel;
         [SerializeField] private Button _continueButton;
         [SerializeField] private TMP_Text _continueButtonLabel;
+        [SerializeField] private UiSelectableButtonGroup _navigationGroup = new();
 
         private StageResultScreenViewModel _viewModel;
         private bool _isVisible;
@@ -24,6 +26,8 @@ namespace Game.Feature.UI.Screens
         private float _rootRestAlpha = 1f;
 
         public event Action ContinueRequested;
+
+        public bool CanHandleUiNavigation => IsVisible && isActiveAndEnabled;
 
         public bool IsVisible
         {
@@ -64,6 +68,37 @@ namespace Game.Feature.UI.Screens
             }
 
             ContinueRequested?.Invoke();
+        }
+
+        public bool HandleNavigate(UiNavigationCommand command)
+        {
+            return false;
+        }
+
+        public bool HandleSubmit()
+        {
+            if (!CanHandleUiNavigation)
+            {
+                return false;
+            }
+
+            ClickContinue();
+            return true;
+        }
+
+        public bool HandleCancel()
+        {
+            return false;
+        }
+
+        public void OnNavigationFocusGained()
+        {
+            _navigationGroup?.SetSelectedIndex(0);
+        }
+
+        public void OnNavigationFocusLost()
+        {
+            _navigationGroup?.HideAllFrames();
         }
 
         private void OnEnable()

@@ -6,6 +6,7 @@ using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
+using Game.Feature.UI.ViewShared;
 using NUnit.Framework;
 using TMPro;
 using UnityEditor;
@@ -117,6 +118,13 @@ namespace Game.Feature.UI.Tests
                 SetPrivateField(view, "_settingsButtonLabel", settingsLabel);
                 SetPrivateField(view, "_quitButton", quitButton);
                 SetPrivateField(view, "_quitButtonLabel", quitLabel);
+                SetPrivateField(
+                    view,
+                    "_commandNavigationGroup",
+                    CreateNavigationGroup(
+                        startButton,
+                        settingsButton,
+                        quitButton));
 
                 Assert.DoesNotThrow(view.ValidateAuthoredStructureOrThrow);
             }
@@ -667,6 +675,21 @@ namespace Game.Feature.UI.Tests
             return buttonObject.AddComponent<Button>();
         }
 
+        private static UiSelectableButtonGroup CreateNavigationGroup(params Button[] buttons)
+        {
+            var slots = new UiSelectableButtonSlot[buttons.Length];
+            for (var i = 0; i < buttons.Length; i++)
+            {
+                var frameObject = new GameObject("SelectionFrame", typeof(RectTransform));
+                frameObject.transform.SetParent(buttons[i].transform, false);
+                slots[i] = new UiSelectableButtonSlot(buttons[i], frameObject.AddComponent<Image>());
+            }
+
+            var group = new UiSelectableButtonGroup();
+            group.Configure(slots, UiSelectionVisualProfile.CreateRuntimeDefault(), wrap: false, skipNonInteractable: true);
+            return group;
+        }
+
         private static SaveSlotCardView CreateAuthoredSaveSlotCard(string name, Transform parent)
         {
             var cardObject = new GameObject(name, typeof(RectTransform));
@@ -693,7 +716,11 @@ namespace Game.Feature.UI.Tests
             var primaryButton = CreateActionButton("PrimaryButton", actionRow, out var primaryButtonLabel);
             SetPrivateField(card, "_primaryButton", primaryButton);
             SetPrivateField(card, "_primaryButtonLabel", primaryButtonLabel);
-            SetPrivateField(card, "_deleteButton", CreateActionButton("DeleteButton", actionRow, out _));
+            var deleteButton = CreateActionButton("DeleteButton", actionRow, out _);
+            SetPrivateField(card, "_deleteButton", deleteButton);
+            SetPrivateField(card, "_primarySelectionFrame", CreateSelectionFrame("PrimarySelectionFrame", primaryButton.transform));
+            SetPrivateField(card, "_deleteSelectionFrame", CreateSelectionFrame("DeleteSelectionFrame", deleteButton.transform));
+            SetPrivateField(card, "_selectionVisualProfile", UiSelectionVisualProfile.CreateRuntimeDefault());
         }
 
         private static Transform CreateRow(string name, Transform parent)
@@ -724,6 +751,13 @@ namespace Game.Feature.UI.Tests
             var button = buttonObject.AddComponent<Button>();
             label = CreateLabel("Label", buttonObject.transform);
             return button;
+        }
+
+        private static Image CreateSelectionFrame(string name, Transform parent)
+        {
+            var frameObject = new GameObject(name, typeof(RectTransform));
+            frameObject.transform.SetParent(parent, false);
+            return frameObject.AddComponent<Image>();
         }
 
         private static void AssertCommandButtonHoverScaleEffect(Transform button)

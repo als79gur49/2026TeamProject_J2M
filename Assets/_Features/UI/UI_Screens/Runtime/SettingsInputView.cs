@@ -46,11 +46,15 @@ namespace Game.Feature.UI.Screens
 
         public bool IsMovementToggleOn => _movementToggle != null && _movementToggle.isOn;
 
+        public bool IsMovementToggleInteractable => _movementToggle != null && _movementToggle.interactable;
+
         public bool IsPushChangeInteractable => _pushChangeButton != null && _pushChangeButton.interactable;
 
         public bool IsFlipChangeInteractable => _flipChangeButton != null && _flipChangeButton.interactable;
 
         public bool IsResetInteractable => _resetButton != null && _resetButton.interactable;
+
+        public bool IsRebindingActive => IsRebinding;
 
         public void Bind(SettingsInputViewModel viewModel)
         {

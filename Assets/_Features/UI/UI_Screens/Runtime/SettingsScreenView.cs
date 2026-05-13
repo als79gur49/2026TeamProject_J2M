@@ -1,13 +1,14 @@
 using System;
 using System.Collections.Generic;
 using DG.Tweening;
+using Game.Feature.UI.ViewShared;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Game.Feature.UI.Screens
 {
-    public sealed class SettingsScreenView : MonoBehaviour, IScreenView
+    public sealed class SettingsScreenView : MonoBehaviour, IScreenView, IUiNavigationTarget
     {
         public const string AudioSectionName = "SettingsAudioSection";
         public const string DisplaySectionName = "SettingsDisplaySection";
@@ -35,18 +36,26 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private SettingsAudioView _audioView;
         [SerializeField] private SettingsDisplayView _displayView;
         [SerializeField] private SettingsInputView _inputView;
+        [SerializeField] private UiFocusNodeSlot[] _focusNodeSlots = Array.Empty<UiFocusNodeSlot>();
 
         private bool _isVisible;
+        private readonly UiFocusGraphNavigator _focusGraph = new();
         private SettingsScreenViewModel _viewModel;
         private Tween _enterTween;
         private CanvasGroup _rootCanvasGroup;
         private bool _lastVisibleState;
         private bool _hasRootRestAlpha;
+        private bool _isFocusGraphBuilt;
+        private bool _hasNavigationFocus;
         private float _rootRestAlpha = 1f;
 
         public event Action<SettingsSectionId> SectionSelected;
 
         public event Action BackRequested;
+
+        public bool CanHandleUiNavigation =>
+            IsVisible &&
+            isActiveAndEnabled;
 
         public string CurrentDisplayValueText =>
             DisplayView != null ? DisplayView.CurrentDisplayValueText : string.Empty;
@@ -81,6 +90,9 @@ namespace Game.Feature.UI.Screens
         public SettingsDisplayView DisplayView => _displayView;
 
         public SettingsInputView InputView => _inputView;
+
+        internal SettingsSectionId? CurrentSectionIdForNavigation =>
+            _viewModel != null ? _viewModel.SelectedSection : (SettingsSectionId?)null;
 
         public void Bind(SettingsScreenViewModel viewModel)
         {
@@ -221,12 +233,96 @@ namespace Game.Feature.UI.Screens
             DisplayView.SetFullscreen(isFullscreen);
         }
 
+        public bool HandleNavigate(UiNavigationCommand command)
+        {
+            if (!CanHandleUiNavigation)
+            {
+                return false;
+            }
+
+            BuildFocusGraphIfNeeded();
+            if (InputView != null && InputView.IsRebindingActive)
+            {
+                return true;
+            }
+
+            return _focusGraph.Navigate(command) != UiFocusMoveResult.NotHandled;
+        }
+
+        public bool HandleSubmit()
+        {
+            if (!CanHandleUiNavigation)
+            {
+                return false;
+            }
+
+            BuildFocusGraphIfNeeded();
+            if (InputView != null && InputView.IsRebindingActive)
+            {
+                return true;
+            }
+
+            var currentNode = _focusGraph.CurrentNodeId.Value;
+            var result = _focusGraph.Submit();
+            if (result == UiFocusMoveResult.ExitedEditMode)
+            {
+                CommitEditedNode(currentNode);
+            }
+
+            return result != UiFocusMoveResult.NotHandled;
+        }
+
+        public bool HandleCancel()
+        {
+            BuildFocusGraphIfNeeded();
+            if (InputView != null && InputView.IsRebindingActive)
+            {
+                return true;
+            }
+
+            var currentNode = _focusGraph.CurrentNodeId.Value;
+            var result = _focusGraph.Cancel();
+            if (result == UiFocusMoveResult.ExitedEditMode)
+            {
+                CommitEditedNode(currentNode);
+                return true;
+            }
+
+            if (result == UiFocusMoveResult.ExitedListMode)
+            {
+                return true;
+            }
+
+            if (!IsVisible)
+            {
+                return false;
+            }
+
+            ClickBack();
+            return true;
+        }
+
+        public void OnNavigationFocusGained()
+        {
+            BuildFocusGraphIfNeeded();
+            _hasNavigationFocus = true;
+            _focusGraph.FocusFirst();
+        }
+
+        public void OnNavigationFocusLost()
+        {
+            _hasNavigationFocus = false;
+            _focusGraph.HideAllFrames();
+        }
+
         private void OnEnable()
         {
             RebindButton(_audioTabButton, ClickAudioTab);
             RebindButton(_displayTabButton, ClickDisplayTab);
             RebindButton(_inputTabButton, ClickInputTab);
             RebindButton(_backButton, ClickBack);
+            _hasNavigationFocus = false;
+            BuildFocusGraphIfNeeded();
             RefreshView();
         }
 
@@ -237,6 +333,10 @@ namespace Game.Feature.UI.Screens
             UnbindButton(_displayTabButton, ClickDisplayTab);
             UnbindButton(_inputTabButton, ClickInputTab);
             UnbindButton(_backButton, ClickBack);
+            _hasNavigationFocus = false;
+            _focusGraph.HideAllFrames();
+            _focusGraph.Clear();
+            _isFocusGraphBuilt = false;
         }
 
 #if UNITY_EDITOR
@@ -322,6 +422,176 @@ namespace Game.Feature.UI.Screens
             {
                 _inputTabButton.interactable = _viewModel.SelectedSection != SettingsSectionId.Input;
             }
+
+            BuildFocusGraphIfNeeded();
+            _focusGraph.SetVisibleContentRegion(ToFocusRegion(_viewModel.SelectedSection));
+            if (!_hasNavigationFocus)
+            {
+                _focusGraph.HideAllFrames();
+            }
+        }
+
+        private void BuildFocusGraphIfNeeded()
+        {
+            if (_isFocusGraphBuilt)
+            {
+                return;
+            }
+
+            SettingsFocusGraphBinding.Build(this, _focusGraph);
+
+            _focusGraph.SetVisibleContentRegion(ToFocusRegion(_viewModel != null ? _viewModel.SelectedSection : SettingsSectionId.Audio));
+            _isFocusGraphBuilt = true;
+            if (!_hasNavigationFocus)
+            {
+                _focusGraph.HideAllFrames();
+            }
+        }
+
+        internal void RegisterFocusNode(
+            string id,
+            UiFocusRegion region,
+            UiFocusNodeKind kind,
+            int row,
+            int column,
+            Func<bool> submit,
+            Func<int, bool> adjust = null,
+            Func<bool> isInteractable = null)
+        {
+            var slot = FindFocusSlot(id) ?? new UiFocusNodeSlot
+            {
+                Id = id,
+                Region = region,
+                Kind = kind,
+                Row = row,
+                Column = column,
+            };
+            slot.Id = id;
+            slot.Region = region;
+            slot.Kind = kind;
+            slot.Row = row;
+            slot.Column = column;
+            _focusGraph.AddNode(slot, new UiDelegateFocusAdapter(submit, adjust, isInteractable));
+        }
+
+        internal void RegisterFocusNode(
+            string id,
+            UiFocusRegion region,
+            UiFocusNodeKind kind,
+            int row,
+            int column,
+            IUiFocusableControlAdapter adapter)
+        {
+            var slot = FindFocusSlot(id) ?? new UiFocusNodeSlot
+            {
+                Id = id,
+                Region = region,
+                Kind = kind,
+                Row = row,
+                Column = column,
+            };
+            slot.Id = id;
+            slot.Region = region;
+            slot.Kind = kind;
+            slot.Row = row;
+            slot.Column = column;
+            _focusGraph.AddNode(slot, adapter);
+        }
+
+        internal bool SelectSectionFromKeyboard(SettingsSectionId sectionId)
+        {
+            switch (sectionId)
+            {
+                case SettingsSectionId.Display:
+                    ClickDisplayTab();
+                    break;
+
+                case SettingsSectionId.Input:
+                    ClickInputTab();
+                    break;
+
+                default:
+                    ClickAudioTab();
+                    break;
+            }
+
+            _focusGraph.SetVisibleContentRegion(ToFocusRegion(_viewModel != null ? _viewModel.SelectedSection : sectionId));
+            if (!_hasNavigationFocus)
+            {
+                _focusGraph.HideAllFrames();
+            }
+
+            return true;
+        }
+
+        private UiFocusNodeSlot FindFocusSlot(string id)
+        {
+            if (_focusNodeSlots == null)
+            {
+                return null;
+            }
+
+            for (var i = 0; i < _focusNodeSlots.Length; i++)
+            {
+                if (_focusNodeSlots[i] != null && string.Equals(_focusNodeSlots[i].Id, id, StringComparison.Ordinal))
+                {
+                    return _focusNodeSlots[i];
+                }
+            }
+
+            return null;
+        }
+
+        internal bool AdjustAudioVolume(AudioSettingsChannel channel, int delta)
+        {
+            if (AudioView == null)
+            {
+                return false;
+            }
+
+            SetAudioVolume(channel, Mathf.Clamp01(AudioView.GetVolume(channel) + delta * 0.05f));
+            return true;
+        }
+
+        internal bool AdjustResolution(int delta)
+        {
+            if (DisplayView == null || DisplayView.ResolutionOptionCount <= 0)
+            {
+                return false;
+            }
+
+            var next = Mathf.Clamp(
+                SelectedDisplayResolutionIndex + delta,
+                0,
+                DisplayView.ResolutionOptionCount - 1);
+            SelectDisplayResolution(next);
+            return true;
+        }
+
+        private void CommitEditedNode(string nodeId)
+        {
+            SettingsFocusGraphBinding.CommitEditedNode(this, nodeId);
+        }
+
+        private static UiFocusRegion ToFocusRegion(SettingsSectionId sectionId)
+        {
+            switch (sectionId)
+            {
+                case SettingsSectionId.Display:
+                    return UiFocusRegion.Display;
+
+                case SettingsSectionId.Input:
+                    return UiFocusRegion.Input;
+
+                default:
+                    return UiFocusRegion.Audio;
+            }
+        }
+
+        internal static bool InvokeAndReturnTrue(Action action)
+        {
+            action?.Invoke();
+            return true;
         }
 
         private void ApplySectionVisibility()

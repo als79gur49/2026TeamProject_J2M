@@ -3,6 +3,7 @@
   "rootNamespace": "Game.Feature.UI.HUD",
   "references": [
     "Unity.TextMeshPro",
-    "DOTween.Modules"
+    "DOTween.Modules",
+    "Game.Feature.UI.ViewShared"
   ]
 }

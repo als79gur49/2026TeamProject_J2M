@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.UI.Screens;
+using Game.Feature.UI.ViewShared;
 
 namespace Game.Feature.UI.Flow
 {
-    public sealed class ScreenController : IDisposable
+    public sealed class ScreenController : IDisposable, IUiNavigationTargetProvider
     {
         private readonly List<ScreenRuntimeRecord> _backStack = new List<ScreenRuntimeRecord>();
         private readonly IScreenRuntimeFactory _runtimeFactory;
@@ -25,6 +26,15 @@ namespace Game.Feature.UI.Flow
         public ScreenId CurrentScreenId => CurrentEntry.HasValue ? CurrentEntry.Value.ScreenId : ScreenId.None;
 
         public ScreenEntry? CurrentEntry => _current != null ? _current.Entry : null;
+
+        bool IUiNavigationTargetProvider.TryGetNavigationTarget(out IUiNavigationTarget target)
+        {
+            target = null;
+            return _current != null &&
+                   _current.Runtime is IUiNavigationTargetProvider provider &&
+                   provider.TryGetNavigationTarget(out target) &&
+                   target != null;
+        }
 
         public int BackStackCount => _backStack.Count;
 

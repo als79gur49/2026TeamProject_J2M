@@ -1,11 +1,12 @@
 using System;
 using Game.Feature.UI.Screens;
+using Game.Feature.UI.ViewShared;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Game.Feature.UI.Composition
 {
-    internal sealed class MainMenuSettingsOverlayController : IDisposable
+    internal sealed class MainMenuSettingsOverlayController : IDisposable, IUiNavigationTargetProvider
     {
         private const string OverlayLayerName = "MainMenuSettingsOverlayLayer";
         private const string BlockerName = "SettingsBlocker";
@@ -111,6 +112,12 @@ namespace Game.Feature.UI.Composition
         public bool TryHandleBackRequested()
         {
             return runtime != null && runtime.TryHandleBackRequested();
+        }
+
+        public bool TryGetNavigationTarget(out IUiNavigationTarget target)
+        {
+            target = runtime != null ? runtime.View as IUiNavigationTarget : null;
+            return target != null;
         }
 
         public void Focus()

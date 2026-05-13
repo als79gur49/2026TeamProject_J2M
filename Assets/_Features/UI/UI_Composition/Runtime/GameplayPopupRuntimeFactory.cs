@@ -2,6 +2,7 @@ using System;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
+using Game.Feature.UI.ViewShared;
 using UnityEngine;
 
 namespace Game.Feature.UI.Composition
@@ -222,7 +223,7 @@ namespace Game.Feature.UI.Composition
             UnityEngine.Object.DestroyImmediate(unityObject);
         }
 
-        private sealed class PopupRuntime<TView> : IPopupRuntime where TView : Component, IPopupView
+        private sealed class PopupRuntime<TView> : IPopupRuntime, IUiNavigationTargetProvider where TView : Component, IPopupView
         {
             private readonly Action _dispose;
             private readonly TView _view;
@@ -249,6 +250,12 @@ namespace Game.Feature.UI.Composition
             {
                 _view.IsVisible = true;
                 _view.SetIsTopmost(isTopmost);
+            }
+
+            public bool TryGetNavigationTarget(out IUiNavigationTarget target)
+            {
+                target = _view as IUiNavigationTarget;
+                return target != null;
             }
         }
     }

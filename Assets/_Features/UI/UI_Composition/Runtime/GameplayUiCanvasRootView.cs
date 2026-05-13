@@ -94,16 +94,14 @@ namespace Game.Feature.UI.Composition
                 eventSystem = eventSystemObject.AddComponent<EventSystem>();
             }
 
-            var inputSystemUiModuleType = Type.GetType("UnityEngine.InputSystem.UI.InputSystemUIInputModule, Unity.InputSystem");
-            if (inputSystemUiModuleType == null)
-            {
-                throw new InvalidOperationException("Unity Input System UI module is unavailable. Verify that the Input System package is installed.");
-            }
+            var inputSystemUiModuleType = UiEventSystemNavigationActionUtility.RequireInputSystemUiModuleType();
 
             if (eventSystem.GetComponent(inputSystemUiModuleType) == null)
             {
                 eventSystem.gameObject.AddComponent(inputSystemUiModuleType);
             }
+
+            UiEventSystemNavigationActionUtility.DisableNavigationActions(eventSystem, inputSystemUiModuleType);
 
             var legacyModules = eventSystem.GetComponents<StandaloneInputModule>();
             foreach (var legacyModule in legacyModules)

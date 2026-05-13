@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.UI.Popups;
+using Game.Feature.UI.ViewShared;
 
 namespace Game.Feature.UI.Flow
 {
-    public sealed class PopupController : IDisposable
+    public sealed class PopupController : IDisposable, IUiNavigationTargetProvider
     {
         internal readonly struct PopupCompletionDispatchEvent
         {
@@ -53,6 +54,20 @@ namespace Game.Feature.UI.Flow
 
                 return _stack[_stack.Count - 1].Entry;
             }
+        }
+
+        bool IUiNavigationTargetProvider.TryGetNavigationTarget(out IUiNavigationTarget target)
+        {
+            target = null;
+            if (_stack.Count == 0)
+            {
+                return false;
+            }
+
+            var runtime = _stack[_stack.Count - 1].Runtime;
+            return runtime is IUiNavigationTargetProvider provider &&
+                   provider.TryGetNavigationTarget(out target) &&
+                   target != null;
         }
 
         public bool Push(PopupRequest request, out PopupInstanceId instanceId)

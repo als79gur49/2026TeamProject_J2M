@@ -1,0 +1,5 @@
+{
+  "name": "Game.Feature.UI.ViewShared",
+  "rootNamespace": "Game.Feature.UI.ViewShared",
+  "references": []
+}

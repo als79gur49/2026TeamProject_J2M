@@ -4,6 +4,7 @@ using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
+using Game.Feature.UI.ViewShared;
 using UnityEngine;
 
 namespace Game.Feature.UI.Composition
@@ -261,7 +262,7 @@ namespace Game.Feature.UI.Composition
             UnityEngine.Object.DestroyImmediate(unityObject);
         }
 
-        private abstract class ScreenRuntimeBase<TView> : IScreenRuntime where TView : Component, IScreenView
+        private abstract class ScreenRuntimeBase<TView> : IScreenRuntime, IUiNavigationTargetProvider where TView : Component, IScreenView
         {
             private readonly Action _dispose;
             private readonly IUiAudioPort _uiAudioPort;
@@ -288,6 +289,12 @@ namespace Game.Feature.UI.Composition
             public virtual void SetIsCurrent(bool isCurrent)
             {
                 View.SetIsCurrent(isCurrent);
+            }
+
+            public bool TryGetNavigationTarget(out IUiNavigationTarget target)
+            {
+                target = View as IUiNavigationTarget;
+                return target != null;
             }
 
             protected void RaiseAction(ScreenAction action)
