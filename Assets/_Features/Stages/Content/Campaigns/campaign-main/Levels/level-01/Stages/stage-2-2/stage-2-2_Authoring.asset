@@ -30,43 +30,14 @@ MonoBehaviour:
       x: 1
       y: 1
     Facing: 2
-    Hp: 1
+    Hp: 3
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
     PresentationId: 
-  - StableGuid: stage-2-2:Enemy:54
-    DisplayName: Enemy 54
-    Kind: 1
-    Cell:
-      face: 0
-      x: 6
-      y: 2
-    Facing: 4
-    Hp: 3
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    EnemyAiMode: 1
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 11400000, guid: 44ea1e7dcc774075b55e3dcb29906bab, type: 2}
-    PresentationId: Attacking_showcase
-  - StableGuid: stage-2-2:Enemy:55
-    DisplayName: Enemy 55
-    Kind: 1
-    Cell:
-      face: 0
-      x: 7
-      y: 2
-    Facing: 4
-    Hp: 3
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    EnemyAiMode: 1
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 11400000, guid: 051f0a3982af4009b6013ba589a7f8d7, type: 2}
-    PresentationId: nonAttacking_showcase
   - StableGuid: stage-2-2:Enemy:56
     DisplayName: Enemy 56
     Kind: 1
@@ -78,10 +49,59 @@ MonoBehaviour:
     Hp: 3
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 8d6b1bc1c4aa4d57b9c6d8df30d7e6a2, type: 2}
     PresentationId: wallFollower_sun
+  - StableGuid: stage-2-2:Enemy:58
+    DisplayName: Enemy 58
+    Kind: 1
+    Cell:
+      face: 3
+      x: 7
+      y: 7
+    Facing: 4
+    Hp: 3
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 3d157a22696a4ee29ac2852d6486cd31, type: 2}
+    PresentationId: Charge_showcase
+  - StableGuid: stage-2-2:Enemy:59
+    DisplayName: Enemy 59
+    Kind: 1
+    Cell:
+      face: 3
+      x: 4
+      y: 5
+    Facing: 4
+    Hp: 3
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 8fdb5400ceb74592aa5dea3cbb2cf2a8, type: 2}
+    PresentationId: utility_summoner_prefab
+  - StableGuid: stage-2-2:Enemy:60
+    DisplayName: Enemy 60
+    Kind: 1
+    Cell:
+      face: 2
+      x: 4
+      y: 5
+    Facing: 4
+    Hp: 3
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: ee4160b1ea994e21b5b93ee5e5b66c8d, type: 2}
+    PresentationId: Attacking_showcase
   - StableGuid: stage-2-2:Box:30
     DisplayName: Box 30
     Kind: 2
@@ -93,10 +113,11 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 1
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: box_showcase
   - StableGuid: stage-2-2:Box:31
     DisplayName: Box 31
     Kind: 2
@@ -108,10 +129,11 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 4
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: box_showcase
   - StableGuid: stage-2-2:Box:36
     DisplayName: Box 36
     Kind: 2
@@ -123,10 +145,11 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: box_showcase
   - StableGuid: stage-2-2:Box:32
     DisplayName: Box 32
     Kind: 2
@@ -138,10 +161,11 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 2
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: box_showcase
   - StableGuid: stage-2-2:Box:33
     DisplayName: Box 33
     Kind: 2
@@ -153,10 +177,11 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 3
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: box_showcase
   - StableGuid: stage-2-2:Box:34
     DisplayName: Box 34
     Kind: 2
@@ -168,10 +193,11 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 6
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: box_showcase
   - StableGuid: stage-2-2:Box:37
     DisplayName: Box 37
     Kind: 2
@@ -183,10 +209,11 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 11
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: box_showcase
   - StableGuid: stage-2-2:Box:35
     DisplayName: Box 35
     Kind: 2
@@ -198,10 +225,11 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 7
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: box_showcase
   - StableGuid: stage-2-2:Box:40
     DisplayName: Box 40
     Kind: 2
@@ -213,10 +241,11 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 1
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: box_showcase
   - StableGuid: stage-2-2:Box:41
     DisplayName: Box 41
     Kind: 2
@@ -228,10 +257,11 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 5
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: box_showcase
   - StableGuid: stage-2-2:Box:42
     DisplayName: Box 42
     Kind: 2
@@ -243,10 +273,11 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 3
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: box_showcase
   - StableGuid: stage-2-2:Box:43
     DisplayName: Box 43
     Kind: 2
@@ -258,10 +289,11 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: box_showcase
   - StableGuid: stage-2-2:Wall:196
     DisplayName: Wall 196
     Kind: 3
@@ -273,10 +305,11 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: wall_showcase
   - StableGuid: stage-2-2:Wall:197
     DisplayName: Wall 197
     Kind: 3
@@ -288,10 +321,11 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: wall_showcase
   - StableGuid: stage-2-2:Wall:198
     DisplayName: Wall 198
     Kind: 3
@@ -303,10 +337,11 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: wall_showcase
   - StableGuid: stage-2-2:Wall:199
     DisplayName: Wall 199
     Kind: 3
@@ -318,10 +353,11 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
+    PresentationId: wall_showcase
   - StableGuid: stage-2-2:Wall:200
     DisplayName: Wall 200
     Kind: 3
@@ -333,20 +369,315 @@ MonoBehaviour:
     Hp: 1
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_showcase
+  - StableGuid: stage-2-2:Enemy:61
+    DisplayName: Enemy 61
+    Kind: 1
+    Cell:
+      face: 0
+      x: 12
+      y: 3
+    Facing: 0
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 47dcd8d154bb4222829ef11b18507f76, type: 2}
+    PresentationId: jumpChaser_astra
+  - StableGuid: stage-2-2:Box:201
+    DisplayName: Moon QA Box 201
+    Kind: 2
+    Cell:
+      face: 0
+      x: 12
+      y: 2
+    Facing: 2
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 11
+    BoxArchetype: 1
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: moon_box_showcase
+  - StableGuid: stage-2-2:Box:202
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 10
+      y: 2
+    Facing: 0
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 1
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
     PresentationId: 
+  - StableGuid: stage-2-2:Box:203
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 13
+      y: 1
+    Facing: 0
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 1
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: 
+  - StableGuid: stage-2-2:Box:204
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 2
+      y: 3
+    Facing: 0
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 2
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: 
+  - StableGuid: stage-2-2:Box:205
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 1
+      y: 0
+    Facing: 0
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 1
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: 
+  - StableGuid: stage-2-2:Box:206
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 1
+      y: 3
+    Facing: 0
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 1
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: 
+  - StableGuid: stage-2-2:Box:207
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 12
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitStackGroup: 
+    BoxCapabilities: 1
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: 
+  tileFeatures:
+  - TileId: 901
+    Cell:
+      face: 0
+      x: 2
+      y: 1
+    Kind: 4
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 3
+    BoundEntityId: 0
+    PresentationKey: 
+  - TileId: 902
+    Cell:
+      face: 0
+      x: 12
+      y: 1
+    Kind: 4
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 4
+    BoundEntityId: 0
+    PresentationKey: button.moon-only
+  - TileId: 903
+    Cell:
+      face: 0
+      x: 10
+      y: 1
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.bottom
+  - TileId: 904
+    Cell:
+      face: 0
+      x: 10
+      y: 3
+    Kind: 1
+    ActivationRule: 2
+    Direction: 1
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: slide.up
+  - TileId: 905
+    Cell:
+      face: 0
+      x: 11
+      y: 3
+    Kind: 1
+    ActivationRule: 2
+    Direction: 2
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: slide.right
+  - TileId: 906
+    Cell:
+      face: 0
+      x: 10
+      y: 5
+    Kind: 3
+    ActivationRule: 2
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: 
+  - TileId: 907
+    Cell:
+      face: 3
+      x: 0
+      y: 6
+    Kind: 6
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: 
+  - TileId: 908
+    Cell:
+      face: 0
+      x: 12
+      y: 4
+    Kind: 5
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 201
+    PresentationKey: 
+  - TileId: 910
+    Cell:
+      face: 0
+      x: 11
+      y: 5
+    Kind: 4
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 3
+    BoundEntityId: 0
+    PresentationKey: button.default
+  - TileId: 911
+    Cell:
+      face: 0
+      x: 1
+      y: 7
+    Kind: 4
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 3
+    BoundEntityId: 0
+    PresentationKey: button.moon-only
+  - TileId: 912
+    Cell:
+      face: 0
+      x: 1
+      y: 4
+    Kind: 4
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 3
+    BoundEntityId: 0
+    PresentationKey: 
+  - TileId: 914
+    Cell:
+      face: 2
+      x: 10
+      y: 4
+    Kind: 4
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 3
+    BoundEntityId: 0
+    PresentationKey: 
+  - TileId: 915
+    Cell:
+      face: 1
+      x: 12
+      y: 2
+    Kind: 1
+    ActivationRule: 2
+    Direction: 2
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: slide.right
+  - TileId: 916
+    Cell:
+      face: 1
+      x: 11
+      y: 2
+    Kind: 3
+    ActivationRule: 2
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: barricade.default
+  - TileId: 917
+    Cell:
+      face: 1
+      x: 10
+      y: 1
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.front
   zones:
-  - ZoneId: exit
-    FaceId: 0
+  - ZoneId: 1
+    FaceId: 3
     Regions:
-    - MinInclusive: {x: 14, y: 7}
-      MaxInclusive: {x: 14, y: 7}
+    - MinInclusive: {x: 0, y: 6}
+      MaxInclusive: {x: 0, y: 6}
   objective:
     CompletionPolicy: 2
-    ObjectiveTitle: ""
-    ObjectiveSummary: ""
+    ObjectiveTitle: Reach the Exit
+    ObjectiveSummary: Move to the exit zone and activate the required button.
     ConditionEntries:
     - Condition: {fileID: 11400000, guid: 56c04cd3dd5348dd9aada10218b40f45, type: 2}
       Required: 1
@@ -354,23 +685,17 @@ MonoBehaviour:
       StableConditionId: primary-goal
       DisplayText: Reach the exit zone
       SortOrder: 0
+    - Condition: {fileID: 11400000, guid: 4a50bb41a5bb0873690d54adaadab363, type: 2}
+      Required: 1
+      Role: 2
+      StableConditionId: button-901
+      DisplayText: Activate QA button
+      SortOrder: 10
   entityIdMappings:
   - StableGuid: stage-2-2:Player:10
     EntityId: 10
     Retired: 0
     LastKnownDisplayName: Player 10
-  - StableGuid: stage-2-2:Enemy:54
-    EntityId: 54
-    Retired: 0
-    LastKnownDisplayName: Enemy 54
-  - StableGuid: stage-2-2:Enemy:55
-    EntityId: 55
-    Retired: 0
-    LastKnownDisplayName: Enemy 55
-  - StableGuid: stage-2-2:Enemy:56
-    EntityId: 56
-    Retired: 0
-    LastKnownDisplayName: Enemy 56
   - StableGuid: stage-2-2:Box:30
     EntityId: 30
     Retired: 0
@@ -379,10 +704,6 @@ MonoBehaviour:
     EntityId: 31
     Retired: 0
     LastKnownDisplayName: Box 31
-  - StableGuid: stage-2-2:Box:36
-    EntityId: 36
-    Retired: 0
-    LastKnownDisplayName: Box 36
   - StableGuid: stage-2-2:Box:32
     EntityId: 32
     Retired: 0
@@ -395,14 +716,18 @@ MonoBehaviour:
     EntityId: 34
     Retired: 0
     LastKnownDisplayName: Box 34
-  - StableGuid: stage-2-2:Box:37
-    EntityId: 37
-    Retired: 0
-    LastKnownDisplayName: Box 37
   - StableGuid: stage-2-2:Box:35
     EntityId: 35
     Retired: 0
     LastKnownDisplayName: Box 35
+  - StableGuid: stage-2-2:Box:36
+    EntityId: 36
+    Retired: 0
+    LastKnownDisplayName: Box 36
+  - StableGuid: stage-2-2:Box:37
+    EntityId: 37
+    Retired: 0
+    LastKnownDisplayName: Box 37
   - StableGuid: stage-2-2:Box:40
     EntityId: 40
     Retired: 0
@@ -419,6 +744,26 @@ MonoBehaviour:
     EntityId: 43
     Retired: 0
     LastKnownDisplayName: Box 43
+  - StableGuid: stage-2-2:Enemy:56
+    EntityId: 56
+    Retired: 0
+    LastKnownDisplayName: Enemy 56
+  - StableGuid: stage-2-2:Enemy:58
+    EntityId: 58
+    Retired: 0
+    LastKnownDisplayName: Enemy 58
+  - StableGuid: stage-2-2:Enemy:59
+    EntityId: 59
+    Retired: 0
+    LastKnownDisplayName: Enemy 59
+  - StableGuid: stage-2-2:Enemy:60
+    EntityId: 60
+    Retired: 0
+    LastKnownDisplayName: Enemy 60
+  - StableGuid: stage-2-2:Enemy:61
+    EntityId: 61
+    Retired: 0
+    LastKnownDisplayName: Enemy 61
   - StableGuid: stage-2-2:Wall:196
     EntityId: 196
     Retired: 0
@@ -439,4 +784,32 @@ MonoBehaviour:
     EntityId: 200
     Retired: 0
     LastKnownDisplayName: Wall 200
+  - StableGuid: stage-2-2:Box:201
+    EntityId: 201
+    Retired: 0
+    LastKnownDisplayName: Moon QA Box 201
+  - StableGuid: stage-2-2:Box:202
+    EntityId: 202
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: stage-2-2:Box:203
+    EntityId: 203
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: stage-2-2:Box:204
+    EntityId: 204
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: stage-2-2:Box:205
+    EntityId: 205
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: stage-2-2:Box:206
+    EntityId: 206
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: stage-2-2:Box:207
+    EntityId: 207
+    Retired: 0
+    LastKnownDisplayName: Placement
   enforceGeneratedSync: 0
