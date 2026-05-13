@@ -18,6 +18,12 @@ namespace Game.Feature.Stages.Editor
 
         public int SelectedTileFeatureIndexHint { get; private set; } = -1;
 
+        public string SelectedZoneId { get; private set; } = string.Empty;
+
+        public int SelectedZoneIndexHint { get; private set; } = -1;
+
+        public bool HasSelectedZone => !string.IsNullOrEmpty(SelectedZoneId);
+
         public void SetTargetFace(FaceId face)
         {
             TargetFace = face;
@@ -53,6 +59,35 @@ namespace Game.Feature.Stages.Editor
             {
                 SelectTileFeature(index, tileFeatures);
             }
+        }
+
+        public void SelectZoneCell(
+            FaceId face,
+            Vector2Int cell,
+            IReadOnlyList<StageZoneDefinition> zones)
+        {
+            SetTargetCell(face, cell);
+            var indices = FindZoneIndicesAt(zones, face, cell.x, cell.y);
+            if (indices.Length == 0)
+            {
+                ClearZoneSelection();
+                return;
+            }
+
+            var selectedAtCellIndex = -1;
+            for (var i = 0; i < indices.Length; i++)
+            {
+                if (indices[i] == SelectedZoneIndexHint)
+                {
+                    selectedAtCellIndex = i;
+                    break;
+                }
+            }
+
+            var nextIndex = selectedAtCellIndex >= 0
+                ? indices[(selectedAtCellIndex + 1) % indices.Length]
+                : indices[0];
+            SelectZone(nextIndex, zones);
         }
 
         public void SelectPlacement(
@@ -117,6 +152,49 @@ namespace Game.Feature.Stages.Editor
             SelectedTileFeatureIndexHint = -1;
         }
 
+        public void SelectZone(
+            int index,
+            IReadOnlyList<StageZoneDefinition> zones)
+        {
+            if (zones == null || index < 0 || index >= zones.Count)
+            {
+                ClearZoneSelection();
+                return;
+            }
+
+            SelectedZoneIndexHint = index;
+            SelectedZoneId = NormalizeZoneId(zones[index].ZoneId);
+        }
+
+        public void SelectZoneById(
+            string zoneId,
+            IReadOnlyList<StageZoneDefinition> zones)
+        {
+            var normalizedZoneId = NormalizeZoneId(zoneId);
+            if (zones == null || string.IsNullOrEmpty(normalizedZoneId))
+            {
+                ClearZoneSelection();
+                return;
+            }
+
+            for (var i = 0; i < zones.Count; i++)
+            {
+                if (NormalizeZoneId(zones[i].ZoneId) == normalizedZoneId)
+                {
+                    SelectZone(i, zones);
+                    return;
+                }
+            }
+
+            ClearZoneSelection();
+        }
+
+        public void ClearZoneSelection()
+        {
+            SelectedZoneId = string.Empty;
+            SelectedZoneIndexHint = -1;
+        }
+
         public int ResolveSelectedPlacementIndex(IReadOnlyList<StagePlacedEntityAuthoring> placements)
         {
             if (placements == null || placements.Count == 0)
@@ -172,6 +250,36 @@ namespace Game.Feature.Stages.Editor
             }
 
             ClearSelectedTileFeature();
+            return -1;
+        }
+
+        public int ResolveSelectedZoneIndex(IReadOnlyList<StageZoneDefinition> zones)
+        {
+            if (zones == null || zones.Count == 0)
+            {
+                ClearZoneSelection();
+                return -1;
+            }
+
+            if (!string.IsNullOrEmpty(SelectedZoneId))
+            {
+                for (var i = 0; i < zones.Count; i++)
+                {
+                    if (NormalizeZoneId(zones[i].ZoneId) == SelectedZoneId)
+                    {
+                        SelectedZoneIndexHint = i;
+                        return i;
+                    }
+                }
+            }
+
+            if (SelectedZoneIndexHint >= 0 && SelectedZoneIndexHint < zones.Count)
+            {
+                SelectedZoneId = NormalizeZoneId(zones[SelectedZoneIndexHint].ZoneId);
+                return SelectedZoneIndexHint;
+            }
+
+            ClearZoneSelection();
             return -1;
         }
 
@@ -283,6 +391,64 @@ namespace Game.Feature.Stages.Editor
             return count;
         }
 
+        public int FindZoneAt(
+            IReadOnlyList<StageZoneDefinition> zones,
+            FaceId face,
+            int x,
+            int y)
+        {
+            var indices = FindZoneIndicesAt(zones, face, x, y);
+            return indices.Length > 0 ? indices[0] : -1;
+        }
+
+        public int CountZonesAt(
+            IReadOnlyList<StageZoneDefinition> zones,
+            FaceId face,
+            int x,
+            int y)
+        {
+            return FindZoneIndicesAt(zones, face, x, y).Length;
+        }
+
+        public int[] FindZoneIndicesAt(
+            IReadOnlyList<StageZoneDefinition> zones,
+            FaceId face,
+            int x,
+            int y)
+        {
+            if (zones == null)
+            {
+                return System.Array.Empty<int>();
+            }
+
+            var indices = new List<int>();
+            var cell = new Vector2Int(x, y);
+            for (var i = 0; i < zones.Count; i++)
+            {
+                var zone = zones[i];
+                if (zone.FaceId != face)
+                {
+                    continue;
+                }
+
+                var regions = zone.GetRegionsOrEmpty();
+                for (var regionIndex = 0; regionIndex < regions.Length; regionIndex++)
+                {
+                    var region = regions[regionIndex];
+                    if (cell.x >= region.MinInclusive.x &&
+                        cell.x <= region.MaxInclusive.x &&
+                        cell.y >= region.MinInclusive.y &&
+                        cell.y <= region.MaxInclusive.y)
+                    {
+                        indices.Add(i);
+                        break;
+                    }
+                }
+            }
+
+            return indices.ToArray();
+        }
+
         public int[] FindTileFeatureIndicesAt(
             IReadOnlyList<StageTileFeatureDefinition> tileFeatures,
             FaceId face,
@@ -340,6 +506,11 @@ namespace Game.Feature.Stages.Editor
         private static string NormalizeStableGuid(string stableGuid)
         {
             return StageAuthoringGenerator.Normalize(stableGuid);
+        }
+
+        private static string NormalizeZoneId(string zoneId)
+        {
+            return zoneId?.Trim() ?? string.Empty;
         }
     }
 }

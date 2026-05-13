@@ -10,7 +10,7 @@ namespace Game.Feature.Stages.Editor
             StageAuthoringDefinition authoring,
             StageAuthoringGridSelectionState selection,
             StageAuthoringEntityKind? focusedGridKind,
-            bool tileFeaturePlacementMode)
+            StageAuthoringGridEditMode editMode)
         {
             var board = authoring.Board;
             EditorGUILayout.LabelField(
@@ -64,19 +64,69 @@ namespace Game.Feature.Stages.Editor
                                 : $"{marker}/{tileFeatureMarker}";
                         }
 
+                        var zoneCount = selection.CountZonesAt(
+                            authoring.Zones,
+                            selection.TargetFace,
+                            x,
+                            y);
+                        var selectedZoneAtCell = false;
+                        if (editMode == StageAuthoringGridEditMode.ZoneEditing && zoneCount > 0)
+                        {
+                            var zoneIndex = selection.FindZoneAt(
+                                authoring.Zones,
+                                selection.TargetFace,
+                                x,
+                                y);
+                            var zoneMarker = BuildZoneBadge(authoring.Zones[zoneIndex]);
+                            if (zoneCount > 1)
+                            {
+                                zoneMarker += $"+{zoneCount - 1}";
+                            }
+
+                            marker = marker == "."
+                                ? zoneMarker
+                                : $"{marker}/{zoneMarker}";
+
+                            var zoneIndices = selection.FindZoneIndicesAt(
+                                authoring.Zones,
+                                selection.TargetFace,
+                                x,
+                                y);
+                            for (var zoneIndexAtCell = 0; zoneIndexAtCell < zoneIndices.Length; zoneIndexAtCell++)
+                            {
+                                if (zoneIndices[zoneIndexAtCell] == selection.SelectedZoneIndexHint)
+                                {
+                                    selectedZoneAtCell = true;
+                                    break;
+                                }
+                            }
+                        }
+
                         if (selection.TargetCell.x == x && selection.TargetCell.y == y)
                         {
                             marker = $"[{marker}]";
                         }
 
-                        if (DrawGridCellButton(marker, placement, nextFocusedGridKind))
+                        if (DrawGridCellButton(
+                                marker,
+                                placement,
+                                nextFocusedGridKind,
+                                selectedZoneAtCell,
+                                editMode == StageAuthoringGridEditMode.ZoneEditing && zoneCount > 0))
                         {
-                            if (tileFeaturePlacementMode)
+                            if (editMode == StageAuthoringGridEditMode.TileFeaturePlacement)
                             {
                                 selection.SelectTileFeatureCell(
                                     selection.TargetFace,
                                     new Vector2Int(x, y),
                                     authoring.TileFeatures);
+                            }
+                            else if (editMode == StageAuthoringGridEditMode.ZoneEditing)
+                            {
+                                selection.SelectZoneCell(
+                                    selection.TargetFace,
+                                    new Vector2Int(x, y),
+                                    authoring.Zones);
                             }
                             else
                             {
@@ -103,10 +153,20 @@ namespace Game.Feature.Stages.Editor
         private static bool DrawGridCellButton(
             string marker,
             StagePlacedEntityAuthoring placement,
-            StageAuthoringEntityKind? focusedKind)
+            StageAuthoringEntityKind? focusedKind,
+            bool selectedZoneHighlight,
+            bool zoneCell)
         {
             var previousBackgroundColor = GUI.backgroundColor;
-            if (StageAuthoringGridCellStyleUtility.TryGetTint(placement, focusedKind, out var tint))
+            if (selectedZoneHighlight)
+            {
+                GUI.backgroundColor = new Color(0.5f, 0.85f, 0.45f, 1f);
+            }
+            else if (zoneCell)
+            {
+                GUI.backgroundColor = new Color(0.45f, 0.7f, 0.9f, 1f);
+            }
+            else if (StageAuthoringGridCellStyleUtility.TryGetTint(placement, focusedKind, out var tint))
             {
                 GUI.backgroundColor = tint;
             }
@@ -119,6 +179,19 @@ namespace Game.Feature.Stages.Editor
             {
                 GUI.backgroundColor = previousBackgroundColor;
             }
+        }
+
+        private static string BuildZoneBadge(StageZoneDefinition zone)
+        {
+            var zoneId = zone.ZoneId?.Trim();
+            if (string.IsNullOrEmpty(zoneId))
+            {
+                return "Z:?";
+            }
+
+            return zoneId.Length <= 8
+                ? $"Z:{zoneId}"
+                : $"Z:{zoneId.Substring(0, 8)}";
         }
 
         private static StageAuthoringEntityKind? DrawGridLegend(StageAuthoringEntityKind? focusedGridKind)

@@ -208,6 +208,44 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void GeneratedStageDefinitionPreservesZoneAuthoring()
+        {
+            var fixture = CreateFixture(
+                Placement("player", StageAuthoringEntityKind.Player, 0, 0),
+                Placement("box", StageAuthoringEntityKind.Box, 2, 0));
+            var zone = new StageZoneDefinition
+            {
+                ZoneId = "goal",
+                FaceId = FaceId.Front,
+                Regions = new[]
+                {
+                    new StageZoneRegionDefinition
+                    {
+                        MinInclusive = new Vector2Int(1, 1),
+                        MaxInclusive = new Vector2Int(2, 2),
+                    },
+                },
+            };
+
+            try
+            {
+                fixture.Authoring.SetZones(new[] { zone });
+
+                var report = StageAuthoringGenerator.Generate(fixture.Authoring, StageAuthoringGenerateOptions.WriteAll);
+                Assert.That(report.HasErrors, Is.False, FormatIssues(report));
+                Assert.That(fixture.Gameplay.Zones.Length, Is.EqualTo(1));
+                Assert.That(fixture.Gameplay.Zones[0].ZoneId, Is.EqualTo(zone.ZoneId));
+                Assert.That(fixture.Gameplay.Zones[0].FaceId, Is.EqualTo(zone.FaceId));
+                Assert.That(fixture.Gameplay.Zones[0].Regions.Single().MinInclusive, Is.EqualTo(zone.Regions.Single().MinInclusive));
+                Assert.That(fixture.Gameplay.Zones[0].Regions.Single().MaxInclusive, Is.EqualTo(zone.Regions.Single().MaxInclusive));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
         public void PresentationBindingsUseGeneratedEntityIds()
         {
             var enemy = Placement("enemy", StageAuthoringEntityKind.Enemy, 1, 0, presentationId: "enemy-view");

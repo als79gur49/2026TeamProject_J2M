@@ -1,5 +1,8 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Objectives;
 using UnityEditor;
 using UnityEngine;
 
@@ -34,6 +37,20 @@ namespace Game.Feature.Stages.Editor
         private int loadedTileFeatureId;
         private GameObject selectedTileFeatureVisualPrefab;
         private bool tileFeatureVisualBindingAdvancedFoldout;
+        private string zoneFeedback = string.Empty;
+        private MessageType zoneFeedbackType = MessageType.Info;
+        private string zoneCreateId = "zone";
+        private FaceId zoneCreateFace = FaceId.Floor;
+        private Vector2Int zoneRectangleStart;
+        private Vector2Int zoneRectangleEnd;
+        private bool hasZoneRectangleStart;
+        private bool hasZoneRectangleEnd;
+        private int loadedZoneIndex = -1;
+        private string loadedZoneId = string.Empty;
+        private string selectedZoneDraftId = string.Empty;
+        private FaceId selectedZoneDraftFace = FaceId.Floor;
+        private Vector2Int selectedZoneDraftMin;
+        private Vector2Int selectedZoneDraftMax;
 
         internal StageAuthoringGenerationReport LastReportForTests => lastReport;
 
@@ -46,6 +63,10 @@ namespace Game.Feature.Stages.Editor
         internal StageAuthoringGridEditMode EditModeForTests => editMode;
 
         internal int SelectedTileFeatureIdForTests => selection.SelectedTileFeatureId;
+
+        internal string SelectedZoneIdForTests => selection.SelectedZoneId;
+
+        internal int SelectedZoneIndexHintForTests => selection.SelectedZoneIndexHint;
 
         private struct TileFeatureDraftState
         {
@@ -119,6 +140,17 @@ namespace Game.Feature.Stages.Editor
             loadedTileFeatureId = 0;
             selectedTileFeatureVisualPrefab = null;
             tileFeatureVisualBindingAdvancedFoldout = false;
+            zoneFeedback = string.Empty;
+            zoneCreateId = "zone";
+            zoneCreateFace = FaceId.Floor;
+            hasZoneRectangleStart = false;
+            hasZoneRectangleEnd = false;
+            loadedZoneIndex = -1;
+            loadedZoneId = string.Empty;
+            selectedZoneDraftId = string.Empty;
+            selectedZoneDraftFace = FaceId.Floor;
+            selectedZoneDraftMin = Vector2Int.zero;
+            selectedZoneDraftMax = Vector2Int.zero;
         }
 
         internal void BindForTests(StageAuthoringDefinition definition)
@@ -232,6 +264,65 @@ namespace Game.Feature.Stages.Editor
             {
                 LoadTileFeatureEditorState(authoring.TileFeatures[index]);
             }
+        }
+
+        internal void SelectZoneByIdForTests(string zoneId)
+        {
+            selection.SelectZoneById(zoneId, authoring.Zones);
+            LoadSelectedZoneEditorState();
+        }
+
+        internal int ResolveSelectedZoneIndexForTests()
+        {
+            return selection.ResolveSelectedZoneIndex(authoring.Zones);
+        }
+
+        internal void SetZoneCreateDraftForTests(string zoneId, FaceId face)
+        {
+            zoneCreateId = zoneId ?? string.Empty;
+            zoneCreateFace = face;
+        }
+
+        internal void SetZoneRectangleForTests(FaceId face, Vector2Int start, Vector2Int end)
+        {
+            zoneCreateFace = face;
+            zoneRectangleStart = start;
+            zoneRectangleEnd = end;
+            hasZoneRectangleStart = true;
+            hasZoneRectangleEnd = true;
+        }
+
+        internal bool AddSingleCellZoneAtTargetForTests()
+        {
+            return AddSingleCellZoneAtTarget();
+        }
+
+        internal bool AddRectangleZoneForTests()
+        {
+            return AddRectangleZone();
+        }
+
+        internal bool UpdateSelectedZoneFirstRegionForTests(
+            string zoneId,
+            FaceId face,
+            Vector2Int minInclusive,
+            Vector2Int maxInclusive)
+        {
+            selectedZoneDraftId = zoneId ?? string.Empty;
+            selectedZoneDraftFace = face;
+            selectedZoneDraftMin = minInclusive;
+            selectedZoneDraftMax = maxInclusive;
+            return UpdateSelectedZoneFromDraft();
+        }
+
+        internal bool DeleteSelectedZoneForTests()
+        {
+            return DeleteSelectedZone();
+        }
+
+        internal bool DuplicateSelectedZoneForTests(string newZoneId)
+        {
+            return DuplicateSelectedZone(newZoneId);
         }
 
         internal TileFeatureVisualBindingStatus GetSelectedTileFeatureVisualBindingStatusForTests()
@@ -436,7 +527,7 @@ namespace Game.Feature.Stages.Editor
                 authoring,
                 selection,
                 focusedGridKind,
-                editMode == StageAuthoringGridEditMode.TileFeaturePlacement);
+                editMode);
             EditorGUILayout.Space();
 
             selectedPlacementIndex = selection.ResolveSelectedPlacementIndex(authoring.Placements);
@@ -459,7 +550,7 @@ namespace Game.Feature.Stages.Editor
             }
             else
             {
-                EditorGUILayout.HelpBox("Zone editing is not implemented in this authoring tool phase.", MessageType.Info);
+                DrawZoneTools();
             }
 
             EditorGUILayout.Space();
@@ -473,6 +564,10 @@ namespace Game.Feature.Stages.Editor
                 {
                     DrawSelectedTileFeatureInspector();
                 }
+            }
+            else if (editMode == StageAuthoringGridEditMode.ZoneEditing)
+            {
+                DrawSelectedZoneInspector();
             }
 
             StageAuthoringGridToolbarRenderer.DrawReport(lastReport);
@@ -495,6 +590,7 @@ namespace Game.Feature.Stages.Editor
                     editMode = nextMode;
                     tileFeatureFeedback = string.Empty;
                     boardTileFeedback = string.Empty;
+                    zoneFeedback = string.Empty;
                 }
             }
         }
@@ -641,6 +737,344 @@ namespace Game.Feature.Stages.Editor
             {
                 Repaint();
             }
+        }
+
+        private void DrawZoneTools()
+        {
+            var targetCell = GetTargetSurfaceCell();
+            var overlapCount = selection.CountZonesAt(
+                authoring.Zones,
+                targetCell.face,
+                targetCell.x,
+                targetCell.y);
+
+            EditorGUILayout.LabelField("Target Cell", targetCell.ToString());
+            if (overlapCount > 0)
+            {
+                EditorGUILayout.HelpBox(
+                    $"Target cell is inside {overlapCount} Zone(s). Overlap is allowed.",
+                    MessageType.Info);
+            }
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button("Use Target As Rectangle Start", GUILayout.Width(208)))
+                {
+                    zoneRectangleStart = selection.TargetCell;
+                    zoneCreateFace = selection.TargetFace;
+                    hasZoneRectangleStart = true;
+                    SetZoneFeedback($"Rectangle start set to {targetCell}.", MessageType.Info);
+                }
+
+                if (GUILayout.Button("Use Target As Rectangle End", GUILayout.Width(200)))
+                {
+                    zoneRectangleEnd = selection.TargetCell;
+                    zoneCreateFace = selection.TargetFace;
+                    hasZoneRectangleEnd = true;
+                    SetZoneFeedback($"Rectangle end set to {targetCell}.", MessageType.Info);
+                }
+
+                using (new EditorGUI.DisabledScope(overlapCount <= 1))
+                {
+                    if (GUILayout.Button("Next Zone At Cell", GUILayout.Width(144)))
+                    {
+                        selection.SelectZoneCell(selection.TargetFace, selection.TargetCell, authoring.Zones);
+                        LoadSelectedZoneEditorState();
+                        Repaint();
+                    }
+                }
+            }
+
+            DrawZoneCreateTools();
+            DrawZoneFeedback();
+            DrawZoneList();
+        }
+
+        private void DrawZoneCreateTools()
+        {
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Create Zone", EditorStyles.boldLabel);
+            zoneCreateId = EditorGUILayout.TextField("ZoneId", zoneCreateId ?? string.Empty);
+            zoneCreateFace = (FaceId)EditorGUILayout.EnumPopup("Face", zoneCreateFace);
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button("Create Single Cell Zone", GUILayout.Width(184)))
+                {
+                    AddSingleCellZoneAtTarget();
+                }
+
+                using (new EditorGUI.DisabledScope(!hasZoneRectangleStart || !hasZoneRectangleEnd))
+                {
+                    if (GUILayout.Button("Create Rectangle Zone", GUILayout.Width(184)))
+                    {
+                        AddRectangleZone();
+                    }
+                }
+            }
+
+            if (hasZoneRectangleStart)
+            {
+                EditorGUILayout.LabelField("Rectangle Start", $"{zoneCreateFace} {zoneRectangleStart}");
+            }
+
+            if (hasZoneRectangleEnd)
+            {
+                EditorGUILayout.LabelField("Rectangle End", $"{zoneCreateFace} {zoneRectangleEnd}");
+            }
+        }
+
+        private void DrawZoneList()
+        {
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Zones", EditorStyles.boldLabel);
+            if (authoring.Zones.Count == 0)
+            {
+                EditorGUILayout.HelpBox("No Zones authored.", MessageType.Info);
+                return;
+            }
+
+            var selectedIndex = selection.ResolveSelectedZoneIndex(authoring.Zones);
+            for (var i = 0; i < authoring.Zones.Count; i++)
+            {
+                var zone = authoring.Zones[i];
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    EditorGUILayout.LabelField(
+                        selectedIndex == i
+                            ? $"[{i}] {zone.ZoneId}"
+                            : $"{i} {zone.ZoneId}",
+                        GUILayout.MinWidth(160));
+                    EditorGUILayout.LabelField(zone.FaceId.ToString(), GUILayout.Width(72));
+                    EditorGUILayout.LabelField($"{zone.GetRegionsOrEmpty().Length} region(s)", GUILayout.Width(96));
+                    if (GUILayout.Button("Select", GUILayout.Width(72)))
+                    {
+                        selection.SelectZone(i, authoring.Zones);
+                        LoadSelectedZoneEditorState();
+                        Repaint();
+                    }
+                }
+            }
+        }
+
+        private void DrawSelectedZoneInspector()
+        {
+            var selectedIndex = selection.ResolveSelectedZoneIndex(authoring.Zones);
+            if (selectedIndex < 0 || selectedIndex >= authoring.Zones.Count)
+            {
+                EditorGUILayout.HelpBox("No Zone selected.", MessageType.Info);
+                return;
+            }
+
+            var zone = authoring.Zones[selectedIndex];
+            if (loadedZoneIndex != selectedIndex ||
+                !string.Equals(loadedZoneId, zone.ZoneId, StringComparison.Ordinal))
+            {
+                LoadSelectedZoneEditorState();
+            }
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Selected Zone", EditorStyles.boldLabel);
+            selectedZoneDraftId = EditorGUILayout.TextField("ZoneId", selectedZoneDraftId ?? string.Empty);
+            selectedZoneDraftFace = (FaceId)EditorGUILayout.EnumPopup("Face", selectedZoneDraftFace);
+
+            var regions = zone.GetRegionsOrEmpty();
+            EditorGUILayout.LabelField("Region Count", regions.Length.ToString());
+            for (var i = 0; i < regions.Length; i++)
+            {
+                EditorGUILayout.LabelField(
+                    $"Region {i}",
+                    $"{regions[i].MinInclusive} to {regions[i].MaxInclusive}");
+            }
+
+            EditorGUILayout.LabelField("Editable Region 0", EditorStyles.boldLabel);
+            selectedZoneDraftMin = EditorGUILayout.Vector2IntField("Min Inclusive", selectedZoneDraftMin);
+            selectedZoneDraftMax = EditorGUILayout.Vector2IntField("Max Inclusive", selectedZoneDraftMax);
+
+            if (IsZoneReferencedByObjective(authoring, zone.ZoneId))
+            {
+                EditorGUILayout.HelpBox(
+                    "This ZoneId is referenced by an objective condition. Renaming it may break validation until references are updated.",
+                    MessageType.Warning);
+            }
+
+            if (IsPrimaryGoalMultiCellZone(authoring, zone))
+            {
+                EditorGUILayout.HelpBox(
+                    "Exit helper may replace this PrimaryGoal zone with a single-cell zone.",
+                    MessageType.Warning);
+            }
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button("Apply Zone Update", GUILayout.Width(144)))
+                {
+                    UpdateSelectedZoneFromDraft();
+                }
+
+                if (GUILayout.Button("Delete Zone", GUILayout.Width(112)))
+                {
+                    DeleteSelectedZone();
+                }
+
+                if (GUILayout.Button("Duplicate Zone", GUILayout.Width(128)))
+                {
+                    DuplicateSelectedZone(zoneCreateId);
+                }
+
+                if (GUILayout.Button("Clear Selection", GUILayout.Width(128)))
+                {
+                    selection.ClearZoneSelection();
+                    ClearLoadedZoneEditorState();
+                    Repaint();
+                }
+            }
+        }
+
+        private bool AddSingleCellZoneAtTarget()
+        {
+            zoneCreateFace = selection.TargetFace;
+            var result = StageAuthoringZoneCommands.TryAddZone(
+                authoring,
+                zoneCreateId,
+                selection.TargetFace,
+                new[] { StageAuthoringZoneCommands.CreateSingleCellRegion(selection.TargetCell) });
+            return ApplyZoneCommandResult(result);
+        }
+
+        private bool AddRectangleZone()
+        {
+            if (!hasZoneRectangleStart || !hasZoneRectangleEnd)
+            {
+                SetZoneFeedback("Rectangle start and end must be selected.", MessageType.Error);
+                return false;
+            }
+
+            var result = StageAuthoringZoneCommands.TryAddZone(
+                authoring,
+                zoneCreateId,
+                zoneCreateFace,
+                new[] { StageAuthoringZoneCommands.CreateNormalizedRegion(zoneRectangleStart, zoneRectangleEnd) });
+            return ApplyZoneCommandResult(result);
+        }
+
+        private bool UpdateSelectedZoneFromDraft()
+        {
+            var selectedIndex = selection.ResolveSelectedZoneIndex(authoring.Zones);
+            if (selectedIndex < 0 || selectedIndex >= authoring.Zones.Count)
+            {
+                SetZoneFeedback("No Zone selected.", MessageType.Warning);
+                return false;
+            }
+
+            var currentRegions = authoring.Zones[selectedIndex].GetRegionsOrEmpty();
+            var nextRegions = currentRegions.Length > 0
+                ? currentRegions.ToArray()
+                : new[] { StageAuthoringZoneCommands.CreateSingleCellRegion(selection.TargetCell) };
+            nextRegions[0] = new StageZoneRegionDefinition
+            {
+                MinInclusive = selectedZoneDraftMin,
+                MaxInclusive = selectedZoneDraftMax,
+            };
+
+            var result = StageAuthoringZoneCommands.TryUpdateZone(
+                authoring,
+                selectedIndex,
+                selectedZoneDraftId,
+                selectedZoneDraftFace,
+                nextRegions);
+            return ApplyZoneCommandResult(result);
+        }
+
+        private bool DeleteSelectedZone()
+        {
+            var selectedIndex = selection.ResolveSelectedZoneIndex(authoring.Zones);
+            var result = StageAuthoringZoneCommands.TryRemoveZone(authoring, selectedIndex);
+            return ApplyZoneCommandResult(result);
+        }
+
+        private bool DuplicateSelectedZone(string newZoneId)
+        {
+            var selectedIndex = selection.ResolveSelectedZoneIndex(authoring.Zones);
+            var result = StageAuthoringZoneCommands.TryDuplicateZone(authoring, selectedIndex, newZoneId);
+            return ApplyZoneCommandResult(result);
+        }
+
+        private bool ApplyZoneCommandResult(StageAuthoringZoneCommandResult result)
+        {
+            SetZoneFeedback(result.Message, result.MessageType);
+            if (!result.Succeeded)
+            {
+                return false;
+            }
+
+            serializedAuthoring.Update();
+            if (result.ZoneIndex >= 0 && result.ZoneIndex < authoring.Zones.Count)
+            {
+                selection.SelectZone(result.ZoneIndex, authoring.Zones);
+                LoadSelectedZoneEditorState();
+            }
+            else
+            {
+                selection.ClearZoneSelection();
+                ClearLoadedZoneEditorState();
+            }
+
+            Repaint();
+            return true;
+        }
+
+        private void LoadSelectedZoneEditorState()
+        {
+            var selectedIndex = selection.ResolveSelectedZoneIndex(authoring.Zones);
+            if (selectedIndex < 0 || selectedIndex >= authoring.Zones.Count)
+            {
+                ClearLoadedZoneEditorState();
+                return;
+            }
+
+            var zone = authoring.Zones[selectedIndex];
+            loadedZoneIndex = selectedIndex;
+            loadedZoneId = zone.ZoneId ?? string.Empty;
+            selectedZoneDraftId = zone.ZoneId ?? string.Empty;
+            selectedZoneDraftFace = zone.FaceId;
+            var regions = zone.GetRegionsOrEmpty();
+            if (regions.Length > 0)
+            {
+                selectedZoneDraftMin = regions[0].MinInclusive;
+                selectedZoneDraftMax = regions[0].MaxInclusive;
+            }
+            else
+            {
+                selectedZoneDraftMin = selection.TargetCell;
+                selectedZoneDraftMax = selection.TargetCell;
+            }
+        }
+
+        private void ClearLoadedZoneEditorState()
+        {
+            loadedZoneIndex = -1;
+            loadedZoneId = string.Empty;
+            selectedZoneDraftId = string.Empty;
+            selectedZoneDraftFace = selection.TargetFace;
+            selectedZoneDraftMin = selection.TargetCell;
+            selectedZoneDraftMax = selection.TargetCell;
+        }
+
+        private void SetZoneFeedback(string message, MessageType messageType)
+        {
+            zoneFeedback = message ?? string.Empty;
+            zoneFeedbackType = messageType;
+        }
+
+        private void DrawZoneFeedback()
+        {
+            if (string.IsNullOrWhiteSpace(zoneFeedback))
+            {
+                return;
+            }
+
+            EditorGUILayout.HelpBox(zoneFeedback, zoneFeedbackType);
         }
 
         private void DrawTileFeatureTools()
@@ -1662,6 +2096,94 @@ namespace Game.Feature.Stages.Editor
             }
 
             EditorGUILayout.HelpBox(boardTileFeedback, boardTileFeedbackType);
+        }
+
+        private static bool IsZoneReferencedByObjective(StageAuthoringDefinition definition, string zoneId)
+        {
+            var normalizedZoneId = NormalizeZoneId(zoneId);
+            if (definition == null || string.IsNullOrEmpty(normalizedZoneId))
+            {
+                return false;
+            }
+
+            var entries = definition.Objective.GetConditionEntriesOrEmpty();
+            for (var i = 0; i < entries.Length; i++)
+            {
+                if (ConditionReferencesZone(entries[i].Condition, normalizedZoneId))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsPrimaryGoalMultiCellZone(StageAuthoringDefinition definition, StageZoneDefinition zone)
+        {
+            if (definition == null || !IsMultiCellZone(zone))
+            {
+                return false;
+            }
+
+            var normalizedZoneId = NormalizeZoneId(zone.ZoneId);
+            var entries = definition.Objective.GetConditionEntriesOrEmpty();
+            for (var i = 0; i < entries.Length; i++)
+            {
+                var entry = entries[i];
+                if (entry.Role == StageObjectiveConditionRole.PrimaryGoal &&
+                    ConditionReferencesZone(entry.Condition, normalizedZoneId))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsMultiCellZone(StageZoneDefinition zone)
+        {
+            var regions = zone.GetRegionsOrEmpty();
+            if (regions.Length != 1)
+            {
+                return true;
+            }
+
+            return regions[0].MinInclusive != regions[0].MaxInclusive;
+        }
+
+        private static bool ConditionReferencesZone(StageConditionAsset condition, string normalizedZoneId)
+        {
+            if (condition == null || string.IsNullOrEmpty(normalizedZoneId))
+            {
+                return false;
+            }
+
+            if (condition is PlayerAtAnyZoneConditionAsset playerAtAnyZone)
+            {
+                return playerAtAnyZone.ZoneIds.Any(zoneId =>
+                    string.Equals(NormalizeZoneId(zoneId), normalizedZoneId, StringComparison.Ordinal));
+            }
+
+            if (condition is VisitZoneSequenceConditionAsset visitZoneSequence)
+            {
+                return visitZoneSequence.ZoneIds.Any(zoneId =>
+                    string.Equals(NormalizeZoneId(zoneId), normalizedZoneId, StringComparison.Ordinal));
+            }
+
+            if (condition is SpecificEntityAtZoneConditionAsset specificEntityAtZone)
+            {
+                return string.Equals(
+                    NormalizeZoneId(specificEntityAtZone.ZoneId),
+                    normalizedZoneId,
+                    StringComparison.Ordinal);
+            }
+
+            return false;
+        }
+
+        private static string NormalizeZoneId(string zoneId)
+        {
+            return zoneId?.Trim() ?? string.Empty;
         }
 
         private SurfaceCell GetTargetSurfaceCell()
