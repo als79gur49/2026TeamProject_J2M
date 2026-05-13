@@ -579,7 +579,7 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: 
+    PresentationKey: exit.1x1
   - TileId: 908
     Cell:
       face: 0
