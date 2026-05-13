@@ -112,7 +112,7 @@ namespace Game.Feature.Gameplay.Host
 
     public sealed class MotionClip
     {
-        private readonly float _flipArcHeightWorld;
+        private readonly float _flipPeakHeightWorld;
         private readonly bool _interpolateRotation;
         private readonly TickEntityMotionKind _motionKind;
 
@@ -122,11 +122,11 @@ namespace Game.Feature.Gameplay.Host
             GameplayEntityPose endPose,
             float durationSeconds,
             bool interpolateRotation,
-            float flipArcHeightWorld)
+            float flipPeakHeightWorld)
         {
             _motionKind = motionKind;
             _interpolateRotation = interpolateRotation;
-            _flipArcHeightWorld = flipArcHeightWorld;
+            _flipPeakHeightWorld = flipPeakHeightWorld;
             StartPose = startPose;
             EndPose = endPose;
             DurationSeconds = durationSeconds;
@@ -153,7 +153,7 @@ namespace Game.Feature.Gameplay.Host
             GameplayEntityPose endPose,
             float durationSeconds,
             bool interpolateRotation,
-            float flipArcHeightWorld)
+            float flipPeakHeightWorld)
         {
             return new MotionClip(
                 motionKind,
@@ -161,7 +161,7 @@ namespace Game.Feature.Gameplay.Host
                 endPose,
                 Mathf.Max(durationSeconds, 0.0001f),
                 interpolateRotation,
-                flipArcHeightWorld);
+                flipPeakHeightWorld);
         }
 
         public float Advance(float deltaTime)
@@ -231,11 +231,11 @@ namespace Game.Feature.Gameplay.Host
 
         private GameplayEntityPose SampleFlip(float t)
         {
-            return FlipArcSampler.Sample(
+            return BoxFlipSlamSampler.Sample(
                 StartPose,
                 EndPose,
                 Mathf.Clamp01(t),
-                _flipArcHeightWorld);
+                _flipPeakHeightWorld);
         }
 
         private GameplayEntityPose SampleLinear(float t)
@@ -259,6 +259,226 @@ namespace Game.Feature.Gameplay.Host
         }
     }
 
+    internal static class BoxFlipSlamSampler
+    {
+        public const float LiftEndTime = 0.34f;
+        public const float HoldEndTime = 0.48f;
+        public const float SlamEndTime = 0.936f;
+
+        private const float HoldTravelFraction = 0.08f;
+        private const float HoldTumbleFraction = 0.25f;
+
+        public static GameplayEntityPose Sample(
+            GameplayEntityPose startPose,
+            GameplayEntityPose endPose,
+            float normalizedTime,
+            float peakHeightWorld)
+        {
+            var t = Mathf.Clamp01(normalizedTime);
+            if (!TryResolveFlipBasis(startPose, endPose, out var liftAxis, out var flipAxis))
+            {
+                return SampleFallback(startPose, endPose, t);
+            }
+
+            var travelFraction = SampleTravelFraction(t);
+            var liftFraction = SampleLiftFraction(t);
+            var tumbleFraction = SampleTumbleFraction(t);
+            var position =
+                Vector3.LerpUnclamped(startPose.Position, endPose.Position, travelFraction) +
+                (liftAxis * (Mathf.Max(0f, peakHeightWorld) * liftFraction));
+
+            return new GameplayEntityPose(
+                t >= 1f ? endPose.Position : position,
+                SampleFlipRotation(startPose, endPose, tumbleFraction, flipAxis));
+        }
+
+        private static GameplayEntityPose SampleFallback(
+            GameplayEntityPose startPose,
+            GameplayEntityPose endPose,
+            float normalizedTime)
+        {
+            var phaseTime = SampleTravelFraction(normalizedTime);
+            return new GameplayEntityPose(
+                Vector3.LerpUnclamped(startPose.Position, endPose.Position, phaseTime),
+                Quaternion.SlerpUnclamped(startPose.Rotation, endPose.Rotation, phaseTime));
+        }
+
+        public static bool TryResolveLiftAxis(
+            GameplayEntityPose startPose,
+            GameplayEntityPose endPose,
+            out Vector3 liftAxis)
+        {
+            if (TryResolveFlipBasis(startPose, endPose, out liftAxis, out _))
+            {
+                return true;
+            }
+
+            liftAxis = default;
+            return false;
+        }
+
+        private static float SampleTravelFraction(float normalizedTime)
+        {
+            var t = Mathf.Clamp01(normalizedTime);
+            if (t <= LiftEndTime)
+            {
+                return HoldTravelFraction * EaseInQuad(t / LiftEndTime);
+            }
+
+            if (t <= HoldEndTime)
+            {
+                return HoldTravelFraction;
+            }
+
+            if (t <= SlamEndTime)
+            {
+                var slamTime = (t - HoldEndTime) / (SlamEndTime - HoldEndTime);
+                return Mathf.LerpUnclamped(HoldTravelFraction, 1f, EaseOutCubic(slamTime));
+            }
+
+            return 1f;
+        }
+
+        private static float SampleLiftFraction(float normalizedTime)
+        {
+            var t = Mathf.Clamp01(normalizedTime);
+            if (t <= LiftEndTime)
+            {
+                return EaseInOutQuad(t / LiftEndTime);
+            }
+
+            if (t <= HoldEndTime)
+            {
+                return 1f;
+            }
+
+            if (t <= SlamEndTime)
+            {
+                var slamTime = (t - HoldEndTime) / (SlamEndTime - HoldEndTime);
+                return 1f - EaseOutCubic(slamTime);
+            }
+
+            return 0f;
+        }
+
+        private static float SampleTumbleFraction(float normalizedTime)
+        {
+            var t = Mathf.Clamp01(normalizedTime);
+            if (t <= LiftEndTime)
+            {
+                return HoldTumbleFraction * 0.6f * EaseInOutQuad(t / LiftEndTime);
+            }
+
+            if (t <= HoldEndTime)
+            {
+                var holdTime = (t - LiftEndTime) / (HoldEndTime - LiftEndTime);
+                return Mathf.LerpUnclamped(HoldTumbleFraction * 0.6f, HoldTumbleFraction, EaseOutQuad(holdTime));
+            }
+
+            if (t <= SlamEndTime)
+            {
+                var slamTime = (t - HoldEndTime) / (SlamEndTime - HoldEndTime);
+                return Mathf.LerpUnclamped(HoldTumbleFraction, 1f, EaseOutCubic(slamTime));
+            }
+
+            return 1f;
+        }
+
+        private static Quaternion SampleFlipRotation(
+            GameplayEntityPose startPose,
+            GameplayEntityPose endPose,
+            float tumbleFraction,
+            Vector3 flipAxis)
+        {
+            var clampedTumble = Mathf.Clamp01(tumbleFraction);
+            var tumbleRotation = Quaternion.AngleAxis(180f * clampedTumble, flipAxis);
+            var endCorrection =
+                endPose.Rotation *
+                Quaternion.Inverse(Quaternion.AngleAxis(180f, flipAxis) * startPose.Rotation);
+            var correctionRotation = Quaternion.Slerp(Quaternion.identity, endCorrection, clampedTumble);
+            return correctionRotation * tumbleRotation * startPose.Rotation;
+        }
+
+        private static Vector3 ResolveFlipSurfaceNormal(GameplayEntityPose startPose, GameplayEntityPose endPose)
+        {
+            var startNormal = startPose.Rotation * Vector3.forward;
+            var endNormal = endPose.Rotation * Vector3.forward;
+            var averagedNormal = startNormal + endNormal;
+
+            if (averagedNormal.sqrMagnitude > 0.000001f)
+            {
+                return averagedNormal.normalized;
+            }
+
+            if (startNormal.sqrMagnitude > 0.000001f)
+            {
+                return startNormal.normalized;
+            }
+
+            return endNormal.sqrMagnitude > 0.000001f
+                ? endNormal.normalized
+                : Vector3.zero;
+        }
+
+        private static bool TryResolveFlipBasis(
+            GameplayEntityPose startPose,
+            GameplayEntityPose endPose,
+            out Vector3 liftAxis,
+            out Vector3 flipAxis)
+        {
+            liftAxis = default;
+            flipAxis = default;
+
+            var travelDelta = endPose.Position - startPose.Position;
+            if (travelDelta.sqrMagnitude <= 0.000001f)
+            {
+                return false;
+            }
+
+            var surfaceNormal = ResolveFlipSurfaceNormal(startPose, endPose);
+            if (surfaceNormal.sqrMagnitude <= 0.000001f)
+            {
+                return false;
+            }
+
+            liftAxis = -surfaceNormal.normalized;
+            flipAxis = Vector3.Cross(travelDelta.normalized, liftAxis);
+            if (flipAxis.sqrMagnitude <= 0.000001f)
+            {
+                return false;
+            }
+
+            flipAxis.Normalize();
+            return true;
+        }
+
+        private static float EaseInQuad(float t)
+        {
+            var clamped = Mathf.Clamp01(t);
+            return clamped * clamped;
+        }
+
+        private static float EaseOutQuad(float t)
+        {
+            var inverse = 1f - Mathf.Clamp01(t);
+            return 1f - (inverse * inverse);
+        }
+
+        private static float EaseOutCubic(float t)
+        {
+            var inverse = 1f - Mathf.Clamp01(t);
+            return 1f - (inverse * inverse * inverse);
+        }
+
+        private static float EaseInOutQuad(float t)
+        {
+            var clamped = Mathf.Clamp01(t);
+            return clamped < 0.5f
+                ? 2f * clamped * clamped
+                : 1f - (Mathf.Pow(-2f * clamped + 2f, 2f) * 0.5f);
+        }
+    }
+
     internal static class BoxMotionVisualScaleSampler
     {
         private static readonly Vector3 FlipPeakScale = new(1.1f, 1.1f, 1.08f);
@@ -274,12 +494,12 @@ namespace Game.Feature.Gameplay.Host
         public static Vector3 SampleFlipMotion(float normalizedTime)
         {
             var t = Mathf.Clamp01(normalizedTime);
-            if (t <= 0.9f)
+            if (t <= BoxFlipSlamSampler.SlamEndTime)
             {
-                return SampleFlipFlight(t / 0.9f);
+                return SampleFlipFlight(t / BoxFlipSlamSampler.SlamEndTime);
             }
 
-            return SampleFlipSettle((t - 0.9f) / 0.1f);
+            return SampleFlipSettle((t - BoxFlipSlamSampler.SlamEndTime) / (1f - BoxFlipSlamSampler.SlamEndTime));
         }
 
         public static Vector3 SampleFlipFlight(float normalizedTime)

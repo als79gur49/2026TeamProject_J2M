@@ -11,6 +11,8 @@ namespace Game.Feature.Gameplay.Host
 {
     internal sealed class GameplayTrackPlanner
     {
+        internal const float FlipPeakPlayerHeightMultiplier = 1.4f;
+
         private readonly GameplayEntityPresentationApplier _entityPresentationApplier;
         private readonly GameplayExitPresentationController _exitPresentationController;
         private readonly GameplayMotionTimingResolver _motionTimingResolver;
@@ -511,13 +513,153 @@ namespace Game.Feature.Gameplay.Host
                             motion.MotionKind,
                             timingProfile),
                         IsTopologyTransitionPresentation(presentationData.TopologyMotion),
-                        timingProfile.FlipArcHeightInCells * projector.CellSize));
+                        ResolveFlipPeakHeightWorld(
+                            presentationData,
+                            motion,
+                            startLocalPose,
+                            endLocalPose,
+                            projector,
+                            timingProfile)));
 
                 if (!_stateStore.CommittedLocalTargetPoses.ContainsKey(motion.EntityId))
                 {
                     _stateStore.RetainedLocalTargetPoses[motion.EntityId] = endLocalPose;
                 }
             }
+        }
+
+        private float ResolveFlipPeakHeightWorld(
+            TickPresentationData presentationData,
+            TickEntityMotion motion,
+            GameplayEntityPose startLocalPose,
+            GameplayEntityPose endLocalPose,
+            GameplayCubeProjector projector,
+            GameplayTimingProfile timingProfile)
+        {
+            var configuredArcHeightWorld = timingProfile.FlipArcHeightInCells * projector.CellSize;
+            if (motion.MotionKind != TickEntityMotionKind.Flip)
+            {
+                return configuredArcHeightWorld;
+            }
+
+            var fallbackHeightWorld = ResolveFallbackFlipPeakHeightWorld(
+                configuredArcHeightWorld,
+                projector.CellSize);
+            if (!BoxFlipSlamSampler.TryResolveLiftAxis(startLocalPose, endLocalPose, out var localLiftAxis) ||
+                !TryResolveFlipSourcePlayerView(presentationData, motion.EntityId, out var playerView) ||
+                !TryResolvePlayerVisualHeightWorld(playerView, localLiftAxis, out var playerVisualHeightWorld))
+            {
+                return fallbackHeightWorld;
+            }
+
+            return ResolveFlipPeakHeightFromPlayerVisualHeightWorld(playerVisualHeightWorld);
+        }
+
+        internal static float ResolveFlipPeakHeightFromPlayerVisualHeightWorld(float playerVisualHeightWorld)
+        {
+            return Mathf.Max(0f, playerVisualHeightWorld) * FlipPeakPlayerHeightMultiplier;
+        }
+
+        internal static float ResolveFallbackFlipPeakHeightWorld(float configuredArcHeightWorld, float cellSize)
+        {
+            return Mathf.Max(
+                Mathf.Max(0f, configuredArcHeightWorld),
+                Mathf.Max(0f, cellSize) * FlipPeakPlayerHeightMultiplier);
+        }
+
+        internal static bool TryResolvePlayerVisualHeightWorld(
+            GameplayEntityView playerView,
+            Vector3 localLiftAxis,
+            out float heightWorld)
+        {
+            heightWorld = 0f;
+            if (playerView == null || localLiftAxis.sqrMagnitude <= 0.000001f)
+            {
+                return false;
+            }
+
+            var worldLiftAxis = ResolveWorldLiftAxis(playerView, localLiftAxis);
+            if (worldLiftAxis.sqrMagnitude <= 0.000001f)
+            {
+                return false;
+            }
+
+            var renderers = playerView.ModelRoot.GetComponentsInChildren<Renderer>(includeInactive: true);
+            var minProjection = float.PositiveInfinity;
+            var maxProjection = float.NegativeInfinity;
+            var hasRenderer = false;
+            for (var i = 0; i < renderers.Length; i++)
+            {
+                var renderer = renderers[i];
+                if (renderer == null || !renderer.enabled)
+                {
+                    continue;
+                }
+
+                ProjectBounds(renderer.bounds, worldLiftAxis, out var rendererMin, out var rendererMax);
+                minProjection = Mathf.Min(minProjection, rendererMin);
+                maxProjection = Mathf.Max(maxProjection, rendererMax);
+                hasRenderer = true;
+            }
+
+            if (!hasRenderer || maxProjection < minProjection)
+            {
+                return false;
+            }
+
+            heightWorld = maxProjection - minProjection;
+            return heightWorld > 0.0001f;
+        }
+
+        private bool TryResolveFlipSourcePlayerView(
+            TickPresentationData presentationData,
+            int targetBoxEntityId,
+            out GameplayEntityView playerView)
+        {
+            playerView = null;
+            for (var i = 0; i < presentationData.PlayerActionSignals.Count; i++)
+            {
+                var signal = presentationData.PlayerActionSignals[i];
+                if (signal.ActiveActionKind != PlayerActionKind.Flip ||
+                    (signal.TargetEntityId != targetBoxEntityId &&
+                     signal.FlipTargetBoxEntityId != targetBoxEntityId))
+                {
+                    continue;
+                }
+
+                if (_stateStore.ViewsByEntityId.TryGetValue(signal.EntityId, out playerView) &&
+                    playerView != null)
+                {
+                    return true;
+                }
+            }
+
+            playerView = null;
+            return false;
+        }
+
+        private static Vector3 ResolveWorldLiftAxis(GameplayEntityView playerView, Vector3 localLiftAxis)
+        {
+            var normalizedLocalLiftAxis = localLiftAxis.normalized;
+            var parent = playerView.transform.parent;
+            return parent != null
+                ? parent.TransformDirection(normalizedLocalLiftAxis).normalized
+                : normalizedLocalLiftAxis;
+        }
+
+        private static void ProjectBounds(
+            Bounds bounds,
+            Vector3 normalizedAxis,
+            out float minProjection,
+            out float maxProjection)
+        {
+            var centerProjection = Vector3.Dot(bounds.center, normalizedAxis);
+            var projectionExtent =
+                Mathf.Abs(normalizedAxis.x) * bounds.extents.x +
+                Mathf.Abs(normalizedAxis.y) * bounds.extents.y +
+                Mathf.Abs(normalizedAxis.z) * bounds.extents.z;
+            minProjection = centerProjection - projectionExtent;
+            maxProjection = centerProjection + projectionExtent;
         }
 
         private void RefreshTransitionVisibilityState(

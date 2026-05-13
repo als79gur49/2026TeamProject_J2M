@@ -6491,9 +6491,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void GameplayTickViewPresenter_FlipMotion_MidpointTravelsAlongArc()
+        public void GameplayTickViewPresenter_FlipMotion_MidpointUsesSlamLiftMotion()
         {
-            var rootObject = new GameObject("GameplayTickViewPresenter_FlipMotion_MidpointTravelsAlongArc");
+            var rootObject = new GameObject("GameplayTickViewPresenter_FlipMotion_MidpointUsesSlamLiftMotion");
 
             try
             {
@@ -6544,14 +6544,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presenter.UpdatePresentation(timingProfile.FlipMotionDurationSeconds * 0.5f);
 
                 Assert.That(registry.TryGetView(30, out var view), Is.True);
-                Assert.That(view.transform.position.x, Is.EqualTo(0f).Within(0.15f));
-                Assert.That(
-                    view.transform.position.y,
-                    Is.GreaterThan(GetProjectedEntityPosition(
-                        new BoardBounds(new Vector2Int(-2, 0), new Vector2Int(2, 1)),
-                        topology,
-                        new SurfaceCell(FaceId.Floor, -1, 0),
-                        EntityType.Box).y + 0.2f));
+                var boardBounds = new BoardBounds(new Vector2Int(-2, 0), new Vector2Int(2, 1));
+                var sourceCell = new SurfaceCell(FaceId.Floor, -1, 0);
+                var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var expectedPose = BoxFlipSlamSampler.Sample(
+                    new GameplayEntityPose(
+                        GetProjectedEntityPosition(boardBounds, topology, sourceCell, EntityType.Box),
+                        GetProjectedEntityRotation(boardBounds, topology, sourceCell, Direction.Left, EntityType.Box)),
+                    new GameplayEntityPose(
+                        GetProjectedEntityPosition(boardBounds, topology, destinationCell, EntityType.Box),
+                        GetProjectedEntityRotation(boardBounds, topology, destinationCell, Direction.Right, EntityType.Box)),
+                    0.5f,
+                    1.4f);
+
+                Assert.That(Vector3.Distance(view.transform.position, expectedPose.Position), Is.LessThanOrEqualTo(0.001f));
+                Assert.That(Quaternion.Angle(view.transform.rotation, expectedPose.Rotation), Is.LessThanOrEqualTo(0.001f));
             }
             finally
             {
@@ -6561,9 +6568,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void GameplayTickViewPresenter_FlipMotion_OnFrontFace_UsesFaceRelativeArcAndRotation()
+        public void GameplayTickViewPresenter_FlipMotion_OnFrontFace_UsesFaceRelativeSlamLiftAndRotation()
         {
-            var rootObject = new GameObject("GameplayTickViewPresenter_FlipMotion_OnFrontFace_UsesFaceRelativeArcAndRotation");
+            var rootObject = new GameObject("GameplayTickViewPresenter_FlipMotion_OnFrontFace_UsesFaceRelativeSlamLiftAndRotation");
 
             try
             {
@@ -6626,10 +6633,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     topology,
                     new SurfaceCell(FaceId.Front, 1, 0),
                     EntityType.Box);
+                var sourceCell = new SurfaceCell(FaceId.Front, -1, 0);
+                var destinationCell = new SurfaceCell(FaceId.Front, 1, 0);
+                var expectedPose = BoxFlipSlamSampler.Sample(
+                    new GameplayEntityPose(
+                        sourcePosition,
+                        GetProjectedEntityRotation(boardBounds, topology, sourceCell, Direction.Left, EntityType.Box)),
+                    new GameplayEntityPose(
+                        destinationPosition,
+                        GetProjectedEntityRotation(boardBounds, topology, destinationCell, Direction.Right, EntityType.Box)),
+                    0.5f,
+                    1.4f);
 
-                Assert.That(view.transform.position.x, Is.EqualTo((sourcePosition.x + destinationPosition.x) * 0.5f).Within(0.15f));
-                Assert.That(view.transform.position.z, Is.LessThan(sourcePosition.z - 0.2f));
-                Assert.That(Vector3.Angle(view.transform.forward, Vector3.forward), Is.GreaterThan(30f));
+                Assert.That(Vector3.Distance(view.transform.position, expectedPose.Position), Is.LessThanOrEqualTo(0.001f));
+                Assert.That(Quaternion.Angle(view.transform.rotation, expectedPose.Rotation), Is.LessThanOrEqualTo(0.001f));
             }
             finally
             {
