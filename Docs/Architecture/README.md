@@ -26,6 +26,8 @@
   - supporting truth for post-stage-content bounded lane split, Lane A recovery streams, and cross-lane handoff codebook
 - [Topology-View-Camera-Canonical-Ownership-2026-04-24.md](./Topology-View-Camera-Canonical-Ownership-2026-04-24.md)
   - slice-local supporting truth for topology/view/camera runtime ownership, helper/glue boundaries, and closure-era sign-off interpretation
+- [Topology-Presentation-Fact-Policy.md](./Topology-Presentation-Fact-Policy.md)
+  - current supporting truth for canonical topology transition fact normalization at the TickPresentationData build boundary
 - [Audio-Architecture-Guidelines.md](./Audio-Architecture-Guidelines.md)
   - current supporting truth for 2D non-spatial audio contracts, runtime ownership, and audio seam vocabulary
 - [Gameplay-Audio-Governance.md](./Gameplay-Audio-Governance.md)

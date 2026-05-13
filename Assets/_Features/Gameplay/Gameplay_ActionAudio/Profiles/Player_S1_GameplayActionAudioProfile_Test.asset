@@ -16,108 +16,108 @@ MonoBehaviour:
   - Action: 0
     Moment: 0
     Binding:
-      definition: {fileID: 11400000, guid: 19e0694c2eeadf2408316d19229bfa90, type: 2}
+      definition: {fileID: 11400000, guid: c2619ac114064b639a9ab2d906a81741, type: 2}
       attachmentSlot:
-        id:
+        id: 
       policy:
         rid: -2
     IsOptional: 0
   - Action: 0
     Moment: 2
     Binding:
-      definition: {fileID: 11400000, guid: b2ea499dbd6c5d346998ea8d2bb0bcf6, type: 2}
+      definition: {fileID: 11400000, guid: c6ef4d5d4942c614d8bde53eac9accac, type: 2}
       attachmentSlot:
-        id:
+        id: 
       policy:
         rid: -2
     IsOptional: 0
   - Action: 0
     Moment: 3
     Binding:
-      definition: {fileID: 11400000, guid: 0e23faa43d5c109429b34d5580afcd51, type: 2}
+      definition: {fileID: 11400000, guid: c6ef4d5d4942c614d8bde53eac9accac, type: 2}
       attachmentSlot:
-        id:
+        id: 
       policy:
         rid: -2
     IsOptional: 0
   - Action: 0
     Moment: 4
     Binding:
-      definition: {fileID: 11400000, guid: bce7ccc3940938741be5f7b35c081861, type: 2}
+      definition: {fileID: 11400000, guid: c6ef4d5d4942c614d8bde53eac9accac, type: 2}
       attachmentSlot:
-        id:
+        id: 
       policy:
         rid: -2
     IsOptional: 0
   - Action: 0
     Moment: 6
     Binding:
-      definition: {fileID: 11400000, guid: bce7ccc3940938741be5f7b35c081861, type: 2}
+      definition: {fileID: 11400000, guid: 3ab74dfd95fa414fbdc41f0ac20d85b6, type: 2}
       attachmentSlot:
-        id:
+        id: 
       policy:
         rid: -2
     IsOptional: 0
   - Action: 0
     Moment: 7
     Binding:
-      definition: {fileID: 11400000, guid: bce7ccc3940938741be5f7b35c081861, type: 2}
+      definition: {fileID: 11400000, guid: 3ab74dfd95fa414fbdc41f0ac20d85b6, type: 2}
       attachmentSlot:
-        id:
+        id: 
       policy:
         rid: -2
     IsOptional: 0
   - Action: 0
     Moment: 8
     Binding:
-      definition: {fileID: 11400000, guid: bce7ccc3940938741be5f7b35c081861, type: 2}
+      definition: {fileID: 11400000, guid: 3ab74dfd95fa414fbdc41f0ac20d85b6, type: 2}
       attachmentSlot:
-        id:
+        id: 
       policy:
         rid: -2
     IsOptional: 0
   - Action: 1
     Moment: 0
     Binding:
-      definition: {fileID: 11400000, guid: d710d9942b90d9d44a24ea88ade7b0b6, type: 2}
+      definition: {fileID: 11400000, guid: f41d4a196a0d43eab3e4cf7374718cce, type: 2}
       attachmentSlot:
-        id:
+        id: 
       policy:
         rid: -2
     IsOptional: 0
   - Action: 1
     Moment: 4
     Binding:
-      definition: {fileID: 11400000, guid: e8f4827a279a3a4458dc9ed5728d2fe5, type: 2}
+      definition: {fileID: 11400000, guid: 3ab74dfd95fa414fbdc41f0ac20d85b6, type: 2}
       attachmentSlot:
-        id:
+        id: 
       policy:
         rid: -2
     IsOptional: 0
   - Action: 1
     Moment: 6
     Binding:
-      definition: {fileID: 11400000, guid: e8f4827a279a3a4458dc9ed5728d2fe5, type: 2}
+      definition: {fileID: 11400000, guid: 3ab74dfd95fa414fbdc41f0ac20d85b6, type: 2}
       attachmentSlot:
-        id:
+        id: 
       policy:
         rid: -2
     IsOptional: 0
   - Action: 1
     Moment: 7
     Binding:
-      definition: {fileID: 11400000, guid: e8f4827a279a3a4458dc9ed5728d2fe5, type: 2}
+      definition: {fileID: 11400000, guid: 3ab74dfd95fa414fbdc41f0ac20d85b6, type: 2}
       attachmentSlot:
-        id:
+        id: 
       policy:
         rid: -2
     IsOptional: 0
   - Action: 1
     Moment: 8
     Binding:
-      definition: {fileID: 11400000, guid: e8f4827a279a3a4458dc9ed5728d2fe5, type: 2}
+      definition: {fileID: 11400000, guid: 3ab74dfd95fa414fbdc41f0ac20d85b6, type: 2}
       attachmentSlot:
-        id:
+        id: 
       policy:
         rid: -2
     IsOptional: 0

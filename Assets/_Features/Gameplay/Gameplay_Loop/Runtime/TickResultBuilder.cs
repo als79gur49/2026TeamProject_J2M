@@ -196,9 +196,11 @@ namespace Game.Feature.Gameplay.Loop
             Array.Empty<EntityState>(),
             Array.Empty<string>(),
             respawnPlacementRecords: Array.Empty<RespawnPlacementRecord>(),
-            moonBlockGeneratorRespawnFacts: Array.Empty<MoonBlockGeneratorRespawnFact>());
+            moonBlockGeneratorRespawnFacts: Array.Empty<MoonBlockGeneratorRespawnFact>(),
+            moonBlockGeneratorBlockedFacts: Array.Empty<MoonBlockGeneratorBlockedFact>());
 
         private readonly ReadOnlyCollection<string> _eventLogEntries;
+        private readonly ReadOnlyCollection<MoonBlockGeneratorBlockedFact> _moonBlockGeneratorBlockedFacts;
         private readonly ReadOnlyCollection<PlayerRespawnDelayRecord> _playerRespawnDelayRecords;
         private readonly ReadOnlyCollection<RespawnPlacementRecord> _respawnPlacementRecords;
         private readonly ReadOnlyCollection<MoonBlockGeneratorRespawnFact> _moonBlockGeneratorRespawnFacts;
@@ -224,7 +226,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<PlayerRespawnDelayRecord> playerRespawnDelayRecords = null,
             IEnumerable<RespawnPlacementRecord> respawnPlacementRecords = null,
             RespawnTopologyResetRequest? topologyResetRequest = null,
-            IEnumerable<MoonBlockGeneratorRespawnFact> moonBlockGeneratorRespawnFacts = null)
+            IEnumerable<MoonBlockGeneratorRespawnFact> moonBlockGeneratorRespawnFacts = null,
+            IEnumerable<MoonBlockGeneratorBlockedFact> moonBlockGeneratorBlockedFacts = null)
         {
             if (respawnedEntities == null)
             {
@@ -247,6 +250,9 @@ namespace Game.Feature.Gameplay.Loop
             _moonBlockGeneratorRespawnFacts = new ReadOnlyCollection<MoonBlockGeneratorRespawnFact>(
                 new List<MoonBlockGeneratorRespawnFact>(
                     moonBlockGeneratorRespawnFacts ?? Array.Empty<MoonBlockGeneratorRespawnFact>()));
+            _moonBlockGeneratorBlockedFacts = new ReadOnlyCollection<MoonBlockGeneratorBlockedFact>(
+                new List<MoonBlockGeneratorBlockedFact>(
+                    moonBlockGeneratorBlockedFacts ?? Array.Empty<MoonBlockGeneratorBlockedFact>()));
             TopologyResetRequest = topologyResetRequest;
         }
 
@@ -260,6 +266,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public IReadOnlyList<MoonBlockGeneratorRespawnFact> MoonBlockGeneratorRespawnFacts => _moonBlockGeneratorRespawnFacts;
 
+        public IReadOnlyList<MoonBlockGeneratorBlockedFact> MoonBlockGeneratorBlockedFacts => _moonBlockGeneratorBlockedFacts;
+
         public RespawnTopologyResetRequest? TopologyResetRequest { get; }
     }
 
@@ -269,6 +277,8 @@ namespace Game.Feature.Gameplay.Loop
             int generatorTileId,
             SurfaceCell cell,
             int moonBlockEntityId,
+            int spawnTick,
+            int spawnInteractionLockTicks,
             int sourceEntityId,
             int ownerEntityId,
             int teamId)
@@ -276,6 +286,8 @@ namespace Game.Feature.Gameplay.Loop
             GeneratorTileId = generatorTileId;
             Cell = cell;
             MoonBlockEntityId = moonBlockEntityId;
+            SpawnTick = spawnTick;
+            SpawnInteractionLockTicks = spawnInteractionLockTicks;
             SourceEntityId = sourceEntityId;
             OwnerEntityId = ownerEntityId;
             TeamId = teamId;
@@ -286,6 +298,43 @@ namespace Game.Feature.Gameplay.Loop
         public SurfaceCell Cell { get; }
 
         public int MoonBlockEntityId { get; }
+
+        public int SpawnTick { get; }
+
+        public int SpawnInteractionLockTicks { get; }
+
+        public int SourceEntityId { get; }
+
+        public int OwnerEntityId { get; }
+
+        public int TeamId { get; }
+    }
+
+    internal readonly struct MoonBlockGeneratorBlockedFact
+    {
+        public MoonBlockGeneratorBlockedFact(
+            int generatorTileId,
+            SurfaceCell cell,
+            MoonBlockGeneratorBlockedPayload payload,
+            int sourceEntityId,
+            int ownerEntityId,
+            int teamId)
+        {
+            GeneratorTileId = generatorTileId;
+            Cell = cell;
+            Payload = payload;
+            SourceEntityId = sourceEntityId;
+            OwnerEntityId = ownerEntityId;
+            TeamId = teamId;
+        }
+
+        public int GeneratorTileId { get; }
+
+        public SurfaceCell Cell { get; }
+
+        public int BlockingEntityId => Payload.BlockingEntityId;
+
+        public MoonBlockGeneratorBlockedPayload Payload { get; }
 
         public int SourceEntityId { get; }
 
@@ -378,7 +427,8 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<GravityFieldPresentationEvent> gravityFieldEvents = null,
             int gravityFieldChargeDurationTicks = 0,
             int gravityFieldActiveDurationTicks = 0,
-            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null)
+            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null,
+            FinalizationBatch finalizationBatch = null)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -400,7 +450,8 @@ namespace Game.Feature.Gameplay.Loop
                 gravityFieldEvents,
                 gravityFieldChargeDurationTicks,
                 gravityFieldActiveDurationTicks,
-                gravityFieldLockedTargetFacts)
+                gravityFieldLockedTargetFacts,
+                finalizationBatch)
         {
         }
 
@@ -425,7 +476,8 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<GravityFieldPresentationEvent> gravityFieldEvents = null,
             int gravityFieldChargeDurationTicks = 0,
             int gravityFieldActiveDurationTicks = 0,
-            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null)
+            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null,
+            FinalizationBatch finalizationBatch = null)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -448,7 +500,8 @@ namespace Game.Feature.Gameplay.Loop
                 gravityFieldEvents,
                 gravityFieldChargeDurationTicks,
                 gravityFieldActiveDurationTicks,
-                gravityFieldLockedTargetFacts)
+                gravityFieldLockedTargetFacts,
+                finalizationBatch)
         {
         }
 
@@ -473,7 +526,8 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<GravityFieldPresentationEvent> gravityFieldEvents = null,
             int gravityFieldChargeDurationTicks = 0,
             int gravityFieldActiveDurationTicks = 0,
-            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null)
+            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null,
+            FinalizationBatch finalizationBatch = null)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -496,7 +550,8 @@ namespace Game.Feature.Gameplay.Loop
                 gravityFieldEvents,
                 gravityFieldChargeDurationTicks,
                 gravityFieldActiveDurationTicks,
-                gravityFieldLockedTargetFacts)
+                gravityFieldLockedTargetFacts,
+                finalizationBatch)
         {
         }
 
@@ -523,6 +578,7 @@ namespace Game.Feature.Gameplay.Loop
             int gravityFieldChargeDurationTicks = 0,
             int gravityFieldActiveDurationTicks = 0,
             IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null,
+            FinalizationBatch finalizationBatch = null,
             IReadOnlyList<PlayerActionAttemptResolution> playerActionAttemptResolutions = null)
         {
             PreMovementSnapshot = preMovementSnapshot ?? throw new ArgumentNullException(nameof(preMovementSnapshot));
@@ -534,6 +590,7 @@ namespace Game.Feature.Gameplay.Loop
             AttackPhaseResult = attackPhaseResult ?? throw new ArgumentNullException(nameof(attackPhaseResult));
             CleanupPhaseResult = cleanupPhaseResult ?? throw new ArgumentNullException(nameof(cleanupPhaseResult));
             RespawnPhaseResult = respawnPhaseResult ?? throw new ArgumentNullException(nameof(respawnPhaseResult));
+            FinalizationBatch = finalizationBatch ?? new FinalizationBatch();
             CurrentTickIndex = currentTickIndex;
             JumpBaselineSnapshot = jumpBaselineSnapshot ?? PreMovementSnapshot;
             PlayerCommand = playerCommand;
@@ -579,6 +636,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public RespawnPhaseResult RespawnPhaseResult { get; }
 
+        public FinalizationBatch FinalizationBatch { get; }
+
         public int CurrentTickIndex { get; }
 
         public WorldSnapshot JumpBaselineSnapshot { get; }
@@ -610,6 +669,40 @@ namespace Game.Feature.Gameplay.Loop
 
     internal sealed class TickPresentationDataBuilder
     {
+        private enum TickTopologyTransitionSource
+        {
+            None = 0,
+            SnapshotDiff = 1,
+            Free2DNative = 2,
+        }
+
+        private readonly struct TickTopologyTransitionFact
+        {
+            public TickTopologyTransitionFact(
+                bool hasTransition,
+                CubeTopologyState sourceTopology,
+                CubeTopologyState destinationTopology,
+                CubeRotationKind rotationKind,
+                TickTopologyTransitionSource source)
+            {
+                HasTransition = hasTransition;
+                SourceTopology = sourceTopology;
+                DestinationTopology = destinationTopology;
+                RotationKind = rotationKind;
+                Source = source;
+            }
+
+            public bool HasTransition { get; }
+
+            public CubeTopologyState SourceTopology { get; }
+
+            public CubeTopologyState DestinationTopology { get; }
+
+            public CubeRotationKind RotationKind { get; }
+
+            public TickTopologyTransitionSource Source { get; }
+        }
+
         public TickPresentationData Build(in TickPresentationBuildContext context)
         {
             var entityMotions = new List<TickEntityMotion>();
@@ -617,6 +710,7 @@ namespace Game.Feature.Gameplay.Loop
             var impactTransientSignals = new List<TickImpactTransientPresentationSignal>();
             var flipImpactSignals = new List<FlipImpactPresentationSignal>();
             var boxSlideStopSignals = new List<BoxSlideStopPresentationSignal>();
+            var boxSlideStartSignals = new List<BoxSlideStartPresentationSignal>();
             var enemyActionSignals = new List<TickEnemyActionPresentationSignal>();
             var enemyDamageSignals = new List<TickEnemyDamagePresentationSignal>();
             var enemyJumpSignals = new List<TickEnemyJumpPresentationSignal>();
@@ -639,16 +733,22 @@ namespace Game.Feature.Gameplay.Loop
             var kinematicMotionTracks = new List<TickKinematicMotionTrack>();
             var continuousLocomotionTracks = new List<TickContinuousLocomotionTrack>();
             var tileEvents = new List<TilePresentationEvent>();
+            var tileFeatureVisualStates = new List<TileFeatureVisualState>();
             var gravityFieldEvents = new List<GravityFieldPresentationEvent>();
             var gravityFieldVisualStates = new List<GravityFieldVisualState>();
+            var tileFeatureActiveVisualStates = new List<TileFeatureActiveVisualState>();
             var exitOwnedEntityIds = new HashSet<int>();
+            var topologyFact = ResolveTopologyTransitionFact(context);
 
-            BuildTilePresentationEvents(context, tileEvents);
+            BuildTilePresentationEvents(context, topologyFact, tileEvents);
+            BuildTileFeatureVisualStates(context, topologyFact, tileFeatureVisualStates);
             BuildGravityFieldPresentationEvents(context, gravityFieldEvents);
             BuildGravityFieldVisualStates(context, gravityFieldVisualStates);
+            BuildTileFeatureActiveVisualStates(context, topologyFact, tileFeatureActiveVisualStates);
             BuildEntityExitPresentation(context, entityExitSignals, exitOwnedEntityIds);
             BuildFlipImpactPresentation(context, flipImpactSignals);
             BuildBoxSlideStopPresentation(context, boxSlideStopSignals);
+            BuildBoxSlideStartPresentation(context, boxSlideStartSignals);
             BuildImpactTransientPresentation(context, impactTransientSignals);
             BuildMovementPresentation(context, entityMotions, visibilityChanges, exitOwnedEntityIds);
             BuildKinematicMotionPresentation(context, kinematicMotionTracks);
@@ -671,7 +771,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildEnemyUtilityWindupPresentation(context, summonWindupWarnings, frontFaceShieldWindupWarnings, enemyUtilitySignals);
             BuildSummonedEnemyPresentationBindings(context, summonedEnemyPresentationBindings);
 
-            var topologyMotion = BuildTopologyMotion(context);
+            var topologyMotion = BuildTopologyMotion(context, topologyFact);
             BuildTransitionVisibilityPresentation(context, visibilityChanges, entityExitSignals, transitionVisibilityChanges);
 
             return entityMotions.Count == 0 &&
@@ -689,6 +789,7 @@ namespace Game.Feature.Gameplay.Loop
                    impactTransientSignals.Count == 0 &&
                    flipImpactSignals.Count == 0 &&
                    boxSlideStopSignals.Count == 0 &&
+                   boxSlideStartSignals.Count == 0 &&
                    playerActionSignals.Count == 0 &&
                    playerActionAttemptSignals.Count == 0 &&
                    playerDamageSignals.Count == 0 &&
@@ -701,8 +802,10 @@ namespace Game.Feature.Gameplay.Loop
                    kinematicMotionTracks.Count == 0 &&
                    continuousLocomotionTracks.Count == 0 &&
                    tileEvents.Count == 0 &&
+                   tileFeatureVisualStates.Count == 0 &&
                    gravityFieldEvents.Count == 0 &&
                    gravityFieldVisualStates.Count == 0 &&
+                   tileFeatureActiveVisualStates.Count == 0 &&
                    !topologyMotion.HasValue
                 ? TickPresentationData.Empty
                 : new TickPresentationData(
@@ -735,7 +838,38 @@ namespace Game.Feature.Gameplay.Loop
                     gravityFieldVisualStates,
                     playerActionAttemptSignals,
                     boxSlideStopSignals,
-                    enemyUtilitySignals);
+                    enemyUtilitySignals,
+                    boxSlideStartSignals,
+                    tileFeatureVisualStates,
+                    tileFeatureActiveVisualStates);
+        }
+
+        private static void BuildBoxSlideStartPresentation(
+            in TickPresentationBuildContext context,
+            List<BoxSlideStartPresentationSignal> boxSlideStartSignals)
+        {
+            var operations = context.MovementPhaseResult.ResolvedOperations;
+            for (var i = 0; i < operations.Count; i++)
+            {
+                var operation = operations[i];
+                if (operation.Kind != FinalizationOperationKind.MoveEntity ||
+                    operation.Metadata.MovementSemanticKind != MovementSemanticKind.Slide ||
+                    operation.Metadata.SourceActorEntityId <= 0 ||
+                    operation.Metadata.SourceActorEntityId == operation.EntityId ||
+                    !context.PreMovementSnapshot.TryGetEntity(operation.EntityId, out var sourceEntity) ||
+                    sourceEntity.type != EntityType.Box)
+                {
+                    continue;
+                }
+
+                boxSlideStartSignals.Add(
+                    new BoxSlideStartPresentationSignal(
+                        operation.EntityId,
+                        operation.Metadata.SourceActorEntityId,
+                        sourceEntity.position,
+                        operation.Destination,
+                        context.PreMovementSnapshot.Topology));
+            }
         }
 
         private static void BuildBoxSlideStopPresentation(
@@ -757,6 +891,44 @@ namespace Game.Feature.Gameplay.Loop
                         stop.SolidKind,
                         stop.Topology,
                         stop.Cause));
+            }
+        }
+
+        private static void BuildTileFeatureActiveVisualStates(
+            in TickPresentationBuildContext context,
+            in TickTopologyTransitionFact topologyFact,
+            List<TileFeatureActiveVisualState> tileFeatureActiveVisualStates)
+        {
+            var finalTopology = topologyFact.HasTransition
+                ? topologyFact.DestinationTopology
+                : context.FinalAuthoritativeSnapshot.Topology;
+            var finalTileFeatures = new List<TileFeatureState>();
+            context.FinalAuthoritativeSnapshot.EnumerateTileFeaturesOrdered(finalTileFeatures);
+
+            for (var i = 0; i < finalTileFeatures.Count; i++)
+            {
+                var finalTileFeature = finalTileFeatures[i];
+                if (finalTileFeature.Kind != TileFeatureKind.Destroy ||
+                    !TryGetTileFeatureDefinition(
+                        context.TileFeatureDefinitions,
+                        finalTileFeature.TileId,
+                        out var definition) ||
+                    !TileFeatureActivationQueries.IsActive(
+                        finalTileFeature,
+                        definition,
+                        finalTopology))
+                {
+                    continue;
+                }
+
+                tileFeatureActiveVisualStates.Add(
+                    new TileFeatureActiveVisualState(
+                        finalTileFeature.TileId,
+                        finalTileFeature.Cell,
+                        finalTileFeature.Kind,
+                        finalTileFeature.SourceEntityId,
+                        finalTileFeature.OwnerEntityId,
+                        finalTileFeature.TeamId));
             }
         }
 
@@ -902,6 +1074,7 @@ namespace Game.Feature.Gameplay.Loop
 
         private static void BuildTilePresentationEvents(
             in TickPresentationBuildContext context,
+            in TickTopologyTransitionFact topologyFact,
             List<TilePresentationEvent> tileEvents)
         {
             for (var i = 0; i < context.TileEvents.Count; i++)
@@ -923,7 +1096,27 @@ namespace Game.Feature.Gameplay.Loop
                         fact.OwnerEntityId,
                         fact.TeamId,
                         targetEntityId: fact.MoonBlockEntityId,
-                        direction: Direction.None));
+                        direction: Direction.None,
+                        spawnTick: fact.SpawnTick,
+                        spawnInteractionLockTicks: fact.SpawnInteractionLockTicks));
+            }
+
+            var moonBlockGeneratorBlockedFacts = context.RespawnPhaseResult.MoonBlockGeneratorBlockedFacts;
+            for (var i = 0; i < moonBlockGeneratorBlockedFacts.Count; i++)
+            {
+                var fact = moonBlockGeneratorBlockedFacts[i];
+                tileEvents.Add(
+                    new TilePresentationEvent(
+                        TilePresentationEventKind.MoonBlockGeneratorBlocked,
+                        fact.GeneratorTileId,
+                        fact.Cell,
+                        TileFeatureKind.MoonBlockGenerator,
+                        fact.SourceEntityId,
+                        fact.OwnerEntityId,
+                        fact.TeamId,
+                        targetEntityId: fact.BlockingEntityId,
+                        direction: Direction.None,
+                        moonBlockGeneratorBlockedPayload: fact.Payload));
             }
 
             var barricadeBlockFacts = context.MovementPhaseResult.BarricadeBlockFacts;
@@ -955,6 +1148,7 @@ namespace Game.Feature.Gameplay.Loop
 
             var finalTileFeatures = new List<TileFeatureState>();
             context.FinalAuthoritativeSnapshot.EnumerateTileFeaturesOrdered(finalTileFeatures);
+            AddTileFeatureActivationEvents(context, topologyFact, finalTileFeatures, tileEvents);
 
             for (var i = 0; i < finalTileFeatures.Count; i++)
             {
@@ -987,6 +1181,122 @@ namespace Game.Feature.Gameplay.Loop
             AddExitEnteredEvents(context, finalTileFeatures, tileEvents);
 
             tileEvents.Sort(CompareTilePresentationEvents);
+        }
+
+        private static void BuildTileFeatureVisualStates(
+            in TickPresentationBuildContext context,
+            in TickTopologyTransitionFact topologyFact,
+            List<TileFeatureVisualState> visualStates)
+        {
+            var finalTopology = topologyFact.HasTransition
+                ? topologyFact.DestinationTopology
+                : context.FinalAuthoritativeSnapshot.Topology;
+            var finalTileFeatures = new List<TileFeatureState>();
+            context.FinalAuthoritativeSnapshot.EnumerateTileFeaturesOrdered(finalTileFeatures);
+            for (var i = 0; i < finalTileFeatures.Count; i++)
+            {
+                var tileFeature = finalTileFeatures[i];
+                if (tileFeature.Kind != TileFeatureKind.Barricade ||
+                    !TryGetTileFeatureDefinition(context.TileFeatureDefinitions, tileFeature.TileId, out var definition) ||
+                    !TileFeatureActivationQueries.IsActive(tileFeature, definition, finalTopology))
+                {
+                    continue;
+                }
+
+                visualStates.Add(new TileFeatureVisualState(
+                    tileFeature.TileId,
+                    tileFeature.Cell,
+                    tileFeature.Kind,
+                    true,
+                    tileFeature.SourceEntityId,
+                    tileFeature.OwnerEntityId,
+                    tileFeature.TeamId));
+            }
+        }
+
+        private static void AddTileFeatureActivationEvents(
+            in TickPresentationBuildContext context,
+            in TickTopologyTransitionFact topologyFact,
+            IReadOnlyList<TileFeatureState> finalTileFeatures,
+            List<TilePresentationEvent> tileEvents)
+        {
+            var previousTopology = topologyFact.HasTransition
+                ? topologyFact.SourceTopology
+                : context.PreMovementSnapshot.Topology;
+            var finalTopology = topologyFact.HasTransition
+                ? topologyFact.DestinationTopology
+                : context.FinalAuthoritativeSnapshot.Topology;
+
+            for (var i = 0; i < finalTileFeatures.Count; i++)
+            {
+                var finalTileFeature = finalTileFeatures[i];
+                if (!IsActivationEventKind(finalTileFeature.Kind) ||
+                    !TryGetTileFeatureDefinition(
+                        context.TileFeatureDefinitions,
+                        finalTileFeature.TileId,
+                        out var definition))
+                {
+                    continue;
+                }
+
+                var finalActive = TileFeatureActivationQueries.IsActive(
+                    finalTileFeature,
+                    definition,
+                    finalTopology);
+                var previousActive =
+                    context.PreMovementSnapshot.TryGetTileFeature(finalTileFeature.TileId, out var previousTileFeature) &&
+                    previousTileFeature.Kind == finalTileFeature.Kind &&
+                    TileFeatureActivationQueries.IsActive(
+                        previousTileFeature,
+                        definition,
+                        previousTopology);
+
+                if (previousActive == finalActive ||
+                    !TryResolveActivationEventKind(finalTileFeature.Kind, finalActive, out var eventKind))
+                {
+                    continue;
+                }
+
+                tileEvents.Add(new TilePresentationEvent(
+                    eventKind,
+                    finalTileFeature.TileId,
+                    finalTileFeature.Cell,
+                    finalTileFeature.Kind,
+                    finalTileFeature.SourceEntityId,
+                    finalTileFeature.OwnerEntityId,
+                    finalTileFeature.TeamId));
+            }
+        }
+
+        private static bool IsActivationEventKind(TileFeatureKind kind)
+        {
+            return kind == TileFeatureKind.Destroy ||
+                   kind == TileFeatureKind.Barricade;
+        }
+
+        private static bool TryResolveActivationEventKind(
+            TileFeatureKind kind,
+            bool isActive,
+            out TilePresentationEventKind eventKind)
+        {
+            if (kind == TileFeatureKind.Destroy)
+            {
+                eventKind = isActive
+                    ? TilePresentationEventKind.DestroyTileActivated
+                    : TilePresentationEventKind.DestroyTileDeactivated;
+                return true;
+            }
+
+            if (kind == TileFeatureKind.Barricade)
+            {
+                eventKind = isActive
+                    ? TilePresentationEventKind.BarricadeActivated
+                    : TilePresentationEventKind.BarricadeDeactivated;
+                return true;
+            }
+
+            eventKind = default;
+            return false;
         }
 
         private static void AddExitOpenedEvents(
@@ -1113,7 +1423,8 @@ namespace Game.Feature.Gameplay.Loop
                 return tileCompare;
             }
 
-            var kindCompare = left.EventKind.CompareTo(right.EventKind);
+            var kindCompare = ResolveTilePresentationEventSortPriority(left.EventKind)
+                .CompareTo(ResolveTilePresentationEventSortPriority(right.EventKind));
             if (kindCompare != 0)
             {
                 return kindCompare;
@@ -1138,7 +1449,44 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             var teamCompare = left.TeamId.CompareTo(right.TeamId);
-            return teamCompare != 0 ? teamCompare : left.Direction.CompareTo(right.Direction);
+            if (teamCompare != 0)
+            {
+                return teamCompare;
+            }
+
+            var directionCompare = left.Direction.CompareTo(right.Direction);
+            if (directionCompare != 0)
+            {
+                return directionCompare;
+            }
+
+            var reasonCompare = left.MoonBlockGeneratorBlockedPayload.Reason
+                .CompareTo(right.MoonBlockGeneratorBlockedPayload.Reason);
+            if (reasonCompare != 0)
+            {
+                return reasonCompare;
+            }
+
+            return CompareSurfaceCells(
+                left.MoonBlockGeneratorBlockedPayload.BlockedCell,
+                right.MoonBlockGeneratorBlockedPayload.BlockedCell);
+        }
+
+        private static int ResolveTilePresentationEventSortPriority(TilePresentationEventKind eventKind)
+        {
+            switch (eventKind)
+            {
+                case TilePresentationEventKind.BarricadeActivated:
+                    return 35;
+                case TilePresentationEventKind.BarricadeBlocked:
+                    return 40;
+                case TilePresentationEventKind.BarricadeCrushed:
+                    return 50;
+                case TilePresentationEventKind.BarricadeDeactivated:
+                    return 55;
+                default:
+                    return (int)eventKind * 10;
+            }
         }
 
         private static int CompareSurfaceCells(SurfaceCell left, SurfaceCell right)
@@ -1446,7 +1794,10 @@ namespace Game.Feature.Gameplay.Loop
                         context.PreMovementSnapshot.Topology,
                         context.PostMovementSnapshot.Topology,
                         sourceEntity.facing,
-                        destinationEntity.facing));
+                        destinationEntity.facing,
+                        startedTick: destinationPose.State.startedTick,
+                        elapsedTicks: destinationPose.State.elapsedTicks,
+                        totalTicks: destinationPose.State.totalTicks));
                 movementKinematicEntityIds.Add(operation.EntityId);
             }
 
@@ -1477,7 +1828,10 @@ namespace Game.Feature.Gameplay.Loop
                         context.FinalAuthoritativeSnapshot.Topology,
                         context.FinalAuthoritativeSnapshot.Topology,
                         heldEntity.facing,
-                        heldEntity.facing));
+                        heldEntity.facing,
+                        startedTick: heldPose.State.startedTick,
+                        elapsedTicks: heldPose.State.elapsedTicks,
+                        totalTicks: heldPose.State.totalTicks));
             }
 
             for (var i = 0; i < interruptedEntityIds.Count; i++)
@@ -1505,7 +1859,10 @@ namespace Game.Feature.Gameplay.Loop
                         context.PostAttackSnapshot.Topology,
                         sourceEntity.facing,
                         destinationEntity.facing,
-                        TickKinematicMotionTerminalKind.Interrupted));
+                        TickKinematicMotionTerminalKind.Interrupted,
+                        startedTick: destinationPose.State.startedTick,
+                        elapsedTicks: destinationPose.State.elapsedTicks,
+                        totalTicks: destinationPose.State.totalTicks));
             }
 
             for (var i = 0; i < context.CleanupPhaseResult.RemovedUnitKinematicPoses.Count; i++)
@@ -1536,7 +1893,10 @@ namespace Game.Feature.Gameplay.Loop
                         context.PostAttackSnapshot.Topology,
                         sourceEntity.facing,
                         destinationEntity.facing,
-                        TickKinematicMotionTerminalKind.Removed));
+                        TickKinematicMotionTerminalKind.Removed,
+                        startedTick: removedPose.State.startedTick,
+                        elapsedTicks: removedPose.State.elapsedTicks,
+                        totalTicks: removedPose.State.totalTicks));
             }
         }
 
@@ -1861,105 +2221,203 @@ namespace Game.Feature.Gameplay.Loop
             List<TickEntityExitPresentationSignal> entityExitSignals,
             ISet<int> exitOwnedEntityIds)
         {
-            // Exit-owned removals bypass generic detach/remove visibility tracks. The
-            // authoritative entity view disappears immediately; only transient echoes linger.
-            var signaledEntityIds = new HashSet<int>();
-            BuildMovementOwnedExitPresentation(
-                context,
-                entityExitSignals,
-                exitOwnedEntityIds,
-                signaledEntityIds);
-            BuildAttackOwnedExitPresentation(
-                context,
-                entityExitSignals,
-                exitOwnedEntityIds,
-                signaledEntityIds);
+            var facts = BuildEntityExitPresentationFacts(context);
+            for (var i = 0; i < facts.Count; i++)
+            {
+                var fact = facts[i];
+                entityExitSignals.Add(
+                    new TickEntityExitPresentationSignal(
+                        fact.EntityId,
+                        fact.ExitCause,
+                        fact.AnchorCell,
+                        fact.Topology,
+                        fact.Facing,
+                        fact.EntityType,
+                        sourceActorEntityId: fact.SourceActorEntityId,
+                        presentationSeed: BuildStablePresentationSeed(
+                            context.CurrentTickIndex,
+                            fact.EntityId,
+                            fact.SourceActorEntityId,
+                            fact.ExitCause),
+                        timing: fact.Timing));
+                exitOwnedEntityIds.Add(fact.EntityId);
+            }
         }
 
-        private static void BuildMovementOwnedExitPresentation(
-            in TickPresentationBuildContext context,
-            List<TickEntityExitPresentationSignal> entityExitSignals,
-            ISet<int> exitOwnedEntityIds,
-            ISet<int> signaledEntityIds)
+        private static IReadOnlyList<EntityExitPresentationFact> BuildEntityExitPresentationFacts(
+            in TickPresentationBuildContext context)
         {
             var removedEntityIds = new HashSet<int>(context.CleanupPhaseResult.RemovedEntityIds);
-            var operations = context.MovementPhaseResult.ResolvedOperations;
+            if (removedEntityIds.Count == 0)
+            {
+                return Array.Empty<EntityExitPresentationFact>();
+            }
 
+            var factsByEntityId = new Dictionary<int, EntityExitPresentationFact>();
+            var operations = BuildEntityExitCandidateOperations(context);
             for (var i = 0; i < operations.Count; i++)
             {
                 var operation = operations[i];
                 if (operation.Metadata.ExitCauseHint == TickEntityExitCause.None ||
                     !removedEntityIds.Contains(operation.EntityId) ||
-                    !signaledEntityIds.Add(operation.EntityId) ||
-                    !context.PreMovementSnapshot.TryGetEntity(operation.EntityId, out var sourceEntity))
+                    !IsExitRelevantOperation(operation) ||
+                    !TryResolveEntityExitState(context, operation.EntityId, out var sourceEntity, out var topology) ||
+                    !IsExitPresentationSupportedEntity(sourceEntity))
                 {
                     continue;
                 }
 
-                var isExitSignal =
-                    (operation.Kind == FinalizationOperationKind.SetBoardPresence &&
-                     operation.BoardPresence == EntityBoardPresence.Detached) ||
-                    operation.Kind == FinalizationOperationKind.MarkDestroy;
-                if (!isExitSignal)
-                {
-                    signaledEntityIds.Remove(operation.EntityId);
-                    continue;
-                }
+                var fact = new EntityExitPresentationFact(
+                    operation.EntityId,
+                    operation.Metadata.ExitCauseHint,
+                    sourceEntity.type,
+                    ResolveExitAnchorCell(context, operation, sourceEntity.position),
+                    topology,
+                    sourceEntity.facing,
+                    operation.Metadata.SourceActorEntityId,
+                    operation.Metadata.ExitPresentationTiming,
+                    operation.Metadata.BoundaryReason,
+                    operation.Metadata.HasPresentationTargetCell);
+                MergePreferMoreSpecificFact(factsByEntityId, fact);
+            }
 
-                var exitCause = operation.Metadata.ExitCauseHint;
-                entityExitSignals.Add(
-                    new TickEntityExitPresentationSignal(
-                        operation.EntityId,
-                        exitCause,
-                        sourceEntity.position,
-                        context.PreMovementSnapshot.Topology,
-                        sourceEntity.facing,
-                        sourceEntity.type,
-                        sourceActorEntityId: operation.Metadata.SourceActorEntityId,
-                        presentationSeed: BuildStablePresentationSeed(
-                            context.CurrentTickIndex,
-                            operation.EntityId,
-                            operation.Metadata.SourceActorEntityId,
-                            exitCause)));
-                exitOwnedEntityIds.Add(operation.EntityId);
+            if (factsByEntityId.Count == 0)
+            {
+                return Array.Empty<EntityExitPresentationFact>();
+            }
+
+            var facts = new List<EntityExitPresentationFact>(factsByEntityId.Values);
+            facts.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+            return facts;
+        }
+
+        private static IReadOnlyList<FinalizationOperation> BuildEntityExitCandidateOperations(
+            in TickPresentationBuildContext context)
+        {
+            if (context.FinalizationBatch.Operations.Count > 0)
+            {
+                return context.FinalizationBatch.Operations;
+            }
+
+            var operations = new List<FinalizationOperation>(
+                context.MovementPhaseResult.ResolvedOperations.Count +
+                context.AttackPhaseResult.ResolvedOperations.Count);
+            AppendOperations(operations, context.MovementPhaseResult.ResolvedOperations);
+            AppendOperations(operations, context.AttackPhaseResult.ResolvedOperations);
+            return operations;
+        }
+
+        private static void AppendOperations(
+            List<FinalizationOperation> destination,
+            IReadOnlyList<FinalizationOperation> source)
+        {
+            for (var i = 0; i < source.Count; i++)
+            {
+                destination.Add(source[i]);
             }
         }
 
-        private static void BuildAttackOwnedExitPresentation(
-            in TickPresentationBuildContext context,
-            List<TickEntityExitPresentationSignal> entityExitSignals,
-            ISet<int> exitOwnedEntityIds,
-            ISet<int> signaledEntityIds)
+        private static bool IsExitRelevantOperation(FinalizationOperation operation)
         {
-            var removedEntityIds = context.CleanupPhaseResult.RemovedEntityIds;
-            for (var i = 0; i < removedEntityIds.Count; i++)
-            {
-                var entityId = removedEntityIds[i];
-                if (exitOwnedEntityIds.Contains(entityId) ||
-                    !signaledEntityIds.Add(entityId) ||
-                    !context.PostAttackSnapshot.TryGetEntity(entityId, out var removedEntity) ||
-                    !IsEnemyUnit(context.PostAttackSnapshot, entityId) ||
-                    !TryFindAttackDestroyOperation(context.AttackPhaseResult.ResolvedOperations, entityId, out var destroyOperation))
-                {
-                    continue;
-                }
+            return (operation.Kind == FinalizationOperationKind.SetBoardPresence &&
+                    operation.BoardPresence == EntityBoardPresence.Detached) ||
+                   operation.Kind == FinalizationOperationKind.MarkDestroy;
+        }
 
-                entityExitSignals.Add(
-                    new TickEntityExitPresentationSignal(
-                        entityId,
-                        destroyOperation.Metadata.ExitCauseHint,
-                        removedEntity.position,
-                        context.PostAttackSnapshot.Topology,
-                        removedEntity.facing,
-                        removedEntity.type,
-                        sourceActorEntityId: destroyOperation.Metadata.SourceActorEntityId,
-                        presentationSeed: BuildStablePresentationSeed(
-                            context.CurrentTickIndex,
-                            entityId,
-                            destroyOperation.Metadata.SourceActorEntityId,
-                            destroyOperation.Metadata.ExitCauseHint)));
-                exitOwnedEntityIds.Add(entityId);
+        private static bool IsExitPresentationSupportedEntity(EntityState entity)
+        {
+            return entity.type == EntityType.Box ||
+                   (entity.type == EntityType.Unit && entity.aiMode != EnemyAiMode.None);
+        }
+
+        private static SurfaceCell ResolveExitAnchorCell(
+            in TickPresentationBuildContext context,
+            FinalizationOperation operation,
+            SurfaceCell fallbackCell)
+        {
+            if (operation.Metadata.HasPresentationTargetCell)
+            {
+                return operation.Metadata.PresentationTargetCell;
             }
+
+            if (operation.Kind == FinalizationOperationKind.MoveEntity)
+            {
+                return operation.Destination;
+            }
+
+            if (context.PostAttackSnapshot.TryGetEntity(operation.EntityId, out var postAttackEntity))
+            {
+                return postAttackEntity.position;
+            }
+
+            if (context.PostMovementSnapshot.TryGetEntity(operation.EntityId, out var postMovementEntity))
+            {
+                return postMovementEntity.position;
+            }
+
+            return context.PreMovementSnapshot.TryGetEntity(operation.EntityId, out var preMovementEntity)
+                ? preMovementEntity.position
+                : fallbackCell;
+        }
+
+        private static bool TryResolveEntityExitState(
+            in TickPresentationBuildContext context,
+            int entityId,
+            out EntityState entity,
+            out CubeTopologyState topology)
+        {
+            if (context.PostAttackSnapshot.TryGetEntity(entityId, out entity))
+            {
+                topology = context.PostAttackSnapshot.Topology;
+                return true;
+            }
+
+            if (context.PostMovementSnapshot.TryGetEntity(entityId, out entity))
+            {
+                topology = context.PostMovementSnapshot.Topology;
+                return true;
+            }
+
+            if (context.PreMovementSnapshot.TryGetEntity(entityId, out entity))
+            {
+                topology = context.PreMovementSnapshot.Topology;
+                return true;
+            }
+
+            topology = default;
+            return false;
+        }
+
+        private static void MergePreferMoreSpecificFact(
+            IDictionary<int, EntityExitPresentationFact> factsByEntityId,
+            in EntityExitPresentationFact candidate)
+        {
+            if (!factsByEntityId.TryGetValue(candidate.EntityId, out var existing) ||
+                GetEntityExitFactSpecificity(candidate) > GetEntityExitFactSpecificity(existing))
+            {
+                factsByEntityId[candidate.EntityId] = candidate;
+            }
+        }
+
+        private static int GetEntityExitFactSpecificity(in EntityExitPresentationFact fact)
+        {
+            var score = 0;
+            if (fact.HasExplicitAnchor)
+            {
+                score += 4;
+            }
+
+            if (fact.Timing != EntityExitPresentationTiming.Immediate)
+            {
+                score += 2;
+            }
+
+            if (!string.IsNullOrEmpty(fact.BoundaryReason))
+            {
+                score += 1;
+            }
+
+            return score;
         }
 
         private static void BuildCleanupPresentation(
@@ -2185,7 +2643,7 @@ namespace Game.Feature.Gameplay.Loop
                     !entry.State.activeAction.IsActive &&
                     !context.PlayerCommand.PushPressed &&
                     !context.PlayerCommand.FlipPressed &&
-                    (moveMotionGeneratedThisTick || waitingForNextMoveCadence);
+                    context.PlayerCommand.MoveDirection != Direction.None;
 
                 playerLocomotionSignals.Add(
                     new TickPlayerLocomotionPresentationSignal(
@@ -2277,26 +2735,67 @@ namespace Game.Feature.Gameplay.Loop
                         : DeathDirectionHintKind.FacingReverse);
             }
 
-            if (fatalSignalsByPlayerId.Count == 0)
+            var removedPlayerIds = context.CleanupPhaseResult.RemovedEntityIds.Count > 0
+                ? new HashSet<int>(context.CleanupPhaseResult.RemovedEntityIds)
+                : null;
+            if (fatalSignalsByPlayerId.Count > 0)
+            {
+                foreach (var pair in fatalSignalsByPlayerId)
+                {
+                    var didDieThisTick =
+                        (context.PostAttackSnapshot.TryGetEntity(pair.Key, out var postAttackPlayer) &&
+                         postAttackPlayer.hp <= 0) ||
+                        (removedPlayerIds != null && removedPlayerIds.Contains(pair.Key));
+                    if (!didDieThisTick)
+                    {
+                        continue;
+                    }
+
+                    playerDeathSignals.Add(pair.Value);
+                }
+            }
+
+            BuildMovementOwnedPlayerDeathPresentation(context, playerDeathSignals, fatalSignalsByPlayerId);
+        }
+
+        private static void BuildMovementOwnedPlayerDeathPresentation(
+            in TickPresentationBuildContext context,
+            List<TickPlayerDeathPresentationSignal> playerDeathSignals,
+            IDictionary<int, TickPlayerDeathPresentationSignal> existingSignalsByPlayerId)
+        {
+            var removedPlayerIds = context.CleanupPhaseResult.RemovedEntityIds.Count > 0
+                ? new HashSet<int>(context.CleanupPhaseResult.RemovedEntityIds)
+                : null;
+            if (removedPlayerIds == null)
             {
                 return;
             }
 
-            var removedPlayerIds = context.CleanupPhaseResult.RemovedEntityIds.Count > 0
-                ? new HashSet<int>(context.CleanupPhaseResult.RemovedEntityIds)
-                : null;
-            foreach (var pair in fatalSignalsByPlayerId)
+            var operations = context.MovementPhaseResult.ResolvedOperations;
+            for (var i = 0; i < operations.Count; i++)
             {
-                var didDieThisTick =
-                    (context.PostAttackSnapshot.TryGetEntity(pair.Key, out var postAttackPlayer) &&
-                     postAttackPlayer.hp <= 0) ||
-                    (removedPlayerIds != null && removedPlayerIds.Contains(pair.Key));
-                if (!didDieThisTick)
+                var operation = operations[i];
+                if (operation.Kind != FinalizationOperationKind.MarkDestroy ||
+                    operation.Metadata.DamageSourceType != DamageSourceType.Environmental ||
+                    operation.Metadata.BoundaryReason != "DestroyTile" ||
+                    existingSignalsByPlayerId.ContainsKey(operation.EntityId) ||
+                    !removedPlayerIds.Contains(operation.EntityId) ||
+                    !context.PostAttackSnapshot.TryGetEntity(operation.EntityId, out var player) ||
+                    !EntityRolePolicy.IsPlayerUnit(player))
                 {
                     continue;
                 }
 
-                playerDeathSignals.Add(pair.Value);
+                var signal = new TickPlayerDeathPresentationSignal(
+                    operation.EntityId,
+                    didDieThisTick: true,
+                    sourceEntityId: 0,
+                    player.facing,
+                    resolvedDamageSourceAvailable: false,
+                    damageAmountAtFatalHit: Math.Max(1, player.hp),
+                    DeathDirectionHintKind.FacingReverse);
+                existingSignalsByPlayerId[operation.EntityId] = signal;
+                playerDeathSignals.Add(signal);
             }
         }
 
@@ -3183,56 +3682,60 @@ namespace Game.Feature.Gameplay.Loop
                    entity.aiMode != EnemyAiMode.None;
         }
 
-        private static TickTopologyMotion? BuildTopologyMotion(in TickPresentationBuildContext context)
+        private static TickTopologyTransitionFact ResolveTopologyTransitionFact(
+            in TickPresentationBuildContext context)
         {
             var sourceTopology = context.PreMovementSnapshot.Topology;
             var destinationTopology = context.PostMovementSnapshot.Topology;
-            if (sourceTopology.Equals(destinationTopology))
+            if (!sourceTopology.Equals(destinationTopology))
             {
-                if (TryBuildFree2DTopologyTransitionMotion(context, out var topologyMotion))
-                {
-                    return topologyMotion;
-                }
-
-                return BuildRespawnTopologyMotion(context);
+                return new TickTopologyTransitionFact(
+                    hasTransition: true,
+                    sourceTopology,
+                    destinationTopology,
+                    ResolveRotationKind(
+                        context.MovementPhaseResult.ResolvedOperations,
+                        sourceTopology,
+                        destinationTopology),
+                    TickTopologyTransitionSource.SnapshotDiff);
             }
 
-            return new TickTopologyMotion(
-                sourceTopology,
-                destinationTopology,
-                ResolveRotationKind(
-                    context.MovementPhaseResult.ResolvedOperations,
-                    sourceTopology,
-                    destinationTopology));
-        }
-
-        private static bool TryBuildFree2DTopologyTransitionMotion(
-            in TickPresentationBuildContext context,
-            out TickTopologyMotion topologyMotion)
-        {
             if (!TryResolveFree2DTopologyTransitionMetadata(
                     context.MovementPhaseResult,
                     out var metadata))
             {
-                topologyMotion = default;
-                return false;
+                return default;
             }
 
-            var destinationTopology = context.PostMovementSnapshot.Topology;
-            var sourceTopology = ResolveFree2DTopologyTransitionSourceTopology(
+            sourceTopology = ResolveFree2DTopologyTransitionSourceTopology(
                 destinationTopology,
                 metadata.RotationKind);
             if (sourceTopology.Equals(destinationTopology))
             {
-                topologyMotion = default;
-                return false;
+                return default;
             }
 
-            topologyMotion = new TickTopologyMotion(
+            return new TickTopologyTransitionFact(
+                hasTransition: true,
                 sourceTopology,
                 destinationTopology,
-                metadata.RotationKind);
-            return true;
+                metadata.RotationKind,
+                TickTopologyTransitionSource.Free2DNative);
+        }
+
+        private static TickTopologyMotion? BuildTopologyMotion(
+            in TickPresentationBuildContext context,
+            in TickTopologyTransitionFact topologyFact)
+        {
+            if (!topologyFact.HasTransition)
+            {
+                return BuildRespawnTopologyMotion(context);
+            }
+
+            return new TickTopologyMotion(
+                topologyFact.SourceTopology,
+                topologyFact.DestinationTopology,
+                topologyFact.RotationKind);
         }
 
         private static bool TryResolveFree2DTopologyTransitionMetadata(

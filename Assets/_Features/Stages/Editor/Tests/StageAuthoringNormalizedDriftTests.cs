@@ -61,6 +61,97 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void StageAuthoringDrift_PlayerMobilityMismatch_IsDetected()
+        {
+            var fixture = StageAuthoringTestFixture.CreateSynced();
+            try
+            {
+                SetAuthoringPlacementMobility(fixture.Authoring, StageAuthoringEntityKind.Player, UnitMobilityKind.Air);
+
+                var report = fixture.Validate();
+
+                Assert.That(
+                    report.Issues.Any(issue =>
+                        issue.Code == "GameplayDrift.SpawnFieldMismatch" &&
+                        issue.FieldName == "UnitMobilityKind"),
+                    Is.True,
+                    FormatIssues(report));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        public void StageAuthoringDrift_EnemyMobilityMismatch_IsDetected()
+        {
+            var fixture = StageAuthoringTestFixture.CreateSynced();
+            try
+            {
+                SetSpawnInt(fixture.Gameplay, "enemySpawns", 0, "UnitMobilityKind", (int)UnitMobilityKind.Air);
+
+                var report = fixture.Validate();
+
+                Assert.That(
+                    report.Issues.Any(issue =>
+                        issue.Code == "GameplayDrift.SpawnFieldMismatch" &&
+                        issue.FieldName == "UnitMobilityKind"),
+                    Is.True,
+                    FormatIssues(report));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        public void StageAuthoringDrift_UnitMobilityMatch_HasNoDrift()
+        {
+            var fixture = StageAuthoringTestFixture.Create();
+            try
+            {
+                SetAuthoringPlacementMobility(fixture.Authoring, StageAuthoringEntityKind.Player, UnitMobilityKind.Air);
+                SetAuthoringPlacementMobility(fixture.Authoring, StageAuthoringEntityKind.Enemy, UnitMobilityKind.Air);
+                var generationReport = StageAuthoringGenerator.Generate(fixture.Authoring, StageAuthoringGenerateOptions.WriteAll);
+                Assert.That(generationReport.HasErrors, Is.False, StageAuthoringTestFixture.FormatGenerationIssues(generationReport));
+
+                var report = fixture.Validate();
+
+                Assert.That(report.Issues.Any(IsDriftIssue), Is.False, FormatIssues(report));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        public void StageAuthoringDrift_NonUnitMobilityMismatch_IsIgnoredOrNormalized()
+        {
+            var fixture = StageAuthoringTestFixture.CreateSynced();
+            try
+            {
+                SetAuthoringPlacementMobility(fixture.Authoring, StageAuthoringEntityKind.Box, UnitMobilityKind.Air);
+                SetSpawnInt(fixture.Gameplay, "boxSpawns", 0, "UnitMobilityKind", (int)UnitMobilityKind.Air);
+
+                var report = fixture.Validate();
+
+                Assert.That(
+                    report.Issues.Any(issue =>
+                        issue.Code == "GameplayDrift.SpawnFieldMismatch" &&
+                        issue.FieldName == "UnitMobilityKind"),
+                    Is.False,
+                    FormatIssues(report));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
         public void NormalizedDrift_WallFacingAuthoringSupportDoesNotMakeFacingSemanticDrift()
         {
             Assert.That(StageAuthoringKindRegistry.Wall.SupportsFacingAuthoring, Is.True);
@@ -284,6 +375,7 @@ namespace Game.Feature.Stages.Editor.Tests
                         new SurfaceCell(FaceId.Floor, 2, 3),
                         facing,
                         1,
+                        UnitMobilityKind.Ground,
                         string.Empty,
                         BoxCapabilities.None,
                         BoxArchetype.Normal,
@@ -334,6 +426,14 @@ namespace Game.Feature.Stages.Editor.Tests
             var serializedObject = new SerializedObject(stage);
             serializedObject.FindProperty(groupName).GetArrayElementAtIndex(index).FindPropertyRelative(fieldName).stringValue = value;
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void SetAuthoringPlacementMobility(
+            StageAuthoringDefinition authoring,
+            StageAuthoringEntityKind kind,
+            UnitMobilityKind unitMobilityKind)
+        {
+            authoring.Placements.First(placement => placement.Kind == kind).UnitMobilityKind = unitMobilityKind;
         }
 
         private static void SetBindingPresentationId(StagePresentationDefinition presentation, string fieldName, int index, string value)
@@ -570,7 +670,7 @@ namespace Game.Feature.Stages.Editor.Tests
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private static string FormatGenerationIssues(StageAuthoringGenerationReport report)
+        internal static string FormatGenerationIssues(StageAuthoringGenerationReport report)
         {
             return string.Join(Environment.NewLine, report.Issues.Select(issue => $"[{issue.Severity}] {issue.Code}: {issue.Message}"));
         }

@@ -35,7 +35,9 @@ namespace Game.Feature.Gameplay.GravityFieldAudio
                     request.Cell,
                     new AudioPlaybackContext(
                         ownerEntityId: request.EmitterEntityId > 0 ? request.EmitterEntityId : null,
-                        debugTag: GravityFieldAudioCueCatalog.Format(cue))));
+                        debugTag: GravityFieldAudioCueCatalog.Format(cue)),
+                    request.TargetEntityId,
+                    request.LockedBoxPayload));
             }
 
             return requests.Count == 0 ? Array.Empty<GravityFieldAudioRequest>() : requests;
@@ -52,6 +54,9 @@ namespace Game.Feature.Gameplay.GravityFieldAudio
                     return true;
                 case GravityFieldPresentationRequestKind.Expired:
                     cue = GravityFieldAudioCue.Expired;
+                    return true;
+                case GravityFieldPresentationRequestKind.LockedBox:
+                    cue = GravityFieldAudioCue.LockedBox;
                     return true;
                 default:
                     cue = default;

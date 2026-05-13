@@ -187,4 +187,9 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState entity,
             out EnemyGlidePresentationSettings settings);
     }
+
+    internal interface ITileFeatureDefinitionContextReceiver
+    {
+        void BindTileFeatureDefinitions(IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions);
+    }
 }

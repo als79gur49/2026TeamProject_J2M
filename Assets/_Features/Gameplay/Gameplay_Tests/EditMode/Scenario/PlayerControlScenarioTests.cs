@@ -158,7 +158,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(secondSignal.MoveMotionGeneratedThisTick, Is.False);
             Assert.That(secondSignal.WaitingForNextMoveCadence, Is.True);
 
-            Assert.That(thirdSignal.ShouldPlayWalkLoop, Is.False);
+            Assert.That(thirdSignal.ShouldPlayWalkLoop, Is.True);
             Assert.That(thirdSignal.MoveMotionGeneratedThisTick, Is.False);
             Assert.That(thirdSignal.WaitingForNextMoveCadence, Is.False);
             Assert.That(thirdTick.MovementPhaseResult.CommitEvents, Is.Empty);
@@ -421,6 +421,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Push));
             Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().TargetEntityId, Is.EqualTo(20));
             Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().Direction, Is.EqualTo(Direction.Right));
+            Assert.That(executeTick.PresentationData.BoxSlideStartSignals.Single().BoxEntityId, Is.EqualTo(20));
+            Assert.That(executeTick.PresentationData.BoxSlideStartSignals.Single().ActorEntityId, Is.EqualTo(10));
             Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(snapshotAfter.TryGetEntity(20, out var box), Is.True);

@@ -15,12 +15,19 @@ using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEditor;
+using UnityEditor.Animations;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class GameplayTickPresentationCoordinatorTests
     {
+        private const string MoonGeneratorPrefabPath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_MoonGenerator_Default.prefab";
+
+        private const string MoonGeneratorDoorOpenClipPath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Animations/MoonBlockGenerator_DoorOpen.anim";
+
         [Test]
         [Category("Extended")]
         public void CurrentTilePresentationRequests_DefaultsEmpty()
@@ -850,6 +857,125 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void GameplayTickViewPresenter_GravityFieldLockedBoxOneShot_CallsTargetInterfaceAndDoesNotClearDimming()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_GravityFieldLockedBoxOneShot_CallsTargetInterfaceAndDoesNotClearDimming));
+            var emitterCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var emitter = CreateBox(30, emitterCell);
+            var targetBox = CreateBox(20, targetCell);
+            var payload = new GravityFieldLockedBoxPayload(30, 20, emitterCell, targetCell);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                presenter.PresentInitial(new[] { emitter, targetBox }, topology);
+                var registry = rootObject.GetComponent<GameplayEntityViewRegistry>();
+                Assert.That(registry.TryGetView(20, out var targetView), Is.True);
+                var target = targetView.gameObject.AddComponent<RecordingGravityFieldVisualTarget>();
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    new[] { emitter, targetBox },
+                    topology,
+                    CreateGravityFieldPresentationData(
+                        new[]
+                        {
+                            CreateGravityFieldVisualState(
+                                30,
+                                emitterCell,
+                                GravityFieldPhase.Active,
+                                timerTicks: 2,
+                                durationTicks: 5,
+                                lockedTargetEntityIds: new[] { 20 }),
+                        },
+                        new GravityFieldPresentationEvent(
+                            GravityFieldPresentationEventKind.LockedBox,
+                            30,
+                            emitterCell,
+                            targetEntityId: 20,
+                            lockedBoxPayload: payload))));
+
+                Assert.That(target.LockedBoxOneShotCount, Is.EqualTo(1));
+                Assert.That(target.LastLockedBoxPayload, Is.EqualTo(payload));
+                Assert.That(target.ApplyLockedTargetCount, Is.EqualTo(1));
+                Assert.That(target.ClearLockedTargetCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_GravityFieldLockedBoxOneShot_MissingUnsupportedAndLateAttachDoNotReplay()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_GravityFieldLockedBoxOneShot_MissingUnsupportedAndLateAttachDoNotReplay));
+            var diagnostics = new List<string>();
+            var emitterCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var emitter = CreateBox(30, emitterCell);
+            var targetBox = CreateBox(20, targetCell);
+            var payload = new GravityFieldLockedBoxPayload(30, 20, emitterCell, targetCell);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                presenter.SetGravityFieldVisualDiagnosticSink(diagnostics.Add);
+                presenter.PresentInitial(new[] { emitter, targetBox }, topology);
+                var registry = rootObject.GetComponent<GameplayEntityViewRegistry>();
+                Assert.That(registry.TryGetView(20, out var targetView), Is.True);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    new[] { emitter, targetBox },
+                    topology,
+                    CreateGravityFieldPresentationData(new GravityFieldPresentationEvent(
+                        GravityFieldPresentationEventKind.LockedBox,
+                        30,
+                        emitterCell,
+                        targetEntityId: 20,
+                        lockedBoxPayload: payload))));
+
+                var target = targetView.gameObject.AddComponent<RecordingGravityFieldVisualTarget>();
+                presenter.Present(CreateTickResult(
+                    2,
+                    new[] { emitter, targetBox },
+                    topology,
+                    CreateGravityFieldVisualPresentationData(
+                        CreateGravityFieldVisualState(
+                            30,
+                            emitterCell,
+                            GravityFieldPhase.Active,
+                            timerTicks: 2,
+                            durationTicks: 5,
+                            lockedTargetEntityIds: new[] { 20 }))));
+
+                presenter.Present(CreateTickResult(
+                    3,
+                    new[] { emitter, targetBox },
+                    topology,
+                    CreateGravityFieldPresentationData(new GravityFieldPresentationEvent(
+                        GravityFieldPresentationEventKind.LockedBox,
+                        30,
+                        emitterCell,
+                        targetEntityId: 999,
+                        lockedBoxPayload: new GravityFieldLockedBoxPayload(30, 999, emitterCell, targetCell)))));
+
+                Assert.That(diagnostics.Any(message => message.Contains("unsupported locked box one-shot visual target")), Is.True);
+                Assert.That(diagnostics.Any(message => message.Contains("missing locked box one-shot visual target")), Is.True);
+                Assert.That(target.LockedBoxOneShotCount, Is.Zero);
+                Assert.That(target.ApplyLockedTargetCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void GameplayTickViewPresenter_GravityFieldLockedTargets_DoesNotCreateSnapshots()
         {
             var rootObject = new GameObject(nameof(GameplayTickViewPresenter_GravityFieldLockedTargets_DoesNotCreateSnapshots));
@@ -1057,6 +1183,306 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(presenter.CurrentTilePresentationRequests, Has.Count.EqualTo(1));
                 Assert.That(presenter.CurrentTilePresentationRequests[0].RequestKind, Is.EqualTo(TilePresentationRequestKind.DestroyTileTriggered));
                 Assert.That(presenter.CurrentTilePresentationRequests[0].TargetEntityId, Is.EqualTo(20));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_MoonBlockGeneratedRequest_InvokesGeneratorTileVisualTarget()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_MoonBlockGeneratedRequest_InvokesGeneratorTileVisualTarget));
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                var target = AttachTileVisualTarget(rootObject, presenter, 100, cell);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    Array.Empty<EntityState>(),
+                    topology,
+                    CreateTilePresentationData(CreateMoonBlockGeneratedTileEvent(100, cell, moonBlockEntityId: 20, spawnTick: 1))));
+
+                Assert.That(target.DebugPlayMoonBlockGeneratedCount, Is.EqualTo(1));
+                Assert.That(target.DebugLastMoonBlockGeneratedEntityId, Is.EqualTo(20));
+                Assert.That(presenter.CurrentTilePresentationRequests, Has.Count.EqualTo(1));
+                Assert.That(presenter.CurrentTilePresentationRequests[0].RequestKind, Is.EqualTo(TilePresentationRequestKind.MoonBlockGenerated));
+                Assert.That(presenter.CurrentTilePresentationRequests[0].TargetEntityId, Is.EqualTo(20));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void MoonBlockGeneratorPrefab_UsesAnimatorDoorOpenVisualAndNoDoorDriver()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(MoonGeneratorPrefabPath);
+
+            Assert.That(prefab, Is.Not.Null);
+
+            var target = prefab.GetComponent<TileFeatureVisualTargetView>();
+            Assert.That(target, Is.Not.Null);
+            Assert.That(target.DebugAnimator, Is.Not.Null);
+            Assert.That(target.DebugAnimator.runtimeAnimatorController, Is.Not.Null);
+            Assert.That(target.DebugAnimator.runtimeAnimatorController.name, Is.EqualTo("TileFeature_MoonGenerator_Default"));
+
+            var monoBehaviours = prefab.GetComponentsInChildren<MonoBehaviour>(includeInactive: true);
+            Assert.That(
+                monoBehaviours.Select(component => component != null ? component.GetType().Name : string.Empty),
+                Does.Not.Contain("MoonBlockGeneratorDoorPresentationDriver"));
+
+            var controller = target.DebugAnimator.runtimeAnimatorController as AnimatorController;
+            Assert.That(controller, Is.Not.Null);
+            Assert.That(controller.parameters.Any(parameter =>
+                parameter.name == "MoonBlockGenerated" &&
+                parameter.type == AnimatorControllerParameterType.Trigger), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void MoonBlockGeneratorDoorOpenClip_TargetsLeftAndRightDoorTransforms()
+        {
+            var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(MoonGeneratorDoorOpenClipPath);
+
+            Assert.That(clip, Is.Not.Null);
+
+            var bindings = AnimationUtility.GetCurveBindings(clip);
+            Assert.That(bindings.Any(binding =>
+                binding.path == "ModelRoot/MoonSpawner/L_Door" &&
+                binding.propertyName == "localEulerAnglesRaw.z"), Is.True);
+            Assert.That(bindings.Any(binding =>
+                binding.path == "ModelRoot/MoonSpawner/R_Door" &&
+                binding.propertyName == "localEulerAnglesRaw.z"), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_MoonBlockGeneratedBeforeEntityBind_StartsEmergenceWhenViewRegisters()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_MoonBlockGeneratedBeforeEntityBind_StartsEmergenceWhenViewRegisters));
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                var registry = rootObject.GetComponent<GameplayEntityViewRegistry>();
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    Array.Empty<EntityState>(),
+                    topology,
+                    CreateTilePresentationData(CreateMoonBlockGeneratedTileEvent(100, cell, moonBlockEntityId: 20, spawnTick: 1))));
+
+                Assert.That(presenter.PendingMoonBlockEmergenceRequestCount, Is.EqualTo(1));
+                Assert.That(registry.TryGetView(20, out _), Is.False);
+
+                presenter.Present(CreateTickResult(
+                    2,
+                    new[] { CreateBox(20, cell) },
+                    topology,
+                    TickPresentationData.Empty));
+
+                Assert.That(presenter.PendingMoonBlockEmergenceRequestCount, Is.Zero);
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                var driver = view.GetComponent<MoonBlockEmergencePresentationDriver>();
+                Assert.That(driver, Is.Not.Null);
+                Assert.That(driver.IsPlaying, Is.True);
+                Assert.That(driver.DebugPlayCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_MoonBlockEmergence_OnlyMovesModelRootAndNormalizes()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_MoonBlockEmergence_OnlyMovesModelRootAndNormalizes));
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                var registry = rootObject.GetComponent<GameplayEntityViewRegistry>();
+                var timingProfile = CreateTimingProfile();
+                var expectedRootPosition = GetProjectedEntityPosition(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                    topology,
+                    cell,
+                    EntityType.Box);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    new[] { CreateBox(20, cell) },
+                    topology,
+                    CreateTilePresentationData(CreateMoonBlockGeneratedTileEvent(100, cell, moonBlockEntityId: 20, spawnTick: 1))));
+
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                var rootPositionDuringEmergence = view.transform.localPosition;
+                var rootRotationDuringEmergence = view.transform.localRotation;
+                var modelRoot = view.ModelRoot;
+                AssertPositionApproximately(rootPositionDuringEmergence, expectedRootPosition);
+                Assert.That(modelRoot.localPosition.z, Is.LessThan(-0.001f));
+                Assert.That(modelRoot.localPosition.x, Is.EqualTo(0f).Within(0.001f));
+                Assert.That(modelRoot.localPosition.y, Is.EqualTo(0f).Within(0.001f));
+                Assert.That(modelRoot.localScale.x, Is.LessThan(1f));
+                Assert.That(presenter.HasBlockingPresentation, Is.False);
+
+                presenter.UpdatePresentation(timingProfile.MoonBlockEmergenceDurationSeconds + 0.01f);
+
+                AssertPositionApproximately(view.transform.localPosition, rootPositionDuringEmergence);
+                Assert.That(view.transform.localRotation, Is.EqualTo(rootRotationDuringEmergence));
+                AssertPositionApproximately(modelRoot.localPosition, Vector3.zero);
+                AssertPositionApproximately(modelRoot.localScale, Vector3.one);
+                Assert.That(view.GetComponent<MoonBlockEmergencePresentationDriver>().IsPlaying, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_MoonBlockEmergence_UsesNonLinearDotweenEase()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_MoonBlockEmergence_UsesNonLinearDotweenEase));
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                var registry = rootObject.GetComponent<GameplayEntityViewRegistry>();
+                var timingProfile = CreateTimingProfile();
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    new[] { CreateBox(20, cell) },
+                    topology,
+                    CreateTilePresentationData(CreateMoonBlockGeneratedTileEvent(100, cell, moonBlockEntityId: 20, spawnTick: 1))));
+
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                var lockDurationSeconds =
+                    MoonBlockGeneratorRespawnDefaults.SpawnInteractionLockTicks /
+                    (float)timingProfile.SimulationTicksPerSecond;
+                presenter.UpdatePresentation(lockDurationSeconds * 0.5f);
+
+                Assert.That(view.ModelRoot.localScale.x, Is.Not.EqualTo(0.6f).Within(0.05f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_MoonBlockEmergence_DurationDoesNotExceedSpawnLockWindow()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_MoonBlockEmergence_DurationDoesNotExceedSpawnLockWindow));
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                var registry = rootObject.GetComponent<GameplayEntityViewRegistry>();
+                var timingProfile = CreateTimingProfile();
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    new[] { CreateBox(20, cell) },
+                    topology,
+                    CreateTilePresentationData(CreateMoonBlockGeneratedTileEvent(100, cell, moonBlockEntityId: 20, spawnTick: 1))));
+
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                var driver = view.GetComponent<MoonBlockEmergencePresentationDriver>();
+                Assert.That(driver, Is.Not.Null);
+                Assert.That(driver.IsPlaying, Is.True);
+
+                var lockDurationSeconds =
+                    MoonBlockGeneratorRespawnDefaults.SpawnInteractionLockTicks /
+                    (float)timingProfile.SimulationTicksPerSecond;
+                Assert.That(lockDurationSeconds, Is.LessThan(timingProfile.MoonBlockEmergenceDurationSeconds));
+
+                presenter.UpdatePresentation(lockDurationSeconds + 0.01f);
+
+                Assert.That(driver.IsPlaying, Is.False);
+                AssertPositionApproximately(view.ModelRoot.localPosition, Vector3.zero);
+                AssertPositionApproximately(view.ModelRoot.localScale, Vector3.one);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void MoonBlockEmergencePresentationController_DisposeUnsubscribesAndClearsPending()
+        {
+            var rootObject = new GameObject(nameof(MoonBlockEmergencePresentationController_DisposeUnsubscribesAndClearsPending));
+
+            try
+            {
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var controller = new MoonBlockEmergencePresentationController();
+                controller.Configure(registry, CreateTimingProfile());
+                controller.QueueRequests(
+                    new[]
+                    {
+                        CreateMoonBlockGeneratedRequest(moonBlockEntityId: 20, spawnTick: 1),
+                    },
+                    currentTickIndex: 1);
+                Assert.That(controller.PendingRequestCount, Is.EqualTo(1));
+
+                controller.Dispose();
+                var viewObject = new GameObject("EntityView_20");
+                viewObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+                var view = viewObject.AddComponent<GameplayEntityView>();
+                view.Initialize(20);
+                registry.Register(view);
+
+                Assert.That(controller.PendingRequestCount, Is.Zero);
+                Assert.That(view.GetComponent<MoonBlockEmergencePresentationDriver>(), Is.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void MoonBlockEmergencePresentationController_PendingRequestExpiresIfViewNeverBinds()
+        {
+            var rootObject = new GameObject(nameof(MoonBlockEmergencePresentationController_PendingRequestExpiresIfViewNeverBinds));
+
+            try
+            {
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var controller = new MoonBlockEmergencePresentationController();
+                controller.Configure(registry, CreateTimingProfile());
+                controller.QueueRequests(
+                    new[]
+                    {
+                        CreateMoonBlockGeneratedRequest(moonBlockEntityId: 20, spawnTick: 1),
+                    },
+                    currentTickIndex: 1);
+
+                controller.QueueRequests(Array.Empty<TilePresentationRequest>(), currentTickIndex: 8);
+
+                Assert.That(controller.PendingRequestCount, Is.Zero);
+                controller.Dispose();
             }
             finally
             {
@@ -2809,6 +3235,160 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 presenter.UpdatePresentation(boxDestroyEffectDurationSeconds - timingProfile.PushMotionDurationSeconds);
                 Assert.That(presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.Idle));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_AfterEntityMotionBoxDestroy_KeepsOriginalViewVisibleUntilMotionCompletes()
+        {
+            var rootObject = new GameObject(
+                "GameplayTickViewPresenter_AfterEntityMotionBoxDestroy_KeepsOriginalViewVisibleUntilMotionCompletes");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new MotionOverrideViewFactory(registry.transform));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var timingProfile = CreateTimingProfile();
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var destroyTileCell = new SurfaceCell(FaceId.Floor, 1, 0);
+
+                presenter.Initialize(
+                    binder,
+                    boardBounds,
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateBox(30, sourceCell),
+                    },
+                    topology);
+
+                Assert.That(registry.TryGetView(30, out var boxView), Is.True);
+
+                presenter.Present(
+                    CreateTickResult(
+                        1,
+                        Array.Empty<EntityState>(),
+                        topology,
+                        new TickPresentationData(
+                            new[]
+                            {
+                                new TickEntityMotion(
+                                    30,
+                                    TickEntityMotionKind.Push,
+                                    sourceCell,
+                                    destroyTileCell),
+                            },
+                            topologyMotion: null,
+                            visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                            transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
+                            playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
+                            enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                            entityExitSignals: new[]
+                            {
+                                new TickEntityExitPresentationSignal(
+                                    30,
+                                    TickEntityExitCause.BoxDestroy,
+                                    destroyTileCell,
+                                    topology,
+                                    Direction.Right,
+                                    EntityType.Box,
+                                    timing: EntityExitPresentationTiming.AfterEntityMotion),
+                            })));
+
+                Assert.That(boxView.gameObject.activeSelf, Is.True);
+
+                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds * 0.5f);
+
+                var sourcePosition = GetProjectedEntityPosition(boardBounds, topology, sourceCell, EntityType.Box);
+                var destinationPosition = GetProjectedEntityPosition(boardBounds, topology, destroyTileCell, EntityType.Box);
+                var travel = destinationPosition - sourcePosition;
+                var progress = Vector3.Dot(
+                    boxView.transform.localPosition - sourcePosition,
+                    travel.normalized);
+                Assert.That(boxView.gameObject.activeSelf, Is.True);
+                Assert.That(progress, Is.GreaterThan(0.001f));
+                Assert.That(progress, Is.LessThan(travel.magnitude - 0.001f));
+
+                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds * 0.5f + 0.01f);
+
+                Assert.That(boxView.gameObject.activeSelf, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_AfterEntityMotionBoxDestroy_WithoutMotionFallsBackToImmediateHide()
+        {
+            var rootObject = new GameObject(
+                "GameplayTickViewPresenter_AfterEntityMotionBoxDestroy_WithoutMotionFallsBackToImmediateHide");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new MotionOverrideViewFactory(registry.transform));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var boxCell = new SurfaceCell(FaceId.Floor, 1, 0);
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)),
+                    topology,
+                    1f,
+                    CreateTimingProfile());
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateBox(30, boxCell),
+                    },
+                    topology);
+
+                Assert.That(registry.TryGetView(30, out var boxView), Is.True);
+
+                presenter.Present(
+                    CreateTickResult(
+                        1,
+                        Array.Empty<EntityState>(),
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                            transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
+                            playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
+                            enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                            entityExitSignals: new[]
+                            {
+                                new TickEntityExitPresentationSignal(
+                                    30,
+                                    TickEntityExitCause.BoxDestroy,
+                                    boxCell,
+                                    topology,
+                                    Direction.Right,
+                                    EntityType.Box,
+                                    timing: EntityExitPresentationTiming.AfterEntityMotion),
+                            })));
+
+                Assert.That(boxView.gameObject.activeSelf, Is.False);
             }
             finally
             {
@@ -5390,6 +5970,42 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 targetEntityId: targetEntityId);
         }
 
+        private static TilePresentationEvent CreateMoonBlockGeneratedTileEvent(
+            int tileId,
+            SurfaceCell cell,
+            int moonBlockEntityId,
+            int spawnTick)
+        {
+            return new TilePresentationEvent(
+                TilePresentationEventKind.MoonBlockGenerated,
+                tileId,
+                cell,
+                TileFeatureKind.MoonBlockGenerator,
+                sourceEntityId: tileId + 1,
+                ownerEntityId: tileId + 2,
+                teamId: tileId + 3,
+                targetEntityId: moonBlockEntityId,
+                direction: Direction.None,
+                spawnTick: spawnTick,
+                spawnInteractionLockTicks: MoonBlockGeneratorRespawnDefaults.SpawnInteractionLockTicks);
+        }
+
+        private static TilePresentationRequest CreateMoonBlockGeneratedRequest(int moonBlockEntityId, int spawnTick)
+        {
+            return new TilePresentationRequest(
+                TilePresentationRequestKind.MoonBlockGenerated,
+                tileId: 100,
+                cell: new SurfaceCell(FaceId.Floor, 1, 1),
+                tileFeatureKind: TileFeatureKind.MoonBlockGenerator,
+                sourceEntityId: 101,
+                ownerEntityId: 102,
+                teamId: 7,
+                targetEntityId: moonBlockEntityId,
+                direction: Direction.None,
+                spawnTick: spawnTick,
+                spawnInteractionLockTicks: MoonBlockGeneratorRespawnDefaults.SpawnInteractionLockTicks);
+        }
+
         private static TickPresentationData CreateKinematicPresentationData(
             IReadOnlyList<TickEntityMotion> entityMotions,
             IReadOnlyList<TickKinematicMotionTrack> kinematicMotionTracks,
@@ -5918,7 +6534,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             IGravityFieldActivatedVisualTarget,
             IGravityFieldExpiredVisualTarget,
             IGravityFieldContinuousVisualTarget,
-            IGravityFieldLockedTargetVisualTarget
+            IGravityFieldLockedTargetVisualTarget,
+            IGravityFieldLockedBoxOneShotVisualTarget
         {
             public int ActivatedCount { get; private set; }
 
@@ -5932,9 +6549,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public int ClearLockedTargetCount { get; private set; }
 
+            public int LockedBoxOneShotCount { get; private set; }
+
             public GravityFieldVisualState LastContinuousState { get; private set; }
 
             public int LastLockedTargetEmitterEntityId { get; private set; }
+
+            public GravityFieldLockedBoxPayload LastLockedBoxPayload { get; private set; }
 
             public void PlayGravityFieldActivated()
             {
@@ -5968,6 +6589,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 ClearLockedTargetCount++;
                 LastLockedTargetEmitterEntityId = emitterEntityId;
+            }
+
+            public void PlayGravityFieldLockedBox(GravityFieldLockedBoxPayload payload)
+            {
+                LockedBoxOneShotCount++;
+                LastLockedBoxPayload = payload;
             }
         }
 

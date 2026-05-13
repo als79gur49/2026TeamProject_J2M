@@ -54,6 +54,7 @@ namespace Game.Feature.Stages
                 }
 
                 ValidateBoxArchetype(stageName, spawnLabel, spawn, ref moonBlockCount);
+                ValidateUnitMobilityKind(stageName, spawnLabel, spawn);
 
                 if (!spawnsByCell.TryGetValue(spawn.Cell, out var cellEntries))
                 {
@@ -86,6 +87,23 @@ namespace Game.Feature.Stages
             }
 
             return playerEntityId;
+        }
+
+        private static void ValidateUnitMobilityKind(
+            string stageName,
+            string spawnLabel,
+            StageSpawnDefinition spawn)
+        {
+            if (!IsUnitSpawn(spawn.Kind))
+            {
+                return;
+            }
+
+            if (!Enum.IsDefined(typeof(UnitMobilityKind), spawn.UnitMobilityKind))
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{stageName}' {spawnLabel} has invalid UnitMobilityKind value {(int)spawn.UnitMobilityKind}.");
+            }
         }
 
         private static void ValidateBoxArchetype(

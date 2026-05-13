@@ -158,10 +158,10 @@ namespace Game.Feature.Stages
                 }
 
                 if (tileFeature.Kind == TileFeatureKind.Destroy &&
-                    tileFeature.ActivationRule != TileFeatureActivationRule.BottomFaceOnly)
+                    !TileFeatureActivationQueries.IsSupportedDestroyActivation(tileFeature.ActivationRule))
                 {
                     throw new InvalidOperationException(
-                        $"Stage '{stageName}' {label} DestroyTile must use BottomFaceOnly activation.");
+                        $"Stage '{stageName}' {label} DestroyTile must use BottomFaceOnly or FrontFaceOnly activation.");
                 }
 
                 if (tileFeature.Kind == TileFeatureKind.Slide &&

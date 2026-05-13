@@ -512,6 +512,127 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void PlayerControlStateLogic_PushPressedAgainstPushLockedBox_DoesNotStartPush()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push | BoxCapabilities.Destroy),
+            });
+            worldState.CreateWriteContext().SetBoxInteractionLockState(
+                20,
+                new BoxInteractionLockState(
+                    100,
+                    0,
+                    expiresTickExclusive: 8,
+                    blocksPush: true,
+                    blocksFlip: false));
+            var logic = new PlayerControlStateLogic(entityId: 10);
+            var updates = new List<string>();
+            var transitions = new List<PlayerActionTransition>();
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
+                worldState.CreateWriteContext(),
+                updates,
+                transitions);
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(snapshot.TryGetEntity(20, out var box), Is.True);
+            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(box.markedForDeath, Is.False);
+            Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.StartedThisTick), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerControlStateLogic_FlipPressedAgainstFlipLockedBox_DoesNotStartFlip()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Flip),
+            });
+            worldState.CreateWriteContext().SetBoxInteractionLockState(
+                20,
+                new BoxInteractionLockState(
+                    100,
+                    0,
+                    expiresTickExclusive: 8,
+                    blocksPush: false,
+                    blocksFlip: true));
+            var logic = new PlayerControlStateLogic(entityId: 10);
+            var updates = new List<string>();
+            var transitions = new List<PlayerActionTransition>();
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(1, PlayerTickCommand.Flip(Direction.Right)),
+                worldState.CreateWriteContext(),
+                updates,
+                transitions);
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(snapshot.TryGetEntity(20, out var box), Is.True);
+            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.StartedThisTick), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerControlStateLogic_PendingPush_TargetLockedBeforeExecute_CancelsAction()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+            });
+            worldState.CreateWriteContext().SetPlayerControlState(
+                10,
+                new PlayerControlState
+                {
+                    actionSequenceCounter = 1,
+                    activeAction = new PlayerActionRuntimeState
+                    {
+                        kind = PlayerActionKind.Push,
+                        sequence = 1,
+                        direction = Direction.Right,
+                        targetEntityId = 20,
+                        startTick = 1,
+                        executeTick = 3,
+                        recoveryEndTick = 3,
+                        executionAttempted = false,
+                    },
+                });
+            worldState.CreateWriteContext().SetBoxInteractionLockState(
+                20,
+                new BoxInteractionLockState(
+                    100,
+                    0,
+                    expiresTickExclusive: 8,
+                    blocksPush: true,
+                    blocksFlip: false));
+            var logic = new PlayerControlStateLogic(entityId: 10);
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(2),
+                worldState.CreateWriteContext(),
+                new List<string>(),
+                new List<PlayerActionTransition>());
+
+            Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(controlState.nextMoveAllowedTick, Is.EqualTo(3));
+        }
+
+        [Test]
         [Category("Extended")]
         public void PlayerControlStateLogic_MoveIntoUnit_DoesNotStartPushAction()
         {

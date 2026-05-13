@@ -6,8 +6,11 @@ using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
+using Game.Feature.Gameplay.Vfx;
+using Game.Feature.Gameplay.Vfx.Authoring;
 using Game.Feature.Gameplay.Vfx.Host;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -152,6 +155,51 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void ProductionRuntime_TileFeatureActiveState_DropsWhenPresentationStateDisappears()
+        {
+            var owner = new GameObject("TileFeatureActiveStateRuntime");
+            try
+            {
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+
+                runtime.Present(CreateExtensionContext(CreatePresentationData(
+                    tileFeatureVisualStates: new[]
+                    {
+                        new TileFeatureVisualState(
+                            101,
+                            new SurfaceCell(FaceId.Floor, 1, 0),
+                            TileFeatureKind.Barricade,
+                            true,
+                            sourceEntityId: 40,
+                            ownerEntityId: 0,
+                            teamId: 2),
+                    },
+                    tileFeatureActiveVisualStates: new[]
+                    {
+                        new TileFeatureActiveVisualState(
+                            100,
+                            new SurfaceCell(FaceId.Floor, 0, 0),
+                            TileFeatureKind.Destroy,
+                            sourceEntityId: 10,
+                            ownerEntityId: 0,
+                            teamId: 1),
+                    })));
+
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(2));
+                Assert.That(runtime.MissingBindingCount, Is.EqualTo(2));
+
+                runtime.Present(CreateExtensionContext(CreatePresentationData()));
+
+                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Coordinator_DoesNotReferencePr28VisualControllersOrVfxController()
         {
             var coordinator = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs");
@@ -183,6 +231,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("There is no coordinator fallback for TileFeature or GravityField visual lanes."));
             Assert.That(document, Does.Contain("does not restore PR #28 direct visual controllers"));
             Assert.That(document, Does.Contain("TileFeatureAudio and GravityFieldAudio are not VFX."));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Authoring_DefaultCueMapContainsDestroyTileAndBarricadeBindings()
+        {
+            var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset");
+            var sparkBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeatureDestroySpark_Binding.asset");
+            var laserBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeatureDestroyLaserActive_Binding.asset");
+            var barricadeBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_BarricadeActiveLoop_Binding.asset");
+
+            Assert.That(cueMap, Is.Not.Null);
+            Assert.That(sparkBinding, Is.Not.Null);
+            Assert.That(laserBinding, Is.Not.Null);
+            Assert.That(barricadeBinding, Is.Not.Null);
+            Assert.That(sparkBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileTriggered)));
+            Assert.That(laserBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive)));
+            Assert.That(barricadeBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.BarricadeActiveLoop)));
+            Assert.That(sparkBinding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
+            Assert.That(sparkBinding.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
+            Assert.That(laserBinding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.Loop));
+            Assert.That(laserBinding.StopPolicy, Is.EqualTo(VfxStopPolicy.StopEmittingThenRelease));
+            Assert.That(barricadeBinding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.Loop));
+            Assert.That(barricadeBinding.StopPolicy, Is.EqualTo(VfxStopPolicy.StopEmittingThenRelease));
+
+            var runtimeMap = cueMap.BuildRuntimeMap();
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileTriggered), out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive), out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.BarricadeActiveLoop), out _), Is.True);
         }
 
         private static GameplayTickPresentationExtensionContext CreateExtensionContext(TickPresentationData presentationData)
@@ -222,7 +303,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static TickPresentationData CreatePresentationData(
             TilePresentationEvent[] tileEvents = null,
             GravityFieldPresentationEvent[] gravityFieldEvents = null,
-            GravityFieldVisualState[] gravityFieldVisualStates = null)
+            GravityFieldVisualState[] gravityFieldVisualStates = null,
+            TileFeatureVisualState[] tileFeatureVisualStates = null,
+            TileFeatureActiveVisualState[] tileFeatureActiveVisualStates = null)
         {
             return new TickPresentationData(
                 Array.Empty<TickEntityMotion>(),
@@ -240,7 +323,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<FlipImpactPresentationSignal>(),
                 tileEvents: tileEvents,
                 gravityFieldEvents: gravityFieldEvents,
-                gravityFieldVisualStates: gravityFieldVisualStates);
+                gravityFieldVisualStates: gravityFieldVisualStates,
+                tileFeatureVisualStates: tileFeatureVisualStates,
+                tileFeatureActiveVisualStates: tileFeatureActiveVisualStates);
         }
 
         private static EntityState CreateUnit(int entityId)

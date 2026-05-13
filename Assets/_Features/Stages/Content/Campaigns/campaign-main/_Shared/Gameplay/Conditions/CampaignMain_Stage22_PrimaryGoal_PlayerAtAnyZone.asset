@@ -13,5 +13,5 @@ MonoBehaviour:
   m_Name: CampaignMain_Stage22_PrimaryGoal_PlayerAtAnyZone
   m_EditorClassIdentifier: 
   zoneIds:
-  - exit
+  - 1
   requireAlive: 1

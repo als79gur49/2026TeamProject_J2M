@@ -318,21 +318,6 @@ MonoBehaviour:
     EnemyAiProfile: {fileID: 11400000, guid: 8fdb5400ceb74592aa5dea3cbb2cf2a8, type: 2}
     PresentationId:
     UnitStackGroup:
-  - EntityId: 61
-    Kind: 1
-    Cell:
-      face: 1
-      x: 5
-      y: 3
-    Facing: 2
-    Hp: 3
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 1
-    EnemyAiStateTimer: 0
-    EnemyAiProfile: {fileID: 11400000, guid: 19783ce834b246d5b32ce6df8e595444, type: 2}
-    PresentationId:
-    UnitStackGroup:
   - EntityId: 62
     Kind: 1
     Cell:

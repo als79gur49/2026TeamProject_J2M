@@ -51,7 +51,7 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 44ea1e7dcc774075b55e3dcb29906bab, type: 2}
-    PresentationId: Attacking_showcase
+    PresentationId: black_eye
   - StableGuid: stage-2-2:Enemy:55
     DisplayName: Enemy 55
     Kind: 1
@@ -66,7 +66,7 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 051f0a3982af4009b6013ba589a7f8d7, type: 2}
-    PresentationId: nonAttacking_showcase
+    PresentationId: startis
   - StableGuid: stage-2-2:Enemy:56
     DisplayName: Enemy 56
     Kind: 1
@@ -81,7 +81,7 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 8d6b1bc1c4aa4d57b9c6d8df30d7e6a2, type: 2}
-    PresentationId: wallFollower_sun
+    PresentationId: sunwheel
   - StableGuid: stage-2-2:Box:30
     DisplayName: Box 30
     Kind: 2

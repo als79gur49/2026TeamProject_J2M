@@ -132,6 +132,7 @@ namespace Game.Feature.Stages.Editor
                 SetSurfaceCell(element.FindPropertyRelative("Cell"), spawn.Cell);
                 element.FindPropertyRelative("Facing").intValue = (int)spawn.Facing;
                 element.FindPropertyRelative("Hp").intValue = spawn.Hp;
+                element.FindPropertyRelative("UnitMobilityKind").intValue = (int)spawn.UnitMobilityKind;
                 element.FindPropertyRelative("BoxCapabilities").intValue = (int)spawn.BoxCapabilities;
                 element.FindPropertyRelative("BoxArchetype").intValue = (int)spawn.BoxArchetype;
                 element.FindPropertyRelative("EnemyAiMode").intValue = (int)spawn.EnemyAiMode;

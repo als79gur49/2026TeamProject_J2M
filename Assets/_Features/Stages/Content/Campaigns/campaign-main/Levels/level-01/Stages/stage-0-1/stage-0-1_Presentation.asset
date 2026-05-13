@@ -20,31 +20,31 @@ MonoBehaviour:
   backgroundPrefab: {fileID: 0}
   bgmReference:
     bgmKey: 
-  enemyPresentationCatalog: {fileID: 11400000, guid: 885611ba81833ec4f88e7110964b962e, type: 2}
+  enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
   enemyPresentationArchetypeCatalog: {fileID: 0}
   enemyPresentationBindings:
   - EntityId: 101
-    PresentationId: tutorial_passive_secbot
+    PresentationId: secbot
   - EntityId: 102
-    PresentationId: tutorial_passive_secbot
+    PresentationId: secbot
   - EntityId: 103
-    PresentationId: tutorial_passive_secbot
+    PresentationId: secbot
   - EntityId: 104
-    PresentationId: tutorial_passive_secbot
+    PresentationId: secbot
   - EntityId: 105
-    PresentationId: tutorial_passive_secbot
+    PresentationId: secbot
   - EntityId: 106
-    PresentationId: tutorial_passive_secbot
+    PresentationId: secbot
   - EntityId: 107
-    PresentationId: tutorial_passive_secbot
+    PresentationId: secbot
   - EntityId: 108
-    PresentationId: tutorial_passive_secbot
+    PresentationId: secbot
   - EntityId: 109
-    PresentationId: tutorial_passive_secbot
+    PresentationId: secbot
   - EntityId: 110
-    PresentationId: tutorial_passive_secbot
+    PresentationId: secbot
   - EntityId: 111
-    PresentationId: tutorial_passive_secbot
+    PresentationId: secbot
   staticEntityPresentationCatalog: {fileID: 11400000, guid: ca2a1a66d2d84d478cf3e1228d8af6df, type: 2}
   staticEntityPresentationBindings:
   - EntityId: 31

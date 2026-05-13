@@ -51,6 +51,16 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void StageAuthoringDefinition_CustomInspector_OpenGeneratedAssetButtons_AreNotDuplicated()
+        {
+            var source = File.ReadAllText("Assets/_Features/Stages/Editor/Authoring/StageAuthoringDefinitionEditor.cs");
+
+            Assert.That(CountOccurrences(source, "Open Presentation Definition"), Is.EqualTo(1));
+            Assert.That(CountOccurrences(source, "Open BoardTile Catalog"), Is.EqualTo(1));
+            Assert.That(CountOccurrences(source, "Open TileFeature Catalog"), Is.EqualTo(1));
+        }
+
+        [Test]
         public void AddTileFeature_AllocatesPositiveUniqueTileId()
         {
             WithAuthoring(authoring =>
@@ -226,6 +236,41 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void AddDestroyTile_PreservesSupportedFrontFaceActivation()
+        {
+            var feature = StageAuthoringPlacementCommands.CreateTileFeaturePreset(
+                TileFeatureKind.Destroy,
+                new SurfaceCell(FaceId.Front, 0, 0),
+                TileFeatureActivationRule.FrontFaceOnly,
+                Direction2D.Left,
+                TileFeatureBoxSelector.AnyPushableBox,
+                99,
+                string.Empty);
+
+            Assert.That(feature.ActivationRule, Is.EqualTo(TileFeatureActivationRule.FrontFaceOnly));
+            Assert.That(feature.Direction, Is.EqualTo(Direction2D.None));
+            Assert.That(feature.BoxSelector, Is.EqualTo(TileFeatureBoxSelector.None));
+            Assert.That(feature.BoundEntityId, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void UpdateDestroyTile_AllowsFrontFaceActivation()
+        {
+            WithAuthoring(authoring =>
+            {
+                var original = CreateFeature(1, TileFeatureKind.Destroy, new SurfaceCell(FaceId.Floor, 0, 0));
+                authoring.SetTileFeatures(new[] { original });
+                var updated = original;
+                updated.ActivationRule = TileFeatureActivationRule.FrontFaceOnly;
+
+                var changed = StageAuthoringPlacementCommands.TryUpdateTileFeature(authoring, updated, out var error);
+
+                Assert.That(changed, Is.True, error);
+                Assert.That(authoring.TileFeatures.Single().ActivationRule, Is.EqualTo(TileFeatureActivationRule.FrontFaceOnly));
+            });
+        }
+
+        [Test]
         public void AddSlideTile_RequiresCardinalDirection()
         {
             WithAuthoring(authoring =>
@@ -322,6 +367,11 @@ namespace Game.Feature.Stages.Editor.Tests
                     0,
                     string.Empty),
                 out _);
+        }
+
+        private static int CountOccurrences(string source, string value)
+        {
+            return source.Split(new[] { value }, System.StringSplitOptions.None).Length - 1;
         }
 
         private static StageTileFeatureDefinition CreateFeature(

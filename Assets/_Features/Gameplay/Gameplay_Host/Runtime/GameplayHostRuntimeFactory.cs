@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.Audio;
+using Game.Feature.Gameplay.BlockAudio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.GravityFieldAudio;
@@ -8,6 +9,7 @@ using Game.Feature.Gameplay.Host.UIAccess;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.PlayerLocomotionAudio;
 using Game.Feature.Gameplay.TileFeatureAudio;
 using Game.Feature.Gameplay.UIAccess.Queries;
 using Game.Feature.Stages;
@@ -27,6 +29,10 @@ namespace Game.Feature.Gameplay.Host
             "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when TileFeatureAudioMap is assigned.";
         private const string MissingGravityFieldAudioRuntimeInstallerMessage =
             "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when GravityFieldAudioMap is assigned.";
+        private const string MissingBlockAudioRuntimeInstallerMessage =
+            "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when BlockAudioMap is assigned.";
+        private const string MissingPlayerLocomotionAudioRuntimeInstallerMessage =
+            "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when PlayerLocomotionAudioMap is assigned.";
 
         public static GameplayHostRuntimeContext Create(
             GameplaySceneHost host,
@@ -139,6 +145,8 @@ namespace Game.Feature.Gameplay.Host
             InstantiateStageTileFeatureVisuals(
                 configuration.TileFeaturePresentationBindings,
                 initialTileFeatures,
+                tileFeatureDefinitions,
+                configuration.InitialTopology,
                 boardRoot.transform,
                 tileFeatureVisualRegistry,
                 tileFeaturePoseResolver);
@@ -275,6 +283,8 @@ namespace Game.Feature.Gameplay.Host
         private static void InstantiateStageTileFeatureVisuals(
             IReadOnlyList<TileFeaturePresentationResolvedBinding> bindings,
             IReadOnlyList<TileFeatureState> initialTileFeatures,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            CubeTopologyState initialTopology,
             Transform parent,
             TileFeatureVisualRegistry registry,
             ISurfaceCellPresentationPoseResolver poseResolver = null)
@@ -294,12 +304,13 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                if (!TryGetTileFeatureCell(initialTileFeatures, binding.TileId, out var cell))
+                if (!TryGetTileFeatureState(initialTileFeatures, binding.TileId, out var tileFeature))
                 {
                     UnityEngine.Debug.LogWarning($"Skipping stage TileFeature visual binding for missing TileId {binding.TileId}.");
                     continue;
                 }
 
+                var cell = tileFeature.Cell;
                 var hasResolvedPose = false;
                 var resolvedPose = default(SurfaceCellPresentationPose);
                 if (poseResolver != null)
@@ -335,31 +346,79 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 configurator.ConfigureTileFeature(binding.TileId, cell);
+                if (target is IBarricadeActiveStateVisualTarget barricadeActiveStateTarget &&
+                    TryResolveInitialBarricadeActive(
+                        tileFeature,
+                        tileFeatureDefinitions,
+                        initialTopology,
+                        out var barricadeActive))
+                {
+                    barricadeActiveStateTarget.SetBarricadeActiveImmediate(barricadeActive);
+                }
+
                 registry.Register(target);
             }
 
             registry.Rebuild();
         }
 
-        private static bool TryGetTileFeatureCell(
+        private static bool TryGetTileFeatureState(
             IReadOnlyList<TileFeatureState> initialTileFeatures,
             int tileId,
-            out SurfaceCell cell)
+            out TileFeatureState tileFeature)
         {
             if (initialTileFeatures != null)
             {
                 for (var i = 0; i < initialTileFeatures.Count; i++)
                 {
-                    var tileFeature = initialTileFeatures[i];
-                    if (tileFeature.TileId == tileId)
+                    var candidate = initialTileFeatures[i];
+                    if (candidate.TileId == tileId)
                     {
-                        cell = tileFeature.Cell;
+                        tileFeature = candidate;
                         return true;
                     }
                 }
             }
 
-            cell = default;
+            tileFeature = default;
+            return false;
+        }
+
+        private static bool TryResolveInitialBarricadeActive(
+            TileFeatureState tileFeature,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            CubeTopologyState initialTopology,
+            out bool active)
+        {
+            if (tileFeature.Kind != TileFeatureKind.Barricade ||
+                !TryGetTileFeatureDefinition(tileFeatureDefinitions, tileFeature.TileId, out var definition))
+            {
+                active = false;
+                return false;
+            }
+
+            active = TileFeatureActivationQueries.IsActive(tileFeature, definition, initialTopology);
+            return true;
+        }
+
+        private static bool TryGetTileFeatureDefinition(
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            int tileId,
+            out TileFeatureRuntimeDefinition definition)
+        {
+            if (tileFeatureDefinitions != null)
+            {
+                for (var i = 0; i < tileFeatureDefinitions.Count; i++)
+                {
+                    if (tileFeatureDefinitions[i].TileId == tileId)
+                    {
+                        definition = tileFeatureDefinitions[i];
+                        return true;
+                    }
+                }
+            }
+
+            definition = default;
             return false;
         }
 
@@ -509,9 +568,13 @@ namespace Game.Feature.Gameplay.Host
             var hasGameplayAudioMap = configuration?.GameplayAudioMap != null;
             var hasTileFeatureAudioMap = configuration?.TileFeatureAudioMap != null;
             var hasGravityFieldAudioMap = configuration?.GravityFieldAudioMap != null;
+            var hasBlockAudioMap = configuration?.BlockAudioMap != null;
+            var hasPlayerLocomotionAudioMap = configuration?.PlayerLocomotionAudioMap != null;
             if (!hasGameplayAudioMap &&
                 !hasTileFeatureAudioMap &&
-                !hasGravityFieldAudioMap)
+                !hasGravityFieldAudioMap &&
+                !hasBlockAudioMap &&
+                !hasPlayerLocomotionAudioMap)
             {
                 return;
             }
@@ -522,7 +585,9 @@ namespace Game.Feature.Gameplay.Host
                 throw new InvalidOperationException(ResolveMissingAudioRuntimeInstallerMessage(
                     hasGameplayAudioMap,
                     hasTileFeatureAudioMap,
-                    hasGravityFieldAudioMap));
+                    hasGravityFieldAudioMap,
+                    hasBlockAudioMap,
+                    hasPlayerLocomotionAudioMap));
             }
 
             audioRuntimeInstaller.Install();
@@ -531,7 +596,9 @@ namespace Game.Feature.Gameplay.Host
                 throw new InvalidOperationException(ResolveMissingAudioRuntimeInstallerMessage(
                     hasGameplayAudioMap,
                     hasTileFeatureAudioMap,
-                    hasGravityFieldAudioMap));
+                    hasGravityFieldAudioMap,
+                    hasBlockAudioMap,
+                    hasPlayerLocomotionAudioMap));
             }
 
             var playbackPort = new GameplayAudioPlaybackPortAdapter(audioRuntimeInstaller.AudioService);
@@ -549,12 +616,24 @@ namespace Game.Feature.Gameplay.Host
             {
                 presenter.AttachGravityFieldAudioRuntime(playbackPort, configuration.GravityFieldAudioMap);
             }
+
+            if (hasBlockAudioMap)
+            {
+                presenter.AttachBlockAudioRuntime(playbackPort, configuration.BlockAudioMap);
+            }
+
+            if (hasPlayerLocomotionAudioMap)
+            {
+                presenter.AttachPlayerLocomotionAudioRuntime(playbackPort, configuration.PlayerLocomotionAudioMap);
+            }
         }
 
         private static string ResolveMissingAudioRuntimeInstallerMessage(
             bool hasGameplayAudioMap,
             bool hasTileFeatureAudioMap,
-            bool hasGravityFieldAudioMap)
+            bool hasGravityFieldAudioMap,
+            bool hasBlockAudioMap,
+            bool hasPlayerLocomotionAudioMap)
         {
             if (hasGameplayAudioMap)
             {
@@ -566,8 +645,18 @@ namespace Game.Feature.Gameplay.Host
                 return MissingTileFeatureAudioRuntimeInstallerMessage;
             }
 
-            return hasGravityFieldAudioMap
-                ? MissingGravityFieldAudioRuntimeInstallerMessage
+            if (hasGravityFieldAudioMap)
+            {
+                return MissingGravityFieldAudioRuntimeInstallerMessage;
+            }
+
+            if (hasBlockAudioMap)
+            {
+                return MissingBlockAudioRuntimeInstallerMessage;
+            }
+
+            return hasPlayerLocomotionAudioMap
+                ? MissingPlayerLocomotionAudioRuntimeInstallerMessage
                 : MissingGameplayAudioRuntimeInstallerMessage;
         }
 

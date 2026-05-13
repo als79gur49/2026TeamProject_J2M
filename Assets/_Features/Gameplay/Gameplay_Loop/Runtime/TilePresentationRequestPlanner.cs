@@ -14,6 +14,11 @@ namespace Game.Feature.Gameplay.Loop
         ExitOpened = 5,
         ExitEntered = 6,
         MoonBlockGenerated = 7,
+        BarricadeActivated = 8,
+        BarricadeDeactivated = 9,
+        MoonBlockGeneratorBlocked = 10,
+        DestroyTileActivated = 11,
+        DestroyTileDeactivated = 12,
     }
 
     public readonly struct TilePresentationRequest
@@ -27,7 +32,10 @@ namespace Game.Feature.Gameplay.Loop
             int ownerEntityId,
             int teamId,
             int targetEntityId = 0,
-            Direction direction = Direction.None)
+            Direction direction = Direction.None,
+            MoonBlockGeneratorBlockedPayload moonBlockGeneratorBlockedPayload = default,
+            int spawnTick = 0,
+            int spawnInteractionLockTicks = 0)
         {
             RequestKind = requestKind;
             TileId = tileId;
@@ -38,6 +46,9 @@ namespace Game.Feature.Gameplay.Loop
             TeamId = teamId;
             TargetEntityId = targetEntityId;
             Direction = direction;
+            MoonBlockGeneratorBlockedPayload = moonBlockGeneratorBlockedPayload;
+            SpawnTick = spawnTick;
+            SpawnInteractionLockTicks = spawnInteractionLockTicks;
         }
 
         public TilePresentationRequestKind RequestKind { get; }
@@ -57,6 +68,12 @@ namespace Game.Feature.Gameplay.Loop
         public int TargetEntityId { get; }
 
         public Direction Direction { get; }
+
+        public MoonBlockGeneratorBlockedPayload MoonBlockGeneratorBlockedPayload { get; }
+
+        public int SpawnTick { get; }
+
+        public int SpawnInteractionLockTicks { get; }
     }
 
     public sealed class TilePresentationRequestPlanner
@@ -92,7 +109,10 @@ namespace Game.Feature.Gameplay.Loop
                     tileEvent.OwnerEntityId,
                     tileEvent.TeamId,
                     tileEvent.TargetEntityId,
-                    tileEvent.Direction));
+                    tileEvent.Direction,
+                    tileEvent.MoonBlockGeneratorBlockedPayload,
+                    tileEvent.SpawnTick,
+                    tileEvent.SpawnInteractionLockTicks));
             }
 
             return requests.Count == 0 ? Array.Empty<TilePresentationRequest>() : requests;
@@ -127,6 +147,21 @@ namespace Game.Feature.Gameplay.Loop
                     return true;
                 case TilePresentationEventKind.MoonBlockGenerated:
                     requestKind = TilePresentationRequestKind.MoonBlockGenerated;
+                    return true;
+                case TilePresentationEventKind.BarricadeActivated:
+                    requestKind = TilePresentationRequestKind.BarricadeActivated;
+                    return true;
+                case TilePresentationEventKind.BarricadeDeactivated:
+                    requestKind = TilePresentationRequestKind.BarricadeDeactivated;
+                    return true;
+                case TilePresentationEventKind.MoonBlockGeneratorBlocked:
+                    requestKind = TilePresentationRequestKind.MoonBlockGeneratorBlocked;
+                    return true;
+                case TilePresentationEventKind.DestroyTileActivated:
+                    requestKind = TilePresentationRequestKind.DestroyTileActivated;
+                    return true;
+                case TilePresentationEventKind.DestroyTileDeactivated:
+                    requestKind = TilePresentationRequestKind.DestroyTileDeactivated;
                     return true;
                 default:
                     requestKind = default;

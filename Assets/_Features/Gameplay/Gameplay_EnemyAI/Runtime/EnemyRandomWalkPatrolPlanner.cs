@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using UnityEngine;
 
@@ -46,7 +47,8 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             int tickIndex,
             in EnemyPatrolRuntimeState patrolState,
-            in PatrolSettings patrolSettings)
+            in PatrolSettings patrolSettings,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
             if (snapshot == null)
             {
@@ -68,6 +70,8 @@ namespace Game.Feature.Gameplay.Entities
             var traversableMask = 0;
             var eligibleMask = 0;
             var eligibleCandidateCount = 0;
+            var candidateCells = new SurfaceCell[DirectionOrder.Length];
+            var hasCandidateCell = new bool[DirectionOrder.Length];
             var oppositeDirection = ResolveOppositeDirection(patrolState.lastCommittedDirection);
             var hasBacktrackCandidate = false;
 
@@ -97,6 +101,8 @@ namespace Game.Feature.Gameplay.Entities
                 }
 
                 eligibleMask |= candidate.CandidateMaskBit;
+                candidateCells[i] = candidate.DestinationCell;
+                hasCandidateCell[i] = true;
                 eligibleCandidateCount++;
                 if (candidate.Direction == oppositeDirection)
                 {
@@ -123,10 +129,35 @@ namespace Game.Feature.Gameplay.Entities
                 finalCandidateMask &= ~GetCandidateMaskBit(oppositeDirection);
             }
 
+            var neutralCandidateMask = 0;
+            for (var i = 0; i < DirectionOrder.Length; i++)
+            {
+                var direction = DirectionOrder[i];
+                var maskBit = GetCandidateMaskBit(direction);
+                if ((finalCandidateMask & maskBit) == 0 ||
+                    !hasCandidateCell[i])
+                {
+                    continue;
+                }
+
+                if (TileFeatureHazardQueries.EvaluateTileApproachRisk(
+                        snapshot,
+                        tileFeatureDefinitions,
+                        source,
+                        candidateCells[i]) == TileApproachRisk.Neutral)
+                {
+                    neutralCandidateMask |= maskBit;
+                }
+            }
+
+            var selectionCandidateMask = neutralCandidateMask != 0
+                ? neutralCandidateMask
+                : finalCandidateMask;
+
             var totalWeight = 0;
             for (var i = 0; i < DirectionOrder.Length; i++)
             {
-                if ((finalCandidateMask & GetCandidateMaskBit(DirectionOrder[i])) == 0)
+                if ((selectionCandidateMask & GetCandidateMaskBit(DirectionOrder[i])) == 0)
                 {
                     continue;
                 }
@@ -148,7 +179,7 @@ namespace Game.Feature.Gameplay.Entities
             for (var i = 0; i < DirectionOrder.Length; i++)
             {
                 var direction = DirectionOrder[i];
-                if ((finalCandidateMask & GetCandidateMaskBit(direction)) == 0)
+                if ((selectionCandidateMask & GetCandidateMaskBit(direction)) == 0)
                 {
                     continue;
                 }

@@ -22,6 +22,7 @@ namespace Game.Feature.Stages
         public SurfaceCell Cell;
         public Direction Facing = Direction.None;
         public int Hp = 1;
+        public UnitMobilityKind UnitMobilityKind = UnitMobilityKind.Ground;
         public string UnitStackGroup = string.Empty;
         public BoxCapabilities BoxCapabilities = BoxCapabilities.None;
         public BoxArchetype BoxArchetype = BoxArchetype.Normal;
@@ -40,6 +41,7 @@ namespace Game.Feature.Stages
                 Cell = Cell,
                 Facing = Facing,
                 Hp = Hp,
+                UnitMobilityKind = UnitMobilityKind,
                 UnitStackGroup = UnitStackGroup ?? string.Empty,
                 BoxCapabilities = BoxCapabilities,
                 BoxArchetype = BoxArchetype,

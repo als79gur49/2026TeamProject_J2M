@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ab64c1bee5254184a7440f8826bf4d84, type: 3}
+  m_Name: EnemyAudioProfile_JumpChaserAstra
+  m_EditorClassIdentifier: Game.Feature.Gameplay.EnemyAudio::Game.Feature.Gameplay.EnemyAudio.EnemyAudioProfile
+  entries:
+  - Cue: 1
+    Binding:
+      definition: {fileID: 11400000, guid: 2856ab17f88b4adb8c16bb46ba507ef9, type: 2}
+      attachmentSlot:
+        id: 
+      policy:
+        rid: -2
+    IsOptional: 0
+  - Cue: 4
+    Binding:
+      definition: {fileID: 11400000, guid: 1d5b5ccdbcca4bb9ae4e4fa3e3b01f3f, type: 2}
+      attachmentSlot:
+        id: 
+      policy:
+        rid: -2
+    IsOptional: 0
+  - Cue: 2
+    Binding:
+      definition: {fileID: 11400000, guid: ec6b5b58f56f4482891fe7bf78d842dc, type: 2}
+      attachmentSlot:
+        id: 
+      policy:
+        rid: -2
+    IsOptional: 0
+  references:
+    version: 2
+    RefIds:
+    - rid: -2
+      type: {class: , ns: , asm: }

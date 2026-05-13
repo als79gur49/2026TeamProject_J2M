@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.Audio;
+using Game.Feature.Gameplay.BlockAudio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.GravityFieldAudio;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.PlayerLocomotionAudio;
 using Game.Feature.Gameplay.TileFeatureAudio;
 using Game.Feature.Stages;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
@@ -186,6 +188,8 @@ namespace Game.Feature.Gameplay.Host
         public GameplayAudioMap GameplayAudioMap;
         public TileFeatureAudioMap TileFeatureAudioMap;
         public GravityFieldAudioMap GravityFieldAudioMap;
+        public BlockAudioMap BlockAudioMap;
+        public PlayerLocomotionAudioMap PlayerLocomotionAudioMap;
         public ICampaignChancesReadSource CampaignChancesReadSource;
         public IEntityLogic[] StaticEntityLogics = Array.Empty<IEntityLogic>();
         public GameplayEntityView PlayerViewPrefab;

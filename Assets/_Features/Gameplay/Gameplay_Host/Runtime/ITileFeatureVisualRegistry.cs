@@ -1,4 +1,5 @@
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Loop;
 
 namespace Game.Feature.Gameplay.Host
 {
@@ -36,6 +37,21 @@ namespace Game.Feature.Gameplay.Host
         void PlayBarricadeCrushed(int targetEntityId);
     }
 
+    public interface IBarricadeActivatedVisualTarget
+    {
+        void PlayBarricadeActivated();
+    }
+
+    public interface IBarricadeDeactivatedVisualTarget
+    {
+        void PlayBarricadeDeactivated();
+    }
+
+    public interface IBarricadeActiveStateVisualTarget
+    {
+        void SetBarricadeActiveImmediate(bool active);
+    }
+
     public interface IExitOpenedVisualTarget
     {
         void PlayExitOpened();
@@ -49,6 +65,11 @@ namespace Game.Feature.Gameplay.Host
     public interface IMoonBlockGeneratedVisualTarget
     {
         void PlayMoonBlockGenerated(int moonBlockEntityId);
+    }
+
+    public interface IMoonBlockGeneratorBlockedVisualTarget
+    {
+        void PlayMoonBlockGeneratorBlocked(MoonBlockGeneratorBlockedPayload payload);
     }
 
     public interface ITileFeatureVisualTargetConfigurator

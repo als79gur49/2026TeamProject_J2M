@@ -298,6 +298,43 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void CampaignMainPresentationBindings_AllResolveAgainstAssignedCatalogs()
+        {
+            var provider = AssetDatabase.LoadAssetAtPath<ScriptableObjectStageCatalogProvider>(
+                StageContentPaths.StageCatalogProviderAssetPath);
+            Assert.That(
+                provider,
+                Is.Not.Null,
+                $"Missing stage catalog provider at '{StageContentPaths.StageCatalogProviderAssetPath}'.");
+
+            var report = new StageCatalogValidator().ValidateEntries(
+                provider.LoadEntries(),
+                provider.AliasTable,
+                new StageCatalogValidationOptions { Timing = StageValidationTiming.TestOrCi });
+
+            Assert.That(
+                report.Issues.Any(IsMissingPresentationIdIssue),
+                Is.False,
+                FormatIssues(report));
+        }
+
+        [Test]
+        public void LegacyStageSpawnPresentationId_IsNotCanonicalPresentationBindingSource()
+        {
+            using var fixture = PresentationCatalogFixture.CreateBindingOnly(
+                enemyCatalogIds: new[] { "enemy-view" },
+                staticCatalogIds: new[] { "box-view" });
+            fixture.SetEnemySpawnPresentationId("missing-legacy-enemy-view");
+
+            var report = fixture.Validate();
+
+            Assert.That(
+                report.Issues.Any(IsMissingPresentationIdIssue),
+                Is.False,
+                FormatIssues(report));
+        }
+
+        [Test]
         public void TileFeatureVisualBindingPrefabWithoutConfigurableTarget_ReportsIssue()
         {
             using var fixture = PresentationCatalogFixture.CreateBindingOnly(
@@ -436,6 +473,12 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             return issue.Code.StartsWith("PresentationCatalog.", StringComparison.Ordinal) ||
                    issue.Code.StartsWith("PresentationBinding.", StringComparison.Ordinal);
+        }
+
+        private static bool IsMissingPresentationIdIssue(StageValidationIssue issue)
+        {
+            return issue.Code == "PresentationCatalog.EnemyPresentationIdMissing" ||
+                   issue.Code == "PresentationCatalog.StaticPresentationIdMissing";
         }
 
         private static void SetString(StagePresentationDefinition presentation, string fieldName, string value)
@@ -668,6 +711,17 @@ namespace Game.Feature.Stages.Editor.Tests
                     element.FindPropertyRelative("PresentationKey").stringValue = tileFeatures[i].PresentationKey ?? string.Empty;
                 }
 
+                serializedObject.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            public void SetEnemySpawnPresentationId(string presentationId)
+            {
+                var serializedObject = new SerializedObject(Gameplay);
+                serializedObject
+                    .FindProperty("enemySpawns")
+                    .GetArrayElementAtIndex(0)
+                    .FindPropertyRelative("PresentationId")
+                    .stringValue = presentationId ?? string.Empty;
                 serializedObject.ApplyModifiedPropertiesWithoutUndo();
             }
 

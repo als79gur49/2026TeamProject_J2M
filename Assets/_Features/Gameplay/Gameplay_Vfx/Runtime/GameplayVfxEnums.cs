@@ -87,6 +87,8 @@ namespace Game.Feature.Gameplay.Vfx
         ExitOpened = 18,
         ExitEntered = 19,
         MoonBlockGenerated = 20,
+        DestroyTileLaserActive = 21,
+        BarricadeActiveLoop = 22,
     }
 
     public enum GravityFieldVfxCue

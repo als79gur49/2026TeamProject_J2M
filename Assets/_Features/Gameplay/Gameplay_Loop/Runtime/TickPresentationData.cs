@@ -43,6 +43,42 @@ namespace Game.Feature.Gameplay.Loop
         ExitOpened = 6,
         ExitEntered = 7,
         MoonBlockGenerated = 8,
+        BarricadeActivated = 9,
+        BarricadeDeactivated = 10,
+        MoonBlockGeneratorBlocked = 11,
+        DestroyTileActivated = 12,
+        DestroyTileDeactivated = 13,
+    }
+
+    public enum MoonBlockGeneratorBlockedReason
+    {
+        None = 0,
+        UnitOccupant = 1,
+        WallLikeSolid = 2,
+        PlacementBlocked = 3,
+    }
+
+    public readonly struct MoonBlockGeneratorBlockedPayload
+    {
+        public MoonBlockGeneratorBlockedPayload(
+            MoonBlockGeneratorBlockedReason reason,
+            int blockingEntityId,
+            SurfaceCell blockedCell)
+        {
+            Reason = reason;
+            BlockingEntityId = blockingEntityId;
+            BlockedCell = blockedCell;
+        }
+
+        public static MoonBlockGeneratorBlockedPayload None => default;
+
+        public MoonBlockGeneratorBlockedReason Reason { get; }
+
+        public int BlockingEntityId { get; }
+
+        public SurfaceCell BlockedCell { get; }
+
+        public bool IsValid => Reason != MoonBlockGeneratorBlockedReason.None;
     }
 
     public readonly struct TilePresentationEvent
@@ -56,7 +92,10 @@ namespace Game.Feature.Gameplay.Loop
             int ownerEntityId,
             int teamId,
             int targetEntityId = 0,
-            Direction direction = Direction.None)
+            Direction direction = Direction.None,
+            MoonBlockGeneratorBlockedPayload moonBlockGeneratorBlockedPayload = default,
+            int spawnTick = 0,
+            int spawnInteractionLockTicks = 0)
         {
             EventKind = eventKind;
             TileId = tileId;
@@ -67,6 +106,9 @@ namespace Game.Feature.Gameplay.Loop
             TeamId = teamId;
             TargetEntityId = targetEntityId;
             Direction = direction;
+            MoonBlockGeneratorBlockedPayload = moonBlockGeneratorBlockedPayload;
+            SpawnTick = spawnTick;
+            SpawnInteractionLockTicks = spawnInteractionLockTicks;
         }
 
         public TilePresentationEventKind EventKind { get; }
@@ -86,6 +128,74 @@ namespace Game.Feature.Gameplay.Loop
         public int TargetEntityId { get; }
 
         public Direction Direction { get; }
+
+        public MoonBlockGeneratorBlockedPayload MoonBlockGeneratorBlockedPayload { get; }
+
+        public int SpawnTick { get; }
+
+        public int SpawnInteractionLockTicks { get; }
+    }
+
+    public readonly struct GravityFieldLockedBoxPayload
+    {
+        public GravityFieldLockedBoxPayload(
+            int emitterEntityId,
+            int targetEntityId,
+            SurfaceCell emitterCell,
+            SurfaceCell targetCell)
+        {
+            EmitterEntityId = emitterEntityId;
+            TargetEntityId = targetEntityId;
+            EmitterCell = emitterCell;
+            TargetCell = targetCell;
+        }
+
+        public static GravityFieldLockedBoxPayload None => default;
+
+        public int EmitterEntityId { get; }
+
+        public int TargetEntityId { get; }
+
+        public SurfaceCell EmitterCell { get; }
+
+        public SurfaceCell TargetCell { get; }
+
+        public bool IsValid => EmitterEntityId > 0 && TargetEntityId > 0;
+    }
+
+    public readonly struct TileFeatureVisualState
+    {
+        public TileFeatureVisualState(
+            int tileId,
+            SurfaceCell cell,
+            TileFeatureKind tileFeatureKind,
+            bool isActive,
+            int sourceEntityId,
+            int ownerEntityId,
+            int teamId)
+        {
+            TileId = tileId;
+            Cell = cell;
+            TileFeatureKind = tileFeatureKind;
+            IsActive = isActive;
+            SourceEntityId = sourceEntityId;
+            OwnerEntityId = ownerEntityId;
+            TeamId = teamId;
+        }
+
+        public int TileId { get; }
+
+        public SurfaceCell Cell { get; }
+
+        public TileFeatureKind TileFeatureKind { get; }
+
+        public bool IsActive { get; }
+
+        public int SourceEntityId { get; }
+
+        public int OwnerEntityId { get; }
+
+        public int TeamId { get; }
     }
 
     public enum GravityFieldPresentationEventKind
@@ -93,6 +203,7 @@ namespace Game.Feature.Gameplay.Loop
         None = 0,
         Activated = 1,
         Expired = 2,
+        LockedBox = 3,
     }
 
     public readonly struct GravityFieldPresentationEvent
@@ -101,12 +212,16 @@ namespace Game.Feature.Gameplay.Loop
             GravityFieldPresentationEventKind eventKind,
             int emitterEntityId,
             SurfaceCell cell,
-            int targetEntityId = 0)
+            int targetEntityId = 0,
+            GravityFieldLockedBoxPayload lockedBoxPayload = default)
         {
             EventKind = eventKind;
             EmitterEntityId = emitterEntityId;
             Cell = cell;
-            TargetEntityId = targetEntityId;
+            LockedBoxPayload = lockedBoxPayload;
+            TargetEntityId = targetEntityId > 0
+                ? targetEntityId
+                : lockedBoxPayload.TargetEntityId;
         }
 
         public GravityFieldPresentationEventKind EventKind { get; }
@@ -116,6 +231,8 @@ namespace Game.Feature.Gameplay.Loop
         public SurfaceCell Cell { get; }
 
         public int TargetEntityId { get; }
+
+        public GravityFieldLockedBoxPayload LockedBoxPayload { get; }
     }
 
     public readonly struct GravityFieldAreaFootprint
@@ -294,6 +411,37 @@ namespace Game.Feature.Gameplay.Loop
         }
     }
 
+    public readonly struct TileFeatureActiveVisualState
+    {
+        public TileFeatureActiveVisualState(
+            int tileId,
+            SurfaceCell cell,
+            TileFeatureKind tileFeatureKind,
+            int sourceEntityId,
+            int ownerEntityId,
+            int teamId)
+        {
+            TileId = tileId;
+            Cell = cell;
+            TileFeatureKind = tileFeatureKind;
+            SourceEntityId = sourceEntityId;
+            OwnerEntityId = ownerEntityId;
+            TeamId = teamId;
+        }
+
+        public int TileId { get; }
+
+        public SurfaceCell Cell { get; }
+
+        public TileFeatureKind TileFeatureKind { get; }
+
+        public int SourceEntityId { get; }
+
+        public int OwnerEntityId { get; }
+
+        public int TeamId { get; }
+    }
+
     public readonly struct TickEntityMotion
     {
         // Motion records describe a render transition between already-committed logical cells.
@@ -368,7 +516,10 @@ namespace Game.Feature.Gameplay.Loop
             KinematicOffset2 destinationLocalOffset,
             MotionMode motionMode,
             ForcedMotionOp forcedMotionOp,
-            TickKinematicMotionTerminalKind terminalKind = TickKinematicMotionTerminalKind.None)
+            TickKinematicMotionTerminalKind terminalKind = TickKinematicMotionTerminalKind.None,
+            int startedTick = 0,
+            int elapsedTicks = 0,
+            int totalTicks = 0)
             : this(
                 entityId,
                 sourceAnchorCell,
@@ -382,7 +533,10 @@ namespace Game.Feature.Gameplay.Loop
                 destinationTopology: null,
                 sourceFacing: null,
                 destinationFacing: null,
-                terminalKind: terminalKind)
+                terminalKind: terminalKind,
+                startedTick: startedTick,
+                elapsedTicks: elapsedTicks,
+                totalTicks: totalTicks)
         {
         }
 
@@ -399,7 +553,10 @@ namespace Game.Feature.Gameplay.Loop
             CubeTopologyState? destinationTopology,
             Direction? sourceFacing,
             Direction? destinationFacing,
-            TickKinematicMotionTerminalKind terminalKind = TickKinematicMotionTerminalKind.None)
+            TickKinematicMotionTerminalKind terminalKind = TickKinematicMotionTerminalKind.None,
+            int startedTick = 0,
+            int elapsedTicks = 0,
+            int totalTicks = 0)
         {
             EntityId = entityId;
             SourceAnchorCell = sourceAnchorCell;
@@ -414,6 +571,9 @@ namespace Game.Feature.Gameplay.Loop
             SourceFacing = sourceFacing;
             DestinationFacing = destinationFacing;
             TerminalKind = terminalKind;
+            StartedTick = Math.Max(0, startedTick);
+            ElapsedTicks = Math.Max(0, elapsedTicks);
+            TotalTicks = Math.Max(0, totalTicks);
         }
 
         public int EntityId { get; }
@@ -441,6 +601,12 @@ namespace Game.Feature.Gameplay.Loop
         public Direction? DestinationFacing { get; }
 
         public TickKinematicMotionTerminalKind TerminalKind { get; }
+
+        public int StartedTick { get; }
+
+        public int ElapsedTicks { get; }
+
+        public int TotalTicks { get; }
     }
 
     public readonly struct TickContinuousLocomotionTrack
@@ -1375,6 +1541,61 @@ namespace Game.Feature.Gameplay.Loop
         Killed = EnemyDeath,
     }
 
+    public enum EntityExitPresentationTiming
+    {
+        Immediate = 0,
+        AfterEntityMotion = 1,
+        AtContactTime = 2,
+        AfterAnimationTail = 3,
+    }
+
+    internal readonly struct EntityExitPresentationFact
+    {
+        public EntityExitPresentationFact(
+            int entityId,
+            TickEntityExitCause exitCause,
+            EntityType entityType,
+            SurfaceCell anchorCell,
+            CubeTopologyState topology,
+            Direction facing,
+            int sourceActorEntityId,
+            EntityExitPresentationTiming timing,
+            string boundaryReason,
+            bool hasExplicitAnchor)
+        {
+            EntityId = entityId;
+            ExitCause = exitCause;
+            EntityType = entityType;
+            AnchorCell = anchorCell;
+            Topology = topology;
+            Facing = facing;
+            SourceActorEntityId = sourceActorEntityId;
+            Timing = timing;
+            BoundaryReason = boundaryReason ?? string.Empty;
+            HasExplicitAnchor = hasExplicitAnchor;
+        }
+
+        public int EntityId { get; }
+
+        public TickEntityExitCause ExitCause { get; }
+
+        public EntityType EntityType { get; }
+
+        public SurfaceCell AnchorCell { get; }
+
+        public CubeTopologyState Topology { get; }
+
+        public Direction Facing { get; }
+
+        public int SourceActorEntityId { get; }
+
+        public EntityExitPresentationTiming Timing { get; }
+
+        public string BoundaryReason { get; }
+
+        public bool HasExplicitAnchor { get; }
+    }
+
     // Exit signals transfer visual ownership away from the authoritative entity view.
     // Once an exit is committed, the original entity view must not remain visible in
     // the scene just to support a lingering effect; any echo is transient-only.
@@ -1389,7 +1610,8 @@ namespace Game.Feature.Gameplay.Loop
             EntityType entityType,
             int? sourceActorEntityId = null,
             int? anchorEntityId = null,
-            int presentationSeed = 0)
+            int presentationSeed = 0,
+            EntityExitPresentationTiming timing = EntityExitPresentationTiming.Immediate)
         {
             ExitedEntityId = exitedEntityId;
             ExitCause = exitCause;
@@ -1400,6 +1622,7 @@ namespace Game.Feature.Gameplay.Loop
             SourceActorEntityId = sourceActorEntityId;
             AnchorEntityId = anchorEntityId;
             PresentationSeed = presentationSeed;
+            Timing = timing;
         }
 
         public int ExitedEntityId { get; }
@@ -1419,6 +1642,8 @@ namespace Game.Feature.Gameplay.Loop
         public int? AnchorEntityId { get; }
 
         public int PresentationSeed { get; }
+
+        public EntityExitPresentationTiming Timing { get; }
     }
 
     // Presentation-only transient for current Flip nonlethal destroy-self impact.
@@ -1562,6 +1787,33 @@ namespace Game.Feature.Gameplay.Loop
         public BoxSlideStopCause Cause { get; }
     }
 
+    public readonly struct BoxSlideStartPresentationSignal
+    {
+        public BoxSlideStartPresentationSignal(
+            int boxEntityId,
+            int actorEntityId,
+            SurfaceCell sourceCell,
+            SurfaceCell destinationCell,
+            CubeTopologyState topology)
+        {
+            BoxEntityId = boxEntityId;
+            ActorEntityId = actorEntityId;
+            SourceCell = sourceCell;
+            DestinationCell = destinationCell;
+            Topology = topology;
+        }
+
+        public int BoxEntityId { get; }
+
+        public int ActorEntityId { get; }
+
+        public SurfaceCell SourceCell { get; }
+
+        public SurfaceCell DestinationCell { get; }
+
+        public CubeTopologyState Topology { get; }
+    }
+
     public sealed class TickPresentationData
     {
         public static readonly TickPresentationData Empty = new(
@@ -1582,6 +1834,7 @@ namespace Game.Feature.Gameplay.Loop
 
         private readonly ReadOnlyCollection<TickEntityExitPresentationSignal> _entityExitSignals;
         private readonly ReadOnlyCollection<BoxSlideStopPresentationSignal> _boxSlideStopSignals;
+        private readonly ReadOnlyCollection<BoxSlideStartPresentationSignal> _boxSlideStartSignals;
         private ReadOnlyCollection<TickImpactTransientPresentationSignal> _impactTransientSignals;
         private readonly ReadOnlyCollection<FlipImpactPresentationSignal> _flipImpactSignals;
         private readonly ReadOnlyCollection<TickEnemyActionPresentationSignal> _enemyActionSignals;
@@ -1594,8 +1847,10 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<TickKinematicMotionTrack> _kinematicMotionTracks;
         private readonly ReadOnlyCollection<TickContinuousLocomotionTrack> _continuousLocomotionTracks;
         private readonly ReadOnlyCollection<TilePresentationEvent> _tileEvents;
+        private readonly ReadOnlyCollection<TileFeatureVisualState> _tileFeatureVisualStates;
         private readonly ReadOnlyCollection<GravityFieldPresentationEvent> _gravityFieldEvents;
         private readonly ReadOnlyCollection<GravityFieldVisualState> _gravityFieldVisualStates;
+        private readonly ReadOnlyCollection<TileFeatureActiveVisualState> _tileFeatureActiveVisualStates;
         private ReadOnlyCollection<TickFrontFaceShieldBlockSignal> _frontFaceShieldBlocks;
         private ReadOnlyCollection<TickFrontFaceShieldSourceSignal> _frontFaceShieldSources;
         private ReadOnlyCollection<TickFrontFaceShieldWindupWarningSignal> _frontFaceShieldWindupWarnings;
@@ -1947,7 +2202,10 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<GravityFieldVisualState> gravityFieldVisualStates = null,
             IEnumerable<TickPlayerActionAttemptPresentationSignal> playerActionAttemptSignals = null,
             IEnumerable<BoxSlideStopPresentationSignal> boxSlideStopSignals = null,
-            IEnumerable<TickEnemyUtilityPresentationSignal> enemyUtilitySignals = null)
+            IEnumerable<TickEnemyUtilityPresentationSignal> enemyUtilitySignals = null,
+            IEnumerable<BoxSlideStartPresentationSignal> boxSlideStartSignals = null,
+            IEnumerable<TileFeatureVisualState> tileFeatureVisualStates = null,
+            IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null)
         {
             if (entityMotions == null)
             {
@@ -2024,12 +2282,18 @@ namespace Game.Feature.Gameplay.Loop
             _tileEvents = new ReadOnlyCollection<TilePresentationEvent>(
                 new List<TilePresentationEvent>(
                     tileEvents ?? Array.Empty<TilePresentationEvent>()));
+            _tileFeatureVisualStates = new ReadOnlyCollection<TileFeatureVisualState>(
+                new List<TileFeatureVisualState>(
+                    tileFeatureVisualStates ?? Array.Empty<TileFeatureVisualState>()));
             _gravityFieldEvents = new ReadOnlyCollection<GravityFieldPresentationEvent>(
                 new List<GravityFieldPresentationEvent>(
                     gravityFieldEvents ?? Array.Empty<GravityFieldPresentationEvent>()));
             _gravityFieldVisualStates = new ReadOnlyCollection<GravityFieldVisualState>(
                 new List<GravityFieldVisualState>(
                     gravityFieldVisualStates ?? Array.Empty<GravityFieldVisualState>()));
+            _tileFeatureActiveVisualStates = new ReadOnlyCollection<TileFeatureActiveVisualState>(
+                new List<TileFeatureActiveVisualState>(
+                    tileFeatureActiveVisualStates ?? Array.Empty<TileFeatureActiveVisualState>()));
             _topologyMotion = topologyMotion;
             _visibilityChanges = new ReadOnlyCollection<TickVisibilityChange>(new List<TickVisibilityChange>(visibilityChanges));
             _transitionVisibilityChanges = new ReadOnlyCollection<TickTransitionVisibilityChange>(
@@ -2067,6 +2331,9 @@ namespace Game.Feature.Gameplay.Loop
             _boxSlideStopSignals = new ReadOnlyCollection<BoxSlideStopPresentationSignal>(
                 new List<BoxSlideStopPresentationSignal>(
                     boxSlideStopSignals ?? Array.Empty<BoxSlideStopPresentationSignal>()));
+            _boxSlideStartSignals = new ReadOnlyCollection<BoxSlideStartPresentationSignal>(
+                new List<BoxSlideStartPresentationSignal>(
+                    boxSlideStartSignals ?? Array.Empty<BoxSlideStartPresentationSignal>()));
             _flipImpactSignals = new ReadOnlyCollection<FlipImpactPresentationSignal>(
                 new List<FlipImpactPresentationSignal>(flipImpactSignals));
             _impactTransientSignals = new ReadOnlyCollection<TickImpactTransientPresentationSignal>(
@@ -2106,7 +2373,10 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<GravityFieldVisualState> gravityFieldVisualStates = null,
             IEnumerable<TickPlayerActionAttemptPresentationSignal> playerActionAttemptSignals = null,
             IEnumerable<BoxSlideStopPresentationSignal> boxSlideStopSignals = null,
-            IEnumerable<TickEnemyUtilityPresentationSignal> enemyUtilitySignals = null)
+            IEnumerable<TickEnemyUtilityPresentationSignal> enemyUtilitySignals = null,
+            IEnumerable<BoxSlideStartPresentationSignal> boxSlideStartSignals = null,
+            IEnumerable<TileFeatureVisualState> tileFeatureVisualStates = null,
+            IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -2127,7 +2397,10 @@ namespace Game.Feature.Gameplay.Loop
                 gravityFieldVisualStates: gravityFieldVisualStates,
                 playerActionAttemptSignals: playerActionAttemptSignals,
                 boxSlideStopSignals: boxSlideStopSignals,
-                enemyUtilitySignals: enemyUtilitySignals)
+                enemyUtilitySignals: enemyUtilitySignals,
+                boxSlideStartSignals: boxSlideStartSignals,
+                tileFeatureVisualStates: tileFeatureVisualStates,
+                tileFeatureActiveVisualStates: tileFeatureActiveVisualStates)
         {
         }
 
@@ -2190,7 +2463,10 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<GravityFieldVisualState> gravityFieldVisualStates = null,
             IEnumerable<TickPlayerActionAttemptPresentationSignal> playerActionAttemptSignals = null,
             IEnumerable<BoxSlideStopPresentationSignal> boxSlideStopSignals = null,
-            IEnumerable<TickEnemyUtilityPresentationSignal> enemyUtilitySignals = null)
+            IEnumerable<TickEnemyUtilityPresentationSignal> enemyUtilitySignals = null,
+            IEnumerable<BoxSlideStartPresentationSignal> boxSlideStartSignals = null,
+            IEnumerable<TileFeatureVisualState> tileFeatureVisualStates = null,
+            IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -2215,7 +2491,10 @@ namespace Game.Feature.Gameplay.Loop
                 gravityFieldVisualStates: gravityFieldVisualStates,
                 playerActionAttemptSignals: playerActionAttemptSignals,
                 boxSlideStopSignals: boxSlideStopSignals,
-                enemyUtilitySignals: enemyUtilitySignals)
+                enemyUtilitySignals: enemyUtilitySignals,
+                boxSlideStartSignals: boxSlideStartSignals,
+                tileFeatureVisualStates: tileFeatureVisualStates,
+                tileFeatureActiveVisualStates: tileFeatureActiveVisualStates)
         {
             if (impactTransientSignals == null)
             {
@@ -2256,7 +2535,10 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<GravityFieldVisualState> gravityFieldVisualStates = null,
             IEnumerable<TickPlayerActionAttemptPresentationSignal> playerActionAttemptSignals = null,
             IEnumerable<BoxSlideStopPresentationSignal> boxSlideStopSignals = null,
-            IEnumerable<TickEnemyUtilityPresentationSignal> enemyUtilitySignals = null)
+            IEnumerable<TickEnemyUtilityPresentationSignal> enemyUtilitySignals = null,
+            IEnumerable<BoxSlideStartPresentationSignal> boxSlideStartSignals = null,
+            IEnumerable<TileFeatureVisualState> tileFeatureVisualStates = null,
+            IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -2282,7 +2564,10 @@ namespace Game.Feature.Gameplay.Loop
                 gravityFieldVisualStates,
                 playerActionAttemptSignals,
                 boxSlideStopSignals,
-                enemyUtilitySignals)
+                enemyUtilitySignals,
+                boxSlideStartSignals,
+                tileFeatureVisualStates,
+                tileFeatureActiveVisualStates)
         {
             if (summonedEnemyPresentationBindings == null)
             {
@@ -2313,9 +2598,13 @@ namespace Game.Feature.Gameplay.Loop
 
         public IReadOnlyList<TilePresentationEvent> TileEvents => _tileEvents;
 
+        public IReadOnlyList<TileFeatureVisualState> TileFeatureVisualStates => _tileFeatureVisualStates;
+
         public IReadOnlyList<GravityFieldPresentationEvent> GravityFieldEvents => _gravityFieldEvents;
 
         public IReadOnlyList<GravityFieldVisualState> GravityFieldVisualStates => _gravityFieldVisualStates;
+
+        public IReadOnlyList<TileFeatureActiveVisualState> TileFeatureActiveVisualStates => _tileFeatureActiveVisualStates;
 
         public TickTopologyMotion? TopologyMotion => _topologyMotion;
 
@@ -2351,6 +2640,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<TickEntityExitPresentationSignal> EntityExitSignals => _entityExitSignals;
 
         public IReadOnlyList<BoxSlideStopPresentationSignal> BoxSlideStopSignals => _boxSlideStopSignals;
+
+        public IReadOnlyList<BoxSlideStartPresentationSignal> BoxSlideStartSignals => _boxSlideStartSignals;
 
         public IReadOnlyList<FlipImpactPresentationSignal> FlipImpactSignals => _flipImpactSignals;
 

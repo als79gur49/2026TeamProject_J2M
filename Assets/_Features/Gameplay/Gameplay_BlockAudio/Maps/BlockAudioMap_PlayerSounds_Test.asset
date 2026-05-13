@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9d91be9a4b8f4f04a886b92478c7f516, type: 3}
+  m_Name: BlockAudioMap_PlayerSounds_Test
+  m_EditorClassIdentifier: Game.Feature.Gameplay.BlockAudio::Game.Feature.Gameplay.BlockAudio.BlockAudioMap
+  entries:
+  - Cue: 1
+    Binding:
+      definition: {fileID: 11400000, guid: d4f602e78d6142d5a9844afeb986ca62, type: 2}
+      attachmentSlot:
+        id: 
+      policy:
+        rid: -2
+  - Cue: 2
+    Binding:
+      definition: {fileID: 11400000, guid: d23e5f6fbb5e4e9bba94a373ed2486d5, type: 2}
+      attachmentSlot:
+        id: 
+      policy:
+        rid: -2
+  - Cue: 3
+    Binding:
+      definition: {fileID: 11400000, guid: b1f0d30e92094bfe934c76a1d00d32f1, type: 2}
+      attachmentSlot:
+        id:
+      policy:
+        rid: -2
+  references:
+    version: 2
+    RefIds:
+    - rid: -2
+      type: {class: , ns: , asm: }

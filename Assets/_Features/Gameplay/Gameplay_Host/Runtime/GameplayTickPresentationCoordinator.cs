@@ -3,12 +3,15 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Game.Feature.Gameplay.ActionAudio;
 using Game.Feature.Gameplay.Audio;
+using Game.Feature.Gameplay.BlockAudio;
+using Game.Feature.Gameplay.EnemyAudio;
 using Game.Feature.Gameplay.GravityFieldAudio;
 using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.PlayerLocomotionAudio;
 using Game.Feature.Gameplay.TileFeatureAudio;
 using UnityEngine;
 
@@ -26,6 +29,11 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplayAnimationSyncCoordinator _animationSync = new();
         private readonly GameplayActionAudioRequestPlanner _actionAudioRequestPlanner = new();
         private readonly GameplayActionAudioPresentationController _actionAudioPresentationController;
+        private readonly EnemyAudioRequestPlanner _enemyAudioRequestPlanner = new();
+        private readonly EnemyAudioPresentationController _enemyAudioPresentationController;
+        private readonly BlockAudioRequestPlanner _blockAudioRequestPlanner = new();
+        private readonly BlockAudioPresentationController _blockAudioPresentationController;
+        private readonly PlayerLocomotionAudioPresentationController _playerLocomotionAudioPresentationController;
         private readonly GameplayAudioRequestPlanner _audioRequestPlanner = new();
         private readonly GameplayAudioPresentationController _audioPresentationController;
         private readonly GameplayCommittedFrameBuilder _committedFrameBuilder;
@@ -48,6 +56,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplayFrontFaceShieldVfxPresenter _frontFaceShieldVfxPresenter = new();
         private readonly GameplayUtilityWindupVfxPresenter _utilityWindupVfxPresenter = new();
         private readonly TileFeatureVisualPresentationController _tileFeatureVisualPresentationController = new();
+        private readonly MoonBlockEmergencePresentationController _moonBlockEmergencePresentationController = new();
         private readonly GameplayMotionTimingResolver _motionTimingResolver;
         private readonly GameplayPoseResolver _poseResolver;
         private readonly List<IGameplayTickPresentationExtension> _presentationExtensions = new();
@@ -71,6 +80,9 @@ namespace Game.Feature.Gameplay.Host
         {
             _audioPresentationController = new GameplayAudioPresentationController(_stateStore);
             _actionAudioPresentationController = new GameplayActionAudioPresentationController(_stateStore);
+            _enemyAudioPresentationController = new EnemyAudioPresentationController(_stateStore);
+            _blockAudioPresentationController = new BlockAudioPresentationController(_stateStore);
+            _playerLocomotionAudioPresentationController = new PlayerLocomotionAudioPresentationController(_stateStore);
             _tileFeatureAudioPresentationController = new TileFeatureAudioPresentationController(_stateStore);
             _gravityFieldAudioPresentationController = new GravityFieldAudioPresentationController(_stateStore);
             _gravityFieldVisualPresentationController = new GravityFieldVisualPresentationController(_stateStore);
@@ -138,6 +150,9 @@ namespace Game.Feature.Gameplay.Host
 
         internal int PendingGameplayAudioRequestCount => _audioPresentationController.PendingRequestCount;
 
+        internal int PendingMoonBlockEmergenceRequestCount =>
+            _moonBlockEmergencePresentationController.PendingRequestCount;
+
         public Bounds VisibleCubeBounds
         {
             get
@@ -169,11 +184,13 @@ namespace Game.Feature.Gameplay.Host
 
             _viewBinder = viewBinder;
             _gravityFieldVisualPresentationController.AttachTargetViewRegistry(_viewBinder.ViewRegistry);
+            _moonBlockEmergencePresentationController.Configure(_viewBinder.ViewRegistry, timingProfile);
             _enemyPresentationCatalog = enemyPresentationCatalog;
             _enemyPresentationBindings = enemyPresentationBindings ?? Array.Empty<EnemyPresentationBinding>();
             var resolvedFaceSeamGap = faceSeamGap >= 0f ? faceSeamGap : cellSize;
             _projector = new GameplayCubeProjector(boardBounds, cellSize, resolvedFaceSeamGap);
             _timingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
+            _enemyAudioPresentationController.ConfigureMoveCadence(_timingProfile.SimulationTicksPerSecond);
             _topologyTransitionController.Configure(
                 boardRoot,
                 boardSurfaceRenderer,
@@ -186,6 +203,9 @@ namespace Game.Feature.Gameplay.Host
             _exitPresentationController.Reset();
             _audioPresentationController.ResetSession();
             _actionAudioPresentationController.ResetSession();
+            _enemyAudioPresentationController.ResetSession();
+            _blockAudioPresentationController.ResetSession();
+            _playerLocomotionAudioPresentationController.ResetSession();
             _tileFeatureAudioPresentationController.ResetSession();
             _gravityFieldAudioPresentationController.ResetSession();
             _entityPresentationApplier.ResetAllPlayerDeathDisplacements();
@@ -203,6 +223,7 @@ namespace Game.Feature.Gameplay.Host
                 _stateStore,
                 _animationSync,
                 enemyPresentationArchetypeRegistry);
+            _moonBlockEmergencePresentationController.ResetSession();
 
             _isInitialized = true;
         }
@@ -264,6 +285,9 @@ namespace Game.Feature.Gameplay.Host
             TraceStep("RefreshAudioPlan");
             _audioPresentationController.ReplacePendingPlan(_audioRequestPlanner.BuildRequests(result));
             _actionAudioPresentationController.ReplacePendingPlan(_actionAudioRequestPlanner.BuildRequests(result));
+            _enemyAudioPresentationController.ReplacePendingPlan(_enemyAudioRequestPlanner.BuildRequests(result));
+            _blockAudioPresentationController.ReplacePendingPlan(
+                _blockAudioRequestPlanner.BuildRequests(result, _timingProfile));
             RefreshTilePresentationRequests(result.PresentationData);
             RefreshGravityFieldPresentationRequests(result.PresentationData);
             RefreshGravityFieldVisualStates(result.PresentationData);
@@ -272,6 +296,7 @@ namespace Game.Feature.Gameplay.Host
             _gravityFieldAudioPresentationController.ReplacePendingPlan(
                 _gravityFieldAudioRequestPlanner.BuildRequests(_currentGravityFieldPresentationRequests));
             _tileFeatureVisualPresentationController.PlayRequests(_currentTilePresentationRequests);
+            _moonBlockEmergencePresentationController.QueueRequests(_currentTilePresentationRequests, result.TickIndex);
             _gravityFieldVisualPresentationController.PlayRequests(_currentGravityFieldPresentationRequests);
             _summonedEnemyPresentationResolver.Reconcile(result);
             _committedFrameBuilder.StoreCommittedFrame(
@@ -299,6 +324,9 @@ namespace Game.Feature.Gameplay.Host
                 _projector);
             _exitPresentationController.RefreshEntityExitPlan(result.PresentationData);
             _planner.RefreshPlayerLocomotionSignals(result.PresentationData);
+            _playerLocomotionAudioPresentationController.RefreshSignals(
+                result.PresentationData.PlayerLocomotionSignals,
+                _timingProfile.MoveMotionDurationSeconds);
             _topologyTransitionController.RefreshTopologyTrack(
                 result.PresentationData,
                 _stateStore.CommittedTopology);
@@ -323,12 +351,16 @@ namespace Game.Feature.Gameplay.Host
             TraceStep("PlayPlannedAudio");
             _audioPresentationController.PlayPlannedAudio();
             _actionAudioPresentationController.PlayPlannedAudio();
+            _enemyAudioPresentationController.PlayPlannedAudio(result.TickIndex);
+            _blockAudioPresentationController.PlayPlannedAudio();
+            _playerLocomotionAudioPresentationController.PlayPlannedAudio();
             _tileFeatureAudioPresentationController.PlayPlannedAudio();
             _gravityFieldAudioPresentationController.PlayPlannedAudio();
             TraceStep("ApplyEntityExitOwnership");
             _exitPresentationController.ApplyEntityExitOwnership();
             _summonedEnemyPresentationResolver.CleanupOwnedViews(result.FinalEntities);
             UpdatePresentation(0f);
+            _moonBlockEmergencePresentationController.StartReadyRequests(result.TickIndex);
         }
 
         public void PresentInitial(IReadOnlyList<EntityState> entities, CubeTopologyState topology)
@@ -343,6 +375,9 @@ namespace Game.Feature.Gameplay.Host
             _gravityFieldVisualPresentationController.ClearTrackedContinuousStates();
             _audioPresentationController.ResetSession();
             _actionAudioPresentationController.ResetSession();
+            _enemyAudioPresentationController.ResetSession();
+            _blockAudioPresentationController.ResetSession();
+            _playerLocomotionAudioPresentationController.ResetSession();
             _tileFeatureAudioPresentationController.ResetSession();
             _gravityFieldAudioPresentationController.ResetSession();
             _entityPresentationApplier.ResetAllPlayerDeathDisplacements();
@@ -350,6 +385,7 @@ namespace Game.Feature.Gameplay.Host
             _exitPresentationController.Reset();
             _frontFaceShieldVfxPresenter.Clear();
             _utilityWindupVfxPresenter.Clear();
+            _moonBlockEmergencePresentationController.ResetSession();
             ResetExtensions();
             _animationSync.Reset();
             _stateStore.ResetSession(topology);
@@ -388,13 +424,17 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _topologyTransitionController.UpdatePresentation(deltaTime, _stateStore.CommittedTopology);
+            _blockAudioPresentationController.Update(deltaTime);
+            _playerLocomotionAudioPresentationController.Update(deltaTime);
             _frontFaceShieldVfxPresenter.Update(deltaTime);
+            _moonBlockEmergencePresentationController.UpdatePresentation(deltaTime);
             UpdateExtensions(deltaTime);
             _entityPresentationApplier.Apply(
                 deltaTime,
                 _topologyTransitionController.HasActiveBoardRotationTween,
                 _viewBinder,
                 _timingProfile);
+            _exitPresentationController.CompleteDeferredEntityExits();
             RefreshPresentationMotionVfx(_lastPresentedTickIndex);
         }
 
@@ -404,6 +444,7 @@ namespace Game.Feature.Gameplay.Host
         {
             _audioPresentationController.AttachRuntime(playbackPort, gameplayAudioMap);
             _actionAudioPresentationController.AttachRuntime(playbackPort);
+            _enemyAudioPresentationController.AttachRuntime(playbackPort);
         }
 
         internal void AttachTileFeatureAudioRuntime(
@@ -420,6 +461,20 @@ namespace Game.Feature.Gameplay.Host
             _gravityFieldAudioPresentationController.AttachRuntime(playbackPort, gravityFieldAudioMap);
         }
 
+        internal void AttachBlockAudioRuntime(
+            IGameplayAudioPlaybackPort playbackPort,
+            BlockAudioMap blockAudioMap)
+        {
+            _blockAudioPresentationController.AttachRuntime(playbackPort, blockAudioMap);
+        }
+
+        internal void AttachPlayerLocomotionAudioRuntime(
+            IGameplayAudioPlaybackPort playbackPort,
+            PlayerLocomotionAudioMap playerLocomotionAudioMap)
+        {
+            _playerLocomotionAudioPresentationController.AttachRuntime(playbackPort, playerLocomotionAudioMap);
+        }
+
         internal void AttachTileFeatureVisualRegistry(ITileFeatureVisualRegistry registry)
         {
             _tileFeatureVisualPresentationController.AttachRegistry(registry);
@@ -428,6 +483,7 @@ namespace Game.Feature.Gameplay.Host
         internal void DetachGameplayAudioRuntime()
         {
             _actionAudioPresentationController.DetachRuntime();
+            _enemyAudioPresentationController.DetachRuntime();
             _audioPresentationController.DetachRuntime();
         }
 
@@ -441,6 +497,16 @@ namespace Game.Feature.Gameplay.Host
             _gravityFieldAudioPresentationController.DetachRuntime();
         }
 
+        internal void DetachBlockAudioRuntime()
+        {
+            _blockAudioPresentationController.DetachRuntime();
+        }
+
+        internal void DetachPlayerLocomotionAudioRuntime()
+        {
+            _playerLocomotionAudioPresentationController.DetachRuntime();
+        }
+
         internal void DebugRefreshGameplayAudioPlan(TickResult result)
         {
             if (result == null)
@@ -450,6 +516,7 @@ namespace Game.Feature.Gameplay.Host
 
             _audioPresentationController.ReplacePendingPlan(_audioRequestPlanner.BuildRequests(result));
             _actionAudioPresentationController.ReplacePendingPlan(_actionAudioRequestPlanner.BuildRequests(result));
+            _enemyAudioPresentationController.ReplacePendingPlan(_enemyAudioRequestPlanner.BuildRequests(result));
         }
 
         internal void SetTraceSink(Action<string> traceSink)
@@ -495,6 +562,7 @@ namespace Game.Feature.Gameplay.Host
 
         internal void HardCleanupPresentationExtensions()
         {
+            _moonBlockEmergencePresentationController.Dispose();
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
                 _presentationExtensions[i]?.HardCleanup();

@@ -132,7 +132,9 @@ namespace Game.Feature.Gameplay.Loop
             JumpPresentationKind jumpPresentationKind = JumpPresentationKind.None,
             SurfaceCell presentationTargetCell = default,
             MovementExecutionBoundaryKind movementExecutionBoundaryKind = MovementExecutionBoundaryKind.Unknown,
-            string boundaryReason = null)
+            string boundaryReason = null,
+            EntityExitPresentationTiming exitPresentationTiming = EntityExitPresentationTiming.Immediate,
+            bool hasPresentationTargetCell = false)
         {
             OriginPhase = originPhase;
             SemanticKind = semanticKind;
@@ -151,6 +153,8 @@ namespace Game.Feature.Gameplay.Loop
             PresentationTargetCell = presentationTargetCell;
             MovementExecutionBoundaryKind = movementExecutionBoundaryKind;
             BoundaryReason = boundaryReason ?? string.Empty;
+            ExitPresentationTiming = exitPresentationTiming;
+            HasPresentationTargetCell = hasPresentationTargetCell || !presentationTargetCell.Equals(default(SurfaceCell));
         }
 
         public TickPhase OriginPhase { get; }
@@ -183,9 +187,13 @@ namespace Game.Feature.Gameplay.Loop
 
         public SurfaceCell PresentationTargetCell { get; }
 
+        public bool HasPresentationTargetCell { get; }
+
         public MovementExecutionBoundaryKind MovementExecutionBoundaryKind { get; }
 
         public string BoundaryReason { get; }
+
+        public EntityExitPresentationTiming ExitPresentationTiming { get; }
     }
 
     internal sealed class FinalizationOperation

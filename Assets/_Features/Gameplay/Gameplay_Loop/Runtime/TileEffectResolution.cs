@@ -1,10 +1,20 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Model.Phases;
 
 namespace Game.Feature.Gameplay.Loop
 {
+    internal enum TileEffectEntityContactKind
+    {
+        MoveEnter = 0,
+        SlideEnter = 1,
+        PushEnter = 2,
+        FlipLanding = 3,
+        ImpactFollowThrough = 4,
+    }
+
     internal enum TileEffectBoxContactKind
     {
         SlideEnter = 0,
@@ -30,6 +40,96 @@ namespace Game.Feature.Gameplay.Loop
         public SurfaceCell Cell { get; }
 
         public TileEffectBoxContactKind Kind { get; }
+
+        public TileEffectEntityContact ToEntityContact()
+        {
+            return new TileEffectEntityContact(
+                BoxEntityId,
+                EntityType.Box,
+                Cell,
+                Cell,
+                Cell,
+                TileEffectEntityContact.ToEntityContactKind(Kind),
+                MovementSemanticKind.None,
+                operationOrder: 0);
+        }
+    }
+
+    internal readonly struct TileEffectEntityContact
+    {
+        public TileEffectEntityContact(
+            int entityId,
+            EntityType entityType,
+            SurfaceCell fromCell,
+            SurfaceCell destinationCell,
+            SurfaceCell tileCell,
+            TileEffectEntityContactKind contactKind,
+            MovementSemanticKind movementSemanticKind,
+            long operationOrder)
+        {
+            EntityId = entityId;
+            EntityType = entityType;
+            FromCell = fromCell;
+            DestinationCell = destinationCell;
+            TileCell = tileCell;
+            ContactKind = contactKind;
+            MovementSemanticKind = movementSemanticKind;
+            OperationOrder = operationOrder;
+        }
+
+        public int EntityId { get; }
+
+        public EntityType EntityType { get; }
+
+        public SurfaceCell FromCell { get; }
+
+        public SurfaceCell DestinationCell { get; }
+
+        public SurfaceCell TileCell { get; }
+
+        public TileEffectEntityContactKind ContactKind { get; }
+
+        public MovementSemanticKind MovementSemanticKind { get; }
+
+        public long OperationOrder { get; }
+
+        public static TileEffectEntityContactKind ToEntityContactKind(TileEffectBoxContactKind kind)
+        {
+            return kind switch
+            {
+                TileEffectBoxContactKind.SlideEnter => TileEffectEntityContactKind.SlideEnter,
+                TileEffectBoxContactKind.PushEnter => TileEffectEntityContactKind.PushEnter,
+                TileEffectBoxContactKind.FlipLanding => TileEffectEntityContactKind.FlipLanding,
+                TileEffectBoxContactKind.ImpactFollowThrough => TileEffectEntityContactKind.ImpactFollowThrough,
+                _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown box contact kind."),
+            };
+        }
+    }
+
+    internal enum TileEffectBoxMovementFamily
+    {
+        None = 0,
+        Push = 1,
+        Slide = 2,
+    }
+
+    internal readonly struct TileEffectBoxStop
+    {
+        public TileEffectBoxStop(
+            int boxEntityId,
+            SurfaceCell cell,
+            TileEffectBoxMovementFamily movementFamily)
+        {
+            BoxEntityId = boxEntityId;
+            Cell = cell;
+            MovementFamily = movementFamily;
+        }
+
+        public int BoxEntityId { get; }
+
+        public SurfaceCell Cell { get; }
+
+        public TileEffectBoxMovementFamily MovementFamily { get; }
     }
 
     internal readonly struct TileEffectResolutionContext
@@ -39,13 +139,32 @@ namespace Game.Feature.Gameplay.Loop
             WorldSnapshot snapshot,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             IReadOnlyList<TileEffectBoxContact> boxContacts = null,
-            WorldSnapshot previousSnapshot = null)
+            WorldSnapshot previousSnapshot = null,
+            IReadOnlyList<TileEffectBoxStop> boxStops = null)
+            : this(
+                tickIndex,
+                snapshot,
+                tileFeatureDefinitions,
+                ConvertBoxContacts(boxContacts),
+                previousSnapshot,
+                boxStops)
+        {
+        }
+
+        public TileEffectResolutionContext(
+            int tickIndex,
+            WorldSnapshot snapshot,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            IReadOnlyList<TileEffectEntityContact> entityContacts,
+            WorldSnapshot previousSnapshot = null,
+            IReadOnlyList<TileEffectBoxStop> boxStops = null)
         {
             TickIndex = tickIndex;
             Snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
             TileFeatureDefinitions = tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
-            BoxContacts = boxContacts ?? Array.Empty<TileEffectBoxContact>();
+            EntityContacts = entityContacts ?? Array.Empty<TileEffectEntityContact>();
             PreviousSnapshot = previousSnapshot;
+            BoxStops = boxStops ?? Array.Empty<TileEffectBoxStop>();
         }
 
         public int TickIndex { get; }
@@ -54,9 +173,28 @@ namespace Game.Feature.Gameplay.Loop
 
         public IReadOnlyList<TileFeatureRuntimeDefinition> TileFeatureDefinitions { get; }
 
-        public IReadOnlyList<TileEffectBoxContact> BoxContacts { get; }
+        public IReadOnlyList<TileEffectEntityContact> EntityContacts { get; }
+
+        public IReadOnlyList<TileEffectBoxStop> BoxStops { get; }
 
         public WorldSnapshot PreviousSnapshot { get; }
+
+        private static IReadOnlyList<TileEffectEntityContact> ConvertBoxContacts(
+            IReadOnlyList<TileEffectBoxContact> boxContacts)
+        {
+            if (boxContacts == null || boxContacts.Count == 0)
+            {
+                return Array.Empty<TileEffectEntityContact>();
+            }
+
+            var converted = new TileEffectEntityContact[boxContacts.Count];
+            for (var i = 0; i < boxContacts.Count; i++)
+            {
+                converted[i] = boxContacts[i].ToEntityContact();
+            }
+
+            return converted;
+        }
     }
 
     internal readonly struct TileEffectResolutionResult
@@ -118,11 +256,15 @@ namespace Game.Feature.Gameplay.Loop
             var tileFeatures = new List<TileFeatureState>();
             context.Snapshot.EnumerateTileFeaturesOrdered(tileFeatures);
 
+            var entityOperations = ResolveDestroyTiles(context, out var tileEvents, out var destroyedBoxIds);
+            entityOperations.MergeFrom(ResolveBarricadeCrushes(context, destroyedBoxIds, tileEvents));
+            entityOperations.MergeFrom(ResolveSlideTiles(context, destroyedBoxIds, tileEvents));
+
             TileFeatureOperationBatch operations = null;
             for (var i = 0; i < tileFeatures.Count; i++)
             {
                 var tileFeature = tileFeatures[i];
-                if (!ShouldLatchButton(context, tileFeature))
+                if (!ShouldLatchButton(context, tileFeature, destroyedBoxIds))
                 {
                     continue;
                 }
@@ -130,10 +272,6 @@ namespace Game.Feature.Gameplay.Loop
                 operations ??= new TileFeatureOperationBatch();
                 operations.Add(TileFeatureOperation.Update(CreateActivatedState(tileFeature)));
             }
-
-            var entityOperations = ResolveDestroyTiles(context, out var tileEvents, out var destroyedBoxIds);
-            entityOperations.MergeFrom(ResolveBarricadeCrushes(context, destroyedBoxIds, tileEvents));
-            entityOperations.MergeFrom(ResolveSlideTiles(context, destroyedBoxIds, tileEvents));
 
             return (operations == null || operations.IsEmpty) &&
                    entityOperations.Operations.Count == 0 &&
@@ -147,7 +285,8 @@ namespace Game.Feature.Gameplay.Loop
 
         private static bool ShouldLatchButton(
             in TileEffectResolutionContext context,
-            TileFeatureState tileFeature)
+            TileFeatureState tileFeature,
+            HashSet<int> excludedBoxIds)
         {
             if (tileFeature.Kind != TileFeatureKind.Button ||
                 (tileFeature.Flags & TileFeatureFlags.Activated) != 0)
@@ -161,7 +300,13 @@ namespace Game.Feature.Gameplay.Loop
                 return false;
             }
 
-            return IsAcceptedBox(context.Snapshot, tileFeature.Cell, definition.BoxSelector);
+            return TryGetAcceptedPushSlideStoppedBox(
+                context.Snapshot,
+                context.BoxStops,
+                tileFeature.Cell,
+                definition.BoxSelector,
+                excludedBoxIds,
+                out _);
         }
 
         private static FinalizationBatch ResolveDestroyTiles(
@@ -172,43 +317,48 @@ namespace Game.Feature.Gameplay.Loop
             tileEvents = new List<TilePresentationEvent>();
             var batch = new FinalizationBatch();
             destroyedBoxIds = new HashSet<int>();
-            if (context.BoxContacts.Count == 0)
+            if (context.EntityContacts.Count == 0)
             {
                 return batch;
             }
 
-            var orderedContacts = new List<TileEffectBoxContact>(context.BoxContacts);
-            orderedContacts.Sort(CompareTileEffectBoxContacts);
+            var destroyedEntityIds = new HashSet<int>();
+            var orderedContacts = new List<TileEffectEntityContact>(context.EntityContacts);
+            orderedContacts.Sort(CompareTileEffectEntityContacts);
             var tileFeaturesAtCell = new List<TileFeatureState>();
 
             for (var i = 0; i < orderedContacts.Count; i++)
             {
                 var contact = orderedContacts[i];
-                if (contact.BoxEntityId <= 0 ||
-                    destroyedBoxIds.Contains(contact.BoxEntityId))
+                if (contact.EntityId <= 0 ||
+                    destroyedEntityIds.Contains(contact.EntityId))
                 {
                     continue;
                 }
 
-                context.Snapshot.EnumerateTileFeaturesAt(contact.Cell, tileFeaturesAtCell);
+                context.Snapshot.EnumerateTileFeaturesAt(contact.TileCell, tileFeaturesAtCell);
                 for (var tileIndex = 0; tileIndex < tileFeaturesAtCell.Count; tileIndex++)
                 {
                     var tileFeature = tileFeaturesAtCell[tileIndex];
                     if (tileFeature.Kind != TileFeatureKind.Destroy ||
                         !TryFindDefinition(context.TileFeatureDefinitions, tileFeature.TileId, out var definition) ||
                         !TileFeatureActivationQueries.IsActive(tileFeature, definition, context.Snapshot.Topology) ||
-                        !TryGetValidDestroyTarget(context.Snapshot, contact.BoxEntityId, contact.Cell, out _))
+                        !TryGetValidDestroyTarget(context.Snapshot, contact, out var target))
                     {
                         continue;
                     }
 
+                    var metadata = CreateDestroyTileMetadata(
+                        context.TickIndex,
+                        target,
+                        contact.TileCell);
                     batch.SetBoardPresence(
-                        contact.BoxEntityId,
+                        contact.EntityId,
                         EntityBoardPresence.Detached,
-                        CreateDestroyTileMetadata(context.TickIndex, contact.BoxEntityId, contact.Cell));
+                        metadata);
                     batch.MarkDestroy(
-                        contact.BoxEntityId,
-                        CreateDestroyTileMetadata(context.TickIndex, contact.BoxEntityId, contact.Cell));
+                        contact.EntityId,
+                        metadata);
                     tileEvents.Add(new TilePresentationEvent(
                         TilePresentationEventKind.DestroyTileTriggered,
                         tileFeature.TileId,
@@ -217,8 +367,13 @@ namespace Game.Feature.Gameplay.Loop
                         tileFeature.SourceEntityId,
                         tileFeature.OwnerEntityId,
                         tileFeature.TeamId,
-                        targetEntityId: contact.BoxEntityId));
-                    destroyedBoxIds.Add(contact.BoxEntityId);
+                        targetEntityId: contact.EntityId));
+                    destroyedEntityIds.Add(contact.EntityId);
+                    if (target.type == EntityType.Box)
+                    {
+                        destroyedBoxIds.Add(contact.EntityId);
+                    }
+
                     break;
                 }
             }
@@ -292,29 +447,30 @@ namespace Game.Feature.Gameplay.Loop
             List<TilePresentationEvent> tileEvents)
         {
             var batch = new FinalizationBatch();
-            if (context.BoxContacts.Count == 0)
+            if (context.EntityContacts.Count == 0)
             {
                 return batch;
             }
 
             var redirectedBoxIds = new HashSet<int>();
-            var orderedContacts = new List<TileEffectBoxContact>(context.BoxContacts);
-            orderedContacts.Sort(CompareTileEffectBoxContacts);
+            var orderedContacts = new List<TileEffectEntityContact>(context.EntityContacts);
+            orderedContacts.Sort(CompareTileEffectEntityContacts);
             var tileFeaturesAtCell = new List<TileFeatureState>();
 
             for (var i = 0; i < orderedContacts.Count; i++)
             {
                 var contact = orderedContacts[i];
-                if (!IsSlideRedirectContact(contact.Kind) ||
-                    contact.BoxEntityId <= 0 ||
-                    (destroyedBoxIds != null && destroyedBoxIds.Contains(contact.BoxEntityId)) ||
-                    redirectedBoxIds.Contains(contact.BoxEntityId) ||
-                    !TryGetValidSlideTarget(context.Snapshot, contact.BoxEntityId, contact.Cell, out var box))
+                if (contact.EntityType != EntityType.Box ||
+                    !IsSlideRedirectContact(contact.ContactKind) ||
+                    contact.EntityId <= 0 ||
+                    (destroyedBoxIds != null && destroyedBoxIds.Contains(contact.EntityId)) ||
+                    redirectedBoxIds.Contains(contact.EntityId) ||
+                    !TryGetValidSlideTarget(context.Snapshot, contact.EntityId, contact.TileCell, out var box))
                 {
                     continue;
                 }
 
-                context.Snapshot.EnumerateTileFeaturesAt(contact.Cell, tileFeaturesAtCell);
+                context.Snapshot.EnumerateTileFeaturesAt(contact.TileCell, tileFeaturesAtCell);
                 for (var tileIndex = 0; tileIndex < tileFeaturesAtCell.Count; tileIndex++)
                 {
                     var tileFeature = tileFeaturesAtCell[tileIndex];
@@ -329,9 +485,9 @@ namespace Game.Feature.Gameplay.Loop
                     if (box.facing != redirectDirection)
                     {
                         batch.SetFacing(
-                            contact.BoxEntityId,
+                            contact.EntityId,
                             redirectDirection,
-                            CreateSlideTileRedirectMetadata(context.TickIndex, contact.BoxEntityId, contact.Cell));
+                            CreateSlideTileRedirectMetadata(context.TickIndex, contact.EntityId, contact.TileCell));
                         tileEvents.Add(new TilePresentationEvent(
                             TilePresentationEventKind.SlideTileRedirected,
                             tileFeature.TileId,
@@ -340,11 +496,11 @@ namespace Game.Feature.Gameplay.Loop
                             tileFeature.SourceEntityId,
                             tileFeature.OwnerEntityId,
                             tileFeature.TeamId,
-                            targetEntityId: contact.BoxEntityId,
+                            targetEntityId: contact.EntityId,
                             direction: redirectDirection));
                     }
 
-                    redirectedBoxIds.Add(contact.BoxEntityId);
+                    redirectedBoxIds.Add(contact.EntityId);
                     break;
                 }
             }
@@ -352,21 +508,22 @@ namespace Game.Feature.Gameplay.Loop
             return batch;
         }
 
-        private static int CompareTileEffectBoxContacts(TileEffectBoxContact left, TileEffectBoxContact right)
+        private static int CompareTileEffectEntityContacts(TileEffectEntityContact left, TileEffectEntityContact right)
         {
-            var cellCompare = CompareSurfaceCells(left.Cell, right.Cell);
+            var cellCompare = CompareSurfaceCells(left.TileCell, right.TileCell);
             if (cellCompare != 0)
             {
                 return cellCompare;
             }
 
-            var boxCompare = left.BoxEntityId.CompareTo(right.BoxEntityId);
-            if (boxCompare != 0)
+            var entityCompare = left.EntityId.CompareTo(right.EntityId);
+            if (entityCompare != 0)
             {
-                return boxCompare;
+                return entityCompare;
             }
 
-            return left.Kind.CompareTo(right.Kind);
+            var kindCompare = left.ContactKind.CompareTo(right.ContactKind);
+            return kindCompare != 0 ? kindCompare : left.OperationOrder.CompareTo(right.OperationOrder);
         }
 
         private static int CompareSurfaceCells(SurfaceCell left, SurfaceCell right)
@@ -382,6 +539,25 @@ namespace Game.Feature.Gameplay.Loop
         }
 
         private static bool TryGetValidDestroyTarget(
+            WorldSnapshot snapshot,
+            in TileEffectEntityContact contact,
+            out EntityState entity)
+        {
+            if (contact.EntityType == EntityType.Box)
+            {
+                return TryGetValidDestroyBoxTarget(snapshot, contact.EntityId, contact.TileCell, out entity);
+            }
+
+            if (contact.EntityType == EntityType.Unit)
+            {
+                return TryGetValidDestroyUnitTarget(snapshot, contact.EntityId, contact.TileCell, out entity);
+            }
+
+            entity = default;
+            return false;
+        }
+
+        private static bool TryGetValidDestroyBoxTarget(
             WorldSnapshot snapshot,
             int boxEntityId,
             SurfaceCell contactCell,
@@ -401,13 +577,34 @@ namespace Game.Feature.Gameplay.Loop
             return false;
         }
 
+        private static bool TryGetValidDestroyUnitTarget(
+            WorldSnapshot snapshot,
+            int unitEntityId,
+            SurfaceCell contactCell,
+            out EntityState unit)
+        {
+            if (snapshot.TryGetEntity(unitEntityId, out unit) &&
+                unit.type == EntityType.Unit &&
+                TileFeatureHazardQueries.IsDestroyTileLethalForUnit(unit) &&
+                unit.position == contactCell &&
+                unit.boardPresence == EntityBoardPresence.Occupying &&
+                unit.hp > 0 &&
+                !unit.markedForDeath)
+            {
+                return true;
+            }
+
+            unit = default;
+            return false;
+        }
+
         private static bool TryGetValidSlideTarget(
             WorldSnapshot snapshot,
             int boxEntityId,
             SurfaceCell contactCell,
             out EntityState box)
         {
-            if (TryGetValidDestroyTarget(snapshot, boxEntityId, contactCell, out box) &&
+            if (TryGetValidDestroyBoxTarget(snapshot, boxEntityId, contactCell, out box) &&
                 box.state == EntityPhaseState.Sliding)
             {
                 return true;
@@ -417,10 +614,10 @@ namespace Game.Feature.Gameplay.Loop
             return false;
         }
 
-        private static bool IsSlideRedirectContact(TileEffectBoxContactKind kind)
+        private static bool IsSlideRedirectContact(TileEffectEntityContactKind kind)
         {
-            return kind == TileEffectBoxContactKind.PushEnter ||
-                   kind == TileEffectBoxContactKind.SlideEnter;
+            return kind == TileEffectEntityContactKind.PushEnter ||
+                   kind == TileEffectEntityContactKind.SlideEnter;
         }
 
         private static bool TryResolveDirection(Direction2D direction, out Direction resolved)
@@ -451,19 +648,36 @@ namespace Game.Feature.Gameplay.Loop
 
         private static FinalizationOperationMetadata CreateDestroyTileMetadata(
             int tickIndex,
-            int boxEntityId,
+            in EntityState target,
             SurfaceCell contactCell)
         {
             return new FinalizationOperationMetadata(
                 TickPhase.Resolve,
                 ResolvedActionSemanticKind.None,
-                sourceActorEntityId: boxEntityId,
+                sourceActorEntityId: target.entityId,
                 actionPlanId: tickIndex,
-                exitCauseHint: TickEntityExitCause.BoxDestroy,
+                exitCauseHint: ResolveDestroyTileExitCause(target),
                 damageSourceType: DamageSourceType.Environmental,
                 presentationTargetCell: contactCell,
                 movementExecutionBoundaryKind: MovementExecutionBoundaryKind.ScriptedRelocation,
-                boundaryReason: "DestroyTile");
+                boundaryReason: "DestroyTile",
+                exitPresentationTiming: EntityExitPresentationTiming.AfterEntityMotion,
+                hasPresentationTargetCell: true);
+        }
+
+        private static TickEntityExitCause ResolveDestroyTileExitCause(in EntityState target)
+        {
+            if (target.type == EntityType.Box)
+            {
+                return TickEntityExitCause.BoxDestroy;
+            }
+
+            if (EntityRolePolicy.IsEnemyUnit(target))
+            {
+                return TickEntityExitCause.Killed;
+            }
+
+            return TickEntityExitCause.None;
         }
 
         private static FinalizationOperationMetadata CreateBarricadeCrushMetadata(
@@ -480,7 +694,8 @@ namespace Game.Feature.Gameplay.Loop
                 damageSourceType: DamageSourceType.Environmental,
                 presentationTargetCell: contactCell,
                 movementExecutionBoundaryKind: MovementExecutionBoundaryKind.ScriptedRelocation,
-                boundaryReason: "BarricadeCrush");
+                boundaryReason: "BarricadeCrush",
+                hasPresentationTargetCell: true);
         }
 
         private static FinalizationOperationMetadata CreateSlideTileRedirectMetadata(
@@ -496,7 +711,8 @@ namespace Game.Feature.Gameplay.Loop
                 movementSemanticKind: MovementSemanticKind.Slide,
                 presentationTargetCell: contactCell,
                 movementExecutionBoundaryKind: MovementExecutionBoundaryKind.ScriptedRelocation,
-                boundaryReason: "SlideTileRedirect");
+                boundaryReason: "SlideTileRedirect",
+                hasPresentationTargetCell: true);
         }
 
         private static bool TryFindDefinition(
@@ -517,20 +733,51 @@ namespace Game.Feature.Gameplay.Loop
             return false;
         }
 
-        private static bool IsAcceptedBox(
+        private static bool TryGetAcceptedPushSlideStoppedBox(
             WorldSnapshot snapshot,
-            SurfaceCell cell,
+            IReadOnlyList<TileEffectBoxStop> stops,
+            SurfaceCell buttonCell,
+            TileFeatureBoxSelector selector,
+            HashSet<int> excludedBoxIds,
+            out EntityState acceptedBox)
+        {
+            acceptedBox = default;
+            if (stops == null || stops.Count == 0)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < stops.Count; i++)
+            {
+                var stop = stops[i];
+                if (stop.Cell != buttonCell ||
+                    (excludedBoxIds != null && excludedBoxIds.Contains(stop.BoxEntityId)) ||
+                    (stop.MovementFamily != TileEffectBoxMovementFamily.Push &&
+                     stop.MovementFamily != TileEffectBoxMovementFamily.Slide) ||
+                    !TryGetValidStoppedBox(snapshot, stop.BoxEntityId, buttonCell, out var box) ||
+                    !MatchesButtonBoxSelector(box, selector))
+                {
+                    continue;
+                }
+
+                acceptedBox = box;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool MatchesButtonBoxSelector(
+            EntityState box,
             TileFeatureBoxSelector selector)
         {
             switch (selector)
             {
                 case TileFeatureBoxSelector.AnyPushableBox:
-                    return TryGetValidOccupyingBox(snapshot, cell, out var anyBox) &&
-                           (anyBox.boxCapabilities & BoxCapabilities.Push) != 0;
+                    return (box.boxCapabilities & BoxCapabilities.Push) != 0;
 
                 case TileFeatureBoxSelector.MoonBlockOnly:
-                    return TryGetValidOccupyingBox(snapshot, cell, out var moonBox) &&
-                           moonBox.boxArchetype == BoxArchetype.Moon;
+                    return box.boxArchetype == BoxArchetype.Moon;
 
                 case TileFeatureBoxSelector.None:
                 case TileFeatureBoxSelector.FeatureCell:
@@ -540,6 +787,31 @@ namespace Game.Feature.Gameplay.Loop
                 default:
                     throw new ArgumentOutOfRangeException(nameof(selector), selector, "Unknown TileFeature box selector.");
             }
+        }
+
+        private static bool TryGetValidStoppedBox(
+            WorldSnapshot snapshot,
+            int boxEntityId,
+            SurfaceCell expectedCell,
+            out EntityState box)
+        {
+            if (snapshot.TryGetEntity(boxEntityId, out var entity) &&
+                entity.type == EntityType.Box &&
+                entity.position == expectedCell &&
+                entity.boardPresence == EntityBoardPresence.Occupying &&
+                entity.hp > 0 &&
+                !entity.markedForDeath &&
+                entity.state == EntityPhaseState.Idle &&
+                snapshot.TryGetSolidSemanticAt(expectedCell, out var semantic) &&
+                semantic.Kind == SolidKind.Box &&
+                semantic.Entity.entityId == boxEntityId)
+            {
+                box = entity;
+                return true;
+            }
+
+            box = default;
+            return false;
         }
 
         private static bool TryGetValidOccupyingBox(WorldSnapshot snapshot, SurfaceCell cell, out EntityState box)

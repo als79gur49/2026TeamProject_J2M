@@ -538,8 +538,10 @@ MonoBehaviour:
   presentationTimingPreset: {fileID: 11400000, guid: e74a2114beb347ca87939f8446ed7f5c, type: 2}
   boardSurfaceTexture: {fileID: 0}
   gameplayAudioMap: {fileID: 11400000, guid: 2e17653afa1ba264a950b76bcd5ccc56, type: 2}
-  tileFeatureAudioMap: {fileID: 0}
-  gravityFieldAudioMap: {fileID: 0}
+  tileFeatureAudioMap: {fileID: 11400000, guid: b4f6650dfd7e4aecb59dcad3cabe0489, type: 2}
+  gravityFieldAudioMap: {fileID: 11400000, guid: 20311d81a3644b22b830a914b49455d5, type: 2}
+  blockAudioMap: {fileID: 11400000, guid: 5a6bb3f9bcde4e6ca7487767ab9ba305, type: 2}
+  playerLocomotionAudioMap: {fileID: 11400000, guid: 6bf2bb925f794fe98b6b8e5a406e1f3d, type: 2}
   faceSeamGap: -1
   stageCatalogProvider: {fileID: 11400000, guid: acd8229e8e9e4f1da31d8206dfa8188e, type: 2}
   campaignStageSequenceDefinition: {fileID: 0}

@@ -145,6 +145,7 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entity.maxHp).Append('|')
                     .Append(entity.teamId).Append('|')
                     .Append((int)entity.type).Append('|')
+                    .Append((int)entity.unitMobilityKind).Append('|')
                     .Append((int)entity.state).Append('|')
                     .Append(entity.stateTimer).Append('|')
                     .Append((int)entity.facing).Append('|')

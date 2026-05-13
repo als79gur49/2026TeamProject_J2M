@@ -166,6 +166,51 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void BuildRequests_BarricadeActiveStateEvents_PreservePresentationFacts()
+        {
+            var cell = new SurfaceCell(FaceId.Front, 2, 3);
+            var planner = new TilePresentationRequestPlanner();
+            var presentationData = CreatePresentationData(
+                new TilePresentationEvent(
+                    TilePresentationEventKind.BarricadeActivated,
+                    100,
+                    cell,
+                    TileFeatureKind.Barricade,
+                    30,
+                    40,
+                    2),
+                new TilePresentationEvent(
+                    TilePresentationEventKind.BarricadeDeactivated,
+                    101,
+                    cell,
+                    TileFeatureKind.Barricade,
+                    31,
+                    41,
+                    3));
+
+            var requests = planner.BuildRequests(presentationData);
+
+            Assert.That(requests, Has.Count.EqualTo(2));
+            Assert.That(requests[0].RequestKind, Is.EqualTo(TilePresentationRequestKind.BarricadeActivated));
+            Assert.That(requests[0].TileId, Is.EqualTo(100));
+            Assert.That(requests[0].Cell, Is.EqualTo(cell));
+            Assert.That(requests[0].TileFeatureKind, Is.EqualTo(TileFeatureKind.Barricade));
+            Assert.That(requests[0].SourceEntityId, Is.EqualTo(30));
+            Assert.That(requests[0].OwnerEntityId, Is.EqualTo(40));
+            Assert.That(requests[0].TeamId, Is.EqualTo(2));
+            Assert.That(requests[0].TargetEntityId, Is.Zero);
+            Assert.That(requests[0].Direction, Is.EqualTo(Direction.None));
+            Assert.That(requests[1].RequestKind, Is.EqualTo(TilePresentationRequestKind.BarricadeDeactivated));
+            Assert.That(requests[1].TileId, Is.EqualTo(101));
+            Assert.That(requests[1].SourceEntityId, Is.EqualTo(31));
+            Assert.That(requests[1].OwnerEntityId, Is.EqualTo(41));
+            Assert.That(requests[1].TeamId, Is.EqualTo(3));
+            Assert.That(requests[1].TargetEntityId, Is.Zero);
+            Assert.That(requests[1].Direction, Is.EqualTo(Direction.None));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void BuildRequests_ExitEvents_PreservePresentationFacts()
         {
             var cell = new SurfaceCell(FaceId.Floor, 2, 3);
@@ -235,6 +280,45 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(request.TeamId, Is.EqualTo(2));
             Assert.That(request.TargetEntityId, Is.EqualTo(50));
             Assert.That(request.Direction, Is.EqualTo(Direction.None));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BuildRequests_MoonBlockGeneratorBlocked_PreservesPresentationFacts()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 2, 3);
+            var payload = new MoonBlockGeneratorBlockedPayload(
+                MoonBlockGeneratorBlockedReason.WallLikeSolid,
+                blockingEntityId: 50,
+                blockedCell: cell);
+            var tileEvent = new TilePresentationEvent(
+                TilePresentationEventKind.MoonBlockGeneratorBlocked,
+                100,
+                cell,
+                TileFeatureKind.MoonBlockGenerator,
+                30,
+                40,
+                2,
+                targetEntityId: 50,
+                moonBlockGeneratorBlockedPayload: payload);
+            var planner = new TilePresentationRequestPlanner();
+
+            var requests = planner.BuildRequests(CreatePresentationData(tileEvent));
+
+            Assert.That(requests, Has.Count.EqualTo(1));
+            var request = requests[0];
+            Assert.That(request.RequestKind, Is.EqualTo(TilePresentationRequestKind.MoonBlockGeneratorBlocked));
+            Assert.That(request.TileId, Is.EqualTo(100));
+            Assert.That(request.Cell, Is.EqualTo(cell));
+            Assert.That(request.TileFeatureKind, Is.EqualTo(TileFeatureKind.MoonBlockGenerator));
+            Assert.That(request.SourceEntityId, Is.EqualTo(30));
+            Assert.That(request.OwnerEntityId, Is.EqualTo(40));
+            Assert.That(request.TeamId, Is.EqualTo(2));
+            Assert.That(request.TargetEntityId, Is.EqualTo(50));
+            Assert.That(request.Direction, Is.EqualTo(Direction.None));
+            Assert.That(request.MoonBlockGeneratorBlockedPayload.Reason, Is.EqualTo(MoonBlockGeneratorBlockedReason.WallLikeSolid));
+            Assert.That(request.MoonBlockGeneratorBlockedPayload.BlockingEntityId, Is.EqualTo(50));
+            Assert.That(request.MoonBlockGeneratorBlockedPayload.BlockedCell, Is.EqualTo(cell));
         }
 
         [Test]
@@ -310,6 +394,56 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(requests, Has.Count.EqualTo(1));
             Assert.That(requests[0].TileId, Is.EqualTo(30));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BuildRequests_TileFeatureActivationEvents_MapToOnOffRequests()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 2, 3);
+            var planner = new TilePresentationRequestPlanner();
+
+            var requests = planner.BuildRequests(CreatePresentationData(
+                new TilePresentationEvent(
+                    TilePresentationEventKind.DestroyTileActivated,
+                    100,
+                    cell,
+                    TileFeatureKind.Destroy,
+                    10,
+                    20,
+                    1),
+                new TilePresentationEvent(
+                    TilePresentationEventKind.DestroyTileDeactivated,
+                    101,
+                    cell,
+                    TileFeatureKind.Destroy,
+                    11,
+                    21,
+                    2),
+                new TilePresentationEvent(
+                    TilePresentationEventKind.BarricadeActivated,
+                    102,
+                    cell,
+                    TileFeatureKind.Barricade,
+                    12,
+                    22,
+                    3),
+                new TilePresentationEvent(
+                    TilePresentationEventKind.BarricadeDeactivated,
+                    103,
+                    cell,
+                    TileFeatureKind.Barricade,
+                    13,
+                    23,
+                    4)));
+
+            Assert.That(requests, Has.Count.EqualTo(4));
+            Assert.That(requests[0].RequestKind, Is.EqualTo(TilePresentationRequestKind.DestroyTileActivated));
+            Assert.That(requests[1].RequestKind, Is.EqualTo(TilePresentationRequestKind.DestroyTileDeactivated));
+            Assert.That(requests[2].RequestKind, Is.EqualTo(TilePresentationRequestKind.BarricadeActivated));
+            Assert.That(requests[3].RequestKind, Is.EqualTo(TilePresentationRequestKind.BarricadeDeactivated));
+            Assert.That(requests[0].TileFeatureKind, Is.EqualTo(TileFeatureKind.Destroy));
+            Assert.That(requests[2].TileFeatureKind, Is.EqualTo(TileFeatureKind.Barricade));
         }
 
         [Test]

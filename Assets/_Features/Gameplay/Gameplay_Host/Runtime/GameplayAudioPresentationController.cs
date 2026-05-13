@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.Audio;
+using Game.Feature.Gameplay.EnemyAudio;
 using Game.Shared.Audio;
 using UnityEngine;
 
@@ -120,6 +121,11 @@ namespace Game.Feature.Gameplay.Host
 
         private void PlayRequest(in GameplayAudioRequest request)
         {
+            if (ShouldSuppressGenericEnemyDeath(request))
+            {
+                return;
+            }
+
             var binding = _audioMap.ResolveOrThrow(request.SemanticId);
             if (binding.HasAttachmentSlot &&
                 TryResolveOwner(request.OwnerEntityId, out var owner))
@@ -129,6 +135,20 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _playbackPort.Play2D(binding.Definition, request.Context);
+        }
+
+        private bool ShouldSuppressGenericEnemyDeath(in GameplayAudioRequest request)
+        {
+            if (request.SemanticId != GameplayAudioSemanticId.EntityExitEnemyDeath ||
+                !request.OwnerEntityId.HasValue ||
+                !TryResolveOwner(request.OwnerEntityId, out var owner))
+            {
+                return false;
+            }
+
+            var authoring = EnemyAudioAuthoring.GetOptionalValidatedAuthoring(owner);
+            return authoring != null &&
+                   authoring.Profile.HasCue(EnemyAudioCue.Death);
         }
 
         private bool TryResolveOwner(int? ownerEntityId, out GameplayEntityView owner)

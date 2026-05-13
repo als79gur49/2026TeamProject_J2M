@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using Game.Feature.Gameplay.Audio;
+using Game.Feature.Gameplay.BlockAudio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.GravityFieldAudio;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.PlayerLocomotionAudio;
 using Game.Feature.Gameplay.TileFeatureAudio;
 using Unity.Cinemachine;
 using UnityEngine;
@@ -137,6 +139,20 @@ namespace Game.Feature.Gameplay.Host
             _presentationCoordinator.AttachGravityFieldAudioRuntime(playbackPort, gravityFieldAudioMap);
         }
 
+        internal void AttachBlockAudioRuntime(
+            IGameplayAudioPlaybackPort playbackPort,
+            BlockAudioMap blockAudioMap)
+        {
+            _presentationCoordinator.AttachBlockAudioRuntime(playbackPort, blockAudioMap);
+        }
+
+        internal void AttachPlayerLocomotionAudioRuntime(
+            IGameplayAudioPlaybackPort playbackPort,
+            PlayerLocomotionAudioMap playerLocomotionAudioMap)
+        {
+            _presentationCoordinator.AttachPlayerLocomotionAudioRuntime(playbackPort, playerLocomotionAudioMap);
+        }
+
         public void AttachTileFeatureVisualRegistry(ITileFeatureVisualRegistry registry)
         {
             _presentationCoordinator.AttachTileFeatureVisualRegistry(registry);
@@ -173,6 +189,9 @@ namespace Game.Feature.Gameplay.Host
         }
 
         internal int PendingGameplayAudioRequestCount => _presentationCoordinator.PendingGameplayAudioRequestCount;
+
+        internal int PendingMoonBlockEmergenceRequestCount =>
+            _presentationCoordinator.PendingMoonBlockEmergenceRequestCount;
 
         public void AttachCameraRuntime(GameplayCameraRig viewCameraRig, CinemachineBrain viewCameraBrain)
         {
@@ -231,6 +250,7 @@ namespace Game.Feature.Gameplay.Host
         private void OnDestroy()
         {
             _presentationCoordinator.HardCleanupPresentationExtensions();
+            _presentationCoordinator.DetachBlockAudioRuntime();
             _presentationCoordinator.DetachGravityFieldAudioRuntime();
             _presentationCoordinator.DetachTileFeatureAudioRuntime();
             _presentationCoordinator.DetachGameplayAudioRuntime();

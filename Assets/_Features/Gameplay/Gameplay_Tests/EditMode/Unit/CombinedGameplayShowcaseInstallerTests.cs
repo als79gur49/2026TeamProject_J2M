@@ -30,17 +30,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplaySimulationTimingPreset_DefaultShowcase.asset";
         private const string DefaultPresentationTimingPresetAssetPath =
             "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplayPresentationTimingPreset_DefaultShowcase.asset";
-        private const int ConfiguredShowcaseEnemyId = 54;
-        private const int NonAttackingShowcaseEnemyId = 55;
+        private const int ConfiguredShowcaseEnemyId = 60;
         private const int WallFollowerShowcaseEnemyId = 56;
-        private const int JumpShowcaseEnemyId = 57;
+        private const int JumpShowcaseEnemyId = 61;
         private const int ChargeShowcaseEnemyId = 58;
         private const int UtilitySummonerShowcaseEnemyId = 59;
-        private const string AttackingEnemyPresentationId = "Attacking_showcase";
-        private const string NonAttackingEnemyPresentationId = "nonAttacking_showcase";
-        private const string WallFollowerEnemyPresentationId = "wallFollower_sun";
-        private const string JumpChaserEnemyPresentationId = "jumpChaser_astra";
-        private const string ChargeEnemyPresentationId = "Charge_showcase";
+        private const int CombinedShowcaseEnemyCount = 5;
+        private const string AttackingEnemyPresentationId = "black_eye";
+        private const string WallFollowerEnemyPresentationId = "sunwheel";
+        private const string JumpChaserEnemyPresentationId = "astreton";
+        private const string ChargeEnemyPresentationId = "rocket_face";
 
         [Test]
         [Category("Full")]
@@ -98,17 +97,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var entities = buildResult.InitialEntities;
 
             Assert.That(
-                TryGetUnitAt(entities, new SurfaceCell(FaceId.Floor, 6, 2), out var showcaseEnemy),
+                TryGetUnitAt(entities, new SurfaceCell(FaceId.Ceiling, 4, 5), out var showcaseEnemy),
                 Is.True,
-                "The current combined showcase should place its configured enemy on the floor face.");
+                "The current combined showcase should place its configured BlackEye enemy on the ceiling face.");
             Assert.That(showcaseEnemy.entityId, Is.EqualTo(ConfiguredShowcaseEnemyId));
             Assert.That(showcaseEnemy.teamId, Is.EqualTo(2));
             Assert.That(showcaseEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
             Assert.That(showcaseEnemy.hp, Is.EqualTo(3));
-            Assert.That(
-                GetPlanarDistance(new SurfaceCell(FaceId.Floor, 1, 1), showcaseEnemy.position),
-                Is.EqualTo(6),
-                "The authored showcase enemy should remain visible from the spawn lane without spawning adjacent to the player.");
+            Assert.That(showcaseEnemy.facing, Is.EqualTo(Direction.Left));
         }
 
         [Test]
@@ -118,48 +114,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var buildResult = BuildCombinedStage();
 
             Assert.That(buildResult.EnemyAiProfileOverrides, Is.Not.Null);
-            Assert.That(buildResult.EnemyAiProfileOverrides.Length, Is.EqualTo(6));
+            Assert.That(buildResult.EnemyAiProfileOverrides.Length, Is.EqualTo(CombinedShowcaseEnemyCount));
 
             Assert.That(TryGetProfileOverride(buildResult, ConfiguredShowcaseEnemyId, out var showcaseProfile), Is.True);
             Assert.That(showcaseProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Default));
-            Assert.That(showcaseProfile.PatrolStrategyKind, Is.EqualTo(PatrolStrategyKind.RandomWalk));
-            Assert.That(showcaseProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.Melee));
-            Assert.That(showcaseProfile.AttackTimingSettings.WindupSeconds, Is.EqualTo(1f));
-            Assert.That(showcaseProfile.LocomotionTimingSettings.MoveCooldownSeconds, Is.EqualTo(1f));
+            Assert.That(showcaseProfile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.GlideOverSolid));
+            Assert.That(showcaseProfile.name, Is.EqualTo("EnemyAi_GlideChaser"));
         }
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayStage_BuildsRandomWalkPilotProfileOverrideForWindupMeleeEnemy()
+        public void CombinedGameplayStage_BuildsGlideChaserProfileOverrideForConfiguredEnemy()
         {
             var buildResult = BuildCombinedStage();
 
-            Assert.That(TryGetProfileOverride(buildResult, ConfiguredShowcaseEnemyId, out var windupPilotProfile), Is.True);
-            Assert.That(windupPilotProfile.PatrolStrategyKind, Is.EqualTo(PatrolStrategyKind.RandomWalk));
-            Assert.That(windupPilotProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.Melee));
-            Assert.That(windupPilotProfile.PatrolSettings.LeashRadius, Is.EqualTo(1));
-            Assert.That(windupPilotProfile.PatrolSettings.ForwardWeight, Is.EqualTo(6));
-            Assert.That(windupPilotProfile.PatrolSettings.SideWeight, Is.EqualTo(1));
-            Assert.That(windupPilotProfile.PatrolSettings.BackwardWeight, Is.EqualTo(1));
-            Assert.That(windupPilotProfile.PatrolSettings.PreventImmediateBacktrack, Is.True);
-            Assert.That(windupPilotProfile.AttackTimingSettings.WindupSeconds, Is.EqualTo(1f));
-            Assert.That(windupPilotProfile.LocomotionTimingSettings.MoveCooldownSeconds, Is.EqualTo(1f));
+            Assert.That(TryGetProfileOverride(buildResult, ConfiguredShowcaseEnemyId, out var glideChaserProfile), Is.True);
+            Assert.That(glideChaserProfile.name, Is.EqualTo("EnemyAi_GlideChaser"));
+            Assert.That(glideChaserProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Default));
+            Assert.That(glideChaserProfile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.GlideOverSolid));
+            Assert.That(glideChaserProfile.LocomotionTimingSettings.MoveCooldownSeconds, Is.EqualTo(0.8f));
         }
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayStage_BuildsRandomWalkPilotProfileOverrideForNonAttackingEnemy()
+        public void CombinedGameplayStage_BuildsJumpChaserProfileOverrideForAstretonEnemy()
         {
             var buildResult = BuildCombinedStage();
 
-            Assert.That(TryGetProfileOverride(buildResult, NonAttackingShowcaseEnemyId, out var nonAttackingProfile), Is.True);
-            Assert.That(nonAttackingProfile.PatrolStrategyKind, Is.EqualTo(PatrolStrategyKind.RandomWalk));
-            Assert.That(nonAttackingProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
-            Assert.That(nonAttackingProfile.PatrolSettings.LeashRadius, Is.EqualTo(2));
-            Assert.That(nonAttackingProfile.PatrolSettings.ForwardWeight, Is.EqualTo(4));
-            Assert.That(nonAttackingProfile.PatrolSettings.SideWeight, Is.EqualTo(2));
-            Assert.That(nonAttackingProfile.PatrolSettings.BackwardWeight, Is.EqualTo(1));
-            Assert.That(nonAttackingProfile.PatrolSettings.PreventImmediateBacktrack, Is.True);
+            Assert.That(TryGetProfileOverride(buildResult, JumpShowcaseEnemyId, out var jumpProfile), Is.True);
+            Assert.That(jumpProfile.name, Is.EqualTo("EnemyAi_JumpChaser"));
+            Assert.That(jumpProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
+            Assert.That(jumpProfile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.JumpToLockedTarget));
+            Assert.That(jumpProfile.JumpTimingSettings.WindupSeconds, Is.EqualTo(0.35f));
+            Assert.That(jumpProfile.JumpTimingSettings.AirborneSeconds, Is.EqualTo(1f));
+            Assert.That(jumpProfile.JumpTimingSettings.CooldownSeconds, Is.EqualTo(3f));
         }
 
         [Test]
@@ -196,7 +184,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var presentation = StagePresentationAssembler.Resolve(presentationDefinition);
 
             Assert.That(presentation.EnemyPresentationBindings, Is.Not.Null);
-            Assert.That(presentation.EnemyPresentationBindings.Length, Is.EqualTo(6));
+            Assert.That(presentation.EnemyPresentationBindings.Length, Is.EqualTo(CombinedShowcaseEnemyCount));
             Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, ConfiguredShowcaseEnemyId, out var configuredBinding), Is.True);
             Assert.That(configuredBinding.PresentationId, Is.EqualTo(AttackingEnemyPresentationId));
             Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, WallFollowerShowcaseEnemyId, out var wallFollowerBinding), Is.True);
@@ -206,7 +194,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, ChargeShowcaseEnemyId, out var chargeBinding), Is.True);
             Assert.That(chargeBinding.PresentationId, Is.EqualTo(ChargeEnemyPresentationId));
             Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, UtilitySummonerShowcaseEnemyId, out var utilitySummonerBinding), Is.True);
-            Assert.That(utilitySummonerBinding.PresentationId, Is.EqualTo("utility_summoner_prefab"));
+            Assert.That(utilitySummonerBinding.PresentationId, Is.EqualTo("j_peter"));
         }
 
         [Test]
@@ -273,7 +261,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var buildResult = BuildCombinedStage();
             var entities = buildResult.InitialEntities;
 
-            Assert.That(TryGetUnitAt(entities, new SurfaceCell(FaceId.Floor, 10, 2), out var jumpEnemy), Is.True);
+            Assert.That(TryGetUnitAt(entities, new SurfaceCell(FaceId.Floor, 12, 3), out var jumpEnemy), Is.True);
             Assert.That(jumpEnemy.entityId, Is.EqualTo(JumpShowcaseEnemyId));
             Assert.That(jumpEnemy.teamId, Is.EqualTo(2));
             Assert.That(jumpEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
@@ -545,7 +533,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var factory = CreateViewFactory(installer, boardRoot);
                 var buildResult = BuildCombinedStage();
 
-                Assert.That(TryGetUnitAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Floor, 6, 2), out var showcaseEnemy), Is.True);
+                Assert.That(
+                    TryGetUnitAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Ceiling, 4, 5), out var showcaseEnemy),
+                    Is.True);
 
                 var showcaseView = factory.CreateView(showcaseEnemy);
 
@@ -594,7 +584,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 boardRoot.EnsureHierarchy();
                 var factory = CreateViewFactory(installer, boardRoot);
                 var buildResult = BuildCombinedStage();
-                Assert.That(TryGetUnitAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Floor, 6, 2), out var showcaseEnemy), Is.True);
+                Assert.That(
+                    TryGetUnitAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Ceiling, 4, 5), out var showcaseEnemy),
+                    Is.True);
+                showcaseEnemy.position = new SurfaceCell(FaceId.Floor, 4, 5);
 
                 var presenter = presenterObject.AddComponent<GameplayTickViewPresenter>();
                 var registry = presenterObject.AddComponent<GameplayEntityViewRegistry>();
@@ -719,7 +712,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.True);
                 Assert.That(flags.EnableLegacyOrdinaryUnitFallback, Is.False);
                 Assert.That(configuration.PlayerContinuousLocomotion.ActionAssistSettleWindowCells, Is.EqualTo(0.3125f));
-                Assert.That(configuration.PlayerContinuousLocomotion.CollisionRadiusCells, Is.EqualTo(0.1875f));
+                Assert.That(configuration.PlayerContinuousLocomotion.CollisionRadiusCells, Is.EqualTo(0.25f));
             }
             finally
             {
@@ -978,7 +971,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(configuration.TileFeaturePresentationBindings, Is.Not.Null);
                 Assert.That(
                     configuration.TileFeaturePresentationBindings.Select(binding => binding.TileId).ToArray(),
-                    Is.EqualTo(resolvedPresentation.TileFeatureBindings.Select(binding => binding.TileId).ToArray()));
+                    Is.EqualTo(configuration.StageContentEntry.GameplayDefinition.TileFeatures.Select(feature => feature.TileId).ToArray()));
+                Assert.That(
+                    resolvedPresentation.TileFeatureBindings.Select(binding => binding.TileId).ToArray(),
+                    Is.EqualTo(new[] { 905 }));
             }
             finally
             {

@@ -8,6 +8,7 @@ namespace Game.Feature.Gameplay.Loop
     {
         Activated = 0,
         Expired = 1,
+        LockedBox = 2,
     }
 
     public readonly struct GravityFieldPresentationRequest
@@ -15,11 +16,17 @@ namespace Game.Feature.Gameplay.Loop
         public GravityFieldPresentationRequest(
             GravityFieldPresentationRequestKind requestKind,
             int emitterEntityId,
-            SurfaceCell cell)
+            SurfaceCell cell,
+            int targetEntityId = 0,
+            GravityFieldLockedBoxPayload lockedBoxPayload = default)
         {
             RequestKind = requestKind;
             EmitterEntityId = emitterEntityId;
             Cell = cell;
+            LockedBoxPayload = lockedBoxPayload;
+            TargetEntityId = targetEntityId > 0
+                ? targetEntityId
+                : lockedBoxPayload.TargetEntityId;
         }
 
         public GravityFieldPresentationRequestKind RequestKind { get; }
@@ -27,6 +34,10 @@ namespace Game.Feature.Gameplay.Loop
         public int EmitterEntityId { get; }
 
         public SurfaceCell Cell { get; }
+
+        public int TargetEntityId { get; }
+
+        public GravityFieldLockedBoxPayload LockedBoxPayload { get; }
     }
 
     public sealed class GravityFieldPresentationRequestPlanner
@@ -56,7 +67,9 @@ namespace Game.Feature.Gameplay.Loop
                 requests.Add(new GravityFieldPresentationRequest(
                     requestKind,
                     presentationEvent.EmitterEntityId,
-                    presentationEvent.Cell));
+                    presentationEvent.Cell,
+                    presentationEvent.TargetEntityId,
+                    presentationEvent.LockedBoxPayload));
             }
 
             return requests.Count == 0 ? Array.Empty<GravityFieldPresentationRequest>() : requests;
@@ -73,6 +86,9 @@ namespace Game.Feature.Gameplay.Loop
                     return true;
                 case GravityFieldPresentationEventKind.Expired:
                     requestKind = GravityFieldPresentationRequestKind.Expired;
+                    return true;
+                case GravityFieldPresentationEventKind.LockedBox:
+                    requestKind = GravityFieldPresentationRequestKind.LockedBox;
                     return true;
                 default:
                     requestKind = default;

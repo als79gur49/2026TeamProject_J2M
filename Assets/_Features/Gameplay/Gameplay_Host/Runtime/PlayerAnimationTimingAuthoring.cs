@@ -142,7 +142,9 @@ namespace Game.Feature.Gameplay.Host
 
         public static bool IsAnimatorDurationOverride(float animatorDurationSeconds)
         {
-            return animatorDurationSeconds > 0f;
+            return animatorDurationSeconds > 0f &&
+                   !float.IsNaN(animatorDurationSeconds) &&
+                   !float.IsInfinity(animatorDurationSeconds);
         }
 
         private static void ValidateAnimatorDuration(float animatorDurationSeconds, string parameterName)
@@ -152,7 +154,7 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            if (animatorDurationSeconds <= 0f)
+            if (!IsAnimatorDurationOverride(animatorDurationSeconds))
             {
                 throw new ArgumentOutOfRangeException(
                     parameterName,
