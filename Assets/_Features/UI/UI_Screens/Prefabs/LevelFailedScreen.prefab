@@ -1985,6 +1985,16 @@ MonoBehaviour:
   _restartLevelButtonLabel: {fileID: 5042089812669168922}
   _mainButton: {fileID: 929496588209520360}
   _mainButtonLabel: {fileID: 9168530170521412681}
+  _navigationGroup:
+    _visualProfile: {fileID: 11400000, guid: e46a5c0937a949bbbf8bcb65bb9f4ce0, type: 2}
+    _slots:
+    - Button: {fileID: 3772028346231700528}
+      SelectionFrame: {fileID: 3086084840910224524}
+    - Button: {fileID: 929496588209520360}
+      SelectionFrame: {fileID: 2894300349721154915}
+    _wrap: 0
+    _skipNonInteractable: 1
+    _selectedIndex: 0
 --- !u!114 &3911303664466256932
 MonoBehaviour:
   m_ObjectHideFlags: 0
