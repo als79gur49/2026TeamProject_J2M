@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Entities.EnemyUtilityCapabilityAsset
   effects:
   - kind: 1
-    initialDelaySeconds: 0
+    initialDelaySeconds: 8
     cooldownSeconds: 8
     summon:
       spawnCountPerTrigger: 1

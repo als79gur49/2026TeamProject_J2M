@@ -14,12 +14,29 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Entities.EnemyUtilityCapabilityAsset
   effects:
   - kind: 0
-    initialDelaySeconds: 0
-    cooldownSeconds: 0.16666667
+    initialDelaySeconds: 10
+    cooldownSeconds: 10
     summon:
       spawnCountPerTrigger: 1
       maxAliveChildren: 3
       candidatePattern: 0
       requireNoUnitAtSpawnCell: 1
       requireNoSolidAtSpawnCell: 1
-      minionHp: 1
+      summonedArchetype: {fileID: 0}
+      overrideHp: 0
+      hpOverride: 1
+      windupSeconds: 1
+      suppressMovementDuringWindup: 0
+      recoverySeconds: 0
+      suppressMovementDuringRecover: 0
+    lockNearbyBoxes:
+      radius: 1
+      durationSeconds: 2
+      activationDelaySeconds: 0
+      blocksPush: 1
+      blocksFlip: 1
+      includeSourceCell: 0
+      targetPattern: 1
+      suppressMovementDuringWindup: 0
+      recoverySeconds: 0
+      suppressMovementDuringRecover: 0

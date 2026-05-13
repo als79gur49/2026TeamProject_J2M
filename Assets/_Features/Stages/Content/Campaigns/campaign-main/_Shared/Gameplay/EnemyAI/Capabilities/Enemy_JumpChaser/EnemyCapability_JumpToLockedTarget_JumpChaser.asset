@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: EnemyCapability_JumpToLockedTarget_JumpChaser
   m_EditorClassIdentifier: 
   jumpTimingSettings:
+    initialDelaySeconds: 5
     windupSeconds: 0.35
     airborneSeconds: 1
-    cooldownSeconds: 3
+    cooldownSeconds: 5

@@ -16,7 +16,8 @@ MonoBehaviour:
   - kind: 0
     boxSlideShield:
       radius: 1
-      includeSourceCell: 0
+      includeSourceCell: 1
       targetPattern: 2
+      initialDelaySeconds: 5
       windupSeconds: 1
-      cooldownSeconds: 1
+      cooldownSeconds: 5

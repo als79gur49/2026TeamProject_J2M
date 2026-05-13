@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: EnemyCapability_GlideOverSolid_GlideChaser
   m_EditorClassIdentifier: 
   glideTimingSettings:
+    initialDelaySeconds: 4
     windupSeconds: 0.25
     durationSeconds: 3
     recoverySeconds: 0.25
