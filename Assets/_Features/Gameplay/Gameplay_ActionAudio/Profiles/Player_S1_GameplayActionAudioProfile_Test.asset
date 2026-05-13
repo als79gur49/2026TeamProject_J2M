@@ -25,7 +25,7 @@ MonoBehaviour:
   - Action: 0
     Moment: 2
     Binding:
-      definition: {fileID: 11400000, guid: e8f4827a279a3a4458dc9ed5728d2fe5, type: 2}
+      definition: {fileID: 11400000, guid: c6ef4d5d4942c614d8bde53eac9accac, type: 2}
       attachmentSlot:
         id: 
       policy:
@@ -34,7 +34,7 @@ MonoBehaviour:
   - Action: 0
     Moment: 3
     Binding:
-      definition: {fileID: 11400000, guid: e8f4827a279a3a4458dc9ed5728d2fe5, type: 2}
+      definition: {fileID: 11400000, guid: c6ef4d5d4942c614d8bde53eac9accac, type: 2}
       attachmentSlot:
         id: 
       policy:
@@ -43,7 +43,7 @@ MonoBehaviour:
   - Action: 0
     Moment: 4
     Binding:
-      definition: {fileID: 11400000, guid: e8f4827a279a3a4458dc9ed5728d2fe5, type: 2}
+      definition: {fileID: 11400000, guid: c6ef4d5d4942c614d8bde53eac9accac, type: 2}
       attachmentSlot:
         id: 
       policy:
