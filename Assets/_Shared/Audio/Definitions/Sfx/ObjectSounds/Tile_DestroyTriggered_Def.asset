@@ -10,12 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 41e9ec39e3edd8b41b147170787cd890, type: 3}
-  m_Name: Sucked-into-the-Black-Hole-1_TTX041201_Test_Def
+  m_Name: Tile_DestroyTriggered_Def
   m_EditorClassIdentifier: Game.Shared.Audio::Game.Shared.Audio.RandomAudioDefinition
   category: 2
   defaultVolumeTrim: 1
   pitchRange: {x: 1, y: 1}
   loop: 0
   clips:
-  - Clip: {fileID: 8300000, guid: bd2fd29b1d7e7b34d921b1cd3b7a358f, type: 3}
-    Weight: 0
+  - Clip: {fileID: 8300000, guid: cc68804fccb56584da7615b2dd1091d1, type: 3}
+    Weight: 1
