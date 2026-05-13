@@ -73,6 +73,18 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
                 case TilePresentationRequestKind.MoonBlockGenerated:
                     cue = TileFeatureAudioCue.MoonBlockGenerated;
                     return true;
+                case TilePresentationRequestKind.DestroyTileActivated:
+                    cue = TileFeatureAudioCue.DestroyTileActivated;
+                    return true;
+                case TilePresentationRequestKind.DestroyTileDeactivated:
+                    cue = TileFeatureAudioCue.DestroyTileDeactivated;
+                    return true;
+                case TilePresentationRequestKind.BarricadeActivated:
+                    cue = TileFeatureAudioCue.BarricadeActivated;
+                    return true;
+                case TilePresentationRequestKind.BarricadeDeactivated:
+                    cue = TileFeatureAudioCue.BarricadeDeactivated;
+                    return true;
                 default:
                     cue = default;
                     return false;

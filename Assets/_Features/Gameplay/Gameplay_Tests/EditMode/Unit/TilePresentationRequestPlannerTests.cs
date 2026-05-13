@@ -314,6 +314,56 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void BuildRequests_TileFeatureActivationEvents_MapToOnOffRequests()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 2, 3);
+            var planner = new TilePresentationRequestPlanner();
+
+            var requests = planner.BuildRequests(CreatePresentationData(
+                new TilePresentationEvent(
+                    TilePresentationEventKind.DestroyTileActivated,
+                    100,
+                    cell,
+                    TileFeatureKind.Destroy,
+                    10,
+                    20,
+                    1),
+                new TilePresentationEvent(
+                    TilePresentationEventKind.DestroyTileDeactivated,
+                    101,
+                    cell,
+                    TileFeatureKind.Destroy,
+                    11,
+                    21,
+                    2),
+                new TilePresentationEvent(
+                    TilePresentationEventKind.BarricadeActivated,
+                    102,
+                    cell,
+                    TileFeatureKind.Barricade,
+                    12,
+                    22,
+                    3),
+                new TilePresentationEvent(
+                    TilePresentationEventKind.BarricadeDeactivated,
+                    103,
+                    cell,
+                    TileFeatureKind.Barricade,
+                    13,
+                    23,
+                    4)));
+
+            Assert.That(requests, Has.Count.EqualTo(4));
+            Assert.That(requests[0].RequestKind, Is.EqualTo(TilePresentationRequestKind.DestroyTileActivated));
+            Assert.That(requests[1].RequestKind, Is.EqualTo(TilePresentationRequestKind.DestroyTileDeactivated));
+            Assert.That(requests[2].RequestKind, Is.EqualTo(TilePresentationRequestKind.BarricadeActivated));
+            Assert.That(requests[3].RequestKind, Is.EqualTo(TilePresentationRequestKind.BarricadeDeactivated));
+            Assert.That(requests[0].TileFeatureKind, Is.EqualTo(TileFeatureKind.Destroy));
+            Assert.That(requests[2].TileFeatureKind, Is.EqualTo(TileFeatureKind.Barricade));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void BuildRequests_EmptyPresentationData_ReturnsEmptyRequests()
         {
             var planner = new TilePresentationRequestPlanner();

@@ -152,6 +152,49 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void ProductionRuntime_TileFeatureActiveStates_ArePlannedAsPersistentVfx()
+        {
+            var owner = new GameObject("TileFeatureActiveStateRuntime");
+            try
+            {
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+
+                runtime.Present(CreateExtensionContext(CreatePresentationData(
+                    tileFeatureVisualStates: new[]
+                    {
+                        new TileFeatureVisualState(
+                            100,
+                            new SurfaceCell(FaceId.Floor, 0, 0),
+                            TileFeatureKind.Destroy,
+                            isActive: true,
+                            sourceEntityId: 10,
+                            ownerEntityId: 0,
+                            teamId: 1),
+                        new TileFeatureVisualState(
+                            101,
+                            new SurfaceCell(FaceId.Floor, 1, 0),
+                            TileFeatureKind.Barricade,
+                            isActive: true,
+                            sourceEntityId: 40,
+                            ownerEntityId: 0,
+                            teamId: 2),
+                    })));
+
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(2));
+                Assert.That(runtime.MissingBindingCount, Is.EqualTo(2));
+
+                runtime.Present(CreateExtensionContext(CreatePresentationData()));
+
+                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Coordinator_DoesNotReferencePr28VisualControllersOrVfxController()
         {
             var coordinator = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs");
@@ -222,7 +265,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static TickPresentationData CreatePresentationData(
             TilePresentationEvent[] tileEvents = null,
             GravityFieldPresentationEvent[] gravityFieldEvents = null,
-            GravityFieldVisualState[] gravityFieldVisualStates = null)
+            GravityFieldVisualState[] gravityFieldVisualStates = null,
+            TileFeatureVisualState[] tileFeatureVisualStates = null)
         {
             return new TickPresentationData(
                 Array.Empty<TickEntityMotion>(),
@@ -240,7 +284,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<FlipImpactPresentationSignal>(),
                 tileEvents: tileEvents,
                 gravityFieldEvents: gravityFieldEvents,
-                gravityFieldVisualStates: gravityFieldVisualStates);
+                gravityFieldVisualStates: gravityFieldVisualStates,
+                tileFeatureVisualStates: tileFeatureVisualStates);
         }
 
         private static EntityState CreateUnit(int entityId)

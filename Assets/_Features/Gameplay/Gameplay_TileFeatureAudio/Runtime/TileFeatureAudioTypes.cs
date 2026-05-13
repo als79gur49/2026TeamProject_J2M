@@ -15,6 +15,10 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
         ExitOpened = 6,
         ExitEntered = 7,
         MoonBlockGenerated = 8,
+        DestroyTileActivated = 9,
+        DestroyTileDeactivated = 10,
+        BarricadeActivated = 11,
+        BarricadeDeactivated = 12,
     }
 
     public readonly struct TileFeatureAudioRequest
@@ -78,6 +82,10 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
                 TileFeatureAudioCue.ExitOpened => nameof(TileFeatureAudioCue.ExitOpened),
                 TileFeatureAudioCue.ExitEntered => nameof(TileFeatureAudioCue.ExitEntered),
                 TileFeatureAudioCue.MoonBlockGenerated => nameof(TileFeatureAudioCue.MoonBlockGenerated),
+                TileFeatureAudioCue.DestroyTileActivated => nameof(TileFeatureAudioCue.DestroyTileActivated),
+                TileFeatureAudioCue.DestroyTileDeactivated => nameof(TileFeatureAudioCue.DestroyTileDeactivated),
+                TileFeatureAudioCue.BarricadeActivated => nameof(TileFeatureAudioCue.BarricadeActivated),
+                TileFeatureAudioCue.BarricadeDeactivated => nameof(TileFeatureAudioCue.BarricadeDeactivated),
                 _ => throw new System.ArgumentOutOfRangeException(nameof(cue), cue, "Unsupported tile feature audio cue."),
             };
         }

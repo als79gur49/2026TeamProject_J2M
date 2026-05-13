@@ -612,6 +612,8 @@ namespace Game.Feature.Gameplay.Vfx
 
     public sealed class TileFeatureVfxRequestPlanner : IGameplayVfxFamilyRequestPlanner
     {
+        private const int ActiveLoopEffectIndex = 1;
+
         public GameplayVfxFamily Family => GameplayVfxFamily.TileFeature;
 
         public void Plan(GameplayVfxPlanningContext context, GameplayVfxRequestPlanBuilder builder)
@@ -627,6 +629,15 @@ namespace Game.Feature.Gameplay.Vfx
                 return;
             }
 
+            PlanEvents(context, builder, presentationData);
+            PlanVisualStates(context, builder, presentationData);
+        }
+
+        private static void PlanEvents(
+            GameplayVfxPlanningContext context,
+            GameplayVfxRequestPlanBuilder builder,
+            TickPresentationData presentationData)
+        {
             var events = presentationData.TileEvents;
             for (var i = 0; i < events.Count; i++)
             {
@@ -649,6 +660,65 @@ namespace Game.Feature.Gameplay.Vfx
                             context.Topology,
                             VfxAnchorSlot.CellCenter),
                         timing: VfxTimingKind.ImmediateOnTickPresentation));
+            }
+        }
+
+        private static void PlanVisualStates(
+            GameplayVfxPlanningContext context,
+            GameplayVfxRequestPlanBuilder builder,
+            TickPresentationData presentationData)
+        {
+            var states = presentationData.TileFeatureVisualStates;
+            for (var i = 0; i < states.Count; i++)
+            {
+                var state = states[i];
+                if (!state.IsActive ||
+                    !TryResolveActiveLoopCue(state.TileFeatureKind, out var cue))
+                {
+                    continue;
+                }
+
+                var cueId = GameplayVfxCueId.From(cue);
+                var key = new VfxPersistentKey(
+                    cueId,
+                    VfxAnchorKind.Cell,
+                    tileId: state.TileId,
+                    cell: state.Cell,
+                    hasCell: true,
+                    effectIndex: ActiveLoopEffectIndex);
+                var sequenceId = ResolveStateSequenceId(context.TickIndex, i, state);
+                builder.Add(
+                    new GameplayVfxRequest(
+                        tickIndex: context.TickIndex,
+                        sequenceId: sequenceId,
+                        presentationSeed: sequenceId,
+                        sourceEntityId: state.SourceEntityId,
+                        cueId: cueId,
+                        anchor: VfxAnchor.ForCell(
+                            state.Cell,
+                            context.Topology,
+                            VfxAnchorSlot.CellCenter),
+                        timing: VfxTimingKind.ImmediateOnTickPresentation,
+                        isPersistent: true,
+                        persistentKey: key));
+            }
+        }
+
+        private static bool TryResolveActiveLoopCue(
+            TileFeatureKind kind,
+            out TileFeatureVfxCue cue)
+        {
+            switch (kind)
+            {
+                case TileFeatureKind.Destroy:
+                    cue = TileFeatureVfxCue.DestroyTileActiveLoop;
+                    return true;
+                case TileFeatureKind.Barricade:
+                    cue = TileFeatureVfxCue.BarricadeActiveLoop;
+                    return true;
+                default:
+                    cue = default;
+                    return false;
             }
         }
 
@@ -747,6 +817,25 @@ namespace Game.Feature.Gameplay.Vfx
                 hash = (hash * 397) ^ tileEvent.OwnerEntityId;
                 hash = (hash * 397) ^ tileEvent.TargetEntityId;
                 return hash != 0 ? hash : eventIndex + 1;
+            }
+        }
+
+        private static int ResolveStateSequenceId(
+            int tickIndex,
+            int stateIndex,
+            in TileFeatureVisualState state)
+        {
+            unchecked
+            {
+                var hash = tickIndex;
+                hash = (hash * 397) ^ stateIndex;
+                hash = (hash * 397) ^ state.TileId;
+                hash = (hash * 397) ^ state.Cell.GetHashCode();
+                hash = (hash * 397) ^ (int)state.TileFeatureKind;
+                hash = (hash * 397) ^ state.SourceEntityId;
+                hash = (hash * 397) ^ state.OwnerEntityId;
+                hash = (hash * 397) ^ state.TeamId;
+                return hash != 0 ? hash : stateIndex + 1;
             }
         }
     }

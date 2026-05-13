@@ -640,11 +640,13 @@ namespace Game.Feature.Gameplay.Loop
             var kinematicMotionTracks = new List<TickKinematicMotionTrack>();
             var continuousLocomotionTracks = new List<TickContinuousLocomotionTrack>();
             var tileEvents = new List<TilePresentationEvent>();
+            var tileFeatureVisualStates = new List<TileFeatureVisualState>();
             var gravityFieldEvents = new List<GravityFieldPresentationEvent>();
             var gravityFieldVisualStates = new List<GravityFieldVisualState>();
             var exitOwnedEntityIds = new HashSet<int>();
 
             BuildTilePresentationEvents(context, tileEvents);
+            BuildTileFeatureVisualStates(context, tileFeatureVisualStates);
             BuildGravityFieldPresentationEvents(context, gravityFieldEvents);
             BuildGravityFieldVisualStates(context, gravityFieldVisualStates);
             BuildEntityExitPresentation(context, entityExitSignals, exitOwnedEntityIds);
@@ -704,6 +706,7 @@ namespace Game.Feature.Gameplay.Loop
                    kinematicMotionTracks.Count == 0 &&
                    continuousLocomotionTracks.Count == 0 &&
                    tileEvents.Count == 0 &&
+                   tileFeatureVisualStates.Count == 0 &&
                    gravityFieldEvents.Count == 0 &&
                    gravityFieldVisualStates.Count == 0 &&
                    !topologyMotion.HasValue
@@ -739,7 +742,8 @@ namespace Game.Feature.Gameplay.Loop
                     playerActionAttemptSignals,
                     boxSlideStopSignals,
                     enemyUtilitySignals,
-                    boxSlideStartSignals);
+                    boxSlideStartSignals,
+                    tileFeatureVisualStates);
         }
 
         private static void BuildBoxSlideStartPresentation(
@@ -1015,10 +1019,114 @@ namespace Game.Feature.Gameplay.Loop
                         finalTileFeature.TeamId));
             }
 
+            AddTileFeatureActivationEvents(context, finalTileFeatures, tileEvents);
             AddExitOpenedEvents(context, finalTileFeatures, tileEvents);
             AddExitEnteredEvents(context, finalTileFeatures, tileEvents);
 
             tileEvents.Sort(CompareTilePresentationEvents);
+        }
+
+        private static void BuildTileFeatureVisualStates(
+            in TickPresentationBuildContext context,
+            List<TileFeatureVisualState> visualStates)
+        {
+            var finalTileFeatures = new List<TileFeatureState>();
+            context.FinalAuthoritativeSnapshot.EnumerateTileFeaturesOrdered(finalTileFeatures);
+            for (var i = 0; i < finalTileFeatures.Count; i++)
+            {
+                var tileFeature = finalTileFeatures[i];
+                if (!IsActivationVisualStateKind(tileFeature.Kind) ||
+                    !TryGetTileFeatureDefinition(context.TileFeatureDefinitions, tileFeature.TileId, out var definition) ||
+                    !TileFeatureActivationQueries.IsActive(tileFeature, definition, context.FinalAuthoritativeSnapshot.Topology))
+                {
+                    continue;
+                }
+
+                visualStates.Add(new TileFeatureVisualState(
+                    tileFeature.TileId,
+                    tileFeature.Cell,
+                    tileFeature.Kind,
+                    isActive: true,
+                    tileFeature.SourceEntityId,
+                    tileFeature.OwnerEntityId,
+                    tileFeature.TeamId));
+            }
+        }
+
+        private static void AddTileFeatureActivationEvents(
+            in TickPresentationBuildContext context,
+            IReadOnlyList<TileFeatureState> finalTileFeatures,
+            List<TilePresentationEvent> tileEvents)
+        {
+            for (var i = 0; i < finalTileFeatures.Count; i++)
+            {
+                var finalTileFeature = finalTileFeatures[i];
+                if (!IsActivationVisualStateKind(finalTileFeature.Kind) ||
+                    !TryGetTileFeatureDefinition(context.TileFeatureDefinitions, finalTileFeature.TileId, out var definition))
+                {
+                    continue;
+                }
+
+                var finalActive = TileFeatureActivationQueries.IsActive(
+                    finalTileFeature,
+                    definition,
+                    context.FinalAuthoritativeSnapshot.Topology);
+                var preActive = false;
+                if (context.PreMovementSnapshot.TryGetTileFeature(finalTileFeature.TileId, out var preTileFeature) &&
+                    preTileFeature.Kind == finalTileFeature.Kind)
+                {
+                    preActive = TileFeatureActivationQueries.IsActive(
+                        preTileFeature,
+                        definition,
+                        context.PreMovementSnapshot.Topology);
+                }
+
+                if (preActive == finalActive ||
+                    !TryResolveActivationEventKind(finalTileFeature.Kind, finalActive, out var eventKind))
+                {
+                    continue;
+                }
+
+                tileEvents.Add(new TilePresentationEvent(
+                    eventKind,
+                    finalTileFeature.TileId,
+                    finalTileFeature.Cell,
+                    finalTileFeature.Kind,
+                    finalTileFeature.SourceEntityId,
+                    finalTileFeature.OwnerEntityId,
+                    finalTileFeature.TeamId));
+            }
+        }
+
+        private static bool IsActivationVisualStateKind(TileFeatureKind kind)
+        {
+            return kind == TileFeatureKind.Destroy ||
+                   kind == TileFeatureKind.Barricade;
+        }
+
+        private static bool TryResolveActivationEventKind(
+            TileFeatureKind kind,
+            bool isActive,
+            out TilePresentationEventKind eventKind)
+        {
+            if (kind == TileFeatureKind.Destroy)
+            {
+                eventKind = isActive
+                    ? TilePresentationEventKind.DestroyTileActivated
+                    : TilePresentationEventKind.DestroyTileDeactivated;
+                return true;
+            }
+
+            if (kind == TileFeatureKind.Barricade)
+            {
+                eventKind = isActive
+                    ? TilePresentationEventKind.BarricadeActivated
+                    : TilePresentationEventKind.BarricadeDeactivated;
+                return true;
+            }
+
+            eventKind = default;
+            return false;
         }
 
         private static void AddExitOpenedEvents(

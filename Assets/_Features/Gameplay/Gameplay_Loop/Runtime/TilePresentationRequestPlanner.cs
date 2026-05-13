@@ -14,6 +14,10 @@ namespace Game.Feature.Gameplay.Loop
         ExitOpened = 5,
         ExitEntered = 6,
         MoonBlockGenerated = 7,
+        DestroyTileActivated = 8,
+        DestroyTileDeactivated = 9,
+        BarricadeActivated = 10,
+        BarricadeDeactivated = 11,
     }
 
     public readonly struct TilePresentationRequest
@@ -127,6 +131,18 @@ namespace Game.Feature.Gameplay.Loop
                     return true;
                 case TilePresentationEventKind.MoonBlockGenerated:
                     requestKind = TilePresentationRequestKind.MoonBlockGenerated;
+                    return true;
+                case TilePresentationEventKind.DestroyTileActivated:
+                    requestKind = TilePresentationRequestKind.DestroyTileActivated;
+                    return true;
+                case TilePresentationEventKind.DestroyTileDeactivated:
+                    requestKind = TilePresentationRequestKind.DestroyTileDeactivated;
+                    return true;
+                case TilePresentationEventKind.BarricadeActivated:
+                    requestKind = TilePresentationRequestKind.BarricadeActivated;
+                    return true;
+                case TilePresentationEventKind.BarricadeDeactivated:
+                    requestKind = TilePresentationRequestKind.BarricadeDeactivated;
                     return true;
                 default:
                     requestKind = default;

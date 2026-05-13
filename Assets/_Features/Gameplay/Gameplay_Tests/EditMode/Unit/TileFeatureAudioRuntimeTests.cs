@@ -206,6 +206,58 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void TileFeatureAudioRequestPlanner_TileFeatureActivationRequests_MapToOnOffCues()
+        {
+            var planner = new TileFeatureAudioRequestPlanner();
+            var cell = new SurfaceCell(FaceId.Floor, 2, 3);
+
+            var requests = planner.BuildRequests(new[]
+            {
+                CreateTilePresentationRequest(
+                    100,
+                    cell,
+                    sourceEntityId: 30,
+                    ownerEntityId: 40,
+                    teamId: 2,
+                    requestKind: TilePresentationRequestKind.DestroyTileActivated,
+                    tileFeatureKind: TileFeatureKind.Destroy),
+                CreateTilePresentationRequest(
+                    101,
+                    cell,
+                    sourceEntityId: 31,
+                    ownerEntityId: 41,
+                    teamId: 3,
+                    requestKind: TilePresentationRequestKind.DestroyTileDeactivated,
+                    tileFeatureKind: TileFeatureKind.Destroy),
+                CreateTilePresentationRequest(
+                    102,
+                    cell,
+                    sourceEntityId: 32,
+                    ownerEntityId: 42,
+                    teamId: 4,
+                    requestKind: TilePresentationRequestKind.BarricadeActivated,
+                    tileFeatureKind: TileFeatureKind.Barricade),
+                CreateTilePresentationRequest(
+                    103,
+                    cell,
+                    sourceEntityId: 33,
+                    ownerEntityId: 43,
+                    teamId: 5,
+                    requestKind: TilePresentationRequestKind.BarricadeDeactivated,
+                    tileFeatureKind: TileFeatureKind.Barricade),
+            });
+
+            Assert.That(requests, Has.Count.EqualTo(4));
+            Assert.That(requests[0].Cue, Is.EqualTo(TileFeatureAudioCue.DestroyTileActivated));
+            Assert.That(requests[1].Cue, Is.EqualTo(TileFeatureAudioCue.DestroyTileDeactivated));
+            Assert.That(requests[2].Cue, Is.EqualTo(TileFeatureAudioCue.BarricadeActivated));
+            Assert.That(requests[3].Cue, Is.EqualTo(TileFeatureAudioCue.BarricadeDeactivated));
+            Assert.That(requests[0].Context.DebugTag, Is.EqualTo("DestroyTileActivated"));
+            Assert.That(requests[3].Context.DebugTag, Is.EqualTo("BarricadeDeactivated"));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void TileFeatureAudioRequestPlanner_MoonBlockGenerated_PreservesPayload()
         {
             var planner = new TileFeatureAudioRequestPlanner();
