@@ -43,7 +43,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0d4188397f39405b8cef1259ab54d190, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.TileFeatureVisualTargetView
   tileId: 0
   cell:
@@ -56,9 +56,18 @@ MonoBehaviour:
   slideTileRedirectedTriggerName: SlideTileRedirected
   barricadeBlockedTriggerName: BarricadeBlocked
   barricadeCrushedTriggerName: BarricadeCrushed
+  barricadeActivatedTriggerName: BarricadeActivated
+  barricadeDeactivatedTriggerName: BarricadeDeactivated
+  barricadeActiveBoolName: BarricadeActive
+  barricadeRaisedStateName: RaisedIdle
+  barricadeLoweredStateName: LoweredIdle
   exitOpenedTriggerName: ExitOpened
   exitEnteredTriggerName: ExitEntered
   moonBlockGeneratedTriggerName: MoonBlockGenerated
+  moonBlockGeneratorBlockedTriggerName: MoonBlockGeneratorBlocked
+  moonBlockGeneratorBlockedUnitTriggerName: 
+  moonBlockGeneratorBlockedWallLikeSolidTriggerName: 
+  moonBlockGeneratorBlockedPlacementTriggerName: 
   buttonActivatedParticles: {fileID: 0}
   destroyTileTriggeredParticles: {fileID: 0}
   slideTileRedirectedParticles: {fileID: 0}
@@ -67,6 +76,10 @@ MonoBehaviour:
   exitOpenedParticles: {fileID: 0}
   exitEnteredParticles: {fileID: 0}
   moonBlockGeneratedParticles: {fileID: 0}
+  moonBlockGeneratorBlockedParticles: {fileID: 0}
+  moonBlockGeneratorBlockedUnitParticles: {fileID: 0}
+  moonBlockGeneratorBlockedWallLikeSolidParticles: {fileID: 0}
+  moonBlockGeneratorBlockedPlacementParticles: {fileID: 0}
   buttonActivatedPlayed:
     m_PersistentCalls:
       m_Calls: []
@@ -82,6 +95,12 @@ MonoBehaviour:
   barricadeCrushedPlayed:
     m_PersistentCalls:
       m_Calls: []
+  barricadeActivatedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  barricadeDeactivatedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
   exitOpenedPlayed:
     m_PersistentCalls:
       m_Calls: []
@@ -89,6 +108,18 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   moonBlockGeneratedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  moonBlockGeneratorBlockedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  moonBlockGeneratorBlockedUnitPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  moonBlockGeneratorBlockedWallLikeSolidPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  moonBlockGeneratorBlockedPlacementPlayed:
     m_PersistentCalls:
       m_Calls: []
 --- !u!1 &5733682360089378469
@@ -115,14 +146,14 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5733682360089378469}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
   m_LocalPosition: {x: 0, y: 0, z: 0.675}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 8773866069286938551}
   m_Father: {fileID: 4979790982512867837}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 90}
 --- !u!1001 &9100000000000000092
 PrefabInstance:
   m_ObjectHideFlags: 0
