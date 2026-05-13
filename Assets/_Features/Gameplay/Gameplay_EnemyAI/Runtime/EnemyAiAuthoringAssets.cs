@@ -412,6 +412,7 @@ namespace Game.Feature.Gameplay.Entities
         [SerializeField] private int radius = 1;
         [SerializeField] private bool includeSourceCell;
         [SerializeField] private FrontFaceShieldTargetPattern targetPattern = FrontFaceShieldTargetPattern.ManhattanRadius;
+        [SerializeField] private float initialDelaySeconds = 0f;
         [SerializeField] private float windupSeconds = 1.0f;
         [SerializeField] private float cooldownSeconds = 1.0f;
 
@@ -420,6 +421,8 @@ namespace Game.Feature.Gameplay.Entities
         public bool IncludeSourceCell => includeSourceCell;
 
         public FrontFaceShieldTargetPattern TargetPattern => targetPattern;
+
+        public float InitialDelaySeconds => initialDelaySeconds;
 
         public float WindupSeconds => windupSeconds;
 
@@ -448,6 +451,11 @@ namespace Game.Feature.Gameplay.Entities
                     throw new ArgumentOutOfRangeException(nameof(targetPattern), targetPattern, "Unsupported front-face shield target pattern.");
             }
 
+            if (initialDelaySeconds < 0f)
+            {
+                throw new ArgumentException("Box slide shield authoring requires a non-negative initial delay.", nameof(initialDelaySeconds));
+            }
+
             if (windupSeconds <= 0f)
             {
                 throw new ArgumentException("Box slide shield authoring requires a positive windup duration.", nameof(windupSeconds));
@@ -458,6 +466,10 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentException("Box slide shield authoring requires a positive cooldown.", nameof(cooldownSeconds));
             }
 
+            var initialDelayTicks = GameplayTimingProfile.SecondsToTicks(
+                initialDelaySeconds,
+                simulationTicksPerSecond,
+                allowZero: true);
             var windupTicks = GameplayTimingProfile.SecondsToTicks(windupSeconds, simulationTicksPerSecond);
             if (windupTicks <= 0)
             {
@@ -470,7 +482,7 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentException("Box slide shield authoring cooldown must compile to a positive duration.", nameof(cooldownSeconds));
             }
 
-            return new BoxSlideShieldRuntime(radius, includeSourceCell, targetPattern, windupTicks, cooldownTicks);
+            return new BoxSlideShieldRuntime(radius, includeSourceCell, targetPattern, initialDelayTicks, windupTicks, cooldownTicks);
         }
     }
 

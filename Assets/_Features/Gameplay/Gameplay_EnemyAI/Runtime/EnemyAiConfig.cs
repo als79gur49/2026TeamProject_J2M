@@ -471,6 +471,7 @@ namespace Game.Feature.Gameplay.Entities
     [Serializable]
     public struct EnemyJumpTimingSettings
     {
+        [SerializeField] private int initialDelayTicks;
         [SerializeField] private int windupTicks;
         [SerializeField] private int airborneTicks;
         [SerializeField] private int cooldownTicks;
@@ -479,11 +480,27 @@ namespace Game.Feature.Gameplay.Entities
             int windupTicks,
             int airborneTicks,
             int cooldownTicks)
+            : this(
+                initialDelayTicks: 0,
+                windupTicks: windupTicks,
+                airborneTicks: airborneTicks,
+                cooldownTicks: cooldownTicks)
         {
+        }
+
+        public EnemyJumpTimingSettings(
+            int initialDelayTicks,
+            int windupTicks,
+            int airborneTicks,
+            int cooldownTicks)
+        {
+            this.initialDelayTicks = initialDelayTicks;
             this.windupTicks = windupTicks;
             this.airborneTicks = airborneTicks;
             this.cooldownTicks = cooldownTicks;
         }
+
+        public int InitialDelayTicks => initialDelayTicks;
 
         public int WindupTicks => windupTicks;
 
@@ -493,7 +510,7 @@ namespace Game.Feature.Gameplay.Entities
 
         public void Validate(string paramName)
         {
-            if (windupTicks < 0 || airborneTicks < 0 || cooldownTicks < 0)
+            if (initialDelayTicks < 0 || windupTicks < 0 || airborneTicks < 0 || cooldownTicks < 0)
             {
                 throw new ArgumentException("Enemy jump timing settings require non-negative tick counts.", paramName);
             }
@@ -501,13 +518,14 @@ namespace Game.Feature.Gameplay.Entities
 
         public static EnemyJumpTimingSettings CreateDefault()
         {
-            return new EnemyJumpTimingSettings(windupTicks: 0, airborneTicks: 0, cooldownTicks: 0);
+            return new EnemyJumpTimingSettings(initialDelayTicks: 0, windupTicks: 0, airborneTicks: 0, cooldownTicks: 0);
         }
     }
 
     [Serializable]
     public struct EnemyJumpTimingAuthoringSettings
     {
+        [SerializeField] private float initialDelaySeconds;
         [SerializeField] private float windupSeconds;
         [SerializeField] private float airborneSeconds;
         [SerializeField] private float cooldownSeconds;
@@ -516,11 +534,27 @@ namespace Game.Feature.Gameplay.Entities
             float windupSeconds,
             float airborneSeconds,
             float cooldownSeconds)
+            : this(
+                initialDelaySeconds: 0f,
+                windupSeconds: windupSeconds,
+                airborneSeconds: airborneSeconds,
+                cooldownSeconds: cooldownSeconds)
         {
+        }
+
+        public EnemyJumpTimingAuthoringSettings(
+            float initialDelaySeconds,
+            float windupSeconds,
+            float airborneSeconds,
+            float cooldownSeconds)
+        {
+            this.initialDelaySeconds = initialDelaySeconds;
             this.windupSeconds = windupSeconds;
             this.airborneSeconds = airborneSeconds;
             this.cooldownSeconds = cooldownSeconds;
         }
+
+        public float InitialDelaySeconds => initialDelaySeconds;
 
         public float WindupSeconds => windupSeconds;
 
@@ -530,7 +564,7 @@ namespace Game.Feature.Gameplay.Entities
 
         public void Validate(string paramName)
         {
-            if (windupSeconds < 0f || airborneSeconds < 0f || cooldownSeconds < 0f)
+            if (initialDelaySeconds < 0f || windupSeconds < 0f || airborneSeconds < 0f || cooldownSeconds < 0f)
             {
                 throw new ArgumentException("Enemy jump timing authoring settings require non-negative durations.", paramName);
             }
@@ -541,6 +575,10 @@ namespace Game.Feature.Gameplay.Entities
             Validate(nameof(EnemyJumpTimingAuthoringSettings));
 
             return new EnemyJumpTimingSettings(
+                GameplayTimingProfile.SecondsToTicks(
+                    initialDelaySeconds,
+                    simulationTicksPerSecond,
+                    allowZero: true),
                 GameplayTimingProfile.SecondsToTicks(
                     windupSeconds,
                     simulationTicksPerSecond,
@@ -574,6 +612,7 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return new EnemyJumpTimingAuthoringSettings(
+                runtimeSettings.InitialDelayTicks / (float)simulationTicksPerSecond,
                 runtimeSettings.WindupTicks / (float)simulationTicksPerSecond,
                 runtimeSettings.AirborneTicks / (float)simulationTicksPerSecond,
                 runtimeSettings.CooldownTicks / (float)simulationTicksPerSecond);
@@ -669,13 +708,19 @@ namespace Game.Feature.Gameplay.Entities
     [Serializable]
     public struct EnemyGlideTimingSettings
     {
+        [SerializeField] private int initialDelayTicks;
         [SerializeField] private int windupTicks;
         [SerializeField] private int durationTicks;
         [SerializeField] private int recoveryTicks;
         [SerializeField] private int cooldownTicks;
 
         public EnemyGlideTimingSettings(int durationTicks, int cooldownTicks)
-            : this(windupTicks: 0, durationTicks, recoveryTicks: 0, cooldownTicks)
+            : this(
+                initialDelayTicks: 0,
+                windupTicks: 0,
+                durationTicks: durationTicks,
+                recoveryTicks: 0,
+                cooldownTicks: cooldownTicks)
         {
         }
 
@@ -684,12 +729,30 @@ namespace Game.Feature.Gameplay.Entities
             int durationTicks,
             int recoveryTicks,
             int cooldownTicks)
+            : this(
+                initialDelayTicks: 0,
+                windupTicks: windupTicks,
+                durationTicks: durationTicks,
+                recoveryTicks: recoveryTicks,
+                cooldownTicks: cooldownTicks)
         {
+        }
+
+        public EnemyGlideTimingSettings(
+            int initialDelayTicks,
+            int windupTicks,
+            int durationTicks,
+            int recoveryTicks,
+            int cooldownTicks)
+        {
+            this.initialDelayTicks = initialDelayTicks;
             this.windupTicks = windupTicks;
             this.durationTicks = durationTicks;
             this.recoveryTicks = recoveryTicks;
             this.cooldownTicks = cooldownTicks;
         }
+
+        public int InitialDelayTicks => initialDelayTicks;
 
         public int WindupTicks => windupTicks;
 
@@ -701,6 +764,11 @@ namespace Game.Feature.Gameplay.Entities
 
         public void Validate(string paramName)
         {
+            if (initialDelayTicks < 0)
+            {
+                throw new ArgumentException("Enemy glide timing settings require a non-negative initial delay tick count.", paramName);
+            }
+
             if (windupTicks < 0)
             {
                 throw new ArgumentException("Enemy glide timing settings require a non-negative windup tick count.", paramName);
@@ -731,13 +799,19 @@ namespace Game.Feature.Gameplay.Entities
     [Serializable]
     public struct EnemyGlideTimingAuthoringSettings
     {
+        [SerializeField] private float initialDelaySeconds;
         [SerializeField] private float windupSeconds;
         [SerializeField] private float durationSeconds;
         [SerializeField] private float recoverySeconds;
         [SerializeField] private float cooldownSeconds;
 
         public EnemyGlideTimingAuthoringSettings(float durationSeconds, float cooldownSeconds)
-            : this(windupSeconds: 0f, durationSeconds, recoverySeconds: 0f, cooldownSeconds)
+            : this(
+                initialDelaySeconds: 0f,
+                windupSeconds: 0f,
+                durationSeconds: durationSeconds,
+                recoverySeconds: 0f,
+                cooldownSeconds: cooldownSeconds)
         {
         }
 
@@ -746,12 +820,30 @@ namespace Game.Feature.Gameplay.Entities
             float durationSeconds,
             float recoverySeconds,
             float cooldownSeconds)
+            : this(
+                initialDelaySeconds: 0f,
+                windupSeconds: windupSeconds,
+                durationSeconds: durationSeconds,
+                recoverySeconds: recoverySeconds,
+                cooldownSeconds: cooldownSeconds)
         {
+        }
+
+        public EnemyGlideTimingAuthoringSettings(
+            float initialDelaySeconds,
+            float windupSeconds,
+            float durationSeconds,
+            float recoverySeconds,
+            float cooldownSeconds)
+        {
+            this.initialDelaySeconds = initialDelaySeconds;
             this.windupSeconds = windupSeconds;
             this.durationSeconds = durationSeconds;
             this.recoverySeconds = recoverySeconds;
             this.cooldownSeconds = cooldownSeconds;
         }
+
+        public float InitialDelaySeconds => initialDelaySeconds;
 
         public float WindupSeconds => windupSeconds;
 
@@ -763,6 +855,11 @@ namespace Game.Feature.Gameplay.Entities
 
         public void Validate(string paramName)
         {
+            if (initialDelaySeconds < 0f)
+            {
+                throw new ArgumentException("Enemy glide timing authoring settings require a non-negative initial delay duration.", paramName);
+            }
+
             if (windupSeconds < 0f)
             {
                 throw new ArgumentException("Enemy glide timing authoring settings require a non-negative windup duration.", paramName);
@@ -789,6 +886,10 @@ namespace Game.Feature.Gameplay.Entities
             Validate(nameof(EnemyGlideTimingAuthoringSettings));
 
             return new EnemyGlideTimingSettings(
+                GameplayTimingProfile.SecondsToTicks(
+                    initialDelaySeconds,
+                    simulationTicksPerSecond,
+                    allowZero: true),
                 GameplayTimingProfile.SecondsToTicks(
                     windupSeconds,
                     simulationTicksPerSecond,
@@ -821,6 +922,7 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return new EnemyGlideTimingAuthoringSettings(
+                runtimeSettings.InitialDelayTicks / (float)simulationTicksPerSecond,
                 runtimeSettings.WindupTicks / (float)simulationTicksPerSecond,
                 runtimeSettings.DurationTicks / (float)simulationTicksPerSecond,
                 runtimeSettings.RecoveryTicks / (float)simulationTicksPerSecond,

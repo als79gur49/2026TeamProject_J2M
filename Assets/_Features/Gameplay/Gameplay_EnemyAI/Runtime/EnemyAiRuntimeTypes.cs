@@ -774,10 +774,28 @@ namespace Game.Feature.Gameplay.Entities
             FrontFaceShieldTargetPattern targetPattern,
             int windupTicks = 1,
             int cooldownTicks = 1)
+            : this(
+                radius: radius,
+                includeSourceCell: includeSourceCell,
+                targetPattern: targetPattern,
+                initialDelayTicks: 0,
+                windupTicks: windupTicks,
+                cooldownTicks: cooldownTicks)
+        {
+        }
+
+        public BoxSlideShieldRuntime(
+            int radius,
+            bool includeSourceCell,
+            FrontFaceShieldTargetPattern targetPattern,
+            int initialDelayTicks,
+            int windupTicks,
+            int cooldownTicks)
         {
             Radius = radius;
             IncludeSourceCell = includeSourceCell;
             TargetPattern = targetPattern;
+            InitialDelayTicks = initialDelayTicks;
             WindupTicks = windupTicks;
             CooldownTicks = cooldownTicks;
             Validate(nameof(BoxSlideShieldRuntime));
@@ -789,6 +807,8 @@ namespace Game.Feature.Gameplay.Entities
 
         public FrontFaceShieldTargetPattern TargetPattern { get; }
 
+        public int InitialDelayTicks { get; }
+
         public int WindupTicks { get; }
 
         public int CooldownTicks { get; }
@@ -798,6 +818,11 @@ namespace Game.Feature.Gameplay.Entities
             if (Radius <= 0)
             {
                 throw new ArgumentException("Box slide shield runtime requires a positive radius.", paramName);
+            }
+
+            if (InitialDelayTicks < 0)
+            {
+                throw new ArgumentException("Box slide shield runtime requires a non-negative initial delay.", paramName);
             }
 
             if (WindupTicks <= 0)
@@ -1268,6 +1293,10 @@ namespace Game.Feature.Gameplay.Entities
             for (var i = 0; i < capability.Effects.Count; i++)
             {
                 effectStates[i] = CreateInactiveEffectState(capability.Effects[i], previousActivationSequence: 0);
+                if (capability.Effects[i].Kind == EnemyFrontFaceSupportEffectKind.BoxSlideShield)
+                {
+                    effectStates[i].cooldownTicksRemaining = capability.Effects[i].BoxSlideShield.InitialDelayTicks;
+                }
             }
 
             return new EnemyFrontFaceSupportRuntimeState(effectStates);

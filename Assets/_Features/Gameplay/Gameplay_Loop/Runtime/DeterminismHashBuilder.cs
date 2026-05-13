@@ -766,7 +766,9 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entry.State.windupEndTick).Append('|')
                     .Append(entry.State.landingTick).Append('|')
                     .Append(entry.State.cooldownRemainingTicks).Append('|')
-                    .Append(entry.State.retryCount).Append('\n');
+                    .Append(entry.State.retryCount).Append('|')
+                    .Append(entry.State.initialDelayInitialized ? 1 : 0).Append('|')
+                    .Append(entry.State.initialDelayTicksRemaining).Append('\n');
             }
         }
 
@@ -798,6 +800,8 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entry.State.RecoveryTicks).Append('|')
                     .Append(entry.State.CooldownTicks).Append('|')
                     .Append(entry.State.LastExitedTick).Append('|')
+                    .Append(entry.State.InitialDelayInitialized ? 1 : 0).Append('|')
+                    .Append(entry.State.InitialDelayTicksRemaining).Append('|')
                     .Append((int)entry.State.LandingPendingCell.face).Append('|')
                     .Append(entry.State.LandingPendingCell.x).Append('|')
                     .Append(entry.State.LandingPendingCell.y).Append('\n');

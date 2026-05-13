@@ -703,6 +703,26 @@ namespace Game.Feature.Gameplay.Entities
                 ref nextState,
                 updates);
 
+            if (nextState.Phase == EnemyGlidePhase.Ready &&
+                (!nextState.InitialDelayInitialized || nextState.InitialDelayTicksRemaining > 0) &&
+                _movementSkillCapability.GlideTimingSettings.InitialDelayTicks > 0)
+            {
+                var delayedState = EnemyGlideQueries.TickInitialDelay(
+                    nextState,
+                    _movementSkillCapability.GlideTimingSettings.InitialDelayTicks);
+                if (!AreEqual(nextState, delayedState))
+                {
+                    nextState = delayedState;
+                    hasPreviousState = true;
+                    changed = true;
+                    AppendGlideUpdate(
+                        updates,
+                        _entityId,
+                        nextState.InitialDelayTicksRemaining > 0 ? "InitialDelayTick" : "InitialDelayReady",
+                        nextState);
+                }
+            }
+
             var canStartGlide = source.aiMode == EnemyAiMode.Chase &&
                                 EnemyGlideQueries.CanStart(hasPreviousState, nextState, input.TickIndex);
             if (canStartGlide &&
@@ -831,8 +851,8 @@ namespace Game.Feature.Gameplay.Entities
                             input.TickIndex > nextState.LastExitedTick &&
                             source.aiMode != EnemyAiMode.Chase)
                         {
-                            nextState = EnemyGlideQueries.Clear();
-                            hasPreviousState = false;
+                            nextState = EnemyGlideQueries.ClearRuntimeActivityPreservingInitialDelay(nextState);
+                            hasPreviousState = nextState.HasAuthoritativeRecord;
                             changed = true;
                             AppendGlideUpdate(updates, _entityId, "Ready", nextState);
                         }
@@ -1947,10 +1967,23 @@ namespace Game.Feature.Gameplay.Entities
 
             if (!hasPreviousState || previousState.phase == EnemyJumpPhase.None)
             {
+                if ((!nextState.initialDelayInitialized || nextState.initialDelayTicksRemaining > 0) &&
+                    _movementSkillCapability.JumpTimingSettings.InitialDelayTicks > 0)
+                {
+                    nextState = EnemyJumpQueries.TickInitialDelay(
+                        nextState,
+                        _movementSkillCapability.JumpTimingSettings.InitialDelayTicks);
+                    AppendJumpUpdate(
+                        updates,
+                        _entityId,
+                        nextState.initialDelayTicksRemaining > 0 ? "InitialDelayTick" : "InitialDelayReady",
+                        nextState);
+                }
+
                 if (TryResolveScheduledJumpStart(
                         snapshot,
                         source,
-                        hasPreviousState ? previousState : default,
+                        nextState,
                         input.TickIndex,
                         out nextState))
                 {
@@ -2219,7 +2252,32 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             updates.Add(
-                $"EnemyGlideStateUpdated|E={entityId}|Label={label}|Phase={state.Phase}|Active={(state.IsActive ? 1 : 0)}|LandingPending={(state.IsLandingPending ? 1 : 0)}|Seq={state.Sequence}|WindupUntil={state.WindupUntilTickExclusive}|ActiveUntil={state.ActiveUntilTickExclusive}|RecoveryUntil={state.RecoveryUntilTickExclusive}|CooldownUntil={state.CooldownUntilTickExclusive}|Windup={state.WindupTicks}|Duration={state.DurationTicks}|Recovery={state.RecoveryTicks}|Cooldown={state.CooldownTicks}|LastExited={state.LastExitedTick}|PendingCell={state.LandingPendingCell}|LockedStep={FormatLockedGlideStep(state)}");
+                $"EnemyGlideStateUpdated|E={entityId}|Label={label}|Phase={state.Phase}|Active={(state.IsActive ? 1 : 0)}|LandingPending={(state.IsLandingPending ? 1 : 0)}|Seq={state.Sequence}|WindupUntil={state.WindupUntilTickExclusive}|ActiveUntil={state.ActiveUntilTickExclusive}|RecoveryUntil={state.RecoveryUntilTickExclusive}|CooldownUntil={state.CooldownUntilTickExclusive}|Windup={state.WindupTicks}|Duration={state.DurationTicks}|Recovery={state.RecoveryTicks}|Cooldown={state.CooldownTicks}|LastExited={state.LastExitedTick}|InitialDelayInitialized={(state.InitialDelayInitialized ? 1 : 0)}|InitialDelayRemaining={state.InitialDelayTicksRemaining}|PendingCell={state.LandingPendingCell}|LockedStep={FormatLockedGlideStep(state)}");
+        }
+
+        private static bool AreEqual(
+            in EnemyGlideRuntimeState left,
+            in EnemyGlideRuntimeState right)
+        {
+            return left.Phase == right.Phase &&
+                   left.IsActive == right.IsActive &&
+                   left.IsLandingPending == right.IsLandingPending &&
+                   left.Sequence == right.Sequence &&
+                   left.WindupUntilTickExclusive == right.WindupUntilTickExclusive &&
+                   left.ActiveUntilTickExclusive == right.ActiveUntilTickExclusive &&
+                   left.RecoveryUntilTickExclusive == right.RecoveryUntilTickExclusive &&
+                   left.CooldownUntilTickExclusive == right.CooldownUntilTickExclusive &&
+                   left.WindupTicks == right.WindupTicks &&
+                   left.DurationTicks == right.DurationTicks &&
+                   left.RecoveryTicks == right.RecoveryTicks &&
+                   left.CooldownTicks == right.CooldownTicks &&
+                   left.LastExitedTick == right.LastExitedTick &&
+                   left.InitialDelayInitialized == right.InitialDelayInitialized &&
+                   left.InitialDelayTicksRemaining == right.InitialDelayTicksRemaining &&
+                   left.LandingPendingCell == right.LandingPendingCell &&
+                   left.HasLockedStep == right.HasLockedStep &&
+                   left.LockedStepX == right.LockedStepX &&
+                   left.LockedStepY == right.LockedStepY;
         }
 
         private static string FormatLockedGlideStep(in EnemyGlideRuntimeState state)
@@ -2343,6 +2401,7 @@ namespace Game.Feature.Gameplay.Entities
             jumpState = default;
             if (source.boardPresence != EntityBoardPresence.Occupying ||
                 previousState.phase != EnemyJumpPhase.None ||
+                previousState.initialDelayTicksRemaining > 0 ||
                 !TryFindSameFacePlayerTarget(snapshot, source, previousState, tickIndex, out var lockedTargetCell))
             {
                 return false;
@@ -2442,7 +2501,9 @@ namespace Game.Feature.Gameplay.Entities
                    left.windupEndTick == right.windupEndTick &&
                    left.landingTick == right.landingTick &&
                    left.cooldownRemainingTicks == right.cooldownRemainingTicks &&
-                   left.retryCount == right.retryCount;
+                   left.retryCount == right.retryCount &&
+                   left.initialDelayInitialized == right.initialDelayInitialized &&
+                   left.initialDelayTicksRemaining == right.initialDelayTicksRemaining;
         }
 
         private static void AppendJumpUpdate(
@@ -2468,7 +2529,9 @@ namespace Game.Feature.Gameplay.Entities
                 .Append("|WindupEnd=").Append(state.windupEndTick)
                 .Append("|Landing=").Append(state.landingTick)
                 .Append("|Cooldown=").Append(state.cooldownRemainingTicks)
-                .Append("|Retry=").Append(state.retryCount);
+                .Append("|Retry=").Append(state.retryCount)
+                .Append("|InitialDelayInitialized=").Append(state.initialDelayInitialized ? 1 : 0)
+                .Append("|InitialDelayRemaining=").Append(state.initialDelayTicksRemaining);
 
             if (!string.IsNullOrEmpty(extra))
             {

@@ -23,6 +23,8 @@ namespace Game.Feature.Gameplay.Entities
         public int landingTick;
         public int cooldownRemainingTicks;
         public int retryCount;
+        public bool initialDelayInitialized;
+        public int initialDelayTicksRemaining;
 
         public bool IsActive => phase != EnemyJumpPhase.None;
     }
@@ -61,7 +63,29 @@ namespace Game.Feature.Gameplay.Entities
                 landingTick = tickIndex + timingSettings.WindupTicks + timingSettings.AirborneTicks,
                 cooldownRemainingTicks = 0,
                 retryCount = 0,
+                initialDelayInitialized = previousState.initialDelayInitialized,
+                initialDelayTicksRemaining = 0,
             };
+        }
+
+        public static EnemyJumpRuntimeState TickInitialDelay(
+            in EnemyJumpRuntimeState state,
+            int initialDelayTicks)
+        {
+            var updatedState = state;
+            updatedState.phase = EnemyJumpPhase.None;
+            updatedState.initialDelayInitialized = true;
+            if (!state.initialDelayInitialized)
+            {
+                updatedState.initialDelayTicksRemaining = Mathf.Max(0, initialDelayTicks);
+            }
+
+            if (updatedState.initialDelayTicksRemaining > 0)
+            {
+                updatedState.initialDelayTicksRemaining = Mathf.Max(0, updatedState.initialDelayTicksRemaining - 1);
+            }
+
+            return updatedState;
         }
 
         public static EnemyJumpRuntimeState BeginAirborne(in EnemyJumpRuntimeState state)
@@ -119,6 +143,8 @@ namespace Game.Feature.Gameplay.Entities
             return new EnemyJumpRuntimeState
             {
                 sequence = state.sequence,
+                initialDelayInitialized = state.initialDelayInitialized,
+                initialDelayTicksRemaining = state.initialDelayTicksRemaining,
             };
         }
 
