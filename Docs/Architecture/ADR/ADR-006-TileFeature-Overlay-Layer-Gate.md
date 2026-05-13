@@ -157,7 +157,7 @@ Barricade active-transition crush is separate from movement blocking.
 - Exit selector must be `None`.
 - A stage may have at most one Exit.
 - Exit center cell is the canonical clear cell.
-- Exit 3x3 footprint is presentation/future prefab responsibility, not gameplay modeling.
+- Exit 3x3 footprint is presentation prefab plus base-tile suppression responsibility, not gameplay modeling.
 - Existing goal zone remains the canonical clear target.
 - In an Exit stage, the goal zone including face must exactly equal the Exit center one-cell zone.
 - Exit open is derived from required non-PrimaryGoal conditions complete plus active Exit.
@@ -320,7 +320,7 @@ VFX, audio, and UI must not call `WorldState.CreateSnapshot` to infer TileFeatur
 - Runtime invalid binding is warning plus skip.
 - `StagePresentationDefinition` has no TileFeature audio binding.
 - TileFeature visual binding and audio binding must not be mixed.
-- 3x3 Exit footprint placement is future/prefab authoring, not gameplay model.
+- 3x3 Exit footprint placement is prefab authoring plus presentation base-tile suppression, not gameplay model.
 
 ## UI Boundary
 
