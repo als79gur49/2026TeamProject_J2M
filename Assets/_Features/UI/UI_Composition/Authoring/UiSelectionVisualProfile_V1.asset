@@ -12,7 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 58d971811a964f8b96ba08e88986f36a, type: 3}
   m_Name: UiSelectionVisualProfile_V1
   m_EditorClassIdentifier: 
-  _selectedFrameColor: {r: 1, g: 1, b: 1, a: 0.45}
+  _selectedFrameColor: {r: 1, g: 1, b: 1, a: 1}
+  _editFrameColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   _unselectedFrameColor: {r: 1, g: 1, b: 1, a: 0}
   _hideUnselectedFrames: 1
   _frameSprite: {fileID: 0}
