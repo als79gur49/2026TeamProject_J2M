@@ -11,6 +11,8 @@ namespace Game.Feature.Gameplay.Host
 
         public Transform SearchRoot => _searchRoot != null ? _searchRoot : transform;
 
+        public IReadOnlyCollection<ITileFeatureVisualTarget> Targets => _targetsByTileId.Values;
+
         private void Awake()
         {
             _searchRoot ??= transform;

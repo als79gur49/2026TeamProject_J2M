@@ -6,7 +6,7 @@ namespace Game.Feature.Gameplay.Host
     internal sealed class BoardSurfaceCellPresentationPoseResolver : ISurfaceCellPresentationPoseResolver
     {
         private readonly GameplayCubeProjector _projector;
-        private readonly CubeTopologyState _topology;
+        private CubeTopologyState _topology;
 
         public BoardSurfaceCellPresentationPoseResolver(
             BoardBounds boardBounds,
@@ -15,6 +15,11 @@ namespace Game.Feature.Gameplay.Host
             float faceSeamGap)
         {
             _projector = new GameplayCubeProjector(boardBounds, cellSize, faceSeamGap);
+            _topology = topology;
+        }
+
+        public void RefreshTopology(CubeTopologyState topology)
+        {
             _topology = topology;
         }
 

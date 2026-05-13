@@ -62,6 +62,8 @@ namespace Game.Feature.Gameplay.Host
             _motionTimingResolver = motionTimingResolver ?? throw new ArgumentNullException(nameof(motionTimingResolver));
         }
 
+        public event Action<CubeTopologyState> TopologyPresentationCompleted;
+
         public bool HasActiveBoardRotationTween => _isBoardRotationTweenActive &&
                                                    _boardRotationTween != null;
 
@@ -116,6 +118,7 @@ namespace Game.Feature.Gameplay.Host
             _boardSurfaceTransitionDestinationRotation = restReferenceRotation;
             ApplyPresentedRotation(restReferenceRotationXDegrees, forceApply: true);
             _boardSurfaceRenderer?.CompleteTopologyTransition(topology);
+            TopologyPresentationCompleted?.Invoke(topology);
             UpdateInactiveVisualState();
         }
 
@@ -185,6 +188,7 @@ namespace Game.Feature.Gameplay.Host
                 _boardSurfaceTransitionStartRotation = restReferenceRotation;
                 _boardSurfaceTransitionDestinationRotation = restReferenceRotation;
                 _isBoardSurfaceTransitionActive = false;
+                TopologyPresentationCompleted?.Invoke(committedTopology);
                 if (!HasActiveBoardRotationTween)
                 {
                     UpdateInactiveVisualState();
@@ -289,6 +293,7 @@ namespace Game.Feature.Gameplay.Host
             _boardSurfaceTransitionStartRotation = restReferenceRotation;
             _boardSurfaceTransitionDestinationRotation = restReferenceRotation;
             _isBoardSurfaceTransitionActive = false;
+            TopologyPresentationCompleted?.Invoke(committedTopology);
         }
 
         private static bool IsTopologyTransitionPresentation(TickTopologyMotion? topologyMotion)

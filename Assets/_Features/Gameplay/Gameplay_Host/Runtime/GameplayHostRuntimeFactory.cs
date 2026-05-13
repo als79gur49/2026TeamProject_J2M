@@ -142,6 +142,9 @@ namespace Game.Feature.Gameplay.Host
                 configuration.CellSize,
                 configuration.InitialTopology,
                 faceSeamGap);
+            var tileFeatureVisualPoseSynchronizer = new TileFeatureVisualPoseSynchronizer(
+                tileFeatureVisualRegistry,
+                tileFeaturePoseResolver);
             InstantiateStageTileFeatureVisuals(
                 configuration.TileFeaturePresentationBindings,
                 initialTileFeatures,
@@ -149,7 +152,8 @@ namespace Game.Feature.Gameplay.Host
                 configuration.InitialTopology,
                 boardRoot.transform,
                 tileFeatureVisualRegistry,
-                tileFeaturePoseResolver);
+                tileFeaturePoseResolver,
+                tileFeatureVisualPoseSynchronizer);
 
             presenter.Initialize(
                 viewBinder,
@@ -166,6 +170,7 @@ namespace Game.Feature.Gameplay.Host
                 configuration.EnemyPresentationCatalog,
                 configuration.EnemyPresentationBindings);
             presenter.AttachTileFeatureVisualRegistry(tileFeatureVisualRegistry);
+            presenter.AttachTileFeatureVisualPoseSynchronizer(tileFeatureVisualPoseSynchronizer);
             AttachPresentationExtensions(hostObject, presenter);
             AttachAudioRuntimesIfConfigured(hostObject, presenter, configuration);
 
@@ -287,7 +292,8 @@ namespace Game.Feature.Gameplay.Host
             CubeTopologyState initialTopology,
             Transform parent,
             TileFeatureVisualRegistry registry,
-            ISurfaceCellPresentationPoseResolver poseResolver = null)
+            ISurfaceCellPresentationPoseResolver poseResolver = null,
+            TileFeatureVisualPoseSynchronizer poseSynchronizer = null)
         {
             if (bindings == null || bindings.Count == 0)
             {
@@ -311,28 +317,8 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 var cell = tileFeature.Cell;
-                var hasResolvedPose = false;
-                var resolvedPose = default(SurfaceCellPresentationPose);
-                if (poseResolver != null)
-                {
-                    if (!poseResolver.TryResolvePose(cell, out resolvedPose))
-                    {
-                        UnityEngine.Debug.LogWarning(
-                            $"Skipping stage TileFeature visual binding for TileId {binding.TileId}; cell '{cell}' could not resolve a presentation pose.");
-                        continue;
-                    }
-
-                    hasResolvedPose = true;
-                }
-
                 var instance = UnityEngine.Object.Instantiate(binding.VisualPrefab, parent, worldPositionStays: false);
                 instance.name = binding.VisualPrefab.name;
-                if (hasResolvedPose)
-                {
-                    instance.transform.localPosition = resolvedPose.LocalPosition;
-                    instance.transform.localRotation = resolvedPose.LocalRotation;
-                    instance.transform.localScale = resolvedPose.LocalScale;
-                }
 
                 if (!TryGetConfigurableTileFeatureVisualTarget(
                         instance,
@@ -346,6 +332,11 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 configurator.ConfigureTileFeature(binding.TileId, cell);
+                if (target is TileFeatureVisualTargetView targetView)
+                {
+                    targetView.ConfigurePresentationRoot(instance.transform);
+                }
+
                 if (target is IBarricadeActiveStateVisualTarget barricadeActiveStateTarget &&
                     TryResolveInitialBarricadeActive(
                         tileFeature,
@@ -357,6 +348,10 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 registry.Register(target);
+                poseSynchronizer ??= poseResolver != null
+                    ? new TileFeatureVisualPoseSynchronizer(registry, poseResolver)
+                    : null;
+                poseSynchronizer?.Refresh(target);
             }
 
             registry.Rebuild();

@@ -75,6 +75,7 @@ namespace Game.Feature.Gameplay.Host
             EmptyGravityFieldVisualStates;
         private Action<string> _traceSink;
         private int _lastPresentedTickIndex;
+        private TileFeatureVisualPoseSynchronizer _tileFeatureVisualPoseSynchronizer;
 
         public GameplayTickPresentationCoordinator()
         {
@@ -114,6 +115,7 @@ namespace Game.Feature.Gameplay.Host
                 _poseResolver,
                 _exitPresentationController,
                 _entityPresentationApplier);
+            _topologyTransitionController.TopologyPresentationCompleted += HandleTopologyPresentationCompleted;
         }
 
         public event Action<CubeTopologyState> TopologyCommitted;
@@ -480,6 +482,11 @@ namespace Game.Feature.Gameplay.Host
             _tileFeatureVisualPresentationController.AttachRegistry(registry);
         }
 
+        internal void AttachTileFeatureVisualPoseSynchronizer(TileFeatureVisualPoseSynchronizer synchronizer)
+        {
+            _tileFeatureVisualPoseSynchronizer = synchronizer;
+        }
+
         internal void DetachGameplayAudioRuntime()
         {
             _actionAudioPresentationController.DetachRuntime();
@@ -617,6 +624,11 @@ namespace Game.Feature.Gameplay.Host
                         _viewBinder != null ? _viewBinder.SearchRoot : null);
                 }
             }
+        }
+
+        private void HandleTopologyPresentationCompleted(CubeTopologyState topology)
+        {
+            _tileFeatureVisualPoseSynchronizer?.RefreshAll(topology);
         }
 
         private void RefreshPresentationMotionVfx(int tickIndex)

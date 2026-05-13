@@ -24,6 +24,7 @@ namespace Game.Feature.Gameplay.Host
     {
         [SerializeField] private int tileId;
         [SerializeField] private SurfaceCell cell;
+        [SerializeField] private Transform presentationRoot;
         [SerializeField] private Animator animator;
         [SerializeField] private string buttonActivatedTriggerName = "ButtonActivated";
         [SerializeField] private string destroyTileTriggeredTriggerName = "DestroyTileTriggered";
@@ -96,6 +97,8 @@ namespace Game.Feature.Gameplay.Host
 
         public SurfaceCell Cell => cell;
 
+        public Transform PresentationRoot => presentationRoot != null ? presentationRoot : transform;
+
         public int DebugPlayButtonActivatedCount => _debugPlayButtonActivatedCount;
 
         public int DebugPlayDestroyTileTriggeredCount => _debugPlayDestroyTileTriggeredCount;
@@ -158,6 +161,11 @@ namespace Game.Feature.Gameplay.Host
         {
             tileId = newTileId;
             cell = newCell;
+        }
+
+        internal void ConfigurePresentationRoot(Transform newPresentationRoot)
+        {
+            presentationRoot = newPresentationRoot != null ? newPresentationRoot : transform;
         }
 
         public void PlayButtonActivated()
