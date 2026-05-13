@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 34338d9a5ccd4ded8ee77e24852e6087, type: 3}
   m_Name: combined-gameplay-showcase
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   board:
     MinInclusive: {x: 0, y: 0}
     MaxInclusive: {x: 14, y: 7}
@@ -30,8 +30,8 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   boxSpawns:
   - EntityId: 30
     Kind: 2
@@ -46,8 +46,8 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 31
     Kind: 2
     Cell:
@@ -61,8 +61,8 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 32
     Kind: 2
     Cell:
@@ -76,8 +76,8 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 33
     Kind: 2
     Cell:
@@ -91,8 +91,8 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 34
     Kind: 2
     Cell:
@@ -106,8 +106,8 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 35
     Kind: 2
     Cell:
@@ -121,8 +121,8 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 36
     Kind: 2
     Cell:
@@ -136,8 +136,8 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 37
     Kind: 2
     Cell:
@@ -151,8 +151,8 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 40
     Kind: 2
     Cell:
@@ -166,8 +166,8 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 41
     Kind: 2
     Cell:
@@ -181,8 +181,8 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 42
     Kind: 2
     Cell:
@@ -196,8 +196,8 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 43
     Kind: 2
     Cell:
@@ -211,8 +211,8 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 201
     Kind: 2
     Cell:
@@ -226,8 +226,8 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 202
     Kind: 2
     Cell:
@@ -241,8 +241,8 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 203
     Kind: 2
     Cell:
@@ -256,8 +256,8 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 204
     Kind: 2
     Cell:
@@ -271,8 +271,8 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 205
     Kind: 2
     Cell:
@@ -286,8 +286,8 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 206
     Kind: 2
     Cell:
@@ -301,8 +301,8 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 207
     Kind: 2
     Cell:
@@ -316,8 +316,8 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   enemySpawns:
   - EntityId: 56
     Kind: 1
@@ -332,8 +332,8 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 8d6b1bc1c4aa4d57b9c6d8df30d7e6a2, type: 2}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 58
     Kind: 1
     Cell:
@@ -347,8 +347,8 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 3d157a22696a4ee29ac2852d6486cd31, type: 2}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 59
     Kind: 1
     Cell:
@@ -362,8 +362,8 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 8fdb5400ceb74592aa5dea3cbb2cf2a8, type: 2}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 60
     Kind: 1
     Cell:
@@ -377,8 +377,8 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: ee4160b1ea994e21b5b93ee5e5b66c8d, type: 2}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 61
     Kind: 1
     Cell:
@@ -392,8 +392,8 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 47dcd8d154bb4222829ef11b18507f76, type: 2}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   wallSpawns:
   - EntityId: 196
     Kind: 3
@@ -408,8 +408,8 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 197
     Kind: 3
     Cell:
@@ -423,8 +423,8 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 198
     Kind: 3
     Cell:
@@ -438,8 +438,8 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 199
     Kind: 3
     Cell:
@@ -453,8 +453,8 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 200
     Kind: 3
     Cell:
@@ -468,8 +468,8 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   zones:
   - ZoneId: 1
     FaceId: 3
@@ -487,7 +487,7 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 3
     BoundEntityId: 0
-    PresentationKey:
+    PresentationKey: 
   - TileId: 902
     Cell:
       face: 0
@@ -542,7 +542,7 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey:
+    PresentationKey: 
   - TileId: 907
     Cell:
       face: 3
@@ -553,7 +553,7 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey:
+    PresentationKey: 
   - TileId: 908
     Cell:
       face: 0
@@ -564,7 +564,7 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 201
-    PresentationKey:
+    PresentationKey: 
   - TileId: 910
     Cell:
       face: 0
@@ -597,7 +597,7 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 3
     BoundEntityId: 0
-    PresentationKey:
+    PresentationKey: 
   - TileId: 914
     Cell:
       face: 2
@@ -608,7 +608,7 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 3
     BoundEntityId: 0
-    PresentationKey:
+    PresentationKey: 
   - TileId: 915
     Cell:
       face: 1
@@ -619,7 +619,7 @@ MonoBehaviour:
     Direction: 2
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.right
+    PresentationKey: slide.down
   - TileId: 916
     Cell:
       face: 1
@@ -642,27 +642,16 @@ MonoBehaviour:
     BoxSelector: 0
     BoundEntityId: 0
     PresentationKey: destroy.front
-  - TileId: 918
-    Cell:
-      face: 1
-      x: 12
-      y: 3
-    Kind: 1
-    ActivationRule: 2
-    Direction: 1
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey:
   objective:
     CompletionPolicy: 2
-    ObjectiveTitle:
-    ObjectiveSummary:
+    ObjectiveTitle: 
+    ObjectiveSummary: 
     ConditionEntries:
     - Condition: {fileID: 11400000, guid: 0a5ed70e5ae1212d3c1dee3e4107b5b2, type: 2}
       Required: 1
       Role: 1
       StableConditionId: primary-goal
-      DisplayText:
+      DisplayText: 
       SortOrder: 0
     - Condition: {fileID: 11400000, guid: 3c6df7d7b4614cb3a9715a470126fc74, type: 2}
       Required: 1
