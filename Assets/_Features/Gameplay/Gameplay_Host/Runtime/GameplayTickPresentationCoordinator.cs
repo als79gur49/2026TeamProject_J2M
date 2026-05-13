@@ -56,6 +56,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplayFrontFaceShieldVfxPresenter _frontFaceShieldVfxPresenter = new();
         private readonly GameplayUtilityWindupVfxPresenter _utilityWindupVfxPresenter = new();
         private readonly TileFeatureVisualPresentationController _tileFeatureVisualPresentationController = new();
+        private readonly MoonBlockEmergencePresentationController _moonBlockEmergencePresentationController = new();
         private readonly GameplayMotionTimingResolver _motionTimingResolver;
         private readonly GameplayPoseResolver _poseResolver;
         private readonly List<IGameplayTickPresentationExtension> _presentationExtensions = new();
@@ -149,6 +150,9 @@ namespace Game.Feature.Gameplay.Host
 
         internal int PendingGameplayAudioRequestCount => _audioPresentationController.PendingRequestCount;
 
+        internal int PendingMoonBlockEmergenceRequestCount =>
+            _moonBlockEmergencePresentationController.PendingRequestCount;
+
         public Bounds VisibleCubeBounds
         {
             get
@@ -180,6 +184,7 @@ namespace Game.Feature.Gameplay.Host
 
             _viewBinder = viewBinder;
             _gravityFieldVisualPresentationController.AttachTargetViewRegistry(_viewBinder.ViewRegistry);
+            _moonBlockEmergencePresentationController.Configure(_viewBinder.ViewRegistry, timingProfile);
             _enemyPresentationCatalog = enemyPresentationCatalog;
             _enemyPresentationBindings = enemyPresentationBindings ?? Array.Empty<EnemyPresentationBinding>();
             var resolvedFaceSeamGap = faceSeamGap >= 0f ? faceSeamGap : cellSize;
@@ -218,6 +223,7 @@ namespace Game.Feature.Gameplay.Host
                 _stateStore,
                 _animationSync,
                 enemyPresentationArchetypeRegistry);
+            _moonBlockEmergencePresentationController.ResetSession();
 
             _isInitialized = true;
         }
@@ -290,6 +296,7 @@ namespace Game.Feature.Gameplay.Host
             _gravityFieldAudioPresentationController.ReplacePendingPlan(
                 _gravityFieldAudioRequestPlanner.BuildRequests(_currentGravityFieldPresentationRequests));
             _tileFeatureVisualPresentationController.PlayRequests(_currentTilePresentationRequests);
+            _moonBlockEmergencePresentationController.QueueRequests(_currentTilePresentationRequests, result.TickIndex);
             _gravityFieldVisualPresentationController.PlayRequests(_currentGravityFieldPresentationRequests);
             _summonedEnemyPresentationResolver.Reconcile(result);
             _committedFrameBuilder.StoreCommittedFrame(
@@ -353,6 +360,7 @@ namespace Game.Feature.Gameplay.Host
             _exitPresentationController.ApplyEntityExitOwnership();
             _summonedEnemyPresentationResolver.CleanupOwnedViews(result.FinalEntities);
             UpdatePresentation(0f);
+            _moonBlockEmergencePresentationController.StartReadyRequests(result.TickIndex);
         }
 
         public void PresentInitial(IReadOnlyList<EntityState> entities, CubeTopologyState topology)
@@ -377,6 +385,7 @@ namespace Game.Feature.Gameplay.Host
             _exitPresentationController.Reset();
             _frontFaceShieldVfxPresenter.Clear();
             _utilityWindupVfxPresenter.Clear();
+            _moonBlockEmergencePresentationController.ResetSession();
             ResetExtensions();
             _animationSync.Reset();
             _stateStore.ResetSession(topology);
@@ -418,12 +427,14 @@ namespace Game.Feature.Gameplay.Host
             _blockAudioPresentationController.Update(deltaTime);
             _playerLocomotionAudioPresentationController.Update(deltaTime);
             _frontFaceShieldVfxPresenter.Update(deltaTime);
+            _moonBlockEmergencePresentationController.UpdatePresentation(deltaTime);
             UpdateExtensions(deltaTime);
             _entityPresentationApplier.Apply(
                 deltaTime,
                 _topologyTransitionController.HasActiveBoardRotationTween,
                 _viewBinder,
                 _timingProfile);
+            _exitPresentationController.CompleteDeferredEntityExits();
             RefreshPresentationMotionVfx(_lastPresentedTickIndex);
         }
 
@@ -551,6 +562,7 @@ namespace Game.Feature.Gameplay.Host
 
         internal void HardCleanupPresentationExtensions()
         {
+            _moonBlockEmergencePresentationController.Dispose();
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
                 _presentationExtensions[i]?.HardCleanup();

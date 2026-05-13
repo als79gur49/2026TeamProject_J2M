@@ -97,6 +97,18 @@ namespace Game.Feature.Stages.Editor
                     continue;
                 }
 
+                if (IsUnitPlacement(placement.Kind) &&
+                    !Enum.IsDefined(typeof(UnitMobilityKind), placement.UnitMobilityKind))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "authoring.unit-mobility-kind.invalid",
+                        $"Placement '{normalizedGuid}' has invalid UnitMobilityKind value {(int)placement.UnitMobilityKind}.",
+                        source,
+                        string.Empty);
+                    continue;
+                }
+
                 if (placement.Hp <= 0)
                 {
                     report.Add(
@@ -129,6 +141,7 @@ namespace Game.Feature.Stages.Editor
                 normalizedPlacement.DisplayName = Normalize(placement.DisplayName);
                 normalizedPlacement.UnitStackGroup = Normalize(placement.UnitStackGroup);
                 normalizedPlacement.PresentationId = Normalize(placement.PresentationId);
+                normalizedPlacement.UnitMobilityKind = NormalizeUnitMobility(placement.Kind, placement.UnitMobilityKind);
                 buildData.Placements.Add(normalizedPlacement);
 
                 var spawn = new StageSpawnDefinition
@@ -138,6 +151,7 @@ namespace Game.Feature.Stages.Editor
                     Cell = placement.Cell,
                     Facing = placement.Facing,
                     Hp = placement.Hp,
+                    UnitMobilityKind = NormalizeUnitMobility(placement.Kind, placement.UnitMobilityKind),
                     BoxCapabilities = placement.BoxCapabilities,
                     BoxArchetype = placement.BoxArchetype,
                     EnemyAiMode = placement.EnemyAiMode,
@@ -202,6 +216,26 @@ namespace Game.Feature.Stages.Editor
                 StageAuthoringEntityKind.Wall => StageSpawnKind.Wall,
                 _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
             };
+        }
+
+        private static bool IsUnitPlacement(StageAuthoringEntityKind kind)
+        {
+            return kind == StageAuthoringEntityKind.Player ||
+                   kind == StageAuthoringEntityKind.Enemy;
+        }
+
+        private static UnitMobilityKind NormalizeUnitMobility(
+            StageAuthoringEntityKind kind,
+            UnitMobilityKind unitMobilityKind)
+        {
+            if (!IsUnitPlacement(kind))
+            {
+                return UnitMobilityKind.Ground;
+            }
+
+            return Enum.IsDefined(typeof(UnitMobilityKind), unitMobilityKind)
+                ? unitMobilityKind
+                : UnitMobilityKind.Ground;
         }
 
         private static void SortByEntityId(List<StageSpawnDefinition> spawns)

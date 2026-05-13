@@ -167,6 +167,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void BarricadeActiveStateRequests_WithSupportedTargetView_CallActiveStateHooks()
+        {
+            var rootObject = new GameObject(nameof(BarricadeActiveStateRequests_WithSupportedTargetView_CallActiveStateHooks));
+            var targetObject = new GameObject("BarricadeVisualTarget");
+            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+
+            try
+            {
+                var cell = new SurfaceCell(FaceId.Front, 1, 1);
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+                target.Configure(100, cell);
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(registry);
+
+                controller.PlayRequests(new[]
+                {
+                    CreateBarricadeActivatedRequest(100, cell),
+                    CreateBarricadeDeactivatedRequest(100, cell),
+                });
+
+                Assert.That(target.DebugPlayBarricadeActivatedCount, Is.EqualTo(1));
+                Assert.That(target.DebugPlayBarricadeDeactivatedCount, Is.EqualTo(1));
+                Assert.That(target.DebugPlayBarricadeBlockedCount, Is.Zero);
+                Assert.That(target.DebugPlayBarricadeCrushedCount, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void ExitRequests_WithSupportedTargetView_CallExitVisualHooks()
         {
             var rootObject = new GameObject(nameof(ExitRequests_WithSupportedTargetView_CallExitVisualHooks));
@@ -223,6 +258,84 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(target.DebugPlayMoonBlockGeneratedCount, Is.EqualTo(1));
                 Assert.That(target.DebugLastMoonBlockGeneratedEntityId, Is.EqualTo(20));
                 Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MoonBlockGeneratorBlockedRequest_WithSupportedTargetView_CallsPlayMoonBlockGeneratorBlockedOnce()
+        {
+            var rootObject = new GameObject(nameof(MoonBlockGeneratorBlockedRequest_WithSupportedTargetView_CallsPlayMoonBlockGeneratorBlockedOnce));
+            var targetObject = new GameObject("MoonBlockGeneratorVisualTarget");
+            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+
+            try
+            {
+                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+                target.Configure(100, cell);
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(registry);
+
+                controller.PlayRequests(new[]
+                {
+                    CreateMoonBlockGeneratorBlockedRequest(
+                        100,
+                        cell,
+                        blockerEntityId: 20,
+                        MoonBlockGeneratorBlockedReason.UnitOccupant),
+                });
+
+                Assert.That(target.DebugPlayMoonBlockGeneratorBlockedCount, Is.EqualTo(1));
+                Assert.That(target.DebugLastMoonBlockGeneratorBlockedEntityId, Is.EqualTo(20));
+                Assert.That(target.DebugLastMoonBlockGeneratorBlockedReason, Is.EqualTo(MoonBlockGeneratorBlockedReason.UnitOccupant));
+                Assert.That(target.DebugLastMoonBlockGeneratorBlockedPayload.BlockedCell, Is.EqualTo(cell));
+                Assert.That(target.DebugMoonBlockGeneratorBlockedUnitCount, Is.EqualTo(1));
+                Assert.That(target.DebugPlayMoonBlockGeneratedCount, Is.Zero);
+                Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MoonBlockGeneratorBlockedRequest_ReasonSpecificDebugCounts_KeepGenericFallback()
+        {
+            var rootObject = new GameObject(nameof(MoonBlockGeneratorBlockedRequest_ReasonSpecificDebugCounts_KeepGenericFallback));
+            var targetObject = new GameObject("MoonBlockGeneratorVisualTarget");
+            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+
+            try
+            {
+                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+                target.Configure(100, cell);
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(registry);
+
+                controller.PlayRequests(new[]
+                {
+                    CreateMoonBlockGeneratorBlockedRequest(100, cell, 20, MoonBlockGeneratorBlockedReason.UnitOccupant),
+                    CreateMoonBlockGeneratorBlockedRequest(100, cell, 21, MoonBlockGeneratorBlockedReason.WallLikeSolid),
+                    CreateMoonBlockGeneratorBlockedRequest(100, cell, 0, MoonBlockGeneratorBlockedReason.PlacementBlocked),
+                });
+
+                Assert.That(target.DebugPlayMoonBlockGeneratorBlockedCount, Is.EqualTo(3));
+                Assert.That(target.DebugMoonBlockGeneratorBlockedUnitCount, Is.EqualTo(1));
+                Assert.That(target.DebugMoonBlockGeneratorBlockedWallLikeSolidCount, Is.EqualTo(1));
+                Assert.That(target.DebugMoonBlockGeneratorBlockedPlacementCount, Is.EqualTo(1));
+                Assert.That(target.DebugLastMoonBlockGeneratorBlockedReason, Is.EqualTo(MoonBlockGeneratorBlockedReason.PlacementBlocked));
             }
             finally
             {
@@ -294,14 +407,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             controller.PlayRequests(new[]
             {
+                CreateBarricadeActivatedRequest(100, cell),
                 CreateBarricadeBlockedRequest(100, cell, Direction.Right, targetEntityId: 20),
                 CreateBarricadeCrushedRequest(100, cell, targetEntityId: 20),
+                CreateBarricadeDeactivatedRequest(100, cell),
             });
 
             Assert.That(target.PlayCount, Is.Zero);
-            Assert.That(diagnostics, Has.Count.EqualTo(2));
-            Assert.That(diagnostics[0], Does.Contain("unsupported BarricadeBlocked"));
-            Assert.That(diagnostics[1], Does.Contain("unsupported BarricadeCrushed"));
+            Assert.That(diagnostics, Has.Count.EqualTo(4));
+            Assert.That(diagnostics[0], Does.Contain("unsupported BarricadeActivated"));
+            Assert.That(diagnostics[1], Does.Contain("unsupported BarricadeBlocked"));
+            Assert.That(diagnostics[2], Does.Contain("unsupported BarricadeCrushed"));
+            Assert.That(diagnostics[3], Does.Contain("unsupported BarricadeDeactivated"));
         }
 
         [Test]
@@ -343,6 +460,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(target.PlayCount, Is.Zero);
             Assert.That(diagnostics, Has.Count.EqualTo(1));
             Assert.That(diagnostics[0], Does.Contain("unsupported MoonBlockGenerated"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MoonBlockGeneratorBlockedRequest_UnsupportedTarget_NoOpWithOptionalDiagnostic()
+        {
+            var diagnostics = new List<string>();
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var target = new RecordingTarget(100, cell);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(new RecordingRegistry(target));
+            controller.SetDiagnosticSink(diagnostics.Add);
+
+            controller.PlayRequests(new[] { CreateMoonBlockGeneratorBlockedRequest(100, cell, blockerEntityId: 20) });
+
+            Assert.That(target.PlayCount, Is.Zero);
+            Assert.That(diagnostics, Has.Count.EqualTo(1));
+            Assert.That(diagnostics[0], Does.Contain("unsupported MoonBlockGeneratorBlocked"));
         }
 
         [Test]
@@ -541,6 +676,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void DuplicateMoonBlockGeneratorBlockedRequests_AreNotDeduped()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var target = new RecordingMoonBlockGeneratorBlockedTarget(100, cell);
+            var registry = new RecordingRegistry(target);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(registry);
+
+            controller.PlayRequests(new[]
+            {
+                CreateMoonBlockGeneratorBlockedRequest(
+                    target.TileId,
+                    target.Cell,
+                    20,
+                    MoonBlockGeneratorBlockedReason.UnitOccupant),
+                CreateMoonBlockGeneratorBlockedRequest(
+                    target.TileId,
+                    target.Cell,
+                    21,
+                    MoonBlockGeneratorBlockedReason.WallLikeSolid),
+            });
+
+            Assert.That(target.BlockedPlayCount, Is.EqualTo(2));
+            Assert.That(target.LastPayload.Reason, Is.EqualTo(MoonBlockGeneratorBlockedReason.WallLikeSolid));
+            Assert.That(target.LastPayload.BlockingEntityId, Is.EqualTo(21));
+            Assert.That(registry.LookupOrder.ToArray(), Is.EqualTo(new[] { 100, 100 }));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Consumer_DoesNotMutateRequestCache()
         {
             var first = new RecordingTarget(30, new SurfaceCell(FaceId.Floor, 0, 0));
@@ -609,6 +774,59 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 controller.PlayButtonActivatedRequests(new[] { CreateRequest(100, cell) });
 
                 Assert.That(((TileFeatureVisualTargetView)target).DebugPlayButtonActivatedCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+                Object.DestroyImmediate(prefab);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageTileFeatureVisualBinding_BarricadeInitialState_SyncsImmediateActiveState()
+        {
+            var rootObject = new GameObject(nameof(StageTileFeatureVisualBinding_BarricadeInitialState_SyncsImmediateActiveState));
+            var prefab = new GameObject("BarricadeTileVisualPrefab");
+
+            try
+            {
+                prefab.AddComponent<RecordingBarricadeActiveStateTarget>();
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var cell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+
+                InvokeStageTileFeatureVisualInstantiation(
+                    new[]
+                    {
+                        new TileFeaturePresentationResolvedBinding(100, prefab),
+                    },
+                    new[]
+                    {
+                        new TileFeatureState(
+                            100,
+                            cell,
+                            TileFeatureKind.Barricade,
+                            TileFeatureFlags.None,
+                            sourceEntityId: 0,
+                            ownerEntityId: 0,
+                            teamId: 0,
+                            lifetimeTicks: 0,
+                            charges: 0),
+                    },
+                    rootObject.transform,
+                    registry,
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                    },
+                    initialTopology: new CubeTopologyState(FaceId.Front));
+
+                Assert.That(registry.TryGetTileVisual(100, out var target), Is.True);
+                var barricadeTarget = (RecordingBarricadeActiveStateTarget)target;
+                Assert.That(barricadeTarget.ImmediateSyncCount, Is.EqualTo(1));
+                Assert.That(barricadeTarget.LastImmediateActive, Is.True);
+                Assert.That(barricadeTarget.Cell, Is.EqualTo(cell));
             }
             finally
             {
@@ -787,6 +1005,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 direction: direction);
         }
 
+        private static TilePresentationRequest CreateBarricadeActivatedRequest(int tileId, SurfaceCell cell)
+        {
+            return new TilePresentationRequest(
+                TilePresentationRequestKind.BarricadeActivated,
+                tileId,
+                cell,
+                TileFeatureKind.Barricade,
+                sourceEntityId: tileId + 1,
+                ownerEntityId: tileId + 2,
+                teamId: tileId + 3);
+        }
+
+        private static TilePresentationRequest CreateBarricadeDeactivatedRequest(int tileId, SurfaceCell cell)
+        {
+            return new TilePresentationRequest(
+                TilePresentationRequestKind.BarricadeDeactivated,
+                tileId,
+                cell,
+                TileFeatureKind.Barricade,
+                sourceEntityId: tileId + 1,
+                ownerEntityId: tileId + 2,
+                teamId: tileId + 3);
+        }
+
         private static TilePresentationRequest CreateBarricadeCrushedRequest(
             int tileId,
             SurfaceCell cell,
@@ -847,6 +1089,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 targetEntityId: moonBlockEntityId);
         }
 
+        private static TilePresentationRequest CreateMoonBlockGeneratorBlockedRequest(
+            int tileId,
+            SurfaceCell cell,
+            int blockerEntityId,
+            MoonBlockGeneratorBlockedReason reason = MoonBlockGeneratorBlockedReason.UnitOccupant)
+        {
+            var payload = new MoonBlockGeneratorBlockedPayload(reason, blockerEntityId, cell);
+            return new TilePresentationRequest(
+                TilePresentationRequestKind.MoonBlockGeneratorBlocked,
+                tileId,
+                cell,
+                TileFeatureKind.MoonBlockGenerator,
+                sourceEntityId: tileId + 1,
+                ownerEntityId: tileId + 2,
+                teamId: tileId + 3,
+                targetEntityId: blockerEntityId,
+                moonBlockGeneratorBlockedPayload: payload);
+        }
+
         private static void AssertStageTileFeatureVisualBindingAppliesResolvedLocalPose(
             string objectName,
             int tileId,
@@ -898,12 +1159,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        private static TileFeatureState CreateTileFeatureState(int tileId, SurfaceCell cell)
+        private static TileFeatureState CreateTileFeatureState(
+            int tileId,
+            SurfaceCell cell,
+            TileFeatureKind kind = TileFeatureKind.Button)
         {
             return new TileFeatureState(
                 tileId,
                 cell,
-                TileFeatureKind.Button,
+                kind,
                 TileFeatureFlags.None,
                 sourceEntityId: 0,
                 ownerEntityId: 0,
@@ -912,12 +1176,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 charges: 0);
         }
 
+        private static TileFeatureRuntimeDefinition CreateTileFeatureDefinition(
+            int tileId,
+            TileFeatureActivationRule activationRule)
+        {
+            return new TileFeatureRuntimeDefinition(
+                tileId,
+                activationRule,
+                Direction2D.None,
+                TileFeatureBoxSelector.None,
+                boundEntityId: 0,
+                presentationKey: string.Empty);
+        }
+
         private static void InvokeStageTileFeatureVisualInstantiation(
             IReadOnlyList<TileFeaturePresentationResolvedBinding> bindings,
             IReadOnlyList<TileFeatureState> initialTileFeatures,
             Transform parent,
             TileFeatureVisualRegistry registry,
-            ISurfaceCellPresentationPoseResolver poseResolver = null)
+            ISurfaceCellPresentationPoseResolver poseResolver = null,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
+            CubeTopologyState? initialTopology = null)
         {
             var method = typeof(GameplayHostRuntimeFactory).GetMethod(
                 "InstantiateStageTileFeatureVisuals",
@@ -929,6 +1208,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     bindings,
                     initialTileFeatures,
+                    tileFeatureDefinitions ?? System.Array.Empty<TileFeatureRuntimeDefinition>(),
+                    initialTopology ?? new CubeTopologyState(FaceId.Floor),
                     parent,
                     registry,
                     poseResolver,
@@ -1110,6 +1391,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        private sealed class RecordingBarricadeActiveStateTarget :
+            MonoBehaviour,
+            ITileFeatureVisualTarget,
+            ITileFeatureVisualTargetConfigurator,
+            IBarricadeActiveStateVisualTarget
+        {
+            public int TileId { get; private set; }
+
+            public SurfaceCell Cell { get; private set; }
+
+            public bool? LastImmediateActive { get; private set; }
+
+            public int ImmediateSyncCount { get; private set; }
+
+            public void ConfigureTileFeature(int tileId, SurfaceCell cell)
+            {
+                TileId = tileId;
+                Cell = cell;
+            }
+
+            public void PlayButtonActivated()
+            {
+            }
+
+            public void SetBarricadeActiveImmediate(bool active)
+            {
+                ImmediateSyncCount++;
+                LastImmediateActive = active;
+            }
+        }
+
         private sealed class RecordingExitTarget :
             ITileFeatureVisualTarget,
             IExitOpenedVisualTarget,
@@ -1179,6 +1491,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 GeneratedPlayCount++;
                 LastMoonBlockEntityId = moonBlockEntityId;
+            }
+        }
+
+        private sealed class RecordingMoonBlockGeneratorBlockedTarget :
+            ITileFeatureVisualTarget,
+            IMoonBlockGeneratorBlockedVisualTarget
+        {
+            public RecordingMoonBlockGeneratorBlockedTarget(int tileId, SurfaceCell cell)
+            {
+                TileId = tileId;
+                Cell = cell;
+            }
+
+            public int TileId { get; }
+
+            public SurfaceCell Cell { get; }
+
+            public int ButtonPlayCount { get; private set; }
+
+            public int BlockedPlayCount { get; private set; }
+
+            public MoonBlockGeneratorBlockedPayload LastPayload { get; private set; }
+
+            public void PlayButtonActivated()
+            {
+                ButtonPlayCount++;
+            }
+
+            public void PlayMoonBlockGeneratorBlocked(MoonBlockGeneratorBlockedPayload payload)
+            {
+                BlockedPlayCount++;
+                LastPayload = payload;
             }
         }
     }

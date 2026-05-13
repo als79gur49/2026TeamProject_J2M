@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Movement.Collection;
 using UnityEngine;
@@ -161,6 +162,7 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             in EnemyAiCommonSettings commonSettings,
             in PatrolSettings settings,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             out RawMovementIntent intent);
     }
 
@@ -181,6 +183,7 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState target,
             in EnemyAiCommonSettings commonSettings,
             in ChaseSettings settings,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             out RawMovementIntent intent);
     }
 
@@ -193,6 +196,7 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             in EnemyAiCommonSettings commonSettings,
             in PatrolSettings settings,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             out RawMovementIntent intent)
         {
             if (snapshot == null)
@@ -263,6 +267,7 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             in EnemyAiCommonSettings commonSettings,
             in PatrolSettings settings,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             out RawMovementIntent intent)
         {
             if (snapshot == null)
@@ -296,6 +301,7 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             in EnemyAiCommonSettings commonSettings,
             in PatrolSettings settings,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             out RawMovementIntent intent)
         {
             if (snapshot == null)
@@ -317,6 +323,7 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             in EnemyAiCommonSettings commonSettings,
             in PatrolSettings settings,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             out RawMovementIntent intent)
         {
             throw new InvalidOperationException(
@@ -328,12 +335,40 @@ namespace Game.Feature.Gameplay.Entities
     {
         public static readonly AxisPriorityChaseStrategy Instance = new();
 
+        private static readonly Direction[] LocalAvoidanceDirectionOrder =
+        {
+            Direction.Up,
+            Direction.Right,
+            Direction.Down,
+            Direction.Left,
+        };
+
+        private enum ChaseCandidateAxis
+        {
+            Horizontal = 0,
+            Vertical = 1,
+        }
+
+        private readonly struct ChaseStepCandidate
+        {
+            public ChaseStepCandidate(Vector2Int delta, ChaseCandidateAxis axis)
+            {
+                Delta = delta;
+                Axis = axis;
+            }
+
+            public Vector2Int Delta { get; }
+
+            public ChaseCandidateAxis Axis { get; }
+        }
+
         public bool TryBuildMovementIntent(
             WorldSnapshot snapshot,
             in EntityState source,
             in EntityState target,
             in EnemyAiCommonSettings commonSettings,
             in ChaseSettings settings,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             out RawMovementIntent intent)
         {
             if (snapshot == null)
@@ -343,7 +378,7 @@ namespace Game.Feature.Gameplay.Entities
 
             intent = default;
 
-            if (!TryChooseChaseStep(snapshot, source, target, settings, out var delta))
+            if (!TryChooseChaseStep(snapshot, source, target, settings, tileFeatureDefinitions, out var delta))
             {
                 return false;
             }
@@ -361,6 +396,7 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             in EntityState target,
             in ChaseSettings settings,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             out Vector2Int delta)
         {
             delta = Vector2Int.zero;
@@ -387,17 +423,16 @@ namespace Game.Feature.Gameplay.Entities
 
             var tryHorizontalFirst = ShouldTryHorizontalFirst(planarDelta, source.facing, settings.AxisPriority);
 
-            if (TrySelectCandidate(snapshot, source, horizontalStep, verticalStep, tryHorizontalFirst, out delta))
-            {
-                return true;
-            }
-
-            if (!settings.TrySecondaryAxisWhenBlocked)
-            {
-                return false;
-            }
-
-            return TrySelectCandidate(snapshot, source, horizontalStep, verticalStep, !tryHorizontalFirst, out delta);
+            return TrySelectCandidate(
+                snapshot,
+                source,
+                horizontalStep,
+                verticalStep,
+                tryHorizontalFirst,
+                settings.TrySecondaryAxisWhenBlocked,
+                target.position,
+                tileFeatureDefinitions,
+                out delta);
         }
 
         private static bool TrySelectCandidate(
@@ -406,16 +441,152 @@ namespace Game.Feature.Gameplay.Entities
             Vector2Int? horizontalStep,
             Vector2Int? verticalStep,
             bool tryHorizontalFirst,
+            bool includeSecondaryAxis,
+            SurfaceCell targetCell,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             out Vector2Int delta)
         {
             delta = Vector2Int.zero;
 
-            if (tryHorizontalFirst)
+            var primary = tryHorizontalFirst ? horizontalStep : verticalStep;
+            var secondary = tryHorizontalFirst ? verticalStep : horizontalStep;
+            var primaryAxis = tryHorizontalFirst ? ChaseCandidateAxis.Horizontal : ChaseCandidateAxis.Vertical;
+            var secondaryAxis = tryHorizontalFirst ? ChaseCandidateAxis.Vertical : ChaseCandidateAxis.Horizontal;
+            var legalCandidates = new List<ChaseStepCandidate>(2);
+            AddLegalCandidate(snapshot, source, primary, primaryAxis, legalCandidates);
+            if (includeSecondaryAxis)
             {
-                return EnemyMovementStrategyShared.CanTraverseStep(snapshot, source, horizontalStep, out delta);
+                AddLegalCandidate(snapshot, source, secondary, secondaryAxis, legalCandidates);
             }
 
-            return EnemyMovementStrategyShared.CanTraverseStep(snapshot, source, verticalStep, out delta);
+            if (legalCandidates.Count == 0)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < legalCandidates.Count; i++)
+            {
+                var candidate = legalCandidates[i];
+                if (EvaluateCandidateRisk(snapshot, tileFeatureDefinitions, source, candidate.Delta) == TileApproachRisk.Neutral)
+                {
+                    delta = candidate.Delta;
+                    return true;
+                }
+            }
+
+            for (var i = 0; i < legalCandidates.Count; i++)
+            {
+                var candidate = legalCandidates[i];
+                if (EvaluateCandidateRisk(snapshot, tileFeatureDefinitions, source, candidate.Delta) != TileApproachRisk.LethalOnEnter)
+                {
+                    continue;
+                }
+
+                return TrySelectLocalHazardAvoidanceStep(
+                    snapshot,
+                    source,
+                    targetCell,
+                    candidate.Axis,
+                    tileFeatureDefinitions,
+                    out delta);
+            }
+
+            return false;
+        }
+
+        private static void AddLegalCandidate(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            Vector2Int? candidate,
+            ChaseCandidateAxis axis,
+            List<ChaseStepCandidate> legalCandidates)
+        {
+            if (EnemyMovementStrategyShared.CanTraverseStep(snapshot, source, candidate, out var delta))
+            {
+                legalCandidates.Add(new ChaseStepCandidate(delta, axis));
+            }
+        }
+
+        private static bool TrySelectLocalHazardAvoidanceStep(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            SurfaceCell targetCell,
+            ChaseCandidateAxis blockedAxis,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            out Vector2Int delta)
+        {
+            delta = Vector2Int.zero;
+            var hasSelection = false;
+            var selectedDistance = int.MaxValue;
+            var selectedPriority = int.MaxValue;
+
+            for (var i = 0; i < LocalAvoidanceDirectionOrder.Length; i++)
+            {
+                var direction = LocalAvoidanceDirectionOrder[i];
+                if (!IsPerpendicularAvoidanceDirection(blockedAxis, direction) ||
+                    !EnemyMovementStrategyShared.TryResolveDelta(direction, out var candidateDelta) ||
+                    !EnemyMovementStrategyShared.CanTraverseStep(snapshot, source, candidateDelta) ||
+                    EvaluateCandidateRisk(snapshot, tileFeatureDefinitions, source, candidateDelta) != TileApproachRisk.Neutral)
+                {
+                    continue;
+                }
+
+                var candidateCell = ResolveCandidateCell(source, candidateDelta);
+                var candidateDistance = GetPlanarDistance(candidateCell, targetCell);
+                if (hasSelection &&
+                    (candidateDistance > selectedDistance ||
+                     candidateDistance == selectedDistance && i >= selectedPriority))
+                {
+                    continue;
+                }
+
+                hasSelection = true;
+                selectedDistance = candidateDistance;
+                selectedPriority = i;
+                delta = candidateDelta;
+            }
+
+            return hasSelection;
+        }
+
+        private static bool IsPerpendicularAvoidanceDirection(
+            ChaseCandidateAxis blockedAxis,
+            Direction direction)
+        {
+            return blockedAxis switch
+            {
+                ChaseCandidateAxis.Horizontal => direction == Direction.Up || direction == Direction.Down,
+                ChaseCandidateAxis.Vertical => direction == Direction.Right || direction == Direction.Left,
+                _ => false,
+            };
+        }
+
+        private static TileApproachRisk EvaluateCandidateRisk(
+            WorldSnapshot snapshot,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            in EntityState source,
+            Vector2Int delta)
+        {
+            return TileFeatureHazardQueries.EvaluateTileApproachRisk(
+                snapshot,
+                tileFeatureDefinitions,
+                source,
+                ResolveCandidateCell(source, delta));
+        }
+
+        private static SurfaceCell ResolveCandidateCell(in EntityState source, Vector2Int delta)
+        {
+            return new SurfaceCell(
+                source.position.face,
+                source.position.x + delta.x,
+                source.position.y + delta.y);
+        }
+
+        private static int GetPlanarDistance(SurfaceCell sourceCell, SurfaceCell targetCell)
+        {
+            var source = sourceCell.PlanarPosition;
+            var target = targetCell.PlanarPosition;
+            return Math.Abs(source.x - target.x) + Math.Abs(source.y - target.y);
         }
 
         private static bool ShouldTryHorizontalFirst(

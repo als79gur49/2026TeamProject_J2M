@@ -68,6 +68,61 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
+        public void PlayerMovement_GroundPlayer_CanEnterActiveDestroyTile_AndDies()
+        {
+            var destroyCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var player = CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0));
+            player.unitRole = UnitRole.Player;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    player,
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
+                new[] { CreateDestroyTile(100, destroyCell) });
+            var pipeline = CreatePlayerTileFeaturePipeline(
+                worldState,
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
+
+            var result = pipeline.RunTick(new TickInput(1));
+
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason => reason.Contains("DestroyTile", StringComparison.Ordinal)), Is.False);
+            Assert.That(result.MovementPhaseResult.CommitEvents.Any(evt => evt.Contains("MoveCommitted", StringComparison.Ordinal)), Is.True);
+            Assert.That(result.FinalEntities.Any(entity => entity.entityId == 10), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerMovement_AirPlayer_CanEnterActiveDestroyTile_AndSurvives()
+        {
+            var destroyCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var player = CreateUnit(
+                entityId: 10,
+                position: new SurfaceCell(FaceId.Floor, 0, 0),
+                unitMobilityKind: UnitMobilityKind.Air);
+            player.unitRole = UnitRole.Player;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    player,
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
+                new[] { CreateDestroyTile(100, destroyCell) });
+            var pipeline = CreatePlayerTileFeaturePipeline(
+                worldState,
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
+
+            var result = pipeline.RunTick(new TickInput(1));
+
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason => reason.Contains("DestroyTile", StringComparison.Ordinal)), Is.False);
+            Assert.That(result.EventLog.Any(evt => evt.Contains("DestroyTile", StringComparison.Ordinal)), Is.False);
+            var finalPlayer = result.FinalEntities.Single(entity => entity.entityId == 10);
+            Assert.That(finalPlayer.position, Is.EqualTo(destroyCell));
+            Assert.That(finalPlayer.unitMobilityKind, Is.EqualTo(UnitMobilityKind.Air));
+        }
+
+        [Test]
         [Category("Extended")]
         public void Movement_ScriptedMoveIntoUnit_SucceedsAndStacks()
         {
@@ -4576,12 +4631,24 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 generalTimingProfile.RepeatedMoveIntervalSeconds);
         }
 
-        private static EntityState CreateUnit(int entityId, Vector2Int position, int hp = 3, int teamId = 1, Direction facing = Direction.Right)
+        private static EntityState CreateUnit(
+            int entityId,
+            Vector2Int position,
+            int hp = 3,
+            int teamId = 1,
+            Direction facing = Direction.Right,
+            UnitMobilityKind unitMobilityKind = UnitMobilityKind.Ground)
         {
-            return CreateUnit(entityId, SurfaceCell.FromPlanar(position), hp, teamId, facing);
+            return CreateUnit(entityId, SurfaceCell.FromPlanar(position), hp, teamId, facing, unitMobilityKind);
         }
 
-        private static EntityState CreateUnit(int entityId, SurfaceCell position, int hp = 3, int teamId = 1, Direction facing = Direction.Right)
+        private static EntityState CreateUnit(
+            int entityId,
+            SurfaceCell position,
+            int hp = 3,
+            int teamId = 1,
+            Direction facing = Direction.Right,
+            UnitMobilityKind unitMobilityKind = UnitMobilityKind.Ground)
         {
             return new EntityState
             {
@@ -4591,9 +4658,37 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 maxHp = hp,
                 teamId = teamId,
                 type = EntityType.Unit,
+                unitMobilityKind = unitMobilityKind,
                 facing = facing,
                 state = EntityPhaseState.Idle,
             };
+        }
+
+        private static TileFeatureState CreateDestroyTile(int tileId, SurfaceCell cell)
+        {
+            return new TileFeatureState(
+                tileId,
+                cell,
+                TileFeatureKind.Destroy,
+                TileFeatureFlags.None,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0,
+                lifetimeTicks: 0,
+                charges: 0);
+        }
+
+        private static TileFeatureRuntimeDefinition CreateTileFeatureDefinition(
+            int tileId,
+            TileFeatureActivationRule activationRule)
+        {
+            return new TileFeatureRuntimeDefinition(
+                tileId,
+                activationRule,
+                Direction2D.None,
+                TileFeatureBoxSelector.None,
+                boundEntityId: 0,
+                presentationKey: string.Empty);
         }
 
         private static EntityState CreateFrontFaceEnemy(int entityId, SurfaceCell position, int hp = 3)
@@ -4745,6 +4840,35 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             GameplayTerrainData terrainData)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData);
+        }
+
+        private static WorldState CreateWorldState(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            IEnumerable<TileFeatureState> initialTileFeatures)
+        {
+            return GameplayWorldStateTestFactory.CreateBounded(
+                initialEntities,
+                boardBounds,
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                GameplayTimingProfile.CreateDefault(),
+                initialTileFeatures);
+        }
+
+        private static TickPipeline CreatePlayerTileFeaturePipeline(
+            WorldState worldState,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
+        {
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            return GameplayCompositionRoot.CreateDefaultBootstrapper().CreateTickPipeline(
+                worldState,
+                new IEntityLogic[] { new StubMovementLogic(new RawMovementIntent(10, 5, new Vector2Int(1, 0))) },
+                timingProfile,
+                CreateDefaultPlayerControlTimingSnapshot(timingProfile),
+                playerRespawnDelayTicks: 1,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline,
+                tileFeatureDefinitions: tileFeatureDefinitions);
         }
 
         private static WorldSnapshot CreateSnapshot(WorldState worldState)

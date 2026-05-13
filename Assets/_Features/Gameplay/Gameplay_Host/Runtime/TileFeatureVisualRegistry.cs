@@ -53,10 +53,14 @@ namespace Game.Feature.Gameplay.Host
         {
             _targetsByTileId.Clear();
 
-            var targets = SearchRoot.GetComponentsInChildren<TileFeatureVisualTargetView>(includeInactive: true);
-            for (var i = 0; i < targets.Length; i++)
+            var behaviours = SearchRoot.GetComponentsInChildren<MonoBehaviour>(includeInactive: true);
+            for (var i = 0; i < behaviours.Length; i++)
             {
-                var target = targets[i];
+                if (behaviours[i] is not ITileFeatureVisualTarget target)
+                {
+                    continue;
+                }
+
                 if (target == null ||
                     target.TileId <= 0)
                 {

@@ -50,6 +50,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private readonly HashSet<int> playedBoxSlideSolidStopKeys = new();
         private readonly HashSet<ImpactTransientBreakInstanceKey> playedImpactTransientBreakKeys = new();
         private readonly HashSet<OutOfBoundsExitInstanceKey> playedOutOfBoundsExitKeys = new();
+        private readonly HashSet<DelayedBoxDestroyExitVfxKey> scheduledDelayedBoxDestroyExitVfxKeys = new();
+        private readonly List<DelayedBoxDestroyExitVfx> pendingDelayedBoxDestroyExitVfx = new();
+        private readonly List<DelayedBoxDestroyExitVfx> readyDelayedBoxDestroyExitVfx = new();
         private readonly EnemyMotionAttachedVfxFollowerPlanner enemyMotionAttachedFollowerPlanner = new();
         private readonly PresentationMotionFollowingVfxController motionFollowingVfxController = new();
 
@@ -630,6 +633,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var shouldPlayBoxDestroyShrink =
                 enableGameplayVfxBoxDestroyShrinkMigration &&
                 HasBoxDestroyExitSignal(context.Result.PresentationData);
+            var shouldScheduleAfterEntityMotionBoxDestroyExit =
+                (enableGameplayVfxBoxDestroySmokeMigration || enableGameplayVfxBoxDestroyShrinkMigration) &&
+                HasAfterEntityMotionBoxDestroyExitSignal(context.Result.PresentationData);
             var shouldPlayImpactTransientBreak =
                 enableGameplayVfxImpactTransientBreakMigration &&
                 HasImpactTransientBreakSignal(context.Result.PresentationData);
@@ -644,6 +650,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 !shouldPlayBoxSlideTrail &&
                 !shouldPlayBoxSlideSolidStop &&
                 !shouldPlayBoxDestroyShrink &&
+                !shouldScheduleAfterEntityMotionBoxDestroyExit &&
                 !shouldPlayImpactTransientBreak &&
                 !shouldPlayOutOfBoundsExit &&
                 !shouldPlayEnemyDeathMotion)
@@ -666,6 +673,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var boxDestroyShrinkCommandCount = shouldPlayBoxDestroyShrink
                 ? PlayBoxDestroyShrinkCommands(context)
                 : 0;
+            var delayedBoxDestroyExitVfxCount = shouldScheduleAfterEntityMotionBoxDestroyExit
+                ? ScheduleAfterEntityMotionBoxDestroyExitVfx(context)
+                : 0;
             var impactTransientBreakCommandCount = shouldPlayImpactTransientBreak
                 ? PlayImpactTransientBreakCommands(context)
                 : 0;
@@ -680,6 +690,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                                       boxSlideTrailCommandCount +
                                       boxSlideSolidStopCommandCount +
                                       boxDestroyShrinkCommandCount +
+                                      delayedBoxDestroyExitVfxCount +
                                       impactTransientBreakCommandCount +
                                       outOfBoundsExitCommandCount +
                                       enemyDeathMotionCommandCount;
@@ -687,6 +698,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public void UpdatePresentation(float deltaTime)
         {
+            AdvanceDelayedBoxDestroyExitVfx(deltaTime);
             pool?.Advance(deltaTime);
         }
 
@@ -714,6 +726,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             flipImpactStayTrailMissingOwnerViewCount = motionFollowingVfxController.MotionMissingOwnerViewCount;
             enemyMotionAttachedMissingBindingCount = motionFollowingVfxController.AttachedMissingBindingCount;
             enemyMotionAttachedMissingOwnerViewCount = motionFollowingVfxController.AttachedMissingOwnerViewCount;
+            PlayReadyDelayedBoxDestroyExitVfx();
         }
 
         public void HardCleanup()
@@ -725,6 +738,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
             playedBoxSlideTrailMotionKeys.Clear();
             playedImpactTransientBreakKeys.Clear();
             playedOutOfBoundsExitKeys.Clear();
+            scheduledDelayedBoxDestroyExitVfxKeys.Clear();
+            pendingDelayedBoxDestroyExitVfx.Clear();
+            readyDelayedBoxDestroyExitVfx.Clear();
             enemyMotionAttachedFollowerPlanner.Clear();
         }
 
@@ -1397,6 +1413,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             {
                 var signal = signals[i];
                 if (!BoxDestroyShrinkVfxCommandBuilder.IsBoxDestroyExitCandidate(signal) ||
+                    signal.Timing == EntityExitPresentationTiming.AfterEntityMotion ||
                     BoxDestroyShrinkVfxCommandBuilder.IsDuplicateOwnedExit(presentationData, signal.ExitedEntityId))
                 {
                     continue;
@@ -1419,6 +1436,214 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             return plannedCommandCount;
+        }
+
+        private int ScheduleAfterEntityMotionBoxDestroyExitVfx(in GameplayTickPresentationExtensionContext context)
+        {
+            var presentationData = context.Result.PresentationData;
+            if (presentationData == null || pool == null || bindingResolver == null)
+            {
+                return 0;
+            }
+
+            var scheduledCount = 0;
+            var signals = presentationData.EntityExitSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (!BoxDestroyShrinkVfxCommandBuilder.IsBoxDestroyExitCandidate(signal) ||
+                    signal.Timing != EntityExitPresentationTiming.AfterEntityMotion ||
+                    BoxDestroyShrinkVfxCommandBuilder.IsDuplicateOwnedExit(presentationData, signal.ExitedEntityId))
+                {
+                    continue;
+                }
+
+                var playSmoke = enableGameplayVfxBoxDestroySmokeMigration;
+                var playShrink = enableGameplayVfxBoxDestroyShrinkMigration;
+                if (!playSmoke && !playShrink)
+                {
+                    continue;
+                }
+
+                var key = DelayedBoxDestroyExitVfxKey.Create(context.Result.TickIndex, signal);
+                if (!scheduledDelayedBoxDestroyExitVfxKeys.Add(key))
+                {
+                    continue;
+                }
+
+                var delaySeconds = ResolveEntityMotionDelaySeconds(
+                    presentationData,
+                    signal.ExitedEntityId,
+                    context.TimingProfile);
+                if (delaySeconds <= 0.0001f)
+                {
+                    PlayDelayedBoxDestroyExitVfx(
+                        new DelayedBoxDestroyExitVfx(
+                            context.Result.TickIndex,
+                            signal,
+                            remainingSeconds: 0f,
+                            playSmoke,
+                            playShrink,
+                            context.TimingProfile));
+                    scheduledCount++;
+                    continue;
+                }
+
+                pendingDelayedBoxDestroyExitVfx.Add(
+                    new DelayedBoxDestroyExitVfx(
+                        context.Result.TickIndex,
+                        signal,
+                        delaySeconds,
+                        playSmoke,
+                        playShrink,
+                        context.TimingProfile));
+                scheduledCount++;
+            }
+
+            return scheduledCount;
+        }
+
+        private void AdvanceDelayedBoxDestroyExitVfx(float deltaTime)
+        {
+            if (pendingDelayedBoxDestroyExitVfx.Count == 0)
+            {
+                return;
+            }
+
+            var advanceSeconds = Mathf.Max(0f, deltaTime);
+            for (var i = pendingDelayedBoxDestroyExitVfx.Count - 1; i >= 0; i--)
+            {
+                var pending = pendingDelayedBoxDestroyExitVfx[i].Advance(advanceSeconds);
+                if (pending.RemainingSeconds > 0.0001f)
+                {
+                    pendingDelayedBoxDestroyExitVfx[i] = pending;
+                    continue;
+                }
+
+                pendingDelayedBoxDestroyExitVfx.RemoveAt(i);
+                readyDelayedBoxDestroyExitVfx.Add(pending);
+            }
+        }
+
+        private void PlayReadyDelayedBoxDestroyExitVfx()
+        {
+            if (readyDelayedBoxDestroyExitVfx.Count == 0)
+            {
+                return;
+            }
+
+            for (var i = 0; i < readyDelayedBoxDestroyExitVfx.Count; i++)
+            {
+                PlayDelayedBoxDestroyExitVfx(readyDelayedBoxDestroyExitVfx[i]);
+            }
+
+            readyDelayedBoxDestroyExitVfx.Clear();
+        }
+
+        private void PlayDelayedBoxDestroyExitVfx(in DelayedBoxDestroyExitVfx delayed)
+        {
+            if (delayed.PlaySmoke)
+            {
+                TryPlayBoxDestroySmokeRequest(delayed.TickIndex, delayed.Signal);
+            }
+
+            if (!delayed.PlayShrink)
+            {
+                return;
+            }
+
+            var trackState = new GameplayPresentationTrackState();
+            var poseResolver = new GameplayPoseResolver(configuredStateStore, trackState);
+            if (!BoxDestroyShrinkVfxCommandBuilder.TryBuild(
+                    delayed.TickIndex,
+                    delayed.Signal,
+                    delayed.TimingProfile,
+                    poseResolver,
+                    configuredProjector,
+                    out var command))
+            {
+                boxDestroyShrinkMissingAnchorCount++;
+                return;
+            }
+
+            TryPlayBoxDestroyShrinkCommand(delayed.TickIndex, delayed.Signal, command);
+        }
+
+        private bool TryPlayBoxDestroySmokeRequest(int tickIndex, in TickEntityExitPresentationSignal signal)
+        {
+            var cueId = GameplayVfxCueId.From(BoxVfxCue.DestroySmoke);
+            var request = new GameplayVfxRequest(
+                tickIndex: tickIndex,
+                sequenceId: signal.PresentationSeed != 0 ? signal.PresentationSeed : signal.ExitedEntityId,
+                presentationSeed: signal.PresentationSeed != 0 ? signal.PresentationSeed : signal.ExitedEntityId,
+                sourceEntityId: signal.ExitedEntityId,
+                cueId: cueId,
+                anchor: VfxAnchor.ForCell(
+                    signal.SourceCell,
+                    signal.Topology,
+                    VfxAnchorSlot.CellFloor),
+                timing: VfxTimingKind.AtMotionEnd,
+                isPersistent: false,
+                persistentKey: VfxPersistentKey.None);
+
+            if (!bindingResolver.TryResolve(request, out var policy))
+            {
+                return false;
+            }
+
+            policy.ValidateOrThrow();
+            if (policy.CueId != request.CueId)
+            {
+                throw new InvalidOperationException("Gameplay VFX binding cue does not match Box DestroySmoke request cue.");
+            }
+
+            var anchor = VfxResolvedAnchor.ForCell(
+                signal.SourceCell,
+                signal.Topology,
+                VfxAnchorSlot.CellFloor);
+            var playbackCommand = new ResolvedVfxPlaybackCommand(request, policy, anchor);
+            return pool.PlayTransient(playbackCommand) != null;
+        }
+
+        private static float ResolveEntityMotionDelaySeconds(
+            TickPresentationData presentationData,
+            int entityId,
+            GameplayTimingProfile timingProfile)
+        {
+            if (presentationData == null || timingProfile == null)
+            {
+                return 0f;
+            }
+
+            var delaySeconds = 0f;
+            var motions = presentationData.EntityMotions;
+            for (var i = 0; i < motions.Count; i++)
+            {
+                var motion = motions[i];
+                if (motion.EntityId != entityId)
+                {
+                    continue;
+                }
+
+                delaySeconds += ResolveGlobalMotionDurationSeconds(motion.MotionKind, timingProfile);
+            }
+
+            return delaySeconds;
+        }
+
+        private static float ResolveGlobalMotionDurationSeconds(
+            TickEntityMotionKind motionKind,
+            GameplayTimingProfile timingProfile)
+        {
+            return motionKind switch
+            {
+                TickEntityMotionKind.Move => timingProfile.MoveMotionDurationSeconds,
+                TickEntityMotionKind.Flip => timingProfile.FlipMotionDurationSeconds,
+                TickEntityMotionKind.Push => timingProfile.PushMotionDurationSeconds,
+                TickEntityMotionKind.BoxSlide => timingProfile.BoxSlideStepIntervalSeconds,
+                TickEntityMotionKind.ProjectileMove => timingProfile.ProjectileStepIntervalSeconds,
+                _ => timingProfile.PushMotionDurationSeconds,
+            };
         }
 
         private bool TryPlayBoxDestroyShrinkCommand(
@@ -1626,6 +1851,28 @@ namespace Game.Feature.Gameplay.Vfx.Host
             return false;
         }
 
+        private static bool HasAfterEntityMotionBoxDestroyExitSignal(TickPresentationData presentationData)
+        {
+            if (presentationData == null)
+            {
+                return false;
+            }
+
+            var signals = presentationData.EntityExitSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (signal.Timing == EntityExitPresentationTiming.AfterEntityMotion &&
+                    BoxDestroyShrinkVfxCommandBuilder.IsBoxDestroyExitCandidate(signal) &&
+                    !BoxDestroyShrinkVfxCommandBuilder.IsDuplicateOwnedExit(presentationData, signal.ExitedEntityId))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private static bool HasImpactTransientBreakSignal(TickPresentationData presentationData)
         {
             if (presentationData == null)
@@ -1803,6 +2050,91 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return command.SourceActionPlanId > 0
                     ? new FlipDestroySelfMotionInstanceKey(command.SourceActionPlanId, command.BoxEntityId, usesTickFallback: false)
                     : new FlipDestroySelfMotionInstanceKey(tickIndexFallback, command.BoxEntityId, usesTickFallback: true);
+            }
+        }
+
+        private readonly struct DelayedBoxDestroyExitVfxKey : IEquatable<DelayedBoxDestroyExitVfxKey>
+        {
+            private DelayedBoxDestroyExitVfxKey(int tickIndex, int entityId, int presentationSeed)
+            {
+                TickIndex = tickIndex;
+                EntityId = entityId;
+                PresentationSeed = presentationSeed;
+            }
+
+            private int TickIndex { get; }
+
+            private int EntityId { get; }
+
+            private int PresentationSeed { get; }
+
+            public bool Equals(DelayedBoxDestroyExitVfxKey other)
+            {
+                return TickIndex == other.TickIndex &&
+                       EntityId == other.EntityId &&
+                       PresentationSeed == other.PresentationSeed;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is DelayedBoxDestroyExitVfxKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(TickIndex, EntityId, PresentationSeed);
+            }
+
+            public static DelayedBoxDestroyExitVfxKey Create(
+                int tickIndex,
+                in TickEntityExitPresentationSignal signal)
+            {
+                return new DelayedBoxDestroyExitVfxKey(
+                    tickIndex,
+                    signal.ExitedEntityId,
+                    signal.PresentationSeed);
+            }
+        }
+
+        private readonly struct DelayedBoxDestroyExitVfx
+        {
+            public DelayedBoxDestroyExitVfx(
+                int tickIndex,
+                TickEntityExitPresentationSignal signal,
+                float remainingSeconds,
+                bool playSmoke,
+                bool playShrink,
+                GameplayTimingProfile timingProfile)
+            {
+                TickIndex = tickIndex;
+                Signal = signal;
+                RemainingSeconds = Mathf.Max(0f, remainingSeconds);
+                PlaySmoke = playSmoke;
+                PlayShrink = playShrink;
+                TimingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
+            }
+
+            public int TickIndex { get; }
+
+            public TickEntityExitPresentationSignal Signal { get; }
+
+            public float RemainingSeconds { get; }
+
+            public bool PlaySmoke { get; }
+
+            public bool PlayShrink { get; }
+
+            public GameplayTimingProfile TimingProfile { get; }
+
+            public DelayedBoxDestroyExitVfx Advance(float deltaTime)
+            {
+                return new DelayedBoxDestroyExitVfx(
+                    TickIndex,
+                    Signal,
+                    RemainingSeconds - Mathf.Max(0f, deltaTime),
+                    PlaySmoke,
+                    PlayShrink,
+                    TimingProfile);
             }
         }
 

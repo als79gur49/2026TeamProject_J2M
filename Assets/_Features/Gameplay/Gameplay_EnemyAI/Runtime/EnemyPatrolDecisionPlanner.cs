@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 
 namespace Game.Feature.Gameplay.Entities
@@ -39,6 +40,7 @@ namespace Game.Feature.Gameplay.Entities
             PatrolStrategyKind patrolKind,
             in EnemyPatrolRuntimeState patrolState,
             in PatrolSettings patrolSettings,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             out EnemyPatrolDecisionProposal proposal)
         {
             if (snapshot == null)
@@ -53,7 +55,13 @@ namespace Game.Feature.Gameplay.Entities
                     return true;
 
                 case PatrolStrategyKind.RandomWalk:
-                    proposal = BuildRandomWalkProposal(snapshot, source, tickIndex, patrolState, patrolSettings);
+                    proposal = BuildRandomWalkProposal(
+                        snapshot,
+                        source,
+                        tickIndex,
+                        patrolState,
+                        patrolSettings,
+                        tileFeatureDefinitions);
                     return true;
 
                 default:
@@ -126,14 +134,16 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             int tickIndex,
             in EnemyPatrolRuntimeState patrolState,
-            in PatrolSettings patrolSettings)
+            in PatrolSettings patrolSettings,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
             var plan = EnemyRandomWalkPatrolPlanner.BuildPlan(
                 snapshot,
                 source,
                 tickIndex,
                 patrolState,
-                patrolSettings);
+                patrolSettings,
+                tileFeatureDefinitions);
             return new EnemyPatrolDecisionProposal(
                 plan.HasDirection,
                 plan.PlannedDirection,

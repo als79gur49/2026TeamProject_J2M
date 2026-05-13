@@ -112,6 +112,30 @@ namespace Game.Feature.Gameplay.Host
                     }
 
                     return;
+                case TilePresentationRequestKind.BarricadeActivated:
+                    if (target is IBarricadeActivatedVisualTarget barricadeActivatedTarget)
+                    {
+                        barricadeActivatedTarget.PlayBarricadeActivated();
+                    }
+                    else
+                    {
+                        _diagnosticSink?.Invoke(
+                            $"{nameof(TileFeatureVisualPresentationController)} unsupported BarricadeActivated visual target for tile {request.TileId}.");
+                    }
+
+                    return;
+                case TilePresentationRequestKind.BarricadeDeactivated:
+                    if (target is IBarricadeDeactivatedVisualTarget barricadeDeactivatedTarget)
+                    {
+                        barricadeDeactivatedTarget.PlayBarricadeDeactivated();
+                    }
+                    else
+                    {
+                        _diagnosticSink?.Invoke(
+                            $"{nameof(TileFeatureVisualPresentationController)} unsupported BarricadeDeactivated visual target for tile {request.TileId}.");
+                    }
+
+                    return;
                 case TilePresentationRequestKind.ExitOpened:
                     if (target is IExitOpenedVisualTarget exitOpenedTarget)
                     {
@@ -148,6 +172,19 @@ namespace Game.Feature.Gameplay.Host
                     }
 
                     return;
+                case TilePresentationRequestKind.MoonBlockGeneratorBlocked:
+                    if (target is IMoonBlockGeneratorBlockedVisualTarget moonBlockGeneratorBlockedTarget)
+                    {
+                        moonBlockGeneratorBlockedTarget.PlayMoonBlockGeneratorBlocked(
+                            request.MoonBlockGeneratorBlockedPayload);
+                    }
+                    else
+                    {
+                        _diagnosticSink?.Invoke(
+                            $"{nameof(TileFeatureVisualPresentationController)} unsupported MoonBlockGeneratorBlocked visual target for tile {request.TileId}.");
+                    }
+
+                    return;
             }
         }
 
@@ -158,9 +195,12 @@ namespace Game.Feature.Gameplay.Host
                    requestKind == TilePresentationRequestKind.SlideTileRedirected ||
                    requestKind == TilePresentationRequestKind.BarricadeBlocked ||
                    requestKind == TilePresentationRequestKind.BarricadeCrushed ||
+                   requestKind == TilePresentationRequestKind.BarricadeActivated ||
+                   requestKind == TilePresentationRequestKind.BarricadeDeactivated ||
                    requestKind == TilePresentationRequestKind.ExitOpened ||
                    requestKind == TilePresentationRequestKind.ExitEntered ||
-                   requestKind == TilePresentationRequestKind.MoonBlockGenerated;
+                   requestKind == TilePresentationRequestKind.MoonBlockGenerated ||
+                   requestKind == TilePresentationRequestKind.MoonBlockGeneratorBlocked;
         }
     }
 }

@@ -20,6 +20,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             StageContentPaths.CampaignLevel01StagesRoot + "/combined-gameplay-showcase/combined-gameplay-showcase.asset";
         private const string CombinedPresentationAssetPath =
             StageContentPaths.CampaignLevel01StagesRoot + "/combined-gameplay-showcase/combined-gameplay-showcase_Presentation.asset";
+        private const string Stage31StageAssetPath =
+            StageContentPaths.CampaignLevel01StagesRoot + "/stage-3-1/stage-3-1.asset";
+        private const string Stage31PresentationAssetPath =
+            StageContentPaths.CampaignLevel01StagesRoot + "/stage-3-1/stage-3-1_Presentation.asset";
         private const string TutorialStageAssetPath =
             StageContentPaths.CampaignLevel01StagesRoot + "/tutorial-scene/tutorial-scene.asset";
         private const string TutorialEnemyProfileAssetPath =
@@ -30,8 +34,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const int ChargeShowcaseEnemyId = 58;
         private const int UtilitySummonerShowcaseEnemyId = 59;
         private const int CombinedShowcaseEnemyCount = 5;
+        private const int Stage31PlayerId = 10;
+        private const int Stage31WindupMeleeEnemyId = 54;
+        private const int Stage31NonAttackingEnemyId = 55;
+        private const int Stage31WallFollowerEnemyId = 56;
+        private const int Stage31JumpEnemyId = 57;
+        private const int Stage31ChargeEnemyId = 58;
+        private const int Stage31UtilitySummonerEnemyId = 59;
         private const int TutorialEnemyId = 101;
         private const string AttackingEnemyPresentationId = "black_eye";
+        private const string NonAttackingEnemyPresentationId = "startis";
         private const string WallFollowerEnemyPresentationId = "sunwheel";
         private const string JumpChaserEnemyPresentationId = "astreton";
         private const string ChargeEnemyPresentationId = "rocket_face";
@@ -48,6 +60,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateSpawn(10, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 1, 2), hp: 1));
 
             AssertBuildThrows(stage, "duplicate entity id 10");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_UnitMobility_DefaultsGround_AndAuthoredAirMaterializesForUnits()
+        {
+            var stage = CreateStage(
+                "UnitMobilityMaterialization",
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(4, 4)),
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
+                CreateSpawn(20, StageSpawnKind.Enemy, new SurfaceCell(FaceId.Floor, 1, 0), hp: 2, enemyAiMode: EnemyAiMode.Patrol),
+                CreateSpawn(30, StageSpawnKind.Enemy, new SurfaceCell(FaceId.Floor, 2, 0), hp: 2, enemyAiMode: EnemyAiMode.Patrol, unitMobilityKind: UnitMobilityKind.Air),
+                CreateSpawn(40, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 3, 0), hp: 1, unitMobilityKind: UnitMobilityKind.Air),
+                CreateSpawn(50, StageSpawnKind.Wall, new SurfaceCell(FaceId.Floor, 4, 0), hp: 1, unitMobilityKind: UnitMobilityKind.Air));
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(TryGetEntity(buildResult.InitialEntities, 10, out var player), Is.True);
+                Assert.That(player.unitMobilityKind, Is.EqualTo(UnitMobilityKind.Ground));
+                Assert.That(TryGetEntity(buildResult.InitialEntities, 20, out var groundEnemy), Is.True);
+                Assert.That(groundEnemy.unitMobilityKind, Is.EqualTo(UnitMobilityKind.Ground));
+                Assert.That(TryGetEntity(buildResult.InitialEntities, 30, out var airEnemy), Is.True);
+                Assert.That(airEnemy.unitMobilityKind, Is.EqualTo(UnitMobilityKind.Air));
+                Assert.That(TryGetEntity(buildResult.InitialEntities, 40, out var box), Is.True);
+                Assert.That(box.type, Is.EqualTo(EntityType.Box));
+                Assert.That(TryGetEntity(buildResult.InitialEntities, 50, out var wall), Is.True);
+                Assert.That(wall.type, Is.EqualTo(EntityType.None));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
         }
 
         [Test]
@@ -319,20 +365,51 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void StageRuntimeBuilder_DestroyTile_UnsupportedActivationRejects()
+        public void StageRuntimeBuilder_DestroyTile_FrontFaceOnlyAccepted()
         {
             var stage = CreateStageWithTileFeatures(
-                "DestroyTileUnsupportedActivation",
+                "DestroyTileFrontFaceOnly",
                 new[]
                 {
                     CreateTileFeature(
                         100,
-                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        new SurfaceCell(FaceId.Front, 1, 1),
                         TileFeatureKind.Destroy,
-                        TileFeatureActivationRule.Always),
+                        TileFeatureActivationRule.FrontFaceOnly),
                 });
 
-            AssertBuildThrows(stage, "DestroyTile must use BottomFaceOnly activation");
+            var buildResult = StageRuntimeBuilder.Build(stage);
+
+            Assert.That(buildResult.TileFeatureDefinitions[0].ActivationRule, Is.EqualTo(TileFeatureActivationRule.FrontFaceOnly));
+            Assert.That(buildResult.InitialTileFeatures[0].Kind, Is.EqualTo(TileFeatureKind.Destroy));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_DestroyTile_UnsupportedActivationRejects()
+        {
+            var unsupportedRules = new[]
+            {
+                TileFeatureActivationRule.Always,
+                TileFeatureActivationRule.ActiveFaceOnly,
+                TileFeatureActivationRule.InactiveFaceOnly,
+            };
+
+            for (var i = 0; i < unsupportedRules.Length; i++)
+            {
+                var stage = CreateStageWithTileFeatures(
+                    $"DestroyTileUnsupportedActivation{i}",
+                    new[]
+                    {
+                        CreateTileFeature(
+                            100,
+                            new SurfaceCell(FaceId.Floor, 1, 1),
+                            TileFeatureKind.Destroy,
+                            unsupportedRules[i]),
+                    });
+
+                AssertBuildThrows(stage, "DestroyTile must use BottomFaceOnly or FrontFaceOnly activation");
+            }
         }
 
         [Test]
@@ -1525,6 +1602,122 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
+        public void StageRuntimeBuilder_Stage31Build_ReflectsVfxSfxStageContract()
+        {
+            var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(Stage31StageAssetPath);
+            Assert.That(stage, Is.Not.Null, $"Missing stage asset at '{Stage31StageAssetPath}'.");
+            Assert.That(stage.PlayerSpawns.Length, Is.EqualTo(1));
+            Assert.That(stage.BoxSpawns.Length, Is.EqualTo(12));
+            Assert.That(stage.EnemySpawns.Length, Is.EqualTo(6));
+            Assert.That(stage.WallSpawns.Length, Is.EqualTo(5));
+            Assert.That(stage.TileFeatures, Is.Empty);
+
+            var buildResult = StageRuntimeBuilder.Build(stage);
+
+            Assert.That(buildResult.BoardBounds.MinInclusive, Is.EqualTo(new Vector2Int(0, 0)));
+            Assert.That(buildResult.BoardBounds.MaxInclusive, Is.EqualTo(new Vector2Int(14, 7)));
+            Assert.That(buildResult.InitialTopology.BottomFace, Is.EqualTo(FaceId.Floor));
+            Assert.That(buildResult.PlayerEntityId, Is.EqualTo(Stage31PlayerId));
+            Assert.That(
+                buildResult.InitialEntities.Length,
+                Is.EqualTo(stage.PlayerSpawns.Length + stage.BoxSpawns.Length + stage.EnemySpawns.Length + stage.WallSpawns.Length));
+            AssertEntityIdsAreSorted(buildResult.InitialEntities);
+            Assert.That(buildResult.InitialTileFeatures, Is.Empty);
+            Assert.That(buildResult.TileFeatureDefinitions, Is.Empty);
+
+            Assert.That(TryGetEntity(buildResult.InitialEntities, Stage31PlayerId, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 1)));
+            Assert.That(player.facing, Is.EqualTo(Direction.Right));
+            Assert.That(player.unitRole, Is.EqualTo(UnitRole.Player));
+            Assert.That(player.unitMobilityKind, Is.EqualTo(UnitMobilityKind.Ground));
+
+            Assert.That(HasPushableBoxAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Floor, 3, 1)), Is.True);
+            Assert.That(HasPushableBoxAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Back, 3, 5)), Is.True);
+
+            Assert.That(TryGetEntity(buildResult.InitialEntities, Stage31WindupMeleeEnemyId, out var windupEnemy), Is.True);
+            Assert.That(windupEnemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 6, 2)));
+            Assert.That(windupEnemy.facing, Is.EqualTo(Direction.Left));
+            Assert.That(windupEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            Assert.That(windupEnemy.unitRole, Is.EqualTo(UnitRole.Enemy));
+            Assert.That(windupEnemy.unitMobilityKind, Is.EqualTo(UnitMobilityKind.Ground));
+
+            Assert.That(TryGetEntity(buildResult.InitialEntities, Stage31NonAttackingEnemyId, out var nonAttackingEnemy), Is.True);
+            Assert.That(nonAttackingEnemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 7, 2)));
+            Assert.That(nonAttackingEnemy.facing, Is.EqualTo(Direction.Left));
+            Assert.That(nonAttackingEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            Assert.That(nonAttackingEnemy.unitRole, Is.EqualTo(UnitRole.Enemy));
+            Assert.That(nonAttackingEnemy.unitMobilityKind, Is.EqualTo(UnitMobilityKind.Ground));
+
+            Assert.That(TryGetEntity(buildResult.InitialEntities, Stage31WallFollowerEnemyId, out var wallFollowerEnemy), Is.True);
+            Assert.That(wallFollowerEnemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 7, 7)));
+            Assert.That(wallFollowerEnemy.facing, Is.EqualTo(Direction.Up));
+            Assert.That(wallFollowerEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            Assert.That(wallFollowerEnemy.unitRole, Is.EqualTo(UnitRole.Enemy));
+            Assert.That(wallFollowerEnemy.unitMobilityKind, Is.EqualTo(UnitMobilityKind.Ground));
+
+            Assert.That(TryGetEntity(buildResult.InitialEntities, Stage31JumpEnemyId, out var jumpEnemy), Is.True);
+            Assert.That(jumpEnemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 10, 2)));
+            Assert.That(jumpEnemy.facing, Is.EqualTo(Direction.Left));
+            Assert.That(jumpEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            Assert.That(jumpEnemy.unitMobilityKind, Is.EqualTo(UnitMobilityKind.Ground));
+
+            Assert.That(TryGetEntity(buildResult.InitialEntities, Stage31ChargeEnemyId, out var chargeEnemy), Is.True);
+            Assert.That(chargeEnemy.position, Is.EqualTo(new SurfaceCell(FaceId.Back, 7, 7)));
+            Assert.That(chargeEnemy.facing, Is.EqualTo(Direction.Left));
+            Assert.That(chargeEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            Assert.That(chargeEnemy.unitMobilityKind, Is.EqualTo(UnitMobilityKind.Ground));
+
+            Assert.That(TryGetEntity(buildResult.InitialEntities, Stage31UtilitySummonerEnemyId, out var utilitySummonerEnemy), Is.True);
+            Assert.That(utilitySummonerEnemy.position, Is.EqualTo(new SurfaceCell(FaceId.Back, 4, 5)));
+            Assert.That(utilitySummonerEnemy.facing, Is.EqualTo(Direction.Left));
+            Assert.That(utilitySummonerEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            Assert.That(utilitySummonerEnemy.unitMobilityKind, Is.EqualTo(UnitMobilityKind.Ground));
+
+            Assert.That(HasWallAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Floor, 5, 1)), Is.True);
+            Assert.That(HasWallAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Front, 9, 3)), Is.True);
+
+            Assert.That(buildResult.EnemyAiProfileOverrides.Length, Is.EqualTo(6));
+            Assert.That(TryGetProfileOverride(buildResult, Stage31WindupMeleeEnemyId, out var windupProfile), Is.True);
+            Assert.That(windupProfile.name, Is.EqualTo("EnemyAi_WindupMelee_RandomWalkPilot"));
+            Assert.That(TryGetProfileOverride(buildResult, Stage31NonAttackingEnemyId, out var nonAttackingProfile), Is.True);
+            Assert.That(nonAttackingProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
+            Assert.That(nonAttackingProfile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.None));
+            Assert.That(TryGetProfileOverride(buildResult, Stage31WallFollowerEnemyId, out var wallFollowerProfile), Is.True);
+            Assert.That(wallFollowerProfile.PatrolStrategyKind, Is.EqualTo(PatrolStrategyKind.WallFollow));
+            Assert.That(wallFollowerProfile.DetectionStrategyKind, Is.EqualTo(DetectionStrategyKind.None));
+            Assert.That(TryGetProfileOverride(buildResult, Stage31JumpEnemyId, out var jumpProfile), Is.True);
+            Assert.That(jumpProfile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.JumpToLockedTarget));
+            Assert.That(TryGetProfileOverride(buildResult, Stage31ChargeEnemyId, out var chargeProfile), Is.True);
+            Assert.That(chargeProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Charge));
+            Assert.That(TryGetProfileOverride(buildResult, Stage31UtilitySummonerEnemyId, out var utilitySummonerProfile), Is.True);
+            Assert.That(utilitySummonerProfile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond)
+                .Capabilities.TryGetUtility(out var utility), Is.True);
+            Assert.That(utility.Effects, Is.Not.Empty);
+
+            var presentationDefinition = AssetDatabase.LoadAssetAtPath<StagePresentationDefinition>(Stage31PresentationAssetPath);
+            Assert.That(
+                presentationDefinition,
+                Is.Not.Null,
+                $"Missing stage presentation asset at '{Stage31PresentationAssetPath}'.");
+
+            var presentation = StagePresentationAssembler.Resolve(presentationDefinition);
+            Assert.That(presentation.EnemyPresentationBindings.Length, Is.EqualTo(6));
+            Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, Stage31WindupMeleeEnemyId, out var windupBinding), Is.True);
+            Assert.That(windupBinding.PresentationId, Is.EqualTo(AttackingEnemyPresentationId));
+            Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, Stage31NonAttackingEnemyId, out var nonAttackingBinding), Is.True);
+            Assert.That(nonAttackingBinding.PresentationId, Is.EqualTo(NonAttackingEnemyPresentationId));
+            Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, Stage31WallFollowerEnemyId, out var wallFollowerBinding), Is.True);
+            Assert.That(wallFollowerBinding.PresentationId, Is.EqualTo(WallFollowerEnemyPresentationId));
+            Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, Stage31JumpEnemyId, out var jumpBinding), Is.True);
+            Assert.That(jumpBinding.PresentationId, Is.EqualTo(JumpChaserEnemyPresentationId));
+            Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, Stage31ChargeEnemyId, out var chargeBinding), Is.True);
+            Assert.That(chargeBinding.PresentationId, Is.EqualTo(ChargeEnemyPresentationId));
+            Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, Stage31UtilitySummonerEnemyId, out var utilitySummonerBinding), Is.True);
+            Assert.That(utilitySummonerBinding.PresentationId, Is.EqualTo(UtilitySummonerEnemyPresentationId));
+        }
+
+        [Test]
         [Category("Extended")]
         public void StageRuntimeBuilder_TutorialEnemySpawnWithPassiveContactProfile_BuildsOverridesAndKeepsPatrolMode()
         {
@@ -1866,7 +2059,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int enemyAiStateTimer = 0,
             EnemyAiProfile enemyAiProfile = null,
             string presentationId = null,
-            string unitStackGroup = null)
+            string unitStackGroup = null,
+            UnitMobilityKind unitMobilityKind = UnitMobilityKind.Ground)
         {
             return new StageSpawnDefinition
             {
@@ -1875,6 +2069,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Cell = cell,
                 Facing = facing,
                 Hp = hp,
+                UnitMobilityKind = unitMobilityKind,
                 BoxCapabilities = boxCapabilities,
                 BoxArchetype = boxArchetype,
                 EnemyAiMode = enemyAiMode,
@@ -2025,6 +2220,48 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 }
             }
 
+            return false;
+        }
+
+        private static bool TryGetTileFeature(
+            IReadOnlyList<TileFeatureState> features,
+            int tileId,
+            out TileFeatureState feature)
+        {
+            for (var i = 0; i < features.Count; i++)
+            {
+                var entry = features[i];
+                if (entry.TileId != tileId)
+                {
+                    continue;
+                }
+
+                feature = entry;
+                return true;
+            }
+
+            feature = default;
+            return false;
+        }
+
+        private static bool TryGetTileFeatureDefinition(
+            IReadOnlyList<TileFeatureRuntimeDefinition> definitions,
+            int tileId,
+            out TileFeatureRuntimeDefinition definition)
+        {
+            for (var i = 0; i < definitions.Count; i++)
+            {
+                var entry = definitions[i];
+                if (entry.TileId != tileId)
+                {
+                    continue;
+                }
+
+                definition = entry;
+                return true;
+            }
+
+            definition = default;
             return false;
         }
 

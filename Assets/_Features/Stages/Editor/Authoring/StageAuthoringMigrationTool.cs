@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
 using UnityEditor;
 using UnityEngine;
@@ -178,6 +179,7 @@ namespace Game.Feature.Stages.Editor
                     Cell = spawn.Cell,
                     Facing = spawn.Facing,
                     Hp = spawn.Hp,
+                    UnitMobilityKind = NormalizeUnitMobility(kind, spawn.UnitMobilityKind),
                     UnitStackGroup = spawn.UnitStackGroup,
                     BoxCapabilities = spawn.BoxCapabilities,
                     BoxArchetype = spawn.BoxArchetype,
@@ -200,6 +202,21 @@ namespace Game.Feature.Stages.Editor
         {
             var stageKey = stageId.IsValid ? stageId.Value : "stage";
             return $"{stageKey}:{kind}:{entityId}";
+        }
+
+        private static UnitMobilityKind NormalizeUnitMobility(
+            StageAuthoringEntityKind kind,
+            UnitMobilityKind unitMobilityKind)
+        {
+            if (kind != StageAuthoringEntityKind.Player &&
+                kind != StageAuthoringEntityKind.Enemy)
+            {
+                return UnitMobilityKind.Ground;
+            }
+
+            return Enum.IsDefined(typeof(UnitMobilityKind), unitMobilityKind)
+                ? unitMobilityKind
+                : UnitMobilityKind.Ground;
         }
     }
 }

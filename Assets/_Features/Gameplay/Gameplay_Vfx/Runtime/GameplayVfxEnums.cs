@@ -87,7 +87,7 @@ namespace Game.Feature.Gameplay.Vfx
         ExitOpened = 18,
         ExitEntered = 19,
         MoonBlockGenerated = 20,
-        DestroyTileActiveLoop = 21,
+        DestroyTileLaserActive = 21,
         BarricadeActiveLoop = 22,
     }
 

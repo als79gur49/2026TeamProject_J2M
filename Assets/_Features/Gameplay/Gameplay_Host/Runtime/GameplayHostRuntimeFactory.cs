@@ -145,6 +145,8 @@ namespace Game.Feature.Gameplay.Host
             InstantiateStageTileFeatureVisuals(
                 configuration.TileFeaturePresentationBindings,
                 initialTileFeatures,
+                tileFeatureDefinitions,
+                configuration.InitialTopology,
                 boardRoot.transform,
                 tileFeatureVisualRegistry,
                 tileFeaturePoseResolver);
@@ -281,6 +283,8 @@ namespace Game.Feature.Gameplay.Host
         private static void InstantiateStageTileFeatureVisuals(
             IReadOnlyList<TileFeaturePresentationResolvedBinding> bindings,
             IReadOnlyList<TileFeatureState> initialTileFeatures,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            CubeTopologyState initialTopology,
             Transform parent,
             TileFeatureVisualRegistry registry,
             ISurfaceCellPresentationPoseResolver poseResolver = null)
@@ -300,12 +304,13 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                if (!TryGetTileFeatureCell(initialTileFeatures, binding.TileId, out var cell))
+                if (!TryGetTileFeatureState(initialTileFeatures, binding.TileId, out var tileFeature))
                 {
                     UnityEngine.Debug.LogWarning($"Skipping stage TileFeature visual binding for missing TileId {binding.TileId}.");
                     continue;
                 }
 
+                var cell = tileFeature.Cell;
                 var hasResolvedPose = false;
                 var resolvedPose = default(SurfaceCellPresentationPose);
                 if (poseResolver != null)
@@ -341,31 +346,79 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 configurator.ConfigureTileFeature(binding.TileId, cell);
+                if (target is IBarricadeActiveStateVisualTarget barricadeActiveStateTarget &&
+                    TryResolveInitialBarricadeActive(
+                        tileFeature,
+                        tileFeatureDefinitions,
+                        initialTopology,
+                        out var barricadeActive))
+                {
+                    barricadeActiveStateTarget.SetBarricadeActiveImmediate(barricadeActive);
+                }
+
                 registry.Register(target);
             }
 
             registry.Rebuild();
         }
 
-        private static bool TryGetTileFeatureCell(
+        private static bool TryGetTileFeatureState(
             IReadOnlyList<TileFeatureState> initialTileFeatures,
             int tileId,
-            out SurfaceCell cell)
+            out TileFeatureState tileFeature)
         {
             if (initialTileFeatures != null)
             {
                 for (var i = 0; i < initialTileFeatures.Count; i++)
                 {
-                    var tileFeature = initialTileFeatures[i];
-                    if (tileFeature.TileId == tileId)
+                    var candidate = initialTileFeatures[i];
+                    if (candidate.TileId == tileId)
                     {
-                        cell = tileFeature.Cell;
+                        tileFeature = candidate;
                         return true;
                     }
                 }
             }
 
-            cell = default;
+            tileFeature = default;
+            return false;
+        }
+
+        private static bool TryResolveInitialBarricadeActive(
+            TileFeatureState tileFeature,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            CubeTopologyState initialTopology,
+            out bool active)
+        {
+            if (tileFeature.Kind != TileFeatureKind.Barricade ||
+                !TryGetTileFeatureDefinition(tileFeatureDefinitions, tileFeature.TileId, out var definition))
+            {
+                active = false;
+                return false;
+            }
+
+            active = TileFeatureActivationQueries.IsActive(tileFeature, definition, initialTopology);
+            return true;
+        }
+
+        private static bool TryGetTileFeatureDefinition(
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            int tileId,
+            out TileFeatureRuntimeDefinition definition)
+        {
+            if (tileFeatureDefinitions != null)
+            {
+                for (var i = 0; i < tileFeatureDefinitions.Count; i++)
+                {
+                    if (tileFeatureDefinitions[i].TileId == tileId)
+                    {
+                        definition = tileFeatureDefinitions[i];
+                        return true;
+                    }
+                }
+            }
+
+            definition = default;
             return false;
         }
 

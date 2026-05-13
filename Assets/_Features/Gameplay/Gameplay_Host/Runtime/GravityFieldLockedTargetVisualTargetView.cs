@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Loop;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -7,20 +9,28 @@ namespace Game.Feature.Gameplay.Host
     [DisallowMultipleComponent]
     public sealed class GravityFieldLockedTargetVisualTargetView :
         MonoBehaviour,
-        IGravityFieldLockedTargetVisualTarget
+        IGravityFieldLockedTargetVisualTarget,
+        IGravityFieldLockedBoxOneShotVisualTarget
     {
         [SerializeField] private GameObject lockedVisualRoot;
         [SerializeField] private Animator animator;
         [SerializeField] private string lockedBoolName = "GravityFieldLockedTarget";
         [SerializeField] private string lockedWeightFloatName = "GravityFieldLockedTargetWeight";
+        [SerializeField] private string lockedBoxOneShotAnimatorTrigger = "GravityFieldLockedBox";
         [SerializeField] private ParticleSystem lockedParticles;
+        [SerializeField] private ParticleSystem lockedBoxOneShotParticles;
         [SerializeField] private UnityEvent lockedTargetApplied;
         [SerializeField] private UnityEvent lockedTargetCleared;
+        [SerializeField] private UnityEvent lockedBoxOneShot;
 
         private readonly HashSet<int> _activeEmitterEntityIds = new();
         private int _debugApplyCount;
         private int _debugClearCount;
         private int _debugLastEmitterEntityId;
+        private int _debugLockedBoxOneShotCount;
+        private int _debugLastLockedBoxEmitterEntityId;
+        private int _debugLastLockedBoxTargetEntityId;
+        private SurfaceCell _debugLastLockedBoxEmitterCell;
 
         public int DebugActiveEmitterCount => _activeEmitterEntityIds.Count;
 
@@ -31,6 +41,14 @@ namespace Game.Feature.Gameplay.Host
         public int DebugLastEmitterEntityId => _debugLastEmitterEntityId;
 
         public IReadOnlyCollection<int> DebugActiveEmitterEntityIds => _activeEmitterEntityIds;
+
+        public int DebugLockedBoxOneShotCount => _debugLockedBoxOneShotCount;
+
+        public int DebugLastLockedBoxEmitterEntityId => _debugLastLockedBoxEmitterEntityId;
+
+        public int DebugLastLockedBoxTargetEntityId => _debugLastLockedBoxTargetEntityId;
+
+        public SurfaceCell DebugLastLockedBoxEmitterCell => _debugLastLockedBoxEmitterCell;
 
         public void ApplyGravityFieldLockedTarget(int emitterEntityId)
         {
@@ -78,6 +96,27 @@ namespace Game.Feature.Gameplay.Host
             {
                 lockedTargetCleared?.Invoke();
             }
+        }
+
+        public void PlayGravityFieldLockedBox(GravityFieldLockedBoxPayload payload)
+        {
+            if (!payload.IsValid)
+            {
+                return;
+            }
+
+            _debugLockedBoxOneShotCount++;
+            _debugLastLockedBoxEmitterEntityId = payload.EmitterEntityId;
+            _debugLastLockedBoxTargetEntityId = payload.TargetEntityId;
+            _debugLastLockedBoxEmitterCell = payload.EmitterCell;
+
+            TriggerAnimator(lockedBoxOneShotAnimatorTrigger);
+            if (lockedBoxOneShotParticles != null)
+            {
+                lockedBoxOneShotParticles.Play(withChildren: true);
+            }
+
+            lockedBoxOneShot?.Invoke();
         }
 
         private void OnDisable()
@@ -135,6 +174,14 @@ namespace Game.Feature.Gameplay.Host
             if (CanUseAnimatorParameter(parameterName))
             {
                 animator.SetFloat(Animator.StringToHash(parameterName), value);
+            }
+        }
+
+        private void TriggerAnimator(string parameterName)
+        {
+            if (CanUseAnimatorParameter(parameterName))
+            {
+                animator.SetTrigger(Animator.StringToHash(parameterName));
             }
         }
 

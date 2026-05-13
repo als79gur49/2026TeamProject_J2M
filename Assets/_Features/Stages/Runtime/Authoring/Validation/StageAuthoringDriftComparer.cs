@@ -126,6 +126,7 @@ namespace Game.Feature.Stages
             if (expected.Kind == StageSpawnKind.Player ||
                 expected.Kind == StageSpawnKind.Enemy)
             {
+                AddIfDifferent(issues, context, "GameplayDrift.SpawnFieldMismatch", "UnitMobilityKind", expected.UnitMobilityKind, actual.UnitMobilityKind, expected.EntityId, expected.StableGuid);
                 AddIfDifferent(issues, context, "GameplayDrift.SpawnFieldMismatch", "UnitStackGroup", expected.UnitStackGroup, actual.UnitStackGroup, expected.EntityId, expected.StableGuid);
             }
 
@@ -423,7 +424,7 @@ namespace Game.Feature.Stages
 
         private static string FormatSpawn(StageAuthoringNormalizedSpawn spawn)
         {
-            return $"{spawn.Kind} EntityId={spawn.EntityId} Cell={spawn.Cell} Hp={spawn.Hp}";
+            return $"{spawn.Kind} EntityId={spawn.EntityId} Cell={spawn.Cell} Hp={spawn.Hp} UnitMobilityKind={spawn.UnitMobilityKind}";
         }
 
         private static string FormatTileFeature(StageAuthoringNormalizedTileFeature tileFeature)

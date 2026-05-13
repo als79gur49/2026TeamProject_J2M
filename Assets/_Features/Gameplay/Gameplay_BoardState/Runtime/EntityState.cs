@@ -37,6 +37,7 @@ namespace Game.Feature.Gameplay.BoardState
         public int teamId;
         public EntityType type;
         public UnitRole unitRole;
+        public UnitMobilityKind unitMobilityKind;
         public EntityPhaseState state;
         public int stateTimer;
         public Direction facing;

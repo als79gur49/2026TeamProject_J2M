@@ -9,6 +9,8 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, GameplayEntityView> _viewsByEntityId = new();
         private Transform _searchRoot;
 
+        public event Action<GameplayEntityView> ViewRegistered;
+
         private void Awake()
         {
             _searchRoot ??= transform;
@@ -56,6 +58,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _viewsByEntityId[view.EntityId] = view;
+            ViewRegistered?.Invoke(view);
         }
 
         public void Rebuild()

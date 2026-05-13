@@ -126,6 +126,11 @@ namespace Game.Feature.Gameplay.Vfx
 
                 if (signal.ExitCause == TickEntityExitCause.BoxDestroy)
                 {
+                    if (signal.Timing == EntityExitPresentationTiming.AfterEntityMotion)
+                    {
+                        continue;
+                    }
+
                     AddExitRequest(context, builder, signal, BoxVfxCue.DestroySmoke);
                 }
                 else if (signal.ExitCause == TickEntityExitCause.ItemConsume)
@@ -661,6 +666,39 @@ namespace Game.Feature.Gameplay.Vfx
                             VfxAnchorSlot.CellCenter),
                         timing: VfxTimingKind.ImmediateOnTickPresentation));
             }
+
+            var activeVisualStates = presentationData.TileFeatureActiveVisualStates;
+            for (var i = 0; i < activeVisualStates.Count; i++)
+            {
+                var activeVisualState = activeVisualStates[i];
+                if (activeVisualState.TileFeatureKind != TileFeatureKind.Destroy)
+                {
+                    continue;
+                }
+
+                var cueId = GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive);
+                var persistentKey = new VfxPersistentKey(
+                    cueId,
+                    VfxAnchorKind.Cell,
+                    tileId: activeVisualState.TileId,
+                    cell: activeVisualState.Cell,
+                    hasCell: true);
+                var sequenceId = ResolveActiveVisualStateSequenceId(activeVisualState);
+                builder.Add(
+                    new GameplayVfxRequest(
+                        tickIndex: context.TickIndex,
+                        sequenceId: sequenceId,
+                        presentationSeed: sequenceId,
+                        sourceEntityId: activeVisualState.SourceEntityId,
+                        cueId: cueId,
+                        anchor: VfxAnchor.ForCell(
+                            activeVisualState.Cell,
+                            context.Topology,
+                            VfxAnchorSlot.CellCenter),
+                        timing: VfxTimingKind.ImmediateOnTickPresentation,
+                        isPersistent: true,
+                        persistentKey: persistentKey));
+            }
         }
 
         private static void PlanVisualStates(
@@ -710,9 +748,6 @@ namespace Game.Feature.Gameplay.Vfx
         {
             switch (kind)
             {
-                case TileFeatureKind.Destroy:
-                    cue = TileFeatureVfxCue.DestroyTileActiveLoop;
-                    return true;
                 case TileFeatureKind.Barricade:
                     cue = TileFeatureVfxCue.BarricadeActiveLoop;
                     return true;
@@ -836,6 +871,18 @@ namespace Game.Feature.Gameplay.Vfx
                 hash = (hash * 397) ^ state.OwnerEntityId;
                 hash = (hash * 397) ^ state.TeamId;
                 return hash != 0 ? hash : stateIndex + 1;
+            }
+        }
+
+        private static int ResolveActiveVisualStateSequenceId(in TileFeatureActiveVisualState activeVisualState)
+        {
+            unchecked
+            {
+                var hash = (int)TileFeatureVfxCue.DestroyTileLaserActive;
+                hash = (hash * 397) ^ activeVisualState.TileId;
+                hash = (hash * 397) ^ activeVisualState.Cell.GetHashCode();
+                hash = (hash * 397) ^ activeVisualState.SourceEntityId;
+                return hash != 0 ? hash : activeVisualState.TileId != 0 ? activeVisualState.TileId : 1;
             }
         }
     }

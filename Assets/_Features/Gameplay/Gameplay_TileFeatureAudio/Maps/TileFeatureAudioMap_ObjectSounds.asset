@@ -41,28 +41,28 @@ MonoBehaviour:
         id:
       policy:
         rid: -2
-  - Cue: 9
+  - Cue: 10
     Binding:
       definition: {fileID: 11400000, guid: d134d2ef1e6e4687a83d4df9375f6c7e, type: 2}
       attachmentSlot:
         id:
       policy:
         rid: -2
-  - Cue: 10
+  - Cue: 11
     Binding:
       definition: {fileID: 11400000, guid: cb6fdc2312ed44049c3eb24dd0c102fe, type: 2}
       attachmentSlot:
         id:
       policy:
         rid: -2
-  - Cue: 11
+  - Cue: 12
     Binding:
       definition: {fileID: 11400000, guid: 39b84f34639f4149be8e382f50ffb4d9, type: 2}
       attachmentSlot:
         id:
       policy:
         rid: -2
-  - Cue: 12
+  - Cue: 13
     Binding:
       definition: {fileID: 11400000, guid: 39b84f34639f4149be8e382f50ffb4d9, type: 2}
       attachmentSlot:

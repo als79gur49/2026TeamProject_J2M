@@ -122,6 +122,7 @@ namespace Game.Feature.Gameplay.Entities
         private readonly IEnemyAiStateResolver _stateResolver;
         private readonly bool _usesChargeStateResolver;
         private readonly List<EntityState> _sharedCellUnits = new();
+        private IReadOnlyList<TileFeatureRuntimeDefinition> _tileFeatureDefinitions = Array.Empty<TileFeatureRuntimeDefinition>();
 
         public EnemyLogic(int entityId)
             : this(entityId, EnemyAiRuntimeDefinition.CreateDefaultMelee())
@@ -166,6 +167,11 @@ namespace Game.Feature.Gameplay.Entities
         }
 
         public int ControlledEntityId => _entityId;
+
+        internal void BindTileFeatureDefinitions(IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
+        {
+            _tileFeatureDefinitions = tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
+        }
 
         internal bool TryGetJumpCooldownTicks(out int cooldownTicks)
         {
@@ -985,6 +991,7 @@ namespace Game.Feature.Gameplay.Entities
                     chaseTarget,
                     _commonSettings,
                     _chaseSettings,
+                    _tileFeatureDefinitions,
                     out var egressIntent) &&
                 !TryBuildLandingPendingEgressIntent(snapshot, source, chaseTarget, out egressIntent))
             {
@@ -1279,6 +1286,7 @@ namespace Game.Feature.Gameplay.Entities
                     target,
                     _commonSettings,
                     _chaseSettings,
+                    _tileFeatureDefinitions,
                     out var chaseIntent) &&
                 TryResolveGlideLockedStep(source, chaseIntent.Destination, out lockedStep))
             {
@@ -2265,6 +2273,7 @@ namespace Game.Feature.Gameplay.Entities
                             source,
                             _commonSettings,
                             _patrolSettings,
+                            _tileFeatureDefinitions,
                             out var fallbackPatrolIntent))
                     {
                         return new GroundLocomotionResolution(
@@ -2288,6 +2297,7 @@ namespace Game.Feature.Gameplay.Entities
                             chaseTarget,
                             _commonSettings,
                             _chaseSettings,
+                            _tileFeatureDefinitions,
                             out var chaseIntent))
                     {
                         return new GroundLocomotionResolution(
@@ -2501,6 +2511,7 @@ namespace Game.Feature.Gameplay.Entities
                     source,
                     _commonSettings,
                     _patrolSettings,
+                    _tileFeatureDefinitions,
                     out _))
             {
                 return null;
@@ -2545,6 +2556,7 @@ namespace Game.Feature.Gameplay.Entities
                 _patrolStrategyKind,
                 patrolState,
                 _patrolSettings,
+                _tileFeatureDefinitions,
                 out proposal);
         }
 

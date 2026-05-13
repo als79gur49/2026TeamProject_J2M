@@ -16,7 +16,7 @@ namespace Game.Feature.Gameplay.Host
             base.ConfigureRuntimeConfiguration(configuration, initialState);
             configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
             configuration.PlayerContinuousLocomotion.ActionAssistSettleWindowCells = 0.3125f;
-            configuration.PlayerContinuousLocomotion.CollisionRadiusCells = 0.1875f;
+            configuration.PlayerContinuousLocomotion.CollisionRadiusCells = 0.25f;
         }
 
         protected override IGameplayEntityViewFactory CreateViewFactory(

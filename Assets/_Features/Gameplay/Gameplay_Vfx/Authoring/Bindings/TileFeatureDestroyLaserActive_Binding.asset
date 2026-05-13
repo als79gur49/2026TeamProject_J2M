@@ -10,16 +10,16 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e66b02300b114df386ca65b8417bb377, type: 3}
-  m_Name: TileFeature_DestroyActiveLoop_Binding
+  m_Name: TileFeatureDestroyLaserActive_Binding
   m_EditorClassIdentifier:
   family: 4
   cueCode: 21
-  prefab: {fileID: 1552236684049608, guid: 45c622ce0f6291e44b1acdaece3f0e59, type: 3}
+  prefab: {fileID: 100000, guid: a8d3f10b3c214cf2a91c7d62e4b5f908, type: 3}
   requirement: 1
   missingAnchorPolicy: 2
   playbackMode: 1
   stopPolicy: 2
   defaultLifetimeSeconds: 0
-  tailSeconds: 0.3
+  tailSeconds: 0.25
   initialPoolSize: 4
   maxConcurrentInstances: 16

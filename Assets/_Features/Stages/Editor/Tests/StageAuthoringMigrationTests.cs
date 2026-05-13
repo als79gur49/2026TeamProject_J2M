@@ -86,11 +86,115 @@ namespace Game.Feature.Stages.Editor.Tests
             }
         }
 
+        [Test]
+        public void StageAuthoringMigration_PlayerAirMobility_IsPreserved()
+        {
+            var stage = ScriptableObject.CreateInstance<StageDefinition>();
+            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            var authoring = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
+
+            try
+            {
+                SetStage(stage, CreateSpawn(10, StageSpawnKind.Player, 0, 0, UnitMobilityKind.Air));
+
+                StageAuthoringMigrationTool.PopulateFromOutputs(
+                    authoring,
+                    StageId.CreateOrThrow("migration-stage"),
+                    stage,
+                    presentation,
+                    overwriteGeneratedReferences: true);
+
+                var playerPlacement = authoring.Placements.Single(placement => placement.Kind == StageAuthoringEntityKind.Player);
+                Assert.That(playerPlacement.UnitMobilityKind, Is.EqualTo(UnitMobilityKind.Air));
+
+                var report = StageAuthoringGenerator.Generate(authoring, stage, presentation, StageAuthoringGenerateOptions.WriteAll);
+                Assert.That(report.HasErrors, Is.False, FormatIssues(report));
+                Assert.That(stage.PlayerSpawns[0].UnitMobilityKind, Is.EqualTo(UnitMobilityKind.Air));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+                UnityEngine.Object.DestroyImmediate(presentation);
+                UnityEngine.Object.DestroyImmediate(authoring);
+            }
+        }
+
+        [Test]
+        public void StageAuthoringMigration_EnemyAirMobility_IsPreserved()
+        {
+            var stage = ScriptableObject.CreateInstance<StageDefinition>();
+            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            var authoring = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
+
+            try
+            {
+                SetStage(
+                    stage,
+                    CreateSpawn(10, StageSpawnKind.Player, 0, 0),
+                    CreateSpawn(20, StageSpawnKind.Enemy, 1, 0, UnitMobilityKind.Air));
+
+                StageAuthoringMigrationTool.PopulateFromOutputs(
+                    authoring,
+                    StageId.CreateOrThrow("migration-stage"),
+                    stage,
+                    presentation,
+                    overwriteGeneratedReferences: true);
+
+                var enemyPlacement = authoring.Placements.Single(placement => placement.Kind == StageAuthoringEntityKind.Enemy);
+                Assert.That(enemyPlacement.UnitMobilityKind, Is.EqualTo(UnitMobilityKind.Air));
+
+                var report = StageAuthoringGenerator.Generate(authoring, stage, presentation, StageAuthoringGenerateOptions.WriteAll);
+                Assert.That(report.HasErrors, Is.False, FormatIssues(report));
+                Assert.That(stage.EnemySpawns[0].UnitMobilityKind, Is.EqualTo(UnitMobilityKind.Air));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+                UnityEngine.Object.DestroyImmediate(presentation);
+                UnityEngine.Object.DestroyImmediate(authoring);
+            }
+        }
+
+        [Test]
+        public void StageAuthoringMigration_MissingMobility_DefaultsToGround()
+        {
+            var stage = ScriptableObject.CreateInstance<StageDefinition>();
+            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            var authoring = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
+
+            try
+            {
+                SetStage(
+                    stage,
+                    CreateSpawn(10, StageSpawnKind.Player, 0, 0),
+                    CreateSpawn(20, StageSpawnKind.Enemy, 1, 0));
+
+                StageAuthoringMigrationTool.PopulateFromOutputs(
+                    authoring,
+                    StageId.CreateOrThrow("migration-stage"),
+                    stage,
+                    presentation,
+                    overwriteGeneratedReferences: true);
+
+                Assert.That(
+                    authoring.Placements.Where(placement => placement.Kind == StageAuthoringEntityKind.Player || placement.Kind == StageAuthoringEntityKind.Enemy)
+                        .Select(placement => placement.UnitMobilityKind),
+                    Is.All.EqualTo(UnitMobilityKind.Ground));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+                UnityEngine.Object.DestroyImmediate(presentation);
+                UnityEngine.Object.DestroyImmediate(authoring);
+            }
+        }
+
         private static StageSpawnDefinition CreateSpawn(
             int entityId,
             StageSpawnKind kind,
             int x,
-            int y)
+            int y,
+            UnitMobilityKind unitMobilityKind = UnitMobilityKind.Ground)
         {
             return new StageSpawnDefinition
             {
@@ -99,6 +203,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 Cell = new SurfaceCell(FaceId.Floor, x, y),
                 Facing = Direction.Right,
                 Hp = 1,
+                UnitMobilityKind = unitMobilityKind,
                 BoxCapabilities = BoxCapabilities.Push,
                 EnemyAiMode = kind == StageSpawnKind.Enemy ? EnemyAiMode.Patrol : EnemyAiMode.None,
             };
@@ -132,6 +237,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 cell.FindPropertyRelative("y").intValue = spawns[i].Cell.y;
                 element.FindPropertyRelative("Facing").intValue = (int)spawns[i].Facing;
                 element.FindPropertyRelative("Hp").intValue = spawns[i].Hp;
+                element.FindPropertyRelative("UnitMobilityKind").intValue = (int)spawns[i].UnitMobilityKind;
                 element.FindPropertyRelative("BoxCapabilities").intValue = (int)spawns[i].BoxCapabilities;
                 element.FindPropertyRelative("EnemyAiMode").intValue = (int)spawns[i].EnemyAiMode;
                 element.FindPropertyRelative("EnemyAiStateTimer").intValue = spawns[i].EnemyAiStateTimer;
