@@ -348,14 +348,14 @@ namespace Game.Feature.Gameplay.BoardState
                 return false;
             }
 
-            if (targetLocalOffset.X.RawValue + radius >= KinematicFixed.HalfCellUnits &&
+            if (OverflowsPositiveFootprint(targetLocalOffset.X.RawValue, radius) &&
                 IsBlocked(snapshot, entityId, targetAnchor + Vector2Int.right, targetTopology, out rejectReason, out legality, tileFeatureDefinitions))
             {
                 rejectReason = Free2DTopologyTransitionRejectReason.TargetFaceFootprintBlocked;
                 return true;
             }
 
-            if (targetLocalOffset.X.RawValue - radius < KinematicFixed.MinLocalOffset &&
+            if (OverflowsNegativeFootprint(targetLocalOffset.X.RawValue, radius) &&
                 IsBlocked(snapshot, entityId, targetAnchor + Vector2Int.left, targetTopology, out rejectReason, out legality, tileFeatureDefinitions))
             {
                 rejectReason = Free2DTopologyTransitionRejectReason.TargetFaceFootprintBlocked;
@@ -364,7 +364,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             var movingForward = entryDirectionDelta.y > 0;
             if (movingForward &&
-                targetLocalOffset.Y.RawValue + radius >= KinematicFixed.HalfCellUnits &&
+                OverflowsPositiveFootprint(targetLocalOffset.Y.RawValue, radius) &&
                 IsBlocked(snapshot, entityId, targetAnchor + Vector2Int.up, targetTopology, out rejectReason, out legality, tileFeatureDefinitions))
             {
                 rejectReason = Free2DTopologyTransitionRejectReason.TargetFaceFootprintBlocked;
@@ -372,7 +372,7 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             if (!movingForward &&
-                targetLocalOffset.Y.RawValue - radius < KinematicFixed.MinLocalOffset &&
+                OverflowsNegativeFootprint(targetLocalOffset.Y.RawValue, radius) &&
                 IsBlocked(snapshot, entityId, targetAnchor + Vector2Int.down, targetTopology, out rejectReason, out legality, tileFeatureDefinitions))
             {
                 rejectReason = Free2DTopologyTransitionRejectReason.TargetFaceFootprintBlocked;
@@ -380,6 +380,16 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             return false;
+        }
+
+        private static bool OverflowsPositiveFootprint(int rawOffset, int radius)
+        {
+            return rawOffset + radius > KinematicFixed.HalfCellUnits;
+        }
+
+        private static bool OverflowsNegativeFootprint(int rawOffset, int radius)
+        {
+            return rawOffset - radius < KinematicFixed.MinLocalOffset;
         }
 
         private static bool IsBlocked(
