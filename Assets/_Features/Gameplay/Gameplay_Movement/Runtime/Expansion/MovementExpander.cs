@@ -408,10 +408,12 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             }
 
             if (target.position != landingCell &&
-                TileFeatureBoxBlockerQuery.TryGetActiveBarricadeBlocker(
+                TileFeatureMovementBlockerQuery.TryGetActiveBarricadeBlocker(
                     snapshot,
                     tileFeatureDefinitions,
                     landingCell,
+                    TileFeatureBlockerSubject.Box,
+                    TileFeatureMovementKind.FlipLanding,
                     out var barricade) &&
                 targetCell != barricade.Cell)
             {
@@ -642,10 +644,12 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 return;
             }
 
-            if (TileFeatureBoxBlockerQuery.TryGetActiveBarricadeBlocker(
+            if (TileFeatureMovementBlockerQuery.TryGetActiveBarricadeBlocker(
                     snapshot,
                     tileFeatureDefinitions,
                     destination,
+                    TileFeatureBlockerSubject.Box,
+                    TileFeatureMovementKind.PushStart,
                     out var barricade))
             {
                 AddBarricadeBlockFact(barricadeBlockFacts, barricade, target.entityId, stepFacing);
@@ -795,10 +799,12 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 return;
             }
 
-            if (TileFeatureBoxBlockerQuery.TryGetActiveBarricadeBlocker(
+            if (TileFeatureMovementBlockerQuery.TryGetActiveBarricadeBlocker(
                     snapshot,
                     tileFeatureDefinitions,
                     destination,
+                    TileFeatureBlockerSubject.Box,
+                    TileFeatureMovementKind.SlidingContinuation,
                     out var barricade))
             {
                 AddBarricadeBlockFact(barricadeBlockFacts, barricade, source.entityId, stepFacing);
