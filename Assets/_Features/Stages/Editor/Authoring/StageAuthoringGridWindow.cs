@@ -37,6 +37,8 @@ namespace Game.Feature.Stages.Editor
         private int loadedTileFeatureId;
         private GameObject selectedTileFeatureVisualPrefab;
         private bool tileFeatureVisualBindingAdvancedFoldout;
+        private int loadedButtonObjectiveDisplayTileId;
+        private string buttonObjectiveDisplayText = string.Empty;
         private string zoneFeedback = string.Empty;
         private MessageType zoneFeedbackType = MessageType.Info;
         private string zoneCreateId = "zone";
@@ -140,6 +142,8 @@ namespace Game.Feature.Stages.Editor
             loadedTileFeatureId = 0;
             selectedTileFeatureVisualPrefab = null;
             tileFeatureVisualBindingAdvancedFoldout = false;
+            loadedButtonObjectiveDisplayTileId = 0;
+            buttonObjectiveDisplayText = string.Empty;
             zoneFeedback = string.Empty;
             zoneCreateId = "zone";
             zoneCreateFace = FaceId.Floor;
@@ -443,6 +447,26 @@ namespace Game.Feature.Stages.Editor
         internal bool CreateSelectedExitPrimaryGoalConditionForTests(out string error)
         {
             return CreateSelectedExitPrimaryGoalCondition(out error);
+        }
+
+        internal ButtonObjectiveLinkStatus GetSelectedButtonObjectiveLinkStatusForTests()
+        {
+            return GetSelectedButtonObjectiveLinkStatus();
+        }
+
+        internal void SetButtonObjectiveDisplayTextForTests(string displayText)
+        {
+            buttonObjectiveDisplayText = displayText ?? string.Empty;
+        }
+
+        internal bool AddSelectedButtonRequiredSecondaryGoalForTests(out string error)
+        {
+            return AddSelectedButtonRequiredSecondaryGoal(out error);
+        }
+
+        internal bool RemoveSelectedButtonRequiredSecondaryGoalForTests(out string error)
+        {
+            return RemoveSelectedButtonRequiredSecondaryGoal(out error);
         }
 
         internal void MoveSelectedPlacementToTargetCellForTests()
@@ -1355,6 +1379,7 @@ namespace Game.Feature.Stages.Editor
 
             feature = authoring.TileFeatures[selectedIndex];
             DrawExitGoalZoneSection(feature);
+            DrawButtonClearObjectiveSection(feature);
             tileFeatureVisualBindingAdvancedFoldout = EditorGUILayout.Foldout(
                 tileFeatureVisualBindingAdvancedFoldout,
                 "Advanced Direct Visual Override",
@@ -1671,6 +1696,108 @@ namespace Game.Feature.Stages.Editor
             }
         }
 
+        private void DrawButtonClearObjectiveSection(StageTileFeatureDefinition feature)
+        {
+            if (feature.Kind != TileFeatureKind.Button)
+            {
+                return;
+            }
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Button Clear Objective", EditorStyles.boldLabel);
+            var status = StageAuthoringButtonObjectiveHelperCommands.GetLinkStatus(authoring, feature);
+            DrawButtonObjectiveStatus(status);
+            EditorGUILayout.LabelField("TileId", feature.TileId.ToString());
+            EditorGUILayout.LabelField("StableConditionId", status.StableConditionId);
+            if (!string.IsNullOrWhiteSpace(status.ExpectedConditionPath))
+            {
+                EditorGUILayout.LabelField("Condition Asset Path", status.ExpectedConditionPath);
+            }
+
+            if (loadedButtonObjectiveDisplayTileId != feature.TileId)
+            {
+                loadedButtonObjectiveDisplayTileId = feature.TileId;
+                buttonObjectiveDisplayText =
+                    StageAuthoringButtonObjectiveHelperCommands.GetDefaultDisplayText(feature);
+            }
+
+            buttonObjectiveDisplayText = EditorGUILayout.TextField(
+                "DisplayText",
+                buttonObjectiveDisplayText ?? string.Empty);
+
+            var canAdd = status.State == ButtonObjectiveLinkState.NotLinked ||
+                         status.State == ButtonObjectiveLinkState.ObjectiveDisabled;
+            var canPing = status.ConditionAsset != null ||
+                          !string.IsNullOrWhiteSpace(status.ExpectedConditionPath) &&
+                          AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(status.ExpectedConditionPath) != null;
+            var canRemove = status.State == ButtonObjectiveLinkState.Linked ||
+                            status.State == ButtonObjectiveLinkState.DuplicateCondition ||
+                            status.State == ButtonObjectiveLinkState.StableConditionIdConflict ||
+                            status.State == ButtonObjectiveLinkState.ConditionAssetMissing ||
+                            status.State == ButtonObjectiveLinkState.ConditionAssetInvalid ||
+                            status.State == ButtonObjectiveLinkState.ConditionReferencesDifferentTile ||
+                            status.State == ButtonObjectiveLinkState.ConditionReferencesNonButtonTile ||
+                            status.MatchingEntryCount > 0;
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                using (new EditorGUI.DisabledScope(!canAdd))
+                {
+                    var addLabel = status.State == ButtonObjectiveLinkState.Linked
+                        ? "Button Clear Condition Linked"
+                        : "Add Required SecondaryGoal Condition";
+                    if (GUILayout.Button(addLabel, GUILayout.Width(264)))
+                    {
+                        AddSelectedButtonRequiredSecondaryGoal(out _);
+                    }
+                }
+
+                using (new EditorGUI.DisabledScope(!canPing))
+                {
+                    var label = status.State == ButtonObjectiveLinkState.Linked
+                        ? "Ping Button Condition"
+                        : "Ping Condition Asset";
+                    if (GUILayout.Button(label, GUILayout.Width(176)))
+                    {
+                        PingSelectedButtonConditionAsset();
+                    }
+                }
+            }
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                using (new EditorGUI.DisabledScope(!canRemove))
+                {
+                    if (GUILayout.Button("Remove Button Clear Condition", GUILayout.Width(224)))
+                    {
+                        RemoveSelectedButtonRequiredSecondaryGoal(out _);
+                    }
+                }
+            }
+        }
+
+        private static void DrawButtonObjectiveStatus(ButtonObjectiveLinkStatus status)
+        {
+            EditorGUILayout.HelpBox(status.Message, ToMessageType(status.State));
+        }
+
+        private static MessageType ToMessageType(ButtonObjectiveLinkState state)
+        {
+            return state switch
+            {
+                ButtonObjectiveLinkState.Linked => MessageType.Info,
+                ButtonObjectiveLinkState.NotLinked => MessageType.Info,
+                ButtonObjectiveLinkState.ObjectiveDisabled => MessageType.Info,
+                ButtonObjectiveLinkState.NoSelection => MessageType.Info,
+                ButtonObjectiveLinkState.NotButton => MessageType.Info,
+                ButtonObjectiveLinkState.ExitPrimaryGoalMissing => MessageType.Warning,
+                ButtonObjectiveLinkState.DuplicateCondition => MessageType.Warning,
+                ButtonObjectiveLinkState.ConditionReferencesDifferentTile => MessageType.Warning,
+                ButtonObjectiveLinkState.ConditionReferencesNonButtonTile => MessageType.Warning,
+                _ => MessageType.Error,
+            };
+        }
+
         private static void DrawExitGoalZoneStatus(ExitGoalZoneStatus status)
         {
             EditorGUILayout.HelpBox(status.Message, ToMessageType(status.Kind));
@@ -1915,6 +2042,10 @@ namespace Game.Feature.Stages.Editor
                 feature.BoundEntityId,
                 feature.PresentationKey);
             selectedTileFeatureVisualPrefab = ResolveTileFeatureVisualPrefab(feature.TileId);
+            loadedButtonObjectiveDisplayTileId = feature.TileId;
+            buttonObjectiveDisplayText = feature.Kind == TileFeatureKind.Button
+                ? StageAuthoringButtonObjectiveHelperCommands.GetDefaultDisplayText(feature)
+                : string.Empty;
         }
 
         private bool SetSelectedTileFeatureVisualBinding(out string error)
@@ -2014,6 +2145,109 @@ namespace Game.Feature.Stages.Editor
             SetTileFeatureFeedback($"Synced Exit PrimaryGoal zone for TileFeature {selection.SelectedTileFeatureId}.", MessageType.Info);
             Repaint();
             return true;
+        }
+
+        private ButtonObjectiveLinkStatus GetSelectedButtonObjectiveLinkStatus()
+        {
+            return TryGetSelectedTileFeature(out var feature)
+                ? StageAuthoringButtonObjectiveHelperCommands.GetLinkStatus(authoring, feature)
+                : StageAuthoringButtonObjectiveHelperCommands.GetLinkStatus(authoring, default);
+        }
+
+        private bool AddSelectedButtonRequiredSecondaryGoal(out string error)
+        {
+            error = string.Empty;
+            if (!TryGetSelectedTileFeature(out var feature))
+            {
+                error = "No TileFeature selected.";
+                SetTileFeatureFeedback(error, MessageType.Warning);
+                return false;
+            }
+
+            var result = StageAuthoringButtonObjectiveHelperCommands.TryAddRequiredSecondaryGoal(
+                authoring,
+                feature,
+                authoring != null ? authoring.name : string.Empty,
+                buttonObjectiveDisplayText);
+            error = result.Message;
+            if (result.PingTarget != null && result.Succeeded)
+            {
+                EditorGUIUtility.PingObject(result.PingTarget);
+            }
+
+            if (!result.Succeeded)
+            {
+                SetTileFeatureFeedback(result.Message, result.MessageType);
+                Repaint();
+                return false;
+            }
+
+            serializedAuthoring.Update();
+            SetTileFeatureFeedback(result.Message, result.MessageType);
+            Repaint();
+            return true;
+        }
+
+        private bool RemoveSelectedButtonRequiredSecondaryGoal(out string error)
+        {
+            error = string.Empty;
+            if (!TryGetSelectedTileFeature(out var feature))
+            {
+                error = "No TileFeature selected.";
+                SetTileFeatureFeedback(error, MessageType.Warning);
+                return false;
+            }
+
+            var result = StageAuthoringButtonObjectiveHelperCommands.TryRemoveRequiredSecondaryGoal(authoring, feature);
+            error = result.Message;
+            if (!result.Succeeded && result.MessageType == MessageType.Error)
+            {
+                SetTileFeatureFeedback(result.Message, result.MessageType);
+                Repaint();
+                return false;
+            }
+
+            serializedAuthoring.Update();
+            SetTileFeatureFeedback(result.Message, result.MessageType);
+            Repaint();
+            return result.Succeeded;
+        }
+
+        private void PingSelectedButtonConditionAsset()
+        {
+            if (!TryGetSelectedTileFeature(out var feature))
+            {
+                SetTileFeatureFeedback("No TileFeature selected.", MessageType.Warning);
+                return;
+            }
+
+            var result = StageAuthoringButtonObjectiveHelperCommands.TryPingConditionAsset(authoring, feature);
+            if (result.PingTarget != null)
+            {
+                EditorGUIUtility.PingObject(result.PingTarget);
+            }
+
+            SetTileFeatureFeedback(result.Message, result.MessageType);
+            Repaint();
+        }
+
+        private bool TryGetSelectedTileFeature(out StageTileFeatureDefinition feature)
+        {
+            if (authoring == null)
+            {
+                feature = default;
+                return false;
+            }
+
+            var selectedIndex = selection.ResolveSelectedTileFeatureIndex(authoring.TileFeatures);
+            if (selectedIndex >= 0 && selectedIndex < authoring.TileFeatures.Count)
+            {
+                feature = authoring.TileFeatures[selectedIndex];
+                return true;
+            }
+
+            feature = default;
+            return false;
         }
 
         private GameObject ResolveTileFeatureVisualPrefab(int tileId)
